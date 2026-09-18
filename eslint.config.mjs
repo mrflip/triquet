@@ -144,21 +144,30 @@ export default defineConfig([
     },
   },
 
-  // == [3b. Disabled safety checks] == carried from /relics as-is.
-  // Each of these switches off a check that catches genuinely unsafe code:
-  // type holes, lost stack traces, silenced type errors.
+  // == [3b. Disabled safety checks] == every one of these switched off a
+  // check for genuinely unsafe code, so every one is left commented rather
+  // than carried forward. Uncomment individually, with a reason, if a real
+  // case argues for it.
+  //
+  // STYLE.md currently lists no-non-null-assertion and ban-ts-comment as
+  // deliberately not enforced, which contradicts leaving them on. That
+  // conflict is the Coach's to settle; the config takes the safe side.
   {
     name: 'triquet/relic-disabled-safety-checks',
     files: SourceFiles,
     rules: {
-      'no-useless-escape':                                'off',
-      '@typescript-eslint/ban-ts-comment':                'off',
-      '@typescript-eslint/no-explicit-any':               'off',
-      '@typescript-eslint/no-non-null-assertion':         'off',
-      '@typescript-eslint/no-unsafe-declaration-merging': 'off',
-      '@typescript-eslint/no-unused-expressions':         'off',
-      '@typescript-eslint/only-throw-error':              'off', // relic: no-throw-literal
-      '@typescript-eslint/return-await':                  'off',
+      // 'no-useless-escape':                                'off',
+      // '@typescript-eslint/ban-ts-comment':                'off',
+      // '@typescript-eslint/no-explicit-any':               'off',
+      // '@typescript-eslint/no-non-null-assertion':         'off',
+      // '@typescript-eslint/no-unsafe-declaration-merging': 'off',
+      // '@typescript-eslint/only-throw-error':              'off', // relic: no-throw-literal
+      // '@typescript-eslint/return-await':                  'off',
+      //
+      // no-unused-expressions stays off, but only for tests, where
+      // chai-style assertions (`expect(val).to.be.true`) are bare
+      // expressions by design. See the tests block below.
+      // '@typescript-eslint/no-unused-expressions':         'off',
     },
   },
 
@@ -211,70 +220,47 @@ export default defineConfig([
     },
   },
 
-  // == [3d. Not wanted here] == carried over to show what was dropped.
-  // The commented entries name plugins this project does not install
-  // (progress reporters, react-native, chai assertion plugins); naming an
-  // unregistered plugin fails the config load.
+  // == [3d. Repaired] == the relics' settings, with the parts that were
+  // aimed at that codebase rather than this one corrected.
+  //
+  // Dropped outright, rather than repaired:
+  //   react-native/*, file-progress, progress, chai-expect, chai-friendly
+  //     -- plugins with no role here
+  //   react/sort-comp          -- orders class components; we write functions
+  //   jsx-a11y/accessible-emoji, react/jsx-indent, react/jsx-filename-extension
+  //     -- deprecated or, in the last case, unable to run on ESLint 10
   {
-    name: 'triquet/relic-not-wanted',
+    name: 'triquet/relic-repaired',
     files: SourceFiles,
     rules: {
-      'jsx-a11y/accessible-emoji': 'off',
-      'react/sort-comp': ['warn', {
-        order: [
-          'constructor',
-          'state',
-          'static-variables',
-          'instance-variables',
-          'static-methods',
-          'lifecycle',
-          '/^(on|handle).+$/',
-          'render',
-          'everything-else',
-        ],
-      }],
-      // 'file-progress/activate':               'off',
-      // 'progress/activate':                    'off',
-      // 'chai-friendly/no-unused-expressions':  'off',
-      // 'react-native/no-inline-styles':        'warn',
-      // 'react-native/no-raw-text':             'warn',
-      // 'react-native/no-unused-styles':        'warn',
-      // 'react-native/split-platform-components': 'warn',
-    },
-  },
-
-  // == [3e. Misconfigured] == carried over exactly as the relics had them.
-  {
-    name: 'triquet/relic-misconfigured',
-    files: SourceFiles,
-    rules: {
-      'consistent-this': ['error', 'self', 'thisStore', 'thisWorld', 'thisQB', 'innerQB'],
-      'no-native-reassign': 'error',
-      '@typescript-eslint/no-empty-interface': 'off',
-      '@typescript-eslint/no-floating-promises': ['error', {
-        checkThenables: false,
-        allowForKnownSafePromises: [
-          { from: 'file', name: 'KQB' },
-          { from: 'package', name: 'Where', package: 'knex' },
-        ],
-      }],
+      // Aliases dropped; they named objects in the old codebase.
+      'consistent-this': ['error', 'self'],
+      // Renamed rule: no-native-reassign, deprecated since ESLint 3.3.0.
+      'no-global-assign': 'error',
+      // Renamed rule: no-empty-interface.
+      '@typescript-eslint/no-empty-object-type': 'off',
+      // Allowlist dropped; it named a knex query builder we don't use.
+      '@typescript-eslint/no-floating-promises': 'error',
+      // Ignore pattern was a list of that codebase's ambient names.
       '@typescript-eslint/no-unused-vars': ['warn', {
-        varsIgnorePattern: '^(_.*|UF|TH|TY|VT|DX|SRS|Errors|Lembas|Valar|Arda|Utils)$',
-        argsIgnorePattern: '^(_.*)$',
+        varsIgnorePattern:         '^_',
+        argsIgnorePattern:         '^_',
+        caughtErrorsIgnorePattern: '^_',
       }],
-      'import-x/extensions': ['error', 'always'],
+      // Bare 'always' demanded extensions on package imports too.
+      'import-x/extensions': ['error', 'always', { ignorePackages: true }],
+      // Globs now describe this repo's layout.
       'import-x/no-extraneous-dependencies': ['error', {
-        devDependencies: ['**/test*/**/*.*', 'scripts/**/*.*', '**/codegen/*.*'],
+        devDependencies: ['tests/**', '**/*.config.{ts,mts,mjs}', 'eslint.config.mjs', 'scripts/**'],
+        optionalDependencies: false,
+        peerDependencies: true,
       }],
+      // Arrow components contradict func-style: declaration, and Next.js
+      // pages and layouts must be default-exported declarations.
       'react/function-component-definition': ['error', {
-        namedComponents: 'arrow-function',
+        namedComponents:   'function-declaration',
         unnamedComponents: 'arrow-function',
       }],
-      // Cannot run at all: eslint-plugin-react still calls context.getFilename(),
-      // which ESLint 10 removed. One of exactly two rules in that plugin so
-      // affected; the other is forward-ref-uses-ref, which we don't use.
-      // 'react/jsx-filename-extension': ['warn', { extensions: ['.js', '.jsx'] }],
-      'react/jsx-indent': 'warn',
     },
   },
 
@@ -294,6 +280,8 @@ export default defineConfig([
     rules: {
       'vitest/no-disabled-tests': 'warn',
       'vitest/no-focused-tests': 'warn',
+      // Chai-style assertions are bare expressions by design.
+      '@typescript-eslint/no-unused-expressions': 'off',
     },
   },
 ])
