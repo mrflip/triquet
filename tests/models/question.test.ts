@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question, QuestionValidators } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
-import { titleize } from '../../src/lib/label-maker'
+import { titleize } from '../../src/lib/labelmaker'
 
 const anId = mintId()
 

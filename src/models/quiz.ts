@@ -1,7 +1,7 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
-import { localBlankLabel, titleize } from '../lib/label-maker'
+import { localBlankLabel, titleize } from '../lib/labelmaker'
 import { AskValidators } from './ask'
 import { Question, QuestionValidators, type QuestionT } from './question'
 

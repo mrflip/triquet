@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWorkspace } from '../state/use-workspace'
-import { effectiveLabelOf } from '../lib/label-maker'
+import { effectiveLabelOf } from '../lib/labelmaker'
 
 /** Sends the author straight to their first quiz -- minting one if this workspace somehow has none */
 export default function HomePage() {

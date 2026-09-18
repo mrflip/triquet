@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { effectiveLabelOf, entityForLabel } from '../lib/label-maker'
+import { effectiveLabelOf, entityForLabel } from '../lib/labelmaker'
 import type { WorkspaceAction } from './workspace-reducer'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'

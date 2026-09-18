@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendFallback, display, effectiveLabelOf, entityForLabel, localBlankLabel, normalize, titleize, urlize } from '../../src/lib/label-maker'
+import { appendFallback, display, effectiveLabelOf, entityForLabel, localBlankLabel, normalize, titleize, urlize } from '../../src/lib/labelmaker'
 import { ValidatorKit } from '../../src/lib/validator'
 
 const NormalizeCases: [string, string, string][] = [

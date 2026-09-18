@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
-import { titleize } from '../../src/lib/label-maker'
+import { titleize } from '../../src/lib/labelmaker'
 
 const quizId = mintId()
 

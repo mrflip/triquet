@@ -48,7 +48,7 @@ absence.
 Renamed `short_answer` to `title` (now the leftmost column), swept "round" out in favour of
 "quiz" everywhere, and restricted `ii`/`jj`/`kk` to a literal `for` loop's own bound variable --
 `idx`, or a noun-qualified `fooIdx`, everywhere else. Added `unique-names-generator` and
-`src/lib/label-maker.ts` for a hand-editable local identifier (`label`/`forced_label` on both
+`src/lib/labelmaker.ts` for a hand-editable local identifier (`label`/`forced_label` on both
 Question and Quiz), and routed each quiz by it: `/` redirects to `/my/quiz/#<label>`, and a gear
 icon opens a modal to rename the label (validated, checked unique) or jump to another quiz.
 

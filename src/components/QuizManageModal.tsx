@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
-import { effectiveLabelOf, normalize } from '../lib/label-maker'
+import { effectiveLabelOf, normalize } from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import type { WorkspaceAction } from '../state/workspace-reducer'
 import type { QuizT } from '../models/quiz'
