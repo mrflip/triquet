@@ -3,7 +3,18 @@ import * as Z from 'zod'
 import { openQuizOf, workspaceReducer } from '../../src/state/workspace-reducer'
 import { Workspace, type WorkspaceT } from '../../src/models/workspace'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
+import { Question } from '../../src/models/question'
 import { present } from '../support/present'
+
+/** A workspace holding one round built from `qnum, short_answer` pairs, open */
+function workspaceOf(...pairs: [string, string][]): WorkspaceT {
+  const questions = pairs.map(([qnum, short_answer]) => ({ ...Question.blank(), qnum, short_answer }))
+  const quiz = { ...Quiz.blank('Round one'), questions }
+  return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
+}
+
+const answersOf = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.short_answer)
+const qnumsOf   = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.qnum)
 
 /** A workspace holding one round of blank questions, open */
 function openWorkspace(locked = false): WorkspaceT {
@@ -79,6 +90,78 @@ describe('workspaceReducer', () => {
       const ante = openWorkspace(true)
       const target = present(present(openQuizOf(ante)).questions[0])
       expect(workspaceReducer(ante, { kind: 'edit_question', question_id: target.id, patch: { clueing: 'x' } })).to.eq(ante)
+    })
+  })
+
+  describe('sort_questions', () => {
+    it('commits the new order into the round rather than draping it over the top', () => {
+      const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
+      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'short_answer', descending: false })
+      expect(answersOf(after)).to.deep.eq(['apple', 'banana', 'cherry'])
+    })
+
+    it('remembers which column put the round in this order', () => {
+      const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'sort_questions', sortkey: 'qnum', descending: false })
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('qnum')
+    })
+
+    it('reverses when asked', () => {
+      const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
+      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'short_answer', descending: true })
+      expect(answersOf(after)).to.deep.eq(['cherry', 'banana', 'apple'])
+    })
+
+    it('refuses while the round is locked', () => {
+      const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'])
+      const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
+      expect(workspaceReducer(locked, { kind: 'sort_questions', sortkey: 'short_answer', descending: false })).to.eq(locked)
+    })
+  })
+
+  describe('renumber_qnums', () => {
+    it('tidies the numbers with no question moving', () => {
+      const ante = workspaceOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a'])
+      const after = workspaceReducer(ante, { kind: 'renumber_qnums' })
+      expect(qnumsOf(after)).to.deep.eq(['3', '2', '4', '1'])
+      expect(answersOf(after)).to.deep.eq(['d', 'c', 'f', 'a'])
+    })
+
+    it('does not claim the round is now in Q# order, which would immediately re-sort it', () => {
+      const ante = workspaceReducer(workspaceOf(['4', 'd'], ['1', 'a']), {
+        kind: 'sort_questions', sortkey: 'short_answer', descending: false,
+      })
+      const after = workspaceReducer(ante, { kind: 'renumber_qnums' })
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('short_answer')
+    })
+
+    it('refuses while the round is locked', () => {
+      const ante = workspaceOf(['4', 'd'])
+      const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
+      expect(workspaceReducer(locked, { kind: 'renumber_qnums' })).to.eq(locked)
+    })
+  })
+
+  describe('drag_question', () => {
+    it('moves the question and renumbers everything by its new position', () => {
+      const ante = workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+      const dragged = present(present(openQuizOf(ante)).questions[2])
+      const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 0 })
+      expect(answersOf(after)).to.deep.eq(['c', 'a', 'b'])
+      expect(qnumsOf(after)).to.deep.eq(['1', '2', '3'])
+    })
+
+    it('adopts a question that had no Q# into the sequence', () => {
+      const ante = workspaceOf(['1', 'a'], ['', 'b'])
+      const dragged = present(present(openQuizOf(ante)).questions[1])
+      const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 0 })
+      expect(qnumsOf(after)).to.deep.eq(['1', '2'])
+    })
+
+    it('leaves the round in Q# order, which is the only order a drag is offered in', () => {
+      const ante = workspaceOf(['1', 'a'], ['2', 'b'])
+      const dragged = present(present(openQuizOf(ante)).questions[0])
+      const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 1 })
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('qnum')
     })
   })
 

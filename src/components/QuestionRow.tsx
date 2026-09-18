@@ -20,6 +20,14 @@ export type QuestionRowProps = {
   locked:      boolean
   gripShown:   boolean
   resizeToken: number
+  /** This is the question being dragged, so it goes translucent */
+  dragging:    boolean
+  /** The dragged question would land here, so this row takes an accent line along its top */
+  dropTarget:  boolean
+  onDragBegin: () => void
+  onDragOver:  () => void
+  onDrop:      () => void
+  onDragEnd:   () => void
   onEdit:      (patch: QuestionPatch) => void
 }
 
@@ -30,7 +38,7 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, locked, gripShown, resizeToken, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
 
@@ -54,10 +62,34 @@ export function QuestionRow({ question, locked, gripShown, resizeToken, onEdit }
     )
   }
 
+  const draggable = gripShown && ! locked
+
   return (
-    <tr>
+    <tr
+      className={clsx(dragging && styles.rowDragging, dropTarget && styles.rowDropTarget)}
+      onDragOver={(event) => {
+        if (! draggable) { return }
+        event.preventDefault()
+        onDragOver()
+      }}
+      onDrop={(event) => {
+        if (! draggable) { return }
+        event.preventDefault()
+        onDrop()
+      }}
+    >
       {cell('grip', (
-        <div className={clsx(styles.grip, locked && styles.gripLocked)} aria-hidden="true">⠿</div>
+        <div
+          className={clsx(styles.grip, locked && styles.gripLocked)}
+          draggable={draggable}
+          role="button"
+          tabIndex={draggable ? 0 : -1}
+          aria-label={`Reorder ${question.short_answer || 'this question'}`}
+          onDragStart={onDragBegin}
+          onDragEnd={onDragEnd}
+        >
+          ⠿
+        </div>
       ))}
       {cell('clueing', (
         <GrowingField

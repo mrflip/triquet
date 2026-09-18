@@ -1,5 +1,7 @@
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../models/question'
-import type { QuizT } from '../models/quiz'
+import { moveQuestion, renumberByPosition, renumberByRank } from '../lib/rank'
+import { sortQuestions, sortValueFor } from '../lib/sortings'
+import type { QuizT, Sortkey } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
 
 /** Everything the author can do to their workspace */
@@ -8,6 +10,9 @@ export type WorkspaceAction =
   | { kind: 'retitle_quiz', title: string }
   | { kind: 'edit_question', question_id: string, patch: QuestionPatch }
   | { kind: 'add_question' }
+  | { kind: 'sort_questions', sortkey: Sortkey, descending: boolean }
+  | { kind: 'renumber_qnums' }
+  | { kind: 'drag_question', question_id: string, onto_idx: number }
 
 /**
  * The workspace as it stands after `action`.
@@ -37,6 +42,26 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
   }
   case 'add_question': {
     return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: [...quiz.questions, Question.blank()] }))
+  }
+  case 'sort_questions': {
+    // A sort commits: the new arrangement is written into the round, not draped over it.
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions:    sortQuestions(quiz.questions, sortValueFor(action.sortkey, quiz.questions), action.descending),
+      last_sortkey: action.sortkey,
+    }))
+  }
+  case 'renumber_qnums': {
+    // Deliberately leaves `last_sortkey` alone. Claiming the round is now in Q# order would
+    // flip the grid into a mode that immediately re-sorts, undoing the promise that nothing moved.
+    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: renumberByRank(quiz.questions) }))
+  }
+  case 'drag_question': {
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions:    renumberByPosition(moveQuestion(quiz.questions, action.question_id, action.onto_idx)),
+      last_sortkey: 'qnum',
+    }))
   }
   }
 }

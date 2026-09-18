@@ -1,3 +1,5 @@
+import type { Sortkey } from '../models/quiz'
+
 /** Every column in the grid, in the order it appears */
 export const ColkeyVals = [
   'grip', 'clueing', 'hint', 'short_answer', 'chains_to', 'butnot', 'qnum',
@@ -16,6 +18,8 @@ export type ColumnSpec = {
   title:    string
   widthPx:  number
   headkind: Headkind
+  /** Present when the header can be clicked to commit the round to this column's order */
+  sortkey?: Sortkey
 }
 
 /**
@@ -29,10 +33,10 @@ export const Columns: readonly ColumnSpec[] = [
   { colkey: 'grip',                     title: '',                     widthPx:  32, headkind: 'plain'    },
   { colkey: 'clueing',                  title: 'Clueing',              widthPx: 330, headkind: 'plain'    },
   { colkey: 'hint',                     title: 'Hint',                 widthPx: 330, headkind: 'plain'    },
-  { colkey: 'short_answer',             title: 'Short answer',         widthPx: 100, headkind: 'plain'    },
-  { colkey: 'chains_to',                title: 'Chains to',            widthPx: 120, headkind: 'plain'    },
+  { colkey: 'short_answer',             title: 'Short answer',         widthPx: 100, headkind: 'plain', sortkey: 'short_answer' },
+  { colkey: 'chains_to',                title: 'Chains to',            widthPx: 120, headkind: 'plain', sortkey: 'chains_to' },
   { colkey: 'butnot',                   title: 'BUT NOT',              widthPx: 180, headkind: 'plain'    },
-  { colkey: 'qnum',                     title: 'Q#',                   widthPx:  60, headkind: 'plain'    },
+  { colkey: 'qnum',                     title: 'Q#',                   widthPx:  60, headkind: 'plain', sortkey: 'qnum' },
   { colkey: 'clueing_plus_rank',        title: 'Clueing + Rank',       widthPx:  78, headkind: 'vertical' },
   { colkey: 'clueing_full',             title: 'Clueing Full Sum',     widthPx:  78, headkind: 'vertical' },
   { colkey: 'clueing_numeral',          title: 'Clueing Numeral Sum',  widthPx:  78, headkind: 'vertical' },

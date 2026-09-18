@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import clsx from 'clsx'
 import { Footnote } from './Footnote'
-import { QuestionTable } from './QuestionTable'
+import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
 import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
@@ -11,8 +12,16 @@ import styles from './workbench.module.css'
 /** The whole tool: one round on screen, saved to this browser the moment anything changes */
 export function Workbench() {
   const { quiz, dispatch, saveNotice } = useWorkspace()
+  // The arrow marks only what was sorted in this session; the round itself remembers the column.
+  const [sortMark, setSortMark] = useState<SortMark | null>(null)
 
   if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>Opening your rounds&hellip;</p></main> }
+
+  const onSort = (sortkey: SortMark['sortkey']) => {
+    const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
+    setSortMark({ sortkey, descending })
+    dispatch({ kind: 'sort_questions', sortkey, descending })
+  }
 
   return (
     <main className={clsx(styles.page, 'transitions')}>
@@ -26,9 +35,17 @@ export function Workbench() {
         questions={quiz.questions}
         locked={quiz.locked}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === 'qnum'}
+        lastSortkey={quiz.last_sortkey}
+        sortMark={sortMark}
+        onSort={onSort}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
+        onDrag={(question_id, onto_idx) => { dispatch({ kind: 'drag_question', question_id, onto_idx }) }}
       />
-      <Toolbar locked={quiz.locked} onAddQuestion={() => { dispatch({ kind: 'add_question' }) }} />
+      <Toolbar
+        locked={quiz.locked}
+        onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
+        onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
+      />
       <Footnote />
     </main>
   )
