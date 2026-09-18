@@ -1,0 +1,82 @@
+{
+  "$schema":  "https://json.schemastore.org/tsconfig",
+  "display":  "Node 23",
+  "exclude":  ["node_modules", "built", "**/built/**/*", "built/**/*", "**/.yarn/**/*", "**/nodemon/**/*"],
+  "_version": "23.6.0",
+
+  "compilerOptions": {
+    "plugins":                            [{ "name": "typescript-eslint-language-service" }],
+    "outDir":                             "./built",
+    "lib":                                ["esnext"],
+    "target":                             "ESNext",
+    "module":                             "NodeNext",
+    "moduleResolution":                   "nodenext",
+    "incremental":                        true,
+
+    // Typechecking strictness or experimental features -- we have these across all repos
+    "strict":                             true,
+    "alwaysStrict":                       true,
+    "allowUnreachableCode":               false,
+    "allowUnusedLabels":                  false,
+    "experimentalDecorators":             true,
+    "emitDecoratorMetadata":              true,
+    "forceConsistentCasingInFileNames":   true,
+    "noFallthroughCasesInSwitch":         true,
+    "noImplicitReturns":                  true,
+    "noImplicitThis":                     true,
+    "noUnusedParameters":                 true,
+    "strictNullChecks":                   true,
+    "useUnknownInCatchVariables":         false,
+    "useDefineForClassFields":            true,  // true  = strict -- forces compat with upcoming JS spec
+    "strictPropertyInitialization":       true,  // true  = strict -- you should use define anyway
+
+    // These are too intrusive to turn on
+    "isolatedDeclarations":               false, // false = looser -- makes you be way too explicit
+    "noPropertyAccessFromIndexSignature": false, // false = looser -- makes you use foo["blah"], it's insane forget it
+
+    // Typechecking strictness -- recommended but not possible yet everywhere
+
+    "noImplicitAny":                      true,  // true  = strict -- must annotate non-inferrable types (in particular all function inputs)
+    "exactOptionalPropertyTypes":         true,  // true  = strict -- optional params need ? and undefined
+    "noImplicitOverride":                 false, // false = looser -- makes you use override every time. In repos where we don't use it, periodically switch it on, add it where reasonable, switch off
+    "noUncheckedIndexedAccess":           false, // false = looser -- adds undefined to the type; turned on in some repos
+    "noUnusedLocals":                     false, // false = looser -- makes you use _ if not used. Something is making typescript false positive these in our setup.
+
+    // Details of how it's compiled
+    "allowJs":                            true,
+    "checkJs":                            true,
+    "declaration":                        true,
+    "declarationMap":                     true,
+    "esModuleInterop":                    true,
+    "preserveSymlinks":                   true,
+    "removeComments":                     false,
+    "resolveJsonModule":                  true,
+    "skipLibCheck":                       true,
+    "sourceMap":                          true,
+    "inlineSources":                      true,
+    //
+    "allowSyntheticDefaultImports":       true,
+    "resolvePackageJsonImports":          true,
+    "resolvePackageJsonExports":          true,
+
+    "erasableSyntaxOnly":                 true,
+    "noEmitOnError":                      false,
+    "verbatimModuleSyntax":               true,
+    "allowImportingTsExtensions":         true,
+    "rewriteRelativeImportExtensions":    true,
+
+    // Let arda/gen blow your memory limits
+    "disableSizeLimit":                   true,
+
+    // Debugging options for code or compiling-code errors
+    "diagnostics":                        true,
+    "explainFiles":                       false,
+    "listEmittedFiles":                   false,
+    "listFiles":                          false,
+    // "generateTrace":                  "./trace",
+    "extendedDiagnostics":                true,
+
+    "noErrorTruncation":                  false, // true to see all errors
+
+  }
+}

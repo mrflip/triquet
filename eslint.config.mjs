@@ -137,7 +137,7 @@ export default tseslint.config(
       'no-console':               ['warn', { allow: ['warn', 'error'] }],
       'no-constructor-return':    ['error'],
       'no-else-return':           ['warn', { allowElseIf: false }],
-      'no-global-assign':         ['error'],         // replacement for the removed `no-native-reassign`
+      'no-global-assign':         ['error'],
       'no-implicit-coercion':     ['error', { allow: ['!!'] }],
       'no-implicit-globals':      ['error'],
       'no-mixed-operators':       ['error'],

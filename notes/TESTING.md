@@ -13,6 +13,9 @@ Vitest, with chai-style assertions (`expect(foo).to.eq(bar)`). Style rules from 
 in test files too -- semicolonless, single quotes by default, braced blocks, no single-letter
 names.
 
+Put all test files in `/tests`, with a path and name that exactly parallels the source: `src/foo/bar.ts` -> `tests/foo/bar.test.ts` (and similarly for all standard React/Next conventions). Test and build artifacts should never pollute the source tree.
+Put fixtures in `/fixtures` under a mostly-similar convention: if a fixture file exists in the main to serve `bar.ts`: `src/foo/bar-examples.json` or `src/foo/bar/demo_photo.png`, etc. If it serves most things in `src/foo`, use `/fixtures/foo/whatever.blah` (never `/fixtures/foo-...` for a directory). This particular rule will be more loosely followed than most, as various other concerns will drive their location.
+
 ## Coverage Expectations
 
 Methods with an external interface must have at least one test demonstrating each use case.

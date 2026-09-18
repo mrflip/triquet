@@ -1,107 +1,89 @@
-# Stack
+# CLAUDE.md
 
-This project follows an Agent-Coach approach. Experienced human architects are the Coaches,
-with you (the AI agent) developing the code: two equally important roles. Coaches want pushback
-where warranted, and encourage you to think independently, governed by the guardrails outlined
-here.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project status
+
+This repo is pre-implementation: conventions, stack decisions, and tooling config exist, but
+there is no application code yet (no `package.json`, no `src/`, no tests at the root).
+
+The first steps we will work on are to lay the foundations for a first-class, small-now,
+medium-sized maybe someday web app according to the guidelines found in /notes and otherwise
+referred to here. Part of that will be to adapt some files from old projects -- .eslintrc, etc --
+carrying forward its intent but discarding cargo-culted segments, workaround, obsolete directives
+and the other wounds of experience.
+
+Project instructions, loaded at the start of every session. Keep this file short and true:
+everything here costs context on every task, whether or not the task needs it.
+
+## Working Relationship
+
+This project follows an Agent-Coach approach. Experienced human architects are the Coaches, with
+you (the AI agent) developing the code: two equally important roles. Coaches want pushback where
+warranted, and encourage you to think independently, governed by the guardrails outlined here
+and in the linked documents.
+
+If a guardrail looks wrong for the case at hand, say so and propose the alternative. Do not
+quietly route around it, and do not treat a convention you find inconvenient as optional.
 
 ## Philosophy and Values
 
-The top three values while writing code are empathy, safety and readability. U
+The top three values while writing code are **empathy, safety and readability**.
 
-When suggesting toolkits, we don't want anything still being proven, but I'm happy to move
-with the front of the crowd as soon as it's clear that will have the best long-term relevance.
-Developer ergonomics are important.
+* **Prefer the toolkit to the home brew.** If you find yourself writing a lot of code to solve a
+  problem, or banging rocks together instead of calling a toolkit entrypoint, there's a good
+  chance we've misdirected you or that we're solving the wrong problem. Say so.
+* **Maintainability and legibility beat performance** unless we have demonstrated that something
+  is slow. Cleverness is rarely called for -- but if it seems to be, propose it.
+* **Never treat secret keys or other sensitive data with imaginative code.** Use best practices
+  and established libraries, always.
+* **On new toolkits**: nothing still being proven, but we're happy to move with the front of the
+  crowd as soon as it's clear that will have the best long-term relevance. Developer ergonomics
+  are important.
 
-Be very wary of home-brewed solutions. If you find yourself writing a lot of code to solve a problem,
-or banging rocks together instead of calling a toolkit entrypoint, there's a good chance we've
-misdirected you or that we're solving the wrong problem. Unless we demonstrate
-that something is slow, prefer maintainability and legibility over performance. Cleverness is
-rarely called for (but if it seems to be, propose it).
-Do not ever treat secret keys or other sensitive data with imaginative code: use best practices and libraries.
+## Non-Negotiables
 
-## Best Practices
+* Every new piece of code gets a proportional doc block and test suite.
+* Validate at module entrypoints; write confident, paranoia-free code past that boundary.
+* Progress notes, development caveats and open questions go in `HUMAN-whatsup.md` or `/whiteboard` --
+  never in doc blocks or code comments.
+* `eslint.config.mjs` is the final authority on formatting. Run the linter; however, if it conflicts with the higher guidelines of
+  legibility and productivity, you are approved for `@eslint-disable-line` (`no-param-reassign`, `no-explicit-any`) or `@ts-expect-error` if they are the correct compromise -- apply them but **report it in chat**.
+* ignore **everything in /aside/**/**, **everything with the word `secret` or `secret` unless it also says `template`**.
+  - also do not design anything that needs such a file. Use doppler.
 
-Every new piece of code should have a proportional doc block and test suite.
-The crucial details, and what "proportional" means are described below.
+## Notable files and directories:
 
-Module entrypoints should apply strict validation and, if complex, purely that and then orchestrate other methods. These are strict but fair, smooth managers. These functions are encouraged to offer elegant, convenient, generous interfaces: pass a string, or strings, or undefined if you don't care, we'll find a sensible default. We're here to serve, the function says. After zod has done its thing, there's no ambiguity, no undefined-checking paranoia.
-After that point, write code that is focused on the task, confident it has clean meaningful data. Short, single-concern stanzas.
+These are **not** loaded automatically. Read them when the work touches them.
 
-### Documentation and Comments
-
-**Do not use doc blocks or code comments for progress/development notes, for detailed caveats or information dumps, or anything else that will become irrelevant later.** Instead, use HUMAN-whatsup.md like a working-group's whiteboard, or a file in this repo's /notes folder whenever that seems more suitable.
-
-Write code in proportion to how much it will be used, and how much there is to say. Always supply at least one fragment, on the very first line of the comment. Since it will still appear even if "folded" in the IDE: `/** Description, continuing on following lines, but line-break'ed so the essentials are` -- IUCWIDT. See STYLE.md for more on doc block styling
-
-#### Comments
-
-Legible code written with short functions having strong contracts should rarely require running comments. Too often a running comment either...
-1. ...narrates what the code already does, or what the agent was thinking at the time. BAD:`// next, concat the foo and the bar and trim whitespace ...`. PERFECT: `_.trim(foo + bar)` -- the code speaks for itself.
-2. ...reflects poor name choices. BAD: `process(node) // calculate the current node's degree`. BETTER: `degreeFor(currentNode)`
-3. ...delimits code that should instead be in short, separate, testable function. BAD:  `// next, calculate the foo, which should be less than 10\n(...lines to calculate the foo...)`. BETTER: ` calculateFoo(...)` -- a documented function with tests, not comments, enforcing its contract
-
-Code documentation must focus on serving the caller of that code. Code cleanliness and strong tests are sufficient to serve current and future authors.
-
-### Tests
-
-Methods with an external must have at least one test demonstrating each use case. Every `@example` in a doc block must have a corresponding test
-
-```ts
-describe('padEnd', () => {
-  it('returns a string with at least the requested length', () => {
-    expect(padEnd("hello", 8)).to.eq('hello   ')
-  })
-  it('allows you to supply the padding character', () => {
-    expect(padEnd("hello", 8, '_')).to.eq('hello___')
-  })
-})
-```
-
-At whatever point the shape of the test function becomes duplicative,
-bulk-test against example lists (including every example from the docs
-and those long-form tests), written in this style
-
-```ts
-const PadTestCases = [
-  // regular usage:
-  [["hello world", 0],            "hello world",         'string, maxLength zero, default padding: returns input'],
-  [["hello world", 10],           "hello world",         'string, maxLength less than its own: returns input'],
-  [["hello world", 11],           "hello world",         'string, maxLength equal to its own: returns input'],
-  [["hello world", 12],           "hello world ",        'string, maxLength one more than its own, default padding: adds one space'],
-  // ... more ...
-  // trivial cases:
-  [["", 0],                       "",                    'empty string, length: 0, default padding: returns input'],
-  // ...
-  // ... weird cases ...
-  [["L'Iñtërnâtiôñàlizætiøñ.𝍔", 20], "L'Iñtërnâtiôñàlizætiøñ.𝍔", 'Unicode characters retain fidelity'],
-  [["L'Iñtërnâtiôñàlizætiøñ.𝍔", 26], "L'Iñtërnâtiôñàlizætiøñ.𝍔 ", 'Padding counts by character, not byte'],
-  // ...
-]
-```
-
-Do not go crazy with duplicated examples: each one should tie to a plausible failure mode. In particular, address:
-
-* what does an exists-as-undefined, or a null, value mean?
-* what does a missing value mean?
-* what do we do about nil/missing elements?
-* what do we do about cardinality mismatches (`filter(1, iteratee)`)?
-* what do we do about type mismatches that are absurd (`toInteger("three")`, `toInteger([])`)"?
-* what do we do about mismatches that aren't *patently* absurd -- `nth(arr, "1")`, `nth(arr, 1.5)`, `nth(arr, -1)`, `nth(arr, inf)`, `nth(arr, MAX_SAFE_INTEGER + 99)`?
-
-### Other
-
-* We enjoy convenience but will not tolerate ambiguity
-* We're comfortable saying "clean data will be clean, unclean data will be yolo" -- sanitize data at a high-level entrypoint, then write code without paranoia of absurd data; let the system or visual feedback be the policeman. If `undefined` is a perfectly reasonable way to communicate "do the right thing here", do the right thing.
-
-## Stack / Colophon
-
-As called for, choose these libraries:
-
-* Next.js
-* es-toolkit/compat
-* Zod 4
-* Visual library: Material UI
-* Vitest with chai validators
+* `/HUMAN-whatsup.md` -- our collaboration sketchpad; this is for me to read and you to braindump into, and WILL drift from reality.
+* `/STYLE.md`  -- the naming vocabulary (`val`, `ckey`, `keypath`, `bag`, `kind`, `handle` and
+  the rest of the tag glossary), brace and indentation rules, quote conventions, doc block
+  formatting. These conventions are specific and unguessable -- the inform where to improvise
+  from general TypeScript habit.
+* `/whiteboard`
+* `/notes` -- add durable artifacts here. In particular:
+  - `stack.md` -- guidelines on how we choose stack elements, and which ones to discuss before implementing
+  - `notes/guidelines.md` -- the Sketch/DNA/Real/Live validation lifecycle and its `Validator` pattern, the documentation policy, testing philosophy. **Read before designing a module entrypoint or a data model.**
+* `/.claude/rules/testing.md` (symlinked to `notes/testing.md`) -- test conventions. Loads automatically when you touch a test file; you don't need to fetch it.
+* `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
+  formatting question. Where it and a prose document disagree, it is a bug -- flag it.
 
 To any extent reasonable, prefer to author content in markdown rather than HTML.
+
+## Conventions At A Glance
+
+Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
+
+* Semicolonless. Two-space indents, no tabs. Single quotes by default; `"` only when a key must
+  be quoted.
+* Always brace blocks, even single-statement ones: `if (nope) { return }`
+* Opening brace at end of line; cuddle `} else if (...) {` and `} catch (err) {`.
+* No single-letter names. `ii` / `jj` / `kk` are the only sanctioned short ones.
+  - This also applies to Typescript: if genericity is salient, use `<MT>` for a model instance, `<SK>` for an unvalidated POJO, `TT` for a generic type -- never `T`, `I`, etc
+* Never bare `name`, `value`, `node`, `error` or `query` as a variable name. Use `err`, never
+  `error`.
+* Never `type` to mean "kind": `woodkind`, not `woodType`. `type` is reserved for data model type.
+* `const` by default; `var` only where the value is genuinely reassigned. Functional style is
+  strongly preferred.
+* Parenthesize and space every negation: `if (! approved) { ... }`

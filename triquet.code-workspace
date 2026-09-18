@@ -1,0 +1,17 @@
+{
+	"folders": [
+    {
+      "path": "."
+    },
+  ],
+  "settings": {
+    // "typescript.tsdk": "triquet/.yarn/sdks/typescript/lib",
+    "claudeCode.allowDangerouslySkipPermissions": true,
+    "claudeCode.initialPermissionMode": "bypassPermissions",
+    "search.exclude": {
+      "**/ripd": true,
+      "**/tmp": true
+    },
+    "search.globalFindClipboard": true
+  }
+}
