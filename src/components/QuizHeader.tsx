@@ -10,10 +10,11 @@ export type QuizHeaderProps = {
   locked:     boolean
   saveNotice: string | null
   onRetitle:  (title: string) => void
+  onManage:   () => void
 }
 
 /** The quiz's name, and the two pills that only appear when they have something to say */
-export function QuizHeader({ title, locked, saveNotice, onRetitle }: Readonly<QuizHeaderProps>) {
+export function QuizHeader({ title, locked, saveNotice, onRetitle, onManage }: Readonly<QuizHeaderProps>) {
   // The quiz name is the one field that updates live rather than on blur.
   const { draft, onChange, onBlur } = useDraft(title, onRetitle)
 
@@ -32,6 +33,7 @@ export function QuizHeader({ title, locked, saveNotice, onRetitle }: Readonly<Qu
         }}
         onBlur={onBlur}
       />
+      <button type="button" className={styles.headButton} aria-label="Manage quiz" onClick={onManage}>⚙</button>
       {locked ? <span className={clsx(styles.pill, styles.pillWarn)}>Locked</span> : null}
       {saveNotice ? <span className={clsx(styles.pill, styles.pillBad)} role="status">{saveNotice}</span> : null}
     </header>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendFallback, display, localBlankLabel, normalize, titleize, urlize } from '../../src/lib/label-maker'
+import { appendFallback, display, effectiveLabelOf, entityForLabel, localBlankLabel, normalize, titleize, urlize } from '../../src/lib/label-maker'
 import { ValidatorKit } from '../../src/lib/validator'
 
 const NormalizeCases: [string, string, string][] = [
@@ -92,5 +92,34 @@ describe('urlize', () => {
 describe('display', () => {
   it('reads a label as kebab-case', () => {
     expect(display('quiet_otter')).to.eq('quiet-otter')
+  })
+})
+
+describe('effectiveLabelOf', () => {
+  it('reads the generated label when there is no override', () => {
+    expect(effectiveLabelOf({ label: 'quiet_otter', forced_label: null })).to.eq('quiet_otter')
+  })
+
+  it('prefers the author\'s override over the generated label', () => {
+    expect(effectiveLabelOf({ label: 'quiet_otter', forced_label: 'leon' })).to.eq('leon')
+  })
+})
+
+describe('entityForLabel', () => {
+  const entities = [
+    { label: 'quiet_otter', forced_label: null },
+    { label: 'loud_gecko', forced_label: 'leon' },
+  ]
+
+  it('finds an entity by its generated label', () => {
+    expect(entityForLabel(entities, 'quiet_otter')).to.eq(entities[0])
+  })
+
+  it('finds an entity by its overriding label rather than its generated one', () => {
+    expect(entityForLabel(entities, 'leon')).to.eq(entities[1])
+  })
+
+  it('reads no match as undefined', () => {
+    expect(entityForLabel(entities, 'nobody')).to.eq(undefined)
   })
 })

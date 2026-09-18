@@ -40,6 +40,25 @@ describe('workspaceReducer', () => {
     })
   })
 
+  describe('relabel_quiz', () => {
+    it('overrides the generated label of the open quiz', () => {
+      const after = workspaceReducer(openWorkspace(), { kind: 'relabel_quiz', label: 'leon' })
+      expect(openQuizOf(after)?.forced_label).to.eq('leon')
+    })
+
+    it('leaves the generated label itself alone', () => {
+      const before = openQuizOf(openWorkspace())?.label
+      const after = workspaceReducer(openWorkspace(), { kind: 'relabel_quiz', label: 'leon' })
+      expect(openQuizOf(after)?.label).to.not.eq('leon')
+      expect(before).to.not.eq(undefined)
+    })
+
+    it('refuses while the quiz is locked', () => {
+      const ante = openWorkspace(true)
+      expect(workspaceReducer(ante, { kind: 'relabel_quiz', label: 'leon' })).to.eq(ante)
+    })
+  })
+
   describe('add_question', () => {
     it('appends a blank question to the end', () => {
       const after = workspaceReducer(openWorkspace(), { kind: 'add_question' })

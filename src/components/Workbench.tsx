@@ -6,10 +6,12 @@ import { Footnote } from './Footnote'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
+import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
+import { useQuizHashSync } from '../state/use-quiz-route'
 import styles from './workbench.module.css'
 
 /** The whole tool: one quiz on screen, saved to this browser the moment anything changes */
@@ -20,6 +22,8 @@ export function Workbench() {
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
+  const [managing, setManaging] = useState(false)
+  useQuizHashSync(workspace, quiz, dispatch)
 
   if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>Opening your quizzes&hellip;</p></main> }
 
@@ -44,6 +48,14 @@ export function Workbench() {
         locked={quiz.locked}
         saveNotice={saveNotice}
         onRetitle={(title) => { dispatch({ kind: 'retitle_quiz', title }) }}
+        onManage={() => { setManaging(true) }}
+      />
+      <QuizManageModal
+        open={managing}
+        onClose={() => { setManaging(false) }}
+        workspace={workspace}
+        quiz={quiz}
+        dispatch={dispatch}
       />
       <QuestionTable
         questions={quiz.questions}

@@ -15,6 +15,7 @@ import type { WorkspaceT } from '../models/workspace'
 export type WorkspaceAction =
   | { kind: 'replace_workspace', workspace: WorkspaceT }
   | { kind: 'retitle_quiz', title: string }
+  | { kind: 'relabel_quiz', label: string }
   | { kind: 'edit_question', question_id: string, patch: QuestionPatch }
   | { kind: 'add_question' }
   | { kind: 'sort_questions', sortkey: Sortkey, descending: boolean }
@@ -50,6 +51,11 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
   }
   case 'retitle_quiz': {
     return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, title: action.title }))
+  }
+  case 'relabel_quiz': {
+    // The label itself, and uniqueness against sibling quizzes, are the caller's job to check
+    // before dispatching -- this just applies the override, same as retitle_quiz applies a title.
+    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, forced_label: action.label }))
   }
   case 'edit_question': {
     return reviseOpenQuiz(workspace, (quiz) => ({
