@@ -165,6 +165,9 @@ export default defineConfig([
       // guidelines.md's Real phase: "Every field exists (possibly null, never undefined)".
       // null is load-bearing in the data model and in every import payload.
       'unicorn/no-null': 'off',
+      // guidelines.md's worked example declares a model's fields first, then its statics --
+      // the field list is the documentation, and it belongs at the top.
+      'unicorn/consistent-class-member-order': 'off',
     },
   },
 
@@ -258,6 +261,9 @@ export default defineConfig([
     rules: {
       'vitest/no-disabled-tests': 'warn',
       'vitest/no-focused-tests': 'warn',
+      // notes/testing.md mandates bulk example lists, whose `it(blurb, ...)` title is a
+      // variable by construction.
+      'vitest/valid-title': 'off',
       // Chai-style assertions are bare expressions by design.
       '@typescript-eslint/no-unused-expressions': 'off',
     },
