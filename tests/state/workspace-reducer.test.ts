@@ -242,6 +242,98 @@ describe('workspaceReducer', () => {
     })
   })
 
+  describe('open_quiz', () => {
+    it('switches to a round the workspace holds', () => {
+      const [one, two] = [Quiz.blank('one'), Quiz.blank('two')]
+      const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: one.id })
+      expect(workspaceReducer(ante, { kind: 'open_quiz', quiz_id: two.id }).active_quiz_id).to.eq(two.id)
+    })
+
+    it('ignores a round the workspace does not hold', () => {
+      const ante = workspaceOf(['1', 'a'])
+      expect(workspaceReducer(ante, { kind: 'open_quiz', quiz_id: 'gone' })).to.eq(ante)
+    })
+
+    it('switches away from a locked round, because locking must never be a trap', () => {
+      const [one, two] = [{ ...Quiz.blank('one'), locked: true }, Quiz.blank('two')]
+      const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: one.id })
+      expect(workspaceReducer(ante, { kind: 'open_quiz', quiz_id: two.id }).active_quiz_id).to.eq(two.id)
+    })
+  })
+
+  describe('new_quiz', () => {
+    it('adds a round and opens it', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const after = workspaceReducer(ante, { kind: 'new_quiz' })
+      expect(after.quizzes).to.have.length(2)
+      expect(after.active_quiz_id).to.eq(after.quizzes[1]?.id)
+    })
+
+    it('starts the new round with the same blank questions a fresh workspace has', () => {
+      const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'new_quiz' })
+      expect(present(openQuizOf(after)).questions).to.have.length(BlankQuestionQty)
+    })
+
+    it('works from a locked round', () => {
+      const locked = { ...Quiz.blank('one'), locked: true }
+      const ante = Workspace.fill({ quizzes: [locked], active_quiz_id: locked.id })
+      expect(workspaceReducer(ante, { kind: 'new_quiz' }).quizzes).to.have.length(2)
+    })
+  })
+
+  describe('delete_quiz', () => {
+    it('removes the round and opens its neighbour', () => {
+      const [one, two, three] = [Quiz.blank('one'), Quiz.blank('two'), Quiz.blank('three')]
+      const ante = Workspace.fill({ quizzes: [one, two, three], active_quiz_id: two.id })
+      const after = workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: two.id })
+      expect(after.quizzes.map((quiz) => quiz.title)).to.deep.eq(['one', 'three'])
+      expect(after.active_quiz_id).to.eq(three.id)
+    })
+
+    it('opens the round before it when the last one goes', () => {
+      const [one, two] = [Quiz.blank('one'), Quiz.blank('two')]
+      const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: two.id })
+      expect(workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: two.id }).active_quiz_id).to.eq(one.id)
+    })
+
+    it('refuses to delete the last remaining round', () => {
+      const ante = workspaceOf(['1', 'a'])
+      expect(workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: ante.quizzes[0]?.id ?? '' })).to.eq(ante)
+    })
+
+    it('leaves the open round alone when some other round goes', () => {
+      const [one, two] = [Quiz.blank('one'), Quiz.blank('two')]
+      const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: one.id })
+      expect(workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: two.id }).active_quiz_id).to.eq(one.id)
+    })
+
+  })
+
+  describe('set_lock', () => {
+    it('freezes a round', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const quiz_id = present(openQuizOf(ante)).id
+      const after = workspaceReducer(ante, { kind: 'set_lock', quiz_id, locked: true })
+      expect(present(openQuizOf(after)).locked).to.eq(true)
+    })
+
+    it('unfreezes one, from inside the lock', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const quiz_id = present(openQuizOf(ante)).id
+      const locked = workspaceReducer(ante, { kind: 'set_lock', quiz_id, locked: true })
+      const after = workspaceReducer(locked, { kind: 'set_lock', quiz_id, locked: false })
+      expect(present(openQuizOf(after)).locked).to.eq(false)
+    })
+
+    it('leaves the round exactly as it was', () => {
+      const ante = workspaceOf(['1', 'a'], ['2', 'b'])
+      const quiz_id = present(openQuizOf(ante)).id
+      const locked = workspaceReducer(ante, { kind: 'set_lock', quiz_id, locked: true })
+      const unlocked = workspaceReducer(locked, { kind: 'set_lock', quiz_id, locked: false })
+      expect(present(openQuizOf(unlocked)).questions).to.deep.eq(present(openQuizOf(ante)).questions)
+    })
+  })
+
   describe('replace_workspace', () => {
     it('takes the other tab\'s workspace wholesale, lock and all', () => {
       const other = openWorkspace(true)

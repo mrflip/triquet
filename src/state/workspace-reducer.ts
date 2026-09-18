@@ -1,4 +1,5 @@
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../models/question'
+import { Quiz } from '../models/quiz'
 import { chainOrder, clearDanglingChains } from '../lib/chain'
 import { moveQuestion, renumberByPosition, renumberByRank } from '../lib/rank'
 import { sortQuestions, sortValueFor } from '../lib/sortings'
@@ -24,6 +25,10 @@ export type WorkspaceAction =
   | { kind: 'set_guess', question_id: string, guess: GuessT }
   | { kind: 'set_ishes', question_id: string, textkind: Textkind, ishes: IshesT }
   | { kind: 'apply_bulk_ishes', landings: readonly BulkLanding[], run: BulkIshesRunT }
+  | { kind: 'open_quiz', quiz_id: string }
+  | { kind: 'new_quiz' }
+  | { kind: 'delete_quiz', quiz_id: string }
+  | { kind: 'set_lock', quiz_id: string, locked: boolean }
 
 /**
  * The workspace as it stands after `action`.
@@ -76,6 +81,27 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
         return { ...question, [slot]: action.ishes }
       }),
     }))
+  }
+  // These four are about the workspace rather than about a round's contents, so a locked round
+  // does not refuse them. Locking must never be a trap: you can always switch away, make
+  // another round, delete one, or unlock.
+  case 'open_quiz': {
+    return workspace.quizzes.some((quiz) => quiz.id === action.quiz_id)
+      ? { ...workspace, active_quiz_id: action.quiz_id }
+      : workspace
+  }
+  case 'new_quiz': {
+    const fresh = Quiz.blank()
+    return { quizzes: [...workspace.quizzes, fresh], active_quiz_id: fresh.id }
+  }
+  case 'delete_quiz': {
+    return withoutQuiz(workspace, action.quiz_id)
+  }
+  case 'set_lock': {
+    return {
+      ...workspace,
+      quizzes: workspace.quizzes.map((quiz) => (quiz.id === action.quiz_id ? { ...quiz, locked: action.locked } : quiz)),
+    }
   }
   case 'apply_bulk_ishes': {
     // One run, one cost figure. The results replace whatever was in those cells.
@@ -142,6 +168,28 @@ export function reviseOpenQuiz(workspace: WorkspaceT, revise: (quiz: QuizT) => Q
   return {
     ...workspace,
     quizzes: workspace.quizzes.map((quiz) => (quiz.id === openQuiz.id ? revised : quiz)),
+  }
+}
+
+/**
+ * `workspace` without the round named, with a neighbour opened in its place.
+ *
+ * The last remaining round cannot be deleted: a workspace with nothing in it would leave the
+ * author staring at an empty screen with no way back.
+ *
+ * @param workspace - The workspace as it stands.
+ * @param quiz_id - The round to remove.
+ * @returns The workspace afterwards; the same one when the round is the last, or is not here.
+ */
+function withoutQuiz(workspace: WorkspaceT, quiz_id: string): WorkspaceT {
+  if (workspace.quizzes.length <= 1) { return workspace }
+  const idx = workspace.quizzes.findIndex((quiz) => quiz.id === quiz_id)
+  if (idx === -1) { return workspace }
+  const quizzes = workspace.quizzes.filter((quiz) => quiz.id !== quiz_id)
+  const neighbour = quizzes[Math.min(idx, quizzes.length - 1)]
+  return {
+    quizzes,
+    active_quiz_id: workspace.active_quiz_id === quiz_id ? neighbour?.id ?? workspace.active_quiz_id : workspace.active_quiz_id,
   }
 }
 

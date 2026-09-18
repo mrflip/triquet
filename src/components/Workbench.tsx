@@ -6,6 +6,7 @@ import { Footnote } from './Footnote'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
+import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
@@ -30,6 +31,14 @@ export function Workbench() {
 
   return (
     <main className={clsx(styles.page, 'transitions')}>
+      <QuizSwitcher
+        quizzes={workspace.quizzes}
+        openQuiz={quiz}
+        onOpen={(quiz_id) => { dispatch({ kind: 'open_quiz', quiz_id }) }}
+        onNew={() => { dispatch({ kind: 'new_quiz' }) }}
+        onDelete={(quiz_id) => { dispatch({ kind: 'delete_quiz', quiz_id }) }}
+        onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz.id, locked }) }}
+      />
       <QuizHeader
         title={quiz.title}
         locked={quiz.locked}
