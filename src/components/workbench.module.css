@@ -1,0 +1,268 @@
+/* The wide workbench. Fixed layout with an explicit width per column: nothing a cell holds can
+   widen the column it sits in, so the container scrolls sideways and the page never does. */
+
+.page {
+  padding: 24px var(--gutter) 64px;
+}
+
+.scroller {
+  overflow-x:    auto;
+  border:        1px solid var(--border);
+  border-radius: var(--radius-container);
+  background:    var(--surface);
+}
+
+.grid {
+  table-layout:    fixed;
+  border-collapse: separate;
+  border-spacing:  0;
+}
+
+.head {
+  position:       sticky;
+  top:            0;
+  z-index:        1;
+  background:     var(--surface-sunk);
+  color:          var(--muted);
+  font-size:      10px;
+  font-weight:    600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align:     left;
+  padding:        8px var(--cell-pad);
+  border-bottom:  1px solid var(--border);
+  vertical-align: bottom;
+  white-space:    nowrap;
+}
+
+.headVertical {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  height:       150px;
+  padding:      8px 2px;
+  white-space:  nowrap;
+}
+
+.headCentered {
+  text-align:  center;
+  white-space: normal;
+}
+
+.headSorted {
+  color:       var(--ink);
+  font-weight: 700;
+}
+
+.cell {
+  padding:        var(--cell-pad);
+  border-bottom:  1px solid var(--border);
+  vertical-align: top;
+  overflow:       hidden;
+}
+
+/* Never removed from the row -- removing a cell would shift every later cell one column left
+   of the width it was written for. */
+.gripCollapsed {
+  width:    0;
+  padding:  0;
+  overflow: hidden;
+}
+
+.grip {
+  cursor:      grab;
+  color:       var(--muted);
+  text-align:  center;
+  user-select: none;
+}
+
+.gripLocked {
+  cursor:  default;
+  opacity: 0.45;
+}
+
+/* == Fields: text until touched == */
+
+.field {
+  width:         100%;
+  box-sizing:    border-box;
+  font:          inherit;
+  color:         inherit;
+  background:    transparent;
+  border:        1px solid transparent;
+  border-radius: var(--radius-input);
+  padding:       4px 5px;
+  resize:        none;
+  display:       block;
+}
+
+.field:hover:not(:disabled) {
+  border-color: var(--border);
+}
+
+.field:focus {
+  outline:      none;
+  border-color: var(--accent);
+  background:   color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+
+.fieldData {
+  font-family:    var(--font-data);
+  font-size:      12px;
+}
+
+.fieldQnum {
+  font-family: var(--font-data);
+  text-align:  center;
+  appearance:  textfield;
+}
+
+.fieldQnum::-webkit-outer-spin-button,
+.fieldQnum::-webkit-inner-spin-button {
+  appearance: none;
+  margin:     0;
+}
+
+/* == Numbers == */
+
+.sum {
+  font-family:      var(--font-data);
+  font-size:        12px;
+  font-variant-numeric: tabular-nums;
+  text-align:       right;
+  white-space:      normal;
+  word-break:       keep-all;
+}
+
+.muted  { color: var(--muted) }
+.stale  { color: var(--muted); font-style: italic }
+.metaline {
+  font-family: var(--font-ui);
+  font-size:   10px;
+  color:       var(--muted);
+  margin-top:  2px;
+}
+
+/* == Askable cells == */
+
+.askable {
+  cursor:        pointer;
+  min-height:    44px;
+  border-radius: var(--radius-input);
+  padding:       4px 5px;
+  font-family:   var(--font-data);
+  font-size:     12px;
+  width:         100%;
+  box-sizing:    border-box;
+  text-align:    left;
+  border:        1px solid transparent;
+  background:    transparent;
+  color:         inherit;
+  display:       block;
+}
+
+.askable:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-soft) 40%, transparent);
+}
+
+.askable:disabled {
+  cursor:  default;
+  opacity: 0.7;
+}
+
+.readonlyCell {
+  font-family: var(--font-data);
+  font-size:   12px;
+  padding:     4px 5px;
+}
+
+.scrolls {
+  overflow-y: auto;
+}
+
+/* == Header, toolbar, panels == */
+
+.titleField {
+  font-family:   var(--font-display);
+  font-size:     30px;
+  font-weight:   600;
+  color:         inherit;
+  background:    transparent;
+  border:        1px solid transparent;
+  border-radius: var(--radius-input);
+  padding:       2px 6px;
+  width:         100%;
+  max-width:     640px;
+}
+
+.titleField:hover:not(:read-only) { border-color: var(--border) }
+.titleField:focus {
+  outline:      none;
+  border-color: var(--accent);
+  background:   color-mix(in srgb, var(--accent-soft) 45%, transparent);
+}
+
+.pill {
+  display:        inline-block;
+  border-radius:  var(--radius-pill);
+  padding:        2px 10px;
+  font-size:      10px;
+  font-weight:    600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pillQuiet { background: var(--surface-sunk); color: var(--muted) }
+.pillWarn  { background: var(--accent-soft);  color: var(--accent-ink) }
+.pillBad   { background: var(--bad-soft);     color: var(--bad) }
+.pillGood  { background: var(--good-soft);    color: var(--good) }
+
+.footnote {
+  max-width:  62ch;
+  color:      var(--muted);
+  font-size:  12px;
+  margin-top: 20px;
+}
+
+.microcopy {
+  max-width: 62ch;
+  color:     var(--muted);
+  font-size: 12px;
+}
+
+.panelHeading {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size:   18px;
+  margin:      0 0 4px;
+}
+
+/* == Below 640px the grid restructures into one card per question == */
+
+@media (max-width: 640px) {
+  .scroller { border: none; background: transparent; overflow-x: visible }
+  .grid, .grid tbody, .grid tr, .grid td { display: block; width: auto }
+  .grid thead { display: none }
+
+  .grid tr {
+    border:        1px solid var(--border);
+    border-radius: var(--radius-container);
+    background:    var(--surface);
+    margin-bottom: 12px;
+    padding:       8px;
+  }
+
+  .cell { border-bottom: none; padding: 4px 0; height: auto }
+
+  .cell::before {
+    content:        attr(data-colname);
+    display:        block;
+    font-size:      10px;
+    font-weight:    600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color:          var(--muted);
+  }
+
+  .gripCollapsed { display: none }
+  .sum { text-align: left }
+}

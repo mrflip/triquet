@@ -27,3 +27,9 @@ pnpm-debug.log*
 
 # typescript
 next-env.d.ts
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/

@@ -129,7 +129,7 @@ export default defineConfig([
       // the wider ecosystem's import convention, so import-x/extensions
       // (either direction) isn't set here at all.
       'import-x/no-extraneous-dependencies': ['error', {
-        devDependencies: ['tests/**', '**/*.config.{ts,mts,mjs}', 'eslint.config.mjs', 'scripts/**'],
+        devDependencies: ['tests/**', 'e2e/**', '**/*.config.{ts,mts,mjs}', 'eslint.config.mjs', 'scripts/**'],
         optionalDependencies: false,
         peerDependencies: true,
       }],
@@ -176,6 +176,16 @@ export default defineConfig([
       // is- prefix on every local binding of one would be a translation layer and nothing more,
       // and it fights `prefer-destructuring`, which is on.
       'unicorn/consistent-boolean-name': 'off',
+      // Components are PascalCase, everything else kebab-case -- the grain of React and of
+      // Next.js's own `page.tsx` / `layout.tsx`.
+      'unicorn/filename-case': ['error', { cases: { kebabCase: true, pascalCase: true } }],
+      // Taste, and it would split the model files: `type FooT = Z.output<...>` cannot be an
+      // interface, so its neighbours should not have to be either.
+      '@typescript-eslint/consistent-type-definitions': 'off',
+      // STYLE.md endorses the guard clause ("Short guards stay on one line, still braced") and
+      // asks that visual weight match didactic weight: a guard is not a choice between two
+      // values, and should not have to read like one.
+      'unicorn/prefer-ternary': 'off',
     },
   },
 

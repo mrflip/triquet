@@ -87,6 +87,34 @@ describe('Question.fill', () => {
   })
 })
 
+describe('QuestionValidators.questionPatch', () => {
+  it('carries only the fields the patch names', () => {
+    expect(QuestionValidators.questionPatch({ short_answer: 'Leon' })).to.deep.eq({ short_answer: 'Leon' })
+  })
+
+  it('reads an empty patch as "change nothing"', () => {
+    expect(QuestionValidators.questionPatch({})).to.deep.eq({})
+  })
+
+  it('never fills an absent field in with a default, which would wipe what the author had', () => {
+    const patch = QuestionValidators.questionPatch({ short_answer: 'Leon' })
+    expect(patch).to.not.have.property('clueing')
+    expect(patch).to.not.have.property('chains_to')
+  })
+
+  it('takes an explicit clearing of a field', () => {
+    expect(QuestionValidators.questionPatch({ clueing: '', chains_to: null })).to.deep.eq({ clueing: '', chains_to: null })
+  })
+
+  it('refuses to patch the id', () => {
+    expect(QuestionValidators.questionPatch({ id: anId } as never)).to.not.have.property('id')
+  })
+
+  it('validates what it does carry', () => {
+    expect(() => QuestionValidators.questionPatch({ qnum: 'three' })).to.throw(Z.ZodError)
+  })
+})
+
 describe('Question.blank', () => {
   it('mints an id and leaves everything else empty', () => {
     const question = Question.blank()
