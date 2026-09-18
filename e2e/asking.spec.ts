@@ -70,5 +70,9 @@ test('with the network off the rest of the page still edits, sorts and saves', a
   await page.getByLabel('Quiz name').fill('Still working')
   await page.reload()
   await expect(page.getByLabel('Quiz name')).toHaveValue('Still working')
-  await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Leon')
+  // Sorting by title moves 'Leon' among the other questions' own generated titles, so it is
+  // found by its value rather than assumed to stay first.
+  const titles = page.getByRole('textbox', { name: 'Title' })
+  await expect(titles.first()).toBeVisible()
+  expect(await titles.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))).toContain('Leon')
 })

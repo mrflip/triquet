@@ -3,19 +3,23 @@ import * as Z from 'zod'
 import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
+import { titleize } from '../../src/lib/label-maker'
 
 const quizId = mintId()
 
 describe('Quiz.fill', () => {
   it('defaults every field but the id', () => {
-    expect(Quiz.fill({ id: quizId })).to.deep.eq({
+    const quiz = Quiz.fill({ id: quizId })
+    expect(quiz).to.deep.include({
       id:              quizId,
-      title:           '',
       questions:       [],
       locked:          false,
       last_sortkey:    null,
       bulk_ishes_last: null,
+      forced_label:    null,
     })
+    expect(quiz.label).to.match(/^[a-z]+_[a-z]+$/)
+    expect(quiz.title).to.eq(titleize(quiz.label))
   })
 
   it('keeps the questions in the order given, because that array IS the order', () => {

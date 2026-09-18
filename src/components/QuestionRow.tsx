@@ -105,10 +105,13 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
       }}
     >
       {cell('title', (
-        <PlainField
-          label="Title" committed={question.title} locked={locked}
-          onCommit={(title) => { commit({ title }) }}
-        />
+        <>
+          <PlainField
+            label="Title" committed={question.title} locked={locked}
+            onCommit={(title) => { commit({ title }) }}
+          />
+          <div className={styles.metaline}>{question.label}</div>
+        </>
       ))}
       {cell('grip', (
         <div

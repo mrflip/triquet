@@ -1,6 +1,7 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
+import { localBlankLabel, titleize } from '../lib/label-maker'
 import { AskValidators } from './ask'
 import { Question, QuestionValidators, type QuestionT } from './question'
 
@@ -17,9 +18,14 @@ export type Sortkey = typeof SortkeyVals[number]
 /** How many blank questions a new quiz opens with, so the grid is never an empty void */
 export const BlankQuestionQty = 5
 
-export const QuizValidators = Validator(({ obj, arr, oneof, title, bool, uint, timestamp, ulid }) => {
+export const QuizValidators = Validator(({ obj, arr, oneof, title, label, bool, uint, timestamp, ulid }) => {
   const sortkey = oneof(SortkeyVals)
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
+
+  const quizLabel = label
+    .describe('A freeform-editable local identifier, generated once at creation. Meant to become the quiz\'s URL route.')
+  const forced_label = label.nullable()
+    .describe('An author-chosen label overriding the generated one, or null to keep the generated one.')
 
   const bulkIshesRun = obj({
     approx_tokens: AskValidators.approxTokens,
@@ -33,6 +39,8 @@ export const QuizValidators = Validator(({ obj, arr, oneof, title, bool, uint, t
     id:              ulid,
     title:           title.default('')
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
+    label:           quizLabel.default(() => localBlankLabel(new Set(), mintId())),
+    forced_label:    forced_label.default(null),
     questions:       arr(QuestionValidators.question).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
     locked:          bool.default(false)
@@ -70,13 +78,17 @@ export type QuizT         = Z.output<typeof QuizValidators.quiz>
 export class Quiz implements QuizT {
   declare id:              string
   declare title:           string
+  declare label:           string
+  declare forced_label:    string | null
   declare questions:       QuestionT[]
   declare locked:          boolean
   declare last_sortkey:    Sortkey | null
   declare bulk_ishes_last: BulkIshesRunT
 
   /**
-   * Validated quiz, with every omitted field defaulted and its chains checked.
+   * Validated quiz, with every omitted field defaulted and its chains checked. A blank title is
+   * populated from the label, titleized, so a fresh quiz reads as "Quiet Otter" rather than
+   * nothing at all.
    *
    * @param dna - At minimum an id.
    * @returns A complete quiz.
@@ -85,7 +97,8 @@ export class Quiz implements QuizT {
    * @example Quiz.fill({ id: mintId(), title: 'Quiz one' })
    */
   static fill(dna: QuizDNA): QuizT {
-    return QuizValidators.quiz(dna)
+    const quiz = QuizValidators.quiz(dna)
+    return quiz.title === '' ? { ...quiz, title: titleize(quiz.label) } : quiz
   }
 
   /**

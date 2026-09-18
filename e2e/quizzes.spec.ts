@@ -11,7 +11,8 @@ test.beforeEach(async ({ page }) => {
 
 test('each quiz is wholly independent', async ({ page }) => {
   await page.getByRole('button', { name: '+ New quiz' }).click()
-  await expect(page.getByLabel('Quiz name')).toHaveValue('')
+  // A fresh quiz is titled from its own generated label, distinct from any other quiz's.
+  await expect(page.getByLabel('Quiz name')).not.toHaveValue('Quiz one')
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('')
 
   await page.getByLabel('Quiz name').fill('Quiz two')
@@ -19,8 +20,10 @@ test('each quiz is wholly independent', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which region?')
 })
 
-test('an unnamed quiz shows as Untitled quiz in the switcher', async ({ page }) => {
+test('a quiz with its title cleared shows as Untitled quiz in the switcher', async ({ page }) => {
   await page.getByRole('button', { name: '+ New quiz' }).click()
+  await page.getByLabel('Quiz name').fill('')
+  await page.getByLabel('Quiz name').blur()
   const labels = await page.getByLabel('Open quiz').locator('option').evaluateAll((nodes) => nodes.map((node) => node.textContent))
   expect(labels).toEqual(['Quiz one', 'Untitled quiz'])
 })

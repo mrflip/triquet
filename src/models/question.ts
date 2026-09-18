@@ -1,10 +1,11 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
+import { localBlankLabel, titleize } from '../lib/label-maker'
 import { GuessValidators, type GuessT } from './guess'
 import { IshValidators, type IshesT } from './ish'
 
-export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
+export const QuestionValidators = Validator(({ obj, str, text, ulid, label }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -17,6 +18,10 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
     .describe('This question\'s own "BUT NOT ..." misdirection: a clue for something that is NOT this answer but shares its name. It belongs to the question whose answer it disguises, and is displayed alongside whichever OTHER question chains to this one.')
   const title = str.max(200)
     .describe('The intended answer in as few words as possible. Does triple duty: the thing a guess is compared against, the label this question shows under other questions\' chain dropdowns, and the key an import matches questions on.')
+  const questionLabel = label
+    .describe('A freeform-editable local identifier, generated once at creation. Unlike the id, an author can read it, type it, and paste it back after a round-trip through another tool.')
+  const forced_label = label.nullable()
+    .describe('An author-chosen label overriding the generated one, or null to keep the generated one.')
   const chains_to = ulid.nullable()
     .describe('The question that follows this one in the quiz, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same quiz; anything dangling or self-referential is cleared rather than kept.')
   const clueing_ishes = IshValidators.ishes
@@ -36,6 +41,8 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
     clueing:       clueing.default(''),
     hint:          hint.default(''),
     title:         title.default(''),
+    label:         questionLabel.default(() => localBlankLabel(new Set(), mintId())),
+    forced_label:  forced_label.default(null),
     chains_to:     chains_to.default(null),
     guess:         GuessValidators.guess.default(null),
     clueing_ishes: clueing_ishes.default(null),
@@ -46,6 +53,7 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
   })
     .describe('One question in a quiz. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
+  // label and forced_label are deliberately absent: nothing revises a label yet.
   const questionPatch = obj({
     qnum:          qnum.optional(),
     clueing:       clueing.optional(),
@@ -75,6 +83,8 @@ export class Question implements QuestionT {
   declare clueing:       string
   declare hint:          string
   declare title:         string
+  declare label:         string
+  declare forced_label:  string | null
   declare chains_to:     string | null
   declare guess:         GuessT
   declare clueing_ishes: IshesT
@@ -84,7 +94,8 @@ export class Question implements QuestionT {
   declare full_answer:   string
 
   /**
-   * Validated question, with every omitted field defaulted.
+   * Validated question, with every omitted field defaulted. A blank title is populated from the
+   * label, titleized, so a fresh question reads as "Quiet Otter" rather than nothing at all.
    *
    * @param dna - At minimum an id; everything else is optional.
    * @returns A complete question.
@@ -92,7 +103,8 @@ export class Question implements QuestionT {
    * @example Question.fill({ id: mintId(), clueing: 'Who?' })
    */
   static fill(dna: QuestionDNA): QuestionT {
-    return QuestionValidators.question(dna)
+    const question = QuestionValidators.question(dna)
+    return question.title === '' ? { ...question, title: titleize(question.label) } : question
   }
 
   /**

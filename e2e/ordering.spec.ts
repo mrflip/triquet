@@ -1,10 +1,17 @@
 import { expect, test, type Page } from '@playwright/test'
 
-/** Fill the first `pairs.length` questions with a Q# and a title */
+/** Fill the first `pairs.length` questions with a Q# and a title, clearing the rest */
 async function fillQuiz(page: Page, pairs: [string, string][]) {
   for (const [ii, [qnum, answer]] of pairs.entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Title' }).nth(ii).fill(answer)
+  }
+  // A fresh question is titled from its generated label rather than left blank; clear the
+  // untouched rows so they stay genuinely unranked and unnamed, as these tests expect.
+  const titles = page.getByRole('textbox', { name: 'Title' })
+  const rowCount = await titles.count()
+  for (let idx = pairs.length; idx < rowCount; idx += 1) {
+    await titles.nth(idx).fill('')
   }
   await page.getByLabel('Quiz name').click()
 }

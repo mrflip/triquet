@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question, QuestionValidators } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
+import { titleize } from '../../src/lib/label-maker'
 
 const anId = mintId()
 
@@ -26,12 +27,13 @@ const QnumCases: [string, boolean, string][] = [
 
 describe('Question.fill', () => {
   it('defaults every field but the id', () => {
-    expect(Question.fill({ id: anId })).to.deep.eq({
+    const question = Question.fill({ id: anId })
+    expect(question).to.deep.include({
       id:            anId,
       qnum:          '',
       clueing:       '',
       hint:          '',
-      title:         '',
+      forced_label:  null,
       chains_to:     null,
       guess:         null,
       clueing_ishes: null,
@@ -40,6 +42,16 @@ describe('Question.fill', () => {
       notes:         '',
       full_answer:   '',
     })
+    expect(question.label).to.match(/^[a-z]+_[a-z]+$/)
+  })
+
+  it('populates a blank title from the generated label, titleized', () => {
+    const question = Question.fill({ id: anId })
+    expect(question.title).to.eq(titleize(question.label))
+  })
+
+  it('leaves a given title alone even though a label was generated too', () => {
+    expect(Question.fill({ id: anId, title: 'Leon' }).title).to.eq('Leon')
   })
 
   it('keeps the text it is given, untouched', () => {

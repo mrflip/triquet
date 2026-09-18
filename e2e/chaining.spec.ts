@@ -37,6 +37,10 @@ test.beforeEach(async ({ page }) => {
     ['4', 'damson', 'BUT NOT anything at all'],
     ['2', 'banana', 'BUT NOT the republic'],
   ])
+  // A fresh question is titled from its generated label rather than left blank; the fifth
+  // question needs to stay genuinely unnamed for the "(no title yet)" tests below.
+  await page.getByRole('textbox', { name: 'Title' }).nth(4).fill('')
+  await page.getByLabel('Quiz name').click()
 })
 
 test('the chain dropdown offers every other question, never this one', async ({ page }) => {
