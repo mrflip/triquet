@@ -14,6 +14,8 @@ export function Workbench() {
   const { quiz, dispatch, saveNotice } = useWorkspace()
   // The arrow marks only what was sorted in this session; the round itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
+  // The chain walk is a toggle rather than a column, so it keeps its own direction.
+  const [chainDescending, setChainDescending] = useState(true)
 
   if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>Opening your rounds&hellip;</p></main> }
 
@@ -38,6 +40,7 @@ export function Workbench() {
         lastSortkey={quiz.last_sortkey}
         sortMark={sortMark}
         onSort={onSort}
+        onChain={(question_id, chains_to) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
         onDrag={(question_id, onto_idx) => { dispatch({ kind: 'drag_question', question_id, onto_idx }) }}
       />
@@ -45,6 +48,11 @@ export function Workbench() {
         locked={quiz.locked}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
+        onSortByChain={() => {
+          const descending = ! chainDescending
+          setChainDescending(descending)
+          dispatch({ kind: 'sort_by_chain_order', descending })
+        }}
       />
       <Footnote />
     </main>

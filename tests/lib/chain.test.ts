@@ -1,0 +1,124 @@
+import { describe, expect, it } from 'vitest'
+import { chainOrder, chainSnippet, clearDanglingChains } from '../../src/lib/chain'
+import { Question, type QuestionT } from '../../src/models/question'
+import { present } from '../support/present'
+
+/**
+ * A round from `qnum, short_answer, chains_to` triples, where `chains_to` names another
+ * question by its short answer.
+ */
+function roundOf(...triples: [string, string, string | null][]): QuestionT[] {
+  const bare = triples.map(([qnum, short_answer]) => ({ ...Question.blank(), qnum, short_answer }))
+  const idForAnswer = new Map(bare.map((question) => [question.short_answer, question.id]))
+  return bare.map((question, ii) => ({
+    ...question,
+    chains_to: idForAnswer.get(present(triples[ii])[2] ?? '') ?? null,
+  }))
+}
+
+const answers = (questions: QuestionT[]) => questions.map((question) => question.short_answer)
+
+const SnippetCases: [string, string, string][] = [
+  // regular usage:
+  ["Short enough",  "Short enough",  'text under the cap comes back whole'],
+  ["BUT NOT the titular role in an internationally successful 1994 French film", "BUT NOT the titular role in an internationally…", 'long text is cut at a word boundary and gains an ellipsis'],
+  // trivial cases:
+  ["",              "",              'empty text stays empty'],
+  ["   padded   ",  "padded",        'surrounding whitespace is trimmed away'],
+  // weird cases:
+  ["a".repeat(80),  "a".repeat(50) + "…",  'a single unbroken word is cut mid-word rather than vanishing'],
+  ["x".repeat(50),  "x".repeat(50),  'text exactly at the cap is not cut'],
+]
+
+describe('chainSnippet', () => {
+  for (const [text, expected, blurb] of SnippetCases) {
+    it(blurb, () => {
+      expect(chainSnippet(text)).to.eq(expected)
+    })
+  }
+})
+
+describe('clearDanglingChains', () => {
+  it('leaves a sound chain alone', () => {
+    const questions = roundOf(['1', 'a', 'b'], ['2', 'b', null])
+    expect(clearDanglingChains(questions)[0]?.chains_to).to.eq(present(questions[1]).id)
+  })
+
+  it('clears a chain pointing at a question that is not here', () => {
+    const questions = roundOf(['1', 'a', null], ['2', 'b', null])
+    const orphaned = [{ ...present(questions[0]), chains_to: 'someone-elses-id' }]
+    expect(clearDanglingChains(orphaned)[0]?.chains_to).to.eq(null)
+  })
+
+  it('clears a question chained to itself', () => {
+    const question = present(roundOf(['1', 'a', null])[0])
+    expect(clearDanglingChains([{ ...question, chains_to: question.id }])[0]?.chains_to).to.eq(null)
+  })
+
+  it('leaves an unchained question unchained', () => {
+    expect(clearDanglingChains(roundOf(['1', 'a', null]))[0]?.chains_to).to.eq(null)
+  })
+
+  it('reads an empty round without complaint', () => {
+    expect(clearDanglingChains([])).to.deep.eq([])
+  })
+})
+
+describe('chainOrder', () => {
+  it('reads a round in presentation order however jumbled the array is', () => {
+    const questions = roundOf(['3', 'c', 'd'], ['1', 'a', 'b'], ['4', 'd', null], ['2', 'b', 'c'])
+    expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c', 'd'])
+  })
+
+  it('reads the same round backward', () => {
+    const questions = roundOf(['3', 'c', 'd'], ['1', 'a', 'b'], ['4', 'd', null], ['2', 'b', 'c'])
+    expect(answers(chainOrder(questions, true))).to.deep.eq(['d', 'c', 'b', 'a'])
+  })
+
+  it('leads with question 1 rather than with whatever chains into it', () => {
+    // 4 chains to 1, so a naive walk would start at 4 and leave question 1 waiting behind it.
+    const questions = roundOf(['4', 'd', 'a'], ['1', 'a', 'b'], ['2', 'b', 'c'], ['3', 'c', null])
+    expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c', 'd'])
+  })
+
+  it('restarts at the next unplaced question when a path runs out', () => {
+    const questions = roundOf(['1', 'a', 'b'], ['2', 'b', null], ['3', 'c', 'd'], ['4', 'd', null])
+    expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c', 'd'])
+  })
+
+  it('takes the lowest Q# first where several questions merge into one', () => {
+    // Walking back from the tail there is a genuine choice: both `early` and `late` chain into
+    // it, and the lower Q# goes next.
+    const questions = roundOf(['4', 'tail', null], ['3', 'late', 'tail'], ['2', 'early', 'tail'])
+    expect(answers(chainOrder(questions, true))).to.deep.eq(['tail', 'early', 'late'])
+  })
+
+  it('still places a question whose backward path was taken by a sibling', () => {
+    const questions = roundOf(['4', 'tail', null], ['3', 'late', 'tail'], ['2', 'early', 'tail'])
+    expect(answers(chainOrder(questions, true))).to.have.length(3)
+  })
+
+  it('places every question exactly once even when the chain is a loop', () => {
+    const questions = roundOf(['1', 'a', 'b'], ['2', 'b', 'c'], ['3', 'c', 'a'])
+    expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c'])
+  })
+
+  it('places wholly unchained questions in rank order', () => {
+    const questions = roundOf(['2', 'b', null], ['1', 'a', null], ['3', 'c', null])
+    expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c'])
+  })
+
+  it('puts questions with no Q# last, as rank order does', () => {
+    const questions = roundOf(['', 'unranked', null], ['1', 'a', null])
+    expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'unranked'])
+  })
+
+  it('leaves questions with no Q# last walking backward too -- an absent Q# is not a high one', () => {
+    const questions = roundOf(['', 'unranked', null], ['1', 'a', 'b'], ['2', 'b', null])
+    expect(answers(chainOrder(questions, true))).to.deep.eq(['b', 'a', 'unranked'])
+  })
+
+  it('reads an empty round without complaint', () => {
+    expect(chainOrder([], false)).to.deep.eq([])
+  })
+})

@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { Columns, type Colkey } from './columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { AskableCell, ReadonlyCell, SumReadout } from './cells/readouts'
+import { ButnotPreview, ChainPicker } from './cells/chain'
 import { CellNotices } from '../lib/notices'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import styles from './workbench.module.css'
@@ -17,6 +18,8 @@ export const RowFloorPx = 56
 
 export type QuestionRowProps = {
   question:    QuestionT
+  /** Every question in the round, for the columns that read across them */
+  questions:   QuestionT[]
   locked:      boolean
   gripShown:   boolean
   resizeToken: number
@@ -28,6 +31,7 @@ export type QuestionRowProps = {
   onDragOver:  () => void
   onDrop:      () => void
   onDragEnd:   () => void
+  onChain:     (chains_to: string | null) => void
   onEdit:      (patch: QuestionPatch) => void
 }
 
@@ -38,13 +42,14 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
 
   const heightPx = Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
   const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
+  const chainTarget = questions.find((other) => other.id === question.chains_to) ?? null
   const widths = useMemo(() => Object.fromEntries(Columns.map((column) => [column.colkey, column])), [])
 
   const cell = (colkey: Colkey, body: React.ReactNode) => {
@@ -111,8 +116,12 @@ export function QuestionRow({ question, locked, gripShown, resizeToken, dragging
           onCommit={(short_answer) => { commit({ short_answer }) }}
         />
       ))}
-      {cell('chains_to', <span className={styles.muted}>{CellNotices.chainUnset}</span>)}
-      {cell('butnot', <ReadonlyCell heightPx={heightPx}><span className={styles.muted}>{CellNotices.butnotNoChain}</span></ReadonlyCell>)}
+      {cell('chains_to', (
+        <ChainPicker question={question} questions={questions} locked={locked} onChain={onChain} />
+      ))}
+      {cell('butnot', (
+        <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
+      ))}
       {cell('qnum', (
         <QnumField label="Q#" committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
       ))}
@@ -141,7 +150,11 @@ export function QuestionRow({ question, locked, gripShown, resizeToken, dragging
         </AskableCell>
       ))}
       {cell('butnot_ishes', (
-        <ReadonlyCell heightPx={heightPx}><span className={styles.muted}>{CellNotices.butnotNoChain}</span></ReadonlyCell>
+        <ReadonlyCell heightPx={heightPx}>
+          <span className={styles.muted}>
+            {question.chains_to === null ? CellNotices.butnotNoChain : CellNotices.butnotIshesUnasked}
+          </span>
+        </ReadonlyCell>
       ))}
       {cell('hint_ishes', (
         <AskableCell label="Hint Ishes" locked={locked} heightPx={heightPx} onAsk={noAskYet}>

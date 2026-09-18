@@ -24,12 +24,13 @@ export type QuestionTableProps = {
   /** Which column was sorted in this session, and which way; the only thing an arrow marks */
   sortMark:     SortMark | null
   onSort:       (sortkey: Sortkey) => void
+  onChain:      (question_id: string, chains_to: string | null) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
   onDrag:       (question_id: string, onto_idx: number) => void
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
@@ -70,6 +71,7 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
             <QuestionRow
               key={question.id}
               question={question}
+              questions={questions}
               locked={locked}
               gripShown={gripShown}
               resizeToken={resizeToken}
@@ -79,6 +81,7 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               onDragOver={() => { setOverIdx(ii) }}
               onDrop={() => { settle(ii) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
+              onChain={(chains_to) => { onChain(question.id, chains_to) }}
               onEdit={(patch) => { onEdit(question.id, patch) }}
             />
           ))}
