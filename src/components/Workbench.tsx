@@ -7,11 +7,13 @@ import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
 import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
+import { useAsking } from '../state/use-asking'
 import styles from './workbench.module.css'
 
 /** The whole tool: one round on screen, saved to this browser the moment anything changes */
 export function Workbench() {
   const { quiz, dispatch, saveNotice } = useWorkspace()
+  const { asking, ask } = useAsking(dispatch)
   // The arrow marks only what was sorted in this session; the round itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
@@ -41,6 +43,8 @@ export function Workbench() {
         sortMark={sortMark}
         onSort={onSort}
         onChain={(question_id, chains_to) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }}
+        asking={asking}
+        onAsk={ask}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
         onDrag={(question_id, onto_idx) => { dispatch({ kind: 'drag_question', question_id, onto_idx }) }}
       />

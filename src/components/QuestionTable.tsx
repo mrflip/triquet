@@ -25,12 +25,14 @@ export type QuestionTableProps = {
   sortMark:     SortMark | null
   onSort:       (sortkey: Sortkey) => void
   onChain:      (question_id: string, chains_to: string | null) => void
+  asking:       (question_id: string, askkind: 'guess') => boolean
+  onAsk:        (question: QuestionT, askkind: 'guess') => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
   onDrag:       (question_id: string, onto_idx: number) => void
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
@@ -82,6 +84,8 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               onDrop={() => { settle(ii) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
+              asking={(askkind) => asking(question.id, askkind)}
+              onAsk={(askkind) => { onAsk(question, askkind) }}
               onEdit={(patch) => { onEdit(question.id, patch) }}
             />
           ))}

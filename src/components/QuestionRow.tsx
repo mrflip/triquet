@@ -6,6 +6,7 @@ import { Columns, type Colkey } from './columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { AskableCell, ReadonlyCell, SumReadout } from './cells/readouts'
 import { ButnotPreview, ChainPicker } from './cells/chain'
+import { GuessCell } from './cells/guess'
 import { CellNotices } from '../lib/notices'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import styles from './workbench.module.css'
@@ -32,6 +33,9 @@ export type QuestionRowProps = {
   onDrop:      () => void
   onDragEnd:   () => void
   onChain:     (chains_to: string | null) => void
+  /** Whether an ask for one of this question's cells is in flight */
+  asking:      (askkind: 'guess') => boolean
+  onAsk:       (askkind: 'guess') => void
   onEdit:      (patch: QuestionPatch) => void
 }
 
@@ -42,7 +46,7 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, asking, onAsk, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
 
@@ -162,9 +166,14 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
         </AskableCell>
       ))}
       {cell('guess', (
-        <AskableCell label="Quick-model guess" locked={locked} heightPx={heightPx} onAsk={noAskYet}>
-          <span className={styles.muted}>{CellNotices.askable}</span>
-        </AskableCell>
+        <GuessCell
+          guess={question.guess}
+          asking={asking('guess')}
+          askable={question.clueing.trim() !== ''}
+          locked={locked}
+          heightPx={heightPx}
+          onAsk={() => { onAsk('guess') }}
+        />
       ))}
     </tr>
   )

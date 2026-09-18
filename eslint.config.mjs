@@ -182,6 +182,8 @@ export default defineConfig([
       // Taste, and it would split the model files: `type FooT = Z.output<...>` cannot be an
       // interface, so its neighbours should not have to be either.
       '@typescript-eslint/consistent-type-definitions': 'off',
+      // STYLE.md: "Use `err`, never `error`". The rule's own default is the forbidden name.
+      'unicorn/catch-error-name': ['error', { name: 'err' }],
       // STYLE.md endorses the guard clause ("Short guards stay on one line, still braced") and
       // asks that visual weight match didactic weight: a guard is not a choice between two
       // values, and should not have to read like one.

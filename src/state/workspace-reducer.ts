@@ -2,6 +2,7 @@ import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from
 import { chainOrder, clearDanglingChains } from '../lib/chain'
 import { moveQuestion, renumberByPosition, renumberByRank } from '../lib/rank'
 import { sortQuestions, sortValueFor } from '../lib/sortings'
+import type { GuessT } from '../models/guess'
 import type { QuizT, Sortkey } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
 
@@ -16,6 +17,7 @@ export type WorkspaceAction =
   | { kind: 'drag_question', question_id: string, onto_idx: number }
   | { kind: 'set_chain', question_id: string, chains_to: string | null }
   | { kind: 'sort_by_chain_order', descending: boolean }
+  | { kind: 'set_guess', question_id: string, guess: GuessT }
 
 /**
  * The workspace as it stands after `action`.
@@ -58,6 +60,14 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     // Deliberately leaves `last_sortkey` alone. Claiming the round is now in Q# order would
     // flip the grid into a mode that immediately re-sorts, undoing the promise that nothing moved.
     return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: renumberByRank(quiz.questions) }))
+  }
+  case 'set_guess': {
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions: quiz.questions.map((question) => (
+        question.id === action.question_id ? { ...question, guess: action.guess } : question
+      )),
+    }))
   }
   case 'set_chain': {
     return reviseOpenQuiz(workspace, (quiz) => ({
