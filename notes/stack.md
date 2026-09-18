@@ -35,6 +35,7 @@ don't trust a recalled version number, including one recalled by an agent.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
 * **Turso** (libSQL) as the primary database, with **Drizzle ORM** on top. `drizzle-zod` and `drizzle-kit`, checked into the repo
   - the app must always work with turso in local mode; cloud mode is an add-on
+* pnpm
 
 ### Testing
 
