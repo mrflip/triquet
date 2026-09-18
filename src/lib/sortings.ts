@@ -23,10 +23,10 @@ export type SortValueOf = (question: QuestionT) => SortValue
  * @param descending - Whether to reverse the present values; absences stay at the bottom.
  * @returns A new array; the input is left alone.
  *
- * @example sortQuestions(questions, (question) => question.short_answer, false)
+ * @example sortQuestions(questions, (question) => question.title, false)
  */
 export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValueOf, descending: boolean): QuestionT[] {
-  const seats = new Map(questions.map((question, ii) => [question.id, ii]))
+  const seats = new Map(questions.map((question, idx) => [question.id, idx]))
   const seatOf = (question: QuestionT) => seats.get(question.id) ?? 0
 
   return questions.toSorted((aa, bb) => {
@@ -56,11 +56,11 @@ export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]):
   case 'qnum': {
     return qnumOf
   }
-  case 'short_answer': {
-    return (question) => question.short_answer
+  case 'title': {
+    return (question) => question.title
   }
   case 'chains_to': {
-    const answerForId = new Map(questions.map((question) => [question.id, question.short_answer]))
+    const answerForId = new Map(questions.map((question) => [question.id, question.title]))
     return (question) => (question.chains_to === null ? null : answerForId.get(question.chains_to) ?? null)
   }
   case 'chain_order': {

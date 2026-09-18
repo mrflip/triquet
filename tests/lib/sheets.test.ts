@@ -6,9 +6,9 @@ import { present } from '../support/present'
 
 const numeral = (text: string, value: number): IshItemT => ({ text, value, kind: 'numeral' })
 
-/** The fields of the line at `ii` */
-function fieldsOf(questions: QuestionT[], ii: number): string[] {
-  return present(sheetsExport(questions).split('\n')[ii]).split('\t')
+/** The fields of the line at `lineIdx` */
+function fieldsOf(questions: QuestionT[], lineIdx: number): string[] {
+  return present(sheetsExport(questions).split('\n')[lineIdx]).split('\t')
 }
 
 const PasteCases: [string, string, string][] = [

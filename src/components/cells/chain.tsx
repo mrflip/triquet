@@ -14,7 +14,7 @@ export type ChainPickerProps = {
   onChain:   (chains_to: string | null) => void
 }
 
-/** Which question follows this one. Every other question in the round, by its short answer. */
+/** Which question follows this one. Every other question in the round, by its title. */
 export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
   return (
     <select
@@ -27,7 +27,7 @@ export function ChainPicker({ question, questions, locked, onChain }: Readonly<C
       <option value="">{CellNotices.chainUnset}</option>
       {questions.filter((other) => other.id !== question.id).map((other) => (
         <option key={other.id} value={other.id}>
-          {other.short_answer === '' ? CellNotices.chainTargetUnnamed : other.short_answer}
+          {other.title === '' ? CellNotices.chainTargetUnnamed : other.title}
         </option>
       ))}
     </select>

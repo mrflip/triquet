@@ -44,7 +44,7 @@ export const CellNotices = {
   butnotIshesUnasked: "Not computed yet — double-click that question's Hint Ishes",
   sumUncomputable:   '–',
   chainUnset:        '— pick —',
-  chainTargetUnnamed: '(no short answer yet)',
+  chainTargetUnnamed: '(no title yet)',
   stale:             '· stale',
   truncated:         '· cut short',
 } as const

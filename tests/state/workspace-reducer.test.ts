@@ -6,14 +6,14 @@ import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { present } from '../support/present'
 
-/** A workspace holding one round built from `qnum, short_answer` pairs, open */
+/** A workspace holding one round built from `qnum, title` pairs, open */
 function workspaceOf(...pairs: [string, string][]): WorkspaceT {
-  const questions = pairs.map(([qnum, short_answer]) => ({ ...Question.blank(), qnum, short_answer }))
+  const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
   const quiz = { ...Quiz.blank('Round one'), questions }
   return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
 }
 
-const answersOf = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.short_answer)
+const answersOf = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.title)
 const qnumsOf   = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.qnum)
 
 /** A workspace holding one round of blank questions, open */
@@ -82,7 +82,7 @@ describe('workspaceReducer', () => {
       const ante = openWorkspace()
       const target = present(present(openQuizOf(ante)).questions[0])
       expect(() => workspaceReducer(ante, {
-        kind: 'edit_question', question_id: target.id, patch: { short_answer: 'x'.repeat(201) },
+        kind: 'edit_question', question_id: target.id, patch: { title: 'x'.repeat(201) },
       })).to.throw(Z.ZodError)
     })
 
@@ -96,7 +96,7 @@ describe('workspaceReducer', () => {
   describe('sort_questions', () => {
     it('commits the new order into the round rather than draping it over the top', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
-      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'short_answer', descending: false })
+      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'title', descending: false })
       expect(answersOf(after)).to.deep.eq(['apple', 'banana', 'cherry'])
     })
 
@@ -107,14 +107,14 @@ describe('workspaceReducer', () => {
 
     it('reverses when asked', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
-      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'short_answer', descending: true })
+      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'title', descending: true })
       expect(answersOf(after)).to.deep.eq(['cherry', 'banana', 'apple'])
     })
 
     it('refuses while the round is locked', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'])
       const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
-      expect(workspaceReducer(locked, { kind: 'sort_questions', sortkey: 'short_answer', descending: false })).to.eq(locked)
+      expect(workspaceReducer(locked, { kind: 'sort_questions', sortkey: 'title', descending: false })).to.eq(locked)
     })
   })
 
@@ -128,10 +128,10 @@ describe('workspaceReducer', () => {
 
     it('does not claim the round is now in Q# order, which would immediately re-sort it', () => {
       const ante = workspaceReducer(workspaceOf(['4', 'd'], ['1', 'a']), {
-        kind: 'sort_questions', sortkey: 'short_answer', descending: false,
+        kind: 'sort_questions', sortkey: 'title', descending: false,
       })
       const after = workspaceReducer(ante, { kind: 'renumber_qnums' })
-      expect(present(openQuizOf(after)).last_sortkey).to.eq('short_answer')
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('title')
     })
 
     it('refuses while the round is locked', () => {

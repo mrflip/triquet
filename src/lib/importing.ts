@@ -17,7 +17,7 @@ export type ImportIssue = {
 export type ImportLogEntry = {
   /** 1-based position in the pasted list, so the author can find it again */
   position:     number
-  short_answer: string
+  title: string
   outcome:      'merged' | 'added' | 'skipped'
   issues:       ImportIssue[]
 }
@@ -36,12 +36,12 @@ export type ImportOutcome = {
 /**
  * `pasted` merged into `quiz`.
  *
- * Questions are matched to existing ones **by short answer**, compared case-insensitively and
- * ignoring surrounding whitespace. Short answer is the right key because it is the one field
+ * Questions are matched to existing ones **by title**, compared case-insensitively and
+ * ignoring surrounding whitespace. Title is the right key because it is the one field
  * that stays stable while an author rewrites a question around it, and because ids minted in
  * another browser are meaningless here.
  *
- * Nothing is ever deleted by an import. A short answer with no match becomes a new question
+ * Nothing is ever deleted by an import. A title with no match becomes a new question
  * appended to the round; a question that fails validation is skipped entirely rather than
  * half-merged, and named in the log.
  *
@@ -49,7 +49,7 @@ export type ImportOutcome = {
  * @param pasted - Whatever is in the Import box.
  * @returns The revised round, a one-line summary, and a line per question.
  *
- * @example importInto(quiz, '[{"short_answer":"Leon","clueing":"Which region?"}]')
+ * @example importInto(quiz, '[{"title":"Leon","clueing":"Which region?"}]')
  */
 export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
   const payload = readPayload(pasted, quiz)
@@ -96,27 +96,27 @@ type MergeState = {
 }
 
 /**
- * One incoming question folded in: merged onto the question holding its short answer, or
+ * One incoming question folded in: merged onto the question holding its title, or
  * appended when nothing here holds it.
  *
  * A question that fails validation is skipped *entirely* rather than half-merged, and named in
- * the log by position and short answer. One bad question never blocks the rest of the import.
+ * the log by position and title. One bad question never blocks the rest of the import.
  */
 function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
   const bag = (raw ?? {}) as Record<string, unknown>
   const parsed = ImportValidators.importQuestion.safeParse(raw)
 
   if (! parsed.success) {
-    const shownAnswer = typeof bag.short_answer === 'string' ? bag.short_answer : ''
-    merge.log.push({ position, short_answer: shownAnswer, outcome: 'skipped', issues: issuesOf(parsed.error) })
+    const shownAnswer = typeof bag.title === 'string' ? bag.title : ''
+    merge.log.push({ position, title: shownAnswer, outcome: 'skipped', issues: issuesOf(parsed.error) })
     return
   }
 
-  if (typeof bag.id === 'string' && typeof parsed.data.short_answer === 'string') {
-    merge.answerForForeignId.set(bag.id, parsed.data.short_answer)
+  if (typeof bag.id === 'string' && typeof parsed.data.title === 'string') {
+    merge.answerForForeignId.set(bag.id, parsed.data.title)
   }
 
-  const seatIdx = seatFor(merge.questions, bag, parsed.data.short_answer ?? '')
+  const seatIdx = seatFor(merge.questions, bag, parsed.data.title ?? '')
   const seated = seatIdx === -1 ? undefined : merge.questions[seatIdx]
   const revised = { ...(seated ?? Question.fill({ id: mintId() })), ...patchFrom(bag, parsed.data) }
 
@@ -130,7 +130,7 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
       foreignTarget: typeof bag.chains_to === 'string' ? bag.chains_to : null,
     })
   }
-  merge.log.push({ position, short_answer: revised.short_answer, outcome: seated === undefined ? 'added' : 'merged', issues: [] })
+  merge.log.push({ position, title: revised.title, outcome: seated === undefined ? 'added' : 'merged', issues: [] })
 }
 
 type PayloadReading =
@@ -212,8 +212,8 @@ function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>)
 }
 
 /**
- * Chains resolved through the pasted data's own id-to-short-answer map and re-pointed at the
- * question holding that short answer here. Anything unresolvable is left unset and logged.
+ * Chains resolved through the pasted data's own id-to-title map and re-pointed at the
+ * question holding that title here. Anything unresolvable is left unset and logged.
  */
 function remapChains(
   questions: readonly QuestionT[],
@@ -222,7 +222,7 @@ function remapChains(
   log: ImportLogEntry[],
 ): QuestionT[] {
   if (orders.length === 0) { return [...questions] }
-  const idForAnswer = new Map(questions.map((question) => [matchkeyOf(question.short_answer), question.id]))
+  const idForAnswer = new Map(questions.map((question) => [matchkeyOf(question.title), question.id]))
 
   return questions.map((question) => {
     const order = orders.find((each) => each.question_id === question.id)
@@ -232,7 +232,7 @@ function remapChains(
     const foreignAnswer = answerForForeignId.get(order.foreignTarget)
     const localId = foreignAnswer === undefined ? undefined : idForAnswer.get(matchkeyOf(foreignAnswer))
     if (localId === undefined || localId === question.id) {
-      noteChainLoss(log, question.short_answer)
+      noteChainLoss(log, question.title)
       return { ...question, chains_to: null }
     }
     return { ...question, chains_to: localId }
@@ -240,8 +240,8 @@ function remapChains(
 }
 
 /** Records an unresolvable chain against the question that carried it */
-function noteChainLoss(log: ImportLogEntry[], short_answer: string) {
-  const entry = log.find((each) => each.short_answer === short_answer)
+function noteChainLoss(log: ImportLogEntry[], title: string) {
+  const entry = log.find((each) => each.title === title)
   entry?.issues.push({
     fieldpath: 'chains_to',
     message:   'Chain target could not be resolved to a question in this round; left unset',
@@ -252,28 +252,28 @@ function noteChainLoss(log: ImportLogEntry[], short_answer: string) {
 /**
  * Which existing question an incoming one belongs to, or -1 to append it.
  *
- * Short answer is the stated key, and the right one across browsers: it is the field that stays
+ * Title is the stated key, and the right one across browsers: it is the field that stays
  * stable while an author rewrites a question around it, where an id minted elsewhere means
  * nothing. But an id that names a question *in this round* is an exact match and is tried
  * first, which is what makes pasting your own export straight back idempotent -- without it,
  * every question you had not named yet would be appended as a duplicate.
  *
- * A question with neither a known id nor a short answer has no key at all, so it is appended
+ * A question with neither a known id nor a title has no key at all, so it is appended
  * rather than merged onto whichever blank it happens to sit next to.
  */
-function seatFor(questions: readonly QuestionT[], bag: Record<string, unknown>, short_answer: string): number {
+function seatFor(questions: readonly QuestionT[], bag: Record<string, unknown>, title: string): number {
   if (typeof bag.id === 'string') {
     const byId = questions.findIndex((question) => question.id === bag.id)
     if (byId !== -1) { return byId }
   }
-  const matchkey = matchkeyOf(short_answer)
+  const matchkey = matchkeyOf(title)
   if (matchkey === '') { return -1 }
-  return questions.findIndex((question) => matchkeyOf(question.short_answer) === matchkey)
+  return questions.findIndex((question) => matchkeyOf(question.title) === matchkey)
 }
 
-/** How two short answers are compared: case-insensitively, ignoring surrounding whitespace */
-export function matchkeyOf(short_answer: string): string {
-  return short_answer.trim().toLowerCase()
+/** How two titles are compared: case-insensitively, ignoring surrounding whitespace */
+export function matchkeyOf(title: string): string {
+  return title.trim().toLowerCase()
 }
 
 /** Every validation issue, with the field path, what was wrong, and the code */

@@ -19,7 +19,7 @@ export type GuessCellProps = {
 /**
  * What a fast, not-especially-careful reader answered.
  *
- * A guess that differs from the intended short answer means the question has a second reading
+ * A guess that differs from the intended title means the question has a second reading
  * the author could not see from the inside. The tool never scores that comparison for them.
  */
 export function GuessCell({ guess, asking, askable, locked, heightPx, onAsk }: Readonly<GuessCellProps>) {

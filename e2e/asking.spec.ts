@@ -7,9 +7,9 @@ async function stubAsk(page: Page, reply: unknown, status = 200) {
   })
 }
 
-/** The Quick-model guess cell of the row at `ii` */
-function guessCell(page: Page, ii: number) {
-  return page.getByRole('button', { name: 'Ask Quick-model guess' }).nth(ii)
+/** The Quick-model guess cell of the row at `rowIdx` */
+function guessCell(page: Page, rowIdx: number) {
+  return page.getByRole('button', { name: 'Ask Quick-model guess' }).nth(rowIdx)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -65,10 +65,10 @@ test('with the network off the rest of the page still edits, sorts and saves', a
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('A connection hiccup — try again.')
 
-  await page.getByRole('textbox', { name: 'Short answer' }).first().fill('Leon')
-  await page.getByRole('button', { name: 'Short answer' }).click()
+  await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
+  await page.getByRole('button', { name: 'Title' }).click()
   await page.getByLabel('Round name').fill('Still working')
   await page.reload()
   await expect(page.getByLabel('Round name')).toHaveValue('Still working')
-  await expect(page.getByRole('textbox', { name: 'Short answer' }).first()).toHaveValue('Leon')
+  await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Leon')
 })

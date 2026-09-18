@@ -6,7 +6,7 @@ export const GuessValidators = Validator(({ obj, str, bool, timestamp, lit, disc
   const guessDone = obj({
     status:             lit('done'),
     text:               str
-      .describe('The model\'s answer, as one line, verbatim and untrimmed of its own wording. The author compares this against the intended short answer by eye; the tool never scores the comparison for them.'),
+      .describe('The model\'s answer, as one line, verbatim and untrimmed of its own wording. The author compares this against the intended title by eye; the tool never scores the comparison for them.'),
     model_tier_applied: AskValidators.modelTier.optional(),
     truncated:          bool.default(false),
     approx_tokens:      AskValidators.approxTokens.optional(),
@@ -14,7 +14,7 @@ export const GuessValidators = Validator(({ obj, str, bool, timestamp, lit, disc
   })
 
   const guess = discrim('status', [guessDone, AskValidators.askError]).nullable()
-    .describe('What a fast, not-especially-careful reader answered, or null when never asked. This is the ambiguity signal: a guess that differs from the intended short answer means the question has a second reading the author could not see from the inside.')
+    .describe('What a fast, not-especially-careful reader answered, or null when never asked. This is the ambiguity signal: a guess that differs from the intended title means the question has a second reading the author could not see from the inside.')
 
   return { guessDone, guess }
 })

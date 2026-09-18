@@ -51,10 +51,10 @@ Tags to append or use directly:
   - all of these, and tag, should apply strict identifier validation: `\w` only, starts with a letter, ends with a letter or number, two or more characters; usually also lowercase-only
 * `props` and `propnames` for structured objects; `fieldnames` and `fields` for their definitions (i.e. the fields of the class are the props of the instance)
 * `iter`           -- sequence iteration counter
-* `iter` or `ii`/`jj`/`kk` for loop iterators in local scope only. Don't use any of those as a parameter name or as a keyword arg or field name; use `seq` in that weird case
+* `ii`/`jj`/`kk` are for a literal `for (...)` loop's own bound variable ONLY -- `for (const [ii, foo] of foos.entries())`, `for (let ii = 0; ...)`. Never as a lambda/callback parameter, a named function parameter, a keyword arg, or a field name: an array index reaching a parameter list is `idx`, or a more specific `fooIdx` when a salient noun is in scope (`lineIdx`, `rowIdx`) -- `foos.map((foo, idx) => ...)`, never `foos.map((foo, ii) => ...)`
   - `row`, `col`, `lvl` for element indexes in a grid pattern (use  `horiz` and `vert` exactly and only in their precise meaning).
   * You may use `iter` or `seq`, `fooIter` or `fooSeq`, `fooIter0 / fooIter1 / fooIter2` as varnames, but `ii/jj/kk` are never foo'ed
-  - (Also keep in mind we prefer functional programming -- eschew index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, ii) => {})` is useable)
+  - (Also keep in mind we prefer functional programming -- eschew index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, idx) => {})` is useable)
 * `count` or `ct`  -- reported quantity
 * `qty` or `nFoos` -- input quantity
 * `dotkey`         -- string with dotted segments to indicate a ckey path

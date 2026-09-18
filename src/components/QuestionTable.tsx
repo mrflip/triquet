@@ -78,7 +78,7 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
           </tr>
         </thead>
         <tbody>
-          {questions.map((question, ii) => (
+          {questions.map((question, idx) => (
             <QuestionRow
               key={question.id}
               question={question}
@@ -87,10 +87,10 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               gripShown={gripShown}
               resizeToken={resizeToken}
               dragging={draggingId === question.id}
-              dropTarget={overIdx === ii && draggingId !== null && draggingId !== question.id}
+              dropTarget={overIdx === idx && draggingId !== null && draggingId !== question.id}
               onDragBegin={() => { setDraggingId(question.id) }}
-              onDragOver={() => { setOverIdx(ii) }}
-              onDrop={() => { settle(ii) }}
+              onDragOver={() => { setOverIdx(idx) }}
+              onDrop={() => { settle(idx) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
               sums={sums.get(question.id) ?? EmptySums}

@@ -1,30 +1,30 @@
 import { expect, test, type Page } from '@playwright/test'
 
-/** Fill the first questions with a Q#, a short answer and a hint */
+/** Fill the first questions with a Q#, a title and a hint */
 async function fillRound(page: Page, rows: [string, string, string][]) {
   for (const [ii, [qnum, answer, hint]] of rows.entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
-    await page.getByRole('textbox', { name: 'Short answer' }).nth(ii).fill(answer)
+    await page.getByRole('textbox', { name: 'Title' }).nth(ii).fill(answer)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(hint)
   }
   await page.getByLabel('Round name').click()
 }
 
-/** Chain the question at `ii` to the one labelled `answer` */
-async function chainTo(page: Page, ii: number, answer: string) {
-  await page.getByRole('combobox', { name: 'Chains to' }).nth(ii).selectOption({ label: answer })
+/** Chain the question at `rowIdx` to the one labelled `answer` */
+async function chainTo(page: Page, rowIdx: number, answer: string) {
+  await page.getByRole('combobox', { name: 'Chains to' }).nth(rowIdx).selectOption({ label: answer })
 }
 
-/** The short answers, top to bottom, once the grid is on screen */
+/** The titles, top to bottom, once the grid is on screen */
 async function answersShown(page: Page): Promise<string[]> {
-  const fields = page.getByRole('textbox', { name: 'Short answer' })
+  const fields = page.getByRole('textbox', { name: 'Title' })
   await expect(fields.first()).toBeVisible()
   return fields.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))
 }
 
-/** The BUT NOT cell of the row at `ii` */
-function butnotCell(page: Page, ii: number) {
-  return page.locator('tbody tr').nth(ii).locator('td[data-colname="BUT NOT"] > div')
+/** The BUT NOT cell of the row at `rowIdx` */
+function butnotCell(page: Page, rowIdx: number) {
+  return page.locator('tbody tr').nth(rowIdx).locator('td[data-colname="BUT NOT"] > div')
 }
 
 test.beforeEach(async ({ page }) => {
@@ -42,7 +42,7 @@ test.beforeEach(async ({ page }) => {
 test('the chain dropdown offers every other question, never this one', async ({ page }) => {
   const picker = page.getByRole('combobox', { name: 'Chains to' }).first()
   const labels = await picker.locator('option').evaluateAll((nodes) => nodes.map((node) => node.textContent))
-  expect(labels).toEqual(['— pick —', 'apple', 'damson', 'banana', '(no short answer yet)'])
+  expect(labels).toEqual(['— pick —', 'apple', 'damson', 'banana', '(no title yet)'])
 })
 
 test('BUT NOT previews the chained-to question\'s hint, not this one\'s', async ({ page }) => {
@@ -59,7 +59,7 @@ test('a long hint is previewed as a snippet, with the whole of it on hover', asy
 test('BUT NOT says so before a chain is picked, and when the target has no hint', async ({ page }) => {
   await expect(page.getByText('Pick a chain target').first()).toBeVisible()
   // The fifth question is still blank, so it has no hint to preview.
-  await chainTo(page, 0, '(no short answer yet)')
+  await chainTo(page, 0, '(no title yet)')
   await expect(butnotCell(page, 0)).toHaveText('No hint entered yet')
 })
 

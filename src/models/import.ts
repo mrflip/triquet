@@ -14,7 +14,7 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
     qnum:          str.regex(/^(\d+(\.\d+)?)?$/).nullable().optional(),
     clueing:       text.nullable().optional(),
     hint:          text.nullable().optional(),
-    short_answer:  str.max(200).nullable().optional(),
+    title:         str.max(200).nullable().optional(),
     chains_to:     foreignId.nullable().optional(),
     guess:         GuessValidators.guess.optional(),
     clueing_ishes: IshValidators.ishes.optional(),
@@ -55,7 +55,7 @@ export type ImportPayloadT    = Z.output<typeof ImportValidators.importPayload>
 
 /** Fields an import may revise; the id is not among them, and neither is anything derived */
 export const ImportableFieldnames = [
-  'qnum', 'clueing', 'hint', 'short_answer', 'chains_to',
+  'qnum', 'clueing', 'hint', 'title', 'chains_to',
   'guess', 'clueing_ishes', 'hint_ishes', 'alt_text', 'notes', 'full_answer',
 ] as const
 export type ImportableFieldname = typeof ImportableFieldnames[number]
@@ -65,7 +65,7 @@ export const ClearedValueFor: Record<ImportableFieldname, string | null> = {
   qnum:          '',
   clueing:       '',
   hint:          '',
-  short_answer:  '',
+  title:         '',
   chains_to:     null,
   guess:         null,
   clueing_ishes: null,

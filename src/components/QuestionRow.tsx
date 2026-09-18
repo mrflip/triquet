@@ -104,13 +104,19 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
         onDrop()
       }}
     >
+      {cell('title', (
+        <PlainField
+          label="Title" committed={question.title} locked={locked}
+          onCommit={(title) => { commit({ title }) }}
+        />
+      ))}
       {cell('grip', (
         <div
           className={clsx(styles.grip, locked && styles.gripLocked)}
           draggable={draggable}
           role="button"
           tabIndex={draggable ? 0 : -1}
-          aria-label={`Reorder ${question.short_answer || 'this question'}`}
+          aria-label={`Reorder ${question.title || 'this question'}`}
           onDragStart={onDragBegin}
           onDragEnd={onDragEnd}
         >
@@ -129,12 +135,6 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
           label="Hint" committed={question.hint} locked={locked}
           onCommit={(hint) => { commit({ hint }) }}
           heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken}
-        />
-      ))}
-      {cell('short_answer', (
-        <PlainField
-          label="Short answer" committed={question.short_answer} locked={locked}
-          onCommit={(short_answer) => { commit({ short_answer }) }}
         />
       ))}
       {cell('chains_to', (

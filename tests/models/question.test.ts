@@ -31,7 +31,7 @@ describe('Question.fill', () => {
       qnum:          '',
       clueing:       '',
       hint:          '',
-      short_answer:  '',
+      title:         '',
       chains_to:     null,
       guess:         null,
       clueing_ishes: null,
@@ -59,8 +59,8 @@ describe('Question.fill', () => {
     expect(() => Question.fill({ id: 'question-1' })).to.throw(Z.ZodError)
   })
 
-  it('rejects a short answer past 200 characters', () => {
-    expect(() => Question.fill({ id: anId, short_answer: 'x'.repeat(201) })).to.throw(Z.ZodError)
+  it('rejects a title past 200 characters', () => {
+    expect(() => Question.fill({ id: anId, title: 'x'.repeat(201) })).to.throw(Z.ZodError)
   })
 
   it('accepts a done guess and a done extraction', () => {
@@ -89,7 +89,7 @@ describe('Question.fill', () => {
 
 describe('QuestionValidators.questionPatch', () => {
   it('carries only the fields the patch names', () => {
-    expect(QuestionValidators.questionPatch({ short_answer: 'Leon' })).to.deep.eq({ short_answer: 'Leon' })
+    expect(QuestionValidators.questionPatch({ title: 'Leon' })).to.deep.eq({ title: 'Leon' })
   })
 
   it('reads an empty patch as "change nothing"', () => {
@@ -97,7 +97,7 @@ describe('QuestionValidators.questionPatch', () => {
   })
 
   it('never fills an absent field in with a default, which would wipe what the author had', () => {
-    const patch = QuestionValidators.questionPatch({ short_answer: 'Leon' })
+    const patch = QuestionValidators.questionPatch({ title: 'Leon' })
     expect(patch).to.not.have.property('clueing')
     expect(patch).to.not.have.property('chains_to')
   })

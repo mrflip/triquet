@@ -3,13 +3,13 @@ import { inRankOrder, moveQuestion, qnumOf, ranksOf, renumberByPosition, renumbe
 import { Question, type QuestionT } from '../../src/models/question'
 import { present } from '../support/present'
 
-/** A round built from `qnum, short_answer` pairs, in the order given */
+/** A round built from `qnum, title` pairs, in the order given */
 function roundOf(...pairs: [string, string][]): QuestionT[] {
-  return pairs.map(([qnum, short_answer]) => ({ ...Question.blank(), qnum, short_answer }))
+  return pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
 }
 
 const qnums = (questions: QuestionT[]) => questions.map((question) => question.qnum)
-const answers = (questions: QuestionT[]) => questions.map((question) => question.short_answer)
+const answers = (questions: QuestionT[]) => questions.map((question) => question.title)
 
 const QnumCases: [string, number | null, string][] = [
   // regular usage:
@@ -39,7 +39,7 @@ describe('ranksOf', () => {
     expect(ranks(questions)).to.deep.eq([1, null])
   })
 
-  it('settles a duplicated Q# alphabetically by short answer, ignoring case', () => {
+  it('settles a duplicated Q# alphabetically by title, ignoring case', () => {
     const questions = roundOf(['1', 'zebra'], ['1', 'Antelope'])
     expect(ranks(questions)).to.deep.eq([2, 1])
   })

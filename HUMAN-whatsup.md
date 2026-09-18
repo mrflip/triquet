@@ -28,11 +28,11 @@ the end in both directions: an absent Q# is not a high one.
 joiner stutters. `foldButnot` supplies the phrase only when the hint doesn't carry it. If hints
 are meant to be stored *without* the prefix, say so and this gets simpler.
 
-**Import matches on id before short answer -- but only a local id.** Without this, pasting your
+**Import matches on id before title -- but only a local id.** Without this, pasting your
 own export straight back appends a duplicate of every question you hadn't named yet, which
-breaks M8's own "done when". Ids from another browser still mean nothing, so short answer is
+breaks M8's own "done when". Ids from another browser still mean nothing, so title is
 still the key that matters for the cross-browser case. Related: a pasted question with neither a
-known id nor a short answer is *appended* rather than merged onto whichever blank it happens to
+known id nor a title is *appended* rather than merged onto whichever blank it happens to
 sit next to. Both are judgement calls.
 
 **Sorting by an ishes column sorts by how many spans were found.** §5 lists `q_ishes`/`bn_ishes`/
@@ -70,7 +70,7 @@ Worth recording because two of them were silent data loss.
 
 1. **`QuestionPatch` was `question.partial()`** -- and Zod applies a field's `.default()` through
    `.partial()`. Committing one field therefore carried every other field's default along and
-   wiped what the author had: typing a short answer erased the clueing next to it. Found by the
+   wiped what the author had: typing a title erased the clueing next to it. Found by the
    very first Playwright run. The patch schema is now built from defaultless field schemas. This
    is the same caveat §5 flags for the import path, met a milestone early.
 2. **Sortable ish headers collided with askable cells** -- both became buttons named "Clueing

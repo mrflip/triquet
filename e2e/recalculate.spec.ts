@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
-/** The cell of column `colname` in the row at `ii` */
-function cellOf(page: Page, ii: number, colname: string) {
-  return page.locator('tbody tr').nth(ii).locator(`td[data-colname="${colname}"]`)
+/** The cell of column `colname` in the row at `rowIdx` */
+function cellOf(page: Page, rowIdx: number, colname: string) {
+  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
 }
 
 /** Answer the combined run by giving every key one span worth `value` */

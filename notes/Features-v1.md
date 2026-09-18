@@ -73,7 +73,9 @@ with STYLE.md
 > `question`→`clueing`, `ai`→`guess`, `numbers`→`clueing_ishes`, `hintNumbers`→`hint_ishes`,
 > `altText`→`alt_text`, `fullAnswer`→`full_answer`, `rows`→`questions`,
 > `activeQuizId`→`active_quiz_id`, `BulkIshesRun.items`→`text_count`, and ModelTier's
-> `'default'`→`'careful'`. Judgement calls and open questions are in `/HUMAN-whatsup.md`.
+> `'default'`→`'quick'` (its Zod schema default too). A later pass renamed `short_answer`→
+> `title` and made it the leftmost grid column. Judgement calls and open questions are in
+> `/HUMAN-whatsup.md`.
 
 ## 2. Domain model
 

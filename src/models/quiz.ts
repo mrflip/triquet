@@ -6,7 +6,7 @@ import { Question, QuestionValidators, type QuestionT } from './question'
 
 /** Every column or ordering a round can have been committed into */
 export const SortkeyVals = [
-  'qnum', 'short_answer', 'chains_to', 'clueing_plus_rank',
+  'qnum', 'title', 'chains_to', 'clueing_plus_rank',
   'clueing_full', 'clueing_numeral', 'butnot_full', 'butnot_numeral',
   'hint_full', 'hint_numeral', 'clueing_plus_butnot_full',
   'clueing_ishes', 'butnot_ishes', 'hint_ishes',

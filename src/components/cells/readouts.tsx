@@ -17,10 +17,10 @@ export function SumReadout({ total, stale }: Readonly<{ total: number | null, st
   const groups = total.toLocaleString('en-US').split(',')
   return (
     <span className={stale ? styles.stale : undefined}>
-      {groups.map((group, ii) => (
-        <span key={`${group}-${String(ii)}`}>
-          {ii > 0 ? ',' : ''}
-          {ii > 0 ? <wbr /> : null}
+      {groups.map((group, idx) => (
+        <span key={`${group}-${String(idx)}`}>
+          {idx > 0 ? ',' : ''}
+          {idx > 0 ? <wbr /> : null}
           {group}
         </span>
       ))}

@@ -17,9 +17,9 @@ async function stubIshes(page: Page, items: unknown[]) {
   })
 }
 
-/** The cell of column `colname` in the row at `ii` */
-function cellOf(page: Page, ii: number, colname: string) {
-  return page.locator('tbody tr').nth(ii).locator(`td[data-colname="${colname}"]`)
+/** The cell of column `colname` in the row at `rowIdx` */
+function cellOf(page: Page, rowIdx: number, colname: string) {
+  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -75,7 +75,7 @@ test('editing the clueing greys the sums without emptying them', async ({ page }
 })
 
 test('BUT NOT ishes mirrors the chained-to hint rather than computing its own', async ({ page }) => {
-  await page.getByRole('textbox', { name: 'Short answer' }).nth(1).fill('damson')
+  await page.getByRole('textbox', { name: 'Title' }).nth(1).fill('damson')
   await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(1).fill('BUT NOT the 1994 film')
   await page.getByLabel('Round name').click()
   await page.getByRole('combobox', { name: 'Chains to' }).first().selectOption({ label: 'damson' })

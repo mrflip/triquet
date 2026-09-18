@@ -2,7 +2,7 @@ import type { Sortkey } from '../models/quiz'
 
 /** Every column in the grid, in the order it appears */
 export const ColkeyVals = [
-  'grip', 'clueing', 'hint', 'short_answer', 'chains_to', 'butnot', 'qnum',
+  'title', 'grip', 'clueing', 'hint', 'chains_to', 'butnot', 'qnum',
   'clueing_plus_rank', 'clueing_full', 'clueing_numeral',
   'butnot_full', 'butnot_numeral', 'hint_full', 'hint_numeral', 'clueing_plus_butnot_full',
   'alt_text', 'notes', 'full_answer',
@@ -30,10 +30,10 @@ export type ColumnSpec = {
  * than their 78px, so those headers are rotated rather than wrapped.
  */
 export const Columns: readonly ColumnSpec[] = [
+  { colkey: 'title',                    title: 'Title',                widthPx: 100, headkind: 'plain', sortkey: 'title' },
   { colkey: 'grip',                     title: '',                     widthPx:  32, headkind: 'plain'    },
   { colkey: 'clueing',                  title: 'Clueing',              widthPx: 330, headkind: 'plain'    },
   { colkey: 'hint',                     title: 'Hint',                 widthPx: 330, headkind: 'plain'    },
-  { colkey: 'short_answer',             title: 'Short answer',         widthPx: 100, headkind: 'plain', sortkey: 'short_answer' },
   { colkey: 'chains_to',                title: 'Chains to',            widthPx: 120, headkind: 'plain', sortkey: 'chains_to' },
   { colkey: 'butnot',                   title: 'BUT NOT',              widthPx: 180, headkind: 'plain'    },
   { colkey: 'qnum',                     title: 'Q#',                   widthPx:  60, headkind: 'plain', sortkey: 'qnum' },

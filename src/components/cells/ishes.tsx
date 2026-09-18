@@ -66,8 +66,8 @@ function IshesBody({ ishes }: Readonly<{ ishes: IshesT }>) {
     <div className={clsx(ishes.stale && styles.stale)}>
       {ishes.items.length === 0
         ? <span className={styles.muted}>{CellNotices.ishesNoneFound}</span>
-        : ishes.items.map((item, ii) => (
-          <div key={`${item.text}-${String(ii)}`}>
+        : ishes.items.map((item, idx) => (
+          <div key={`${item.text}-${String(idx)}`}>
             {item.text} <span className={styles.muted}>= {item.value.toLocaleString('en-US')}</span>
             {item.kind === 'wordish' ? <span className={styles.muted}> w</span> : null}
           </div>

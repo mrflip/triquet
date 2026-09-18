@@ -3,14 +3,14 @@ import { sortQuestions, sortValueFor } from '../../src/lib/sortings'
 import { Question, type QuestionT } from '../../src/models/question'
 import { present } from '../support/present'
 
-/** A round built from `qnum, short_answer` pairs, in the order given */
+/** A round built from `qnum, title` pairs, in the order given */
 function roundOf(...pairs: [string, string][]): QuestionT[] {
-  return pairs.map(([qnum, short_answer]) => ({ ...Question.blank(), qnum, short_answer }))
+  return pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
 }
 
-const answers = (questions: QuestionT[]) => questions.map((question) => question.short_answer)
+const answers = (questions: QuestionT[]) => questions.map((question) => question.title)
 
-const byAnswer = (question: QuestionT) => question.short_answer
+const byAnswer = (question: QuestionT) => question.title
 const byQnumOrNull = (question: QuestionT) => (question.qnum === '' ? null : Number(question.qnum))
 
 describe('sortQuestions', () => {
@@ -73,7 +73,7 @@ describe('sortValueFor', () => {
     expect(answers(sorted)).to.deep.eq(['nine', 'ten'])
   })
 
-  it('reads a chain as the label the author sees: the target\'s short answer', () => {
+  it('reads a chain as the label the author sees: the target\'s title', () => {
     const questions = roundOf(['', 'aardvark'], ['', 'zebra'], ['', 'moose'])
     const [aardvark, zebra, moose] = questions.map((question) => present(question))
     const chained = [

@@ -38,7 +38,7 @@ export function ranksOf(questions: readonly QuestionT[]): RankForId {
 }
 
 /**
- * `questions` in rank order: Q# ascending, blanks last, ties settled by short answer.
+ * `questions` in rank order: Q# ascending, blanks last, ties settled by title.
  *
  * This is the order every export uses, whatever the grid is currently sorted or dragged into.
  *
@@ -78,7 +78,7 @@ export function renumberByRank(questions: readonly QuestionT[]): QuestionT[] {
  * @returns A new array in the same order, numbered from 1.
  */
 export function renumberByPosition(questions: readonly QuestionT[]): QuestionT[] {
-  return questions.map((question, ii) => ({ ...question, qnum: String(ii + 1) }))
+  return questions.map((question, idx) => ({ ...question, qnum: String(idx + 1) }))
 }
 
 /**
@@ -99,7 +99,7 @@ export function moveQuestion(questions: readonly QuestionT[], question_id: strin
   return lifted
 }
 
-/** Rank order: Q# ascending, blanks last and rankless, ties broken by short answer */
+/** Rank order: Q# ascending, blanks last and rankless, ties broken by title */
 function byQnumThenAnswer(aa: QuestionT, bb: QuestionT): number {
   const aaNum = qnumOf(aa)
   const bbNum = qnumOf(bb)
@@ -107,5 +107,5 @@ function byQnumThenAnswer(aa: QuestionT, bb: QuestionT): number {
   if (aaNum === null) { return 1 }
   if (bbNum === null) { return -1 }
   if (aaNum !== bbNum) { return aaNum - bbNum }
-  return aa.short_answer.localeCompare(bb.short_answer, undefined, { sensitivity: 'base' })
+  return aa.title.localeCompare(bb.title, undefined, { sensitivity: 'base' })
 }

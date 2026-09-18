@@ -4,19 +4,19 @@ import { Question, type QuestionT } from '../../src/models/question'
 import { present } from '../support/present'
 
 /**
- * A round from `qnum, short_answer, chains_to` triples, where `chains_to` names another
- * question by its short answer.
+ * A round from `qnum, title, chains_to` triples, where `chains_to` names another
+ * question by its title.
  */
 function roundOf(...triples: [string, string, string | null][]): QuestionT[] {
-  const bare = triples.map(([qnum, short_answer]) => ({ ...Question.blank(), qnum, short_answer }))
-  const idForAnswer = new Map(bare.map((question) => [question.short_answer, question.id]))
-  return bare.map((question, ii) => ({
+  const bare = triples.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
+  const idForAnswer = new Map(bare.map((question) => [question.title, question.id]))
+  return bare.map((question, idx) => ({
     ...question,
-    chains_to: idForAnswer.get(present(triples[ii])[2] ?? '') ?? null,
+    chains_to: idForAnswer.get(present(triples[idx])[2] ?? '') ?? null,
   }))
 }
 
-const answers = (questions: QuestionT[]) => questions.map((question) => question.short_answer)
+const answers = (questions: QuestionT[]) => questions.map((question) => question.title)
 
 const SnippetCases: [string, string, string][] = [
   // regular usage:

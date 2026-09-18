@@ -15,7 +15,7 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
     .describe('The question as it will be asked. Markdown-ish emphasis, quoted verse, and non-Latin scripts all appear in real rounds and must survive untouched; the tool never rewrites this text.')
   const hint = text
     .describe('This question\'s own "BUT NOT ..." misdirection: a clue for something that is NOT this answer but shares its name. It belongs to the question whose answer it disguises, and is displayed alongside whichever OTHER question chains to this one.')
-  const short_answer = str.max(200)
+  const title = str.max(200)
     .describe('The intended answer in as few words as possible. Does triple duty: the thing a guess is compared against, the label this question shows under other questions\' chain dropdowns, and the key an import matches questions on.')
   const chains_to = ulid.nullable()
     .describe('The question that follows this one in the round, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same round; anything dangling or self-referential is cleared rather than kept.')
@@ -28,14 +28,14 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
   const notes = text
     .describe('Second freeform notes column, carried through to the spreadsheet export.')
   const full_answer = text
-    .describe('The long-form answer as it will actually be read out, as opposed to the terse short answer used for matching and chaining.')
+    .describe('The long-form answer as it will actually be read out, as opposed to the terse title used for matching and chaining.')
 
   const question = obj({
     id:            ulid,
     qnum:          qnum.default(''),
     clueing:       clueing.default(''),
     hint:          hint.default(''),
-    short_answer:  short_answer.default(''),
+    title:         title.default(''),
     chains_to:     chains_to.default(null),
     guess:         GuessValidators.guess.default(null),
     clueing_ishes: clueing_ishes.default(null),
@@ -50,7 +50,7 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
     qnum:          qnum.optional(),
     clueing:       clueing.optional(),
     hint:          hint.optional(),
-    short_answer:  short_answer.optional(),
+    title:         title.optional(),
     chains_to:     chains_to.optional(),
     guess:         GuessValidators.guess.optional(),
     clueing_ishes: clueing_ishes.optional(),
@@ -74,7 +74,7 @@ export class Question implements QuestionT {
   declare qnum:          string
   declare clueing:       string
   declare hint:          string
-  declare short_answer:  string
+  declare title:         string
   declare chains_to:     string | null
   declare guess:         GuessT
   declare clueing_ishes: IshesT
