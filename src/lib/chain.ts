@@ -25,10 +25,10 @@ export function chainSnippet(text: string): string {
 /**
  * `questions` with every chain that points nowhere, or at itself, cleared.
  *
- * Run whenever the round's membership changes underneath a chain. A dangling chain is cleared
+ * Run whenever the quiz's membership changes underneath a chain. A dangling chain is cleared
  * rather than kept, because a pointer to a question that is not there is not information.
  *
- * @param questions - The round's questions.
+ * @param questions - The quiz's questions.
  * @returns A new array; questions with sound chains are returned unchanged.
  */
 export function clearDanglingChains(questions: readonly QuestionT[]): QuestionT[] {
@@ -44,13 +44,13 @@ export function clearDanglingChains(questions: readonly QuestionT[]): QuestionT[
  * `questions` walked along the chains they form, rather than sorted by any column.
  *
  * Ascending starts at the lowest-Q# question and follows its chain onward, which reads the
- * round in the order a player receives it. Descending starts at the highest and steps to
- * whatever chains *into* the current question, which reads the same round backward. Where
+ * quiz in the order a player receives it. Descending starts at the highest and steps to
+ * whatever chains *into* the current question, which reads the same quiz backward. Where
  * several questions merge into one, the lowest Q# among them goes next. When a path runs out,
  * the walk restarts at the next unplaced question, so every question is placed exactly once
- * however tangled or unchained the round is.
+ * however tangled or unchained the quiz is.
  *
- * @param questions - The round's questions, in their committed display order.
+ * @param questions - The quiz's questions, in their committed display order.
  * @param descending - Whether to walk the chains backward.
  * @returns A new array holding every question exactly once.
  */
@@ -89,7 +89,7 @@ export function chainOrder(questions: readonly QuestionT[], descending: boolean)
 /**
  * Which questions chain into each question, lowest Q# first.
  *
- * @param ranked - The round's questions, already in rank order.
+ * @param ranked - The quiz's questions, already in rank order.
  * @returns For each question's id, the questions pointing at it.
  */
 function chainedIntoLookup(ranked: readonly QuestionT[]): Map<string, QuestionT[]> {

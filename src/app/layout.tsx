@@ -8,7 +8,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title:       'Triquet',
-  description: 'A workbench for drafting trivia rounds and checking them for ambiguity, accuracy and hidden numbers.',
+  description: 'A workbench for drafting trivia quizzes and checking them for ambiguity, accuracy and hidden numbers.',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

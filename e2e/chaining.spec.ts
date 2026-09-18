@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /** Fill the first questions with a Q#, a title and a hint */
-async function fillRound(page: Page, rows: [string, string, string][]) {
+async function fillQuiz(page: Page, rows: [string, string, string][]) {
   for (const [ii, [qnum, answer, hint]] of rows.entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Title' }).nth(ii).fill(answer)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(hint)
   }
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 }
 
 /** Chain the question at `rowIdx` to the one labelled `answer` */
@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
-  await fillRound(page, [
+  await fillQuiz(page, [
     ['3', 'cherry', 'BUT NOT the fruit-flavoured one'],
     ['1', 'apple',  'BUT NOT the company from Cupertino, founded in 1976'],
     ['4', 'damson', 'BUT NOT anything at all'],
@@ -63,7 +63,7 @@ test('BUT NOT says so before a chain is picked, and when the target has no hint'
   await expect(butnotCell(page, 0)).toHaveText('No hint entered yet')
 })
 
-test('sort by chain order reads the round in presentation order, and backward', async ({ page }) => {
+test('sort by chain order reads the quiz in presentation order, and backward', async ({ page }) => {
   await chainTo(page, 1, 'banana')
   await chainTo(page, 3, 'cherry')
   await chainTo(page, 0, 'damson')

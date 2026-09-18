@@ -12,16 +12,16 @@ import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
 import styles from './workbench.module.css'
 
-/** The whole tool: one round on screen, saved to this browser the moment anything changes */
+/** The whole tool: one quiz on screen, saved to this browser the moment anything changes */
 export function Workbench() {
   const { workspace, quiz, dispatch, saveNotice } = useWorkspace()
   const { asking, ask, recalculateAll, running, runNotice } = useAsking(dispatch)
-  // The arrow marks only what was sorted in this session; the round itself remembers the column.
+  // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
 
-  if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>Opening your rounds&hellip;</p></main> }
+  if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>Opening your quizzes&hellip;</p></main> }
 
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false

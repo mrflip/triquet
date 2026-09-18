@@ -1,26 +1,26 @@
 import { inRankOrder, ranksOf } from './rank'
-import { sumsForRound } from './sums'
+import { sumsForQuiz } from './sums'
 import type { QuestionT } from '../models/question'
 
 /** How many tab-separated fields each line carries */
 export const SheetsFieldCount = 7
 
 /**
- * The round as tab-separated lines, ready to paste into a spreadsheet.
+ * The quiz as tab-separated lines, ready to paste into a spreadsheet.
  *
  * Always in **rank order**, whatever the grid is currently sorted or dragged into, and the first
  * field is the **rank** rather than the raw Q#, which may be gappy, decimal or duplicated
  * mid-draft. A quizmaster pasting into a sheet wants 1, 2, 3, and wants the same result whether
  * they last sorted by chain order or by Hint Numeral sum.
  *
- * @param questions - The round's questions, in any order.
+ * @param questions - The quiz's questions, in any order.
  * @returns One line per question, seven tab-separated fields each.
  *
  * @example sheetsExport(quiz.questions).split('\n').length  // => one line per question
  */
 export function sheetsExport(questions: readonly QuestionT[]): string {
   const ranks = ranksOf(questions)
-  const sums = sumsForRound(questions)
+  const sums = sumsForQuiz(questions)
   const questionForId = new Map(questions.map((question) => [question.id, question]))
 
   return inRankOrder(questions).map((question) => {

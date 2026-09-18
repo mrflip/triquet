@@ -24,13 +24,13 @@ describe('Quiz.fill', () => {
     expect(quiz.questions.map((question) => question.id)).to.deep.eq([three.id, two.id, one.id])
   })
 
-  it('accepts a chain between two questions in the round', () => {
+  it('accepts a chain between two questions in the quiz', () => {
     const [ante, post] = [Question.blank(), Question.blank()]
     const quiz = Quiz.fill({ id: quizId, questions: [{ ...ante, chains_to: post.id }, post] })
     expect(quiz.questions[0]?.chains_to).to.eq(post.id)
   })
 
-  it('refuses a chain pointing at a question in no round', () => {
+  it('refuses a chain pointing at a question in no quiz', () => {
     const question = Question.blank()
     expect(() => Quiz.fill({ id: quizId, questions: [{ ...question, chains_to: mintId() }] })).to.throw(Z.ZodError)
   })
@@ -77,6 +77,6 @@ describe('Quiz.blank', () => {
   })
 
   it('takes a title when one is offered', () => {
-    expect(Quiz.blank('Round two').title).to.eq('Round two')
+    expect(Quiz.blank('Quiz two').title).to.eq('Quiz two')
   })
 })

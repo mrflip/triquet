@@ -5,8 +5,8 @@ import { Question, type QuestionT } from '../../../src/models/question'
 import type { BulkReplyT } from '../../../src/lib/ask/contract'
 import { present } from '../../support/present'
 
-/** A round from `clueing, hint` pairs */
-function roundOf(...pairs: [string, string][]): QuestionT[] {
+/** A quiz from `clueing, hint` pairs */
+function questionsOf(...pairs: [string, string][]): QuestionT[] {
   return pairs.map(([clueing, hint]) => ({ ...Question.blank(), clueing, hint }))
 }
 
@@ -19,37 +19,37 @@ const oneSpan = [{ text: '1994', value: 1994, kind: 'numeral' as const }]
 
 describe('bulkTargetsOf', () => {
   it('takes every clueing and every hint that has text', () => {
-    const questions = roundOf(['Which region?', 'BUT NOT the film'], ['A second one', 'BUT NOT the other'])
+    const questions = questionsOf(['Which region?', 'BUT NOT the film'], ['A second one', 'BUT NOT the other'])
     expect(bulkTargetsOf(questions)).to.have.length(4)
   })
 
   it('leaves out the texts that are empty, so no usage is spent on nothing', () => {
-    const questions = roundOf(['Which region?', ''], ['', ''])
+    const questions = questionsOf(['Which region?', ''], ['', ''])
     const targets = bulkTargetsOf(questions)
     expect(targets).to.have.length(1)
     expect(present(targets[0]).textkind).to.eq('clueing')
   })
 
   it('treats whitespace as empty', () => {
-    const questions = roundOf([' '.repeat(3), '\n\n'])
+    const questions = questionsOf([' '.repeat(3), '\n\n'])
     expect(bulkTargetsOf(questions)).to.deep.eq([])
   })
 
   it('tags each text so its answer can be found again', () => {
-    const questions = roundOf(['Which region?', 'BUT NOT the film'])
+    const questions = questionsOf(['Which region?', 'BUT NOT the film'])
     const target = present(questions[0])
     expect(bulkTargetsOf(questions).map((each) => each.key))
       .to.deep.eq([`c:${target.id}`, `h:${target.id}`])
   })
 
-  it('reads an empty round as nothing to do', () => {
+  it('reads an empty quiz as nothing to do', () => {
     expect(bulkTargetsOf([])).to.deep.eq([])
   })
 })
 
 describe('bulkLandingsFor', () => {
   it('lands each group on the cell its key names', () => {
-    const questions = roundOf(['Which region?', 'BUT NOT the 1994 film'])
+    const questions = questionsOf(['Which region?', 'BUT NOT the 1994 film'])
     const question = present(questions[0])
     const targets = bulkTargetsOf(questions)
     const landings = bulkLandingsFor(targets, replied([
@@ -61,14 +61,14 @@ describe('bulkLandingsFor', () => {
   })
 
   it('carries no per-cell token figure, because one shared cost split many ways is invented', () => {
-    const questions = roundOf(['Which region?', ''])
+    const questions = questionsOf(['Which region?', ''])
     const question = present(questions[0])
     const landings = bulkLandingsFor(bulkTargetsOf(questions), replied([{ key: bulkKeyFor(question.id, 'clueing'), items: oneSpan }]), 1)
     expect(present(landings[0]).ishes).to.not.have.property('approx_tokens')
   })
 
   it('turns a text the run left out into a per-cell error, not a stale value looking fresh', () => {
-    const questions = roundOf(['Which region?', 'BUT NOT the film'])
+    const questions = questionsOf(['Which region?', 'BUT NOT the film'])
     const question = present(questions[0])
     const landings = bulkLandingsFor(bulkTargetsOf(questions), replied([{ key: bulkKeyFor(question.id, 'clueing'), items: oneSpan }]), 1)
     const hintLanding = present(landings.find((landing) => landing.textkind === 'hint'))
@@ -76,21 +76,21 @@ describe('bulkLandingsFor', () => {
   })
 
   it('ignores a group for a text that was never asked about', () => {
-    const questions = roundOf(['Which region?', ''])
+    const questions = questionsOf(['Which region?', ''])
     const landings = bulkLandingsFor(bulkTargetsOf(questions), replied([{ key: 'c:someone-else', items: oneSpan }]), 1)
     expect(landings).to.have.length(1)
     expect(present(landings[0]).ishes?.status).to.eq('error')
   })
 
   it('lands a result unstale, because it was just computed from the text as it stands', () => {
-    const questions = roundOf(['Which region?', ''])
+    const questions = questionsOf(['Which region?', ''])
     const question = present(questions[0])
     const landings = bulkLandingsFor(bulkTargetsOf(questions), replied([{ key: bulkKeyFor(question.id, 'clueing'), items: [] }]), 1)
     expect(present(landings[0]).ishes).to.deep.include({ stale: false })
   })
 
   it('passes a cut-short run on to every cell it filled', () => {
-    const questions = roundOf(['Which region?', ''])
+    const questions = questionsOf(['Which region?', ''])
     const question = present(questions[0])
     const landings = bulkLandingsFor(bulkTargetsOf(questions), replied([{ key: bulkKeyFor(question.id, 'clueing'), items: [] }], true), 1)
     expect(present(landings[0]).ishes).to.deep.include({ truncated: true })

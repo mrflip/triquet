@@ -3,8 +3,8 @@ import { inRankOrder, moveQuestion, qnumOf, ranksOf, renumberByPosition, renumbe
 import { Question, type QuestionT } from '../../src/models/question'
 import { present } from '../support/present'
 
-/** A round built from `qnum, title` pairs, in the order given */
-function roundOf(...pairs: [string, string][]): QuestionT[] {
+/** A quiz built from `qnum, title` pairs, in the order given */
+function questionsOf(...pairs: [string, string][]): QuestionT[] {
   return pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
 }
 
@@ -31,42 +31,42 @@ describe('qnumOf', () => {
 
 describe('ranksOf', () => {
   it('numbers the ranked questions from 1, whatever their Q# values are', () => {
-    expect(ranks(roundOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']))).to.deep.eq([3, 2, 4, 1])
+    expect(ranks(questionsOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']))).to.deep.eq([3, 2, 4, 1])
   })
 
   it('gives a question with no Q# no rank at all, rather than a last one', () => {
-    const questions = roundOf(['1', 'a'], ['', 'b'])
+    const questions = questionsOf(['1', 'a'], ['', 'b'])
     expect(ranks(questions)).to.deep.eq([1, null])
   })
 
   it('settles a duplicated Q# alphabetically by title, ignoring case', () => {
-    const questions = roundOf(['1', 'zebra'], ['1', 'Antelope'])
+    const questions = questionsOf(['1', 'zebra'], ['1', 'Antelope'])
     expect(ranks(questions)).to.deep.eq([2, 1])
   })
 
   it('leaves gaps in the Q# values without leaving gaps in the ranks', () => {
-    const questions = roundOf(['2', 'a'], ['9', 'b'], ['40', 'c'])
+    const questions = questionsOf(['2', 'a'], ['9', 'b'], ['40', 'c'])
     expect(ranks(questions)).to.deep.eq([1, 2, 3])
   })
 
-  it('reads an empty round without complaint', () => {
+  it('reads an empty quiz without complaint', () => {
     expect(ranksOf([]).keys().toArray()).to.deep.eq([])
   })
 })
 
 describe('inRankOrder', () => {
-  it('puts the round in Q# order with the blanks last', () => {
-    const questions = roundOf(['4', 'd'], ['', 'z'], ['1', 'a'], ['3.3', 'c'])
+  it('puts the quiz in Q# order with the blanks last', () => {
+    const questions = questionsOf(['4', 'd'], ['', 'z'], ['1', 'a'], ['3.3', 'c'])
     expect(answers(inRankOrder(questions))).to.deep.eq(['a', 'c', 'd', 'z'])
   })
 
   it('keeps blanks in the order they already sat in', () => {
-    const questions = roundOf(['', 'second'], ['', 'first'], ['1', 'a'])
+    const questions = questionsOf(['', 'second'], ['', 'first'], ['1', 'a'])
     expect(answers(inRankOrder(questions))).to.deep.eq(['a', 'second', 'first'])
   })
 
-  it('leaves the round it was given alone', () => {
-    const questions = roundOf(['2', 'b'], ['1', 'a'])
+  it('leaves the quiz it was given alone', () => {
+    const questions = questionsOf(['2', 'b'], ['1', 'a'])
     inRankOrder(questions)
     expect(answers(questions)).to.deep.eq(['b', 'a'])
   })
@@ -74,54 +74,54 @@ describe('inRankOrder', () => {
 
 describe('renumberByRank', () => {
   it('tidies the numbers without moving a single question', () => {
-    const questions = roundOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a'])
+    const questions = questionsOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a'])
     const after = renumberByRank(questions)
     expect(qnums(after)).to.deep.eq(['3', '2', '4', '1'])
     expect(answers(after)).to.deep.eq(['d', 'c', 'f', 'a'])
   })
 
   it('leaves a question with no Q# alone rather than adopting it', () => {
-    const after = renumberByRank(roundOf(['4', 'd'], ['', 'z'], ['1', 'a']))
+    const after = renumberByRank(questionsOf(['4', 'd'], ['', 'z'], ['1', 'a']))
     expect(qnums(after)).to.deep.eq(['2', '', '1'])
   })
 
   it('is settled after one pass: renumbering twice changes nothing', () => {
-    const once = renumberByRank(roundOf(['4', 'd'], ['3.3', 'c'], ['1', 'a']))
+    const once = renumberByRank(questionsOf(['4', 'd'], ['3.3', 'c'], ['1', 'a']))
     expect(qnums(renumberByRank(once))).to.deep.eq(qnums(once))
   })
 })
 
 describe('renumberByPosition', () => {
   it('numbers from the top, adopting the questions that had no Q#', () => {
-    const questions = roundOf(['9', 'a'], ['', 'b'], ['2', 'c'])
+    const questions = questionsOf(['9', 'a'], ['', 'b'], ['2', 'c'])
     expect(qnums(renumberByPosition(questions))).to.deep.eq(['1', '2', '3'])
   })
 })
 
 describe('moveQuestion', () => {
   it('drops the dragged question at its new seat', () => {
-    const questions = roundOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+    const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const dragged = present(questions[2])
     const moved = moveQuestion(questions, dragged.id, 0)
     expect(answers(moved)).to.deep.eq(['c', 'a', 'b'])
   })
 
   it('moves a question down the list', () => {
-    const questions = roundOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+    const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const dragged = present(questions[0])
     const moved = moveQuestion(questions, dragged.id, 2)
     expect(answers(moved)).to.deep.eq(['b', 'c', 'a'])
   })
 
   it('clamps a drop past the end to the end', () => {
-    const questions = roundOf(['1', 'a'], ['2', 'b'])
+    const questions = questionsOf(['1', 'a'], ['2', 'b'])
     const dragged = present(questions[0])
     const moved = moveQuestion(questions, dragged.id, 99)
     expect(answers(moved)).to.deep.eq(['b', 'a'])
   })
 
-  it('leaves the round alone when the dragged question is not in it', () => {
-    const questions = roundOf(['1', 'a'], ['2', 'b'])
+  it('leaves the quiz alone when the dragged question is not in it', () => {
+    const questions = questionsOf(['1', 'a'], ['2', 'b'])
     const moved = moveQuestion(questions, 'nobody', 0)
     expect(answers(moved)).to.deep.eq(['a', 'b'])
   })

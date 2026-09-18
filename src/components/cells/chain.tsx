@@ -8,13 +8,13 @@ import styles from '../workbench.module.css'
 
 export type ChainPickerProps = {
   question:  QuestionT
-  /** Every question in the round, so the picker can offer all the others */
+  /** Every question in the quiz, so the picker can offer all the others */
   questions: QuestionT[]
   locked:    boolean
   onChain:   (chains_to: string | null) => void
 }
 
-/** Which question follows this one. Every other question in the round, by its title. */
+/** Which question follows this one. Every other question in the quiz, by its title. */
 export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
   return (
     <select

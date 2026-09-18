@@ -6,7 +6,7 @@ describe('approxTokensFor', () => {
     expect(approxTokensFor('a'.repeat(400), 'b'.repeat(400))).to.eq(200)
   })
 
-  it('rounds a part-token up, so a tiny ask never reads as free', () => {
+  it('quizzes a part-token up, so a tiny ask never reads as free', () => {
     expect(approxTokensFor('ab')).to.eq(1)
   })
 

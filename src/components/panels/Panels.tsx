@@ -22,7 +22,7 @@ export function Panels({ quiz, workspace, onMerged }: Readonly<{ quiz: QuizT, wo
 
       <Panel
         title="Export"
-        blurb="Every round you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a round between browsers."
+        blurb="Every quiz you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a quiz between browsers."
       >
         <ReadonlyBox label="Export" text={JSON.stringify(workspace)} rows={10} dense />
       </Panel>

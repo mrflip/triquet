@@ -7,7 +7,7 @@ import styles from './workbench.module.css'
 
 export type ToolbarProps = {
   locked:          boolean
-  /** What the last combined run cost, kept per round and across reloads */
+  /** What the last combined run cost, kept per quiz and across reloads */
   bulkIshesLast:   BulkIshesRunT
   /** Whether a combined run is in flight */
   running:         boolean
@@ -19,7 +19,7 @@ export type ToolbarProps = {
   onRecalculate:   () => void
 }
 
-/** What the author can do to the round as a whole, and what the last batch run cost */
+/** What the author can do to the quiz as a whole, and what the last batch run cost */
 export function Toolbar({ locked, bulkIshesLast, running, runNotice, onAddQuestion, onSortByChain, onRenumber, onRecalculate }: Readonly<ToolbarProps>) {
   return (
     <Stack direction="row" spacing={1} sx={{ my: 2, flexWrap: 'wrap', alignItems: 'center' }}>

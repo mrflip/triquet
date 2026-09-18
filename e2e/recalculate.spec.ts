@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
   }
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 })
 
 test('one run fills every clueing and hint, with a single cost figure for the lot', async ({ page }) => {
@@ -82,7 +82,7 @@ test('a failed run changes nothing, and says so', async ({ page }) => {
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toHaveText('7')
 })
 
-test('a round with no text at all gets its own notice rather than an empty request', async ({ page }) => {
+test('a quiz with no text at all gets its own notice rather than an empty request', async ({ page }) => {
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
   await page.route('**/api/ask', (route) => route.abort())

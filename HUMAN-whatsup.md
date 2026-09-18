@@ -113,7 +113,7 @@ in the document:**
 * **No question deletion.** §7 names it as the first gap worth filling, and it is.
 * **No undo.** §7.
 * The **Prompts used** panel shows the templates but there's no way to edit them. Right for v1.
-* The bulk run sends the whole round in one request with no chunking. A 200-question round would
+* The bulk run sends the whole quiz in one request with no chunking. A 200-question quiz would
   want splitting; nothing in v1 gets near it.
 * `src/state/workspace-store.ts` is glue and is only tested through the reducer and
   `lib/storage`. It takes an injected `Storage` and `EventTarget` so it *can* be tested directly

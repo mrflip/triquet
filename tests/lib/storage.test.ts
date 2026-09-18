@@ -27,7 +27,7 @@ describe('writeWorkspace', () => {
 describe('readWorkspace', () => {
   it('round-trips a workspace through the store', () => {
     const store = new MemoryStore()
-    const quiz = Quiz.blank('Round one')
+    const quiz = Quiz.blank('Quiz one')
     const workspace = Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
     writeWorkspace(workspace, store)
     expect(readWorkspace(store)).to.deep.eq(workspace)
@@ -53,7 +53,7 @@ describe('readWorkspace', () => {
     expect(readWorkspace(store).quizzes).to.have.length(1)
   })
 
-  it('repairs an open-round id that names no round', () => {
+  it('repairs an open-quiz id that names no quiz', () => {
     const store = new MemoryStore()
     const quiz = Quiz.blank()
     store.setItem(WorkspaceStorekey, JSON.stringify({ quizzes: [quiz], active_quiz_id: 'gone' }))

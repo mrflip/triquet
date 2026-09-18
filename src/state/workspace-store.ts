@@ -4,7 +4,7 @@ import { workspaceReducer, type WorkspaceAction } from './workspace-reducer'
 
 export type WorkspaceSnapshot = {
   workspace: WorkspaceT
-  /** Whether this browser's own rounds have been read yet; false during a server render */
+  /** Whether this browser's own quizzes have been read yet; false during a server render */
   loaded:     boolean
   /** Why the last save did not land, or null while saving is working */
   saveNotice: string | null
@@ -27,7 +27,7 @@ export type WorkspaceStore = {
  * Every dispatch is committed before it is announced, so there is never a moment where the
  * screen shows a change this browser has not accepted.
  *
- * @param store - Where rounds live; defaults to this browser's local storage.
+ * @param store - Where quizzes live; defaults to this browser's local storage.
  * @param target - What emits cross-tab `storage` events; defaults to the global scope.
  * @returns A store ready for `useSyncExternalStore`.
  *

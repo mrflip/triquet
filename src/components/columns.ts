@@ -18,7 +18,7 @@ export type ColumnSpec = {
   title:    string
   widthPx:  number
   headkind: Headkind
-  /** Present when the header can be clicked to commit the round to this column's order */
+  /** Present when the header can be clicked to commit the quiz to this column's order */
   sortkey?: Sortkey
 }
 

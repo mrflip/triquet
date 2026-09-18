@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(clueing)
   }
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 })
 
 test('seven clean columns, in rank order', async ({ page }) => {
@@ -35,7 +35,7 @@ test('the export is the same however the grid is sorted', async ({ page }) => {
 
 test('a line break in a field never starts a new spreadsheet row', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Notes' }).first().fill('two\nlines')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
   const text = await sheetsText(page)
   expect(text).toContain('two<br/>lines')
   expect(text.split('\n')).toHaveLength(5)

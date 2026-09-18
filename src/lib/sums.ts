@@ -28,25 +28,25 @@ export type SumsForId = ReadonlyMap<string, QuestionSums>
 
 const Nothing: SumReading = { total: null, stale: false }
 
-/** Eight empty readings, for a question the round does not hold */
+/** Eight empty readings, for a question the quiz does not hold */
 export const EmptySums: QuestionSums = Object.fromEntries(
   SumColkeyVals.map((colkey) => [colkey, Nothing]),
 ) as QuestionSums
 
 /**
- * Every sum in the round, derived on demand and stored nowhere.
+ * Every sum in the quiz, derived on demand and stored nowhere.
  *
  * The four columns that mirror a chained question borrow the chained-to question's own hint
  * extraction. Nothing about a hint is ever computed twice: it is extracted once on the question
  * whose answer it disguises, and borrowed everywhere else -- staleness included, so a stale hint
  * greys out the sums on the question that chains to it as well as its own.
  *
- * @param questions - The round's questions.
+ * @param questions - The quiz's questions.
  * @returns Each question's eight sums, by id.
  *
- * @example sumsForRound(quiz.questions).get(question.id)?.clueing_full.total
+ * @example sumsForQuiz(quiz.questions).get(question.id)?.clueing_full.total
  */
-export function sumsForRound(questions: readonly QuestionT[]): SumsForId {
+export function sumsForQuiz(questions: readonly QuestionT[]): SumsForId {
   const ranks = ranksOf(questions)
   const questionForId = new Map(questions.map((question) => [question.id, question]))
   return new Map(questions.map((question) => {

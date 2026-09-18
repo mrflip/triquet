@@ -34,8 +34,8 @@ export type WorkspaceAction =
 /**
  * The workspace as it stands after `action`.
  *
- * Actions that revise the open round are refused outright while that round is locked -- the
- * freeze is a property of the round, not of whether a button happened to be greyed out.
+ * Actions that revise the open quiz are refused outright while that quiz is locked -- the
+ * freeze is a property of the quiz, not of whether a button happened to be greyed out.
  *
  * @param workspace - The workspace as it stands.
  * @param action - What the author did.
@@ -61,7 +61,7 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: [...quiz.questions, Question.blank()] }))
   }
   case 'sort_questions': {
-    // A sort commits: the new arrangement is written into the round, not draped over it.
+    // A sort commits: the new arrangement is written into the quiz, not draped over it.
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
       questions:    sortQuestions(quiz.questions, sortValueFor(action.sortkey, quiz.questions), action.descending),
@@ -69,7 +69,7 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     }))
   }
   case 'renumber_qnums': {
-    // Deliberately leaves `last_sortkey` alone. Claiming the round is now in Q# order would
+    // Deliberately leaves `last_sortkey` alone. Claiming the quiz is now in Q# order would
     // flip the grid into a mode that immediately re-sorts, undoing the promise that nothing moved.
     return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: renumberByRank(quiz.questions) }))
   }
@@ -83,9 +83,9 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       }),
     }))
   }
-  // These four are about the workspace rather than about a round's contents, so a locked round
+  // These four are about the workspace rather than about a quiz's contents, so a locked quiz
   // does not refuse them. Locking must never be a trap: you can always switch away, make
-  // another round, delete one, or unlock.
+  // another quiz, delete one, or unlock.
   case 'open_quiz': {
     return workspace.quizzes.some((quiz) => quiz.id === action.quiz_id)
       ? { ...workspace, active_quiz_id: action.quiz_id }
@@ -159,11 +159,11 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
 }
 
 /**
- * `workspace` with its open round put through `revise`, unless that round is locked.
+ * `workspace` with its open quiz put through `revise`, unless that quiz is locked.
  *
  * @param workspace - The workspace as it stands.
- * @param revise - How to rewrite the open round.
- * @returns The workspace afterwards; the same object when the round is locked or absent.
+ * @param revise - How to rewrite the open quiz.
+ * @returns The workspace afterwards; the same object when the quiz is locked or absent.
  */
 export function reviseOpenQuiz(workspace: WorkspaceT, revise: (quiz: QuizT) => QuizT): WorkspaceT {
   const openQuiz = workspace.quizzes.find((quiz) => quiz.id === workspace.active_quiz_id)
@@ -176,14 +176,14 @@ export function reviseOpenQuiz(workspace: WorkspaceT, revise: (quiz: QuizT) => Q
 }
 
 /**
- * `workspace` without the round named, with a neighbour opened in its place.
+ * `workspace` without the quiz named, with a neighbour opened in its place.
  *
- * The last remaining round cannot be deleted: a workspace with nothing in it would leave the
+ * The last remaining quiz cannot be deleted: a workspace with nothing in it would leave the
  * author staring at an empty screen with no way back.
  *
  * @param workspace - The workspace as it stands.
- * @param quiz_id - The round to remove.
- * @returns The workspace afterwards; the same one when the round is the last, or is not here.
+ * @param quiz_id - The quiz to remove.
+ * @returns The workspace afterwards; the same one when the quiz is the last, or is not here.
  */
 function withoutQuiz(workspace: WorkspaceT, quiz_id: string): WorkspaceT {
   if (workspace.quizzes.length <= 1) { return workspace }
@@ -197,7 +197,7 @@ function withoutQuiz(workspace: WorkspaceT, quiz_id: string): WorkspaceT {
   }
 }
 
-/** The open round, or null when the workspace names one it does not hold */
+/** The open quiz, or null when the workspace names one it does not hold */
 export function openQuizOf(workspace: WorkspaceT): QuizT | null {
   return workspace.quizzes.find((quiz) => quiz.id === workspace.active_quiz_id) ?? null
 }

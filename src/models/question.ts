@@ -12,13 +12,13 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
   const qnum = str.regex(/^(\d+(\.\d+)?)?$/)
     .describe('The author\'s own question number, kept as text on purpose. Blank means unranked and sorts last. Decimals are a feature, not an accident: typing 3.1 means "put this between whatever is 3 and 4 right now" without renumbering anything else. Duplicates and gaps are both legal.')
   const clueing = text
-    .describe('The question as it will be asked. Markdown-ish emphasis, quoted verse, and non-Latin scripts all appear in real rounds and must survive untouched; the tool never rewrites this text.')
+    .describe('The question as it will be asked. Markdown-ish emphasis, quoted verse, and non-Latin scripts all appear in real quizzes and must survive untouched; the tool never rewrites this text.')
   const hint = text
     .describe('This question\'s own "BUT NOT ..." misdirection: a clue for something that is NOT this answer but shares its name. It belongs to the question whose answer it disguises, and is displayed alongside whichever OTHER question chains to this one.')
   const title = str.max(200)
     .describe('The intended answer in as few words as possible. Does triple duty: the thing a guess is compared against, the label this question shows under other questions\' chain dropdowns, and the key an import matches questions on.')
   const chains_to = ulid.nullable()
-    .describe('The question that follows this one in the round, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same round; anything dangling or self-referential is cleared rather than kept.')
+    .describe('The question that follows this one in the quiz, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same quiz; anything dangling or self-referential is cleared rather than kept.')
   const clueing_ishes = IshValidators.ishes
     .describe('Extraction over this question\'s clueing. Feeds Clueing Full Sum, Clueing Numeral Sum, Clueing + Rank, and Clueing+BUT NOT Full.')
   const hint_ishes = IshValidators.ishes
@@ -44,7 +44,7 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
     notes:         notes.default(''),
     full_answer:   full_answer.default(''),
   })
-    .describe('One question in a round. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
+    .describe('One question in a quiz. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
   const questionPatch = obj({
     qnum:          qnum.optional(),
@@ -68,7 +68,7 @@ export type QuestionDNA   = Z.input<typeof QuestionValidators.question>
 export type QuestionT     = Z.output<typeof QuestionValidators.question>
 export type QuestionPatch = Z.output<typeof QuestionValidators.questionPatch>
 
-/** One question in a round: its clueing, its own BUT NOT hint, and everything hung off them */
+/** One question in a quiz: its clueing, its own BUT NOT hint, and everything hung off them */
 export class Question implements QuestionT {
   declare id:            string
   declare qnum:          string

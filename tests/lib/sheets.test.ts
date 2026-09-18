@@ -117,7 +117,7 @@ describe('sheetsExport', () => {
     expect(fieldsOf(questions, 0)).to.have.length(SheetsFieldCount)
   })
 
-  it('reads an empty round as an empty export', () => {
+  it('reads an empty quiz as an empty export', () => {
     expect(sheetsExport([])).to.eq('')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sumsForRound } from '../../src/lib/sums'
+import { sumsForQuiz } from '../../src/lib/sums'
 import { Question, type QuestionT } from '../../src/models/question'
 import type { IshItemT, IshesT } from '../../src/models/ish'
 import { present } from '../support/present'
@@ -12,14 +12,14 @@ function extracted(items: IshItemT[], stale = false): IshesT {
 const numeral = (text: string, value: number): IshItemT => ({ text, value, kind: 'numeral' })
 const wordish = (text: string, value: number): IshItemT => ({ text, value, kind: 'wordish' })
 
-/** One question with the extractions given, in a round of its own */
+/** One question with the extractions given, in a quiz of its own */
 function loneQuestion(patch: Partial<QuestionT>): QuestionT {
   return { ...Question.blank(), qnum: '1', ...patch }
 }
 
-const sumsOf = (questions: QuestionT[], question: QuestionT) => present(sumsForRound(questions).get(question.id))
+const sumsOf = (questions: QuestionT[], question: QuestionT) => present(sumsForQuiz(questions).get(question.id))
 
-describe('sumsForRound', () => {
+describe('sumsForQuiz', () => {
   it('adds every ish in the clueing, and the digit-written ones on their own', () => {
     const question = loneQuestion({ clueing_ishes: extracted([numeral('300', 300), wordish('a dozen', 12)]) })
     const sums = sumsOf([question], question)
@@ -27,7 +27,7 @@ describe('sumsForRound', () => {
     expect(sums.clueing_numeral.total).to.eq(300)
   })
 
-  it('rounds a sum to a whole number while the items keep their fractions', () => {
+  it('quizzes a sum to a whole number while the items keep their fractions', () => {
     const question = loneQuestion({ clueing_ishes: extracted([wordish('quarter', 0.25), wordish('half', 0.5)]) })
     expect(sumsOf([question], question).clueing_full.total).to.eq(1)
   })

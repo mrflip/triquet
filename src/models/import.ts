@@ -34,7 +34,7 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
     title:     title.nullable().optional(),
     questions: looseQuestions,
   })
-    .describe('One round as it arrives from an import. Only the questions are merged; a pasted round\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this round contains.')
+    .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
 
   const importWorkspace = obj({
     quizzes:        arr(importQuiz).min(1),
@@ -42,7 +42,7 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
   })
 
   const importPayload = union([importWorkspace, importQuiz, looseQuestions])
-    .describe('What the Import box accepts: a whole exported workspace, a single round, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
+    .describe('What the Import box accepts: a whole exported workspace, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
 
   return { importQuestion, importQuiz, importWorkspace, importPayload }
 })

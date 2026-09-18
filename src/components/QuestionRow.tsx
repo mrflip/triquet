@@ -16,12 +16,12 @@ import styles from './workbench.module.css'
 /** Tallest a row may grow before its Clueing and Hint boxes scroll internally instead */
 export const RowCapPx = 480
 
-/** Shortest a row may be, so an empty round still reads as a grid */
+/** Shortest a row may be, so an empty quiz still reads as a grid */
 export const RowFloorPx = 56
 
 export type QuestionRowProps = {
   question:    QuestionT
-  /** Every question in the round, for the columns that read across them */
+  /** Every question in the quiz, for the columns that read across them */
   questions:   QuestionT[]
   locked:      boolean
   gripShown:   boolean

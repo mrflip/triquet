@@ -4,10 +4,10 @@ import { Question, type QuestionT } from '../../src/models/question'
 import { present } from '../support/present'
 
 /**
- * A round from `qnum, title, chains_to` triples, where `chains_to` names another
+ * A quiz from `qnum, title, chains_to` triples, where `chains_to` names another
  * question by its title.
  */
-function roundOf(...triples: [string, string, string | null][]): QuestionT[] {
+function questionsOf(...triples: [string, string, string | null][]): QuestionT[] {
   const bare = triples.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
   const idForAnswer = new Map(bare.map((question) => [question.title, question.id]))
   return bare.map((question, idx) => ({
@@ -40,85 +40,85 @@ describe('chainSnippet', () => {
 
 describe('clearDanglingChains', () => {
   it('leaves a sound chain alone', () => {
-    const questions = roundOf(['1', 'a', 'b'], ['2', 'b', null])
+    const questions = questionsOf(['1', 'a', 'b'], ['2', 'b', null])
     expect(clearDanglingChains(questions)[0]?.chains_to).to.eq(present(questions[1]).id)
   })
 
   it('clears a chain pointing at a question that is not here', () => {
-    const questions = roundOf(['1', 'a', null], ['2', 'b', null])
+    const questions = questionsOf(['1', 'a', null], ['2', 'b', null])
     const orphaned = [{ ...present(questions[0]), chains_to: 'someone-elses-id' }]
     expect(clearDanglingChains(orphaned)[0]?.chains_to).to.eq(null)
   })
 
   it('clears a question chained to itself', () => {
-    const question = present(roundOf(['1', 'a', null])[0])
+    const question = present(questionsOf(['1', 'a', null])[0])
     expect(clearDanglingChains([{ ...question, chains_to: question.id }])[0]?.chains_to).to.eq(null)
   })
 
   it('leaves an unchained question unchained', () => {
-    expect(clearDanglingChains(roundOf(['1', 'a', null]))[0]?.chains_to).to.eq(null)
+    expect(clearDanglingChains(questionsOf(['1', 'a', null]))[0]?.chains_to).to.eq(null)
   })
 
-  it('reads an empty round without complaint', () => {
+  it('reads an empty quiz without complaint', () => {
     expect(clearDanglingChains([])).to.deep.eq([])
   })
 })
 
 describe('chainOrder', () => {
-  it('reads a round in presentation order however jumbled the array is', () => {
-    const questions = roundOf(['3', 'c', 'd'], ['1', 'a', 'b'], ['4', 'd', null], ['2', 'b', 'c'])
+  it('reads a quiz in presentation order however jumbled the array is', () => {
+    const questions = questionsOf(['3', 'c', 'd'], ['1', 'a', 'b'], ['4', 'd', null], ['2', 'b', 'c'])
     expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c', 'd'])
   })
 
-  it('reads the same round backward', () => {
-    const questions = roundOf(['3', 'c', 'd'], ['1', 'a', 'b'], ['4', 'd', null], ['2', 'b', 'c'])
+  it('reads the same quiz backward', () => {
+    const questions = questionsOf(['3', 'c', 'd'], ['1', 'a', 'b'], ['4', 'd', null], ['2', 'b', 'c'])
     expect(answers(chainOrder(questions, true))).to.deep.eq(['d', 'c', 'b', 'a'])
   })
 
   it('leads with question 1 rather than with whatever chains into it', () => {
     // 4 chains to 1, so a naive walk would start at 4 and leave question 1 waiting behind it.
-    const questions = roundOf(['4', 'd', 'a'], ['1', 'a', 'b'], ['2', 'b', 'c'], ['3', 'c', null])
+    const questions = questionsOf(['4', 'd', 'a'], ['1', 'a', 'b'], ['2', 'b', 'c'], ['3', 'c', null])
     expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c', 'd'])
   })
 
   it('restarts at the next unplaced question when a path runs out', () => {
-    const questions = roundOf(['1', 'a', 'b'], ['2', 'b', null], ['3', 'c', 'd'], ['4', 'd', null])
+    const questions = questionsOf(['1', 'a', 'b'], ['2', 'b', null], ['3', 'c', 'd'], ['4', 'd', null])
     expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c', 'd'])
   })
 
   it('takes the lowest Q# first where several questions merge into one', () => {
     // Walking back from the tail there is a genuine choice: both `early` and `late` chain into
     // it, and the lower Q# goes next.
-    const questions = roundOf(['4', 'tail', null], ['3', 'late', 'tail'], ['2', 'early', 'tail'])
+    const questions = questionsOf(['4', 'tail', null], ['3', 'late', 'tail'], ['2', 'early', 'tail'])
     expect(answers(chainOrder(questions, true))).to.deep.eq(['tail', 'early', 'late'])
   })
 
   it('still places a question whose backward path was taken by a sibling', () => {
-    const questions = roundOf(['4', 'tail', null], ['3', 'late', 'tail'], ['2', 'early', 'tail'])
+    const questions = questionsOf(['4', 'tail', null], ['3', 'late', 'tail'], ['2', 'early', 'tail'])
     expect(answers(chainOrder(questions, true))).to.have.length(3)
   })
 
   it('places every question exactly once even when the chain is a loop', () => {
-    const questions = roundOf(['1', 'a', 'b'], ['2', 'b', 'c'], ['3', 'c', 'a'])
+    const questions = questionsOf(['1', 'a', 'b'], ['2', 'b', 'c'], ['3', 'c', 'a'])
     expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c'])
   })
 
   it('places wholly unchained questions in rank order', () => {
-    const questions = roundOf(['2', 'b', null], ['1', 'a', null], ['3', 'c', null])
+    const questions = questionsOf(['2', 'b', null], ['1', 'a', null], ['3', 'c', null])
     expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'b', 'c'])
   })
 
   it('puts questions with no Q# last, as rank order does', () => {
-    const questions = roundOf(['', 'unranked', null], ['1', 'a', null])
+    const questions = questionsOf(['', 'unranked', null], ['1', 'a', null])
     expect(answers(chainOrder(questions, false))).to.deep.eq(['a', 'unranked'])
   })
 
   it('leaves questions with no Q# last walking backward too -- an absent Q# is not a high one', () => {
-    const questions = roundOf(['', 'unranked', null], ['1', 'a', 'b'], ['2', 'b', null])
+    const questions = questionsOf(['', 'unranked', null], ['1', 'a', 'b'], ['2', 'b', null])
     expect(answers(chainOrder(questions, true))).to.deep.eq(['b', 'a', 'unranked'])
   })
 
-  it('reads an empty round without complaint', () => {
+  it('reads an empty quiz without complaint', () => {
     expect(chainOrder([], false)).to.deep.eq([])
   })
 })

@@ -25,12 +25,12 @@ export function bulkKeyFor(question_id: string, textkind: Textkind): string {
 }
 
 /**
- * Every clueing and every hint in the round that has any text.
+ * Every clueing and every hint in the quiz that has any text.
  *
  * The rules and instructions that dominate an extraction prompt are identical every time, so
- * folding the whole round into one ask pays for them once instead of once per text.
+ * folding the whole quiz into one ask pays for them once instead of once per text.
  *
- * @param questions - The round's questions.
+ * @param questions - The quiz's questions.
  * @returns One target per non-empty text, clueings and hints together.
  *
  * @example bulkTargetsOf(quiz.questions).length  // => 12, for six filled questions

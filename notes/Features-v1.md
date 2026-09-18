@@ -74,8 +74,9 @@ with STYLE.md
 > `altText`→`alt_text`, `fullAnswer`→`full_answer`, `rows`→`questions`,
 > `activeQuizId`→`active_quiz_id`, `BulkIshesRun.items`→`text_count`, and ModelTier's
 > `'default'`→`'quick'` (its Zod schema default too). A later pass renamed `short_answer`→
-> `title` and made it the leftmost grid column. Judgement calls and open questions are in
-> `/HUMAN-whatsup.md`.
+> `title` (made the leftmost grid column) and dropped "round" everywhere in favour of "quiz" --
+> the prose below still says "round" throughout, as written. Judgement calls and open questions
+> are in `/HUMAN-whatsup.md`.
 
 ## 2. Domain model
 

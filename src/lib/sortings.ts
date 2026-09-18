@@ -1,5 +1,5 @@
 import { qnumOf } from './rank'
-import { SumColkeyVals, sumsForRound, type SumColkey } from './sums'
+import { SumColkeyVals, sumsForQuiz, type SumColkey } from './sums'
 import type { Sortkey } from '../models/quiz'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
@@ -18,7 +18,7 @@ export type SortValueOf = (question: QuestionT) => SortValue
  * way. Ties are settled by where the questions already sit, so a sort never shuffles
  * indistinguishable rows. Text sorts case-insensitively and locale-aware.
  *
- * @param questions - The round's questions, in their committed display order.
+ * @param questions - The quiz's questions, in their committed display order.
  * @param valueOf - How the sorted column reads one question.
  * @param descending - Whether to reverse the present values; absences stay at the bottom.
  * @returns A new array; the input is left alone.
@@ -42,13 +42,13 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 }
 
 /**
- * How a given column reads a question, for the round it belongs to.
+ * How a given column reads a question, for the quiz it belongs to.
  *
  * A sum nobody has computed yet reads as absent, which sinks that question to the bottom in
  * either direction -- the honest reading of "nothing here has been computed yet".
  *
  * @param sortkey - Which column was clicked.
- * @param questions - The round's questions, for columns that read across questions.
+ * @param questions - The quiz's questions, for columns that read across questions.
  * @returns A reader for that column.
  */
 export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]): SortValueOf {
@@ -81,7 +81,7 @@ export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]):
     }
   }
   default: {
-    const sums = sumsForRound(questions)
+    const sums = sumsForQuiz(questions)
     const sumColkey: SumColkey = sortkey
     return (question) => sums.get(question.id)?.[sumColkey].total ?? null
   }

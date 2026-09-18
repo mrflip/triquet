@@ -19,13 +19,13 @@ export function qnumOf(question: Pick<QuestionT, 'qnum'>): number | null {
 }
 
 /**
- * Every question's rank: its 1-based position once the round is put in Q# order.
+ * Every question's rank: its 1-based position once the quiz is put in Q# order.
  *
  * Distinct from the Q# itself, which may be gappy, decimal, duplicated or blank. Rank is what
  * the exports number by and what the Clueing + Rank column adds, and it is recomputed on demand
  * rather than stored.
  *
- * @param questions - The round's questions, in any order.
+ * @param questions - The quiz's questions, in any order.
  * @returns Each question's rank by id, null for the unranked.
  *
  * @example ranksOf([{ id: 'aa', qnum: '4' }, { id: 'bb', qnum: '1' }])  // => aa: 2, bb: 1
@@ -42,7 +42,7 @@ export function ranksOf(questions: readonly QuestionT[]): RankForId {
  *
  * This is the order every export uses, whatever the grid is currently sorted or dragged into.
  *
- * @param questions - The round's questions, in any order.
+ * @param questions - The quiz's questions, in any order.
  * @returns A new array; the input is left alone.
  */
 export function inRankOrder(questions: readonly QuestionT[]): QuestionT[] {
@@ -57,7 +57,7 @@ export function inRankOrder(questions: readonly QuestionT[]): QuestionT[] {
  * tidy the numbers back to integers without disturbing a single question. Questions with no Q#
  * are left alone.
  *
- * @param questions - The round's questions, in their committed display order.
+ * @param questions - The quiz's questions, in their committed display order.
  * @returns A new array in the same order, renumbered.
  */
 export function renumberByRank(questions: readonly QuestionT[]): QuestionT[] {
@@ -74,7 +74,7 @@ export function renumberByRank(questions: readonly QuestionT[]): QuestionT[] {
  * This is what a drag does. Unlike renumbering by rank it adopts the questions that had no Q#
  * at all, which is how a blank question joins the sequence.
  *
- * @param questions - The round's questions, in their new order.
+ * @param questions - The quiz's questions, in their new order.
  * @returns A new array in the same order, numbered from 1.
  */
 export function renumberByPosition(questions: readonly QuestionT[]): QuestionT[] {
@@ -84,7 +84,7 @@ export function renumberByPosition(questions: readonly QuestionT[]): QuestionT[]
 /**
  * `questions` with the one named lifted out and dropped at `onto_idx`.
  *
- * @param questions - The round's questions, in their committed display order.
+ * @param questions - The quiz's questions, in their committed display order.
  * @param question_id - Which question is being dragged.
  * @param onto_idx - Where it lands, counted in the list as it stands after the lift.
  * @returns A new array; the same one when the question is not there or would not move.

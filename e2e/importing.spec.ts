@@ -15,11 +15,11 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
-  await page.getByLabel('Round name').fill('Round one')
+  await page.getByLabel('Quiz name').fill('Quiz one')
   await fieldAt(page, 'Title', 0).fill('Leon')
   await fieldAt(page, 'Clueing', 0).fill('Which region?')
   await fieldAt(page, 'Notes', 0).fill('keep me')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 })
 
 test('a partial paste changes exactly what it names and nothing else', async ({ page }) => {
@@ -63,10 +63,10 @@ test('a run that merged something clears the box; one that failed keeps the text
   await expect(page.getByText(/still here/)).toBeVisible()
 })
 
-test('a round exported and pasted straight back is unchanged', async ({ page }) => {
+test('a quiz exported and pasted straight back is unchanged', async ({ page }) => {
   await fieldAt(page, 'Title', 1).fill('Nantes')
   await fieldAt(page, 'Clueing', 1).fill('Another one')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 
   const exported = await page.getByRole('textbox', { name: 'Export' }).inputValue()
   await page.getByRole('textbox', { name: 'Import' }).fill(exported)
@@ -77,8 +77,8 @@ test('a round exported and pasted straight back is unchanged', async ({ page }) 
   await expect(page.locator('tbody tr')).toHaveCount(5)
 })
 
-test('importing is refused while the round is locked', async ({ page }) => {
+test('importing is refused while the quiz is locked', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Import' }).fill('[{"title":"Leon","clueing":"Sneaked in"}]')
-  await page.getByRole('button', { name: 'Lock round' }).click()
+  await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled()
 })

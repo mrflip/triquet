@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a fresh workspace opens with blank questions rather than a void', async ({ page }) => {
-  await expect(page.getByLabel('Round name')).toBeVisible()
+  await expect(page.getByLabel('Quiz name')).toBeVisible()
   await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
 })
 
@@ -17,24 +17,24 @@ test('every column is present from the start, so the layout never shifts later',
 })
 
 test('what you type survives a reload', async ({ page }) => {
-  await page.getByLabel('Round name').fill('Léon and other régions')
+  await page.getByLabel('Quiz name').fill('Léon and other régions')
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   await clueing.fill('Which region gave its name to 千 other things?')
   await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
   // Edits commit on blur, so move focus off the field before reloading.
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 
   await page.reload()
 
-  await expect(page.getByLabel('Round name')).toHaveValue('Léon and other régions')
+  await expect(page.getByLabel('Quiz name')).toHaveValue('Léon and other régions')
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first())
     .toHaveValue('Which region gave its name to 千 other things?')
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Leon')
 })
 
-test('the round name reaches the browser tab', async ({ page }) => {
-  await page.getByLabel('Round name').fill('Round one')
-  await expect(page).toHaveTitle('Round one — Triquet')
+test('the quiz name reaches the browser tab', async ({ page }) => {
+  await page.getByLabel('Quiz name').fill('Quiz one')
+  await expect(page).toHaveTitle('Quiz one — Triquet')
 })
 
 test('adding a question appends a blank one', async ({ page }) => {

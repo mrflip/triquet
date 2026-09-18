@@ -20,7 +20,7 @@ export type AskingHandle = {
   asking: (question_id: string, askkind: Askkind) => boolean
   /** Start an ask; a cell with nothing to ask about is not asked about at all */
   ask:    (question: QuestionT, askkind: Askkind) => void
-  /** Recalculate every clueing and hint in the round in one combined request */
+  /** Recalculate every clueing and hint in the quiz in one combined request */
   recalculateAll: (questions: readonly QuestionT[]) => void
   /** Whether a combined run is in flight; the toolbar button disables while it is */
   running:        boolean
@@ -42,11 +42,11 @@ export function askCellkey(question_id: string, askkind: Askkind): string {
 /**
  * The asks currently in flight, and how to start one.
  *
- * "Thinking..." is a property of this moment, not of the round, so it is held here rather than
+ * "Thinking..." is a property of this moment, not of the quiz, so it is held here rather than
  * in the question -- null, a result and an error are the three states a question can be saved
  * in, and a fourth would have to be cleaned up after every reload.
  *
- * @param dispatch - How a finished ask reaches the round.
+ * @param dispatch - How a finished ask reaches the quiz.
  * @returns Whether each cell is busy, how to ask, and how to hold a batch of cells busy.
  */
 export function useAsking(dispatch: (action: WorkspaceAction) => void): AskingHandle {

@@ -6,27 +6,27 @@ import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { present } from '../support/present'
 
-/** A workspace holding one round built from `qnum, title` pairs, open */
+/** A workspace holding one quiz built from `qnum, title` pairs, open */
 function workspaceOf(...pairs: [string, string][]): WorkspaceT {
   const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
-  const quiz = { ...Quiz.blank('Round one'), questions }
+  const quiz = { ...Quiz.blank('Quiz one'), questions }
   return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
 }
 
 const answersOf = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.title)
 const qnumsOf   = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.qnum)
 
-/** A workspace holding one round of blank questions, open */
+/** A workspace holding one quiz of blank questions, open */
 function openWorkspace(locked = false): WorkspaceT {
-  const quiz = { ...Quiz.blank('Round one'), locked }
+  const quiz = { ...Quiz.blank('Quiz one'), locked }
   return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
 }
 
 describe('workspaceReducer', () => {
   describe('retitle_quiz', () => {
-    it('renames the open round', () => {
-      const after = workspaceReducer(openWorkspace(), { kind: 'retitle_quiz', title: 'Round two' })
-      expect(openQuizOf(after)?.title).to.eq('Round two')
+    it('renames the open quiz', () => {
+      const after = workspaceReducer(openWorkspace(), { kind: 'retitle_quiz', title: 'Quiz two' })
+      expect(openQuizOf(after)?.title).to.eq('Quiz two')
     })
 
     it('accepts an empty title without rewriting it', () => {
@@ -34,9 +34,9 @@ describe('workspaceReducer', () => {
       expect(openQuizOf(after)?.title).to.eq('')
     })
 
-    it('refuses while the round is locked', () => {
+    it('refuses while the quiz is locked', () => {
       const ante = openWorkspace(true)
-      expect(workspaceReducer(ante, { kind: 'retitle_quiz', title: 'Round two' })).to.eq(ante)
+      expect(workspaceReducer(ante, { kind: 'retitle_quiz', title: 'Quiz two' })).to.eq(ante)
     })
   })
 
@@ -47,7 +47,7 @@ describe('workspaceReducer', () => {
       expect(openQuizOf(after)?.questions.at(-1)?.clueing).to.eq('')
     })
 
-    it('refuses while the round is locked', () => {
+    it('refuses while the quiz is locked', () => {
       const ante = openWorkspace(true)
       expect(workspaceReducer(ante, { kind: 'add_question' })).to.eq(ante)
     })
@@ -65,7 +65,7 @@ describe('workspaceReducer', () => {
       expect(openQuizOf(after)?.questions[0]?.clueing).to.eq('')
     })
 
-    it('leaves the round alone when the question is not in it', () => {
+    it('leaves the quiz alone when the question is not in it', () => {
       const ante = openWorkspace()
       const after = workspaceReducer(ante, { kind: 'edit_question', question_id: 'nobody', patch: { clueing: 'x' } })
       expect(after.quizzes[0]?.questions).to.deep.eq(ante.quizzes[0]?.questions)
@@ -86,7 +86,7 @@ describe('workspaceReducer', () => {
       })).to.throw(Z.ZodError)
     })
 
-    it('refuses while the round is locked', () => {
+    it('refuses while the quiz is locked', () => {
       const ante = openWorkspace(true)
       const target = present(present(openQuizOf(ante)).questions[0])
       expect(workspaceReducer(ante, { kind: 'edit_question', question_id: target.id, patch: { clueing: 'x' } })).to.eq(ante)
@@ -94,13 +94,13 @@ describe('workspaceReducer', () => {
   })
 
   describe('sort_questions', () => {
-    it('commits the new order into the round rather than draping it over the top', () => {
+    it('commits the new order into the quiz rather than draping it over the top', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
       const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'title', descending: false })
       expect(answersOf(after)).to.deep.eq(['apple', 'banana', 'cherry'])
     })
 
-    it('remembers which column put the round in this order', () => {
+    it('remembers which column put the quiz in this order', () => {
       const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'sort_questions', sortkey: 'qnum', descending: false })
       expect(present(openQuizOf(after)).last_sortkey).to.eq('qnum')
     })
@@ -111,7 +111,7 @@ describe('workspaceReducer', () => {
       expect(answersOf(after)).to.deep.eq(['cherry', 'banana', 'apple'])
     })
 
-    it('refuses while the round is locked', () => {
+    it('refuses while the quiz is locked', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'])
       const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
       expect(workspaceReducer(locked, { kind: 'sort_questions', sortkey: 'title', descending: false })).to.eq(locked)
@@ -126,7 +126,7 @@ describe('workspaceReducer', () => {
       expect(answersOf(after)).to.deep.eq(['d', 'c', 'f', 'a'])
     })
 
-    it('does not claim the round is now in Q# order, which would immediately re-sort it', () => {
+    it('does not claim the quiz is now in Q# order, which would immediately re-sort it', () => {
       const ante = workspaceReducer(workspaceOf(['4', 'd'], ['1', 'a']), {
         kind: 'sort_questions', sortkey: 'title', descending: false,
       })
@@ -134,7 +134,7 @@ describe('workspaceReducer', () => {
       expect(present(openQuizOf(after)).last_sortkey).to.eq('title')
     })
 
-    it('refuses while the round is locked', () => {
+    it('refuses while the quiz is locked', () => {
       const ante = workspaceOf(['4', 'd'])
       const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
       expect(workspaceReducer(locked, { kind: 'renumber_qnums' })).to.eq(locked)
@@ -157,7 +157,7 @@ describe('workspaceReducer', () => {
       expect(qnumsOf(after)).to.deep.eq(['1', '2'])
     })
 
-    it('leaves the round in Q# order, which is the only order a drag is offered in', () => {
+    it('leaves the quiz in Q# order, which is the only order a drag is offered in', () => {
       const ante = workspaceOf(['1', 'a'], ['2', 'b'])
       const dragged = present(present(openQuizOf(ante)).questions[0])
       const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 1 })
@@ -178,7 +178,7 @@ describe('workspaceReducer', () => {
       expect(question.clueing_ishes).to.eq(null)
     })
 
-    it('refuses while the round is locked', () => {
+    it('refuses while the quiz is locked', () => {
       const ante = workspaceOf(['1', 'a'])
       const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
       const target = present(present(openQuizOf(locked)).questions[0])
@@ -243,18 +243,18 @@ describe('workspaceReducer', () => {
   })
 
   describe('open_quiz', () => {
-    it('switches to a round the workspace holds', () => {
+    it('switches to a quiz the workspace holds', () => {
       const [one, two] = [Quiz.blank('one'), Quiz.blank('two')]
       const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: one.id })
       expect(workspaceReducer(ante, { kind: 'open_quiz', quiz_id: two.id }).active_quiz_id).to.eq(two.id)
     })
 
-    it('ignores a round the workspace does not hold', () => {
+    it('ignores a quiz the workspace does not hold', () => {
       const ante = workspaceOf(['1', 'a'])
       expect(workspaceReducer(ante, { kind: 'open_quiz', quiz_id: 'gone' })).to.eq(ante)
     })
 
-    it('switches away from a locked round, because locking must never be a trap', () => {
+    it('switches away from a locked quiz, because locking must never be a trap', () => {
       const [one, two] = [{ ...Quiz.blank('one'), locked: true }, Quiz.blank('two')]
       const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: one.id })
       expect(workspaceReducer(ante, { kind: 'open_quiz', quiz_id: two.id }).active_quiz_id).to.eq(two.id)
@@ -262,19 +262,19 @@ describe('workspaceReducer', () => {
   })
 
   describe('new_quiz', () => {
-    it('adds a round and opens it', () => {
+    it('adds a quiz and opens it', () => {
       const ante = workspaceOf(['1', 'a'])
       const after = workspaceReducer(ante, { kind: 'new_quiz' })
       expect(after.quizzes).to.have.length(2)
       expect(after.active_quiz_id).to.eq(after.quizzes[1]?.id)
     })
 
-    it('starts the new round with the same blank questions a fresh workspace has', () => {
+    it('starts the new quiz with the same blank questions a fresh workspace has', () => {
       const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'new_quiz' })
       expect(present(openQuizOf(after)).questions).to.have.length(BlankQuestionQty)
     })
 
-    it('works from a locked round', () => {
+    it('works from a locked quiz', () => {
       const locked = { ...Quiz.blank('one'), locked: true }
       const ante = Workspace.fill({ quizzes: [locked], active_quiz_id: locked.id })
       expect(workspaceReducer(ante, { kind: 'new_quiz' }).quizzes).to.have.length(2)
@@ -282,7 +282,7 @@ describe('workspaceReducer', () => {
   })
 
   describe('delete_quiz', () => {
-    it('removes the round and opens its neighbour', () => {
+    it('removes the quiz and opens its neighbour', () => {
       const [one, two, three] = [Quiz.blank('one'), Quiz.blank('two'), Quiz.blank('three')]
       const ante = Workspace.fill({ quizzes: [one, two, three], active_quiz_id: two.id })
       const after = workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: two.id })
@@ -290,18 +290,18 @@ describe('workspaceReducer', () => {
       expect(after.active_quiz_id).to.eq(three.id)
     })
 
-    it('opens the round before it when the last one goes', () => {
+    it('opens the quiz before it when the last one goes', () => {
       const [one, two] = [Quiz.blank('one'), Quiz.blank('two')]
       const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: two.id })
       expect(workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: two.id }).active_quiz_id).to.eq(one.id)
     })
 
-    it('refuses to delete the last remaining round', () => {
+    it('refuses to delete the last remaining quiz', () => {
       const ante = workspaceOf(['1', 'a'])
       expect(workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: ante.quizzes[0]?.id ?? '' })).to.eq(ante)
     })
 
-    it('leaves the open round alone when some other round goes', () => {
+    it('leaves the open quiz alone when some other quiz goes', () => {
       const [one, two] = [Quiz.blank('one'), Quiz.blank('two')]
       const ante = Workspace.fill({ quizzes: [one, two], active_quiz_id: one.id })
       expect(workspaceReducer(ante, { kind: 'delete_quiz', quiz_id: two.id }).active_quiz_id).to.eq(one.id)
@@ -310,7 +310,7 @@ describe('workspaceReducer', () => {
   })
 
   describe('set_lock', () => {
-    it('freezes a round', () => {
+    it('freezes a quiz', () => {
       const ante = workspaceOf(['1', 'a'])
       const quiz_id = present(openQuizOf(ante)).id
       const after = workspaceReducer(ante, { kind: 'set_lock', quiz_id, locked: true })
@@ -325,7 +325,7 @@ describe('workspaceReducer', () => {
       expect(present(openQuizOf(after)).locked).to.eq(false)
     })
 
-    it('leaves the round exactly as it was', () => {
+    it('leaves the quiz exactly as it was', () => {
       const ante = workspaceOf(['1', 'a'], ['2', 'b'])
       const quiz_id = present(openQuizOf(ante)).id
       const locked = workspaceReducer(ante, { kind: 'set_lock', quiz_id, locked: true })
@@ -343,11 +343,11 @@ describe('workspaceReducer', () => {
 })
 
 describe('openQuizOf', () => {
-  it('finds the round on screen', () => {
-    expect(openQuizOf(openWorkspace())?.title).to.eq('Round one')
+  it('finds the quiz on screen', () => {
+    expect(openQuizOf(openWorkspace())?.title).to.eq('Quiz one')
   })
 
-  it('reads null when the workspace names a round it does not hold', () => {
+  it('reads null when the workspace names a quiz it does not hold', () => {
     const workspace = { ...openWorkspace(), active_quiz_id: 'gone' }
     expect(openQuizOf(workspace)).to.eq(null)
   })

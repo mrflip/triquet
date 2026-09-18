@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { Columns, GridWidthPx, type Headkind } from './columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
-import { EmptySums, sumsForRound } from '../lib/sums'
+import { EmptySums, sumsForQuiz } from '../lib/sums'
 import type { Askkind } from '../state/use-asking'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
@@ -19,9 +19,9 @@ export type SortMark = {
 export type QuestionTableProps = {
   questions:    QuestionT[]
   locked:       boolean
-  /** The grip column only takes up space while the round is in Q# order */
+  /** The grip column only takes up space while the quiz is in Q# order */
   gripShown:    boolean
-  /** Which column the round was last committed to, bold across reloads as a reminder */
+  /** Which column the quiz was last committed to, bold across reloads as a reminder */
   lastSortkey:  Sortkey | null
   /** Which column was sorted in this session, and which way; the only thing an arrow marks */
   sortMark:     SortMark | null
@@ -37,7 +37,7 @@ export type QuestionTableProps = {
 export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   // Derived on demand and stored nowhere, so a sum is never out of step with its extraction.
-  const sums = sumsForRound(questions)
+  const sums = sumsForQuiz(questions)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
@@ -115,7 +115,7 @@ function headClassOf(headkind: Headkind): string | undefined {
   return headkind === 'centered' ? styles.headCentered : undefined
 }
 
-/** The arrow marking the column sorted in this session -- not the one the round remembers */
+/** The arrow marking the column sorted in this session -- not the one the quiz remembers */
 function arrowFor(sortkey: Sortkey, sortMark: SortMark | null): string {
   if (sortMark?.sortkey !== sortkey) { return '' }
   return sortMark.descending ? ' ↓' : ' ↑'

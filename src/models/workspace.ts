@@ -5,9 +5,9 @@ import { Quiz, QuizValidators, type QuizT } from './quiz'
 export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
   const workspace = obj({
     quizzes:        arr(QuizValidators.quiz).min(1)
-      .describe('Every round this browser holds. Never empty -- deleting the last round is refused rather than leaving the author staring at nothing.'),
+      .describe('Every quiz this browser holds. Never empty -- deleting the last quiz is refused rather than leaving the author staring at nothing.'),
     active_quiz_id: ulid
-      .describe('Which round is on screen. A value that names no existing round is repaired to the first round rather than treated as fatal.'),
+      .describe('Which quiz is on screen. A value that names no existing quiz is repaired to the first quiz rather than treated as fatal.'),
   })
     .check((context) => {
       const hasActive = context.value.quizzes.some((quiz) => quiz.id === context.value.active_quiz_id)
@@ -31,16 +31,16 @@ export class Workspace implements WorkspaceT {
   /**
    * Validated workspace.
    *
-   * @param dna - At least one round, and the id of the one on screen.
+   * @param dna - At least one quiz, and the id of the one on screen.
    * @returns A complete workspace.
-   * @throws When `active_quiz_id` names no round present.
+   * @throws When `active_quiz_id` names no quiz present.
    */
   static fill(dna: WorkspaceDNA): WorkspaceT {
     return WorkspaceValidators.workspace(dna)
   }
 
   /**
-   * Fresh workspace holding one blank round, open.
+   * Fresh workspace holding one blank quiz, open.
    *
    * @returns A workspace ready to type into.
    *
@@ -52,7 +52,7 @@ export class Workspace implements WorkspaceT {
   }
 
   /**
-   * `dna`, repaired rather than rejected where it can be: an `active_quiz_id` naming no round
+   * `dna`, repaired rather than rejected where it can be: an `active_quiz_id` naming no quiz
    * falls back to the first one. Anything else still throws.
    *
    * @param dna - A workspace read back from storage or an export.

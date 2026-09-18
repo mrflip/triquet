@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 })
 
 test('a never-asked cell invites the author to ask', async ({ page }) => {
@@ -67,8 +67,8 @@ test('with the network off the rest of the page still edits, sorts and saves', a
 
   await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
   await page.getByRole('button', { name: 'Title' }).click()
-  await page.getByLabel('Round name').fill('Still working')
+  await page.getByLabel('Quiz name').fill('Still working')
   await page.reload()
-  await expect(page.getByLabel('Round name')).toHaveValue('Still working')
+  await expect(page.getByLabel('Quiz name')).toHaveValue('Still working')
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Leon')
 })

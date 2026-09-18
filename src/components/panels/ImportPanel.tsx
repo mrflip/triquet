@@ -15,7 +15,7 @@ export type ImportPanelProps = {
 }
 
 /**
- * The counterpart to Export: move a round between browsers, recover a backup, or fold a
+ * The counterpart to Export: move a quiz between browsers, recover a backup, or fold a
  * collaborator's edits back into your own copy.
  *
  * Results are reported twice -- a one-line summary next to the button, and a scrollable log
@@ -42,7 +42,7 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
   return (
     <Panel
       title="Import"
-      blurb="Paste back anything Export ever gave you, a single round, or a bare list of questions. Questions are matched by title; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
+      blurb="Paste back anything Export ever gave you, a single quiz, or a bare list of questions. Questions are matched by title; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
     >
       <textarea
         className={styles.pasteBox}

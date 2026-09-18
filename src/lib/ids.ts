@@ -6,7 +6,7 @@ const nextUlid = monotonicFactory()
  * Fresh identifier for a quiz or a question: a lowercase ULID.
  *
  * Lexically sortable by mint time, including within a single millisecond, so a burst of
- * records -- the five blank questions a new round opens with -- keeps its creation order.
+ * records -- the five blank questions a new quiz opens with -- keeps its creation order.
  *
  * @returns 26 lowercase Crockford-base32 characters.
  *

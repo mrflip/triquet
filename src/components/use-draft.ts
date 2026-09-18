@@ -15,7 +15,7 @@ export type DraftHandle = {
  * half-typed word. A change arriving from elsewhere -- another tab, an import, a sort -- takes
  * over only while the field is not being typed into.
  *
- * @param committed - The text as the round currently holds it.
+ * @param committed - The text as the quiz currently holds it.
  * @param onCommit - Called with the draft when the field loses focus and the text has changed.
  * @param tidy - Last chance to clean the draft up on the way out, applied to what the author
  *   still sees as well as to what is committed: `3.` typed on the way to `3.1` becomes `3`.
