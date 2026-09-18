@@ -89,9 +89,16 @@ erroring. "Save a version" tags, "Download as git" hands back a zip that ordinar
 * **The tree and the commit body carry the same TSV.** You asked for both explicitly. The file is
   what makes `git diff` work; the body is what makes a commit self-contained. Cheap either way,
   but it is duplication and you may want only one.
-* **The TSV is lossy, so a downloaded repository cannot be re-imported.** It carries seven fields;
-  `title`, `qnum`, `hint` on its own, `chains_to`, the labels and every extraction are not among
-  them. The `.triquet.json` beside it is the answer to that.
+* **The TSV is lossy, so `{quizlabel}.triquet.json` sits beside it**, holding the whole quiz
+  pretty-printed, and the two move together in one commit. The TSV carries seven fields; `title`,
+  `qnum`, `hint` on its own, `chains_to`, the labels and every extraction are not among them, so
+  the JSON is the only file a quiz could ever be restored from. Nothing reads it back yet.
+* **`safe-stable-stringify` rather than `fast-json-stable-stringify`.** You named the latter and
+  invited an alternative: it has no `space` option, so it cannot pretty-print, and it has not been
+  published in years. `safe-stable-stringify` is maintained, zero-dependency, takes the ordinary
+  `(value, replacer, space)` signature, and sorts keys the same way. The cost is that the JSON
+  reads alphabetically rather than in schema order -- `alt_text` before `clueing` -- which is the
+  price of a diff that never shuffles for no reason.
 * **Commits are attributed to `Triquet <triquet@localhost>`.** There are no accounts and nothing
   leaves the browser, so there is no better name to use.
 * **The gear modal's form button is now "Apply", not "Save".** "Save" now means the tag, which is

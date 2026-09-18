@@ -1,5 +1,6 @@
 import * as git from 'isomorphic-git'
 import { zipSync } from 'fflate'
+import stringify from 'safe-stable-stringify'
 import * as Changes from './changes'
 import * as Labelmaker from './labelmaker'
 import * as Sheets from './sheets'
@@ -11,9 +12,14 @@ export const RepoRoot = '/quizzes'
 /** Who every commit is attributed to. There are no accounts here, and nothing leaves the browser. */
 export const GitAuthor = { name: 'Triquet', email: 'triquet@localhost' } as const
 
-/** What a quiz's one tracked file is called. The label moves, and git reads the move as a rename. */
+/** What the tab-separated file is called. The label moves, and git reads the move as a rename. */
 export function quizFilenameFor(quiz: Readonly<Labelmaker.Labelled>): string {
   return `${Labelmaker.effectiveLabelOf(quiz)}.tsv`
+}
+
+/** What the whole-quiz export is called, suffixed so it says whose format it is */
+export function quizJsonFilenameFor(quiz: Readonly<Labelmaker.Labelled>): string {
+  return `${Labelmaker.effectiveLabelOf(quiz)}.triquet.json`
 }
 
 /** Where `quiz`'s repository sits. Keyed by id, so renaming a quiz never orphans its history. */
@@ -63,18 +69,28 @@ export async function flushFs(fs: GitFs): Promise<void> {
 }
 
 /**
- * The whole working tree for `quiz`: one tab-separated file, under the label the quiz answers to.
+ * The whole working tree for `quiz`, both files under the label the quiz answers to.
  *
- * One file, so a commit is that file updating and a diff is line-per-question. Renaming the quiz
- * renames the file, which git reads as a rename rather than as a loss.
+ * The `.tsv` is what a commit reads as: one line per question, so a diff is line-per-question and
+ * legible to anyone. It is also lossy -- seven fields of a much larger quiz -- so the
+ * `.triquet.json` beside it carries the whole thing, pretty-printed, and is what could restore a
+ * quiz from its own history. They move together in one commit.
+ *
+ * The JSON is written with sorted keys rather than whatever order an object happened to be built
+ * in. A diff that shuffles its lines for no reason is a diff nobody reads.
+ *
+ * Renaming the quiz renames both files, which git reads as a rename rather than as a loss.
  *
  * @param quiz - The quiz as it now stands.
  * @returns Every file the repository should hold, and nothing else.
  *
- * @example [...quizFiles(quiz).keys()]  // => ['quiet_otter.tsv']
+ * @example quizFiles(quiz).keys().toArray()  // => ['quiet_otter.tsv', 'quiet_otter.triquet.json']
  */
 export function quizFiles(quiz: QuizT): Map<string, string> {
-  return new Map([[quizFilenameFor(quiz), `${Sheets.sheetsExport(quiz.questions)}\n`]])
+  return new Map([
+    [quizFilenameFor(quiz), `${Sheets.sheetsExport(quiz.questions)}\n`],
+    [quizJsonFilenameFor(quiz), `${stringify(quiz, null, 2)}\n`],
+  ])
 }
 
 /**

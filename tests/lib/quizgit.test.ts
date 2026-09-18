@@ -109,15 +109,43 @@ describe('quizFilenameFor', () => {
   })
 })
 
+/** The whole-quiz export as `quizFiles` writes it, for a quiz labelled `ours` */
+const jsonOf = (quiz: QuizT) => Quizgit.quizFiles(quiz).get('ours.triquet.json') ?? ''
+
+describe('quizJsonFilenameFor', () => {
+  it('says whose format it is, under the label the quiz answers to', () => {
+    expect(Quizgit.quizJsonFilenameFor({ label: 'quiet_otter', forced_label: null })).to.eq('quiet_otter.triquet.json')
+  })
+})
+
 describe('quizFiles', () => {
-  it('is the one tab-separated file, under the quiz\'s own label', () => {
+  it('is the two files, both under the quiz\'s own label', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
-    expect(Quizgit.quizFiles(quiz).keys().toArray()).to.deep.eq(['ours.tsv'])
+    expect(Quizgit.quizFiles(quiz).keys().toArray()).to.deep.eq(['ours.tsv', 'ours.triquet.json'])
   })
 
   it('holds exactly what the author would paste into a spreadsheet', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
     expect(Quizgit.quizFiles(quiz).get('ours.tsv')).to.eq(`${Sheets.sheetsExport(quiz.questions)}\n`)
+  })
+
+  it('holds the whole quiz as JSON, which the TSV alone could never give back', () => {
+    const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?', hint: 'BUT NOT a stoat', qnum: '3' })])
+    expect(JSON.parse(jsonOf(quiz))).to.deep.eq(structuredClone(quiz))
+  })
+
+  it('pretty-prints it, so a diff reads as lines rather than as one enormous one', () => {
+    const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
+    const written = jsonOf(quiz)
+    expect(written.split('\n').length).to.be.greaterThan(20)
+    expect(written).to.include('\n  "id": ')
+    expect(written.endsWith('\n')).to.eq(true)
+  })
+
+  it('sorts its keys, so the same quiz is the same bytes however the object was built', () => {
+    const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
+    const rebuilt = { ...quizOf([]), ...Object.fromEntries(Object.entries(quiz).toReversed()) }
+    expect(jsonOf(rebuilt)).to.eq(jsonOf(quiz))
   })
 })
 
@@ -158,7 +186,7 @@ describe('commitQuiz', () => {
   it('tracks the one file, named for the quiz', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
-    expect(gitSays(quiz, 'ls-files')).to.eq('ours.tsv')
+    expect(gitSays(quiz, 'ls-files').split('\n')).to.deep.eq(['ours.triquet.json', 'ours.tsv'])
   })
 
   it('puts the shorthand in the subject and the quiz in the body', async () => {
@@ -178,7 +206,9 @@ describe('commitQuiz', () => {
     await commitStep(before, after)
 
     expect(gitSays(after, 'log', '--format=%s').split('\n')).to.deep.eq(['quiet_otter +clueing', '+quiz'])
-    expect(gitSays(after, 'show', '--stat', '--format=', 'HEAD')).to.include('ours.tsv')
+    const touched = gitSays(after, 'show', '--stat', '--format=', 'HEAD')
+    expect(touched).to.include('ours.tsv')
+    expect(touched).to.include('ours.triquet.json')
   })
 
   it('starts on the branch the quiz\'s version names', async () => {
@@ -216,7 +246,7 @@ describe('commitQuiz', () => {
     const after = { ...before, forced_label: 'renamed' }
     await commitStep(before, after)
 
-    expect(gitSays(after, 'ls-files')).to.eq('renamed.tsv')
+    expect(gitSays(after, 'ls-files').split('\n')).to.deep.eq(['renamed.triquet.json', 'renamed.tsv'])
     expect(gitSays(after, 'status', '--porcelain')).to.eq('')
   })
 })
@@ -268,7 +298,7 @@ describe('zipQuizRepo', () => {
     const saysHere = (...args: string[]) => gitIn(clone, args)
     expect(saysHere('log', '--format=%s')).to.eq('+quiz')
     expect(saysHere('tag', '--list')).to.eq('main-2026-09-18t184504z')
-    expect(saysHere('ls-files')).to.eq('ours.tsv')
+    expect(saysHere('ls-files').split('\n')).to.deep.eq(['ours.triquet.json', 'ours.tsv'])
     expect(saysHere('show', 'HEAD:ours.tsv')).to.eq(Sheets.sheetsExport(quiz.questions))
     expect(saysHere('status', '--porcelain')).to.eq('')
   })
