@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question, QuestionValidators } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
-import { titleize } from '../../src/lib/labelmaker'
+import * as Labelmaker from '../../src/lib/labelmaker'
 
 const anId = mintId()
 
@@ -47,7 +47,7 @@ describe('Question.fill', () => {
 
   it('populates a blank title from the generated label, titleized', () => {
     const question = Question.fill({ id: anId })
-    expect(question.title).to.eq(titleize(question.label))
+    expect(question.title).to.eq(Labelmaker.titleize(question.label))
   })
 
   it('leaves a given title alone even though a label was generated too', () => {

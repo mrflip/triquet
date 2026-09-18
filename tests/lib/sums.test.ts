@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sumsForQuiz } from '../../src/lib/sums'
+import * as Sums from '../../src/lib/sums'
 import { Question, type QuestionT } from '../../src/models/question'
 import type { IshItemT, IshesT } from '../../src/models/ish'
 import { present } from '../support/present'
@@ -17,7 +17,7 @@ function loneQuestion(patch: Partial<QuestionT>): QuestionT {
   return { ...Question.blank(), qnum: '1', ...patch }
 }
 
-const sumsOf = (questions: QuestionT[], question: QuestionT) => present(sumsForQuiz(questions).get(question.id))
+const sumsOf = (questions: QuestionT[], question: QuestionT) => present(Sums.sumsForQuiz(questions).get(question.id))
 
 describe('sumsForQuiz', () => {
   it('adds every ish in the clueing, and the digit-written ones on their own', () => {

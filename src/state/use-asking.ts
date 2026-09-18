@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { askModel } from '../lib/ask/port'
-import { bulkLandingsFor, bulkTargetsOf } from '../lib/ask/bulk'
+import * as Bulk from '../lib/ask/bulk'
 import { AppNotices, AskFailureNotices, bulkRunFailedNotice } from '../lib/notices'
 import { askError } from '../models/ask'
 import type { AskReplyT, Textkind } from '../lib/ask/contract'
@@ -87,7 +87,7 @@ export function useAsking(dispatch: (action: WorkspaceAction) => void): AskingHa
   }, [dispatch, hold])
 
   const recalculateAll = useCallback((questions: readonly QuestionT[]) => {
-    const targets = bulkTargetsOf(questions)
+    const targets = Bulk.bulkTargetsOf(questions)
     if (targets.length === 0) {
       setRunNotice(AppNotices.nothingToRecalculate)
       return
@@ -105,7 +105,7 @@ export function useAsking(dispatch: (action: WorkspaceAction) => void): AskingHa
       const updated_at = Date.now()
       dispatch({
         kind:     'apply_bulk_ishes',
-        landings: bulkLandingsFor(targets, reply, updated_at),
+        landings: Bulk.bulkLandingsFor(targets, reply, updated_at),
         run:      { approx_tokens: reply.approx_tokens, text_count: reply.text_count, updated_at },
       })
     })

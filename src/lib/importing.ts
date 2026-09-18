@@ -1,6 +1,6 @@
 import * as Z from 'zod'
-import { clearDanglingChains } from './chain'
-import { renumberByRank } from './rank'
+import * as Chain from './chain'
+import * as Rank from './rank'
 import { mintId } from './ids'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportQuizT } from '../models/import'
 import { Question, type QuestionT } from '../models/question'
@@ -72,7 +72,7 @@ export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
   for (const [ii, raw] of incoming.entries()) { mergeOneQuestion(merge, raw, ii + 1) }
 
   // Two cleanups over the whole quiz, not just the questions the import touched.
-  const questions = renumberByRank(clearDanglingChains(
+  const questions = Rank.renumberByRank(Chain.clearDanglingChains(
     remapChains(merge.questions, merge.chainOrders, merge.answerForForeignId, merge.log),
   ))
 

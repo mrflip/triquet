@@ -1,5 +1,6 @@
-import { qnumOf } from './rank'
-import { SumColkeyVals, sumsForQuiz, type SumColkey } from './sums'
+import * as Rank from './rank'
+import * as Sums from './sums'
+import type { SumColkey } from './sums'
 import type { Sortkey } from '../models/quiz'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
@@ -54,7 +55,7 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]): SortValueOf {
   switch (sortkey) {
   case 'qnum': {
-    return qnumOf
+    return Rank.qnumOf
   }
   case 'title': {
     return (question) => question.title
@@ -81,7 +82,7 @@ export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]):
     }
   }
   default: {
-    const sums = sumsForQuiz(questions)
+    const sums = Sums.sumsForQuiz(questions)
     const sumColkey: SumColkey = sortkey
     return (question) => sums.get(question.id)?.[sumColkey].total ?? null
   }
@@ -89,7 +90,7 @@ export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]):
 }
 
 /** The eight sum columns, for the exhaustiveness check above */
-export const SumSortkeys: readonly SumColkey[] = SumColkeyVals
+export const SumSortkeys: readonly SumColkey[] = Sums.SumColkeyVals
 
 /**
  * How many spans an extraction found, or null when it never ran.

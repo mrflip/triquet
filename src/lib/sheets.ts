@@ -1,5 +1,5 @@
-import { inRankOrder, ranksOf } from './rank'
-import { sumsForQuiz } from './sums'
+import * as Rank from './rank'
+import * as Sums from './sums'
 import type { QuestionT } from '../models/question'
 
 /** How many tab-separated fields each line carries */
@@ -19,11 +19,11 @@ export const SheetsFieldCount = 7
  * @example sheetsExport(quiz.questions).split('\n').length  // => one line per question
  */
 export function sheetsExport(questions: readonly QuestionT[]): string {
-  const ranks = ranksOf(questions)
-  const sums = sumsForQuiz(questions)
+  const ranks = Rank.ranksOf(questions)
+  const sums = Sums.sumsForQuiz(questions)
   const questionForId = new Map(questions.map((question) => [question.id, question]))
 
-  return inRankOrder(questions).map((question) => {
+  return Rank.inRankOrder(questions).map((question) => {
     const rank = ranks.get(question.id) ?? null
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
     const clueingFull = sums.get(question.id)?.clueing_full.total ?? null

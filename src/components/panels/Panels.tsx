@@ -3,7 +3,7 @@
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
-import { sheetsExport } from '../../lib/sheets'
+import * as Sheets from '../../lib/sheets'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { QuizT } from '../../models/quiz'
 import type { WorkspaceT } from '../../models/workspace'
@@ -17,7 +17,7 @@ export function Panels({ quiz, workspace, onMerged }: Readonly<{ quiz: QuizT, wo
         title="Copy for Sheets"
         blurb="Tab-separated, one line per question, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet."
       >
-        <ReadonlyBox label="Copy for Sheets" text={sheetsExport(quiz.questions)} />
+        <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz.questions)} />
       </Panel>
 
       <Panel

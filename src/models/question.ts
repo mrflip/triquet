@@ -1,7 +1,7 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
-import { localBlankLabel, titleize } from '../lib/labelmaker'
+import * as Labelmaker from '../lib/labelmaker'
 import { GuessValidators, type GuessT } from './guess'
 import { IshValidators, type IshesT } from './ish'
 
@@ -41,7 +41,7 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid, label }) =>
     clueing:       clueing.default(''),
     hint:          hint.default(''),
     title:         title.default(''),
-    label:         questionLabel.default(() => localBlankLabel(new Set(), mintId())),
+    label:         questionLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     forced_label:  forced_label.default(null),
     chains_to:     chains_to.default(null),
     guess:         GuessValidators.guess.default(null),
@@ -104,7 +104,7 @@ export class Question implements QuestionT {
    */
   static fill(dna: QuestionDNA): QuestionT {
     const question = QuestionValidators.question(dna)
-    return question.title === '' ? { ...question, title: titleize(question.label) } : question
+    return question.title === '' ? { ...question, title: Labelmaker.titleize(question.label) } : question
   }
 
   /**

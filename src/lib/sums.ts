@@ -1,4 +1,4 @@
-import { ranksOf } from './rank'
+import * as Rank from './rank'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 
@@ -47,7 +47,7 @@ export const EmptySums: QuestionSums = Object.fromEntries(
  * @example sumsForQuiz(quiz.questions).get(question.id)?.clueing_full.total
  */
 export function sumsForQuiz(questions: readonly QuestionT[]): SumsForId {
-  const ranks = ranksOf(questions)
+  const ranks = Rank.ranksOf(questions)
   const questionForId = new Map(questions.map((question) => [question.id, question]))
   return new Map(questions.map((question) => {
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null

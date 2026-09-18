@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
-import { effectiveLabelOf, normalize } from '../lib/labelmaker'
+import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import type { WorkspaceAction } from '../state/workspace-reducer'
 import type { QuizT } from '../models/quiz'
@@ -21,13 +21,13 @@ export type QuizManageModalProps = {
  * quiz in the workspace by name (bottom).
  */
 export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Readonly<QuizManageModalProps>) {
-  const [draft, setDraft] = useState(effectiveLabelOf(quiz))
+  const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [issue, setIssue] = useState<string | null>(null)
 
   const onSave = () => {
-    const cleaned = normalize(draft)
+    const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
-    const taken = workspace.quizzes.some((other) => other.id !== quiz.id && effectiveLabelOf(other) === cleaned)
+    const taken = workspace.quizzes.some((other) => other.id !== quiz.id && Labelmaker.effectiveLabelOf(other) === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     dispatch({ kind: 'relabel_quiz', label: cleaned })
     onClose()

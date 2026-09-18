@@ -1,7 +1,7 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
-import { localBlankLabel, titleize } from '../lib/labelmaker'
+import * as Labelmaker from '../lib/labelmaker'
 import { AskValidators } from './ask'
 import { Question, QuestionValidators, type QuestionT } from './question'
 
@@ -39,7 +39,7 @@ export const QuizValidators = Validator(({ obj, arr, oneof, title, label, bool, 
     id:              ulid,
     title:           title.default('')
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
-    label:           quizLabel.default(() => localBlankLabel(new Set(), mintId())),
+    label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     forced_label:    forced_label.default(null),
     questions:       arr(QuestionValidators.question).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
@@ -98,7 +98,7 @@ export class Quiz implements QuizT {
    */
   static fill(dna: QuizDNA): QuizT {
     const quiz = QuizValidators.quiz(dna)
-    return quiz.title === '' ? { ...quiz, title: titleize(quiz.label) } : quiz
+    return quiz.title === '' ? { ...quiz, title: Labelmaker.titleize(quiz.label) } : quiz
   }
 
   /**

@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
-import { titleize } from '../../src/lib/labelmaker'
+import * as Labelmaker from '../../src/lib/labelmaker'
 
 const quizId = mintId()
 
@@ -19,7 +19,7 @@ describe('Quiz.fill', () => {
       forced_label:    null,
     })
     expect(quiz.label).to.match(/^[a-z]+_[a-z]+$/)
-    expect(quiz.title).to.eq(titleize(quiz.label))
+    expect(quiz.title).to.eq(Labelmaker.titleize(quiz.label))
   })
 
   it('keeps the questions in the order given, because that array IS the order', () => {

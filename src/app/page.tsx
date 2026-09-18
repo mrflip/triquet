@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWorkspace } from '../state/use-workspace'
-import { effectiveLabelOf } from '../lib/labelmaker'
+import * as Labelmaker from '../lib/labelmaker'
 
 /** Sends the author straight to their first quiz -- minting one if this workspace somehow has none */
 export default function HomePage() {
@@ -14,7 +14,7 @@ export default function HomePage() {
     if (! loaded) { return }
     const first = workspace.quizzes[0]
     if (! first) { dispatch({ kind: 'new_quiz' }); return }
-    router.replace(`/my/quiz/#${effectiveLabelOf(first)}`)
+    router.replace(`/my/quiz/#${Labelmaker.effectiveLabelOf(first)}`)
   }, [loaded, workspace, dispatch, router])
 
   return null

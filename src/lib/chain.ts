@@ -1,4 +1,4 @@
-import { inRankOrder, qnumOf } from './rank'
+import * as Rank from './rank'
 import type { QuestionT } from '../models/question'
 
 /** About how much of a chained-to hint the BUT NOT column previews */
@@ -59,9 +59,9 @@ export function chainOrder(questions: readonly QuestionT[], descending: boolean)
   // Rank order is what "lowest Q# first" means. Walking backward reverses the numbered
   // questions but leaves the unnumbered ones at the end, where they belong in either direction:
   // an absent Q# is not a high one.
-  const ranked = inRankOrder(questions)
-  const numbered = ranked.filter((question) => qnumOf(question) !== null)
-  const unnumbered = ranked.filter((question) => qnumOf(question) === null)
+  const ranked = Rank.inRankOrder(questions)
+  const numbered = ranked.filter((question) => Rank.qnumOf(question) !== null)
+  const unnumbered = ranked.filter((question) => Rank.qnumOf(question) === null)
   const roots = descending ? [...numbered.toReversed(), ...unnumbered] : ranked
   const chainedInto = chainedIntoLookup(ranked)
 

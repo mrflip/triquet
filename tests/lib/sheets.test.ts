@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SheetsFieldCount, foldButnot, pasteSafe, sheetsExport } from '../../src/lib/sheets'
+import * as Sheets from '../../src/lib/sheets'
 import { Question, type QuestionT } from '../../src/models/question'
 import type { IshItemT } from '../../src/models/ish'
 import { present } from '../support/present'
@@ -8,7 +8,7 @@ const numeral = (text: string, value: number): IshItemT => ({ text, value, kind:
 
 /** The fields of the line at `lineIdx` */
 function fieldsOf(questions: QuestionT[], lineIdx: number): string[] {
-  return present(sheetsExport(questions).split('\n')[lineIdx]).split('\t')
+  return present(Sheets.sheetsExport(questions).split('\n')[lineIdx]).split('\t')
 }
 
 const PasteCases: [string, string, string][] = [
@@ -27,34 +27,34 @@ const PasteCases: [string, string, string][] = [
 describe('pasteSafe', () => {
   for (const [text, expected, blurb] of PasteCases) {
     it(blurb, () => {
-      expect(pasteSafe(text)).to.eq(expected)
+      expect(Sheets.pasteSafe(text)).to.eq(expected)
     })
   }
 })
 
 describe('foldButnot', () => {
   it('joins a clueing to a hint that already says BUT NOT', () => {
-    expect(foldButnot('Which region?', 'BUT NOT the film')).to.eq('Which region? ... BUT NOT the film')
+    expect(Sheets.foldButnot('Which region?', 'BUT NOT the film')).to.eq('Which region? ... BUT NOT the film')
   })
 
   it('supplies the phrase when the hint does not carry it', () => {
-    expect(foldButnot('Which region?', 'the film')).to.eq('Which region? ... BUT NOT ... the film')
+    expect(Sheets.foldButnot('Which region?', 'the film')).to.eq('Which region? ... BUT NOT ... the film')
   })
 
   it('leaves the clueing alone when there is no hint to fold in', () => {
-    expect(foldButnot('Which region?', '')).to.eq('Which region?')
-    expect(foldButnot('Which region?', ' '.repeat(3))).to.eq('Which region?')
+    expect(Sheets.foldButnot('Which region?', '')).to.eq('Which region?')
+    expect(Sheets.foldButnot('Which region?', ' '.repeat(3))).to.eq('Which region?')
   })
 
   it('does not care how the hint is capitalised', () => {
-    expect(foldButnot('Q?', 'but not the film')).to.eq('Q? ... but not the film')
+    expect(Sheets.foldButnot('Q?', 'but not the film')).to.eq('Q? ... but not the film')
   })
 })
 
 describe('sheetsExport', () => {
   it('emits seven fields per question', () => {
     const questions = [{ ...Question.blank(), qnum: '1', clueing: 'Which region?' }]
-    expect(fieldsOf(questions, 0)).to.have.length(SheetsFieldCount)
+    expect(fieldsOf(questions, 0)).to.have.length(Sheets.SheetsFieldCount)
   })
 
   it('goes out in rank order however the grid is arranged', () => {
@@ -63,7 +63,7 @@ describe('sheetsExport', () => {
       { ...Question.blank(), qnum: '1', clueing: 'first' },
       { ...Question.blank(), qnum: '2', clueing: 'second' },
     ]
-    const clueings = sheetsExport(questions).split('\n').map((line) => present(line.split('\t', 2)[1]))
+    const clueings = Sheets.sheetsExport(questions).split('\n').map((line) => present(line.split('\t', 2)[1]))
     expect(clueings).to.deep.eq(['first', 'second', 'third'])
   })
 
@@ -73,7 +73,7 @@ describe('sheetsExport', () => {
       { ...Question.blank(), qnum: '9.5', clueing: 'b' },
       { ...Question.blank(), qnum: '40', clueing: 'c' },
     ]
-    const ranks = sheetsExport(questions).split('\n').map((line) => present(line.split('\t', 1)[0]))
+    const ranks = Sheets.sheetsExport(questions).split('\n').map((line) => present(line.split('\t', 1)[0]))
     expect(ranks).to.deep.eq(['1', '2', '3'])
   })
 
@@ -113,11 +113,11 @@ describe('sheetsExport', () => {
 
   it('never lets a field\'s own line break start a new spreadsheet row', () => {
     const questions = [{ ...Question.blank(), qnum: '1', clueing: 'two\nlines', notes: 'a\tb' }]
-    expect(sheetsExport(questions).split('\n')).to.have.length(1)
-    expect(fieldsOf(questions, 0)).to.have.length(SheetsFieldCount)
+    expect(Sheets.sheetsExport(questions).split('\n')).to.have.length(1)
+    expect(fieldsOf(questions, 0)).to.have.length(Sheets.SheetsFieldCount)
   })
 
   it('reads an empty quiz as an empty export', () => {
-    expect(sheetsExport([])).to.eq('')
+    expect(Sheets.sheetsExport([])).to.eq('')
   })
 })

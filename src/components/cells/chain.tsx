@@ -1,7 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
-import { chainSnippet } from '../../lib/chain'
+import * as Chain from '../../lib/chain'
 import { CellNotices } from '../../lib/notices'
 import type { QuestionT } from '../../models/question'
 import styles from '../workbench.module.css'
@@ -53,7 +53,7 @@ export function ButnotPreview({ target, chained, heightPx }: Readonly<ButnotPrev
       style={{ maxHeight: `${String(heightPx)}px` }}
       title={notice === null ? target?.hint : undefined}
     >
-      {notice ?? chainSnippet(target?.hint ?? '')}
+      {notice ?? Chain.chainSnippet(target?.hint ?? '')}
     </div>
   )
 }

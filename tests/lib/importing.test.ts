@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { importInto, matchkeyOf } from '../../src/lib/importing'
+import * as Importing from '../../src/lib/importing'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
@@ -14,7 +14,7 @@ function quizOf(...triples: [string, string, string][]): QuizT {
 
 /** The quiz after importing `pasted`, which the test expects to have succeeded */
 function importedInto(quiz: QuizT, pasted: unknown): QuizT {
-  return present(importInto(quiz, JSON.stringify(pasted)).quiz)
+  return present(Importing.importInto(quiz, JSON.stringify(pasted)).quiz)
 }
 
 const answersOf = (quiz: QuizT) => quiz.questions.map((question) => question.title)
@@ -23,7 +23,7 @@ const findByAnswer = (quiz: QuizT, title: string) =>
 
 describe('matchkeyOf', () => {
   it('ignores case and surrounding whitespace', () => {
-    expect(matchkeyOf('  LéOn  ')).to.eq('léon')
+    expect(Importing.matchkeyOf('  LéOn  ')).to.eq('léon')
   })
 })
 
@@ -43,7 +43,7 @@ describe('importInto', () => {
 
     it('takes a whole workspace, matching the open quiz by name', () => {
       const quiz = quizOf(['1', 'Leon', 'Which region?'])
-      const outcome = importInto(quiz, JSON.stringify({
+      const outcome = Importing.importInto(quiz, JSON.stringify({
         quizzes: [
           { title: 'Some other quiz', questions: [{ title: 'Leon', clueing: 'Wrong one' }] },
           { title: 'Quiz one', questions: [{ title: 'Leon', clueing: 'Right one' }] },
@@ -56,7 +56,7 @@ describe('importInto', () => {
 
     it('says which reading it took and how many questions it found', () => {
       const quiz = quizOf(['1', 'Leon', 'Which region?'])
-      const outcome = importInto(quiz, JSON.stringify([{ title: 'Leon' }, { title: 'Nantes' }]))
+      const outcome = Importing.importInto(quiz, JSON.stringify([{ title: 'Leon' }, { title: 'Nantes' }]))
       expect(outcome.summary).to.include('bare list of 2 question(s)')
     })
   })
@@ -146,7 +146,7 @@ describe('importInto', () => {
 
     it('leaves a chain it cannot resolve unset, and says so in the log', () => {
       const quiz = quizOf(['1', 'Leon', 'Which region?'])
-      const outcome = importInto(quiz, JSON.stringify([{ id: 'theirs-1', title: 'Leon', chains_to: 'nobody' }]))
+      const outcome = Importing.importInto(quiz, JSON.stringify([{ id: 'theirs-1', title: 'Leon', chains_to: 'nobody' }]))
       expect(findByAnswer(present(outcome.quiz), 'Leon').chains_to).to.eq(null)
       expect(present(outcome.log[0]).issues[0]?.code).to.eq('chain_unresolved')
     })
@@ -185,7 +185,7 @@ describe('importInto', () => {
 
     it('says so in the summary', () => {
       const quiz = quizOf(['1', 'Leon', 'a'])
-      expect(importInto(quiz, JSON.stringify([{ title: 'Leon' }])).summary)
+      expect(Importing.importInto(quiz, JSON.stringify([{ title: 'Leon' }])).summary)
         .to.include('Renumbered Q# by rank.')
     })
   })
@@ -193,7 +193,7 @@ describe('importInto', () => {
   describe('validation', () => {
     it('skips a bad question entirely and names it', () => {
       const quiz = quizOf(['1', 'Leon', 'Which region?'])
-      const outcome = importInto(quiz, JSON.stringify([{ title: 'Leon', qnum: 'three' }]))
+      const outcome = Importing.importInto(quiz, JSON.stringify([{ title: 'Leon', qnum: 'three' }]))
       expect(findByAnswer(present(outcome.quiz), 'Leon').clueing).to.eq('Which region?')
       expect(present(outcome.log[0]).outcome).to.eq('skipped')
       expect(present(outcome.log[0]).title).to.eq('Leon')
@@ -202,7 +202,7 @@ describe('importInto', () => {
 
     it('lets one bad question through without blocking the rest', () => {
       const quiz = quizOf(['1', 'Leon', 'a'], ['2', 'Nantes', 'b'])
-      const outcome = importInto(quiz, JSON.stringify([
+      const outcome = Importing.importInto(quiz, JSON.stringify([
         { title: 'Leon', qnum: 'three' },
         { title: 'Nantes', clueing: 'Reworded' },
       ]))
@@ -213,7 +213,7 @@ describe('importInto', () => {
 
     it('drops unknown keys silently rather than treating them as an error', () => {
       const quiz = quizOf(['1', 'Leon', 'a'])
-      const outcome = importInto(quiz, JSON.stringify([{ title: 'Leon', bookkeepingFromElsewhere: 42 }]))
+      const outcome = Importing.importInto(quiz, JSON.stringify([{ title: 'Leon', bookkeepingFromElsewhere: 42 }]))
       expect(outcome.ok).to.eq(true)
       expect(findByAnswer(present(outcome.quiz), 'Leon')).to.not.have.property('bookkeepingFromElsewhere')
     })
@@ -221,19 +221,19 @@ describe('importInto', () => {
 
   describe('failure', () => {
     it('changes nothing on unparseable JSON, and says the text is still there', () => {
-      const outcome = importInto(quizOf(['1', 'Leon', 'a']), '{"quizzes":[')
+      const outcome = Importing.importInto(quizOf(['1', 'Leon', 'a']), '{"quizzes":[')
       expect(outcome.quiz).to.eq(null)
       expect(outcome.summary).to.include('still here')
     })
 
     it('changes nothing on a shape it does not recognise', () => {
-      const outcome = importInto(quizOf(['1', 'Leon', 'a']), '"just a string"')
+      const outcome = Importing.importInto(quizOf(['1', 'Leon', 'a']), '"just a string"')
       expect(outcome.quiz).to.eq(null)
       expect(outcome.ok).to.eq(false)
     })
 
     it('changes nothing when the paste holds no questions', () => {
-      const outcome = importInto(quizOf(['1', 'Leon', 'a']), '[]')
+      const outcome = Importing.importInto(quizOf(['1', 'Leon', 'a']), '[]')
       expect(outcome.quiz).to.eq(null)
       expect(outcome.summary).to.include('nothing was changed')
     })

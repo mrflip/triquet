@@ -18,6 +18,10 @@ is a bug.
   as a single blanket default import named `_`, lodash-style, rather than naming individual
   functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is
   the one sanctioned exception to "no single-letter names".
+* In general, when importing from `lib`, prefer `import * as Foo from ...` for libraries offering a suite of related facilities. Name it for the file. (Importing functions directly puts everyone in a global namespace, with many quiet dysfunctions following behind) GOOD: `import * as Labelmaker`. BAD: `import { normalize } ...` (normalize what?)
+  - In some occasions it may feel right to abbreviate to two characters ALLOWED: `import * as SS from '../lib/sorting'` (perhaps because it will be repeatedly used as an iteratee)
+  - This applies only to files imported from `lib`; it does not imply deviating from standard Next.js practice
+  - Mock with `vi.mock('../lib/foo')`
 
 ## Naming Conventions
 
@@ -40,6 +44,8 @@ Specificity is a virtue: `bboxHt` makes clear that this height might depend on c
 Don't add a tag when it's obvious: `title`, not `titleStr`.
 However, when genericity is exactly the salient feature, use one of the following tags as is:
 Good: `pad(str)` (any string might enjoy good padding).
+
+### Specific Naming Tags
 
 Tags to append or use directly:
 

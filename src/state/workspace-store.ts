@@ -1,4 +1,4 @@
-import { browserStore, readWorkspace, watchWorkspace, writeWorkspace } from '../lib/storage'
+import * as ST from '../lib/storage'
 import { Workspace, type WorkspaceT } from '../models/workspace'
 import { workspaceReducer, type WorkspaceAction } from './workspace-reducer'
 
@@ -34,7 +34,7 @@ export type WorkspaceStore = {
  * @example const store = createWorkspaceStore(new MemoryStore(), new EventTarget())
  */
 export function createWorkspaceStore(store?: Storage | null, target: EventTarget | null = globalThis): WorkspaceStore {
-  const resolveStore = () => (store === undefined ? browserStore() : store)
+  const resolveStore = () => (store === undefined ? ST.browserStore() : store)
   const emptySnapshot: WorkspaceSnapshot = { workspace: Workspace.blank(), loaded: false, saveNotice: null }
   const listeners = new Set<() => void>()
   let held = emptySnapshot
@@ -46,14 +46,14 @@ export function createWorkspaceStore(store?: Storage | null, target: EventTarget
 
   /** Read-through on first use, then cached: the hook needs the same object back every time */
   const snapshot = (): WorkspaceSnapshot => {
-    if (! held.loaded) { held = { workspace: readWorkspace(resolveStore()), loaded: true, saveNotice: null } }
+    if (! held.loaded) { held = { workspace: ST.readWorkspace(resolveStore()), loaded: true, saveNotice: null } }
     return held
   }
 
   return {
     subscribe(listener) {
       listeners.add(listener)
-      const stopWatching = watchWorkspace((fromOtherTab) => {
+      const stopWatching = ST.watchWorkspace((fromOtherTab) => {
         announce({ workspace: fromOtherTab, loaded: true, saveNotice: held.saveNotice })
       }, target)
       return () => {
@@ -71,7 +71,7 @@ export function createWorkspaceStore(store?: Storage | null, target: EventTarget
     dispatch(action) {
       const workspace = workspaceReducer(snapshot().workspace, action)
       if (workspace === held.workspace) { return }
-      const outcome = writeWorkspace(workspace, resolveStore())
+      const outcome = ST.writeWorkspace(workspace, resolveStore())
       announce({ workspace, loaded: true, saveNotice: outcome.saved ? null : outcome.message })
     },
   }

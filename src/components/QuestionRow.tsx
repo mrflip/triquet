@@ -5,7 +5,8 @@ import clsx from 'clsx'
 import { Columns, type Colkey } from './columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { SumReadout } from './cells/readouts'
-import { SumColkeyVals, type QuestionSums, type SumColkey } from '../lib/sums'
+import * as Sums from '../lib/sums'
+import type { QuestionSums, SumColkey } from '../lib/sums'
 import type { Askkind } from '../state/use-asking'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { GuessCell } from './cells/guess'
@@ -152,7 +153,7 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
       {/* The double-click shortcut is undocumented on screen, on purpose: it is muscle memory
           for someone iterating hard on one clue's total, and the ishes cell it summarises is
           the documented, keyboard-reachable way to the same thing. */}
-      {SumColkeyVals.map((colkey) => cell(
+      {Sums.SumColkeyVals.map((colkey) => cell(
         colkey,
         <div className={styles.sum}><SumReadout total={sums[colkey].total} stale={sums[colkey].stale} /></div>,
         () => { reextractFor(colkey) },

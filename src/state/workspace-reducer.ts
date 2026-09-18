@@ -1,8 +1,8 @@
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../models/question'
 import { Quiz } from '../models/quiz'
-import { chainOrder, clearDanglingChains } from '../lib/chain'
-import { moveQuestion, renumberByPosition, renumberByRank } from '../lib/rank'
-import { sortQuestions, sortValueFor } from '../lib/sortings'
+import * as Chain from '../lib/chain'
+import * as Rank from '../lib/rank'
+import * as Sortings from '../lib/sortings'
 import { markIshesStale } from '../models/ish'
 import type { GuessT } from '../models/guess'
 import type { IshesT } from '../models/ish'
@@ -70,14 +70,14 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     // A sort commits: the new arrangement is written into the quiz, not draped over it.
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
-      questions:    sortQuestions(quiz.questions, sortValueFor(action.sortkey, quiz.questions), action.descending),
+      questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(action.sortkey, quiz.questions), action.descending),
       last_sortkey: action.sortkey,
     }))
   }
   case 'renumber_qnums': {
     // Deliberately leaves `last_sortkey` alone. Claiming the quiz is now in Q# order would
     // flip the grid into a mode that immediately re-sorts, undoing the promise that nothing moved.
-    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: renumberByRank(quiz.questions) }))
+    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: Rank.renumberByRank(quiz.questions) }))
   }
   case 'set_ishes': {
     return reviseOpenQuiz(workspace, (quiz) => ({
@@ -142,7 +142,7 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
   case 'set_chain': {
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
-      questions: clearDanglingChains(quiz.questions.map((question) => (
+      questions: Chain.clearDanglingChains(quiz.questions.map((question) => (
         question.id === action.question_id ? { ...question, chains_to: action.chains_to } : question
       ))),
     }))
@@ -150,14 +150,14 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
   case 'sort_by_chain_order': {
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
-      questions:    chainOrder(quiz.questions, action.descending),
+      questions:    Chain.chainOrder(quiz.questions, action.descending),
       last_sortkey: 'chain_order',
     }))
   }
   case 'drag_question': {
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
-      questions:    renumberByPosition(moveQuestion(quiz.questions, action.question_id, action.onto_idx)),
+      questions:    Rank.renumberByPosition(Rank.moveQuestion(quiz.questions, action.question_id, action.onto_idx)),
       last_sortkey: 'qnum',
     }))
   }

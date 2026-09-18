@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Button } from '@mui/material'
 import clsx from 'clsx'
 import { Panel } from './Panel'
-import { importInto, type ImportLogEntry } from '../../lib/importing'
+import * as Importing from '../../lib/importing'
+import type { ImportLogEntry } from '../../lib/importing'
 import type { QuizT } from '../../models/quiz'
 import styles from '../workbench.module.css'
 
@@ -28,7 +29,7 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
   const [log, setLog] = useState<ImportLogEntry[]>([])
 
   const runImport = () => {
-    const outcome = importInto(quiz, pasted)
+    const outcome = Importing.importInto(quiz, pasted)
     setSummary({ text: outcome.summary, ok: outcome.ok })
     setLog(outcome.log)
     console.warn('Triquet import:', outcome.summary, outcome.log)

@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { Columns, GridWidthPx, type Headkind } from './columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
-import { EmptySums, sumsForQuiz } from '../lib/sums'
+import * as Sums from '../lib/sums'
 import type { Askkind } from '../state/use-asking'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
@@ -37,7 +37,7 @@ export type QuestionTableProps = {
 export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   // Derived on demand and stored nowhere, so a sum is never out of step with its extraction.
-  const sums = sumsForQuiz(questions)
+  const sums = Sums.sumsForQuiz(questions)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
@@ -93,7 +93,7 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               onDrop={() => { settle(idx) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
-              sums={sums.get(question.id) ?? EmptySums}
+              sums={sums.get(question.id) ?? Sums.EmptySums}
               asking={(askkind) => asking(question.id, askkind)}
               onAsk={(askkind) => { onAsk(question, askkind) }}
               onAskTarget={(askkind) => {

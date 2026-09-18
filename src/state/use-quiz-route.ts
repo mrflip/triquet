@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { effectiveLabelOf, entityForLabel } from '../lib/labelmaker'
+import * as Labelmaker from '../lib/labelmaker'
 import type { WorkspaceAction } from './workspace-reducer'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
@@ -26,14 +26,14 @@ export function useQuizHashSync(workspace: WorkspaceT, quiz: QuizT | null, dispa
   useEffect(() => {
     if (quiz === null || openedFromHash.current) { return }
     const hashLabel = location.hash.slice(1)
-    const target = hashLabel === '' ? undefined : entityForLabel(workspace.quizzes, hashLabel)
+    const target = hashLabel === '' ? undefined : Labelmaker.entityForLabel(workspace.quizzes, hashLabel)
     if (target && target.id !== quiz.id) { dispatch({ kind: 'open_quiz', quiz_id: target.id }) }
     openedFromHash.current = true
   }, [workspace, quiz, dispatch])
 
   useEffect(() => {
     if (quiz === null) { return }
-    const label = effectiveLabelOf(quiz)
+    const label = Labelmaker.effectiveLabelOf(quiz)
     if (location.hash.slice(1) !== label) { history.replaceState(null, '', `#${label}`) }
   }, [quiz])
 }
