@@ -39,7 +39,7 @@ We distinguish these distinct lifecycle phases for structured data:
   must always mean the same thing (eg don't use `strategy` for both a strategy record and an enum
   indicating which record to select).
 * *DNA* -- same structure as `Real` up to validating, defaulting and nulling fields. Can be
-  broader: eg accepting a policy record, or a policy record handle, and offering a default if
+  broader: eg accepting a policy record, or a policy record label, and offering a default if
   neither is present.
 * *Real* -- fully validated plain JS object (POJO). Every field exists (possibly null, never
   undefined). If it belongs to a model, it is a subset of that type. Defaults have been applied.

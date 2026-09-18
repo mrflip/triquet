@@ -14,6 +14,10 @@ is a bug.
 * For text files: end with a newline, no trailing spaces; these will cause a lint error
 * Import paths carry no extension (`./thing`, not `./thing.ts`) -- the grain of Next.js and the
   wider ecosystem. Not mechanically enforced either direction; just don't add one.
+* **`es-toolkit/compat`** is our lodash-shaped utility surface (see `notes/stack.md`). Import it
+  as a single blanket default import named `_`, lodash-style, rather than naming individual
+  functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is
+  the one sanctioned exception to "no single-letter names".
 
 ## Naming Conventions
 
@@ -30,6 +34,8 @@ model type. A typename is a string.
 **Add `name`, `kind`, `handle`, `flavor`, un-camel'ed, for an isomorphic selector**; `woodname`
 is a string, `wood` is an object.
 
+**Use `label` for a freeform-string-derived identifier (local or global) driven by the user** -- eg using the title of a quiz as the url pathseg.
+
 Specificity is a virtue: `bboxHt` makes clear that this height might depend on coordinate system.
 Don't add a tag when it's obvious: `title`, not `titleStr`.
 However, when genericity is exactly the salient feature, use one of the following tags as is:
@@ -41,11 +47,14 @@ Tags to append or use directly:
 * `ckey`           -- `string|number` collection key: string for a map, index number for an array
 * `idx`            -- array index, when it's known to be an integer array index
 * `val`            -- any-typed, truly generic value. `vv`/`kk` are secondary choices in a lambda when `key` or `val` is in-scope
-* `kind`, `flavor` -- legible enumerated strong identifier. Use `handle` for legible freeform strong identifier (eg a slugged title)
+* `kind`, `flavor` -- legible **enumerated** strong identifier: picking from a menu or taxononmy. Use `label` or `handle` for legible freeform strong identifier (eg a slugged title)
+  - all of these, and tag, should apply strict identifier validation: `\w` only, starts with a letter, ends with a letter or number, two or more characters; usually also lowercase-only
 * `props` and `propnames` for structured objects; `fieldnames` and `fields` for their definitions (i.e. the fields of the class are the props of the instance)
 * `iter`           -- sequence iteration counter
-* `ii`/`jj`/`kk` for array iterators, or for element indexes in a grid pattern (use `row` and `col`, or `horiz` and `vert` exactly and only in their precise meaning). One may use `iter` or `seq`, `fooIter` or `fooSeq`, `fooIter0 / fooIter1 / fooIter2`, but ii/jj/kk are never foo'ed
-  - (avoid, however, index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, ii) => {})` is useable)
+* `iter` or `ii`/`jj`/`kk` for loop iterators in local scope only. Don't use any of those as a parameter name or as a keyword arg or field name; use `seq` in that weird case
+  - `row`, `col`, `lvl` for element indexes in a grid pattern (use  `horiz` and `vert` exactly and only in their precise meaning).
+  * You may use `iter` or `seq`, `fooIter` or `fooSeq`, `fooIter0 / fooIter1 / fooIter2` as varnames, but `ii/jj/kk` are never foo'ed
+  - (Also keep in mind we prefer functional programming -- eschew index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, ii) => {})` is useable)
 * `count` or `ct`  -- reported quantity
 * `qty` or `nFoos` -- input quantity
 * `dotkey`         -- string with dotted segments to indicate a ckey path
@@ -66,7 +75,7 @@ Tags to append or use directly:
 * `num`            -- generic num
 * `err`            -- error; **never** use `error` as a variable name
 * `obj`            -- specifically to mean 'object-like'; otherwise use `bag`, and double-check whether its object-ness is really the most salient
-* `name`           -- identifier perfectly isomorphic with what it identifies, though it may be contextual. Prefer `title`, `kind`, `handle` when they are a better match. Lots and lots of things have name in their name, don't casually make it more crowded
+* `name`           -- identifier perfectly isomorphic with what it identifies, though it may be contextual. Prefer `title`, `kind`, `label`, `handle`, `flavor` when they are a better match. Lots and lots of things have name in their name, don't casually make it more crowded
 * `title`          -- human readable name, independent of the item's identity. Don't use title as an identifier or vice-versa
 * `Model`          -- parent class / generic term for a business model data structure
 
