@@ -153,6 +153,21 @@ export default defineConfig([
     },
   },
 
+  // == [3a-bis. Plugin defaults our own documents contradict] ==
+  // Each of these is a reasonable default that STYLE.md or notes/guidelines.md rules out
+  // explicitly. Turned off here rather than disabled at hundreds of call sites.
+  {
+    name: 'triquet/house-overrides',
+    files: SourceFiles,
+    rules: {
+      // STYLE.md sanctions the one-line doc block: `/** Brief statement, if that's truly enough */`.
+      'unicorn/single-line-block-comment-style': 'off',
+      // guidelines.md's Real phase: "Every field exists (possibly null, never undefined)".
+      // null is load-bearing in the data model and in every import payload.
+      'unicorn/no-null': 'off',
+    },
+  },
+
   // These are all good ideas to enforce, but forbidding access to @ts-expect-error
   // etc can send the coach-coder development loop into a tailspin.
   // Use them judiciously, and ALWAYS report it in chat.

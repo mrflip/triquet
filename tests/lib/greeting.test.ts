@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as Z from 'zod'
 import { greet } from '../../src/lib/greeting'
 
 describe('greet', () => {
@@ -9,6 +10,6 @@ describe('greet', () => {
     expect(greet({ name: 'triquet' })).to.eq('Hello, Triquet!')
   })
   it('rejects an empty name', () => {
-    expect(() => greet({ name: '' })).to.throw()
+    expect(() => greet({ name: '' })).to.throw(Z.ZodError)
   })
 })
