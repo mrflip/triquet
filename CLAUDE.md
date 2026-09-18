@@ -4,14 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This repo is pre-implementation: conventions, stack decisions, and tooling config exist, but
-there is no application code yet (no `package.json`, no `src/`, no tests at the root).
-
-The first steps we will work on are to lay the foundations for a first-class, small-now,
+This repo is at early implementation: we've laid the foundation for a first-class, small-now,
 medium-sized maybe someday web app according to the guidelines found in /notes and otherwise
-referred to here. Part of that will be to adapt some files from old projects -- .eslintrc, etc --
-carrying forward its intent but discarding cargo-culted segments, workaround, obsolete directives
-and the other wounds of experience.
+referred to here.
+
+We are building a lightweight tool for constructing trivia quizzes, which sometimes can have "meta" puzzles --
+a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps
+store, edit and refine the question text, and also to assess questions for fairness and difficulty/
 
 Project instructions, loaded at the start of every session. Keep this file short and true:
 everything here costs context on every task, whether or not the task needs it.
