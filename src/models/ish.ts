@@ -42,6 +42,22 @@ export const IshValidators = Validator(({ obj, arr, oneof, str, num, bool, times
   return { ishKind, ishItem, ishesDone, ishes }
 })
 
+/**
+ * `ishes`, marked as no longer matching the text it came from.
+ *
+ * A stale result stays on screen, greyed and italic, rather than vanishing: a slightly
+ * out-of-date total is more useful to the author than an empty cell, as long as it says so.
+ *
+ * @param ishes - The extraction, in whatever state it is in.
+ * @returns The same extraction marked stale; unchanged when there is nothing to mark.
+ *
+ * @example markIshesStale({ status: 'done', items: [], stale: false, ... }).stale  // => true
+ */
+export function markIshesStale(ishes: IshesT): IshesT {
+  if (ishes?.status !== 'done' || ishes.stale) { return ishes }
+  return { ...ishes, stale: true }
+}
+
 export type IshItemDNA  = Z.input<typeof IshValidators.ishItem>
 export type IshItemT    = Z.output<typeof IshValidators.ishItem>
 export type IshesDoneT  = Z.output<typeof IshValidators.ishesDone>

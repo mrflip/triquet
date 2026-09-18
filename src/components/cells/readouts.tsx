@@ -46,7 +46,9 @@ export function AskableCell({ label, locked, heightPx, onAsk, children }: Readon
       type="button"
       className={clsx(styles.askable, styles.scrolls)}
       style={{ maxHeight: `${String(heightPx)}px` }}
-      aria-label={label}
+      // "Ask ..." rather than the bare column name: the sortable column header is a button
+      // too, and two controls with one name is a trap for anyone navigating by name.
+      aria-label={`Ask ${label}`}
       disabled={locked}
       onDoubleClick={onAsk}
       onKeyDown={(event) => {

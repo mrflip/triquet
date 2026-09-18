@@ -5,6 +5,8 @@ import clsx from 'clsx'
 import { Columns, GridWidthPx, type Headkind } from './columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
+import { EmptySums, sumsForRound } from '../lib/sums'
+import type { Askkind } from '../state/use-asking'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
 import styles from './workbench.module.css'
@@ -25,8 +27,8 @@ export type QuestionTableProps = {
   sortMark:     SortMark | null
   onSort:       (sortkey: Sortkey) => void
   onChain:      (question_id: string, chains_to: string | null) => void
-  asking:       (question_id: string, askkind: 'guess') => boolean
-  onAsk:        (question: QuestionT, askkind: 'guess') => void
+  asking:       (question_id: string, askkind: Askkind) => boolean
+  onAsk:        (question: QuestionT, askkind: Askkind) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
   onDrag:       (question_id: string, onto_idx: number) => void
 }
@@ -34,6 +36,8 @@ export type QuestionTableProps = {
 /** The grid: one row per question, scrolling sideways inside its own container */
 export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
+  // Derived on demand and stored nowhere, so a sum is never out of step with its extraction.
+  const sums = sumsForRound(questions)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
@@ -84,8 +88,13 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               onDrop={() => { settle(ii) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
+              sums={sums.get(question.id) ?? EmptySums}
               asking={(askkind) => asking(question.id, askkind)}
               onAsk={(askkind) => { onAsk(question, askkind) }}
+              onAskTarget={(askkind) => {
+                const target = questions.find((other) => other.id === question.chains_to)
+                if (target) { onAsk(target, askkind) }
+              }}
               onEdit={(patch) => { onEdit(question.id, patch) }}
             />
           ))}

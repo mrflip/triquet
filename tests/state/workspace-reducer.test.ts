@@ -165,6 +165,83 @@ describe('workspaceReducer', () => {
     })
   })
 
+  describe('set_ishes', () => {
+    it('stores an extraction against the text it came from', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const target = present(present(openQuizOf(ante)).questions[0])
+      const after = workspaceReducer(ante, {
+        kind: 'set_ishes', question_id: target.id, textkind: 'hint',
+        ishes: { status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], truncated: false, stale: false, updated_at: 1 },
+      })
+      const question = present(present(openQuizOf(after)).questions[0])
+      expect(question.hint_ishes?.status).to.eq('done')
+      expect(question.clueing_ishes).to.eq(null)
+    })
+
+    it('refuses while the round is locked', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
+      const target = present(present(openQuizOf(locked)).questions[0])
+      expect(workspaceReducer(locked, { kind: 'set_ishes', question_id: target.id, textkind: 'clueing', ishes: null })).to.eq(locked)
+    })
+  })
+
+  describe('staleness', () => {
+    const extracted = { status: 'done' as const, items: [], truncated: false, stale: false, updated_at: 1 }
+
+    it('marks the clueing extraction stale when the clueing is edited', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const target = present(present(openQuizOf(ante)).questions[0])
+      const withIshes = workspaceReducer(ante, { kind: 'set_ishes', question_id: target.id, textkind: 'clueing', ishes: extracted })
+      const after = workspaceReducer(withIshes, { kind: 'edit_question', question_id: target.id, patch: { clueing: 'Reworded' } })
+      const question = present(present(openQuizOf(after)).questions[0])
+      expect(question.clueing_ishes?.status === 'done' && question.clueing_ishes.stale).to.eq(true)
+    })
+
+    it('leaves the extraction visible rather than throwing it away', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const target = present(present(openQuizOf(ante)).questions[0])
+      const withIshes = workspaceReducer(ante, {
+        kind: 'set_ishes', question_id: target.id, textkind: 'clueing',
+        ishes: { ...extracted, items: [{ text: '300', value: 300, kind: 'numeral' }] },
+      })
+      const after = workspaceReducer(withIshes, { kind: 'edit_question', question_id: target.id, patch: { clueing: 'Reworded' } })
+      const question = present(present(openQuizOf(after)).questions[0])
+      expect(question.clueing_ishes?.status === 'done' && question.clueing_ishes.items).to.have.length(1)
+    })
+
+    it('marks only the hint extraction when only the hint is edited', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const target = present(present(openQuizOf(ante)).questions[0])
+      const both = workspaceReducer(
+        workspaceReducer(ante, { kind: 'set_ishes', question_id: target.id, textkind: 'clueing', ishes: extracted }),
+        { kind: 'set_ishes', question_id: target.id, textkind: 'hint', ishes: extracted },
+      )
+      const after = workspaceReducer(both, { kind: 'edit_question', question_id: target.id, patch: { hint: 'Rewritten' } })
+      const question = present(present(openQuizOf(after)).questions[0])
+      expect(question.hint_ishes?.status === 'done' && question.hint_ishes.stale).to.eq(true)
+      expect(question.clueing_ishes?.status === 'done' && question.clueing_ishes.stale).to.eq(false)
+    })
+
+    it('leaves an extraction alone when the edit did not change the text', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const target = present(present(openQuizOf(ante)).questions[0])
+      const withIshes = workspaceReducer(ante, { kind: 'set_ishes', question_id: target.id, textkind: 'clueing', ishes: extracted })
+      const after = workspaceReducer(withIshes, { kind: 'edit_question', question_id: target.id, patch: { clueing: '' } })
+      const question = present(present(openQuizOf(after)).questions[0])
+      expect(question.clueing_ishes?.status === 'done' && question.clueing_ishes.stale).to.eq(false)
+    })
+
+    it('leaves an extraction alone when some other field is edited', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const target = present(present(openQuizOf(ante)).questions[0])
+      const withIshes = workspaceReducer(ante, { kind: 'set_ishes', question_id: target.id, textkind: 'clueing', ishes: extracted })
+      const after = workspaceReducer(withIshes, { kind: 'edit_question', question_id: target.id, patch: { notes: 'later' } })
+      const question = present(present(openQuizOf(after)).questions[0])
+      expect(question.clueing_ishes?.status === 'done' && question.clueing_ishes.stale).to.eq(false)
+    })
+  })
+
   describe('replace_workspace', () => {
     it('takes the other tab\'s workspace wholesale, lock and all', () => {
       const other = openWorkspace(true)

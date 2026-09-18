@@ -1,5 +1,7 @@
 import { qnumOf } from './rank'
+import { SumColkeyVals, sumsForRound, type SumColkey } from './sums'
 import type { Sortkey } from '../models/quiz'
+import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 
 /** What a column offers the sorter: a number, a string, or nothing at all */
@@ -42,9 +44,8 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 /**
  * How a given column reads a question, for the round it belongs to.
  *
- * Columns whose numbers only exist once M5 has run read as absent until then, which sinks every
- * question to the bottom and leaves the order alone -- the honest reading of "nothing here has
- * been computed yet".
+ * A sum nobody has computed yet reads as absent, which sinks that question to the bottom in
+ * either direction -- the honest reading of "nothing here has been computed yet".
  *
  * @param sortkey - Which column was clicked.
  * @param questions - The round's questions, for columns that read across questions.
@@ -62,10 +63,42 @@ export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]):
     const answerForId = new Map(questions.map((question) => [question.id, question.short_answer]))
     return (question) => (question.chains_to === null ? null : answerForId.get(question.chains_to) ?? null)
   }
-  default: {
+  case 'chain_order': {
+    // Not a column: "Sort by chain order" walks the graph rather than reading a value.
     return () => null
   }
+  case 'clueing_ishes': {
+    return (question) => ishCountOf(question.clueing_ishes)
   }
+  case 'hint_ishes': {
+    return (question) => ishCountOf(question.hint_ishes)
+  }
+  case 'butnot_ishes': {
+    const questionForId = new Map(questions.map((question) => [question.id, question]))
+    return (question) => {
+      const target = question.chains_to === null ? null : questionForId.get(question.chains_to)
+      return ishCountOf(target?.hint_ishes ?? null)
+    }
+  }
+  default: {
+    const sums = sumsForRound(questions)
+    const sumColkey: SumColkey = sortkey
+    return (question) => sums.get(question.id)?.[sumColkey].total ?? null
+  }
+  }
+}
+
+/** The eight sum columns, for the exhaustiveness check above */
+export const SumSortkeys: readonly SumColkey[] = SumColkeyVals
+
+/**
+ * How many spans an extraction found, or null when it never ran.
+ *
+ * A list column has no single value to order by, so it orders by how much it found. An empty
+ * result is a real answer and sorts as nought; a cell nobody has asked about sinks.
+ */
+function ishCountOf(ishes: IshesT): number | null {
+  return ishes?.status === 'done' ? ishes.items.length : null
 }
 
 /** Whether a column has nothing to say about this question */

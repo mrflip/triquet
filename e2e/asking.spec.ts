@@ -9,7 +9,7 @@ async function stubAsk(page: Page, reply: unknown, status = 200) {
 
 /** The Quick-model guess cell of the row at `ii` */
 function guessCell(page: Page, ii: number) {
-  return page.getByRole('button', { name: 'Quick-model guess' }).nth(ii)
+  return page.getByRole('button', { name: 'Ask Quick-model guess' }).nth(ii)
 }
 
 test.beforeEach(async ({ page }) => {
