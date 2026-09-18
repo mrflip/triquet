@@ -6,7 +6,8 @@ import { markIshesStale } from '../models/ish'
 import type { GuessT } from '../models/guess'
 import type { IshesT } from '../models/ish'
 import type { Textkind } from '../lib/ask/contract'
-import type { QuizT, Sortkey } from '../models/quiz'
+import type { BulkLanding } from '../lib/ask/bulk'
+import type { BulkIshesRunT, QuizT, Sortkey } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
 
 /** Everything the author can do to their workspace */
@@ -22,6 +23,7 @@ export type WorkspaceAction =
   | { kind: 'sort_by_chain_order', descending: boolean }
   | { kind: 'set_guess', question_id: string, guess: GuessT }
   | { kind: 'set_ishes', question_id: string, textkind: Textkind, ishes: IshesT }
+  | { kind: 'apply_bulk_ishes', landings: readonly BulkLanding[], run: BulkIshesRunT }
 
 /**
  * The workspace as it stands after `action`.
@@ -73,6 +75,24 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
         const slot = action.textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes'
         return { ...question, [slot]: action.ishes }
       }),
+    }))
+  }
+  case 'apply_bulk_ishes': {
+    // One run, one cost figure. The results replace whatever was in those cells.
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions:       quiz.questions.map((question) => {
+        const mine = action.landings.filter((landing) => landing.question_id === question.id)
+        if (mine.length === 0) { return question }
+        const clueing = mine.find((landing) => landing.textkind === 'clueing')
+        const hint    = mine.find((landing) => landing.textkind === 'hint')
+        return {
+          ...question,
+          clueing_ishes: clueing ? clueing.ishes : question.clueing_ishes,
+          hint_ishes:    hint ? hint.ishes : question.hint_ishes,
+        }
+      }),
+      bulk_ishes_last: action.run,
     }))
   }
   case 'set_guess': {

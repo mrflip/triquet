@@ -13,7 +13,7 @@ import styles from './workbench.module.css'
 /** The whole tool: one round on screen, saved to this browser the moment anything changes */
 export function Workbench() {
   const { quiz, dispatch, saveNotice } = useWorkspace()
-  const { asking, ask } = useAsking(dispatch)
+  const { asking, ask, recalculateAll, running, runNotice } = useAsking(dispatch)
   // The arrow marks only what was sorted in this session; the round itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
@@ -50,8 +50,12 @@ export function Workbench() {
       />
       <Toolbar
         locked={quiz.locked}
+        bulkIshesLast={quiz.bulk_ishes_last}
+        running={running}
+        runNotice={runNotice}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
+        onRecalculate={() => { recalculateAll(quiz.questions) }}
         onSortByChain={() => {
           const descending = ! chainDescending
           setChainDescending(descending)
