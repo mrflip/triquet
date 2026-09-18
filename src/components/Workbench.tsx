@@ -73,7 +73,11 @@ export function Workbench() {
         }}
       />
       <Footnote />
-      <Panels quiz={quiz} workspace={workspace} />
+      <Panels
+        quiz={quiz}
+        workspace={workspace}
+        onMerged={(merged) => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) }}
+      />
     </main>
   )
 }

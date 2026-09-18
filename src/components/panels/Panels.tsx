@@ -1,5 +1,6 @@
 'use client'
 
+import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { sheetsExport } from '../../lib/sheets'
@@ -9,7 +10,7 @@ import type { WorkspaceT } from '../../models/workspace'
 import styles from '../workbench.module.css'
 
 /** The titled sections below the grid: ways to get the work back out, and what was asked */
-export function Panels({ quiz, workspace }: Readonly<{ quiz: QuizT, workspace: WorkspaceT }>) {
+export function Panels({ quiz, workspace, onMerged }: Readonly<{ quiz: QuizT, workspace: WorkspaceT, onMerged: (quiz: QuizT) => void }>) {
   return (
     <div className={styles.panels}>
       <Panel
@@ -25,6 +26,8 @@ export function Panels({ quiz, workspace }: Readonly<{ quiz: QuizT, workspace: W
       >
         <ReadonlyBox label="Export" text={JSON.stringify(workspace)} rows={10} dense />
       </Panel>
+
+      <ImportPanel quiz={quiz} locked={quiz.locked} onMerged={onMerged} />
 
       <Panel
         title="Prompts used"

@@ -29,6 +29,7 @@ export type WorkspaceAction =
   | { kind: 'new_quiz' }
   | { kind: 'delete_quiz', quiz_id: string }
   | { kind: 'set_lock', quiz_id: string, locked: boolean }
+  | { kind: 'replace_open_quiz', quiz: QuizT }
 
 /**
  * The workspace as it stands after `action`.
@@ -102,6 +103,9 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       ...workspace,
       quizzes: workspace.quizzes.map((quiz) => (quiz.id === action.quiz_id ? { ...quiz, locked: action.locked } : quiz)),
     }
+  }
+  case 'replace_open_quiz': {
+    return reviseOpenQuiz(workspace, () => action.quiz)
   }
   case 'apply_bulk_ishes': {
     // One run, one cost figure. The results replace whatever was in those cells.

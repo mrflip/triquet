@@ -337,3 +337,44 @@
   margin-top:  8px;
   flex-wrap:   wrap;
 }
+
+/* == Import == */
+
+.pasteBox {
+  width:         100%;
+  box-sizing:    border-box;
+  margin-top:    8px;
+  font-family:   var(--font-data);
+  font-size:     12px;
+  color:         inherit;
+  background:    var(--surface-sunk);
+  border:        1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding:       8px;
+  resize:        vertical;
+}
+
+.pasteBox:focus {
+  outline:      none;
+  border-color: var(--accent);
+}
+
+.importLog {
+  margin-top:    8px;
+  max-height:    220px;
+  overflow:      auto;
+  font-family:   var(--font-data);
+  font-size:     11px;
+  line-height:   1.5;
+  border:        1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding:       8px;
+}
+
+.importIssue {
+  color:       var(--bad);
+  padding-left: 16px;
+}
+
+.good { color: var(--good) }
+.bad  { color: var(--bad) }
