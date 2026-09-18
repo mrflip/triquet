@@ -12,7 +12,8 @@ is a bug.
 ## Important Miscellany
 
 * For text files: end with a newline, no trailing spaces; these will cause a lint error
-*
+* Import paths carry no extension (`./thing`, not `./thing.ts`) -- the grain of Next.js and the
+  wider ecosystem. Not mechanically enforced either direction; just don't add one.
 
 ## Naming Conventions
 
@@ -208,12 +209,27 @@ first time rather than discovering them at lint. This section is a summary, not 
   `try`/`catch` rather than returning the promise bare.
 * No `any`. If a type is genuinely unknown, `unknown` plus a narrowing check.
 * No unused variables, except those prefixed `_`.
-* Import paths carry their extension (`./thing.ts`, even from a `.ts` source).
 * `console.log` is a warning; `console.warn` and `console.error` are fine.
 
 **Deliberately not enforced** -- so don't "fix" these:
 
 * `camelcase` is off, because `woodname` / `fooname` are correct here.
 * `no-use-before-define` is off; define helpers below their callers when that reads better.
-* `no-non-null-assertion`, `no-underscore-dangle`, `no-continue`, `no-await-in-loop` are off.
 * `quotes` is not enforced -- the single/double convention above is yours to keep by hand.
+* `no-underscore-dangle`, `no-continue`, `no-await-in-loop` are off: no objections to their use
+
+**Allowed as safety hatches**:
+
+Do not casually disable the type checker: not with a bang (`no-non-null-assertion`),
+not with a whimper (`no-explicit-any`), not with a temper tantrum (`ban-ts-comment`)
+That said: without the ability to deplot these so that we can investigate why a problem exists, there's a danger that the coder will thrash trying to make the linter happy when the problem is elsewhere. Also, if we ban them outright we don't get information about whether they are necessary; if we allow them, and they're not used or used with care, then we will switch them on.
+
+Use these when needed, but ALWAYS discuss in chat.
+
+**Allowed in deliberate situations**
+
+In general, do not write code modifying object you don't own. `no-param-reassign' is switched on.
+However, if it's appropriate, use it and apply an eslint-disable-line
+
+In ordinary circumstances, always do return await from a try or catch block, and don't do it otherwise.
+However, if you want the current method to remain in the stacktrace, do a return await

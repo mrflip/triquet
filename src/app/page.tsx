@@ -1,5 +1,5 @@
 import { Container, Typography } from '@mui/material'
-import { greet } from '../lib/greeting.ts'
+import { greet } from '../lib/greeting'
 
 export default function HomePage() {
   return (

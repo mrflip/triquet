@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { greet } from '../../src/lib/greeting.ts'
+import { greet } from '../../src/lib/greeting'
 
 describe('greet', () => {
   it('defaults to greeting the world', () => {

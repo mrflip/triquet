@@ -1,29 +1,15 @@
 // eslint.config.mjs
 //
-// Three layers, in override order (later wins):
-//
-//   1. Stock defaults -- exactly what `create-next-app` generates for a
-//      TypeScript app, plus `js.configs.recommended` as the floor.
-//   2. The police state -- type-aware `strictTypeChecked`, plus unicorn,
-//      sonarjs and import-x. This is the modern stand-in for the airbnb
-//      config in /relics; see the notes on that below.
-//   3. Ours -- house style and the settings carried over from /relics,
-//      grouped by what kind of setting they are.
-//
-// Layer 2 replaces airbnb rather than extending it. `eslint-config-airbnb`
-// is eslintrc-only and stops at ESLint 8; `eslint-config-airbnb-extended`,
-// the community flat-config port, stops at ESLint 9. Pinning either one
-// would pin this whole project behind the toolchain.
 import { defineConfig, globalIgnores } from 'eslint/config'
-import js from '@eslint/js'
-import nextVitals from 'eslint-config-next/core-web-vitals'
-import nextTs from 'eslint-config-next/typescript'
-import tseslint from 'typescript-eslint'
-import unicorn from 'eslint-plugin-unicorn'
-import sonarjs from 'eslint-plugin-sonarjs'
-import importX from 'eslint-plugin-import-x'
-import stylistic from '@stylistic/eslint-plugin'
-import vitest from '@vitest/eslint-plugin'
+import js                              from '@eslint/js'
+import nextVitals                      from 'eslint-config-next/core-web-vitals'
+import nextTs                          from 'eslint-config-next/typescript'
+import tseslint                        from 'typescript-eslint'
+import unicorn                         from 'eslint-plugin-unicorn'
+import sonarjs                         from 'eslint-plugin-sonarjs'
+import importX                         from 'eslint-plugin-import-x'
+import stylistic                       from '@stylistic/eslint-plugin'
+import vitest                          from '@vitest/eslint-plugin'
 
 /** Everything we lint; matches the glob eslint-config-next registers its plugins for. */
 const SourceFiles = ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}']
@@ -68,6 +54,7 @@ export default defineConfig([
       },
     },
   },
+
   // == [3a. House style] == carried from /relics, in modern form.
   // Formatting rules left ESLint core and typescript-eslint for @stylistic;
   // these are the same conventions, at their current addresses.
@@ -83,9 +70,9 @@ export default defineConfig([
       '@stylistic/generator-star-spacing':         ['warn', { before: true, after: true }],
       '@stylistic/indent':                         ['warn', 2, { SwitchCase: 0 }],
       '@stylistic/linebreak-style':                ['error', 'unix'],
-      '@stylistic/no-mixed-operators':             'error',
-      '@stylistic/no-multiple-empty-lines':        'warn',
-      '@stylistic/no-trailing-spaces':             'warn',
+      '@stylistic/no-mixed-operators':             ['error'],
+      '@stylistic/no-multiple-empty-lines':        ['warn'],
+      '@stylistic/no-trailing-spaces':             ['warn'],
       '@stylistic/semi':                           ['warn', 'never'],
       '@stylistic/space-unary-ops':                ['warn', { overrides: { '!': true } }],
 
@@ -101,46 +88,81 @@ export default defineConfig([
       '@stylistic/padded-blocks':                  'off',
       '@stylistic/quotes':                         'off',
 
-      'func-style':                ['error', 'declaration', { allowArrowFunctions: true }],
-      'no-console':                ['warn', { allow: ['warn', 'error'] }],
-      'no-constructor-return':     'error',
-      'no-dupe-else-if':           'error',
-      'no-else-return':            'warn',
-      'no-implicit-coercion':      ['error', { allow: ['!!'] }],
-      'no-implicit-globals':       'error',
-      'no-negated-condition':      'error',
-      'no-unsafe-negation':        ['error', { enforceForOrderingRelations: true }],
-      'prefer-destructuring':      ['warn', { object: true, array: false }],
+      'func-style':                                ['error', 'declaration', { allowArrowFunctions: true }],
+      'no-console':                                ['warn', { allow: ['warn', 'error'] }],
+      'no-constructor-return':                     ['error'],
+      'no-dupe-else-if':                           ['error'],
+      'no-else-return':                            ['warn'],
+      'no-implicit-coercion':                      ['error', { allow: ['!!'] }],
+      'no-implicit-globals':                       ['error'],
+      'no-negated-condition':                      ['error'],
+      'no-unsafe-negation':                        ['error', { enforceForOrderingRelations: true }],
+      'prefer-destructuring':                      ['warn', { object: true, array: false }],
 
-      'arrow-body-style':          'off',
-      'camelcase':                 'off',
-      'class-methods-use-this':    'off',
-      'lines-between-class-members': 'off',
-      'max-classes-per-file':      'off',
-      'no-await-in-loop':          'off',
-      'no-continue':               'off',
-      'no-inner-declarations':     'off',
-      'no-restricted-syntax':      'off',
-      'no-underscore-dangle':      'off',
-      'no-useless-rename':         'off',
-      'prefer-template':           'off',
+      'arrow-body-style':                          ['off'],
+      'camelcase':                                 ['off'],
+      'class-methods-use-this':                    ['off'],
+      'lines-between-class-members':               ['off'],
+      'max-classes-per-file':                      ['off'],
+      'no-await-in-loop':                          ['off'],
+      'no-continue':                               ['off'],
+      'no-inner-declarations':                     ['off'],
+      'no-restricted-syntax':                      ['off'],
+      'no-underscore-dangle':                      ['off'],
+      'no-useless-rename':                         ['off'],
+      'prefer-template':                           ['off'],
 
-      '@typescript-eslint/default-param-last':             'error',
-      '@typescript-eslint/no-misused-promises':            'error',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/naming-convention':              'off',
-      '@typescript-eslint/no-this-alias':                  'off',
-      '@typescript-eslint/no-use-before-define':           'off',
-      '@typescript-eslint/no-useless-constructor':         'off',
+      '@typescript-eslint/default-param-last':     ['error'],
+      '@typescript-eslint/no-misused-promises':    ['error'],
+      '@typescript-eslint/explicit-module-boundary-types': ['off'],
+      '@typescript-eslint/naming-convention':      ['off'],
+      '@typescript-eslint/no-this-alias':          ['off'],
+      '@typescript-eslint/no-use-before-define':   ['off'],
+      '@typescript-eslint/no-useless-constructor': ['off'],
+      '@typescript-eslint/return-await':           ['warn', 'error-handling-correctness-only'], // use this when it's warranted
 
       'import-x/no-named-as-default':        'off',
       'import-x/no-named-as-default-member': 'off',
       'import-x/no-useless-path-segments':   'off',
       'import-x/prefer-default-export':      'off',
+      // No extension enforcement: extensionless is the grain of Next.js and
+      // the wider ecosystem's import convention, so import-x/extensions
+      // (either direction) isn't set here at all.
+      'import-x/no-extraneous-dependencies': ['error', {
+        devDependencies: ['tests/**', '**/*.config.{ts,mts,mjs}', 'eslint.config.mjs', 'scripts/**'],
+        optionalDependencies: false,
+        peerDependencies: true,
+      }],
 
       'react/jsx-key':                 ['error', { checkFragmentShorthand: true }],
       'react/jsx-no-useless-fragment': 'off',
       'react/no-unsafe':               'error',
+
+      // Aliases dropped; they named objects in a previous codebase.
+      'consistent-this': ['error', 'self'],
+      // Renamed rule: no-native-reassign, deprecated since ESLint 3.3.0.
+      'no-global-assign': 'error',
+      // Renamed rule: no-empty-interface.
+      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        varsIgnorePattern:         '^_',
+        argsIgnorePattern:         '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
+    },
+  },
+
+  // These are all good ideas to enforce, but forbidding access to @ts-expect-error
+  // etc can send the coach-coder development loop into a tailspin.
+  // Use them judiciously, and ALWAYS report it in chat.
+  {
+    name: 'triquet/can-we-be-adults-yes-we-can',
+    files: SourceFiles,
+    rules: {
+      '@typescript-eslint/ban-ts-comment':                'off',
+      '@typescript-eslint/no-explicit-any':               'off',
+      '@typescript-eslint/no-non-null-assertion':         'off',
     },
   },
 
@@ -157,16 +179,9 @@ export default defineConfig([
     files: SourceFiles,
     rules: {
       // 'no-useless-escape':                                'off',
-      // '@typescript-eslint/ban-ts-comment':                'off',
-      // '@typescript-eslint/no-explicit-any':               'off',
-      // '@typescript-eslint/no-non-null-assertion':         'off',
       // '@typescript-eslint/no-unsafe-declaration-merging': 'off',
       // '@typescript-eslint/only-throw-error':              'off', // relic: no-throw-literal
-      // '@typescript-eslint/return-await':                  'off',
-      //
-      // no-unused-expressions stays off, but only for tests, where
-      // chai-style assertions (`expect(val).to.be.true`) are bare
-      // expressions by design. See the tests block below.
+      // We want this in tests, where chai-style assertions (`expect(val).to.be.true`) are bare, but not in production code.
       // '@typescript-eslint/no-unused-expressions':         'off',
     },
   },
@@ -197,72 +212,20 @@ export default defineConfig([
       // '@typescript-eslint/padded-blocks':               'off',
       // '@typescript-eslint/quotes':                      'off',
       // '@typescript-eslint/semi':                        ['warn', 'never'],
-      //
-      // 'jest/lowercase-name':                  'off',
-      // 'jest/max-expects':                     'off',
-      // 'jest/no-conditional-in-test':          'off',
-      // 'jest/no-hooks':                        'off',
-      // 'jest/no-if':                           'off',
-      // 'jest/padding-around-all':              'off',
-      // 'jest/prefer-expect-assertions':        'off',
-      // 'jest/prefer-importing-jest-globals':   'off',
-      // 'jest/prefer-lowercase-title':          'off',
-      // 'jest/require-hook':                    'off',
-      // 'jest/unbound-method':                  'off',
-      // 'jest/valid-expect':                    'off',
-      //
-      // 'react/prop-types':                    'off',
-      // 'react/jsx-equals-spacing':            'off',
-      // 'react/jsx-one-expression-per-line':   'off',
-      // 'react/jsx-props-no-multi-spaces':     'off',
-      // 'react/jsx-props-no-spreading':        'off',
-      // 'react/jsx-sort-props':                'off',
     },
   },
 
-  // == [3d. Repaired] == the relics' settings, with the parts that were
-  // aimed at that codebase rather than this one corrected.
-  //
-  // Dropped outright, rather than repaired:
+  // Relic settings this project doesn't carry forward at all, kept here as
+  // a record of what was dropped rather than repaired:
   //   react-native/*, file-progress, progress, chai-expect, chai-friendly
   //     -- plugins with no role here
   //   react/sort-comp          -- orders class components; we write functions
   //   jsx-a11y/accessible-emoji, react/jsx-indent, react/jsx-filename-extension
   //     -- deprecated or, in the last case, unable to run on ESLint 10
-  {
-    name: 'triquet/relic-repaired',
-    files: SourceFiles,
-    rules: {
-      // Aliases dropped; they named objects in the old codebase.
-      'consistent-this': ['error', 'self'],
-      // Renamed rule: no-native-reassign, deprecated since ESLint 3.3.0.
-      'no-global-assign': 'error',
-      // Renamed rule: no-empty-interface.
-      '@typescript-eslint/no-empty-object-type': 'off',
-      // Allowlist dropped; it named a knex query builder we don't use.
-      '@typescript-eslint/no-floating-promises': 'error',
-      // Ignore pattern was a list of that codebase's ambient names.
-      '@typescript-eslint/no-unused-vars': ['warn', {
-        varsIgnorePattern:         '^_',
-        argsIgnorePattern:         '^_',
-        caughtErrorsIgnorePattern: '^_',
-      }],
-      // Bare 'always' demanded extensions on package imports too.
-      'import-x/extensions': ['error', 'always', { ignorePackages: true }],
-      // Globs now describe this repo's layout.
-      'import-x/no-extraneous-dependencies': ['error', {
-        devDependencies: ['tests/**', '**/*.config.{ts,mts,mjs}', 'eslint.config.mjs', 'scripts/**'],
-        optionalDependencies: false,
-        peerDependencies: true,
-      }],
-      // Arrow components contradict func-style: declaration, and Next.js
-      // pages and layouts must be default-exported declarations.
-      'react/function-component-definition': ['error', {
-        namedComponents:   'function-declaration',
-        unnamedComponents: 'arrow-function',
-      }],
-    },
-  },
+  //   import-x/extensions      -- pulled; extensionless is the grain of
+  //                               Next.js and the ecosystem (see STYLE.md)
+  //   react/function-component-definition
+  //     -- removed by Coach review; worth asking about before re-adding
 
   // This file and any other loose script sit outside the TS project, so the
   // type-aware rules above cannot run on them. Last, so it wins.
