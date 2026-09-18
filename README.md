@@ -1,4 +1,4 @@
-# Triquet
+# Triquet (Tricky Question Editor Thingie)
 
 Triquet is a lightweight tool for constructing trivia quizzes, which sometimes can have "meta" puzzles --
 a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps
