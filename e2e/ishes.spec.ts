@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
-  await page.getByRole('textbox', { name: 'Clueing' }).first()
+  await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')
   await page.getByLabel('Round name').click()
 })
@@ -66,7 +66,7 @@ test('editing the clueing greys the sums without emptying them', async ({ page }
   await page.getByRole('button', { name: 'Ask Clueing ishes' }).first().dblclick()
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toContainText('300,000,048')
 
-  await page.getByRole('textbox', { name: 'Clueing' }).first().fill('Reworded, with no numbers at all')
+  await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Reworded, with no numbers at all')
   await page.getByLabel('Round name').click()
 
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toContainText('300,000,048')
@@ -76,7 +76,7 @@ test('editing the clueing greys the sums without emptying them', async ({ page }
 
 test('BUT NOT ishes mirrors the chained-to hint rather than computing its own', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Short answer' }).nth(1).fill('damson')
-  await page.getByRole('textbox', { name: 'Hint' }).nth(1).fill('BUT NOT the 1994 film')
+  await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(1).fill('BUT NOT the 1994 film')
   await page.getByLabel('Round name').click()
   await page.getByRole('combobox', { name: 'Chains to' }).first().selectOption({ label: 'damson' })
 

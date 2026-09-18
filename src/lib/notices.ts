@@ -28,6 +28,8 @@ export const AppNotices = {
   nothingToRecalculate: 'No questions or hints have any text yet — nothing to recalculate.',
   saveFailed:           "Couldn't save to this browser — storage may be full, disabled, or private-browsing",
   untitledQuiz:         'Untitled quiz',
+  copied:               'Copied',
+  copyRefused:          'Selected — press Ctrl/Cmd+C',
 } as const
 
 /** What a cell reads when it holds no result, or a result the author should read differently */

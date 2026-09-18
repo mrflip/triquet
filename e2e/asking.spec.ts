@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
-  await page.getByRole('textbox', { name: 'Clueing' }).first().fill('Which region gave its name to Leon?')
+  await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Round name').click()
 })
 

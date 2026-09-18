@@ -13,7 +13,7 @@ import styles from './workbench.module.css'
 
 /** The whole tool: one round on screen, saved to this browser the moment anything changes */
 export function Workbench() {
-  const { quiz, dispatch, saveNotice } = useWorkspace()
+  const { workspace, quiz, dispatch, saveNotice } = useWorkspace()
   const { asking, ask, recalculateAll, running, runNotice } = useAsking(dispatch)
   // The arrow marks only what was sorted in this session; the round itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
@@ -64,7 +64,7 @@ export function Workbench() {
         }}
       />
       <Footnote />
-      <Panels quiz={quiz} />
+      <Panels quiz={quiz} workspace={workspace} />
     </main>
   )
 }

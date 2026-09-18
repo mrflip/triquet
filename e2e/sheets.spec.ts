@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
-  const box = page.getByLabel('Copy for Sheets')
+  const box = page.getByRole('textbox', { name: 'Copy for Sheets' })
   await expect(box).toBeVisible()
   return box.inputValue()
 }
@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await page.reload()
   for (const [ii, [qnum, clueing]] of ([['3', 'third'], ['1', 'first'], ['2', 'second']] as const).entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
-    await page.getByRole('textbox', { name: 'Clueing' }).nth(ii).fill(clueing)
+    await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(clueing)
   }
   await page.getByLabel('Round name').click()
 })
@@ -42,8 +42,8 @@ test('a line break in a field never starts a new spreadsheet row', async ({ page
 })
 
 test('clicking the box selects the lot', async ({ page }) => {
-  await page.getByLabel('Copy for Sheets').click()
-  const selected = await page.getByLabel('Copy for Sheets').evaluate(
+  await page.getByRole('textbox', { name: 'Copy for Sheets' }).click()
+  const selected = await page.getByRole('textbox', { name: 'Copy for Sheets' }).evaluate(
     (node) => (node as HTMLTextAreaElement).selectionEnd - (node as HTMLTextAreaElement).selectionStart,
   )
   expect(selected).toBeGreaterThan(0)

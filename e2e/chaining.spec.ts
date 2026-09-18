@@ -5,7 +5,7 @@ async function fillRound(page: Page, rows: [string, string, string][]) {
   for (const [ii, [qnum, answer, hint]] of rows.entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Short answer' }).nth(ii).fill(answer)
-    await page.getByRole('textbox', { name: 'Hint' }).nth(ii).fill(hint)
+    await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(hint)
   }
   await page.getByLabel('Round name').click()
 }

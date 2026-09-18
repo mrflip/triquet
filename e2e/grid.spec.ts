@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 
 test('a fresh workspace opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Round name')).toBeVisible()
-  await expect(page.getByRole('textbox', { name: 'Clueing' })).toHaveCount(5)
+  await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
 })
 
 test('every column is present from the start, so the layout never shifts later', async ({ page }) => {
@@ -18,7 +18,7 @@ test('every column is present from the start, so the layout never shifts later',
 
 test('what you type survives a reload', async ({ page }) => {
   await page.getByLabel('Round name').fill('Léon and other régions')
-  const clueing = page.getByRole('textbox', { name: 'Clueing' }).first()
+  const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   await clueing.fill('Which region gave its name to 千 other things?')
   await page.getByRole('textbox', { name: 'Short answer' }).first().fill('Leon')
   // Edits commit on blur, so move focus off the field before reloading.
@@ -27,7 +27,7 @@ test('what you type survives a reload', async ({ page }) => {
   await page.reload()
 
   await expect(page.getByLabel('Round name')).toHaveValue('Léon and other régions')
-  await expect(page.getByRole('textbox', { name: 'Clueing' }).first())
+  await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first())
     .toHaveValue('Which region gave its name to 千 other things?')
   await expect(page.getByRole('textbox', { name: 'Short answer' }).first()).toHaveValue('Leon')
 })
@@ -39,11 +39,11 @@ test('the round name reaches the browser tab', async ({ page }) => {
 
 test('adding a question appends a blank one', async ({ page }) => {
   await page.getByRole('button', { name: '+ Add question' }).click()
-  await expect(page.getByRole('textbox', { name: 'Clueing' })).toHaveCount(6)
+  await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(6)
 })
 
 test('a long clueing sets the height of its hint box too', async ({ page }) => {
-  const clueing = page.getByRole('textbox', { name: 'Clueing' }).first()
+  const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   const hint = page.getByRole('textbox', { name: 'Hint' }).first()
   const wasHt = await hint.evaluate((node) => node.clientHeight)
   await clueing.fill(Array.from({ length: 12 }, (_ignored, ii) => `line ${String(ii)} of a long clueing`).join('\n'))

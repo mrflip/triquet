@@ -26,8 +26,8 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => { localStorage.clear() })
   await page.reload()
   for (const ii of [0, 1, 2]) {
-    await page.getByRole('textbox', { name: 'Clueing' }).nth(ii).fill(`Clueing number ${String(ii)}`)
-    await page.getByRole('textbox', { name: 'Hint' }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
+    await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
+    await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
   }
   await page.getByLabel('Round name').click()
 })
