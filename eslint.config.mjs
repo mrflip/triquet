@@ -44,10 +44,16 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'build/**',
+      '.next/**',
       'coverage/**',
       'node_modules/**',
       '**/*.d.ts',
       '**/*.generated.*',
+      // CLAUDE.md: ignore everything staged here, and don't design anything
+      // that needs it -- these are past-project files awaiting integration,
+      // not code this project runs.
+      'aside/**',
+      'relics/**',
     ],
   },
 

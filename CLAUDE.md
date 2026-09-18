@@ -57,6 +57,8 @@ The top three values while writing code are **empathy, safety and readability**.
 These are **not** loaded automatically. Read them when the work touches them.
 
 * `/HUMAN-whatsup.md` -- our collaboration sketchpad; this is for me to read and you to braindump into, and WILL drift from reality.
+* `/AGENTS.md` -- a hand-maintained mirror of this file for non-Claude tools; `.clinerules` and
+  `.cursorrules` symlink to it. If you change a convention here, update it there too.
 * `/STYLE.md`  -- the naming vocabulary (`val`, `ckey`, `keypath`, `bag`, `kind`, `handle` and
   the rest of the tag glossary), brace and indentation rules, quote conventions, doc block
   formatting. These conventions are specific and unguessable -- the inform where to improvise
