@@ -62,14 +62,16 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
                   style={{ width: `${String(column.widthPx)}px` }}
                   aria-sort={ariaSortFor(sortkey, sortMark)}
                 >
-                  {sortkey === null ? column.title : (
-                    <button type="button" className={styles.headButton} disabled={locked} onClick={() => { onSort(sortkey) }}>
-                      {column.title}
-                      {/* Decorative: the direction is already on the header as aria-sort, and
-                          folding the arrow into the button's name would rename it on every click. */}
-                      <span aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
-                    </button>
-                  )}
+                  <span className={clsx(column.headkind === 'vertical' && styles.headVerticalInner)}>
+                    {sortkey === null ? column.title : (
+                      <button type="button" className={styles.headButton} disabled={locked} onClick={() => { onSort(sortkey) }}>
+                        {column.title}
+                        {/* Decorative: the direction is already on the header as aria-sort, and
+                            folding the arrow into the button's name would rename it on every click. */}
+                        <span aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
+                      </button>
+                    )}
+                  </span>
                 </th>
               )
             })}

@@ -40,7 +40,7 @@ describe('IshValidators.ishes', () => {
 
   it('defaults the bookkeeping flags on a done result', () => {
     expect(IshValidators.ishes({ status: 'done', updated_at: 1 })).to.deep.eq({
-      status: 'done', items: [], truncated: false, stale: false, updated_at: 1,
+      status: 'done', items: [], truncated: false, stale: false, updated_at: 1, model_tier_applied: 'quick',
     })
   })
 

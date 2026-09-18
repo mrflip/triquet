@@ -43,6 +43,15 @@
   white-space:  nowrap;
 }
 
+/* A flex box inside the rotated cell, so the text can sit at the bottom (the "right" edge once
+   you turn your head to read it) without taking the th itself out of table-cell layout. */
+.headVerticalInner {
+  display:         flex;
+  height:          100%;
+  justify-content: flex-end;
+  align-items:     flex-end;
+}
+
 .headCentered {
   text-align:  center;
   white-space: normal;

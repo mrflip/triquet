@@ -22,6 +22,11 @@ describe('GuessValidators.guess', () => {
     expect(guess).to.deep.include({ model_tier_applied: 'quick', approx_tokens: 84, truncated: false })
   })
 
+  it('defaults an unspecified tier to quick', () => {
+    const guess = GuessValidators.guess({ status: 'done', text: 'Leon', updated_at: 1 })
+    expect(guess).to.deep.include({ model_tier_applied: 'quick' })
+  })
+
   it('rejects a tier it does not recognize', () => {
     expect(() => GuessValidators.guess({ status: 'done', text: 'Leon', model_tier_applied: 'sonnet' as never, updated_at: 1 })).to.throw(Z.ZodError)
   })

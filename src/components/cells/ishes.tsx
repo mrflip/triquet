@@ -73,7 +73,7 @@ function IshesBody({ ishes }: Readonly<{ ishes: IshesT }>) {
           </div>
         ))}
       <div className={styles.metaline}>
-        {ishes.model_tier_applied ?? 'careful'}
+        {ishes.model_tier_applied ?? 'quick'}
         {ishes.stale ? ` ${CellNotices.stale}` : ''}
         {ishes.truncated ? ` ${CellNotices.truncated}` : ''}
         {ishes.approx_tokens === undefined ? '' : ` · ~${String(ishes.approx_tokens)} tok`}
