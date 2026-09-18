@@ -68,6 +68,13 @@ with STYLE.md
 * **use underbar_case** for all fieldnames and database column names
 * the text in a question should be its `clueing`, not its question (as written now)
 
+> **Delivered.** Every code block below has been converted to the names that shipped; the
+> prose above and the Coach notes inline are left as written. The renames as built are
+> `question`→`clueing`, `ai`→`guess`, `numbers`→`clueing_ishes`, `hintNumbers`→`hint_ishes`,
+> `altText`→`alt_text`, `fullAnswer`→`full_answer`, `rows`→`questions`,
+> `activeQuizId`→`active_quiz_id`, `BulkIshesRun.items`→`text_count`, and ModelTier's
+> `'default'`→`'careful'`. Judgement calls and open questions are in `/HUMAN-whatsup.md`.
+
 ## 2. Domain model
 
 These are the names the rest of the document uses.
@@ -274,22 +281,22 @@ import { z } from 'zod'
 
 // Coach note: please use a lower-case ULID in place of a UUIDv4
 const Id = z.string().min(1)
-  .describe('Opaque stable identifier for a quiz or a question. Newly created records mint a UUID v4. Ids arriving from an import are accepted as-is provided they are non-empty, because a hand-written quiz file has no reason to know about UUIDs.')
+  .describe('Opaque stable identifier for a quiz or a question. Newly created records mint a lowercase ULID. Ids arriving from an import are accepted as-is provided they are non-empty, because a hand-written quiz file has no reason to know about ULIDs.')
 
 const Timestamp = z.int().positive()
   .describe('Epoch milliseconds at which a model result was written. Set only by the app, never typed by a person. Surfaced to the author as a hover tooltip, never as a visible column.')
 
-const ModelTier = z.enum(['quick', 'default'])
-  .describe('Which tier answered: "quick" for the deliberately hasty first-instinct guess, "default" for the more careful number extraction. Stored per result so an older result stays honestly labelled even after the app changes which tier it asks for a given job.')
+const ModelTier = z.enum(['quick', 'careful'])
+  .describe('Which tier answered: "quick" for the deliberately hasty first-instinct guess, "careful" for the more thorough ish extraction. Stored per result so an older result stays honestly labelled even after the app changes which tier it asks for a given job.')
 
 const ApproxTokens = z.int().nonnegative()
   .describe('Rough size of one ask plus its answer, estimated from character count because the page cannot observe real usage. Displayed as "~N tok" so the author can see what a habit of refreshing costs them. Never presented as exact.')
 
 const Sortkey = z.enum([
-  'qnum', 'short_answer', 'chains_to', 'q_plus_rank',
-  'q_full', 'q_numeral', 'bn_full', 'bn_numeral',
-  'h_full', 'h_numeral', 'qb_full',
-  'q_ishes', 'bn_ishes', 'h_ishes',
+  'qnum', 'short_answer', 'chains_to', 'clueing_plus_rank',
+  'clueing_full', 'clueing_numeral', 'butnot_full', 'butnot_numeral',
+  'hint_full', 'hint_numeral', 'clueing_plus_butnot_full',
+  'clueing_ishes', 'butnot_ishes', 'hint_ishes',
   'chain_order',
 ])
   .describe('Which column or ordering last committed the round to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -310,7 +317,7 @@ const AskError = z.object({
   status:    z.literal('error'),
   message:   z.string().min(1)
     .describe('Plain-language reason the ask failed, written for the author rather than copied from an error code. Displayed in place of the result, with an invitation to try again.'),
-  updatedAt: Timestamp,
+  updated_at: Timestamp,
 })
   .describe('A failed ask, kept in place of whatever was there before so the failure is visible rather than leaving a silently empty cell.')
 
@@ -318,14 +325,14 @@ const NumberishDone = z.object({
   status:           z.literal('done'),
   items:            z.array(NumberishItem).max(200).default([])
     .describe('Every span found, in the order it appears in the source text. An empty array is a real answer meaning "nothing here reads as a number", and is displayed as "None found" rather than as a blank cell.'),
-  modelTierApplied: ModelTier.optional(),
+  model_tier_applied: ModelTier.optional(),
   truncated:        z.boolean().default(false)
     .describe('True when the answer was cut short before it finished. Shown as "· cut short" so a suspiciously small list is never mistaken for a complete one.'),
-  approxTokens:     ApproxTokens.optional()
+  approx_tokens:    ApproxTokens.optional()
     .describe('Present for a single-cell ask. Deliberately absent for a result that came from one batched request covering many cells, because attributing a share of that cost to one cell would be a made-up number.'),
   stale:            z.boolean().default(false)
     .describe('True when the text this was extracted from has been edited since. The result stays on screen, greyed and italic, rather than vanishing — a slightly-out-of-date total is more useful to the author than an empty cell, as long as it is honestly marked.'),
-  updatedAt:        Timestamp,
+  updated_at:        Timestamp,
 })
 
 const Numberish = z.discriminatedUnion('status', [NumberishDone, AskError]).nullable()
@@ -337,10 +344,10 @@ const GuessDone = z.object({
   status:           z.literal('done'),
   text:             z.string()
     .describe('The model\'s answer, as one line, verbatim and untrimmed of its own wording. The author compares this against the intended short answer by eye; the tool never scores the comparison for them.'),
-  modelTierApplied: ModelTier.optional(),
+  model_tier_applied: ModelTier.optional(),
   truncated:        z.boolean().default(false),
-  approxTokens:     ApproxTokens.optional(),
-  updatedAt:        Timestamp,
+  approx_tokens:    ApproxTokens.optional(),
+  updated_at:        Timestamp,
 })
 
 const Guess = z.discriminatedUnion('status', [GuessDone, AskError]).nullable()
@@ -352,8 +359,7 @@ const Question = z.object({
   id:           Id,
   qnum:         z.string().regex(/^(\d+(\.\d+)?)?$/).default('')
     .describe('The author\'s own question number, kept as text on purpose. Blank means unranked and sorts last. Decimals are a feature, not an accident: typing 3.1 means "put this between whatever is 3 and 4 right now" without renumbering anything else. Duplicates and gaps are both legal.'),
-  // FROM COACH: rename to "clueing"
-  question:     z.string().max(10000).default('')
+  clueing:       z.string().max(10000).default('')
     .describe('The question as it will be asked. Markdown-ish emphasis, quoted verse, and non-Latin scripts all appear in real rounds and must survive untouched; the tool never rewrites this text.'),
   hint:         z.string().max(10000).default('')
     .describe('This question\'s own "BUT NOT …" misdirection: a clue for something that is NOT this answer but shares its name. It belongs to the question whose answer it disguises, and is displayed alongside whichever OTHER question chains to this one.'),
@@ -361,16 +367,16 @@ const Question = z.object({
     .describe('The intended answer in as few words as possible. Does triple duty: the thing a guess is compared against, the label this question shows under other questions\' chain dropdowns, and the key an import matches questions on.'),
   chains_to:    Id.nullable().default(null)
     .describe('The question that follows this one in the round, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same round; anything dangling or self-referential is cleared rather than kept.'),
-  ai:           Guess.default(null),
-  numbers:      Numberish.default(null)
+  guess:        Guess.default(null),
+  clueing_ishes: Numberish.default(null)
     .describe('Extraction over this question\'s text. Feeds Question Full Sum, Question Numeral Sum, Q + #, and Q+B Full.'),
-  hintNumbers:  Numberish.default(null)
+  hint_ishes:    Numberish.default(null)
     .describe('Extraction over this question\'s own hint. Feeds this question\'s Hint sums, and is borrowed by whichever question chains to this one for its BUT NOT sums and BUT NOT ishes.'),
-  altText:      z.string().max(10000).default('')
+  alt_text:     z.string().max(10000).default('')
     .describe('Freeform notes column, carried through to the spreadsheet export. The tool ascribes no meaning to it.'),
   notes:        z.string().max(10000).default('')
     .describe('Second freeform notes column, carried through to the spreadsheet export.'),
-  fullAnswer:   z.string().max(10000).default('')
+  full_answer:  z.string().max(10000).default('')
     .describe('The long-form answer as it will actually be read out, as opposed to the terse short answer used for matching and chaining.'),
 })
   .describe('One question in a round. Every field is optional on the way in and defaulted, so a partially-filled question is always a legal question — the author is drafting, not filling in a form.')
@@ -378,10 +384,10 @@ const Question = z.object({
 // ---------- a round ----------
 
 const BulkIshesRun = z.object({
-  approxTokens: ApproxTokens,
-  items:        z.int().nonnegative()
+  approx_tokens: ApproxTokens,
+  text_count:   z.int().nonnegative()
     .describe('How many texts went into that one batched request, so "~4,200 tok last time (28 texts)" reads as a cost per run rather than a mystery number.'),
-  updatedAt:    Timestamp,
+  updated_at:   Timestamp,
 }).nullable()
   .describe('What the last "Recalculate all ishes" run cost, kept per round. Never cleared by, and never clears, an individual cell\'s own token figure.')
 
@@ -393,8 +399,8 @@ const Quiz = z.object({
     .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
   locked:        z.boolean().default(false)
     .describe('When true this round accepts no edits at all — a finished draft sent out for playtesting, kept readable and copyable but frozen against accidental change.'),
-  lastSortkey:   Sortkey.nullable().default(null),
-  bulkIshesLast: BulkIshesRun.default(null),
+  last_sortkey:    Sortkey.nullable().default(null),
+  bulk_ishes_last: BulkIshesRun.default(null),
 })
   .check((ctx) => {
     const quiz = ctx.value
@@ -419,13 +425,13 @@ const Quiz = z.object({
 const Workspace = z.object({
   quizzes:      z.array(Quiz).min(1)
     .describe('Every round this browser holds. Never empty — deleting the last round is refused rather than leaving the author staring at nothing.'),
-  activeQuizId: Id
+  active_quiz_id: Id
     .describe('Which round is on screen. A value that names no existing round is repaired to the first round rather than treated as fatal.'),
 })
   .check((ctx) => {
-    const found = ctx.value.quizzes.some((quiz) => quiz.id === ctx.value.activeQuizId)
+    const found = ctx.value.quizzes.some((quiz) => quiz.id === ctx.value.active_quiz_id)
     if (! found) {
-      ctx.issues.push({ code: 'custom', input: ctx.value.activeQuizId, path: ['activeQuizId'], message: 'activeQuizId names no quiz in this workspace' })
+      ctx.issues.push({ code: 'custom', input: ctx.value.active_quiz_id, path: ['active_quiz_id'], message: 'active_quiz_id names no quiz in this workspace' })
     }
   })
   .describe('Everything the tool holds for one person in one browser. This is also exactly what the Export panel emits and what Import accepts.')
@@ -441,16 +447,16 @@ stored questions never hold a null where a string belongs.
 const ImportQuestion = z.object({
   id:           Id.optional(),
   qnum:         z.string().regex(/^(\d+(\.\d+)?)?$/).nullable().optional(),
-  question:     z.string().nullable().optional(),
+  clueing:      z.string().nullable().optional(),
   hint:         z.string().nullable().optional(),
   short_answer: z.string().nullable().optional(),
   chains_to:    z.string().nullable().optional(),
-  ai:           Guess.optional(),
-  numbers:      Numberish.optional(),
-  hintNumbers:  Numberish.optional(),
-  altText:      z.string().nullable().optional(),
+  guess:        Guess.optional(),
+  clueing_ishes: Numberish.optional(),
+  hint_ishes:   Numberish.optional(),
+  alt_text:     z.string().nullable().optional(),
   notes:        z.string().nullable().optional(),
-  fullAnswer:   z.string().nullable().optional(),
+  full_answer:  z.string().nullable().optional(),
 })
   .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
 
@@ -462,7 +468,7 @@ const ImportQuiz = z.object({
   .describe('One round as it arrives from an import. Only the questions are merged; a pasted round\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this round contains.')
 
 const ImportPayload = z.union([
-  z.object({ quizzes: z.array(ImportQuiz).min(1), activeQuizId: Id.optional() }),
+  z.object({ quizzes: z.array(ImportQuiz).min(1), active_quiz_id: Id.optional() }),
   ImportQuiz,
   z.array(ImportQuestion),
 ])

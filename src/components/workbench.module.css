@@ -293,6 +293,9 @@
 .panels {
   display:               grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* Each panel is as tall as its own content; without this the short ones stretch to match
+     Prompts used and the page fills up with empty boxes. */
+  align-items:           start;
   gap:                   20px;
   margin-top:            28px;
 }
