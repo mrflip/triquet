@@ -168,6 +168,14 @@ export default defineConfig([
       // guidelines.md's worked example declares a model's fields first, then its statics --
       // the field list is the documentation, and it belongs at the top.
       'unicorn/consistent-class-member-order': 'off',
+      // STYLE.md's tag glossary is deliberate and specific: `idx`, `val`, `str`, `num`, `obj`,
+      // `arr`, `props`, `pt` -- and `err`, where the rule's replacement (`error`) is the one
+      // name STYLE.md forbids outright.
+      'unicorn/name-replacements': 'off',
+      // The data model's booleans are named by the spec: `locked`, `stale`, `truncated`. An
+      // is- prefix on every local binding of one would be a translation layer and nothing more,
+      // and it fights `prefer-destructuring`, which is on.
+      'unicorn/consistent-boolean-name': 'off',
     },
   },
 

@@ -31,11 +31,15 @@ export const QuestionValidators = Validator(({ obj, str, text, ulid }) => {
   })
     .describe('One question in a round. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
-  return { question }
+  const questionPatch = question.partial().omit({ id: true })
+    .describe('Fields of one question being revised. The id is not among them: a question keeps the id it was minted with for its whole life.')
+
+  return { question, questionPatch }
 })
 
-export type QuestionDNA = Z.input<typeof QuestionValidators.question>
-export type QuestionT   = Z.output<typeof QuestionValidators.question>
+export type QuestionDNA   = Z.input<typeof QuestionValidators.question>
+export type QuestionT     = Z.output<typeof QuestionValidators.question>
+export type QuestionPatch = Z.output<typeof QuestionValidators.questionPatch>
 
 /** One question in a round: its clueing, its own BUT NOT hint, and everything hung off them */
 export class Question implements QuestionT {

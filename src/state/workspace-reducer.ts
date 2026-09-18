@@ -1,0 +1,70 @@
+import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../models/question'
+import type { QuizT } from '../models/quiz'
+import type { WorkspaceT } from '../models/workspace'
+
+/** Everything the author can do to their workspace */
+export type WorkspaceAction =
+  | { kind: 'replace_workspace', workspace: WorkspaceT }
+  | { kind: 'retitle_quiz', title: string }
+  | { kind: 'edit_question', question_id: string, patch: QuestionPatch }
+  | { kind: 'add_question' }
+
+/**
+ * The workspace as it stands after `action`.
+ *
+ * Actions that revise the open round are refused outright while that round is locked -- the
+ * freeze is a property of the round, not of whether a button happened to be greyed out.
+ *
+ * @param workspace - The workspace as it stands.
+ * @param action - What the author did.
+ * @returns The workspace afterwards; the same object when nothing changed.
+ *
+ * @example workspaceReducer(workspace, { kind: 'add_question' })
+ */
+export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction): WorkspaceT {
+  switch (action.kind) {
+  case 'replace_workspace': {
+    return action.workspace
+  }
+  case 'retitle_quiz': {
+    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, title: action.title }))
+  }
+  case 'edit_question': {
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions: reviseQuestion(quiz.questions, action.question_id, action.patch),
+    }))
+  }
+  case 'add_question': {
+    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, questions: [...quiz.questions, Question.blank()] }))
+  }
+  }
+}
+
+/**
+ * `workspace` with its open round put through `revise`, unless that round is locked.
+ *
+ * @param workspace - The workspace as it stands.
+ * @param revise - How to rewrite the open round.
+ * @returns The workspace afterwards; the same object when the round is locked or absent.
+ */
+export function reviseOpenQuiz(workspace: WorkspaceT, revise: (quiz: QuizT) => QuizT): WorkspaceT {
+  const openQuiz = workspace.quizzes.find((quiz) => quiz.id === workspace.active_quiz_id)
+  if (! openQuiz || openQuiz.locked) { return workspace }
+  const revised = revise(openQuiz)
+  return {
+    ...workspace,
+    quizzes: workspace.quizzes.map((quiz) => (quiz.id === openQuiz.id ? revised : quiz)),
+  }
+}
+
+/** The open round, or null when the workspace names one it does not hold */
+export function openQuizOf(workspace: WorkspaceT): QuizT | null {
+  return workspace.quizzes.find((quiz) => quiz.id === workspace.active_quiz_id) ?? null
+}
+
+/** `questions`, with the one named rewritten by a validated patch */
+function reviseQuestion(questions: QuestionT[], question_id: string, patch: QuestionPatch): QuestionT[] {
+  const clean = QuestionValidators.questionPatch(patch)
+  return questions.map((question) => (question.id === question_id ? { ...question, ...clean } : question))
+}
