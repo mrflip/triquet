@@ -67,6 +67,54 @@ collide with, or reproduce, an `adjective_animal` generated one, only another ha
 **`titleize()` uses `_.startCase`, not `_.titleCase`.** es-toolkit/compat has no `titleCase`;
 `startCase` is the lodash-family equivalent and reads the same ("Quiet Otter").
 
+## Third cycle: every quiz is a git repository
+
+One repository per quiz, at `/quizzes/{quiz.id}` in an IndexedDB-backed filesystem
+(`@isomorphic-git/lightning-fs`), keyed by id so renaming never orphans a history. Every dispatch
+that moves a quiz commits it: `lib/changes` diffs the two readings into a data-free shorthand
+(`quiz ~title; quiet_otter +clueing ~hint`, sigils `+` set, `~` revised, `-` cleared, `@`
+reordered), which becomes the commit subject, and the body is the tab-separated export. The quiz's
+`version` field is the branch, defaulting to `main`; naming a new one starts a branch rather than
+erroring. "Save a version" tags, "Download as git" hands back a zip that ordinary `git log` reads.
+
+**Judgement calls worth overturning:**
+
+* **One repository per quiz, not one for the workspace.** You said "store each quiz in a file
+  called `{quizlabel}.tsv`", which reads as one shared repository -- but a branch is
+  repository-wide, so a per-quiz `version` only works if each quiz has its own. Per-quiz is the
+  reading where both instructions hold together. Say the word if you meant the other.
+* **A tag cannot hold the ISO timestamp as written.** Git refuses a colon in a ref name outright,
+  so `tagnameFor` drops the colons and the milliseconds: `main-2026-09-18t184504z`. Two saves in
+  the same second get `-2`, `-3`.
+* **The tree and the commit body carry the same TSV.** You asked for both explicitly. The file is
+  what makes `git diff` work; the body is what makes a commit self-contained. Cheap either way,
+  but it is duplication and you may want only one.
+* **The TSV is lossy, so a downloaded repository cannot be re-imported.** It carries seven fields;
+  `title`, `qnum`, `hint` on its own, `chains_to`, the labels and every extraction are not among
+  them. The `.triquet.json` beside it is the answer to that.
+* **Commits are attributed to `Triquet <triquet@localhost>`.** There are no accounts and nothing
+  leaves the browser, so there is no better name to use.
+* **The gear modal's form button is now "Apply", not "Save".** "Save" now means the tag, which is
+  your own word for it. Two buttons whose accessible names overlap also make
+  `getByRole('button', { name: 'Save' })` ambiguous, so the rename was forced either way.
+
+**LightningFS flushes the directory tree on a 500ms debounce**, so a reload moments after an edit
+found a repository with nothing in it -- caught by an e2e test, not by reasoning. Every unit of
+mirror work now calls `flush()` before releasing its turn. Worth knowing if anything else in this
+app ever keeps state there.
+
+**The mirror is a side-car and never the source of truth.** localStorage is still what holds a
+quiz; a failed commit is swallowed, because losing a record must never cost an author an edit.
+Deleting a quiz deliberately leaves its repository exactly as it stood.
+
+**`workspace-store` takes an `onChanged` callback rather than importing the mirror itself.** The
+store stays testable with a `MemoryStore` and knows nothing about git; only `TabWorkspaceStore`
+wires the two together.
+
+**The gear modal is now mounted only while open.** Its draft fields took their initial values once
+and never resynced, so reopening showed what you typed last time rather than what was committed --
+visible as soon as the Version field existed to catch it.
+
 ## Stack decisions I made without asking
 
 * **localStorage, not Turso.** stack.md names Turso as the primary database, but §1's operating
@@ -152,8 +200,8 @@ in the document:**
 ## If you want to run it
 
     pnpm dev              # the app
-    pnpm test             # 344 vitest specs
-    pnpm test:e2e         # 68 playwright specs, starts its own dev server on :3100
+    pnpm test             # 395 vitest specs
+    pnpm test:e2e         # 73 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and the

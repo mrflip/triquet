@@ -50,13 +50,17 @@ export function Workbench() {
         onRetitle={(title) => { dispatch({ kind: 'retitle_quiz', title }) }}
         onManage={() => { setManaging(true) }}
       />
-      <QuizManageModal
-        open={managing}
-        onClose={() => { setManaging(false) }}
-        workspace={workspace}
-        quiz={quiz}
-        dispatch={dispatch}
-      />
+      {/* Mounted only while open, so each visit reads the quiz as it stands rather than as it
+          stood the first time the gear was ever clicked. */}
+      {managing && (
+        <QuizManageModal
+          open
+          onClose={() => { setManaging(false) }}
+          workspace={workspace}
+          quiz={quiz}
+          dispatch={dispatch}
+        />
+      )}
       <QuestionTable
         questions={quiz.questions}
         locked={quiz.locked}

@@ -16,6 +16,7 @@ export type WorkspaceAction =
   | { kind: 'replace_workspace', workspace: WorkspaceT }
   | { kind: 'retitle_quiz', title: string }
   | { kind: 'relabel_quiz', label: string }
+  | { kind: 'reversion_quiz', version: string }
   | { kind: 'edit_question', question_id: string, patch: QuestionPatch }
   | { kind: 'add_question' }
   | { kind: 'sort_questions', sortkey: Sortkey, descending: boolean }
@@ -56,6 +57,11 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     // The label itself, and uniqueness against sibling quizzes, are the caller's job to check
     // before dispatching -- this just applies the override, same as retitle_quiz applies a title.
     return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, forced_label: action.label }))
+  }
+  case 'reversion_quiz': {
+    // Naming a version the quiz's history has not seen starts a branch rather than erroring;
+    // that happens where the history lives, not here. The shape of the name is the caller's job.
+    return reviseOpenQuiz(workspace, (quiz) => ({ ...quiz, version: action.version }))
   }
   case 'edit_question': {
     return reviseOpenQuiz(workspace, (quiz) => ({

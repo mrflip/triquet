@@ -30,6 +30,8 @@ export const AppNotices = {
   untitledQuiz:         'Untitled quiz',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
+  nothingToSave:        'No history here yet — make an edit first.',
+  noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
 } as const
 
 /** What a cell reads when it holds no result, or a result the author should read differently */

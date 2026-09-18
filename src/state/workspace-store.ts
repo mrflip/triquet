@@ -1,4 +1,5 @@
 import * as ST from '../lib/storage'
+import { mirrorWorkspace } from './quiz-mirror'
 import { Workspace, type WorkspaceT } from '../models/workspace'
 import { workspaceReducer, type WorkspaceAction } from './workspace-reducer'
 
@@ -29,11 +30,16 @@ export type WorkspaceStore = {
  *
  * @param store - Where quizzes live; defaults to this browser's local storage.
  * @param target - What emits cross-tab `storage` events; defaults to the global scope.
+ * @param onChanged - Told what the workspace was and what it became, after every landed write. Must not throw, and must not be relied on.
  * @returns A store ready for `useSyncExternalStore`.
  *
  * @example const store = createWorkspaceStore(new MemoryStore(), new EventTarget())
  */
-export function createWorkspaceStore(store?: Storage | null, target: EventTarget | null = globalThis): WorkspaceStore {
+export function createWorkspaceStore(
+  store?: Storage | null,
+  target: EventTarget | null = globalThis,
+  onChanged: (before: WorkspaceT, after: WorkspaceT) => void = () => { /* nobody is watching */ },
+): WorkspaceStore {
   const resolveStore = () => (store === undefined ? ST.browserStore() : store)
   const emptySnapshot: WorkspaceSnapshot = { workspace: Workspace.blank(), loaded: false, saveNotice: null }
   const listeners = new Set<() => void>()
@@ -69,13 +75,15 @@ export function createWorkspaceStore(store?: Storage | null, target: EventTarget
     },
 
     dispatch(action) {
-      const workspace = workspaceReducer(snapshot().workspace, action)
+      const before = snapshot().workspace
+      const workspace = workspaceReducer(before, action)
       if (workspace === held.workspace) { return }
       const outcome = ST.writeWorkspace(workspace, resolveStore())
       announce({ workspace, loaded: true, saveNotice: outcome.saved ? null : outcome.message })
+      onChanged(before, workspace)
     },
   }
 }
 
-/** The one store this tab's grid reads and writes */
-export const TabWorkspaceStore = createWorkspaceStore()
+/** The one store this tab's grid reads and writes, mirroring every change into its quiz's history */
+export const TabWorkspaceStore = createWorkspaceStore(undefined, globalThis, mirrorWorkspace)

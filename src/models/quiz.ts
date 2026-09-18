@@ -18,6 +18,9 @@ export type Sortkey = typeof SortkeyVals[number]
 /** How many blank questions a new quiz opens with, so the grid is never an empty void */
 export const BlankQuestionQty = 5
 
+/** The version every quiz starts on, and so the branch its history begins on */
+export const DefaultVersion = 'main'
+
 export const QuizValidators = Validator(({ obj, arr, oneof, title, label, bool, uint, timestamp, ulid }) => {
   const sortkey = oneof(SortkeyVals)
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -26,6 +29,9 @@ export const QuizValidators = Validator(({ obj, arr, oneof, title, label, bool, 
     .describe('A freeform-editable local identifier, generated once at creation. Meant to become the quiz\'s URL route.')
   const forced_label = label.nullable()
     .describe('An author-chosen label overriding the generated one, or null to keep the generated one.')
+
+  const version = label
+    .describe('Which line of work the quiz is currently on, and the name of the git branch its history is committed to. Shares the `label` shape, which is a strict subset of what git accepts in a ref, so a version an author can type is always a branch git will take.')
 
   const bulkIshesRun = obj({
     approx_tokens: AskValidators.approxTokens,
@@ -41,6 +47,7 @@ export const QuizValidators = Validator(({ obj, arr, oneof, title, label, bool, 
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     forced_label:    forced_label.default(null),
+    version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
     locked:          bool.default(false)
@@ -80,6 +87,7 @@ export class Quiz implements QuizT {
   declare title:           string
   declare label:           string
   declare forced_label:    string | null
+  declare version:         string
   declare questions:       QuestionT[]
   declare locked:          boolean
   declare last_sortkey:    Sortkey | null

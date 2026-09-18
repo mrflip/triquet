@@ -54,7 +54,7 @@ test('the gear icon opens a modal for managing the label, and for opening any ot
   await expect(page.getByLabel('Label')).toHaveValue(/^[a-z]+_[a-z]+$/)
 
   await page.getByLabel('Label').fill('Leon\'s Quiz!!')
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Apply' }).click()
   await expect(page.getByText('Manage this quiz')).toBeHidden()
 
   const url = new URL(page.url())
@@ -66,13 +66,13 @@ test('a label already used by another quiz is refused, with the field left open 
   await page.waitForSelector('table')
   await page.getByRole('button', { name: 'Manage quiz' }).click()
   await page.getByLabel('Label').fill('leon')
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Apply' }).click()
   await expect(page.getByText('Manage this quiz')).toBeHidden()
 
   await page.getByRole('button', { name: '+ New quiz' }).click()
   await page.getByRole('button', { name: 'Manage quiz' }).click()
   await page.getByLabel('Label').fill('leon')
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Apply' }).click()
 
   await expect(page.getByText('Another quiz already uses that label.')).toBeVisible()
   await expect(page.getByText('Manage this quiz')).toBeVisible()

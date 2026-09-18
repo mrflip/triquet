@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
+import * as Downloading from '../lib/downloading'
 import * as Labelmaker from '../lib/labelmaker'
+import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
 import type { WorkspaceAction } from '../state/workspace-reducer'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
+import styles from './workbench.module.css'
 
 export type QuizManageModalProps = {
   open:      boolean
@@ -22,15 +25,31 @@ export type QuizManageModalProps = {
  */
 export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
+  const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
+  const [saved, setSaved] = useState<string | null>(null)
 
-  const onSave = () => {
+  const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
     const taken = workspace.quizzes.some((other) => other.id !== quiz.id && Labelmaker.effectiveLabelOf(other) === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
+    const version = Labelmaker.normalize(versionDraft)
+    if (version === '') { setIssue('Enter a version.'); return }
     dispatch({ kind: 'relabel_quiz', label: cleaned })
+    dispatch({ kind: 'reversion_quiz', version })
     onClose()
+  }
+
+  const onSave = async () => {
+    const tag = await QuizMirror.saveQuiz(quiz)
+    setSaved(tag ?? AppNotices.nothingToSave)
+  }
+
+  const onDownload = async () => {
+    const zipped = await QuizMirror.quizRepoZip(quiz)
+    if (! zipped) { setSaved(AppNotices.noHistoryHere); return }
+    Downloading.offerDownload(`${Labelmaker.effectiveLabelOf(quiz)}.zip`, zipped, 'application/zip')
   }
 
   return (
@@ -47,12 +66,33 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Re
             helperText={issue ?? "Used in this page's web address."}
             onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
           />
+          <TextField
+            label="Version"
+            value={versionDraft}
+            size="small"
+            disabled={quiz.locked}
+            helperText="The line of work this quiz is on, and the branch its history is kept on."
+            onChange={(event) => { setVersionDraft(event.target.value); setIssue(null) }}
+          />
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onSave} variant="contained" disabled={quiz.locked}>Save</Button>
+        <Button onClick={onApply} variant="contained" disabled={quiz.locked}>Apply</Button>
       </DialogActions>
+
+      <DialogTitle sx={{ pt: 0 }}>History</DialogTitle>
+      <DialogContent sx={{ pt: 0 }}>
+        <p className={styles.microcopy}>
+          Every change to this quiz is committed as it happens. Saving marks this moment with a
+          tag you can come back to; downloading hands you the whole thing as a git repository.
+        </p>
+        <Stack direction="row" spacing={1}>
+          <Button onClick={() => { void onSave() }} size="small" variant="outlined">Save a version</Button>
+          <Button onClick={() => { void onDownload() }} size="small" variant="outlined">Download as git</Button>
+        </Stack>
+        {saved !== null && <p className={styles.microcopy} role="status">{saved}</p>}
+      </DialogContent>
 
       <DialogTitle sx={{ pt: 0 }}>All quizzes</DialogTitle>
       <DialogContent sx={{ pt: 0 }}>
