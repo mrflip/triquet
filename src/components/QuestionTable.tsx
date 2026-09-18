@@ -64,7 +64,10 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
                 >
                   {sortkey === null ? column.title : (
                     <button type="button" className={styles.headButton} disabled={locked} onClick={() => { onSort(sortkey) }}>
-                      {column.title}{arrowFor(sortkey, sortMark)}
+                      {column.title}
+                      {/* Decorative: the direction is already on the header as aria-sort, and
+                          folding the arrow into the button's name would rename it on every click. */}
+                      <span aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
                     </button>
                   )}
                 </th>

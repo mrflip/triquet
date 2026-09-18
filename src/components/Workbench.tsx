@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import { Footnote } from './Footnote'
+import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
 import { Toolbar } from './Toolbar'
@@ -63,6 +64,7 @@ export function Workbench() {
         }}
       />
       <Footnote />
+      <Panels quiz={quiz} />
     </main>
   )
 }
