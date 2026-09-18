@@ -6,22 +6,25 @@ I noticed and did not act on. Nothing here is load-bearing for the code.
 
 ## Things I'd most like you to look at
 
-**`ModelTier` is `'quick' | 'careful'`, not `'quick' | 'default'`.** The spec's own `.describe()`
-calls the second one "the more careful number extraction". `default` names a fallback, not a
-thoroughness, and it would have read as a bug the first time someone added a third tier.
-
 **The UI says "Clueing", not "Question".** You asked for the field to be `clueing`, and once the
 sum columns are called Clueing Full Sum the column header may as well match. The footnote under
 the grid explains the vocabulary. If you'd rather the author saw "Question" on screen while the
 code says `clueing`, that's a one-line change in `src/components/columns.ts` -- but then the
 eight sum headers need deciding too.
 
-**Descending chain order roots at the *highest* Q#.** §M3 says every restart roots at the lowest,
-in both directions. Taken literally, walking `1→2→3→4` backwards gives you 1, 2, 3, 4 -- which
-is not backwards, and contradicts the milestone's own "flip it and read it backward". So
-descending roots high and steps to whatever chains *into* the current question. The
-lowest-Q#-wins rule still governs the real choice, which is a merge. Questions with no Q# stay at
-the end in both directions: an absent Q# is not a high one.
+**Descending chain order is a reverse-graph walk, DFS-flavoured.** Confirmed by hand-tracing: it
+already does what you called interpretation (1) -- build the reverse adjacency (`chainedInto`,
+who chains *into* each question) and walk that instead of `chains_to`, restarting at the next
+unplaced root when a branch runs out. Roots are tried highest-Q#-first, which is what makes a
+simple unbranched chain a true full reversal. The only place it can differ from a *different*
+valid reverse-graph ordering is a merge with unequal depth behind its branches -- concretely,
+`tail <- early <- early2` and `tail <- late` (both `early` and `late` merge into `tail`, but only
+`early` has anything chaining into it): this walk finishes `early`'s whole branch (`early2`)
+before ever visiting `late`, giving `[tail, early, early2, late]`. A BFS/layered toposort of the
+same reverse graph would instead finish everything chaining directly into `tail` before
+descending further, giving `[tail, early, late, early2]` -- your interpretation (2). I did not
+build that: you asked for (1), this already is (1), and swapping to (2) would change the order in
+exactly this shape of case without a strong reason to prefer it. Say the word if you want it.
 
 **The Sheets export's BUT NOT joiner.** §M7 field 2 says to fold the hint in with
 `... BUT NOT ....`, but every hint in the spec is already written as "BUT NOT ...", so a literal
@@ -39,6 +42,30 @@ sit next to. Both are judgement calls.
 `h_ishes` as sortkeys but never says what they sort by, and a list has no other ordering. An
 empty result sorts as nought; a cell nobody has asked about sinks to the bottom like every other
 absence.
+
+## Second delivery cycle
+
+Renamed `short_answer` to `title` (now the leftmost column), swept "round" out in favour of
+"quiz" everywhere, and restricted `ii`/`jj`/`kk` to a literal `for` loop's own bound variable --
+`idx`, or a noun-qualified `fooIdx`, everywhere else. Added `unique-names-generator` and
+`src/lib/label-maker.ts` for a hand-editable local identifier (`label`/`forced_label` on both
+Question and Quiz), and routed each quiz by it: `/` redirects to `/my/quiz/#<label>`, and a gear
+icon opens a modal to rename the label (validated, checked unique) or jump to another quiz.
+
+**A blank title is populated from the label, titleized, at creation.** I asked before touching
+this rather than guessing: a fresh quiz or question is titled "Quiet Otter" rather than staying
+empty, on purpose, so the author sees a starting point and understands the label/title
+connection. This is one-directional and only at creation -- nothing regenerates a label from a
+title an author later types, and nothing re-populates a title an author later clears. It broke 9
+e2e specs that assumed a fresh row stayed blank; fixed by having those specs clear the rows they
+actually need blank, rather than relying on that being the default.
+
+**`normalize()` strips underscores from anything a person types**, same as every other symbol --
+see the LabelMaker doc block for why. One consequence worth knowing: a hand-set label can never
+collide with, or reproduce, an `adjective_animal` generated one, only another hand-set label.
+
+**`titleize()` uses `_.startCase`, not `_.titleCase`.** es-toolkit/compat has no `titleCase`;
+`startCase` is the lodash-family equivalent and reads the same ("Quiet Otter").
 
 ## Stack decisions I made without asking
 
@@ -125,8 +152,8 @@ in the document:**
 ## If you want to run it
 
     pnpm dev              # the app
-    pnpm test             # 309 vitest specs
-    pnpm test:e2e         # 62 playwright specs, starts its own dev server on :3100
+    pnpm test             # 344 vitest specs
+    pnpm test:e2e         # 68 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and the
