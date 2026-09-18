@@ -25,6 +25,8 @@ export const ValidatorKit = {
   title:     Z.string().max(200),
   /** Lowercase Crockford-base32 ULID, as minted by `mintId` */
   ulid:      Z.string().regex(/^[0-9a-hjkmnp-tv-z]{26}$/),
+  /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter-bound */
+  label:     Z.string().regex(/^([a-z][a-z0-9_]*[a-z0-9])$/),
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
   //
