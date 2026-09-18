@@ -1,0 +1,2554 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Trivia Ambiguity Audit (Copy)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style id="page-style">
+  :root {
+    --bg: #eef1ea;
+    --surface: #ffffff;
+    --surface-2: #e4e9e0;
+    --ink: #1b2b28;
+    --muted: #5b6b66;
+    --border: #d7ddd0;
+    --accent: #b8790f;
+    --accent-ink: #6b4a0e;
+    --accent-soft: #f5e7c8;
+    --good: #2f6f4f;
+    --good-soft: #dcece0;
+    --bad: #ad3f2b;
+    --bad-soft: #f5ded7;
+    --radius: 10px;
+    --font-display: 'Zilla Slab', Georgia, 'Times New Roman', serif;
+    --font-body: 'Work Sans', system-ui, -apple-system, Segoe UI, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12201c;
+      --surface: #1b2b26;
+      --surface-2: #21322c;
+      --ink: #e9f0ec;
+      --muted: #93aba3;
+      --border: #2c3f38;
+      --accent: #e0a63a;
+      --accent-ink: #f5e2b8;
+      --accent-soft: #33290f;
+      --good: #74c495;
+      --good-soft: #1e3629;
+      --bad: #e08a76;
+      --bad-soft: #3a2620;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12201c;
+    --surface: #1b2b26;
+    --surface-2: #21322c;
+    --ink: #e9f0ec;
+    --muted: #93aba3;
+    --border: #2c3f38;
+    --accent: #e0a63a;
+    --accent-ink: #f5e2b8;
+    --accent-soft: #33290f;
+    --good: #74c495;
+    --good-soft: #1e3629;
+    --bad: #e08a76;
+    --bad-soft: #3a2620;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    padding-inline: max(16px, env(safe-area-inset-left, 0px));
+    padding-block: 28px 48px;
+  }
+  #app { max-width: none; margin: 0; display: flex; flex-direction: column; gap: 20px; }
+
+  h1, .title-input { font-family: var(--font-display); }
+
+  .topbar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .title-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .eyebrow {
+    font: 600 .72rem/1 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: 5px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .title-input {
+    flex: 1 1 320px;
+    min-width: 0;
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 2px 2px 4px;
+    text-wrap: balance;
+  }
+  .title-input:hover { border-bottom-color: var(--border); }
+  .title-input:focus-visible {
+    outline: none;
+    border-bottom-color: var(--accent);
+  }
+  .title-input::placeholder { color: var(--muted); font-weight: 500; }
+
+  .topbar-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: .82rem;
+    color: var(--muted);
+  }
+  .hint { max-width: 52ch; }
+  .save-status {
+    font: 500 .75rem/1 var(--font-body);
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .save-status:empty { display: none; }
+  .save-status[data-state="pending"] { background: var(--surface-2); color: var(--muted); }
+  .save-status[data-state="saving"] { background: var(--accent-soft); color: var(--accent-ink); }
+  .save-status[data-state="local-only"], .save-status[data-state="error"] { background: var(--bad-soft); color: var(--bad); }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow-x: auto;
+  }
+  table.quiz-table { width: 100%; border-collapse: collapse; min-width: 2260px; table-layout: fixed; }
+  .quiz-table th {
+    text-align: left;
+    font: 600 .72rem/1.2 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .quiz-table th:first-child { border-top-left-radius: var(--radius); }
+  .quiz-table th:last-child { border-top-right-radius: var(--radius); }
+  .quiz-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .quiz-table tbody tr:last-child td { border-bottom: none; }
+  /* The drag column always exists (so every row's cells still line up with
+     the same <col> they were written for) — it's just collapsed to zero
+     width and padding when not in use, rather than display:none, which
+     would drop it from the column count and shift every later cell one
+     column to the left. */
+  .quiz-table col.col-drag { width: 0; }
+  .quiz-table .drag-th, .quiz-table .drag-cell { padding: 0; overflow: hidden; }
+  .quiz-table.drag-enabled col.col-drag { width: 32px; }
+  .quiz-table.drag-enabled .drag-th, .quiz-table.drag-enabled .drag-cell { padding: 12px 14px; overflow: visible; }
+  .drag-cell { text-align: center; color: var(--muted); cursor: grab; user-select: none; font-size: 1.1rem; }
+  .drag-cell:active { cursor: grabbing; }
+  .quiz-table tbody tr.dragging { opacity: .4; }
+  .quiz-table tbody tr.drag-over td { box-shadow: inset 0 2px 0 var(--accent); }
+  .quiz-table col.col-qnum { width: 60px; }
+  .quiz-table col.col-q { width: 330px; }
+  .quiz-table col.col-sa { width: 100px; }
+  .quiz-table col.col-chain { width: 120px; }
+  .quiz-table col.col-hint { width: 330px; }
+  .quiz-table col.col-butnot { width: 180px; }
+  .quiz-table col.col-ai { width: 160px; }
+  .quiz-table col.col-sum { width: 78px; }
+  .quiz-table col.col-side { width: 220px; }
+  .quiz-table col.col-ishes { width: 170px; }
+
+  .qnum-input {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: .9rem;
+    padding: 6px 5px;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .qnum-input::-webkit-inner-spin-button,
+  .qnum-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .qnum-input:hover { border-color: var(--border); }
+  .qnum-input:focus-visible { outline: none; border-color: var(--accent); background: var(--surface-2); }
+
+  .quiz-table th.sortable-th { cursor: pointer; user-select: none; }
+  .quiz-table th.sortable-th:hover { color: var(--ink); }
+  .quiz-table th.sortable-th-last { font-weight: 700; color: var(--ink); }
+  .sort-arrow { display: inline-block; margin-left: 4px; opacity: .8; }
+  .quiz-table th.vheader {
+    writing-mode: vertical-lr;
+    white-space: nowrap;
+    text-align: left;
+    padding-block: 10px;
+    vertical-align: bottom;
+  }
+  .quiz-table th.vheader .sort-arrow { margin-left: 0; margin-top: 4px; }
+  .quiz-table th.sortable-th-centered {
+    text-align: center;
+    vertical-align: bottom;
+    white-space: normal;
+  }
+
+  .q-input, .sa-input {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: .92rem;
+    line-height: 1.4;
+    padding: 6px 7px;
+  }
+  /* Height is set inline by syncClueHeight() (min 10.5em, growing with content up
+     to a generous cap) rather than by resize/min-height alone, so a long clue or
+     hint can drive the row taller instead of immediately scrolling; overflow-y
+     only starts showing a scrollbar once content actually exceeds that cap. */
+  .q-input { min-height: 10.5em; overflow-y: auto; }
+  .sa-input { font-family: var(--font-mono); font-size: .88rem; }
+  .hint-input { min-height: 10.5em; overflow-y: auto; }
+  .q-input:hover, .sa-input:hover, .hint-input:hover { border-color: var(--border); }
+  .q-input:focus-visible, .sa-input:focus-visible, .hint-input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--surface-2);
+  }
+  .q-input::placeholder, .sa-input::placeholder, .hint-input::placeholder { color: var(--muted); }
+
+  .chain-select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: .85rem;
+    padding: 6px 7px;
+  }
+  .chain-select:focus-visible { outline: none; border-color: var(--accent); }
+
+  .butnot-cell {
+    font-family: var(--font-mono);
+    font-size: .86rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .butnot-placeholder {
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: .88rem;
+  }
+
+  .guess-cell, .numberish-cell {
+    cursor: pointer;
+    border-radius: 6px;
+    padding-inline: 4px;
+    min-height: 3.2em;
+  }
+  .guess-cell:hover, .numberish-cell:hover { background: var(--surface-2); }
+  .guess-body {
+    font-family: var(--font-mono);
+    font-size: .88rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .guess-empty {
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-style: italic;
+  }
+  .guess-loading { color: var(--accent-ink); font-family: var(--font-body); }
+  .guess-error { color: var(--bad); font-family: var(--font-body); }
+  .guess-done { color: var(--ink); }
+  .guess-meta {
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font: 500 .68rem/1.2 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+  }
+  .tok-badge {
+    font-variant-numeric: tabular-nums;
+    opacity: .75;
+    cursor: help;
+  }
+  .refresh-btn {
+    font: 600 .64rem/1 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--accent-ink);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .refresh-btn:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .refresh-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .numberish-cell { min-height: 3.2em; }
+  .numberish-cell-static { min-height: 3.2em; }
+  /* The ishes columns never drive row height themselves — syncClueHeight() caps
+     this wrapper's max-height at whatever the row's clue/hint boxes settled on,
+     so a long list scrolls internally instead of stretching the row further. */
+  .ish-scroll { overflow-y: auto; }
+  .numberish-list {
+    font-family: var(--font-mono);
+    font-size: .82rem;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .numberish-item { display: flex; gap: 6px; }
+  .numberish-item .val { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .numberish-item .val::before { content: "\2192"; margin-right: 6px; opacity: .6; }
+  .numberish-empty { color: var(--muted); font-family: var(--font-body); font-style: italic; font-size: .88rem; }
+
+  .quiz-table .sum-cell { font-family: var(--font-mono); text-align: right; overflow-wrap: break-word; padding-inline: 7px; }
+  .sum-value {
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .sum-empty { color: var(--muted); font-size: .88rem; }
+
+  .add-row-btn {
+    align-self: flex-start;
+    font: 600 .88rem/1 var(--font-body);
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border: 1px solid transparent;
+    padding: 10px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .add-row-btn:hover { filter: brightness(0.97); }
+  .add-row-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .toolbar-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .toolbar-spacer { flex: 1 1 auto; }
+
+  .recalc-ishes-btn {
+    font: 600 .82rem/1 var(--font-body);
+    color: var(--muted);
+    background: transparent;
+    border: 1px dashed var(--border);
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .recalc-ishes-btn:hover { color: var(--ink); border-color: var(--ink); }
+  .recalc-ishes-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .recalc-ishes-btn:disabled { opacity: .6; cursor: default; }
+  .recalc-notice { color: var(--muted); font-family: var(--font-body); font-style: italic; font-size: .85rem; }
+
+  .chain-order-btn {
+    font: 600 .88rem/1 var(--font-body);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .chain-order-btn:hover { background: var(--surface-2); }
+  .chain-order-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chain-order-btn.active { border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+  .renumber-btn {
+    font: 600 .88rem/1 var(--font-body);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .renumber-btn:hover { background: var(--surface-2); }
+  .renumber-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .quiz-switcher-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .quiz-switcher-spacer { flex: 1 1 auto; }
+  .quiz-select {
+    font: 600 .85rem/1 var(--font-body);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 9px;
+    max-width: 240px;
+  }
+  .quiz-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .quiz-tool-btn {
+    font: 600 .78rem/1 var(--font-body);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+  .quiz-tool-btn:hover { background: var(--surface-2); }
+  .quiz-tool-btn:disabled { opacity: .5; cursor: default; }
+  .quiz-tool-btn-danger { color: var(--bad); }
+  .quiz-tool-btn-danger:hover { background: var(--bad-soft); }
+  .quiz-delete-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 .82rem/1.2 var(--font-body);
+    color: var(--bad);
+  }
+  .lock-btn {
+    font: 600 .78rem/1 var(--font-body);
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+  .lock-btn:hover { background: var(--surface-2); }
+  .lock-btn.locked { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); font-weight: 700; }
+  .lock-banner {
+    font: 600 .78rem/1.2 var(--font-body);
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  /* A locked quiz keeps every cell readable and copyable (readonly, not
+     disabled) — only the interactive double-click-to-ask cells and the
+     drag handle visibly go inert, since those are the ones that would
+     otherwise silently spend an API call or reorder rows against a quiz
+     that's supposed to be frozen. */
+  .quiz-table-locked .guess-cell, .quiz-table-locked .numberish-cell { cursor: default; opacity: .7; }
+  .quiz-table-locked .guess-cell:hover, .quiz-table-locked .numberish-cell:hover { background: none; }
+  .quiz-table-locked .drag-cell { cursor: default; opacity: .4; }
+
+  footer.note {
+    font-size: .78rem;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  .prompt-review { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .prompt-review-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .prompt-review-title {
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  .copy-btn {
+    font: 600 .68rem/1 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--accent-ink);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .copy-status {
+    font: 500 .72rem/1 var(--font-body);
+    color: var(--muted);
+    font-style: italic;
+  }
+  .copy-status[data-ok="false"] { color: var(--bad); font-style: normal; }
+  .prompt-review-hint {
+    font-size: .78rem;
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .prompt-review-hint code {
+    font-family: var(--font-mono);
+    font-size: .92em;
+    background: var(--surface-2);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+  .prompt-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .prompt-box-label {
+    font: 600 .72rem/1.2 var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .prompt-box-label .copy-btn, .prompt-box-label .copy-status { text-transform: none; letter-spacing: normal; }
+  .prompt-box-body {
+    margin: 0;
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: .8rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ink);
+  }
+
+  .export-box {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    line-height: 1.5;
+    padding: 12px 14px;
+    resize: vertical;
+  }
+  .export-box:focus-visible { outline: none; border-color: var(--accent); }
+  /* The raw JSON dump is for backup/restore, not for reading — a smaller,
+     denser font fits far more of it on screen without pretty-printing's
+     indentation making that worse. */
+  .export-box-compact { font-size: .68rem; line-height: 1.4; }
+
+  .import-summary {
+    font: 500 .82rem/1.3 var(--font-body);
+    color: var(--good);
+  }
+  .import-summary[data-ok="false"] { color: var(--bad); }
+  .import-log {
+    margin: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: .76rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ink);
+  }
+
+  .is-stale { color: var(--muted); font-style: italic; }
+
+  @media (max-width: 640px) {
+    table.quiz-table, .quiz-table thead, .quiz-table tbody, .quiz-table tr, .quiz-table th, .quiz-table td {
+      display: block;
+      width: 100% !important;
+    }
+    .quiz-table thead { display: none; }
+    .quiz-table tbody tr {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-block: 12px;
+      overflow: hidden;
+    }
+    .quiz-table tbody tr:first-child { margin-top: 0; }
+    .quiz-table td { border-bottom: 1px solid var(--border); }
+    .quiz-table td:last-child { border-bottom: none; }
+    .quiz-table td::before {
+      content: attr(data-label);
+      display: block;
+      font: 600 .68rem/1.2 var(--font-body);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .add-row-btn, .chain-order-btn, .renumber-btn, .recalc-ishes-btn, .guess-cell, .numberish-cell, .refresh-btn { transition: filter .12s ease, background-color .12s ease; }
+  }
+</style>
+<div id="app"></div>
+<script>window.__INITIAL_STATE__={"title":"BUT NOT","rows":[{"id":"6927e41f-9342-48c4-bfd5-ebc1bf767f6c","question":"Among the six symbols on the frontispiece of the Texas State Capitol, the specific part that can be described as ‹‹argent, a [REDACTED] rampant gules ›› represents **What historic region**?","short_answer":"Leon","ai":{"status":"done","text":"The Lone Star State region.","modelTierApplied":"quick","truncated":false,"approxTokens":104,"updatedAt":1789584195507},"numbers":{"status":"done","items":[],"modelTierApplied":"quick","approxTokens":270,"updatedAt":1789587012678,"stale":true},"hint":"BUT NOT the titular role in an internationally successful 1994 French film about a young woman and her reclusive neighbor","hintNumbers":{"status":"done","items":[{"text":"1994","value":1994,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":271,"updatedAt":1789596072301}},{"id":"66f56d28-6a2c-49cf-ae31-7c34e78679e4","question":"Name the **author** of this poem ","short_answer":"Parker","ai":null,"hint":"BUT NOT The author who left their entire estate to a prominent civil rights activist","numbers":{"status":"done","items":[],"modelTierApplied":"quick","approxTokens":242,"updatedAt":1789596066665,"stale":true},"chains_to":"bd3bd6cc-9672-43c4-a241-037ede20584e"},{"id":"e0d97774-940c-4287-aaea-6cda58f7a936","question":"A parody video by “A Capella Science” pays homage to a notable Irish graffitist with the lyrics: “no one uses my quaternions, But just you wait, Just you wait\". What's his name, man?","short_answer":"Hamilton","ai":{"status":"done","text":"William Rowan Hamilton","modelTierApplied":"quick","truncated":false,"approxTokens":113,"updatedAt":1789582883418},"numbers":{"status":"done","items":[{"text":"one","value":1,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":290,"updatedAt":1789592202646},"chains_to":"94a2a54e-7e5d-4560-a784-eb4fdd6b851f","qnum":"1","hint":"BUT NOT the territorial capital where Bacardi, Fidelity Group, and Signet Jewelers are legally registered","hintNumbers":{"status":"done","items":[],"modelTierApplied":"quick","approxTokens":256,"updatedAt":1789596095316}},{"id":"bd3bd6cc-9672-43c4-a241-037ede20584e","question":"The Falkirk Wheel enables boat passage among the Union Canal, the Firth of Forth, and what third Firth?","short_answer":"Clyde","ai":{"status":"done","text":"Firth of Clyde","modelTierApplied":"quick","truncated":false,"approxTokens":92,"updatedAt":1789583737098},"numbers":{"status":"done","items":[{"text":"third","value":3,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":272,"updatedAt":1789587085764},"chains_to":"f861fa77-cd38-4cb6-a153-80e2e1326132","hint":"BUT NOT the redacted name","qnum":"2","hintNumbers":{"status":"done","items":[],"modelTierApplied":"quick","approxTokens":236,"updatedAt":1789599970473}},{"id":"b80ab976-7de8-44c6-a56d-71fff1b253ab","question":"John Wayne portrayed the congressperson who — on losing re-election – declared to his constituents “you may all go to hell and I will go to Texas”. They might or might not have, but he did, perishing five years later in San Antonio. Name him","short_answer":"Crockett","ai":{"status":"done","text":"Davy Crockett","modelTierApplied":"quick","truncated":false,"approxTokens":126,"updatedAt":1789583755168},"numbers":{"status":"done","items":[{"text":"five","value":5,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":305,"updatedAt":1789587090370},"hint":"BUT NOT the man-portable nuclear weapon – range 2 km ","chains_to":"4db65427-c8df-476d-a4fd-6d01bc7883f1","hintNumbers":{"status":"done","items":[{"text":"2","value":2,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":253,"updatedAt":1789591313570}},{"id":"63372409-f65d-4297-83fc-165fb08c6941","question":"\"At a glance, the poem below is gibberish; but in a different sense it's quite familiar. Describe WHAT are lost\n> Lille' beau pipe\n> Ocelot serre chypre\n> En douzaine aux verres tuf indemne\n> Livre de melons un dé huile qu'aux mômes\n> Eau à guigne d'air telle baie indemne?\"","short_answer":"SHEEP","ai":{"status":"done","text":"The vowels are lost.","modelTierApplied":"quick","truncated":false,"approxTokens":135,"updatedAt":1789584234107},"numbers":{"status":"done","items":[{"text":"douzaine","value":12,"kind":"wordish"},{"text":"un","value":1,"kind":"wordish"},{"text":"dé","value":1,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":335,"updatedAt":1789586997043},"hint":"BUT NOT the progenitors in \"Viable offspring from a differentiated adult mammalian cell\" (Wilmut, Schnieke et. al., Nature 1997 Feb 27;385(6619):810-3","hintNumbers":{"status":"done","items":[{"text":"1997","value":1997,"kind":"numeral"},{"text":"Feb 27","value":27,"kind":"numeral"},{"text":"385","value":385,"kind":"numeral"},{"text":"6619","value":6619,"kind":"numeral"},{"text":"810","value":810,"kind":"numeral"},{"text":"3","value":3,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":333,"updatedAt":1789595845529}},{"id":"94a2a54e-7e5d-4560-a784-eb4fdd6b851f","question":"The official scrabble dictionary (NWL24) lists four twelve-letter heterograms that also contain (in any order) every vowel and “y”. Two might describe this puzzle's cluing, one does NOT describe its smith, the last is this clue's connection. Name any one of them","short_answer":"Exclusionary","ai":{"status":"done","text":"AMBIDEXTROUSLY","modelTierApplied":"quick","truncated":false,"approxTokens":131,"updatedAt":1789583847700},"numbers":{"status":"done","items":[{"text":"24","value":24,"kind":"numeral"},{"text":"four","value":4,"kind":"wordish"},{"text":"twelve","value":12,"kind":"wordish"},{"text":"two","value":2,"kind":"wordish"},{"text":"one","value":1,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":353,"updatedAt":1789587096680},"hint":"BUT NOT the federal rule imposed in Weeks v. United States (1914, “convictions by means of unlawful seizures…is not to be sanctioned”) and strengthened in Silverthorne Lumber Co. v. United States (1920, “fruit of the poisonous tree”)","hintNumbers":{"status":"done","items":[{"text":"1914","value":1914,"kind":"numeral"},{"text":"1920","value":1920,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":311,"updatedAt":1789595816252}},{"id":"4db65427-c8df-476d-a4fd-6d01bc7883f1","question":"On a certain ordered list, Alsip, Illinois starts at #13; Coni, Azerbaijan is found at #27; Gage, Oklahoma at #31, and Bala, Senegal at #56. Name the far more populous county occupying #17-19.","short_answer":"Clark","ai":{"status":"done","text":"Cook County, Illinois","modelTierApplied":"quick","truncated":false,"approxTokens":116,"updatedAt":1789583828807},"hint":"BUT NOT The point guard drafted first overall by the Indiana Fever in 2024","hintNumbers":{"status":"done","items":[{"text":"first","value":1,"kind":"wordish"},{"text":"2024","value":2024,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":270,"updatedAt":1789590797128},"numbers":{"status":"done","items":[{"text":"#13","value":13,"kind":"numeral"},{"text":"#27","value":27,"kind":"numeral"},{"text":"#31","value":31,"kind":"numeral"},{"text":"#56","value":56,"kind":"numeral"},{"text":"#17-19","value":17,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":337,"updatedAt":1789595886540}},{"id":"1fc1439f-d893-4673-b437-0cb5a14d6ede","question":"“千里之行，始于足下.” Ha! 老子 had a 里 hardly 415m long, what’s he know? Me, I’m an inchworm, and a quarter-inch 步 each second feels 老 slow. Oh, 足下, my 足 sure ache – would you tell me how long this whole journey will take?","short_answer":"Two Years","ai":{"status":"done","text":"About 3,650 years.","modelTierApplied":"quick","truncated":false,"approxTokens":120,"updatedAt":1789583812513},"hint":"BUT NOT the memoir by an erstwhile Harvard dropout recounting his time as a common sailor, under the fo’c’sle and the captain’s harsh discipline","hintNumbers":{"status":"done","items":[{"text":"one","value":1,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":276,"updatedAt":1789595833957},"numbers":{"status":"done","items":[{"text":"415","value":415,"kind":"numeral"},{"text":"quarter","value":0.25,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":311,"updatedAt":1789599956820}},{"id":"f861fa77-cd38-4cb6-a153-80e2e1326132","question":"What name will be given to CVN-80, the third of the Gerald R. Ford-class Aircraft carriers? That storied name is also contemplated for a future vessel with hull number NCC-1701","short_answer":"Enterprise","ai":{"status":"done","text":"USS Enterprise","modelTierApplied":"quick","truncated":false,"approxTokens":110,"updatedAt":1789584022244},"numbers":{"status":"done","items":[{"text":"80","value":80,"kind":"numeral"},{"text":"third","value":3,"kind":"wordish"},{"text":"1701","value":1701,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":312,"updatedAt":1789587064708},"hint":"BUT NOT the business -- larger than the inverse unit and latin bird together -- operating 9,000+ locations across 45 states, including about three dozen each in ATLanta, Dallas-Fort Worth, DENver, and CHIcago.","hintNumbers":{"status":"done","items":[{"text":"9,000+","value":9000,"kind":"numeral"},{"text":"45","value":45,"kind":"numeral"},{"text":"three dozen","value":36,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":317,"updatedAt":1789595820562}},{"id":"394fc810-25eb-4455-94f9-f53b9ea3dc23","question":"Give the full name (all three parts) of the lawyer/poet whose namesake (those same three and a surname) authored the line “So we beat on, boats against the current, borne back ceaselessly into the past” in a 1925 novel","short_answer":"Key","ai":{"status":"done","text":"F. Scott Fitzgerald","modelTierApplied":"quick","truncated":false,"approxTokens":121,"updatedAt":1789584084346},"numbers":{"status":"done","items":[{"text":"three","value":3,"kind":"wordish"},{"text":"three","value":3,"kind":"wordish"},{"text":"1925","value":1925,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":322,"updatedAt":1789587046236},"hint":"BUT NOT the bridge","hintNumbers":{"status":"done","items":[],"modelTierApplied":"quick","approxTokens":234,"updatedAt":1789599966547}},{"id":"d6e58654-34d3-4b6c-ba95-a937407c4d8b","question":"“The Troubles” boiled up in the 1960s (2.07 Doomsday cycles ago) and ended, 1.02 Doomsday cycles ago, on what holiday?","short_answer":"Good Friday","ai":{"status":"done","text":"Good Friday","modelTierApplied":"quick","truncated":false,"approxTokens":94,"updatedAt":1789584081722},"numbers":{"status":"done","items":[{"text":"1960s","value":1960,"kind":"numeral"},{"text":"2.07","value":2.07,"kind":"numeral"},{"text":"1.02","value":1.02,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":298,"updatedAt":1789599185440},"hint":"BUT NOT the fictional triskaidekaphile whose TV career began on Pittsburgh's WQED in 1954 and continues (with gaps between spinoffs) to the present.","chains_to":"f861fa77-cd38-4cb6-a153-80e2e1326132","hintNumbers":{"status":"done","items":[{"text":"1954","value":1954,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":278,"updatedAt":1789595837937}},{"id":"e497e567-aff0-44e4-9348-e850606959a3","question":"In 1975, the Texas Rangers fired their manager for (chief among many complaints) demanding that \"Thank God I'm a Country Boy\" replace \"Take Me Out to the Ball Game” during the seventh-inning stretch. Larry David mentioned him seven times during one Seinfeld episode; give his name","short_answer":"Martin","ai":{"status":"done","text":"Billy Martin","modelTierApplied":"quick","truncated":false,"approxTokens":135,"updatedAt":1789584100291},"numbers":{"status":"done","items":[{"text":"1975","value":1975,"kind":"numeral"},{"text":"seventh","value":7,"kind":"wordish"},{"text":"seven","value":7,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":339,"updatedAt":1789587033327},"hint":"BUT NOT The jerk who played Joe in The Spanish Prisoner","hintNumbers":{"status":"done","items":[],"modelTierApplied":"quick","approxTokens":244,"updatedAt":1789595851188}},{"id":"f87ee05b-5d7b-4144-8706-de5cd444f02f","question":"Name the container ship (sister of the MV Cezanne) that collapsed a Baltimore bridge in 2024","short_answer":"Dali","ai":{"status":"done","text":"MV Dali","modelTierApplied":"quick","truncated":false,"approxTokens":87,"updatedAt":1789584134118},"numbers":{"status":"done","items":[{"text":"2024","value":2024,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":269,"updatedAt":1789587022106},"hint":"BUT NOT The first name of the Imagination Library founder who has gifted over 300 million free books worldwide.","hintNumbers":{"status":"done","items":[{"text":"300 million","value":300000000,"kind":"wordish"}],"modelTierApplied":"quick","approxTokens":272,"updatedAt":1789595859622},"qnum":"5"},{"id":"b9aa22b4-97bd-4101-b7ad-49e9a263b8a9","question":"The largest fleet of right-hand drive vehicles in North America — 130,000 still in service, as of 2024 — is operated by what organization?","short_answer":"USPS","ai":{"status":"done","text":"Canada Post","modelTierApplied":"quick","truncated":false,"approxTokens":99,"updatedAt":1789584161223},"numbers":{"status":"done","items":[{"text":"130,000","value":130000,"kind":"numeral"},{"text":"2024","value":2024,"kind":"numeral"}],"modelTierApplied":"quick","approxTokens":293,"updatedAt":1789587019874},"hint":"BUT NOT The FedEx/UPS mediated collaboration among Ben Gibbard, Dntel, and Jenny Lewis?","hintNumbers":{"status":"error","message":"Couldn’t read that as structured data — try again.","updatedAt":1789599962717}}],"lastSortKey":"q_full"};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+<script>
+// Zod v3, self-bundled as an IIFE (no official CDN-hostable UMD build exists) —
+// exposes window.ZodNS.z, the schema builder used below to describe and
+// validate the quiz data structure.
+var ZodNS=(()=>{var ke=Object.defineProperty;var Ot=Object.getOwnPropertyDescriptor;var St=Object.getOwnPropertyNames;var At=Object.prototype.hasOwnProperty;var be=(r,e)=>{for(var t in e)ke(r,t,{get:e[t],enumerable:!0})},Rt=(r,e,t,s)=>{if(e&&typeof e=="object"||typeof e=="function")for(let a of St(e))!At.call(r,a)&&a!==t&&ke(r,a,{get:()=>e[a],enumerable:!(s=Ot(e,a))||s.enumerable});return r};var Nt=r=>Rt(ke({},"__esModule",{value:!0}),r);var er={};be(er,{z:()=>Ne});var Ne={};be(Ne,{BRAND:()=>Le,DIRTY:()=>D,EMPTY_PATH:()=>$e,INVALID:()=>p,NEVER:()=>Ct,OK:()=>k,ParseStatus:()=>x,Schema:()=>_,ZodAny:()=>P,ZodArray:()=>Z,ZodBigInt:()=>U,ZodBoolean:()=>F,ZodBranded:()=>le,ZodCatch:()=>ee,ZodDate:()=>B,ZodDefault:()=>K,ZodDiscriminatedUnion:()=>me,ZodEffects:()=>C,ZodEnum:()=>Q,ZodError:()=>b,ZodFirstPartyTypeKind:()=>m,ZodFunction:()=>_e,ZodIntersection:()=>Y,ZodIssueCode:()=>c,ZodLazy:()=>H,ZodLiteral:()=>G,ZodMap:()=>ie,ZodNaN:()=>ce,ZodNativeEnum:()=>X,ZodNever:()=>A,ZodNull:()=>q,ZodNullable:()=>j,ZodNumber:()=>L,ZodObject:()=>w,ZodOptional:()=>T,ZodParsedType:()=>u,ZodPipeline:()=>fe,ZodPromise:()=>z,ZodReadonly:()=>te,ZodRecord:()=>ye,ZodSchema:()=>_,ZodSet:()=>oe,ZodString:()=>V,ZodSymbol:()=>ae,ZodTransformer:()=>C,ZodTuple:()=>N,ZodType:()=>_,ZodUndefined:()=>W,ZodUnion:()=>J,ZodUnknown:()=>E,ZodVoid:()=>ne,addIssueToContext:()=>d,any:()=>Ge,array:()=>et,bigint:()=>We,boolean:()=>Re,coerce:()=>Tt,custom:()=>Oe,date:()=>qe,datetimeRegex:()=>Ce,default:()=>Kt,defaultErrorMap:()=>I,discriminatedUnion:()=>at,effect:()=>yt,enum:()=>ht,function:()=>ut,getErrorMap:()=>re,getParsedType:()=>R,instanceof:()=>Fe,intersection:()=>nt,isAborted:()=>he,isAsync:()=>se,isDirty:()=>pe,isValid:()=>$,late:()=>Ue,lazy:()=>lt,literal:()=>ft,makeIssue:()=>de,map:()=>ct,nan:()=>Be,nativeEnum:()=>pt,never:()=>Xe,null:()=>He,nullable:()=>gt,number:()=>Ae,object:()=>tt,objectUtil:()=>ge,oboolean:()=>wt,onumber:()=>bt,optional:()=>_t,ostring:()=>kt,pipeline:()=>xt,preprocess:()=>vt,promise:()=>mt,quotelessJson:()=>Ie,record:()=>ot,set:()=>dt,setErrorMap:()=>Ze,strictObject:()=>rt,string:()=>Se,symbol:()=>Je,transformer:()=>yt,tuple:()=>it,undefined:()=>Ye,union:()=>st,unknown:()=>Qe,util:()=>g,void:()=>Ke,z:()=>ve});var ve={};be(ve,{BRAND:()=>Le,DIRTY:()=>D,EMPTY_PATH:()=>$e,INVALID:()=>p,NEVER:()=>Ct,OK:()=>k,ParseStatus:()=>x,Schema:()=>_,ZodAny:()=>P,ZodArray:()=>Z,ZodBigInt:()=>U,ZodBoolean:()=>F,ZodBranded:()=>le,ZodCatch:()=>ee,ZodDate:()=>B,ZodDefault:()=>K,ZodDiscriminatedUnion:()=>me,ZodEffects:()=>C,ZodEnum:()=>Q,ZodError:()=>b,ZodFirstPartyTypeKind:()=>m,ZodFunction:()=>_e,ZodIntersection:()=>Y,ZodIssueCode:()=>c,ZodLazy:()=>H,ZodLiteral:()=>G,ZodMap:()=>ie,ZodNaN:()=>ce,ZodNativeEnum:()=>X,ZodNever:()=>A,ZodNull:()=>q,ZodNullable:()=>j,ZodNumber:()=>L,ZodObject:()=>w,ZodOptional:()=>T,ZodParsedType:()=>u,ZodPipeline:()=>fe,ZodPromise:()=>z,ZodReadonly:()=>te,ZodRecord:()=>ye,ZodSchema:()=>_,ZodSet:()=>oe,ZodString:()=>V,ZodSymbol:()=>ae,ZodTransformer:()=>C,ZodTuple:()=>N,ZodType:()=>_,ZodUndefined:()=>W,ZodUnion:()=>J,ZodUnknown:()=>E,ZodVoid:()=>ne,addIssueToContext:()=>d,any:()=>Ge,array:()=>et,bigint:()=>We,boolean:()=>Re,coerce:()=>Tt,custom:()=>Oe,date:()=>qe,datetimeRegex:()=>Ce,defaultErrorMap:()=>I,discriminatedUnion:()=>at,effect:()=>yt,enum:()=>ht,function:()=>ut,getErrorMap:()=>re,getParsedType:()=>R,instanceof:()=>Fe,intersection:()=>nt,isAborted:()=>he,isAsync:()=>se,isDirty:()=>pe,isValid:()=>$,late:()=>Ue,lazy:()=>lt,literal:()=>ft,makeIssue:()=>de,map:()=>ct,nan:()=>Be,nativeEnum:()=>pt,never:()=>Xe,null:()=>He,nullable:()=>gt,number:()=>Ae,object:()=>tt,objectUtil:()=>ge,oboolean:()=>wt,onumber:()=>bt,optional:()=>_t,ostring:()=>kt,pipeline:()=>xt,preprocess:()=>vt,promise:()=>mt,quotelessJson:()=>Ie,record:()=>ot,set:()=>dt,setErrorMap:()=>Ze,strictObject:()=>rt,string:()=>Se,symbol:()=>Je,transformer:()=>yt,tuple:()=>it,undefined:()=>Ye,union:()=>st,unknown:()=>Qe,util:()=>g,void:()=>Ke});var g;(function(r){r.assertEqual=a=>{};function e(a){}r.assertIs=e;function t(a){throw new Error}r.assertNever=t,r.arrayToEnum=a=>{let n={};for(let i of a)n[i]=i;return n},r.getValidEnumValues=a=>{let n=r.objectKeys(a).filter(o=>typeof a[a[o]]!="number"),i={};for(let o of n)i[o]=a[o];return r.objectValues(i)},r.objectValues=a=>r.objectKeys(a).map(function(n){return a[n]}),r.objectKeys=typeof Object.keys=="function"?a=>Object.keys(a):a=>{let n=[];for(let i in a)Object.prototype.hasOwnProperty.call(a,i)&&n.push(i);return n},r.find=(a,n)=>{for(let i of a)if(n(i))return i},r.isInteger=typeof Number.isInteger=="function"?a=>Number.isInteger(a):a=>typeof a=="number"&&Number.isFinite(a)&&Math.floor(a)===a;function s(a,n=" | "){return a.map(i=>typeof i=="string"?`'${i}'`:i).join(n)}r.joinValues=s,r.jsonStringifyReplacer=(a,n)=>typeof n=="bigint"?n.toString():n})(g||(g={}));var ge;(function(r){r.mergeShapes=(e,t)=>({...e,...t})})(ge||(ge={}));var u=g.arrayToEnum(["string","nan","number","integer","float","boolean","date","bigint","symbol","function","undefined","null","array","object","unknown","promise","void","never","map","set"]),R=r=>{switch(typeof r){case"undefined":return u.undefined;case"string":return u.string;case"number":return Number.isNaN(r)?u.nan:u.number;case"boolean":return u.boolean;case"function":return u.function;case"bigint":return u.bigint;case"symbol":return u.symbol;case"object":return Array.isArray(r)?u.array:r===null?u.null:r.then&&typeof r.then=="function"&&r.catch&&typeof r.catch=="function"?u.promise:typeof Map<"u"&&r instanceof Map?u.map:typeof Set<"u"&&r instanceof Set?u.set:typeof Date<"u"&&r instanceof Date?u.date:u.object;default:return u.unknown}};var c=g.arrayToEnum(["invalid_type","invalid_literal","custom","invalid_union","invalid_union_discriminator","invalid_enum_value","unrecognized_keys","invalid_arguments","invalid_return_type","invalid_date","invalid_string","too_small","too_big","invalid_intersection_types","not_multiple_of","not_finite"]),Ie=r=>JSON.stringify(r,null,2).replace(/"([^"]+)":/g,"$1:"),b=class r extends Error{get errors(){return this.issues}constructor(e){super(),this.issues=[],this.addIssue=s=>{this.issues=[...this.issues,s]},this.addIssues=(s=[])=>{this.issues=[...this.issues,...s]};let t=new.target.prototype;Object.setPrototypeOf?Object.setPrototypeOf(this,t):this.__proto__=t,this.name="ZodError",this.issues=e}format(e){let t=e||function(n){return n.message},s={_errors:[]},a=n=>{for(let i of n.issues)if(i.code==="invalid_union")i.unionErrors.map(a);else if(i.code==="invalid_return_type")a(i.returnTypeError);else if(i.code==="invalid_arguments")a(i.argumentsError);else if(i.path.length===0)s._errors.push(t(i));else{let o=s,f=0;for(;f<i.path.length;){let l=i.path[f];f===i.path.length-1?(o[l]=o[l]||{_errors:[]},o[l]._errors.push(t(i))):o[l]=o[l]||{_errors:[]},o=o[l],f++}}};return a(this),s}static assert(e){if(!(e instanceof r))throw new Error(`Not a ZodError: ${e}`)}toString(){return this.message}get message(){return JSON.stringify(this.issues,g.jsonStringifyReplacer,2)}get isEmpty(){return this.issues.length===0}flatten(e=t=>t.message){let t={},s=[];for(let a of this.issues)if(a.path.length>0){let n=a.path[0];t[n]=t[n]||[],t[n].push(e(a))}else s.push(e(a));return{formErrors:s,fieldErrors:t}}get formErrors(){return this.flatten()}};b.create=r=>new b(r);var jt=(r,e)=>{let t;switch(r.code){case c.invalid_type:r.received===u.undefined?t="Required":t=`Expected ${r.expected}, received ${r.received}`;break;case c.invalid_literal:t=`Invalid literal value, expected ${JSON.stringify(r.expected,g.jsonStringifyReplacer)}`;break;case c.unrecognized_keys:t=`Unrecognized key(s) in object: ${g.joinValues(r.keys,", ")}`;break;case c.invalid_union:t="Invalid input";break;case c.invalid_union_discriminator:t=`Invalid discriminator value. Expected ${g.joinValues(r.options)}`;break;case c.invalid_enum_value:t=`Invalid enum value. Expected ${g.joinValues(r.options)}, received '${r.received}'`;break;case c.invalid_arguments:t="Invalid function arguments";break;case c.invalid_return_type:t="Invalid function return type";break;case c.invalid_date:t="Invalid date";break;case c.invalid_string:typeof r.validation=="object"?"includes"in r.validation?(t=`Invalid input: must include "${r.validation.includes}"`,typeof r.validation.position=="number"&&(t=`${t} at one or more positions greater than or equal to ${r.validation.position}`)):"startsWith"in r.validation?t=`Invalid input: must start with "${r.validation.startsWith}"`:"endsWith"in r.validation?t=`Invalid input: must end with "${r.validation.endsWith}"`:g.assertNever(r.validation):r.validation!=="regex"?t=`Invalid ${r.validation}`:t="Invalid";break;case c.too_small:r.type==="array"?t=`Array must contain ${r.exact?"exactly":r.inclusive?"at least":"more than"} ${r.minimum} element(s)`:r.type==="string"?t=`String must contain ${r.exact?"exactly":r.inclusive?"at least":"over"} ${r.minimum} character(s)`:r.type==="number"?t=`Number must be ${r.exact?"exactly equal to ":r.inclusive?"greater than or equal to ":"greater than "}${r.minimum}`:r.type==="bigint"?t=`Number must be ${r.exact?"exactly equal to ":r.inclusive?"greater than or equal to ":"greater than "}${r.minimum}`:r.type==="date"?t=`Date must be ${r.exact?"exactly equal to ":r.inclusive?"greater than or equal to ":"greater than "}${new Date(Number(r.minimum))}`:t="Invalid input";break;case c.too_big:r.type==="array"?t=`Array must contain ${r.exact?"exactly":r.inclusive?"at most":"less than"} ${r.maximum} element(s)`:r.type==="string"?t=`String must contain ${r.exact?"exactly":r.inclusive?"at most":"under"} ${r.maximum} character(s)`:r.type==="number"?t=`Number must be ${r.exact?"exactly":r.inclusive?"less than or equal to":"less than"} ${r.maximum}`:r.type==="bigint"?t=`BigInt must be ${r.exact?"exactly":r.inclusive?"less than or equal to":"less than"} ${r.maximum}`:r.type==="date"?t=`Date must be ${r.exact?"exactly":r.inclusive?"smaller than or equal to":"smaller than"} ${new Date(Number(r.maximum))}`:t="Invalid input";break;case c.custom:t="Invalid input";break;case c.invalid_intersection_types:t="Intersection results could not be merged";break;case c.not_multiple_of:t=`Number must be a multiple of ${r.multipleOf}`;break;case c.not_finite:t="Number must be finite";break;default:t=e.defaultError,g.assertNever(r)}return{message:t}},I=jt;var Ee=I;function Ze(r){Ee=r}function re(){return Ee}var de=r=>{let{data:e,path:t,errorMaps:s,issueData:a}=r,n=[...t,...a.path||[]],i={...a,path:n};if(a.message!==void 0)return{...a,path:n,message:a.message};let o="",f=s.filter(l=>!!l).slice().reverse();for(let l of f)o=l(i,{data:e,defaultError:o}).message;return{...a,path:n,message:o}},$e=[];function d(r,e){let t=re(),s=de({issueData:e,data:r.data,path:r.path,errorMaps:[r.common.contextualErrorMap,r.schemaErrorMap,t,t===I?void 0:I].filter(a=>!!a)});r.common.issues.push(s)}var x=class r{constructor(){this.value="valid"}dirty(){this.value==="valid"&&(this.value="dirty")}abort(){this.value!=="aborted"&&(this.value="aborted")}static mergeArray(e,t){let s=[];for(let a of t){if(a.status==="aborted")return p;a.status==="dirty"&&e.dirty(),s.push(a.value)}return{status:e.value,value:s}}static async mergeObjectAsync(e,t){let s=[];for(let a of t){let n=await a.key,i=await a.value;s.push({key:n,value:i})}return r.mergeObjectSync(e,s)}static mergeObjectSync(e,t){let s={};for(let a of t){let{key:n,value:i}=a;if(n.status==="aborted"||i.status==="aborted")return p;n.status==="dirty"&&e.dirty(),i.status==="dirty"&&e.dirty(),n.value!=="__proto__"&&(typeof i.value<"u"||a.alwaysSet)&&(s[n.value]=i.value)}return{status:e.value,value:s}}},p=Object.freeze({status:"aborted"}),D=r=>({status:"dirty",value:r}),k=r=>({status:"valid",value:r}),he=r=>r.status==="aborted",pe=r=>r.status==="dirty",$=r=>r.status==="valid",se=r=>typeof Promise<"u"&&r instanceof Promise;var h;(function(r){r.errToObj=e=>typeof e=="string"?{message:e}:e||{},r.toString=e=>typeof e=="string"?e:e?.message})(h||(h={}));var S=class{constructor(e,t,s,a){this._cachedPath=[],this.parent=e,this.data=t,this._path=s,this._key=a}get path(){return this._cachedPath.length||(Array.isArray(this._key)?this._cachedPath.push(...this._path,...this._key):this._cachedPath.push(...this._path,this._key)),this._cachedPath}},Me=(r,e)=>{if($(e))return{success:!0,data:e.value};if(!r.common.issues.length)throw new Error("Validation failed but no issues detected.");return{success:!1,get error(){if(this._error)return this._error;let t=new b(r.common.issues);return this._error=t,this._error}}};function y(r){if(!r)return{};let{errorMap:e,invalid_type_error:t,required_error:s,description:a}=r;if(e&&(t||s))throw new Error(`Can't use "invalid_type_error" or "required_error" in conjunction with custom error map.`);return e?{errorMap:e,description:a}:{errorMap:(i,o)=>{let{message:f}=r;return i.code==="invalid_enum_value"?{message:f??o.defaultError}:typeof o.data>"u"?{message:f??s??o.defaultError}:i.code!=="invalid_type"?{message:o.defaultError}:{message:f??t??o.defaultError}},description:a}}var _=class{get description(){return this._def.description}_getType(e){return R(e.data)}_getOrReturnCtx(e,t){return t||{common:e.parent.common,data:e.data,parsedType:R(e.data),schemaErrorMap:this._def.errorMap,path:e.path,parent:e.parent}}_processInputParams(e){return{status:new x,ctx:{common:e.parent.common,data:e.data,parsedType:R(e.data),schemaErrorMap:this._def.errorMap,path:e.path,parent:e.parent}}}_parseSync(e){let t=this._parse(e);if(se(t))throw new Error("Synchronous parse encountered promise.");return t}_parseAsync(e){let t=this._parse(e);return Promise.resolve(t)}parse(e,t){let s=this.safeParse(e,t);if(s.success)return s.data;throw s.error}safeParse(e,t){let s={common:{issues:[],async:t?.async??!1,contextualErrorMap:t?.errorMap},path:t?.path||[],schemaErrorMap:this._def.errorMap,parent:null,data:e,parsedType:R(e)},a=this._parseSync({data:e,path:s.path,parent:s});return Me(s,a)}"~validate"(e){let t={common:{issues:[],async:!!this["~standard"].async},path:[],schemaErrorMap:this._def.errorMap,parent:null,data:e,parsedType:R(e)};if(!this["~standard"].async)try{let s=this._parseSync({data:e,path:[],parent:t});return $(s)?{value:s.value}:{issues:t.common.issues}}catch(s){s?.message?.toLowerCase()?.includes("encountered")&&(this["~standard"].async=!0),t.common={issues:[],async:!0}}return this._parseAsync({data:e,path:[],parent:t}).then(s=>$(s)?{value:s.value}:{issues:t.common.issues})}async parseAsync(e,t){let s=await this.safeParseAsync(e,t);if(s.success)return s.data;throw s.error}async safeParseAsync(e,t){let s={common:{issues:[],contextualErrorMap:t?.errorMap,async:!0},path:t?.path||[],schemaErrorMap:this._def.errorMap,parent:null,data:e,parsedType:R(e)},a=this._parse({data:e,path:s.path,parent:s}),n=await(se(a)?a:Promise.resolve(a));return Me(s,n)}refine(e,t){let s=a=>typeof t=="string"||typeof t>"u"?{message:t}:typeof t=="function"?t(a):t;return this._refinement((a,n)=>{let i=e(a),o=()=>n.addIssue({code:c.custom,...s(a)});return typeof Promise<"u"&&i instanceof Promise?i.then(f=>f?!0:(o(),!1)):i?!0:(o(),!1)})}refinement(e,t){return this._refinement((s,a)=>e(s)?!0:(a.addIssue(typeof t=="function"?t(s,a):t),!1))}_refinement(e){return new C({schema:this,typeName:m.ZodEffects,effect:{type:"refinement",refinement:e}})}superRefine(e){return this._refinement(e)}constructor(e){this.spa=this.safeParseAsync,this._def=e,this.parse=this.parse.bind(this),this.safeParse=this.safeParse.bind(this),this.parseAsync=this.parseAsync.bind(this),this.safeParseAsync=this.safeParseAsync.bind(this),this.spa=this.spa.bind(this),this.refine=this.refine.bind(this),this.refinement=this.refinement.bind(this),this.superRefine=this.superRefine.bind(this),this.optional=this.optional.bind(this),this.nullable=this.nullable.bind(this),this.nullish=this.nullish.bind(this),this.array=this.array.bind(this),this.promise=this.promise.bind(this),this.or=this.or.bind(this),this.and=this.and.bind(this),this.transform=this.transform.bind(this),this.brand=this.brand.bind(this),this.default=this.default.bind(this),this.catch=this.catch.bind(this),this.describe=this.describe.bind(this),this.pipe=this.pipe.bind(this),this.readonly=this.readonly.bind(this),this.isNullable=this.isNullable.bind(this),this.isOptional=this.isOptional.bind(this),this["~standard"]={version:1,vendor:"zod",validate:t=>this["~validate"](t)}}optional(){return T.create(this,this._def)}nullable(){return j.create(this,this._def)}nullish(){return this.nullable().optional()}array(){return Z.create(this)}promise(){return z.create(this,this._def)}or(e){return J.create([this,e],this._def)}and(e){return Y.create(this,e,this._def)}transform(e){return new C({...y(this._def),schema:this,typeName:m.ZodEffects,effect:{type:"transform",transform:e}})}default(e){let t=typeof e=="function"?e:()=>e;return new K({...y(this._def),innerType:this,defaultValue:t,typeName:m.ZodDefault})}brand(){return new le({typeName:m.ZodBranded,type:this,...y(this._def)})}catch(e){let t=typeof e=="function"?e:()=>e;return new ee({...y(this._def),innerType:this,catchValue:t,typeName:m.ZodCatch})}describe(e){let t=this.constructor;return new t({...this._def,description:e})}pipe(e){return fe.create(this,e)}readonly(){return te.create(this)}isOptional(){return this.safeParse(void 0).success}isNullable(){return this.safeParse(null).success}},It=/^c[^\s-]{8,}$/i,Et=/^[0-9a-z]+$/,Zt=/^[0-9A-HJKMNP-TV-Z]{26}$/i,$t=/^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i,Mt=/^[a-z0-9_-]{21}$/i,Vt=/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/,Pt=/^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/,zt=/^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i,Dt="^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$",we,Lt=/^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/,Ut=/^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/(3[0-2]|[12]?[0-9])$/,Ft=/^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/,Bt=/^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/,Wt=/^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/,qt=/^([0-9a-zA-Z-_]{4})*(([0-9a-zA-Z-_]{2}(==)?)|([0-9a-zA-Z-_]{3}(=)?))?$/,Pe="((\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-((0[13578]|1[02])-(0[1-9]|[12]\\d|3[01])|(0[469]|11)-(0[1-9]|[12]\\d|30)|(02)-(0[1-9]|1\\d|2[0-8])))",Jt=new RegExp(`^${Pe}$`);function ze(r){let e="[0-5]\\d";r.precision?e=`${e}\\.\\d{${r.precision}}`:r.precision==null&&(e=`${e}(\\.\\d+)?`);let t=r.precision?"+":"?";return`([01]\\d|2[0-3]):[0-5]\\d(:${e})${t}`}function Yt(r){return new RegExp(`^${ze(r)}$`)}function Ce(r){let e=`${Pe}T${ze(r)}`,t=[];return t.push(r.local?"Z?":"Z"),r.offset&&t.push("([+-]\\d{2}:?\\d{2})"),e=`${e}(${t.join("|")})`,new RegExp(`^${e}$`)}function Ht(r,e){return!!((e==="v4"||!e)&&Lt.test(r)||(e==="v6"||!e)&&Ft.test(r))}function Gt(r,e){if(!Vt.test(r))return!1;try{let[t]=r.split(".");if(!t)return!1;let s=t.replace(/-/g,"+").replace(/_/g,"/").padEnd(t.length+(4-t.length%4)%4,"="),a=JSON.parse(atob(s));return!(typeof a!="object"||a===null||"typ"in a&&a?.typ!=="JWT"||!a.alg||e&&a.alg!==e)}catch{return!1}}function Qt(r,e){return!!((e==="v4"||!e)&&Ut.test(r)||(e==="v6"||!e)&&Bt.test(r))}var V=class r extends _{_parse(e){if(this._def.coerce&&(e.data=String(e.data)),this._getType(e)!==u.string){let n=this._getOrReturnCtx(e);return d(n,{code:c.invalid_type,expected:u.string,received:n.parsedType}),p}let s=new x,a;for(let n of this._def.checks)if(n.kind==="min")e.data.length<n.value&&(a=this._getOrReturnCtx(e,a),d(a,{code:c.too_small,minimum:n.value,type:"string",inclusive:!0,exact:!1,message:n.message}),s.dirty());else if(n.kind==="max")e.data.length>n.value&&(a=this._getOrReturnCtx(e,a),d(a,{code:c.too_big,maximum:n.value,type:"string",inclusive:!0,exact:!1,message:n.message}),s.dirty());else if(n.kind==="length"){let i=e.data.length>n.value,o=e.data.length<n.value;(i||o)&&(a=this._getOrReturnCtx(e,a),i?d(a,{code:c.too_big,maximum:n.value,type:"string",inclusive:!0,exact:!0,message:n.message}):o&&d(a,{code:c.too_small,minimum:n.value,type:"string",inclusive:!0,exact:!0,message:n.message}),s.dirty())}else if(n.kind==="email")zt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"email",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="emoji")we||(we=new RegExp(Dt,"u")),we.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"emoji",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="uuid")$t.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"uuid",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="nanoid")Mt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"nanoid",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="cuid")It.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"cuid",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="cuid2")Et.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"cuid2",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="ulid")Zt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"ulid",code:c.invalid_string,message:n.message}),s.dirty());else if(n.kind==="url")try{new URL(e.data)}catch{a=this._getOrReturnCtx(e,a),d(a,{validation:"url",code:c.invalid_string,message:n.message}),s.dirty()}else n.kind==="regex"?(n.regex.lastIndex=0,n.regex.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"regex",code:c.invalid_string,message:n.message}),s.dirty())):n.kind==="trim"?e.data=e.data.trim():n.kind==="includes"?e.data.includes(n.value,n.position)||(a=this._getOrReturnCtx(e,a),d(a,{code:c.invalid_string,validation:{includes:n.value,position:n.position},message:n.message}),s.dirty()):n.kind==="toLowerCase"?e.data=e.data.toLowerCase():n.kind==="toUpperCase"?e.data=e.data.toUpperCase():n.kind==="startsWith"?e.data.startsWith(n.value)||(a=this._getOrReturnCtx(e,a),d(a,{code:c.invalid_string,validation:{startsWith:n.value},message:n.message}),s.dirty()):n.kind==="endsWith"?e.data.endsWith(n.value)||(a=this._getOrReturnCtx(e,a),d(a,{code:c.invalid_string,validation:{endsWith:n.value},message:n.message}),s.dirty()):n.kind==="datetime"?Ce(n).test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{code:c.invalid_string,validation:"datetime",message:n.message}),s.dirty()):n.kind==="date"?Jt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{code:c.invalid_string,validation:"date",message:n.message}),s.dirty()):n.kind==="time"?Yt(n).test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{code:c.invalid_string,validation:"time",message:n.message}),s.dirty()):n.kind==="duration"?Pt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"duration",code:c.invalid_string,message:n.message}),s.dirty()):n.kind==="ip"?Ht(e.data,n.version)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"ip",code:c.invalid_string,message:n.message}),s.dirty()):n.kind==="jwt"?Gt(e.data,n.alg)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"jwt",code:c.invalid_string,message:n.message}),s.dirty()):n.kind==="cidr"?Qt(e.data,n.version)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"cidr",code:c.invalid_string,message:n.message}),s.dirty()):n.kind==="base64"?Wt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"base64",code:c.invalid_string,message:n.message}),s.dirty()):n.kind==="base64url"?qt.test(e.data)||(a=this._getOrReturnCtx(e,a),d(a,{validation:"base64url",code:c.invalid_string,message:n.message}),s.dirty()):g.assertNever(n);return{status:s.value,value:e.data}}_regex(e,t,s){return this.refinement(a=>e.test(a),{validation:t,code:c.invalid_string,...h.errToObj(s)})}_addCheck(e){return new r({...this._def,checks:[...this._def.checks,e]})}email(e){return this._addCheck({kind:"email",...h.errToObj(e)})}url(e){return this._addCheck({kind:"url",...h.errToObj(e)})}emoji(e){return this._addCheck({kind:"emoji",...h.errToObj(e)})}uuid(e){return this._addCheck({kind:"uuid",...h.errToObj(e)})}nanoid(e){return this._addCheck({kind:"nanoid",...h.errToObj(e)})}cuid(e){return this._addCheck({kind:"cuid",...h.errToObj(e)})}cuid2(e){return this._addCheck({kind:"cuid2",...h.errToObj(e)})}ulid(e){return this._addCheck({kind:"ulid",...h.errToObj(e)})}base64(e){return this._addCheck({kind:"base64",...h.errToObj(e)})}base64url(e){return this._addCheck({kind:"base64url",...h.errToObj(e)})}jwt(e){return this._addCheck({kind:"jwt",...h.errToObj(e)})}ip(e){return this._addCheck({kind:"ip",...h.errToObj(e)})}cidr(e){return this._addCheck({kind:"cidr",...h.errToObj(e)})}datetime(e){return typeof e=="string"?this._addCheck({kind:"datetime",precision:null,offset:!1,local:!1,message:e}):this._addCheck({kind:"datetime",precision:typeof e?.precision>"u"?null:e?.precision,offset:e?.offset??!1,local:e?.local??!1,...h.errToObj(e?.message)})}date(e){return this._addCheck({kind:"date",message:e})}time(e){return typeof e=="string"?this._addCheck({kind:"time",precision:null,message:e}):this._addCheck({kind:"time",precision:typeof e?.precision>"u"?null:e?.precision,...h.errToObj(e?.message)})}duration(e){return this._addCheck({kind:"duration",...h.errToObj(e)})}regex(e,t){return this._addCheck({kind:"regex",regex:e,...h.errToObj(t)})}includes(e,t){return this._addCheck({kind:"includes",value:e,position:t?.position,...h.errToObj(t?.message)})}startsWith(e,t){return this._addCheck({kind:"startsWith",value:e,...h.errToObj(t)})}endsWith(e,t){return this._addCheck({kind:"endsWith",value:e,...h.errToObj(t)})}min(e,t){return this._addCheck({kind:"min",value:e,...h.errToObj(t)})}max(e,t){return this._addCheck({kind:"max",value:e,...h.errToObj(t)})}length(e,t){return this._addCheck({kind:"length",value:e,...h.errToObj(t)})}nonempty(e){return this.min(1,h.errToObj(e))}trim(){return new r({...this._def,checks:[...this._def.checks,{kind:"trim"}]})}toLowerCase(){return new r({...this._def,checks:[...this._def.checks,{kind:"toLowerCase"}]})}toUpperCase(){return new r({...this._def,checks:[...this._def.checks,{kind:"toUpperCase"}]})}get isDatetime(){return!!this._def.checks.find(e=>e.kind==="datetime")}get isDate(){return!!this._def.checks.find(e=>e.kind==="date")}get isTime(){return!!this._def.checks.find(e=>e.kind==="time")}get isDuration(){return!!this._def.checks.find(e=>e.kind==="duration")}get isEmail(){return!!this._def.checks.find(e=>e.kind==="email")}get isURL(){return!!this._def.checks.find(e=>e.kind==="url")}get isEmoji(){return!!this._def.checks.find(e=>e.kind==="emoji")}get isUUID(){return!!this._def.checks.find(e=>e.kind==="uuid")}get isNANOID(){return!!this._def.checks.find(e=>e.kind==="nanoid")}get isCUID(){return!!this._def.checks.find(e=>e.kind==="cuid")}get isCUID2(){return!!this._def.checks.find(e=>e.kind==="cuid2")}get isULID(){return!!this._def.checks.find(e=>e.kind==="ulid")}get isIP(){return!!this._def.checks.find(e=>e.kind==="ip")}get isCIDR(){return!!this._def.checks.find(e=>e.kind==="cidr")}get isBase64(){return!!this._def.checks.find(e=>e.kind==="base64")}get isBase64url(){return!!this._def.checks.find(e=>e.kind==="base64url")}get minLength(){let e=null;for(let t of this._def.checks)t.kind==="min"&&(e===null||t.value>e)&&(e=t.value);return e}get maxLength(){let e=null;for(let t of this._def.checks)t.kind==="max"&&(e===null||t.value<e)&&(e=t.value);return e}};V.create=r=>new V({checks:[],typeName:m.ZodString,coerce:r?.coerce??!1,...y(r)});function Xt(r,e){let t=(r.toString().split(".")[1]||"").length,s=(e.toString().split(".")[1]||"").length,a=t>s?t:s,n=Number.parseInt(r.toFixed(a).replace(".","")),i=Number.parseInt(e.toFixed(a).replace(".",""));return n%i/10**a}var L=class r extends _{constructor(){super(...arguments),this.min=this.gte,this.max=this.lte,this.step=this.multipleOf}_parse(e){if(this._def.coerce&&(e.data=Number(e.data)),this._getType(e)!==u.number){let n=this._getOrReturnCtx(e);return d(n,{code:c.invalid_type,expected:u.number,received:n.parsedType}),p}let s,a=new x;for(let n of this._def.checks)n.kind==="int"?g.isInteger(e.data)||(s=this._getOrReturnCtx(e,s),d(s,{code:c.invalid_type,expected:"integer",received:"float",message:n.message}),a.dirty()):n.kind==="min"?(n.inclusive?e.data<n.value:e.data<=n.value)&&(s=this._getOrReturnCtx(e,s),d(s,{code:c.too_small,minimum:n.value,type:"number",inclusive:n.inclusive,exact:!1,message:n.message}),a.dirty()):n.kind==="max"?(n.inclusive?e.data>n.value:e.data>=n.value)&&(s=this._getOrReturnCtx(e,s),d(s,{code:c.too_big,maximum:n.value,type:"number",inclusive:n.inclusive,exact:!1,message:n.message}),a.dirty()):n.kind==="multipleOf"?Xt(e.data,n.value)!==0&&(s=this._getOrReturnCtx(e,s),d(s,{code:c.not_multiple_of,multipleOf:n.value,message:n.message}),a.dirty()):n.kind==="finite"?Number.isFinite(e.data)||(s=this._getOrReturnCtx(e,s),d(s,{code:c.not_finite,message:n.message}),a.dirty()):g.assertNever(n);return{status:a.value,value:e.data}}gte(e,t){return this.setLimit("min",e,!0,h.toString(t))}gt(e,t){return this.setLimit("min",e,!1,h.toString(t))}lte(e,t){return this.setLimit("max",e,!0,h.toString(t))}lt(e,t){return this.setLimit("max",e,!1,h.toString(t))}setLimit(e,t,s,a){return new r({...this._def,checks:[...this._def.checks,{kind:e,value:t,inclusive:s,message:h.toString(a)}]})}_addCheck(e){return new r({...this._def,checks:[...this._def.checks,e]})}int(e){return this._addCheck({kind:"int",message:h.toString(e)})}positive(e){return this._addCheck({kind:"min",value:0,inclusive:!1,message:h.toString(e)})}negative(e){return this._addCheck({kind:"max",value:0,inclusive:!1,message:h.toString(e)})}nonpositive(e){return this._addCheck({kind:"max",value:0,inclusive:!0,message:h.toString(e)})}nonnegative(e){return this._addCheck({kind:"min",value:0,inclusive:!0,message:h.toString(e)})}multipleOf(e,t){return this._addCheck({kind:"multipleOf",value:e,message:h.toString(t)})}finite(e){return this._addCheck({kind:"finite",message:h.toString(e)})}safe(e){return this._addCheck({kind:"min",inclusive:!0,value:Number.MIN_SAFE_INTEGER,message:h.toString(e)})._addCheck({kind:"max",inclusive:!0,value:Number.MAX_SAFE_INTEGER,message:h.toString(e)})}get minValue(){let e=null;for(let t of this._def.checks)t.kind==="min"&&(e===null||t.value>e)&&(e=t.value);return e}get maxValue(){let e=null;for(let t of this._def.checks)t.kind==="max"&&(e===null||t.value<e)&&(e=t.value);return e}get isInt(){return!!this._def.checks.find(e=>e.kind==="int"||e.kind==="multipleOf"&&g.isInteger(e.value))}get isFinite(){let e=null,t=null;for(let s of this._def.checks){if(s.kind==="finite"||s.kind==="int"||s.kind==="multipleOf")return!0;s.kind==="min"?(t===null||s.value>t)&&(t=s.value):s.kind==="max"&&(e===null||s.value<e)&&(e=s.value)}return Number.isFinite(t)&&Number.isFinite(e)}};L.create=r=>new L({checks:[],typeName:m.ZodNumber,coerce:r?.coerce||!1,...y(r)});var U=class r extends _{constructor(){super(...arguments),this.min=this.gte,this.max=this.lte}_parse(e){if(this._def.coerce)try{e.data=BigInt(e.data)}catch{return this._getInvalidInput(e)}if(this._getType(e)!==u.bigint)return this._getInvalidInput(e);let s,a=new x;for(let n of this._def.checks)n.kind==="min"?(n.inclusive?e.data<n.value:e.data<=n.value)&&(s=this._getOrReturnCtx(e,s),d(s,{code:c.too_small,type:"bigint",minimum:n.value,inclusive:n.inclusive,message:n.message}),a.dirty()):n.kind==="max"?(n.inclusive?e.data>n.value:e.data>=n.value)&&(s=this._getOrReturnCtx(e,s),d(s,{code:c.too_big,type:"bigint",maximum:n.value,inclusive:n.inclusive,message:n.message}),a.dirty()):n.kind==="multipleOf"?e.data%n.value!==BigInt(0)&&(s=this._getOrReturnCtx(e,s),d(s,{code:c.not_multiple_of,multipleOf:n.value,message:n.message}),a.dirty()):g.assertNever(n);return{status:a.value,value:e.data}}_getInvalidInput(e){let t=this._getOrReturnCtx(e);return d(t,{code:c.invalid_type,expected:u.bigint,received:t.parsedType}),p}gte(e,t){return this.setLimit("min",e,!0,h.toString(t))}gt(e,t){return this.setLimit("min",e,!1,h.toString(t))}lte(e,t){return this.setLimit("max",e,!0,h.toString(t))}lt(e,t){return this.setLimit("max",e,!1,h.toString(t))}setLimit(e,t,s,a){return new r({...this._def,checks:[...this._def.checks,{kind:e,value:t,inclusive:s,message:h.toString(a)}]})}_addCheck(e){return new r({...this._def,checks:[...this._def.checks,e]})}positive(e){return this._addCheck({kind:"min",value:BigInt(0),inclusive:!1,message:h.toString(e)})}negative(e){return this._addCheck({kind:"max",value:BigInt(0),inclusive:!1,message:h.toString(e)})}nonpositive(e){return this._addCheck({kind:"max",value:BigInt(0),inclusive:!0,message:h.toString(e)})}nonnegative(e){return this._addCheck({kind:"min",value:BigInt(0),inclusive:!0,message:h.toString(e)})}multipleOf(e,t){return this._addCheck({kind:"multipleOf",value:e,message:h.toString(t)})}get minValue(){let e=null;for(let t of this._def.checks)t.kind==="min"&&(e===null||t.value>e)&&(e=t.value);return e}get maxValue(){let e=null;for(let t of this._def.checks)t.kind==="max"&&(e===null||t.value<e)&&(e=t.value);return e}};U.create=r=>new U({checks:[],typeName:m.ZodBigInt,coerce:r?.coerce??!1,...y(r)});var F=class extends _{_parse(e){if(this._def.coerce&&(e.data=!!e.data),this._getType(e)!==u.boolean){let s=this._getOrReturnCtx(e);return d(s,{code:c.invalid_type,expected:u.boolean,received:s.parsedType}),p}return k(e.data)}};F.create=r=>new F({typeName:m.ZodBoolean,coerce:r?.coerce||!1,...y(r)});var B=class r extends _{_parse(e){if(this._def.coerce&&(e.data=new Date(e.data)),this._getType(e)!==u.date){let n=this._getOrReturnCtx(e);return d(n,{code:c.invalid_type,expected:u.date,received:n.parsedType}),p}if(Number.isNaN(e.data.getTime())){let n=this._getOrReturnCtx(e);return d(n,{code:c.invalid_date}),p}let s=new x,a;for(let n of this._def.checks)n.kind==="min"?e.data.getTime()<n.value&&(a=this._getOrReturnCtx(e,a),d(a,{code:c.too_small,message:n.message,inclusive:!0,exact:!1,minimum:n.value,type:"date"}),s.dirty()):n.kind==="max"?e.data.getTime()>n.value&&(a=this._getOrReturnCtx(e,a),d(a,{code:c.too_big,message:n.message,inclusive:!0,exact:!1,maximum:n.value,type:"date"}),s.dirty()):g.assertNever(n);return{status:s.value,value:new Date(e.data.getTime())}}_addCheck(e){return new r({...this._def,checks:[...this._def.checks,e]})}min(e,t){return this._addCheck({kind:"min",value:e.getTime(),message:h.toString(t)})}max(e,t){return this._addCheck({kind:"max",value:e.getTime(),message:h.toString(t)})}get minDate(){let e=null;for(let t of this._def.checks)t.kind==="min"&&(e===null||t.value>e)&&(e=t.value);return e!=null?new Date(e):null}get maxDate(){let e=null;for(let t of this._def.checks)t.kind==="max"&&(e===null||t.value<e)&&(e=t.value);return e!=null?new Date(e):null}};B.create=r=>new B({checks:[],coerce:r?.coerce||!1,typeName:m.ZodDate,...y(r)});var ae=class extends _{_parse(e){if(this._getType(e)!==u.symbol){let s=this._getOrReturnCtx(e);return d(s,{code:c.invalid_type,expected:u.symbol,received:s.parsedType}),p}return k(e.data)}};ae.create=r=>new ae({typeName:m.ZodSymbol,...y(r)});var W=class extends _{_parse(e){if(this._getType(e)!==u.undefined){let s=this._getOrReturnCtx(e);return d(s,{code:c.invalid_type,expected:u.undefined,received:s.parsedType}),p}return k(e.data)}};W.create=r=>new W({typeName:m.ZodUndefined,...y(r)});var q=class extends _{_parse(e){if(this._getType(e)!==u.null){let s=this._getOrReturnCtx(e);return d(s,{code:c.invalid_type,expected:u.null,received:s.parsedType}),p}return k(e.data)}};q.create=r=>new q({typeName:m.ZodNull,...y(r)});var P=class extends _{constructor(){super(...arguments),this._any=!0}_parse(e){return k(e.data)}};P.create=r=>new P({typeName:m.ZodAny,...y(r)});var E=class extends _{constructor(){super(...arguments),this._unknown=!0}_parse(e){return k(e.data)}};E.create=r=>new E({typeName:m.ZodUnknown,...y(r)});var A=class extends _{_parse(e){let t=this._getOrReturnCtx(e);return d(t,{code:c.invalid_type,expected:u.never,received:t.parsedType}),p}};A.create=r=>new A({typeName:m.ZodNever,...y(r)});var ne=class extends _{_parse(e){if(this._getType(e)!==u.undefined){let s=this._getOrReturnCtx(e);return d(s,{code:c.invalid_type,expected:u.void,received:s.parsedType}),p}return k(e.data)}};ne.create=r=>new ne({typeName:m.ZodVoid,...y(r)});var Z=class r extends _{_parse(e){let{ctx:t,status:s}=this._processInputParams(e),a=this._def;if(t.parsedType!==u.array)return d(t,{code:c.invalid_type,expected:u.array,received:t.parsedType}),p;if(a.exactLength!==null){let i=t.data.length>a.exactLength.value,o=t.data.length<a.exactLength.value;(i||o)&&(d(t,{code:i?c.too_big:c.too_small,minimum:o?a.exactLength.value:void 0,maximum:i?a.exactLength.value:void 0,type:"array",inclusive:!0,exact:!0,message:a.exactLength.message}),s.dirty())}if(a.minLength!==null&&t.data.length<a.minLength.value&&(d(t,{code:c.too_small,minimum:a.minLength.value,type:"array",inclusive:!0,exact:!1,message:a.minLength.message}),s.dirty()),a.maxLength!==null&&t.data.length>a.maxLength.value&&(d(t,{code:c.too_big,maximum:a.maxLength.value,type:"array",inclusive:!0,exact:!1,message:a.maxLength.message}),s.dirty()),t.common.async)return Promise.all([...t.data].map((i,o)=>a.type._parseAsync(new S(t,i,t.path,o)))).then(i=>x.mergeArray(s,i));let n=[...t.data].map((i,o)=>a.type._parseSync(new S(t,i,t.path,o)));return x.mergeArray(s,n)}get element(){return this._def.type}min(e,t){return new r({...this._def,minLength:{value:e,message:h.toString(t)}})}max(e,t){return new r({...this._def,maxLength:{value:e,message:h.toString(t)}})}length(e,t){return new r({...this._def,exactLength:{value:e,message:h.toString(t)}})}nonempty(e){return this.min(1,e)}};Z.create=(r,e)=>new Z({type:r,minLength:null,maxLength:null,exactLength:null,typeName:m.ZodArray,...y(e)});function ue(r){if(r instanceof w){let e={};for(let t in r.shape){let s=r.shape[t];e[t]=T.create(ue(s))}return new w({...r._def,shape:()=>e})}else return r instanceof Z?new Z({...r._def,type:ue(r.element)}):r instanceof T?T.create(ue(r.unwrap())):r instanceof j?j.create(ue(r.unwrap())):r instanceof N?N.create(r.items.map(e=>ue(e))):r}var w=class r extends _{constructor(){super(...arguments),this._cached=null,this.nonstrict=this.passthrough,this.augment=this.extend}_getCached(){if(this._cached!==null)return this._cached;let e=this._def.shape(),t=g.objectKeys(e);return this._cached={shape:e,keys:t},this._cached}_parse(e){if(this._getType(e)!==u.object){let l=this._getOrReturnCtx(e);return d(l,{code:c.invalid_type,expected:u.object,received:l.parsedType}),p}let{status:s,ctx:a}=this._processInputParams(e),{shape:n,keys:i}=this._getCached(),o=[];if(!(this._def.catchall instanceof A&&this._def.unknownKeys==="strip"))for(let l in a.data)i.includes(l)||o.push(l);let f=[];for(let l of i){let v=n[l],O=a.data[l];f.push({key:{status:"valid",value:l},value:v._parse(new S(a,O,a.path,l)),alwaysSet:l in a.data})}if(this._def.catchall instanceof A){let l=this._def.unknownKeys;if(l==="passthrough")for(let v of o)f.push({key:{status:"valid",value:v},value:{status:"valid",value:a.data[v]}});else if(l==="strict")o.length>0&&(d(a,{code:c.unrecognized_keys,keys:o}),s.dirty());else if(l!=="strip")throw new Error("Internal ZodObject error: invalid unknownKeys value.")}else{let l=this._def.catchall;for(let v of o){let O=a.data[v];f.push({key:{status:"valid",value:v},value:l._parse(new S(a,O,a.path,v)),alwaysSet:v in a.data})}}return a.common.async?Promise.resolve().then(async()=>{let l=[];for(let v of f){let O=await v.key,je=await v.value;l.push({key:O,value:je,alwaysSet:v.alwaysSet})}return l}).then(l=>x.mergeObjectSync(s,l)):x.mergeObjectSync(s,f)}get shape(){return this._def.shape()}strict(e){return h.errToObj,new r({...this._def,unknownKeys:"strict",...e!==void 0?{errorMap:(t,s)=>{let a=this._def.errorMap?.(t,s).message??s.defaultError;return t.code==="unrecognized_keys"?{message:h.errToObj(e).message??a}:{message:a}}}:{}})}strip(){return new r({...this._def,unknownKeys:"strip"})}passthrough(){return new r({...this._def,unknownKeys:"passthrough"})}extend(e){return new r({...this._def,shape:()=>({...this._def.shape(),...e})})}merge(e){return new r({unknownKeys:e._def.unknownKeys,catchall:e._def.catchall,shape:()=>({...this._def.shape(),...e._def.shape()}),typeName:m.ZodObject})}setKey(e,t){return this.augment({[e]:t})}catchall(e){return new r({...this._def,catchall:e})}pick(e){let t={};for(let s of g.objectKeys(e))e[s]&&this.shape[s]&&(t[s]=this.shape[s]);return new r({...this._def,shape:()=>t})}omit(e){let t={};for(let s of g.objectKeys(this.shape))e[s]||(t[s]=this.shape[s]);return new r({...this._def,shape:()=>t})}deepPartial(){return ue(this)}partial(e){let t={};for(let s of g.objectKeys(this.shape)){let a=this.shape[s];e&&!e[s]?t[s]=a:t[s]=a.optional()}return new r({...this._def,shape:()=>t})}required(e){let t={};for(let s of g.objectKeys(this.shape))if(e&&!e[s])t[s]=this.shape[s];else{let n=this.shape[s];for(;n instanceof T;)n=n._def.innerType;t[s]=n}return new r({...this._def,shape:()=>t})}keyof(){return De(g.objectKeys(this.shape))}};w.create=(r,e)=>new w({shape:()=>r,unknownKeys:"strip",catchall:A.create(),typeName:m.ZodObject,...y(e)});w.strictCreate=(r,e)=>new w({shape:()=>r,unknownKeys:"strict",catchall:A.create(),typeName:m.ZodObject,...y(e)});w.lazycreate=(r,e)=>new w({shape:r,unknownKeys:"strip",catchall:A.create(),typeName:m.ZodObject,...y(e)});var J=class extends _{_parse(e){let{ctx:t}=this._processInputParams(e),s=this._def.options;function a(n){for(let o of n)if(o.result.status==="valid")return o.result;for(let o of n)if(o.result.status==="dirty")return t.common.issues.push(...o.ctx.common.issues),o.result;let i=n.map(o=>new b(o.ctx.common.issues));return d(t,{code:c.invalid_union,unionErrors:i}),p}if(t.common.async)return Promise.all(s.map(async n=>{let i={...t,common:{...t.common,issues:[]},parent:null};return{result:await n._parseAsync({data:t.data,path:t.path,parent:i}),ctx:i}})).then(a);{let n,i=[];for(let f of s){let l={...t,common:{...t.common,issues:[]},parent:null},v=f._parseSync({data:t.data,path:t.path,parent:l});if(v.status==="valid")return v;v.status==="dirty"&&!n&&(n={result:v,ctx:l}),l.common.issues.length&&i.push(l.common.issues)}if(n)return t.common.issues.push(...n.ctx.common.issues),n.result;let o=i.map(f=>new b(f));return d(t,{code:c.invalid_union,unionErrors:o}),p}}get options(){return this._def.options}};J.create=(r,e)=>new J({options:r,typeName:m.ZodUnion,...y(e)});var M=r=>r instanceof H?M(r.schema):r instanceof C?M(r.innerType()):r instanceof G?[r.value]:r instanceof Q?r.options:r instanceof X?g.objectValues(r.enum):r instanceof K?M(r._def.innerType):r instanceof W?[void 0]:r instanceof q?[null]:r instanceof T?[void 0,...M(r.unwrap())]:r instanceof j?[null,...M(r.unwrap())]:r instanceof le||r instanceof te?M(r.unwrap()):r instanceof ee?M(r._def.innerType):[],me=class r extends _{_parse(e){let{ctx:t}=this._processInputParams(e);if(t.parsedType!==u.object)return d(t,{code:c.invalid_type,expected:u.object,received:t.parsedType}),p;let s=this.discriminator,a=t.data[s],n=this.optionsMap.get(a);return n?t.common.async?n._parseAsync({data:t.data,path:t.path,parent:t}):n._parseSync({data:t.data,path:t.path,parent:t}):(d(t,{code:c.invalid_union_discriminator,options:Array.from(this.optionsMap.keys()),path:[s]}),p)}get discriminator(){return this._def.discriminator}get options(){return this._def.options}get optionsMap(){return this._def.optionsMap}static create(e,t,s){let a=new Map;for(let n of t){let i=M(n.shape[e]);if(!i.length)throw new Error(`A discriminator value for key \`${e}\` could not be extracted from all schema options`);for(let o of i){if(a.has(o))throw new Error(`Discriminator property ${String(e)} has duplicate value ${String(o)}`);a.set(o,n)}}return new r({typeName:m.ZodDiscriminatedUnion,discriminator:e,options:t,optionsMap:a,...y(s)})}};function Te(r,e){let t=R(r),s=R(e);if(r===e)return{valid:!0,data:r};if(t===u.object&&s===u.object){let a=g.objectKeys(e),n=g.objectKeys(r).filter(o=>a.indexOf(o)!==-1),i={...r,...e};for(let o of n){let f=Te(r[o],e[o]);if(!f.valid)return{valid:!1};i[o]=f.data}return{valid:!0,data:i}}else if(t===u.array&&s===u.array){if(r.length!==e.length)return{valid:!1};let a=[];for(let n=0;n<r.length;n++){let i=r[n],o=e[n],f=Te(i,o);if(!f.valid)return{valid:!1};a.push(f.data)}return{valid:!0,data:a}}else return t===u.date&&s===u.date&&+r==+e?{valid:!0,data:r}:{valid:!1}}var Y=class extends _{_parse(e){let{status:t,ctx:s}=this._processInputParams(e),a=(n,i)=>{if(he(n)||he(i))return p;let o=Te(n.value,i.value);return o.valid?((pe(n)||pe(i))&&t.dirty(),{status:t.value,value:o.data}):(d(s,{code:c.invalid_intersection_types}),p)};return s.common.async?Promise.all([this._def.left._parseAsync({data:s.data,path:s.path,parent:s}),this._def.right._parseAsync({data:s.data,path:s.path,parent:s})]).then(([n,i])=>a(n,i)):a(this._def.left._parseSync({data:s.data,path:s.path,parent:s}),this._def.right._parseSync({data:s.data,path:s.path,parent:s}))}};Y.create=(r,e,t)=>new Y({left:r,right:e,typeName:m.ZodIntersection,...y(t)});var N=class r extends _{_parse(e){let{status:t,ctx:s}=this._processInputParams(e);if(s.parsedType!==u.array)return d(s,{code:c.invalid_type,expected:u.array,received:s.parsedType}),p;if(s.data.length<this._def.items.length)return d(s,{code:c.too_small,minimum:this._def.items.length,inclusive:!0,exact:!1,type:"array"}),p;!this._def.rest&&s.data.length>this._def.items.length&&(d(s,{code:c.too_big,maximum:this._def.items.length,inclusive:!0,exact:!1,type:"array"}),t.dirty());let n=[...s.data].map((i,o)=>{let f=this._def.items[o]||this._def.rest;return f?f._parse(new S(s,i,s.path,o)):null}).filter(i=>!!i);return s.common.async?Promise.all(n).then(i=>x.mergeArray(t,i)):x.mergeArray(t,n)}get items(){return this._def.items}rest(e){return new r({...this._def,rest:e})}};N.create=(r,e)=>{if(!Array.isArray(r))throw new Error("You must pass an array of schemas to z.tuple([ ... ])");return new N({items:r,typeName:m.ZodTuple,rest:null,...y(e)})};var ye=class r extends _{get keySchema(){return this._def.keyType}get valueSchema(){return this._def.valueType}_parse(e){let{status:t,ctx:s}=this._processInputParams(e);if(s.parsedType!==u.object)return d(s,{code:c.invalid_type,expected:u.object,received:s.parsedType}),p;let a=[],n=this._def.keyType,i=this._def.valueType;for(let o in s.data)a.push({key:n._parse(new S(s,o,s.path,o)),value:i._parse(new S(s,s.data[o],s.path,o)),alwaysSet:o in s.data});return s.common.async?x.mergeObjectAsync(t,a):x.mergeObjectSync(t,a)}get element(){return this._def.valueType}static create(e,t,s){return t instanceof _?new r({keyType:e,valueType:t,typeName:m.ZodRecord,...y(s)}):new r({keyType:V.create(),valueType:e,typeName:m.ZodRecord,...y(t)})}},ie=class extends _{get keySchema(){return this._def.keyType}get valueSchema(){return this._def.valueType}_parse(e){let{status:t,ctx:s}=this._processInputParams(e);if(s.parsedType!==u.map)return d(s,{code:c.invalid_type,expected:u.map,received:s.parsedType}),p;let a=this._def.keyType,n=this._def.valueType,i=[...s.data.entries()].map(([o,f],l)=>({key:a._parse(new S(s,o,s.path,[l,"key"])),value:n._parse(new S(s,f,s.path,[l,"value"]))}));if(s.common.async){let o=new Map;return Promise.resolve().then(async()=>{for(let f of i){let l=await f.key,v=await f.value;if(l.status==="aborted"||v.status==="aborted")return p;(l.status==="dirty"||v.status==="dirty")&&t.dirty(),o.set(l.value,v.value)}return{status:t.value,value:o}})}else{let o=new Map;for(let f of i){let l=f.key,v=f.value;if(l.status==="aborted"||v.status==="aborted")return p;(l.status==="dirty"||v.status==="dirty")&&t.dirty(),o.set(l.value,v.value)}return{status:t.value,value:o}}}};ie.create=(r,e,t)=>new ie({valueType:e,keyType:r,typeName:m.ZodMap,...y(t)});var oe=class r extends _{_parse(e){let{status:t,ctx:s}=this._processInputParams(e);if(s.parsedType!==u.set)return d(s,{code:c.invalid_type,expected:u.set,received:s.parsedType}),p;let a=this._def;a.minSize!==null&&s.data.size<a.minSize.value&&(d(s,{code:c.too_small,minimum:a.minSize.value,type:"set",inclusive:!0,exact:!1,message:a.minSize.message}),t.dirty()),a.maxSize!==null&&s.data.size>a.maxSize.value&&(d(s,{code:c.too_big,maximum:a.maxSize.value,type:"set",inclusive:!0,exact:!1,message:a.maxSize.message}),t.dirty());let n=this._def.valueType;function i(f){let l=new Set;for(let v of f){if(v.status==="aborted")return p;v.status==="dirty"&&t.dirty(),l.add(v.value)}return{status:t.value,value:l}}let o=[...s.data.values()].map((f,l)=>n._parse(new S(s,f,s.path,l)));return s.common.async?Promise.all(o).then(f=>i(f)):i(o)}min(e,t){return new r({...this._def,minSize:{value:e,message:h.toString(t)}})}max(e,t){return new r({...this._def,maxSize:{value:e,message:h.toString(t)}})}size(e,t){return this.min(e,t).max(e,t)}nonempty(e){return this.min(1,e)}};oe.create=(r,e)=>new oe({valueType:r,minSize:null,maxSize:null,typeName:m.ZodSet,...y(e)});var _e=class r extends _{constructor(){super(...arguments),this.validate=this.implement}_parse(e){let{ctx:t}=this._processInputParams(e);if(t.parsedType!==u.function)return d(t,{code:c.invalid_type,expected:u.function,received:t.parsedType}),p;function s(o,f){return de({data:o,path:t.path,errorMaps:[t.common.contextualErrorMap,t.schemaErrorMap,re(),I].filter(l=>!!l),issueData:{code:c.invalid_arguments,argumentsError:f}})}function a(o,f){return de({data:o,path:t.path,errorMaps:[t.common.contextualErrorMap,t.schemaErrorMap,re(),I].filter(l=>!!l),issueData:{code:c.invalid_return_type,returnTypeError:f}})}let n={errorMap:t.common.contextualErrorMap},i=t.data;if(this._def.returns instanceof z){let o=this;return k(async function(...f){let l=new b([]),v=await o._def.args.parseAsync(f,n).catch(xe=>{throw l.addIssue(s(f,xe)),l}),O=await Reflect.apply(i,this,v);return await o._def.returns._def.type.parseAsync(O,n).catch(xe=>{throw l.addIssue(a(O,xe)),l})})}else{let o=this;return k(function(...f){let l=o._def.args.safeParse(f,n);if(!l.success)throw new b([s(f,l.error)]);let v=Reflect.apply(i,this,l.data),O=o._def.returns.safeParse(v,n);if(!O.success)throw new b([a(v,O.error)]);return O.data})}}parameters(){return this._def.args}returnType(){return this._def.returns}args(...e){return new r({...this._def,args:N.create(e).rest(E.create())})}returns(e){return new r({...this._def,returns:e})}implement(e){return this.parse(e)}strictImplement(e){return this.parse(e)}static create(e,t,s){return new r({args:e||N.create([]).rest(E.create()),returns:t||E.create(),typeName:m.ZodFunction,...y(s)})}},H=class extends _{get schema(){return this._def.getter()}_parse(e){let{ctx:t}=this._processInputParams(e);return this._def.getter()._parse({data:t.data,path:t.path,parent:t})}};H.create=(r,e)=>new H({getter:r,typeName:m.ZodLazy,...y(e)});var G=class extends _{_parse(e){if(e.data!==this._def.value){let t=this._getOrReturnCtx(e);return d(t,{received:t.data,code:c.invalid_literal,expected:this._def.value}),p}return{status:"valid",value:e.data}}get value(){return this._def.value}};G.create=(r,e)=>new G({value:r,typeName:m.ZodLiteral,...y(e)});function De(r,e){return new Q({values:r,typeName:m.ZodEnum,...y(e)})}var Q=class r extends _{_parse(e){if(typeof e.data!="string"){let t=this._getOrReturnCtx(e),s=this._def.values;return d(t,{expected:g.joinValues(s),received:t.parsedType,code:c.invalid_type}),p}if(this._cache||(this._cache=new Set(this._def.values)),!this._cache.has(e.data)){let t=this._getOrReturnCtx(e),s=this._def.values;return d(t,{received:t.data,code:c.invalid_enum_value,options:s}),p}return k(e.data)}get options(){return this._def.values}get enum(){let e={};for(let t of this._def.values)e[t]=t;return e}get Values(){let e={};for(let t of this._def.values)e[t]=t;return e}get Enum(){let e={};for(let t of this._def.values)e[t]=t;return e}extract(e,t=this._def){return r.create(e,{...this._def,...t})}exclude(e,t=this._def){return r.create(this.options.filter(s=>!e.includes(s)),{...this._def,...t})}};Q.create=De;var X=class extends _{_parse(e){let t=g.getValidEnumValues(this._def.values),s=this._getOrReturnCtx(e);if(s.parsedType!==u.string&&s.parsedType!==u.number){let a=g.objectValues(t);return d(s,{expected:g.joinValues(a),received:s.parsedType,code:c.invalid_type}),p}if(this._cache||(this._cache=new Set(g.getValidEnumValues(this._def.values))),!this._cache.has(e.data)){let a=g.objectValues(t);return d(s,{received:s.data,code:c.invalid_enum_value,options:a}),p}return k(e.data)}get enum(){return this._def.values}};X.create=(r,e)=>new X({values:r,typeName:m.ZodNativeEnum,...y(e)});var z=class extends _{unwrap(){return this._def.type}_parse(e){let{ctx:t}=this._processInputParams(e);if(t.parsedType!==u.promise&&t.common.async===!1)return d(t,{code:c.invalid_type,expected:u.promise,received:t.parsedType}),p;let s=t.parsedType===u.promise?t.data:Promise.resolve(t.data);return k(s.then(a=>this._def.type.parseAsync(a,{path:t.path,errorMap:t.common.contextualErrorMap})))}};z.create=(r,e)=>new z({type:r,typeName:m.ZodPromise,...y(e)});var C=class extends _{innerType(){return this._def.schema}sourceType(){return this._def.schema._def.typeName===m.ZodEffects?this._def.schema.sourceType():this._def.schema}_parse(e){let{status:t,ctx:s}=this._processInputParams(e),a=this._def.effect||null,n={addIssue:i=>{d(s,i),i.fatal?t.abort():t.dirty()},get path(){return s.path}};if(n.addIssue=n.addIssue.bind(n),a.type==="preprocess"){let i=a.transform(s.data,n);if(s.common.async)return Promise.resolve(i).then(async o=>{if(t.value==="aborted")return p;let f=await this._def.schema._parseAsync({data:o,path:s.path,parent:s});return f.status==="aborted"?p:f.status==="dirty"?D(f.value):t.value==="dirty"?D(f.value):f});{if(t.value==="aborted")return p;let o=this._def.schema._parseSync({data:i,path:s.path,parent:s});return o.status==="aborted"?p:o.status==="dirty"?D(o.value):t.value==="dirty"?D(o.value):o}}if(a.type==="refinement"){let i=o=>{let f=a.refinement(o,n);if(s.common.async)return Promise.resolve(f);if(f instanceof Promise)throw new Error("Async refinement encountered during synchronous parse operation. Use .parseAsync instead.");return o};if(s.common.async===!1){let o=this._def.schema._parseSync({data:s.data,path:s.path,parent:s});return o.status==="aborted"?p:(o.status==="dirty"&&t.dirty(),i(o.value),{status:t.value,value:o.value})}else return this._def.schema._parseAsync({data:s.data,path:s.path,parent:s}).then(o=>o.status==="aborted"?p:(o.status==="dirty"&&t.dirty(),i(o.value).then(()=>({status:t.value,value:o.value}))))}if(a.type==="transform")if(s.common.async===!1){let i=this._def.schema._parseSync({data:s.data,path:s.path,parent:s});if(!$(i))return p;let o=a.transform(i.value,n);if(o instanceof Promise)throw new Error("Asynchronous transform encountered during synchronous parse operation. Use .parseAsync instead.");return{status:t.value,value:o}}else return this._def.schema._parseAsync({data:s.data,path:s.path,parent:s}).then(i=>$(i)?Promise.resolve(a.transform(i.value,n)).then(o=>({status:t.value,value:o})):p);g.assertNever(a)}};C.create=(r,e,t)=>new C({schema:r,typeName:m.ZodEffects,effect:e,...y(t)});C.createWithPreprocess=(r,e,t)=>new C({schema:e,effect:{type:"preprocess",transform:r},typeName:m.ZodEffects,...y(t)});var T=class extends _{_parse(e){return this._getType(e)===u.undefined?k(void 0):this._def.innerType._parse(e)}unwrap(){return this._def.innerType}};T.create=(r,e)=>new T({innerType:r,typeName:m.ZodOptional,...y(e)});var j=class extends _{_parse(e){return this._getType(e)===u.null?k(null):this._def.innerType._parse(e)}unwrap(){return this._def.innerType}};j.create=(r,e)=>new j({innerType:r,typeName:m.ZodNullable,...y(e)});var K=class extends _{_parse(e){let{ctx:t}=this._processInputParams(e),s=t.data;return t.parsedType===u.undefined&&(s=this._def.defaultValue()),this._def.innerType._parse({data:s,path:t.path,parent:t})}removeDefault(){return this._def.innerType}};K.create=(r,e)=>new K({innerType:r,typeName:m.ZodDefault,defaultValue:typeof e.default=="function"?e.default:()=>e.default,...y(e)});var ee=class extends _{_parse(e){let{ctx:t}=this._processInputParams(e),s={...t,common:{...t.common,issues:[]}},a=this._def.innerType._parse({data:s.data,path:s.path,parent:{...s}});return se(a)?a.then(n=>({status:"valid",value:n.status==="valid"?n.value:this._def.catchValue({get error(){return new b(s.common.issues)},input:s.data})})):{status:"valid",value:a.status==="valid"?a.value:this._def.catchValue({get error(){return new b(s.common.issues)},input:s.data})}}removeCatch(){return this._def.innerType}};ee.create=(r,e)=>new ee({innerType:r,typeName:m.ZodCatch,catchValue:typeof e.catch=="function"?e.catch:()=>e.catch,...y(e)});var ce=class extends _{_parse(e){if(this._getType(e)!==u.nan){let s=this._getOrReturnCtx(e);return d(s,{code:c.invalid_type,expected:u.nan,received:s.parsedType}),p}return{status:"valid",value:e.data}}};ce.create=r=>new ce({typeName:m.ZodNaN,...y(r)});var Le=Symbol("zod_brand"),le=class extends _{_parse(e){let{ctx:t}=this._processInputParams(e),s=t.data;return this._def.type._parse({data:s,path:t.path,parent:t})}unwrap(){return this._def.type}},fe=class r extends _{_parse(e){let{status:t,ctx:s}=this._processInputParams(e);if(s.common.async)return(async()=>{let n=await this._def.in._parseAsync({data:s.data,path:s.path,parent:s});return n.status==="aborted"?p:n.status==="dirty"?(t.dirty(),D(n.value)):this._def.out._parseAsync({data:n.value,path:s.path,parent:s})})();{let a=this._def.in._parseSync({data:s.data,path:s.path,parent:s});return a.status==="aborted"?p:a.status==="dirty"?(t.dirty(),{status:"dirty",value:a.value}):this._def.out._parseSync({data:a.value,path:s.path,parent:s})}}static create(e,t){return new r({in:e,out:t,typeName:m.ZodPipeline})}},te=class extends _{_parse(e){let t=this._def.innerType._parse(e),s=a=>($(a)&&(a.value=Object.freeze(a.value)),a);return se(t)?t.then(a=>s(a)):s(t)}unwrap(){return this._def.innerType}};te.create=(r,e)=>new te({innerType:r,typeName:m.ZodReadonly,...y(e)});function Ve(r,e){let t=typeof r=="function"?r(e):typeof r=="string"?{message:r}:r;return typeof t=="string"?{message:t}:t}function Oe(r,e={},t){return r?P.create().superRefine((s,a)=>{let n=r(s);if(n instanceof Promise)return n.then(i=>{if(!i){let o=Ve(e,s),f=o.fatal??t??!0;a.addIssue({code:"custom",...o,fatal:f})}});if(!n){let i=Ve(e,s),o=i.fatal??t??!0;a.addIssue({code:"custom",...i,fatal:o})}}):P.create()}var Ue={object:w.lazycreate},m;(function(r){r.ZodString="ZodString",r.ZodNumber="ZodNumber",r.ZodNaN="ZodNaN",r.ZodBigInt="ZodBigInt",r.ZodBoolean="ZodBoolean",r.ZodDate="ZodDate",r.ZodSymbol="ZodSymbol",r.ZodUndefined="ZodUndefined",r.ZodNull="ZodNull",r.ZodAny="ZodAny",r.ZodUnknown="ZodUnknown",r.ZodNever="ZodNever",r.ZodVoid="ZodVoid",r.ZodArray="ZodArray",r.ZodObject="ZodObject",r.ZodUnion="ZodUnion",r.ZodDiscriminatedUnion="ZodDiscriminatedUnion",r.ZodIntersection="ZodIntersection",r.ZodTuple="ZodTuple",r.ZodRecord="ZodRecord",r.ZodMap="ZodMap",r.ZodSet="ZodSet",r.ZodFunction="ZodFunction",r.ZodLazy="ZodLazy",r.ZodLiteral="ZodLiteral",r.ZodEnum="ZodEnum",r.ZodEffects="ZodEffects",r.ZodNativeEnum="ZodNativeEnum",r.ZodOptional="ZodOptional",r.ZodNullable="ZodNullable",r.ZodDefault="ZodDefault",r.ZodCatch="ZodCatch",r.ZodPromise="ZodPromise",r.ZodBranded="ZodBranded",r.ZodPipeline="ZodPipeline",r.ZodReadonly="ZodReadonly"})(m||(m={}));var Fe=(r,e={message:`Input not instance of ${r.name}`})=>Oe(t=>t instanceof r,e),Se=V.create,Ae=L.create,Be=ce.create,We=U.create,Re=F.create,qe=B.create,Je=ae.create,Ye=W.create,He=q.create,Ge=P.create,Qe=E.create,Xe=A.create,Ke=ne.create,et=Z.create,tt=w.create,rt=w.strictCreate,st=J.create,at=me.create,nt=Y.create,it=N.create,ot=ye.create,ct=ie.create,dt=oe.create,ut=_e.create,lt=H.create,ft=G.create,ht=Q.create,pt=X.create,mt=z.create,yt=C.create,_t=T.create,gt=j.create,vt=C.createWithPreprocess,xt=fe.create,kt=()=>Se().optional(),bt=()=>Ae().optional(),wt=()=>Re().optional(),Tt={string:(r=>V.create({...r,coerce:!0})),number:(r=>L.create({...r,coerce:!0})),boolean:(r=>F.create({...r,coerce:!0})),bigint:(r=>U.create({...r,coerce:!0})),date:(r=>B.create({...r,coerce:!0}))};var Ct=p;var Kt=ve;return Nt(er);})();
+
+</script>
+<script id="app-script">
+(function () {
+  "use strict";
+
+  var ANSWER_PROMPT_TEMPLATE =
+    "You are answering a trivia question the way a fast, not-especially-careful player would — a literal, first-instinct read, not a careful expert analysis.\n\n" +
+    "Question: {{question}}\n\n" +
+    "Reply with only your best short answer, one line, no explanation and no hedging.";
+
+  var NUMBERS_PROMPT_TEMPLATE =
+    "A trivia question sometimes hides a second, numeric puzzle: adding together every number-like element in its text.\n\n" +
+    "List every text span in the question below that a reasonable person might read as a number, in the order it appears.\n\n" +
+    "Question: {{question}}\n\n" +
+    "Rules:\n" +
+    "- A span written in digits (\"300\", \"1990\") is kind \"numeral\".\n" +
+    "- A span that reads as a number in words counts too: spelled-out numbers (\"one\", \"twenty-three\"), ordinals (\"third\"), and magnitude phrases (\"300 million\", \"a dozen\", \"千\", \"douzaine\") — kind \"wordish\". Give a magnitude phrase as one item with its full numeric value (\"300 million\" is one item worth 300000000), not split into pieces.\n" +
+    "- Do not include the indefinite article \"a\"/\"an\" on its own, and do not include Roman numerals (\"IV\", \"LIV\").\n" +
+    "- If nothing in the question reads as a number, return an empty array.\n\n" +
+    "Reply with only a JSON array of objects {\"text\": string, \"value\": number, \"kind\": \"numeral\" | \"wordish\"}, no other text.";
+
+  var HINT_NUMBERS_PROMPT_TEMPLATE =
+    "A puzzle hint can hide a numeric puzzle of its own: adding together every number-like element in its text.\n\n" +
+    "List every text span in the hint below that a reasonable person might read as a number, in the order it appears.\n\n" +
+    "Hint: {{hint}}\n\n" +
+    "Rules:\n" +
+    "- A span written in digits (\"300\", \"1990\") is kind \"numeral\".\n" +
+    "- A span that reads as a number in words counts too: spelled-out numbers (\"one\", \"twenty-three\"), ordinals (\"third\"), and magnitude phrases (\"300 million\", \"a dozen\", \"千\", \"douzaine\") — kind \"wordish\". Give a magnitude phrase as one item with its full numeric value (\"300 million\" is one item worth 300000000), not split into pieces.\n" +
+    "- Do not include the indefinite article \"a\"/\"an\" on its own, and do not include Roman numerals (\"IV\", \"LIV\").\n" +
+    "- If nothing in the hint reads as a number, return an empty array.\n\n" +
+    "Reply with only a JSON array of objects {\"text\": string, \"value\": number, \"kind\": \"numeral\" | \"wordish\"}, no other text.";
+
+  // One combined request covering every question and hint at once, for
+  // "Recalculate all ishes" — each individual ask below pays for the same
+  // rules/instructions text over and over, which can dwarf the question or
+  // hint itself; folding everything into a single request pays that
+  // overhead once instead of once per text.
+  var BULK_NUMBERS_PROMPT_TEMPLATE =
+    "Below are several trivia questions and hints, each tagged with a [key]. Some hide a second, numeric puzzle: adding together every number-like element in their text.\n\n" +
+    "For each one, list every text span in it that a reasonable person might read as a number, in the order it appears.\n\n" +
+    "{{items}}\n\n" +
+    "Rules:\n" +
+    "- A span written in digits (\"300\", \"1990\") is kind \"numeral\".\n" +
+    "- A span that reads as a number in words counts too: spelled-out numbers (\"one\", \"twenty-three\"), ordinals (\"third\"), and magnitude phrases (\"300 million\", \"a dozen\", \"千\", \"douzaine\") — kind \"wordish\". Give a magnitude phrase as one item with its full numeric value (\"300 million\" is one item worth 300000000), not split into pieces.\n" +
+    "- Do not include the indefinite article \"a\"/\"an\" on its own, and do not include Roman numerals (\"IV\", \"LIV\").\n" +
+    "- If nothing in an item's text reads as a number, give it an empty array.\n\n" +
+    "Reply with only a JSON array with one entry per item above, in the same order, each shaped {\"key\": string (copied exactly from its [key] tag), \"items\": [{\"text\": string, \"value\": number, \"kind\": \"numeral\" | \"wordish\"}]}. No other text.";
+
+  function buildBulkNumbersPrompt(items) {
+    var listing = items.map(function (it) { return "[" + it.key + "] " + it.text; }).join("\n\n");
+    return BULK_NUMBERS_PROMPT_TEMPLATE.replace("{{items}}", listing);
+  }
+
+  // ---------- data schema (Zod) ----------
+  // One source of truth for what a row/quiz/state must look like. Used to
+  // validate whatever gets loaded from localStorage or the baked-in seed
+  // (below), and reused as-is by the quiz-import feature to scrub and
+  // validate a pasted-in quiz before it's merged. z.object() strips any key
+  // it doesn't recognize by default — that's what "scrub excess fields"
+  // relies on — and every field below is optional-with-a-default so a
+  // partial or older-shaped object still parses instead of failing outright.
+  var z = ZodNS.z;
+
+  var NumberishItemSchema = z.object({
+    text: z.string(),
+    value: z.number(),
+    kind: z.enum(["numeral", "wordish"])
+  });
+
+  var NumberishDoneSchema = z.object({
+    status: z.literal("done"),
+    items: z.array(NumberishItemSchema).optional().default([]),
+    modelTierApplied: z.string().optional(),
+    approxTokens: z.number().optional(),
+    updatedAt: z.number().optional(),
+    stale: z.boolean().optional()
+  });
+
+  var NumberishErrorSchema = z.object({
+    status: z.literal("error"),
+    message: z.string().optional(),
+    updatedAt: z.number().optional()
+  });
+
+  // A numberish field (row.numbers / row.hintNumbers) is null until asked
+  // for, then either a "done" result or an "error" result.
+  var NumberishSchema = z.union([NumberishDoneSchema, NumberishErrorSchema]).nullable();
+
+  var GuessDoneSchema = z.object({
+    status: z.literal("done"),
+    text: z.string(),
+    modelTierApplied: z.string().optional(),
+    truncated: z.boolean().optional(),
+    approxTokens: z.number().optional(),
+    updatedAt: z.number().optional()
+  });
+
+  var GuessErrorSchema = z.object({
+    status: z.literal("error"),
+    message: z.string().optional(),
+    updatedAt: z.number().optional()
+  });
+
+  // row.ai: null until asked for, then a "done" or "error" result.
+  var GuessSchema = z.union([GuessDoneSchema, GuessErrorSchema]).nullable();
+
+  var BulkIshesLastSchema = z.object({
+    approxTokens: z.number().optional(),
+    items: z.number().optional(),
+    updatedAt: z.number().optional()
+  }).nullable();
+
+  var RowSchema = z.object({
+    // Optional with a generated fallback (rather than required) so a
+    // hand-trimmed import — just {short_answer, question, ...}, no id — still
+    // validates; the merge logic below never trusts this generated id for an
+    // existing row anyway (it keeps the row's real id), and always mints a
+    // fresh one for a genuinely new row.
+    id: z.string().optional().default(function () { return uid(); }),
+    qnum: z.string().optional().default(""),
+    question: z.string().optional().default(""),
+    short_answer: z.string().optional().default(""),
+    hint: z.string().optional().default(""),
+    chains_to: z.string().nullable().optional().default(null),
+    ai: GuessSchema.optional().default(null),
+    numbers: NumberishSchema.optional().default(null),
+    hintNumbers: NumberishSchema.optional().default(null),
+    altText: z.string().optional().default(""),
+    notes: z.string().optional().default(""),
+    fullAnswer: z.string().optional().default("")
+  });
+
+  // A separate, more permissive schema used only to validate an imported
+  // row (see the import feature below). RowSchema above describes what the
+  // app's OWN stored rows always look like, where a text field is never
+  // null — but in an import, an explicit `null` on any field is a
+  // meaningful "reset this field" instruction, not a type error, so every
+  // field here is nullable and nothing is required.
+  var ImportRowSchema = z.object({
+    id: z.string().optional(),
+    qnum: z.string().nullable().optional(),
+    question: z.string().nullable().optional(),
+    short_answer: z.string().nullable().optional(),
+    hint: z.string().nullable().optional(),
+    chains_to: z.string().nullable().optional(),
+    ai: GuessSchema.optional(),
+    numbers: NumberishSchema.optional(),
+    hintNumbers: NumberishSchema.optional(),
+    altText: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+    fullAnswer: z.string().nullable().optional()
+  });
+
+  var QuizSchema = z.object({
+    id: z.string(),
+    title: z.string().optional().default(""),
+    rows: z.array(RowSchema).optional().default([]),
+    lastSortKey: z.string().nullable().optional().default(null),
+    bulkIshesLast: BulkIshesLastSchema.optional().default(null),
+    locked: z.boolean().optional().default(false)
+  });
+
+  var StateSchema = z.object({
+    quizzes: z.array(QuizSchema).min(1),
+    activeQuizId: z.string()
+  });
+
+  // Logs a failed safeParse's issues clearly, one line per issue, with the
+  // field path and what was wrong with it. Shared by load-time validation
+  // below and by the quiz-import validation.
+  // One line per issue: "field.path: message [code]" (or "(root)" when the
+  // issue isn't about any particular field) — shared by load-time logging
+  // and by the on-screen + console import log.
+  function formatZodIssues(result) {
+    if (result.success) return [];
+    return result.error.issues.map(function (issue) {
+      var path = issue.path && issue.path.length ? issue.path.join(".") : "(root)";
+      return path + ": " + issue.message + " [" + issue.code + "]";
+    });
+  }
+
+  function logZodIssues(label, result) {
+    if (result.success) return;
+    console.warn("[trivia-audit] " + label + ": " + result.error.issues.length + " validation issue(s)");
+    _.forEach(formatZodIssues(result), function (line) {
+      console.warn("[trivia-audit]   " + line);
+    });
+    return result;
+  }
+
+  function uid() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return "row-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function newBlankRow() {
+    return { id: uid(), qnum: "", question: "", short_answer: "", hint: "", chains_to: null, ai: null, numbers: null, hintNumbers: null, altText: "", notes: "", fullAnswer: "" };
+  }
+
+  function defaultRows() {
+    var rows = [];
+    for (var i = 0; i < 5; i++) rows.push(newBlankRow());
+    return rows;
+  }
+
+  function defaultQuiz(title) {
+    return { id: uid(), title: title || "", rows: defaultRows(), lastSortKey: null, bulkIshesLast: null, locked: false };
+  }
+
+  function defaultState() {
+    var quiz = defaultQuiz("");
+    return { quizzes: [quiz], activeQuizId: quiz.id };
+  }
+
+  // ---------- persistence: this browser's localStorage, not the shared page ----------
+  // Each published artifact is its own origin, so this key is already scoped
+  // to this one page — no per-quiz namespacing needed. First load in a given
+  // browser seeds from whatever was baked in at publish time (window.__INITIAL_STATE__);
+  // every edit after that stays local to this browser and survives a reload
+  // or a full quit-and-restart, but never travels to another browser, device,
+  // or anyone else who opens the link.
+
+  var STORAGE_KEY = "trivia-audit-state";
+
+  // A page published before multiple quizzes existed has an old-shape state
+  // (or __INITIAL_STATE__) sitting around — {title, rows, lastSortKey,
+  // bulkIshesLast} directly, no quizzes array — and that's real playtesting
+  // data, not something to discard. Wrap it as this browser's one existing
+  // quiz instead of losing it.
+  function migrateToMultiQuiz(raw) {
+    var quiz = {
+      id: uid(),
+      title: raw.title || "",
+      rows: raw.rows,
+      lastSortKey: raw.lastSortKey || null,
+      bulkIshesLast: raw.bulkIshesLast || null,
+      locked: false
+    };
+    return { quizzes: [quiz], activeQuizId: quiz.id };
+  }
+
+  // Accepts either shape (post-migration or freshly parsed) and returns a
+  // valid multi-quiz state, or null if what came in is unusable — never
+  // half-fixes a corrupt structure, since callers fall back to the seed
+  // or defaultState() on null.
+  function normalizeState(parsed) {
+    if (!parsed || typeof parsed !== "object") return null;
+    if (_.isArray(parsed.quizzes)) {
+      if (!parsed.quizzes.length) return null;
+      if (!_.find(parsed.quizzes, { id: parsed.activeQuizId })) {
+        parsed.activeQuizId = parsed.quizzes[0].id;
+      }
+      _.forEach(parsed.quizzes, function (q) {
+        if (typeof q.locked !== "boolean") { q.locked = false; }
+        if (!_.isArray(q.rows)) { q.rows = []; }
+      });
+    } else if (_.isArray(parsed.rows)) {
+      parsed = migrateToMultiQuiz(parsed);
+    } else {
+      return null;
+    }
+
+    // Re-check the hand-repaired shape against the real schema: this catches
+    // anything the quick repairs above didn't anticipate (a field of the
+    // wrong type, a stray key, an unrecognized status string), strips any
+    // excess fields and fills in defaults for anything missing — logged
+    // either way. If the data's too far off for Zod to make sense of, fall
+    // back to the hand-repaired copy rather than lose real playtesting data
+    // over a validation nuance.
+    var result = StateSchema.safeParse(parsed);
+    if (result.success) return result.data;
+    logZodIssues("Loaded state didn't fully match the schema (using best-effort repair instead)", result);
+    return parsed;
+  }
+
+  function loadState() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var normalized = normalizeState(JSON.parse(raw));
+        if (normalized) return normalized;
+      }
+    } catch (e) {
+      // localStorage unavailable (private browsing, disabled, quota) or corrupt JSON — fall through to the seed.
+    }
+    return normalizeState(window.__INITIAL_STATE__) || defaultState();
+  }
+
+  var state = loadState();
+
+  // The one quiz currently on screen. Always looked up fresh off state
+  // (never cached) so that a quiz switch is immediately reflected wherever
+  // this is called — it's cheap at the size a person keeps in one page.
+  function activeQuiz() {
+    return _.find(state.quizzes, { id: state.activeQuizId }) || state.quizzes[0];
+  }
+
+  function isLocked() {
+    var quiz = activeQuiz();
+    return !!(quiz && quiz.locked);
+  }
+
+  var sampleAPI = null;
+  var dirty = false;
+  var loading = {};
+  var loadingBulkIshes = false;
+  var recalcNotice = null; // transient — never persisted, cleared on the next attempt or on success
+
+  function esc(str) {
+    return _.escape(str == null ? "" : String(str));
+  }
+
+  function findRowById(id) {
+    return id ? _.find(activeQuiz().rows, { id: id }) : null;
+  }
+
+  // ---------- sorting ----------
+  // Clicking a header commits that order into activeQuiz().rows itself (so it
+  // survives a reload/new tab exactly as left) rather than being a transient
+  // view-only overlay. sortState is still kept, but only as this session's
+  // memory of which column/direction is "active" (for the ▲/▼ arrow and to
+  // know which way to toggle on a repeat click) — it is not persisted and
+  // is not what makes the order stick. activeQuiz().lastSortKey IS persisted, but
+  // purely as a label: it never drives re-sorting on load, it only bolds
+  // the header it names as a reminder of how the current order came to be.
+
+  var sortState = { key: null, dir: "asc" };
+
+  var SORT_COLUMNS = {
+    qnum: {
+      label: "Q#",
+      get: function (row) { var n = Number(row.qnum); return _.trim(row.qnum) && isFinite(n) ? n : null; }
+    },
+    short_answer: {
+      label: "Short answer",
+      get: function (row) { var v = _.trim(row.short_answer); return v ? v.toLowerCase() : null; }
+    },
+    chains_to: {
+      label: "Chains to",
+      get: function (row) { var t = findRowById(row.chains_to); var v = t ? _.trim(t.short_answer) : ""; return v ? v.toLowerCase() : null; }
+    },
+    q_plus_rank: {
+      label: "Q + #",
+      get: function (row) { return qPlusRankValue(row); }
+    },
+    q_full: {
+      label: "Question Full Sum",
+      get: function (row) { return doneSum(row.numbers, "all"); }
+    },
+    q_numeral: {
+      label: "Question Numeral Sum",
+      get: function (row) { return doneSum(row.numbers, "numerals"); }
+    },
+    bn_full: {
+      label: "BUT NOT Full Sum",
+      get: function (row) { var t = findRowById(row.chains_to); return doneSum(t && t.hintNumbers, "all"); }
+    },
+    bn_numeral: {
+      label: "BUT NOT Numeral sum",
+      get: function (row) { var t = findRowById(row.chains_to); return doneSum(t && t.hintNumbers, "numerals"); }
+    },
+    h_full: {
+      label: "Hint Full Sum",
+      get: function (row) { return doneSum(row.hintNumbers, "all"); }
+    },
+    h_numeral: {
+      label: "Hint Numeral sum",
+      get: function (row) { return doneSum(row.hintNumbers, "numerals"); }
+    },
+    qb_full: {
+      label: "Q+B Full",
+      get: function (row) { return qbFullSumValue(row); }
+    },
+    q_ishes: {
+      label: "Question ishes",
+      get: function (row) { return (row.numbers && row.numbers.status === "done") ? row.numbers.items.length : null; }
+    },
+    bn_ishes: {
+      label: "BUT NOT ishes",
+      get: function (row) { var t = findRowById(row.chains_to); var hn = t && t.hintNumbers; return (hn && hn.status === "done") ? hn.items.length : null; }
+    },
+    h_ishes: {
+      label: "Hint Ishes",
+      get: function (row) { return (row.hintNumbers && row.hintNumbers.status === "done") ? row.hintNumbers.items.length : null; }
+    }
+  };
+
+  function doneSum(entry, which) {
+    if (!entry || entry.status !== "done") return null;
+    var totals = summarizeNumberish(entry.items);
+    var raw = which === "numerals" ? totals.sumNumerals : totals.sumAll;
+    // Every "sum" cell (including Q+B Full, which just adds two of these
+    // together) rounds to a whole number — the individual ishes themselves
+    // (e.g. "quarter" → 0.25) are left exactly as extracted.
+    return Math.round(raw);
+  }
+
+  function computeSortedRows(rows, key, dir) {
+    var col = SORT_COLUMNS[key];
+    if (!col) return rows;
+    var withVal = rows.map(function (row, idx) { return { row: row, idx: idx, val: col.get(row) }; });
+    withVal.sort(function (a, b) {
+      var aMissing = a.val === null || a.val === undefined;
+      var bMissing = b.val === null || b.val === undefined;
+      if (aMissing && bMissing) return a.idx - b.idx;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      var cmp = (typeof a.val === "string") ? a.val.localeCompare(b.val) : (a.val - b.val);
+      if (cmp === 0) cmp = a.idx - b.idx;
+      return dir === "asc" ? cmp : -cmp;
+    });
+    return withVal.map(function (w) { return w.row; });
+  }
+
+  function sortedRows(rows) {
+    if (!sortState.key || !SORT_COLUMNS[sortState.key]) return rows;
+    return computeSortedRows(rows, sortState.key, sortState.dir);
+  }
+
+  function onSortClick(key) {
+    if (isLocked()) return;
+    var col = SORT_COLUMNS[key];
+    if (!col) return;
+    if (sortState.key === key) {
+      sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    } else {
+      sortState.key = key;
+      sortState.dir = "asc";
+    }
+    activeQuiz().rows = computeSortedRows(activeQuiz().rows, sortState.key, sortState.dir);
+    activeQuiz().lastSortKey = key;
+    render();
+    scheduleSave();
+  }
+
+  // ---------- chain order ----------
+  // Not a per-row sort key like the columns above — it's a walk of the graph
+  // formed by every row's chains_to link (row -> the row its hint precedes),
+  // always rooted at whichever unvisited row has the lowest Q# — that's what
+  // guarantees question 1 always leads, rather than waiting behind whatever
+  // happens to chain into it. Ascending walks forward (next = what the
+  // current row points to); descending walks the same graph backward (next
+  // = whatever points to the current row instead). Either way, whenever
+  // there's more than one row to choose from — a merge point in the
+  // backward direction, or simply more than one untouched chain still
+  // waiting — the lowest Q# among the options goes next; once a path runs
+  // out (nothing left to follow, or the only next step is already placed),
+  // the walk restarts at the next lowest-Q# row still unvisited.
+  function chainQnumOf(row) {
+    var n = Number(row.qnum);
+    return _.trim(row.qnum) && isFinite(n) ? n : null;
+  }
+
+  function pickLowestQnum(candidates) {
+    var best = null, bestQ = null;
+    _.forEach(candidates, function (row) {
+      var q = chainQnumOf(row);
+      if (best === null || (q !== null && (bestQ === null || q < bestQ))) {
+        best = row;
+        bestQ = q;
+      }
+    });
+    return best;
+  }
+
+  function computeChainOrder(rows, direction) {
+    var byId = {};
+    _.forEach(rows, function (row) { byId[row.id] = row; });
+
+    var predecessorsOf = {};
+    _.forEach(rows, function (row) { predecessorsOf[row.id] = []; });
+    _.forEach(rows, function (row) {
+      if (row.chains_to && predecessorsOf[row.chains_to] !== undefined) {
+        predecessorsOf[row.chains_to].push(row);
+      }
+    });
+
+    function nextStepsOf(row) {
+      if (direction === "backward") { return predecessorsOf[row.id]; }
+      var target = row.chains_to && byId[row.chains_to];
+      return target ? [target] : [];
+    }
+
+    var visited = {};
+    var ordered = [];
+    var remaining = rows.slice();
+
+    while (remaining.length) {
+      var candidates = remaining.filter(function (row) { return !visited[row.id]; });
+      if (!candidates.length) break;
+      var next = pickLowestQnum(candidates);
+      // Follow one path as far as it goes — a straight line forward (each
+      // row points to at most one other), or possibly branching backward
+      // (more than one row can chain to the same target), in which case
+      // the lowest-Q# branch is the one taken; whatever's left unpicked
+      // stays unvisited and becomes its own restart point later.
+      while (next && !visited[next.id]) {
+        visited[next.id] = true;
+        ordered.push(next);
+        var steps = nextStepsOf(next).filter(function (row) { return !visited[row.id]; });
+        next = steps.length ? pickLowestQnum(steps) : null;
+      }
+      remaining = remaining.filter(function (row) { return !visited[row.id]; });
+    }
+    return ordered;
+  }
+
+  function onChainOrderClick() {
+    if (isLocked()) return;
+    if (sortState.key === "chain_order") {
+      sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    } else {
+      sortState.key = "chain_order";
+      sortState.dir = "asc";
+    }
+    activeQuiz().rows = computeChainOrder(activeQuiz().rows, sortState.dir === "asc" ? "forward" : "backward");
+    activeQuiz().lastSortKey = "chain_order";
+    render();
+    scheduleSave();
+  }
+
+  function sortArrow(key) {
+    if (sortState.key !== key) return "";
+    return '<span class="sort-arrow">' + (sortState.dir === "asc" ? "▲" : "▼") + "</span>";
+  }
+
+  function sortableTh(key, label, vertical, title, centered) {
+    var cls = "sortable-th" + (vertical ? " vheader" : "") + (centered ? " sortable-th-centered" : "");
+    if (activeQuiz().lastSortKey === key) { cls += " sortable-th-last"; }
+    var titleAttr = title ? ' title="' + esc(title) + '"' : "";
+    return '<th class="' + cls + '" data-sort-key="' + key + '"' + titleAttr + ">" + esc(label) + sortArrow(key) + "</th>";
+  }
+
+  function titleFor(s) {
+    var t = _.trim(s.title);
+    return t ? t + " — Trivia Ambiguity Audit" : "Trivia Ambiguity Audit";
+  }
+
+  // ---------- clue/hint auto-height ----------
+  // The Question and Hint boxes grow with their own content, whichever of the
+  // two needs more room setting the row's height, up to a generous shared cap
+  // — past that cap they scroll internally instead of growing the row further.
+  // The row's OTHER growing box (the shorter of the pair) is stretched to match,
+  // so neither sits with dead space while the other is doing the work. The
+  // ishes columns never drive this: they're capped at whatever height the row
+  // already settled on and scroll internally if their own content needs more.
+  // Alt Text/notes/Full Answer (.side-input) are a third case: they should
+  // fill that same height for comfortable typing, but must never be read when
+  // deciding what that height IS — so they're set to the same fixed height as
+  // Question/Hint, just from the outside, after target is already decided.
+
+  var CLUE_MAX_HEIGHT_PX = 480; // ~30 lines — generous, but not unbounded
+
+  function syncRowClueHeight(tr) {
+    var qEl = tr.querySelector(".q-cell > .q-input");
+    var hintEl = tr.querySelector(".hint-cell > .hint-input");
+    if (!qEl || !hintEl) return;
+
+    qEl.style.height = "auto";
+    hintEl.style.height = "auto";
+    var qMin = parseFloat(getComputedStyle(qEl).minHeight) || 0;
+    var hintMin = parseFloat(getComputedStyle(hintEl).minHeight) || 0;
+    var qNatural = Math.max(qEl.scrollHeight, qMin);
+    var hintNatural = Math.max(hintEl.scrollHeight, hintMin);
+    var target = Math.min(Math.max(qNatural, hintNatural), CLUE_MAX_HEIGHT_PX);
+
+    qEl.style.height = target + "px";
+    hintEl.style.height = target + "px";
+
+    // Sub-pixel line-height rounding can leave a box's scrollHeight a hair
+    // taller than the clientHeight we just gave it, which would show a
+    // spurious scrollbar sliver even though we're nowhere near the cap.
+    // Nudge the target up (never past the cap) until that's gone.
+    if (target < CLUE_MAX_HEIGHT_PX) {
+      var slack = Math.max(qEl.scrollHeight - qEl.clientHeight, hintEl.scrollHeight - hintEl.clientHeight);
+      if (slack > 0) {
+        target = Math.min(target + slack, CLUE_MAX_HEIGHT_PX);
+        qEl.style.height = target + "px";
+        hintEl.style.height = target + "px";
+      }
+    }
+
+    _.forEach(tr.querySelectorAll(".ish-scroll"), function (box) {
+      box.style.maxHeight = target + "px";
+    });
+
+    _.forEach(tr.querySelectorAll(".side-input"), function (box) {
+      box.style.height = target + "px";
+    });
+  }
+
+  function syncClueHeights() {
+    _.forEach(document.querySelectorAll(".quiz-table tbody tr"), syncRowClueHeight);
+  }
+
+  // ---------- render ----------
+
+  function render() {
+    var app = document.getElementById("app");
+    app.innerHTML = appHTML(state);
+    document.title = titleFor(activeQuiz());
+    wireEvents();
+    syncClueHeights();
+  }
+
+  function appHTML(s) {
+    var quiz = activeQuiz();
+    var locked = !!quiz.locked;
+    return (
+      '<header class="topbar">' +
+        quizSwitcherHTML(s, quiz) +
+        '<div class="title-row">' +
+          '<span class="eyebrow">Trivia round</span>' +
+          '<input id="title-input" class="title-input" type="text" value="' + esc(quiz.title) + '" placeholder="Name this round…" aria-label="Quiz name"' + (locked ? " readonly" : "") + ">" +
+        "</div>" +
+        '<div class="topbar-meta">' +
+          '<span class="hint">Paste a question and its short answer, then double-click the guess cell to ask a fast, none-too-careful model what it thinks the answer is — double-click again to refresh. Each ask spends your own Claude usage.</span>' +
+          (locked ? '<span class="lock-banner">🔒 Locked — this quiz won’t accept edits until you unlock it.</span>' : "") +
+          '<span id="save-status" class="save-status" data-state="idle"></span>' +
+        "</div>" +
+      "</header>" +
+      '<div class="table-wrap">' +
+        '<table class="quiz-table' + (quiz.lastSortKey === "qnum" ? " drag-enabled" : "") + (locked ? " quiz-table-locked" : "") + '">' +
+          "<colgroup>" +
+            "<col class=\"col-drag\">" +
+            "<col class=\"col-q\"><col class=\"col-hint\"><col class=\"col-sa\"><col class=\"col-chain\">" +
+            "<col class=\"col-butnot\">" +
+            "<col class=\"col-qnum\">" +
+            "<col class=\"col-sum\"><col class=\"col-sum\"><col class=\"col-sum\"><col class=\"col-sum\"><col class=\"col-sum\"><col class=\"col-sum\"><col class=\"col-sum\"><col class=\"col-sum\">" +
+            "<col class=\"col-side\"><col class=\"col-side\"><col class=\"col-side\">" +
+            "<col class=\"col-ishes\"><col class=\"col-ishes\"><col class=\"col-ishes\">" +
+            "<col class=\"col-ai\">" +
+          "</colgroup>" +
+          "<thead><tr>" +
+            '<th class="drag-th" title="Drag to reorder — renumbers Q# to match"></th>' +
+            "<th>Question</th>" +
+            "<th>Hint</th>" +
+            sortableTh("short_answer", "Short answer", false) +
+            sortableTh("chains_to", "Chains to", false, "Which other row’s short answer this question’s hint precedes, once the chain is sorted out") +
+            '<th title="The hint belonging to the question this one chains to">BUT NOT</th>' +
+            sortableTh("qnum", "Q#", false) +
+            sortableTh("q_plus_rank", "Q + #", true, "This question’s Full Sum plus its Q# rank — not the Q# value itself, but its 1-based position when every row is ranked by Q# (blank Q#s rank last, ties broken by short answer)") +
+            sortableTh("q_full", "Question Full Sum", true, "Sum of every numberish span in the question, numerals included") +
+            sortableTh("q_numeral", "Question Numeral Sum", true, "Sum of just the numeral spans in the question") +
+            sortableTh("bn_full", "BUT NOT Full Sum", true, "Sum of every numberish span in the chained-to hint") +
+            sortableTh("bn_numeral", "BUT NOT Numeral sum", true, "Sum of just the numeral spans in the chained-to hint") +
+            sortableTh("h_full", "Hint Full Sum", true, "Sum of every numberish span in this row’s own hint") +
+            sortableTh("h_numeral", "Hint Numeral sum", true, "Sum of just the numeral spans in this row’s own hint") +
+            sortableTh("qb_full", "Q+B Full", true, "Question Full Sum + BUT NOT Full Sum — the combined “add up the numbers” total for this clue plus its chained hint") +
+            "<th>Alt Text</th>" +
+            "<th>notes</th>" +
+            "<th>Full Answer</th>" +
+            sortableTh("q_ishes", "Question ishes", false, "Every text span a reasonable person might read as a number, in the question", true) +
+            sortableTh("bn_ishes", "BUT NOT ishes", false, "The same, for the chained-to hint (computed on that row’s own Hint Ishes cell)", true) +
+            sortableTh("h_ishes", "Hint Ishes", false, "Every text span a reasonable person might read as a number, in this row’s own hint", true) +
+            "<th>Quick-model guess</th>" +
+          "</tr></thead>" +
+          '<tbody id="rows-body">' + sortedRows(quiz.rows).map(function (row) { return rowHTML(row, locked); }).join("") + "</tbody>" +
+        "</table>" +
+      "</div>" +
+      '<div class="toolbar-row">' +
+        '<button id="add-row-btn" class="add-row-btn" type="button"' + (locked ? " disabled" : "") + '>+ Add row</button>' +
+        '<button id="chain-order-btn" class="chain-order-btn' + (quiz.lastSortKey === "chain_order" ? " active" : "") + '" type="button"' + (locked ? " disabled" : "") + ' title="Question 1 always leads. ▲ then whatever it points to, then whatever that points to, and so on. ▼ then whatever points to it instead, and so on back. Ties broken by Q#. Click again to flip direction.">Sort by chain order' + sortArrow("chain_order") + "</button>" +
+        '<button id="renumber-qnum-btn" class="renumber-btn" type="button"' + (locked ? " disabled" : "") + ' title="Replaces every Q# with its rank among all the current Q# values, tidying gaps and decimals into a clean 1, 2, 3… without moving any row — type a decimal like 3.1 to slot a row between 3 and 4, then renumber to clean it up">Renumber Q#</button>' +
+        '<span class="toolbar-spacer"></span>' +
+        '<button id="recalc-ishes-btn" class="recalc-ishes-btn" type="button"' + (loadingBulkIshes || locked ? " disabled" : "") + ' title="Sends every question and hint in one combined request, replacing whatever ishes are currently shown for each">' + (loadingBulkIshes ? "Recalculating…" : "↻ Recalculate all ishes") + "</button>" +
+        (quiz.bulkIshesLast
+          ? '<span class="tok-badge" title="Estimated from character count — the page can’t see exact token usage. Last run ' + esc(new Date(quiz.bulkIshesLast.updatedAt).toLocaleString()) + '">~' + fmtNum(quiz.bulkIshesLast.approxTokens) + " tok last time (" + quiz.bulkIshesLast.items + (quiz.bulkIshesLast.items === 1 ? " text" : " texts") + ")</span>"
+          : "") +
+        (recalcNotice ? '<span class="recalc-notice">' + esc(recalcNotice) + "</span>" : "") +
+      "</div>" +
+      '<footer class="note">Rows and answers are saved to this browser (not to the shared page) — they\'ll survive a reload or a full quit-and-restart here, but won\'t show up in a different browser, device, or for anyone else who opens this link. The quick-model guess is a lightweight gut check, not a ruling — read it as one way the question could land, not the last word. Q# is a free-typed number for your own ordering — sort by it or by any of the upright column headers by clicking them (click again to reverse); this reorders the rows for good, so it holds on reload or in a new tab — whichever header you sorted by last stays bold as a reminder, without re-sorting anything on its own. A decimal like 3.1 slots a row between 3 and 4 without renumbering anything else; Renumber Q# then tidies every row\'s Q# down to a clean 1, 2, 3… by rank, without moving a single row. Chains to, Hint, and BUT NOT are for chaining questions together — pick which row\'s short answer this one\'s hint precedes and type that hint in; double-click Hint Ishes on a row to have the model spot its number-like spans, and whichever row chains to it will show the same result under BUT NOT ishes. Q+B Full adds this question\'s Full Sum to that chained hint\'s Full Sum, for the widest reading of "add up the numbers". Q + # adds this question\'s own Full Sum to its Q# *rank* rather than the Q# itself (blank Q#s get no rank and show as "–"; ties are broken by short answer). Alt Text, notes, and Full Answer are plain notes columns of your own — they fill the row\'s full height like Question and Hint do, but typing into them never grows the row the way Question and Hint can. Editing a Question or Hint leaves its old totals in place, shown grayed and italic, until they\'re recomputed.</footer>' +
+      '<section class="prompt-review">' +
+        '<div class="prompt-review-head"><h2 class="prompt-review-title">Copy for Sheets</h2>' + copyBtnHTML("sheets-tsv-box") + "</div>" +
+        '<p class="prompt-review-hint">Rows always go out in Q# rank order, regardless of the table’s current sort — one tab-separated line each: Q# rank, the question with its BUT NOT text folded in (line breaks become <code>&lt;br/&gt;</code>), Full Answer, Alt Text, notes, the Question Full Sum, and the question’s ishes tokens joined by “/”. Click the box to select it all, or use the Copy button, then paste straight into Google Sheets — it splits into columns on its own.</p>' +
+        '<textarea class="export-box" id="sheets-tsv-box" readonly rows="10" spellcheck="false" aria-label="Tab-separated export for Google Sheets">' + esc(buildSheetsExportTSV(quiz.rows)) + "</textarea>" +
+      "</section>" +
+      '<section class="prompt-review">' +
+        '<div class="prompt-review-head"><h2 class="prompt-review-title">Export</h2>' + copyBtnHTML("export-json-box") + "</div>" +
+        '<p class="prompt-review-hint">A raw dump of every quiz stored on this page, active one included — copy it out to back up your progress, or paste part of it back in through Import.</p>' +
+        '<textarea class="export-box export-box-compact" id="export-json-box" readonly rows="10" spellcheck="false" aria-label="Exported JSON">' + esc(JSON.stringify(s)) + "</textarea>" +
+      "</section>" +
+      '<section class="prompt-review">' +
+        '<div class="prompt-review-head"><h2 class="prompt-review-title">Import</h2></div>' +
+        '<p class="prompt-review-hint">Paste an exported state, a single quiz, or a bare list of rows here to merge it into <strong>' + esc(quiz.title || "this quiz") + '</strong>. Rows are matched to existing ones by short answer: a matched row keeps any field the paste leaves out, takes whatever the paste sets, and clears a field the paste explicitly sets to <code>null</code>. A short answer not already here is added as a new row. Runs Renumber Q# afterward and clears any chains_to that no longer resolves.</p>' +
+        '<textarea class="export-box" id="import-box" rows="8" spellcheck="false" placeholder="Paste quiz JSON here…" aria-label="Quiz JSON to import"' + (locked ? " readonly" : "") + ">" + esc(importText) + "</textarea>" +
+        '<div class="toolbar-row">' +
+          '<button id="import-btn" class="add-row-btn" type="button"' + (locked ? " disabled" : "") + ">Import</button>" +
+          (importResult ? '<span class="import-summary" data-ok="' + (importResult.ok ? "true" : "false") + '">' + esc(importResult.summary) + "</span>" : "") +
+        "</div>" +
+        (importResult && importResult.lines.length ? '<pre class="import-log">' + esc(importResult.lines.join("\n")) + "</pre>" : "") +
+      "</section>" +
+      '<section class="prompt-review">' +
+        '<h2 class="prompt-review-title">Prompts used</h2>' +
+        '<p class="prompt-review-hint">Read-only, for review — <code>{{question}}</code> / <code>{{hint}}</code> is where each row’s text gets spliced in.</p>' +
+        '<div class="prompt-box">' +
+          '<div class="prompt-box-label"><span>Quick-model guess</span>' + copyBtnHTML("prompt-answer-body") + "</div>" +
+          '<pre class="prompt-box-body" id="prompt-answer-body">' + esc(ANSWER_PROMPT_TEMPLATE) + "</pre>" +
+        "</div>" +
+        '<div class="prompt-box">' +
+          '<div class="prompt-box-label"><span>Numberishes extraction (question)</span>' + copyBtnHTML("prompt-numbers-q-body") + "</div>" +
+          '<pre class="prompt-box-body" id="prompt-numbers-q-body">' + esc(NUMBERS_PROMPT_TEMPLATE) + "</pre>" +
+        "</div>" +
+        '<div class="prompt-box">' +
+          '<div class="prompt-box-label"><span>Numberishes extraction (hint)</span>' + copyBtnHTML("prompt-numbers-hint-body") + "</div>" +
+          '<pre class="prompt-box-body" id="prompt-numbers-hint-body">' + esc(HINT_NUMBERS_PROMPT_TEMPLATE) + "</pre>" +
+        "</div>" +
+        '<div class="prompt-box">' +
+          '<div class="prompt-box-label"><span>Numberishes extraction (“Recalculate all ishes”)</span>' + copyBtnHTML("prompt-numbers-bulk-body") + "</div>" +
+          '<pre class="prompt-box-body" id="prompt-numbers-bulk-body">' + esc(BULK_NUMBERS_PROMPT_TEMPLATE) + "</pre>" +
+        "</div>" +
+      "</section>"
+    );
+  }
+
+  // A single button markup, reused for every read-only box (TSV/JSON
+  // textareas and the four prompt <pre>s) — data-copy-for names the target
+  // element's id, read at click time via .value (textarea) or .textContent
+  // (pre), so the same delegated handler in wireEvents() covers all of them.
+  function copyBtnHTML(targetId) {
+    return '<button type="button" class="copy-btn" data-copy-for="' + targetId + '">Copy</button>' +
+      '<span class="copy-status" data-copy-status-for="' + targetId + '"></span>';
+  }
+
+  // ---------- quiz switcher ----------
+  // Every quiz gets its own {id, title, rows, lastSortKey, bulkIshesLast,
+  // locked} record inside state.quizzes; state.activeQuizId picks which one
+  // this page is currently showing. pendingDeleteQuizId is the one piece of
+  // switcher UI state that's transient (never persisted) — it just tracks
+  // whether the Delete button is mid-confirmation, the same way recalcNotice
+  // tracks a one-off message elsewhere on the page. A plain window.confirm()
+  // isn't reliable here (a published artifact runs in a sandboxed iframe,
+  // where that call can be silently refused), so deleting asks inline instead.
+  var pendingDeleteQuizId = null;
+
+  function quizSwitcherHTML(s, quiz) {
+    var options = s.quizzes.map(function (q) {
+      var label = _.trim(q.title) || "Untitled quiz";
+      if (q.locked) label += " 🔒";
+      return '<option value="' + q.id + '"' + (q.id === s.activeQuizId ? " selected" : "") + ">" + esc(label) + "</option>";
+    }).join("");
+
+    var deleteControl;
+    if (pendingDeleteQuizId === quiz.id) {
+      deleteControl =
+        '<span class="quiz-delete-confirm">Delete “' + esc(_.trim(quiz.title) || "Untitled quiz") + '”?' +
+          '<button type="button" id="confirm-delete-quiz-btn" class="quiz-tool-btn quiz-tool-btn-danger">Yes, delete</button>' +
+          '<button type="button" id="cancel-delete-quiz-btn" class="quiz-tool-btn">Cancel</button>' +
+        "</span>";
+    } else {
+      deleteControl = '<button type="button" id="delete-quiz-btn" class="quiz-tool-btn quiz-tool-btn-danger"' + (s.quizzes.length <= 1 ? " disabled" : "") + ' title="Remove this quiz — the last remaining quiz can’t be deleted">Delete quiz</button>';
+    }
+
+    return (
+      '<div class="quiz-switcher-row">' +
+        '<select id="quiz-select" class="quiz-select" aria-label="Switch quiz">' + options + "</select>" +
+        '<button type="button" id="new-quiz-btn" class="quiz-tool-btn">+ New quiz</button>' +
+        deleteControl +
+        '<span class="quiz-switcher-spacer"></span>' +
+        '<button type="button" id="lock-quiz-btn" class="lock-btn' + (quiz.locked ? " locked" : "") + '">' + (quiz.locked ? "🔒 Locked" : "🔓 Lock this quiz") + "</button>" +
+      "</div>"
+    );
+  }
+
+  // New quiz, lock/unlock, and switching are all allowed even on a locked
+  // quiz (locking only blocks edits to that quiz's own content) — only
+  // deleting needs the inline Yes/Cancel confirmation, since it's the one
+  // destructive action here.
+  function wireQuizSwitcher() {
+    var select = document.getElementById("quiz-select");
+    if (select) {
+      select.addEventListener("change", function (e) {
+        state.activeQuizId = e.target.value;
+        pendingDeleteQuizId = null;
+        sortState = { key: null, dir: "asc" };
+        render();
+        scheduleSave();
+      });
+    }
+
+    var newBtn = document.getElementById("new-quiz-btn");
+    if (newBtn) {
+      newBtn.addEventListener("click", function () {
+        var quiz = defaultQuiz("");
+        state.quizzes.push(quiz);
+        state.activeQuizId = quiz.id;
+        pendingDeleteQuizId = null;
+        sortState = { key: null, dir: "asc" };
+        render();
+        scheduleSave();
+      });
+    }
+
+    var deleteBtn = document.getElementById("delete-quiz-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", function () {
+        if (state.quizzes.length <= 1) return;
+        pendingDeleteQuizId = state.activeQuizId;
+        render();
+      });
+    }
+
+    var confirmDeleteBtn = document.getElementById("confirm-delete-quiz-btn");
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener("click", function () {
+        var idx = _.findIndex(state.quizzes, { id: pendingDeleteQuizId });
+        if (idx === -1 || state.quizzes.length <= 1) { pendingDeleteQuizId = null; render(); return; }
+        state.quizzes.splice(idx, 1);
+        if (state.activeQuizId === pendingDeleteQuizId) {
+          state.activeQuizId = state.quizzes[Math.max(0, idx - 1)].id;
+        }
+        pendingDeleteQuizId = null;
+        sortState = { key: null, dir: "asc" };
+        render();
+        scheduleSave();
+      });
+    }
+
+    var cancelDeleteBtn = document.getElementById("cancel-delete-quiz-btn");
+    if (cancelDeleteBtn) {
+      cancelDeleteBtn.addEventListener("click", function () {
+        pendingDeleteQuizId = null;
+        render();
+      });
+    }
+
+    var lockBtn = document.getElementById("lock-quiz-btn");
+    if (lockBtn) {
+      lockBtn.addEventListener("click", function () {
+        activeQuiz().locked = !activeQuiz().locked;
+        render();
+        scheduleSave();
+      });
+    }
+  }
+
+  function rowHTML(row, locked) {
+    var target = findRowById(row.chains_to);
+    var bnLoadKey = target ? ("hn:" + target.id) : null;
+    var ro = locked ? " readonly" : "";
+    var dis = locked ? " disabled" : "";
+    return (
+      '<tr data-row-id="' + row.id + '">' +
+        '<td class="drag-cell" draggable="' + (locked ? "false" : "true") + '" title="' + (locked ? "Locked — unlock this quiz to reorder" : "Drag to reorder") + '">⋮⋮</td>' +
+        '<td data-label="Question" class="q-cell">' +
+          '<textarea class="q-input" rows="6" data-field="question" data-row-id="' + row.id + '" placeholder="Paste the trivia question…"' + ro + ">" + esc(row.question) + "</textarea>" +
+        "</td>" +
+        '<td data-label="Hint" class="hint-cell">' +
+          '<textarea class="q-input hint-input" rows="6" data-field="hint" data-row-id="' + row.id + '" placeholder="This question’s second-half hint…"' + ro + ">" + esc(row.hint) + "</textarea>" +
+        "</td>" +
+        '<td data-label="Short answer" class="sa-cell">' +
+          '<input type="text" class="sa-input" data-field="short_answer" data-row-id="' + row.id + '" placeholder="Answer…" value="' + esc(row.short_answer) + '"' + ro + ">" +
+        "</td>" +
+        '<td data-label="Chains to" class="chain-cell">' + chainSelectHTML(row, locked) + "</td>" +
+        '<td data-label="BUT NOT" class="butnot-cell" title="' + esc(target ? target.hint : "") + '">' + butNotInner(row, target) + "</td>" +
+        '<td data-label="Q#" class="qnum-cell">' +
+          '<input type="number" class="qnum-input" data-field="qnum" data-row-id="' + row.id + '" placeholder="#" value="' + esc(row.qnum) + '"' + ro + ">" +
+        "</td>" +
+        '<td data-label="Q + #" class="sum-cell">' + qPlusRankInner(row) + "</td>" +
+        '<td data-label="Question Full Sum" class="sum-cell full-sum-cell" data-kind="question" data-row-id="' + row.id + '">' + numberishSumInner(row.numbers, "all") + "</td>" +
+        '<td data-label="Question Numeral Sum" class="sum-cell">' + numberishSumInner(row.numbers, "numerals") + "</td>" +
+        '<td data-label="BUT NOT Full Sum" class="sum-cell' + (target ? " full-sum-cell" : "") + '"' + (target ? ' data-kind="hint" data-row-id="' + target.id + '"' : "") + '>' + numberishSumInner(target && target.hintNumbers, "all") + "</td>" +
+        '<td data-label="BUT NOT Numeral sum" class="sum-cell">' + numberishSumInner(target && target.hintNumbers, "numerals") + "</td>" +
+        '<td data-label="Hint Full Sum" class="sum-cell full-sum-cell" data-kind="hint" data-row-id="' + row.id + '">' + numberishSumInner(row.hintNumbers, "all") + "</td>" +
+        '<td data-label="Hint Numeral sum" class="sum-cell">' + numberishSumInner(row.hintNumbers, "numerals") + "</td>" +
+        '<td data-label="Q+B Full" class="sum-cell">' + qbFullSumInner(row) + "</td>" +
+        '<td data-label="Alt Text" class="side-cell">' +
+          '<textarea class="q-input side-input" rows="6" data-field="altText" data-row-id="' + row.id + '" placeholder="Alt text…"' + ro + ">" + esc(row.altText) + "</textarea>" +
+        "</td>" +
+        '<td data-label="notes" class="side-cell">' +
+          '<textarea class="q-input side-input" rows="6" data-field="notes" data-row-id="' + row.id + '" placeholder="Notes…"' + ro + ">" + esc(row.notes) + "</textarea>" +
+        "</td>" +
+        '<td data-label="Full Answer" class="side-cell">' +
+          '<textarea class="q-input side-input" rows="6" data-field="fullAnswer" data-row-id="' + row.id + '" placeholder="Full answer…"' + ro + ">" + esc(row.fullAnswer) + "</textarea>" +
+        "</td>" +
+        '<td data-label="Question ishes" class="numberish-cell" data-kind="question" data-row-id="' + row.id + '" tabindex="0" role="button" aria-label="Double-click to find every number-like span in the question">' +
+          '<div class="ish-scroll">' + numberishCellInner(row.numbers, "question", row.id) + "</div>" +
+        "</td>" +
+        '<td data-label="BUT NOT ishes" class="numberish-cell-static">' +
+          '<div class="ish-scroll">' + (target ? numberishReadOnlyInner(target.hintNumbers, bnLoadKey) : '<div class="guess-body guess-empty">Pick a chain target</div>') + "</div>" +
+        "</td>" +
+        '<td data-label="Hint Ishes" class="numberish-cell" data-kind="hint" data-row-id="' + row.id + '" tabindex="0" role="button" aria-label="Double-click to find every number-like span in this row’s hint">' +
+          '<div class="ish-scroll">' + numberishCellInner(row.hintNumbers, "hint", row.id) + "</div>" +
+        "</td>" +
+        '<td data-label="Quick-model guess" class="guess-cell" data-row-id="' + row.id + '" tabindex="0" role="button" aria-label="Double-click to ask the quick model">' +
+          guessInner(row) +
+        "</td>" +
+      "</tr>"
+    );
+  }
+
+  function chainSelectHTML(row, locked) {
+    var options = ['<option value="">— pick —</option>'];
+    _.forEach(activeQuiz().rows, function (other) {
+      if (other.id === row.id) return;
+      var label = _.trim(other.short_answer) || "(no short answer yet)";
+      var selected = row.chains_to === other.id ? " selected" : "";
+      options.push('<option value="' + other.id + '"' + selected + ">" + esc(label) + "</option>");
+    });
+    return '<select class="chain-select" data-row-id="' + row.id + '" aria-label="Chains to"' + (locked ? " disabled" : "") + ">" + options.join("") + "</select>";
+  }
+
+  function butNotInner(row, target) {
+    if (!row.chains_to) {
+      return '<span class="butnot-placeholder">Pick a chain target</span>';
+    }
+    if (!target) {
+      return '<span class="butnot-placeholder">Target row not found</span>';
+    }
+    if (!_.trim(target.hint)) {
+      return '<span class="butnot-placeholder">No hint entered yet</span>';
+    }
+    return esc(snippetize(target.hint, 50));
+  }
+
+  // A search-result-style snippet: cut to a word boundary near maxLen and
+  // mark the truncation, rather than wrapping or overflowing the cell. The
+  // full text is still on the cell's title tooltip and, of course, in the
+  // source row's own Hint box.
+  function snippetize(str, maxLen) {
+    var s = _.trim(str);
+    if (s.length <= maxLen) return s;
+    var cut = s.slice(0, maxLen);
+    var lastSpace = cut.lastIndexOf(" ");
+    if (lastSpace > maxLen * 0.4) cut = cut.slice(0, lastSpace);
+    return cut + "...";
+  }
+
+  function guessInner(row) {
+    var ai = row.ai;
+    if (loading[row.id]) {
+      return '<div class="guess-body guess-loading">Thinking…</div>';
+    }
+    if (!ai) {
+      return '<div class="guess-body guess-empty">Double-click to ask</div>';
+    }
+    if (ai.status === "error") {
+      return (
+        '<div class="guess-body guess-error">' + esc(ai.message || "Could not get an answer.") + "</div>" +
+        '<div class="guess-meta">Double-click to try again</div>'
+      );
+    }
+    var tokBit = (typeof ai.approxTokens === "number")
+      ? '<span class="tok-badge" title="Estimated from character count — the page can’t see exact token usage">~' + ai.approxTokens + " tok</span>"
+      : "";
+    return (
+      '<div class="guess-body guess-done">' + esc(ai.text) + "</div>" +
+      '<div class="guess-meta">' +
+        "<span>" + esc(ai.modelTierApplied || "quick") + " model" + (ai.truncated ? " · cut short" : "") + "</span>" +
+        tokBit +
+        '<button type="button" class="refresh-btn" data-action="guess" data-row-id="' + row.id + '">Refresh</button>' +
+      "</div>"
+    );
+  }
+
+  function numberishCellInner(entry, kind, targetRowId) {
+    var loadKey = (kind === "hint" ? "hn:" : "n:") + targetRowId;
+    var action = kind === "hint" ? "hintNumbers" : "numbers";
+    if (loading[loadKey]) {
+      return '<div class="guess-body guess-loading">Thinking…</div>';
+    }
+    if (!entry) {
+      return '<div class="guess-body guess-empty">Double-click to ask</div>';
+    }
+    if (entry.status === "error") {
+      return (
+        '<div class="guess-body guess-error">' + esc(entry.message || "Could not get an answer.") + "</div>" +
+        '<div class="guess-meta">Double-click to try again</div>'
+      );
+    }
+    var tokBit = (typeof entry.approxTokens === "number")
+      ? '<span class="tok-badge" title="Estimated from character count — the page can’t see exact token usage">~' + entry.approxTokens + " tok</span>"
+      : "";
+    var staleCls = entry.stale ? " is-stale" : "";
+    var listHTML = entry.items.length
+      ? '<div class="numberish-list' + staleCls + '">' + entry.items.map(function (it) {
+          return '<div class="numberish-item"><span class="txt">' + esc(it.text) + '</span><span class="val">' + fmtNum(it.value) + "</span></div>";
+        }).join("") + "</div>"
+      : '<div class="numberish-empty' + staleCls + '">None found</div>';
+    return (
+      listHTML +
+      '<div class="guess-meta">' +
+        "<span>" + esc(entry.modelTierApplied || "quick") + " model" + (entry.truncated ? " · cut short" : "") + (entry.stale ? " · stale" : "") + "</span>" +
+        tokBit +
+        '<button type="button" class="refresh-btn" data-action="' + action + '" data-row-id="' + targetRowId + '">Refresh</button>' +
+      "</div>"
+    );
+  }
+
+  function numberishSumInner(entry, which) {
+    var value = doneSum(entry, which);
+    if (value === null) return '<span class="sum-empty">–</span>';
+    var cls = "sum-value" + (entry && entry.stale ? " is-stale" : "");
+    return '<span class="' + cls + '">' + fmtNum(value) + "</span>";
+  }
+
+  function qbFullSumValue(row) {
+    var qSum = doneSum(row.numbers, "all");
+    if (qSum === null) return null;
+    var target = findRowById(row.chains_to);
+    var bSum = doneSum(target && target.hintNumbers, "all");
+    if (bSum === null) return null;
+    return qSum + bSum;
+  }
+
+  function qbFullSumInner(row) {
+    var v = qbFullSumValue(row);
+    if (v === null) return '<span class="sum-empty">–</span>';
+    var target = findRowById(row.chains_to);
+    var stale = (row.numbers && row.numbers.stale) || (target && target.hintNumbers && target.hintNumbers.stale);
+    var cls = "sum-value" + (stale ? " is-stale" : "");
+    return '<span class="' + cls + '">' + fmtNum(v) + "</span>";
+  }
+
+  // "Q + #" = the question's own Full Sum, plus the *rank* (not the raw
+  // value) of its Q#. Ranking is over every row's Q#, ascending, missing
+  // Q#s sorted last and given no rank at all; ties (rows sharing a Q#) are
+  // broken by short answer (alphabetical). Recomputed fresh on every call —
+  // fine at this dataset's size (a couple dozen rows) and much simpler than
+  // caching it across renders.
+  function computeQnumRanking(rows) {
+    var withVal = rows.map(function (row, idx) {
+      return { row: row, idx: idx, qnum: chainQnumOf(row), sa: _.trim(row.short_answer).toLowerCase() };
+    });
+    withVal.sort(function (a, b) {
+      var aMissing = a.qnum === null, bMissing = b.qnum === null;
+      if (aMissing && bMissing) return a.idx - b.idx;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      var cmp = a.qnum - b.qnum;
+      if (cmp === 0) cmp = a.sa.localeCompare(b.sa);
+      if (cmp === 0) cmp = a.idx - b.idx;
+      return cmp;
+    });
+    return withVal.map(function (w, i) {
+      return { row: w.row, rank: (w.qnum === null) ? null : (i + 1) };
+    });
+  }
+
+  function computeQnumRanks(rows) {
+    var ranks = {};
+    computeQnumRanking(rows).forEach(function (w) {
+      ranks[w.row.id] = w.rank;
+    });
+    return ranks;
+  }
+
+  function qPlusRankValue(row) {
+    var qSum = doneSum(row.numbers, "all");
+    if (qSum === null) return null;
+    var ranks = computeQnumRanks(activeQuiz().rows);
+    var rank = ranks[row.id];
+    if (rank === null || rank === undefined) return null;
+    return qSum + rank;
+  }
+
+  function qPlusRankInner(row) {
+    var v = qPlusRankValue(row);
+    if (v === null) return '<span class="sum-empty">–</span>';
+    var cls = "sum-value" + ((row.numbers && row.numbers.stale) ? " is-stale" : "");
+    return '<span class="' + cls + '">' + fmtNum(v) + "</span>";
+  }
+
+  // ---------- copy-out for Google Sheets ----------
+  // A plain tab-separated block, one line per row, meant to be selected and
+  // pasted straight into a spreadsheet (Sheets splits pasted text into columns
+  // on its own wherever it sees a tab). A field's own newlines would otherwise
+  // look like the start of a new row, and a stray tab would look like an
+  // extra column, so both get folded into something visible instead of
+  // silently corrupting the paste.
+  //
+  // Order and the first field are both independent of whatever the on-screen
+  // table happens to be sorted/dragged into right now: rows always go out in
+  // Q# rank order (same ranking as the "Q + #" column and "Renumber Q#"),
+  // and that rank — not the raw, possibly-gappy or decimal Q# value — is
+  // what's written as the question number.
+  function tsvField(value, sep) {
+    var s = (value === null || value === undefined) ? "" : String(value);
+    s = s.replace(/\r\n|\r|\n/g, "<br/>");
+    s = s.split(sep).join(" ");
+    return s;
+  }
+
+  function buildSheetsExportTSV(rows, sep) {
+    sep = sep || "\t";
+    return computeQnumRanking(rows).map(function (w) {
+      var row = w.row;
+      var target = findRowById(row.chains_to);
+      var qCombined = (row.question || "") + "<br/>  ... BUT NOT ....<br/>" + (target ? (target.hint || "") : "");
+      var qFull = doneSum(row.numbers, "all");
+      var ishTokens = (row.numbers && row.numbers.status === "done")
+        ? row.numbers.items.map(function (it) { return it.text; }).join("/")
+        : "";
+      var fields = [
+        w.rank === null ? "" : String(w.rank),
+        qCombined,
+        row.fullAnswer || "",
+        row.altText || "",
+        row.notes || "",
+        qFull === null ? "" : String(qFull),
+        ishTokens
+      ];
+      return fields.map(function (f) { return tsvField(f, sep); }).join(sep);
+    }).join("\n");
+  }
+
+  function numberishReadOnlyInner(entry, loadKey) {
+    if (loadKey && loading[loadKey]) {
+      return '<div class="guess-body guess-loading">Thinking…</div>';
+    }
+    if (!entry) {
+      return '<div class="guess-body guess-empty">Not computed yet — double-click that row’s Hint Ishes</div>';
+    }
+    if (entry.status === "error") {
+      return '<div class="guess-body guess-error">' + esc(entry.message || "Could not get an answer.") + "</div>";
+    }
+    var staleCls = entry.stale ? " is-stale" : "";
+    if (!entry.items.length) {
+      return '<div class="numberish-empty' + staleCls + '">None found</div>';
+    }
+    return '<div class="numberish-list' + staleCls + '">' + entry.items.map(function (it) {
+      return '<div class="numberish-item"><span class="txt">' + esc(it.text) + '</span><span class="val">' + fmtNum(it.value) + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  function summarizeNumberish(items) {
+    var sumNumerals = 0, sumAll = 0;
+    _.forEach(items, function (it) {
+      var v = Number(it.value);
+      if (!isFinite(v)) return;
+      sumAll += v;
+      if (it.kind === "numeral") sumNumerals += v;
+    });
+    return { sumNumerals: sumNumerals, sumAll: sumAll };
+  }
+
+  function fmtNum(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return "–";
+    // A <wbr> after each comma gives the browser a place to wrap a long
+    // number ("3,000,000") without ever breaking mid-digit-group — it's
+    // invisible and adds no width unless a line actually needs to break
+    // there, so a narrow fixed-width column never grows to fit it.
+    return v.toLocaleString("en-US").replace(/,/g, ",<wbr>");
+  }
+
+  // ---------- persistence ----------
+
+  function scheduleSave() {
+    dirty = true;
+    saveNow();
+  }
+
+  function setSaveStatus(kind) {
+    var el = document.getElementById("save-status");
+    if (!el) return;
+    el.dataset.state = kind;
+    var copy = {
+      idle: "",
+      error: "Couldn’t save to this browser — storage may be full, disabled, or private-browsing"
+    };
+    el.textContent = copy[kind] || "";
+  }
+
+  function saveNow() {
+    if (!dirty) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      dirty = false;
+      setSaveStatus("idle");
+    } catch (e) {
+      setSaveStatus("error");
+    }
+  }
+
+  // ---------- events ----------
+
+  // ---------- copy to clipboard ----------
+  // Three-tier fallback, because a sandboxed iframe (which is what an
+  // Artifact page runs inside) can silently refuse either clipboard
+  // mechanism: try the async Clipboard API first, fall back to the
+  // legacy execCommand on a throwaway textarea, and if BOTH are refused,
+  // fall back to just selecting the source box's own text so the person
+  // can still press Ctrl/Cmd+C themselves rather than getting nothing.
+  function copyToClipboard(text, sourceEl, statusEl) {
+    function showStatus(ok, msg) {
+      if (!statusEl) return;
+      statusEl.textContent = msg;
+      statusEl.dataset.ok = ok ? "true" : "false";
+      window.clearTimeout(statusEl._copyTimer);
+      statusEl._copyTimer = window.setTimeout(function () {
+        statusEl.textContent = "";
+        delete statusEl.dataset.ok;
+      }, 2200);
+    }
+
+    function selectSource() {
+      if (!sourceEl) return;
+      if (typeof sourceEl.select === "function") {
+        sourceEl.select();
+      } else if (window.getSelection && document.createRange) {
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        var range = document.createRange();
+        range.selectNodeContents(sourceEl);
+        sel.addRange(range);
+      }
+    }
+
+    function legacyCopy() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "0";
+      ta.style.left = "0";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try {
+        ok = document.execCommand && document.execCommand("copy");
+      } catch (e) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      if (ok) {
+        showStatus(true, "Copied");
+      } else {
+        selectSource();
+        showStatus(false, "Couldn’t copy automatically — selected it, press ⌘/Ctrl+C");
+      }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { showStatus(true, "Copied"); },
+        function () { legacyCopy(); }
+      );
+    } else {
+      legacyCopy();
+    }
+  }
+
+  function onCopyBtnClick(btn) {
+    var targetId = btn.dataset.copyFor;
+    var target = document.getElementById(targetId);
+    if (!target) return;
+    var text = (typeof target.value === "string") ? target.value : target.textContent;
+    var statusEl = document.querySelector('[data-copy-status-for="' + targetId + '"]');
+    copyToClipboard(text, target, statusEl);
+  }
+
+  function wireEvents() {
+    var titleInput = document.getElementById("title-input");
+    titleInput.addEventListener("input", function (e) {
+      if (isLocked()) return;
+      activeQuiz().title = e.target.value;
+    });
+    titleInput.addEventListener("blur", function () {
+      if (isLocked()) return;
+      scheduleSave();
+    });
+
+    document.getElementById("add-row-btn").addEventListener("click", function () {
+      if (isLocked()) return;
+      activeQuiz().rows.push(newBlankRow());
+      render();
+      scheduleSave();
+    });
+
+    wireQuizSwitcher();
+
+    document.getElementById("chain-order-btn").addEventListener("click", onChainOrderClick);
+
+    document.getElementById("renumber-qnum-btn").addEventListener("click", onRenumberClick);
+
+    document.getElementById("recalc-ishes-btn").addEventListener("click", onRecalcAllIshesClick);
+
+    var tsvBox = document.getElementById("sheets-tsv-box");
+    if (tsvBox) {
+      tsvBox.addEventListener("click", function () { tsvBox.select(); });
+      tsvBox.addEventListener("focus", function () { tsvBox.select(); });
+    }
+
+    var jsonBox = document.getElementById("export-json-box");
+    if (jsonBox) {
+      jsonBox.addEventListener("click", function () { jsonBox.select(); });
+      jsonBox.addEventListener("focus", function () { jsonBox.select(); });
+    }
+
+    var importBox = document.getElementById("import-box");
+    if (importBox) {
+      importBox.addEventListener("input", function (e) { importText = e.target.value; });
+    }
+    var importBtn = document.getElementById("import-btn");
+    if (importBtn) {
+      importBtn.addEventListener("click", onImportClick);
+    }
+
+    _.forEach(document.querySelectorAll(".copy-btn"), function (btn) {
+      btn.addEventListener("click", function () { onCopyBtnClick(btn); });
+    });
+
+    _.forEach(document.querySelectorAll(".q-input, .sa-input, .hint-input, .qnum-input"), function (input) {
+      input.addEventListener("blur", onFieldBlur);
+    });
+
+    // Grow the clue/hint boxes live as you type, not just after the fact —
+    // this doesn't touch saved state, so it never schedules a save on its own.
+    _.forEach(document.querySelectorAll(".q-input, .hint-input"), function (box) {
+      box.addEventListener("input", function () {
+        var tr = box.closest("tr");
+        if (tr) syncRowClueHeight(tr);
+      });
+    });
+
+    _.forEach(document.querySelectorAll(".chain-select"), function (sel) {
+      sel.addEventListener("change", onChainChange);
+    });
+
+    _.forEach(document.querySelectorAll(".sortable-th"), function (th) {
+      th.addEventListener("click", function () { onSortClick(th.dataset.sortKey); });
+    });
+
+    _.forEach(document.querySelectorAll(".guess-cell"), function (cell) {
+      cell.addEventListener("dblclick", function () { askGuess(cell.dataset.rowId); });
+      cell.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); askGuess(cell.dataset.rowId); }
+      });
+    });
+
+    _.forEach(document.querySelectorAll(".numberish-cell"), function (cell) {
+      if (!cell.dataset.rowId) return; // disabled: no chain target yet
+      var kind = cell.dataset.kind;
+      var fire = function () { askNumberish(cell.dataset.rowId, kind); };
+      cell.addEventListener("dblclick", fire);
+      cell.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fire(); }
+      });
+    });
+
+    // Easter egg: double-click any of the three "Full Sum" cells to recompute
+    // the numberishes behind it — no visible affordance, just the dblclick.
+    _.forEach(document.querySelectorAll(".full-sum-cell"), function (cell) {
+      if (!cell.dataset.rowId) return;
+      cell.addEventListener("dblclick", function () {
+        askNumberish(cell.dataset.rowId, cell.dataset.kind);
+      });
+    });
+
+    _.forEach(document.querySelectorAll(".refresh-btn"), function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var action = btn.dataset.action;
+        if (action === "numbers") askNumberish(btn.dataset.rowId, "question");
+        else if (action === "hintNumbers") askNumberish(btn.dataset.rowId, "hint");
+        else askGuess(btn.dataset.rowId);
+      });
+    });
+
+    wireDragReorder();
+  }
+
+  // ---------- drag-to-reorder (only shown while sorted by Q#) ----------
+
+  var dragSrcRowId = null;
+
+  function wireDragReorder() {
+    _.forEach(document.querySelectorAll(".drag-cell"), function (handle) {
+      var tr = handle.closest("tr");
+      if (!tr) return;
+      handle.addEventListener("dragstart", function (e) {
+        dragSrcRowId = tr.dataset.rowId;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", tr.dataset.rowId); // Firefox needs this to allow the drag
+        tr.classList.add("dragging");
+      });
+      handle.addEventListener("dragend", function () {
+        tr.classList.remove("dragging");
+        _.forEach(document.querySelectorAll(".quiz-table tbody tr.drag-over"), function (row) {
+          row.classList.remove("drag-over");
+        });
+        dragSrcRowId = null;
+      });
+    });
+
+    _.forEach(document.querySelectorAll(".quiz-table tbody tr"), function (tr) {
+      tr.addEventListener("dragover", function (e) {
+        if (!dragSrcRowId || dragSrcRowId === tr.dataset.rowId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        tr.classList.add("drag-over");
+      });
+      tr.addEventListener("dragleave", function () {
+        tr.classList.remove("drag-over");
+      });
+      tr.addEventListener("drop", function (e) {
+        if (!dragSrcRowId || dragSrcRowId === tr.dataset.rowId) return;
+        e.preventDefault();
+        onRowDrop(dragSrcRowId, tr.dataset.rowId);
+      });
+    });
+  }
+
+  function onRowDrop(srcId, targetId) {
+    if (isLocked()) return;
+    var srcIdx = _.findIndex(activeQuiz().rows, { id: srcId });
+    if (srcIdx === -1) return;
+    var srcRow = activeQuiz().rows[srcIdx];
+    activeQuiz().rows.splice(srcIdx, 1);
+    var targetIdx = _.findIndex(activeQuiz().rows, { id: targetId });
+    if (targetIdx === -1) {
+      activeQuiz().rows.push(srcRow);
+    } else {
+      activeQuiz().rows.splice(targetIdx, 0, srcRow);
+    }
+    renumberByPosition();
+    render();
+    scheduleSave();
+  }
+
+  // Every row gets a fresh, sequential Q# from its final position (top = 1) —
+  // including any row that had no valid Q# before, which can land it well past
+  // whatever the old max was. This only runs off an actual drag; a plain header
+  // click still just sorts by whatever Q# values are already there.
+  function renumberByPosition() {
+    _.forEach(activeQuiz().rows, function (row, idx) {
+      row.qnum = String(idx + 1);
+    });
+  }
+
+  // The "Renumber Q#" button — deliberately NOT the same thing renumberByPosition()
+  // does for a drag-drop. This one is about compressing whatever Q# VALUES are
+  // currently sitting in the rows down to a clean 1..n sequence, without moving
+  // a single row: each row keeps its position, and just trades its current Q#
+  // for that value's rank among every row's Q# (ties broken by short answer,
+  // same as the "Q + #" column's ranking) — so 4, 3.3, 6, 1 becomes 3, 2, 4, 1,
+  // in place. That's the point: it lets "type 3.1 into this row's Q#" work as
+  // "put this between whatever's 3 and 4 right now", and renumbering afterward
+  // just tidies the numbers back to integers without disturbing that placement.
+  // A row with no Q# yet is left alone (it has no rank to take). Because rows
+  // never move here, this must NOT flip on Q#-sort/drag mode the way a real
+  // reorder does — that would immediately re-sort the rows by their newly
+  // cleaned-up values and undo the "no reordering" promise.
+  function renumberByRank() {
+    var ranks = computeQnumRanks(activeQuiz().rows);
+    _.forEach(activeQuiz().rows, function (row) {
+      var r = ranks[row.id];
+      if (r !== null && r !== undefined) { row.qnum = String(r); }
+    });
+  }
+
+  function onRenumberClick() {
+    if (isLocked()) return;
+    renumberByRank();
+    render();
+    scheduleSave();
+  }
+
+  // ---------- quiz import: paste JSON, deep-merge into the active quiz ----------
+  // Both transient — never persisted — so a reload never leaves a stale
+  // paste or a stale result sitting in the box.
+  var importText = "";
+  var importResult = null; // { ok: boolean, summary: string, lines: string[] }
+
+  function shortAnswerKey(s) {
+    var v = _.trim(s);
+    return v ? v.toLowerCase() : null;
+  }
+
+  // What an explicit `null` on an imported field resets it to — matches
+  // what "no value" means for that field everywhere else in the app: the
+  // nullable ai/numbers/hintNumbers/chains_to fields reset to null, every
+  // plain-text field resets to "".
+  var ROW_RESET_VALUES = {
+    qnum: "", question: "", short_answer: "", hint: "",
+    chains_to: null, ai: null, numbers: null, hintNumbers: null,
+    altText: "", notes: "", fullAnswer: ""
+  };
+  // chains_to is handled separately below (it needs remapping, not a
+  // straight copy), so it's excluded from this generic merge list.
+  var MERGE_FIELDS = ["qnum", "question", "short_answer", "hint", "ai", "numbers", "hintNumbers", "altText", "notes", "fullAnswer"];
+
+  // Makes sense of whatever JSON got pasted in: a full multi-quiz export
+  // (uses whichever of its quizzes matches this one by id, else by title,
+  // else its first), a single quiz object, or a bare array of rows. Reads
+  // the RAW parsed object rather than anything Zod has touched, because the
+  // merge below needs to tell "field absent" from "field explicitly null"
+  // apart, and Zod's own defaulting collapses that distinction.
+  function pickRawRowsArray(parsed) {
+    if (parsed && _.isArray(parsed.quizzes)) {
+      var quiz = activeQuiz();
+      var match = _.find(parsed.quizzes, function (q) { return q && q.id === quiz.id; }) ||
+        _.find(parsed.quizzes, function (q) {
+          var k = q && shortAnswerKey(q.title);
+          return k && k === shortAnswerKey(quiz.title);
+        }) ||
+        parsed.quizzes[0];
+      return {
+        rows: (match && _.isArray(match.rows)) ? match.rows : [],
+        sourceLabel: "an exported state (used its quiz " + JSON.stringify((match && match.title) || "") + ")"
+      };
+    }
+    if (parsed && _.isArray(parsed.rows)) {
+      return { rows: parsed.rows, sourceLabel: "a single quiz object" };
+    }
+    if (_.isArray(parsed)) {
+      return { rows: parsed, sourceLabel: "a bare list of rows" };
+    }
+    return null;
+  }
+
+  function onImportClick() {
+    if (isLocked()) return;
+
+    var parsed;
+    try {
+      parsed = JSON.parse(importText);
+    } catch (e) {
+      importResult = { ok: false, summary: "Couldn’t parse that as JSON — " + e.message, lines: [] };
+      console.warn("[trivia-audit] Import: JSON.parse failed — " + e.message);
+      render();
+      return;
+    }
+
+    var picked = pickRawRowsArray(parsed);
+    if (!picked) {
+      importResult = {
+        ok: false,
+        summary: "Didn’t recognize that shape — expected an exported state ({quizzes:[…]}), a single quiz ({rows:[…]}), or a bare array of rows.",
+        lines: []
+      };
+      console.warn("[trivia-audit] Import: unrecognized top-level shape", parsed);
+      render();
+      return;
+    }
+
+    var quiz = activeQuiz();
+    var lines = ["Reading the paste as " + picked.sourceLabel + " — " + picked.rows.length + " row(s)."];
+
+    // foreign row id -> short_answer key, built from the raw import batch
+    // itself, so a chains_to that points at another row *within the pasted
+    // data* can be followed even though every new row gets a fresh id here.
+    var importIdToKey = {};
+    _.forEach(picked.rows, function (r) {
+      if (r && r.id != null) importIdToKey[String(r.id)] = shortAnswerKey(r.short_answer);
+    });
+
+    var pendingChainRemaps = []; // { targetRow, foreignId }
+    var mergedCount = 0, addedCount = 0, skippedCount = 0;
+
+    _.forEach(picked.rows, function (rawRow, idx) {
+      var label = "Row " + (idx + 1) + (rawRow && rawRow.short_answer ? " (“" + rawRow.short_answer + "”)" : " (no short answer)");
+      // ImportRowSchema (not the stricter RowSchema) validates this: every
+      // field nullable, nothing required — an explicit null is a legitimate
+      // "reset this field" instruction here, not a type error.
+      var result = ImportRowSchema.safeParse(rawRow);
+      if (!result.success) {
+        skippedCount++;
+        lines.push(label + ": SKIPPED — failed validation:");
+        _.forEach(formatZodIssues(result), function (l) { lines.push("    " + l); });
+        console.warn("[trivia-audit] Import — " + label + " skipped, failed validation:", result.error.issues);
+        return;
+      }
+      var decoded = result.data;
+      var key = shortAnswerKey(rawRow && rawRow.short_answer);
+      var target = key ? _.find(quiz.rows, function (r) { return shortAnswerKey(r.short_answer) === key; }) : null;
+      var isNew = !target;
+      if (isNew) target = newBlankRow();
+
+      // Same field-by-field merge whether this landed on an existing row or
+      // a fresh blank one: a field absent from the import leaves whatever
+      // was already there (the blank default, for a new row) untouched; an
+      // explicit null resets it; anything else takes the validated/scrubbed
+      // import value.
+      _.forEach(MERGE_FIELDS, function (field) {
+        if (!_.has(rawRow, field)) return;
+        target[field] = (rawRow[field] === null) ? ROW_RESET_VALUES[field] : decoded[field];
+      });
+      if (_.has(rawRow, "chains_to")) {
+        if (rawRow.chains_to === null) { target.chains_to = null; }
+        else { pendingChainRemaps.push({ targetRow: target, foreignId: String(rawRow.chains_to) }); }
+      }
+
+      if (isNew) {
+        quiz.rows.push(target);
+        addedCount++;
+        lines.push(label + ": no existing row shares that short answer — added as new.");
+      } else {
+        mergedCount++;
+        lines.push(label + ": merged into the existing matching row.");
+      }
+    });
+
+    // Resolve chains_to for everything just touched, via the import
+    // batch's own id -> short_answer map. Anything that doesn't resolve to
+    // another row actually present in the merged quiz is left unset rather
+    // than guessed at.
+    _.forEach(pendingChainRemaps, function (entry) {
+      var targetKey = importIdToKey[entry.foreignId];
+      var resolved = targetKey ? _.find(quiz.rows, function (r) { return shortAnswerKey(r.short_answer) === targetKey; }) : null;
+      if (resolved && resolved.id !== entry.targetRow.id) {
+        entry.targetRow.chains_to = resolved.id;
+      } else {
+        entry.targetRow.chains_to = null;
+        lines.push("Note: a chains_to in the import didn’t resolve to another row in this quiz — cleared.");
+      }
+    });
+
+    // Independent safety sweep over the WHOLE quiz (not just what this
+    // import touched): clear any chains_to pointing at a row that no
+    // longer exists, or at itself.
+    var idsPresent = {};
+    _.forEach(quiz.rows, function (r) { idsPresent[r.id] = true; });
+    var clearedDangling = 0;
+    _.forEach(quiz.rows, function (r) {
+      if (r.chains_to && (r.chains_to === r.id || !idsPresent[r.chains_to])) {
+        r.chains_to = null;
+        clearedDangling++;
+      }
+    });
+    if (clearedDangling) lines.push("Cleared " + clearedDangling + " invalid/dangling chains_to link(s) found across the quiz.");
+
+    renumberByRank();
+
+    var summary = mergedCount + " merged, " + addedCount + " added" +
+      (skippedCount ? ", " + skippedCount + " skipped — see log below" : "") +
+      ". Renumbered Q# by rank.";
+    importResult = { ok: skippedCount === 0, summary: summary, lines: lines };
+    importText = "";
+    console.info("[trivia-audit] Import complete — " + summary);
+
+    render();
+    scheduleSave();
+  }
+
+  function onChainChange(e) {
+    if (isLocked()) return;
+    var rowId = e.target.dataset.rowId;
+    var row = _.find(activeQuiz().rows, { id: rowId });
+    if (!row) return;
+    row.chains_to = e.target.value || null;
+    render();
+    scheduleSave();
+  }
+
+  function onFieldBlur(e) {
+    if (isLocked()) return;
+    var rowId = e.target.dataset.rowId;
+    var field = e.target.dataset.field;
+    var row = _.find(activeQuiz().rows, { id: rowId });
+    if (!row) return;
+    var val = e.target.value;
+    if (row[field] !== val) {
+      // Editing the question or hint text leaves any prior numberish
+      // extraction in place (still shown, still summed) but stale — the
+      // model hasn't seen the new wording yet. Recomputing (double-click)
+      // replaces the entry and clears the flag.
+      if (field === "question" && row.numbers) { row.numbers.stale = true; }
+      if (field === "hint" && row.hintNumbers) { row.hintNumbers.stale = true; }
+      row[field] = val;
+      // short_answer feeds every row's "Chains to" options, and hint feeds
+      // whichever row's BUT NOT column points here — re-render so those
+      // other cells pick up the change without waiting on an unrelated action.
+      render();
+      scheduleSave();
+    }
+  }
+
+  function askGuess(rowId) {
+    if (isLocked()) return;
+    if (loading[rowId]) return;
+    var row = _.find(activeQuiz().rows, { id: rowId });
+    if (!row) return;
+    if (!_.trim(row.question)) return;
+    if (!sampleAPI) {
+      row.ai = { status: "error", message: "Asking Claude isn’t available in this view.", updatedAt: Date.now() };
+      render();
+      return;
+    }
+    loading[rowId] = true;
+    refreshCell(rowId, "guess-cell", guessInner(row));
+
+    var prompt = ANSWER_PROMPT_TEMPLATE.replace("{{question}}", row.question);
+
+    sampleAPI(prompt, { modelTier: "quick", cache: false }).then(
+      function (result) {
+        delete loading[rowId];
+        row.ai = {
+          status: "done",
+          text: _.trim(result.text),
+          modelTierApplied: result.modelTierApplied,
+          truncated: result.truncated,
+          approxTokens: estimateTokens(prompt) + estimateTokens(result.text),
+          updatedAt: Date.now()
+        };
+        render();
+        scheduleSave();
+      },
+      function (err) {
+        delete loading[rowId];
+        row.ai = { status: "error", message: errorCopy(err && err.code), updatedAt: Date.now() };
+        render();
+        scheduleSave();
+      }
+    );
+  }
+
+  // Numberish extraction (this function and the bulk recalc below) runs on
+  // "default" rather than "quick" — catching every number-like span, including
+  // easy-to-miss ones like a spelled-out foreign-language numeral, is worth the
+  // extra cost over the quick-model guess, which only needs a fast first
+  // instinct. Existing rows computed before this change keep showing "quick
+  // model" until they're recomputed (individually or via Recalculate all
+  // ishes) — nothing here retroactively touches already-stored results.
+  function askNumberish(rowId, kind) {
+    if (isLocked()) return;
+    var loadKey = (kind === "hint" ? "hn:" : "n:") + rowId;
+    if (loading[loadKey]) return;
+    var row = _.find(activeQuiz().rows, { id: rowId });
+    if (!row) return;
+    var sourceText = kind === "hint" ? row.hint : row.question;
+    if (!_.trim(sourceText)) return;
+    var field = kind === "hint" ? "hintNumbers" : "numbers";
+    if (!sampleAPI) {
+      row[field] = { status: "error", message: "Asking Claude isn’t available in this view.", updatedAt: Date.now() };
+      render();
+      return;
+    }
+    loading[loadKey] = true;
+    refreshCells("numberish-cell", kind === "hint" ? "hint" : "question", rowId, '<div class="ish-scroll">' + numberishCellInner(row[field], kind, rowId) + "</div>");
+
+    var template = kind === "hint" ? HINT_NUMBERS_PROMPT_TEMPLATE : NUMBERS_PROMPT_TEMPLATE;
+    var placeholder = kind === "hint" ? "{{hint}}" : "{{question}}";
+    var prompt = template.replace(placeholder, sourceText);
+
+    sampleAPI.json(prompt, { modelTier: "default", cache: false }).then(
+      function (result) {
+        delete loading[loadKey];
+        var items = _.isArray(result) ? result : [];
+        items = items
+          .map(function (it) {
+            return {
+              text: String((it && it.text) || ""),
+              value: Number(it && it.value),
+              kind: (it && it.kind === "numeral") ? "numeral" : "wordish"
+            };
+          })
+          .filter(function (it) { return it.text && isFinite(it.value); });
+        row[field] = {
+          status: "done",
+          items: items,
+          modelTierApplied: "default",
+          approxTokens: estimateTokens(prompt) + estimateTokens(JSON.stringify(result)),
+          updatedAt: Date.now()
+        };
+        render();
+        scheduleSave();
+      },
+      function (err) {
+        delete loading[loadKey];
+        row[field] = { status: "error", message: errorCopy(err && err.code), updatedAt: Date.now() };
+        render();
+        scheduleSave();
+      }
+    );
+  }
+
+  // ---------- bulk ishes recompute ----------
+  // One combined request for every question and hint that has text, instead
+  // of one request per cell — the fixed rules/instructions text is the same
+  // either way, so folding everything together pays for it once. The token
+  // total shown afterward is for that one combined request as a whole, kept
+  // separate from (and never clearing, or cleared by) each cell's own
+  // "~N tok" figure from an individual ask.
+
+  function collectBulkNumberishItems(rows) {
+    var items = [];
+    _.forEach(rows, function (row) {
+      if (_.trim(row.question)) { items.push({ key: "q:" + row.id, rowId: row.id, field: "numbers", text: row.question }); }
+      if (_.trim(row.hint)) { items.push({ key: "h:" + row.id, rowId: row.id, field: "hintNumbers", text: row.hint }); }
+    });
+    return items;
+  }
+
+  function onRecalcAllIshesClick() {
+    if (isLocked()) return;
+    if (loadingBulkIshes) return;
+    recalcNotice = null;
+    var items = collectBulkNumberishItems(activeQuiz().rows);
+    if (!items.length) {
+      recalcNotice = "No questions or hints have any text yet — nothing to recalculate.";
+      render();
+      return;
+    }
+    if (!sampleAPI) {
+      recalcNotice = "Asking Claude isn’t available in this view.";
+      render();
+      return;
+    }
+
+    loadingBulkIshes = true;
+    _.forEach(items, function (it) { loading[(it.field === "hintNumbers" ? "hn:" : "n:") + it.rowId] = true; });
+    render();
+
+    var prompt = buildBulkNumbersPrompt(items);
+
+    sampleAPI.json(prompt, { modelTier: "default", cache: false }).then(
+      function (result) {
+        loadingBulkIshes = false;
+        _.forEach(items, function (it) { delete loading[(it.field === "hintNumbers" ? "hn:" : "n:") + it.rowId]; });
+
+        var byKey = {};
+        _.forEach(_.isArray(result) ? result : [], function (entry) {
+          if (entry && typeof entry.key === "string") { byKey[entry.key] = entry; }
+        });
+
+        _.forEach(items, function (it) {
+          var row = _.find(activeQuiz().rows, { id: it.rowId });
+          if (!row) return;
+          var entry = byKey[it.key];
+          if (!entry) {
+            row[it.field] = { status: "error", message: "The combined response didn’t include this one — try refreshing it on its own.", updatedAt: Date.now() };
+            return;
+          }
+          var cleaned = (_.isArray(entry.items) ? entry.items : [])
+            .map(function (raw) {
+              return {
+                text: String((raw && raw.text) || ""),
+                value: Number(raw && raw.value),
+                kind: (raw && raw.kind === "numeral") ? "numeral" : "wordish"
+              };
+            })
+            .filter(function (raw) { return raw.text && isFinite(raw.value); });
+          // No per-row approxTokens here — the cost was shared across every
+          // item in the one request, so attributing a slice of it to just
+          // this row would be a made-up number. The real total is on the
+          // request as a whole, in activeQuiz().bulkIshesLast below.
+          row[it.field] = { status: "done", items: cleaned, modelTierApplied: "default", updatedAt: Date.now() };
+        });
+
+        activeQuiz().bulkIshesLast = {
+          approxTokens: estimateTokens(prompt) + estimateTokens(JSON.stringify(result)),
+          items: items.length,
+          updatedAt: Date.now()
+        };
+        recalcNotice = null;
+
+        render();
+        scheduleSave();
+      },
+      function (err) {
+        loadingBulkIshes = false;
+        _.forEach(items, function (it) { delete loading[(it.field === "hintNumbers" ? "hn:" : "n:") + it.rowId]; });
+        recalcNotice = "Couldn’t recalculate: " + errorCopy(err && err.code) + " Nothing was changed.";
+        render();
+      }
+    );
+  }
+
+  function refreshCell(rowId, cellClass, html) {
+    var cell = document.querySelector("." + cellClass + '[data-row-id="' + rowId + '"]');
+    if (cell) cell.innerHTML = html;
+  }
+
+  function refreshCells(cellClass, kind, rowId, html) {
+    var selector = "." + cellClass + '[data-row-id="' + rowId + '"]';
+    if (kind) selector += '[data-kind="' + kind + '"]';
+    _.forEach(document.querySelectorAll(selector), function (cell) {
+      cell.innerHTML = html;
+    });
+  }
+
+  function estimateTokens(str) {
+    // Rough client-side estimate only — the page has no way to read the
+    // request's real token count, so this is chars/4, ceiling.
+    var s = _.trim(str);
+    return s ? Math.ceil(s.length / 4) : 0;
+  }
+
+  function errorCopy(code) {
+    switch (code) {
+      case "not_granted": return "You haven’t allowed this page to ask Claude.";
+      case "rate_limited": return "Too many requests right now — try again shortly.";
+      case "refused": return "Claude declined to answer this one.";
+      case "empty_completion": return "Got an empty answer — try again.";
+      case "invalid_json": return "Couldn’t read that as structured data — try again.";
+      case "sampling_disabled": return "Asking Claude is off for this account.";
+      case "session_expired": return "Sign in again to keep asking Claude.";
+      case "upstream_error": return "A connection hiccup — try again.";
+      default: return "Something went wrong asking the model.";
+    }
+  }
+
+  // ---------- boot ----------
+
+  render();
+
+  var capabilityInit = (window.claude && typeof window.claude.use === "function")
+    ? window.claude.use("sample").catch(function () { return null; })
+    : Promise.resolve(null);
+
+  capabilityInit.then(function (res) {
+    sampleAPI = res;
+  });
+
+  // Bonus, not required for this browser to keep its own data: if another
+  // tab open to this same page saves a change, pick it up here too. This is
+  // purely a same-browser convenience (the native "storage" event only ever
+  // fires in OTHER tabs/windows, never the one that made the write) — it
+  // does nothing across different browsers or devices.
+  window.addEventListener("storage", function (e) {
+    if (e.key !== STORAGE_KEY || !e.newValue) return;
+    try {
+      var parsed = JSON.parse(e.newValue);
+      if (parsed && _.isArray(parsed.rows)) {
+        state = parsed;
+        render();
+      }
+    } catch (err) {
+      // corrupt write from elsewhere — ignore, keep showing what we have
+    }
+  });
+
+  // A width change can reflow how much a clue/hint box needs to wrap to, so
+  // re-measure after resizing settles down.
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(syncClueHeights, 150);
+  });
+})();
+</script>
+
+</body></html>

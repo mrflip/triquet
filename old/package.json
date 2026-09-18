@@ -1,0 +1,9 @@
+{
+  "name": "trivia-ambiguity-audit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone export of the Trivia Ambiguity Audit Claude artifact (static single-file app).",
+  "scripts": {
+    "dev": "npx http-server . -o"
+  }
+}
