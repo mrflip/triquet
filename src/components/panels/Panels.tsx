@@ -4,6 +4,7 @@ import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import * as Sheets from '../../lib/sheets'
+import * as UU from '../../lib/useful'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { QuizT } from '../../models/quiz'
 import type { WorkspaceT } from '../../models/workspace'
@@ -24,7 +25,7 @@ export function Panels({ quiz, workspace, onMerged }: Readonly<{ quiz: QuizT, wo
         title="Export"
         blurb="Every quiz you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a quiz between browsers."
       >
-        <ReadonlyBox label="Export" text={JSON.stringify(workspace)} rows={10} dense />
+        <ReadonlyBox label="Export" text={UU.jsonify(workspace)} rows={10} dense />
       </Panel>
 
       <ImportPanel quiz={quiz} locked={quiz.locked} onMerged={onMerged} />

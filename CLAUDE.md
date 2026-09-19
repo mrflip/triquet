@@ -92,6 +92,9 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
   - This also applies to Typescript: if genericity is salient, use `<MT>` for a model instance, `<SK>` for an unvalidated POJO, `TT` for a generic type -- never `T`, `I`, etc
 * Never bare `name`, `value`, `node`, `error` or `query` as a variable name. Use `err`, never
   `error`.
+* **Emit JSON with `UU.jsonify`, not `JSON.stringify`** (`import * as UU from '../lib/useful'`): keys come out
+  alphabetical at every depth, so output is deterministic and diffs show changes rather than shuffles.
+  `{ pretty: true }` for files. Utilities of that kind live in `lib/useful.ts`.
 * Never `type` to mean "kind": `woodkind`, not `woodType`. `type` is reserved for data model type.
 * `const` by default; `var` only where the value is genuinely reassigned. Functional style is
   strongly preferred.

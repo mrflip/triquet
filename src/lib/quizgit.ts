@@ -1,9 +1,9 @@
 import * as git from 'isomorphic-git'
 import { zipSync } from 'fflate'
-import stringify from 'safe-stable-stringify'
 import * as Changes from './changes'
 import * as Labelmaker from './labelmaker'
 import * as Sheets from './sheets'
+import * as UU from './useful'
 import type { QuizT } from '../models/quiz'
 
 /** Where each quiz's repository lives, one directory per quiz, named by the id that never moves */
@@ -89,7 +89,7 @@ export async function flushFs(fs: GitFs): Promise<void> {
 export function quizFiles(quiz: QuizT): Map<string, string> {
   return new Map([
     [quizFilenameFor(quiz), `${Sheets.sheetsExport(quiz.questions)}\n`],
-    [quizJsonFilenameFor(quiz), `${stringify(quiz, null, 2)}\n`],
+    [quizJsonFilenameFor(quiz), `${UU.jsonify(quiz, { pretty: true })}\n`],
   ])
 }
 
