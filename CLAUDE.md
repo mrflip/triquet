@@ -12,6 +12,10 @@ We are building a lightweight tool for constructing trivia quizzes, which someti
 a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps
 store, edit and refine the question text, and also to assess questions for fairness and difficulty/
 
+Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
+a validator needs no migration path for anyone's quizzes (the schema migrations in `/drizzle` still
+get generated, since databases exist on developer machines).
+
 Project instructions, loaded at the start of every session. Keep this file short and true:
 everything here costs context on every task, whether or not the task needs it.
 

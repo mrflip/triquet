@@ -216,6 +216,35 @@ the whole history; fine now, a window function when it isn't.
 * The git mirror is unchanged and still lives in the browser, so history and database can drift
   apart if one browser's cookie changes. Worth deciding whether history moves server-side too.
 
+## Validators, reconciled
+
+The models' `ValidatorKit` now hands out the vv checks rather than its own look-alikes, so there is
+one definition of each shape, and the table columns take their lengths from the same pattern bags
+(`text({ length: PA.Noteish.max })` and so on; SQLite ignores the length, drizzle-zod does not).
+
+* `textish` -- no control characters but tab and newlines, at most 3600, **never trimmed**:
+  `clueing`, `hint`, and the text sent to `/api/ask`.
+* `noteish` -- the same, **trimmed** (was vv's `notestr`): `notes`, `alt_text`, `full_answer`,
+  dumdum's reply, an ask's error message, a player's blurb and prompts.
+* `titleish` -- one line, at most 82: question, quiz and player titles. The kit's old `title`
+  (max 200, any characters) is gone. A question's title is now described as "a brief name for the
+  question, which can optionally be added to its text"; the answer is `full_answer`.
+* `label` -- letter first, letter or digit last, 2 to 40 characters. vv's pattern was letter-first
+  only, capped at 25, which would have refused generated labels (adjective_animal runs to 29).
+  `normalize` now never returns more than 40, and `appendFallback` uses an 8-character random tail
+  and cuts the label short so the whole still fits.
+* `ulid` -- vv's, which also insists on a leading 0-7 (every ulid minted before the year 10889).
+* Import reuses the question's own field schemas instead of restating them.
+
+**Left alone, on purpose:** an ish span's `text` is still a bare non-empty string. That schema is
+also the structured-output format sent to Claude, and a `\p{Cc}` regex in it risks every
+extraction failing. `qnum` keeps its own regex, which has no length to share.
+
+**Noticed, not fixed:** `localBlankLabel` falls back to a raw ulid, which starts with a digit and so
+is not a valid label. It only happens after 20 straight collisions, i.e. never, but it is wrong.
+And with no existing data anywhere, the localStorage carry-in from the database cycle is code
+nobody needs; say the word and it goes.
+
 ## Stack decisions I made without asking
 
 * **localStorage, not Turso** -- overturned in the fourth cycle, above.
@@ -295,7 +324,7 @@ in the document:**
 ## If you want to run it
 
     pnpm dev              # the app
-    pnpm test             # 1131 vitest specs
+    pnpm test             # 1149 vitest specs
     pnpm test:e2e         # 76 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
