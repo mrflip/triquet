@@ -34,7 +34,7 @@ async function qnumsShown(page: Page): Promise<string[]> {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.context().clearCookies()
-  await page.reload()
+  await page.goto('/')
 })
 
 test('a decimal Q# leaves the question where it is', async ({ page }) => {

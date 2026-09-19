@@ -254,6 +254,66 @@ export async function zipQuizRepo(fs: GitFs, quiz: QuizT): Promise<Uint8Array> {
   return zipSync(entries)
 }
 
+/** One quiz repository as it stands on disk, whether or not any quiz still answers to it */
+export type RepoSummary = {
+  /** The id of the quiz the repository belongs to: its directory's name */
+  id:          string
+  /** The quiz's label in its latest commit, or null when nothing has been committed */
+  label:       string | null
+  /** The branch checked out, or null when it has none yet */
+  branch:      string | null
+  /** The latest commit's message, or null when nothing has been committed */
+  message:     string | null
+  /** When the latest commit was made, in epoch milliseconds, or null when nothing has been committed */
+  committed_at: number | null
+}
+
+/**
+ * Every quiz repository the filesystem holds, newest work first.
+ *
+ * Independent of the workspace on purpose: a deleted quiz leaves its repository behind, and this
+ * is where it can still be found. A directory that is not a repository is left out.
+ *
+ * @param fs - Where the repositories live.
+ * @returns One summary per repository; empty when there are none.
+ *
+ * @example (await listRepos(fs)).map((repo) => repo.label)  // => ['quiet_otter']
+ */
+export async function listRepos(fs: GitFs): Promise<RepoSummary[]> {
+  const ids = await readdirOrNothing(fs, RepoRoot)
+  const found: RepoSummary[] = []
+  for (const id of ids) {
+    const summary = await summarizeRepo(fs, id)
+    if (summary) { found.push(summary) }
+  }
+  return _.orderBy(found, [(repo) => repo.committed_at ?? 0], ['desc'])
+}
+
+/** `id`'s repository in brief, or null when the directory is not a repository */
+async function summarizeRepo(fs: GitFs, id: string): Promise<RepoSummary | null> {
+  const dir = `${RepoRoot}/${id}`
+  try {
+    const branch = (await git.currentBranch({ fs, dir })) ?? null
+    if (! await hasCommits(fs, dir)) { return { id, label: null, branch, message: null, committed_at: null } }
+    const [latest] = await git.log({ fs, dir, depth: 1 })
+    const filepaths = await git.listFiles({ fs, dir, ref: 'HEAD' })
+    return {
+      id, branch,
+      label:        labelFromPath(filepaths[0]),
+      message:      latest?.commit.message.trim() ?? null,
+      committed_at: latest ? latest.commit.committer.timestamp * 1000 : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** The quiz label in a path `quizPathsFor` made: `tq/hunt/{label}/...`; null for any other path */
+function labelFromPath(filepath: string | undefined): string | null {
+  const [root, hunt, label] = filepath?.split('/') ?? []
+  return root === 'tq' && hunt === 'hunt' && label ? label : null
+}
+
 /** Open `dir` as a repository on branch `version`, creating either the first time it is needed */
 async function openRepo(fs: GitFs, dir: string, version: string): Promise<void> {
   await mkdirp(fs, dir)

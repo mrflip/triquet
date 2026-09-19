@@ -4,7 +4,7 @@ import { reloadOnceSaved } from './support'
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.context().clearCookies()
-  await page.reload()
+  await page.goto('/')
 })
 
 test('a fresh workspace opens with blank questions rather than a void', async ({ page }) => {

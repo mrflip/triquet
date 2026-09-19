@@ -298,6 +298,11 @@ describe('workspaceReducer', () => {
       const ante = Workspace.fill({ quizzes: [locked], active_quiz_id: locked.id })
       expect(workspaceReducer(ante, { kind: 'new_quiz' }).quizzes).to.have.length(2)
     })
+
+    it('starts the new quiz under the label it is given', () => {
+      const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'new_quiz', label: 'princes' })
+      expect(present(openQuizOf(after)).label).to.eq('princes')
+    })
   })
 
   describe('delete_quiz', () => {

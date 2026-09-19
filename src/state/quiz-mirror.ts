@@ -143,3 +143,13 @@ export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
   await scheduler.flush(quiz.id)
   return await enqueue(async (fs) => await Quizgit.zipQuizRepo(fs, quiz))
 }
+
+/**
+ * Every quiz repository this browser holds, including those of quizzes since deleted.
+ *
+ * @returns One summary per repository, newest work first; empty where this browser keeps no history.
+ */
+export async function listQuizRepos(): Promise<Quizgit.RepoSummary[]> {
+  const repos = await enqueue(async (fs) => await Quizgit.listRepos(fs))
+  return repos ?? []
+}

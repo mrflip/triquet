@@ -16,7 +16,7 @@ function guessCell(page: Page, rowIdx: number) {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.context().clearCookies()
-  await page.reload()
+  await page.goto('/')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })

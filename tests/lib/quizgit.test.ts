@@ -368,3 +368,50 @@ describe('zipQuizRepo', () => {
     expect(Object.keys(entries).some((filepath) => filepath.startsWith('ours/.git/'))).to.eq(true)
   })
 })
+
+describe('listRepos', () => {
+  it('finds nothing where no history has been kept', async () => {
+    expect(await Quizgit.listRepos(suite.fs)).to.deep.eq([])
+  })
+
+  it('summarises each repository: its quiz, branch and latest commit', async () => {
+    const quiz = quizOf([questionOf('q1', { clueing: 'Who?' })])
+    await commitFresh(quiz)
+    const [repo] = await Quizgit.listRepos(suite.fs)
+    expect(repo).to.include({ id: quiz.id, label: 'ours', branch: 'main' })
+    expect(repo?.message).to.eq(Changes.shorthandFor(Changes.quizChanges(null, quiz)))
+    expect(repo?.committed_at).to.be.closeTo(Date.now(), 60_000)
+  })
+
+  it('reports the branch the history is on, and the latest commit on it', async () => {
+    const quiz = quizOf([questionOf('q1')])
+    await commitFresh(quiz)
+    const revised = { ...quiz, questions: [{ ...quiz.questions[0]!, clueing: 'Who now?' }], version: 'draft' }
+    await commitStep(quiz, revised)
+    const [repo] = await Quizgit.listRepos(suite.fs)
+    expect(repo).to.include({ branch: 'draft', message: Changes.shorthandFor(Changes.quizChanges(quiz, revised)) })
+  })
+
+  it('lists a quiz whose history has only just begun, as a repository with nothing committed', async () => {
+    const quiz = quizOf([])
+    await Quizgit.milestoneQuiz(suite.fs, quiz)
+    expect(await Quizgit.listRepos(suite.fs)).to.deep.eq([
+      { id: quiz.id, label: null, branch: 'main', message: null, committed_at: null },
+    ])
+  })
+
+  it('lists every quiz, the newest work first', async () => {
+    const [older, newer] = [quizOf([], { title: 'Older' }), quizOf([], { title: 'Newer' })]
+    await commitFresh(older)
+    await commitFresh({ ...newer, forced_label: 'newer' })
+    await new Promise((resolve) => { setTimeout(resolve, 1100) })
+    await commitStep(older, { ...older, title: 'Older, revised' })
+    const repos = await Quizgit.listRepos(suite.fs)
+    expect(repos.map((repo) => repo.label)).to.deep.eq(['ours', 'newer'])
+  })
+
+  it('leaves out a directory that is not a repository', async () => {
+    await nodeFs.promises.mkdir(path.join(suite.root, Quizgit.RepoRoot, 'stray'), { recursive: true })
+    expect(await Quizgit.listRepos(suite.fs)).to.deep.eq([])
+  })
+})

@@ -28,7 +28,7 @@ export type WorkspaceAction =
   | { kind: 'set_ishes', question_id: string, textkind: Textkind, ishes: IshesT }
   | { kind: 'apply_bulk_ishes', landings: readonly BulkLanding[], run: BulkIshesRunT }
   | { kind: 'open_quiz', quiz_id: string }
-  | { kind: 'new_quiz' }
+  | { kind: 'new_quiz', label?: string }
   | { kind: 'delete_quiz', quiz_id: string }
   | { kind: 'set_lock', quiz_id: string, locked: boolean }
   | { kind: 'replace_open_quiz', quiz: QuizT }
@@ -104,7 +104,8 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       : workspace
   }
   case 'new_quiz': {
-    const fresh = Quiz.blank()
+    // A label named here, like a relabel, is the caller's job to have checked for uniqueness.
+    const fresh = Quiz.blank('', action.label)
     return { quizzes: [...workspace.quizzes, fresh], active_quiz_id: fresh.id }
   }
   case 'delete_quiz': {

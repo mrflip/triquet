@@ -10,7 +10,7 @@ async function sheetsText(page: Page): Promise<string> {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.context().clearCookies()
-  await page.reload()
+  await page.goto('/')
   for (const [ii, [qnum, clueing]] of ([['3', 'third'], ['1', 'first'], ['2', 'second']] as const).entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(clueing)

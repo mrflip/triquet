@@ -31,7 +31,7 @@ function butnotCell(page: Page, rowIdx: number) {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.context().clearCookies()
-  await page.reload()
+  await page.goto('/')
   await fillQuiz(page, [
     ['3', 'cherry', 'BUT NOT the fruit-flavoured one'],
     ['1', 'apple',  'BUT NOT the company from Cupertino, founded in 1976'],

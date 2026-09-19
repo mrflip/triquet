@@ -83,4 +83,14 @@ describe('Quiz.blank', () => {
   it('takes a title when one is offered', () => {
     expect(Quiz.blank('Quiz two').title).to.eq('Quiz two')
   })
+
+  it('takes a label when one is offered, and titles itself from it', () => {
+    const quiz = Quiz.blank('', 'danishprinces')
+    expect(quiz.label).to.eq('danishprinces')
+    expect(quiz.title).to.eq('Danishprinces')
+  })
+
+  it('refuses a label that is not one', () => {
+    expect(() => Quiz.blank('', 'Not A Label')).to.throw(Z.ZodError)
+  })
 })

@@ -33,6 +33,7 @@ export const AppNotices = {
   copyRefused:          'Selected — press Ctrl/Cmd+C',
   nothingToMilestone:   'No history here yet — make an edit first.',
   noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
+  noRepositories:       'No history has been kept in this browser yet.',
 } as const
 
 /** What a cell reads when it holds no result, or a result the author should read differently */

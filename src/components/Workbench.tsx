@@ -6,12 +6,14 @@ import { Footnote } from './Footnote'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
+import { QuizNotFound } from './QuizNotFound'
 import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
-import { useQuizHashSync } from '../state/use-quiz-route'
+import { useQuizHashSync, writeQuizHash } from '../state/use-quiz-route'
+import * as Labelmaker from '../lib/labelmaker'
 import styles from './workbench.module.css'
 
 /** The whole tool: one quiz on screen, saved the moment anything changes */
@@ -23,7 +25,18 @@ export function Workbench() {
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
-  useQuizHashSync(workspace, quiz, dispatch)
+  const { missingLabel } = useQuizHashSync(workspace, quiz, dispatch)
+
+  if (quiz && missingLabel !== null) {
+    return (
+      <QuizNotFound
+        label={missingLabel}
+        workspace={workspace}
+        onOpen={(target) => { dispatch({ kind: 'open_quiz', quiz_id: target.id }); writeQuizHash(Labelmaker.effectiveLabelOf(target)) }}
+        onCreate={(label) => { dispatch({ kind: 'new_quiz', label }); writeQuizHash(label) }}
+      />
+    )
+  }
 
   if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main> }
 

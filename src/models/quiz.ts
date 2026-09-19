@@ -113,15 +113,18 @@ export class Quiz implements QuizT {
    * Fresh quiz under a newly minted id, holding `BlankQuestionQty` empty questions.
    *
    * @param title - What to call it; defaults to unnamed, which displays as "Untitled quiz".
+   * @param label - The label it starts under; one is generated when omitted.
    * @returns A quiz ready to type into.
    *
    * @example Quiz.blank().questions.length  // => 5
+   * @example Quiz.blank('', 'princes').label  // => 'princes'
    */
-  static blank(title = ''): QuizT {
+  static blank(title = '', label?: string): QuizT {
     return this.fill({
       id:        mintId(),
       title,
       questions: Array.from({ length: BlankQuestionQty }, () => Question.blank()),
+      ...(label !== undefined && { label }),
     })
   }
 }

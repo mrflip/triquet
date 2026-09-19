@@ -25,7 +25,7 @@ async function stubRun(page: Page, valueOf: (key: string) => number) {
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.context().clearCookies()
-  await page.reload()
+  await page.goto('/')
   for (const ii of [0, 1, 2]) {
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
@@ -85,7 +85,8 @@ test('a failed run changes nothing, and says so', async ({ page }) => {
 
 test('a quiz with no text at all gets its own notice rather than an empty request', async ({ page }) => {
   await page.context().clearCookies()
-  await page.reload()
+  // Not a reload: the address still names the old workspace's quiz, which the new one lacks.
+  await page.goto('/')
   await page.route('**/api/ask', (route) => route.abort())
   await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
   await expect(page.getByText('No questions or hints have any text yet — nothing to recalculate.')).toBeVisible()
