@@ -48,8 +48,10 @@ The top three values while writing code are **empathy, safety and readability**.
   never in doc blocks or code comments.
 * `eslint.config.mjs` is the final authority on formatting. Run the linter; however, if it conflicts with the higher guidelines of
   legibility and productivity, you are approved for `@eslint-disable-line` (`no-param-reassign`, `no-explicit-any`) or `@ts-expect-error` if they are the correct compromise -- apply them but **report it in chat**.
-* ignore **everything in /aside/**/**, **everything with the word `secret` or `secret` unless it also says `template`**.
-  - also do not design anything that needs such a file. Use doppler.
+* To help keep your context clean, we've drawn curtains over a couple areas of the file tree
+  - ignore **everything in /aside/**/**, **everything with the word `secret` or `secret` unless it also says `template`**.
+    (also do not design anything that needs such a file. Use doppler.)
+  - ignore **everything in /relics/**, unless we tell you that we are *specifically working with files in there*. If we are, use the directives in .claude/rules/relics
 
 ## Global resources
 

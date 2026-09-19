@@ -1,6 +1,6 @@
 ---
 paths:
-  - "**"
+  - "**/*"
 ---
 
 # Development Guidelines

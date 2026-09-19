@@ -2,13 +2,177 @@ I envision the puzzle editor as being modular for different puzzles
 
 At the basic level, we have a quiz, with questions, having "Q#", "label", "question", "answer".
 
-Other things come in as widgets that do complicated things, or expressions if it's just post-processing.
+Other things come in as widgets that do complicated things, or expression if it's just post-processing.
 
 We are **not** implementing some sort of module facility where we need to be thinking about generic data model and whatnot for these. This is more about strict separation of concerns and a way to manage what I see on the screen for various lifecycle phases of editing a quiz
 
-
 ## Expressions
 
+Expressions let me have columns which work on other calculated elements of a puzzle (quiz)
+For example, we currently have a columns that is {sum the Q# and the full ishes}
+
 Add JSONata.
-Allow a quiz to have many expressions.
+
+An expression has:
+- an owner: right now, 'tq'
+- A label. with the owner, it's globally unique
+- A formula (the jsonata expression). Can have newlines, max 999 chars
+- A description
+
+An expressing has:
+- a `rel`
+
+
+
+For tsv flattening: json-encode each field with something like _.values(rowClxn).map((val) => UU.jsonify(val)), and pass that to papaparse. Have both use the same machinery. (I'm adding clxn to the stylesheet as approved for bag|array).
+
+## DB/ ORM
+
+We move the codebase to use a proper db, as some of our next steps are going to want more sophisticated data modelling and I don't want to get crossgrained.
+
+
+## Validations
+
+First: in this session, we will work within `/relics`. Me telling you that should unlock a specific process document that I've written, outlining the epochs and giving you a phrase to use -- do you see it (don't search for it if not)
+
+I have a beautiful toolchest of validators, regexes and constants built up over the last decades of coding. Its current form is written in Zod 3, and has a few specific hacks that I want to correct.
+
+1. subdirectory: `/relics/vv`, reliclabel will be `vv`
+2. Gain the value of these validators, but without heavy weight. Modernize it to zod 4. Evict the workarounds and powerful-but-crufty error reporting layer. Upgrade the current Validator helper with the best parts of the relic Validator
+3. I like pretty much all of the validations. I like the phrasing of the error messages. There might be some terms that differ from our naming conventions, but we'll fix those in a later wave
+4. What parts not to trust:
+  - advise me on how you propose organizing the files to allow treeshaking.
+  - do NOT bring over the zod monkey patch, or any of the other aspects that rely on its internals
+  - do NOT bring over the current implementation of the error reporter: we want to regain the fluency of its output, but not at the cost of its current complexity
+  - do NOT use any fallbacks or compatibility patches to make a zod3 construct work with zod4
+  - do NOT try to modernize complex validators: ones with pipe or transform functions or which rely on deprecated zod 3 constructs -- eg a great part of URLChecks. You will in phase one transfer them over, in phase two comment them out and comment that they require modernization.
+5. Changes in contract:
+   - only a select few parts of relics/vv/src/validators will be translated
+   - the way the validators are imported leaves a minor annoyance we'll discuss
+6. Proposed waves to work in; don't start any of these, but I want you to know what's coming
+  1. implement a good inspectify function that works on client and server. I will describe in a later message
+  2. write a proper zod error reporter that gives empathetic informative information. Get its tests to pass. Decide where to stop trying to make it awesome and move on.
+  3. bring over the checks and associated types, perhaps in a couple of passes. They'll have the new file structure to match this repo's needs, but should 90% move over well
+  4. reimplement my old Validator, correcting, perhaps some of its pecadilloes and eliminating a few over-reaches.d
+
+Given that, carry out the first epoch (test planning) of the relic process.
+
+## Epoch 2
+Quickie: would you look at the .claude/rules/* and let me know if I have the frontmatter correct and understand how it works -- should I tell you directly to look into it? assume it autovivifies?
+
+I'll respond to your comments here so you have the background. I like your plan on the inspectify function, do that.
+However, ONLY do that step; do NOT try to reimpliment the current test reporter, as I want to discuss once you have those
+
+---
+Guidance / replies to the test planning phase:
+
+Yes, use vitest's snapshot facility. Where does it put the files? My work repo puts them into a hidden directory matching the file tree of tests, which I enjoy: we can version them into git and give them their own commit if needed,exclude from search paths, etc. I can't stand seeing turds, even hidden, sitting next to files: clouds up diffs. HOWEVER. It took a LOT of work to get jest to do that, and I can't endorse a long side trip. If it already does something reasonable, or it's easy and built-in to do it by my preference, goforit. Otherwise, discuss
+
+I am updating the relics file for the next phase, and I'll let you know when it's worth reading. great job by you so  far.
+
+1. woops I meant exactly to say inspectify MUST be NON-async. this is why you don't coin names with intrinsic negatives. must be immediate and never-failing.
+2. Yes wave 2 will be to get that and many other empathetic improvements in the reporter
+3. have `badprops` keys use `cuts[0].year` bracket form
+4. do not cater to old bugs. Remove. If others are encountered, or workarounds, bring them across commented out.
+5. DatetimeValidator tests -- you found a relic in a relic, the commented out tests apply to the Yup suite we had before this one. Abandon all the commented-out lines from that file. Keep the other ones -- if they fail we'll discuss.
+
+I added TestHelpers, stubbing the methods. Keep references to see, prettify and Examples, drop the others. If you enjoy the pretty whitespaced layout of the example blocks -- prettify will emit those; it's easy to read and then the actual results can just be copy-pasted back in as styleguide compliant code. We won't be implementing it during this sprint.
+
+For Validator, the key feature is that i can do`obj({ title, email, phone: phone.nullable() })` without polluting the namespace. If I do named imports, I can't also use them in methods, and a pattern that works very well is to define the adhoc validators at the top of a module file, including ones that directly mirror the arg names (i.e. namespace collisions are 100% guaranteed):
+
+```
+// in lib/spam/GreatNewsEveryone.ts
+
+import * as ContactValidators from '...'
+import * as URLValidators     from '...'
+
+const Validate = Validator(({ phone, email, url, noteish, obj }) => {
+  const smsGreatNews = obj({ phone, url, news: noteish })
+  return { sendGreatNews }
+}, [ContactValidators, URLValidators]) // <-- these are merged in
+
+export type SmsGreatNewsA = Z.input<typeof Validate.sendGreatNews>
+
+/** sends spam with our url to their phone **/
+function smsGreatNews(params: SmsGreatNewsA) {
+  const { phone, url, news } = Validate.smsGreatNews(params)
+  // ...
+}
+```
+
+If a file were large enough that the import * was still offensive, option one is break it up, or could we re-export it?
+
+```
+// lib/spam/MessagingChecks.ts -- exports checks for cohorts of related modules that import similar validators
+export { phone, email } from ...
+export { url } from ....
+```
+
+Let me know if that will still make tree shaking issues.
+
+Digest, implement the inspectify and have the shimmed function re-exported by useful, and then we'll talk about the next step.
+
+
+## Epoch 3
+I will on a later pass bring in my inspectify to get the options suite and other mods. Thanks for the resolveSnapshot path...`__snapshots__/ beside each test file` shudder.
+Don't enable the sideEffects until we see things disappear.
+Yes on the eslint disable, thanks and good job.
+If I understand right on the current trajectory my tests will pass and I will (on server side) see the inspectified output they produce. However, when I see something on the client side, it will look different and duller; we wouldn't see that in tests unless we added it to the playwright style tests. If what I just said is correct, we are on track. Error messages on client side will improve as we encounter errors too ugly to live. (If I had in my terminal what the browser console.log gives -- a live, explorable object -- I would never have written this stuff).
+---
+
+Zod error reporting.
+
+Alright, would you help me confirm this is true:
+
+  ¿The only way we can get errors to include their input is to, on every call to .parse, supply the reportInput: true flag.?
+
+My options would be then
+
+1. to monkeypatch zod as I did last time -- adding a `.cast` method to the validators, being real careful how I re-export. instead of calling `CK.title.parse` we just call `CK.title.cast` which is fine.
+2. fork the repo and default the flag to true
+3. maybe you know how to apply a patch when pnpm brings the repo in? If that's ok I'm good
+4. have Validator either patch the prototype chain, or add methods .cast & .report and merge that type in. However, I think I tried it and type inference died.
+5. have helpers cast, report that I have to import everywhere. Code does not look like what agents expect.
+6. suggestions please.
+
+I dont
+
+```ts
+
+// we returned three checks. Validator will modify those
+const Validate = Validator(({ phone, email, url, noteish, obj }) => {
+  const smsGreatNews = obj({ phone, url, news: noteish })
+  const emailGreatNews = ...
+  const anotherHelper = ...
+  return { sendGreatNews, anotherHelper, emailGreatNews }
+}, [ContactValidators, URLValidators])
+
+export type SmsGreatNewsA = Z.input<typeof Validate.checks.sendGreatNews>
+
+// o4a. Validator shims the prototype tree, no type shenanigans needed, no monkeypatch
+const foo = Validate.sendGreatNews.parse({ ... }) // a prototype patched method that calls super.parse(val, { reportInput: true })
+
+// o4b. Validator adds on new function names and merges it into the return type
+const foo = Validate.sendGreatNews.cast({ ... }) // calls this.parse(val, { reportInput: true }); .report calls safeParse
+
+// o5. helper method
+const foo = cast(Validate.sendGreatNews, {...})
+```
+
+
+My approach for the sensitive thing is to have the reporter redact fields, have any sensitive fields supply their own error messages, and have logs run through a thing that watches for sensitive values. For this, at this stage, the stakes are far too low to worry.
+
+For the undefined being there/not: There's another monkeypatch I have that affects how it handles undefined vs. missing. I don't want to bring it over (yet) until I understand why we wanted that
+
+If I understand right, we have an approved way to customize **messages** by passing a function to z.config: `z.config({ customError: (iss) => {} })` . However, that does nothing for us about gaining a .badProps field on the error. I think zod also doesn't give you enough context when you're in the custom error mapping phase to always know what is happening. And also once you supply a custom message you lose the chance to capture certain info. This is why I have it caught twice and run it through multiple rinse-repeat cycles
+
+While I'd like to have the reporting stuff, what I need are the validations. And the main reason I'm bringing in the reporting stuff is because many tests about the *validation* are looking at the report message instead of just making sure bad data failed.
+
+Do this: bring over just the parts of the file that have to do with making an error reporter that feels nice, clean, linear.
+You may notice there's a lot of entrypoints including one branch that handles unionized data. that's weird, don't do that. your goal in this
+
+
+
+
+
 

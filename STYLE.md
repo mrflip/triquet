@@ -12,16 +12,51 @@ is a bug.
 ## Important Miscellany
 
 * For text files: end with a newline, no trailing spaces; these will cause a lint error
+
+## Imports and Facility Namespacing
+
+The rules below are specific examples of three principles:
+1. Follow framework and package conventions. React, MUI and Next.js get imported the way their ecosystems do it; this rule is about our own modules, selecting a single best practice out of many
+2. Node offers several different ways to import code; accept that as a tailwind for code that reads as prose.
+3. Structure your imports around good object-oriented technique.
+
+### Basics
+
 * Import paths carry no extension (`./thing`, not `./thing.ts`) -- the grain of Next.js and the
   wider ecosystem. Not mechanically enforced either direction; just don't add one.
-* **`es-toolkit/compat`** is our lodash-shaped utility surface (see `notes/stack.md`). Import it
-  as a single blanket default import named `_`, lodash-style, rather than naming individual
-  functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is
-  the one sanctioned exception to "no single-letter names".
-* In general, when importing from `lib`, prefer `import * as Foo from ...` for libraries offering a suite of related facilities. Name it for the file. (Importing functions directly puts everyone in a global namespace, with many quiet dysfunctions following behind) GOOD: `import * as Labelmaker`. BAD: `import { normalize } ...` (normalize what?)
-  - In some occasions it may feel right to abbreviate to two characters ALLOWED: `import * as SS from '../lib/sorting'` (perhaps because it will be repeatedly used as an iteratee)
-  - This applies only to files imported from `lib`; it does not imply deviating from standard Next.js practice
-  - Mock with `vi.mock('../lib/foo')`
+
+### Files exporting one or more
+
+### Use Splat (`* as Modulename`) imports for a module not grouped as a noun
+
+use `import * as Labelmaker from ...` to turn a module of coherent, related behavior into a robust facility.
+Importing functions directly puts everyone in a global namespace, with many quiet dysfunctions following behind) GOOD: `import * as Labelmaker`. BAD: `import { normalize } ...`
+Use the Startcase filename as the import, in general (a couple exceptions will be made clear)
+Functions within such file should be vigorous verbal phrases that do NOT have the module name tacked on: `normalize`, not `labelmakerNormalize`. Most things in `lib` are like this one: bare functions around a single concern that become objects with a splat import
+
+* situational: `import { SOME_CONST } from ...` might totally make sense when you want that to feel local to the file.
+* situational: certain frequently-used libraries with global vibes use a two-letter shorthand: `import * as UU from '.../utils'`; similarly `ST` for storage. A short punchy name for ambient facilities
+* situational: If the length of the import statement becomes cumbersome, do a splat import using a two-or-three letter shorthand ending in 'T' (eg PT = product types; QYT = query types, ...). GOOD: `import type { ProductSomthing, ProductFoo } from ...`. BAD: `import type { Product ... 19 things...} from ...` INSTEAD: `import type * as PT from ...`
+* exception: **`es-toolkit/compat`** is our lodash-shaped utility surface (see `notes/stack.md`). Import it as a single blanket default import named `_`, lodash-style, rather than naming individual functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is the one sanctioned exception to "no single-letter names".
+
+### Use Named (`import { Foo }`) Imports for already-namespaced facilities
+
+* If a file has **One primary export**, import it and its friends directly.
+  GOOD: `import { Product } from '../models/product'`      -- then `Product.fill(dna)`
+  Ancillary consts ride along on the same line: `import { Product, ProductKinds } from ...`
+
+* If a file is **organized into coherent uniform objects**:
+  GOOD: `import { AppNotices } from '../lib/appnotices'`   -- then `AppNotices.saveSuccess`
+
+A good test, for a module that sits between these rules: does this import put *targeted well-named nouns* in scope, or several loose verbs? One noun, however it arrives, is the goal.
+
+### Tailnotes for imports:
+
+* Use files, not barrel `index.ts` re-exports
+* Mock with `vi.mock('../lib/foo')`
+* Hooks stay named, so `eslint-plugin-react-hooks` can recognise them by their `use` prefix.
+
+REPEATING: This section on various import styles applies only when there's not alread a single standard practice. Do not deviate from standard framework conventions.
 
 ## Naming Conventions
 
