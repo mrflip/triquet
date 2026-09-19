@@ -563,7 +563,7 @@ describe('computed columns', () => {
 
     it('works from a locked quiz, because the expressions belong to the workspace', () => {
       const after = workspaceReducer(standardWorkspace(true), { kind: 'add_expression', expression: shout })
-      expect(after.expressions).to.have.length(13)
+      expect(after.expressions).to.have.length(14)
     })
 
     it('refuses an expression that is not one', () => {

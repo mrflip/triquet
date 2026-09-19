@@ -126,6 +126,7 @@ export function Workbench() {
       <Panels
         quiz={quiz}
         workspace={workspace}
+        expressed={expressed}
         onMerged={(merged) => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) }}
       />
     </main>

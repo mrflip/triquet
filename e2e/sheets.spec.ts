@@ -18,11 +18,22 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Quiz name').click()
 })
 
-test('seven clean columns, in rank order', async ({ page }) => {
-  const text = await sheetsText(page)
-  const lines = text.split('\n')
-  expect(lines[0]?.split('\t')).toHaveLength(7)
-  expect(lines.slice(0, 3).map((line) => line.split('\t', 2)[1])).toEqual(['first', 'second', 'third'])
+test('a header row, then every column of the grid, in rank order', async ({ page }) => {
+  const lines = (await sheetsText(page)).split('\n')
+  const header = lines[0]?.split('\t') ?? []
+  expect(header.slice(0, 4)).toEqual(['title', 'clueing', 'hint', 'chains_to'])
+  expect(header).toContain('clueing_full')
+  expect(header).toContain('dumdum')
+  expect(lines.slice(1, 4).map((line) => line.split('\t')[1])).toEqual(['first', 'second', 'third'])
+  expect(new Set(lines.map((line) => line.split('\t').length))).toEqual(new Set([header.length]))
+})
+
+test('a column added to the quiz is in the export, under its label', async ({ page }) => {
+  await page.getByRole('button', { name: 'Manage quiz' }).click()
+  await page.getByRole('combobox', { name: 'Add a column' }).click()
+  await page.getByRole('option', { name: 'answer_reversed' }).click()
+  await page.keyboard.press('Escape')
+  expect((await sheetsText(page)).split('\n')[0]?.split('\t')).toContain('answer_reversed')
 })
 
 test('the export is the same however the grid is sorted', async ({ page }) => {
@@ -38,7 +49,7 @@ test('a line break in a field never starts a new spreadsheet row', async ({ page
   await page.getByLabel('Quiz name').click()
   const text = await sheetsText(page)
   expect(text).toContain('two<br/>lines')
-  expect(text.split('\n')).toHaveLength(5)
+  expect(text.split('\n')).toHaveLength(6)
 })
 
 test('clicking the box selects the lot', async ({ page }) => {

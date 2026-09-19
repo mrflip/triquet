@@ -134,6 +134,11 @@ const TextSeedDNAs: readonly ExpressionDNA[] = [
     formula:     String.raw`$count($split($trim(qn.clueing), /\s+/)[$ != ''])`,
   },
   {
+    label:       'clueing_with_butnot',
+    description: 'The clueing with the BUT NOT text of the question this one chains to folded in: the complete unit as a player receives it. The phrase is only supplied when the hint does not already say it.',
+    formula:     "(\n  $hint := $trim((qns[label = $$.qn.chains_to]).hint);\n  $exists($hint) and $hint != '' ?\n    qn.clueing & ($contains($hint, /^but not\\b/i) ? ' ... ' : ' ... BUT NOT ... ') & $hint :\n    qn.clueing\n)",
+  },
+  {
     label:       'answer_letter_count',
     description: 'How many letters the full answer has, ignoring everything that is not a letter.',
     formula:     "$length($replace(qn.full_answer, /[^a-z]/i, ''))",

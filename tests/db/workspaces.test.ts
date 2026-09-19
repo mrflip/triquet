@@ -5,6 +5,7 @@ import { playings, questions } from '../../src/db/schema'
 import { createWorkspace, loadWorkspace, saveChange } from '../../src/db/workspaces'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
+import { SeedExpressions } from '../../src/models/expression'
 import { mintId } from '../../src/lib/ids'
 import type { WorkspaceT } from '../../src/models/workspace'
 
@@ -110,7 +111,7 @@ describe('expressions and computed columns', () => {
     await saveChange(db, workspace_id, { active_quiz_id: quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: [] })
     await save({ ...quiz, expressings: [] })
     const loaded = await loadWorkspace(db, workspace_id)
-    expect(loaded?.expressions).to.have.length(12)
+    expect(loaded?.expressions).to.have.length(SeedExpressions.length)
     expect(loaded?.quizzes[0]?.expressings).to.have.length(8)
   })
 })

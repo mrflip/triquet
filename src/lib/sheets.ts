@@ -1,61 +1,66 @@
+import * as Expressed from './expressed'
+import * as Labelmaker from './labelmaker'
 import * as Rank from './rank'
+import { columnsFor, type Colkey } from './columns'
+import { expressingLabelOf } from '../models/expressing'
+import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
+import type { QuizT } from '../models/quiz'
 
-/** How many tab-separated fields each line carries */
-export const SheetsFieldCount = 7
+/** What a fixed column's cell says about one question, as text */
+type CellText = (question: QuestionT, target: QuestionT | null) => string
 
 /**
- * The quiz as tab-separated lines, ready to paste into a spreadsheet.
- *
- * Always in **rank order**, whatever the grid is currently sorted or dragged into, and the first
- * field is the **rank** rather than the raw Q#, which may be gappy, decimal or duplicated
- * mid-draft. A quizmaster pasting into a sheet wants 1, 2, 3, and wants the same result whether
- * they last sorted by chain order or by Hint Numeral sum.
- *
- * @param questions - The quiz's questions, in any order.
- * @returns One line per question, seven tab-separated fields each.
- *
- * @example sheetsExport(quiz.questions).split('\n').length  // => one line per question
+ * Every fixed column's cell as text. Typed by `Colkey`, so a column added to the grid cannot be
+ * left out of the export: it does not compile until it says what it holds.
  */
-export function sheetsExport(questions: readonly QuestionT[]): string {
-  const ranks = Rank.ranksOf(questions)
-  const questionForId = new Map(questions.map((question) => [question.id, question]))
-
-  return Rank.inRankOrder(questions).map((question) => {
-    const rank = ranks.get(question.id) ?? null
-    const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-    const clueingFull = clueingTotalOf(question)
-    return [
-      rank === null ? '' : String(rank),
-      foldButnot(question.clueing, target?.hint ?? ''),
-      question.full_answer,
-      question.alt_text,
-      question.notes,
-      clueingFull === null ? '' : String(clueingFull),
-      ishSpansOf(question),
-    ].map((field) => pasteSafe(field)).join('\t')
-  }).join('\n')
+const CellTextFor: Record<Colkey, CellText> = {
+  title:         (question) => question.title,
+  grip:          () => '',
+  clueing:       (question) => question.clueing,
+  hint:          (question) => question.hint,
+  chains_to:     (_question, target) => (target ? Labelmaker.effectiveLabelOf(target) : ''),
+  butnot:        (_question, target) => target?.hint ?? '',
+  qnum:          (question) => question.qnum,
+  alt_text:      (question) => question.alt_text,
+  notes:         (question) => question.notes,
+  full_answer:   (question) => question.full_answer,
+  clueing_ishes: (question) => spansOf(question.clueing_ishes),
+  butnot_ishes:  (_question, target) => spansOf(target?.hint_ishes ?? null),
+  hint_ishes:    (question) => spansOf(question.hint_ishes),
+  guess:         (question) => (question.guess?.status === 'done' ? question.guess.text : ''),
 }
 
 /**
- * A clueing with its BUT NOT text folded in: the complete unit as a player receives it.
+ * The quiz as tab-separated lines, ready to paste into a spreadsheet: a header row, then one
+ * line per question.
  *
- * A hint is normally already written as "BUT NOT ...", so the phrase is only supplied when the
- * hint does not carry it -- otherwise the line would stutter.
+ * It has exactly the grid's columns, in the grid's order, because it is made from the same
+ * list: a header is a field's name, a computed column's label, or a player's label. Rows are
+ * always in **rank order**, whatever the grid is currently sorted or dragged into, so the same
+ * quiz pastes the same way whether it was last sorted by chain order or by a sum.
  *
- * @param clueing - The question as it will be asked.
- * @param hint - The chained-to question's hint, or '' when there is no chain.
- * @returns One piece of text; the clueing alone when there is no hint to fold in.
+ * @param quiz - The quiz.
+ * @param expressed - What its computed columns came to, from `Expressed.forQuiz`.
+ * @returns The header and one line per question, tab-separated; empty for a quiz with no questions.
  *
- * @example foldButnot('Which region?', 'BUT NOT the film')  // => 'Which region? ... BUT NOT the film'
- * @example foldButnot('Which region?', 'the film')          // => 'Which region? ... BUT NOT ... the film'
- * @example foldButnot('Which region?', '')                  // => 'Which region?'
+ * @example sheetsExport(quiz, Expressed.forQuiz(quiz, workspace.expressions)).split('\n')[0]  // => 'title\tclueing\thint\t...'
  */
-export function foldButnot(clueing: string, hint: string): string {
-  const tidy = hint.trim()
-  if (tidy === '') { return clueing }
-  const joiner = /^but not\b/i.test(tidy) ? ' ... ' : ' ... BUT NOT ... '
-  return `${clueing}${joiner}${tidy}`
+export function sheetsExport(quiz: QuizT, expressed: Expressed.ExpressedForQuiz): string {
+  if (quiz.questions.length === 0) { return '' }
+  const columns = columnsFor(quiz.expressings).filter((column) => column.header !== null)
+  const questionForId = new Map(quiz.questions.map((question) => [question.id, question]))
+
+  const header = columns.map((column) => column.header ?? '')
+  const rows = Rank.inRankOrder(quiz.questions).map((question) => {
+    const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
+    return columns.map((column) => {
+      const expressing_label = expressingLabelOf(column.colkey)
+      if (expressing_label !== null) { return expressedText(Expressed.readingOf(expressed, expressing_label, question.id)) }
+      return CellTextFor[column.colkey as Colkey](question, target)
+    })
+  })
+  return [header, ...rows].map((fields) => fields.map((field) => pasteSafe(field)).join('\t')).join('\n')
 }
 
 /**
@@ -74,20 +79,13 @@ export function pasteSafe(text: string): string {
   return text.replaceAll(/\r\n|\r|\n/g, '<br/>').replaceAll('\t', ' ')
 }
 
-/**
- * What the clueing's ish spans add up to, to a whole number, or null when they were never extracted.
- * Worked out here rather than read from the grid's columns, so the export means the same
- * thing whatever an author has done to those.
- */
-function clueingTotalOf(question: QuestionT): number | null {
-  const { clueing_ishes } = question
-  if (clueing_ishes?.status !== 'done') { return null }
-  return Math.round(clueing_ishes.items.reduce((acc, item) => acc + item.value, 0))
+/** What a computed cell says: its value, or nothing when it has none or failed */
+function expressedText(reading: Expressed.Expressed): string {
+  return reading.status === 'value' ? String(reading.val) : ''
 }
 
-/** The question's own ish spans, verbatim, joined with a slash */
-function ishSpansOf(question: QuestionT): string {
-  const { clueing_ishes } = question
-  if (clueing_ishes?.status !== 'done') { return '' }
-  return clueing_ishes.items.map((item) => item.text).join('/')
+/** An extraction's spans, verbatim, joined with a slash; nothing when it never succeeded */
+function spansOf(ishes: IshesT): string {
+  if (ishes?.status !== 'done') { return '' }
+  return ishes.items.map((item) => item.text).join('/')
 }

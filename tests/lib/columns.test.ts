@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LeadColumns, ShapeWidthPx, TailColumns, columnsFor, expressedColumns, gridWidthPx } from '../../src/components/columns'
+import { LeadColumns, ShapeWidthPx, TailColumns, columnsFor, expressedColumns, gridWidthPx } from '../../src/lib/columns'
 import { Expressing } from '../../src/models/expressing'
 
 const skinny = Expressing.fill({ label: 'total', expression_label: 'clueing_full', title: 'Total' })
@@ -8,7 +8,7 @@ const medium = Expressing.fill({ label: 'backward', expression_label: 'answer_re
 describe('expressedColumns', () => {
   it('turns a skinny column\'s header on its side, as the number columns always were, at their width', () => {
     expect(expressedColumns([skinny])).to.deep.eq([
-      { colkey: 'expressing:total', title: 'Total', widthPx: 78, headkind: 'vertical', sortkey: 'expressing:total' },
+      { colkey: 'expressing:total', title: 'Total', header: 'total', widthPx: 78, headkind: 'vertical', sortkey: 'expressing:total' },
     ])
   })
 
@@ -23,6 +23,21 @@ describe('expressedColumns', () => {
 
   it('is nothing for a quiz with no computed columns', () => {
     expect(expressedColumns([])).to.deep.eq([])
+  })
+})
+
+describe('column headers for an export', () => {
+  const headers = columnsFor([skinny, medium]).map((column) => column.header)
+
+  it('name a field by field, a computed column by its label, and a played column by its player', () => {
+    expect(headers).to.deep.eq([
+      'title', null, 'clueing', 'hint', 'chains_to', 'butnot', 'qnum', 'total', 'backward',
+      'alt_text', 'notes', 'full_answer', 'numnum_clueing', 'numnum_butnot', 'numnum_hint', 'dumdum',
+    ])
+  })
+
+  it('leave the grip, which holds no data, without one', () => {
+    expect(columnsFor([]).filter((column) => column.header === null).map((column) => column.colkey)).to.deep.eq(['grip'])
   })
 })
 

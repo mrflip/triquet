@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import clsx from 'clsx'
-import { columnsFor, gridWidthPx, type Headkind } from './columns'
+import { columnsFor, gridWidthPx, type Headkind } from '../lib/columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
 import type { ExpressedForQuiz } from '../lib/expressed'

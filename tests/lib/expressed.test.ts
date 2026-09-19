@@ -176,6 +176,32 @@ function columnQuiz(formula: string, questions: QuestionT[] = [loneQuestion({})]
   }
 }
 
+describe('clueing_with_butnot', () => {
+  const foldedFor = (clueing: string, hint: string | null): Expressed.Expressed => {
+    const target = { ...Question.blank(), qnum: '2', hint: hint ?? '' }
+    const question = { ...Question.blank(), qnum: '1', clueing, chains_to: hint === null ? null : target.id }
+    const quiz = { ...Quiz.blank('Fold'), questions: [question, target], expressings: [Expressing.fill({ label: 'folded', expression_label: 'clueing_with_butnot', title: 'Folded', shape: 'medium' })] }
+    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), 'folded', question.id)
+  }
+  const said = (val: string): Expressed.Expressed => ({ status: 'value', val, stale: false })
+
+  const Cases: [string, string | null, Expressed.Expressed, string][] = [
+    // clueing          hint                   expected                                        blurb
+    ['Which region?',   'BUT NOT the film',    said('Which region? ... BUT NOT the film'),     'joins a clueing to a hint that already says BUT NOT'],
+    ['Which region?',   'the film',            said('Which region? ... BUT NOT ... the film'), 'supplies the phrase when the hint does not carry it'],
+    ['Which region?',   'but not the film',    said('Which region? ... but not the film'),     'does not care how the hint is capitalised'],
+    ['Which region?',   '',                    said('Which region?'),                           'leaves the clueing alone when the chained-to question has no hint'],
+    ['Which region?',   ' '.repeat(3),               said('Which region?'),                           'leaves the clueing alone when the hint is only space'],
+    ['Which region?',   null,                  said('Which region?'),                           'leaves the clueing alone when nothing is chained'],
+    ['',                null,                  { status: 'nothing' },                           'reads an empty clueing with nothing to fold as nothing'],
+  ]
+  for (const [clueing, hint, expected, blurb] of Cases) {
+    it(blurb, () => {
+      expect(foldedFor(clueing, hint)).to.deep.eq(expected)
+    })
+  }
+})
+
 describe('forQuiz', () => {
   const readingFor = (formula: string): Expressed.Expressed => {
     const { quiz, expressions } = columnQuiz(formula)

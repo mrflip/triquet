@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { columnsFor } from './columns'
+import { columnsFor } from '../lib/columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { ExpressedReadout } from './cells/readouts'
 import * as Expressed from '../lib/expressed'

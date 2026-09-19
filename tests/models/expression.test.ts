@@ -55,10 +55,10 @@ describe('keyOf', () => {
 })
 
 describe('SeedExpressions', () => {
-  it('holds the eight sums and four text calculations, each under its own label', () => {
+  it('holds the eight sums and five text calculations, each under its own label', () => {
     const labels = SeedExpressions.map((expression) => expression.label)
-    expect(labels).to.have.length(12)
-    expect(new Set(labels).size).to.eq(12)
+    expect(labels).to.have.length(13)
+    expect(new Set(labels).size).to.eq(13)
   })
 
   it('has a description for every expression, for the author choosing between them', () => {
