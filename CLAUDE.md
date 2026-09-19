@@ -98,6 +98,6 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
   alphabetical at every depth, so output is deterministic and diffs show changes rather than shuffles.
   `{ pretty: true }` for files. Utilities of that kind live in `lib/useful.ts`.
 * Never `type` to mean "kind": `woodkind`, not `woodType`. `type` is reserved for data model type.
-* `const` by default; `var` only where the value is genuinely reassigned. Functional style is
+* `const` by default; `let` only where the value is genuinely reassigned. Never `var`. Functional style is
   strongly preferred.
 * Parenthesize and space every negation: `if (! approved) { ... }`

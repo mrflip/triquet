@@ -122,8 +122,8 @@ Tags to append or use directly:
 
 ### Variables
 
-- `const` by default, `var` only where the value is actually reassigned -- which you should
-  rarely do
+- `const` by default, `let` only where the value is actually reassigned -- which you should
+  rarely do. Never `var`: `eslint.config.mjs` forbids it outright.
 - functional programming is strongly preferred
 
 Mildly prefer to not camelcase within the name of a reified concept. Good: `lightbulb`,

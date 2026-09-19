@@ -76,7 +76,9 @@ export default defineConfig([
       '@stylistic/no-multiple-empty-lines':        ['warn'],
       '@stylistic/no-trailing-spaces':             ['warn'],
       '@stylistic/semi':                           ['warn', 'never'],
-      '@stylistic/space-unary-ops':                ['warn', { overrides: { '!': true } }],
+      // '@stylistic/space-unary-ops' is not carried: its `!` override also fires on
+      // TypeScript's postfix non-null assertion (`arr[0]!`), which it cannot distinguish
+      // from the negation operator the rule is aimed at.
 
       // Off because we align values into columns, and quote style is a
       // by-hand convention (STYLE.md).
@@ -98,6 +100,8 @@ export default defineConfig([
       'no-implicit-coercion':                      ['error', { allow: ['!!'] }],
       'no-implicit-globals':                       ['error'],
       'no-negated-condition':                      ['error'],
+      // STYLE.md: const by default, let where genuinely reassigned, never var.
+      'no-var':                                    ['error'],
       'no-unsafe-negation':                        ['error', { enforceForOrderingRelations: true }],
       'prefer-destructuring':                      ['warn', { object: true, array: false }],
 
