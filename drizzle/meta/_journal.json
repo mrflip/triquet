@@ -15,6 +15,20 @@
       "when": 1789838580906,
       "tag": "0001_column_lengths_from_validators",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789840006008,
+      "tag": "0002_drop_answerings",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789840006317,
+      "tag": "0003_playings",
+      "breakpoints": true
     }
   ]
 }

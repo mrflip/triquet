@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { openDb, type Db } from '../../src/db/client'
-import { answerings, questions } from '../../src/db/schema'
+import { playings, questions } from '../../src/db/schema'
 import { createWorkspace, loadWorkspace, saveChange } from '../../src/db/workspaces'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -71,7 +71,7 @@ describe('saveChange', () => {
     expect(loaded?.quizzes[0]?.questions.map((question) => question.id)).to.deep.eq(reversed.questions.map((question) => question.id))
   })
 
-  it('removes a question the quiz no longer holds, along with its answers', async () => {
+  it('removes a question the quiz no longer holds, along with its playings', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
     const [doomed, ...rest] = quiz.questions
@@ -79,7 +79,7 @@ describe('saveChange', () => {
     await save({ ...quiz, questions: rest })
     const loaded = await loadWorkspace(db, workspace_id)
     expect(loaded?.quizzes[0]?.questions).to.have.length(rest.length)
-    expect(await db.select().from(answerings).where(eq(answerings.question_id, doomed!.id))).to.deep.eq([])
+    expect(await db.select().from(playings).where(eq(playings.question_id, doomed!.id))).to.deep.eq([])
   })
 
   it('adds a new quiz, deletes an old one, and remembers which is open', async () => {
@@ -111,17 +111,17 @@ describe('saveChange', () => {
   })
 })
 
-describe('saveChange, for answers', () => {
-  it('records a new answer once, however many times the quiz is saved', async () => {
+describe('saveChange, for playings', () => {
+  it('records a new reply once, however many times the quiz is saved', async () => {
     const db = await openDb(':memory:')
     const { quiz, save } = await aWorkspace(db)
-    const answered = { ...quiz, questions: [{ ...quiz.questions[0]!, clueing: 'Who?', guess: guessAt(5) }] }
-    await save(answered)
-    await save(answered)
-    expect(await db.select().from(answerings)).to.have.length(1)
+    const replied = { ...quiz, questions: [{ ...quiz.questions[0]!, clueing: 'Who?', guess: guessAt(5) }] }
+    await save(replied)
+    await save(replied)
+    expect(await db.select().from(playings)).to.have.length(1)
   })
 
-  it('keeps every answer, and shows the newest', async () => {
+  it('keeps every reply, and shows the newest', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
     const question = { ...quiz.questions[0]!, clueing: 'Who?' }
@@ -129,7 +129,7 @@ describe('saveChange, for answers', () => {
     await save({ ...quiz, questions: [{ ...question, guess: guessAt(9, 'Lyon') }] })
     const loaded = await loadWorkspace(db, workspace_id)
     expect(loaded?.quizzes[0]?.questions[0]?.guess).to.include({ text: 'Lyon' })
-    expect(await db.select().from(answerings)).to.have.length(2)
+    expect(await db.select().from(playings)).to.have.length(2)
   })
 
   it('records ishes against numnum, per text, and shows them stale once the text moves on', async () => {
@@ -143,7 +143,7 @@ describe('saveChange, for answers', () => {
     const loaded = workspace?.quizzes[0]?.questions[0]
     expect(loaded?.clueing_ishes).to.include({ stale: true })
     expect(loaded?.hint_ishes).to.include({ stale: false })
-    const recorded = await db.select().from(answerings)
-    expect(recorded.map((answering) => [answering.player_label, answering.textkind])).to.have.deep.members([['numnum', 'clueing'], ['numnum', 'hint']])
+    const recorded = await db.select().from(playings)
+    expect(recorded.map((playing) => [playing.player_label, playing.textkind])).to.have.deep.members([['numnum', 'clueing'], ['numnum', 'hint']])
   })
 })

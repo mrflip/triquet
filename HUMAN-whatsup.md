@@ -151,7 +151,7 @@ when it is, it should be `syncUrl` + `authToken` on `createClient` in `src/db/cl
 embedded replica), and `openDb` currently *refuses* anything that is not `file:` or `:memory:`, on
 purpose, so that door has to be opened deliberately.
 
-**Tables.** `workspaces` → `quizzes` → `questions` → `answerings`, plus `players`. Questions hold
+**Tables.** `workspaces` → `quizzes` → `questions` → `playings`, plus `players`. Questions hold
 only what the author writes, and `position` is the committed order. `players` holds dumdum and
 numnum: title, blurb, model tier, token budget, and `prompts` -- a JSON map keyed `clueing` /
 `hint` / `bulk`, because numnum has three prompts and you said "a prompt". They are rewritten from
@@ -159,25 +159,26 @@ numnum: title, blurb, model tier, token budget, and `prompts` -- a JSON map keye
 and the two must never disagree; once players are editable, that sync has to become seed-if-absent.
 `/api/ask` now reads prompt, tier and budget from the table.
 
-**Answerings are append-only history.** One row per time a player was put a question's clueing or
-hint: `player_label`, `textkind`, `asked_text`, then status, `answer_text` (dumdum), `items` JSON
-(numnum), `message` (errors), truncation, tier, tokens, `created_at`. A question's `dumdum_answering`
-is the newest dumdum row -- there is no drizzle relation that can say "newest", so
-`models/answering.ts` picks the newest per (question, player, textkind) after loading. That loads
-the whole history; fine now, a window function when it isn't.
+**Playings are append-only history.** One row per time a player was put a question's clueing or
+hint: `player_label`, `textkind`, `asked_text`, then status, `reply_text` (dumdum), `items` JSON
+(numnum), `message` (errors), truncation, tier, tokens, `created_at`. Named playing rather than
+answering, and `reply_text` rather than `answer_text`, to stay clear of `full_answer`. A question's
+dumdum playing is its newest dumdum row -- there is no drizzle relation that can say "newest", so
+`models/playing.ts` picks the newest per (question, player, textkind) after loading. That loads
+the whole history; fine now, a window function when it isn't. The rename went in as two
+migrations, drop `answerings` then create `playings`, because drizzle-kit only asks "renamed or
+new?" at an interactive terminal; any dev database lost its (throwaway) history on the way.
 
 **Judgement calls worth overturning:**
 
-* **"Playing" became the `answerings` table.** Your note heads the section "Playing" and then says
-  "an answering belongs to a question", so I read Playing as the concept and answering as the row.
 * **The in-app question shape did not change.** `QuestionT` still carries `guess`, `clueing_ishes`
-  and `hint_ishes`; they are now *projections* of the newest answering in each cell, assembled on
-  load and turned back into answering rows on save. That kept the grid, sums, sheets, import and
-  the git mirror untouched. Renaming `guess` → `dumdum_answering` in the app model is the obvious
+  and `hint_ishes`; they are now *projections* of the newest playing in each cell, assembled on
+  load and turned back into playing rows on save. That kept the grid, sums, sheets, import and
+  the git mirror untouched. Renaming `guess` to something playing-shaped in the app model is the obvious
   next step, but it changes the export format, so I left it for you to call.
 * **"answer" is `full_answer`**, and the question keeps every field it had (qnum, chains_to,
   alt_text, forced_label...) -- I read "just the basics" as "none of the AI stuff".
-* **Staleness is derived, not stored.** A numnum answering records the text it was asked about;
+* **Staleness is derived, not stored.** A numnum playing records the text it was asked about;
   it reads as stale whenever that differs from the question's text now. One visible difference:
   edit a clueing and then edit it back, and after a reload the ishes are fresh again, where before
   they stayed stale. I think that is more honest. Dumdum answers are never marked stale, as before.
@@ -186,9 +187,6 @@ the whole history; fine now, a window function when it isn't.
   from seeing each other's quizzes. Clearing cookies orphans a workspace in the database (the
   quizzes are still in the file, just unreachable from that browser). Accounts replace this.
   The workspace id is a bearer credential; fine for local mode, not for a shared deployment.
-* **Your existing quizzes are carried in.** On first load, a browser still holding the old
-  localStorage workspace saves it into the database, then *moves* it to
-  `triquet.workspace.v1.retired` -- never deletes it.
 * **`/api/workspace` is a route handler, not a server action.** A field committed on blur as the
   tab closes has to be sent with `fetch(..., { keepalive: true })`, and server actions can't do
   that. (A test caught this: fill a field, reload, and the edit was gone.)
@@ -225,7 +223,7 @@ one definition of each shape, and the table columns take their lengths from the 
 * `textish` -- no control characters but tab and newlines, at most 3600, **never trimmed**:
   `clueing`, `hint`, and the text sent to `/api/ask`.
 * `noteish` -- the same, **trimmed** (was vv's `notestr`): `notes`, `alt_text`, `full_answer`,
-  dumdum's reply, an ask's error message, a player's blurb and prompts.
+  an ask's error message, a player's blurb and prompts.
 * `titleish` -- one line, at most 82: question, quiz and player titles. The kit's old `title`
   (max 200, any characters) is gone. A question's title is now described as "a brief name for the
   question, which can optionally be added to its text"; the answer is `full_answer`.
@@ -240,10 +238,14 @@ one definition of each shape, and the table columns take their lengths from the 
 also the structured-output format sent to Claude, and a `\p{Cc}` regex in it risks every
 extraction failing. `qnum` keeps its own regex, which has no length to share.
 
-**Noticed, not fixed:** `localBlankLabel` falls back to a raw ulid, which starts with a digit and so
-is not a valid label. It only happens after 20 straight collisions, i.e. never, but it is wrong.
-And with no existing data anywhere, the localStorage carry-in from the database cycle is code
-nobody needs; say the word and it goes.
+**Model replies** (dumdum's text, each ish span) are taken as any string, cut to 3600 by
+`lib/ask/replies.ts`, then held to `textish` -- never trimmed, never cleaned. A control character
+makes the ask an unreadable failure with a server-side warning. The structured-output format sent
+to Claude uses its own loose `ishItemReply`; the stored `ishItem` is strict.
+
+`localBlankLabel` now normalizes its fallback (a raw ulid starts with a digit). The generated
+`adjective_animal` labels are left as they were -- normalizing those would strip the underscore.
+The localStorage carry-in is gone.
 
 ## Stack decisions I made without asking
 

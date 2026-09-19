@@ -33,7 +33,7 @@ export const quizzes = sqliteTable('quizzes', {
   index('quizzes_workspace_idx').on(table.workspace_id),
 ])
 
-/** One question: only what the author writes. What players answered lives in `answerings`. */
+/** One question: only what the author writes. What players replied lives in `playings`. */
 export const questions = sqliteTable('questions', {
   id:           text({ length: PA.Ulid.max }).primaryKey(),
   quiz_id:      text({ length: PA.Ulid.max }).notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
@@ -54,7 +54,7 @@ export const questions = sqliteTable('questions', {
   index('questions_quiz_idx').on(table.quiz_id, table.position),
 ])
 
-/** Someone -- today, a model with a particular brief -- who can be put a question and answer it */
+/** Someone -- today, a model with a particular brief -- who can be put a question and reply */
 export const players = sqliteTable('players', {
   label:      text({ length: PA.Label.max }).$type<PlayerLabel>().primaryKey(),
   title:      text({ length: PA.Titleish.max }).notNull(),
@@ -68,7 +68,7 @@ export const players = sqliteTable('players', {
  * One time a player was put one of a question's texts, and what came back. Never revised: a
  * fresh ask is a fresh row, and what the grid shows is the latest row for each player and text.
  */
-export const answerings = sqliteTable('answerings', {
+export const playings = sqliteTable('playings', {
   id:                 text({ length: PA.Ulid.max }).primaryKey(),
   question_id:        text({ length: PA.Ulid.max }).notNull().references(() => questions.id, { onDelete: 'cascade' }),
   player_label:       text({ length: PA.Label.max }).$type<PlayerLabel>().notNull().references(() => players.label),
@@ -77,9 +77,9 @@ export const answerings = sqliteTable('answerings', {
   /** That text, exactly as put; null when it is not known */
   asked_text:         text({ length: PA.Textish.max }),
   status:             text().$type<'done' | 'error'>().notNull(),
-  /** A dumdum answer */
-  answer_text:        text({ length: PA.Noteish.max }),
-  /** A numnum answer */
+  /** A dumdum reply */
+  reply_text:        text({ length: PA.Noteish.max }),
+  /** A numnum reply: the spans it found */
   items:              text({ mode: 'json' }).$type<IshItemT[]>(),
   /** Why the ask failed, in the author's words */
   message:            text({ length: PA.Noteish.max }),
@@ -88,7 +88,7 @@ export const answerings = sqliteTable('answerings', {
   approx_tokens:      integer(),
   created_at:         integer().notNull(),
 }, (table) => [
-  index('answerings_question_idx').on(table.question_id, table.player_label, table.textkind, table.created_at),
+  index('playings_question_idx').on(table.question_id, table.player_label, table.textkind, table.created_at),
 ])
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -102,19 +102,19 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
   quiz:       one(quizzes, { fields: [questions.quiz_id], references: [quizzes.id] }),
-  answerings: many(answerings),
+  playings: many(playings),
 }))
 
 export const playersRelations = relations(players, ({ many }) => ({
-  answerings: many(answerings),
+  playings: many(playings),
 }))
 
-export const answeringsRelations = relations(answerings, ({ one }) => ({
-  question: one(questions, { fields: [answerings.question_id], references: [questions.id] }),
-  player:   one(players, { fields: [answerings.player_label], references: [players.label] }),
+export const playingsRelations = relations(playings, ({ one }) => ({
+  question: one(questions, { fields: [playings.question_id], references: [questions.id] }),
+  player:   one(players, { fields: [playings.player_label], references: [players.label] }),
 }))
 
 export type QuizRow      = typeof quizzes.$inferSelect
 export type QuestionRow  = typeof questions.$inferSelect
 export type PlayerRow    = typeof players.$inferSelect
-export type AnsweringRow = typeof answerings.$inferSelect
+export type PlayingRow = typeof playings.$inferSelect

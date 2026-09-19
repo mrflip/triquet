@@ -1,10 +1,10 @@
 import _ from 'es-toolkit/compat'
 import { and, asc, eq, inArray, max, ne, notInArray } from 'drizzle-orm'
 import { mintId } from '../lib/ids'
-import { answerings, questions, quizzes, workspaces } from './schema'
-import { latestBySlot, resultsFor, slotkeyOf, unrecordedAnswerings } from '../models/answering'
+import { playings, questions, quizzes, workspaces } from './schema'
+import { latestBySlot, resultsFor, slotkeyOf, unrecordedPlayings } from '../models/playing'
 import { Workspace, type WorkspaceT } from '../models/workspace'
-import type { AnsweringRow, QuestionRow, QuizRow } from './schema'
+import type { PlayingRow, QuestionRow, QuizRow } from './schema'
 import type { Db } from './client'
 import type { QuestionDNA, QuestionT } from '../models/question'
 import type { QuizDNA, QuizT } from '../models/quiz'
@@ -30,7 +30,7 @@ export async function createWorkspace(db: Db, created_at: number = Date.now()): 
 }
 
 /**
- * The workspace as saved, each question showing the newest answer from each of its players.
+ * The workspace as saved, each question showing the newest reply from each of its players.
  *
  * @param db - Where it is kept.
  * @param workspace_id - Which workspace.
@@ -42,12 +42,12 @@ export async function loadWorkspace(db: Db, workspace_id: string): Promise<Works
     with:  {
       quizzes: {
         orderBy: asc(quizzes.id),
-        with:    { questions: { orderBy: asc(questions.position), with: { answerings: true } } },
+        with:    { questions: { orderBy: asc(questions.position), with: { playings: true } } },
       },
     },
   })
   if (! found || found.quizzes.length === 0) { return null }
-  const latest = latestBySlot(found.quizzes.flatMap((quiz) => quiz.questions.flatMap((question) => question.answerings)))
+  const latest = latestBySlot(found.quizzes.flatMap((quiz) => quiz.questions.flatMap((question) => question.playings)))
   return Workspace.revive({
     active_quiz_id: found.active_quiz_id ?? '',
     quizzes:        found.quizzes.map((quiz) => quizDnaFrom(quiz, latest)),
@@ -58,7 +58,7 @@ export async function loadWorkspace(db: Db, workspace_id: string): Promise<Works
  * Save `change` into a workspace, all or nothing.
  *
  * Each quiz is saved whole: its questions in the order given, anything it no longer holds
- * removed, and any answer newer than what was recorded added to the question's history.
+ * removed, and any reply newer than what was recorded added to the question's history.
  *
  * @param db - Where the workspace is kept.
  * @param workspace_id - Which workspace.
@@ -90,7 +90,7 @@ async function refuseForeign(tx: Tx, workspace_id: string, incoming: readonly Qu
   }
 }
 
-/** One quiz, whole: its own fields, its questions in order, and any new answers */
+/** One quiz, whole: its own fields, its questions in order, and any new playings */
 async function saveQuiz(tx: Tx, workspace_id: string, quiz: QuizT): Promise<void> {
   const { questions: held, ...quizFields } = quiz
   const heldIds = held.map((question) => question.id)
@@ -101,41 +101,41 @@ async function saveQuiz(tx: Tx, workspace_id: string, quiz: QuizT): Promise<void
     const fields = { ...questionFieldsOf(question), quiz_id: quiz.id, position: ii }
     await tx.insert(questions).values(fields).onConflictDoUpdate({ target: questions.id, set: fields })
   }
-  await recordAnswerings(tx, held)
+  await recordPlayings(tx, held)
 }
 
-/** Every answer `held` shows that is newer than the newest one recorded for its cell */
-async function recordAnswerings(tx: Tx, held: readonly QuestionT[]): Promise<void> {
+/** Every reply `held` shows that is newer than the newest one recorded for its cell */
+async function recordPlayings(tx: Tx, held: readonly QuestionT[]): Promise<void> {
   if (held.length === 0) { return }
   const heldIds = held.map((question) => question.id)
   const recorded = await tx
     .select({
-      question_id:  answerings.question_id,
-      player_label: answerings.player_label,
-      textkind:     answerings.textkind,
-      created_at:   max(answerings.created_at),
+      question_id:  playings.question_id,
+      player_label: playings.player_label,
+      textkind:     playings.textkind,
+      created_at:   max(playings.created_at),
     })
-    .from(answerings)
-    .where(inArray(answerings.question_id, heldIds))
-    .groupBy(answerings.question_id, answerings.player_label, answerings.textkind)
+    .from(playings)
+    .where(inArray(playings.question_id, heldIds))
+    .groupBy(playings.question_id, playings.player_label, playings.textkind)
   const recordedAt = new Map(recorded.map((row) => [slotkeyOf(row), row.created_at ?? 0]))
-  const fresh = held.flatMap((question) => unrecordedAnswerings(question, recordedAt))
-  if (fresh.length > 0) { await tx.insert(answerings).values(fresh) }
+  const fresh = held.flatMap((question) => unrecordedPlayings(question, recordedAt))
+  if (fresh.length > 0) { await tx.insert(playings).values(fresh) }
 }
 
-/** A question's own fields, without the answers it shows */
+/** A question's own fields, without the replies it shows */
 function questionFieldsOf(question: QuestionT) {
   return _.omit(question, ['guess', 'clueing_ishes', 'hint_ishes'])
 }
 
-type QuizTree = QuizRow & { questions: (QuestionRow & { answerings: AnsweringRow[] })[] }
+type QuizTree = QuizRow & { questions: (QuestionRow & { playings: PlayingRow[] })[] }
 
 /** A quiz as loaded, back in the shape the app works with */
 function quizDnaFrom(quiz: QuizTree, latest: ReturnType<typeof latestBySlot>): QuizDNA {
   return { ..._.omit(quiz, ['workspace_id', 'questions']), questions: quiz.questions.map((row) => questionDnaFrom(row, latest)) }
 }
 
-/** A question as loaded, showing the newest answer in each of its cells */
-function questionDnaFrom(row: QuestionRow & { answerings: AnsweringRow[] }, latest: ReturnType<typeof latestBySlot>): QuestionDNA {
-  return { ..._.omit(row, ['quiz_id', 'position', 'answerings']), ...resultsFor(row, latest) }
+/** A question as loaded, showing the newest reply in each of its cells */
+function questionDnaFrom(row: QuestionRow & { playings: PlayingRow[] }, latest: ReturnType<typeof latestBySlot>): QuestionDNA {
+  return { ..._.omit(row, ['quiz_id', 'position', 'playings']), ...resultsFor(row, latest) }
 }
