@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm'
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import * as PA from '../lib/vv/patterns'
 import type { BulkIshesRunT, Sortkey } from '../models/quiz'
 import type { IshItemT } from '../models/ish'
 import type { ModelTier } from '../models/ask'
@@ -11,20 +12,20 @@ import type { PlayerLabel, PlayerPrompts } from '../models/player'
  * cookie that browser carries.
  */
 export const workspaces = sqliteTable('workspaces', {
-  id:             text().primaryKey(),
+  id:             text({ length: PA.Ulid.max }).primaryKey(),
   /** Deliberately not a foreign key: a quiz already points back at its workspace */
-  active_quiz_id: text(),
+  active_quiz_id: text({ length: PA.Ulid.max }),
   created_at:     integer().notNull(),
 })
 
 /** One trivia quiz. Its questions are rows of their own, ordered by `questions.position`. */
 export const quizzes = sqliteTable('quizzes', {
-  id:              text().primaryKey(),
-  workspace_id:    text().notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
-  title:           text().notNull(),
-  label:           text().notNull(),
-  forced_label:    text(),
-  version:         text().notNull(),
+  id:              text({ length: PA.Ulid.max }).primaryKey(),
+  workspace_id:    text({ length: PA.Ulid.max }).notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  title:           text({ length: PA.Titleish.max }).notNull(),
+  label:           text({ length: PA.Label.max }).notNull(),
+  forced_label:    text({ length: PA.Label.max }),
+  version:         text({ length: PA.Label.max }).notNull(),
   locked:          integer({ mode: 'boolean' }).notNull(),
   last_sortkey:    text().$type<Sortkey>(),
   bulk_ishes_last: text({ mode: 'json' }).$type<BulkIshesRunT>(),
@@ -34,30 +35,30 @@ export const quizzes = sqliteTable('quizzes', {
 
 /** One question: only what the author writes. What players answered lives in `answerings`. */
 export const questions = sqliteTable('questions', {
-  id:           text().primaryKey(),
-  quiz_id:      text().notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  id:           text({ length: PA.Ulid.max }).primaryKey(),
+  quiz_id:      text({ length: PA.Ulid.max }).notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
   /** The question's place in its quiz's committed order, counting from zero */
   position:     integer().notNull(),
-  label:        text().notNull(),
-  forced_label: text(),
-  title:        text().notNull(),
+  label:        text({ length: PA.Label.max }).notNull(),
+  forced_label: text({ length: PA.Label.max }),
+  title:        text({ length: PA.Titleish.max }).notNull(),
   qnum:         text().notNull(),
-  clueing:      text().notNull(),
-  hint:         text().notNull(),
+  clueing:      text({ length: PA.Textish.max }).notNull(),
+  hint:         text({ length: PA.Textish.max }).notNull(),
   /** Not a foreign key: a chain is checked against its siblings by the quiz, not by the table */
-  chains_to:    text(),
-  full_answer:  text().notNull(),
-  alt_text:     text().notNull(),
-  notes:        text().notNull(),
+  chains_to:    text({ length: PA.Ulid.max }),
+  full_answer:  text({ length: PA.Noteish.max }).notNull(),
+  alt_text:     text({ length: PA.Noteish.max }).notNull(),
+  notes:        text({ length: PA.Noteish.max }).notNull(),
 }, (table) => [
   index('questions_quiz_idx').on(table.quiz_id, table.position),
 ])
 
 /** Someone -- today, a model with a particular brief -- who can be put a question and answer it */
 export const players = sqliteTable('players', {
-  label:      text().$type<PlayerLabel>().primaryKey(),
-  title:      text().notNull(),
-  blurb:      text().notNull(),
+  label:      text({ length: PA.Label.max }).$type<PlayerLabel>().primaryKey(),
+  title:      text({ length: PA.Titleish.max }).notNull(),
+  blurb:      text({ length: PA.Noteish.max }).notNull(),
   model_tier: text().$type<ModelTier>().notNull(),
   max_tokens: integer().notNull(),
   prompts:    text({ mode: 'json' }).$type<PlayerPrompts>().notNull(),
@@ -68,20 +69,20 @@ export const players = sqliteTable('players', {
  * fresh ask is a fresh row, and what the grid shows is the latest row for each player and text.
  */
 export const answerings = sqliteTable('answerings', {
-  id:                 text().primaryKey(),
-  question_id:        text().notNull().references(() => questions.id, { onDelete: 'cascade' }),
-  player_label:       text().$type<PlayerLabel>().notNull().references(() => players.label),
+  id:                 text({ length: PA.Ulid.max }).primaryKey(),
+  question_id:        text({ length: PA.Ulid.max }).notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  player_label:       text({ length: PA.Label.max }).$type<PlayerLabel>().notNull().references(() => players.label),
   /** Which of the question's texts was put to the player */
   textkind:           text().$type<Textkind>().notNull(),
   /** That text, exactly as put; null when it is not known */
-  asked_text:         text(),
+  asked_text:         text({ length: PA.Textish.max }),
   status:             text().$type<'done' | 'error'>().notNull(),
   /** A dumdum answer */
-  answer_text:        text(),
+  answer_text:        text({ length: PA.Noteish.max }),
   /** A numnum answer */
   items:              text({ mode: 'json' }).$type<IshItemT[]>(),
   /** Why the ask failed, in the author's words */
-  message:            text(),
+  message:            text({ length: PA.Noteish.max }),
   truncated:          integer({ mode: 'boolean' }).notNull(),
   model_tier_applied: text().$type<ModelTier>(),
   approx_tokens:      integer(),

@@ -8,6 +8,13 @@
       "when": 1789816284565,
       "tag": "0000_quizzes_players_answerings",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789838580906,
+      "tag": "0001_column_lengths_from_validators",
+      "breakpoints": true
     }
   ]
 }
