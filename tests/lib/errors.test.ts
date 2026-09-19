@@ -75,6 +75,43 @@ describe('CoreError', () => {
     })
   })
 
+  describe('cause', () => {
+    it('is lifted off the story onto the Error, where it belongs', () => {
+      const root = new Error('the disk went away')
+      const err  = EE.FailedOp('could not save', { cause: root, quizid: 'abc' })
+      expect(err.cause).to.eq(root)
+    })
+    it('is not left behind in the story as a second copy', () => {
+      const root = new Error('the disk went away')
+      const err  = EE.FailedOp('could not save', { cause: root, quizid: 'abc' })
+      expect(err.story).to.eql({ quizid: 'abc' })
+      expect(err.story).to.not.have.property('cause')
+    })
+    it('leaves no cause property at all when none was given', () => {
+      const err = EE.FailedOp('could not save', { quizid: 'abc' })
+      expect(Object.prototype.hasOwnProperty.call(err, 'cause')).to.eq(false)
+    })
+    it('does not disturb the story when there is nothing else in it', () => {
+      const root = new Error('root')
+      expect(EE.FailedOp('nope', { cause: root }).story).to.eql({})
+    })
+    it('does not mutate the bag the caller handed in', () => {
+      const story = { cause: new Error('root'), quizid: 'abc' }
+      EE.FailedOp('nope', story)
+      expect(story).to.have.property('cause')
+    })
+    it('chains, so a wrapped error still leads back to the original', () => {
+      const root  = new Error('the disk went away')
+      const outer = EE.FailedOp('could not save', { cause: EE.Missing('no quiz', { cause: root }) })
+      expect(outer.cause).to.be.instanceOf(EE.MissingError)
+      expect((outer.cause as EE.MissingError).cause).to.eq(root)
+    })
+    it('stays out of a serialised error, as Error itself intends', () => {
+      const err = EE.FailedOp('nope', { cause: new Error('sekrit root') })
+      expect(JSON.stringify(err)).to.not.match(/sekrit/)
+    })
+  })
+
   describe('backstory stays out of sight', () => {
     const err = EE.BadValue('nope', { safe: 'yes' }, { token: 'sekrit' })
 

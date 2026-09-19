@@ -283,6 +283,10 @@ export default defineConfig([
     rules: {
       'vitest/no-disabled-tests': 'warn',
       'vitest/no-focused-tests': 'warn',
+      // A type-level test asserts with `expectTypeOf` and has no runtime to check. Without
+      // this the only way to satisfy the rule is to pad it with a token runtime assertion,
+      // which tells the reader nothing about what the test is for.
+      'vitest/expect-expect': ['error', { assertFunctionNames: ['expect', 'expectTypeOf'] }],
       // notes/testing.md mandates bulk example lists, whose `it(blurb, ...)` title is a
       // variable by construction.
       'vitest/valid-title': 'off',

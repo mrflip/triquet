@@ -53,7 +53,11 @@ export class CoreError extends Error {
   static readonly subhead: string    = 'Issue carrying out this process'
 
   constructor(message: string, story: Story = {}, backstory: Story = {}) {
-    super(message)
+    // `cause` rides in on the story because that is where a caller naturally puts it, but Error
+    // owns that field. Hand it over and keep the rest, rather than storing a second copy.
+    // Passing `{ cause: undefined }` would mint an own `cause` property, so absent means absent.
+    const { cause, ...mainstory } = story
+    super(message, cause === undefined ? undefined : { cause })
     // `new.target` is the most-derived constructor, so a subclass declares its metadata once as
     // statics and every instance still carries them as ordinary, serialisable properties.
     const klass  = new.target
@@ -61,7 +65,7 @@ export class CoreError extends Error {
     this.family  = klass.family
     this.flavor  = klass.flavor
     this.subhead = klass.subhead
-    this.story   = story
+    this.story   = mainstory
     Object.defineProperty(this, 'backstory', {
       value: backstory, enumerable: false, configurable: true, writable: false,
     })
