@@ -1,5 +1,4 @@
 import { AppNotices } from '../notices'
-import { ValidatorKit } from '../validator'
 import { Workspace, type WorkspaceDNA, type WorkspaceT } from '../../models/workspace'
 import { WorkspaceChangeValidators, type SaveOutcome, type WorkspaceChangeDNA } from '../../models/workspace-change'
 
@@ -9,13 +8,13 @@ export const WorkspaceRoutepath = '/api/workspace'
 /**
  * This browser's workspace, from the server.
  *
- * @returns The workspace, and whether it was made just now.
+ * @returns The workspace.
  * @throws When the server cannot be reached, or answers with something that is not a workspace.
  */
-export async function fetchWorkspace(): Promise<{ workspace: WorkspaceT, fresh: boolean }> {
+export async function fetchWorkspace(): Promise<WorkspaceT> {
   const answer = await fetch(WorkspaceRoutepath, { cache: 'no-store' })
-  const body = await answer.json() as { workspace: WorkspaceDNA, fresh: unknown }
-  return { workspace: Workspace.revive(body.workspace), fresh: ValidatorKit.bool.parse(body.fresh) }
+  const body = await answer.json() as { workspace: WorkspaceDNA }
+  return Workspace.revive(body.workspace)
 }
 
 /**

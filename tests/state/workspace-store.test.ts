@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createWorkspaceStore, fetchCarryingLegacy, type WorkspaceGateway } from '../../src/state/workspace-store'
-import * as ST from '../../src/lib/storage'
+import { createWorkspaceStore, type WorkspaceGateway } from '../../src/state/workspace-store'
 import { AppNotices } from '../../src/lib/notices'
 import { Quiz } from '../../src/models/quiz'
 import { Workspace, type WorkspaceT } from '../../src/models/workspace'
-import { MemoryStore } from '../support/memory-store'
 import type { SaveOutcome, WorkspaceChangeDNA } from '../../src/models/workspace-change'
 
 vi.mock('../../src/lib/workspace/port', () => ({ fetchWorkspace: vi.fn(), saveWorkspaceChange: vi.fn() }))
@@ -153,50 +151,6 @@ describe('createWorkspaceStore', () => {
     channel.dispatchEvent(new Event('message'))
     await settle()
     expect(gateway.fetch).toHaveBeenCalledOnce()
-  })
-})
-
-describe('fetchCarryingLegacy', () => {
-  const legacyQuiz = Quiz.blank('From before the database')
-  const legacy = Workspace.fill({ quizzes: [legacyQuiz], active_quiz_id: legacyQuiz.id })
-  const storeHoldingLegacy = () => {
-    const store = new MemoryStore()
-    store.setItem(ST.WorkspaceStorekey, JSON.stringify(legacy))
-    return store
-  }
-
-  it('hands back the workspace untouched when there is nothing to carry in', async () => {
-    const workspace = Workspace.blank()
-    const save = vi.fn()
-    expect(await fetchCarryingLegacy(() => Promise.resolve({ workspace, fresh: true }), save, new MemoryStore())).to.eq(workspace)
-    expect(save).not.toHaveBeenCalled()
-  })
-
-  it('carries the old quizzes into a fresh workspace in place of its blank one, then sets them aside', async () => {
-    const fresh = Workspace.blank()
-    const save = vi.fn((): Promise<SaveOutcome> => Promise.resolve({ saved: true }))
-    const fetch = vi.fn()
-      .mockResolvedValueOnce({ workspace: fresh, fresh: true })
-      .mockResolvedValueOnce({ workspace: legacy, fresh: false })
-    const store = storeHoldingLegacy()
-    expect(await fetchCarryingLegacy(fetch, save, store)).to.eq(legacy)
-    expect(save).toHaveBeenCalledWith({ active_quiz_id: legacyQuiz.id, quizzes: legacy.quizzes, deleted_quiz_ids: [fresh.active_quiz_id] })
-    expect(ST.readLegacyWorkspace(store)).to.eq(null)
-  })
-
-  it('adds the old quizzes alongside a workspace that already has some', async () => {
-    const save = vi.fn((): Promise<SaveOutcome> => Promise.resolve({ saved: true }))
-    const fetch = vi.fn(() => Promise.resolve({ workspace: Workspace.blank(), fresh: false }))
-    await fetchCarryingLegacy(fetch, save, storeHoldingLegacy())
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ deleted_quiz_ids: [] }))
-  })
-
-  it('leaves the old quizzes where they were when carrying them in fails', async () => {
-    const workspace = Workspace.blank()
-    const save = vi.fn((): Promise<SaveOutcome> => Promise.resolve({ saved: false, message: AppNotices.saveFailed }))
-    const store = storeHoldingLegacy()
-    expect(await fetchCarryingLegacy(() => Promise.resolve({ workspace, fresh: true }), save, store)).to.eq(workspace)
-    expect(ST.readLegacyWorkspace(store)).to.deep.eq(legacy)
   })
 })
 

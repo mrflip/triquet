@@ -15,13 +15,13 @@ const WorkspaceCookieSeconds = 60 * 60 * 24 * 400
  * This browser's workspace, or a new one when it has none.
  *
  * A browser that has never been here, or whose workspace is gone, is given a fresh workspace and
- * the cookie to find it again. Answers `{ workspace, fresh }`, `fresh` saying it was made just now.
+ * the cookie to find it again. Answers `{ workspace }`.
  */
 export async function GET(): Promise<Response> {
   const db = await appDb()
   const known = await workspaceIdOf()
   const workspace = known ? await Repo.loadWorkspace(db, known) : null
-  if (workspace) { return Response.json({ workspace, fresh: false }) }
+  if (workspace) { return Response.json({ workspace }) }
   const created = await Repo.createWorkspace(db)
   const jar = await cookies()
   jar.set(WorkspaceCookie, created.workspace_id, {
@@ -31,7 +31,7 @@ export async function GET(): Promise<Response> {
     path:     '/',
     maxAge:   WorkspaceCookieSeconds,
   })
-  return Response.json({ workspace: created.workspace, fresh: true })
+  return Response.json({ workspace: created.workspace })
 }
 
 /**

@@ -1,4 +1,3 @@
-import * as ST from '../lib/storage'
 import { AppNotices } from '../lib/notices'
 import { fetchWorkspace, saveWorkspaceChange } from '../lib/workspace/port'
 import { mirrorWorkspace } from './quiz-mirror'
@@ -145,44 +144,12 @@ export function createWorkspaceStore(
   }
 }
 
-/**
- * This browser's workspace, carrying in the one it kept before there was a database.
- *
- * A browser that still holds its old workspace has it saved into the database, then set aside
- * so it is never carried in twice. A brand-new workspace's blank quiz is dropped in favour of
- * the author's own; otherwise the old quizzes join whatever is already there. If the save does
- * not land, the old workspace stays put and is offered again next time.
- *
- * @param fetch - Fetches the workspace, saying whether it was made just now.
- * @param save - Saves a change to it.
- * @param store - Where the old workspace may be; defaults to this browser's local storage.
- * @returns The workspace, with the old quizzes in it when there were any.
- */
-export async function fetchCarryingLegacy(
-  fetch: () => Promise<{ workspace: WorkspaceT, fresh: boolean }>,
-  save: (change: WorkspaceChangeDNA) => Promise<SaveOutcome>,
-  store: Storage | null = ST.browserStore(),
-): Promise<WorkspaceT> {
-  const { workspace, fresh } = await fetch()
-  const legacy = ST.readLegacyWorkspace(store)
-  if (! legacy) { return workspace }
-  const outcome = await save({
-    active_quiz_id:   legacy.active_quiz_id,
-    quizzes:          legacy.quizzes,
-    deleted_quiz_ids: fresh ? workspace.quizzes.map((quiz) => quiz.id) : [],
-  })
-  if (! outcome.saved) { return workspace }
-  ST.retireLegacyWorkspace(store)
-  const refetched = await fetch()
-  return refetched.workspace
-}
-
 /** Tabs of this browser tell each other when they save; a server render has no tabs */
 const TabChannelName = 'triquet.workspace'
 
 /** The one store this tab's grid reads and writes, mirroring every change into its quiz's history */
 export const TabWorkspaceStore = createWorkspaceStore(
-  { fetch: () => fetchCarryingLegacy(fetchWorkspace, saveWorkspaceChange), save: saveWorkspaceChange },
+  { fetch: fetchWorkspace, save: saveWorkspaceChange },
   mirrorWorkspace,
   typeof window === 'undefined' ? null : new BroadcastChannel(TabChannelName),
 )
