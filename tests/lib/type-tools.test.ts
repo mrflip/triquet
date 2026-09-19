@@ -98,3 +98,18 @@ describe('Simplify', () => {
       .toEqualTypeOf<{ aa: string, bb: number }>()
   })
 })
+
+describe('RequiredOnly', () => {
+  it('keeps the named keys required and makes the rest optional', () => {
+    expectTypeOf<TT.RequiredOnly<Bulb, 'title'>>()
+      .toEqualTypeOf<{ title: string, lumens?: number, tech?: string | null, socket?: string }>()
+  })
+  it('is the inverse selection from WithOptional', () => {
+    expectTypeOf<TT.RequiredOnly<Bulb, 'title'>>()
+      .toEqualTypeOf<TT.WithOptional<Bulb, Exclude<keyof Bulb, 'title'>>>()
+  })
+  it('naming more than one key keeps them all required', () => {
+    expectTypeOf<TT.RequiredOnly<Bulb, 'title' | 'lumens'>>()
+      .toEqualTypeOf<{ title: string, lumens: number, tech?: string | null, socket?: string }>()
+  })
+})

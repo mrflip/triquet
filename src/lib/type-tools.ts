@@ -43,6 +43,17 @@ export type WithoutOptional<OT, KT extends keyof OT = keyof OT> =
 export type WithoutNil<OT, KT extends keyof OT = keyof OT> =
   Simplify<Omit<OT, KT> & { [PP in KT]-?: NonNullable<OT[PP]> }>
 
+/**
+ * `OT` with only `KT` still required -- every other key becomes optional.
+ *
+ * The inverse selection from `WithOptional`, and worth its own name because it is the shape of
+ * a patch: the identifying fields stay mandatory, everything else is yours to leave out.
+ *
+ * @example RequiredOnly<Bulb, 'id'>  // => { id: string, title?: string, lumens?: number }
+ */
+export type RequiredOnly<OT, KT extends keyof OT> =
+  Simplify<Pick<OT, KT> & { [PP in Exclude<keyof OT, KT>]?: OT[PP] }>
+
 //
 // == [Rearranging] ==
 //
