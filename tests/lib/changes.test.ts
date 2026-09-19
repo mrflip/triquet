@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Changes from '../../src/lib/changes'
 import { Question, type QuestionT } from '../../src/models/question'
-import * as Sheets from '../../src/lib/sheets'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
 
@@ -17,7 +16,6 @@ function quizOf(questions: QuestionT[], fields: Partial<QuizT> = {}): QuizT {
 
 const linesOf = (before: QuizT | null, after: QuizT | null) => Changes.shorthandLines(Changes.quizChanges(before, after))
 const shortOf = (before: QuizT | null, after: QuizT | null) => Changes.shorthandFor(Changes.quizChanges(before, after))
-const messageOf = (before: QuizT | null, after: QuizT | null) => Changes.commitMessageFor(Changes.quizChanges(before, after), after)
 
 describe('quizChanges', () => {
   it('reports a quiz coming into being as itself alone, not as five blank questions', () => {
@@ -156,31 +154,5 @@ describe('shorthandFor', () => {
     expect(subject).to.not.include(secret)
     expect(subject).to.not.include('Danish')
     expect(subject).to.eq('quiz ~title; quiet_otter +clueing +hint +notes')
-  })
-})
-
-describe('commitMessageFor', () => {
-  it('says nothing at all when nothing changed', () => {
-    expect(Changes.commitMessageFor([], Quiz.blank())).to.eq(null)
-  })
-
-  it('carries the quiz as a tab-separated body under the shorthand subject', () => {
-    const before = quizOf([questionOf('quiet_otter')])
-    const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?', full_answer: 'Hamlet' }] }
-    const message = messageOf(before, after) ?? ''
-    const [subject, blank, ...body] = message.split('\n')
-    expect(subject).to.eq('quiet_otter +clueing +full_answer')
-    expect(blank).to.eq('')
-    expect(body.join('\n')).to.eq(`${Sheets.sheetsExport(after.questions)}\n`)
-    expect(body[0]?.split('\t')).to.have.lengthOf(Sheets.SheetsFieldCount)
-  })
-
-  it('is the subject alone for a quiz with no questions left to export', () => {
-    const before = quizOf([], { title: 'Ours' })
-    expect(messageOf(before, { ...before, title: 'Renamed' })).to.eq('quiz ~title')
-  })
-
-  it('is the subject alone for a deleted quiz, which has no state left to record', () => {
-    expect(messageOf(Quiz.blank(), null)).to.eq('-quiz')
   })
 })

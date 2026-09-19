@@ -27,7 +27,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Re
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
+  const [noted, setNoted] = useState<string | null>(null)
 
   const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
@@ -41,14 +41,14 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Re
     onClose()
   }
 
-  const onSave = async () => {
-    const tag = await QuizMirror.saveQuiz(quiz)
-    setSaved(tag ?? AppNotices.nothingToSave)
+  const onMilestone = async () => {
+    const tag = await QuizMirror.milestoneQuiz(quiz)
+    setNoted(tag ?? AppNotices.nothingToMilestone)
   }
 
   const onDownload = async () => {
     const zipped = await QuizMirror.quizRepoZip(quiz)
-    if (! zipped) { setSaved(AppNotices.noHistoryHere); return }
+    if (! zipped) { setNoted(AppNotices.noHistoryHere); return }
     Downloading.offerDownload(`${Labelmaker.effectiveLabelOf(quiz)}.zip`, zipped, 'application/zip')
   }
 
@@ -84,14 +84,14 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Re
       <DialogTitle sx={{ pt: 0 }}>History</DialogTitle>
       <DialogContent sx={{ pt: 0 }}>
         <p className={styles.microcopy}>
-          Every change to this quiz is committed as it happens. Saving marks this moment with a
-          tag you can come back to; downloading hands you the whole thing as a git repository.
+          Every change to this quiz is committed as it happens. Marking a milestone tags this
+          moment so you can come back to it; downloading hands you the whole thing as a git repository.
         </p>
         <Stack direction="row" spacing={1}>
-          <Button onClick={() => { void onSave() }} size="small" variant="outlined">Save a version</Button>
+          <Button onClick={() => { void onMilestone() }} size="small" variant="outlined">Mark a milestone</Button>
           <Button onClick={() => { void onDownload() }} size="small" variant="outlined">Download as git</Button>
         </Stack>
-        {saved !== null && <p className={styles.microcopy} role="status">{saved}</p>}
+        {noted !== null && <p className={styles.microcopy} role="status">{noted}</p>}
       </DialogContent>
 
       <DialogTitle sx={{ pt: 0 }}>All quizzes</DialogTitle>

@@ -91,13 +91,13 @@ async function commitMoved(before: WorkspaceT, after: WorkspaceT): Promise<void>
 }
 
 /**
- * Tag where `quiz` now stands, as a point worth coming back to.
+ * Mark where `quiz` now stands as a milestone, a point worth coming back to.
  *
- * @param quiz - The quiz being saved.
+ * @param quiz - The quiz being marked.
  * @returns The tag left behind, or null when there was no history here to tag.
  */
-export async function saveQuiz(quiz: QuizT): Promise<string | null> {
-  return await enqueue(async (fs) => await Quizgit.saveQuiz(fs, quiz))
+export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
+  return await enqueue(async (fs) => await Quizgit.milestoneQuiz(fs, quiz))
 }
 
 /**

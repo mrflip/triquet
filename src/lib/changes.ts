@@ -1,6 +1,5 @@
 import _ from 'es-toolkit/compat'
 import * as Labelmaker from './labelmaker'
-import * as Sheets from './sheets'
 import type { QuizT } from '../models/quiz'
 
 /** What happened to one field, or to one whole entity, between two readings of a quiz */
@@ -87,7 +86,8 @@ export function shorthandLines(changes: readonly Change[]): string[] {
 }
 
 /**
- * Every entity that moved, on one line, cut down to a count once it outruns `SubjectMax`.
+ * Every entity that moved, on one line -- the whole of a commit message -- cut down to a count
+ * once it outruns `SubjectMax`.
  *
  * @param changes - Changes as `quizChanges` reported them.
  * @returns The shorthand, or null when nothing changed and nothing should be committed.
@@ -100,27 +100,6 @@ export function shorthandFor(changes: readonly Change[]): string | null {
   const oneline = lines.join('; ')
   if (oneline.length <= SubjectMax) { return oneline }
   return `${String(lines[0])}; +${String(lines.length - 1)} more`
-}
-
-/**
- * `changes` as a git commit message: the shorthand as its subject, the quiz itself as its body.
- *
- * The subject says what moved and never what it moved to; the body carries the whole quiz as
- * the same tab-separated export the author can paste into a spreadsheet. A commit is therefore
- * self-contained -- the message alone reconstructs the quiz as it stood, and reading two
- * messages against each other says exactly what the subject only summarises.
- *
- * @param changes - Changes as `quizChanges` reported them.
- * @param quiz - The quiz as it now stands, or null when it has just been deleted and has no state left to record.
- * @returns The message, or null when nothing changed and nothing should be committed.
- *
- * @example commitMessageFor([{ scope: 'quiz', fieldkey: null, changekind: 'added' }], null)  // => '+quiz'
- */
-export function commitMessageFor(changes: readonly Change[], quiz: QuizT | null): string | null {
-  const subject = shorthandFor(changes)
-  if (subject === null) { return null }
-  const body = quiz === null ? '' : Sheets.sheetsExport(quiz.questions)
-  return body === '' ? subject : `${subject}\n\n${body}\n`
 }
 
 /** Every field of `before` and `after` that moved, filed under `scope` */

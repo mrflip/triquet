@@ -25,18 +25,18 @@ test('a quiz starts on the main version, and the author can move it to another',
   await expect(page.getByLabel('Version')).toHaveValue('drafttwo')
 })
 
-test('editing a quiz builds a history that a save can tag', async ({ page }) => {
+test('editing a quiz builds a history that a milestone can tag', async ({ page }) => {
   await page.goto('/')
   await page.waitForSelector('table')
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
   await openManage(page)
-  await page.getByRole('button', { name: 'Save a version' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-\d{4}-\d{2}-\d{2}t\d{6}z$/)
+  await page.getByRole('button', { name: 'Mark a milestone' }).click()
+  await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
 })
 
-test('a save names the version it saved', async ({ page }) => {
+test('a milestone names the version it marks', async ({ page }) => {
   await page.goto('/')
   await page.waitForSelector('table')
   await openManage(page)
@@ -44,8 +44,8 @@ test('a save names the version it saved', async ({ page }) => {
   await page.getByRole('button', { name: 'Apply' }).click()
 
   await openManage(page)
-  await page.getByRole('button', { name: 'Save a version' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^playtest-/)
+  await page.getByRole('button', { name: 'Mark a milestone' }).click()
+  await expect(page.getByRole('status')).toHaveText(/^playtest-m-/)
 })
 
 test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
@@ -71,14 +71,14 @@ test('the history survives a reload, because it lives in the browser and not in 
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
-  // Saving first both proves the edit was committed and gives the reload something to survive.
+  // Marking a milestone first both proves the edit was committed and gives the reload something to survive.
   await openManage(page)
-  await page.getByRole('button', { name: 'Save a version' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-/)
+  await page.getByRole('button', { name: 'Mark a milestone' }).click()
+  await expect(page.getByRole('status')).toHaveText(/^main-m-/)
 
   await page.reload()
   await page.waitForSelector('table')
   await openManage(page)
-  await page.getByRole('button', { name: 'Save a version' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-/)
+  await page.getByRole('button', { name: 'Mark a milestone' }).click()
+  await expect(page.getByRole('status')).toHaveText(/^main-m-/)
 })
