@@ -290,7 +290,15 @@ export default defineConfig([
       // A type-level test asserts with `expectTypeOf` and has no runtime to check. Without
       // this the only way to satisfy the rule is to pad it with a token runtime assertion,
       // which tells the reader nothing about what the test is for.
-      'vitest/expect-expect': ['error', { assertFunctionNames: ['expect', 'expectTypeOf'] }],
+      'vitest/expect-expect': ['error', {
+        assertFunctionNames: ['expect', 'expectTypeOf', 'accepts', 'rejects'],
+      }],
+      // A bulk example list indexes a namespace by a name from its table (`CK[ckname]`), which
+      // this rule cannot follow. tsc checks the same thing properly, and does.
+      'import-x/namespace': 'off',
+      // Same ground as vitest/expect-expect above, but with no way to name our own assertion
+      // helpers. One rule enforcing this is enough, and that one is the one we can configure.
+      'sonarjs/assertions-in-tests': 'off',
       // notes/testing.md mandates bulk example lists, whose `it(blurb, ...)` title is a
       // variable by construction.
       'vitest/valid-title': 'off',

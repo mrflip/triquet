@@ -1,8 +1,11 @@
+import * as Z from 'zod'
 import { describe, expect, it } from 'vitest'
 import { MirrorSettings } from '../../src/models/mirror-settings'
 
-/** What Zod says whenever a wait is out of range or of the wrong type */
-const Refusal = /Too small|Too big|expected int|expected number|Invalid/
+// A refusal is asserted by its type rather than its wording: what matters here is that a bad
+// wait does not get through, not how the reporter happens to phrase it this month. The wording
+// is pinned once, in tests/lib/vv/reporting.test.ts.
+const Refusal = Z.ZodError
 
 const fillWith = (wait: unknown) => () => MirrorSettings.fill({ commit_debounce_seconds: wait as number })
 

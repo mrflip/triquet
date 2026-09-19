@@ -1,3 +1,4 @@
+import * as Z from 'zod'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCommitScheduler } from '../../src/state/commit-scheduler'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -51,8 +52,9 @@ describe('createCommitScheduler, at 2 seconds', () => {
   })
 
   it('rejects a wait outside 2 to 600', () => {
-    expect(() => schedulerOf(1, [])).to.throw(/Too small/)
-    expect(() => schedulerOf(601, [])).to.throw(/Too big/)
+    // By type, not by wording -- see tests/models/mirror-settings.test.ts.
+    expect(() => schedulerOf(1, [])).to.throw(Z.ZodError)
+    expect(() => schedulerOf(601, [])).to.throw(Z.ZodError)
   })
 
   it('shares one commit among a burst of edits, describing the whole burst', async () => {
