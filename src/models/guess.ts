@@ -11,6 +11,8 @@ export const GuessValidators = Validator(({ obj, textish, bool, timestamp, lit, 
     truncated:          bool.default(false),
     approx_tokens:      AskValidators.approxTokens.optional(),
     updated_at:         timestamp,
+    last_err:           AskValidators.lastErr.nullable().default(null)
+      .describe('The most recent failed refresh of this guess, which leaves the guess itself as it was; null after any success.'),
   })
 
   const guess = discrim('status', [guessDone, AskValidators.askError]).nullable()

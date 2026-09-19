@@ -67,19 +67,21 @@ describe('bulkLandingsFor', () => {
     expect(present(landings[0]).ishes).to.not.have.property('approx_tokens')
   })
 
-  it('turns a text the run left out into a per-cell error, not a stale value looking fresh', () => {
+  it('gives a text the run left out a per-cell failure to carry, and no value to replace what it had', () => {
     const questions = questionsOf(['Which region?', 'BUT NOT the film'])
     const question = present(questions[0])
     const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question.id, 'clueing'), items: oneSpan }]), 1)
     const hintLanding = present(landings.find((landing) => landing.textkind === 'hint'))
-    expect(hintLanding.ishes).to.deep.eq({ status: 'error', message: AskFailureNotices.missingFromRun, updated_at: 1 })
+    expect(hintLanding.ishes).to.eq(null)
+    expect(hintLanding.err).to.deep.eq({ message: AskFailureNotices.missingFromRun, response: { ok: false, failurekind: 'missingFromRun' }, at: 1 })
   })
 
   it('ignores a group for a text that was never asked about', () => {
     const questions = questionsOf(['Which region?', ''])
     const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: 'c:someone-else', items: oneSpan }]), 1)
     expect(landings).to.have.length(1)
-    expect(present(landings[0]).ishes?.status).to.eq('error')
+    expect(present(landings[0]).ishes).to.eq(null)
+    expect(present(landings[0]).err?.message).to.eq(AskFailureNotices.missingFromRun)
   })
 
   it('lands a result unstale, because it was just computed from the text as it stands', () => {
@@ -87,6 +89,7 @@ describe('bulkLandingsFor', () => {
     const question = present(questions[0])
     const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question.id, 'clueing'), items: [] }]), 1)
     expect(present(landings[0]).ishes).to.deep.include({ stale: false })
+    expect(present(landings[0]).err).to.eq(null)
   })
 
   it('passes a cut-short run on to every cell it filled', () => {

@@ -105,7 +105,7 @@ describe('sheetsExport', () => {
   it('carries the sum and the spans when something has', () => {
     const questions = [{
       ...Question.blank(), qnum: '1', clueing: 'Which region?',
-      clueing_ishes: { status: 'done' as const, items: [numeral('300', 300), numeral('17', 17)], truncated: false, stale: false, updated_at: 1 },
+      clueing_ishes: { status: 'done' as const, items: [numeral('300', 300), numeral('17', 17)], truncated: false, stale: false, updated_at: 1, last_err: null },
     }]
     expect(fieldsOf(questions, 0)[5]).to.eq('317')
     expect(fieldsOf(questions, 0)[6]).to.eq('300/17')

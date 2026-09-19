@@ -21,7 +21,7 @@ export async function askModel(ask: AskRequestDNA): Promise<AskReplyT> {
     })
     const reply = AskContract.askReply.safeParse(await answer.json())
     return reply.success ? reply.data : { ok: false, failurekind: 'unreadable' }
-  } catch {
-    return { ok: false, failurekind: 'connection' }
+  } catch (err) {
+    return { ok: false, failurekind: 'connection', detail: { message: err instanceof Error ? err.message.slice(0, 600) : 'The request did not complete' } }
   }
 }

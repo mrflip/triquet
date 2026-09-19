@@ -94,7 +94,7 @@ describe('importInto', () => {
         ...base,
         questions: base.questions.map((question) => ({
           ...question,
-          guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1 },
+          guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1, last_err: null },
         })),
       }
       const after = importedInto(quiz, [{ title: 'Leon', guess: null }])
@@ -107,7 +107,7 @@ describe('importInto', () => {
         ...base,
         questions: base.questions.map((question) => ({
           ...question,
-          clueing_ishes: { status: 'done' as const, items: [{ text: '300', value: 300, kind: 'numeral' as const }], truncated: false, stale: false, updated_at: 1 },
+          clueing_ishes: { status: 'done' as const, items: [{ text: '300', value: 300, kind: 'numeral' as const }], truncated: false, stale: false, updated_at: 1, last_err: null },
         })),
       }
       const after = importedInto(quiz, [{ title: 'Leon', clueing: 'Reworded' }])

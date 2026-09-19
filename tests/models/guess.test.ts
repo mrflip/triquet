@@ -36,6 +36,6 @@ describe('GuessValidators.guess', () => {
   })
 
   it('rejects an error with no message, which would read as an empty cell', () => {
-    expect(() => GuessValidators.guess({ status: 'error', message: '', updated_at: 1 })).to.throw(Z.ZodError)
+    expect(() => GuessValidators.guess({ status: 'error', message: '', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } })).to.throw(Z.ZodError)
   })
 })

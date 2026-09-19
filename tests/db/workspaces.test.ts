@@ -16,7 +16,7 @@ async function aWorkspace(db: Db): Promise<{ workspace_id: string, workspace: Wo
   return { workspace_id, workspace, quiz, save }
 }
 
-const guessAt = (updated_at: number, text = 'Leon') => ({ status: 'done' as const, text, truncated: false, updated_at })
+const guessAt = (updated_at: number, text = 'Leon') => ({ status: 'done' as const, text, truncated: false, updated_at, last_err: null })
 
 describe('createWorkspace', () => {
   it('saves a workspace holding one blank quiz, which loads back as it was made', async () => {
@@ -196,6 +196,41 @@ describe('saveChange', () => {
     const [mine, theirs] = [await aWorkspace(db), await aWorkspace(db)]
     const smuggled = { ...mine.quiz, questions: [...mine.quiz.questions, theirs.quiz.questions[0]!] }
     await expect(mine.save(smuggled)).rejects.toThrow('another workspace')
+  })
+})
+
+describe('a failed ask, saved', () => {
+  const err = { message: 'Too many requests right now — try again shortly.', response: { ok: false, failurekind: 'rateLimited', detail: { status: 429 } }, at: 9 }
+
+  it('rides along on the result it failed to refresh, and is still there after a reload', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    const question = { ...quiz.questions[0]!, clueing: 'Who?' }
+    await save({ ...quiz, questions: [{ ...question, guess: guessAt(5, 'Leon') }] })
+    await save({ ...quiz, questions: [{ ...question, guess: { ...guessAt(5, 'Leon'), last_err: err } }] })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(loaded?.quizzes[0]?.questions[0]?.guess).to.deep.include({ text: 'Leon', updated_at: 5, last_err: err })
+    expect(await db.select().from(playings)).to.have.length(2)
+  })
+
+  it('is gone after a later success, though the failure stays in the history', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    const question = { ...quiz.questions[0]!, clueing: 'Who?' }
+    await save({ ...quiz, questions: [{ ...question, guess: { ...guessAt(5, 'Leon'), last_err: err } }] })
+    await save({ ...quiz, questions: [{ ...question, guess: guessAt(12, 'Lyon') }] })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(loaded?.quizzes[0]?.questions[0]?.guess).to.deep.include({ text: 'Lyon', last_err: null })
+    expect(await db.select().from(playings)).to.have.length(3)
+  })
+
+  it('is the whole cell when the cell never had a result, and still carries its response', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    const question = { ...quiz.questions[0]!, clueing: 'Who?' }
+    await save({ ...quiz, questions: [{ ...question, guess: { status: 'error', message: err.message, updated_at: 9, last_err: err } }] })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(loaded?.quizzes[0]?.questions[0]?.guess).to.deep.eq({ status: 'error', message: err.message, updated_at: 9, last_err: err })
   })
 })
 

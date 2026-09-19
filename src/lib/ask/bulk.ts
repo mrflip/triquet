@@ -1,7 +1,7 @@
-import { AskFailureNotices } from '../notices'
-import { askError } from '../../models/ask'
+import { lastErrFor } from './errs'
 import type { BulkReplyT, Textkind } from './contract'
-import type { IshesT } from '../../models/ish'
+import type { LastErrT } from '../../models/ask'
+import type { IshesDoneT } from '../../models/ish'
 import type { QuestionT } from '../../models/question'
 
 /** One text going into a batched run: which cell it belongs to, and what it says */
@@ -12,11 +12,15 @@ export type BulkTarget = {
   text:        string
 }
 
-/** Where one text's answer lands when the run comes back */
+/**
+ * Where one text's answer lands when the run comes back: the extraction, or -- for a text the
+ * response left out -- the failure to ride along on whatever the cell already holds.
+ */
 export type BulkLanding = {
   question_id: string
   textkind:    Textkind
-  ishes:       IshesT
+  ishes:       IshesDoneT | null
+  err:         LastErrT | null
 }
 
 /** How a text is tagged in the batched prompt, so its answer can be found again */
@@ -47,8 +51,8 @@ export function bulkTargetsOf(questions: readonly QuestionT[]): BulkTarget[] {
 /**
  * Where each target's answer lands.
  *
- * A text the combined response left out becomes a per-cell error inviting the author to refresh
- * that one on its own, rather than a stale value that looks fresh. Nothing filled by a run
+ * A text the combined response left out gets a per-cell `last_err` inviting the author to refresh
+ * that one on its own, and keeps whatever value and stale flag it had. Nothing filled by a run
  * carries a per-cell token figure: splitting one shared cost across many cells would be an
  * invented number, and the real figure lives on the run.
  *
@@ -65,7 +69,7 @@ export function bulkLandingsFor(targets: readonly BulkTarget[], reply: BulkReply
       question_id: target.question_id,
       textkind:    target.textkind,
       ishes:       items === undefined
-        ? askError(AskFailureNotices.missingFromRun, updated_at)
+        ? null
         : {
           status:             'done' as const,
           items,
@@ -73,7 +77,9 @@ export function bulkLandingsFor(targets: readonly BulkTarget[], reply: BulkReply
           stale:              false,
           model_tier_applied: reply.model_tier_applied,
           updated_at,
+          last_err:           null,
         },
+      err:         items === undefined ? lastErrFor({ ok: false, failurekind: 'missingFromRun' }, updated_at) : null,
     }
   })
 }

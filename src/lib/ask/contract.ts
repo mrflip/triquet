@@ -26,7 +26,14 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
   const askRequest = discrim('job', [guessAsk, ishesAsk, bulkAsk])
     .describe('What the browser is asking the model for. Validated on the way in, because this is the one place in the tool where data crosses a process boundary.')
 
-  const askFailed = obj({ ok: lit(false), failurekind })
+  const failureDetail = obj({
+    name:    str.max(120).optional(),
+    status:  uint.optional(),
+    message: str.max(600).optional(),
+  })
+    .describe('What the SDK or the runtime said, kept so the author can read what really happened; never anything from the request, and so never a credential.')
+
+  const askFailed = obj({ ok: lit(false), failurekind, detail: failureDetail.optional() })
 
   const guessDone = obj({
     ok:                 lit(true),

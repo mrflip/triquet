@@ -2,6 +2,9 @@
 
 import { Button, Stack } from '@mui/material'
 import clsx from 'clsx'
+import { ErrBadge } from './cells/ErrBadge'
+import { bulkRunFailedNotice } from '../lib/notices'
+import type { LastErrT } from '../models/ask'
 import type { BulkIshesRunT } from '../models/quiz'
 import styles from './workbench.module.css'
 
@@ -11,8 +14,10 @@ export type ToolbarProps = {
   bulkIshesLast:   BulkIshesRunT
   /** Whether a combined run is in flight */
   running:         boolean
-  /** The one-off line about a run that did not land */
+  /** The one-off line about a run that had nothing to do */
   runNotice:       string | null
+  /** Why the last run did not land; it belongs here, never on the cells */
+  runFailure:      LastErrT | null
   onAddQuestion:   () => void
   onSortByChain:   () => void
   onRenumber:      () => void
@@ -21,7 +26,7 @@ export type ToolbarProps = {
 }
 
 /** What the author can do to the quiz as a whole, and what the last batch run cost */
-export function Toolbar({ locked, bulkIshesLast, running, runNotice, onAddQuestion, onSortByChain, onRenumber, onRecalculate, onEditExpressions }: Readonly<ToolbarProps>) {
+export function Toolbar({ locked, bulkIshesLast, running, runNotice, runFailure, onAddQuestion, onSortByChain, onRenumber, onRecalculate, onEditExpressions }: Readonly<ToolbarProps>) {
   return (
     <Stack direction="row" spacing={1} sx={{ my: 2, flexWrap: 'wrap', alignItems: 'center' }}>
       <Button size="small" variant="outlined" disabled={locked} onClick={onAddQuestion}>+ Add question</Button>
@@ -42,6 +47,12 @@ export function Toolbar({ locked, bulkIshesLast, running, runNotice, onAddQuesti
         </span>
       )}
       {runNotice === null ? null : <span className={clsx(styles.pill, styles.pillBad)} role="status">{runNotice}</span>}
+      {runFailure === null ? null : (
+        <span className={clsx(styles.pill, styles.pillBad)} role="status">
+          {bulkRunFailedNotice(runFailure.message)}
+          <ErrBadge err={runFailure} inline />
+        </span>
+      )}
     </Stack>
   )
 }

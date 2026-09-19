@@ -3,7 +3,7 @@ import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlit
 import * as PA from '../lib/vv/patterns'
 import type { BulkIshesRunT, Sortkey } from '../models/quiz'
 import type { IshItemT } from '../models/ish'
-import type { ModelTier } from '../models/ask'
+import type { LastErrT, ModelTier } from '../models/ask'
 import type { ExpressionOwner } from '../models/expression'
 import type { ExpressingShape } from '../models/expressing'
 import type { Servicelabel } from '../lib/credentials'
@@ -115,6 +115,8 @@ export const playings = sqliteTable('playings', {
   items:              text({ mode: 'json' }).$type<IshItemT[]>(),
   /** Why the ask failed, in the author's words */
   message:            text({ length: PA.Noteish.max }),
+  /** The error response as it came back, for a failed ask */
+  response:           text({ mode: 'json' }).$type<LastErrT['response']>(),
   truncated:          integer({ mode: 'boolean' }).notNull(),
   model_tier_applied: text().$type<ModelTier>(),
   approx_tokens:      integer(),

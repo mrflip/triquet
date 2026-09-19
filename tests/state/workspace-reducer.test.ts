@@ -32,6 +32,8 @@ function standardWorkspace(locked = false): WorkspaceT {
   return { ...workspace, quizzes: workspace.quizzes.map((quiz) => ({ ...quiz, locked })) }
 }
 
+const firstOf = (workspace: WorkspaceT) => present(present(openQuizOf(workspace)).questions[0])
+
 describe('workspaceReducer', () => {
   describe('retitle_quiz', () => {
     it('renames the open quiz', () => {
@@ -200,7 +202,7 @@ describe('workspaceReducer', () => {
       const target = present(present(openQuizOf(ante)).questions[0])
       const after = workspaceReducer(ante, {
         kind: 'set_ishes', question_id: target.id, textkind: 'hint',
-        ishes: { status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], truncated: false, stale: false, updated_at: 1 },
+        ishes: { status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], truncated: false, stale: false, updated_at: 1, last_err: null },
       })
       const question = present(present(openQuizOf(after)).questions[0])
       expect(question.hint_ishes?.status).to.eq('done')
@@ -215,8 +217,77 @@ describe('workspaceReducer', () => {
     })
   })
 
+  describe('a failed ask', () => {
+    const err = { message: 'A connection hiccup — try again.', response: { ok: false, failurekind: 'connection' }, at: 9 }
+    const held = { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 3, last_err: null }
+    const items = [{ text: '300', value: 300, kind: 'numeral' as const }]
+    const ishesHeld = { status: 'done' as const, items, truncated: false, stale: true, updated_at: 3, last_err: null }
+
+    const withHeld = () => {
+      const ante = workspaceOf(['1', 'a'])
+      const { id } = firstOf(ante)
+      const value = workspaceReducer(workspaceReducer(ante, { kind: 'set_guess', question_id: id, guess: held }),
+        { kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: ishesHeld })
+      return { id, value }
+    }
+
+    it('leaves a guess as it was and rides along on it as its last_err', () => {
+      const { id, value } = withHeld()
+      const after = workspaceReducer(value, { kind: 'fail_guess', question_id: id, err })
+      expect(firstOf(after).guess).to.deep.eq({ ...held, last_err: err })
+    })
+
+    it('leaves an extraction\'s items and stale flag exactly as they were', () => {
+      const { id, value } = withHeld()
+      const after = workspaceReducer(value, { kind: 'fail_ishes', question_id: id, textkind: 'clueing', err })
+      expect(firstOf(after).clueing_ishes).to.deep.eq({ ...ishesHeld, last_err: err })
+    })
+
+    it('becomes the cell\'s only content when it never had a value', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const after = workspaceReducer(ante, { kind: 'fail_guess', question_id: firstOf(ante).id, err })
+      expect(firstOf(after).guess).to.deep.eq({ status: 'error', message: err.message, updated_at: 9, last_err: err })
+    })
+
+    it('is replaced by a newer failure, not stacked', () => {
+      const { id, value } = withHeld()
+      const twice = workspaceReducer(workspaceReducer(value, { kind: 'fail_guess', question_id: id, err }),
+        { kind: 'fail_guess', question_id: id, err: { ...err, at: 12 } })
+      expect(firstOf(twice).guess).to.deep.include({ text: 'Leon', last_err: { ...err, at: 12 } })
+    })
+
+    it('is cleared by any success', () => {
+      const { id, value } = withHeld()
+      const failed = workspaceReducer(value, { kind: 'fail_guess', question_id: id, err })
+      const after = workspaceReducer(failed, { kind: 'set_guess', question_id: id, guess: { ...held, text: 'Lyon' } })
+      expect(firstOf(after).guess).to.deep.include({ text: 'Lyon', last_err: null })
+    })
+
+    it('survives the text being edited, which only marks the extraction stale', () => {
+      const { id, value } = withHeld()
+      const failed = workspaceReducer(value, { kind: 'fail_ishes', question_id: id, textkind: 'clueing', err })
+      const after = workspaceReducer(failed, { kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
+      expect(firstOf(after).clueing_ishes).to.deep.include({ stale: true, last_err: err })
+    })
+
+    it('is refused while the quiz is locked', () => {
+      const ante = workspaceOf(['1', 'a'])
+      const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
+      expect(workspaceReducer(locked, { kind: 'fail_guess', question_id: firstOf(locked).id, err })).to.eq(locked)
+    })
+
+    it('is what a combined run leaves on a text it left out, beside the value that cell had', () => {
+      const { id, value } = withHeld()
+      const after = workspaceReducer(value, {
+        kind: 'apply_bulk_ishes', run: { approx_tokens: 1, text_count: 1, updated_at: 9 },
+        landings: [{ question_id: id, textkind: 'clueing', ishes: null, err }],
+      })
+      expect(firstOf(after).clueing_ishes).to.deep.eq({ ...ishesHeld, last_err: err })
+    })
+  })
+
   describe('staleness', () => {
-    const extracted = { status: 'done' as const, items: [], truncated: false, stale: false, updated_at: 1 }
+    const extracted = { status: 'done' as const, items: [], truncated: false, stale: false, updated_at: 1, last_err: null }
 
     it('marks the clueing extraction stale when the clueing is edited', () => {
       const ante = workspaceOf(['1', 'a'])

@@ -43,6 +43,8 @@ export const IshValidators = Validator(({ obj, arr, oneof, str, textish, num, bo
     stale:              bool.default(false)
       .describe('True when the text this was extracted from has been edited since. The result stays on screen, greyed and italic, rather than vanishing -- a slightly-out-of-date total is more useful to the author than an empty cell, as long as it is honestly marked.'),
     updated_at:         timestamp,
+    last_err:           AskValidators.lastErr.nullable().default(null)
+      .describe('The most recent failed refresh of this extraction, which leaves the items and the stale flag as they were; null after any success.'),
   })
 
   const ishes = discrim('status', [ishesDone, AskValidators.askError]).nullable()

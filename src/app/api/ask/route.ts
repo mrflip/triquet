@@ -8,7 +8,7 @@ import * as Credentials from '../../../lib/credentials'
 import { appDb } from '../../../db/client'
 import { playerFor, promptFor } from '../../../db/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
-import { failurekindFor } from '../../../lib/ask/failures'
+import { failureReplyFor } from '../../../lib/ask/failures'
 import { vetReply } from '../../../lib/ask/replies'
 import { IshValidators } from '../../../models/ish'
 import type { PlayerT } from '../../../models/player'
@@ -37,7 +37,7 @@ export async function POST(request: Request): Promise<Response> {
     const client = new Anthropic({ apiKey: Credentials.get(player.servicelabel) })
     return replied(vetReply(await answerAsk(client, player, parsed.data)))
   } catch (err) {
-    return replied({ ok: false, failurekind: failurekindFor(err) })
+    return replied(failureReplyFor(err))
   }
 }
 

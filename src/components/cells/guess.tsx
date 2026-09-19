@@ -1,5 +1,6 @@
 'use client'
 
+import { ErrBadge } from './ErrBadge'
 import { AskableCell } from './readouts'
 import { AskFailureNotices, CellNotices } from '../../lib/notices'
 import type { GuessT } from '../../models/guess'
@@ -26,9 +27,12 @@ export type GuessCellProps = {
  */
 export function GuessCell({ guess, asking, askable, locked, notice, heightPx, onAsk }: Readonly<GuessCellProps>) {
   return (
-    <AskableCell label="Quick-model guess" locked={locked || ! askable || notice !== null} heightPx={heightPx} onAsk={onAsk}>
-      {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <GuessBody guess={guess} notice={notice} />}
-    </AskableCell>
+    <div className={styles.askWrap}>
+      <AskableCell label="Quick-model guess" locked={locked || ! askable || notice !== null} heightPx={heightPx} onAsk={onAsk}>
+        {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <GuessBody guess={guess} notice={notice} />}
+      </AskableCell>
+      {guess?.last_err ? <ErrBadge err={guess.last_err} /> : null}
+    </div>
   )
 }
 

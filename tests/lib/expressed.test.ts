@@ -9,7 +9,7 @@ import { present } from '../support/present'
 
 /** A finished extraction holding the spans given */
 function extracted(items: IshItemT[], stale = false): IshesT {
-  return { status: 'done', items, truncated: false, stale, updated_at: 1 }
+  return { status: 'done', items, truncated: false, stale, updated_at: 1, last_err: null }
 }
 
 const numeral = (text: string, value: number): IshItemT => ({ text, value, kind: 'numeral' })
@@ -65,7 +65,7 @@ describe('the standard sum columns', () => {
   })
 
   it('read a failed ask as nothing at all', () => {
-    const question = loneQuestion({ clueing_ishes: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1 } })
+    const question = loneQuestion({ clueing_ishes: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } } })
     expect(sumOf([question], question, 'clueing_full')).to.deep.eq(Nothing)
   })
 

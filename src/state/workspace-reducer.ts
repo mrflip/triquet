@@ -6,6 +6,7 @@ import * as Expressed from '../lib/expressed'
 import * as Chain from '../lib/chain'
 import * as Rank from '../lib/rank'
 import * as Sortings from '../lib/sortings'
+import { askError, type LastErrT } from '../models/ask'
 import { markIshesStale } from '../models/ish'
 import type { GuessT } from '../models/guess'
 import type { IshesT } from '../models/ish'
@@ -29,6 +30,8 @@ export type WorkspaceAction =
   | { kind: 'sort_by_chain_order', descending: boolean }
   | { kind: 'set_guess', question_id: string, guess: GuessT }
   | { kind: 'set_ishes', question_id: string, textkind: Textkind, ishes: IshesT }
+  | { kind: 'fail_guess', question_id: string, err: LastErrT }
+  | { kind: 'fail_ishes', question_id: string, textkind: Textkind, err: LastErrT }
   | { kind: 'apply_bulk_ishes', landings: readonly BulkLanding[], run: BulkIshesRunT }
   | { kind: 'open_quiz', quiz_id: string }
   | { kind: 'new_quiz', label?: string }
@@ -104,6 +107,25 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       }),
     }))
   }
+  case 'fail_guess': {
+    // A failure never replaces a value: it rides along on it as `last_err`.
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions: quiz.questions.map((question) => (
+        question.id === action.question_id ? { ...question, guess: withErr(question.guess, action.err) } : question
+      )),
+    }))
+  }
+  case 'fail_ishes': {
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      questions: quiz.questions.map((question) => {
+        if (question.id !== action.question_id) { return question }
+        const slot = action.textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes'
+        return { ...question, [slot]: withErr(question[slot], action.err) }
+      }),
+    }))
+  }
   // These four are about the workspace rather than about a quiz's contents, so a locked quiz
   // does not refuse them. Locking must never be a trap: you can always switch away, make
   // another quiz, delete one, or unlock.
@@ -140,8 +162,8 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
         const hint    = mine.find((landing) => landing.textkind === 'hint')
         return {
           ...question,
-          clueing_ishes: clueing ? clueing.ishes : question.clueing_ishes,
-          hint_ishes:    hint ? hint.ishes : question.hint_ishes,
+          clueing_ishes: clueing ? landed(question.clueing_ishes, clueing) : question.clueing_ishes,
+          hint_ishes:    hint ? landed(question.hint_ishes, hint) : question.hint_ishes,
         }
       }),
       bulk_ishes_last: action.run,
@@ -216,6 +238,19 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     }))
   }
   }
+}
+
+/** `current` with `err` as its last failure: a value keeps everything else, and nothing becomes the failure itself */
+function withErr(current: GuessT, err: LastErrT): GuessT
+function withErr(current: IshesT, err: LastErrT): IshesT
+function withErr(current: GuessT | IshesT, err: LastErrT): GuessT | IshesT {
+  return current?.status === 'done' ? { ...current, last_err: err } : askError(err)
+}
+
+/** What one landing of a combined run does to a cell: replace it, or leave it carrying the run's failure for it */
+function landed(current: IshesT, landing: BulkLanding): IshesT {
+  if (landing.ishes) { return landing.ishes }
+  return landing.err ? withErr(current, landing.err) : current
 }
 
 /**

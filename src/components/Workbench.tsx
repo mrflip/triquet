@@ -22,7 +22,7 @@ import styles from './workbench.module.css'
 /** The whole tool: one quiz on screen, saved the moment anything changes */
 export function Workbench() {
   const { workspace, quiz, dispatch, unsaved, saveNotice } = useWorkspace()
-  const { asking, ask, recalculateAll, running, runNotice } = useAsking(dispatch)
+  const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
   const { unavailableNotice } = usePlayers()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
@@ -111,6 +111,7 @@ export function Workbench() {
         bulkIshesLast={quiz.bulk_ishes_last}
         running={running}
         runNotice={runNotice}
+        runFailure={runFailure}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
         onRecalculate={() => { recalculateAll(quiz.questions) }}

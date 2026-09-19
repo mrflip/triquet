@@ -13,6 +13,7 @@ const playingOf = (overrides: Partial<PlayingT>): PlayingT => ({
   reply_text:        'Leon',
   items:              null,
   message:            null,
+  response:           null,
   truncated:          false,
   model_tier_applied: 'quick',
   approx_tokens:      84,
@@ -29,10 +30,22 @@ describe('slotkeyOf', () => {
 })
 
 describe('latestBySlot', () => {
-  it('keeps only the newest playing in each cell, however they arrive', () => {
+  it('keeps only the newest result in each cell, however they arrive', () => {
     const [older, newer] = [playingOf({ created_at: 1 }), playingOf({ created_at: 2 })]
-    expect(latestBySlot([newer, older]).get('q1:dumdum:clueing')).to.eq(newer)
-    expect(latestBySlot([older, newer]).get('q1:dumdum:clueing')).to.eq(newer)
+    expect(latestBySlot([newer, older]).get('q1:dumdum:clueing')).to.deep.eq({ done: newer, failed: null })
+    expect(latestBySlot([older, newer]).get('q1:dumdum:clueing')).to.deep.eq({ done: newer, failed: null })
+  })
+
+  it('keeps a failure only while it is newer than every result', () => {
+    const [done, failure] = [playingOf({ created_at: 5 }), playingOf({ status: 'error', reply_text: null, created_at: 9 })]
+    expect(latestBySlot([done, failure]).get('q1:dumdum:clueing')).to.deep.eq({ done, failed: failure })
+    const later = playingOf({ created_at: 12 })
+    expect(latestBySlot([done, failure, later]).get('q1:dumdum:clueing')).to.deep.eq({ done: later, failed: null })
+  })
+
+  it('keeps a failure in a cell that has only ever failed', () => {
+    const failure = playingOf({ status: 'error', reply_text: null })
+    expect(latestBySlot([failure]).get('q1:dumdum:clueing')).to.deep.eq({ done: null, failed: failure })
   })
 
   it('keeps cells apart: another player, or another text, is another cell', () => {
@@ -54,7 +67,7 @@ describe('resultsFor', () => {
 
   it('shows a dumdum playing as the guess', () => {
     const { guess } = resultsFor(question, latestBySlot([playingOf({})]))
-    expect(guess).to.deep.eq({ status: 'done', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84, updated_at: 1 })
+    expect(guess).to.deep.eq({ status: 'done', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84, updated_at: 1, last_err: null })
   })
 
   it('shows a numnum playing as the ishes of the text it was asked about', () => {
@@ -75,9 +88,38 @@ describe('resultsFor', () => {
     expect(resultsFor(question, latest).clueing_ishes).to.include({ stale: true })
   })
 
-  it('shows a failed playing as the error its cell reads', () => {
-    const latest = latestBySlot([playingOf({ status: 'error', reply_text: null, message: 'A connection hiccup — try again.' })])
-    expect(resultsFor(question, latest).guess).to.deep.eq({ status: 'error', message: 'A connection hiccup — try again.', updated_at: 1 })
+  it('shows a cell that has only ever failed as the error its cell reads, with the response', () => {
+    const response = { ok: false, failurekind: 'connection' }
+    const latest = latestBySlot([playingOf({ status: 'error', reply_text: null, message: 'A connection hiccup — try again.', response })])
+    const err = { message: 'A connection hiccup — try again.', response, at: 1 }
+    expect(resultsFor(question, latest).guess).to.deep.eq({ status: 'error', message: err.message, updated_at: 1, last_err: err })
+  })
+
+  it('leaves a result as it was when a failure came after it, carrying the failure as its last_err', () => {
+    const response = { ok: false, failurekind: 'rateLimited' }
+    const latest = latestBySlot([
+      playingOf({ created_at: 5 }),
+      playingOf({ status: 'error', reply_text: null, message: 'Too many requests.', response, created_at: 9 }),
+    ])
+    expect(resultsFor(question, latest).guess).to.deep.include({ status: 'done', text: 'Leon', updated_at: 5, last_err: { message: 'Too many requests.', response, at: 9 } })
+  })
+
+  it('shows no last_err once a later success has cleared it', () => {
+    const latest = latestBySlot([
+      playingOf({ created_at: 5 }),
+      playingOf({ status: 'error', reply_text: null, message: 'Too many requests.', created_at: 9 }),
+      playingOf({ reply_text: 'Lyon', created_at: 12 }),
+    ])
+    expect(resultsFor(question, latest).guess).to.deep.include({ text: 'Lyon', last_err: null })
+  })
+
+  it('still marks ishes stale, and still carries a failure, when both are so', () => {
+    const latest = latestBySlot([
+      playingOf({ player_label: 'numnum', asked_text: 'Who, once?', reply_text: null, items: [], created_at: 5 }),
+      playingOf({ player_label: 'numnum', status: 'error', reply_text: null, message: 'No.', created_at: 9 }),
+    ])
+    expect(resultsFor(question, latest).clueing_ishes).to.deep.include({ stale: true, updated_at: 5 })
+    expect(resultsFor(question, latest).clueing_ishes).to.have.property('last_err').that.deep.include({ at: 9 })
   })
 
   it('shows nothing where nothing was ever asked', () => {
@@ -86,7 +128,7 @@ describe('resultsFor', () => {
 })
 
 describe('unrecordedPlayings', () => {
-  const guess = { status: 'done' as const, text: 'Leon', truncated: false, model_tier_applied: 'quick' as const, approx_tokens: 84, updated_at: 5 }
+  const guess = { status: 'done' as const, text: 'Leon', truncated: false, model_tier_applied: 'quick' as const, approx_tokens: 84, updated_at: 5, last_err: null }
 
   it('records a guess as a dumdum playing, asked the clueing', () => {
     const question = Question.fill({ id: mintId(), clueing: '  Who?  ', guess })
@@ -98,7 +140,7 @@ describe('unrecordedPlayings', () => {
   })
 
   it('records ishes as numnum playings, one per text', () => {
-    const ishes = { status: 'done' as const, items: [], updated_at: 5 }
+    const ishes = { status: 'done' as const, items: [], updated_at: 5, last_err: null }
     const question = Question.fill({ id: mintId(), clueing: 'Two', hint: 'Three', clueing_ishes: ishes, hint_ishes: ishes })
     const playings = unrecordedPlayings(question, NoneRecorded)
     expect(playings.map((playing) => [playing.player_label, playing.textkind, playing.asked_text])).to.deep.eq([
@@ -108,13 +150,34 @@ describe('unrecordedPlayings', () => {
   })
 
   it('records stale ishes as asked about some text no longer known', () => {
-    const question = Question.fill({ id: mintId(), clueing: 'Two', clueing_ishes: { status: 'done', items: [], stale: true, updated_at: 5 } })
+    const question = Question.fill({ id: mintId(), clueing: 'Two', clueing_ishes: { status: 'done', items: [], stale: true, updated_at: 5, last_err: null } })
     expect(unrecordedPlayings(question, NoneRecorded)[0]?.asked_text).to.eq(null)
   })
 
-  it('records a failure with its message', () => {
-    const question = Question.fill({ id: mintId(), clueing: 'Who?', guess: { status: 'error', message: 'Try again.', updated_at: 5 } })
-    expect(unrecordedPlayings(question, NoneRecorded)[0]).to.include({ status: 'error', message: 'Try again.', reply_text: null })
+  const err = { message: 'Try again.', response: { ok: false, failurekind: 'connection' }, at: 5 }
+
+  it('records a cell that has only failed as one failed playing, with its message and response', () => {
+    const question = Question.fill({ id: mintId(), clueing: 'Who?', guess: { status: 'error', message: err.message, updated_at: 5, last_err: err } })
+    const playings = unrecordedPlayings(question, NoneRecorded)
+    expect(playings).to.have.length(1)
+    expect(playings[0]).to.include({ status: 'error', message: 'Try again.', reply_text: null, created_at: 5 })
+    expect(playings[0]?.response).to.deep.eq(err.response)
+  })
+
+  it('records a failure riding on a result as a playing of its own, beside the result', () => {
+    const question = Question.fill({ id: mintId(), clueing: 'Who?', guess: { ...guess, last_err: { ...err, at: 9 } } })
+    expect(unrecordedPlayings(question, NoneRecorded).map((playing) => [playing.status, playing.created_at])).to.deep.eq([['done', 5], ['error', 9]])
+  })
+
+  it('records only the failure when the result was recorded already', () => {
+    const question = Question.fill({ id: mintId(), clueing: 'Who?', guess: { ...guess, last_err: { ...err, at: 9 } } })
+    const recorded = new Map([[`${question.id}:dumdum:clueing`, 5]])
+    expect(unrecordedPlayings(question, recorded).map((playing) => playing.status)).to.deep.eq(['error'])
+  })
+
+  it('records nothing again for a failure already recorded', () => {
+    const question = Question.fill({ id: mintId(), clueing: 'Who?', guess: { ...guess, last_err: { ...err, at: 9 } } })
+    expect(unrecordedPlayings(question, new Map([[`${question.id}:dumdum:clueing`, 9]]))).to.deep.eq([])
   })
 
   it('records nothing already recorded, so saving twice records once', () => {

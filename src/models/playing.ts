@@ -1,7 +1,8 @@
 import { mintId } from '../lib/ids'
 import type { PlayingRow } from '../db/schema'
-import type { GuessDNA, GuessT } from './guess'
-import type { IshesDNA, IshesT } from './ish'
+import { askError, type LastErrT } from './ask'
+import type { GuessDNA, GuessDoneT } from './guess'
+import type { IshesDNA, IshesDoneT } from './ish'
 import type { PlayerLabel } from './player'
 import type { QuestionDNA, QuestionT } from './question'
 import type { Textkind } from '../lib/ask/contract'
@@ -32,57 +33,76 @@ export function slotkeyOf(playing: Pick<PlayingT, 'question_id' | 'player_label'
   return `${playing.question_id}:${playing.player_label}:${playing.textkind}`
 }
 
+/** What the grid needs to know about one cell's history: its newest result, and any failure since */
+export type SlotLatest = {
+  /** The newest successful playing, if there ever was one */
+  done:   PlayingT | null
+  /** The newest failed playing, only when it is newer than every success */
+  failed: PlayingT | null
+}
+
 /**
- * The newest playing for each cell, from any pile of them.
+ * The newest result and the newest failure since it, for each cell, from any pile of playings.
+ *
+ * A failure older than the newest success is history and no longer says anything about the cell.
  *
  * @param playings - Playings for any number of questions, in any order.
- * @returns Each cell's newest playing, by `slotkeyOf`.
+ * @returns Each cell's `SlotLatest`, by `slotkeyOf`.
  */
-export function latestBySlot(playings: readonly PlayingT[]): Map<string, PlayingT> {
-  const latest = new Map<string, PlayingT>()
+export function latestBySlot(playings: readonly PlayingT[]): Map<string, SlotLatest> {
+  const done = new Map<string, PlayingT>()
+  const failed = new Map<string, PlayingT>()
   for (const playing of playings) {
+    const held = playing.status === 'done' ? done : failed
     const slotkey = slotkeyOf(playing)
-    const held = latest.get(slotkey)
-    if (! held || playing.created_at > held.created_at) { latest.set(slotkey, playing) }
+    const newest = held.get(slotkey)
+    if (! newest || playing.created_at > newest.created_at) { held.set(slotkey, playing) }
+  }
+  const latest = new Map<string, SlotLatest>()
+  const slotkeys = new Set([...done.keys(), ...failed.keys()])
+  for (const slotkey of slotkeys) {
+    const newestDone = done.get(slotkey) ?? null
+    const newestFailed = failed.get(slotkey) ?? null
+    const since = newestFailed && (! newestDone || newestFailed.created_at > newestDone.created_at) ? newestFailed : null
+    latest.set(slotkey, { done: newestDone, failed: since })
   }
   return latest
 }
 
 /**
- * The results a question shows in its played cells, from the newest playing for each.
+ * The results a question shows in its played cells, from each cell's history.
  *
  * A number-spotting result is stale when the text it was asked about is no longer the text the
- * question holds; a cell with no playing is null.
+ * question holds. A failure since the newest result rides along as its `last_err`; a cell that
+ * has only ever failed shows the failure; a cell with no playing is null.
  *
  * @param question - The question's own fields, as stored.
- * @param latest - The newest playing for each cell, as `latestBySlot` gives them.
+ * @param latest - Each cell's history, as `latestBySlot` gives it.
  * @returns The `guess`, `clueing_ishes` and `hint_ishes` fields for that question.
  */
 export function resultsFor(
   question: Pick<QuestionT, 'id' | 'clueing' | 'hint'>,
-  latest: ReadonlyMap<string, PlayingT>,
+  latest: ReadonlyMap<string, SlotLatest>,
 ): Pick<QuestionDNA, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
-  const playingIn = (slot: PlaySlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
-  const guess   = playingIn(PlaySlots[0])
-  const clueing = playingIn(PlaySlots[1])
-  const hint    = playingIn(PlaySlots[2])
+  const historyOf = (slot: PlaySlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
   return {
-    guess:         guess ? guessFrom(guess) : null,
-    clueing_ishes: clueing ? ishesFrom(clueing, question.clueing) : null,
-    hint_ishes:    hint ? ishesFrom(hint, question.hint) : null,
+    guess:         guessFrom(historyOf(PlaySlots[0])),
+    clueing_ishes: ishesFrom(historyOf(PlaySlots[1]), question.clueing),
+    hint_ishes:    ishesFrom(historyOf(PlaySlots[2]), question.hint),
   }
 }
 
 /**
  * The playings a question is holding that are newer than anything already recorded.
  *
- * A cell whose result is no newer than what was recorded yields nothing, so offering the same
- * question twice records nothing the second time; an empty cell yields nothing either.
+ * A cell whose result, or whose failure, is no newer than what was recorded yields nothing, so
+ * offering the same question twice records nothing the second time; an empty cell yields
+ * nothing either. A result and a failure riding on it are recorded as two playings.
  *
  * @param question - The question as the author now has it.
  * @param recordedAt - When each cell's newest recorded playing was made, by `slotkeyOf`; a cell absent has none.
  * @param mint - Supplies each new playing's id.
- * @returns One playing per cell holding something new.
+ * @returns The new playings, one per result and one per failure.
  */
 export function unrecordedPlayings(
   question: QuestionT,
@@ -92,70 +112,87 @@ export function unrecordedPlayings(
   return PlaySlots.flatMap((slot) => {
     const result = question[slot.field]
     if (result === null) { return [] }
-    const recorded = recordedAt.get(slotkeyOf({ question_id: question.id, ...slot }))
-    if (recorded !== undefined && result.updated_at <= recorded) { return [] }
-    return [playingFrom(question, slot, result, mint())]
+    const recorded = recordedAt.get(slotkeyOf({ question_id: question.id, ...slot })) ?? 0
+    const err = result.last_err
+    return [
+      ...(result.status === 'done' && result.updated_at > recorded ? [doneFrom(question, slot, result, mint())] : []),
+      ...(err && err.at > recorded ? [failedFrom(question, slot, err, mint())] : []),
+    ]
   })
 }
 
-/** `result`, found in one of `question`'s cells, as an playing */
-function playingFrom(question: QuestionT, slot: PlaySlot, result: NonNullable<GuessT | IshesT>, id: string): PlayingT {
-  const askedText = question[slot.textkind].trim()
-  const playing: PlayingT = {
+/** A row with nothing filled in yet, for `slot` of `question` */
+function blankPlaying(question: QuestionT, slot: PlaySlot, id: string, created_at: number): PlayingT {
+  return {
     id,
     question_id:        question.id,
     player_label:       slot.player_label,
     textkind:           slot.textkind,
-    asked_text:         askedText,
-    status:             result.status,
-    reply_text:        null,
+    asked_text:         question[slot.textkind].trim(),
+    status:             'done',
+    reply_text:         null,
     items:              null,
     message:            null,
+    response:           null,
     truncated:          false,
     model_tier_applied: null,
     approx_tokens:      null,
-    created_at:         result.updated_at,
+    created_at,
   }
-  if (result.status === 'error') { return { ...playing, message: result.message } }
-  const done = {
-    ...playing,
+}
+
+/** A successful result found in one of `question`'s cells, as a playing */
+function doneFrom(question: QuestionT, slot: PlaySlot, result: GuessDoneT | IshesDoneT, id: string): PlayingT {
+  const playing: PlayingT = {
+    ...blankPlaying(question, slot, id, result.updated_at),
     truncated:          result.truncated,
     model_tier_applied: result.model_tier_applied ?? null,
     approx_tokens:      result.approx_tokens ?? null,
   }
-  if ('text' in result) { return { ...done, reply_text: result.text } }
+  if ('text' in result) { return { ...playing, reply_text: result.text } }
   // A result already marked stale was asked about some earlier text, which is no longer known.
-  return { ...done, items: result.items, asked_text: result.stale ? null : askedText }
+  return { ...playing, items: result.items, asked_text: result.stale ? null : playing.asked_text }
 }
 
-/** A dumdum playing, as the guess it shows */
-function guessFrom(playing: PlayingT): GuessDNA {
-  if (playing.status === 'error') { return errorFrom(playing) }
+/** A failed ask, as a playing */
+function failedFrom(question: QuestionT, slot: PlaySlot, err: LastErrT, id: string): PlayingT {
+  return { ...blankPlaying(question, slot, id, err.at), status: 'error', message: err.message, response: err.response }
+}
+
+/** The guess a cell's history comes to */
+function guessFrom(history: SlotLatest | undefined): GuessDNA {
+  if (! history) { return null }
+  const { done, failed } = history
+  if (! done) { return failed ? askError(lastErrOf(failed)) : null }
   return {
     status:             'done',
-    text:               playing.reply_text ?? '',
-    truncated:          playing.truncated,
-    model_tier_applied: playing.model_tier_applied ?? undefined,
-    approx_tokens:      playing.approx_tokens ?? undefined,
-    updated_at:         playing.created_at,
+    text:               done.reply_text ?? '',
+    truncated:          done.truncated,
+    model_tier_applied: done.model_tier_applied ?? undefined,
+    approx_tokens:      done.approx_tokens ?? undefined,
+    updated_at:         done.created_at,
+    last_err:           failed ? lastErrOf(failed) : null,
   }
 }
 
-/** A numnum playing, as the extraction it shows for `currentText` */
-function ishesFrom(playing: PlayingT, currentText: string): IshesDNA {
-  if (playing.status === 'error') { return errorFrom(playing) }
+/** The extraction a cell's history comes to for `currentText` */
+function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesDNA {
+  if (! history) { return null }
+  const { done, failed } = history
+  if (! done) { return failed ? askError(lastErrOf(failed)) : null }
   return {
     status:             'done',
-    items:              playing.items ?? [],
-    truncated:          playing.truncated,
-    stale:              playing.asked_text !== currentText.trim(),
-    model_tier_applied: playing.model_tier_applied ?? undefined,
-    approx_tokens:      playing.approx_tokens ?? undefined,
-    updated_at:         playing.created_at,
+    items:              done.items ?? [],
+    truncated:          done.truncated,
+    stale:              done.asked_text !== currentText.trim(),
+    model_tier_applied: done.model_tier_applied ?? undefined,
+    approx_tokens:      done.approx_tokens ?? undefined,
+    updated_at:         done.created_at,
+    last_err:           failed ? lastErrOf(failed) : null,
   }
 }
 
-/** A failed playing, as the error its cell shows */
-function errorFrom(playing: PlayingT) {
-  return { status: 'error' as const, message: playing.message ?? '', updated_at: playing.created_at }
+/** A failed playing, as the `last_err` its cell keeps */
+function lastErrOf(playing: PlayingT): LastErrT {
+  return { message: playing.message ?? '', response: playing.response ?? null, at: playing.created_at }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
+import { ErrBadge } from './ErrBadge'
 import { AskableCell, ReadonlyCell } from './readouts'
 import { CellNotices } from '../../lib/notices'
 import type { IshesT } from '../../models/ish'
@@ -23,9 +24,12 @@ export type IshesCellProps = {
 /** Every span in one text a reasonable player might read as a number. Askable. */
 export function IshesCell({ ishes, label, asking, askable, locked, notice, heightPx, onAsk }: Readonly<IshesCellProps>) {
   return (
-    <AskableCell label={label} locked={locked || ! askable || notice !== null} heightPx={heightPx} onAsk={onAsk}>
-      {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <IshesBody ishes={ishes} notice={notice} />}
-    </AskableCell>
+    <div className={styles.askWrap}>
+      <AskableCell label={label} locked={locked || ! askable || notice !== null} heightPx={heightPx} onAsk={onAsk}>
+        {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <IshesBody ishes={ishes} notice={notice} />}
+      </AskableCell>
+      {ishes?.last_err ? <ErrBadge err={ishes.last_err} /> : null}
+    </div>
   )
 }
 

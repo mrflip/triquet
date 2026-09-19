@@ -150,6 +150,35 @@
   overflow-wrap: anywhere;
 }
 
+.askWrap { position: relative }
+
+.errBadge {
+  position:      absolute;
+  top:           2px;
+  right:         2px;
+  font-size:     11px;
+  line-height:   1;
+  padding:       2px 4px;
+  border:        none;
+  border-radius: var(--radius-input);
+  background:    var(--bad-soft);
+  color:         var(--bad);
+  cursor:        pointer;
+}
+
+.errBadgeInline {
+  position: static;
+  margin-left: 6px;
+}
+
+.errJson {
+  font-family: var(--font-data);
+  font-size:   12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin:      0;
+}
+
 .muted  { color: var(--muted) }
 .stale  { color: var(--muted); font-style: italic }
 .metaline {

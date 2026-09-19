@@ -86,7 +86,7 @@ describe('Question.fill', () => {
   })
 
   it('accepts an error in place of a result', () => {
-    const question = Question.fill({ id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1 } })
+    const question = Question.fill({ id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } } })
     expect(question.guess?.status).to.eq('error')
   })
 

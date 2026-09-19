@@ -1,0 +1,1 @@
+ALTER TABLE `playings` ADD `response` text;
