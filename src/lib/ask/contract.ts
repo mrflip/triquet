@@ -14,10 +14,10 @@ export const AskFailurekindVals = [
   'accountOff', 'sessionExpired', 'connection', 'unknown', 'unavailable', 'missingFromRun',
 ] as const satisfies readonly AskFailurekind[]
 
-export const AskContract = Validator(({ obj, arr, oneof, str, uint, bool, lit, discrim, union }) => {
+export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, bool, lit, discrim, union }) => {
   const textkind    = oneof(TextkindVals)
   const failurekind = oneof(AskFailurekindVals)
-  const askable     = str.min(1).max(10_000)
+  const askable     = textish.min(1)
 
   const guessAsk = obj({ job: lit('guess'), clueing: askable })
   const ishesAsk = obj({ job: lit('ishes'), textkind, text: askable })

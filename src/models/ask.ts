@@ -5,7 +5,7 @@ import { Validator } from '../lib/validator'
 export const ModelTierVals = ['quick', 'careful'] as const
 export type ModelTier = typeof ModelTierVals[number]
 
-export const AskValidators = Validator(({ obj, oneof, str, uint, timestamp, lit }) => {
+export const AskValidators = Validator(({ obj, oneof, noteish, uint, timestamp, lit }) => {
   const modelTier = oneof(ModelTierVals).default('quick')
     .describe('Which tier answered: "quick" for the deliberately hasty first-instinct guess, "careful" for the more thorough ish extraction. Stored per result so an older result stays honestly labelled even after the app changes which tier it asks for a given job. Defaults to "quick" -- the tier the app reaches for when nothing says otherwise.')
 
@@ -14,7 +14,7 @@ export const AskValidators = Validator(({ obj, oneof, str, uint, timestamp, lit 
 
   const askError = obj({
     status:     lit('error'),
-    message:    str.min(1)
+    message:    noteish.min(1)
       .describe('Plain-language reason the ask failed, written for the author rather than copied from an error code. Displayed in place of the result, with an invitation to try again.'),
     updated_at: timestamp,
   })

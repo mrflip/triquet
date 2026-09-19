@@ -35,6 +35,15 @@ describe('normalize', () => {
     expect(Labelmaker.normalize('9abcdefghij', { maxlen: 4 })).to.eq('z9abc')
   })
 
+  it('never returns more than a label may hold, however much is typed', () => {
+    expect(Labelmaker.normalize('x'.repeat(100))).to.eq('x'.repeat(40))
+    expect(Labelmaker.normalize('x'.repeat(100), { maxlen: 60 })).to.eq('x'.repeat(40))
+  })
+
+  it('still fits when a letter must be prepended to a body already at the limit', () => {
+    expect(Labelmaker.normalize('9'.repeat(100))).to.eq(`z${'9'.repeat(39)}`)
+  })
+
   it('always returns a valid label, even from adversarial input', () => {
     expect(ValidatorKit.label.safeParse(Labelmaker.normalize('🎲🎲🎲')).success).to.eq(true)
   })
@@ -67,9 +76,15 @@ describe('appendFallback', () => {
     expect(Labelmaker.appendFallback('otter', 'abc123')).to.eq('otter_abc123')
   })
 
-  it('mints a fresh id when no fallback is given', () => {
+  it('uses the random tail of a fresh id when no fallback is given', () => {
     const appended = Labelmaker.appendFallback('otter')
-    expect(appended).to.match(/^otter_[0-9a-z]{26}$/)
+    expect(appended).to.match(/^otter_[0-9a-z]{8}$/)
+  })
+
+  it('cuts a long label short so the whole still fits', () => {
+    const appended = Labelmaker.appendFallback('x'.repeat(40), 'abc123')
+    expect(appended).to.eq(`${'x'.repeat(33)}_abc123`)
+    expect(ValidatorKit.label.safeParse(appended).success).to.eq(true)
   })
 
   it('mints a different id on each call', () => {

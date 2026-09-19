@@ -15,19 +15,19 @@ export const PromptkindVals = ['clueing', 'hint', 'bulk'] as const
 export type Promptkind = typeof PromptkindVals[number]
 export type PlayerPrompts = Partial<Record<Promptkind, string>>
 
-export const PlayerValidators = Validator(({ zod, oneof, str, title, uint }) => {
+export const PlayerValidators = Validator(({ zod, oneof, noteish, titleish, uint }) => {
   const playerLabel = oneof(PlayerLabelVals)
     .describe('Which player: "dumdum" answers a clueing the way a fast, not-especially-careful player would; "numnum" lists every number-like span in a clueing or a hint.')
 
-  const prompts = zod.partialRecord(oneof(PromptkindVals), str.min(1))
+  const prompts = zod.partialRecord(oneof(PromptkindVals), noteish.min(1))
     .describe('The prompt template this player is given for each kind of text it can be shown, with `{{placeholders}}` still in it. A kind absent here is one the player is never asked about.')
 
   // drizzle-zod calls any function it is handed as a refinement, and our callable validators
   // are functions, so those are passed wrapped rather than bare.
   const player = createInsertSchema(players, {
     label:      playerLabel,
-    title,
-    blurb:      str,
+    title:      titleish,
+    blurb:      noteish,
     model_tier: () => AskValidators.modelTier,
     max_tokens: uint.min(1)
       .describe('How much room the player is given to answer a single text.'),

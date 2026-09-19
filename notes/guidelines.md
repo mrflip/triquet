@@ -59,12 +59,12 @@ export type  LightbulbTech     = typeof LightbulbTechVals[number]
 export type  Socketkind        = typeof SocketkindVals[number]
 
 export const LightbulbValidators = Validator(({ // from our custom library, it namespaces and provides these...
-  obj, title, uint, oneof, // aliased / standardized Zod validators: oneof = enum, obj = object, uint = safe unsigned int
+  obj, titleish, uint, oneof, // aliased / standardized Zod validators: oneof = enum, obj = object, uint = safe unsigned int
 }) => {
   const lightbulbTech = oneof(LightbulbTechVals)
   const socketkind    = oneof(SocketkindVals)
   const lightbulb = obj({
-    title,
+    title:        titleish,
     lumens:       uint.min(0).max(200).nullable(),
     /** Light bulb technology; @default{ 'led' } */
     tech:         lightbulbTech.default('led'),

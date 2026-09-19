@@ -2,8 +2,9 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { GuessValidators } from './guess'
 import { IshValidators } from './ish'
+import { QuestionValidators } from './question'
 
-export const ImportValidators = Validator(({ obj, arr, str, title, text, union, zod }) => {
+export const ImportValidators = Validator(({ obj, arr, str, titleish, union, zod }) => {
   // Ids arriving from an import are accepted as-is provided they are non-empty: a hand-written
   // quiz file has no reason to know about ULIDs, and an id minted in another browser means
   // nothing here anyway -- it is only ever used to resolve that file's own chains.
@@ -11,17 +12,17 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
 
   const importQuestion = obj({
     id:            foreignId.optional(),
-    qnum:          str.regex(/^(\d+(\.\d+)?)?$/).nullable().optional(),
-    clueing:       text.nullable().optional(),
-    hint:          text.nullable().optional(),
-    title:         str.max(200).nullable().optional(),
+    qnum:          QuestionValidators.qnum.nullable().optional(),
+    clueing:       QuestionValidators.clueing.nullable().optional(),
+    hint:          QuestionValidators.hint.nullable().optional(),
+    title:         QuestionValidators.title.nullable().optional(),
     chains_to:     foreignId.nullable().optional(),
     guess:         GuessValidators.guess.optional(),
     clueing_ishes: IshValidators.ishes.optional(),
     hint_ishes:    IshValidators.ishes.optional(),
-    alt_text:      text.nullable().optional(),
-    notes:         text.nullable().optional(),
-    full_answer:   text.nullable().optional(),
+    alt_text:      QuestionValidators.alt_text.nullable().optional(),
+    notes:         QuestionValidators.notes.nullable().optional(),
+    full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
     .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
 
@@ -31,7 +32,7 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
 
   const importQuiz = obj({
     id:        foreignId.optional(),
-    title:     title.nullable().optional(),
+    title:     titleish.nullable().optional(),
     questions: looseQuestions,
   })
     .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')

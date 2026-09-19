@@ -1,6 +1,7 @@
 import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generator'
 import _ from 'es-toolkit/compat'
 import { mintId } from './ids'
+import * as PA from './vv/patterns'
 import { Validator } from './validator'
 
 const LabelValidators = Validator(({ label }) => ({ label }))
@@ -26,21 +27,25 @@ export function localBlankLabel(existingLabels: ReadonlySet<string>, fallback: s
   return fallback
 }
 
+/** How many characters of a fresh id disambiguate a label: its random tail, and plenty within one workspace */
+const FallbackSuffixLen = 8
+
 /**
- * `str` disambiguated by appending an underscore and a fallback suffix.
+ * `str` disambiguated by appending an underscore and a fallback suffix, cut short where needed
+ * so the whole still fits in a label.
  *
  * @param str - The string that collided.
- * @param fallback - What to append; a freshly minted id when omitted.
- * @returns `str` with the suffix appended.
+ * @param fallback - What to append; the random tail of a freshly minted id when omitted.
+ * @returns `str` with the suffix appended, never longer than a label may be.
  *
- * @example appendFallback('otter', '01k5f9n3ktq7wzc8x2r4m0vaeh')  // => 'otter_01k5f9n3ktq7wzc8x2r4m0vaeh'
+ * @example appendFallback('otter', 'abc123')  // => 'otter_abc123'
  */
-export function appendFallback(str: string, fallback?: string): string {
-  return `${str}_${fallback ?? mintId()}`
+export function appendFallback(str: string, fallback: string = mintId().slice(-FallbackSuffixLen)): string {
+  return `${str.slice(0, PA.Label.max - 1 - fallback.length)}_${fallback}`
 }
 
 export type NormalizeOpts = {
-  /** Cuts the cleaned body to this many characters before the letter/length repairs run */
+  /** Cuts the cleaned body to this many characters before the letter/length repairs run; never past what a label may hold */
   maxlen?: number
 }
 
@@ -61,8 +66,8 @@ export type NormalizeOpts = {
 export function normalize(str: string, opts: Readonly<NormalizeOpts> = {}): string {
   if (str.trim() === '') { return '' }
   let cleaned = _.deburr(str).toLowerCase().replaceAll(/[_\W]+/g, '')
-  if (opts.maxlen !== undefined) { cleaned = cleaned.slice(0, opts.maxlen) }
-  if (! /^[a-z]/.test(cleaned)) { cleaned = `z${cleaned}` }
+  cleaned = cleaned.slice(0, Math.min(opts.maxlen ?? PA.Label.max, PA.Label.max))
+  if (! /^[a-z]/.test(cleaned)) { cleaned = `z${cleaned}`.slice(0, PA.Label.max) }
   if (cleaned.length < 2) { cleaned += 'z' }
   return LabelValidators.label(cleaned)
 }

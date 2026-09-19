@@ -41,6 +41,10 @@ describe('character sets', () => {
     accepts(CK.textish, 'one\ntwo')
     rejects(CK.stringish, 'one\ntwo')
   })
+  it('textish keeps the text exactly as written, where noteish trims it', () => {
+    expect(accepts(CK.textish, '  indented verse\n')).to.eq('  indented verse\n')
+    expect(accepts(CK.noteish, '  a note\n')).to.eq('a note')
+  })
   it('loalnumbar lowercases rather than refusing', () => {
     expect(accepts(CK.loalnumbar, 'ABC_1')).to.eq('abc_1')
   })
@@ -59,9 +63,15 @@ describe('lengths', () => {
       rejects(CK[ckname], 'x'.repeat(cap + 1))
     })
   }
-  it('notestr takes a paragraph, newlines and all', () => {
-    accepts(CK.notestr, 'a note\nover two lines')
-    rejects(CK.notestr, 'x'.repeat(3601))
+  it('textish and noteish take a paragraph, newlines and all, up to 3600 characters', () => {
+    for (const check of [CK.textish, CK.noteish]) {
+      accepts(check, 'a note\nover two lines')
+      accepts(check, 'x'.repeat(3600))
+      rejects(check, 'x'.repeat(3601))
+    }
+  })
+  it('noteish measures after trimming, so surrounding space never costs length', () => {
+    accepts(CK.noteish, ` ${'x'.repeat(3600)} `)
   })
   it('blobbish lets you get carried away, but not indefinitely', () => {
     accepts(CK.blobbish, 'x'.repeat(800_800))
@@ -71,7 +81,7 @@ describe('lengths', () => {
 
 describe('identifiers', () => {
   const Cases: [keyof typeof CK, string[], string[]][] = [
-    ['label',     ['abc', 'a_1', 'a'],        ['Abc', '1abc', 'a-b', '', 'x'.repeat(26)]],
+    ['label',     ['abc', 'a_1', 'ab', 'x'.repeat(40)],  ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41)]],
     ['dashlabel', ['a-b', 'abc', 'a_1'],      ['Abc', '1abc', '']],
     ['handleish', ['abc', 'a_1'],             ['Abc', '1abc', 'a-b', '', 'x'.repeat(37)]],
     ['camel',     ['Abc', 'A1', 'AbcDef'],    ['abc', '1Abc', '_Abc', 'A_1', ',']],
@@ -98,7 +108,7 @@ describe('identifiers', () => {
 // is tested once, in reporting.test.ts, rather than again at every check.
 describe('the advice each pattern gives', () => {
   const Cases: [keyof typeof CK, string, string][] = [
-    ['label',     'Abc',       'should have only plain lowercase letters/_/numbers with a letter first'],
+    ['label',     'Abc',       'should have only plain lowercase letters/_/numbers, with a letter first and a letter or number last'],
     ['handleish', 'Abc',       'should be all lowercase'],
     ['camel',     'abc',       'should be an UpperFirstLetterCamelCased name'],
     ['locamel',   'Abc',       'should be a lowerFirstLetterCamelCased name'],

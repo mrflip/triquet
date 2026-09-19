@@ -1,4 +1,5 @@
 import * as Z from 'zod'
+import * as CK from './vv/checks/strings'
 
 /**
  * Aliased, standardized Zod builders handed to every `Validator` block. Naming follows
@@ -19,14 +20,16 @@ export const ValidatorKit = {
   //
   /** Generic string, no constraints beyond being one */
   str:       Z.string(),
-  /** Freeform prose the author types: long, but not unbounded */
-  text:      Z.string().max(10_000),
-  /** Human-readable label, independent of any identity it might accompany */
-  title:     Z.string().max(200),
+  /** Prose exactly as the author wrote it: newlines welcome, control characters not, never trimmed */
+  textish:   CK.textish,
+  /** Prose as `textish` takes it, but trimmed */
+  noteish:   CK.noteish,
+  /** Human-readable name on one line, independent of any identity it might accompany */
+  titleish:  CK.titleish,
   /** Lowercase Crockford-base32 ULID, as minted by `mintId` */
-  ulid:      Z.string().regex(/^[0-9a-hjkmnp-tv-z]{26}$/),
-  /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter-bound */
-  label:     Z.string().regex(/^([a-z][a-z0-9_]*[a-z0-9])$/),
+  ulid:      CK.ulid,
+  /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
+  label:     CK.label,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
   //

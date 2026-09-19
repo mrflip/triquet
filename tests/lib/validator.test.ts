@@ -4,10 +4,10 @@ import { Validator, callable } from '../../src/lib/validator'
 
 const LightbulbTechVals = ['led', 'incandescent', 'fluorescent'] as const
 
-const LightbulbValidators = Validator(({ obj, title, uint, oneof }) => {
+const LightbulbValidators = Validator(({ obj, titleish, uint, oneof }) => {
   const lightbulbTech = oneof(LightbulbTechVals)
   const lightbulb = obj({
-    title,
+    title:  titleish,
     lumens: uint.max(20_000).nullable().default(null),
     tech:   lightbulbTech.default('led'),
   })

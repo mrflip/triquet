@@ -7,8 +7,8 @@ import * as PA from '../patterns'
 
 /** Neither begins nor ends with a space or control character */
 export const trimpolice   = str.regex(PA.Trimmed.re, PA.Trimmed.msg)
-/** Any character but a control character; tab and newline allowed */
-export const textish      = str.trim().regex(PA.Textish.re, PA.Textish.msg).describe('text')
+/** Prose exactly as written: any character but a control character, tab and newline allowed, never trimmed */
+export const textish      = str.regex(PA.Textish.re, PA.Textish.msg).max(PA.Textish.max).describe('text')
 /** Any character but a control character, newlines included */
 export const stringish    = str.regex(PA.Stringish.re, PA.Stringish.msg).describe('standard characters')
 /** Printable ASCII only */
@@ -39,7 +39,8 @@ export const medstr   = trimmed.max(PA.Medstr.max).describe('medium text')
 export const fullstr  = trimmed.max(PA.Fullstr.max).describe('full-width text')
 export const bigstr   = trimmed.max(PA.Bigstr.max).describe('long text')
 export const titleish = trimmed.max(PA.Titleish.max).describe('title')
-export const notestr  = str.trim().regex(PA.Textish.re, PA.Textish.msg).max(PA.Notestr.max).describe('note')
+/** Prose as `textish` takes it, but trimmed: surrounding space in a note is never the point */
+export const noteish  = str.trim().regex(PA.Noteish.re, PA.Noteish.msg).max(PA.Noteish.max).describe('note')
 /** As much text as anyone should paste in one go; past this it is a file, not a field */
 export const blobbish = str.regex(PA.Textish.re, PA.Textish.msg).max(PA.Blobbish.max).describe('blob of text')
 

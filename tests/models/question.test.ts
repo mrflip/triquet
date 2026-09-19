@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Question, QuestionValidators } from '../../src/models/question'
+import { Question, QuestionValidators, type QuestionDNA } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 import * as Labelmaker from '../../src/lib/labelmaker'
 
@@ -137,4 +137,32 @@ describe('Question.blank', () => {
   it('mints a distinct id each time', () => {
     expect(Question.blank().id).to.not.eq(Question.blank().id)
   })
+})
+
+describe('QuestionValidators, field by field', () => {
+  it('keeps a clueing and a hint exactly as written, surrounding space and all', () => {
+    const question = Question.fill({ id: anId, clueing: '  "Verse,\n   indented"  ', hint: '\tBUT NOT this ' })
+    expect(question.clueing).to.eq('  "Verse,\n   indented"  ')
+    expect(question.hint).to.eq('\tBUT NOT this ')
+  })
+
+  it('trims the notes, the alt text and the answer', () => {
+    const question = Question.fill({ id: anId, notes: ' check this\n', alt_text: '  alt ', full_answer: ' Leon, in Spain ' })
+    expect([question.notes, question.alt_text, question.full_answer]).to.deep.eq(['check this', 'alt', 'Leon, in Spain'])
+  })
+
+  const Refused: [QuestionDNA, string][] = [
+    [{ id: anId, clueing: 'x'.repeat(3601) },    'a clueing past 3600 characters'],
+    [{ id: anId, hint: 'BUT NOT\u{1}' },          'a hint carrying a control character'],
+    [{ id: anId, notes: 'x'.repeat(3601) },      'notes past 3600 characters'],
+    [{ id: anId, title: 'x'.repeat(83) },        'a title past 82 characters'],
+    [{ id: anId, title: 'Two\nlines' },          'a title on more than one line'],
+    [{ id: anId, label: 'ends_' },               'a label ending in an underscore'],
+    [{ id: anId, label: 'x'.repeat(41) },        'a label past 40 characters'],
+  ]
+  for (const [dna, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => Question.fill(dna)).to.throw(Z.ZodError)
+    })
+  }
 })

@@ -30,7 +30,8 @@ export const StringishRe = /^\P{Cc}*$/u
 export const TrimmedRe   = /^([^\s\p{Cc}].*[^\s\p{Cc}]|[^\s\p{Cc}]|)$/su
 
 export const Asciish   = { re: AsciishRe,   msg: 'should have only unaccented keyboard characters' } as const satisfies Patternbag
-export const Textish   = { re: TextishRe,   msg: 'has weird characters' } as const satisfies Patternbag
+/** Paragraphs of prose: newlines and tabs welcome, control characters not, and past 3600 characters it is not a field any more */
+export const Textish   = { re: TextishRe,   msg: 'has weird characters', max: 3600 } as const satisfies Patternbag
 export const Stringish = { re: StringishRe, msg: 'has tabs, returns or weird characters' } as const satisfies Patternbag
 export const Trimmed   = { re: TrimmedRe,   msg: 'should not begin or end with any space separators' } as const satisfies Patternbag
 
@@ -52,7 +53,7 @@ export const Upalnumbar   = { re: /^[A-Z0-9_]*$/,            msg: 'should have o
 export const Loalnumbar   = { re: /^[a-z0-9_]*$/,            msg: 'should have only lowercase plain letters/_/numbers' } as const satisfies Patternbag
 export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plain letters, numbers, and the occasional space' } as const satisfies Patternbag
 
-export const Label      = { re: /^[a-z][a-z0-9_]*$/,    min: 1, max: 25, msg: 'should have only plain lowercase letters/_/numbers with a letter first' } as const satisfies Patternbag
+export const Label      = { re: /^[a-z][a-z0-9_]*[a-z0-9]$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first and a letter or number last' } as const satisfies Patternbag
 export const Dashlabel  = { re: /^[a-z][a-z0-9_-]*$/,   min: 1, max: 25, msg: 'should have only plain lowercase letters/_/-/numbers with a letter first' } as const satisfies Patternbag
 export const Handleish  = { re: /^[a-z][a-z0-9_]*$/,    min: 1, max: 36, msg: 'should have only lowercase plain letters/_/numbers with a letter first' } as const satisfies Patternbag
 export const Keyish     = { re: /^[\w\-.:/+]*$/,        min: 1, max: 90, msg: 'should be letters, numbers, .-_/:' } as const satisfies Patternbag
@@ -62,7 +63,7 @@ export const Varname    = { re: /^[A-Za-z]\w*$/,        msg: 'should be a label 
 export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_snake_cased name' } as const satisfies Patternbag
 
 /** Lowercase Crockford base32, 26 characters, sortable by time */
-export const Ulid       = { re: /^[0-7][a-hjkmnp-tv-z0-9]{25}$/, msg: 'should be a 26-character lowercase ulid' } as const satisfies Patternbag
+export const Ulid       = { re: /^[0-7][a-hjkmnp-tv-z0-9]{25}$/, min: 26, max: 26, msg: 'should be a 26-character lowercase ulid' } as const satisfies Patternbag
 
 //
 // == [String lengths] ==
@@ -72,8 +73,9 @@ export const Shortstr = { max: 15 } as const satisfies Patternbag
 export const Medstr   = { max: 40 } as const satisfies Patternbag      // a smushed uuid, or most of a person's name
 export const Fullstr  = { max: 82 } as const satisfies Patternbag      // fits a phone; two medstrs with delimiters
 export const Bigstr   = { max: 200 } as const satisfies Patternbag     // about the longest product title anyone writes
-export const Notestr  = { max: 3600, ...Textish } as const satisfies Patternbag
-export const Blobbish = { max: 800_800, ...Textish } as const satisfies Patternbag
+/** The same bounds as `Textish`; a note differs only in being trimmed, which is the check's business */
+export const Noteish  = { ...Textish } as const satisfies Patternbag
+export const Blobbish = { ...Textish, max: 800_800 } as const satisfies Patternbag
 export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
 
 //
