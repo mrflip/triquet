@@ -59,7 +59,7 @@ test('the gear icon opens a modal for managing the label, and for opening any ot
   await expect(page.getByText('Manage this quiz')).toBeHidden()
 
   const url = new URL(page.url())
-  expect(url.hash).toBe('#leonsquiz')
+  expect(url.hash).toBe('#leon_s_quiz')
 })
 
 test('a label already used by another quiz is refused, with the field left open to fix', async ({ page }) => {

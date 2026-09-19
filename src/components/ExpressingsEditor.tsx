@@ -86,7 +86,7 @@ function ExpressingRow({ expressing, expressions, locked, siblingLabels, dispatc
   const labelDraft = useDraft(expressing.label, (label) => {
     if (siblingLabels.has(label)) { setIssue('Another column in this quiz already has that label.'); return }
     revise({ label })
-  }, (draft) => Labelmaker.snakify(draft))
+  }, (draft) => Labelmaker.normalize(draft))
 
   const known = expressions.some((expression) => expression.label === expressing.expression_label)
 

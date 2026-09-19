@@ -50,39 +50,22 @@ export type NormalizeOpts = {
 }
 
 /**
- * `str` squeezed into a bare label body: deburred, lowercased, with every run of whitespace,
- * punctuation and underscore stripped out entirely rather than kept as a separator -- a label
- * mashes its words together rather than joining them. Repaired afterward so it always starts
- * with a letter and is never shorter than two characters, then validated against the `label`
- * shape on the way out.
+ * `str` squeezed into a label body: deburred, lowercased, with every run of whitespace,
+ * punctuation and underscore collapsed to a single underscore and none left at either end.
+ * Repaired afterward so it always starts with a letter and is never shorter than two
+ * characters, then validated against the `label` shape on the way out.
  *
  * @param str - Whatever the author typed; a blank string is a legal "no label yet".
  * @param opts - `maxlen` caps the cleaned body before the repairs run.
  * @returns A valid `label`, or `''` when `str` was blank.
  *
- * @example normalize('Hello, World!')  // => 'helloworld'
+ * @example normalize('Hello, World!')  // => 'hello_world'
+ * @example normalize('clueing_full')   // => 'clueing_full'
  * @example normalize('  ')            // => ''
  */
 export function normalize(str: string, opts: Readonly<NormalizeOpts> = {}): string {
   if (str.trim() === '') { return '' }
-  return repaired(_.deburr(str).toLowerCase().replaceAll(/[_\W]+/g, ''), opts.maxlen)
-}
-
-/**
- * `str` squeezed into a label that keeps its words apart with underscores, where `normalize`
- * mashes them together: deburred, lowercased, every run of whitespace and punctuation becoming
- * one underscore, none left at either end. Repaired and validated as `normalize` is.
- *
- * @param str - Whatever the author typed; a blank string is a legal "no label yet".
- * @returns A valid `label`, or `''` when `str` was blank.
- *
- * @example snakify('Answer Length!')  // => 'answer_length'
- * @example snakify('clueing_full')    // => 'clueing_full'
- * @example snakify('  ')              // => ''
- */
-export function snakify(str: string): string {
-  if (str.trim() === '') { return '' }
-  return repaired(_.trim(_.deburr(str).toLowerCase().replaceAll(/[^a-z0-9]+/g, '_'), '_'))
+  return repaired(_.trim(_.deburr(str).toLowerCase().replaceAll(/[\W_]+/g, '_'), '_'), opts.maxlen)
 }
 
 /** `cleaned`, cut to length without a trailing underscore, made to start with a letter and be two characters long, then validated as a label */

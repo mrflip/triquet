@@ -119,7 +119,7 @@ function NewExpression({ taken, dispatch }: Readonly<{ taken: ReadonlySet<string
   const [issue, setIssue] = useState<string | null>(null)
 
   const onAdd = () => {
-    const label = Labelmaker.snakify(labelDraft)
+    const label = Labelmaker.normalize(labelDraft)
     if (labelDraft.trim() === '') { setIssue('Give the expression a label.'); return }
     if (taken.has(label)) { setIssue('Another expression already has that label.'); return }
     const checked = ExpressionValidators.expression.safeParse({ owner: DefaultOwner, label, formula, description })

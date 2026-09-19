@@ -23,7 +23,7 @@ test('a quiz starts on the main version, and the author can move it to another',
   await expect(page.getByText('Manage this quiz')).toBeHidden()
 
   await openManage(page)
-  await expect(page.getByLabel('Version')).toHaveValue('drafttwo')
+  await expect(page.getByLabel('Version')).toHaveValue('draft_two')
 })
 
 test('editing a quiz builds a history that a milestone can tag', async ({ page }) => {

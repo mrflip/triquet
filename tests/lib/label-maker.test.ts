@@ -4,56 +4,27 @@ import { ValidatorKit } from '../../src/lib/validator'
 
 const NormalizeCases: [string, string, string][] = [
   // regular usage:
-  ["Hello, World!",  "helloworld",   'punctuation and whitespace are stripped, not kept as a separator'],
-  ["Already_fine_123", "alreadyfine123", 'an existing underscore is stripped too, not preserved'],
+  ["Hello, World!",  "hello_world",  'a run of punctuation and whitespace becomes one underscore'],
+  ["Already_fine_123", "already_fine_123", 'an existing underscore is preserved'],
+  ["Answer Length!", "answer_length",  'words are kept apart with an underscore'],
+  ["title2",         "title2",       'digits stay with the word they follow'],
   ["a",              "az",           'a single letter is padded out to two characters'],
   // trivial cases:
   ["",               "",             'an empty string reads as no label yet'],
   [" ".repeat(3),    "",             'a whitespace-only string reads as no label yet'],
   // weird cases:
   ["__",             "zz",           'a string that strips to nothing gets the letter-start and length repairs in sequence'],
-  ["a__b",            "ab",          'an internal run of underscores vanishes rather than collapsing to one'],
+  ["a__b",            "a_b",         'an internal run of underscores collapses to one'],
+  ["a _ b",           "a_b",         'underscore and spaces together collapse to one'],
+  ["_",               "zz",          'a lone underscore has nothing left, so is repaired like any other empty body'],
+  ["__lead_and_trail__", "lead_and_trail", 'underscores at either end are dropped'],
   [" 9 ",             "z9",          'a string starting with a digit after stripping gets a letter prepended'],
   ["éü",              "eu",          'diacritics are deburred before anything else'],
-  ["L'Iñtërnâtiôñàlizætiøñ.𝍔", "linternationalizaetion", 'the internationalization test string reduces to its bare letters'],
-  ["👍cool👍",         "cool",        'emoji are non-word characters and are stripped like any other symbol'],
+  ["L'Iñtërnâtiôñàlizætiøñ.𝍔", "l_internationalizaetion", 'the internationalization test string reduces to its bare letters'],
+  ["👍cool👍",         "cool",        'emoji are non-word characters and collapse away at the ends like any other symbol'],
+  ["x".repeat(39) + " y", "x".repeat(39), 'a cut that would leave a trailing underscore drops it'],
   ["👍👍",             "zz",          'a string of nothing but emoji strips to nothing, then gets repaired like any other'],
 ]
-
-const SnakifyCases: [string, string, string][] = [
-  // regular usage:
-  ["Answer Length!",   "answer_length",  'words are kept apart with an underscore'],
-  ["clueing_full",     "clueing_full",   'a label already snake-cased is left alone'],
-  ["Hello,   World",   "hello_world",    'a run of whitespace and punctuation becomes one underscore'],
-  ["title2",           "title2",         'digits stay with the word they follow'],
-  // trivial cases:
-  ["",                 "",               'an empty string reads as no label yet'],
-  [" ".repeat(3),      "",               'a whitespace-only string reads as no label yet'],
-  ["a",                "az",             'a single letter is padded out to two characters'],
-  // weird cases:
-  ["__lead_and_trail__", "lead_and_trail", 'underscores at either end are dropped'],
-  ["__",               "zz",             'a string that strips to nothing gets the letter-start and length repairs in sequence'],
-  [" 9 lives",         "z9_lives",       'a string starting with a digit gets a letter prepended'],
-  ["éü ñ",             "eu_n",           'diacritics are deburred before anything else'],
-  ["👍cool👍",          "cool",           'emoji are stripped like any other symbol'],
-  ["x".repeat(39) + "_y", "x".repeat(39), 'a cut that would leave a trailing underscore drops it'],
-]
-
-describe('snakify', () => {
-  for (const [input, expected, blurb] of SnakifyCases) {
-    it(blurb, () => {
-      expect(Labelmaker.snakify(input)).to.eq(expected)
-    })
-  }
-
-  it('never returns more than a label may hold, however much is typed', () => {
-    expect(Labelmaker.snakify('word '.repeat(50))).to.have.length.at.most(40)
-  })
-
-  it('always returns a valid label, even from adversarial input', () => {
-    expect(ValidatorKit.label.safeParse(Labelmaker.snakify('🎲 🎲 🎲')).success).to.eq(true)
-  })
-})
 
 describe('normalize', () => {
   for (const [input, expected, blurb] of NormalizeCases) {
@@ -101,8 +72,8 @@ describe('localBlankLabel', () => {
   it('falls back once every attempt collides', () => {
     const label = Labelmaker.localBlankLabel(new Set(), 'fallback')
     const alwaysTaken = { has: () => true } as unknown as ReadonlySet<string>
-    expect(Labelmaker.localBlankLabel(alwaysTaken, 'fallback-id')).to.eq('fallbackid')
-    expect(label).to.not.eq('fallbackid')
+    expect(Labelmaker.localBlankLabel(alwaysTaken, 'fallback-id')).to.eq('fallback_id')
+    expect(label).to.not.eq('fallback_id')
   })
 
   it('makes a real label of an id-shaped fallback, which starts with a digit', () => {
