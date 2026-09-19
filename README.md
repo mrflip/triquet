@@ -17,6 +17,10 @@ Use these standard commands:
     pnpm test:e2e         # end-to-end specs, on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
+Coding agents use `pnpm dev:agent` (port 3100, build directory `.next-agent`) and `pnpm build:agent`
+instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server you already have
+running. Next.js refuses to start a second dev server in the same directory.
+
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment; everything else works without it.
 
 ## Overview

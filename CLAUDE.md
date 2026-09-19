@@ -51,6 +51,14 @@ The top three values while writing code are **empathy, safety and readability**.
 * ignore **everything in /aside/**/**, **everything with the word `secret` or `secret` unless it also says `template`**.
   - also do not design anything that needs such a file. Use doppler.
 
+## Global resources
+
+Never touch a resource a human may already be using. Next.js allows one dev server and one build
+per directory, so as an agent **use `pnpm dev:agent` (port 3100) and `pnpm build:agent`**, never
+`pnpm dev` / `pnpm build`; Playwright already starts `dev:agent` itself. Never kill a process you
+did not start. If you meet another shared resource -- a port, a cache or output directory, a
+database -- give yourself a parallel one the same way, and add its script to `package.json`.
+
 ## Notable files and directories:
 
 These are **not** loaded automatically. Read them when the work touches them.

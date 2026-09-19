@@ -17,6 +17,8 @@ const SourceFiles = ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}']
 export default defineConfig([
   globalIgnores([
     '.next/**',
+    '.next-agent/**',
+    '.next-agent-build/**',
     'out/**',
     'build/**',
     'dist/**',
