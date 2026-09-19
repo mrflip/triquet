@@ -66,8 +66,15 @@ describe('localBlankLabel', () => {
   it('falls back once every attempt collides', () => {
     const label = Labelmaker.localBlankLabel(new Set(), 'fallback')
     const alwaysTaken = { has: () => true } as unknown as ReadonlySet<string>
-    expect(Labelmaker.localBlankLabel(alwaysTaken, 'fallback-id')).to.eq('fallback-id')
-    expect(label).to.not.eq('fallback-id')
+    expect(Labelmaker.localBlankLabel(alwaysTaken, 'fallback-id')).to.eq('fallbackid')
+    expect(label).to.not.eq('fallbackid')
+  })
+
+  it('makes a real label of an id-shaped fallback, which starts with a digit', () => {
+    const alwaysTaken = { has: () => true } as unknown as ReadonlySet<string>
+    const label = Labelmaker.localBlankLabel(alwaysTaken, '01k5f9n3ktq7wzc8x2r4m0vaeh')
+    expect(label).to.eq('z01k5f9n3ktq7wzc8x2r4m0vaeh')
+    expect(ValidatorKit.label.safeParse(label).success).to.eq(true)
   })
 })
 

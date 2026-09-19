@@ -10,12 +10,12 @@ const LabelValidators = Validator(({ label }) => ({ label }))
 const LocalBlankLabelAttemptsMax = 20
 
 /**
- * A fresh `adjective_animal` label absent from `existingLabels`, or `fallback` once re-rolling
- * stops being worth it.
+ * A fresh `adjective_animal` label absent from `existingLabels`, or `fallback` made into a label
+ * once re-rolling stops being worth it.
  *
  * @param existingLabels - Labels already spoken for, checked before each attempt.
- * @param fallback - Handed back after too many collisions; callers pass a freshly minted id.
- * @returns A label absent from `existingLabels`, or `fallback`.
+ * @param fallback - Normalized and handed back after too many collisions; callers pass a freshly minted id.
+ * @returns A label absent from `existingLabels`, or `fallback` normalized.
  *
  * @example localBlankLabel(new Set(), '01k5f9n3ktq7wzc8x2r4m0vaeh')  // => 'quiet_otter', say
  */
@@ -24,7 +24,7 @@ export function localBlankLabel(existingLabels: ReadonlySet<string>, fallback: s
     const candidate = uniqueNamesGenerator({ dictionaries: [adjectives, animals], separator: '_', style: 'lowerCase' })
     if (! existingLabels.has(candidate)) { return candidate }
   }
-  return fallback
+  return normalize(fallback)
 }
 
 /** How many characters of a fresh id disambiguate a label: its random tail, and plenty within one workspace */
