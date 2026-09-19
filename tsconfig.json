@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "#inspect-env": [
+        "./src/lib/inspectify-node.ts"
       ]
     }
   },
@@ -41,6 +44,8 @@
     ".next-agent-build/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "aside",
+    "relics"
   ]
 }

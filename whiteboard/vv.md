@@ -7,12 +7,12 @@ Repo is on zod 4.6.5 already, so there is no version negotiation to do -- only t
 
 ## What's in the relic
 
-| Area | Files | Lines | Feel |
-|---|---|---|---|
-| Constants & regexes | `src/Consts.ts`, `src/consts/*` | ~1300 | 433 exports in one file; pure data, ports easily |
-| Checks | `src/checks/*` | ~450 | the actual validators, grouped by domain |
-| Validation machinery | `src/validation/*` | ~1000 | `Validator`, reporter, typeguards, monkeypatch |
-| Tests | `tests/**` | ~2400 | ~1500 of it is hostname/URL fixture corpus |
+| Area                 | Files                           | Lines | Feel                                             |
+| -------------------- | ------------------------------- | ----- | ------------------------------------------------ |
+| Constants & regexes  | `src/Consts.ts`, `src/consts/*` | ~1300 | 433 exports in one file; pure data, ports easily |
+| Checks               | `src/checks/*`                  | ~450  | the actual validators, grouped by domain         |
+| Validation machinery | `src/validation/*`              | ~1000 | `Validator`, reporter, typeguards, monkeypatch   |
+| Tests                | `tests/**`                      | ~2400 | ~1500 of it is hostname/URL fixture corpus       |
 
 ## Headlines for the coach
 
@@ -105,6 +105,37 @@ jump-to-definition instead of a name materialising out of an anonymous destructu
 
 If you want the old ergonomics back I can do per-domain kits (`Validator.with(ContactKit)`), but
 I'd push for plain imports -- it's less machinery and reads better.
+
+## Wave 1 done: inspectify
+
+Landed as `src/lib/inspectify.ts` (entry + `maxlen` + the never-throw ladder),
+`src/lib/inspectify-node.ts` (node's `util.inspect`), `src/lib/inspectify-browser.ts` (the
+portable formatter). Re-exported by `useful`, so `UU.inspectify`. Option 2 as proposed: a
+`#inspect-env` subpath import in `package.json`.
+
+Verified rather than assumed: built with a `'use client'` page calling it, then grepped the
+client chunks. `node:util` is absent from them, and the browser formatter's own strings
+(`[Circular]`, `[unreadable]`) are present. Both halves run against the same 77-case table in
+`tests/lib/inspectify.test.ts` and agree on every row -- vitest resolves to the node half, so
+without that the browser code would never be executed by a test at all.
+
+**Two things deliberately left for wave 2**, because they are message formatting rather than
+value rendering, and the line I drew is *inspectify renders values; the reporter adorns
+messages*:
+
+* **`~^n` control-character rendering.** Both halves currently escape the way node does
+  (`\n`, `\x01`). The relic's `~^` convention is a reporter-level choice -- adopting it means
+  overriding node's escaping on the server too, and I'd rather do that once, where the `«»`
+  wrapping happens.
+* **Numeric separators** (`«8_675_309»`, `«39.000_01»`). The relic applies these to subject
+  values *and* to the limits it interpolates (`«1_996» or more`), so it belongs with the
+  message builder, not here.
+
+**One thing to decide in wave 2:** the two halves agree on everyday values, but they are not
+guaranteed byte-identical for exotic ones. If wave 2 wants error messages that are identical
+whichever side produced them, the honest answer is to use the portable formatter on both sides
+and keep `node:util` for logs only. Flagging now because the exact-match message tests will be
+the first place it bites.
 
 ## Open questions for you
 

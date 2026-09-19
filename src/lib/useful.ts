@@ -1,5 +1,9 @@
 import stringify from 'safe-stable-stringify'
 
+// Lives in its own file because it resolves differently on the server and in the browser, but
+// it belongs to this toolkit: reach for it as `UU.inspectify`.
+export { inspectify, Uninspectable, type InspectifyOpts } from './inspectify'
+
 export type JsonifyOpts = {
   /** Indent by two spaces, one field per line; compact when false */
   pretty?: boolean
