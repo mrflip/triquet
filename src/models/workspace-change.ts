@@ -3,7 +3,7 @@ import { Validator } from '../lib/validator'
 import { QuizValidators } from './quiz'
 import type { WorkspaceT } from './workspace'
 
-export const WorkspaceChangeValidators = Validator(({ obj, arr, ulid }) => {
+export const WorkspaceChangeValidators = Validator(({ obj, arr, ulid, str, lit, discrim }) => {
   const workspaceChange = obj({
     active_quiz_id:   ulid
       .describe('Which quiz is on screen once the change has landed.'),
@@ -14,11 +14,18 @@ export const WorkspaceChangeValidators = Validator(({ obj, arr, ulid }) => {
   })
     .describe('What one save sends to the database: only the quizzes that changed, but each of those in full.')
 
-  return { workspaceChange }
+  const saveOutcome = discrim('saved', [
+    obj({ saved: lit(true) }),
+    obj({ saved: lit(false), message: str.min(1) }),
+  ])
+    .describe('Whether a save landed, and what to tell the author when it did not.')
+
+  return { workspaceChange, saveOutcome }
 })
 
 export type WorkspaceChangeDNA = Z.input<typeof WorkspaceChangeValidators.workspaceChange>
 export type WorkspaceChangeT   = Z.output<typeof WorkspaceChangeValidators.workspaceChange>
+export type SaveOutcome        = Z.output<typeof WorkspaceChangeValidators.saveOutcome>
 
 /**
  * What must be saved to turn `before` into `after`.

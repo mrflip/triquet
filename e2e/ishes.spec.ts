@@ -24,7 +24,7 @@ function cellOf(page: Page, rowIdx: number, colname: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()

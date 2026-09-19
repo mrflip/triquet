@@ -2,11 +2,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
-import { BulkIshesPrompt, ClueingIshesPrompt, HintIshesPrompt, QuickGuessPrompt, bulkItemsBlock, renderPrompt } from '../../../lib/ask/prompts'
+import { bulkItemsBlock } from '../../../lib/ask/prompts'
 import { MaxTokensForJob, ModelForTier } from '../../../lib/ask/models'
+import { appDb } from '../../../db/client'
+import { playerFor, promptFor } from '../../../db/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failurekindFor } from '../../../lib/ask/failures'
 import { IshValidators } from '../../../models/ish'
+import type { PlayerT } from '../../../models/player'
 
 /** The shape every single-text ish job constrains the model's answer to */
 const IshItemsFormat = Z.object({ items: Z.array(IshValidators.ishItem) })
@@ -36,41 +39,43 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-/** Whichever job was asked for, answered */
+/** Whichever job was asked for, answered by the player whose job it is */
 async function answerAsk(client: Anthropic, ask: AskRequestT): Promise<AskReplyT> {
+  const db = await appDb()
   switch (ask.job) {
   case 'guess': {
-    return await answerGuess(client, ask.clueing)
+    return await answerGuess(client, await playerFor(db, 'dumdum'), ask.clueing)
   }
   case 'ishes': {
-    const template = ask.textkind === 'clueing' ? ClueingIshesPrompt : HintIshesPrompt
-    const prompt = renderPrompt(template, { [ask.textkind]: ask.text })
-    const outcome = await extract(client, prompt, IshItemsFormat, MaxTokensForJob.ishes)
+    const numnum = await playerFor(db, 'numnum')
+    const prompt = promptFor(numnum, ask.textkind, { [ask.textkind]: ask.text })
+    const outcome = await extract(client, numnum, prompt, IshItemsFormat, numnum.max_tokens)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'ishes', items: outcome.parsed.items, truncated: outcome.truncated,
-      model_tier_applied: 'careful', approx_tokens: approxTokensFor(prompt, outcome.raw),
+      model_tier_applied: numnum.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
     }
   }
   case 'bulk_ishes': {
-    const prompt = renderPrompt(BulkIshesPrompt, { items: bulkItemsBlock(ask.items) })
-    const outcome = await extract(client, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
+    const numnum = await playerFor(db, 'numnum')
+    const prompt = promptFor(numnum, 'bulk', { items: bulkItemsBlock(ask.items) })
+    const outcome = await extract(client, numnum, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'bulk_ishes', groups: outcome.parsed.groups, truncated: outcome.truncated,
-      model_tier_applied: 'careful', approx_tokens: approxTokensFor(prompt, outcome.raw),
+      model_tier_applied: numnum.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
       text_count: ask.items.length,
     }
   }
   }
 }
 
-/** The hasty first-instinct read, from the quick tier and with no thinking to slow it down */
-async function answerGuess(client: Anthropic, clueing: string): Promise<AskReplyT> {
-  const prompt = renderPrompt(QuickGuessPrompt, { clueing })
+/** Dumdum's hasty first-instinct read, with no thinking to slow it down */
+async function answerGuess(client: Anthropic, dumdum: PlayerT, clueing: string): Promise<AskReplyT> {
+  const prompt = promptFor(dumdum, 'clueing', { clueing })
   const answer = await client.messages.create({
-    model:      ModelForTier.quick,
-    max_tokens: MaxTokensForJob.guess,
+    model:      ModelForTier[dumdum.model_tier],
+    max_tokens: dumdum.max_tokens,
     messages:   [{ role: 'user', content: prompt }],
   })
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
@@ -79,7 +84,7 @@ async function answerGuess(client: Anthropic, clueing: string): Promise<AskReply
   return {
     ok: true, job: 'guess', text,
     truncated:          answer.stop_reason === 'max_tokens',
-    model_tier_applied: 'quick',
+    model_tier_applied: dumdum.model_tier,
     approx_tokens:      approxTokensFor(prompt, text),
   }
 }
@@ -88,10 +93,10 @@ type Extracted<SC extends Z.ZodType> =
   | { ok: true, parsed: Z.output<SC>, raw: string, truncated: boolean }
   | { ok: false, failurekind: 'declined' | 'unreadable' }
 
-/** One structured extraction from the careful tier, or the reason there was not one */
-async function extract<SC extends Z.ZodType>(client: Anthropic, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
+/** One structured extraction from `player`, or the reason there was not one */
+async function extract<SC extends Z.ZodType>(client: Anthropic, player: PlayerT, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
   const answer = await client.messages.parse({
-    model: ModelForTier.careful,
+    model: ModelForTier[player.model_tier],
     max_tokens,
     messages:      [{ role: 'user', content: prompt }],
     output_config: { format: zodOutputFormat(format) },

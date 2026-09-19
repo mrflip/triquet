@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
 })
 
 /** Open the gear modal, which is where everything about a quiz's history lives */
@@ -76,7 +77,7 @@ test('the history survives a reload, because it lives in the browser and not in 
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
   await expect(page.getByRole('status')).toHaveText(/^main-m-/)
 
-  await page.reload()
+  await reloadOnceSaved(page)
   await page.waitForSelector('table')
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
@@ -118,7 +119,7 @@ test('an edit is committed on its own once the wait is up, and not before', asyn
   // ...and with nobody asking, the timer alone produces the history.
   await expect.poll(async () => await committedEntryCount(page), { timeout: 15_000 }).toBeGreaterThan(0)
 
-  await page.reload()
+  await reloadOnceSaved(page)
   await page.waitForSelector('table')
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()

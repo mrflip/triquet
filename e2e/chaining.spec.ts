@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 /** Fill the first questions with a Q#, a title and a hint */
 async function fillQuiz(page: Page, rows: [string, string, string][]) {
@@ -29,7 +30,7 @@ function butnotCell(page: Page, rowIdx: number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   await fillQuiz(page, [
     ['3', 'cherry', 'BUT NOT the fruit-flavoured one'],
@@ -86,6 +87,6 @@ test('a chain order survives a reload', async ({ page }) => {
   await chainTo(page, 3, 'cherry')
   await page.getByRole('button', { name: 'Sort by chain order' }).click()
   const wasShown = await answersShown(page)
-  await page.reload()
+  await reloadOnceSaved(page)
   expect(await answersShown(page)).toEqual(wasShown)
 })

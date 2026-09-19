@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 /** Stand in for the ask route, so these tests never spend real model usage */
 async function stubAsk(page: Page, reply: unknown, status = 200) {
@@ -14,7 +15,7 @@ function guessCell(page: Page, rowIdx: number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
@@ -56,7 +57,7 @@ test('an answer survives a reload', async ({ page }) => {
   await stubAsk(page, { ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('Leon')
-  await page.reload()
+  await reloadOnceSaved(page)
   await expect(guessCell(page, 0)).toContainText('Leon')
 })
 

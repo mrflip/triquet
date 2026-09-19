@@ -14,9 +14,9 @@ import { useAsking } from '../state/use-asking'
 import { useQuizHashSync } from '../state/use-quiz-route'
 import styles from './workbench.module.css'
 
-/** The whole tool: one quiz on screen, saved to this browser the moment anything changes */
+/** The whole tool: one quiz on screen, saved the moment anything changes */
 export function Workbench() {
-  const { workspace, quiz, dispatch, saveNotice } = useWorkspace()
+  const { workspace, quiz, dispatch, unsaved, saveNotice } = useWorkspace()
   const { asking, ask, recalculateAll, running, runNotice } = useAsking(dispatch)
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
@@ -25,7 +25,7 @@ export function Workbench() {
   const [managing, setManaging] = useState(false)
   useQuizHashSync(workspace, quiz, dispatch)
 
-  if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>Opening your quizzes&hellip;</p></main> }
+  if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main> }
 
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
@@ -34,7 +34,7 @@ export function Workbench() {
   }
 
   return (
-    <main className={clsx(styles.page, 'transitions')}>
+    <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved}>
       <QuizSwitcher
         quizzes={workspace.quizzes}
         openQuiz={quiz}

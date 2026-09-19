@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 /** The cell of column `colname` in the row at `rowIdx` */
 function cellOf(page: Page, rowIdx: number, colname: string) {
@@ -23,7 +24,7 @@ async function stubRun(page: Page, valueOf: (key: string) => number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   for (const ii of [0, 1, 2]) {
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
@@ -83,7 +84,7 @@ test('a failed run changes nothing, and says so', async ({ page }) => {
 })
 
 test('a quiz with no text at all gets its own notice rather than an empty request', async ({ page }) => {
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   await page.route('**/api/ask', (route) => route.abort())
   await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
@@ -94,6 +95,6 @@ test('the cost figure is kept across reloads', async ({ page }) => {
   await stubRun(page, () => 7)
   await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
   await expect(page.getByText('~4,200 tok last time (6 texts)')).toBeVisible()
-  await page.reload()
+  await reloadOnceSaved(page)
   await expect(page.getByText('~4,200 tok last time (6 texts)')).toBeVisible()
 })

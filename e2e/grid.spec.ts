@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
 })
 
@@ -24,7 +25,7 @@ test('what you type survives a reload', async ({ page }) => {
   // Edits commit on blur, so move focus off the field before reloading.
   await page.getByLabel('Quiz name').click()
 
-  await page.reload()
+  await reloadOnceSaved(page)
 
   await expect(page.getByLabel('Quiz name')).toHaveValue('Léon and other régions')
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first())

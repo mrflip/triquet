@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
@@ -73,7 +74,7 @@ test('the lock holds even when an edit is forced past the disabled controls', as
   })
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Sneaked in')
   await page.getByLabel('Quiz name').click()
-  await page.reload()
+  await reloadOnceSaved(page)
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which region?')
 })
 

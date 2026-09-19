@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 /** Fill the first `pairs.length` questions with a Q# and a title, clearing the rest */
 async function fillQuiz(page: Page, pairs: [string, string][]) {
@@ -32,7 +33,7 @@ async function qnumsShown(page: Page): Promise<string[]> {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
 })
 
@@ -53,7 +54,7 @@ test('a sort survives a reload, with its header still bold', async ({ page }) =>
   await page.getByRole('button', { name: 'Title' }).click()
   expect(await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
 
-  await page.reload()
+  await reloadOnceSaved(page)
 
   expect(await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
   await expect(page.getByRole('columnheader', { name: 'Title' })).toHaveClass(/headSorted/)

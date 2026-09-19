@@ -1,13 +1,18 @@
 import * as ST from '../lib/storage'
+import { AppNotices } from '../lib/notices'
+import { fetchWorkspace, saveWorkspaceChange } from '../lib/workspace/port'
 import { mirrorWorkspace } from './quiz-mirror'
 import { Workspace, type WorkspaceT } from '../models/workspace'
+import { changeBetween, type SaveOutcome, type WorkspaceChangeDNA } from '../models/workspace-change'
 import { workspaceReducer, type WorkspaceAction } from './workspace-reducer'
 
 export type WorkspaceSnapshot = {
-  workspace: WorkspaceT
-  /** Whether this browser's own quizzes have been read yet; false during a server render */
+  workspace:  WorkspaceT
+  /** Whether this browser's quizzes have arrived yet; false during a server render */
   loaded:     boolean
-  /** Why the last save did not land, or null while saving is working */
+  /** Whether the screen shows changes the database does not hold yet */
+  unsaved:    boolean
+  /** Why the last save or load did not land, or null while all is well */
   saveNotice: string | null
 }
 
@@ -16,74 +21,174 @@ export type WorkspaceStore = {
   snapshot:       () => WorkspaceSnapshot
   serverSnapshot: () => WorkspaceSnapshot
   dispatch:       (action: WorkspaceAction) => void
+  /** Tell the store whether the page is going away: while it is, nothing waits its turn to save */
+  leaving:        (going: boolean) => void
 }
+
+/** Where a store fetches its workspace from and saves it to */
+export type WorkspaceGateway = {
+  fetch: () => Promise<WorkspaceT>
+  save:  (change: WorkspaceChangeDNA) => Promise<SaveOutcome>
+}
+
+/** What tells this tab that another one saved, and tells the others when this one does */
+export type TabChannel = Pick<BroadcastChannel, 'postMessage' | 'addEventListener'>
 
 /**
  * The workspace as an external store, for `useSyncExternalStore`.
  *
- * Storage really is external state: it outlives the page, another tab can change it, and it can
- * refuse a write. Holding it as a store rather than as React state is what lets a server render,
- * a first paint, a cross-tab update and a failed save all be ordinary readings of one snapshot.
+ * The workspace arrives once something first subscribes. Every dispatch is on screen at once
+ * and saved behind it, one save at a time; each save carries everything the database has not
+ * yet accepted, so a save that fails is made good by the next one. Once the page is leaving,
+ * a save waiting its turn would never get one, so whatever is unsaved is sent at once instead.
+ * When another tab saves, this one fetches the workspace afresh, unless it is holding changes
+ * of its own.
  *
- * Every dispatch is committed before it is announced, so there is never a moment where the
- * screen shows a change this browser has not accepted.
- *
- * @param store - Where quizzes live; defaults to this browser's local storage.
- * @param target - What emits cross-tab `storage` events; defaults to the global scope.
- * @param onChanged - Told what the workspace was and what it became, after every landed write. Must not throw, and must not be relied on.
+ * @param gateway - Where the workspace comes from and goes to.
+ * @param onChanged - Told what the workspace was and what it became, after every change. Must not throw, and must not be relied on.
+ * @param channel - How tabs tell each other they saved; null for a store alone in the world.
  * @returns A store ready for `useSyncExternalStore`.
  *
- * @example const store = createWorkspaceStore(new MemoryStore(), new EventTarget())
+ * @example const store = createWorkspaceStore({ fetch, save })
  */
 export function createWorkspaceStore(
-  store?: Storage | null,
-  target: EventTarget | null = globalThis,
+  gateway: WorkspaceGateway,
   onChanged: (before: WorkspaceT, after: WorkspaceT) => void = () => { /* nobody is watching */ },
+  channel: TabChannel | null = null,
 ): WorkspaceStore {
-  const resolveStore = () => (store === undefined ? ST.browserStore() : store)
-  const emptySnapshot: WorkspaceSnapshot = { workspace: Workspace.blank(), loaded: false, saveNotice: null }
+  const emptySnapshot: WorkspaceSnapshot = { workspace: Workspace.blank(), loaded: false, unsaved: false, saveNotice: null }
   const listeners = new Set<() => void>()
   let held = emptySnapshot
+  /** What the database is known to hold; null until the workspace has arrived */
+  let saved: WorkspaceT | null = null
+  let fetching: Promise<void> | null = null
+  let saving: Promise<void> = Promise.resolve()
+  let going = false
 
-  const announce = (next: WorkspaceSnapshot) => {
-    held = next
+  const announce = (patch: Partial<WorkspaceSnapshot>) => {
+    held = { ...held, ...patch }
     for (const listener of listeners) { listener() }
   }
 
-  /** Read-through on first use, then cached: the hook needs the same object back every time */
-  const snapshot = (): WorkspaceSnapshot => {
-    if (! held.loaded) { held = { workspace: ST.readWorkspace(resolveStore()), loaded: true, saveNotice: null } }
-    return held
+  const refetch = async () => {
+    try {
+      const workspace = await gateway.fetch()
+      saved = workspace
+      announce({ workspace, loaded: true, unsaved: false })
+    } catch {
+      announce({ saveNotice: AppNotices.loadFailed })
+    }
   }
+
+  const saveOrExplain = async (change: WorkspaceChangeDNA): Promise<SaveOutcome> => {
+    try {
+      return await gateway.save(change)
+    } catch {
+      return { saved: false, message: AppNotices.saveFailed }
+    }
+  }
+
+  /** Queued behind whatever save is already on its way, so saves land in the order they were made */
+  const queueSave = async (ahead: Promise<void>) => {
+    await ahead
+    await saveLatest()
+  }
+
+  const saveLatest = async () => {
+    const target = held.workspace
+    if (saved === null || target === saved) { return }
+    const outcome = await saveOrExplain(changeBetween(saved, target))
+    if (outcome.saved) {
+      saved = target
+      channel?.postMessage('saved')
+    }
+    announce({ unsaved: held.workspace !== saved, saveNotice: outcome.saved ? null : outcome.message })
+  }
+
+  const saveAtOnce = () => {
+    if (saved !== null && held.workspace !== saved) { void saveOrExplain(changeBetween(saved, held.workspace)) }
+  }
+
+  channel?.addEventListener('message', () => {
+    if (held.loaded && ! held.unsaved) { void refetch() }
+  })
 
   return {
     subscribe(listener) {
       listeners.add(listener)
-      const stopWatching = ST.watchWorkspace((fromOtherTab) => {
-        announce({ workspace: fromOtherTab, loaded: true, saveNotice: held.saveNotice })
-      }, target)
-      return () => {
-        listeners.delete(listener)
-        stopWatching()
-      }
+      fetching ??= refetch()
+      return () => { listeners.delete(listener) }
     },
 
-    snapshot,
+    snapshot() {
+      return held
+    },
 
     serverSnapshot() {
       return emptySnapshot
     },
 
     dispatch(action) {
-      const before = snapshot().workspace
+      if (! held.loaded) { return }
+      const before = held.workspace
       const workspace = workspaceReducer(before, action)
-      if (workspace === held.workspace) { return }
-      const outcome = ST.writeWorkspace(workspace, resolveStore())
-      announce({ workspace, loaded: true, saveNotice: outcome.saved ? null : outcome.message })
+      if (workspace === before) { return }
+      announce({ workspace, unsaved: true })
+      if (going) { saveAtOnce() } else { saving = queueSave(saving) }
       onChanged(before, workspace)
+    },
+
+    leaving(leaves) {
+      going = leaves
+      if (going) { saveAtOnce() }
     },
   }
 }
 
+/**
+ * This browser's workspace, carrying in the one it kept before there was a database.
+ *
+ * A browser that still holds its old workspace has it saved into the database, then set aside
+ * so it is never carried in twice. A brand-new workspace's blank quiz is dropped in favour of
+ * the author's own; otherwise the old quizzes join whatever is already there. If the save does
+ * not land, the old workspace stays put and is offered again next time.
+ *
+ * @param fetch - Fetches the workspace, saying whether it was made just now.
+ * @param save - Saves a change to it.
+ * @param store - Where the old workspace may be; defaults to this browser's local storage.
+ * @returns The workspace, with the old quizzes in it when there were any.
+ */
+export async function fetchCarryingLegacy(
+  fetch: () => Promise<{ workspace: WorkspaceT, fresh: boolean }>,
+  save: (change: WorkspaceChangeDNA) => Promise<SaveOutcome>,
+  store: Storage | null = ST.browserStore(),
+): Promise<WorkspaceT> {
+  const { workspace, fresh } = await fetch()
+  const legacy = ST.readLegacyWorkspace(store)
+  if (! legacy) { return workspace }
+  const outcome = await save({
+    active_quiz_id:   legacy.active_quiz_id,
+    quizzes:          legacy.quizzes,
+    deleted_quiz_ids: fresh ? workspace.quizzes.map((quiz) => quiz.id) : [],
+  })
+  if (! outcome.saved) { return workspace }
+  ST.retireLegacyWorkspace(store)
+  const refetched = await fetch()
+  return refetched.workspace
+}
+
+/** Tabs of this browser tell each other when they save; a server render has no tabs */
+const TabChannelName = 'triquet.workspace'
+
 /** The one store this tab's grid reads and writes, mirroring every change into its quiz's history */
-export const TabWorkspaceStore = createWorkspaceStore(undefined, globalThis, mirrorWorkspace)
+export const TabWorkspaceStore = createWorkspaceStore(
+  { fetch: () => fetchCarryingLegacy(fetchWorkspace, saveWorkspaceChange), save: saveWorkspaceChange },
+  mirrorWorkspace,
+  typeof window === 'undefined' ? null : new BroadcastChannel(TabChannelName),
+)
+
+if (typeof window !== 'undefined') {
+  addEventListener('pagehide', () => { TabWorkspaceStore.leaving(true) })
+  // A page restored from the back-forward cache is staying after all.
+  addEventListener('pageshow', () => { TabWorkspaceStore.leaving(false) })
+}

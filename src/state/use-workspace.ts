@@ -6,16 +6,17 @@ import { openQuizOf, type WorkspaceAction } from './workspace-reducer'
 import type { QuizT } from '../models/quiz'
 
 export type WorkspaceHandle = WorkspaceSnapshot & {
-  /** The quiz on screen; null until this browser's quizzes have been read */
+  /** The quiz on screen; null until this browser's quizzes have arrived */
   quiz:     QuizT | null
   dispatch: (action: WorkspaceAction) => void
 }
 
 /**
- * The workspace, read from this browser and written back the moment anything changes.
+ * The workspace, fetched from the database and saved back the moment anything changes.
  *
- * There is no save button and no debounce: every dispatched action is committed before it
- * reaches the screen. A save from another tab of the same browser replaces what is on screen.
+ * There is no save button and no debounce: every dispatched action is on screen at once and
+ * saved right behind it. Leaving the page while a save is still on its way asks first. A save
+ * from another tab of the same browser replaces what is on screen.
  *
  * @returns The workspace, the open quiz, a dispatcher, and the save status.
  */
@@ -30,6 +31,13 @@ export function useWorkspace(): WorkspaceHandle {
   useEffect(() => {
     document.title = quiz?.title ? `${quiz.title} — Triquet` : 'Triquet'
   }, [quiz?.title])
+
+  useEffect(() => {
+    if (! snapshot.unsaved) { return }
+    const holdThePage = (event: BeforeUnloadEvent) => { event.preventDefault() }
+    addEventListener('beforeunload', holdThePage)
+    return () => { removeEventListener('beforeunload', holdThePage) }
+  }, [snapshot.unsaved])
 
   return {
     ...snapshot,

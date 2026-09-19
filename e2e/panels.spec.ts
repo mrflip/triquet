@@ -4,7 +4,7 @@ test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
+  await page.context().clearCookies()
   await page.reload()
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
