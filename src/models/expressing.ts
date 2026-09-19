@@ -16,7 +16,7 @@ const SortkeyPrefix = 'expressing:'
 /** What a sort memory naming an expressing looks like: the prefix and then a label */
 const ExpressingSortkeyRe = /^expressing:[a-z][a-z0-9_]*[a-z0-9]$/
 
-export const ExpressingValidators = Validator(({ obj, oneof, zod, label, titleish }) => {
+export const ExpressingValidators = Validator(({ obj, oneof, zod, label, titleish, noteish }) => {
   const expressingSortkey = zod.custom<ExpressingSortkey>((val) => typeof val === 'string' && ExpressingSortkeyRe.test(val), 'should be "expressing:" and then a label')
     .describe('A quiz\'s sort memory when it was last put in the order of an expressing\'s column.')
   const shape = oneof(ExpressingShapeVals)
@@ -27,11 +27,14 @@ export const ExpressingValidators = Validator(({ obj, oneof, zod, label, titleis
     .describe('Which of the workspace\'s expressions works out this column.')
   const title = titleish
     .describe('The column\'s header.')
+  const description = noteish
+    .describe('What this column is for in this quiz, in the author\'s words: the expression says what is calculated, this says why the quiz wants it.')
 
   const expressing = obj({
     label:            expressingLabel,
     expression_label,
     title,
+    description:      description.default(''),
     shape:            shape.default('skinny'),
   })
     .describe('One expression put to work in one quiz: a column, computed for every question from the expression\'s formula. The quiz holds these in the order the columns appear.')
@@ -40,6 +43,7 @@ export const ExpressingValidators = Validator(({ obj, oneof, zod, label, titleis
     label:            expressingLabel.optional(),
     expression_label: expression_label.optional(),
     title:            title.optional(),
+    description:      description.optional(),
     shape:            shape.optional(),
   })
     .describe('The fields of one expressing being revised. A key absent from a patch means "leave whatever is already there".')
@@ -56,10 +60,11 @@ export class Expressing implements ExpressingT {
   declare label:            string
   declare expression_label: string
   declare title:            string
+  declare description:      string
   declare shape:            ExpressingShape
 
   /**
-   * Validated expressing, with the shape defaulted.
+   * Validated expressing, with the shape and description defaulted.
    *
    * @param dna - A label, the expression it works, and the column's title.
    * @returns A complete expressing.

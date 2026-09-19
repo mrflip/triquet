@@ -57,6 +57,8 @@ export const expressings = sqliteTable('expressings', {
   label:            text({ length: PA.Label.max }).notNull(),
   expression_label: text({ length: PA.Label.max }).notNull(),
   title:            text({ length: PA.Titleish.max }).notNull(),
+  /** Defaulted so the column can be added to a database that already has columns */
+  description:      text({ length: PA.Noteish.max }).notNull().default(''),
   shape:            text().$type<ExpressingShape>().notNull(),
   position:         integer().notNull(),
 }, (table) => [

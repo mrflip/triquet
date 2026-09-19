@@ -1,0 +1,1 @@
+ALTER TABLE `expressings` ADD `description` text(3600) DEFAULT '' NOT NULL;

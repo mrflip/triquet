@@ -468,7 +468,7 @@ describe('computed columns', () => {
   describe('add_expressing', () => {
     it('adds a column to the end of the open quiz, its shape defaulted', () => {
       const after = withColumn()
-      expect(columnsOf(after).at(-1)).to.deep.eq({ ...column, shape: 'skinny' })
+      expect(columnsOf(after).at(-1)).to.deep.eq({ ...column, description: '', shape: 'skinny' })
       expect(columnsOf(after)).to.have.length(9)
     })
 
@@ -489,8 +489,8 @@ describe('computed columns', () => {
 
   describe('edit_expressing', () => {
     it('revises the fields named and no others', () => {
-      const after = workspaceReducer(withColumn(), { kind: 'edit_expressing', label: 'backward', patch: { title: 'Reversed', shape: 'medium' } })
-      expect(columnsOf(after).at(-1)).to.deep.eq({ ...column, title: 'Reversed', shape: 'medium' })
+      const after = workspaceReducer(withColumn(), { kind: 'edit_expressing', label: 'backward', patch: { title: 'Reversed', description: 'Because.', shape: 'medium' } })
+      expect(columnsOf(after).at(-1)).to.deep.eq({ ...column, title: 'Reversed', description: 'Because.', shape: 'medium' })
     })
 
     it('renames a column, carrying the quiz\'s sort memory with it', () => {

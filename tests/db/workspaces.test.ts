@@ -32,7 +32,7 @@ describe('createWorkspace', () => {
 const columnsHeld = (loaded: WorkspaceT | null) => loaded?.quizzes[0]?.expressings ?? []
 
 describe('expressions and computed columns', () => {
-  const column = { label: 'backward', expression_label: 'answer_reversed', title: 'Backward', shape: 'medium' as const }
+  const column = { label: 'backward', expression_label: 'answer_reversed', title: 'Backward', description: 'Why we want it.', shape: 'medium' as const }
 
   it('come back as they were made: the standard expressions, and the standard columns, in order', async () => {
     const db = await openDb(':memory:')

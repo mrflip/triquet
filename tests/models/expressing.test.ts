@@ -8,6 +8,12 @@ describe('Expressing.fill', () => {
     expect(Expressing.fill({ label: 'letters', expression_label: 'answer_letter_count', title: 'Letters' }).shape).to.eq('skinny')
   })
 
+  it('defaults the description to nothing, and trims the one it is given', () => {
+    const base = { label: 'letters', expression_label: 'answer_letter_count', title: 'Letters' }
+    expect(Expressing.fill(base).description).to.eq('')
+    expect(Expressing.fill({ ...base, description: '  For the anagram round.\n' }).description).to.eq('For the anagram round.')
+  })
+
   it('keeps the shape it is given', () => {
     expect(Expressing.fill({ label: 'backward', expression_label: 'answer_reversed', title: 'Backward', shape: 'medium' }).shape).to.eq('medium')
   })
@@ -17,6 +23,7 @@ describe('Expressing.fill', () => {
     [{ expression_label: 'A B' },    'an expression label that is not one'],
     [{ title: 'x'.repeat(83) },      'a title past 82 characters'],
     [{ shape: 'wide' },              'a shape there is not'],
+    [{ description: 'x'.repeat(3601) }, 'a description past 3600 characters'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -40,7 +47,7 @@ describe('Expressing.forExpression', () => {
 
   it('is labelled and titled after the expression', () => {
     expect(Expressing.forExpression(expression, new Set())).to.deep.eq({
-      label: 'answer_reversed', expression_label: 'answer_reversed', title: 'Answer Reversed', shape: 'skinny',
+      label: 'answer_reversed', expression_label: 'answer_reversed', title: 'Answer Reversed', description: '', shape: 'skinny',
     })
   })
 
