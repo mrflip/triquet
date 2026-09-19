@@ -8,14 +8,15 @@ import { appDb } from '../../../db/client'
 import { playerFor, promptFor } from '../../../db/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failurekindFor } from '../../../lib/ask/failures'
+import { vetReply } from '../../../lib/ask/replies'
 import { IshValidators } from '../../../models/ish'
 import type { PlayerT } from '../../../models/player'
 
 /** The shape every single-text ish job constrains the model's answer to */
-const IshItemsFormat = Z.object({ items: Z.array(IshValidators.ishItem) })
+const IshItemsFormat = Z.object({ items: Z.array(IshValidators.ishItemReply) })
 
 /** The same, one group per tagged text, for the batched job */
-const BulkGroupFormat = Z.object({ key: Z.string(), items: Z.array(IshValidators.ishItem) })
+const BulkGroupFormat = Z.object({ key: Z.string(), items: Z.array(IshValidators.ishItemReply) })
 const BulkGroupsFormat = Z.object({ groups: Z.array(BulkGroupFormat) })
 
 /**
@@ -33,7 +34,7 @@ export async function POST(request: Request): Promise<Response> {
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
 
   try {
-    return replied(await answerAsk(client, parsed.data))
+    return replied(vetReply(await answerAsk(client, parsed.data)))
   } catch (err) {
     return replied({ ok: false, failurekind: failurekindFor(err) })
   }
@@ -79,8 +80,8 @@ async function answerGuess(client: Anthropic, dumdum: PlayerT, clueing: string):
     messages:   [{ role: 'user', content: prompt }],
   })
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
-  const text = textOf(answer.content).trim()
-  if (text === '') { return { ok: false, failurekind: 'emptyAnswer' } }
+  const text = textOf(answer.content)
+  if (text.trim() === '') { return { ok: false, failurekind: 'emptyAnswer' } }
   return {
     ok: true, job: 'guess', text,
     truncated:          answer.stop_reason === 'max_tokens',

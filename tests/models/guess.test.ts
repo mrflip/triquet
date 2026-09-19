@@ -7,9 +7,9 @@ describe('GuessValidators.guess', () => {
     expect(GuessValidators.guess(null)).to.eq(null)
   })
 
-  it('keeps the model\'s own wording, trimmed as any note is', () => {
+  it('keeps the model wording verbatim, untrimmed', () => {
     const guess = GuessValidators.guess({ status: 'done', text: '  Leon, probably?  ', updated_at: 1 })
-    expect(guess?.status === 'done' && guess.text).to.eq('Leon, probably?')
+    expect(guess?.status === 'done' && guess.text).to.eq('  Leon, probably?  ')
   })
 
   it('refuses an answer carrying control characters', () => {

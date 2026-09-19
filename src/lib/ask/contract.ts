@@ -31,7 +31,7 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
   const guessDone = obj({
     ok:                 lit(true),
     job:                lit('guess'),
-    text:               str,
+    text:               textish,
     truncated:          bool,
     model_tier_applied: AskValidators.modelTier,
     approx_tokens:      uint,

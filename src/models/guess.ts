@@ -2,11 +2,11 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { AskValidators } from './ask'
 
-export const GuessValidators = Validator(({ obj, noteish, bool, timestamp, lit, discrim }) => {
+export const GuessValidators = Validator(({ obj, textish, bool, timestamp, lit, discrim }) => {
   const guessDone = obj({
     status:             lit('done'),
-    text:               noteish
-      .describe('Dumdum\'s answer, in its own words. The author compares this against the answer by eye; the tool never scores the comparison for them.'),
+    text:               textish
+      .describe('Dumdum\'s reply, verbatim and untrimmed, cut only to length. The author compares this against the answer by eye; the tool never scores the comparison for them.'),
     model_tier_applied: AskValidators.modelTier.optional(),
     truncated:          bool.default(false),
     approx_tokens:      AskValidators.approxTokens.optional(),
