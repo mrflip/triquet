@@ -1,8 +1,3 @@
----
-paths:
-  - "**/*"
----
-
 # Development Guidelines
 
 How we structure and document code in this project. Read this before designing a module

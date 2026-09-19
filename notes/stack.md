@@ -1,6 +1,6 @@
 ---
 paths:
-  - "**/*"
+  - "/asdirected"
 ---
 
 # Stack

@@ -9,18 +9,59 @@ We are **not** implementing some sort of module facility where we need to be thi
 ## Expressions
 
 Expressions let me have columns which work on other calculated elements of a puzzle (quiz)
-For example, we currently have a columns that is {sum the Q# and the full ishes}
+For example, we currently have column that are
+- entered: chains_to, a pointer to another question by label
+- prepared by the player widget: ishes for this question
+and these columns that are simple expressions of the others
+- a column {sum the Q# and the full clueing ishes of this question}
+- a column {use my chains_to look up the referenced question get its full-clueing-ish count}
+Other examples include
+- my trivia league's forms will process a small number of bbcode expressions, I might want to make an ad-hoc field inserting them
+- word count, letter count, reversing a string, alphabetizing its letters, ...
+(Some of those might be past jsonata's capabilities, DO NOT code them up this is for your background. As long as they're *straightforward* you may use them as test examples, but no heroics)
 
 Add JSONata.
 
-An expression has:
+An expression is the generic calculation: "letter count" is reusable
+
 - an owner: right now, 'tq'
 - A label. with the owner, it's globally unique
 - A formula (the jsonata expression). Can have newlines, max 999 chars
 - A description
 
-An expressing has:
-- a `rel`
+An expressing is a unique association, by label, between expression and quiz:
+- a `rel` field with the quiz label
+- expression_label
+- a title for the column
+- a label
+- a shape field that can hold "skinny" (like the number columns) or "medium" (like the noteish/textish ones). These fields are not able to drive the row height higher (in the way that the clueing can but the playing guess can't)
+- etc
+
+The expressing will get these items. Bags are stripped of ids, just labels. I don't know if it's a thing to have "variables"? if so you could prepare
+
+```
+quiz (without the next two fields)
+qns: [...questions in this quiz]
+qn: this_question
+qn_label: this qn's label
+quiz_label
+```
+
+or else just give the obvious json bag, but using those short conveniences
+
+if you need a name for it, the result of applying an expressing to a thing (here, question) is 'expressed'
+
+Make an "edit expressions" view, it can be a modal or a page, you decide. Seed the DB with what, among my examples, is easy to code
+Make the edit quiz view have a place to add/edit/del expressings
+
+With that, you should be able to replace all the calculated columns with expressings
+
+---
+If you're
+- a colidx (where in column order it sits)
+
+Make the edit quiz view have a place to drag-rearrange column titles. It should also let me click to hide a column.
+
 
 
 
@@ -28,7 +69,26 @@ For tsv flattening: json-encode each field with something like _.values(rowClxn)
 
 ## DB/ ORM
 
-We move the codebase to use a proper db, as some of our next steps are going to want more sophisticated data modelling and I don't want to get crossgrained.
+Let's move the codebase to use a proper db, as some of our next steps are going to want more sophisticated data modelling and I don't want to get crossgrained.
+I've been recommended turso with drizzle.
+What I want is to start with using turso as if it's just sqlite -- later on, we'll add the ability to do cloud sync by adding an API key.
+
+Set up the following:
+
+Quiz
+
+Question: just the basics (label, title, id, clueing, hint, notes, answer). a question has_many answerings. a question has one dumdum_answering (the answering for this label with the latest timestamp)
+Player: you will make a player for dumdum (the dumb guess part) and for numnum (the 'how many numbers' part). a player has a prompt and anything else that seems appropriate for this abstraction
+Playing: move the stuff concerning the AI guesser to this. an answering belongs to a question. Add a column player_label. The current dumb guesses / number widget will have player_label 'dumdum' / numnum.
+Get everything working again. No heroics, no banging rocks together. Commit in stages.
+There might be regressions because of the new data model,
+
+## data model and validations
+
+Reconcile and make uniform the valiedators we have and the fieldnames of models: for example, the clueing, hint, playing reply, etc are all `noteish`: they're permitted only the special control characters, length limits, etc. (As an exception, please update the validation regex for `label` to match our regext (letter in front, letter or number in back, etc))
+
+ have the table defintions use lengths defined in
+
 
 
 ## Validations
@@ -168,11 +228,12 @@ If I understand right, we have an approved way to customize **messages** by pass
 
 While I'd like to have the reporting stuff, what I need are the validations. And the main reason I'm bringing in the reporting stuff is because many tests about the *validation* are looking at the report message instead of just making sure bad data failed.
 
-Do this: bring over just the parts of the file that have to do with making an error reporter that feels nice, clean, linear.
-You may notice there's a lot of entrypoints including one branch that handles unionized data. that's weird, don't do that. your goal in this
+Do this: bring over just the parts of the file that feel nice, clean, linear.
+You may notice there's a lot of entrypoints including one branch that handles unionized data. that's weird, don't do that. There's some recursive stuff in there, and a lot of code to handle the thing being called and then called again. Unless you can make it clean, skip it.
+I forget why but I think doing stuff to the error in the handler disappears; still, try it if you like
 
+Anyway once you have only the parts of the existing reporter that could be cleanly migrated, make the test suite pass the tests
 
+Carry on with the checks, organizing them as you recommended. I have no issue with fine-grained files for the super bloated validators
 
-
-
-
+Where we had a test of a /validator/ do so by testing its /message/ -- decide if we want that, or a brisk verification that it was really the validator raising the issue, or both, and change it to that way.
