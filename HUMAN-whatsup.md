@@ -406,8 +406,8 @@ to the workspace); it is also where an expression is removed.
 * **Description on the expressing** (migration 0007); migrations 0006 (`playings.response`) and 0007
   need a restart of `pnpm dev`.
 * **Not done:** parameters on an expressing (the editor has room for them under the expression
-  select); a per-column undo; the two-line git history of expressions (they are not in a quiz's
-  git history, only the columns are).
+  select); expressions in a quiz's git history (only the columns are there; the formulas live in the
+  workspace).
 
 ## Stack decisions I made without asking
 
