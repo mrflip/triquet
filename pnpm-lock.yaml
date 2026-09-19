@@ -162,13 +162,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  zod@4.6.5: 4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e
+
 importers:
 
   .:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.126.0
-        version: 0.126.0(zod@4.6.5)
+        version: 0.126.0(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e))
       '@emotion/cache':
         specifier: ^11.14.0
         version: 11.14.0
@@ -225,7 +228,7 @@ importers:
         version: 4.7.1
       zod:
         specifier: ^4.6.5
-        version: 4.6.5
+        version: 4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -3070,12 +3073,12 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/sdk@0.126.0(zod@4.6.5)':
+  '@anthropic-ai/sdk@0.126.0(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e))':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.1.1
     optionalDependencies:
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -4576,8 +4579,8 @@ snapshots:
       '@babel/parser': 7.29.8
       eslint: 10.10.0(supports-color@7.2.0)
       hermes-parser: 0.25.1
-      zod: 4.6.5
-      zod-validation-error: 4.0.2(zod@4.6.5)
+      zod: 4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)
+      zod-validation-error: 4.0.2(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e))
     transitivePeerDependencies:
       - supports-color
 
@@ -6047,8 +6050,8 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@4.6.5):
+  zod-validation-error@4.0.2(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)):
     dependencies:
-      zod: 4.6.5
+      zod: 4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)
 
-  zod@4.6.5: {}
+  zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e): {}

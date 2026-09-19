@@ -1,0 +1,52 @@
+diff --git a/v4/core/schemas.d.cts b/v4/core/schemas.d.cts
+index 0bd40f027d933d0579ec7fa3baf62169aae4097d..caeb55e95b42ce02131b03435c92bcefa8e44338 100644
+--- a/v4/core/schemas.d.cts
++++ b/v4/core/schemas.d.cts
+@@ -11,7 +11,7 @@ import { version } from "./versions.cjs";
+ export interface ParseContext<T extends errors.$ZodIssueBase = never> {
+     /** Customize error messages. */
+     readonly error?: errors.$ZodErrorMap<T>;
+-    /** Include the `input` field in issue objects. Default `false`. */
++    /** Include the `input` field in issue objects. Default `true` (patched; upstream default is `false`). */
+     readonly reportInput?: boolean;
+     /** Skip eval-based fast path. Default `false`. */
+     readonly jitless?: boolean;
+diff --git a/v4/core/schemas.d.ts b/v4/core/schemas.d.ts
+index 81eaac436c88438bd3e019b612c1f995921a4f60..ee75d6c537b6d8d21f61f2009aa158e312a43612 100644
+--- a/v4/core/schemas.d.ts
++++ b/v4/core/schemas.d.ts
+@@ -11,7 +11,7 @@ import { version } from "./versions.js";
+ export interface ParseContext<T extends errors.$ZodIssueBase = never> {
+     /** Customize error messages. */
+     readonly error?: errors.$ZodErrorMap<T>;
+-    /** Include the `input` field in issue objects. Default `false`. */
++    /** Include the `input` field in issue objects. Default `true` (patched; upstream default is `false`). */
+     readonly reportInput?: boolean;
+     /** Skip eval-based fast path. Default `false`. */
+     readonly jitless?: boolean;
+diff --git a/v4/core/util.cjs b/v4/core/util.cjs
+index aeb65e057e1b55dd3967c6ef1b252cf613235f33..c600e4b099c593c74e39849eefffffdbd78a7e89 100644
+--- a/v4/core/util.cjs
++++ b/v4/core/util.cjs
+@@ -655,7 +655,7 @@ function finalizeIssue(iss, ctx, config) {
+     }
+     full.path ?? (full.path = []);
+     full.message = message;
+-    if (ctx?.reportInput) {
++    if (ctx?.reportInput !== false) {
+         full.input = iss.input;
+     }
+     return full;
+diff --git a/v4/core/util.js b/v4/core/util.js
+index 7a6e969b9d31455fc9a15f474a1d48dbafe36361..f5a6d4fc315b417e7aad246de437add87d49b266 100644
+--- a/v4/core/util.js
++++ b/v4/core/util.js
+@@ -585,7 +585,7 @@ export function finalizeIssue(iss, ctx, config) {
+     }
+     full.path ?? (full.path = []);
+     full.message = message;
+-    if (ctx?.reportInput) {
++    if (ctx?.reportInput !== false) {
+         full.input = iss.input;
+     }
+     return full;
