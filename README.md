@@ -29,7 +29,10 @@ migration in `drizzle/`. Each browser finds its own workspace by a cookie.
 Each quiz's edit history is committed to an in-browser git repository about 30 seconds after the
 first edit in a burst; `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` (2 to 600) changes that wait.
 
-Asking Claude needs `ANTHROPIC_API_KEY` in the environment; everything else works without it.
+Asking Claude needs `ANTHROPIC_API_KEY` in the environment (Doppler, never a file in the repo);
+everything else works without it, and a player's cells say it can't play yet. Server code reaches
+credentials only through `src/lib/credentials.ts`: `Credentials.has('claude')` and
+`Credentials.get('claude')`. Each player names the service it needs in its `servicelabel`.
 
 ## Overview
 

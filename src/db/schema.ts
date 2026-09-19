@@ -4,6 +4,7 @@ import * as PA from '../lib/vv/patterns'
 import type { BulkIshesRunT, Sortkey } from '../models/quiz'
 import type { IshItemT } from '../models/ish'
 import type { ModelTier } from '../models/ask'
+import type { Servicelabel } from '../lib/credentials'
 import type { Textkind } from '../lib/ask/contract'
 import type { PlayerLabel, PlayerPrompts } from '../models/player'
 
@@ -59,6 +60,8 @@ export const players = sqliteTable('players', {
   label:      text({ length: PA.Label.max }).$type<PlayerLabel>().primaryKey(),
   title:      text({ length: PA.Titleish.max }).notNull(),
   blurb:      text({ length: PA.Noteish.max }).notNull(),
+  /** Which outside service serves this player; defaulted so the column can be added to a database that already has players */
+  servicelabel: text({ length: PA.Label.max }).$type<Servicelabel>().notNull().default('claude'),
   model_tier: text().$type<ModelTier>().notNull(),
   max_tokens: integer().notNull(),
   prompts:    text({ mode: 'json' }).$type<PlayerPrompts>().notNull(),

@@ -36,6 +36,20 @@ export const AppNotices = {
   noRepositories:       'No history has been kept in this browser yet.',
 } as const
 
+/**
+ * What a player's cell reads when the server holds no credentials for the service behind it.
+ *
+ * @param title - What the player is called.
+ * @param servicelabel - The service it needs credentials for.
+ * @returns A calm sentence: nothing is broken, it just is not set up.
+ *
+ * @example playerUnavailableNotice('Dumdum', 'claude')  // => "Dumdum can't play yet — no Claude credentials are set up for this app."
+ */
+export function playerUnavailableNotice(title: string, servicelabel: string): string {
+  const service = servicelabel.charAt(0).toUpperCase() + servicelabel.slice(1)
+  return `${title} can't play yet — no ${service} credentials are set up for this app.`
+}
+
 /** What a cell reads when it holds no result, or a result the author should read differently */
 export const CellNotices = {
   askable:           'Double-click to ask',

@@ -28,13 +28,15 @@ export type QuestionTableProps = {
   onSort:       (sortkey: Sortkey) => void
   onChain:      (question_id: string, chains_to: string | null) => void
   asking:       (question_id: string, askkind: Askkind) => boolean
+  /** Why a kind of ask cannot be made at all, when it cannot; null when it can */
+  unavailableNotice: (askkind: Askkind) => string | null
   onAsk:        (question: QuestionT, askkind: Askkind) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
   onDrag:       (question_id: string, onto_idx: number) => void
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   // Derived on demand and stored nowhere, so a sum is never out of step with its extraction.
   const sums = Sums.sumsForQuiz(questions)
@@ -95,6 +97,7 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
               sums={sums.get(question.id) ?? Sums.EmptySums}
               asking={(askkind) => asking(question.id, askkind)}
+              unavailableNotice={unavailableNotice}
               onAsk={(askkind) => { onAsk(question, askkind) }}
               onAskTarget={(askkind) => {
                 const target = questions.find((other) => other.id === question.chains_to)

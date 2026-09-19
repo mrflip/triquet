@@ -18,7 +18,9 @@ export default defineConfig({
     command:             'pnpm dev:agent',
     url:                 'http://localhost:3100',
     reuseExistingServer: ! process.env.CI,
-    env:                 { NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS: '2' },
+    // A stand-in key, so the players read as able to play and the specs stub what they ask;
+    // it also means nothing here can ever spend real model usage.
+    env:                 { NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS: '2', ANTHROPIC_API_KEY: 'sk-ant-not-a-real-key' },
     timeout:             120_000,
   },
 })

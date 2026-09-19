@@ -12,6 +12,7 @@ import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
+import { usePlayers } from '../state/use-players'
 import { useQuizHashSync, writeQuizHash } from '../state/use-quiz-route'
 import * as Labelmaker from '../lib/labelmaker'
 import styles from './workbench.module.css'
@@ -20,6 +21,7 @@ import styles from './workbench.module.css'
 export function Workbench() {
   const { workspace, quiz, dispatch, unsaved, saveNotice } = useWorkspace()
   const { asking, ask, recalculateAll, running, runNotice } = useAsking(dispatch)
+  const { unavailableNotice } = usePlayers()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
@@ -83,7 +85,8 @@ export function Workbench() {
         onSort={onSort}
         onChain={(question_id, chains_to) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }}
         asking={asking}
-        onAsk={ask}
+        unavailableNotice={unavailableNotice}
+        onAsk={(question, askkind) => { if (unavailableNotice(askkind) === null) { ask(question, askkind) } }}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
         onDrag={(question_id, onto_idx) => { dispatch({ kind: 'drag_question', question_id, onto_idx }) }}
       />

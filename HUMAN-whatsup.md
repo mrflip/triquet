@@ -266,6 +266,31 @@ should work, but that is exactly the seam where scroll restoration and dev-serve
 I have not tried it. The hash design was chosen so a label change never involves the router at all;
 that is the thing you would be giving up.
 
+## Credentials
+
+`src/lib/credentials.ts`: `Credentials.get(servicelabel)` returns the service's environment
+variable, `Credentials.has(servicelabel)` says whether it is set (blank counts as unset). Today the
+only service is `claude`, read from `ANTHROPIC_API_KEY`; adding one is a line in `ServicelabelVals`
+and a line in the variable table. Both throw on a label we do not know rather than answering "no",
+so a typo cannot pass for a missing key, and `get` throws (naming the variable, never its value)
+when there is nothing to return -- ask `has` first. Both throw in a browser.
+
+Players carry a `servicelabel` (both seeded as `claude`). `/api/ask` looks up the player a job is
+put to and gates on `Credentials.has(player.servicelabel)`; `GET /api/players` tells the browser
+which players can play (a boolean, never the credential), so a cell says "Dumdum can't play yet —
+..." and is disabled instead of failing on double-click. Not knowing (route unreachable, still
+loading) presumes able: an ask the server can't serve still answers "unavailable" in its own words.
+"Recalculate all ishes" is not gated in the browser; with no key it fails with that older notice.
+
+* **The `servicelabel` column has a default of `'claude'`** -- SQLite cannot add a NOT NULL column
+  to a table that has rows without one, and `players` always has rows. It is the one default in the
+  schema that no validator shares; say if you would rather the migration seeded it by hand.
+* **Playwright's server is given a fake key** (`sk-ant-not-a-real-key`) so the players read as able
+  to play and the specs stub what they ask. It also means an unstubbed call in a spec cannot spend
+  real usage. `reuseExistingServer` means a `dev:agent` already running keeps its own environment.
+* **A running `pnpm dev` must be restarted** to pick up migration 0004: the connection, and so the
+  migration, is per process.
+
 ## Stack decisions I made without asking
 
 * **localStorage, not Turso** -- overturned in the fourth cycle, above.
@@ -349,5 +374,5 @@ in the document:**
     pnpm test:e2e         # 76 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
-Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and the
-askable cells say "Asking Claude isn't available in this view."
+Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and each
+player's cells say "Dumdum can't play yet — no Claude credentials are set up for this app."

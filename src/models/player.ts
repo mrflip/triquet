@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { createInsertSchema } from 'drizzle-zod'
 import { Validator } from '../lib/validator'
 import { AskValidators } from './ask'
+import { ServicelabelVals } from '../lib/credentials'
 import { players } from '../db/schema'
 import { BulkIshesPrompt, ClueingIshesPrompt, HintIshesPrompt, QuickGuessPrompt } from '../lib/ask/prompts'
 import { MaxTokensForJob } from '../lib/ask/models'
@@ -19,6 +20,9 @@ export const PlayerValidators = Validator(({ zod, oneof, noteish, titleish, uint
   const playerLabel = oneof(PlayerLabelVals)
     .describe('Which player: "dumdum" answers a clueing the way a fast, not-especially-careful player would; "numnum" lists every number-like span in a clueing or a hint.')
 
+  const servicelabel = oneof(ServicelabelVals)
+    .describe('Which outside service serves this player, and so whose credentials it needs before it can play.')
+
   const prompts = zod.partialRecord(oneof(PromptkindVals), noteish.min(1))
     .describe('The prompt template this player is given for each kind of text it can be shown, with `{{placeholders}}` still in it. A kind absent here is one the player is never asked about.')
 
@@ -28,6 +32,7 @@ export const PlayerValidators = Validator(({ zod, oneof, noteish, titleish, uint
     label:      playerLabel,
     title:      titleish,
     blurb:      noteish,
+    servicelabel,
     model_tier: () => AskValidators.modelTier,
     max_tokens: uint.min(1)
       .describe('How much room the player is given to answer a single text.'),
@@ -35,7 +40,7 @@ export const PlayerValidators = Validator(({ zod, oneof, noteish, titleish, uint
   })
     .describe('Someone who can be put a question and answer it. Today every player is a model with a particular brief; the prompts are content, shown to the author verbatim in the Prompts used panel.')
 
-  return { playerLabel, prompts, player }
+  return { playerLabel, servicelabel, prompts, player }
 })
 
 export type PlayerDNA = Z.input<typeof PlayerValidators.player>
@@ -46,6 +51,7 @@ const SeedPlayerDNAs: readonly PlayerDNA[] = [
     label:      'dumdum',
     title:      'Dumdum',
     blurb:      'Answers the clueing on first instinct. A guess that differs from the intended title means the question has a second reading.',
+    servicelabel: 'claude',
     model_tier: 'quick',
     max_tokens: MaxTokensForJob.guess,
     prompts:    { clueing: QuickGuessPrompt },
@@ -54,6 +60,7 @@ const SeedPlayerDNAs: readonly PlayerDNA[] = [
     label:      'numnum',
     title:      'Numnum',
     blurb:      'Lists every span a reasonable player might read as a number, so the author can see what a hidden numeric puzzle totals.',
+    servicelabel: 'claude',
     model_tier: 'careful',
     max_tokens: MaxTokensForJob.ishes,
     prompts:    { clueing: ClueingIshesPrompt, hint: HintIshesPrompt, bulk: BulkIshesPrompt },

@@ -40,6 +40,8 @@ export type QuestionRowProps = {
   sums:        QuestionSums
   /** Whether an ask for one of this question's cells is in flight */
   asking:      (askkind: Askkind) => boolean
+  /** Why a kind of ask cannot be made at all, when it cannot; null when it can */
+  unavailableNotice: (askkind: Askkind) => string | null
   onAsk:       (askkind: Askkind) => void
   /** Re-extract the chained-to question's hint, for the BUT NOT Full Sum shortcut */
   onAskTarget: (askkind: Askkind) => void
@@ -53,7 +55,7 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, sums, asking, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, sums, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
 
@@ -180,7 +182,7 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
         <IshesCell
           ishes={question.clueing_ishes} label="Clueing ishes"
           asking={asking('clueing')} askable={question.clueing.trim() !== ''}
-          locked={locked} heightPx={heightPx} onAsk={() => { onAsk('clueing') }}
+          locked={locked} notice={unavailableNotice('clueing')} heightPx={heightPx} onAsk={() => { onAsk('clueing') }}
         />
       ))}
       {cell('butnot_ishes', (
@@ -194,7 +196,7 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
         <IshesCell
           ishes={question.hint_ishes} label="Hint Ishes"
           asking={asking('hint')} askable={question.hint.trim() !== ''}
-          locked={locked} heightPx={heightPx} onAsk={() => { onAsk('hint') }}
+          locked={locked} notice={unavailableNotice('hint')} heightPx={heightPx} onAsk={() => { onAsk('hint') }}
         />
       ))}
       {cell('guess', (
@@ -203,6 +205,7 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
           asking={asking('guess')}
           askable={question.clueing.trim() !== ''}
           locked={locked}
+          notice={unavailableNotice('guess')}
           heightPx={heightPx}
           onAsk={() => { onAsk('guess') }}
         />

@@ -1,0 +1,1 @@
+ALTER TABLE `players` ADD `servicelabel` text(40) DEFAULT 'claude' NOT NULL;

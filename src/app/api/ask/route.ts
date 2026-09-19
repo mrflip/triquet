@@ -3,7 +3,8 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
 import { bulkItemsBlock } from '../../../lib/ask/prompts'
-import { MaxTokensForJob, ModelForTier } from '../../../lib/ask/models'
+import { MaxTokensForJob, ModelForTier, PlayerForJob } from '../../../lib/ask/models'
+import * as Credentials from '../../../lib/credentials'
 import { appDb } from '../../../db/client'
 import { playerFor, promptFor } from '../../../db/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
@@ -27,44 +28,41 @@ const BulkGroupsFormat = Z.object({ groups: Z.array(BulkGroupFormat) })
  * never a bare status code, so the browser always has an author-shaped sentence to show.
  */
 export async function POST(request: Request): Promise<Response> {
-  const client = anthropicClient()
-  if (! client) { return replied({ ok: false, failurekind: 'unavailable' }) }
-
   const parsed = AskContract.askRequest.safeParse(await request.json())
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
 
   try {
-    return replied(vetReply(await answerAsk(client, parsed.data)))
+    const player = await playerFor(await appDb(), PlayerForJob[parsed.data.job])
+    if (! Credentials.has(player.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
+    const client = new Anthropic({ apiKey: Credentials.get(player.servicelabel) })
+    return replied(vetReply(await answerAsk(client, player, parsed.data)))
   } catch (err) {
     return replied({ ok: false, failurekind: failurekindFor(err) })
   }
 }
 
-/** Whichever job was asked for, answered by the player whose job it is */
-async function answerAsk(client: Anthropic, ask: AskRequestT): Promise<AskReplyT> {
-  const db = await appDb()
+/** Whichever job was asked for, answered by the player it was put to */
+async function answerAsk(client: Anthropic, player: PlayerT, ask: AskRequestT): Promise<AskReplyT> {
   switch (ask.job) {
   case 'guess': {
-    return await answerGuess(client, await playerFor(db, 'dumdum'), ask.clueing)
+    return await answerGuess(client, player, ask.clueing)
   }
   case 'ishes': {
-    const numnum = await playerFor(db, 'numnum')
-    const prompt = promptFor(numnum, ask.textkind, { [ask.textkind]: ask.text })
-    const outcome = await extract(client, numnum, prompt, IshItemsFormat, numnum.max_tokens)
+    const prompt = promptFor(player, ask.textkind, { [ask.textkind]: ask.text })
+    const outcome = await extract(client, player, prompt, IshItemsFormat, player.max_tokens)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'ishes', items: outcome.parsed.items, truncated: outcome.truncated,
-      model_tier_applied: numnum.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
+      model_tier_applied: player.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
     }
   }
   case 'bulk_ishes': {
-    const numnum = await playerFor(db, 'numnum')
-    const prompt = promptFor(numnum, 'bulk', { items: bulkItemsBlock(ask.items) })
-    const outcome = await extract(client, numnum, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
+    const prompt = promptFor(player, 'bulk', { items: bulkItemsBlock(ask.items) })
+    const outcome = await extract(client, player, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'bulk_ishes', groups: outcome.parsed.groups, truncated: outcome.truncated,
-      model_tier_applied: numnum.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
+      model_tier_applied: player.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
       text_count: ask.items.length,
     }
   }
@@ -115,18 +113,6 @@ function textOf(content: readonly { type: string }[]): string {
     .filter((block): block is { type: 'text', text: string } => block.type === 'text')
     .map((block) => block.text)
     .join('')
-}
-
-/**
- * The SDK client, or null when this deployment has no credentials.
- *
- * A tool with no key is not broken -- it is a tool whose asking half is unavailable, and the
- * whole rest of the page must keep working. Doppler supplies the key; nothing is read from a
- * file in the repo.
- */
-function anthropicClient(): Anthropic | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  return apiKey ? new Anthropic({ apiKey }) : null
 }
 
 /** One reply, validated on the way out as well as on the way in */

@@ -14,15 +14,17 @@ export type IshesCellProps = {
   /** A text with nothing in it is not asked about at all */
   askable:  boolean
   locked:   boolean
+  /** Why the player cannot play, when it cannot; the cell says so instead of inviting an ask */
+  notice:   string | null
   heightPx: number
   onAsk:    () => void
 }
 
 /** Every span in one text a reasonable player might read as a number. Askable. */
-export function IshesCell({ ishes, label, asking, askable, locked, heightPx, onAsk }: Readonly<IshesCellProps>) {
+export function IshesCell({ ishes, label, asking, askable, locked, notice, heightPx, onAsk }: Readonly<IshesCellProps>) {
   return (
-    <AskableCell label={label} locked={locked || ! askable} heightPx={heightPx} onAsk={onAsk}>
-      {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <IshesBody ishes={ishes} />}
+    <AskableCell label={label} locked={locked || ! askable || notice !== null} heightPx={heightPx} onAsk={onAsk}>
+      {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <IshesBody ishes={ishes} notice={notice} />}
     </AskableCell>
   )
 }
@@ -52,8 +54,8 @@ export function ButnotIshesCell({ ishes, chained, heightPx }: Readonly<ButnotIsh
 }
 
 /** The spans, the failure, or the invitation -- whichever this cell is holding */
-function IshesBody({ ishes }: Readonly<{ ishes: IshesT }>) {
-  if (ishes === null) { return <span className={styles.muted}>{CellNotices.askable}</span> }
+function IshesBody({ ishes, notice = null }: Readonly<{ ishes: IshesT, notice?: string | null }>) {
+  if (ishes === null) { return <span className={styles.muted}>{notice ?? CellNotices.askable}</span> }
   if (ishes.status === 'error') {
     return (
       <>
