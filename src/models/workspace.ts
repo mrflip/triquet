@@ -1,6 +1,8 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { Quiz, QuizValidators, type QuizT } from './quiz'
+import { ExpressionValidators, SeedExpressions, keyOf, type ExpressionT } from './expression'
+import { defaultsFor } from './expressing'
 
 export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
   const workspace = obj({
@@ -8,8 +10,26 @@ export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
       .describe('Every quiz this browser holds. Never empty -- deleting the last quiz is refused rather than leaving the author staring at nothing.'),
     active_quiz_id: ulid
       .describe('Which quiz is on screen. A value that names no existing quiz is repaired to the first quiz rather than treated as fatal.'),
+    expressions:    arr(ExpressionValidators.expression).default([])
+      .describe('The calculations this workspace can put to work as columns, by any of its quizzes.'),
   })
     .check((context) => {
+      const expressionsSeen = new Set<string>()
+      for (const [ii, expression] of context.value.expressions.entries()) {
+        const key = keyOf(expression)
+        if (expressionsSeen.has(key)) {
+          context.issues.push({ code: 'custom', input: key, path: ['expressions', ii, 'label'], message: 'Two expressions share an owner and a label' })
+        }
+        expressionsSeen.add(key)
+      }
+      const labelsHeld = new Set(context.value.expressions.map((expression) => expression.label))
+      for (const [qq, quiz] of context.value.quizzes.entries()) {
+        for (const [ii, expressing] of quiz.expressings.entries()) {
+          if (! labelsHeld.has(expressing.expression_label)) {
+            context.issues.push({ code: 'custom', input: expressing.expression_label, path: ['quizzes', qq, 'expressings', ii, 'expression_label'], message: 'A column names an expression this workspace does not have' })
+          }
+        }
+      }
       const hasActive = context.value.quizzes.some((quiz) => quiz.id === context.value.active_quiz_id)
       if (! hasActive) {
         context.issues.push({ code: 'custom', input: context.value.active_quiz_id, path: ['active_quiz_id'], message: 'active_quiz_id names no quiz in this workspace' })
@@ -27,33 +47,36 @@ export type WorkspaceT   = Z.output<typeof WorkspaceValidators.workspace>
 export class Workspace implements WorkspaceT {
   declare quizzes:        QuizT[]
   declare active_quiz_id: string
+  declare expressions:    ExpressionT[]
 
   /**
    * Validated workspace.
    *
    * @param dna - At least one quiz, and the id of the one on screen.
    * @returns A complete workspace.
-   * @throws When `active_quiz_id` names no quiz present.
+   * @throws When `active_quiz_id` names no quiz present, two expressions share a label, or a column names an expression that is not here.
    */
   static fill(dna: WorkspaceDNA): WorkspaceT {
     return WorkspaceValidators.workspace(dna)
   }
 
   /**
-   * Fresh workspace holding one blank quiz, open.
+   * Fresh workspace holding one blank quiz, open, with the standard expressions and the standard columns.
    *
    * @returns A workspace ready to type into.
    *
    * @example Workspace.blank().quizzes.length  // => 1
    */
   static blank(): WorkspaceT {
-    const quiz = Quiz.blank()
-    return this.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
+    const quiz = { ...Quiz.blank(), expressings: defaultsFor(SeedExpressions) }
+    return this.fill({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [...SeedExpressions] })
   }
 
   /**
    * `dna`, repaired rather than rejected where it can be: an `active_quiz_id` naming no quiz
-   * falls back to the first one. Anything else still throws.
+   * falls back to the first one, and a workspace holding no expressions at all -- one saved
+   * before there were any -- is given the standard expressions and its quizzes the standard
+   * columns. Anything else still throws.
    *
    * @param dna - A workspace read back from storage or an export.
    * @returns A complete workspace.
@@ -62,6 +85,9 @@ export class Workspace implements WorkspaceT {
     const firstQuiz = dna.quizzes[0]
     if (! firstQuiz) { return this.fill(dna) }
     const hasActive = dna.quizzes.some((quiz) => quiz.id === dna.active_quiz_id)
-    return this.fill(hasActive ? dna : { ...dna, active_quiz_id: firstQuiz.id })
+    const active_quiz_id = hasActive ? dna.active_quiz_id : firstQuiz.id
+    if ((dna.expressions ?? []).length > 0) { return this.fill({ ...dna, active_quiz_id }) }
+    const quizzes = dna.quizzes.map((quiz) => ({ ...quiz, expressings: (quiz.expressings ?? []).length > 0 ? quiz.expressings : defaultsFor(SeedExpressions) }))
+    return this.fill({ ...dna, active_quiz_id, quizzes, expressions: [...SeedExpressions] })
   }
 }

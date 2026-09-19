@@ -56,7 +56,7 @@ test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
   await page.getByLabel('Quiz name').blur()
 
   await openManage(page)
-  await page.getByLabel('Label').fill('princes')
+  await page.getByLabel('Label', { exact: true }).fill('princes')
   await page.getByRole('button', { name: 'Apply' }).click()
 
   await openManage(page)

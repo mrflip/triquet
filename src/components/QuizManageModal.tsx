@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
+import { ExpressingsEditor } from './ExpressingsEditor'
 import * as Downloading from '../lib/downloading'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
@@ -17,13 +18,15 @@ export type QuizManageModalProps = {
   workspace: WorkspaceT
   quiz:      QuizT
   dispatch:  (action: WorkspaceAction) => void
+  /** Open the workspace's expressions for editing */
+  onEditExpressions: () => void
 }
 
 /**
- * The gear icon's modal: editing this quiz's own label (top), and a quick way to open any other
- * quiz in the workspace by name (bottom).
+ * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
+ * and a quick way to open any other quiz in the workspace by name (bottom).
  */
-export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEditExpressions }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -53,7 +56,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Re
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>Manage this quiz</DialogTitle>
       <DialogContent>
         <Stack spacing={1} sx={{ mt: 1 }}>
@@ -80,6 +83,14 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch }: Re
         <Button onClick={onClose}>Cancel</Button>
         <Button onClick={onApply} variant="contained" disabled={quiz.locked}>Apply</Button>
       </DialogActions>
+
+      <DialogTitle sx={{ pt: 0 }}>Computed columns</DialogTitle>
+      <DialogContent sx={{ pt: 0 }}>
+        <p className={styles.microcopy}>
+          Each column works out one expression for every question, shown between Q# and Alt Text.
+        </p>
+        <ExpressingsEditor quiz={quiz} expressions={workspace.expressions} dispatch={dispatch} onEditExpressions={onEditExpressions} />
+      </DialogContent>
 
       <DialogTitle sx={{ pt: 0 }}>History</DialogTitle>
       <DialogContent sx={{ pt: 0 }}>

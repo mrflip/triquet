@@ -1,11 +1,12 @@
 import _ from 'es-toolkit/compat'
 import { and, asc, eq, inArray, max, ne, notInArray } from 'drizzle-orm'
 import { mintId } from '../lib/ids'
-import { playings, questions, quizzes, workspaces } from './schema'
+import { expressings, expressions, playings, questions, quizzes, workspaces } from './schema'
 import { latestBySlot, resultsFor, slotkeyOf, unrecordedPlayings } from '../models/playing'
 import { Workspace, type WorkspaceT } from '../models/workspace'
-import type { PlayingRow, QuestionRow, QuizRow } from './schema'
+import type { ExpressingRow, ExpressionRow, PlayingRow, QuestionRow, QuizRow } from './schema'
 import type { Db } from './client'
+import type { ExpressionDNA, ExpressionT } from '../models/expression'
 import type { QuestionDNA, QuestionT } from '../models/question'
 import type { QuizDNA, QuizT } from '../models/quiz'
 import type { WorkspaceChangeT } from '../models/workspace-change'
@@ -25,7 +26,7 @@ export async function createWorkspace(db: Db, created_at: number = Date.now()): 
   const workspace_id = mintId()
   const workspace = Workspace.blank()
   await db.insert(workspaces).values({ id: workspace_id, active_quiz_id: workspace.active_quiz_id, created_at })
-  await saveChange(db, workspace_id, { active_quiz_id: workspace.active_quiz_id, quizzes: workspace.quizzes, deleted_quiz_ids: [] })
+  await saveChange(db, workspace_id, { active_quiz_id: workspace.active_quiz_id, quizzes: workspace.quizzes, deleted_quiz_ids: [], expressions: workspace.expressions })
   return { workspace_id, workspace }
 }
 
@@ -40,9 +41,13 @@ export async function loadWorkspace(db: Db, workspace_id: string): Promise<Works
   const found = await db.query.workspaces.findFirst({
     where: eq(workspaces.id, workspace_id),
     with:  {
-      quizzes: {
+      expressions: { orderBy: asc(expressions.position) },
+      quizzes:     {
         orderBy: asc(quizzes.id),
-        with:    { questions: { orderBy: asc(questions.position), with: { playings: true } } },
+        with:    {
+          questions:   { orderBy: asc(questions.position), with: { playings: true } },
+          expressings: { orderBy: asc(expressings.position) },
+        },
       },
     },
   })
@@ -51,14 +56,16 @@ export async function loadWorkspace(db: Db, workspace_id: string): Promise<Works
   return Workspace.revive({
     active_quiz_id: found.active_quiz_id ?? '',
     quizzes:        found.quizzes.map((quiz) => quizDnaFrom(quiz, latest)),
+    expressions:    found.expressions.map((row) => expressionDnaFrom(row)),
   })
 }
 
 /**
  * Save `change` into a workspace, all or nothing.
  *
- * Each quiz is saved whole: its questions in the order given, anything it no longer holds
- * removed, and any reply newer than what was recorded added to the question's history.
+ * Each quiz is saved whole: its questions and columns in the order given, anything it no longer
+ * holds removed, and any reply newer than what was recorded added to the question's history. The
+ * expressions, when they are part of the change, replace the workspace's.
  *
  * @param db - Where the workspace is kept.
  * @param workspace_id - Which workspace.
@@ -71,9 +78,18 @@ export async function saveChange(db: Db, workspace_id: string, change: Workspace
     if (change.deleted_quiz_ids.length > 0) {
       await tx.delete(quizzes).where(and(eq(quizzes.workspace_id, workspace_id), inArray(quizzes.id, change.deleted_quiz_ids)))
     }
+    if (change.expressions !== null) { await saveExpressions(tx, workspace_id, change.expressions) }
     for (const quiz of change.quizzes) { await saveQuiz(tx, workspace_id, quiz) }
     await tx.update(workspaces).set({ active_quiz_id: change.active_quiz_id }).where(eq(workspaces.id, workspace_id))
   })
+}
+
+/** The workspace's expressions, replaced by `held` in the order given */
+async function saveExpressions(tx: Tx, workspace_id: string, held: readonly ExpressionT[]): Promise<void> {
+  await tx.delete(expressions).where(eq(expressions.workspace_id, workspace_id))
+  if (held.length > 0) {
+    await tx.insert(expressions).values(held.map((expression, ii) => ({ ...expression, workspace_id, position: ii })))
+  }
 }
 
 /** Throws when any quiz or question being saved already belongs to some other workspace */
@@ -90,9 +106,9 @@ async function refuseForeign(tx: Tx, workspace_id: string, incoming: readonly Qu
   }
 }
 
-/** One quiz, whole: its own fields, its questions in order, and any new playings */
+/** One quiz, whole: its own fields, its questions in order, its columns in order, and any new playings */
 async function saveQuiz(tx: Tx, workspace_id: string, quiz: QuizT): Promise<void> {
-  const { questions: held, ...quizFields } = quiz
+  const { questions: held, expressings: columns, ...quizFields } = quiz
   const heldIds = held.map((question) => question.id)
   await tx.insert(quizzes).values({ ...quizFields, workspace_id })
     .onConflictDoUpdate({ target: quizzes.id, set: quizFields })
@@ -100,6 +116,10 @@ async function saveQuiz(tx: Tx, workspace_id: string, quiz: QuizT): Promise<void
   for (const [ii, question] of held.entries()) {
     const fields = { ...questionFieldsOf(question), quiz_id: quiz.id, position: ii }
     await tx.insert(questions).values(fields).onConflictDoUpdate({ target: questions.id, set: fields })
+  }
+  await tx.delete(expressings).where(eq(expressings.quiz_id, quiz.id))
+  if (columns.length > 0) {
+    await tx.insert(expressings).values(columns.map((expressing, ii) => ({ ...expressing, quiz_id: quiz.id, position: ii })))
   }
   await recordPlayings(tx, held)
 }
@@ -128,11 +148,20 @@ function questionFieldsOf(question: QuestionT) {
   return _.omit(question, ['guess', 'clueing_ishes', 'hint_ishes'])
 }
 
-type QuizTree = QuizRow & { questions: (QuestionRow & { playings: PlayingRow[] })[] }
+type QuizTree = QuizRow & { questions: (QuestionRow & { playings: PlayingRow[] })[], expressings: ExpressingRow[] }
 
 /** A quiz as loaded, back in the shape the app works with */
 function quizDnaFrom(quiz: QuizTree, latest: ReturnType<typeof latestBySlot>): QuizDNA {
-  return { ..._.omit(quiz, ['workspace_id', 'questions']), questions: quiz.questions.map((row) => questionDnaFrom(row, latest)) }
+  return {
+    ..._.omit(quiz, ['workspace_id', 'questions', 'expressings']),
+    questions:   quiz.questions.map((row) => questionDnaFrom(row, latest)),
+    expressings: quiz.expressings.map((row) => _.omit(row, ['quiz_id', 'position'])),
+  }
+}
+
+/** An expression as loaded, back in the shape the app works with */
+function expressionDnaFrom(row: ExpressionRow): ExpressionDNA {
+  return _.omit(row, ['workspace_id', 'position'])
 }
 
 /** A question as loaded, showing the newest reply in each of its cells */

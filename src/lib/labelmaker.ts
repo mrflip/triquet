@@ -65,11 +65,32 @@ export type NormalizeOpts = {
  */
 export function normalize(str: string, opts: Readonly<NormalizeOpts> = {}): string {
   if (str.trim() === '') { return '' }
-  let cleaned = _.deburr(str).toLowerCase().replaceAll(/[_\W]+/g, '')
-  cleaned = cleaned.slice(0, Math.min(opts.maxlen ?? PA.Label.max, PA.Label.max))
-  if (! /^[a-z]/.test(cleaned)) { cleaned = `z${cleaned}`.slice(0, PA.Label.max) }
-  if (cleaned.length < 2) { cleaned += 'z' }
-  return LabelValidators.label(cleaned)
+  return repaired(_.deburr(str).toLowerCase().replaceAll(/[_\W]+/g, ''), opts.maxlen)
+}
+
+/**
+ * `str` squeezed into a label that keeps its words apart with underscores, where `normalize`
+ * mashes them together: deburred, lowercased, every run of whitespace and punctuation becoming
+ * one underscore, none left at either end. Repaired and validated as `normalize` is.
+ *
+ * @param str - Whatever the author typed; a blank string is a legal "no label yet".
+ * @returns A valid `label`, or `''` when `str` was blank.
+ *
+ * @example snakify('Answer Length!')  // => 'answer_length'
+ * @example snakify('clueing_full')    // => 'clueing_full'
+ * @example snakify('  ')              // => ''
+ */
+export function snakify(str: string): string {
+  if (str.trim() === '') { return '' }
+  return repaired(_.trim(_.deburr(str).toLowerCase().replaceAll(/[^a-z0-9]+/g, '_'), '_'))
+}
+
+/** `cleaned`, cut to length without a trailing underscore, made to start with a letter and be two characters long, then validated as a label */
+function repaired(cleaned: string, maxlen: number = PA.Label.max): string {
+  let label = _.trimEnd(cleaned.slice(0, Math.min(maxlen, PA.Label.max)), '_')
+  if (! /^[a-z]/.test(label)) { label = `z${label}`.slice(0, PA.Label.max) }
+  if (label.length < 2) { label += 'z' }
+  return LabelValidators.label(label)
 }
 
 /** `label` in Title Case, for display where a heading wants words rather than an identifier */

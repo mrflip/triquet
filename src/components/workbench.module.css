@@ -142,6 +142,14 @@
   word-break:       keep-all;
 }
 
+.expressedText {
+  font-family:   var(--font-data);
+  font-size:     12px;
+  text-align:    left;
+  white-space:   normal;
+  overflow-wrap: anywhere;
+}
+
 .muted  { color: var(--muted) }
 .stale  { color: var(--muted); font-style: italic }
 .metaline {

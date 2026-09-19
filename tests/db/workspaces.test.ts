@@ -12,7 +12,7 @@ import type { WorkspaceT } from '../../src/models/workspace'
 async function aWorkspace(db: Db): Promise<{ workspace_id: string, workspace: WorkspaceT, quiz: QuizT, save: (quiz: QuizT) => Promise<void> }> {
   const { workspace_id, workspace } = await createWorkspace(db)
   const quiz = workspace.quizzes[0]!
-  const save = (revised: QuizT) => saveChange(db, workspace_id, { active_quiz_id: revised.id, quizzes: [revised], deleted_quiz_ids: [] })
+  const save = (revised: QuizT) => saveChange(db, workspace_id, { active_quiz_id: revised.id, quizzes: [revised], deleted_quiz_ids: [], expressions: null })
   return { workspace_id, workspace, quiz, save }
 }
 
@@ -24,6 +24,94 @@ describe('createWorkspace', () => {
     const { workspace_id, workspace } = await createWorkspace(db)
     expect(workspace.quizzes).to.have.length(1)
     expect(await loadWorkspace(db, workspace_id)).to.deep.eq(workspace)
+  })
+})
+
+/** The first quiz's columns, as they load back */
+const columnsHeld = (loaded: WorkspaceT | null) => loaded?.quizzes[0]?.expressings ?? []
+
+describe('expressions and computed columns', () => {
+  const column = { label: 'backward', expression_label: 'answer_reversed', title: 'Backward', shape: 'medium' as const }
+
+  it('come back as they were made: the standard expressions, and the standard columns, in order', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, workspace } = await createWorkspace(db)
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(loaded?.expressions.map((expression) => expression.label)).to.deep.eq(workspace.expressions.map((expression) => expression.label))
+    expect(loaded?.quizzes[0]?.expressings.map((held) => held.label)).to.deep.eq(workspace.quizzes[0]?.expressings.map((held) => held.label))
+  })
+
+  it('keep a column\'s title, expression and width', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await save({ ...quiz, expressings: [...quiz.expressings, column] })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(columnsHeld(loaded).at(-1)).to.deep.eq(column)
+  })
+
+  it('keep the order the columns were given in, not the order of their labels', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await save({ ...quiz, expressings: [column, ...quiz.expressings.toReversed()] })
+    const loaded = await loadWorkspace(db, workspace_id)
+    const held = columnsHeld(loaded).map((each) => each.label)
+    expect(held).to.deep.eq([column.label, ...quiz.expressings.toReversed().map((each) => each.label)])
+  })
+
+  it('lose a column the quiz no longer shows', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await save({ ...quiz, expressings: quiz.expressings.slice(1) })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(columnsHeld(loaded)).to.have.length(quiz.expressings.length - 1)
+  })
+
+  it('remember a sort by a computed column', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await save({ ...quiz, last_sortkey: 'expressing:clueing_full' })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(loaded?.quizzes[0]?.last_sortkey).to.eq('expressing:clueing_full')
+  })
+
+  it('are replaced whole when a change carries them, and left alone when it does not', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, workspace, quiz } = await aWorkspace(db)
+    const revised = workspace.expressions.map((expression) => (expression.label === 'answer_reversed' ? { ...expression, formula: '"changed"' } : expression))
+    await saveChange(db, workspace_id, { active_quiz_id: quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: revised })
+    const first = await loadWorkspace(db, workspace_id)
+    expect(first?.expressions.find((expression) => expression.label === 'answer_reversed')?.formula).to.eq('"changed"')
+    await saveChange(db, workspace_id, { active_quiz_id: quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: null })
+    const second = await loadWorkspace(db, workspace_id)
+    expect(second?.expressions).to.deep.eq(first?.expressions)
+  })
+
+  it('lose an expression the change no longer holds, and keep the order given', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, workspace, quiz } = await aWorkspace(db)
+    const trimmed = workspace.expressions.filter((expression) => expression.label !== 'answer_reversed').toReversed()
+    await saveChange(db, workspace_id, { active_quiz_id: quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: trimmed })
+    const loaded = await loadWorkspace(db, workspace_id)
+    const held = loaded?.expressions.map((expression) => expression.label)
+    expect(held).to.deep.eq(trimmed.map((expression) => expression.label))
+  })
+
+  it('are a workspace\'s own: another workspace\'s stay as they were', async () => {
+    const db = await openDb(':memory:')
+    const [mine, theirs] = [await aWorkspace(db), await aWorkspace(db)]
+    await saveChange(db, mine.workspace_id, { active_quiz_id: mine.quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: [] })
+    const untouched = await loadWorkspace(db, theirs.workspace_id)
+    expect(untouched?.expressions).to.have.length(mine.workspace.expressions.length)
+  })
+
+  it('give a workspace saved without any the standard ones on loading, standard columns and all', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await saveChange(db, workspace_id, { active_quiz_id: quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: [] })
+    await save({ ...quiz, expressings: [] })
+    const loaded = await loadWorkspace(db, workspace_id)
+    expect(loaded?.expressions).to.have.length(12)
+    expect(loaded?.quizzes[0]?.expressings).to.have.length(8)
   })
 })
 
@@ -86,7 +174,7 @@ describe('saveChange', () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz } = await aWorkspace(db)
     const fresh = Quiz.blank('Fresh')
-    await saveChange(db, workspace_id, { active_quiz_id: fresh.id, quizzes: [fresh], deleted_quiz_ids: [quiz.id] })
+    await saveChange(db, workspace_id, { active_quiz_id: fresh.id, quizzes: [fresh], deleted_quiz_ids: [quiz.id], expressions: null })
     const loaded = await loadWorkspace(db, workspace_id)
     expect(loaded?.quizzes.map((held) => held.id)).to.deep.eq([fresh.id])
     expect(loaded?.active_quiz_id).to.eq(fresh.id)
@@ -97,7 +185,7 @@ describe('saveChange', () => {
     const db = await openDb(':memory:')
     const [mine, theirs] = [await aWorkspace(db), await aWorkspace(db)]
     const hijacked = { ...theirs.quiz, title: 'Mine now' }
-    await expect(saveChange(db, mine.workspace_id, { active_quiz_id: hijacked.id, quizzes: [hijacked], deleted_quiz_ids: [] }))
+    await expect(saveChange(db, mine.workspace_id, { active_quiz_id: hijacked.id, quizzes: [hijacked], deleted_quiz_ids: [], expressions: null }))
       .rejects.toThrow('another workspace')
     const untouched = await loadWorkspace(db, theirs.workspace_id)
     expect(untouched?.quizzes[0]?.title).to.eq(theirs.quiz.title)

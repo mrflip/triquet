@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import * as Sortings from '../../src/lib/sortings'
 import { Question, type QuestionT } from '../../src/models/question'
+import type { Expressed, ExpressedForQuiz } from '../../src/lib/expressed'
 import { present } from '../support/present'
 
 /** A quiz built from `qnum, title` pairs, in the order given */
 function questionsOf(...pairs: [string, string][]): QuestionT[] {
   return pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
 }
+
+const NoneExpressed: ExpressedForQuiz = new Map()
 
 const answers = (questions: QuestionT[]) => questions.map((question) => question.title)
 
@@ -69,7 +72,7 @@ describe('sortQuestions', () => {
 describe('sortValueFor', () => {
   it('reads Q# as a number, so 10 sorts after 9', () => {
     const questions = questionsOf(['9', 'nine'], ['10', 'ten'])
-    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('qnum', questions), false)
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('qnum', questions, NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['nine', 'ten'])
   })
 
@@ -81,7 +84,7 @@ describe('sortValueFor', () => {
       { ...present(zebra), chains_to: present(moose).id },
       present(moose),
     ]
-    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('chains_to', chained), false)
+    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('chains_to', chained, NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['zebra', 'aardvark', 'moose'])
   })
 
@@ -89,13 +92,39 @@ describe('sortValueFor', () => {
     const questions = questionsOf(['', 'a'], ['', 'b'])
     const [first, second] = questions.map((question) => present(question))
     const chained = [present(first), { ...present(second), chains_to: present(first).id }]
-    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('chains_to', chained), false)
+    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('chains_to', chained, NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
 
-  it('reads a column M5 has yet to fill as having nothing to say, leaving the order alone', () => {
+  it('reads a computed column as what it came to for each question', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
-    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('clueing_full', questions), false)
+    const [aa, bb, cc] = questions.map((question) => present(question))
+    const expressed = new Map([['size', new Map<string, Expressed>([
+      [present(aa).id, { status: 'value', val: 30, stale: false }],
+      [present(bb).id, { status: 'value', val: 4, stale: false }],
+      [present(cc).id, { status: 'value', val: 200, stale: false }],
+    ])]])
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('expressing:size', questions, expressed), false)
+    expect(answers(sorted)).to.deep.eq(['b', 'a', 'c'])
+  })
+
+  it('sinks a question a computed column has nothing for, or failed on, in either direction', () => {
+    const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+    const [aa, bb, cc] = questions.map((question) => present(question))
+    const expressed = new Map([['size', new Map<string, Expressed>([
+      [present(aa).id, { status: 'nothing' }],
+      [present(bb).id, { status: 'value', val: 4, stale: false }],
+      [present(cc).id, { status: 'error', message: 'nope' }],
+    ])]])
+    for (const descending of [false, true]) {
+      const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('expressing:size', questions, expressed), descending)
+      expect(answers(sorted)[0]).to.eq('b')
+    }
+  })
+
+  it('reads a computed column the quiz no longer has as having nothing to say, leaving the order alone', () => {
+    const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('expressing:gone', questions, NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['a', 'b', 'c'])
   })
 })

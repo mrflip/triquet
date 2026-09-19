@@ -55,7 +55,7 @@ describe('createWorkspaceStore', () => {
 
   it('shows a change at once, and saves only the quiz it touched', async () => {
     const [kept, retitled] = [Quiz.blank('Kept'), Quiz.blank('Before')]
-    const { gateway, sent } = memoryGateway({ quizzes: [kept, retitled], active_quiz_id: retitled.id })
+    const { gateway, sent } = memoryGateway({ quizzes: [kept, retitled], active_quiz_id: retitled.id, expressions: [] })
     const store = await aLoadedStore(gateway)
     store.dispatch({ kind: 'retitle_quiz', title: 'After' })
     expect(store.snapshot()).to.include({ unsaved: true })

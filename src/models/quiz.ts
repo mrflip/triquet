@@ -4,16 +4,18 @@ import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
 import { AskValidators } from './ask'
 import { Question, QuestionValidators, type QuestionT } from './question'
+import { ExpressingValidators, type ExpressingSortkey, type ExpressingT } from './expressing'
 
-/** Every column or ordering a quiz can have been committed into */
+/** Every built-in column or ordering a quiz can have been committed into */
 export const SortkeyVals = [
-  'qnum', 'title', 'chains_to', 'clueing_plus_rank',
-  'clueing_full', 'clueing_numeral', 'butnot_full', 'butnot_numeral',
-  'hint_full', 'hint_numeral', 'clueing_plus_butnot_full',
+  'qnum', 'title', 'chains_to',
   'clueing_ishes', 'butnot_ishes', 'hint_ishes',
   'chain_order',
 ] as const
-export type Sortkey = typeof SortkeyVals[number]
+export type BuiltinSortkey = typeof SortkeyVals[number]
+
+/** A built-in column or ordering, or the column of one of the quiz's expressings */
+export type Sortkey = BuiltinSortkey | ExpressingSortkey
 
 /** How many blank questions a new quiz opens with, so the grid is never an empty void */
 export const BlankQuestionQty = 5
@@ -21,8 +23,8 @@ export const BlankQuestionQty = 5
 /** The version every quiz starts on, and so the branch its history begins on */
 export const DefaultVersion = 'main'
 
-export const QuizValidators = Validator(({ obj, arr, oneof, titleish, label, bool, uint, timestamp, ulid }) => {
-  const sortkey = oneof(SortkeyVals)
+export const QuizValidators = Validator(({ obj, arr, oneof, union, titleish, label, bool, uint, timestamp, ulid }) => {
+  const sortkey = union([oneof(SortkeyVals), ExpressingValidators.expressingSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
 
   const quizLabel = label
@@ -50,6 +52,8 @@ export const QuizValidators = Validator(({ obj, arr, oneof, titleish, label, boo
     version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
+    expressings:     arr(ExpressingValidators.expressing).default([])
+      .describe('The computed columns this quiz shows, in the order they appear. Each names an expression of the workspace and gives it a column title; none is stored per question, because each is worked out afresh from the questions as they stand.'),
     locked:          bool.default(false)
       .describe('When true this quiz accepts no edits at all -- a finished draft sent out for playtesting, kept readable and copyable but frozen against accidental change.'),
     last_sortkey:    sortkey.nullable().default(null),
@@ -63,6 +67,13 @@ export const QuizValidators = Validator(({ obj, arr, oneof, titleish, label, boo
         }
         idsSeen.add(question.id)
       }
+      const labelsSeen = new Set<string>()
+      for (const [ii, expressing] of context.value.expressings.entries()) {
+        if (labelsSeen.has(expressing.label)) {
+          context.issues.push({ code: 'custom', input: expressing.label, path: ['expressings', ii, 'label'], message: 'Two columns in one quiz share a label' })
+        }
+        labelsSeen.add(expressing.label)
+      }
       for (const [ii, question] of context.value.questions.entries()) {
         if (! question.chains_to) { continue }
         if (question.chains_to === question.id) {
@@ -72,7 +83,7 @@ export const QuizValidators = Validator(({ obj, arr, oneof, titleish, label, boo
         }
       }
     })
-    .describe('One trivia quiz. Chain integrity is checked here rather than on the question, because a chain is only meaningful relative to its siblings.')
+    .describe('One trivia quiz. Chain integrity and column labels are checked here rather than on the question or the column, because each is only meaningful relative to its siblings.')
 
   return { sortkey, bulkIshesRun, quiz }
 })
@@ -89,6 +100,7 @@ export class Quiz implements QuizT {
   declare forced_label:    string | null
   declare version:         string
   declare questions:       QuestionT[]
+  declare expressings:     ExpressingT[]
   declare locked:          boolean
   declare last_sortkey:    Sortkey | null
   declare bulk_ishes_last: BulkIshesRunT
@@ -100,7 +112,7 @@ export class Quiz implements QuizT {
    *
    * @param dna - At minimum an id.
    * @returns A complete quiz.
-   * @throws When two questions share an id, or a chain dangles or points at itself.
+   * @throws When two questions share an id, or a chain dangles or points at itself, or two columns share a label.
    *
    * @example Quiz.fill({ id: mintId(), title: 'Quiz one' })
    */

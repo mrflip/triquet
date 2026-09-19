@@ -1,9 +1,11 @@
 import { relations } from 'drizzle-orm'
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import * as PA from '../lib/vv/patterns'
 import type { BulkIshesRunT, Sortkey } from '../models/quiz'
 import type { IshItemT } from '../models/ish'
 import type { ModelTier } from '../models/ask'
+import type { ExpressionOwner } from '../models/expression'
+import type { ExpressingShape } from '../models/expressing'
 import type { Servicelabel } from '../lib/credentials'
 import type { Textkind } from '../lib/ask/contract'
 import type { PlayerLabel, PlayerPrompts } from '../models/player'
@@ -19,6 +21,18 @@ export const workspaces = sqliteTable('workspaces', {
   created_at:     integer().notNull(),
 })
 
+/** A calculation the workspace's quizzes can show as a column, kept in the order the author lists them */
+export const expressions = sqliteTable('expressions', {
+  workspace_id: text({ length: PA.Ulid.max }).notNull().references(() => workspaces.id, { onDelete: 'cascade' }),
+  owner:        text({ length: PA.Label.max }).$type<ExpressionOwner>().notNull(),
+  label:        text({ length: PA.Label.max }).notNull(),
+  formula:      text({ length: PA.Formulaish.max }).notNull(),
+  description:  text({ length: PA.Noteish.max }).notNull(),
+  position:     integer().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.workspace_id, table.owner, table.label] }),
+])
+
 /** One trivia quiz. Its questions are rows of their own, ordered by `questions.position`. */
 export const quizzes = sqliteTable('quizzes', {
   id:              text({ length: PA.Ulid.max }).primaryKey(),
@@ -32,6 +46,21 @@ export const quizzes = sqliteTable('quizzes', {
   bulk_ishes_last: text({ mode: 'json' }).$type<BulkIshesRunT>(),
 }, (table) => [
   index('quizzes_workspace_idx').on(table.workspace_id),
+])
+
+/**
+ * One column a quiz shows: an expression put to work, in the order the columns appear. Not a
+ * foreign key to `expressions`: a column is checked against them by the workspace, not the table.
+ */
+export const expressings = sqliteTable('expressings', {
+  quiz_id:          text({ length: PA.Ulid.max }).notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  label:            text({ length: PA.Label.max }).notNull(),
+  expression_label: text({ length: PA.Label.max }).notNull(),
+  title:            text({ length: PA.Titleish.max }).notNull(),
+  shape:            text().$type<ExpressingShape>().notNull(),
+  position:         integer().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.quiz_id, table.label] }),
 ])
 
 /** One question: only what the author writes. What players replied lives in `playings`. */
@@ -95,12 +124,22 @@ export const playings = sqliteTable('playings', {
 ])
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
-  quizzes: many(quizzes),
+  quizzes:     many(quizzes),
+  expressions: many(expressions),
+}))
+
+export const expressionsRelations = relations(expressions, ({ one }) => ({
+  workspace: one(workspaces, { fields: [expressions.workspace_id], references: [workspaces.id] }),
 }))
 
 export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
-  workspace: one(workspaces, { fields: [quizzes.workspace_id], references: [workspaces.id] }),
-  questions: many(questions),
+  workspace:   one(workspaces, { fields: [quizzes.workspace_id], references: [workspaces.id] }),
+  questions:   many(questions),
+  expressings: many(expressings),
+}))
+
+export const expressingsRelations = relations(expressings, ({ one }) => ({
+  quiz: one(quizzes, { fields: [expressings.quiz_id], references: [quizzes.id] }),
 }))
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -117,6 +156,8 @@ export const playingsRelations = relations(playings, ({ one }) => ({
   player:   one(players, { fields: [playings.player_label], references: [players.label] }),
 }))
 
+export type ExpressionRow = typeof expressions.$inferSelect
+export type ExpressingRow = typeof expressings.$inferSelect
 export type QuizRow      = typeof quizzes.$inferSelect
 export type QuestionRow  = typeof questions.$inferSelect
 export type PlayerRow    = typeof players.$inferSelect

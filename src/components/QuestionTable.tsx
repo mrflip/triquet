@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import clsx from 'clsx'
-import { Columns, GridWidthPx, type Headkind } from './columns'
+import { columnsFor, gridWidthPx, type Headkind } from './columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
-import * as Sums from '../lib/sums'
+import type { ExpressedForQuiz } from '../lib/expressed'
+import type { ExpressingT } from '../models/expressing'
 import type { Askkind } from '../state/use-asking'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
@@ -18,6 +19,10 @@ export type SortMark = {
 
 export type QuestionTableProps = {
   questions:    QuestionT[]
+  /** The quiz's computed columns, in the order they appear */
+  expressings:  ExpressingT[]
+  /** What each computed column came to for each question */
+  expressed:    ExpressedForQuiz
   locked:       boolean
   /** The grip column only takes up space while the quiz is in Q# order */
   gripShown:    boolean
@@ -36,10 +41,9 @@ export type QuestionTableProps = {
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, expressings, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
-  // Derived on demand and stored nowhere, so a sum is never out of step with its extraction.
-  const sums = Sums.sumsForQuiz(questions)
+  const columns = columnsFor(expressings)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
@@ -51,10 +55,10 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
 
   return (
     <div className={styles.scroller}>
-      <table className={styles.grid} style={{ width: `${String(GridWidthPx)}px` }}>
+      <table className={styles.grid} style={{ width: `${String(gridWidthPx(columns))}px` }}>
         <thead>
           <tr>
-            {Columns.map((column) => {
+            {columns.map((column) => {
               const sortkey = column.sortkey ?? null
               return (
                 <th
@@ -95,7 +99,8 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               onDrop={() => { settle(idx) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
-              sums={sums.get(question.id) ?? Sums.EmptySums}
+              expressings={expressings}
+              expressed={expressed}
               asking={(askkind) => asking(question.id, askkind)}
               unavailableNotice={unavailableNotice}
               onAsk={(askkind) => { onAsk(question, askkind) }}

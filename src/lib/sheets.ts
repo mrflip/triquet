@@ -1,5 +1,4 @@
 import * as Rank from './rank'
-import * as Sums from './sums'
 import type { QuestionT } from '../models/question'
 
 /** How many tab-separated fields each line carries */
@@ -20,13 +19,12 @@ export const SheetsFieldCount = 7
  */
 export function sheetsExport(questions: readonly QuestionT[]): string {
   const ranks = Rank.ranksOf(questions)
-  const sums = Sums.sumsForQuiz(questions)
   const questionForId = new Map(questions.map((question) => [question.id, question]))
 
   return Rank.inRankOrder(questions).map((question) => {
     const rank = ranks.get(question.id) ?? null
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-    const clueingFull = sums.get(question.id)?.clueing_full.total ?? null
+    const clueingFull = clueingTotalOf(question)
     return [
       rank === null ? '' : String(rank),
       foldButnot(question.clueing, target?.hint ?? ''),
@@ -74,6 +72,17 @@ export function foldButnot(clueing: string, hint: string): string {
  */
 export function pasteSafe(text: string): string {
   return text.replaceAll(/\r\n|\r|\n/g, '<br/>').replaceAll('\t', ' ')
+}
+
+/**
+ * What the clueing's ish spans add up to, to a whole number, or null when they were never extracted.
+ * Worked out here rather than read from the grid's columns, so the export means the same
+ * thing whatever an author has done to those.
+ */
+function clueingTotalOf(question: QuestionT): number | null {
+  const { clueing_ishes } = question
+  if (clueing_ishes?.status !== 'done') { return null }
+  return Math.round(clueing_ishes.items.reduce((acc, item) => acc + item.value, 0))
 }
 
 /** The question's own ish spans, verbatim, joined with a slash */

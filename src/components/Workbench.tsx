@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import clsx from 'clsx'
+import { ExpressionsModal } from './ExpressionsModal'
 import { Footnote } from './Footnote'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
@@ -14,6 +15,7 @@ import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
 import { usePlayers } from '../state/use-players'
 import { useQuizHashSync, writeQuizHash } from '../state/use-quiz-route'
+import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
 import styles from './workbench.module.css'
 
@@ -27,7 +29,11 @@ export function Workbench() {
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
+  const [editingExpressions, setEditingExpressions] = useState(false)
   const { missingLabel } = useQuizHashSync(workspace, quiz, dispatch)
+  // Worked out afresh from the questions as they stand and stored nowhere, so a computed
+  // column is never out of step with what it reads.
+  const expressed = useMemo(() => (quiz ? Expressed.forQuiz(quiz, workspace.expressions) : new Map()), [quiz, workspace.expressions])
 
   if (quiz && missingLabel !== null) {
     return (
@@ -74,10 +80,20 @@ export function Workbench() {
           workspace={workspace}
           quiz={quiz}
           dispatch={dispatch}
+          onEditExpressions={() => { setEditingExpressions(true) }}
+        />
+      )}
+      {editingExpressions && (
+        <ExpressionsModal
+          onClose={() => { setEditingExpressions(false) }}
+          workspace={workspace}
+          dispatch={dispatch}
         />
       )}
       <QuestionTable
         questions={quiz.questions}
+        expressings={quiz.expressings}
+        expressed={expressed}
         locked={quiz.locked}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === 'qnum'}
         lastSortkey={quiz.last_sortkey}
@@ -98,6 +114,7 @@ export function Workbench() {
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
         onRecalculate={() => { recalculateAll(quiz.questions) }}
+        onEditExpressions={() => { setEditingExpressions(true) }}
         onSortByChain={() => {
           const descending = ! chainDescending
           setChainDescending(descending)

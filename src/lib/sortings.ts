@@ -1,6 +1,6 @@
+import * as Expressed from './expressed'
 import * as Rank from './rank'
-import * as Sums from './sums'
-import type { SumColkey } from './sums'
+import { expressingLabelOf } from '../models/expressing'
 import type { Sortkey } from '../models/quiz'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
@@ -45,14 +45,16 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 /**
  * How a given column reads a question, for the quiz it belongs to.
  *
- * A sum nobody has computed yet reads as absent, which sinks that question to the bottom in
- * either direction -- the honest reading of "nothing here has been computed yet".
+ * A computed column with nothing to show for a question reads as absent, which sinks that
+ * question to the bottom in either direction -- the honest reading of "nothing here has been
+ * computed yet".
  *
  * @param sortkey - Which column was clicked.
  * @param questions - The quiz's questions, for columns that read across questions.
+ * @param expressed - The quiz's computed columns, for a sortkey that names one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]): SortValueOf {
+export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
   switch (sortkey) {
   case 'qnum': {
     return Rank.qnumOf
@@ -82,15 +84,12 @@ export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]):
     }
   }
   default: {
-    const sums = Sums.sumsForQuiz(questions)
-    const sumColkey: SumColkey = sortkey
-    return (question) => sums.get(question.id)?.[sumColkey].total ?? null
+    const expressing_label = expressingLabelOf(sortkey)
+    if (expressing_label === null) { return () => null }
+    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, expressing_label, question.id))
   }
   }
 }
-
-/** The eight sum columns, for the exhaustiveness check above */
-export const SumSortkeys: readonly SumColkey[] = Sums.SumColkeyVals
 
 /**
  * How many spans an extraction found, or null when it never ran.

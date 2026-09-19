@@ -8,10 +8,10 @@ import { mintId } from '../../src/lib/ids'
 describe('changeBetween', () => {
   // Built by hand rather than filled, because a fill copies every quiz and this is about identity.
   const [kept, revised, dropped] = [Quiz.blank('Kept'), Quiz.blank('Revised'), Quiz.blank('Dropped')]
-  const before: WorkspaceT = { quizzes: [kept, revised, dropped], active_quiz_id: kept.id }
+  const before: WorkspaceT = { quizzes: [kept, revised, dropped], active_quiz_id: kept.id, expressions: [] }
 
   it('is nothing at all between a workspace and itself', () => {
-    expect(changeBetween(before, before)).to.deep.eq({ active_quiz_id: kept.id, quizzes: [], deleted_quiz_ids: [] })
+    expect(changeBetween(before, before)).to.deep.eq({ active_quiz_id: kept.id, quizzes: [], deleted_quiz_ids: [], expressions: null })
   })
 
   it('sends a revised quiz whole, and leaves an untouched one out', () => {
@@ -22,20 +22,20 @@ describe('changeBetween', () => {
 
   it('sends a new quiz, and names a deleted one', () => {
     const fresh = Quiz.blank('Fresh')
-    const after = { quizzes: [kept, revised, fresh], active_quiz_id: fresh.id }
-    expect(changeBetween(before, after)).to.deep.eq({ active_quiz_id: fresh.id, quizzes: [fresh], deleted_quiz_ids: [dropped.id] })
+    const after = { ...before, quizzes: [kept, revised, fresh], active_quiz_id: fresh.id }
+    expect(changeBetween(before, after)).to.deep.eq({ active_quiz_id: fresh.id, quizzes: [fresh], deleted_quiz_ids: [dropped.id], expressions: null })
   })
 
   it('carries a switch of quiz on its own', () => {
     const after = { ...before, active_quiz_id: revised.id }
-    expect(changeBetween(before, after)).to.deep.eq({ active_quiz_id: revised.id, quizzes: [], deleted_quiz_ids: [] })
+    expect(changeBetween(before, after)).to.deep.eq({ active_quiz_id: revised.id, quizzes: [], deleted_quiz_ids: [], expressions: null })
   })
 })
 
 describe('WorkspaceChangeValidators.workspaceChange', () => {
   it('defaults an absent list to an empty one', () => {
     const active_quiz_id = mintId()
-    expect(WorkspaceChangeValidators.workspaceChange({ active_quiz_id })).to.deep.eq({ active_quiz_id, quizzes: [], deleted_quiz_ids: [] })
+    expect(WorkspaceChangeValidators.workspaceChange({ active_quiz_id })).to.deep.eq({ active_quiz_id, quizzes: [], deleted_quiz_ids: [], expressions: null })
   })
 
   it('fills each quiz it carries, just as the app does', () => {

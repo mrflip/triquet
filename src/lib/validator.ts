@@ -24,6 +24,8 @@ export const ValidatorKit = {
   textish:   CK.textish,
   /** Prose as `textish` takes it, but trimmed */
   noteish:   CK.noteish,
+  /** A formula's source: newlines welcome, control characters not, never trimmed, at most 999 characters */
+  formulaish: CK.formulaish,
   /** Human-readable name on one line, independent of any identity it might accompany */
   titleish:  CK.titleish,
   /** Lowercase Crockford-base32 ULID, as minted by `mintId` */

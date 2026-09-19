@@ -17,15 +17,18 @@ export type ToolbarProps = {
   onSortByChain:   () => void
   onRenumber:      () => void
   onRecalculate:   () => void
+  onEditExpressions: () => void
 }
 
 /** What the author can do to the quiz as a whole, and what the last batch run cost */
-export function Toolbar({ locked, bulkIshesLast, running, runNotice, onAddQuestion, onSortByChain, onRenumber, onRecalculate }: Readonly<ToolbarProps>) {
+export function Toolbar({ locked, bulkIshesLast, running, runNotice, onAddQuestion, onSortByChain, onRenumber, onRecalculate, onEditExpressions }: Readonly<ToolbarProps>) {
   return (
     <Stack direction="row" spacing={1} sx={{ my: 2, flexWrap: 'wrap', alignItems: 'center' }}>
       <Button size="small" variant="outlined" disabled={locked} onClick={onAddQuestion}>+ Add question</Button>
       <Button size="small" variant="outlined" disabled={locked} onClick={onSortByChain}>Sort by chain order</Button>
       <Button size="small" variant="outlined" disabled={locked} onClick={onRenumber}>Renumber Q#</Button>
+      {/* Not disabled by a lock: the expressions belong to the workspace, not to this quiz. */}
+      <Button size="small" variant="outlined" onClick={onEditExpressions}>Edit expressions</Button>
       <span style={{ flex: 1 }} />
       <Button size="small" variant="contained" disabled={locked || running} onClick={onRecalculate}>
         {running ? 'Recalculating…' : 'Recalculate all ishes'}

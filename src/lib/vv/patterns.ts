@@ -76,6 +76,8 @@ export const Bigstr   = { max: 200 } as const satisfies Patternbag     // about 
 /** The same bounds as `Textish`; a note differs only in being trimmed, which is the check's business */
 export const Noteish  = { ...Textish } as const satisfies Patternbag
 export const Blobbish = { ...Textish, max: 800_800 } as const satisfies Patternbag
+/** A formula is prose a person types and reads back, so it takes what `Textish` takes and stops at a screenful */
+export const Formulaish = { ...Textish, max: 999 } as const satisfies Patternbag
 export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
 
 //

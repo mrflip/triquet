@@ -60,6 +60,29 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ id: quizId, last_sortkey: 'q_full' as never })).to.throw(Z.ZodError)
   })
 
+  it('accepts a sort memory naming one of its computed columns', () => {
+    expect(Quiz.fill({ id: quizId, last_sortkey: 'expressing:clueing_full' }).last_sortkey).to.eq('expressing:clueing_full')
+  })
+
+  it('rejects a sort memory naming a computed column badly', () => {
+    const outcomes = ['expressing:', 'expressing:Clueing', 'expressing:a', 'expressing:x_']
+      .map((sortkey) => QuizValidators.quiz.safeParse({ id: quizId, last_sortkey: sortkey }).success)
+    expect(outcomes).to.deep.eq([false, false, false, false])
+  })
+
+  it('keeps its computed columns in the order given', () => {
+    const columns = [
+      { label: 'zed', expression_label: 'answer_reversed', title: 'Zed' },
+      { label: 'aye', expression_label: 'answer_reversed', title: 'Aye' },
+    ]
+    expect(Quiz.fill({ id: quizId, expressings: columns }).expressings.map((column) => column.label)).to.deep.eq(['zed', 'aye'])
+  })
+
+  it('refuses two computed columns sharing a label', () => {
+    const column = { label: 'zed', expression_label: 'answer_reversed', title: 'Zed' }
+    expect(() => Quiz.fill({ id: quizId, expressings: [column, { ...column, title: 'Again' }] })).to.throw(Z.ZodError)
+  })
+
   it('remembers what the last batch run cost', () => {
     const quiz = Quiz.fill({ id: quizId, bulk_ishes_last: { approx_tokens: 4200, text_count: 28, updated_at: 1 } })
     expect(quiz.bulk_ishes_last).to.deep.eq({ approx_tokens: 4200, text_count: 28, updated_at: 1 })

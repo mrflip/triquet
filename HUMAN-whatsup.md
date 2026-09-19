@@ -291,6 +291,76 @@ loading) presumes able: an ask the server can't serve still answers "unavailable
 * **A running `pnpm dev` must be restarted** to pick up migration 0004: the connection, and so the
   migration, is per process.
 
+## Expressions
+
+The eight sum columns are now expressings: a formula in an expression, put to work by a quiz's
+column. `src/lib/formulas.ts` wraps JSONata; `src/lib/expressed.ts` builds each question's bag and
+works a quiz's columns out; `models/expression.ts` and `models/expressing.ts` hold the shapes, and
+the seeds live beside the former. The columns cost nothing to store: they are computed on render
+and in the sorter, from the questions as they stand, as the sums always were. I ported every old
+sum test to run against the seed formulas, and the old e2e specs (dashes, stale greying, rank,
+BUT NOT borrowing, the double-click shortcut) pass unchanged, so the seeds behave as the code did.
+
+**Decisions you may want to overturn**
+
+* **JSONata 1.8.9, not 2.x.** 2.x evaluates asynchronously, which would turn every column into
+  something that arrives a tick after render and make the reducer's sort wait on it. 1.8.9 is
+  synchronous, still published (`latest-v1`), and everything here works with it. If a formula ever
+  wants something only 2.x has, the change is `Formulas.evaluate` going async and the callers with it.
+* **A formula that never ends is stopped, not trusted.** JSONata does tail-call optimisation, so
+  `( $f := function(){ $f() }; $f() )` really does spin forever, and a saved formula would then
+  hang the page on every load with no way back in. `evaluate` uses JSONata's own entry/exit hooks to
+  stop a formula after 100ms or 500 levels deep; the rest of that column then reads the same failure
+  instead of waiting again. The cell shows a warning with the reason on hover. (JSONata 1.x offers no
+  sandbox beyond that; formulas are run on your own browser and your own data.)
+* **No `rel` field.** An expressing hangs off its quiz by `quiz_id` (cascade delete) and sits in the
+  quiz's `expressings` array, in column order. A quiz's label can be renamed, so a reference by
+  label would go stale; the quiz already contains its expressings, so there is nothing to look up.
+* **Expressions belong to a workspace, not to the database.** Each workspace has its own copy, so
+  editing one never changes another person's columns. `owner` is `tq` for all of them, and
+  (owner, label) is unique. An expressing names its expression by label alone. An expression's label
+  cannot be changed, and it cannot be deleted while any column of any quiz works it.
+* **The bag is the input document**, so a formula says `qn.clueing_ishes`, not `$qn`: `quiz` (without
+  its questions and expressings), `qns`, `qn`, `qn_label`, `quiz_label`. Ids are gone; a question's
+  `label` is the one in force (a forced label wins) and `chains_to` is the *label* of the question it
+  chains to, so `qns[label = $$.qn.chains_to]` finds it. **I added `rank`** to every question in `qns`
+  (1-based place in Q# order, null when it has no Q#), because rank breaks ties by title and I did not
+  want to re-derive that in JSONata.
+* **A formula answers with a value, or `{ 'value': ..., 'stale': ... }`.** The second form is how the
+  sums keep their greyed-italic look when the text they came from was edited. Nothing (undefined,
+  null, an empty string) shows as the muted dash; lists and objects show as their JSON.
+* **Rounding is half-up (`$floor(x + 0.5)`), not `$round`**, which rounds halves to even; the old sums
+  used `Math.round`, and 0.5 has to stay 1.
+* **Existing workspaces.** `Workspace.revive` gives a workspace holding no expressions at all -- one
+  saved before there were any -- the standard expressions and every empty quiz the standard columns.
+  That is in memory: nothing is written until something saves. The cost: an author who deletes every
+  expression (after removing every column that uses one) will see the standard ones again on reload.
+* **Migration 0005 has one hand-written statement**: it rewrites a quiz's remembered sort from
+  `clueing_full` (etc.) to `expressing:clueing_full`, because the labels of the seeded columns are
+  exactly the old column names. Tried on a copy of your `data/triquet.db`; the original is untouched.
+  **Restart `pnpm dev`** to pick it up.
+* **The Sheets export computes its Clueing total itself** rather than reading a column, so the export
+  means the same thing whatever someone has done to their columns.
+* **`Labelmaker.snakify`** is new: `normalize` strips underscores, which would have turned
+  `clueing_full` into `clueingfull` in the label fields.
+
+**Seeded** (all in `SeedExpressions`): the eight sums; `clueing_word_count`, `answer_letter_count`,
+`answer_reversed`, `answer_alphabetized`. Every one is a one-liner you can read in the editor. I did
+not seed the BBCode idea: it needs a decision about which tags your league's forms accept.
+
+**Where to find it.** *Edit expressions* in the toolbar (still available on a locked quiz, since
+expressions belong to the workspace); the gear's *Computed columns* section lists, retitles, re-labels,
+re-widths, removes and adds columns (disabled on a locked quiz).
+
+**Not done**
+
+* BUT NOT (the snippet) and BUT NOT ishes, Clueing ishes, Hint ishes: those show a chain preview and
+  lists of spans, not values, so they stay as they are.
+* Reordering columns (remove and re-add), renaming an expression, a "try it on this question" preview.
+* Import ignores expressings and expressions in a pasted workspace; only questions are merged.
+* The double-click re-extract shortcut belongs to the columns whose expression is `clueing_full`,
+  `hint_full` or `butnot_full`, by that label.
+
 ## Stack decisions I made without asking
 
 * **localStorage, not Turso** -- overturned in the fourth cycle, above.
@@ -370,8 +440,8 @@ in the document:**
 ## If you want to run it
 
     pnpm dev              # the app
-    pnpm test             # 1149 vitest specs
-    pnpm test:e2e         # 76 playwright specs, starts its own dev server on :3100
+    pnpm test             # 1357 vitest specs
+    pnpm test:e2e         # 99 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and each

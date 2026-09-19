@@ -25,9 +25,9 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
   const chains_to = ulid.nullable()
     .describe('The question that follows this one in the quiz, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same quiz; anything dangling or self-referential is cleared rather than kept.')
   const clueing_ishes = IshValidators.ishes
-    .describe('Extraction over this question\'s clueing. Feeds Clueing Full Sum, Clueing Numeral Sum, Clueing + Rank, and Clueing+BUT NOT Full.')
+    .describe('Extraction over this question\'s clueing. What the standard Clueing sum columns are worked out from.')
   const hint_ishes = IshValidators.ishes
-    .describe('Extraction over this question\'s own hint. Feeds this question\'s Hint sums, and is borrowed by whichever question chains to this one for its BUT NOT sums and BUT NOT ishes.')
+    .describe('Extraction over this question\'s own hint. What the standard Hint sum columns are worked out from, and borrowed by whichever question chains to this one for its BUT NOT sums and BUT NOT ishes.')
   const alt_text = noteish
     .describe('Freeform notes column, carried through to the spreadsheet export. The tool ascribes no meaning to it.')
   const notes = noteish

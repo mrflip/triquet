@@ -1,5 +1,8 @@
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../models/question'
 import { Quiz } from '../models/quiz'
+import { ExpressionValidators, keyOf, type ExpressionDNA, type ExpressionPatch } from '../models/expression'
+import { ExpressingValidators, defaultsFor, sortkeyOf, type ExpressingDNA, type ExpressingPatch } from '../models/expressing'
+import * as Expressed from '../lib/expressed'
 import * as Chain from '../lib/chain'
 import * as Rank from '../lib/rank'
 import * as Sortings from '../lib/sortings'
@@ -32,6 +35,12 @@ export type WorkspaceAction =
   | { kind: 'delete_quiz', quiz_id: string }
   | { kind: 'set_lock', quiz_id: string, locked: boolean }
   | { kind: 'replace_open_quiz', quiz: QuizT }
+  | { kind: 'add_expressing', expressing: ExpressingDNA }
+  | { kind: 'edit_expressing', label: string, patch: ExpressingPatch }
+  | { kind: 'delete_expressing', label: string }
+  | { kind: 'add_expression', expression: ExpressionDNA }
+  | { kind: 'edit_expression', label: string, patch: ExpressionPatch }
+  | { kind: 'delete_expression', label: string }
 
 /**
  * The workspace as it stands after `action`.
@@ -76,7 +85,7 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
     // A sort commits: the new arrangement is written into the quiz, not draped over it.
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
-      questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(action.sortkey, quiz.questions), action.descending),
+      questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(action.sortkey, quiz.questions, Expressed.forQuiz(quiz, workspace.expressions)), action.descending),
       last_sortkey: action.sortkey,
     }))
   }
@@ -105,8 +114,8 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
   }
   case 'new_quiz': {
     // A label named here, like a relabel, is the caller's job to have checked for uniqueness.
-    const fresh = Quiz.blank('', action.label)
-    return { quizzes: [...workspace.quizzes, fresh], active_quiz_id: fresh.id }
+    const fresh = { ...Quiz.blank('', action.label), expressings: defaultsFor(workspace.expressions) }
+    return { ...workspace, quizzes: [...workspace.quizzes, fresh], active_quiz_id: fresh.id }
   }
   case 'delete_quiz': {
     return withoutQuiz(workspace, action.quiz_id)
@@ -161,6 +170,44 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       last_sortkey: 'chain_order',
     }))
   }
+  case 'add_expressing': {
+    const expressing = ExpressingValidators.expressing(action.expressing)
+    return reviseOpenQuiz(workspace, (quiz) => (
+      quiz.expressings.some((other) => other.label === expressing.label)
+        ? quiz
+        : { ...quiz, expressings: [...quiz.expressings, expressing] }
+    ))
+  }
+  case 'edit_expressing': {
+    const patch = ExpressingValidators.expressingPatch(action.patch)
+    return reviseOpenQuiz(workspace, (quiz) => reviseExpressing(quiz, action.label, patch))
+  }
+  case 'delete_expressing': {
+    return reviseOpenQuiz(workspace, (quiz) => ({
+      ...quiz,
+      expressings:  quiz.expressings.filter((expressing) => expressing.label !== action.label),
+      last_sortkey: quiz.last_sortkey === sortkeyOf({ label: action.label }) ? null : quiz.last_sortkey,
+    }))
+  }
+  // The expressions belong to the workspace rather than to a quiz, so a locked quiz does not
+  // refuse them either: a column's numbers change with its formula, but the quiz itself does not.
+  case 'add_expression': {
+    const expression = ExpressionValidators.expression(action.expression)
+    const taken = workspace.expressions.some((other) => keyOf(other) === keyOf(expression))
+    return taken ? workspace : { ...workspace, expressions: [...workspace.expressions, expression] }
+  }
+  case 'edit_expression': {
+    const patch = ExpressionValidators.expressionPatch(action.patch)
+    return {
+      ...workspace,
+      expressions: workspace.expressions.map((expression) => (expression.label === action.label ? { ...expression, ...patch } : expression)),
+    }
+  }
+  case 'delete_expression': {
+    // Refused while a column works it: deleting it would leave that column with nothing to show.
+    if (expressionUsage(workspace, action.label) > 0) { return workspace }
+    return { ...workspace, expressions: workspace.expressions.filter((expression) => expression.label !== action.label) }
+  }
   case 'drag_question': {
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
@@ -182,6 +229,7 @@ export function reviseOpenQuiz(workspace: WorkspaceT, revise: (quiz: QuizT) => Q
   const openQuiz = workspace.quizzes.find((quiz) => quiz.id === workspace.active_quiz_id)
   if (! openQuiz || openQuiz.locked) { return workspace }
   const revised = revise(openQuiz)
+  if (revised === openQuiz) { return workspace }
   return {
     ...workspace,
     quizzes: workspace.quizzes.map((quiz) => (quiz.id === openQuiz.id ? revised : quiz)),
@@ -205,8 +253,37 @@ function withoutQuiz(workspace: WorkspaceT, quiz_id: string): WorkspaceT {
   const quizzes = workspace.quizzes.filter((quiz) => quiz.id !== quiz_id)
   const neighbour = quizzes[Math.min(idx, quizzes.length - 1)]
   return {
+    ...workspace,
     quizzes,
     active_quiz_id: workspace.active_quiz_id === quiz_id ? neighbour?.id ?? workspace.active_quiz_id : workspace.active_quiz_id,
+  }
+}
+
+/**
+ * How many columns, across every quiz, work the expression labelled `label`.
+ *
+ * @param workspace - The workspace as it stands.
+ * @param label - An expression's label.
+ * @returns How many expressings name it; an expression is only deletable at zero.
+ *
+ * @example expressionUsage(workspace, 'clueing_full')  // => 1
+ */
+export function expressionUsage(workspace: WorkspaceT, label: string): number {
+  return workspace.quizzes.reduce((total, quiz) => total + quiz.expressings.filter((expressing) => expressing.expression_label === label).length, 0)
+}
+
+/**
+ * `quiz` with the column labelled `label` revised. A rename onto a label a sibling already has
+ * is refused, and a rename carries the sort memory with it.
+ */
+function reviseExpressing(quiz: QuizT, label: string, patch: ExpressingPatch): QuizT {
+  const renamedOnto = patch.label ?? label
+  const clash = renamedOnto !== label && quiz.expressings.some((other) => other.label === renamedOnto)
+  if (clash || quiz.expressings.every((expressing) => expressing.label !== label)) { return quiz }
+  return {
+    ...quiz,
+    expressings:  quiz.expressings.map((expressing) => (expressing.label === label ? { ...expressing, ...patch } : expressing)),
+    last_sortkey: quiz.last_sortkey === sortkeyOf({ label }) ? sortkeyOf({ label: renamedOnto }) : quiz.last_sortkey,
   }
 }
 

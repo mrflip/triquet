@@ -20,6 +20,41 @@ const NormalizeCases: [string, string, string][] = [
   ["👍👍",             "zz",          'a string of nothing but emoji strips to nothing, then gets repaired like any other'],
 ]
 
+const SnakifyCases: [string, string, string][] = [
+  // regular usage:
+  ["Answer Length!",   "answer_length",  'words are kept apart with an underscore'],
+  ["clueing_full",     "clueing_full",   'a label already snake-cased is left alone'],
+  ["Hello,   World",   "hello_world",    'a run of whitespace and punctuation becomes one underscore'],
+  ["title2",           "title2",         'digits stay with the word they follow'],
+  // trivial cases:
+  ["",                 "",               'an empty string reads as no label yet'],
+  [" ".repeat(3),      "",               'a whitespace-only string reads as no label yet'],
+  ["a",                "az",             'a single letter is padded out to two characters'],
+  // weird cases:
+  ["__lead_and_trail__", "lead_and_trail", 'underscores at either end are dropped'],
+  ["__",               "zz",             'a string that strips to nothing gets the letter-start and length repairs in sequence'],
+  [" 9 lives",         "z9_lives",       'a string starting with a digit gets a letter prepended'],
+  ["éü ñ",             "eu_n",           'diacritics are deburred before anything else'],
+  ["👍cool👍",          "cool",           'emoji are stripped like any other symbol'],
+  ["x".repeat(39) + "_y", "x".repeat(39), 'a cut that would leave a trailing underscore drops it'],
+]
+
+describe('snakify', () => {
+  for (const [input, expected, blurb] of SnakifyCases) {
+    it(blurb, () => {
+      expect(Labelmaker.snakify(input)).to.eq(expected)
+    })
+  }
+
+  it('never returns more than a label may hold, however much is typed', () => {
+    expect(Labelmaker.snakify('word '.repeat(50))).to.have.length.at.most(40)
+  })
+
+  it('always returns a valid label, even from adversarial input', () => {
+    expect(ValidatorKit.label.safeParse(Labelmaker.snakify('🎲 🎲 🎲')).success).to.eq(true)
+  })
+})
+
 describe('normalize', () => {
   for (const [input, expected, blurb] of NormalizeCases) {
     it(blurb, () => {

@@ -2,11 +2,11 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { Columns, type Colkey } from './columns'
+import { columnsFor } from './columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
-import { SumReadout } from './cells/readouts'
-import * as Sums from '../lib/sums'
-import type { QuestionSums, SumColkey } from '../lib/sums'
+import { ExpressedReadout } from './cells/readouts'
+import * as Expressed from '../lib/expressed'
+import { sortkeyOf, type ExpressingT } from '../models/expressing'
 import type { Askkind } from '../state/use-asking'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { GuessCell } from './cells/guess'
@@ -36,8 +36,10 @@ export type QuestionRowProps = {
   onDrop:      () => void
   onDragEnd:   () => void
   onChain:     (chains_to: string | null) => void
-  /** This question's eight derived sums */
-  sums:        QuestionSums
+  /** The quiz's computed columns, in the order they appear */
+  expressings: ExpressingT[]
+  /** What each computed column came to for each question of the quiz */
+  expressed:   Expressed.ExpressedForQuiz
   /** Whether an ask for one of this question's cells is in flight */
   asking:      (askkind: Askkind) => boolean
   /** Why a kind of ask cannot be made at all, when it cannot; null when it can */
@@ -55,7 +57,7 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, sums, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, expressings, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
 
@@ -64,18 +66,18 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
   const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
   const chainTarget = questions.find((other) => other.id === question.chains_to) ?? null
 
-  const reextractFor = (colkey: SumColkey) => {
+  const reextractFor = (expression_label: string) => {
     if (locked) { return }
-    switch (colkey) {
+    switch (expression_label) {
     case 'clueing_full': { onAsk('clueing'); break }
     case 'hint_full':    { onAsk('hint'); break }
     case 'butnot_full':  { onAskTarget('hint'); break }
     default:             { break }
     }
   }
-  const widths = useMemo(() => Object.fromEntries(Columns.map((column) => [column.colkey, column])), [])
+  const widths = useMemo(() => Object.fromEntries(columnsFor(expressings).map((column) => [column.colkey, column])), [expressings])
 
-  const cell = (colkey: Colkey, body: React.ReactNode, onDoubleClick?: () => void) => {
+  const cell = (colkey: string, body: React.ReactNode, onDoubleClick?: () => void) => {
     const column = widths[colkey]
     const isCollapsedGrip = colkey === 'grip' && ! gripShown
     return (
@@ -154,11 +156,16 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
       ))}
       {/* The double-click shortcut is undocumented on screen, on purpose: it is muscle memory
           for someone iterating hard on one clue's total, and the ishes cell it summarises is
-          the documented, keyboard-reachable way to the same thing. */}
-      {Sums.SumColkeyVals.map((colkey) => cell(
-        colkey,
-        <div className={styles.sum}><SumReadout total={sums[colkey].total} stale={sums[colkey].stale} /></div>,
-        () => { reextractFor(colkey) },
+          the documented, keyboard-reachable way to the same thing. It belongs to the standard
+          Full Sum expressions, wherever a quiz has put them. */}
+      {expressings.map((expressing) => cell(
+        sortkeyOf(expressing),
+        <ExpressedReadout
+          reading={Expressed.readingOf(expressed, expressing.label, question.id)}
+          shape={expressing.shape}
+          heightPx={heightPx}
+        />,
+        () => { reextractFor(expressing.expression_label) },
       ))}
       {cell('alt_text', (
         <StretchField

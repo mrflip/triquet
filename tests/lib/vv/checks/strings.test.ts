@@ -55,7 +55,7 @@ describe('character sets', () => {
 
 describe('lengths', () => {
   const Caps: [keyof typeof CK, number][] = [
-    ['shortstr', 15], ['medstr', 40], ['fullstr', 82], ['bigstr', 200], ['titleish', 82],
+    ['shortstr', 15], ['medstr', 40], ['fullstr', 82], ['bigstr', 200], ['titleish', 82], ['formulaish', 999],
   ]
   for (const [ckname, cap] of Caps) {
     it(`${ckname} takes ${String(cap)} characters and refuses one more`, () => {
@@ -69,6 +69,11 @@ describe('lengths', () => {
       accepts(check, 'x'.repeat(3600))
       rejects(check, 'x'.repeat(3601))
     }
+  })
+  it('formulaish takes a formula laid out over lines, untrimmed, and never an empty one', () => {
+    expect(accepts(CK.formulaish, '  (\n  $sum(a)\n)  ')).to.eq('  (\n  $sum(a)\n)  ')
+    rejects(CK.formulaish, '')
+    rejects(CK.formulaish, `a${Ctrl}b`)
   })
   it('noteish measures after trimming, so surrounding space never costs length', () => {
     accepts(CK.noteish, ` ${'x'.repeat(3600)} `)
