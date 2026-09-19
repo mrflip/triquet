@@ -35,3 +35,7 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# local databases -- the directory is kept, its contents are not
+/data/*
+!/data/.gitkeep
