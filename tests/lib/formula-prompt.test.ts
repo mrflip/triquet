@@ -28,7 +28,7 @@ describe('formulaPrompt', () => {
   })
 
   it('leaves out what is blank, rather than printing an empty line for it', () => {
-    const prompt = formulaPrompt({ expressing: { ...expressing, description: '   ' }, expression: { ...expression, description: '' }, sample: null })
+    const prompt = formulaPrompt({ expressing: { ...expressing, description: ' '.repeat(3) }, expression: { ...expression, description: '' }, sample: null })
     expect(prompt).to.not.include('What the column is for')
     expect(prompt).to.not.include('What the expression works out')
     expect(prompt).to.include('The column\'s title: Letters')

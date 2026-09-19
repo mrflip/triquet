@@ -171,6 +171,15 @@
   margin-left: 6px;
 }
 
+.previewResult {
+  font-family: var(--font-data);
+  font-size:   13px;
+  padding:     6px 8px;
+  border:      1px solid var(--border);
+  border-radius: var(--radius-input);
+  overflow-wrap: anywhere;
+}
+
 .errJson {
   font-family: var(--font-data);
   font-size:   12px;

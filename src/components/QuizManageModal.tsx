@@ -56,7 +56,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEd
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>Manage this quiz</DialogTitle>
       <DialogContent>
         <Stack spacing={1} sx={{ mt: 1 }}>
@@ -89,7 +89,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEd
         <p className={styles.microcopy}>
           Each column works out one expression for every question, shown between Q# and Alt Text.
         </p>
-        <ExpressingsEditor quiz={quiz} expressions={workspace.expressions} dispatch={dispatch} onEditExpressions={onEditExpressions} />
+        <ExpressingsEditor workspace={workspace} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
       </DialogContent>
 
       <DialogTitle sx={{ pt: 0 }}>History</DialogTitle>

@@ -87,6 +87,7 @@ export function Workbench() {
         <ExpressionsModal
           onClose={() => { setEditingExpressions(false) }}
           workspace={workspace}
+          quizId={quiz.id}
           dispatch={dispatch}
         />
       )}

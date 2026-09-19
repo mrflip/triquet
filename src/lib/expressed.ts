@@ -79,6 +79,19 @@ export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): Expre
 }
 
 /**
+ * What `formula` comes to for one question's bag: the preview an author sees while writing it.
+ *
+ * @param formula - JSONata source, however unfinished.
+ * @param bag - The question's bag, from `bagsFor`; nothing is worked out without one.
+ * @returns What a cell would show.
+ *
+ * @example previewOf('qn.title', bagsFor(quiz).get(question.id))
+ */
+export function previewOf(formula: string, bag: QuizBag | undefined): Expressed {
+  return bag ? reading(Formulas.evaluate(formula, bag)) : Nothing
+}
+
+/**
  * One question's result in `expressed`, or `nothing` when the column or the question is not there.
  *
  * @param expressed - A quiz's results.

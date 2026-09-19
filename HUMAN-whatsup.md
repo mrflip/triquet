@@ -348,18 +348,66 @@ BUT NOT borrowing, the double-click shortcut) pass unchanged, so the seeds behav
 `answer_reversed`, `answer_alphabetized`. Every one is a one-liner you can read in the editor. I did
 not seed the BBCode idea: it needs a decision about which tags your league's forms accept.
 
-**Where to find it.** *Edit expressions* in the toolbar (still available on a locked quiz, since
-expressions belong to the workspace); the gear's *Computed columns* section lists, retitles, re-labels,
-re-widths, removes and adds columns (disabled on a locked quiz).
+**Where to find it.** The gear's dialog (now wide) lists a quiz's computed columns: retitle one in
+place, or press its gear to open the *column editor* -- the column's title, label, description and
+width, the expression it works, and that expression's label, description and formula together, with
+a live preview. *Edit expressions* in the toolbar lists the workspace's expressions, each with a gear
+opening the same formula editor on its own (still available on a locked quiz, since expressions belong
+to the workspace); it is also where an expression is removed.
 
 **Not done**
 
 * BUT NOT (the snippet) and BUT NOT ishes, Clueing ishes, Hint ishes: those show a chain preview and
   lists of spans, not values, so they stay as they are.
-* Reordering columns (remove and re-add), renaming an expression, a "try it on this question" preview.
+* Reordering columns (remove and re-add) and renaming an expression.
 * Import ignores expressings and expressions in a pasted workspace; only questions are merged.
 * The double-click re-extract shortcut belongs to the columns whose expression is `clueing_full`,
   `hint_full` or `butnot_full`, by that label.
+
+## Widgets, round two
+
+* **The column editor** (`ColumnEditor`, over `ExpressionFields`): nothing is applied until Apply, and
+  what Apply does is decided by `planColumnEdit` (pure, tested): it adds a new expression before the
+  column that works it, revises an expression only if its formula or description changed, and on a
+  locked quiz leaves the column alone and revises only the expression. Removing a column asks first
+  (and keeps its expression). An expression can only be removed from the expressions list, only when
+  no column works it, and asks first. **There is no standalone "new expression"**: you make one by
+  making a column and choosing "New expression…", as you suggested. `Column label` blank takes the
+  expression's label.
+* **The preview** evaluates the *draft* formula against one question's real bag: pick any quiz and any
+  question, starting on the open quiz's lowest Q#. "The input for this question" shows that `qn`.
+* **The prompt** (`Copy a prompt for a chatbot`): `src/lib/formula-prompt.ts`. It carries whatever is
+  filled in (column title/label/description/width, expression label/description), the formula as "here
+  is what we have now" when there is one or a request when there is not, the input JSON Schema (from
+  `models/quiz-bag.ts`, with a test that every bag a formula is really given satisfies it), one real
+  `qn`, the output JSON Schema, a few JSONata gotchas, and asks for the formula alone in the reply.
+  Nothing calls a model. **`plain()`** (in `lib/validator.ts`) is new: `Z.toJSONSchema` cannot see
+  through our callable validators when they wrap a `.default()`/`.optional()`, so it swaps each wrapper
+  for the schema it wraps, in place; parsing is unchanged.
+* **Async JSONata.** Still 1.8.9 (sync). The choice is a one-file swap plus making the callers async;
+  I would not make it before there is a formula that needs 2.x.
+* **`normalize` collapses** runs of `[\W_]` to one `_` and trims them from the ends, as you wrote it;
+  `snakify` is gone. Quiz labels and versions in URLs are now `leon_s_quiz`, not `leonsquiz`.
+* **Failures.** A failed ask never replaces a value: it rides on the cell as `last_err` (`message`,
+  the response JSON, `at`), any success nulls it, and the stale flag is untouched. A cell that has
+  never had a value shows the failure as before. The badge (⚠) says the reason on hover and shows the
+  JSON on click. The error is stored as a `playings` row with the new `response` column, and the
+  projection shows a failure only while it is newer than every success. A failed combined run touches
+  no cell and shows in the toolbar, badged; a text the run left out gets its own per-cell `last_err`.
+  The server now sends `detail` (SDK error name, status, message -- never the request) with a failure.
+* **The Sheets export** has a header row and is made from the same column list as the grid
+  (`lib/columns.ts`, moved from `components/`), so a new column cannot be in one and not the other:
+  the per-column text is a `Record<Colkey, ...>`, which does not compile with a column missing.
+  Headers are the field name, the expressing's label, or the player's label (`dumdum`,
+  `numnum_clueing`, `numnum_butnot`, `numnum_hint`). **Changes to notice:** the export no longer leads
+  with the rank (Q# is the raw Q#, rows are still in rank order; rank is available through
+  `clueing_plus_rank`), and the BUT NOT fold it used to do is now the seeded expression
+  `clueing_with_butnot`. The Copy for Sheets box also has every computed column.
+* **Description on the expressing** (migration 0007); migrations 0006 (`playings.response`) and 0007
+  need a restart of `pnpm dev`.
+* **Not done:** parameters on an expressing (the editor has room for them under the expression
+  select); a per-column undo; the two-line git history of expressions (they are not in a quiz's
+  git history, only the columns are).
 
 ## Stack decisions I made without asking
 

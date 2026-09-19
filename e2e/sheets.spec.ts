@@ -31,9 +31,12 @@ test('a header row, then every column of the grid, in rank order', async ({ page
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
   await page.getByRole('button', { name: 'Manage quiz' }).click()
-  await page.getByRole('combobox', { name: 'Add a column' }).click()
-  await page.getByRole('option', { name: 'answer_reversed' }).click()
-  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '+ New column…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New column' })
+  await editor.getByRole('combobox', { name: 'Expression' }).click()
+  await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await page.getByRole('button', { name: 'Cancel' }).first().click()
   const text = await sheetsText(page)
   expect(text.split('\n', 1)[0]?.split('\t')).toContain('answer_reversed')
 })

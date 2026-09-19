@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField } from '@mui/material'
-import { useDraft } from './use-draft'
-import * as Formulas from '../lib/formulas'
-import * as Labelmaker from '../lib/labelmaker'
-import { ExpressionValidators, DefaultOwner, type ExpressionPatch, type ExpressionT } from '../models/expression'
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Stack } from '@mui/material'
+import { ConfirmRemove } from './ConfirmRemove'
+import { ExpressionFields, type ExpressionDraft } from './ExpressionFields'
+import { ExpressionValidators, type ExpressionT } from '../models/expression'
 import { expressionUsage, type WorkspaceAction } from '../state/workspace-reducer'
 import type { WorkspaceT } from '../models/workspace'
 import styles from './workbench.module.css'
@@ -13,145 +12,118 @@ import styles from './workbench.module.css'
 export type ExpressionsModalProps = {
   onClose:   () => void
   workspace: WorkspaceT
+  /** The quiz the preview starts on */
+  quizId:    string
   dispatch:  (action: WorkspaceAction) => void
 }
 
 /**
- * The workspace's expressions -- the calculations any quiz can show as a column -- to read,
- * revise, remove and add to.
+ * The workspace's expressions -- the calculations any quiz can show as a column -- listed, each
+ * with a gear that opens its formula for editing and, when no column works it, removing.
  *
- * A formula is checked as it is typed, so a mistake is named before it costs a column its
- * numbers. One that is still wrong is kept anyway: the column says so, and the author is
- * drafting, not filling in a form. An expression a column still works cannot be removed.
+ * New expressions are written from a new column's editor, where they can be tried against real
+ * questions and put to work at once; this list is for revisiting and tidying them.
  */
-export function ExpressionsModal({ onClose, workspace, dispatch }: Readonly<ExpressionsModalProps>) {
+export function ExpressionsModal({ onClose, workspace, quizId, dispatch }: Readonly<ExpressionsModalProps>) {
+  const [editing, setEditing] = useState<string | null>(null)
+  const edited = workspace.expressions.find((expression) => expression.label === editing)
+
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="expressions-title">
       <DialogTitle id="expressions-title">Expressions</DialogTitle>
       <DialogContent>
         <p className={styles.microcopy}>
-          A formula is written in <a href="https://docs.jsonata.org" target="_blank" rel="noreferrer">JSONata</a> and
-          reads <code>qn</code> (this question), <code>qns</code> (every question), <code>qn_label</code>,
-          {' '}<code>quiz</code> and <code>quiz_label</code>. Questions are named by label, and each carries
-          its <code>rank</code>: <code>qns[label = $$.qn.chains_to]</code> is the question this one chains to.
-          Answer with a value, or with <code>{'{ \'value\': …, \'stale\': … }'}</code> to grey a value that is out of date.
+          Each is a <a href="https://docs.jsonata.org" target="_blank" rel="noreferrer">JSONata</a> formula
+          worked out for every question. To make a new one, add a new column to a quiz and choose
+          &ldquo;New expression&rdquo;.
         </p>
-        <Stack spacing={2} divider={<Divider flexItem />}>
+        <Stack spacing={1}>
           {workspace.expressions.map((expression) => (
-            <ExpressionEditor
-              key={`${expression.owner}/${expression.label}`}
-              expression={expression}
-              usage={expressionUsage(workspace, expression.label)}
-              dispatch={dispatch}
-            />
+            <Stack key={`${expression.owner}/${expression.label}`} direction="row" spacing={1} role="group" aria-label={`Expression ${expression.label}`} sx={{ alignItems: 'center' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong>{expression.label}</strong>
+                <div className={styles.microcopy}>{expression.description}</div>
+              </div>
+              <span className={styles.microcopy}>{usageNote(expressionUsage(workspace, expression.label))}</span>
+              <IconButton size="small" aria-label={`Edit expression ${expression.label}`} onClick={() => { setEditing(expression.label) }}>⚙</IconButton>
+            </Stack>
           ))}
-          <NewExpression taken={new Set(workspace.expressions.map((expression) => expression.label))} dispatch={dispatch} />
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Done</Button>
-      </DialogActions>
+      <DialogActions><Button onClick={onClose}>Done</Button></DialogActions>
+      {edited && (
+        <ExpressionEditor
+          key={edited.label}
+          workspace={workspace}
+          quizId={quizId}
+          expression={edited}
+          dispatch={dispatch}
+          onClose={() => { setEditing(null) }}
+        />
+      )}
     </Dialog>
-  )
-}
-
-type ExpressionEditorProps = {
-  expression: ExpressionT
-  /** How many columns work this expression */
-  usage:      number
-  dispatch:   (action: WorkspaceAction) => void
-}
-
-/** One expression: its formula and description to revise, and a way to remove it when nothing uses it */
-function ExpressionEditor({ expression, usage, dispatch }: Readonly<ExpressionEditorProps>) {
-  const [issue, setIssue] = useState<string | null>(null)
-
-  const revise = (patch: ExpressionPatch) => {
-    const checked = ExpressionValidators.expressionPatch.safeParse(patch)
-    if (! checked.success) { setIssue(checked.error.issues[0]?.message ?? 'That will not do.'); return }
-    setIssue(null)
-    dispatch({ kind: 'edit_expression', label: expression.label, patch: checked.data })
-  }
-
-  const formulaDraft = useDraft(expression.formula, (formula) => { revise({ formula }) })
-  const descriptionDraft = useDraft(expression.description, (description) => { revise({ description }) })
-  const syntaxIssue = Formulas.check(formulaDraft.draft)
-
-  return (
-    <Stack spacing={1} role="group" aria-label={`Expression ${expression.label}`}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        <strong>{expression.label}</strong>
-        <span className={styles.microcopy} style={{ flex: 1 }}>{usageNote(usage)}</span>
-        <Button
-          size="small" color="error" disabled={usage > 0}
-          aria-label={`Remove expression ${expression.label}`}
-          onClick={() => { dispatch({ kind: 'delete_expression', label: expression.label }) }}
-        >
-          Remove
-        </Button>
-      </Stack>
-      <TextField
-        size="small" multiline minRows={2} maxRows={12} label="Formula" value={formulaDraft.draft}
-        error={syntaxIssue !== null || issue !== null} helperText={syntaxIssue ?? issue ?? undefined}
-        slotProps={{ htmlInput: { 'aria-label': `Formula of ${expression.label}`, style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        onChange={(event) => { formulaDraft.onChange(event.target.value); setIssue(null) }} onBlur={formulaDraft.onBlur}
-      />
-      <TextField
-        size="small" label="Description" value={descriptionDraft.draft}
-        slotProps={{ htmlInput: { 'aria-label': `Description of ${expression.label}` } }}
-        onChange={(event) => { descriptionDraft.onChange(event.target.value) }} onBlur={descriptionDraft.onBlur}
-      />
-    </Stack>
   )
 }
 
 /** What to say about how many columns work an expression */
 function usageNote(usage: number): string {
-  if (usage === 0) { return 'Not used by any column.' }
-  return usage === 1 ? 'Worked by 1 column.' : `Worked by ${String(usage)} columns.`
+  if (usage === 0) { return 'Not used by any column' }
+  return usage === 1 ? 'Worked by 1 column' : `Worked by ${String(usage)} columns`
 }
 
-/** The form for a new expression: a label to choose, and a formula to start from */
-function NewExpression({ taken, dispatch }: Readonly<{ taken: ReadonlySet<string>, dispatch: (action: WorkspaceAction) => void }>) {
-  const [labelDraft, setLabelDraft] = useState('')
-  const [formula, setFormula] = useState('')
-  const [description, setDescription] = useState('')
-  const [issue, setIssue] = useState<string | null>(null)
+type ExpressionEditorProps = {
+  workspace:  WorkspaceT
+  quizId:     string
+  expression: ExpressionT
+  dispatch:   (action: WorkspaceAction) => void
+  onClose:    () => void
+}
 
-  const onAdd = () => {
-    const label = Labelmaker.normalize(labelDraft)
-    if (labelDraft.trim() === '') { setIssue('Give the expression a label.'); return }
-    if (taken.has(label)) { setIssue('Another expression already has that label.'); return }
-    const checked = ExpressionValidators.expression.safeParse({ owner: DefaultOwner, label, formula, description })
-    if (! checked.success) { setIssue(checked.error.issues[0]?.message ?? 'That will not do.'); return }
-    dispatch({ kind: 'add_expression', expression: checked.data })
-    setLabelDraft('')
-    setFormula('')
-    setDescription('')
-    setIssue(null)
+/**
+ * One expression on its own: formula and description to revise with a live preview, and a
+ * removal that asks first and is not offered while any column works the expression.
+ */
+function ExpressionEditor({ workspace, quizId, expression, dispatch, onClose }: Readonly<ExpressionEditorProps>) {
+  const [draft, setDraft] = useState<ExpressionDraft>(expression)
+  const [issue, setIssue] = useState<string | null>(null)
+  const usage = expressionUsage(workspace, expression.label)
+
+  const onApply = () => {
+    const patch = ExpressionValidators.expressionPatch.safeParse({ formula: draft.formula, description: draft.description })
+    if (! patch.success) { setIssue(patch.error.issues[0]?.message ?? 'That will not do.'); return }
+    dispatch({ kind: 'edit_expression', label: expression.label, patch: patch.data })
+    onClose()
   }
 
   return (
-    <Stack spacing={1} role="group" aria-label="New expression">
-      <strong>New expression</strong>
-      <TextField
-        size="small" label="Label" value={labelDraft} sx={{ maxWidth: 280 }}
-        onChange={(event) => { setLabelDraft(event.target.value); setIssue(null) }}
-      />
-      <TextField
-        size="small" multiline minRows={2} maxRows={12} label="New formula" value={formula}
-        slotProps={{ htmlInput: { style: { fontFamily: 'var(--font-data)', fontSize: 12 } } }}
-        error={formula !== '' && Formulas.check(formula) !== null} helperText={formula === '' ? undefined : Formulas.check(formula) ?? undefined}
-        onChange={(event) => { setFormula(event.target.value); setIssue(null) }}
-      />
-      <TextField
-        size="small" label="New description" value={description}
-        onChange={(event) => { setDescription(event.target.value) }}
-      />
-      {issue !== null && <p className={styles.microcopy} role="alert">{issue}</p>}
-      <Stack direction="row">
-        <Button size="small" variant="contained" onClick={onAdd}>Add expression</Button>
-      </Stack>
-    </Stack>
+    <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="expression-editor-title">
+      <DialogTitle id="expression-editor-title">Expression: {expression.label}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={1} sx={{ mt: 1 }}>
+          <ExpressionFields
+            workspace={workspace}
+            defaultQuizId={quizId}
+            draft={draft}
+            onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null) }}
+            labelEditable={false}
+            labelIssue={null}
+            expressing={null}
+          />
+          {issue !== null && <p className={styles.microcopy} role="alert">{issue}</p>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: 'space-between' }}>
+        <ConfirmRemove
+          noun="expression"
+          question="Remove this expression for good?"
+          refusal={usage > 0 ? `${usageNote(usage)}, so it cannot be removed.` : null}
+          onConfirm={() => { dispatch({ kind: 'delete_expression', label: expression.label }); onClose() }}
+        />
+        <Stack direction="row" spacing={1}>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="contained" onClick={onApply}>Apply</Button>
+        </Stack>
+      </DialogActions>
+    </Dialog>
   )
 }
