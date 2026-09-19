@@ -247,6 +247,25 @@ to Claude uses its own loose `ishItemReply`; the stored `ishItem` is strict.
 `adjective_animal` labels are left as they were -- normalizing those would strip the underscore.
 The localStorage carry-in is gone.
 
+## Routing findings
+
+**Why `/my/quiz#asdf` did nothing.** The hash was read once, on first load; nothing listened for
+`hashchange`, so editing the address of an open page was ignored. And on first load a hash naming
+no quiz was silently overwritten with the open quiz's label, by design, which is why the console
+was quiet. Now: the hash is read through `useSyncExternalStore` (`state/use-quiz-route.ts`), a
+hash naming a quiz opens it whenever it changes, and one naming nothing shows the "No such quiz"
+page (make it / your quizzes / every history repository, including deleted quizzes'). A hash the
+app wrote itself never counts as a request -- after a rename it names a label nothing answers to
+for one render, and treating that as "no such quiz" ate the rename until the routing specs caught it.
+
+**`/my/quiz/<label>` instead of `#<label>`: not attempted, and my estimate is "moderate, not big".**
+Roughly an optional catch-all (`app/my/quiz/[[...label]]/page.tsx`), the hook reading the pathname
+instead of the hash, `/` redirecting to a path, and about ten e2e assertions on `url.hash` moving
+to `url.pathname`. Next.js syncs `history.replaceState` into its router, so the same-page rewrite
+should work, but that is exactly the seam where scroll restoration and dev-server quirks live, and
+I have not tried it. The hash design was chosen so a label change never involves the router at all;
+that is the thing you would be giving up.
+
 ## Stack decisions I made without asking
 
 * **localStorage, not Turso** -- overturned in the fourth cycle, above.

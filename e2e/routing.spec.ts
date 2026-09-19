@@ -148,3 +148,33 @@ test('the history repositories are listed on their own, including those of delet
   await expect(repo).toContainText('main')
   await expect(repo).toContainText('quiz deleted')
 })
+
+test.describe('editing the address of a page that is already open', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('table')
+    await page.getByLabel('Quiz name').fill('Quiz one')
+    await page.getByLabel('Quiz name').blur()
+    await page.getByRole('button', { name: '+ New quiz' }).click()
+    await page.getByLabel('Quiz name').fill('Quiz two')
+    await page.getByLabel('Quiz name').blur()
+  })
+
+  test('moves to another quiz when its label is put in the address', async ({ page }) => {
+    await page.getByLabel('Open quiz').selectOption({ label: 'Quiz one' })
+    const firstHash = new URL(page.url()).hash
+    await page.getByLabel('Open quiz').selectOption({ label: 'Quiz two' })
+    await page.evaluate((hash) => { location.hash = hash }, firstHash)
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+    expect(new URL(page.url()).hash).toBe(firstHash)
+  })
+
+  test('says so when the label put in the address is not a quiz, and the back button returns', async ({ page }) => {
+    const before = new URL(page.url()).hash
+    await page.evaluate(() => { location.hash = 'asdf' })
+    await expect(page.getByRole('heading', { name: 'No such quiz' })).toBeVisible()
+    await page.goBack()
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz two')
+    expect(new URL(page.url()).hash).toBe(before)
+  })
+})

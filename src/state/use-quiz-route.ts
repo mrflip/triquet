@@ -17,10 +17,14 @@ function currentHashLabel(): string {
   return location.hash.slice(1)
 }
 
-/** Tell `listener` whenever the hash is rewritten by `writeQuizHash` */
+/** Tell `listener` whenever the hash moves: rewritten by `writeQuizHash`, or edited in the address bar */
 function subscribeToHash(listener: () => void): () => void {
   addEventListener(HashWritten, listener)
-  return () => { removeEventListener(HashWritten, listener) }
+  addEventListener('hashchange', listener)
+  return () => {
+    removeEventListener(HashWritten, listener)
+    removeEventListener('hashchange', listener)
+  }
 }
 
 /**
@@ -47,11 +51,11 @@ export type QuizRouteHandle = {
  * Keeps the URL hash and the open quiz in step, in both directions, without ever touching
  * Next.js routing: a hash-only change must never re-render the page or add a history entry.
  *
- * Once the workspace has loaded, a hash naming a quiz in it opens that quiz. From then on,
- * whenever the open quiz's own label changes -- by switching quizzes, or by a rename saved
- * through the manage-quiz modal -- the hash is rewritten to match. A hash naming no quiz here is
- * left alone and reported as `missingLabel`, so the page can say so and offer a way forward
- * instead of quietly landing on some other quiz.
+ * Once the workspace has loaded, and whenever the hash is edited after that, a hash naming a
+ * quiz in it opens that quiz. In the other direction, whenever the open quiz's own label changes
+ * -- by switching quizzes, or by a rename saved through the manage-quiz modal -- the hash is
+ * rewritten to match. A hash naming no quiz here is left alone and reported as `missingLabel`,
+ * so the page can say so and offer a way forward instead of quietly landing on some other quiz.
  *
  * @param workspace - The workspace as it stands.
  * @param quiz - The open quiz, or null before the workspace has loaded.
@@ -68,14 +72,14 @@ export function useQuizHashSync(workspace: WorkspaceT, quiz: QuizT | null, dispa
   const asked = hashLabel !== '' && hashLabel !== written.label
   const missingLabel = loaded && asked && ! hashedQuiz ? hashLabel : null
 
-  // What the address asks for is acted on when the workspace arrives, not each time the open
-  // quiz changes: switching quizzes moves the hash, not the other way round.
+  // What the address asks for is acted on when the workspace arrives and whenever the hash moves,
+  // never when the open quiz changes: switching quizzes moves the hash, not the other way round.
   const openHashedQuiz = useEffectEvent(() => {
     if (hashedQuiz && hashedQuiz.id !== quiz?.id) { dispatch({ kind: 'open_quiz', quiz_id: hashedQuiz.id }) }
   })
   useEffect(() => {
     if (loaded) { openHashedQuiz() }
-  }, [loaded])
+  }, [loaded, hashLabel])
 
   useEffect(() => {
     if (openLabel !== null && missingLabel === null) { writeQuizHash(openLabel) }
