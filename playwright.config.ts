@@ -18,6 +18,7 @@ export default defineConfig({
     command:             'pnpm dev:agent',
     url:                 'http://localhost:3100',
     reuseExistingServer: ! process.env.CI,
+    env:                 { NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS: '2' },
     timeout:             120_000,
   },
 })

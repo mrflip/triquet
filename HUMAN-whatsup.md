@@ -70,40 +70,60 @@ collide with, or reproduce, an `adjective_animal` generated one, only another ha
 ## Third cycle: every quiz is a git repository
 
 One repository per quiz, at `/quizzes/{quiz.id}` in an IndexedDB-backed filesystem
-(`@isomorphic-git/lightning-fs`), keyed by id so renaming never orphans a history. Every dispatch
-that moves a quiz commits it: `lib/changes` diffs the two readings into a data-free shorthand
-(`quiz ~title; quiet_otter +clueing ~hint`, sigils `+` set, `~` revised, `-` cleared, `@`
-reordered), which becomes the commit subject, and the body is the tab-separated export. The quiz's
-`version` field is the branch, defaulting to `main`; naming a new one starts a branch rather than
-erroring. "Save a version" tags, "Download as git" hands back a zip that ordinary `git log` reads.
+(`@isomorphic-git/lightning-fs`), keyed by id so renaming never orphans a history. Edits are
+committed in batches (see the debounce below). `lib/changes` diffs the quiz before and after a
+batch into a data-free shorthand -- `quiz ~title; quiet_otter +clueing ~hint`, with `+` set, `~`
+revised, `-` cleared, `@` reordered -- and that shorthand is the whole commit message. The quiz's
+`version` field is the branch, defaulting to `main`. "Mark a milestone" tags, "Download as git"
+hands back a zip that ordinary `git log` reads.
+
+Each repository holds two files, at
+`tq/hunt/{label}/{label}/puz/{label}/quiz/{label}.qq.tsv` and `.tq.json`. The `.qq.tsv` is a
+Papa Parse TSV with a header (`title, clueing, hint, qnum, label, chains_to, full_answer,
+alt_text, notes`), one row per question in the quiz's own order; the `.tq.json` is the whole quiz,
+`UU.jsonify(quiz, { pretty: true })`.
+
+**Commits are debounced, with a 30 second target.** `state/commit-scheduler.ts` starts a clock at
+the first unrecorded edit to a quiz and does *not* restart it on later ones, then commits the
+whole burst with one message describing before-versus-after. Restarting the clock on every edit
+would never fire for someone who keeps typing; this way a quiz worked on continuously is still
+committed about every 30s. It needed no new machinery beyond a `Map` and `setTimeout`, so 30s cost
+nothing over 2s. The wait comes from `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS`, validated to a
+whole number from 2 to 600 (`models/mirror-settings.ts`); an invalid value stops the app at
+startup on purpose. Playwright sets it to 2. Milestones and downloads flush pending edits first.
+
+* **A closing tab can lose up to 30 seconds of history.** The timer flushes on `visibilitychange`
+  and `pagehide`, but a page being torn down may not live long enough to finish an IndexedDB
+  write. The quiz itself is never at risk -- localStorage still saves every edit synchronously --
+  only the record of it. This is the real cost of the longer wait; the shorter it is, the smaller.
+* **A reload also drops the pending shorthand.** The clock lives in memory, so edits made in the
+  last <30s before a reload are committed with the *next* burst's message, which will not mention
+  them. The tree is still right; only the log line is short.
 
 **Judgement calls worth overturning:**
 
-* **One repository per quiz, not one for the workspace.** You said "store each quiz in a file
-  called `{quizlabel}.tsv`", which reads as one shared repository -- but a branch is
-  repository-wide, so a per-quiz `version` only works if each quiz has its own. Per-quiz is the
-  reading where both instructions hold together. Say the word if you meant the other.
-* **A tag cannot hold the ISO timestamp as written.** Git refuses a colon in a ref name outright,
-  so `tagnameFor` drops the colons and the milliseconds: `main-2026-09-18t184504z`. Two saves in
-  the same second get `-2`, `-3`.
-* **The tree and the commit body carry the same TSV.** You asked for both explicitly. The file is
-  what makes `git diff` work; the body is what makes a commit self-contained. Cheap either way,
-  but it is duplication and you may want only one.
-* **The TSV is lossy, so `{quizlabel}.triquet.json` sits beside it**, holding the whole quiz
-  pretty-printed, and the two move together in one commit. The TSV carries seven fields; `title`,
-  `qnum`, `hint` on its own, `chains_to`, the labels and every extraction are not among them, so
-  the JSON is the only file a quiz could ever be restored from. Nothing reads it back yet.
-* **`safe-stable-stringify` rather than `fast-json-stable-stringify`.** You named the latter and
-  invited an alternative: it has no `space` option, so it cannot pretty-print, and it has not been
-  published in years. `safe-stable-stringify` is maintained, zero-dependency, takes the ordinary
-  `(value, replacer, space)` signature, and sorts keys the same way. The cost is that the JSON
-  reads alphabetically rather than in schema order -- `alt_text` before `clueing` -- which is the
-  price of a diff that never shuffles for no reason.
+* **One repository per quiz, not one for the workspace.** A branch is repository-wide, so a
+  per-quiz `version` only works if each quiz has its own. You have said to keep repos distinct
+  for now, which fits.
+* **The path is taken literally**, `tq/hunt/{L}/{L}/puz/{L}/quiz/{L}`, every `{L}` the quiz label.
+  Your message spelled the file `quizlabel{-questions.qq.tsv,.tq.json}` and then said you had
+  changed it to `{quizlabel}.qq.tsv`; I went with the second and dropped `-questions`. Renaming a
+  quiz's label moves the whole chain, which git reads as a rename.
+* **The `.qq.tsv` is no longer the Copy-for-Sheets export.** That export has seven columns, no
+  title, and flattens line breaks so a paste never splits a row; it is for spreadsheets. The git
+  file carries the fields a person edits, quoted by Papa Parse. I did not switch the Sheets copy
+  to Papa Parse, because its flattening is the point and e2e specs assert it -- say if you want it.
+* **The tag is `{branch}-m-YYYYMMDDhhmmssz`**, UTC. Two milestones in the same second get `-2`.
+* **JSON is alphabetical**, as you said, through `UU.jsonify`. The `localStorage` write and the
+  `/api/ask` body stay on `JSON.stringify`: neither is an export, and the first runs on every
+  keystroke.
 * **Commits are attributed to `Triquet <triquet@localhost>`.** There are no accounts and nothing
   leaves the browser, so there is no better name to use.
-* **The gear modal's form button is now "Apply", not "Save".** "Save" now means the tag, which is
-  your own word for it. Two buttons whose accessible names overlap also make
-  `getByRole('button', { name: 'Save' })` ambiguous, so the rename was forced either way.
+* **The gear modal's form button is "Apply", not "Save".** "Save" is gone from the history
+  vocabulary too now: it is "Mark a milestone". The `saveNotice` about localStorage is a different
+  thing and keeps its name.
+* **Deleted directories linger empty** in the browser filesystem after a relabel. Git does not
+  track them and a zip omits them, so I did not add pruning.
 
 **LightningFS flushes the directory tree on a 500ms debounce**, so a reload moments after an edit
 found a repository with nothing in it -- caught by an e2e test, not by reasoning. Every unit of
@@ -207,8 +227,8 @@ in the document:**
 ## If you want to run it
 
     pnpm dev              # the app
-    pnpm test             # 395 vitest specs
-    pnpm test:e2e         # 73 playwright specs, starts its own dev server on :3100
+    pnpm test             # 448 vitest specs
+    pnpm test:e2e         # 75 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and the
