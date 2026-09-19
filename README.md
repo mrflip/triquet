@@ -21,6 +21,11 @@ Coding agents use `pnpm dev:agent` (port 3100, build directory `.next-agent`) an
 instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server you already have
 running. Next.js refuses to start a second dev server in the same directory.
 
+Quizzes live in a local libSQL (Turso) database file, `data/triquet.db`, created and migrated on
+first use; `TRIQUET_DATABASE_URL` points elsewhere (`file:...`, or `:memory:`). The agent scripts use
+`data/agent.db`. After changing `src/db/schema.ts`, run `pnpm db:generate` and commit the new
+migration in `drizzle/`. Each browser finds its own workspace by a cookie.
+
 Each quiz's edit history is committed to an in-browser git repository about 30 seconds after the
 first edit in a burst; `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` (2 to 600) changes that wait.
 

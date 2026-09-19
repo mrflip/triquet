@@ -142,12 +142,83 @@ wires the two together.
 and never resynced, so reopening showed what you typed last time rather than what was committed --
 visible as soon as the Version field existed to catch it.
 
+## Fourth cycle: the database
+
+Turso's libSQL in local-file mode, under drizzle (`drizzle-orm` 0.45, `drizzle-kit` 0.31,
+`drizzle-zod` 0.8 -- the stable lines; 1.0 is still RC). Schema in `src/db/schema.ts`, migrations
+generated into `/drizzle` and applied whenever the app opens the database. Cloud sync is not wired:
+when it is, it should be `syncUrl` + `authToken` on `createClient` in `src/db/client.ts` (an
+embedded replica), and `openDb` currently *refuses* anything that is not `file:` or `:memory:`, on
+purpose, so that door has to be opened deliberately.
+
+**Tables.** `workspaces` → `quizzes` → `questions` → `answerings`, plus `players`. Questions hold
+only what the author writes, and `position` is the committed order. `players` holds dumdum and
+numnum: title, blurb, model tier, token budget, and `prompts` -- a JSON map keyed `clueing` /
+`hint` / `bulk`, because numnum has three prompts and you said "a prompt". They are rewritten from
+`SeedPlayers` every time the database opens, since the Prompts used panel shows the code's copy
+and the two must never disagree; once players are editable, that sync has to become seed-if-absent.
+`/api/ask` now reads prompt, tier and budget from the table.
+
+**Answerings are append-only history.** One row per time a player was put a question's clueing or
+hint: `player_label`, `textkind`, `asked_text`, then status, `answer_text` (dumdum), `items` JSON
+(numnum), `message` (errors), truncation, tier, tokens, `created_at`. A question's `dumdum_answering`
+is the newest dumdum row -- there is no drizzle relation that can say "newest", so
+`models/answering.ts` picks the newest per (question, player, textkind) after loading. That loads
+the whole history; fine now, a window function when it isn't.
+
+**Judgement calls worth overturning:**
+
+* **"Playing" became the `answerings` table.** Your note heads the section "Playing" and then says
+  "an answering belongs to a question", so I read Playing as the concept and answering as the row.
+* **The in-app question shape did not change.** `QuestionT` still carries `guess`, `clueing_ishes`
+  and `hint_ishes`; they are now *projections* of the newest answering in each cell, assembled on
+  load and turned back into answering rows on save. That kept the grid, sums, sheets, import and
+  the git mirror untouched. Renaming `guess` → `dumdum_answering` in the app model is the obvious
+  next step, but it changes the export format, so I left it for you to call.
+* **"answer" is `full_answer`**, and the question keeps every field it had (qnum, chains_to,
+  alt_text, forced_label...) -- I read "just the basics" as "none of the AI stuff".
+* **Staleness is derived, not stored.** A numnum answering records the text it was asked about;
+  it reads as stale whenever that differs from the question's text now. One visible difference:
+  edit a clueing and then edit it back, and after a reload the ishes are fresh again, where before
+  they stayed stale. I think that is more honest. Dumdum answers are never marked stale, as before.
+* **One workspace per browser, by an httpOnly cookie.** Each browser already had its own quizzes
+  (localStorage), so nothing changes for you -- and it is what keeps 76 parallel Playwright specs
+  from seeing each other's quizzes. Clearing cookies orphans a workspace in the database (the
+  quizzes are still in the file, just unreachable from that browser). Accounts replace this.
+  The workspace id is a bearer credential; fine for local mode, not for a shared deployment.
+* **Your existing quizzes are carried in.** On first load, a browser still holding the old
+  localStorage workspace saves it into the database, then *moves* it to
+  `triquet.workspace.v1.retired` -- never deletes it.
+* **`/api/workspace` is a route handler, not a server action.** A field committed on blur as the
+  tab closes has to be sent with `fetch(..., { keepalive: true })`, and server actions can't do
+  that. (A test caught this: fill a field, reload, and the edit was gone.)
+* **Saves are whole changed quizzes, diffed by identity**, sent one at a time. Each carries
+  everything the database hasn't accepted yet, so a failed save is made good by the next edit.
+  On `pagehide` the queue is skipped and whatever is unsaved goes at once. Leaving with a save
+  still on its way now asks first (`beforeunload`).
+* **The save notice is reworded** from "Couldn't save to this browser..." to "Couldn't save your
+  latest changes -- they'll be tried again with your next edit", and there is a load-failure line
+  where "Opening your quizzes..." used to hang forever.
+* **Cross-tab sync is a `BroadcastChannel`** ("I saved; refetch") instead of `storage` events. A tab
+  holding unsaved changes of its own ignores it rather than fetching over them.
+* **A save naming another workspace's quiz or question is refused whole.** Nothing in the UI can
+  do this today (import mints fresh ids); it guards against one browser's save stealing rows.
+* **`esbuild` build scripts are declined** in `pnpm-workspace.yaml` (drizzle-kit pulled it in; its
+  binary comes from a platform package, so the postinstall isn't needed).
+
+**Regressions and rough edges I know of:**
+
+* The very last edit before a tab closes is now a network request rather than a synchronous
+  write. `keepalive` makes it very likely to land, not certain.
+* e2e specs about surviving a reload now wait for `main[data-unsaved="false"]` before reloading
+  (`e2e/support.ts`), as a person pausing a moment would. The one spec about committing on the way
+  out still reloads straight away, and passes.
+* The git mirror is unchanged and still lives in the browser, so history and database can drift
+  apart if one browser's cookie changes. Worth deciding whether history moves server-side too.
+
 ## Stack decisions I made without asking
 
-* **localStorage, not Turso.** stack.md names Turso as the primary database, but §1's operating
-  principles are explicit: no account, no server, no sync, works with the network off. One
-  versioned key holds the whole workspace. When v2 grows accounts, `lib/storage` is the only
-  file that knows where a workspace lives.
+* **localStorage, not Turso** -- overturned in the fourth cycle, above.
 * **`ulid` for ids**, per your Coach note. Minted through `monotonicFactory` so a burst of
   records keeps its creation order rather than shuffling within the millisecond.
 * **`clsx`** for class joining -- `noUncheckedIndexedAccess` makes every CSS-module member
@@ -217,9 +288,6 @@ in the document:**
 * The **Prompts used** panel shows the templates but there's no way to edit them. Right for v1.
 * The bulk run sends the whole quiz in one request with no chunking. A 200-question quiz would
   want splitting; nothing in v1 gets near it.
-* `src/state/workspace-store.ts` is glue and is only tested through the reducer and
-  `lib/storage`. It takes an injected `Storage` and `EventTarget` so it *can* be tested directly
-  if it grows.
 * The `/api/ask` route has no unit tests -- it would need the SDK mocked, and the interesting
   logic (prompts, contract, failure mapping, bulk landings) is all in tested modules either side
   of it. The e2e specs stub the route rather than the SDK.
@@ -227,8 +295,8 @@ in the document:**
 ## If you want to run it
 
     pnpm dev              # the app
-    pnpm test             # 448 vitest specs
-    pnpm test:e2e         # 75 playwright specs, starts its own dev server on :3100
+    pnpm test             # 1131 vitest specs
+    pnpm test:e2e         # 76 playwright specs, starts its own dev server on :3100
     pnpm lint && pnpm typecheck && pnpm build
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and the
