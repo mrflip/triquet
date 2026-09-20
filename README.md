@@ -27,6 +27,10 @@ Please review STYLE.md for our coding guidelines, and the files in notes/ for mo
 There's good stuff in AGENTS.md / CLAUDE.md if you're an AI, and maybe even if you aren't.
 `HUMAN-whatsup.md` holds the current working notes: judgement calls made, open questions, and what was deliberately left out.
 
+## Library first
+
+We don't hand-roll what a maintained library already does. Reach for a Material UI component first, then a well-established package (see `notes/stack.md` for what's settled and what needs a conversation). Writing our own drag-and-drop, table, or focus handling is a decision to make together, not something to slip in. This applies to people and to coding agents alike.
+
 ## Developing Triquet
 
 Use these standard commands:

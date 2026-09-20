@@ -33,9 +33,7 @@ quietly route around it, and do not treat a convention you find inconvenient as 
 
 The top three values while writing code are **empathy, safety and readability**.
 
-* **Prefer the toolkit to the home brew.** If you find yourself writing a lot of code to solve a
-  problem, or banging rocks together instead of calling a toolkit entrypoint, there's a good
-  chance we've misdirected you or that we're solving the wrong problem. Say so.
+* **Prefer the toolkit to the home brew** (see the Library-first rule under Non-Negotiables). If you are banging rocks together, we have probably misdirected you or we are solving the wrong problem. Say so.
 * **Maintainability and legibility beat performance** unless we have demonstrated that something
   is slow. Cleverness is rarely called for -- but if it seems to be, propose it.
 * **Never treat secret keys or other sensitive data with imaginative code.** Use best practices
@@ -46,6 +44,16 @@ The top three values while writing code are **empathy, safety and readability**.
 
 ## Non-Negotiables
 
+* **Library first. Hand-rolling is a decision, not a default.** Before writing any mechanism a library could own (drag and drop, focus handling, keyboard navigation, popovers, tables, form state, virtualization, date math, parsing), look in this order:
+  1. A Material UI component or an existing dependency.
+  2. A new library. `notes/stack.md` says whether it is settled (**Use**), needs a Coach (**Discuss**), or is unlisted (propose it in chat).
+  3. Only then hand-roll -- and only after a Coach says yes in chat. Record the reason in `HUMAN-whatsup.md`.
+
+  Tripwires that mean "stop and ask": you are attaching native DOM event handlers beyond click/change; you are writing a raw `<table>`, `<button>` or `<dialog>` where MUI has one; you are adding a CSS-module rule that re-creates something `sx` or the theme can do; you are writing a small state machine for an interaction; you are past ~30 lines on behavior that is not specific to quizzes.
+
+  Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks. (Markdown is for documents and content, not UI.)
+
+  The same goes in reverse: if you find hand-rolled code that a library should own, say so in chat rather than extending it. Flag it once, briefly, and only when you are already touching that code -- don't propose migrating code you aren't otherwise changing.
 * Every new piece of code gets a proportional doc block and test suite.
 * Validate at module entrypoints; write confident, paranoia-free code past that boundary.
 * Progress notes, development caveats and open questions go in `HUMAN-whatsup.md` or `/whiteboard` --
@@ -84,10 +92,10 @@ These are **not** loaded automatically. Read them when the work touches them.
 * `/.claude/rules/testing.md` (symlinked to `notes/testing.md`) -- test conventions. Loads automatically when you touch a test file; you don't need to fetch it.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.
-* `/notes/STACK.md` -- consult this when adding a new package to check if we have planned for it and to get a sense of how me like to set the shiny<>dependable slider
+* `/notes/stack.md` -- consult this when adding a new package to check if we have planned for it and to get a sense of how me like to set the shiny<>dependable slider
 * `/notes/relic.md` -- consult **only** when explicitly told we will work in the relics lagoon.
 
-To any extent reasonable, prefer to author content in markdown rather than HTML.
+To any extent reasonable, author documents and content in markdown rather than HTML. (UI is TSX with MUI components.)
 
 ## Conventions At A Glance
 
@@ -108,3 +116,4 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 * `const` by default; `let` only where the value is genuinely reassigned. Never `var`. Functional style is
   strongly preferred.
 * Parenthesize and space every negation: `if (! approved) { ... }`
+* Style with MUI (`sx`, the theme, and its components) first. `workbench.module.css` is for layout MUI cannot express; new rules there need a reason.

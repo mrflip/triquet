@@ -1,6 +1,6 @@
 ---
 paths:
-  - "**/relics/**"
+  - "**/relics/**/*"
 ---
 
 **IMPORTANT: ONLY USE RELICS IF YOU ARE TOLD WE WILL BE WORKING WITH A RELIC**
