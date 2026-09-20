@@ -20,6 +20,10 @@ export type QuizManageModalProps = {
   workspace: WorkspaceT
   quiz:      QuizT
   dispatch:  (action: WorkspaceAction) => void
+  /** Told the quiz's new label once it has one, so the address can follow it there */
+  onRelabelled: (label: string) => void
+  /** Go to another quiz of the workspace */
+  onOpen:    (quiz: QuizT) => void
   /** Open the workspace's expressions for editing */
   onEditExpressions: () => void
 }
@@ -28,7 +32,7 @@ export type QuizManageModalProps = {
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
  * and a quick way to open any other quiz in the workspace by name (bottom).
  */
-export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEditExpressions }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRelabelled, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -41,8 +45,11 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEd
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     const version = Labelmaker.normalize(versionDraft)
     if (version === '') { setIssue('Enter a version.'); return }
+    const moved = cleaned !== Labelmaker.effectiveLabelOf(quiz)
     dispatch({ kind: 'relabel_quiz', label: cleaned })
     dispatch({ kind: 'reversion_quiz', version })
+    // The quiz is addressed by its label, so a relabel is also a move.
+    if (moved) { onRelabelled(cleaned) }
     onClose()
   }
 
@@ -116,7 +123,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEd
                   key={other.id}
                   variant={other.id === quiz.id ? 'contained' : 'outlined'}
                   size="small"
-                  onClick={() => { dispatch({ kind: 'open_quiz', quiz_id: other.id }); onClose() }}
+                  onClick={() => { onOpen(other); onClose() }}
                 >
                   {other.locked ? '🔒 ' : ''}{other.title === '' ? AppNotices.untitledQuiz : other.title}
                 </Button>

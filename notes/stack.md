@@ -51,6 +51,25 @@ don't trust a recalled version number, including one recalled by an agent.
   - It ships no keyboard dragging on purpose. Every grip therefore also answers the up and down
     arrows; a grip that is focusable must never be a grip that does nothing.
 
+### Routing
+
+* **Next's App Router owns the address.** A quiz lives at `/my/quiz/<label>`, a dynamic segment;
+  `useParams()` reads it and `useRouter().push`/`replace` move it. `src/lib/routes.ts` is the one
+  place a URL's shape is written.
+* **The address decides which quiz is on screen, and nothing decides the address in return.**
+  Anything that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel --
+  says so by navigating. The workspace's own `active_quiz_id` follows along behind: it is what the
+  editing actions revise and what a bare address returns to next session, never what the screen is
+  read from.
+* Replaced hash routing (`#label`) in Sept 2026. That design reconciled the hash and
+  `active_quiz_id` in *both* directions, which needed a module-level mutable `written`, a custom
+  DOM event and two effects -- and those two effects raced, discarding a pasted address. A second
+  bug in the root redirect turned the same machinery into an infinite navigation loop. Do not
+  reintroduce a second mechanism that writes the URL behind the router's back.
+* **Navigation is a transition, not an instant rewrite.** `history.replaceState` was synchronous;
+  `router.push` is not. Anything that acts on the quiz it is moving to must wait for the arrival --
+  in tests, `newQuiz` and `openQuiz` in `e2e/support.ts` do that waiting.
+
 ### Testing
 
 * **Vitest** with chai-style assertions. See `.claude/rules/testing.md`.

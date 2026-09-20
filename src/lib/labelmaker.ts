@@ -97,6 +97,22 @@ export type Labelled = {
   forced_label: string | null
 }
 
+/**
+ * A fresh label none of `entities` already answers to.
+ *
+ * What a caller making a new sibling asks for. It is the caller's job rather than the model's
+ * because only the caller can see the siblings -- and because the caller needs to know the label
+ * before the thing exists, to put it in an address.
+ *
+ * @param entities - The siblings the new one must not collide with.
+ * @returns An `adjective_animal` label absent from them.
+ *
+ * @example freshLabelFor(workspace.quizzes)  // => 'quiet_otter', say
+ */
+export function freshLabelFor(entities: readonly Labelled[]): string {
+  return localBlankLabel(new Set(entities.map((entity) => effectiveLabelOf(entity))), mintId())
+}
+
 /** The label actually in force: the author's override when there is one, else the generated one */
 export function effectiveLabelOf(entity: Readonly<Labelled>): string {
   return entity.forced_label ?? entity.label

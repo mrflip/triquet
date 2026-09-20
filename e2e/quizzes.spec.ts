@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { reloadOnceSaved } from './support'
+import { newQuiz, openQuiz, reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
@@ -11,18 +11,18 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('each quiz is wholly independent', async ({ page }) => {
-  await page.getByRole('button', { name: '+ New quiz' }).click()
+  await newQuiz(page)
   // A fresh quiz is titled from its own generated label, distinct from any other quiz's.
   await expect(page.getByLabel('Quiz name')).not.toHaveValue('Quiz one')
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('')
 
   await page.getByLabel('Quiz name').fill('Quiz two')
-  await page.getByLabel('Open quiz').selectOption({ label: 'Quiz one' })
+  await openQuiz(page, 'Quiz one')
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which region?')
 })
 
 test('a quiz with its title cleared shows as Untitled quiz in the switcher', async ({ page }) => {
-  await page.getByRole('button', { name: '+ New quiz' }).click()
+  await newQuiz(page)
   await page.getByLabel('Quiz name').fill('')
   await page.getByLabel('Quiz name').blur()
   const labels = await page.getByLabel('Open quiz').locator('option').evaluateAll((nodes) => nodes.map((node) => node.textContent))
@@ -30,7 +30,7 @@ test('a quiz with its title cleared shows as Untitled quiz in the switcher', asy
 })
 
 test('deleting asks inline, and the neighbouring quiz opens', async ({ page }) => {
-  await page.getByRole('button', { name: '+ New quiz' }).click()
+  await newQuiz(page)
   await page.getByLabel('Quiz name').fill('Quiz two')
   await page.getByLabel('Quiz name').blur()
 

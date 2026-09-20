@@ -151,3 +151,23 @@ describe('entityForLabel', () => {
     expect(Labelmaker.entityForLabel(entities, 'nobody')).to.eq(undefined)
   })
 })
+
+describe('freshLabelFor', () => {
+  it('gives an adjective_animal label when nothing is in the way', () => {
+    expect(Labelmaker.freshLabelFor([])).to.match(/^[a-z]+_[a-z]+$/)
+  })
+
+  it('never gives back a label a sibling already answers to', () => {
+    const siblings = Array.from({ length: 40 }, () => ({ label: Labelmaker.freshLabelFor([]), forced_label: null }))
+    const taken = new Set(siblings.map((each) => Labelmaker.effectiveLabelOf(each)))
+    expect(taken.has(Labelmaker.freshLabelFor(siblings))).to.eq(false)
+  })
+
+  it('counts an overriding label as taken, not just the generated one', () => {
+    const siblings = [{ label: 'quiet_otter', forced_label: 'leon' }]
+    // Asked forty times over, so a one-in-many collision cannot pass for a pass.
+    for (let ii = 0; ii < 40; ii += 1) {
+      expect(Labelmaker.freshLabelFor(siblings)).to.not.eq('leon')
+    }
+  })
+})

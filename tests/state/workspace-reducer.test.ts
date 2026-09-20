@@ -392,6 +392,16 @@ describe('workspaceReducer', () => {
       const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'new_quiz', label: 'princes' })
       expect(present(openQuizOf(after)).label).to.eq('princes')
     })
+
+    it('refuses a label a quiz already answers to, rather than making a second quiz at one address', () => {
+      const ante = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'new_quiz', label: 'princes' })
+      expect(workspaceReducer(ante, { kind: 'new_quiz', label: 'princes' })).to.eq(ante)
+    })
+
+    it('counts an overriding label as taken', () => {
+      const ante = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'relabel_quiz', label: 'leon' })
+      expect(workspaceReducer(ante, { kind: 'new_quiz', label: 'leon' })).to.eq(ante)
+    })
   })
 
   describe('delete_quiz', () => {

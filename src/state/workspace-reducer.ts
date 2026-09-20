@@ -6,6 +6,7 @@ import { qnumSortkeyOf } from '../lib/columns'
 import { defaultLayoutFor } from '../models/layout'
 import * as Expressed from '../lib/expressed'
 import * as Chain from '../lib/chain'
+import * as Labelmaker from '../lib/labelmaker'
 import * as Rank from '../lib/rank'
 import * as Sortings from '../lib/sortings'
 import { askError, type LastErrT } from '../models/ask'
@@ -133,8 +134,12 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       : workspace
   }
   case 'new_quiz': {
-    // A label named here, like a relabel, is the caller's job to have checked for uniqueness.
+    // Refused rather than quietly disambiguated, as a duplicate widget or column label is: a
+    // label is an address, and a caller that has already put this one in one would be sent to
+    // the wrong quiz. `Labelmaker.freshLabelFor` is how a caller asks for one that will do.
     const fresh = { ...Quiz.blank('', action.label), ...defaultLayoutFor(workspace.expressions) }
+    const taken = workspace.quizzes.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === Labelmaker.effectiveLabelOf(fresh))
+    if (taken) { return workspace }
     return { ...workspace, quizzes: [...workspace.quizzes, fresh], active_quiz_id: fresh.id }
   }
   case 'delete_quiz': {

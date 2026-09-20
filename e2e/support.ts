@@ -16,6 +16,27 @@ export async function waitUntilSaved(page: Page): Promise<void> {
   await expect(page.locator('main[data-unsaved="false"]')).toBeAttached()
 }
 
+/**
+ * Make a new quiz and wait until the browser has arrived at it.
+ *
+ * A quiz is addressed by its label, so making one is a navigation, and a navigation is a router
+ * transition rather than an instant rewrite of the address. Anything that types into the new
+ * quiz has to wait for it, or it types into the old one.
+ */
+export async function newQuiz(page: Page): Promise<void> {
+  const before = new URL(page.url()).pathname
+  await page.getByRole('button', { name: '+ New quiz' }).click()
+  await expect(page).not.toHaveURL(new RegExp(`${before}$`))
+}
+
+/** Switch to the quiz titled `title` from the switcher, and wait until the browser is there */
+export async function openQuiz(page: Page, title: string): Promise<void> {
+  const before = new URL(page.url()).pathname
+  await page.getByLabel('Open quiz').selectOption({ label: title })
+  await expect(page).not.toHaveURL(new RegExp(`${before}$`))
+  await expect(page.getByLabel('Quiz name')).toHaveValue(title)
+}
+
 /** Load `url` afresh, even when it differs from the current address only by its hash */
 export async function loadAfresh(page: Page, url: string): Promise<void> {
   await page.goto('about:blank')

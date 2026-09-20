@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { ExpressionsModal } from './ExpressionsModal'
 import { Footnote } from './Footnote'
@@ -14,15 +15,28 @@ import { Toolbar } from './Toolbar'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
 import { usePlayers } from '../state/use-players'
-import { useQuizHashSync, writeQuizHash } from '../state/use-quiz-route'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
+import * as Routes from '../lib/routes'
 import styles from './workbench.module.css'
 
-/** The whole tool: one quiz on screen, saved the moment anything changes */
-export function Workbench() {
-  const { workspace, quiz, dispatch, unsaved, saveNotice } = useWorkspace()
+export type WorkbenchProps = {
+  /** Which quiz the address names; the one thing that decides what is on screen */
+  label: string
+}
+
+/**
+ * The whole tool: one quiz on screen, saved the moment anything changes.
+ *
+ * The address decides which quiz that is, and nothing decides the address in return. Anything
+ * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
+ * by navigating; the workspace's own `active_quiz_id` follows along behind, because that is
+ * what the editing actions revise and what a bare address goes back to next time.
+ */
+export function Workbench({ label }: Readonly<WorkbenchProps>) {
+  const router = useRouter()
+  const { workspace, loaded, dispatch, unsaved, saveNotice } = useWorkspace()
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
   const { unavailableNotice } = usePlayers()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
@@ -31,24 +45,36 @@ export function Workbench() {
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
   const [editingExpressions, setEditingExpressions] = useState(false)
-  const { missingLabel } = useQuizHashSync(workspace, quiz, dispatch)
+  const quiz = Labelmaker.entityForLabel(workspace.quizzes, label) ?? null
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
   const specs = useMemo(() => (quiz ? specsFor(quiz) : []), [quiz])
   const expressed = useMemo(() => (quiz ? Expressed.forQuiz(quiz, workspace.expressions) : new Map()), [quiz, workspace.expressions])
 
-  if (quiz && missingLabel !== null) {
+  // The editing actions all revise whichever quiz the workspace calls open, so it has to be this
+  // one. Ids rather than objects, so a re-fetched workspace does not look like a change of quiz.
+  const quizId = quiz?.id ?? null
+  useEffect(() => {
+    if (quizId !== null && quizId !== workspace.active_quiz_id) { dispatch({ kind: 'open_quiz', quiz_id: quizId }) }
+  }, [quizId, workspace.active_quiz_id, dispatch])
+
+  if (! loaded) { return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main> }
+
+  /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
+  const goTo = (target: Labelmaker.Labelled) => {
+    router.push(Routes.quizPath(Labelmaker.effectiveLabelOf(target)))
+  }
+
+  if (! quiz) {
     return (
       <QuizNotFound
-        label={missingLabel}
+        label={label}
         workspace={workspace}
-        onOpen={(target) => { dispatch({ kind: 'open_quiz', quiz_id: target.id }); writeQuizHash(Labelmaker.effectiveLabelOf(target)) }}
-        onCreate={(label) => { dispatch({ kind: 'new_quiz', label }); writeQuizHash(label) }}
+        onOpen={goTo}
+        onCreate={(fresh) => { dispatch({ kind: 'new_quiz', label: fresh }); router.push(Routes.quizPath(fresh)) }}
       />
     )
   }
-
-  if (! quiz) { return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main> }
 
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
@@ -61,9 +87,26 @@ export function Workbench() {
       <QuizSwitcher
         quizzes={workspace.quizzes}
         openQuiz={quiz}
-        onOpen={(quiz_id) => { dispatch({ kind: 'open_quiz', quiz_id }) }}
-        onNew={() => { dispatch({ kind: 'new_quiz' }) }}
-        onDelete={(quiz_id) => { dispatch({ kind: 'delete_quiz', quiz_id }) }}
+        onOpen={(quiz_id) => {
+          const target = workspace.quizzes.find((each) => each.id === quiz_id)
+          if (target) { goTo(target) }
+        }}
+        onNew={() => {
+          // The label is settled here rather than in the reducer, because the address this is
+          // about to go to has to name it.
+          const fresh = Labelmaker.freshLabelFor(workspace.quizzes)
+          dispatch({ kind: 'new_quiz', label: fresh })
+          router.push(Routes.quizPath(fresh))
+        }}
+        onDelete={(quiz_id) => {
+          // Worked out before the deletion, and matching the neighbour the reducer will settle
+          // on: afterwards this address names a quiz that is not there any more.
+          const idx = workspace.quizzes.findIndex((each) => each.id === quiz_id)
+          const left = workspace.quizzes.filter((each) => each.id !== quiz_id)
+          const neighbour = left[Math.min(idx, left.length - 1)]
+          dispatch({ kind: 'delete_quiz', quiz_id })
+          if (neighbour) { router.replace(Routes.quizPath(Labelmaker.effectiveLabelOf(neighbour))) }
+        }}
         onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz.id, locked }) }}
       />
       <QuizHeader
@@ -82,6 +125,8 @@ export function Workbench() {
           workspace={workspace}
           quiz={quiz}
           dispatch={dispatch}
+          onRelabelled={(relabelled) => { router.replace(Routes.quizPath(relabelled)) }}
+          onOpen={goTo}
           onEditExpressions={() => { setEditingExpressions(true) }}
         />
       )}

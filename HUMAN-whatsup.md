@@ -303,3 +303,73 @@ styling veneer that would cost Emotion work on every cell in the hot path for no
 gain. One real wart recorded there: the sort header is a raw `<button>` where `TableSortLabel`
 exists, left alone because sortable headers can be rotated.
 
+## The redirect loop (pre-existing, found Sept 2026)
+
+The "Maximum update depth exceeded" crash was **not** the drag-and-drop work — none of those
+components render on the not-found page; `Workbench` returns `QuizNotFound` before the grid
+exists. It was two pre-existing routing bugs that a stale hash exposed. Your `normalize`
+regression (fixed in `36ab128`) is what put a stale hash in front of them.
+
+**1. `src/app/page.tsx` redirected once per save, not once.** The effect listed `workspace` in
+its deps, and the workspace is a fresh object after every `announce()` in the store. So: effect
+fires → `router.replace('#label')` → `/my/quiz` opens → `useQuizHashSync` dispatches `open_quiz`
+→ the store announces → **new workspace object** → effect fires again. During an App Router
+transition both trees are live, which is why your stack bottomed out at a `tr`. Measured before
+the fix: **five navigations, landing on two different quizzes**; that is your "four+ page loads
+in a blur". Now one.
+
+It also sent you to `workspace.quizzes[0]` rather than the quiz the workspace considers open,
+which guaranteed the address and the workspace would disagree on arrival. It now sends you to
+the open quiz — resuming where you were, which I think is what you wanted anyway, but it is a
+behaviour change worth your eye.
+
+**2. `useQuizHashSync`'s two effects fought on first commit.** Both run on the same commit: one
+opens the quiz the hash asks for, the other rewrites the hash to the open quiz. The rewrite
+captured the *stale* open quiz, so pasting a URL for a quiz that was not the open one **threw
+the request away** — I measured asking for `#provincial_barracuda` and landing on
+`#early_herring`. The rewrite now stands off while an unhonoured request is in the address
+(`asked && hashedQuiz && hashedQuiz.id !== quiz.id`). A hash we wrote ourselves is not a request,
+so switching quizzes still rewrites as before.
+
+Two regression tests in `e2e/routing.spec.ts`: the root page redirects once, and a pasted address
+beats the last-open quiz.
+
+Still open, not touched: `new_quiz` generates a label without seeing the workspace's existing
+ones (`Quiz.blank` never gets them), and the reducer's comment admits uniqueness is "the caller's
+job" -- but `Workbench`'s `+ New quiz` does not check. Duplicate effective labels are reachable.
+They converge rather than loop, so nothing hangs, but two quizzes can answer to one address.
+
+## Path routing, replacing the hash (Sept 2026)
+
+Done as you asked. `useQuizHashSync` is **deleted**; a quiz lives at `/my/quiz/<label>` as a real
+dynamic segment. What went:
+
+* `src/state/use-quiz-route.ts` -- gone entirely. With it the module-level mutable `written`, the
+  custom `triquet:hashwritten` event, `subscribeToHash`/`useSyncExternalStore`, and both
+  reconciling effects.
+* The `missingLabel` handshake. "No such quiz" is now just: the address names no quiz.
+* Two mechanisms writing the URL behind each other's backs. There is one now.
+
+New shape: `Workbench` takes a `label` prop and renders `entityForLabel(quizzes, label)`. The
+address is the only thing that decides what is on screen. `active_quiz_id` is kept in step by one
+small one-directional effect, because it is still what the editing actions revise (`reviseOpenQuiz`)
+and what a bare `/` returns to next session.
+
+Things to look at:
+
+* **A relabel is now a move.** It navigates. If that ever feels heavy, the alternative is
+  addressing by id, which costs the readable URL.
+* **`/my/quiz` and `/` both redirect to the open quiz**, and a legacy `#label` is honoured on the
+  way past, so your `yummy_ostrich` window and any bookmark from the hash era still land right.
+  That courtesy can be dropped whenever you like -- it is a handful of lines in `OpenQuizRedirect`.
+* **Navigation is asynchronous now.** `history.replaceState` was synchronous, so clicking "+ New
+  quiz" used to swap the screen within the same tick; a router transition does not. Nothing in the
+  app depends on it, but seven e2e tests did -- they typed into the old quiz before the new one
+  arrived. `newQuiz`/`openQuiz` in `e2e/support.ts` wait properly. Worth your eye on whether the
+  transition ever feels laggy in real use; it is client-only, so it should not.
+* **Route changes remount the Workbench**, so the gear modal closes when you switch quizzes. That
+  reads as correct to me, but it is a behaviour change nobody asked for.
+* **`new_quiz` now refuses a label a quiz already answers to**, rather than quietly making a second
+  quiz at one address -- matching how `add_widget` and `add_column` already refuse. Callers ask
+  `Labelmaker.freshLabelFor(workspace.quizzes)` for one that will do, which is also what closes the
+  old hole where `Quiz.blank` generated labels against an empty set.
