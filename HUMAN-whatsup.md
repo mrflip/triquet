@@ -136,6 +136,43 @@ to the workspace); it is also where an expression is removed.
 * The double-click re-extract shortcut belongs to the columns whose expression is `clueing_full`,
   `hint_full` or `butnot_full`, by that label.
 
+## Widgets and columns, apart
+
+A quiz now keeps **widgets** (what has a value for every question: playings and expressings, in a
+list whose order is theirs) and **columns** (what the grid shows: a label, a title, a `source`, a
+width in px, in the order they appear) separately. `source` is `question.<field>`, `question.butnot`
+/ `question.butnot_ishes` (views), or a widget's label. The grid, both exports, sorting and the
+editors read from these; the fixed columns are ordinary columns now, so any can be removed, moved or
+retitled. The grip is the grid's own and always first.
+
+* **"Playing" here is the new quiz-level widget** (label, player, which text); I read your
+  "connection from quiz to player" that way and left the per-ask `playings` table alone. It can only
+  be a combination the tool supports (dumdum+clueing, numnum+clueing, numnum+hint); the answers are
+  still kept on the questions, so removing a widget only stops showing them.
+* **Exposed fields** are class-level statics (`Question.exposed`, `Quiz.exposed`,
+  `Expressing.exposed`, `PlayingWidget.exposed`). Judgements: a question hides `id`, `forced_label`
+  (the label in force is shown) and the players' answers (they belong to playings); a quiz exposes
+  only `label` and `title` (not version, lock, remembered sort, batch cost); a player's answer shows
+  `status` plus `text` / `items` / `stale` -- never tokens, tier, times, truncation or failure. The
+  formula bag, its JSON Schema (and so the prompt) and the git table all come from these.
+* **Git table** (`.qq.tsv`): a column per exposed field of every widget, headed `widget.field`,
+  alphabetical by widget then field, rows ordered by question label. It no longer follows the grid.
+  `tq/widgets/my.tqexpressions.json` is in every repo; changing an expression alone makes a commit.
+* **Copy for Sheets**: displayed columns, alphabetical by column label, rows in rank order.
+* **Migrations 0008/0009** turn expressings into widgets + columns, add the three playing widgets and
+  the fixed columns to every quiz, give quizzes that never had sums the eight standard ones, and
+  rename remembered sorts (`qnum` -> `column:qnum`, `expressing:x` -> `column:x`). Tried on a copy
+  of `data/triquet.db`; the original is untouched. **Restart `pnpm dev`.**
+* **Editors**: the gear's dialog is one scrolling region (All quizzes has a 60vh cap); Columns and
+  Widgets lists with drag handles, the title editable in place and the label between title and gear
+  from the `md` breakpoint up; every dialog has a close button; the column, widget and expression
+  editors ignore backdrop clicks (Escape and the button still close them). Adding an expressing brings
+  a column just before Alt Text. **A column's width is now a px number**, replacing skinny/medium.
+* **Input fold** in the formula editor: `quiz`, `qns`, `qn` each a one-line summary on the right,
+  a max-height pretty-printed box when open.
+* **Not verified in a real browser**: Playwright's own drag does not start on the handles, so the
+  specs send the drag events themselves (`dragOnto`). Worth one manual drag.
+
 ## Widgets, round two
 
 * **The column editor** (`ColumnEditor`, over `ExpressionFields`): nothing is applied until Apply, and

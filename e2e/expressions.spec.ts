@@ -1,28 +1,36 @@
 import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved, waitUntilSaved } from './support'
+import { dragOnto, reloadOnceSaved, waitUntilSaved } from './support'
 
 /** The cell of column `colname` in the row at `rowIdx` */
 function cellOf(page: Page, rowIdx: number, colname: string) {
   return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
 }
 
-/** Open the gear's dialog, where a quiz's computed columns are listed */
+/** The gear's dialog, where a quiz's columns and widgets are listed */
+const manage = (page: Page) => page.getByRole('dialog', { name: 'Manage this quiz' })
+
+/** Open the gear's dialog */
 async function openManage(page: Page) {
   await page.getByRole('button', { name: 'Manage quiz' }).click()
-  await expect(page.getByRole('dialog', { name: 'Manage this quiz' })).toBeVisible()
+  await expect(manage(page)).toBeVisible()
 }
 
-/** Put a column working the existing expression `expression_label` on the open quiz, and close the gear's dialog */
+/** Close the gear's dialog */
+async function closeManage(page: Page) {
+  await manage(page).getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+}
+
+/** Put an expressing widget working the existing expression `expression_label` on the open quiz, with the column it brings, and close the gear's dialog */
 async function addColumn(page: Page, expression_label: string) {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New expressing' })
   await editor.getByRole('combobox', { name: 'Expression' }).click()
   await page.getByRole('option', { name: expression_label, exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await closeManage(page)
 }
 
 /** Open the workspace's expressions, and then one of them */
@@ -157,35 +165,48 @@ test('a formula that would never end is stopped, and the page stays usable', asy
 
 test('a new expression is written and put to work in the same editor', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New expressing' })
   await editor.getByRole('textbox', { name: 'Expression label' }).fill('title_length')
   await setFormula(page, '$length(qn.title)')
   await editor.getByRole('button', { name: 'Apply' }).click()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await closeManage(page)
   await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
   await page.getByLabel('Quiz name').click()
   await expect(cellOf(page, 0, 'Title Length')).toHaveText('4')
 })
 
-test('a new column can take its own title, label, description and width', async ({ page }) => {
+test('a new widget keeps its label and description, and brings a column titled after it', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
-  await editor.getByRole('textbox', { name: 'Column title' }).fill('Backward')
-  await editor.getByRole('textbox', { name: 'Column label' }).fill('backward')
-  await editor.getByRole('textbox', { name: 'Column description' }).fill('For the palindrome round.')
-  await editor.getByRole('combobox', { name: 'Width' }).click()
-  await page.getByRole('option', { name: 'medium' }).click()
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New expressing' })
+  await editor.getByRole('textbox', { name: 'Widget label' }).fill('backward')
+  await editor.getByRole('textbox', { name: 'Widget description' }).fill('For the palindrome round.')
   await editor.getByRole('combobox', { name: 'Expression' }).click()
   await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Backward' })).toBeVisible()
   await reloadOnceSaved(page)
   await openManage(page)
-  await page.getByRole('button', { name: 'Edit column Backward' }).click()
-  await expect(page.getByRole('textbox', { name: 'Column description' })).toHaveValue('For the palindrome round.')
+  await page.getByRole('button', { name: 'Edit widget backward' }).click()
+  await expect(page.getByRole('textbox', { name: 'Widget description' })).toHaveValue('For the palindrome round.')
+})
+
+test('a column can be added for anything the quiz can show, with its own title and width', async ({ page }) => {
+  await openManage(page)
+  await page.getByRole('button', { name: '+ New column…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New column' })
+  await editor.getByRole('textbox', { name: 'Column title' }).fill('More notes')
+  await editor.getByRole('textbox', { name: 'Column label' }).fill('more_notes')
+  await editor.getByRole('combobox', { name: 'Shows' }).click()
+  await page.getByRole('option', { name: /^question\.notes/ }).click()
+  await editor.getByRole('spinbutton', { name: 'Width (px)' }).fill('200')
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await closeManage(page)
+  await expect(page.getByRole('columnheader', { name: 'More notes' })).toBeVisible()
+  await reloadOnceSaved(page)
+  await expect(page.getByRole('columnheader', { name: 'More notes' })).toBeVisible()
 })
 
 test('an expression a column works cannot be removed, and one nobody works asks first', async ({ page }) => {
@@ -209,8 +230,8 @@ test('an expression a column works cannot be removed, and one nobody works asks 
 
 test('a label already in use is refused with a reason', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New expressing' })
   await editor.getByRole('textbox', { name: 'Expression label' }).fill('clueing_full')
   await setFormula(page, '1')
   await editor.getByRole('button', { name: 'Apply' }).click()
@@ -224,14 +245,13 @@ test('a column is retitled in place, and everything else is behind its gear', as
   await expect(page.getByRole('group', { name: 'Column Hint total' })).toBeVisible()
   await page.getByRole('button', { name: 'Edit column Hint total' }).click()
   const editor = page.getByRole('dialog', { name: 'Column: Hint total' })
-  await editor.getByRole('combobox', { name: 'Width' }).click()
-  await page.getByRole('option', { name: 'medium' }).click()
+  await editor.getByRole('spinbutton', { name: 'Width (px)' }).fill('200')
   await editor.getByRole('button', { name: 'Apply' }).click()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Hint total' })).toBeVisible()
 })
 
-test('removing a column asks first, and leaves the expression it worked', async ({ page }) => {
+test('removing a column asks first, and leaves the widget it showed', async ({ page }) => {
   await openManage(page)
   await page.getByRole('button', { name: 'Edit column Hint Numeral Sum' }).click()
   const editor = page.getByRole('dialog', { name: 'Column: Hint Numeral Sum' })
@@ -243,10 +263,75 @@ test('removing a column asks first, and leaves the expression it worked', async 
   await page.getByRole('button', { name: 'Edit column Hint Numeral Sum' }).click()
   await editor.getByRole('button', { name: 'Remove column' }).click()
   await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await expect(page.getByRole('group', { name: 'Column Hint Numeral Sum' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Widget hint_numeral' })).toBeVisible()
+  await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral Sum' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Edit expressions' }).click()
-  await expect(page.getByRole('group', { name: 'Expression hint_numeral' })).toBeVisible()
+})
+
+test('removing a widget asks first, and takes the columns that showed it', async ({ page }) => {
+  await openManage(page)
+  await page.getByRole('button', { name: 'Edit widget hint_numeral' }).click()
+  const editor = page.getByRole('dialog', { name: 'Expressing: hint_numeral' })
+  await editor.getByRole('button', { name: 'Remove widget' }).click()
+  await editor.getByRole('button', { name: 'Keep it' }).click()
+  await editor.getByRole('button', { name: 'Remove widget' }).click()
+  await editor.getByRole('button', { name: 'Yes, remove' }).click()
+  await expect(page.getByRole('group', { name: 'Column Hint Numeral Sum' })).toHaveCount(0)
+  await closeManage(page)
+  await expect(page.getByRole('columnheader', { name: 'Hint Numeral Sum' })).toHaveCount(0)
+})
+
+test('a column is dragged into a new place by its handle', async ({ page }) => {
+  await openManage(page)
+  await dragOnto(page, page.getByRole('button', { name: 'Reorder notes' }), page.getByRole('button', { name: 'Reorder title' }))
+  await closeManage(page)
+  const headers = await page.getByRole('columnheader').allTextContents()
+  const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim()).filter((title) => title !== '')
+  expect(titles.slice(0, 3)).toEqual(['Notes', 'Title', 'Clueing'])
+})
+
+test('the widgets are listed in their order, and can be dragged too', async ({ page }) => {
+  await openManage(page)
+  const list = manage(page).getByRole('list', { name: 'Widgets' })
+  await dragOnto(page, list.getByRole('button', { name: 'Reorder hint_full' }), list.getByRole('button', { name: 'Reorder dumdum' }))
+  const labels = await manage(page).getByRole('group', { name: /^Widget / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+  expect(labels[0]).toBe('Widget hint_full')
+})
+
+test('every dialog has a close button, and an editor is not dismissed by clicking behind it', async ({ page }) => {
+  await openManage(page)
+  await page.getByRole('button', { name: 'Edit widget hint_full' }).click()
+  const editor = page.getByRole('dialog', { name: 'Expressing: hint_full' })
+  await page.mouse.click(4, 4)
+  await expect(editor).toBeVisible()
+  await editor.getByRole('button', { name: 'Close' }).click()
+  await expect(editor).toHaveCount(0)
+  await manage(page).getByRole('button', { name: 'Close' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('the columns list shows each label beside its title where there is room, and not on a narrow screen', async ({ page }) => {
+  await openManage(page)
+  const label = page.getByRole('group', { name: 'Column Hint Full Sum' }).getByText('hint_full', { exact: true })
+  // The source is also written under the title, so the label is the second of two.
+  await expect(label).toHaveCount(2)
+  await expect(label.last()).toBeVisible()
+  await page.setViewportSize({ width: 600, height: 900 })
+  await expect(label.last()).toBeHidden()
+})
+
+test('the input a formula reads is folded to one line each, and opens to a pretty-printed box', async ({ page }) => {
+  await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
+  await page.getByLabel('Quiz name').click()
+  await openExpression(page, 'answer_reversed')
+  const editor = page.getByRole('dialog', { name: 'Expression: answer_reversed' })
+  for (const name of ['quiz', 'qn']) { await expect(editor.getByText(name, { exact: true })).toBeVisible() }
+  await expect(editor.getByLabel('Input: qn')).toHaveCount(0)
+  await editor.getByText('qn', { exact: true }).click()
+  await expect(editor.getByLabel('Input: qn')).toContainText('"clueing"')
+  await editor.getByText(/^qns \(/).click()
+  await expect(editor.getByLabel(/^Input: qns/)).toBeVisible()
 })
 
 test('the prompt for a chatbot is copied with the formula, the schemas and a real input', async ({ page, context }) => {
@@ -268,7 +353,7 @@ test('the prompt for a chatbot is copied with the formula, the schemas and a rea
 test('a blank formula makes a prompt that asks for one', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openManage(page)
-  await page.getByRole('button', { name: '+ New column…' }).click()
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
   await page.getByRole('button', { name: 'Copy a prompt for a chatbot' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toBeVisible()
   const copied = await page.evaluate(() => navigator.clipboard.readText())
@@ -293,7 +378,8 @@ test('a locked quiz keeps its columns fixed, but its expressions can still be re
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await openManage(page)
   await expect(page.getByRole('button', { name: '+ New column…' })).toBeDisabled()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await expect(page.getByRole('button', { name: '+ New expressing…' })).toBeDisabled()
+  await closeManage(page)
   await openExpression(page, 'answer_reversed')
   await expect(page.getByRole('textbox', { name: 'Formula', exact: true })).toBeEditable()
 })

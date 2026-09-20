@@ -18,25 +18,26 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Quiz name').click()
 })
 
-test('a header row, then every column of the grid, in rank order', async ({ page }) => {
+test('a header row of column labels in alphabetical order, then a line per question in rank order', async ({ page }) => {
   const text = await sheetsText(page)
   const lines = text.split('\n')
   const header = lines[0]?.split('\t') ?? []
-  expect(header.slice(0, 4)).toEqual(['title', 'clueing', 'hint', 'chains_to'])
+  expect(header).toEqual(header.toSorted((aa, bb) => aa.localeCompare(bb)))
   expect(header).toContain('clueing_full')
-  expect(header).toContain('dumdum')
-  expect(lines.slice(1, 4).map((line) => line.split('\t', 2)[1])).toEqual(['first', 'second', 'third'])
+  expect(header).toContain('guess')
+  const clueingCol = header.indexOf('clueing')
+  expect(lines.slice(1, 4).map((line) => line.split('\t')[clueingCol])).toEqual(['first', 'second', 'third'])
   expect(new Set(lines.map((line) => line.split('\t').length))).toEqual(new Set([header.length]))
 })
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
   await page.getByRole('button', { name: 'Manage quiz' }).click()
-  await page.getByRole('button', { name: '+ New column…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New column' })
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New expressing' })
   await editor.getByRole('combobox', { name: 'Expression' }).click()
   await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await page.getByRole('dialog', { name: 'Manage this quiz' }).getByRole('button', { name: 'Cancel' }).click()
   const text = await sheetsText(page)
   expect(text.split('\n', 1)[0]?.split('\t')).toContain('answer_reversed')
 })
