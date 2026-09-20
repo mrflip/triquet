@@ -1,8 +1,27 @@
 # Triquet (Tricky Question Editor Thingie)
 
-Triquet is a lightweight tool for constructing trivia quizzes, which sometimes can have "meta" puzzles --
-a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps
-store, edit and refine the question text, and also to assess questions for fairness and difficulty.
+Triquet is a lightweight tool for constructing puzzles and trivia quizzes.
+
+At a basic level, it's nice to have an editor that saves on blur; allows rewind or comparison to earlier drafts; lets me reorder questions and take different kinds of notes.
+It's also terrifically difficult to estimate difficulty, ambiguity, and factual exactitude while also honing prose and building in wordplay. An AI agent can do these things, tunably./
+What's more, editors may want to include "meta" puzzles: perhaps a second layer of puzzle that is revealed as the first solutions start coming in (sort the questions by the largest number each contains to reveal a chain of hints), or a hidden feature (each answer is an anagram of a sports team name). Accidentally inflecting a single word could make the whole quiz unsolvable.
+Until now that has require writing google sheets expressions or copy-pasting into.from oneoff scripts. We can allow simple calculations (JSonata), or where more is needed either author a prompt for an agent API call, or spin up a cloudflare worker or artifact endpoint.
+
+The basics of a quiz are basic: Title, Clueing, Answer, Question #, Notes.
+
+To this, you can add:
+
+- ad-hoc entry fields: Note-like (Hint 1, Scoring Notes), Image, Numeric, etc
+
+- agentic responses to a parameterized prompt; that could be "solve the puzzle" or "judge its fairness" or "make sure each there is a common animal name in the text"
+
+- calculated expressions on the above: "word count", "alphabetize the letters in the answer ('monkey' -> 'ekmnoy')", "show the hint of the question matching my chains_to custom entry field"
+
+In future, we may also offer api requests with a payload and response structure we design (calling a purpose-built edge worker), or perhaps even a templated graphql or rest request
+
+Data is stored in a local-first database, and we plan to later allow cloud sync. It's also recorded in a git repo on the browser's FS, allowing infinite rollback and easy comparison of records
+
+## Developing
 
 Please review STYLE.md for our coding guidelines, and the files in notes/ for more.
 There's good stuff in AGENTS.md / CLAUDE.md if you're an AI, and maybe even if you aren't.

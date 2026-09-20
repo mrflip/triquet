@@ -1,3 +1,7 @@
+Add stub models for puzzle and hunt, with title and label; puzzle label must be unique within hunt. There's only one hunt, named 'current'. A quiz belongs_to a puzzle, and its label is unique within its puzzle.
+
+----
+
 I envision the puzzle editor as being modular for different puzzles
 
 At the basic level, we have a quiz, with questions, having "Q#", "label", "question", "answer".
@@ -61,7 +65,6 @@ If you're
 - a colidx (where in column order it sits)
 
 Make the edit quiz view have a place to drag-rearrange column titles. It should also let me click to hide a column.
-
 
 
 
@@ -237,3 +240,35 @@ Anyway once you have only the parts of the existing reporter that could be clean
 Carry on with the checks, organizing them as you recommended. I have no issue with fine-grained files for the super bloated validators
 
 Where we had a test of a /validator/ do so by testing its /message/ -- decide if we want that, or a brisk verification that it was really the validator raising the issue, or both, and change it to that way.
+
+### Expressions round 2
+
+
+I realize I didn't supply a piece of background that will help you. Where we're going is that I can add widgets -- expressions, ai agent calls, built in modules -- to the basics (title/clueing/etc) relevant to the puzzle and setting. All the stuff with chaining, or counting numbers -- that's specific to the quiz I'm preparing for next week, and might well be re-used. Some other quiz might want to be sure that each clue has an anagram of a sports team name somewhere within it: accidentally inflecting that word could make the whole quiz unsolvable. Until now I'dve been writing google sheets expressions  or copy-pasting back and forth into oneoff scripts -- now I can either use an expression, or have an agent answer the question, or have the agent write a cloudflare worker or artifact to return it as an api call.
+
+HEre are next step, medium big and small all together; implement them, committing in stages
+
+Let the manage quiz modal take up more space if it's avaialble.
+Even with that, though, the expressing and expression will need more fields than are reasonable to edit inline: give me column title (editable) and a gear opening a thing. (we'll want the expressing to be able to pass in parameters).
+The remove button should be on that; it should confirm before deleting.
+Make those changes for expressings and expressions
+Don't allow deleting an expression that has expressings.
+Have the expressing editor also show the rich expression editor, so I can edit them together.
+On that view, let me pick a quiz and question (default to the one with lowest Q#). show the results as I edit it.
+
+Add a "description" field to the expressing.
+
+write a prompt, pulling in any filled-in elements or a fallback of an expressing and expression (might or might not have a formula) and supplying the input and output schema, that I might use to get an agent to write a formula. DO NOT wire up the thing for actually querying it. Instead, just give a button that copies it to the clipboard; my experience is there will be back-and-forth as I figure out what I actually want, so I'll use a chatbot. If the formula is present, it should present it in a neutral here's what we have now sense (I'll likely be editing the prompt for a new expression and this one is perfect; or revising one) -- if it's absent, the prompt should ask for it. That chatbot's response should be text that is easy for me to paste back into the box.
+
+The expression editor, in absence of an expressing, will be pretty lame. I'm fine with a workflow where to create an expression and have to add an expressing at the same time. I'll leave it to you whether to even offer a standalone expression editor.
+
+Implement those in the order you find best, committing as you go.
+
+The async thing... lemme think about, I don't love being a major version behind on a new tool. But also I see what you mean.
+
+Normalize should not strip underscores, it should collapse them: `/[\W_]+/` => `'_'` <- if I did that right, `'_' or '__' or ' _ '` all go to `'_'`
+
+Make the exporter include a header row, and have it faithfully reproduce all the columns of the quiz; we don't ever want multiple implementations. The header row should be the column label (field name / expressing label / playing label)
+
+When a remote call fails, do not overwrite the value with the failure message; leave it and leave its stale flag as-is. add a last_err structured field to hold json of an error response. on any success, null it out. if last_err is present, badge it; hovering gives the error message, clicking shows the json.
+on a refresh all call, if the overall response is an error do not attach it to all the elements, display it in that button's area.
