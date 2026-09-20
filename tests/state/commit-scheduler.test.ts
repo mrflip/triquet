@@ -1,6 +1,6 @@
 import * as Z from 'zod'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCommitScheduler } from '../../src/state/commit-scheduler'
+import { createCommitScheduler, type MirrorSnapshot } from '../../src/state/commit-scheduler'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 
 /** What each commit was handed, in order: the quiz's title as it stood, and as it had become */
@@ -8,18 +8,20 @@ type Landed = { was: string | null, now: string }
 
 /** A commit that notes what it was handed, having done nothing else */
 function recordInto(landed: Landed[]) {
-  return async (was: QuizT | null, now: QuizT) => {
+  return async (was: MirrorSnapshot | null, now: MirrorSnapshot) => {
     await Promise.resolve()
-    landed.push({ was: was?.title ?? null, now: now.title })
+    landed.push({ was: was?.quiz.title ?? null, now: now.quiz.title })
   }
 }
 
 /** A scheduler that records what it commits, with `seconds` as its wait */
-function schedulerOf(seconds: number, landed: Landed[], commit?: (was: QuizT | null, now: QuizT) => Promise<unknown>) {
-  return createCommitScheduler({
+function schedulerOf(seconds: number, landed: Landed[], commit?: (was: MirrorSnapshot | null, now: MirrorSnapshot) => Promise<unknown>) {
+  const scheduler = createCommitScheduler({
     seconds,
     commit: commit ?? recordInto(landed),
   })
+  // These tests are about quizzes; the expressions that ride along are none.
+  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, expressions: [] }, { quiz: after, expressions: [] }) } }
 }
 
 const titled = (quiz: QuizT, title: string): QuizT => ({ ...quiz, title })
@@ -158,5 +160,21 @@ describe('createCommitScheduler, at 2 seconds', () => {
     await sec(2)
     expect(attempts).to.eq(2)
     expect(landed).to.deep.eq([{ was: 'Two', now: 'Three' }])
+  })
+})
+
+describe('createCommitScheduler, carrying the expressions', () => {
+  it('hands the commit the expressions as they were when the wait began and as they are now', async () => {
+    const seen: [number, number][] = []
+    const scheduler = createCommitScheduler({
+      seconds: 2,
+      commit: async (was, now) => { await Promise.resolve(); seen.push([was?.expressions.length ?? -1, now.expressions.length]) },
+    })
+    const quiz = Quiz.blank('One')
+    const expression = { owner: 'tq' as const, label: 'shout', formula: '1', description: '' }
+    scheduler.note({ quiz, expressions: [] }, { quiz, expressions: [expression] })
+    scheduler.note({ quiz, expressions: [expression] }, { quiz, expressions: [expression, { ...expression, label: 'whisper' }] })
+    await sec(2)
+    expect(seen).to.deep.eq([[0, 2]])
   })
 })

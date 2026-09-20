@@ -1,5 +1,7 @@
 import _ from 'es-toolkit/compat'
 import * as Labelmaker from './labelmaker'
+import * as UU from './useful'
+import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
 
 /** What happened to one field, or to one whole entity, between two readings of a quiz */
@@ -18,6 +20,9 @@ export const ChangeSigils: Readonly<Record<Changekind, string>> = {
 
 /** What the quiz's own fields are filed under, where a question would carry its label */
 export const QuizScope = 'quiz'
+
+/** What the workspace's expressions are filed under, since they belong to no one quiz */
+export const WidgetsScope = 'widgets'
 
 /** Where the question order is filed, so a pure reordering still says something */
 export const OrderFieldkey = 'order'
@@ -62,6 +67,23 @@ export function quizChanges(before: QuizT | null, after: QuizT | null): Change[]
     ...questionChanges(before, after),
     ...orderChanges(before, after),
   ]
+}
+
+/**
+ * Whether the workspace's expressions moved between two readings.
+ *
+ * Every quiz's repository keeps a copy of them, so a revised expression is a change to each --
+ * even one that touched no quiz.
+ *
+ * @param before - The expressions as they stood, or null when the quiz is only now coming into being.
+ * @param after - The expressions as they now stand.
+ * @returns One change, `widgets ~expressions`, or none.
+ *
+ * @example expressionChanges([], [expression])  // => [{ scope: 'widgets', fieldkey: 'expressions', changekind: 'revised' }]
+ */
+export function expressionChanges(before: readonly ExpressionT[] | null, after: readonly ExpressionT[]): Change[] {
+  if (before === null || UU.jsonify(before) === UU.jsonify(after)) { return [] }
+  return [{ scope: WidgetsScope, fieldkey: 'expressions', changekind: 'revised' }]
 }
 
 /**

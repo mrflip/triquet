@@ -3,7 +3,7 @@
 import LightningFS from '@isomorphic-git/lightning-fs'
 import * as Changes from '../lib/changes'
 import * as Quizgit from '../lib/quizgit'
-import { createCommitScheduler } from './commit-scheduler'
+import { createCommitScheduler, type MirrorSnapshot } from './commit-scheduler'
 import { MirrorSettings } from '../models/mirror-settings'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
@@ -63,10 +63,13 @@ export async function enqueue<TT>(work: (fs: Quizgit.GitFs) => Promise<TT>): Pro
 }
 
 /** Record `latest` in its repository, describing what moved since `baseline`; nothing, if nothing did */
-async function commitBurst(baseline: QuizT | null, latest: QuizT): Promise<void> {
-  const changes = Changes.quizChanges(baseline, latest)
+async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapshot): Promise<void> {
+  const changes = [
+    ...Changes.quizChanges(baseline?.quiz ?? null, latest.quiz),
+    ...Changes.expressionChanges(baseline?.expressions ?? null, latest.expressions),
+  ]
   if (changes.length === 0) { return }
-  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest, changes))
+  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.expressions, changes))
 }
 
 /**
@@ -95,7 +98,8 @@ export function mirrorWorkspace(before: WorkspaceT, after: WorkspaceT): void {
   const wasById = new Map(before.quizzes.map((quiz) => [quiz.id, quiz]))
   for (const quiz of after.quizzes) {
     const was = wasById.get(quiz.id) ?? null
-    if (quiz !== was) { scheduler.note(was, quiz) }
+    if (quiz === was && before.expressions === after.expressions) { continue }
+    scheduler.note(was ? { quiz: was, expressions: before.expressions } : null, { quiz, expressions: after.expressions })
   }
 }
 

@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { expressionUsage, openQuizOf, workspaceReducer } from '../../src/state/workspace-reducer'
+import { openQuizOf, workspaceReducer } from '../../src/state/workspace-reducer'
 import { SeedExpressions } from '../../src/models/expression'
-import { mintId } from '../../src/lib/ids'
 import { Workspace, type WorkspaceT } from '../../src/models/workspace'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
+import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
 import { present } from '../support/present'
 
 /** A workspace holding one quiz built from `qnum, title` pairs, open */
 function workspaceOf(...pairs: [string, string][]): WorkspaceT {
   const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
-  const quiz = { ...Quiz.blank('Quiz one'), questions }
-  return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
+  const quiz = { ...Quiz.blank('Quiz one'), ...defaultLayoutFor(SeedExpressions), questions }
+  return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [...SeedExpressions] })
 }
 
 const answersOf = (workspace: WorkspaceT) => present(openQuizOf(workspace)).questions.map((question) => question.title)
@@ -22,14 +22,6 @@ const qnumsOf   = (workspace: WorkspaceT) => present(openQuizOf(workspace)).ques
 function openWorkspace(locked = false): WorkspaceT {
   const quiz = { ...Quiz.blank('Quiz one'), locked }
   return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
-}
-
-const columnsOf = (workspace: WorkspaceT) => present(openQuizOf(workspace)).expressings
-
-/** A fresh workspace with the standard expressions and its quiz showing the standard columns */
-function standardWorkspace(locked = false): WorkspaceT {
-  const workspace = Workspace.blank()
-  return { ...workspace, quizzes: workspace.quizzes.map((quiz) => ({ ...quiz, locked })) }
 }
 
 const firstOf = (workspace: WorkspaceT) => present(present(openQuizOf(workspace)).questions[0])
@@ -127,25 +119,25 @@ describe('workspaceReducer', () => {
   describe('sort_questions', () => {
     it('commits the new order into the quiz rather than draping it over the top', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
-      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'title', descending: false })
+      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'column:title', descending: false })
       expect(answersOf(after)).to.deep.eq(['apple', 'banana', 'cherry'])
     })
 
     it('remembers which column put the quiz in this order', () => {
-      const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'sort_questions', sortkey: 'qnum', descending: false })
-      expect(present(openQuizOf(after)).last_sortkey).to.eq('qnum')
+      const after = workspaceReducer(workspaceOf(['1', 'a']), { kind: 'sort_questions', sortkey: 'column:qnum', descending: false })
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('column:qnum')
     })
 
     it('reverses when asked', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana'])
-      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'title', descending: true })
+      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'column:title', descending: true })
       expect(answersOf(after)).to.deep.eq(['cherry', 'banana', 'apple'])
     })
 
     it('refuses while the quiz is locked', () => {
       const ante = workspaceOf(['3', 'cherry'], ['1', 'apple'])
       const locked = { ...ante, quizzes: ante.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
-      expect(workspaceReducer(locked, { kind: 'sort_questions', sortkey: 'title', descending: false })).to.eq(locked)
+      expect(workspaceReducer(locked, { kind: 'sort_questions', sortkey: 'column:title', descending: false })).to.eq(locked)
     })
   })
 
@@ -159,10 +151,10 @@ describe('workspaceReducer', () => {
 
     it('does not claim the quiz is now in Q# order, which would immediately re-sort it', () => {
       const ante = workspaceReducer(workspaceOf(['4', 'd'], ['1', 'a']), {
-        kind: 'sort_questions', sortkey: 'title', descending: false,
+        kind: 'sort_questions', sortkey: 'column:title', descending: false,
       })
       const after = workspaceReducer(ante, { kind: 'renumber_qnums' })
-      expect(present(openQuizOf(after)).last_sortkey).to.eq('title')
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('column:title')
     })
 
     it('refuses while the quiz is locked', () => {
@@ -192,7 +184,7 @@ describe('workspaceReducer', () => {
       const ante = workspaceOf(['1', 'a'], ['2', 'b'])
       const dragged = present(present(openQuizOf(ante)).questions[0])
       const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 1 })
-      expect(present(openQuizOf(after)).last_sortkey).to.eq('qnum')
+      expect(present(openQuizOf(after)).last_sortkey).to.eq('column:qnum')
     })
   })
 
@@ -383,10 +375,12 @@ describe('workspaceReducer', () => {
     it('starts the new quiz with the standard columns, for the expressions the workspace still has', () => {
       const ante = Workspace.blank()
       const whole = workspaceReducer(ante, { kind: 'new_quiz' })
-      expect(present(openQuizOf(whole)).expressings).to.have.length(8)
+      expect(present(openQuizOf(whole)).widgets).to.have.length(11)
+      expect(present(openQuizOf(whole)).columns).to.have.length(21)
       const trimmed = { ...ante, expressions: ante.expressions.filter((expression) => expression.label !== 'hint_full') }
       const fewer = workspaceReducer(trimmed, { kind: 'new_quiz' })
-      expect(present(openQuizOf(fewer)).expressings).to.have.length(7)
+      expect(present(openQuizOf(fewer)).widgets).to.have.length(10)
+      expect(present(openQuizOf(fewer)).columns).to.have.length(20)
     })
 
     it('keeps the workspace\'s expressions', () => {
@@ -458,166 +452,6 @@ describe('workspaceReducer', () => {
       const other = openWorkspace(true)
       expect(workspaceReducer(openWorkspace(), { kind: 'replace_workspace', workspace: other })).to.eq(other)
     })
-  })
-})
-
-describe('computed columns', () => {
-  const column = { label: 'backward', expression_label: 'answer_reversed', title: 'Backward' }
-  const withColumn = (): WorkspaceT => workspaceReducer(standardWorkspace(), { kind: 'add_expressing', expressing: column })
-
-  describe('add_expressing', () => {
-    it('adds a column to the end of the open quiz, its shape defaulted', () => {
-      const after = withColumn()
-      expect(columnsOf(after).at(-1)).to.deep.eq({ ...column, description: '', shape: 'skinny' })
-      expect(columnsOf(after)).to.have.length(9)
-    })
-
-    it('refuses a label a column already has, leaving the workspace as it was', () => {
-      const ante = withColumn()
-      expect(workspaceReducer(ante, { kind: 'add_expressing', expressing: { ...column, title: 'Again' } })).to.eq(ante)
-    })
-
-    it('refuses a column that is not one', () => {
-      expect(() => workspaceReducer(standardWorkspace(), { kind: 'add_expressing', expressing: { ...column, label: 'No Good' } })).to.throw(Z.ZodError)
-    })
-
-    it('refuses while the quiz is locked', () => {
-      const ante = standardWorkspace(true)
-      expect(workspaceReducer(ante, { kind: 'add_expressing', expressing: column })).to.eq(ante)
-    })
-  })
-
-  describe('edit_expressing', () => {
-    it('revises the fields named and no others', () => {
-      const after = workspaceReducer(withColumn(), { kind: 'edit_expressing', label: 'backward', patch: { title: 'Reversed', description: 'Because.', shape: 'medium' } })
-      expect(columnsOf(after).at(-1)).to.deep.eq({ ...column, title: 'Reversed', description: 'Because.', shape: 'medium' })
-    })
-
-    it('renames a column, carrying the quiz\'s sort memory with it', () => {
-      const sorted = workspaceReducer(withColumn(), { kind: 'sort_questions', sortkey: 'expressing:backward', descending: false })
-      const after = workspaceReducer(sorted, { kind: 'edit_expressing', label: 'backward', patch: { label: 'reversed' } })
-      expect(columnsOf(after).at(-1)?.label).to.eq('reversed')
-      expect(openQuizOf(after)?.last_sortkey).to.eq('expressing:reversed')
-    })
-
-    it('refuses a rename onto a sibling\'s label', () => {
-      const ante = withColumn()
-      expect(workspaceReducer(ante, { kind: 'edit_expressing', label: 'backward', patch: { label: 'clueing_full' } })).to.eq(ante)
-    })
-
-    it('does nothing for a column the quiz does not have', () => {
-      const ante = withColumn()
-      expect(workspaceReducer(ante, { kind: 'edit_expressing', label: 'absent', patch: { title: 'Nope' } })).to.eq(ante)
-    })
-
-    it('refuses a patch that is not one', () => {
-      expect(() => workspaceReducer(withColumn(), { kind: 'edit_expressing', label: 'backward', patch: { shape: 'wide' as never } })).to.throw(Z.ZodError)
-    })
-
-    it('refuses while the quiz is locked', () => {
-      const added = withColumn()
-      const ante = { ...added, quizzes: added.quizzes.map((quiz) => ({ ...quiz, locked: true })) }
-      expect(workspaceReducer(ante, { kind: 'edit_expressing', label: 'backward', patch: { title: 'Nope' } })).to.eq(ante)
-    })
-  })
-
-  describe('delete_expressing', () => {
-    it('removes the column', () => {
-      const after = workspaceReducer(withColumn(), { kind: 'delete_expressing', label: 'backward' })
-      expect(columnsOf(after).map((held) => held.label)).to.not.include('backward')
-    })
-
-    it('forgets a sort memory that named it, since that order can no longer be described', () => {
-      const sorted = workspaceReducer(withColumn(), { kind: 'sort_questions', sortkey: 'expressing:backward', descending: false })
-      expect(openQuizOf(workspaceReducer(sorted, { kind: 'delete_expressing', label: 'backward' }))?.last_sortkey).to.eq(null)
-    })
-
-    it('keeps a sort memory that named some other column', () => {
-      const sorted = workspaceReducer(withColumn(), { kind: 'sort_questions', sortkey: 'expressing:clueing_full', descending: false })
-      expect(openQuizOf(workspaceReducer(sorted, { kind: 'delete_expressing', label: 'backward' }))?.last_sortkey).to.eq('expressing:clueing_full')
-    })
-  })
-
-  describe('sort_questions by a computed column', () => {
-    it('orders the questions by what the column came to, and remembers the column', () => {
-      const quiz = { ...Quiz.blank('Words'), questions: ['ccc', 'a', 'bb'].map((full_answer) => ({ ...Question.blank(), full_answer })) }
-      const ante = workspaceReducer(Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [...SeedExpressions] }), { kind: 'add_expressing', expressing: { label: 'letters', expression_label: 'answer_letter_count', title: 'Letters' } })
-      const after = workspaceReducer(ante, { kind: 'sort_questions', sortkey: 'expressing:letters', descending: false })
-      expect(present(openQuizOf(after)).questions.map((question) => question.full_answer)).to.deep.eq(['a', 'bb', 'ccc'])
-      expect(openQuizOf(after)?.last_sortkey).to.eq('expressing:letters')
-    })
-  })
-
-  describe('add_expression', () => {
-    const shout = { label: 'shout', formula: '$uppercase(qn.title)' }
-
-    it('adds an expression to the workspace, owned by tq', () => {
-      const after = workspaceReducer(standardWorkspace(), { kind: 'add_expression', expression: shout })
-      expect(after.expressions.at(-1)).to.deep.eq({ owner: 'tq', description: '', ...shout })
-    })
-
-    it('refuses a label already taken, leaving the workspace as it was', () => {
-      const ante = workspaceReducer(standardWorkspace(), { kind: 'add_expression', expression: shout })
-      expect(workspaceReducer(ante, { kind: 'add_expression', expression: { ...shout, formula: '1' } })).to.eq(ante)
-    })
-
-    it('works from a locked quiz, because the expressions belong to the workspace', () => {
-      const after = workspaceReducer(standardWorkspace(true), { kind: 'add_expression', expression: shout })
-      expect(after.expressions).to.have.length(14)
-    })
-
-    it('refuses an expression that is not one', () => {
-      expect(() => workspaceReducer(standardWorkspace(), { kind: 'add_expression', expression: { label: 'shout', formula: '' } })).to.throw(Z.ZodError)
-    })
-  })
-
-  describe('edit_expression', () => {
-    it('revises the formula and the description, and no other expression', () => {
-      const ante = standardWorkspace()
-      const after = workspaceReducer(ante, { kind: 'edit_expression', label: 'answer_reversed', patch: { formula: '"x"', description: 'Changed.' } })
-      expect(after.expressions.find((expression) => expression.label === 'answer_reversed')).to.include({ formula: '"x"', description: 'Changed.' })
-      expect(after.expressions.filter((expression) => expression.label !== 'answer_reversed')).to.deep.eq(ante.expressions.filter((expression) => expression.label !== 'answer_reversed'))
-    })
-
-    it('works from a locked quiz', () => {
-      const after = workspaceReducer(standardWorkspace(true), { kind: 'edit_expression', label: 'answer_reversed', patch: { formula: '"x"' } })
-      expect(after.expressions.find((expression) => expression.label === 'answer_reversed')?.formula).to.eq('"x"')
-    })
-
-    it('refuses an empty formula', () => {
-      expect(() => workspaceReducer(standardWorkspace(), { kind: 'edit_expression', label: 'answer_reversed', patch: { formula: '' } })).to.throw(Z.ZodError)
-    })
-  })
-
-  describe('delete_expression', () => {
-    it('removes an expression no column works', () => {
-      const after = workspaceReducer(standardWorkspace(), { kind: 'delete_expression', label: 'answer_reversed' })
-      expect(after.expressions.map((expression) => expression.label)).to.not.include('answer_reversed')
-    })
-
-    it('refuses to remove one a column works, and says nothing changed', () => {
-      const ante = standardWorkspace()
-      expect(workspaceReducer(ante, { kind: 'delete_expression', label: 'clueing_full' })).to.eq(ante)
-    })
-
-    it('removes it once the column is gone', () => {
-      const ante = workspaceReducer(standardWorkspace(), { kind: 'delete_expressing', label: 'clueing_full' })
-      const after = workspaceReducer(ante, { kind: 'delete_expression', label: 'clueing_full' })
-      expect(after.expressions.map((expression) => expression.label)).to.not.include('clueing_full')
-    })
-  })
-})
-
-describe('expressionUsage', () => {
-  it('counts the columns, across every quiz, that work an expression', () => {
-    const [ante, post] = [standardWorkspace(), standardWorkspace()]
-    const both = { ...ante, quizzes: [...ante.quizzes, ...post.quizzes.map((quiz) => ({ ...quiz, id: mintId() }))] }
-    expect(expressionUsage(both, 'clueing_full')).to.eq(2)
-  })
-
-  it('counts nought for an expression nobody works, or that does not exist', () => {
-    expect(expressionUsage(standardWorkspace(), 'answer_reversed')).to.eq(0)
-    expect(expressionUsage(standardWorkspace(), 'absent')).to.eq(0)
   })
 })
 

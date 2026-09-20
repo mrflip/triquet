@@ -1,31 +1,39 @@
 import * as Z from 'zod'
 import { Validator, plain } from '../lib/validator'
-import { QuestionValidators } from './question'
-import { QuizValidators } from './quiz'
+import { IshValidators } from './ish'
+import { Question, QuestionValidators } from './question'
+import { Quiz } from './quiz'
 
-export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, label, titleish, union }) => {
-  const bagQuestion = QuestionValidators.question
-    .omit({ id: true, forced_label: true })
+export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, uint, textish, label, titleish, union }) => {
+  const played = oneof(['done', 'error'])
+    .describe('Whether the player answered: `done`, or `error` when asking failed and there was never an answer.')
+
+  const guess = obj({ status: played, text: textish.optional() })
+    .nullable()
+    .describe('What a fast, not-especially-careful reader answered for the question\'s clueing; null when never asked. Nothing about cost, model, time or failure is shown.')
+
+  const ishes = obj({ status: played, items: arr(IshValidators.ishItem).optional(), stale: bool.optional() })
+    .nullable()
+    .describe('Every number-like span a player found in one text, and whether that text has been edited since (`stale`); null when never asked. Nothing about cost, model, time or failure is shown.')
+
+  const exposedQuestion = QuestionValidators.question.pick(Object.fromEntries(Question.exposed.map((field) => [field, true])) as Record<typeof Question.exposed[number], true>)
+  const bagQuestion = exposedQuestion
     .extend({
-      label:     label
+      label:         label
         .describe('The question\'s label, the one in force: what `chains_to` in another question refers to.'),
-      chains_to: label.nullable()
+      chains_to:     label.nullable()
         .describe('The label of the question this one chains to, or null. Look it up with `qns[label = $$.qn.chains_to]`.'),
-      rank:      uint.min(1).nullable()
+      rank:          uint.min(1).nullable()
         .describe('This question\'s 1-based place once the quiz is put in Q# order (ties broken by title); null when it has no Q#.'),
+      guess,
+      clueing_ishes: ishes.describe('What the number spotter found in the clueing.'),
+      hint_ishes:    ishes.describe('What the number spotter found in this question\'s own hint.'),
     })
-    .describe('One question as a formula sees it: no id, and its chain named by label.')
+    .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label.')
 
-  const bagQuiz = obj({
-    title:           titleish,
-    label:           label
-      .describe('The quiz\'s label, the one in force.'),
-    version:         label,
-    locked:          bool,
-    last_sortkey:    QuizValidators.sortkey.nullable(),
-    bulk_ishes_last: QuizValidators.bulkIshesRun,
-  })
-    .describe('The quiz itself, without its questions and its computed columns.')
+  const exposedQuiz = obj({ label, title: titleish })
+  const bagQuiz = exposedQuiz
+    .describe(`The quiz itself: only ${Quiz.exposed.join(' and ')}.`)
 
   const quizBag = obj({
     quiz:       bagQuiz,

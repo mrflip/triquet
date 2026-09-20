@@ -3,11 +3,11 @@
 import { useMemo, useState } from 'react'
 import { MenuItem, Stack, TextField } from '@mui/material'
 import { CopyButton } from './CopyButton'
+import { JsonFold } from './JsonFold'
 import * as Expressed from '../lib/expressed'
 import * as Formulas from '../lib/formulas'
 import { formulaPrompt } from '../lib/formula-prompt'
 import * as Rank from '../lib/rank'
-import * as UU from '../lib/useful'
 import { ExpressionValidators, type ExpressionT } from '../models/expression'
 import type { PromptSubject } from '../lib/formula-prompt'
 import type { QuizT } from '../models/quiz'
@@ -93,10 +93,12 @@ export function ExpressionFields({ workspace, defaultQuizId, draft, onChange, la
       </Stack>
       <PreviewResult preview={preview} />
       {bag && (
-        <details>
-          <summary className={styles.microcopy}>The input for this question</summary>
-          <pre className={styles.errJson} aria-label="The input for this question">{UU.jsonify(bag.qn, { pretty: true })}</pre>
-        </details>
+        <div>
+          <div className={styles.microcopy}>The input the formula reads for this question</div>
+          <JsonFold label="quiz" val={bag.quiz} />
+          <JsonFold label={`qns (${String(bag.qns.length)})`} val={bag.qns} />
+          <JsonFold label="qn" val={bag.qn} />
+        </div>
       )}
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
         <CopyButton textOf={() => formulaPrompt({ expressing, expression: draft, sample: bag?.qn ?? null })}>

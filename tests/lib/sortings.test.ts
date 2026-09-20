@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import * as Sortings from '../../src/lib/sortings'
+import { Column } from '../../src/models/column'
+import { defaultLayoutFor } from '../../src/models/layout'
+import { SeedExpressions } from '../../src/models/expression'
+import { Expressing } from '../../src/models/widget'
 import { Question, type QuestionT } from '../../src/models/question'
 import type { Expressed, ExpressedForQuiz } from '../../src/lib/expressed'
 import { present } from '../support/present'
@@ -69,10 +73,36 @@ describe('sortQuestions', () => {
   })
 })
 
+/** A finished extraction that found `count` spans */
+const found = (count: number) => ({ status: 'done' as const, items: Array.from({ length: count }, () => ({ text: '1', value: 1, kind: 'numeral' as const })), truncated: false, stale: false, updated_at: 1, last_err: null })
+
+/** A quiz of `questions` with the standard widgets and columns */
+const quizOf = (questions: QuestionT[]) => ({ questions, ...defaultLayoutFor(SeedExpressions) })
+
+/** A quiz of `questions` with one column, `size`, showing an expressing widget of that label */
+const sizedQuiz = (questions: QuestionT[]) => ({
+  questions,
+  widgets: [Expressing.fill({ kind: 'expressing', label: 'size', expression_label: 'size' })],
+  columns: [Column.fill({ label: 'size', title: 'Size', source: 'size', width_px: 78 })],
+})
+
 describe('sortValueFor', () => {
+  it('reads a column that cannot be ordered -- one that holds prose -- as having nothing to say', () => {
+    const questions = questionsOf(['1', 'a'], ['2', 'b'])
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:clueing', quizOf(questions), NoneExpressed), false)
+    expect(answers(sorted)).to.deep.eq(['a', 'b'])
+  })
+
+  it('reads a player\'s extraction column as how many spans it found', () => {
+    const [aa, bb] = questionsOf(['1', 'a'], ['2', 'b'])
+    const questions = [{ ...present(aa), clueing_ishes: found(3) }, { ...present(bb), clueing_ishes: found(1) }]
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:clueing_ishes', quizOf(questions), NoneExpressed), false)
+    expect(answers(sorted)).to.deep.eq(['b', 'a'])
+  })
+
   it('reads Q# as a number, so 10 sorts after 9', () => {
     const questions = questionsOf(['9', 'nine'], ['10', 'ten'])
-    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('qnum', questions, NoneExpressed), false)
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:qnum', quizOf(questions), NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['nine', 'ten'])
   })
 
@@ -84,7 +114,7 @@ describe('sortValueFor', () => {
       { ...present(zebra), chains_to: present(moose).id },
       present(moose),
     ]
-    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('chains_to', chained, NoneExpressed), false)
+    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('column:chains_to', quizOf(chained), NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['zebra', 'aardvark', 'moose'])
   })
 
@@ -92,7 +122,7 @@ describe('sortValueFor', () => {
     const questions = questionsOf(['', 'a'], ['', 'b'])
     const [first, second] = questions.map((question) => present(question))
     const chained = [present(first), { ...present(second), chains_to: present(first).id }]
-    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('chains_to', chained, NoneExpressed), false)
+    const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('column:chains_to', quizOf(chained), NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
 
@@ -104,7 +134,7 @@ describe('sortValueFor', () => {
       [present(bb).id, { status: 'value', val: 4, stale: false }],
       [present(cc).id, { status: 'value', val: 200, stale: false }],
     ])]])
-    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('expressing:size', questions, expressed), false)
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:size', sizedQuiz(questions), expressed), false)
     expect(answers(sorted)).to.deep.eq(['b', 'a', 'c'])
   })
 
@@ -117,14 +147,14 @@ describe('sortValueFor', () => {
       [present(cc).id, { status: 'error', message: 'nope' }],
     ])]])
     for (const descending of [false, true]) {
-      const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('expressing:size', questions, expressed), descending)
+      const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:size', sizedQuiz(questions), expressed), descending)
       expect(answers(sorted)[0]).to.eq('b')
     }
   })
 
-  it('reads a computed column the quiz no longer has as having nothing to say, leaving the order alone', () => {
+  it('reads a column the quiz does not have as having nothing to say, leaving the order alone', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
-    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('expressing:gone', questions, NoneExpressed), false)
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:gone', quizOf(questions), NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['a', 'b', 'c'])
   })
 })

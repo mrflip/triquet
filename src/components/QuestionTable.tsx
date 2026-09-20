@@ -2,11 +2,10 @@
 
 import { useState } from 'react'
 import clsx from 'clsx'
-import { columnsFor, gridWidthPx, type Headkind } from '../lib/columns'
+import { GripWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
 import type { ExpressedForQuiz } from '../lib/expressed'
-import type { ExpressingT } from '../models/expressing'
 import type { Askkind } from '../state/use-asking'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
@@ -19,8 +18,8 @@ export type SortMark = {
 
 export type QuestionTableProps = {
   questions:    QuestionT[]
-  /** The quiz's computed columns, in the order they appear */
-  expressings:  ExpressingT[]
+  /** The quiz's columns, in the order they appear */
+  specs:        ColumnSpec[]
   /** What each computed column came to for each question */
   expressed:    ExpressedForQuiz
   locked:       boolean
@@ -41,9 +40,8 @@ export type QuestionTableProps = {
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, expressings, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
-  const columns = columnsFor(expressings)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
 
@@ -55,10 +53,11 @@ export function QuestionTable({ questions, expressings, expressed, locked, gripS
 
   return (
     <div className={styles.scroller}>
-      <table className={styles.grid} style={{ width: `${String(gridWidthPx(columns))}px` }}>
+      <table className={styles.grid} style={{ width: `${String(gridWidthPx(specs))}px` }}>
         <thead>
           <tr>
-            {columns.map((column) => {
+            <th scope="col" className={clsx(styles.head, ! gripShown && styles.gripCollapsed)} style={{ width: `${String(GripWidthPx)}px` }} />
+            {specs.map((column) => {
               const sortkey = column.sortkey ?? null
               return (
                 <th
@@ -99,7 +98,7 @@ export function QuestionTable({ questions, expressings, expressed, locked, gripS
               onDrop={() => { settle(idx) }}
               onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
-              expressings={expressings}
+              specs={specs}
               expressed={expressed}
               asking={(askkind) => asking(question.id, askkind)}
               unavailableNotice={unavailableNotice}

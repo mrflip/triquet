@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import * as Expressed from '../../src/lib/expressed'
 import { Expression, SeedExpressions, type ExpressionT } from '../../src/models/expression'
-import { Expressing, defaultsFor } from '../../src/models/expressing'
+import { Expressing } from '../../src/models/widget'
+import { defaultLayoutFor } from '../../src/models/layout'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { IshItemT, IshesT } from '../../src/models/ish'
@@ -22,7 +23,7 @@ function loneQuestion(patch: Partial<QuestionT>): QuestionT {
 
 /** A quiz of `questions` showing the eight standard sum columns */
 function standardQuiz(questions: QuestionT[]): QuizT {
-  return { ...Quiz.blank('Standard'), questions, expressings: defaultsFor(SeedExpressions) }
+  return { ...Quiz.blank('Standard'), questions, ...defaultLayoutFor(SeedExpressions) }
 }
 
 /** What the standard column `label` came to for `question`, in a quiz of `questions` */
@@ -32,6 +33,7 @@ function sumOf(questions: QuestionT[], question: QuestionT, label: string): Expr
 
 const valued = (val: number, stale = false): Expressed.Expressed => ({ status: 'value', val, stale })
 const Nothing: Expressed.Expressed = { status: 'nothing' }
+const byText = (aa: string, bb: string) => aa.localeCompare(bb)
 
 describe('the standard sum columns', () => {
   it('add every ish in the clueing, and the digit-written ones on their own', () => {
@@ -146,7 +148,7 @@ describe('the standard sum columns', () => {
 describe('the standard text columns', () => {
   const textQuiz = (patch: Partial<QuestionT>, label: string): Expressed.Expressed => {
     const question = { ...Question.blank(), ...patch }
-    const quiz = { ...Quiz.blank('Words'), questions: [question], expressings: [Expressing.fill({ label, expression_label: label, title: 'Column' })] }
+    const quiz = { ...Quiz.blank('Words'), questions: [question], widgets: [Expressing.fill({ kind: 'expressing', label, expression_label: label })] }
     return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), label, question.id)
   }
 
@@ -171,7 +173,7 @@ describe('the standard text columns', () => {
 /** A quiz of `questions` with one computed column, `col`, working a formula of its own */
 function columnQuiz(formula: string, questions: QuestionT[] = [loneQuestion({})]): { quiz: QuizT, expressions: ExpressionT[] } {
   return {
-    quiz:        { ...Quiz.blank('Custom'), questions, expressings: [Expressing.fill({ label: 'col', expression_label: 'custom', title: 'Custom' })] },
+    quiz:        { ...Quiz.blank('Custom'), questions, widgets: [Expressing.fill({ kind: 'expressing', label: 'col', expression_label: 'custom' })] },
     expressions: [Expression.fill({ label: 'custom', formula })],
   }
 }
@@ -180,7 +182,7 @@ describe('clueing_with_butnot', () => {
   const foldedFor = (clueing: string, hint: string | null): Expressed.Expressed => {
     const target = { ...Question.blank(), qnum: '2', hint: hint ?? '' }
     const question = { ...Question.blank(), qnum: '1', clueing, chains_to: hint === null ? null : target.id }
-    const quiz = { ...Quiz.blank('Fold'), questions: [question, target], expressings: [Expressing.fill({ label: 'folded', expression_label: 'clueing_with_butnot', title: 'Folded', shape: 'medium' })] }
+    const quiz = { ...Quiz.blank('Fold'), questions: [question, target], widgets: [Expressing.fill({ kind: 'expressing', label: 'folded', expression_label: 'clueing_with_butnot' })] }
     return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), 'folded', question.id)
   }
   const said = (val: string): Expressed.Expressed => ({ status: 'value', val, stale: false })
@@ -234,9 +236,9 @@ describe('forQuiz', () => {
     const quiz = {
       ...Quiz.blank('Two columns'),
       questions:   [aa, bb],
-      expressings: [
-        Expressing.fill({ label: 'bad', expression_label: 'broken', title: 'Bad' }),
-        Expressing.fill({ label: 'fine', expression_label: 'steady', title: 'Fine' }),
+      widgets: [
+        Expressing.fill({ kind: 'expressing', label: 'bad', expression_label: 'broken' }),
+        Expressing.fill({ kind: 'expressing', label: 'fine', expression_label: 'steady' }),
       ],
     }
     const expressed = Expressed.forQuiz(quiz, [Expression.fill({ label: 'broken', formula: '$sum(' }), Expression.fill({ label: 'steady', formula: '3' })])
@@ -302,7 +304,7 @@ describe('bagsFor', () => {
   })
 
   it('leaves the quiz\'s own questions and columns out of `quiz`', () => {
-    expect(bag.quiz).to.not.have.any.keys('questions', 'expressings')
+    expect(bag.quiz).to.not.have.any.keys('questions', 'widgets', 'columns')
     expect(bag.quiz).to.include({ title: 'Bag', label: 'my_quiz' })
   })
 
@@ -331,4 +333,40 @@ describe('sortValueOf', () => {
       expect(Expressed.sortValueOf(reading)).to.eq(expected)
     })
   }
+})
+
+describe('what a bag exposes', () => {
+  const answered = {
+    ...Question.blank(), qnum: '1', title: 'Leon', forced_label: 'leon_q',
+    guess: { status: 'done' as const, text: 'Lyon', truncated: true, model_tier_applied: 'quick' as const, approx_tokens: 84, updated_at: 5, last_err: { message: 'no', response: { ok: false }, at: 9 } },
+    clueing_ishes: { status: 'done' as const, items: [numeral('3', 3)], truncated: true, stale: true, model_tier_applied: 'careful' as const, approx_tokens: 10, updated_at: 5, last_err: null },
+    hint_ishes: { status: 'error' as const, message: 'Too many requests.', updated_at: 5, last_err: { message: 'Too many requests.', response: { ok: false }, at: 5 } },
+  }
+  const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', locked: true, questions: [answered] }
+  const { qn, quiz: quizBag } = present(Expressed.bagsFor(quiz).get(answered.id))
+
+  it('gives a question only its exposed fields, with the label in force and the rank', () => {
+    expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'clueing_ishes', 'guess', 'hint_ishes', 'rank'].toSorted(byText))
+  })
+
+  it('shows a guess as its status and its text, and nothing about cost, model, time, truncation or failure', () => {
+    expect(qn.guess).to.deep.eq({ status: 'done', text: 'Lyon' })
+  })
+
+  it('shows an extraction as its status, spans and staleness only', () => {
+    expect(qn.clueing_ishes).to.deep.eq({ status: 'done', items: [numeral('3', 3)], stale: true })
+  })
+
+  it('shows a cell that only ever failed as just that, with no message', () => {
+    expect(qn.hint_ishes).to.deep.eq({ status: 'error' })
+  })
+
+  it('shows a question never asked as null', () => {
+    const bare = present(Expressed.bagsFor({ ...quiz, questions: [Question.blank()] }).values().next().value)
+    expect([bare.qn.guess, bare.qn.clueing_ishes]).to.deep.eq([null, null])
+  })
+
+  it('gives the quiz only its label and title, not its lock, version, remembered sort or cost', () => {
+    expect(quizBag).to.deep.eq({ label: 'my_quiz', title: 'Bag' })
+  })
 })

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import * as Expressed from '../../src/lib/expressed'
 import * as Sheets from '../../src/lib/sheets'
-import { columnsFor } from '../../src/lib/columns'
+import { Column } from '../../src/models/column'
+import { defaultLayoutFor, type Layout } from '../../src/models/layout'
 import { SeedExpressions } from '../../src/models/expression'
-import { Expressing, defaultsFor } from '../../src/models/expressing'
+import { Expressing } from '../../src/models/widget'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { IshItemT } from '../../src/models/ish'
@@ -12,8 +13,8 @@ import { present } from '../support/present'
 const numeral = (text: string, value: number): IshItemT => ({ text, value, kind: 'numeral' })
 
 /** A quiz of `questions` showing the given expressings, exported with the standard expressions */
-function exported(questions: QuestionT[], expressings = defaultsFor(SeedExpressions)): string[][] {
-  const quiz: QuizT = { ...Quiz.blank('Export'), questions, expressings }
+function exported(questions: QuestionT[], layout: Layout = defaultLayoutFor(SeedExpressions)): string[][] {
+  const quiz: QuizT = { ...Quiz.blank('Export'), questions, ...layout }
   const text = Sheets.sheetsExport(quiz, Expressed.forQuiz(quiz, SeedExpressions))
   return text === '' ? [] : text.split('\n').map((line) => line.split('\t'))
 }
@@ -47,31 +48,30 @@ describe('pasteSafe', () => {
 })
 
 describe('sheetsExport', () => {
-  it('opens with a header row naming every column the grid has, in the grid\'s order', () => {
+  it('opens with a header row naming every displayed column by its label, in alphabetical order', () => {
     const table = exported([Question.blank()])
-    const headers = columnsFor(defaultsFor(SeedExpressions)).map((column) => column.header)
-    expect(table[0]).to.deep.eq(headers.filter((header) => header !== null))
+    const labels = defaultLayoutFor(SeedExpressions).columns.map((column) => column.label)
+    expect(table[0]).to.deep.eq(labels.toSorted((aa, bb) => aa.localeCompare(bb)))
   })
 
-  it('names fields by field, computed columns by their label, and played columns by their player', () => {
-    const headers = present(exported([Question.blank()])[0])
-    expect(headers).to.include.members(['title', 'clueing', 'chains_to', 'qnum', 'clueing_full', 'clueing_plus_rank', 'dumdum', 'numnum_clueing', 'numnum_butnot', 'numnum_hint'])
-  })
-
-  it('leaves out the grip, which holds no data', () => {
+  it('leaves the grip out, which is not a column of the quiz', () => {
     const table = exported([Question.blank()])
     expect(present(table[0])).to.not.include('grip')
   })
 
-  it('follows the quiz\'s own computed columns, whatever they are and wherever they sit', () => {
-    const column = Expressing.fill({ label: 'backward', expression_label: 'answer_reversed', title: 'Backward' })
-    const question = { ...Question.blank(), qnum: '1', full_answer: 'stressed' }
-    const table = exported([question], [column])
-    expect(cellOf(table, 'backward', 0)).to.eq('desserts')
-    expect(present(table[0])).to.not.include('clueing_full')
-    const headers = present(table[0])
-    expect(headers.indexOf('backward')).to.be.greaterThan(headers.indexOf('qnum'))
-    expect(headers.indexOf('backward')).to.be.lessThan(headers.indexOf('alt_text'))
+  it('does not move when the columns are dragged about, only when one is added or removed', () => {
+    const quiz: QuizT = { ...Quiz.blank('Export'), ...defaultLayoutFor(SeedExpressions), questions: [Question.blank()] }
+    const shuffled = { ...quiz, columns: quiz.columns.toReversed() }
+    const text = (held: QuizT) => Sheets.sheetsExport(held, Expressed.forQuiz(held, SeedExpressions))
+    expect(text(shuffled)).to.eq(text(quiz))
+  })
+
+  it('follows the quiz\'s own columns, whatever they show', () => {
+    const widget = Expressing.fill({ kind: 'expressing', label: 'backward', expression_label: 'answer_reversed' })
+    const columns = [Column.fill({ label: 'zzz', title: 'Backward', source: 'backward', width_px: 78 }), Column.fill({ label: 'aaa', title: 'Answer', source: 'question.full_answer', width_px: 220 })]
+    const table = exported([{ ...Question.blank(), qnum: '1', full_answer: 'stressed' }], { widgets: [widget], columns })
+    expect(table[0]).to.deep.eq(['aaa', 'zzz'])
+    expect(table[1]).to.deep.eq(['stressed', 'desserts'])
   })
 
   it('has as many fields in every line as in the header', () => {
@@ -124,14 +124,14 @@ describe('sheetsExport', () => {
     expect(cellOf(table, 'clueing_full', 0)).to.eq('')
   })
 
-  it('carries the sum and the spans when something has, and the guess', () => {
+  it('carries the sum, the spans and the guess when there are some', () => {
     const question = {
       ...Question.blank(), qnum: '1', clueing: 'Which region?',
       clueing_ishes: { status: 'done' as const, items: [numeral('300', 300), numeral('17', 17)], truncated: false, stale: false, updated_at: 1, last_err: null },
       guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1, last_err: null },
     }
     const table = exported([question])
-    const cells = ['clueing_full', 'numnum_clueing', 'dumdum'].map((header) => cellOf(table, header, 0))
+    const cells = ['clueing_full', 'clueing_ishes', 'guess'].map((header) => cellOf(table, header, 0))
     expect(cells).to.deep.eq(['317', '300/17', 'Leon'])
   })
 

@@ -1,68 +1,96 @@
 import { describe, expect, it } from 'vitest'
-import { LeadColumns, ShapeWidthPx, TailColumns, columnsFor, expressedColumns, gridWidthPx } from '../../src/lib/columns'
-import { Expressing } from '../../src/models/expressing'
+import { GripWidthPx, gridWidthPx, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
+import { Column } from '../../src/models/column'
+import { defaultLayoutFor } from '../../src/models/layout'
+import { SeedExpressions } from '../../src/models/expression'
+import { Expressing, PlayingWidget } from '../../src/models/widget'
+import { present } from '../support/present'
 
-const skinny = Expressing.fill({ label: 'total', expression_label: 'clueing_full', title: 'Total' })
-const medium = Expressing.fill({ label: 'backward', expression_label: 'answer_reversed', title: 'Backward', shape: 'medium' })
+const layout = defaultLayoutFor(SeedExpressions)
+const widgets = [
+  PlayingWidget.fill({ kind: 'playing', label: 'dumdum', player_label: 'dumdum', textkind: 'clueing' }),
+  PlayingWidget.fill({ kind: 'playing', label: 'numnum_hint', player_label: 'numnum', textkind: 'hint' }),
+  Expressing.fill({ kind: 'expressing', label: 'total', expression_label: 'clueing_full' }),
+]
+const columnOf = (source: string, width_px = 100, label = 'col') => Column.fill({ label, title: 'Col', source, width_px })
 
-describe('expressedColumns', () => {
-  it('turns a skinny column\'s header on its side, as the number columns always were, at their width', () => {
-    expect(expressedColumns([skinny])).to.deep.eq([
-      { colkey: 'expressing:total', title: 'Total', header: 'total', widthPx: 78, headkind: 'vertical', sortkey: 'expressing:total' },
-    ])
+describe('resolve', () => {
+  it('finds a question field, a view, and each kind of widget', () => {
+    expect(resolve('question.clueing', widgets)).to.deep.eq({ kind: 'field', field: 'clueing' })
+    expect(resolve('question.butnot', widgets)).to.deep.eq({ kind: 'view', view: 'butnot' })
+    expect(resolve('total', widgets)).to.deep.eq({ kind: 'expressing', widget: widgets[2] })
+    expect(resolve('numnum_hint', widgets)).to.deep.include({ kind: 'playing' })
+    const hint = present(resolve('numnum_hint', widgets))
+    expect(hint.kind === 'playing' ? hint.slot.field : null).to.eq('hint_ishes')
   })
 
-  it('lays a medium column\'s header along the row, at a notes column\'s width', () => {
-    const [column] = expressedColumns([medium])
-    expect(column).to.include({ headkind: 'plain', widthPx: ShapeWidthPx.medium })
-  })
-
-  it('makes every column sortable, by a sortkey the quiz can remember', () => {
-    expect(expressedColumns([skinny, medium]).map((column) => column.sortkey)).to.deep.eq(['expressing:total', 'expressing:backward'])
-  })
-
-  it('is nothing for a quiz with no computed columns', () => {
-    expect(expressedColumns([])).to.deep.eq([])
-  })
-})
-
-describe('column headers for an export', () => {
-  const headers = columnsFor([skinny, medium]).map((column) => column.header)
-
-  it('name a field by field, a computed column by its label, and a played column by its player', () => {
-    expect(headers).to.deep.eq([
-      'title', null, 'clueing', 'hint', 'chains_to', 'butnot', 'qnum', 'total', 'backward',
-      'alt_text', 'notes', 'full_answer', 'numnum_clueing', 'numnum_butnot', 'numnum_hint', 'dumdum',
-    ])
-  })
-
-  it('leave the grip, which holds no data, without one', () => {
-    expect(columnsFor([]).filter((column) => column.header === null).map((column) => column.colkey)).to.deep.eq(['grip'])
+  it('finds nothing for a widget the quiz does not have', () => {
+    expect(resolve('nowhere', widgets)).to.eq(null)
   })
 })
 
-describe('columnsFor', () => {
-  it('puts the computed columns between Q# and Alt Text, in the order the quiz lists them', () => {
-    const titles = columnsFor([medium, skinny]).map((column) => column.title)
-    expect(titles.slice(LeadColumns.length - 1, LeadColumns.length + 3)).to.deep.eq(['Q#', 'Backward', 'Total', 'Alt Text'])
+describe('specFor', () => {
+  const Cases: [string, number, string, boolean, string][] = [
+    // source                 width  headkind    sortable  blurb
+    ['question.title',        100,   'plain',    true,     'a title is along the row, and orders the quiz'],
+    ['question.clueing',      330,   'plain',    false,    'prose is not ordered'],
+    ['question.qnum',         60,    'plain',    true,     'Q# orders the quiz'],
+    ['question.butnot',       180,   'plain',    false,    'the chained hint is prose'],
+    ['question.butnot_ishes', 170,   'centered', true,     'a list of spans, ordered by how many'],
+    ['numnum_hint',           170,   'centered', true,     'a number spotter\'s spans are a list'],
+    ['dumdum',                160,   'plain',    false,    'a guess is prose'],
+    ['total',                 78,    'vertical', true,     'a narrow computed column turns its header on its side'],
+    ['total',                 180,   'plain',    true,     'a wide computed column lays it along the row'],
+  ]
+  for (const [source, width, headkind, isSortable, blurb] of Cases) {
+    it(blurb, () => {
+      const spec = present(specFor(columnOf(source, width), widgets))
+      expect([spec.headkind, spec.sortkey !== undefined, spec.widthPx]).to.deep.eq([headkind, isSortable, width])
+    })
+  }
+
+  it('remembers a sortable column by its label', () => {
+    const spec = present(specFor(columnOf('question.title', 100, 'named'), widgets))
+    expect(spec.sortkey).to.eq('column:named')
   })
 
-  it('is just the fixed columns when the quiz has none of its own', () => {
-    expect(columnsFor([])).to.deep.eq([...LeadColumns, ...TailColumns])
+  it('is nothing for a column showing a widget the quiz does not have', () => {
+    expect(specFor(columnOf('nowhere'), widgets)).to.eq(null)
   })
 
-  it('gives every column a key of its own', () => {
-    const keys = columnsFor([skinny, medium]).map((column) => column.colkey)
-    expect(new Set(keys).size).to.eq(keys.length)
+  it('names the column in an export by its label', () => {
+    const spec = present(specFor(columnOf('question.title', 100, 'named'), widgets))
+    expect(spec.header).to.eq('named')
   })
 })
 
-describe('gridWidthPx', () => {
-  it('adds up the widths, so the grid can insist on them', () => {
-    expect(gridWidthPx(columnsFor([]))).to.eq([...LeadColumns, ...TailColumns].reduce((acc, column) => acc + column.widthPx, 0))
+describe('specsFor and gridWidthPx', () => {
+  const specs = specsFor(layout)
+
+  it('has a spec for every column of the standard layout, in order', () => {
+    expect(specs.map((spec) => spec.colkey)).to.deep.eq(layout.columns.map((column) => column.label))
   })
 
-  it('grows by exactly the width of each computed column', () => {
-    expect(gridWidthPx(columnsFor([skinny, medium])) - gridWidthPx(columnsFor([]))).to.eq(ShapeWidthPx.skinny + ShapeWidthPx.medium)
+  it('leaves out a column that shows nothing, rather than failing', () => {
+    const quiz = { widgets: [], columns: [columnOf('question.title'), columnOf('nowhere', 100, 'lost')] }
+    expect(specsFor(quiz).map((spec) => spec.colkey)).to.deep.eq(['col'])
+  })
+
+  it('adds the widths up with the grip, so the grid can insist on them', () => {
+    expect(gridWidthPx(specs)).to.eq(GripWidthPx + layout.columns.reduce((acc, column) => acc + column.width_px, 0))
+  })
+
+  it('is as wide as the grip alone for a quiz with no columns', () => {
+    expect(gridWidthPx([])).to.eq(GripWidthPx)
+  })
+})
+
+describe('qnumSortkeyOf', () => {
+  it('names the column showing Q#, wherever it is and whatever it is called', () => {
+    expect(qnumSortkeyOf({ columns: [columnOf('question.title'), columnOf('question.qnum', 60, 'number')] })).to.eq('column:number')
+  })
+
+  it('is null for a quiz that shows no Q#', () => {
+    expect(qnumSortkeyOf({ columns: [columnOf('question.title')] })).to.eq(null)
   })
 })

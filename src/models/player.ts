@@ -6,10 +6,9 @@ import { ServicelabelVals } from '../lib/credentials'
 import { players } from '../db/schema'
 import { BulkIshesPrompt, ClueingIshesPrompt, HintIshesPrompt, QuickGuessPrompt } from '../lib/ask/prompts'
 import { MaxTokensForJob } from '../lib/ask/models'
+import { PlayerLabelVals } from './player-label'
 
-/** Every player there is: the hasty guesser, and the number spotter */
-export const PlayerLabelVals = ['dumdum', 'numnum'] as const
-export type PlayerLabel = typeof PlayerLabelVals[number]
+export { PlayerLabelVals, type PlayerLabel } from './player-label'
 
 /** Which prompt a player is given, by what it is being shown: a clueing, a hint, or a whole quiz's worth at once */
 export const PromptkindVals = ['clueing', 'hint', 'bulk'] as const

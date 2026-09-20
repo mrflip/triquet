@@ -156,3 +156,24 @@ describe('shorthandFor', () => {
     expect(subject).to.eq('quiz ~title; quiet_otter +clueing +hint +notes')
   })
 })
+
+describe('expressionChanges', () => {
+  const expression = { owner: 'tq' as const, label: 'shout', formula: '1', description: '' }
+
+  it('is one change, filed under widgets, when the expressions moved', () => {
+    expect(Changes.expressionChanges([], [expression])).to.deep.eq([{ scope: 'widgets', fieldkey: 'expressions', changekind: 'revised' }])
+    expect(Changes.expressionChanges([expression], [{ ...expression, formula: '2' }])).to.have.length(1)
+  })
+
+  it('is nothing when they are the same, even as new objects', () => {
+    expect(Changes.expressionChanges([expression], [{ ...expression }])).to.deep.eq([])
+  })
+
+  it('is nothing for a quiz only now coming into being, which is reported as itself', () => {
+    expect(Changes.expressionChanges(null, [expression])).to.deep.eq([])
+  })
+
+  it('reads in a commit subject as widgets ~expressions', () => {
+    expect(Changes.shorthandFor(Changes.expressionChanges([], [expression]))).to.eq('widgets ~expressions')
+  })
+})

@@ -3,10 +3,11 @@ import * as Formulas from './formulas'
 import * as Labelmaker from './labelmaker'
 import * as Rank from './rank'
 import * as UU from './useful'
-import type { ExpressingT } from '../models/expressing'
+import { expressingsOf, type ExpressingT } from '../models/widget'
 import type { ExpressionT } from '../models/expression'
-import type { QuestionT } from '../models/question'
-import type { QuizT } from '../models/quiz'
+import { exposeGuess, exposeIshes } from '../models/playing'
+import { Question, type QuestionT } from '../models/question'
+import { Quiz, type QuizT } from '../models/quiz'
 
 /** What a formula can come to and still be shown in a cell */
 export type ExpressedScalar = string | number | boolean
@@ -57,7 +58,7 @@ const Absent: ReadonlySet<unknown> = new Set([undefined, null, ''])
 const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
 
 /**
- * Every expressing of `quiz` worked out for every question, from the formulas in `expressions`.
+ * Every expressing widget of `quiz` worked out for every question, from the formulas in `expressions`.
  *
  * Nothing here throws or is stored: a formula that fails costs its own cells and no others, and
  * a formula that will not stop is stopped, after which the rest of its column reads the same
@@ -72,7 +73,7 @@ const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
 export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): ExpressedForQuiz {
   const formulaForLabel = new Map(expressions.map((expression) => [expression.label, expression.formula]))
   const bags = bagsFor(quiz)
-  return new Map(quiz.expressings.map((expressing) => [
+  return new Map(expressingsOf(quiz.widgets).map((expressing) => [
     expressing.label,
     columnFor(expressing, formulaForLabel.get(expressing.expression_label) ?? null, bags),
   ]))
@@ -125,7 +126,7 @@ export function bagsFor(quiz: QuizT): ReadonlyMap<string, QuizBag> {
   const labelForId = new Map(quiz.questions.map((question) => [question.id, Labelmaker.effectiveLabelOf(question)]))
   const qns = quiz.questions.map((question) => stripped(question, ranks.get(question.id) ?? null, labelForId))
   const quiz_label = Labelmaker.effectiveLabelOf(quiz)
-  const quizBag = { ..._.omit(quiz, ['id', 'questions', 'expressings', 'forced_label']), label: quiz_label }
+  const quizBag = { ..._.pick(quiz, Quiz.exposed), label: quiz_label }
   return new Map(quiz.questions.map((question, idx) => [question.id, {
     quiz:     quizBag,
     qns,
@@ -135,10 +136,21 @@ export function bagsFor(quiz: QuizT): ReadonlyMap<string, QuizBag> {
   }]))
 }
 
-/** `question` as a formula sees it: no ids, its label the one in force, its chain named by label, its rank added */
+/**
+ * `question` as a formula sees it: only its exposed fields, its label the one in force and its
+ * chain named by label, its rank added, and what the players answered as their exposed fields.
+ */
 function stripped(question: QuestionT, rank: number | null, labelForId: ReadonlyMap<string, string>): Record<string, unknown> {
   const chained = question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null
-  return { ..._.omit(question, ['id', 'forced_label']), label: labelForId.get(question.id) ?? question.label, chains_to: chained, rank }
+  return {
+    ..._.pick(question, Question.exposed),
+    label:         labelForId.get(question.id) ?? question.label,
+    chains_to:     chained,
+    rank,
+    guess:         exposeGuess(question.guess),
+    clueing_ishes: exposeIshes(question.clueing_ishes),
+    hint_ishes:    exposeIshes(question.hint_ishes),
+  }
 }
 
 /** One expressing's results for every question; `formula` is null when the expression it names is gone */

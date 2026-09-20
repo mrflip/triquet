@@ -2,7 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { Quiz, QuizValidators, type QuizT } from './quiz'
 import { ExpressionValidators, SeedExpressions, keyOf, type ExpressionT } from './expression'
-import { defaultsFor } from './expressing'
+import { defaultLayoutFor } from './layout'
 
 export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
   const workspace = obj({
@@ -24,9 +24,9 @@ export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
       }
       const labelsHeld = new Set(context.value.expressions.map((expression) => expression.label))
       for (const [qq, quiz] of context.value.quizzes.entries()) {
-        for (const [ii, expressing] of quiz.expressings.entries()) {
-          if (! labelsHeld.has(expressing.expression_label)) {
-            context.issues.push({ code: 'custom', input: expressing.expression_label, path: ['quizzes', qq, 'expressings', ii, 'expression_label'], message: 'A column names an expression this workspace does not have' })
+        for (const [ii, widget] of quiz.widgets.entries()) {
+          if (widget.kind === 'expressing' && ! labelsHeld.has(widget.expression_label)) {
+            context.issues.push({ code: 'custom', input: widget.expression_label, path: ['quizzes', qq, 'widgets', ii, 'expression_label'], message: 'A widget names an expression this workspace does not have' })
           }
         }
       }
@@ -68,15 +68,15 @@ export class Workspace implements WorkspaceT {
    * @example Workspace.blank().quizzes.length  // => 1
    */
   static blank(): WorkspaceT {
-    const quiz = { ...Quiz.blank(), expressings: defaultsFor(SeedExpressions) }
+    const quiz = { ...Quiz.blank(), ...defaultLayoutFor(SeedExpressions) }
     return this.fill({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [...SeedExpressions] })
   }
 
   /**
    * `dna`, repaired rather than rejected where it can be: an `active_quiz_id` naming no quiz
    * falls back to the first one, and a workspace holding no expressions at all -- one saved
-   * before there were any -- is given the standard expressions and its quizzes the standard
-   * columns. Anything else still throws.
+   * before there were any -- is given the standard expressions and each of its quizzes that has no columns the
+   * standard widgets and columns. Anything else still throws.
    *
    * @param dna - A workspace read back from storage or an export.
    * @returns A complete workspace.
@@ -87,7 +87,7 @@ export class Workspace implements WorkspaceT {
     const hasActive = dna.quizzes.some((quiz) => quiz.id === dna.active_quiz_id)
     const active_quiz_id = hasActive ? dna.active_quiz_id : firstQuiz.id
     if ((dna.expressions ?? []).length > 0) { return this.fill({ ...dna, active_quiz_id }) }
-    const quizzes = dna.quizzes.map((quiz) => ({ ...quiz, expressings: (quiz.expressings ?? []).length > 0 ? quiz.expressings : defaultsFor(SeedExpressions) }))
+    const quizzes = dna.quizzes.map((quiz) => ((quiz.columns ?? []).length > 0 ? quiz : { ...quiz, ...defaultLayoutFor(SeedExpressions) }))
     return this.fill({ ...dna, active_quiz_id, quizzes, expressions: [...SeedExpressions] })
   }
 }

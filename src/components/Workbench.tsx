@@ -15,6 +15,7 @@ import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
 import { usePlayers } from '../state/use-players'
 import { useQuizHashSync, writeQuizHash } from '../state/use-quiz-route'
+import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
 import styles from './workbench.module.css'
@@ -33,6 +34,7 @@ export function Workbench() {
   const { missingLabel } = useQuizHashSync(workspace, quiz, dispatch)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
+  const specs = useMemo(() => (quiz ? specsFor(quiz) : []), [quiz])
   const expressed = useMemo(() => (quiz ? Expressed.forQuiz(quiz, workspace.expressions) : new Map()), [quiz, workspace.expressions])
 
   if (quiz && missingLabel !== null) {
@@ -93,10 +95,10 @@ export function Workbench() {
       )}
       <QuestionTable
         questions={quiz.questions}
-        expressings={quiz.expressings}
+        specs={specs}
         expressed={expressed}
         locked={quiz.locked}
-        gripShown={quiz.last_sortkey === null || quiz.last_sortkey === 'qnum'}
+        gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
         lastSortkey={quiz.last_sortkey}
         sortMark={sortMark}
         onSort={onSort}

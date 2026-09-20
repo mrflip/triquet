@@ -1,8 +1,8 @@
 import { mintId } from '../lib/ids'
 import type { PlayingRow } from '../db/schema'
 import { askError, type LastErrT } from './ask'
-import type { GuessDNA, GuessDoneT } from './guess'
-import type { IshesDNA, IshesDoneT } from './ish'
+import type { GuessDNA, GuessDoneT, GuessT } from './guess'
+import type { IshesDNA, IshesDoneT, IshesT, IshItemT } from './ish'
 import type { PlayerLabel } from './player'
 import type { QuestionDNA, QuestionT } from './question'
 import type { Textkind } from '../lib/ask/contract'
@@ -195,4 +195,36 @@ function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesD
 /** A failed playing, as the `last_err` its cell keeps */
 function lastErrOf(playing: PlayingT): LastErrT {
   return { message: playing.message ?? '', response: playing.response ?? null, at: playing.created_at }
+}
+
+/** What of a guess is shown to the outside world: whether there is an answer, and the answer */
+export type ExposedGuess = { status: 'done', text: string } | { status: 'error' } | null
+
+/** What of an extraction is shown to the outside world: whether there is one, its spans, and whether it is out of date */
+export type ExposedIshes = { status: 'done', items: IshItemT[], stale: boolean } | { status: 'error' } | null
+
+/**
+ * A guess as the outside world sees it: the answer, and nothing about what it cost, which model
+ * made it, when, or how a refresh of it failed.
+ *
+ * @param guess - What a question holds.
+ * @returns Its exposed fields; null when never asked.
+ *
+ * @example exposeGuess({ status: 'done', text: 'Leon', ... })  // => { status: 'done', text: 'Leon' }
+ */
+export function exposeGuess(guess: GuessT): ExposedGuess {
+  if (guess === null) { return null }
+  return guess.status === 'done' ? { status: 'done', text: guess.text } : { status: 'error' }
+}
+
+/**
+ * An extraction as the outside world sees it: the spans and whether they are stale, and nothing
+ * about tokens, tiers, times or failures.
+ *
+ * @param ishes - What a question holds.
+ * @returns Its exposed fields; null when never asked.
+ */
+export function exposeIshes(ishes: IshesT): ExposedIshes {
+  if (ishes === null) { return null }
+  return ishes.status === 'done' ? { status: 'done', items: ishes.items, stale: ishes.stale } : { status: 'error' }
 }

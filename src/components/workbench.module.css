@@ -171,6 +171,40 @@
   margin-left: 6px;
 }
 
+.foldSummary {
+  display:     flex;
+  gap:         12px;
+  align-items: baseline;
+  cursor:      pointer;
+  font-size:   12px;
+}
+
+.foldLabel { flex: none; font-weight: 600 }
+
+.foldOneLine {
+  flex:          1;
+  min-width:     0;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  white-space:   nowrap;
+  text-align:    right;
+  font-family:   var(--font-data);
+  color:         var(--muted);
+}
+
+.foldBody {
+  font-family:   var(--font-data);
+  font-size:     12px;
+  max-height:    240px;
+  overflow:      auto;
+  margin:        4px 0 8px;
+  padding:       6px 8px;
+  border:        1px solid var(--border);
+  border-radius: var(--radius-input);
+  white-space:   pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .previewResult {
   font-family: var(--font-data);
   font-size:   13px;

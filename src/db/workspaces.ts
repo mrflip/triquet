@@ -1,14 +1,15 @@
 import _ from 'es-toolkit/compat'
 import { and, asc, eq, inArray, max, ne, notInArray } from 'drizzle-orm'
 import { mintId } from '../lib/ids'
-import { expressings, expressions, playings, questions, quizzes, workspaces } from './schema'
+import { columns, expressions, playings, questions, quizzes, widgets, workspaces } from './schema'
 import { latestBySlot, resultsFor, slotkeyOf, unrecordedPlayings } from '../models/playing'
 import { Workspace, type WorkspaceT } from '../models/workspace'
-import type { ExpressingRow, ExpressionRow, PlayingRow, QuestionRow, QuizRow } from './schema'
+import type { ColumnRow, ExpressionRow, PlayingRow, QuestionRow, QuizRow, WidgetRow } from './schema'
 import type { Db } from './client'
 import type { ExpressionDNA, ExpressionT } from '../models/expression'
 import type { QuestionDNA, QuestionT } from '../models/question'
 import type { QuizDNA, QuizT } from '../models/quiz'
+import type { WidgetDNA, WidgetT } from '../models/widget'
 import type { WorkspaceChangeT } from '../models/workspace-change'
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -46,7 +47,8 @@ export async function loadWorkspace(db: Db, workspace_id: string): Promise<Works
         orderBy: asc(quizzes.id),
         with:    {
           questions:   { orderBy: asc(questions.position), with: { playings: true } },
-          expressings: { orderBy: asc(expressings.position) },
+          widgets:     { orderBy: asc(widgets.position) },
+          columns:     { orderBy: asc(columns.position) },
         },
       },
     },
@@ -108,7 +110,7 @@ async function refuseForeign(tx: Tx, workspace_id: string, incoming: readonly Qu
 
 /** One quiz, whole: its own fields, its questions in order, its columns in order, and any new playings */
 async function saveQuiz(tx: Tx, workspace_id: string, quiz: QuizT): Promise<void> {
-  const { questions: held, expressings: columns, ...quizFields } = quiz
+  const { questions: held, widgets: heldWidgets, columns: heldColumns, ...quizFields } = quiz
   const heldIds = held.map((question) => question.id)
   await tx.insert(quizzes).values({ ...quizFields, workspace_id })
     .onConflictDoUpdate({ target: quizzes.id, set: quizFields })
@@ -117,9 +119,13 @@ async function saveQuiz(tx: Tx, workspace_id: string, quiz: QuizT): Promise<void
     const fields = { ...questionFieldsOf(question), quiz_id: quiz.id, position: ii }
     await tx.insert(questions).values(fields).onConflictDoUpdate({ target: questions.id, set: fields })
   }
-  await tx.delete(expressings).where(eq(expressings.quiz_id, quiz.id))
-  if (columns.length > 0) {
-    await tx.insert(expressings).values(columns.map((expressing, ii) => ({ ...expressing, quiz_id: quiz.id, position: ii })))
+  await tx.delete(widgets).where(eq(widgets.quiz_id, quiz.id))
+  if (heldWidgets.length > 0) {
+    await tx.insert(widgets).values(heldWidgets.map((widget, ii) => ({ ...widgetRowFrom(widget), quiz_id: quiz.id, position: ii })))
+  }
+  await tx.delete(columns).where(eq(columns.quiz_id, quiz.id))
+  if (heldColumns.length > 0) {
+    await tx.insert(columns).values(heldColumns.map((column, ii) => ({ ...column, quiz_id: quiz.id, position: ii })))
   }
   await recordPlayings(tx, held)
 }
@@ -148,15 +154,29 @@ function questionFieldsOf(question: QuestionT) {
   return _.omit(question, ['guess', 'clueing_ishes', 'hint_ishes'])
 }
 
-type QuizTree = QuizRow & { questions: (QuestionRow & { playings: PlayingRow[] })[], expressings: ExpressingRow[] }
+type QuizTree = QuizRow & { questions: (QuestionRow & { playings: PlayingRow[] })[], widgets: WidgetRow[], columns: ColumnRow[] }
 
 /** A quiz as loaded, back in the shape the app works with */
 function quizDnaFrom(quiz: QuizTree, latest: ReturnType<typeof latestBySlot>): QuizDNA {
   return {
-    ..._.omit(quiz, ['workspace_id', 'questions', 'expressings']),
-    questions:   quiz.questions.map((row) => questionDnaFrom(row, latest)),
-    expressings: quiz.expressings.map((row) => _.omit(row, ['quiz_id', 'position'])),
+    ..._.omit(quiz, ['workspace_id', 'questions', 'widgets', 'columns']),
+    questions: quiz.questions.map((row) => questionDnaFrom(row, latest)),
+    widgets:   quiz.widgets.map((row) => widgetDnaFrom(row)),
+    columns:   quiz.columns.map((row) => _.omit(row, ['quiz_id', 'position'])),
   }
+}
+
+/** A widget as stored: the columns its kind does not use are null */
+function widgetRowFrom(widget: WidgetT): Omit<WidgetRow, 'quiz_id' | 'position'> {
+  const blank = { expression_label: null, player_label: null, textkind: null }
+  return { ...blank, ...widget }
+}
+
+/** A widget as loaded, back in the shape the app works with */
+function widgetDnaFrom(row: WidgetRow): WidgetDNA {
+  const { label, description } = row
+  if (row.kind === 'expressing') { return { kind: 'expressing', label, description, expression_label: row.expression_label ?? '' } }
+  return { kind: 'playing', label, description, player_label: row.player_label ?? 'dumdum', textkind: row.textkind ?? 'clueing' }
 }
 
 /** An expression as loaded, back in the shape the app works with */

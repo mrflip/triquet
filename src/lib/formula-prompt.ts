@@ -1,7 +1,7 @@
 import * as UU from './useful'
 import { FormulaMax } from './formulas'
 import { inputSchema, outputSchema } from '../models/quiz-bag'
-import type { ExpressingT } from '../models/expressing'
+import type { ExpressingT } from '../models/widget'
 import type { ExpressionT } from '../models/expression'
 
 /**
@@ -9,7 +9,7 @@ import type { ExpressionT } from '../models/expression'
  * partly blank or absent, and optionally one real input to show.
  */
 export type PromptSubject = {
-  expressing: Pick<ExpressingT, 'label' | 'title' | 'description' | 'shape'> | null
+  expressing: (Pick<ExpressingT, 'label' | 'description'> & { title?: string }) | null
   expression: Pick<ExpressionT, 'label' | 'description' | 'formula'> | null
   /** One real question's `qn`, as the formula would see it, to make the schema concrete */
   sample:     Record<string, unknown> | null
@@ -47,19 +47,12 @@ const Preamble = `I use a small quiz-editing tool. In it, a column can be comput
 function aboutSection({ expressing, expression }: Readonly<PromptSubject>): string {
   const facts = [
     fact('The column\'s title', expressing?.title),
-    fact('The column\'s label', expressing?.label),
-    fact('What the column is for in this quiz', expressing?.description),
-    fact('Its width', expressing ? widthNote(expressing.shape) : ''),
+    fact('The widget\'s label', expressing?.label),
+    fact('What the widget is for in this quiz', expressing?.description),
     fact('The expression\'s label', expression?.label),
     fact('What the expression works out', expression?.description),
   ].filter((line) => line !== '')
   return ['## What I am after', ...(facts.length === 0 ? ['I have not written anything down about it yet; I will describe it as we go.'] : facts)].join('\n')
-}
-
-/** What a width means for what fits in the column */
-function widthNote(shape: NonNullable<PromptSubject['expressing']>['shape']): string {
-  const room = shape === 'skinny' ? 'room for a number' : 'room for a short line of text'
-  return `${shape} (${room})`
 }
 
 /** One `- Label: text` line, or nothing when the text is blank */

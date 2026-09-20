@@ -1,13 +1,14 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import clsx from 'clsx'
-import { columnsFor } from '../lib/columns'
+import { GripWidthPx, type ColumnSpec } from '../lib/columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { ExpressedReadout } from './cells/readouts'
 import * as Expressed from '../lib/expressed'
-import { sortkeyOf, type ExpressingT } from '../models/expressing'
-import type { Askkind } from '../state/use-asking'
+import type { QuestionField } from '../models/column'
+import type { PlaySlot } from '../models/playing'
+import { askableTextOf, type Askkind } from '../state/use-asking'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { GuessCell } from './cells/guess'
 import { ButnotIshesCell, IshesCell } from './cells/ishes'
@@ -16,6 +17,9 @@ import styles from './workbench.module.css'
 
 /** Tallest a row may grow before its Clueing and Hint boxes scroll internally instead */
 export const RowCapPx = 480
+
+/** Wide enough to say why a formula failed, rather than only that it did */
+const WideReadoutPx = 150
 
 /** Shortest a row may be, so an empty quiz still reads as a grid */
 export const RowFloorPx = 56
@@ -36,8 +40,8 @@ export type QuestionRowProps = {
   onDrop:      () => void
   onDragEnd:   () => void
   onChain:     (chains_to: string | null) => void
-  /** The quiz's computed columns, in the order they appear */
-  expressings: ExpressingT[]
+  /** The quiz's columns, in the order they appear */
+  specs:       ColumnSpec[]
   /** What each computed column came to for each question of the quiz */
   expressed:   Expressed.ExpressedForQuiz
   /** Whether an ask for one of this question's cells is in flight */
@@ -57,7 +61,7 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, expressings, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
 
@@ -75,23 +79,94 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
     default:             { break }
     }
   }
-  const widths = useMemo(() => Object.fromEntries(columnsFor(expressings).map((column) => [column.colkey, column])), [expressings])
+  /** What a column shows for this question */
+  const bodyOf = (spec: ColumnSpec): React.JSX.Element => {
+    const { source } = spec
+    if (source.kind === 'field') { return fieldBody(source.field) }
+    if (source.kind === 'view') {
+      return source.view === 'butnot'
+        ? <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
+        : <ButnotIshesCell ishes={chainTarget?.hint_ishes ?? null} chained={question.chains_to !== null} heightPx={heightPx} />
+    }
+    if (source.kind === 'expressing') {
+      return (
+        <ExpressedReadout
+          reading={Expressed.readingOf(expressed, source.widget.label, question.id)}
+          wide={spec.widthPx >= WideReadoutPx}
+          heightPx={heightPx}
+        />
+      )
+    }
+    return playedBody(source.slot.field)
+  }
 
-  const cell = (colkey: string, body: React.ReactNode, onDoubleClick?: () => void) => {
-    const column = widths[colkey]
-    const isCollapsedGrip = colkey === 'grip' && ! gripShown
+  /** One of the question's own fields, in the box it is edited in */
+  const fieldBody = (field: QuestionField): React.JSX.Element => {
+    switch (field) {
+    case 'title': {
+      return (
+        <>
+          <PlainField label="Title" committed={question.title} locked={locked} onCommit={(title) => { commit({ title }) }} />
+          <div className={styles.metaline}>{question.label}</div>
+        </>
+      )
+    }
+    case 'clueing': {
+      return <GrowingField label="Clueing" committed={question.clueing} locked={locked} onCommit={(clueing) => { commit({ clueing }) }} heightPx={heightPx} onNatural={setClueingNaturalPx} resizeToken={resizeToken} />
+    }
+    case 'hint': {
+      return <GrowingField label="Hint" committed={question.hint} locked={locked} onCommit={(hint) => { commit({ hint }) }} heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken} />
+    }
+    case 'chains_to': {
+      return <ChainPicker question={question} questions={questions} locked={locked} onChain={onChain} />
+    }
+    case 'qnum': {
+      return <QnumField label="Q#" committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
+    }
+    case 'alt_text': {
+      return <StretchField label="Alt Text" committed={question.alt_text} locked={locked} onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx} />
+    }
+    case 'notes': {
+      return <StretchField label="Notes" committed={question.notes} locked={locked} onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx} />
+    }
+    case 'full_answer': {
+      return <StretchField label="Full Answer" committed={question.full_answer} locked={locked} onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx} />
+    }
+    }
+  }
+
+  /** What one player answered, in the cell that asks it again */
+  const playedBody = (field: PlaySlot['field']): React.JSX.Element => {
+    if (field === 'guess') {
+      return (
+        <GuessCell
+          guess={question.guess} asking={asking('guess')} askable={question.clueing.trim() !== ''}
+          locked={locked} notice={unavailableNotice('guess')} heightPx={heightPx} onAsk={() => { onAsk('guess') }}
+        />
+      )
+    }
+    const askkind = field === 'clueing_ishes' ? 'clueing' : 'hint'
     return (
-      <td
-        key={colkey}
-        className={clsx(styles.cell, isCollapsedGrip && styles.gripCollapsed)}
-        style={{ width: `${String(column?.widthPx ?? 0)}px` }}
-        data-colname={column?.title}
-        onDoubleClick={onDoubleClick}
-      >
-        {isCollapsedGrip ? null : body}
-      </td>
+      <IshesCell
+        ishes={question[field]} label={field === 'clueing_ishes' ? 'Clueing ishes' : 'Hint Ishes'}
+        asking={asking(askkind)} askable={askableTextOf(question, askkind) !== ''}
+        locked={locked} notice={unavailableNotice(askkind)} heightPx={heightPx} onAsk={() => { onAsk(askkind) }}
+      />
     )
   }
+
+  /** The cell for one column */
+  const cell = (spec: ColumnSpec) => (
+    <td
+      key={spec.colkey}
+      className={styles.cell}
+      style={{ width: `${String(spec.widthPx)}px` }}
+      data-colname={spec.title}
+      onDoubleClick={spec.source.kind === 'expressing' ? () => { reextractFor(spec.source.kind === 'expressing' ? spec.source.widget.expression_label : '') } : undefined}
+    >
+      {bodyOf(spec)}
+    </td>
+  )
 
   const draggable = gripShown && ! locked
 
@@ -109,114 +184,29 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
         onDrop()
       }}
     >
-      {cell('title', (
-        <>
-          <PlainField
-            label="Title" committed={question.title} locked={locked}
-            onCommit={(title) => { commit({ title }) }}
-          />
-          <div className={styles.metaline}>{question.label}</div>
-        </>
-      ))}
-      {cell('grip', (
-        <div
-          className={clsx(styles.grip, locked && styles.gripLocked)}
-          draggable={draggable}
-          role="button"
-          tabIndex={draggable ? 0 : -1}
-          aria-label={`Reorder ${question.title || 'this question'}`}
-          onDragStart={onDragBegin}
-          onDragEnd={onDragEnd}
-        >
-          ⠿
-        </div>
-      ))}
-      {cell('clueing', (
-        <GrowingField
-          label="Clueing" committed={question.clueing} locked={locked}
-          onCommit={(clueing) => { commit({ clueing }) }}
-          heightPx={heightPx} onNatural={setClueingNaturalPx} resizeToken={resizeToken}
-        />
-      ))}
-      {cell('hint', (
-        <GrowingField
-          label="Hint" committed={question.hint} locked={locked}
-          onCommit={(hint) => { commit({ hint }) }}
-          heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken}
-        />
-      ))}
-      {cell('chains_to', (
-        <ChainPicker question={question} questions={questions} locked={locked} onChain={onChain} />
-      ))}
-      {cell('butnot', (
-        <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
-      ))}
-      {cell('qnum', (
-        <QnumField label="Q#" committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
-      ))}
-      {/* The double-click shortcut is undocumented on screen, on purpose: it is muscle memory
-          for someone iterating hard on one clue's total, and the ishes cell it summarises is
-          the documented, keyboard-reachable way to the same thing. It belongs to the standard
-          Full Sum expressions, wherever a quiz has put them. */}
-      {expressings.map((expressing) => cell(
-        sortkeyOf(expressing),
-        <ExpressedReadout
-          reading={Expressed.readingOf(expressed, expressing.label, question.id)}
-          shape={expressing.shape}
-          heightPx={heightPx}
-        />,
-        () => { reextractFor(expressing.expression_label) },
-      ))}
-      {cell('alt_text', (
-        <StretchField
-          label="Alt Text" committed={question.alt_text} locked={locked}
-          onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx}
-        />
-      ))}
-      {cell('notes', (
-        <StretchField
-          label="Notes" committed={question.notes} locked={locked}
-          onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx}
-        />
-      ))}
-      {cell('full_answer', (
-        <StretchField
-          label="Full Answer" committed={question.full_answer} locked={locked}
-          onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx}
-        />
-      ))}
-      {cell('clueing_ishes', (
-        <IshesCell
-          ishes={question.clueing_ishes} label="Clueing ishes"
-          asking={asking('clueing')} askable={question.clueing.trim() !== ''}
-          locked={locked} notice={unavailableNotice('clueing')} heightPx={heightPx} onAsk={() => { onAsk('clueing') }}
-        />
-      ))}
-      {cell('butnot_ishes', (
-        <ButnotIshesCell
-          ishes={chainTarget?.hint_ishes ?? null}
-          chained={question.chains_to !== null}
-          heightPx={heightPx}
-        />
-      ))}
-      {cell('hint_ishes', (
-        <IshesCell
-          ishes={question.hint_ishes} label="Hint Ishes"
-          asking={asking('hint')} askable={question.hint.trim() !== ''}
-          locked={locked} notice={unavailableNotice('hint')} heightPx={heightPx} onAsk={() => { onAsk('hint') }}
-        />
-      ))}
-      {cell('guess', (
-        <GuessCell
-          guess={question.guess}
-          asking={asking('guess')}
-          askable={question.clueing.trim() !== ''}
-          locked={locked}
-          notice={unavailableNotice('guess')}
-          heightPx={heightPx}
-          onAsk={() => { onAsk('guess') }}
-        />
-      ))}
+      <td
+        className={clsx(styles.cell, ! gripShown && styles.gripCollapsed)}
+        style={{ width: `${String(GripWidthPx)}px` }}
+      >
+        {gripShown && (
+          <div
+            className={clsx(styles.grip, locked && styles.gripLocked)}
+            draggable={draggable}
+            role="button"
+            tabIndex={draggable ? 0 : -1}
+            aria-label={`Reorder ${question.title || 'this question'}`}
+            onDragStart={onDragBegin}
+            onDragEnd={onDragEnd}
+          >
+            ⠿
+          </div>
+        )}
+      </td>
+      {/* The double-click shortcut on a Full Sum is undocumented on screen, on purpose: it is
+          muscle memory for someone iterating hard on one clue's total, and the ishes cell it
+          summarises is the documented, keyboard-reachable way to the same thing. It belongs to
+          the standard Full Sum expressions, wherever a quiz has put them. */}
+      {specs.map((spec) => cell(spec))}
     </tr>
   )
 }

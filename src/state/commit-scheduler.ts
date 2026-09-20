@@ -1,8 +1,15 @@
 import { MirrorSettings } from '../models/mirror-settings'
+import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
 
+/** What a repository holds: the quiz, and the workspace's expressions that its widgets work */
+export type MirrorSnapshot = {
+  quiz:        QuizT
+  expressions: readonly ExpressionT[]
+}
+
 /** What to do when a quiz's wait is up: record `latest`, which differs from `baseline` by the burst of edits */
-export type CommitFn = (baseline: QuizT | null, latest: QuizT) => Promise<unknown>
+export type CommitFn = (baseline: MirrorSnapshot | null, latest: MirrorSnapshot) => Promise<unknown>
 
 export type CommitSchedulerOpts = {
   /** Target wait between an edit and its commit, in whole seconds from 2 to 600 */
@@ -12,7 +19,7 @@ export type CommitSchedulerOpts = {
 
 export type CommitScheduler = {
   /** Record that a quiz moved from `before` to `after`; commits after the wait unless one is already due */
-  note:         (before: QuizT | null, after: QuizT) => void
+  note:         (before: MirrorSnapshot | null, after: MirrorSnapshot) => void
   /** Commit one quiz's pending edits now, resolving when that commit has finished */
   flush:        (quizId: string) => Promise<void>
   /** Commit everything pending now */
@@ -23,8 +30,8 @@ export type CommitScheduler = {
 
 /** One quiz's wait: the state it was in when the wait began, the state it is in now, and the clock */
 type Pending = {
-  baseline: QuizT | null
-  latest:   QuizT
+  baseline: MirrorSnapshot | null
+  latest:   MirrorSnapshot
   timer:    ReturnType<typeof setTimeout>
 }
 
@@ -68,10 +75,10 @@ export function createCommitScheduler(opts: Readonly<CommitSchedulerOpts>): Comm
 
   return {
     note(before, after) {
-      const waiting = pending.get(after.id)
+      const waiting = pending.get(after.quiz.id)
       if (waiting) { waiting.latest = after; return }
-      const timer = setTimeout(() => { void flush(after.id) }, commit_debounce_seconds * 1000)
-      pending.set(after.id, { baseline: before, latest: after, timer })
+      const timer = setTimeout(() => { void flush(after.quiz.id) }, commit_debounce_seconds * 1000)
+      pending.set(after.quiz.id, { baseline: before, latest: after, timer })
     },
     flush,
     async flushAll() {

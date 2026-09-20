@@ -3,8 +3,11 @@ import { zipSync } from 'fflate'
 import _ from 'es-toolkit/compat'
 import Papa from 'papaparse'
 import * as Changes from './changes'
+import * as Expressed from './expressed'
+import * as Exposure from './exposure'
 import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
+import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
 
 /** Where each quiz's repository lives, one directory per quiz, named by the id that never moves */
@@ -86,56 +89,54 @@ export async function flushFs(fs: GitFs): Promise<void> {
   await fs.promises.flush?.()
 }
 
-/** The questions file's columns, in reading order: what the author sees first, then the rest */
-export const QuestionColumns = [
-  'title', 'clueing', 'hint', 'qnum', 'label', 'chains_to', 'full_answer', 'alt_text', 'notes',
-] as const
+/** Where the workspace's expressions are kept in every repository: beside the quizzes, in the one place they are all read from */
+export const ExpressionsPath = 'tq/widgets/my.tqexpressions.json'
 
 /**
- * `quiz`'s questions as tab-separated text, a header line first and one line per question after,
- * in the order the quiz holds them.
+ * `quiz`'s table as tab-separated text, a header line first and one line per question after.
  *
- * Quoting is Papa Parse's, so a tab, a quote or a line break inside a field cannot break the
- * row it sits in. `chains_to` is written as the target's label rather than its id, since a label
- * is what a person can read and what survives being typed back in.
+ * It has a column for every exposed field of every widget -- the questions' own, the players',
+ * and each expression's value -- alphabetically by widget label and then by field label, and its
+ * rows are in order of question label. Neither depends on how the author has arranged the grid
+ * or the quiz, so a commit's diff of it shows what changed and nothing else. Quoting is Papa
+ * Parse's, so a tab, a quote or a line break inside a field cannot break the row it sits in.
  *
  * @param quiz - The quiz as it now stands.
+ * @param expressed - What its expressing widgets came to, from `Expressed.forQuiz`.
  * @returns The text, ending in a newline.
  *
- * @example questionsTsv(quiz).split('\n')[0]  // => 'title\tclueing\thint\tqnum\tlabel\tchains_to\tfull_answer\talt_text\tnotes'
+ * @example questionsTsv(quiz, expressed).split('\n')[0]  // => 'clueing_full.value\t...\tquestion.alt_text\t...'
  */
-export function questionsTsv(quiz: QuizT): string {
-  const labelForId = new Map(quiz.questions.map((question) => [question.id, Labelmaker.effectiveLabelOf(question)]))
-  const data = quiz.questions.map((question) => QuestionColumns.map((column) => {
-    if (column === 'label') { return Labelmaker.effectiveLabelOf(question) }
-    if (column === 'chains_to') { return question.chains_to === null ? '' : labelForId.get(question.chains_to) ?? '' }
-    return question[column]
-  }))
-  const text = Papa.unparse({ fields: [...QuestionColumns], data }, { delimiter: '\t', newline: '\n' })
+export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz): string {
+  const { header, rows } = Exposure.tableOf(quiz, expressed)
+  const text = Papa.unparse({ fields: header, data: rows }, { delimiter: '\t', newline: '\n' })
   return `${_.trimEnd(text, '\n')}\n`
 }
 
 /**
- * The whole working tree for `quiz`: a legible questions file and a complete JSON file, moving
- * together in one commit.
+ * The whole working tree for `quiz`: a legible table of its questions, a complete JSON file, and
+ * the workspace's expressions, moving together in one commit.
  *
  * The `.qq.tsv` is what a commit reads as -- a line per question, so a diff is legible to anyone.
  * It is also lossy, so the `.tq.json` beside it carries the whole quiz, and is what could restore
- * one from its own history. Both are written in a fixed order (sorted keys for the JSON), because
- * a diff that shuffles its lines for no reason is a diff nobody reads.
+ * one from its own history. The expressions its widgets work are in `tq/widgets/my.tqexpressions.json`.
+ * All are written in a fixed order (sorted keys for the JSON), because a diff that shuffles its
+ * lines for no reason is a diff nobody reads.
  *
- * Renaming the quiz moves both files, which git reads as a rename rather than as a loss.
+ * Renaming the quiz moves its files, which git reads as a rename rather than as a loss.
  *
  * @param quiz - The quiz as it now stands.
+ * @param expressions - The workspace's expressions.
  * @returns Every file the repository should hold, and nothing else, by repository-relative path.
  *
- * @example quizFiles(quiz).keys().toArray()  // => [the .qq.tsv path, the .tq.json path]
+ * @example quizFiles(quiz, expressions).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, the expressions path]
  */
-export function quizFiles(quiz: QuizT): Map<string, string> {
+export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[]): Map<string, string> {
   const paths = quizPathsFor(quiz)
   return new Map([
-    [paths.tsv, questionsTsv(quiz)],
+    [paths.tsv, questionsTsv(quiz, Expressed.forQuiz(quiz, expressions))],
     [paths.json, `${UU.jsonify(quiz, { pretty: true })}\n`],
+    [ExpressionsPath, `${UU.jsonify(expressions, { pretty: true })}\n`],
   ])
 }
 
@@ -166,21 +167,22 @@ export function milestoneTagFor(version: string, at: Date): string {
  *
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
- * @param changes - What moved, as `Changes.quizChanges` reported it.
+ * @param expressions - The workspace's expressions, kept in the same commit.
+ * @param changes - What moved, as `Changes.quizChanges` and `Changes.expressionChanges` reported it.
  * @returns The new commit's oid, or null when nothing changed and nothing was committed.
  *
  * The commit message is the shorthand alone. The quiz itself is in the tree, and a body that
  * repeated it would only be a second copy to drift.
  *
- * @example await commitQuiz(fs, quiz, quizChanges(before, quiz))
+ * @example await commitQuiz(fs, quiz, expressions, quizChanges(before, quiz))
  */
-export async function commitQuiz(fs: GitFs, quiz: QuizT, changes: readonly Changes.Change[]): Promise<string | null> {
+export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], changes: readonly Changes.Change[]): Promise<string | null> {
   const message = Changes.shorthandFor(changes)
   if (message === null) { return null }
 
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
-  const { written, removed } = await syncTree(fs, dir, quizFiles(quiz))
+  const { written, removed } = await syncTree(fs, dir, quizFiles(quiz, expressions))
 
   for (const filepath of written) { await git.add({ fs, dir, filepath }) }
   for (const filepath of removed) { await git.remove({ fs, dir, filepath }) }

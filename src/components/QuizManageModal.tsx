@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
-import { ExpressingsEditor } from './ExpressingsEditor'
+import { Button, Dialog, DialogActions, DialogContent, Stack, TextField, Typography } from '@mui/material'
+import { ClosableTitle } from './ClosableTitle'
+import { ColumnsEditor } from './ColumnsEditor'
+import { WidgetsEditor } from './WidgetsEditor'
 import * as Downloading from '../lib/downloading'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
@@ -56,70 +58,77 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onEd
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
-      <DialogTitle>Manage this quiz</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" aria-labelledby="manage-title">
+      <ClosableTitle id="manage-title" onClose={onClose}>Manage this quiz</ClosableTitle>
+      {/* One scrolling region for the whole dialog: each section is as tall as what it holds. */}
       <DialogContent>
-        <Stack spacing={1} sx={{ mt: 1 }}>
-          <TextField
-            label="Label"
-            value={draft}
-            size="small"
-            disabled={quiz.locked}
-            error={issue !== null}
-            helperText={issue ?? "Used in this page's web address."}
-            onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
-          />
-          <TextField
-            label="Version"
-            value={versionDraft}
-            size="small"
-            disabled={quiz.locked}
-            helperText="The line of work this quiz is on, and the branch its history is kept on."
-            onChange={(event) => { setVersionDraft(event.target.value); setIssue(null) }}
-          />
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <Stack spacing={1}>
+            <TextField
+              label="Label"
+              value={draft}
+              size="small"
+              disabled={quiz.locked}
+              error={issue !== null}
+              helperText={issue ?? "Used in this page's web address."}
+              onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
+            />
+            <TextField
+              label="Version"
+              value={versionDraft}
+              size="small"
+              disabled={quiz.locked}
+              helperText="The line of work this quiz is on, and the branch its history is kept on."
+              onChange={(event) => { setVersionDraft(event.target.value); setIssue(null) }}
+            />
+          </Stack>
+
+          <section>
+            <Typography variant="h6" component="h3">Columns</Typography>
+            <p className={styles.microcopy}>The grid&apos;s columns in the order they appear. Drag a handle to move one; the gear opens the rest.</p>
+            <ColumnsEditor quiz={quiz} dispatch={dispatch} />
+          </section>
+
+          <section>
+            <Typography variant="h6" component="h3">Widgets</Typography>
+            <p className={styles.microcopy}>What this quiz can show for every question besides the questions&apos; own fields: players put to it, and expressions put to work. A column shows a widget.</p>
+            <WidgetsEditor workspace={workspace} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
+          </section>
+
+          <section>
+            <Typography variant="h6" component="h3">History</Typography>
+            <p className={styles.microcopy}>
+              Every change to this quiz is committed as it happens. Marking a milestone tags this
+              moment so you can come back to it; downloading hands you the whole thing as a git repository.
+            </p>
+            <Stack direction="row" spacing={1}>
+              <Button onClick={() => { void onMilestone() }} size="small" variant="outlined">Mark a milestone</Button>
+              <Button onClick={() => { void onDownload() }} size="small" variant="outlined">Download as git</Button>
+            </Stack>
+            {noted !== null && <p className={styles.microcopy} role="status">{noted}</p>}
+          </section>
+
+          <section>
+            <Typography variant="h6" component="h3">All quizzes</Typography>
+            <Stack spacing={0.5} sx={{ maxHeight: '60vh', overflowY: 'auto', mt: 1 }}>
+              {workspace.quizzes.map((other) => (
+                <Button
+                  key={other.id}
+                  variant={other.id === quiz.id ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => { dispatch({ kind: 'open_quiz', quiz_id: other.id }); onClose() }}
+                >
+                  {other.locked ? '🔒 ' : ''}{other.title === '' ? AppNotices.untitledQuiz : other.title}
+                </Button>
+              ))}
+            </Stack>
+          </section>
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button onClick={onApply} variant="contained" disabled={quiz.locked}>Apply</Button>
       </DialogActions>
-
-      <DialogTitle sx={{ pt: 0 }}>Computed columns</DialogTitle>
-      <DialogContent sx={{ pt: 0 }}>
-        <p className={styles.microcopy}>
-          Each column works out one expression for every question, shown between Q# and Alt Text.
-        </p>
-        <ExpressingsEditor workspace={workspace} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
-      </DialogContent>
-
-      <DialogTitle sx={{ pt: 0 }}>History</DialogTitle>
-      <DialogContent sx={{ pt: 0 }}>
-        <p className={styles.microcopy}>
-          Every change to this quiz is committed as it happens. Marking a milestone tags this
-          moment so you can come back to it; downloading hands you the whole thing as a git repository.
-        </p>
-        <Stack direction="row" spacing={1}>
-          <Button onClick={() => { void onMilestone() }} size="small" variant="outlined">Mark a milestone</Button>
-          <Button onClick={() => { void onDownload() }} size="small" variant="outlined">Download as git</Button>
-        </Stack>
-        {noted !== null && <p className={styles.microcopy} role="status">{noted}</p>}
-      </DialogContent>
-
-      <DialogTitle sx={{ pt: 0 }}>All quizzes</DialogTitle>
-      <DialogContent sx={{ pt: 0 }}>
-        <Stack spacing={0.5}>
-          {workspace.quizzes.map((other) => (
-            <Button
-              key={other.id}
-              variant={other.id === quiz.id ? 'contained' : 'outlined'}
-              size="small"
-              onClick={() => { dispatch({ kind: 'open_quiz', quiz_id: other.id }); onClose() }}
-            >
-              {other.locked ? '🔒 ' : ''}{other.title === '' ? AppNotices.untitledQuiz : other.title}
-            </Button>
-          ))}
-        </Stack>
-      </DialogContent>
     </Dialog>
   )
 }

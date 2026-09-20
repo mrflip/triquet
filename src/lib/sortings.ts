@@ -1,7 +1,8 @@
 import * as Expressed from './expressed'
 import * as Rank from './rank'
-import { expressingLabelOf } from '../models/expressing'
-import type { Sortkey } from '../models/quiz'
+import { resolve, type Resolved } from './columns'
+import { columnLabelOf } from '../models/column'
+import type { QuizT, Sortkey } from '../models/quiz'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 
@@ -45,48 +46,44 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 /**
  * How a given column reads a question, for the quiz it belongs to.
  *
- * A computed column with nothing to show for a question reads as absent, which sinks that
- * question to the bottom in either direction -- the honest reading of "nothing here has been
- * computed yet".
+ * A column with nothing to show for a question reads as absent, which sinks that question to
+ * the bottom in either direction -- the honest reading of "nothing here has been computed yet".
+ * A sort memory that names no column of the quiz, or a column that cannot be ordered, reads
+ * everything as absent and so leaves the order alone.
  *
  * @param sortkey - Which column was clicked.
- * @param questions - The quiz's questions, for columns that read across questions.
- * @param expressed - The quiz's computed columns, for a sortkey that names one.
+ * @param quiz - The quiz's questions, columns and widgets.
+ * @param expressed - The quiz's computed values, for a column that shows one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
-  switch (sortkey) {
-  case 'qnum': {
-    return Rank.qnumOf
-  }
-  case 'title': {
-    return (question) => question.title
-  }
-  case 'chains_to': {
-    const answerForId = new Map(questions.map((question) => [question.id, question.title]))
-    return (question) => (question.chains_to === null ? null : answerForId.get(question.chains_to) ?? null)
-  }
-  case 'chain_order': {
-    // Not a column: "Sort by chain order" walks the graph rather than reading a value.
+export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>, expressed: Expressed.ExpressedForQuiz): SortValueOf {
+  const label = columnLabelOf(sortkey)
+  const column = quiz.columns.find((each) => each.label === label)
+  const source = column ? resolve(column.source, quiz.widgets) : null
+  if (! source) { return () => null }
+  return readerFor(source, quiz.questions, expressed)
+}
+
+/** How a thing a column shows reads one question */
+function readerFor(source: Resolved, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
+  const questionForId = new Map(questions.map((question) => [question.id, question]))
+  const targetOf = (question: QuestionT) => (question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null)
+  switch (source.kind) {
+  case 'field': {
+    if (source.field === 'qnum') { return Rank.qnumOf }
+    if (source.field === 'title') { return (question) => question.title }
+    if (source.field === 'chains_to') { return (question) => targetOf(question)?.title ?? null }
     return () => null
   }
-  case 'clueing_ishes': {
-    return (question) => ishCountOf(question.clueing_ishes)
+  case 'view': {
+    return source.view === 'butnot_ishes' ? (question) => ishCountOf(targetOf(question)?.hint_ishes ?? null) : () => null
   }
-  case 'hint_ishes': {
-    return (question) => ishCountOf(question.hint_ishes)
+  case 'playing': {
+    const { field } = source.slot
+    return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
   }
-  case 'butnot_ishes': {
-    const questionForId = new Map(questions.map((question) => [question.id, question]))
-    return (question) => {
-      const target = question.chains_to === null ? null : questionForId.get(question.chains_to)
-      return ishCountOf(target?.hint_ishes ?? null)
-    }
-  }
-  default: {
-    const expressing_label = expressingLabelOf(sortkey)
-    if (expressing_label === null) { return () => null }
-    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, expressing_label, question.id))
+  case 'expressing': {
+    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, source.widget.label, question.id))
   }
   }
 }

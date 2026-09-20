@@ -3,7 +3,6 @@
 import clsx from 'clsx'
 import { CellNotices } from '../../lib/notices'
 import type { Expressed } from '../../lib/expressed'
-import type { ExpressingShape } from '../../models/expressing'
 import styles from '../workbench.module.css'
 
 /**
@@ -15,26 +14,26 @@ import styles from '../workbench.module.css'
  * scrolls inside the row: a computed column never makes its row taller.
  *
  * @param reading - What the expressing came to for this question.
- * @param shape - How wide the column is; a medium column has room to say why a formula failed.
+ * @param wide - Whether the column has room to say why a formula failed.
  * @param heightPx - The tallest the cell may be, which is the height of the row.
  */
-export function ExpressedReadout({ reading, shape, heightPx }: Readonly<{ reading: Expressed, shape: ExpressingShape, heightPx: number }>) {
+export function ExpressedReadout({ reading, wide, heightPx }: Readonly<{ reading: Expressed, wide: boolean, heightPx: number }>) {
   return (
     <ReadonlyCell heightPx={heightPx}>
       <div className={reading.status === 'value' && typeof reading.val === 'number' ? styles.sum : styles.expressedText}>
-        <ExpressedBody reading={reading} shape={shape} />
+        <ExpressedBody reading={reading} wide={wide} />
       </div>
     </ReadonlyCell>
   )
 }
 
 /** The inside of a computed cell */
-function ExpressedBody({ reading, shape }: Readonly<{ reading: Expressed, shape: ExpressingShape }>) {
+function ExpressedBody({ reading, wide }: Readonly<{ reading: Expressed, wide: boolean }>) {
   if (reading.status === 'nothing') { return <span className={styles.muted}>{CellNotices.nothingExpressed}</span> }
   if (reading.status === 'error') {
     return (
       <span className={styles.muted} title={reading.message} role="img" aria-label={`The formula failed: ${reading.message}`}>
-        {CellNotices.expressedError}{shape === 'medium' ? ` ${reading.message}` : ''}
+        {CellNotices.expressedError}{wide ? ` ${reading.message}` : ''}
       </span>
     )
   }

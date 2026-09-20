@@ -5,7 +5,7 @@ import type { BulkIshesRunT, Sortkey } from '../models/quiz'
 import type { IshItemT } from '../models/ish'
 import type { LastErrT, ModelTier } from '../models/ask'
 import type { ExpressionOwner } from '../models/expression'
-import type { ExpressingShape } from '../models/expressing'
+import type { Widgetkind } from '../models/widget'
 import type { Servicelabel } from '../lib/credentials'
 import type { Textkind } from '../lib/ask/contract'
 import type { PlayerLabel, PlayerPrompts } from '../models/player'
@@ -49,18 +49,31 @@ export const quizzes = sqliteTable('quizzes', {
 ])
 
 /**
- * One column a quiz shows: an expression put to work, in the order the columns appear. Not a
- * foreign key to `expressions`: a column is checked against them by the workspace, not the table.
+ * Something a quiz can show for every question, kept in the order the author lists them: an
+ * expression put to work, or a player put to the quiz. One table for both, so that they share
+ * one order; the columns that only one kind uses are null for the other.
  */
-export const expressings = sqliteTable('expressings', {
+export const widgets = sqliteTable('widgets', {
   quiz_id:          text({ length: PA.Ulid.max }).notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
   label:            text({ length: PA.Label.max }).notNull(),
-  expression_label: text({ length: PA.Label.max }).notNull(),
-  title:            text({ length: PA.Titleish.max }).notNull(),
-  /** Defaulted so the column can be added to a database that already has columns */
-  description:      text({ length: PA.Noteish.max }).notNull().default(''),
-  shape:            text().$type<ExpressingShape>().notNull(),
+  kind:             text().$type<Widgetkind>().notNull(),
+  expression_label: text({ length: PA.Label.max }),
+  player_label:     text({ length: PA.Label.max }).$type<PlayerLabel>(),
+  textkind:         text().$type<Textkind>(),
+  description:      text({ length: PA.Noteish.max }).notNull(),
   position:         integer().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.quiz_id, table.label] }),
+])
+
+/** One column of a quiz's grid, kept in the order they appear, apart from the widgets they show */
+export const columns = sqliteTable('columns', {
+  quiz_id:  text({ length: PA.Ulid.max }).notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  label:    text({ length: PA.Label.max }).notNull(),
+  title:    text({ length: PA.Titleish.max }).notNull(),
+  source:   text({ length: PA.Label.max + 30 }).notNull(),
+  width_px: integer().notNull(),
+  position: integer().notNull(),
 }, (table) => [
   primaryKey({ columns: [table.quiz_id, table.label] }),
 ])
@@ -139,11 +152,16 @@ export const expressionsRelations = relations(expressions, ({ one }) => ({
 export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
   workspace:   one(workspaces, { fields: [quizzes.workspace_id], references: [workspaces.id] }),
   questions:   many(questions),
-  expressings: many(expressings),
+  widgets:     many(widgets),
+  columns:     many(columns),
 }))
 
-export const expressingsRelations = relations(expressings, ({ one }) => ({
-  quiz: one(quizzes, { fields: [expressings.quiz_id], references: [quizzes.id] }),
+export const widgetsRelations = relations(widgets, ({ one }) => ({
+  quiz: one(quizzes, { fields: [widgets.quiz_id], references: [quizzes.id] }),
+}))
+
+export const columnsRelations = relations(columns, ({ one }) => ({
+  quiz: one(quizzes, { fields: [columns.quiz_id], references: [quizzes.id] }),
 }))
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
@@ -161,7 +179,8 @@ export const playingsRelations = relations(playings, ({ one }) => ({
 }))
 
 export type ExpressionRow = typeof expressions.$inferSelect
-export type ExpressingRow = typeof expressings.$inferSelect
+export type WidgetRow = typeof widgets.$inferSelect
+export type ColumnRow = typeof columns.$inferSelect
 export type QuizRow      = typeof quizzes.$inferSelect
 export type QuestionRow  = typeof questions.$inferSelect
 export type PlayerRow    = typeof players.$inferSelect

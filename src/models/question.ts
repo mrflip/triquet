@@ -94,6 +94,14 @@ export class Question implements QuestionT {
   declare full_answer:   string
 
   /**
+   * The fields a question shows the outside world, alphabetically: what an expression may read
+   * and what a quiz's git table carries. Everything but the id, the override of the label (the
+   * label in force is what is shown), and the players' answers, which belong to the playing
+   * widgets that show them.
+   */
+  static readonly exposed = ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'] as const
+
+  /**
    * Validated question, with every omitted field defaulted. A blank title is populated from the
    * label, titleized, so a fresh question reads as "Quiet Otter" rather than nothing at all.
    *

@@ -60,27 +60,52 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ id: quizId, last_sortkey: 'q_full' as never })).to.throw(Z.ZodError)
   })
 
-  it('accepts a sort memory naming one of its computed columns', () => {
-    expect(Quiz.fill({ id: quizId, last_sortkey: 'expressing:clueing_full' }).last_sortkey).to.eq('expressing:clueing_full')
+  it('accepts a sort memory naming one of its columns, or the chain order', () => {
+    expect(Quiz.fill({ id: quizId, last_sortkey: 'column:clueing_full' }).last_sortkey).to.eq('column:clueing_full')
+    expect(Quiz.fill({ id: quizId, last_sortkey: 'chain_order' }).last_sortkey).to.eq('chain_order')
   })
 
-  it('rejects a sort memory naming a computed column badly', () => {
-    const outcomes = ['expressing:', 'expressing:Clueing', 'expressing:a', 'expressing:x_']
+  it('rejects a sort memory naming a column badly, or the old kind of name', () => {
+    const outcomes = ['column:', 'column:Clueing', 'column:a', 'column:x_', 'expressing:clueing_full', 'qnum']
       .map((sortkey) => QuizValidators.quiz.safeParse({ id: quizId, last_sortkey: sortkey }).success)
-    expect(outcomes).to.deep.eq([false, false, false, false])
+    expect(outcomes).to.deep.eq([false, false, false, false, false, false])
   })
 
-  it('keeps its computed columns in the order given', () => {
-    const columns = [
-      { label: 'zed', expression_label: 'answer_reversed', title: 'Zed' },
-      { label: 'aye', expression_label: 'answer_reversed', title: 'Aye' },
+  it('keeps its widgets and its columns each in the order given', () => {
+    const widgets = [
+      { kind: 'expressing' as const, label: 'zed', expression_label: 'answer_reversed' },
+      { kind: 'playing' as const, label: 'aye', player_label: 'dumdum' as const, textkind: 'clueing' as const },
     ]
-    expect(Quiz.fill({ id: quizId, expressings: columns }).expressings.map((column) => column.label)).to.deep.eq(['zed', 'aye'])
+    const columns = [
+      { label: 'zed_col', title: 'Zed', source: 'zed', width_px: 78 },
+      { label: 'aye_col', title: 'Aye', source: 'aye', width_px: 160 },
+    ]
+    const quiz = Quiz.fill({ id: quizId, widgets, columns })
+    expect(quiz.widgets.map((widget) => widget.label)).to.deep.eq(['zed', 'aye'])
+    expect(quiz.columns.map((column) => column.label)).to.deep.eq(['zed_col', 'aye_col'])
   })
 
-  it('refuses two computed columns sharing a label', () => {
-    const column = { label: 'zed', expression_label: 'answer_reversed', title: 'Zed' }
-    expect(() => Quiz.fill({ id: quizId, expressings: [column, { ...column, title: 'Again' }] })).to.throw(Z.ZodError)
+  const Widget = { kind: 'expressing' as const, label: 'zed', expression_label: 'answer_reversed' }
+  const Col = { label: 'zed', title: 'Zed', source: 'question.title', width_px: 78 }
+
+  const Refused: [object, string][] = [
+    [{ widgets: [Widget, { ...Widget, description: 'again' }] },                                'two widgets sharing a label'],
+    [{ widgets: [{ ...Widget, label: 'question' }] },                                           'a widget labelled as the questions are'],
+    [{ columns: [Col, { ...Col, title: 'Again' }] },                                            'two columns sharing a label'],
+    [{ columns: [{ ...Col, source: 'nowhere' }] },                                              'a column showing a widget the quiz does not have'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => Quiz.fill({ id: quizId, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
+
+  it('accepts a widget and a column that share a label, since one is what a thing is and the other where it is shown', () => {
+    expect(() => Quiz.fill({ id: quizId, widgets: [Widget], columns: [{ ...Col, source: 'zed' }] })).to.not.throw()
+  })
+
+  it('exposes its label and its title, and none of its housekeeping', () => {
+    expect(Quiz.exposed).to.deep.eq(['label', 'title'])
   })
 
   it('remembers what the last batch run cost', () => {

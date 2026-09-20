@@ -10,7 +10,7 @@ const ishes = { status: 'done' as const, items: [{ text: '300', value: 300, kind
 describe('the bags formulas are actually given', () => {
   const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film', hint_ishes: ishes }
   const question = { ...Question.blank(), qnum: '1', chains_to: target.id, clueing_ishes: ishes, guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1, last_err: null } }
-  const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', last_sortkey: 'expressing:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
+  const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', last_sortkey: 'column:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
 
   it('all satisfy the schema the prompt shows, so the schema is never a description of something else', () => {
     const outcomes = Expressed.bagsFor(quiz).values().map((bag) => QuizBagValidators.quizBag.safeParse(bag).success).toArray()

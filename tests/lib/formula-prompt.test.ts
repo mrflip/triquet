@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { formulaPrompt } from '../../src/lib/formula-prompt'
 
-const expressing = { label: 'letters', title: 'Letters', description: 'For the anagram round.', shape: 'skinny' as const }
+const expressing = { label: 'letters', title: 'Letters', description: 'For the anagram round.' }
 const expression = { label: 'answer_letter_count', description: 'How many letters the answer has.', formula: '$length(qn.full_answer)' }
 
 describe('formulaPrompt', () => {
   it('passes along everything that is filled in', () => {
     const prompt = formulaPrompt({ expressing, expression, sample: null })
-    for (const text of ['Letters', 'letters', 'For the anagram round.', 'skinny', 'answer_letter_count', 'How many letters the answer has.']) {
+    for (const text of ['Letters', 'letters', 'For the anagram round.', 'answer_letter_count', 'How many letters the answer has.']) {
       expect(prompt).to.include(text)
     }
   })

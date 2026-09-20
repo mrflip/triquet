@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Stack } from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, IconButton, Stack } from '@mui/material'
+import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
 import { ExpressionFields, type ExpressionDraft } from './ExpressionFields'
 import { ExpressionValidators, type ExpressionT } from '../models/expression'
@@ -30,7 +31,7 @@ export function ExpressionsModal({ onClose, workspace, quizId, dispatch }: Reado
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="expressions-title">
-      <DialogTitle id="expressions-title">Expressions</DialogTitle>
+      <ClosableTitle id="expressions-title" onClose={onClose}>Expressions</ClosableTitle>
       <DialogContent>
         <p className={styles.microcopy}>
           Each is a <a href="https://docs.jsonata.org" target="_blank" rel="noreferrer">JSONata</a> formula
@@ -96,8 +97,8 @@ function ExpressionEditor({ workspace, quizId, expression, dispatch, onClose }: 
   }
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="expression-editor-title">
-      <DialogTitle id="expression-editor-title">Expression: {expression.label}</DialogTitle>
+    <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="md" aria-labelledby="expression-editor-title">
+      <ClosableTitle id="expression-editor-title" onClose={onClose}>Expression: {expression.label}</ClosableTitle>
       <DialogContent>
         <Stack spacing={1} sx={{ mt: 1 }}>
           <ExpressionFields

@@ -57,6 +57,20 @@
       "when": 1789858762270,
       "tag": "0007_expressing_description",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789863289444,
+      "tag": "0008_widgets_and_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789863318228,
+      "tag": "0009_drop_expressings",
+      "breakpoints": true
     }
   ]
 }

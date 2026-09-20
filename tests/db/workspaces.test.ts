@@ -7,6 +7,7 @@ import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedExpressions } from '../../src/models/expression'
 import { mintId } from '../../src/lib/ids'
+import { present } from '../support/present'
 import type { WorkspaceT } from '../../src/models/workspace'
 
 /** A fresh workspace, and a way to save one quiz of it as revised */
@@ -28,51 +29,68 @@ describe('createWorkspace', () => {
   })
 })
 
-/** The first quiz's columns, as they load back */
-const columnsHeld = (loaded: WorkspaceT | null) => loaded?.quizzes[0]?.expressings ?? []
+/** The first quiz as it loads back */
+const quizHeld = (loaded: WorkspaceT | null) => present(loaded?.quizzes[0])
 
-describe('expressions and computed columns', () => {
-  const column = { label: 'backward', expression_label: 'answer_reversed', title: 'Backward', description: 'Why we want it.', shape: 'medium' as const }
+describe('widgets, columns and expressions', () => {
+  const widget = { kind: 'expressing' as const, label: 'backward', expression_label: 'answer_reversed', description: 'Why we want it.' }
+  const playing = { kind: 'playing' as const, label: 'numnum_again', player_label: 'numnum' as const, textkind: 'hint' as const, description: '' }
+  const column = { label: 'backward_col', title: 'Backward', source: 'backward', width_px: 180 }
 
-  it('come back as they were made: the standard expressions, and the standard columns, in order', async () => {
+  it('come back as they were made: the standard expressions, and the standard widgets and columns, in order', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, workspace } = await createWorkspace(db)
     const loaded = await loadWorkspace(db, workspace_id)
     expect(loaded?.expressions.map((expression) => expression.label)).to.deep.eq(workspace.expressions.map((expression) => expression.label))
-    expect(loaded?.quizzes[0]?.expressings.map((held) => held.label)).to.deep.eq(workspace.quizzes[0]?.expressings.map((held) => held.label))
+    expect(quizHeld(loaded).widgets).to.deep.eq(present(workspace.quizzes[0]).widgets)
+    expect(quizHeld(loaded).columns).to.deep.eq(present(workspace.quizzes[0]).columns)
   })
 
-  it('keep a column\'s title, expression and width', async () => {
+  it('keep a widget of each kind, whole', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
-    await save({ ...quiz, expressings: [...quiz.expressings, column] })
-    const loaded = await loadWorkspace(db, workspace_id)
-    expect(columnsHeld(loaded).at(-1)).to.deep.eq(column)
+    await save({ ...quiz, widgets: [...quiz.widgets, widget, playing] })
+    const held = quizHeld(await loadWorkspace(db, workspace_id)).widgets.slice(-2)
+    expect(held).to.deep.eq([widget, playing])
   })
 
-  it('keep the order the columns were given in, not the order of their labels', async () => {
+  it('keep a column\'s title, source and width', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
-    await save({ ...quiz, expressings: [column, ...quiz.expressings.toReversed()] })
-    const loaded = await loadWorkspace(db, workspace_id)
-    const held = columnsHeld(loaded).map((each) => each.label)
-    expect(held).to.deep.eq([column.label, ...quiz.expressings.toReversed().map((each) => each.label)])
+    await save({ ...quiz, widgets: [...quiz.widgets, widget], columns: [...quiz.columns, column] })
+    expect(quizHeld(await loadWorkspace(db, workspace_id)).columns.at(-1)).to.deep.eq(column)
   })
 
-  it('lose a column the quiz no longer shows', async () => {
+  it('keep the order the widgets and the columns were given in, not the order of their labels', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
-    await save({ ...quiz, expressings: quiz.expressings.slice(1) })
-    const loaded = await loadWorkspace(db, workspace_id)
-    expect(columnsHeld(loaded)).to.have.length(quiz.expressings.length - 1)
+    await save({ ...quiz, widgets: [widget, ...quiz.widgets.toReversed()], columns: [column, ...quiz.columns.toReversed()].filter((each) => each.source !== 'backward' || each === column) })
+    const held = quizHeld(await loadWorkspace(db, workspace_id))
+    expect(held.widgets.map((each) => each.label)).to.deep.eq([widget.label, ...quiz.widgets.toReversed().map((each) => each.label)])
+    expect(held.columns.map((each) => each.label)).to.deep.eq([column.label, ...quiz.columns.toReversed().map((each) => each.label)])
   })
 
-  it('remember a sort by a computed column', async () => {
+  it('keep the widgets and the columns apart: dropping a column keeps its widget', async () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
-    await save({ ...quiz, last_sortkey: 'expressing:clueing_full' })
-    const loaded = await loadWorkspace(db, workspace_id)
-    expect(loaded?.quizzes[0]?.last_sortkey).to.eq('expressing:clueing_full')
+    await save({ ...quiz, columns: quiz.columns.filter((each) => each.label !== 'hint_full') })
+    const held = quizHeld(await loadWorkspace(db, workspace_id))
+    expect(held.columns.map((each) => each.label)).to.not.include('hint_full')
+    expect(held.widgets.map((each) => each.label)).to.include('hint_full')
+  })
+
+  it('lose a widget the quiz no longer holds', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await save({ ...quiz, widgets: quiz.widgets.slice(1), columns: quiz.columns.filter((each) => each.source !== 'dumdum') })
+    expect(quizHeld(await loadWorkspace(db, workspace_id)).widgets).to.have.length(quiz.widgets.length - 1)
+  })
+
+  it('remember a sort by a column', async () => {
+    const db = await openDb(':memory:')
+    const { workspace_id, quiz, save } = await aWorkspace(db)
+    await save({ ...quiz, last_sortkey: 'column:clueing_full' })
+    expect(quizHeld(await loadWorkspace(db, workspace_id)).last_sortkey).to.eq('column:clueing_full')
   })
 
   it('are replaced whole when a change carries them, and left alone when it does not', async () => {
@@ -109,10 +127,10 @@ describe('expressions and computed columns', () => {
     const db = await openDb(':memory:')
     const { workspace_id, quiz, save } = await aWorkspace(db)
     await saveChange(db, workspace_id, { active_quiz_id: quiz.id, quizzes: [], deleted_quiz_ids: [], expressions: [] })
-    await save({ ...quiz, expressings: [] })
+    await save({ ...quiz, widgets: [], columns: [] })
     const loaded = await loadWorkspace(db, workspace_id)
     expect(loaded?.expressions).to.have.length(SeedExpressions.length)
-    expect(loaded?.quizzes[0]?.expressings).to.have.length(8)
+    expect(quizHeld(loaded).columns).to.have.length(21)
   })
 })
 
@@ -140,7 +158,7 @@ describe('saveChange', () => {
       ...quiz,
       title:        'Quiz one',
       locked:       true,
-      last_sortkey: 'title',
+      last_sortkey: 'column:title',
       questions:    [
         { ...first!, clueing: 'Which region?', hint: 'BUT NOT a county', qnum: '3.1', chains_to: second!.id, notes: 'check', alt_text: 'alt', full_answer: 'Leon, in Spain' },
         second!,
