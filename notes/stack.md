@@ -1,14 +1,14 @@
 ---
 paths:
-  - "/asdirected"
+  - "package.json"
+  - "notes/stack.md"
 ---
 
 # Stack
 
 What we build with, and what we haven't decided yet. Two sections:
 
-* **Use** -- settled. Reach for these without asking. They're proven, widely adopted, and cheap to
-  back out of if we're wrong.
+* **Use** -- settled. Reach for these without asking. They're proven, widely adopted, and cheap to back out of if we're wrong.
 * **Discuss** -- stop and raise it with a Coach before building on it. Either it's a **one-way
   door** (the choice propagates into data shapes, user records, or automation we can't casually
   unwind), or it's **infrastructure with a long "why isn't this connecting" tail** where an hour
@@ -22,7 +22,7 @@ don't trust a recalled version number, including one recalled by an agent.
 
 ---
 
-## Now
+## Use
 
 ### Application framework
 
@@ -36,6 +36,20 @@ don't trust a recalled version number, including one recalled by an agent.
 * **Turso** (libSQL) as the primary database, with **Drizzle ORM** on top. `drizzle-zod` and `drizzle-kit`, checked into the repo
   - the app must always work with turso in local mode; cloud mode is an add-on
 * pnpm
+* Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
+* **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus its `-hitbox` package)
+  for every drag. Chosen over dnd-kit in Sept 2026 on release evidence rather than reputation:
+  dnd-kit's stable line (`@dnd-kit/core` 6.3.1) had not been published since Dec 2024, and its
+  rewrite (`@dnd-kit/react`) is still 0.x, so the choice was between stagnant and unproven.
+  Pragmatic is on a monthly cadence, is what Jira and Trello drag with, is framework-agnostic,
+  and brings three tiny dependencies. It decorates the DOM we already have rather than asking
+  for wrapper components, which is what lets the question grid stay a real `<table>`.
+  - `useReorderable` in `src/components/use-reorder.ts` is the only place it is wired up.
+  - Take `-hitbox` for `attachClosestEdge` and `getReorderDestinationIndex`; **do not** take
+    `-react-drop-indicator`, which drags in `@atlaskit/tokens` and `@compiled/react` and would
+    put a second design-token system beside MUI's. The indicator is two lines of CSS.
+  - It ships no keyboard dragging on purpose. Every grip therefore also answers the up and down
+    arrows; a grip that is focusable must never be a grip that does nothing.
 
 ### Testing
 
@@ -44,6 +58,28 @@ don't trust a recalled version number, including one recalled by an agent.
   invisible to unit tests (auth round-trip, upload, publish).
 * **MSW** for network mocking, so the same handlers serve tests and local development.
 * **Bruno** for full stack testing
+
+## Hand-rolled on purpose
+
+The Library-first rule in `CLAUDE.md` says to flag hand-rolled code a library should own. These
+were weighed and kept. Don't re-open them without a new reason; do add to the list when a Coach
+agrees to another.
+
+* **The question grid is a bespoke `<table>`, not MUI's and not a DataGrid.** Reviewed Sept 2026
+  and kept. Every cell is a live editor rather than a cell with an edit mode; a row's height is
+  measured from its Clueing and Hint boxes and imposed on the rest; the columns carry explicit
+  pixel widths from the quiz itself; and below 640px the whole table restructures into one card
+  per question. MUI X DataGrid's editing, row-height and virtualization models each fight one of
+  those, column reordering is behind its Pro licence, and the card restructure is not expressible
+  in it at all. MUI's plain `Table` primitives are a styling veneer over the same `<table>`: they
+  would add Emotion work to roughly twenty cells per row in the app's hot path and buy nothing
+  structural. `src/app/theme.ts` builds MUI's palette from the same tokens the grid uses, so the
+  two sit on one ground. The grid's *chrome* -- toolbars, dialogs, pickers, the editors behind
+  the gear -- stays MUI, and should.
+  - The one wart: the sort header in `QuestionTable` is a raw `<button>` where `TableSortLabel`
+    exists. Left alone because sortable headers can be rotated (`writing-mode: vertical-lr`) and
+    un-rotating that component's arrow costs more than the dozen lines it saves. Small enough to
+    revisit if the vertical headers ever go.
 
 ## Later, i.e when we get there
 

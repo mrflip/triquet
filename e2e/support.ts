@@ -23,15 +23,42 @@ export async function loadAfresh(page: Page, url: string): Promise<void> {
 }
 
 /**
- * Drag `source` onto `target` by sending the events an HTML5 drag makes.
+ * Drag the row `source` grips and drop it against the named edge of the row `target` grips.
  *
- * Playwright's own `dragTo` does not start a drag on these handles, so the events are sent
- * directly; what this proves is that the page reorders on them, not that a browser sends them.
+ * Chromium under Playwright will not begin a native drag from a real mouse press -- neither
+ * `dragTo` nor a hand-driven press and move raises so much as a `dragstart` -- so the events a
+ * drag makes are sent directly, carrying the coordinates that decide the outcome. Which half of
+ * the target row the pointer rests in is the whole of what the author is saying, so the drop is
+ * aimed three pixels inside the edge being named. What this proves is that the page reorders
+ * correctly on those events, not that a browser sends them.
  */
-export async function dragOnto(page: Page, source: Locator, target: Locator): Promise<void> {
+export async function dragOnto(page: Page, source: Locator, target: Locator, edge: 'top' | 'bottom' = 'top'): Promise<void> {
+  const row = rowOf(target)
+  await source.scrollIntoViewIfNeeded()
+  await row.scrollIntoViewIfNeeded()
+  const from = await source.boundingBox()
+  const onto = await row.boundingBox()
+  if (! from || ! onto) { throw new Error('Cannot drag something that is not on screen') }
+
+  const clientX = Math.round(onto.x + Math.min(onto.width / 2, 80))
+  const clientY = Math.round(edge === 'top' ? onto.y + 3 : onto.y + onto.height - 3)
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer())
-  await source.dispatchEvent('dragstart', { dataTransfer })
-  await target.dispatchEvent('dragover', { dataTransfer })
-  await target.dispatchEvent('drop', { dataTransfer })
-  await source.dispatchEvent('dragend', { dataTransfer })
+  await source.dispatchEvent('dragstart', { dataTransfer, clientX: Math.round(from.x + 5), clientY: Math.round(from.y + 5) })
+  await row.dispatchEvent('dragenter', { dataTransfer, clientX, clientY })
+  await row.dispatchEvent('dragover', { dataTransfer, clientX, clientY })
+  await row.dispatchEvent('drop', { dataTransfer, clientX, clientY })
+  await source.dispatchEvent('dragend', { dataTransfer, clientX, clientY })
+}
+
+/** The row a grip belongs to: what a drop lands against, rather than the grip itself */
+function rowOf(handle: Locator): Locator {
+  return handle.locator('xpath=ancestor-or-self::*[self::tr or @role="listitem"][1]')
+}
+
+/** Move the row `handle` belongs to by `steps` places, up when negative, with the arrow keys */
+export async function stepBy(handle: Locator, steps: number): Promise<void> {
+  await handle.focus()
+  for (let ii = 0; ii < Math.abs(steps); ii += 1) {
+    await handle.press(steps < 0 ? 'ArrowUp' : 'ArrowDown')
+  }
 }

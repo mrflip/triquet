@@ -107,7 +107,7 @@ export function Workbench() {
         unavailableNotice={unavailableNotice}
         onAsk={(question, askkind) => { if (unavailableNotice(askkind) === null) { ask(question, askkind) } }}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
-        onDrag={(question_id, onto_idx) => { dispatch({ kind: 'drag_question', question_id, onto_idx }) }}
+        onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx }) }}
       />
       <Toolbar
         locked={quiz.locked}

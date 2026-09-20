@@ -28,7 +28,7 @@ export type WorkspaceAction =
   | { kind: 'add_question' }
   | { kind: 'sort_questions', sortkey: Sortkey, descending: boolean }
   | { kind: 'renumber_qnums' }
-  | { kind: 'drag_question', question_id: string, onto_idx: number }
+  | { kind: 'move_question', question_id: string, onto_idx: number }
   | { kind: 'set_chain', question_id: string, chains_to: string | null }
   | { kind: 'sort_by_chain_order', descending: boolean }
   | { kind: 'set_guess', question_id: string, guess: GuessT }
@@ -190,7 +190,7 @@ export function workspaceReducer(workspace: WorkspaceT, action: WorkspaceAction)
       last_sortkey: 'chain_order',
     }))
   }
-  case 'drag_question': {
+  case 'move_question': {
     return reviseOpenQuiz(workspace, (quiz) => ({
       ...quiz,
       questions:    Rank.renumberByPosition(Rank.moveQuestion(quiz.questions, action.question_id, action.onto_idx)),

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { dragOnto, reloadOnceSaved, waitUntilSaved } from './support'
+import { dragOnto, reloadOnceSaved, stepBy, waitUntilSaved } from './support'
 
 /** The cell of column `colname` in the row at `rowIdx` */
 function cellOf(page: Page, rowIdx: number, colname: string) {
@@ -282,13 +282,47 @@ test('removing a widget asks first, and takes the columns that showed it', async
   await expect(page.getByRole('columnheader', { name: 'Hint Numeral Sum' })).toHaveCount(0)
 })
 
-test('a column is dragged into a new place by its handle', async ({ page }) => {
-  await openManage(page)
-  await dragOnto(page, page.getByRole('button', { name: 'Reorder notes' }), page.getByRole('button', { name: 'Reorder title' }))
-  await closeManage(page)
+/** The grid's first `count` column titles, left to right, with the blank grip column dropped */
+async function headersShown(page: Page, count: number): Promise<string[]> {
   const headers = await page.getByRole('columnheader').allTextContents()
   const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim()).filter((title) => title !== '')
-  expect(titles.slice(0, 3)).toEqual(['Notes', 'Title', 'Clueing'])
+  return titles.slice(0, count)
+}
+
+/** One column's grip, named exactly: several widgets' labels begin with a column's label */
+function columnGrip(page: Page, label: string) {
+  return manage(page).getByRole('list', { name: 'Columns' }).getByRole('button', { name: `Reorder ${label}`, exact: true })
+}
+
+test('a column is dragged into a new place by its handle', async ({ page }) => {
+  await openManage(page)
+  await dragOnto(page, columnGrip(page, 'notes'), columnGrip(page, 'title'))
+  await closeManage(page)
+  expect(await headersShown(page, 3)).toEqual(['Notes', 'Title', 'Clueing'])
+})
+
+// A quiz starts with Title, Clueing and Hint as its first three columns. Dropping Title onto
+// the same row from the two directions has to put it on the two sides of that row: which half
+// of the row the pointer came to rest in is the whole of what the author is saying.
+test('a column dropped against the upper edge of a row lands above it', async ({ page }) => {
+  await openManage(page)
+  await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'top')
+  await closeManage(page)
+  expect(await headersShown(page, 3)).toEqual(['Clueing', 'Title', 'Hint'])
+})
+
+test('a column dropped against the lower edge of the same row lands below it', async ({ page }) => {
+  await openManage(page)
+  await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'bottom')
+  await closeManage(page)
+  expect(await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+})
+
+test('a column is moved by the arrow keys once its handle has focus', async ({ page }) => {
+  await openManage(page)
+  await stepBy(columnGrip(page, 'title'), 2)
+  await closeManage(page)
+  expect(await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
 })
 
 test('the widgets are listed in their order, and can be dragged too', async ({ page }) => {

@@ -172,6 +172,12 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.126.0
         version: 0.126.0(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e))
+      '@atlaskit/pragmatic-drag-and-drop':
+        specifier: ^3.1.0
+        version: 3.1.0
+      '@atlaskit/pragmatic-drag-and-drop-hitbox':
+        specifier: ^2.2.2
+        version: 2.2.2
       '@emotion/cache':
         specifier: ^11.14.0
         version: 11.14.0
@@ -310,6 +316,12 @@ packages:
     peerDependenciesMeta:
       zod:
         optional: true
+
+  '@atlaskit/pragmatic-drag-and-drop-hitbox@2.2.2':
+    resolution: {integrity: sha512-2Or4BWVX9ZlgsCCvgbmGEwjv2134vZARL5SezP8Dsrh3ayPYThU55Ug4dBzDAqiIJE2q8aPn+zO8YYoATa4wuA==}
+
+  '@atlaskit/pragmatic-drag-and-drop@3.1.0':
+    resolution: {integrity: sha512-VU+2Oh6OgvC6D1xiX3lfm1gZJsaSPD+ZKjAHodOQ9IO6RfOvAyReLlK5ut9gIUpPmbD8d09wlCs7y4A6/I8c5Q==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -1906,6 +1918,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
+  bind-event-listener@3.0.0:
+    resolution: {integrity: sha512-PJvH288AWQhKs2v9zyfYdPzlPqf5bXbGMmhmUIY9x4dAUGIWgomO771oBQNwJnMQSnUIXhKu6sgzpBRXTlvb8Q==}
+
   brace-expansion@1.1.21:
     resolution: {integrity: sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==}
 
@@ -3221,6 +3236,9 @@ packages:
     resolution: {integrity: sha512-Y3NoRtprEEZQD8RfxMCfS0ZTqc4e+i18OrXEXAvpM6TfC/3y+0L5rNbZiSnbBBEkDfFzbpd8o+cE8q3/anjMGA==}
     engines: {node: '>=22'}
 
+  raf-schd@4.0.3:
+    resolution: {integrity: sha512-tQkJl2GRWh83ui2DiPTJz9wEiMN20syf+5oKfB03yYP7ioZcJwsIK8FjrtLwH1m7C7e+Tt2yYBlrOpdT+dyeIQ==}
+
   react-dom@19.3.0:
     resolution: {integrity: sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==}
     peerDependencies:
@@ -3775,6 +3793,17 @@ snapshots:
       standardwebhooks: 1.1.1
     optionalDependencies:
       zod: 4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e)
+
+  '@atlaskit/pragmatic-drag-and-drop-hitbox@2.2.2':
+    dependencies:
+      '@atlaskit/pragmatic-drag-and-drop': 3.1.0
+      '@babel/runtime': 7.29.7
+
+  '@atlaskit/pragmatic-drag-and-drop@3.1.0':
+    dependencies:
+      '@babel/runtime': 7.29.7
+      bind-event-listener: 3.0.0
+      raf-schd: 4.0.3
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -5066,6 +5095,8 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.11.24: {}
+
+  bind-event-listener@3.0.0: {}
 
   brace-expansion@1.1.21:
     dependencies:
@@ -6551,6 +6582,8 @@ snapshots:
   queue-microtask@1.2.3: {}
 
   quote-js-string@0.1.0: {}
+
+  raf-schd@4.0.3: {}
 
   react-dom@19.3.0(react@19.3.0):
     dependencies:

@@ -12,8 +12,12 @@ import { askableTextOf, type Askkind } from '../state/use-asking'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { GuessCell } from './cells/guess'
 import { ButnotIshesCell, IshesCell } from './cells/ishes'
+import { useReorderable } from './use-reorder'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import styles from './workbench.module.css'
+
+/** Names the grid as a list to drag within, so its rows and the editors' never mix */
+export const QuestionListkey = 'questions'
 
 /** Tallest a row may grow before its Clueing and Hint boxes scroll internally instead */
 export const RowCapPx = 480
@@ -31,14 +35,11 @@ export type QuestionRowProps = {
   locked:      boolean
   gripShown:   boolean
   resizeToken: number
-  /** This is the question being dragged, so it goes translucent */
-  dragging:    boolean
-  /** The dragged question would land here, so this row takes an accent line along its top */
-  dropTarget:  boolean
-  onDragBegin: () => void
-  onDragOver:  () => void
-  onDrop:      () => void
-  onDragEnd:   () => void
+  /** Where this question sits in the grid, and how many there are, so its grip can move it */
+  idx:         number
+  count:       number
+  /** Told which question moved, and the index it lands on once it has been lifted out */
+  onMove:      (question_id: string, onto_idx: number) => void
   onChain:     (chains_to: string | null) => void
   /** The quiz's columns, in the order they appear */
   specs:       ColumnSpec[]
@@ -61,9 +62,10 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, questions, locked, gripShown, resizeToken, dragging, dropTarget, onDragBegin, onDragOver, onDrop, onDragEnd, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, resizeToken, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown } = useReorderable({ listkey: QuestionListkey, itemkey: question.id, idx, count, disabled: ! gripShown || locked, onMove })
 
   const heightPx = Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
@@ -168,21 +170,16 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
     </td>
   )
 
-  const draggable = gripShown && ! locked
+  const grippable = gripShown && ! locked
 
   return (
     <tr
-      className={clsx(dragging && styles.rowDragging, dropTarget && styles.rowDropTarget)}
-      onDragOver={(event) => {
-        if (! draggable) { return }
-        event.preventDefault()
-        onDragOver()
-      }}
-      onDrop={(event) => {
-        if (! draggable) { return }
-        event.preventDefault()
-        onDrop()
-      }}
+      ref={rowRef}
+      className={clsx(
+        dragging && styles.rowDragging,
+        landing === 'top' && styles.rowDropAbove,
+        landing === 'bottom' && styles.rowDropBelow,
+      )}
     >
       <td
         className={clsx(styles.cell, ! gripShown && styles.gripCollapsed)}
@@ -190,13 +187,12 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
       >
         {gripShown && (
           <div
+            ref={handleRef}
             className={clsx(styles.grip, locked && styles.gripLocked)}
-            draggable={draggable}
             role="button"
-            tabIndex={draggable ? 0 : -1}
+            tabIndex={grippable ? 0 : -1}
             aria-label={`Reorder ${question.title || 'this question'}`}
-            onDragStart={onDragBegin}
-            onDragEnd={onDragEnd}
+            onKeyDown={onHandleKeyDown}
           >
             ⠿
           </div>

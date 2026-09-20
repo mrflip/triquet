@@ -257,3 +257,49 @@ in the document:**
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and each
 player's cells say "Dumdum can't play yet — no Claude credentials are set up for this app."
+
+## Drag and drop, replaced (Sept 2026)
+
+**Both hand-rolled HTML5 drag implementations are gone**, replaced by Pragmatic drag-and-drop
+behind one hook, `useReorderable` in `src/components/use-reorder.ts`. `SortableList` and
+`QuestionRow` both call it; `QuestionTable` no longer holds any drag state at all.
+
+Things you may want to overturn:
+
+* **I added arrow-key reordering.** Not asked for. The old grips carried `role="button"` and
+  `tabIndex={0}` and did nothing on a keypress, which is a worse lie than not being focusable.
+  Pragmatic ships no keyboard dragging by design -- Atlassian's line is that you provide a
+  separate action -- so the choice was to implement something or to drop the role. Up and down
+  arrows on a focused grip now move the row one place. It is undiscoverable without a hint; I
+  did not invent UI for that. Options if you care: a line of microcopy under each list, a
+  tooltip on the grip, or move/up-down buttons behind the gear.
+* **`drag_question` is now `move_question`**, to sit beside `move_column` and `move_widget`, and
+  because a keypress is not a drag. Six lines, reducer and tests.
+* **The drop indicator moved from a border to an inset box-shadow.** The old one grew the target
+  row by two pixels, so rows nudged as the pointer passed over them.
+
+What actually changed for the author, beyond the jitter: **the drop now honours which half of
+the row you are over.** The old code always passed the hovered row's index, so a downward drag
+landed *below* the row while the accent line was drawn on its *top* border -- the picture and
+the result disagreed, and no test covered a downward drag. Two e2e tests now pin both edges.
+
+**Playwright cannot originate a native drag here.** Neither `locator.dragTo()` nor a hand-driven
+press-and-move raises so much as a `dragstart` in this Chromium; I checked before rewriting the
+helper. `dragOnto` in `e2e/support.ts` therefore still synthesises the events, but now carries
+the coordinates, which is what makes the edge tests meaningful. Verified against the real page
+before trusting it.
+
+Not done, available cheaply if you want it: the drag preview is the grip glyph rather than the
+row, as it was before. `setCustomNativeDragPreview` would give a proper row preview -- worth it
+for the columns and widgets lists, probably not for a two-thousand-pixel question row.
+
+## The grid staying a bespoke table
+
+You asked me to judge it: **good call, keep it, and I did not touch it.** Reasoning is written
+up in `notes/stack.md` under "Hand-rolled on purpose" so the next session stops re-flagging a
+raw `<table>` as a tripwire violation. Short version: DataGrid's editing, row-height and
+virtualization models each fight something the grid actually does, and MUI's plain `Table` is a
+styling veneer that would cost Emotion work on every cell in the hot path for no structural
+gain. One real wart recorded there: the sort header is a raw `<button>` where `TableSortLabel`
+exists, left alone because sortable headers can be rotated.
+

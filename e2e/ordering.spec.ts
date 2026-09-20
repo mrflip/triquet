@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved } from './support'
+import { dragOnto, reloadOnceSaved, stepBy } from './support'
 
 /** Fill the first `pairs.length` questions with a Q# and a title, clearing the rest */
 async function fillQuiz(page: Page, pairs: [string, string][]) {
@@ -68,6 +68,40 @@ test('clicking the same header again reverses it', async ({ page }) => {
   await page.getByRole('button', { name: 'Title' }).click()
   // Questions with no title sink to the bottom in both directions.
   expect(await answersShown(page)).toEqual(['cherry', 'banana', 'apple', '', ''])
+})
+
+/** The grip of the question titled `title`, in the grid */
+function questionGrip(page: Page, title: string) {
+  return page.getByRole('button', { name: `Reorder ${title}`, exact: true })
+}
+
+test('a question dragged up lands above the row it was dropped on, and is renumbered from the top', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await dragOnto(page, questionGrip(page, 'cherry'), questionGrip(page, 'apple'), 'top')
+  expect(await answersShown(page)).toEqual(['cherry', 'apple', 'banana', '', ''])
+  // A drag adopts every question into the sequence, including the two that never had a Q#.
+  expect(await qnumsShown(page)).toEqual(['1', '2', '3', '4', '5'])
+})
+
+test('a question dropped against a row\'s lower edge lands below it', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await dragOnto(page, questionGrip(page, 'apple'), questionGrip(page, 'cherry'), 'bottom')
+  expect(await answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
+})
+
+test('a question is moved by the arrow keys once its grip has focus, and the move survives a reload', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await stepBy(questionGrip(page, 'apple'), 2)
+  expect(await answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
+  await reloadOnceSaved(page)
+  expect(await answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
+})
+
+test('a locked quiz refuses the arrow keys as it refuses a drag', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await page.getByRole('button', { name: 'Lock quiz' }).click()
+  await stepBy(questionGrip(page, 'apple'), 2)
+  expect(await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
 })
 
 test('the grip column collapses once the quiz is out of Q# order', async ({ page }) => {

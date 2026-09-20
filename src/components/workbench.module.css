@@ -384,7 +384,11 @@
 
 .rowDragging { opacity: 0.45 }
 
-.rowDropTarget > td { border-top: 2px solid var(--accent) }
+/* An inset shadow rather than a border, so the row the drop is aimed at does not grow by two
+   pixels and nudge every row below it as the pointer passes over. A tr draws no box-shadow of
+   its own under border-collapse: separate, so its cells draw it; a plain row draws its own. */
+.rowDropAbove, .rowDropAbove > td { box-shadow: inset 0 2px 0 var(--accent) }
+.rowDropBelow, .rowDropBelow > td { box-shadow: inset 0 -2px 0 var(--accent) }
 
 /* == Panels == */
 

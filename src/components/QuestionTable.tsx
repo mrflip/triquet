@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import clsx from 'clsx'
 import { GripWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { QuestionRow } from './QuestionRow'
@@ -36,20 +35,13 @@ export type QuestionTableProps = {
   unavailableNotice: (askkind: Askkind) => string | null
   onAsk:        (question: QuestionT, askkind: Askkind) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
-  onDrag:       (question_id: string, onto_idx: number) => void
+  /** Told which question moved, and the index it lands on once it has been lifted out */
+  onMove:       (question_id: string, onto_idx: number) => void
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, specs, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [overIdx, setOverIdx] = useState<number | null>(null)
-
-  const settle = (onto_idx: number) => {
-    if (draggingId !== null) { onDrag(draggingId, onto_idx) }
-    setDraggingId(null)
-    setOverIdx(null)
-  }
 
   return (
     <div className={styles.scroller}>
@@ -91,12 +83,9 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
               locked={locked}
               gripShown={gripShown}
               resizeToken={resizeToken}
-              dragging={draggingId === question.id}
-              dropTarget={overIdx === idx && draggingId !== null && draggingId !== question.id}
-              onDragBegin={() => { setDraggingId(question.id) }}
-              onDragOver={() => { setOverIdx(idx) }}
-              onDrop={() => { settle(idx) }}
-              onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
+              idx={idx}
+              count={questions.length}
+              onMove={onMove}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
               specs={specs}
               expressed={expressed}

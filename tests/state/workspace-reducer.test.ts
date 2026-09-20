@@ -164,11 +164,11 @@ describe('workspaceReducer', () => {
     })
   })
 
-  describe('drag_question', () => {
+  describe('move_question', () => {
     it('moves the question and renumbers everything by its new position', () => {
       const ante = workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
       const dragged = present(present(openQuizOf(ante)).questions[2])
-      const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 0 })
+      const after = workspaceReducer(ante, { kind: 'move_question', question_id: dragged.id, onto_idx: 0 })
       expect(answersOf(after)).to.deep.eq(['c', 'a', 'b'])
       expect(qnumsOf(after)).to.deep.eq(['1', '2', '3'])
     })
@@ -176,14 +176,14 @@ describe('workspaceReducer', () => {
     it('adopts a question that had no Q# into the sequence', () => {
       const ante = workspaceOf(['1', 'a'], ['', 'b'])
       const dragged = present(present(openQuizOf(ante)).questions[1])
-      const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 0 })
+      const after = workspaceReducer(ante, { kind: 'move_question', question_id: dragged.id, onto_idx: 0 })
       expect(qnumsOf(after)).to.deep.eq(['1', '2'])
     })
 
     it('leaves the quiz in Q# order, which is the only order a drag is offered in', () => {
       const ante = workspaceOf(['1', 'a'], ['2', 'b'])
       const dragged = present(present(openQuizOf(ante)).questions[0])
-      const after = workspaceReducer(ante, { kind: 'drag_question', question_id: dragged.id, onto_idx: 1 })
+      const after = workspaceReducer(ante, { kind: 'move_question', question_id: dragged.id, onto_idx: 1 })
       expect(present(openQuizOf(after)).last_sortkey).to.eq('column:qnum')
     })
   })
