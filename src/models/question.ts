@@ -53,7 +53,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
   })
     .describe('One question in a quiz. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
-  // label and forced_label are deliberately absent: nothing revises a label yet.
+  // label and forced_label are absent: a patch never revises a question's label.
   const questionPatch = obj({
     qnum:          qnum.optional(),
     clueing:       clueing.optional(),

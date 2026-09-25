@@ -1,9 +1,8 @@
 /**
  * Every string the tool shows an author in place of a result, gathered in one place.
  *
- * Features-v1 appendices B and C. A failure reaches the author as a sentence, never as a code,
- * and never as a blank cell -- so these are content, and they live together where they can be
- * read as a set and revised as a set.
+ * A failure reaches the author as a sentence, never as a code, and never as a blank cell -- so
+ * these are content, and they live together where they can be read as a set and revised as a set.
  */
 
 /** Why an ask failed, in the author's language */

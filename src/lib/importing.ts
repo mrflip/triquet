@@ -1,4 +1,4 @@
-import * as Z from 'zod'
+import type * as Z from 'zod'
 import * as Chain from './chain'
 import * as Rank from './rank'
 import { mintId } from './ids'

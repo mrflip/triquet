@@ -99,7 +99,7 @@ export const questions = sqliteTable('questions', {
   index('questions_quiz_idx').on(table.quiz_id, table.position),
 ])
 
-/** Someone -- today, a model with a particular brief -- who can be put a question and reply */
+/** Someone who can be put a question and reply: a model with a particular brief */
 export const players = sqliteTable('players', {
   label:      text({ length: PA.Label.max }).$type<PlayerLabel>().primaryKey(),
   title:      text({ length: PA.Titleish.max }).notNull(),

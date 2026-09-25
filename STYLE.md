@@ -5,7 +5,7 @@ working in this codebase. Read this before naming anything or writing a doc bloc
 vocabulary below is specific and not guessable from general TypeScript habit.
 
 For architecture and process -- the validation lifecycle, documentation policy, testing -- see
-`GUIDELINES.md`. `eslint.config.mjs` is the ultimate and best source of truth for anything
+`notes/guidelines.md`. `eslint.config.mjs` is the ultimate and best source of truth for anything
 mechanically enforceable; where it and this document disagree, the linter wins and this document
 is a bug.
 
@@ -24,8 +24,6 @@ The rules below are specific examples of three principles:
 
 * Import paths carry no extension (`./thing`, not `./thing.ts`) -- the grain of Next.js and the
   wider ecosystem. Not mechanically enforced either direction; just don't add one.
-
-### Files exporting one or more
 
 ### Use Splat (`* as Modulename`) imports for a module not grouped as a noun
 
@@ -239,27 +237,7 @@ Use whitespace to make parallel construction clear, as we do with test examples:
 
 ## Mechanically Enforced
 
-`eslint.config.mjs` enforces the following. They are listed here so you write conforming code the
-first time rather than discovering them at lint. This section is a summary, not the authority.
-
-**Formatting**
-
-* Semicolonless (`semi: never`). Two-space indents, `switch` cases not extra-indented.
-* Unix line endings; file ends with a newline; no trailing whitespace; no runs of blank lines.
-* Space after a unary `!` (`! approved`), matching the negation rule above.
-* No space between a named function and its parens (`paintRange(range)`); space before an
-  anonymous or async-arrow function's parens.
-* Consistent line breaking within a call's arguments and parameter lists -- all on one line, or
-  all on their own.
-
-**Correctness -- these are errors, not taste**
-
-* `throw new Error(...)`, never a bare string or object literal. Stack traces matter.
-* No floating promises; no promises used where a sync value is expected. `await` inside
-  `try`/`catch` rather than returning the promise bare.
-* No `any`. If a type is genuinely unknown, `unknown` plus a narrowing check.
-* No unused variables, except those prefixed `_`.
-* `console.log` is a warning; `console.warn` and `console.error` are fine.
+`eslint.config.mjs` enforces a strict set of rules; exceptions are as follow
 
 **Deliberately not enforced** -- so don't "fix" these:
 

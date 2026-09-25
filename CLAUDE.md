@@ -47,11 +47,13 @@ The top three values while writing code are **empathy, safety and readability**.
 * **Library first. Hand-rolling is a decision, not a default.** Before writing any mechanism a library could own (drag and drop, focus handling, keyboard navigation, popovers, tables, form state, virtualization, date math, parsing), look in this order:
   1. A Material UI component or an existing dependency.
   2. A new library. `notes/stack.md` says whether it is settled (**Use**), needs a Coach (**Discuss**), or is unlisted (propose it in chat).
-  3. Only then hand-roll -- and only after a Coach says yes in chat. Record the reason in `HUMAN-whatsup.md`.
+  3. Only then hand-roll -- and only after a Coach says yes in chat. Record the decision and its reason in `notes/stack.md` under *Hand-rolled on purpose*.
 
   Tripwires that mean "stop and ask": you are attaching native DOM event handlers beyond click/change; you are writing a raw `<table>`, `<button>` or `<dialog>` where MUI has one; you are adding a CSS-module rule that re-creates something `sx` or the theme can do; you are writing a small state machine for an interaction; you are past ~30 lines on behavior that is not specific to quizzes.
 
   Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks. (Markdown is for documents and content, not UI.)
+
+  A decision recorded under *Hand-rolled on purpose* closes the tripwire for that code: don't re-flag it without a new reason.
 
   The same goes in reverse: if you find hand-rolled code that a library should own, say so in chat rather than extending it. Flag it once, briefly, and only when you are already touching that code -- don't propose migrating code you aren't otherwise changing.
 * Every new piece of code gets a proportional doc block and test suite.
@@ -61,9 +63,9 @@ The top three values while writing code are **empathy, safety and readability**.
 * `eslint.config.mjs` is the final authority on formatting. Run the linter; however, if it conflicts with the higher guidelines of
   legibility and productivity, you are approved for `@eslint-disable-line` (`no-param-reassign`, `no-explicit-any`) or `@ts-expect-error` if they are the correct compromise -- apply them but **report it in chat**.
 * To help keep your context clean, we've drawn curtains over a couple areas of the file tree
-  - ignore **everything in /aside/**/**, **everything with the word `secret` or `secret` unless it also says `template`**.
+  - ignore **everything in /aside/**/**, **everything with the word `secret` or `secrets` unless it also says `template`**.
     (also do not design anything that needs such a file. Use doppler.)
-  - ignore **everything in /relics/**, unless we tell you that we are *specifically working with files in there*. If we are, use the directives in .claude/rules/relics
+  - ignore **everything in /relics/**, unless we tell you that we are *specifically working with files in there*. If we are, use the directives in `.claude/rules/relics.md`
 
 ## Global resources
 
@@ -74,26 +76,64 @@ the app at `data/agent.db`, never the human's `data/triquet.db`. Never kill a pr
 did not start. If you meet another shared resource -- a port, a cache or output directory, a
 database -- give yourself a parallel one the same way, and add its script to `package.json`.
 
+## Architecture
+
+Where code lives. Imports run down this list, never up: a lower layer knows nothing of the ones
+above it. (`lib` and `models` are peers, and lean on each other freely. The one sanctioned climb:
+a model built from its table with `drizzle-zod` imports that table from `db/schema`.)
+
+* `src/app/` -- Next.js App Router: pages, the theme and palette, and the route handlers under
+  `api/`. Pages are thin; they hand off to a component.
+* `src/components/` -- TSX views. `Workbench` is the whole tool; `cells/` are the grid's cell
+  editors and readouts; `panels/` sit below the grid. Hooks that only serve a view (`use-draft`,
+  `use-reorder`) live beside it.
+* `src/state/` -- everything between a view and the data: the reducers (pure, and where every
+  editing action is defined), the workspace store, the asking and players hooks, and the quiz
+  history mirror with its commit scheduler.
+* `src/db/` -- server only. The Drizzle schema, the connection, and the repository functions
+  that load and save a workspace. Migrations are generated into `/drizzle`.
+* `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a
+  class of statics (`fill`, `blank`, `exposed`). Nothing here is instantiated.
+* `src/lib/` -- facilities: pure functions around one concern each, imported as a namespace
+  (`Labelmaker`, `Chain`, `Expressed`). `lib/vv/` is the validator toolchest; `lib/ask/` is
+  everything about putting a question to a player; a `port.ts` is the browser's side of one
+  route handler, and the only place that route is fetched from.
+* `tests/` mirrors `src/` path for path; `e2e/` holds the Playwright specs; `fixtures/` holds
+  sample data.
+
+The quiz's git repository (isomorphic-git, in the browser) is **not a source of truth**. It is a
+past-versions view and an exit door: the best interface we know for reviewing diffs of text, and
+a promise to an adopter that their work leaves with them. Nothing reads app state back from it.
+
 ## Notable files and directories:
 
-These are **not** loaded automatically. Read them when the work touches them.
+Unless marked *(auto-loads)*, these are not loaded for you. Read them when the work touches them.
 
-* `/HUMAN-whatsup.md` -- our collaboration sketchpad; this is for me to read and you to braindump into, and WILL drift from reality.
-* `/AGENTS.md` -- a hand-maintained mirror of this file for non-Claude tools; `.clinerules` and
-  `.cursorrules` symlink to it. If you change a convention here, update it there too.
+* `/HUMAN-whatsup.md` -- **from agents, to Coaches.** A conversational scratchpad, not a record of
+  decisions: write to it, don't read it as input. Add your entry at the top, under a level-two
+  header that leads with the date: `## 2026-09-19: Reviewed Changes`.
+* `/AGENTS.md` -- points non-Claude tools at this file; `.clinerules`, `.cursorrules` and
+  `.github/copilot-instructions.md` symlink to it. Next.js maintains a block of its own in there.
 * `/STYLE.md`  -- the naming vocabulary (`val`, `ckey`, `keypath`, `bag`, `kind`, `handle` and
   the rest of the tag glossary), brace and indentation rules, quote conventions, doc block
   formatting. These conventions are specific and unguessable -- the inform where to improvise
   from general TypeScript habit.
-* `/whiteboard`
+* `/whiteboard` -- work threads in progress, one file or folder per thread.
 * `/notes` -- add durable artifacts here. In particular:
-  - `stack.md` -- guidelines on how we choose stack elements, and which ones to discuss before implementing
-  - `notes/guidelines.md` -- the Sketch/DNA/Real/Live validation lifecycle and its `Validator` pattern, the documentation policy, testing philosophy. **Read before designing a module entrypoint or a data model.**
-* `/.claude/rules/testing.md` (symlinked to `notes/testing.md`) -- test conventions. Loads automatically when you touch a test file; you don't need to fetch it.
+  - `notes/vocabulary.md` -- what we mean by widget, expressing, playing, ish, label and the rest.
+    **Read before naming anything in the domain.**
+  - `notes/guidelines.md` -- validating at entrypoints, the `Validator` pattern and its DNA/Real
+    types, the patch pattern, the documentation policy, testing philosophy. **Read before
+    designing a module entrypoint or a data model.**
+  - `notes/stack.md` *(auto-loads with `package.json`)* -- what we build with: settled (**Use**),
+    raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
+    adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
+  - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
+  - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
+  - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.
-* `/notes/stack.md` -- consult this when adding a new package to check if we have planned for it and to get a sense of how me like to set the shiny<>dependable slider
-* `/notes/relic.md` -- consult **only** when explicitly told we will work in the relics lagoon.
+* `/notes/relics.md` -- consult **only** when explicitly told we will work in the relics lagoon.
 
 To any extent reasonable, author documents and content in markdown rather than HTML. (UI is TSX with MUI components.)
 
@@ -109,9 +149,10 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
   - This also applies to Typescript: if genericity is salient, use `<MT>` for a model instance, `<SK>` for an unvalidated POJO, `TT` for a generic type -- never `T`, `I`, etc
 * Never bare `name`, `value`, `node`, `error` or `query` as a variable name. Use `err`, never
   `error`.
-* **Emit JSON with `UU.jsonify`, not `JSON.stringify`** (`import * as UU from '../lib/useful'`): keys come out
-  alphabetical at every depth, so output is deterministic and diffs show changes rather than shuffles.
-  `{ pretty: true }` for files. Utilities of that kind live in `lib/useful.ts`.
+* **Emit JSON with `UU.jsonify`, not `JSON.stringify`** (`import * as UU from '../lib/useful'`) wherever
+  a person or a diff will see it -- an export, a file, a message: keys come out alphabetical at every
+  depth, so diffs show changes rather than shuffles. `{ pretty: true }` for files. A request body
+  bound straight for a parser may use `JSON.stringify`. Utilities of that kind live in `lib/useful.ts`.
 * Never `type` to mean "kind": `woodkind`, not `woodType`. `type` is reserved for data model type.
 * `const` by default; `let` only where the value is genuinely reassigned. Never `var`. Functional style is
   strongly preferred.

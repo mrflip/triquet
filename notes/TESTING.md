@@ -77,7 +77,7 @@ In particular, address:
 
 ## Validation Boundaries
 
-Remember where the code under test sits in the Sketch/DNA/Real/Live lifecycle (`GUIDELINES.md`).
+Remember where the code under test sits in the Sketch/DNA/Real/Live lifecycle (`notes/guidelines.md`).
 A module entrypoint should be tested with generous, sloppy, sketch-shaped input -- that's its
 job. Internal functions past the validation boundary are entitled to assume clean data; don't
 write paranoid tests feeding them garbage they were never meant to see.

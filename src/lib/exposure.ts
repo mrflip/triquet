@@ -89,17 +89,17 @@ function widgetColumns(widget: WidgetT): ExposedColumn[] {
     })]
   }
   const { field } = PlayingWidget.slotOf(widget)
-  return PlayingWidget.exposed(widget).map((name) => column(widget.label, name, ({ question }) => playedText(question, field, name)))
+  return PlayingWidget.exposed(widget).map((fieldname) => column(widget.label, fieldname, ({ question }) => playedText(question, field, fieldname)))
 }
 
 /** One exposed field of what a player answered, as text; nothing when it was never asked */
-function playedText(question: QuestionT, field: 'guess' | 'clueing_ishes' | 'hint_ishes', name: string): string {
+function playedText(question: QuestionT, field: 'guess' | 'clueing_ishes' | 'hint_ishes', fieldname: string): string {
   const held = question[field]
   if (held === null) { return '' }
-  if (name === 'status') { return held.status }
+  if (fieldname === 'status') { return held.status }
   if (held.status !== 'done') { return '' }
-  if (name === 'text' && 'text' in held) { return held.text }
-  if (name === 'items' && 'items' in held) { return UU.jsonify(held.items) }
-  if (name === 'stale' && 'stale' in held) { return String(held.stale) }
+  if (fieldname === 'text' && 'text' in held) { return held.text }
+  if (fieldname === 'items' && 'items' in held) { return UU.jsonify(held.items) }
+  if (fieldname === 'stale' && 'stale' in held) { return String(held.stale) }
   return ''
 }

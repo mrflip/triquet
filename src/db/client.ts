@@ -1,10 +1,10 @@
 import path from 'node:path'
-import * as Z from 'zod'
 import { createClient } from '@libsql/client'
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import * as schema from './schema'
 import { SeedPlayers } from '../models/player'
+import { ValidatorKit } from '../lib/validator'
 
 export type Db = LibSQLDatabase<typeof schema>
 
@@ -14,7 +14,7 @@ export const DefaultDatabaseUrl = 'file:data/triquet.db'
 /** Where drizzle-kit writes the migrations, and so where they are read back from */
 export const MigrationsFolder = path.join(process.cwd(), 'drizzle')
 
-const DatabaseUrl = Z.string().regex(/^(file:|:memory:$)/, 'must be a local database: file:path/to.db, or :memory:')
+const DatabaseUrl = ValidatorKit.str.regex(/^(file:|:memory:$)/, 'must be a local database: file:path/to.db, or :memory:')
 
 /**
  * Database at `url`, migrated to the current schema, with its players in step with this build.

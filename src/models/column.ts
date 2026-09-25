@@ -88,10 +88,10 @@ export class Column implements ColumnT {
 export function sourceOf(source: string): Source {
   const prefix = `${QuestionWidgetLabel}.`
   if (! source.startsWith(prefix)) { return { kind: 'widget', label: source } }
-  const name = source.slice(prefix.length)
-  const view = QuestionViewVals.find((each) => each === name)
+  const fieldname = source.slice(prefix.length)
+  const view = QuestionViewVals.find((each) => each === fieldname)
   if (view) { return { kind: 'view', view } }
-  return { kind: 'field', field: QuestionFieldVals.find((each) => each === name) ?? 'title' }
+  return { kind: 'field', field: QuestionFieldVals.find((each) => each === fieldname) ?? 'title' }
 }
 
 /** What a sort memory says when it was last put in the order of a column */

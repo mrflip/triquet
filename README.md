@@ -19,7 +19,7 @@ To this, you can add:
 
 In future, we may also offer api requests with a payload and response structure we design (calling a purpose-built edge worker), or perhaps even a templated graphql or rest request
 
-Data is stored in a local-first database, and we plan to later allow cloud sync. It's also recorded in a git repo on the browser's FS, allowing infinite rollback and easy comparison of records
+Data is stored in a local libSQL database file beside the app, and we plan to later allow cloud sync. Each quiz's history is also recorded in a git repo on the browser's FS: not a second source of truth, but the best past-versions view we know of -- easy comparison of drafts, and an exit door for anyone who outgrows the tool
 
 ## Developing
 

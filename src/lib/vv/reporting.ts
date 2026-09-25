@@ -261,8 +261,8 @@ export function pathOf(path: readonly PropertyKey[]): string {
     .map((seg, idx) => {
       if (typeof seg === 'number') { return `[${String(seg)}]` }
       const dot = idx === 0 ? '' : '.'
-      const name = String(seg)
-      return /^[A-Za-z_$][\w$]*$/.test(name) ? `${dot}${name}` : `${dot}[${display(name)}]`
+      const segname = String(seg)
+      return /^[A-Za-z_$][\w$]*$/.test(segname) ? `${dot}${segname}` : `${dot}[${display(segname)}]`
     })
     .join('')
 }

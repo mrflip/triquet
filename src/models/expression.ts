@@ -1,7 +1,7 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 
-/** Who wrote an expression: `tq` is Triquet itself, and the only owner there is so far */
+/** Who wrote an expression: `tq` is Triquet itself */
 export const ExpressionOwnerVals = ['tq'] as const
 export type ExpressionOwner = typeof ExpressionOwnerVals[number]
 

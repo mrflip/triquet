@@ -25,7 +25,7 @@ export const MirrorSettingsValidators = Validator(({ obj, int }) => {
 export type MirrorSettingsDNA = Z.input<typeof MirrorSettingsValidators.mirrorSettings>
 export type MirrorSettingsT   = Z.output<typeof MirrorSettingsValidators.mirrorSettings>
 
-/** How the quiz-history mirror behaves: today only how long it waits before committing */
+/** How the quiz-history mirror behaves: how long it waits before committing */
 export class MirrorSettings implements MirrorSettingsT {
   declare commit_debounce_seconds: number
 

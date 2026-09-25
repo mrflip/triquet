@@ -5,6 +5,7 @@ paths:
 
 **IMPORTANT: ONLY USE RELICS IF YOU ARE TOLD WE WILL BE WORKING WITH A RELIC**
 **IF YOU ARE NOT TOLD WHAT SPECIFIC SUBDIRECTORY OF /relics TO USE, STOP AND ASK**
+**THIS FILE ONLY APPLIES TO WORK DONE WITH RELICS**
 
 We will use items in `/relics` to bring in code coming from other codebases.
 That code is often old, or may have been done by someone making every decision differently than our approach, could plausibly be a copy-paste from the drunkest worst AI coder that ever gave codebro advice. Be cautious of their organization or naming or implementation.

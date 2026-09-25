@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
-import * as Z from 'zod'
+import type * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
 import { bulkItemsBlock } from '../../../lib/ask/prompts'
 import { MaxTokensForJob, ModelForTier, PlayerForJob } from '../../../lib/ask/models'
@@ -10,15 +10,18 @@ import { playerFor, promptFor } from '../../../db/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failureReplyFor } from '../../../lib/ask/failures'
 import { vetReply } from '../../../lib/ask/replies'
+import { ValidatorKit } from '../../../lib/validator'
 import { IshValidators } from '../../../models/ish'
 import type { PlayerT } from '../../../models/player'
 
+const { obj, arr, str } = ValidatorKit
+
 /** The shape every single-text ish job constrains the model's answer to */
-const IshItemsFormat = Z.object({ items: Z.array(IshValidators.ishItemReply) })
+const IshItemsFormat = obj({ items: arr(IshValidators.ishItemReply) })
 
 /** The same, one group per tagged text, for the batched job */
-const BulkGroupFormat = Z.object({ key: Z.string(), items: Z.array(IshValidators.ishItemReply) })
-const BulkGroupsFormat = Z.object({ groups: Z.array(BulkGroupFormat) })
+const BulkGroupFormat = obj({ key: str, items: arr(IshValidators.ishItemReply) })
+const BulkGroupsFormat = obj({ groups: arr(BulkGroupFormat) })
 
 /**
  * The one place this tool reaches outside the browser.
