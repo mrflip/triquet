@@ -90,6 +90,12 @@ never `dev_janitor`. Never kill a process that doesn't belong to `agent` or `e2e
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
 
+Start a new line of work on its own branch with `pnpm run newb <label>`, which makes
+`YYYYMMDD-<label>` from where you stand. Use it freely. At every commit-able milestone, run
+`./scripts/doppledo dev_claude ./scripts/jazz_migration` (see `notes/deploy.md`). If it writes a
+migration for a change you don't recognize as your own, or writes nothing when you expected your
+schema change to need one, stop and raise it with the Coach rather than committing around it.
+
 ## Architecture
 
 Where code lives. Imports run down this list, never up: a lower layer knows nothing of the ones
@@ -145,6 +151,8 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
+  - `notes/deploy.md` -- how a change reaches production; when a schema change needs a migration
+    and a Jazz deploy. Agents never deploy to production.
   - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
   - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any

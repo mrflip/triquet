@@ -15,6 +15,6 @@ if [[ "${JAZZ_REAL_DB:-}" != "true" ]]; then
 fi
 echo "Deploying to Jazz app ${NEXT_PUBLIC_JAZZ_APP_ID:?not set} at ${NEXT_PUBLIC_JAZZ_SERVER_URL:?not set}"
 : "${JAZZ_ADMIN_SNIPPET}"
-pnpm --silent exec jazz-tools deploy --schema-dir src/db
+pnpm --silent exec jazz-tools deploy --schema-dir src/db --migrations-dir src/db/migrations
 echo
 exec scripts/jazz_healthcheck

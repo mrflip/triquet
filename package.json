@@ -26,7 +26,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "doppler run --config dev_e2e -- playwright test"
+    "test:e2e": "doppler run --config dev_e2e -- playwright test",
+    "migrations:check": "scripts/jazz_migrations_check",
+    "newb": "scripts/newb"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
