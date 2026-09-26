@@ -83,14 +83,19 @@ of milliseconds, with our permissions enforced), `startLocalJazzServer` when syn
 clients are the behaviour under test. `testApp.as(session)` is one account's database; the
 session is `{ user_id, issuer, claims, authMode: 'local-first' }`, typed as
 `Parameters<PolicyTestApp['as']>[0]` since Jazz does not export `Session`; `tests/support/jazz.ts`
-has `openTestApp()` and `sessionFor(user_id)`. Don't open a memory
+has `openTestApp()`, `sessionFor(user_id)`, `freshDb(testApp)` (an account no other test
+shares) and `seedWorkspace(testApp, workspace)`, which writes a workspace tree into a fresh
+account and hands back `act` (run an action through `perform`) and `read` (the tree its rows now
+make up). Action tests seed the same fixtures the reducer tests built, and compare trees. Don't open a memory
 driver by hand: it skips permissions, and needs a stand-in account store. Assert user-visible rows, subscription
 deliveries, and accepted or rejected writes through the public API. Tell a query that has not
 delivered yet apart from one that delivered nothing. Request the durability tier the assertion
 depends on, and no higher. Row ids are never asserted on; find rows by label. `$createdAt`
 counts milliseconds, so a test that orders two inserts by it waits a few between them. A write
 to a row the account cannot read throws on the spot; a delete is refused only at the edge, so
-assert it with `expectDenied`.
+assert it with `expectDenied`. Read with `LocalFirst` (from `state/quiz-rows`): edge-tier reads
+stall once the shared test server holds many accounts. A row read back at once may not carry
+`$createdAt` yet; wait a moment before asserting on it.
 
 The e2e suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory, Jazz server and `data/e2e.db`); Playwright refuses to start locally otherwise. Each

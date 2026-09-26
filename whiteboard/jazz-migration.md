@@ -200,10 +200,54 @@ stay pure and untouched.
   over `useAll`/`useOne`.
 * Exit: every action has a row-writing successor with tests; the UI is not yet switched.
 
+**Phase 2 as built (2026-09-26).**
+
+* **`perform(db, open, action)`** (`src/state/perform.ts`) takes the same `WorkspaceAction`s the
+  reducer did; `performLayout` takes the layout ones. So `widget-edit.ts`'s planners, and every
+  `dispatch` in the UI, keep their shape: phase 3 swaps `dispatch` for `perform`. The actions
+  themselves are in `quiz-actions.ts` and `layout-actions.ts`, one function each.
+* **`open` is `{ workspace_id, quiz_id }`, the quiz on this screen.** Actions no longer act on the
+  workspace's `active_quiz_id`: Jazz syncs that row across tabs, so another tab opening a quiz
+  would send this tab's edits there. `active_quiz_id` is now only "last opened", for
+  `OpenQuizRedirect`.
+* **Reading** (`quiz-rows.ts`): `loadQuizRows`, `loadWorkspaceRows`, and `quizFrom(rows)`, the
+  one projection into the `QuizT` tree that Sortings, Rank, Chain and Expressed read (and that
+  phase 3's bag, export and mirror will). Tree ids are row ids; chains are held as labels and
+  projected to ids; the kit's `treeid` accepts a row id or a ULID (a question not written yet).
+* **Writing** (`quiz-writing.ts`): per-table update helpers that validate the whole row as it
+  would stand and write only changed fields; `writeQuiz`/`writeWorkspace`, which write a whole
+  tree into rows by id (questions, quizzes) or label (widgets, columns, expressions), for new
+  quizzes, imports and seeding; `transact(db, write)`, used for every write.
+* **Asking actions always insert a playing** (reply or failure); nothing compares a reply's own
+  timestamp with `$createdAt`. Only `writeQuiz` (imports) records "replies newer than the newest
+  recorded", which is what keeps a quiz written back as read from recording twice.
+* `ensureWorkspace(db)` finds the account's workspace or makes a blank one, reading at
+  `remote-if-possible` so a device that has not synced yet does not make a second.
+* `workspace-store.ts` is **not** deleted yet: it goes with the UI switch in phase 3, since
+  deleting it now would break the running app. The reducers and their tests stay until then too.
+* **alpha.56, found this phase** (all worked around; see the Risks section):
+  - A query that `include`s two relations of one quiz, or nests an include in an ordered one,
+    can block the process for good once a quiz has its standard 11 widgets and 21 columns. No
+    timer fires; the page would freeze. Every read is a flat query per table, run in parallel,
+    with `where({ question_id: { in: ids } })` for the playings. Phase 3's subscriptions must
+    do the same.
+  - `$createdAt` is missing from a row read back at once, even after an awaited transaction; a
+    moment later it is there. `askedAt()` treats an unstamped playing as asked just now.
+  - Jazz refuses to commit an empty transaction. `transact` counts writes through a thin proxy
+    and abandons one that wrote nothing.
+  - In tests, `edge`-tier reads slow to a stall once the shared test server holds many
+    accounts; tests read `LocalFirst`.
+
 ### Phase 3: the read side and the UI switch (mechanical once phase 2 lands)
 
 * `Workbench` subscribes: the workspace, the active quiz by label, its questions, widgets,
-  columns, and the newest playing per (question, player, textkind).
+  columns, and the newest playing per (question, player, textkind). One flat subscription per
+  table (phase 2's hang), assembled with `quizFrom`.
+* `dispatch` becomes `perform(db, open, action)`, `open` being the quiz the route shows. Then
+  `workspace-store.ts`, `workspace-reducer.ts`, `layout-reducer.ts`, `revise-quiz.ts` and their
+  tests go (their cases already live in `tests/state/perform.test.ts` and
+  `layout-actions.test.ts`); `isLayoutAction` and `openQuizOf` move to wherever they are still
+  used. The quiz mirror's `onChanged(before, after)` needs a new source: a subscription.
 * The formula bag, the export, and the git mirror's file are **projections** built from rows in
   one place (`lib/quiz-bag.ts` or a sibling). The reducers used to hand them a tree; now a
   function assembles one. The export format is unchanged, so import keeps working.
@@ -265,5 +309,8 @@ paragraph and `src/db/` entry, `stack.md` Outgoing lines, `guidelines.md`'s
   their row validators alone.
 * A reorder under concurrent edits is LWW per row; two people dragging at once can interleave.
   Acceptable for the trial; note it in the decision record if it bites.
+* Some alpha.56 query shapes hang the page outright (phase 2): several `include`s on one
+  query, or a nested one. Flat queries only, until a bump shows otherwise; a canary cannot pin
+  this, since a hanging test takes the suite with it.
 * The e2e suite is the largest test area and leans on server reset. If the fresh-context reset
   is not enough, a `page.evaluate` that clears IndexedDB is the fallback, not a route.

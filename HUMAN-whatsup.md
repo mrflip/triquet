@@ -2,6 +2,47 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Jazz phase 2 -- the write side
+
+Committed as `7bbb224`, findings filed after it. `perform(db, open, action)` writes rows for every
+action the reducer knew, over the same `WorkspaceAction` vocabulary, so phase 3's UI switch is
+mostly swapping `dispatch` for it. Every reducer test case is ported to run against a real Jazz
+database (`tests/state/perform.test.ts`, `layout-actions.test.ts`), plus tests for the
+reading and writing layers. Lint, typecheck, unit tests (1962) and e2e (129) pass; the UI still
+runs on libSQL.
+
+**Judgement calls you may want to overturn**
+
+* **Actions act on the quiz the screen shows**, passed in as `open`, not on `active_quiz_id`.
+  Once Jazz syncs that row, a second tab opening another quiz would otherwise redirect this tab's
+  edits. `active_quiz_id` is now "last opened".
+* **The tree survives as a read model.** `quizFrom(rows)` projects rows into the old `QuizT`
+  (row ids as ids, chains projected from labels to ids), because Sortings, Rank, Chain and
+  Expressed all read it, and phase 3's bag, export and mirror need it anyway. The actions are
+  targeted row writes; only imports, new quizzes and seeding write a whole tree, by diff.
+* **Tree ids accept a row id or a ULID** (`treeid` in the kit), since a question minted by
+  `Question.blank()` has no row id until it is written.
+* **`transact` wraps the transaction in a Proxy** to count writes, because Jazz refuses to commit
+  an empty transaction and the alternative was catching its error message. Small and documented,
+  but it is cleverness, so flagging it.
+* **I added `expectUnchanged` to `vitest/expect-expect`'s assertion names** in
+  `eslint.config.mjs`, beside `accepts` and `rejects`.
+* **`workspace-store.ts` is not deleted** though the plan put that in phase 2: it goes with the
+  UI switch, or the running app breaks.
+
+**Found in alpha.56** (in the plan and the decision record now)
+
+* A query including two relations of a quiz, or a nested include, can freeze the process for
+  good at realistic sizes. Flat queries only.
+* `$createdAt` is missing on a row read back at once; a moment later it is there.
+* An empty transaction cannot be committed.
+
+**Not done**
+
+* No `/code-review` pass (not a skill I can invoke here); I reviewed the diff myself.
+* Two tabs opening a brand-new account at the same moment could each make a workspace;
+  `ensureWorkspace` then uses the older. Not worth more than that for the trial.
+
 ## 2026-09-26: Jazz phase 1 -- schema, permissions, row validators
 
 Committed as `48b31f3`, findings filed after it. Seven tables in `src/db/schema.ts`, each
