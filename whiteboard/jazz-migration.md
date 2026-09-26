@@ -270,6 +270,48 @@ stay pure and untouched.
   (the client-first rule as a test).
 * Exit: the app runs on Jazz alone; `pnpm test:e2e` green; the Coach's JSON imports cleanly.
 
+**Phase 3 as built (2026-09-26).**
+
+* **`useWorkspace(label?)` kept its shape**, so every component still gets `{ workspace, quiz,
+  loaded, unsaved, saveNotice, dispatch }`. Inside: `ensureWorkspace` (one lookup per database,
+  local copy first), one `useAll` per table, `workspaceFrom(rows, workspace_id)`. Loaded means
+  the workspace *and* one of its quizzes have arrived: the tables arrive one by one, and a
+  workspace row alone sent the redirect off to mint a quiz.
+* **Writes do not read first.** `perform(db, held, open, action)` takes `held`, every row the
+  account holds, and the hook passes the rows on screen, so a lone change writes at once (a
+  plain update notifies subscribers synchronously; a transaction one microtask later). An
+  earlier version loaded rows inside every action, and two quick arrow-key moves then read a
+  stale grid. A change dispatched while another is still being written (an editor applying a
+  widget and its column together) waits for it and reads the rows afresh.
+* **`use-reorder` steps from where the last arrow press sent a row**, until the list shows it
+  there, so key repeat outruns neither the write nor the render.
+* **`unsaved` means "a change is still being written"**, a few milliseconds each. The page asks
+  before it is left in that window (registered at once, not on the next render), and the quiz
+  history waits for in-flight writes before a milestone or a download.
+* **The mirror** is fed by the tab that made a change: after `perform`, it reads the workspace
+  and notes `(before, after)`, as the store did on its own dispatches.
+* **Deleted:** the store, the three reducers and `revise-quiz`, `workspace-change`, the
+  workspace route, port and cookie, `src/db/{client,players,workspaces,drizzle-schema}.ts`,
+  `/drizzle`, `drizzle.config.ts`, the libSQL tests, `@libsql/client`, `drizzle-orm`,
+  `drizzle-zod`, `drizzle-kit`, `ulid`, `db:generate`, `TRIQUET_DATABASE_URL` and
+  `data/{agent,e2e}.db`. The action types and `isLayoutAction` live in `state/actions.ts`;
+  `openQuizOf` and the tree's `expressionUsage` in `models/workspace.ts`.
+* **`lib/ids.ts` stayed, minting UUIDs** instead of ULIDs: a question or quiz in the tree needs an
+  id before it is written. `treeid` still accepts a ULID, so old exports import.
+* **Players are constants** (`lib/ask/players.ts`); `PlayerValidators.player` no longer comes
+  from `drizzle-zod`.
+* **e2e:** `expect.timeout` is 10 s (a fresh page opens Jazz for most of a second in dev);
+  one-shot reads became retrying assertions; cookie resets went (each spec's context is a fresh
+  account); the spec that relied on a cookie reset for an empty quiz opens a new quiz;
+  `e2e/client-first.spec.ts` blocks every host but the app's own, WebSockets included, plus
+  `/api/players`, and still opens, edits and reloads. 130 specs.
+* **Not done:** `JazzProvider` still wraps the whole app, so the prerendered page is a progress
+  bar. Moving the chrome out is a design change for a Coach. The Coach's JSON was not tried
+  (it is not in the repo); import's e2e specs pass.
+* **Your `.next/dev/types/validator.ts` is stale** (it names the deleted workspace route), and
+  `tsconfig.json` includes every build folder's types, so `pnpm build` and `pnpm typecheck`
+  fail until the next `pnpm dev` rewrites it.
+
 ### Phase 4: the local-only → identified seam (small; design only for now)
 
 Not auth. Only what makes TODO 1 a bolt-on later rather than a rework:

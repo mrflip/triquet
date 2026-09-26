@@ -86,7 +86,7 @@ session is `{ user_id, issuer, claims, authMode: 'local-first' }`, typed as
 has `openTestApp()`, `sessionFor(user_id)`, `freshDb(testApp)` (an account no other test
 shares) and `seedWorkspace(testApp, workspace)`, which writes a workspace tree into a fresh
 account and hands back `act` (run an action through `perform`) and `read` (the tree its rows now
-make up). Action tests seed the same fixtures the reducer tests built, and compare trees. Don't open a memory
+make up). Action tests seed a workspace tree as a fixture, act, and compare trees. Don't open a memory
 driver by hand: it skips permissions, and needs a stand-in account store. Assert user-visible rows, subscription
 deliveries, and accepted or rejected writes through the public API. Tell a query that has not
 delivered yet apart from one that delivered nothing. Request the durability tier the assertion
@@ -97,8 +97,12 @@ assert it with `expectDenied`. Read with `LocalFirst` (from `state/quiz-rows`): 
 stall once the shared test server holds many accounts. A row read back at once may not carry
 `$createdAt` yet; wait a moment before asserting on it.
 
+A change lands a moment after the author makes it, so a spec asserts with retries (`expect`
+on a locator, or `expect.poll` around a read), never a one-shot read straight after an action,
+and waits with `waitUntilSaved` before it reloads.
+
 The e2e suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
-directory, Jazz server and `data/e2e.db`); Playwright refuses to start locally otherwise. Each
+directory and Jazz server); Playwright refuses to start locally otherwise. Each
 spec's fresh browser context is a fresh local-first account, and that isolates specs only
 because every table is creator-owned. A table readable across accounts would leak rows between
 specs through the shared server; then wipe `data/jazz-e2e/` before a run.

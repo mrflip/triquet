@@ -49,18 +49,16 @@ instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server 
 running. Next.js refuses to start a second dev server in the same directory. Each dev script runs
 under a Doppler config that gives it its own port, build directory and Jazz server: your default
 config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for `pnpm test:e2e`. The e2e
-suite always runs the app with a stand-in API key and its own `data/e2e.db`, and refuses to run
+suite always runs the app with a stand-in API key and its own Jazz server, and refuses to run
 locally outside `dev_e2e`. CI runs `playwright test` directly, with GitHub's environment;
 Vercel supplies its own.
 
-**Storage is mid-move to Jazz v2** (plan: `whiteboard/jazz-migration.md`), and this section
-will change when the move is done. Until then, quizzes live in a local libSQL database file,
-`data/triquet.db`, created and migrated on first use; `TRIQUET_DATABASE_URL` points elsewhere
-(`file:...`, or `:memory:`). The agent scripts use `data/agent.db`. Each browser finds its own
-workspace by a cookie. Please don't build anything new on this layer. There is no migration
-path: export your quizzes as JSON before the move and bring them back through the import tool.
+**Quizzes live in Jazz v2**, a local-first database: each browser keeps its own copy under a
+local account made silently on first visit, writes land there first, and a sync server carries
+them onward. There was no migration from the libSQL database this replaced (`data/triquet.db`,
+now unused): bring old quizzes back through the import tool.
 
-Jazz is already installed beside it. In development it runs a local Jazz sync server inside the
+In development the app runs a local Jazz sync server inside the
 Next process, on `JAZZ_DEV_PORT` with its data in `JAZZ_DEV_DATA_DIR` (3200 and `data/jazz/` for
 you), publishes `src/db/schema.ts` and `permissions.ts` to it on every start and save, and
 records its app id in a `.env` inside that data directory. It

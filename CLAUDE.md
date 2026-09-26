@@ -15,13 +15,12 @@ store, edit and refine the question text, and also to assess questions for fairn
 Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
 a validator needs no migration path for anyone's quizzes.
 
-**Storage is moving from libSQL + Drizzle to Jazz v2**, a local-first database, as a trial so we
-can learn from potential users before choosing infrastructure. Jazz is an alpha, newer than your
-training: use the `jazz` skill and the installed `jazz-tools` source, never recall. Rows, not a
-tree: actions write rows, views subscribe to rows. Row ids are Jazz's and internal; refer by
-label. Validate between the UI and the app, not by the database alone. Until the move is done,
-`src/db/` and `/drizzle` still run: keep them working, but don't build on them. Turso is out for
-good. See `notes/decisions/2026-09-jazz.md`; the plan is `whiteboard/jazz-migration.md`.
+**Storage is Jazz v2**, a local-first database, taken as a trial so we can learn from potential
+users before choosing infrastructure. Jazz is an alpha, newer than your training: use the `jazz`
+skill and the installed `jazz-tools` source, never recall. Rows, not a tree: actions write rows
+(through `perform`), views subscribe to rows. Row ids are Jazz's and internal; refer by label.
+Validate between the UI and the app, not by the database alone. Read flat: one query per table,
+never several `include`s (alpha.56 can hang on them). libSQL, Drizzle and Turso are out for good. See `notes/decisions/2026-09-jazz.md`; the plan is `whiteboard/jazz-migration.md`.
 
 **The app is client-first**: static hosting plus stateless functions, working with the network
 off except for asking. The ask route is the one named server function. Never add a second
@@ -83,9 +82,9 @@ The top three values while writing code are **empathy, safety and readability**.
 Never touch a resource a human may already be using. Next.js allows one dev server and one build
 per directory, so as an agent **use `pnpm dev:agent` (port 3001) and `pnpm build:agent`**, never
 `pnpm dev` / `pnpm build`, and run e2e only as `pnpm test:e2e` (port 3002). Doppler supplies each
-its ports and directories (`dev_claude`, `dev_e2e`); the scripts point the app at `data/agent.db`
-or `data/e2e.db`, never the human's `data/triquet.db`. Jazz runs locally inside the dev server
-(agents: port 3201, `data/jazz-agent/`) unless `JAZZ_REAL_DB=true`. Housekeeping on the agents'
+its ports and directories (`dev_claude`, `dev_e2e`). Jazz runs locally inside the dev server
+(agents: port 3201, `data/jazz-agent/`; e2e: 3202, `data/jazz-e2e/`) unless `JAZZ_REAL_DB=true`;
+never the human's 3200 or `data/jazz/`. Housekeeping on the agents'
 Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `dev_aijanitor`,
 never `dev_janitor`. Never kill a process you did not start. If you meet another shared resource
 -- a port, a cache or output directory, a database -- give yourself a parallel one the same way,
@@ -96,21 +95,19 @@ and add its script to `package.json`.
 Where code lives. Imports run down this list, never up: a lower layer knows nothing of the ones
 above it. (`lib` and `models` are peers, and lean on each other freely. `db` sits above both:
 `db/schema.ts` takes value validators from `models`, and nothing in `models` imports from `db`.
-Row types come from `db`. Until the Drizzle files are gone, `models/player.ts` and
-`models/playing.ts` still climb into `db/drizzle-schema`; that climb leaves with them.)
+Row types come from `db`.)
 
 * `src/app/` -- Next.js App Router: pages, the theme and palette, and the route handlers under
   `api/`. Pages are thin; they hand off to a component.
 * `src/components/` -- TSX views. `Workbench` is the whole tool; `cells/` are the grid's cell
   editors and readouts; `panels/` sit below the grid. Hooks that only serve a view (`use-draft`,
   `use-reorder`) live beside it.
-* `src/state/` -- everything between a view and the data: the reducers (pure, and where every
-  editing action is defined), the workspace store, the asking and players hooks, and the quiz
-  history mirror with its commit scheduler.
-* `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, and the app handle),
-  `permissions.ts` (the only place authorization is written), and the client setup. Today it
-  still holds the **outgoing** Drizzle schema, connection and repositories, with migrations in
-  `/drizzle`; those leave with the move.
+* `src/state/` -- everything between a view and the data: the action vocabulary (`actions.ts`),
+  `perform` and the row-writing actions it dispatches to, reading rows and projecting them into
+  the quiz tree (`quiz-rows.ts`), writing a tree back (`quiz-writing.ts`), the workspace hook,
+  the asking and players hooks, and the quiz history mirror with its commit scheduler.
+* `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, row types, and the
+  app handle), `permissions.ts` (the only place authorization is written), and the client setup.
 * `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a
   class of statics (`fill`, `blank`, `exposed`). Nothing here is instantiated.
 * `src/lib/` -- facilities: pure functions around one concern each, imported as a namespace

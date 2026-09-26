@@ -2,6 +2,50 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Jazz phase 3 -- the app runs on Jazz alone
+
+Committed as `0e75804`, findings filed after it. libSQL, Drizzle, the store and the reducers are
+gone; `useWorkspace` subscribes to Jazz and dispatches through `perform`, with the components
+unchanged. Lint, unit tests (1781), the source's typecheck and e2e (130, one new) pass; see
+below for `pnpm typecheck` and `pnpm build` on your machine.
+
+**Before you run anything**
+
+* **Your `.next/dev/types/validator.ts` is stale.** It still names the deleted workspace route,
+  and `tsconfig.json` includes every build folder's generated types, so `pnpm typecheck` and
+  `pnpm build` fail until your next `pnpm dev` rewrites it (or you delete `.next/dev/types`).
+  I didn't touch `.next`. My own build compiled, and `tsc` over everything but `.next` is clean.
+* **Your quizzes are not in Jazz.** `data/triquet.db` is untouched and nothing reads it now.
+  Export from an older checkout, or read the JSON you already have, and bring it in through
+  the import panel. I couldn't try your JSON; it isn't in the repo.
+* `data/jazz/` holds the phase 0 placeholder schema's history. If `pnpm dev` complains about
+  the schema not connecting, wipe `data/jazz/` (yours to do).
+
+**Judgement calls you may want to overturn**
+
+* **Actions write from the rows on screen, without reading first.** My first cut read rows in
+  every action; e2e caught two quick arrow presses acting on a stale grid, and an editor's
+  two-action plan (widget, then its column) refusing its own second half. Now a lone change
+  writes at once, changes dispatched together queue, and `use-reorder` steps on from where
+  it last sent a row.
+* **`unsaved` now means "a change is being written"** (milliseconds). The page asks before it is
+  left in that moment, and milestones and downloads wait for in-flight writes. One spec
+  reloaded in the same instant it typed; it now leaves the field and waits, as the other specs
+  do.
+* **e2e asserts with retries** (`expect.poll`, list `toHaveText`) instead of one-shot reads,
+  and `expect.timeout` went from 5 s to 10 s: a fresh page takes most of a second to open
+  Jazz in dev, on top of first-visit compiles.
+* **ULIDs are gone, `lib/ids.ts` is not**: it mints UUIDs for tree things not yet written. The
+  plan said to delete it; the tree still needs ids for unwritten questions.
+* **`JazzProvider` still wraps the whole app**, so the prerendered page is a progress bar. The
+  plan asked me to decide; moving the chrome outside changes what the author sees first,
+  which is a Coach's call.
+
+**Noticed**
+
+* The mirror reads the workspace once after each change so it can compare before and after.
+  Cheap for now; say so if it isn't.
+
 ## 2026-09-26: Jazz phase 2 -- the write side
 
 Committed as `7bbb224`, findings filed after it. `perform(db, open, action)` writes rows for every
