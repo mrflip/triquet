@@ -159,6 +159,9 @@ agrees to another.
 
 ## Later, i.e when we get there
 
+* **A second device without logging in**: Jazz's `exportLocalFirstSecret` (and its
+  recovery-phrase helpers) carry a local-first account to another browser. The no-login path to
+  multi-device, if authors want it before TODO 1's sign-in.
 * **MSW** for network mocking, so the same handlers serve tests and local development.
 * **Bruno** for full stack testing.
 * A **Content Security Policy** that would survive a sanitizer bug. Set it in `next.config`

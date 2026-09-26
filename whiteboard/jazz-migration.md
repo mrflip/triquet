@@ -324,6 +324,13 @@ Not auth. Only what makes TODO 1 a bolt-on later rather than a rework:
   test-less design note in the decision record; it is already there.
 * Exit: nothing visible; the decision record's identity section matches the code's seams.
 
+**Phase 4 as built (2026-09-26).** One finding changed the permissions: `managedByCreator()`
+keys ownership on the exact identity, so the agreed `linkJWT` path would have left a signed-in
+identity unable to read what the local-first identity made. Every table now owns rows by
+`$createdBy.account`, and `ensureWorkspace` finds the workspace by the account that made it,
+taking the account from `useSession()`. Tests hold two identities of one account to sharing
+everything and to finding one workspace. The decision record's identity section lists the seams.
+
 ### Phase 5: notes cleanup (TODO 4; after everything lands)
 
 Turn "outgoing" and "mid-move" into what is. `README.md` Developing section, `CLAUDE.md` storage

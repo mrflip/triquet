@@ -2,6 +2,21 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Jazz phase 4 -- the seam for signing in
+
+Committed as `a6f23d2`. One change you should look at: **permissions now own rows by account,
+not by identity.** `managedByCreator()` compares the whole author, the exact identity. The
+decision record's path to sign-in links the new identity to the *existing* account, and under
+that rule the signed-in identity could not have read anything the local-first one made. Now
+every table allows read, insert, update and delete where `$createdBy.account` is the session's
+account (28 plain lines in `permissions.ts`; a loop over the tables would not typecheck against
+Jazz's overloads). `ensureWorkspace` finds the workspace by the account that made it. A test
+shows two identities of one account sharing everything. Unit (1782) and e2e (130) pass.
+
+Nothing else in phase 4 needed code: the session already starts local-first, the collision
+policy is already written down, and `exportLocalFirstSecret` is now under *Later* in
+`stack.md`.
+
 ## 2026-09-26: Jazz phase 3 -- the app runs on Jazz alone
 
 Committed as `0e75804`, findings filed after it. libSQL, Drizzle, the store and the reducers are
