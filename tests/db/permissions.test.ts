@@ -75,6 +75,18 @@ describe('permissions', () => {
     expect(held?.title).to.eq('Princes')
   })
 
+  it('lets another identity of the same account read and change everything the account made', async () => {
+    const account = '0192f1b0-0000-7000-8000-00000000a11c'
+    const laptop = testApp.as(sessionFor('local-first key', account))
+    const phone = testApp.as(sessionFor('signed in later', account))
+    const { quiz } = await seedEverything(laptop, 'linked_account')
+    const [seen] = await phone.all(app.quizzes.where({ label: 'linked_account' }))
+    expect(seen?.title).to.eq('Princes')
+    await phone.update(app.quizzes, quiz.id, { title: 'Kings' }).wait({ tier: 'edge' })
+    const [held] = await laptop.all(app.quizzes.where({ label: 'linked_account' }))
+    expect(held?.title).to.eq('Kings')
+  })
+
   it('refuses another account\'s delete', async () => {
     const { question } = await seedEverything(alice, 'alice_kept')
     await bob.expectDenied((db) => db.delete(app.questions, question.id))

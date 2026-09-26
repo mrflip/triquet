@@ -14,9 +14,15 @@ import { present } from './present'
 /** One account's session, as a local-first browser presents it; Jazz does not export the type */
 export type Session = Parameters<PolicyTestApp['as']>[0]
 
-/** A local-first session for the account `user_id` */
-export function sessionFor(user_id: string): Session {
-  return { user_id, issuer: 'local-first', claims: {}, authMode: 'local-first' }
+/** A local-first session for `user_id`, under the account `account_id` when one is named */
+export function sessionFor(user_id: string, account_id?: string): Session {
+  return { user_id, ...(account_id !== undefined && { account_id }), issuer: 'local-first', claims: {}, authMode: 'local-first' }
+}
+
+/** A fresh account no other test shares: its database, and its id */
+export function freshAccount(testApp: PolicyTestApp): { db: Db, account: string } {
+  const account = randomUUID()
+  return { db: testApp.as(sessionFor(`author_${account}`, account)), account }
 }
 
 /**
@@ -41,7 +47,7 @@ export type Seeded = {
 
 /** A fresh account's database, one no other test shares */
 export function freshDb(testApp: PolicyTestApp): Db {
-  return testApp.as(sessionFor(`author_${randomUUID()}`))
+  return freshAccount(testApp).db
 }
 
 /**

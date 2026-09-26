@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Db } from 'jazz-tools'
-import { useAll, useDb } from 'jazz-tools/react'
+import { useAll, useDb, useSession } from 'jazz-tools/react'
 import { app } from '../db/schema'
 import { AppNotices } from '../lib/notices'
 import * as Labelmaker from '../lib/labelmaker'
@@ -73,11 +73,14 @@ export function useWorkspace(label?: string): WorkspaceHandle {
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const [writing, setWriting] = useState(0)
 
+  const account = useSession()?.user.account ?? null
+
   useEffect(() => {
+    if (account === null) { return }
     let current = true
     const find = async () => {
       try {
-        const found = await ensureWorkspace(db)
+        const found = await ensureWorkspace(db, account)
         if (current) { setWorkspaceId(found) }
       } catch {
         if (current) { setSaveNotice(AppNotices.loadFailed) }
@@ -85,7 +88,7 @@ export function useWorkspace(label?: string): WorkspaceHandle {
     }
     void find()
     return () => { current = false }
-  }, [db])
+  }, [db, account])
 
   // One subscription per table, since a query that includes several relations can hang. Every
   // row an account can see is its own, so each table is read whole.

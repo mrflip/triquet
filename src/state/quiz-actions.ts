@@ -239,18 +239,22 @@ const WorkspaceLookups = new WeakMap<Db, Promise<string>>()
  * The account's workspace, made when it has none yet: one blank quiz, open, with the standard
  * expressions and columns.
  *
- * An account's rows are its own, so the workspace is whichever this account made. This browser's
- * own copy is asked first; only when it holds none is the server asked (when it can be reached),
- * so a device that has not synced yet does not make a second. Everyone who asks of one database shares one lookup, so views opening at once
- * cannot each make their own. Should two ever exist, the one made first is the one used.
+ * The workspace is the one `account` made, found by who made it rather than by anything this
+ * browser remembers, so it is the same workspace on any device the account is used on, and a
+ * workspace someone else shares with the account is never mistaken for its own. This browser's
+ * copy is asked first; only when it holds none is the server asked (when it can be reached), so a
+ * device that has not synced yet does not make a second. Everyone who asks of one database shares
+ * one lookup, so views opening at once cannot each make their own. Should two ever exist, the one
+ * made first is the one used.
  *
  * @param db - The account's database.
+ * @param account - The account's id, as its session names it.
  * @returns The workspace's row id.
  *
- * @example const workspace_id = await ensureWorkspace(db)
+ * @example const workspace_id = await ensureWorkspace(db, session.user.account)
  */
-export async function ensureWorkspace(db: Db): Promise<string> {
-  const pending = WorkspaceLookups.get(db) ?? findOrMakeWorkspace(db)
+export async function ensureWorkspace(db: Db, account: string): Promise<string> {
+  const pending = WorkspaceLookups.get(db) ?? findOrMakeWorkspace(db, account)
   WorkspaceLookups.set(db, pending)
   try {
     return await pending
@@ -260,9 +264,9 @@ export async function ensureWorkspace(db: Db): Promise<string> {
   }
 }
 
-/** The account's earliest workspace, or a blank one made now */
-async function findOrMakeWorkspace(db: Db): Promise<string> {
-  const earliest = app.workspaces.orderBy('$createdAt').limit(1)
+/** The earliest workspace `account` made, or a blank one made now */
+async function findOrMakeWorkspace(db: Db, account: string): Promise<string> {
+  const earliest = app.workspaces.where({ '$createdBy.account': account }).orderBy('$createdAt').limit(1)
   const [local] = await db.all(earliest, LocalFirst)
   if (local) { return local.id }
   const [remote] = await db.all(earliest, { tier: 'remote-if-possible' })

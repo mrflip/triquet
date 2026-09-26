@@ -10,7 +10,7 @@ import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
 import { present } from '../support/present'
-import { freshDb, openTestApp, seedWorkspace } from '../support/jazz'
+import { freshAccount, openTestApp, seedWorkspace, sessionFor } from '../support/jazz'
 
 /** A workspace holding one quiz built from `qnum, title` pairs, open */
 function workspaceOf(...pairs: [string, string][]): WorkspaceT {
@@ -658,17 +658,18 @@ describe('ensureWorkspace', () => {
   afterAll(async () => { await testApp.shutdown() })
 
   it('makes a fresh account its workspace: one blank quiz, open, with the standard layout', async () => {
-    const db = freshDb(testApp)
-    const workspace = present(await loadWorkspace(db, await ensureWorkspace(db)))
+    const { db, account } = freshAccount(testApp)
+    const workspace = present(await loadWorkspace(db, await ensureWorkspace(db, account)))
     const blank = Workspace.blank()
     expect([workspace.quizzes.length, openOf(workspace).questions.length, openOf(workspace).columns.length, workspace.expressions.length])
       .to.deep.eq([1, BlankQuestionQty, present(blank.quizzes[0]).columns.length, blank.expressions.length])
   })
 
-  it('finds the workspace an account already has, rather than making another', async () => {
-    const db = freshDb(testApp)
-    const first = await ensureWorkspace(db)
-    expect(await ensureWorkspace(db)).to.eq(first)
+  it('finds the workspace an account already has, from any identity of it, rather than making another', async () => {
+    const { db, account } = freshAccount(testApp)
+    const first = await ensureWorkspace(db, account)
+    const elsewhere = testApp.as(sessionFor('the same account, another device', account))
+    expect(await ensureWorkspace(elsewhere, account)).to.eq(first)
     expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
   })
 })
@@ -679,8 +680,8 @@ describe('ensureWorkspace, asked by several views at once', () => {
   afterAll(async () => { await testApp.shutdown() })
 
   it('makes one workspace, and hands every one of them its id', async () => {
-    const db = freshDb(testApp)
-    const found = await Promise.all([ensureWorkspace(db), ensureWorkspace(db), ensureWorkspace(db)])
+    const { db, account } = freshAccount(testApp)
+    const found = await Promise.all([ensureWorkspace(db, account), ensureWorkspace(db, account), ensureWorkspace(db, account)])
     expect(new Set(found).size).to.eq(1)
     expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
   })
