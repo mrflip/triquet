@@ -71,10 +71,10 @@ export function changedFields<RT extends object>(held: RT, fields: Partial<RT>):
 
 /**
  * A playing as the tree's history of a cell gives it, as the row that records it: the row's id
- * and its time are Jazz's own, and a reply that found no spans has an empty list of them.
+ * and its time are Jazz's own.
  */
 export function playingFieldsOf(playing: PlayingT): Z.output<typeof PlayingValidators.row> {
-  return PlayingValidators.row({ ..._.omit(playing, ['id', 'created_at']), items: playing.items ?? [] })
+  return PlayingValidators.row(_.omit(playing, ['id', 'created_at']))
 }
 
 /** Every row of `ordered` whose position is not its place in the list, each handed to `write` with its place */

@@ -13,8 +13,6 @@ function fieldAt(page: Page, name: string, rowIdx: number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
   await page.getByLabel('Quiz name').fill('Quiz one')
   await fieldAt(page, 'Title', 0).fill('Leon')
   await fieldAt(page, 'Clueing', 0).fill('Which region?')

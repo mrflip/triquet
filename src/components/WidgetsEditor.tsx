@@ -12,7 +12,7 @@ import { PlayerLabelVals } from '../models/player-label'
 import type { ExpressingT, PlayingWidgetT, WidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
-import type { WorkspaceAction } from '../state/workspace-reducer'
+import type { WorkspaceAction } from '../state/actions'
 import styles from './workbench.module.css'
 
 export type WidgetsEditorProps = {

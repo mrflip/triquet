@@ -82,11 +82,37 @@ const scheduler = createCommitScheduler({
   commit:  commitBurst,
 })
 
+/** Changes this tab is still writing, which the history has not been told about yet */
+const writing = new Set<Promise<unknown>>()
+
+/**
+ * Hold the history's hand-offs (a milestone, a download) until `work`, a change this tab is
+ * writing, has landed and been noted, so neither can miss an edit the author has just made.
+ *
+ * @param work - The write, ending once the change is noted for the history.
+ */
+export function trackWrite(work: Promise<unknown>): void {
+  writing.add(work)
+  const forget = async () => {
+    try {
+      await work
+    } finally {
+      writing.delete(work)
+    }
+  }
+  void forget()
+}
+
+/** Once every change this tab is writing has landed, whether or not it succeeded */
+async function writesLanded(): Promise<void> {
+  await Promise.allSettled(writing)
+}
+
 /**
  * Note every quiz that moved between two readings of the workspace, for committing after the wait.
  *
- * Fire-and-forget by design: the caller is a synchronous dispatch that has already committed the
- * change to storage, and must not wait on, or fail for, a mirror that is only ever a record.
+ * Fire-and-forget by design: the caller has already written the change to storage, and must not
+ * wait on, or fail for, a mirror that is only ever a record.
  *
  * A deleted quiz is left exactly as it stood. Its history is the one thing deletion should not
  * take away, and nothing else in this browser still holds it.
@@ -124,12 +150,13 @@ if (typeof document !== 'undefined') {
  * Mark where `quiz` now stands as a milestone, a point worth coming back to.
  *
  * @param quiz - The quiz being marked.
- * Anything still waiting to be committed is committed first, so the milestone marks what the
- * author is looking at rather than what was true half a minute ago.
+ * Any change still being written, and anything still waiting to be committed, is committed first,
+ * so the milestone marks what the author is looking at rather than what was true a moment ago.
  *
  * @returns The tag left behind, or null when there was no history here to tag.
  */
 export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
+  await writesLanded()
   await scheduler.flush(quiz.id)
   return await enqueue(async (fs) => await Quizgit.milestoneQuiz(fs, quiz))
 }
@@ -138,12 +165,13 @@ export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
  * `quiz`'s whole repository, zipped and ready to hand to a download.
  *
  * @param quiz - The quiz to package.
- * Anything still waiting to be committed is committed first, so the download is the quiz as it
- * stands.
+ * Any change still being written, and anything still waiting to be committed, is committed first,
+ * so the download is the quiz as it stands.
  *
  * @returns The zip's bytes, or null where this browser keeps no history.
  */
 export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
+  await writesLanded()
   await scheduler.flush(quiz.id)
   return await enqueue(async (fs) => await Quizgit.zipQuizRepo(fs, quiz))
 }

@@ -15,8 +15,6 @@ function guessCell(page: Page, rowIdx: number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })
@@ -69,11 +67,12 @@ test('with the network off the rest of the page still edits, sorts and saves', a
   await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
   await page.getByRole('button', { name: 'Title' }).click()
   await page.getByLabel('Quiz name').fill('Still working')
-  await page.reload()
+  await page.getByLabel('Quiz name').blur()
+  await reloadOnceSaved(page)
   await expect(page.getByLabel('Quiz name')).toHaveValue('Still working')
   // Sorting by title moves 'Leon' among the other questions' own generated titles, so it is
   // found by its value rather than assumed to stay first.
   const titles = page.getByRole('textbox', { name: 'Title' })
   await expect(titles.first()).toBeVisible()
-  expect(await titles.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))).toContain('Leon')
+  await expect.poll(async () => await titles.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))).toContain('Leon')
 })

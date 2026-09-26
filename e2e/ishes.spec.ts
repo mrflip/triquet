@@ -24,8 +24,6 @@ function cellOf(page: Page, rowIdx: number, colname: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')

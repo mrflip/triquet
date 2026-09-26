@@ -17,6 +17,9 @@ export default defineConfig({
   testDir:     './e2e',
   fullyParallel: true,
   reporter:    process.env.CI ? 'dot' : 'list',
+  // A fresh page opens its Jazz database before it shows anything, most of a second in dev,
+  // and a route's first visit also waits for it to compile.
+  expect:      { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
     trace:   'on-first-retry',
@@ -28,7 +31,6 @@ export default defineConfig({
     reuseExistingServer: ! process.env.CI,
     env:                 {
       PORT:                                        port,
-      TRIQUET_DATABASE_URL:                        'file:data/e2e.db',
       NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS: '2',
       // A stand-in key, so the players read as able to play and the specs stub what they ask;
       // it also means nothing here can ever spend real model usage, whatever the environment holds.

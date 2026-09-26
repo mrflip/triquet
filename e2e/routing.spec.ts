@@ -3,7 +3,6 @@ import { loadAfresh, newQuiz, openQuiz, waitUntilSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
 })
 
 test('the root page sends the author to their quiz, named in the path', async ({ page }) => {
@@ -232,6 +231,7 @@ test.describe('editing the address of a page that is already open', () => {
     await newQuiz(page)
     await page.getByLabel('Quiz name').fill('Quiz two')
     await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
   })
 
   test('moves to another quiz when its label is put in the address', async ({ page }) => {

@@ -12,7 +12,7 @@ const playingOf = (overrides: Partial<PlayingT>): PlayingT => ({
   asked_text:         'Who?',
   status:             'done',
   reply_text:        'Leon',
-  items:              null,
+  items:              [],
   message:            null,
   response:           null,
   truncated:          false,

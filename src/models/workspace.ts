@@ -97,3 +97,21 @@ export class Workspace implements WorkspaceT {
     return this.fill({ ...dna, active_quiz_id, quizzes, expressions: [...SeedExpressions] })
   }
 }
+
+/** The quiz the workspace last had open, or null when it names one it does not hold */
+export function openQuizOf(workspace: WorkspaceT): QuizT | null {
+  return workspace.quizzes.find((quiz) => quiz.id === workspace.active_quiz_id) ?? null
+}
+
+/**
+ * How many widgets, across every quiz, work the expression labelled `label`.
+ *
+ * @param workspace - The workspace as it stands.
+ * @param label - An expression's label.
+ * @returns How many expressing widgets name it; an expression is only deletable at zero.
+ *
+ * @example expressionUsage(workspace, 'clueing_full')  // => 1
+ */
+export function expressionUsage(workspace: WorkspaceT, label: string): number {
+  return workspace.quizzes.reduce((total, quiz) => total + quiz.widgets.filter((widget) => widget.kind === 'expressing' && widget.expression_label === label).length, 0)
+}

@@ -60,7 +60,7 @@ type SortableRowProps = {
 
 /** One row of the list, with its own grip and its own sense of where a drop would land */
 function SortableRow({ listkey, itemkey, idx, count, disabled, onMove, children }: Readonly<SortableRowProps>) {
-  const { rowRef, handleRef, dragging, landing, onHandleKeyDown } = useReorderable({ listkey, itemkey, idx, count, disabled, onMove })
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey, itemkey, idx, count, disabled, onMove })
 
   const handle = (
     <span
@@ -70,6 +70,7 @@ function SortableRow({ listkey, itemkey, idx, count, disabled, onMove, children 
       tabIndex={disabled ? -1 : 0}
       aria-label={`Reorder ${itemkey}`}
       onKeyDown={onHandleKeyDown}
+      onBlur={onHandleBlur}
     >
       ⠿
     </span>

@@ -18,16 +18,15 @@
   },
   "scripts": {
     "dev": "doppler run -- next dev",
-    "dev:agent": "doppler run --config dev_claude -- cross-env TRIQUET_DATABASE_URL=file:data/agent.db next dev",
+    "dev:agent": "doppler run --config dev_claude -- next dev",
     "build": "next build",
-    "build:agent": "doppler run --config dev_claude -- cross-env NEXT_DIST_DIR=.next-agent-build TRIQUET_DATABASE_URL=file:data/agent.db next build",
+    "build:agent": "doppler run --config dev_claude -- cross-env NEXT_DIST_DIR=.next-agent-build next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "doppler run --config dev_e2e -- playwright test",
-    "db:generate": "drizzle-kit generate"
+    "test:e2e": "doppler run --config dev_e2e -- playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
@@ -38,12 +37,9 @@
     "@emotion/server": "^11.11.0",
     "@emotion/styled": "^11.14.1",
     "@isomorphic-git/lightning-fs": "^4.8.0",
-    "@libsql/client": "^0.18.0",
     "@mui/material": "^9.4.0",
     "@mui/material-nextjs": "^9.4.0",
     "clsx": "^2.1.1",
-    "drizzle-orm": "^0.45.2",
-    "drizzle-zod": "^0.8.3",
     "es-toolkit": "^1.52.0",
     "fflate": "^0.8.3",
     "isomorphic-git": "^1.42.2",
@@ -54,7 +50,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "safe-stable-stringify": "^2.5.0",
-    "ulid": "^3.0.2",
     "unique-names-generator": "^4.7.1",
     "zod": "^4.6.5"
   },
@@ -68,7 +63,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitest/eslint-plugin": "^1.6.27",
     "cross-env": "^10.1.0",
-    "drizzle-kit": "^0.31.10",
     "eslint": "^10.10.0",
     "eslint-config-next": "^16.3.5",
     "eslint-import-resolver-typescript": "^4.4.5",

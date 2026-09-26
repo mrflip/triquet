@@ -31,12 +31,12 @@ export type WorkbenchProps = {
  *
  * The address decides which quiz that is, and nothing decides the address in return. Anything
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
- * by navigating; the workspace's own `active_quiz_id` follows along behind, because that is
- * what the editing actions revise and what a bare address goes back to next time.
+ * by navigating; every editing action lands on the quiz the address names, and the workspace's
+ * own `active_quiz_id` follows along behind, for a bare address to go back to next time.
  */
 export function Workbench({ label }: Readonly<WorkbenchProps>) {
   const router = useRouter()
-  const { workspace, loaded, dispatch, unsaved, saveNotice } = useWorkspace()
+  const { workspace, quiz, loaded, dispatch, unsaved, saveNotice } = useWorkspace(label)
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
   const { unavailableNotice } = usePlayers()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
@@ -45,14 +45,13 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
   const [editingExpressions, setEditingExpressions] = useState(false)
-  const quiz = Labelmaker.entityForLabel(workspace.quizzes, label) ?? null
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
   const specs = useMemo(() => (quiz ? specsFor(quiz) : []), [quiz])
   const expressed = useMemo(() => (quiz ? Expressed.forQuiz(quiz, workspace.expressions) : new Map()), [quiz, workspace.expressions])
 
-  // The editing actions all revise whichever quiz the workspace calls open, so it has to be this
-  // one. Ids rather than objects, so a re-fetched workspace does not look like a change of quiz.
+  // The workspace remembers which quiz was open last, for a bare address to go back to. Ids
+  // rather than objects, so a fresh reading of the workspace does not look like a change of quiz.
   const quizId = quiz?.id ?? null
   useEffect(() => {
     if (quizId !== null && quizId !== workspace.active_quiz_id) { dispatch({ kind: 'open_quiz', quiz_id: quizId }) }

@@ -17,7 +17,7 @@ const LocalBlankLabelAttemptsMax = 20
  * @param fallback - Normalized and handed back after too many collisions; callers pass a freshly minted id.
  * @returns A label absent from `existingLabels`, or `fallback` normalized.
  *
- * @example localBlankLabel(new Set(), '01k5f9n3ktq7wzc8x2r4m0vaeh')  // => 'quiet_otter', say
+ * @example localBlankLabel(new Set(), mintId())  // => 'quiet_otter', say
  */
 export function localBlankLabel(existingLabels: ReadonlySet<string>, fallback: string): string {
   for (let attempt = 0; attempt < LocalBlankLabelAttemptsMax; attempt += 1) {

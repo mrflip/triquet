@@ -35,6 +35,8 @@ export type Reorderable = {
   /** Which of this row's edges the dragged row would land against; null when it would not land here */
   landing:   Edge | null
   onHandleKeyDown: (event: React.KeyboardEvent) => void
+  /** The grip lost focus: the arrow keys start again from where the row appears */
+  onHandleBlur:    () => void
 }
 
 /**
@@ -99,16 +101,27 @@ export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove 
     )
   }, [rowElem, handleElem, listkey, itemkey, idx, disabled])
 
+  // Where the last arrow press sent this row, until the list shows it there. A move lands a
+  // moment after it is asked for, so a second press in that moment steps on from where the first
+  // one sent it rather than from where the row still appears.
+  const sentTo = useRef<number | null>(null)
+  useEffect(() => {
+    if (idx === sentTo.current) { sentTo.current = null }
+  }, [idx])
+
   const onHandleKeyDown = (event: React.KeyboardEvent) => {
     const step = ArrowSteps[event.key]
     if (disabled || step === undefined) { return }
-    const onto_idx = idx + step
+    const onto_idx = (sentTo.current ?? idx) + step
     if (onto_idx < 0 || onto_idx >= count) { return }
     event.preventDefault()
+    sentTo.current = onto_idx
     onMove(itemkey, onto_idx)
   }
 
-  return { rowRef: setRowElem, handleRef: setHandleElem, dragging, landing, onHandleKeyDown }
+  const onHandleBlur = () => { sentTo.current = null }
+
+  return { rowRef: setRowElem, handleRef: setHandleElem, dragging, landing, onHandleKeyDown, onHandleBlur }
 }
 
 /** The index a drag carries, when it came from the list named `listkey`; -1 when it did not */

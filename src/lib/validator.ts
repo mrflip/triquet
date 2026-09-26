@@ -28,7 +28,7 @@ export const ValidatorKit = {
   formulaish: CK.formulaish,
   /** Human-readable name on one line, independent of any identity it might accompany */
   titleish:  CK.titleish,
-  /** Lowercase Crockford-base32 ULID, as minted by `mintId` */
+  /** Lowercase Crockford-base32 ULID, as this tool minted ids before it kept its quizzes in Jazz */
   ulid:      CK.ulid,
   /** A row's id, as Jazz mints it: internal, never shown, and only ever held to point at that row */
   rowid:     Z.uuid(),

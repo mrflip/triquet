@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved } from './support'
+import { reloadOnceSaved, waitUntilSaved } from './support'
 
 /** Fill the first questions with a Q#, a title and a hint */
 async function fillQuiz(page: Page, rows: [string, string, string][]) {
@@ -28,9 +28,13 @@ function butnotCell(page: Page, rowIdx: number) {
   return page.locator('tbody tr').nth(rowIdx).locator('td[data-colname="BUT NOT"] > div')
 }
 
+/** The first four titles, top to bottom */
+async function firstFourShown(page: Page): Promise<string[]> {
+  const shown = await answersShown(page)
+  return shown.slice(0, 4)
+}
+
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-  await page.context().clearCookies()
   await page.goto('/')
   await fillQuiz(page, [
     ['3', 'cherry', 'BUT NOT the fruit-flavoured one'],
@@ -46,8 +50,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the chain dropdown offers every other question, never this one', async ({ page }) => {
   const picker = page.getByRole('combobox', { name: 'Chains to' }).first()
-  const labels = await picker.locator('option').evaluateAll((nodes) => nodes.map((node) => node.textContent))
-  expect(labels).toEqual(['— pick —', 'apple', 'damson', 'banana', '(no title yet)'])
+  await expect(picker.locator('option')).toHaveText(['— pick —', 'apple', 'damson', 'banana', '(no title yet)'])
 })
 
 test('BUT NOT previews the chained-to question\'s hint, not this one\'s', async ({ page }) => {
@@ -74,19 +77,18 @@ test('sort by chain order reads the quiz in presentation order, and backward', a
   await chainTo(page, 0, 'damson')
 
   await page.getByRole('button', { name: 'Sort by chain order' }).click()
-  const forward = await answersShown(page)
-  expect(forward.slice(0, 4)).toEqual(['apple', 'banana', 'cherry', 'damson'])
+  await expect.poll(async () => await firstFourShown(page)).toEqual(['apple', 'banana', 'cherry', 'damson'])
 
   await page.getByRole('button', { name: 'Sort by chain order' }).click()
-  const backward = await answersShown(page)
-  expect(backward.slice(0, 4)).toEqual(['damson', 'cherry', 'banana', 'apple'])
+  await expect.poll(async () => await firstFourShown(page)).toEqual(['damson', 'cherry', 'banana', 'apple'])
 })
 
 test('a chain order survives a reload', async ({ page }) => {
   await chainTo(page, 1, 'banana')
   await chainTo(page, 3, 'cherry')
   await page.getByRole('button', { name: 'Sort by chain order' }).click()
+  await waitUntilSaved(page)
   const wasShown = await answersShown(page)
   await reloadOnceSaved(page)
-  expect(await answersShown(page)).toEqual(wasShown)
+  await expect.poll(async () => await answersShown(page)).toEqual(wasShown)
 })

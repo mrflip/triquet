@@ -10,7 +10,7 @@ import * as Labelmaker from '../lib/labelmaker'
 import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, type ColumnT } from '../models/column'
 import { QuestionWidgetLabel } from '../models/widget'
 import type { QuizT } from '../models/quiz'
-import type { WorkspaceAction } from '../state/workspace-reducer'
+import type { WorkspaceAction } from '../state/actions'
 import styles from './workbench.module.css'
 
 export type ColumnsEditorProps = {

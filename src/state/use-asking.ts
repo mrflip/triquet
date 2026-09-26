@@ -11,7 +11,7 @@ import type { LastErrT } from '../models/ask'
 import type { GuessDoneT } from '../models/guess'
 import type { IshesDoneT } from '../models/ish'
 import type { QuestionT } from '../models/question'
-import type { WorkspaceAction } from './workspace-reducer'
+import type { WorkspaceAction } from './actions'
 
 /** Which of a question's askable cells an ask is for */
 export const AskkindVals = ['guess', 'clueing', 'hint'] as const

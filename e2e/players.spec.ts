@@ -32,7 +32,6 @@ function sumCell(page: Page, colname: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
 })
 
 test('with credentials, a never-asked cell invites the author to ask', async ({ page }) => {

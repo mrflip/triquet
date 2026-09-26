@@ -17,7 +17,7 @@ import type { BulkLanding } from '../lib/ask/bulk'
 import type { Textkind } from '../lib/ask/contract'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../models/quiz'
 import { Workspace, type WorkspaceT } from '../models/workspace'
-import { expressionFrom, loadQuizRows, loadWorkspaceRows, quizFrom, type QuizRows } from './quiz-rows'
+import { LocalFirst, expressionFrom, quizFrom, quizRowsOf, workspaceRowsOf, type AccountRows, type QuizRows } from './quiz-rows'
 import { deleteQuiz, playingFieldsOf, transact, updateQuestion, updateQuiz, updateWorkspace, writeQuiz, writeWorkspace, type Tx } from './quiz-writing'
 
 /** The quiz an author has on screen, and the workspace it belongs to: where every action lands */
@@ -27,18 +27,19 @@ export type OpenQuiz = {
 }
 
 /**
- * Run `write` against the open quiz's rows in one transaction, unless the quiz is locked or gone.
+ * Run `write` against the open quiz's rows, as `held` has them, in one transaction, unless the
+ * quiz is locked or gone.
  * The freeze is a property of the quiz, not of whether a button happened to be greyed out.
  */
-export async function reviseOpenQuiz(db: Db, open: OpenQuiz, write: (tx: Tx, rows: QuizRows) => void): Promise<void> {
-  const rows = await loadQuizRows(db, open.quiz_id)
+export async function reviseOpenQuiz(db: Db, held: AccountRows, open: OpenQuiz, write: (tx: Tx, rows: QuizRows) => void): Promise<void> {
+  const rows = quizRowsOf(held, open.quiz_id)
   if (! rows || rows.quiz.locked) { return }
   await transact(db, (tx) => { write(tx, rows) })
 }
 
 /** The open quiz's rows and the quiz they make up, for an action that works out a new order */
-async function reorderOpenQuiz(db: Db, open: OpenQuiz, reorder: (quiz: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => {
+async function reorderOpenQuiz(db: Db, held: AccountRows, open: OpenQuiz, reorder: (quiz: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const { questions, last_sortkey } = reorder(quizFrom(rows))
     writeOrder(tx, rows, questions)
     if (last_sortkey !== undefined) { updateQuiz(tx, rows.quiz, { last_sortkey }) }
@@ -55,24 +56,24 @@ function writeOrder(tx: Tx, rows: QuizRows, ordered: readonly QuestionT[]): void
 }
 
 /** Retitle the open quiz. An empty title is kept as it is; the screen shows it as "Untitled quiz". */
-export async function retitleQuiz(db: Db, open: OpenQuiz, title: string): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => { updateQuiz(tx, rows.quiz, { title }) })
+export async function retitleQuiz(db: Db, held: AccountRows, open: OpenQuiz, title: string): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => { updateQuiz(tx, rows.quiz, { title }) })
 }
 
 /**
  * Override the open quiz's generated label, which is kept. The label itself, and uniqueness
  * against sibling quizzes, are the caller's to check first.
  */
-export async function relabelQuiz(db: Db, open: OpenQuiz, label: string): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => { updateQuiz(tx, rows.quiz, { forced_label: label }) })
+export async function relabelQuiz(db: Db, held: AccountRows, open: OpenQuiz, label: string): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => { updateQuiz(tx, rows.quiz, { forced_label: label }) })
 }
 
 /**
  * Put the open quiz on another version. Naming one its history has not seen starts a branch
  * there, not here; the shape of the name is the caller's to check.
  */
-export async function reversionQuiz(db: Db, open: OpenQuiz, version: string): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => { updateQuiz(tx, rows.quiz, { version }) })
+export async function reversionQuiz(db: Db, held: AccountRows, open: OpenQuiz, version: string): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => { updateQuiz(tx, rows.quiz, { version }) })
 }
 
 /**
@@ -85,9 +86,9 @@ export async function reversionQuiz(db: Db, open: OpenQuiz, version: string): Pr
  *
  * @throws When the patch is not valid; nothing is written.
  */
-export async function editQuestion(db: Db, open: OpenQuiz, question_id: string, patch: QuestionPatch): Promise<void> {
+export async function editQuestion(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, patch: QuestionPatch): Promise<void> {
   const clean = QuestionValidators.questionPatch(patch)
-  await reviseOpenQuiz(db, open, (tx, rows) => {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.questions.find((row) => row.id === question_id)
     if (! held) { return }
     const { guess, clueing_ishes, hint_ishes, chains_to, ...fields } = clean
@@ -107,8 +108,8 @@ function chainLabelFor(rows: QuizRows, held: QuestionRow, chains_to: string | nu
 }
 
 /** Add a blank question to the end of the open quiz */
-export async function addQuestion(db: Db, open: OpenQuiz): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => {
+export async function addQuestion(db: Db, held: AccountRows, open: OpenQuiz): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const blank = Question.blank()
     tx.insert(app.questions, QuestionValidators.row({
       ...blank,
@@ -123,10 +124,9 @@ export async function addQuestion(db: Db, open: OpenQuiz): Promise<void> {
  * Sort the open quiz's questions by a column, or by any sort memory, and commit the order: the
  * new positions are written, not draped over the top, and the quiz remembers what put it so.
  */
-export async function sortQuestions(db: Db, open: OpenQuiz, sortkey: Sortkey, descending: boolean): Promise<void> {
-  const workspace = await loadWorkspaceRows(db, open.workspace_id)
-  const expressions = (workspace?.expressions ?? []).map((row) => expressionFrom(row))
-  await reorderOpenQuiz(db, open, (quiz) => ({
+export async function sortQuestions(db: Db, held: AccountRows, open: OpenQuiz, sortkey: Sortkey, descending: boolean): Promise<void> {
+  const expressions = (workspaceRowsOf(held, open.workspace_id)?.expressions ?? []).map((row) => expressionFrom(row))
+  await reorderOpenQuiz(db, held, open, (quiz) => ({
     questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, Expressed.forQuiz(quiz, expressions)), descending),
     last_sortkey: sortkey,
   }))
@@ -138,29 +138,29 @@ export async function sortQuestions(db: Db, open: OpenQuiz, sortkey: Sortkey, de
  * The sort memory is left alone: claiming the quiz is now in Q# order would flip the grid into a
  * mode that re-sorts at once, undoing the promise that nothing moved.
  */
-export async function renumberQnums(db: Db, open: OpenQuiz): Promise<void> {
-  await reorderOpenQuiz(db, open, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
+export async function renumberQnums(db: Db, held: AccountRows, open: OpenQuiz): Promise<void> {
+  await reorderOpenQuiz(db, held, open, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
 }
 
 /** Drag one question of the open quiz to `onto_idx`, then number every question by where it sits. A drag leaves the quiz in Q# order. */
-export async function moveQuestion(db: Db, open: OpenQuiz, question_id: string, onto_idx: number): Promise<void> {
-  await reorderOpenQuiz(db, open, (quiz) => ({
+export async function moveQuestion(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, onto_idx: number): Promise<void> {
+  await reorderOpenQuiz(db, held, open, (quiz) => ({
     questions:    Rank.renumberByPosition(Rank.moveQuestion(quiz.questions, question_id, onto_idx)),
     last_sortkey: qnumSortkeyOf(quiz),
   }))
 }
 
 /** Chain one question of the open quiz to another, or unchain it with null. A chain to itself or to no question here is no chain. */
-export async function setChain(db: Db, open: OpenQuiz, question_id: string, chains_to: string | null): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => {
+export async function setChain(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, chains_to: string | null): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.questions.find((row) => row.id === question_id)
     if (held) { updateQuestion(tx, held, { chains_to: chainLabelFor(rows, held, chains_to) }) }
   })
 }
 
 /** Put the open quiz in the order its chains walk, and remember that */
-export async function sortByChainOrder(db: Db, open: OpenQuiz, descending: boolean): Promise<void> {
-  await reorderOpenQuiz(db, open, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
+export async function sortByChainOrder(db: Db, held: AccountRows, open: OpenQuiz, descending: boolean): Promise<void> {
+  await reorderOpenQuiz(db, held, open, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
 }
 
 /** The slot a player's reply to a question's text lands in */
@@ -181,42 +181,42 @@ function recordResult(tx: Tx, quiz: QuizT, held: QuestionRow, slot: PlaySlot, re
 }
 
 /** Record a reply, or a failure, in one played cell of a question of the open quiz */
-async function recordInCell(db: Db, open: OpenQuiz, question_id: string, field: PlaySlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => {
+async function recordInCell(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, field: PlaySlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.questions.find((row) => row.id === question_id)
     if (held) { recordResult(tx, quizFrom(rows), held, slotFor(field), result) }
   })
 }
 
 /** Record dumdum's guess at a question. Null records nothing: a cell's history is never erased. */
-export async function setGuess(db: Db, open: OpenQuiz, question_id: string, guess: GuessT): Promise<void> {
-  if (guess) { await recordInCell(db, open, question_id, 'guess', guess) }
+export async function setGuess(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, guess: GuessT): Promise<void> {
+  if (guess) { await recordInCell(db, held, open, question_id, 'guess', guess) }
 }
 
 /** Record numnum's extraction from one of a question's texts. Null records nothing. */
-export async function setIshes(db: Db, open: OpenQuiz, question_id: string, textkind: Textkind, ishes: IshesT): Promise<void> {
-  if (ishes) { await recordInCell(db, open, question_id, textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes', ishes) }
+export async function setIshes(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, textkind: Textkind, ishes: IshesT): Promise<void> {
+  if (ishes) { await recordInCell(db, held, open, question_id, textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes', ishes) }
 }
 
 /**
  * Record a failed ask for dumdum's guess. A failure never replaces a value: it rides along on
  * the newest reply as its `last_err`, and is the cell's only content when there never was one.
  */
-export async function failGuess(db: Db, open: OpenQuiz, question_id: string, err: LastErrT): Promise<void> {
-  await recordInCell(db, open, question_id, 'guess', askError(err))
+export async function failGuess(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, err: LastErrT): Promise<void> {
+  await recordInCell(db, held, open, question_id, 'guess', askError(err))
 }
 
 /** Record a failed ask for numnum's extraction, as `failGuess` does for a guess */
-export async function failIshes(db: Db, open: OpenQuiz, question_id: string, textkind: Textkind, err: LastErrT): Promise<void> {
-  await recordInCell(db, open, question_id, textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes', askError(err))
+export async function failIshes(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, textkind: Textkind, err: LastErrT): Promise<void> {
+  await recordInCell(db, held, open, question_id, textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes', askError(err))
 }
 
 /**
  * Record what one combined run found, text by text: an extraction where it gave one, a failure
  * riding on whatever the cell held where it left a text out. The quiz keeps what the run cost.
  */
-export async function applyBulkIshes(db: Db, open: OpenQuiz, landings: readonly BulkLanding[], run: BulkIshesRunT): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => {
+export async function applyBulkIshes(db: Db, held: AccountRows, open: OpenQuiz, landings: readonly BulkLanding[], run: BulkIshesRunT): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const quiz = quizFrom(rows)
     for (const landing of landings) {
       const held = rows.questions.find((row) => row.id === landing.question_id)
@@ -228,17 +228,21 @@ export async function applyBulkIshes(db: Db, open: OpenQuiz, landings: readonly 
 }
 
 /** Replace the open quiz with `quiz`, whole, as an import merged it: see `writeQuiz` */
-export async function replaceOpenQuiz(db: Db, open: OpenQuiz, quiz: QuizT): Promise<void> {
-  await reviseOpenQuiz(db, open, (tx, rows) => { writeQuiz(tx, open.workspace_id, quiz, rows) })
+export async function replaceOpenQuiz(db: Db, held: AccountRows, open: OpenQuiz, quiz: QuizT): Promise<void> {
+  await reviseOpenQuiz(db, held, open, (tx, rows) => { writeQuiz(tx, open.workspace_id, quiz, rows) })
 }
+
+/** Each database's workspace lookup, shared by everyone who asks while it is on its way */
+const WorkspaceLookups = new WeakMap<Db, Promise<string>>()
 
 /**
  * The account's workspace, made when it has none yet: one blank quiz, open, with the standard
  * expressions and columns.
  *
- * An account's rows are its own, so the workspace is whichever this account made. Before making
- * one, this asks the server when it can reach it, so a device that has not synced yet does not
- * make a second. Should two ever exist, the one made first is the one used.
+ * An account's rows are its own, so the workspace is whichever this account made. This browser's
+ * own copy is asked first; only when it holds none is the server asked (when it can be reached),
+ * so a device that has not synced yet does not make a second. Everyone who asks of one database shares one lookup, so views opening at once
+ * cannot each make their own. Should two ever exist, the one made first is the one used.
  *
  * @param db - The account's database.
  * @returns The workspace's row id.
@@ -246,8 +250,23 @@ export async function replaceOpenQuiz(db: Db, open: OpenQuiz, quiz: QuizT): Prom
  * @example const workspace_id = await ensureWorkspace(db)
  */
 export async function ensureWorkspace(db: Db): Promise<string> {
-  const [held] = await db.all(app.workspaces.orderBy('$createdAt').limit(1), { tier: 'remote-if-possible' })
-  if (held) { return held.id }
+  const pending = WorkspaceLookups.get(db) ?? findOrMakeWorkspace(db)
+  WorkspaceLookups.set(db, pending)
+  try {
+    return await pending
+  } catch (err) {
+    WorkspaceLookups.delete(db)
+    throw err
+  }
+}
+
+/** The account's earliest workspace, or a blank one made now */
+async function findOrMakeWorkspace(db: Db): Promise<string> {
+  const earliest = app.workspaces.orderBy('$createdAt').limit(1)
+  const [local] = await db.all(earliest, LocalFirst)
+  if (local) { return local.id }
+  const [remote] = await db.all(earliest, { tier: 'remote-if-possible' })
+  if (remote) { return remote.id }
   const made = await transact(db, (tx) => writeWorkspace(tx, Workspace.blank(), null))
   if (made === null) { throw new Error('Making a workspace wrote nothing') }
   return made
@@ -258,10 +277,10 @@ export async function ensureWorkspace(db: Db): Promise<string> {
 // delete one, or unlock.
 
 /** Remember `quiz_id` as the quiz on screen, when the workspace holds it */
-export async function openQuiz(db: Db, open: OpenQuiz, quiz_id: string): Promise<void> {
-  const held = await loadWorkspaceRows(db, open.workspace_id)
-  if (! held?.quizzes.some((quiz) => quiz.id === quiz_id)) { return }
-  await transact(db, (tx) => { updateWorkspace(tx, held.workspace, { active_quiz_id: quiz_id }) })
+export async function openQuiz(db: Db, held: AccountRows, open: OpenQuiz, quiz_id: string): Promise<void> {
+  const rows = workspaceRowsOf(held, open.workspace_id)
+  if (! rows?.quizzes.some((quiz) => quiz.id === quiz_id)) { return }
+  await transact(db, (tx) => { updateWorkspace(tx, rows.workspace, { active_quiz_id: quiz_id }) })
 }
 
 /**
@@ -274,14 +293,14 @@ export async function openQuiz(db: Db, open: OpenQuiz, quiz_id: string): Promise
  *
  * @returns The new quiz's row id; null when the label was refused.
  */
-export async function newQuiz(db: Db, open: OpenQuiz, label?: string): Promise<string | null> {
-  const held = await loadWorkspaceRows(db, open.workspace_id)
-  if (! held) { return null }
-  const fresh = { ...Quiz.blank('', label), ...defaultLayoutFor(held.expressions.map((row) => expressionFrom(row))) }
-  if (held.quizzes.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === Labelmaker.effectiveLabelOf(fresh))) { return null }
+export async function newQuiz(db: Db, held: AccountRows, open: OpenQuiz, label?: string): Promise<string | null> {
+  const rows = workspaceRowsOf(held, open.workspace_id)
+  if (! rows) { return null }
+  const fresh = { ...Quiz.blank('', label), ...defaultLayoutFor(rows.expressions.map((row) => expressionFrom(row))) }
+  if (rows.quizzes.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === Labelmaker.effectiveLabelOf(fresh))) { return null }
   return await transact(db, (tx) => {
-    const made = writeQuiz(tx, held.workspace.id, fresh, null)
-    updateWorkspace(tx, held.workspace, { active_quiz_id: made })
+    const made = writeQuiz(tx, rows.workspace.id, fresh, null)
+    updateWorkspace(tx, rows.workspace, { active_quiz_id: made })
     return made
   })
 }
@@ -291,30 +310,30 @@ export async function newQuiz(db: Db, open: OpenQuiz, label?: string): Promise<s
  * remaining quiz cannot go: a workspace with nothing in it would leave the author staring at an
  * empty screen with no way back.
  */
-export async function deleteQuizFrom(db: Db, open: OpenQuiz, quiz_id: string): Promise<void> {
-  const held = await loadWorkspaceRows(db, open.workspace_id)
-  const doomed = await loadQuizRows(db, quiz_id)
-  if (! held || ! doomed || held.quizzes.length <= 1) { return }
-  const idx = held.quizzes.findIndex((quiz) => quiz.id === quiz_id)
+export async function deleteQuizFrom(db: Db, held: AccountRows, open: OpenQuiz, quiz_id: string): Promise<void> {
+  const rows = workspaceRowsOf(held, open.workspace_id)
+  const doomed = quizRowsOf(held, quiz_id)
+  if (! rows || ! doomed || rows.quizzes.length <= 1) { return }
+  const idx = rows.quizzes.findIndex((quiz) => quiz.id === quiz_id)
   if (idx === -1) { return }
-  const remaining = held.quizzes.filter((quiz) => quiz.id !== quiz_id)
+  const remaining = rows.quizzes.filter((quiz) => quiz.id !== quiz_id)
   const neighbour = remaining[Math.min(idx, remaining.length - 1)]
   await transact(db, (tx) => {
     deleteQuiz(tx, doomed)
-    if (neighbour && held.workspace.active_quiz_id === quiz_id) { updateWorkspace(tx, held.workspace, { active_quiz_id: neighbour.id }) }
+    if (neighbour && rows.workspace.active_quiz_id === quiz_id) { updateWorkspace(tx, rows.workspace, { active_quiz_id: neighbour.id }) }
   })
 }
 
 /** Lock or unlock a quiz. Works from inside the lock, and changes nothing else about the quiz. */
-export async function setLock(db: Db, quiz_id: string, locked: boolean): Promise<void> {
-  const rows = await loadQuizRows(db, quiz_id)
+export async function setLock(db: Db, held: AccountRows, quiz_id: string, locked: boolean): Promise<void> {
+  const rows = quizRowsOf(held, quiz_id)
   if (rows) { await transact(db, (tx) => { updateQuiz(tx, rows.quiz, { locked }) }) }
 }
 
 /** Replace the whole workspace with `workspace`, as `writeWorkspace` does */
-export async function replaceWorkspace(db: Db, open: OpenQuiz, workspace: WorkspaceT): Promise<void> {
-  const rows = await loadWorkspaceRows(db, open.workspace_id)
+export async function replaceWorkspace(db: Db, held: AccountRows, open: OpenQuiz, workspace: WorkspaceT): Promise<void> {
+  const rows = workspaceRowsOf(held, open.workspace_id)
   if (! rows) { return }
-  const quizzes = await Promise.all(rows.quizzes.map(async (quiz) => await loadQuizRows(db, quiz.id)))
-  await transact(db, (tx) => { writeWorkspace(tx, workspace, { rows, quizzes: quizzes.filter((each) => each !== null) }) })
+  const quizzes = rows.quizzes.map((quiz) => quizRowsOf(held, quiz.id)).filter((each) => each !== null)
+  await transact(db, (tx) => { writeWorkspace(tx, workspace, { rows, quizzes }) })
 }

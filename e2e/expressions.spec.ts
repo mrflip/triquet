@@ -61,8 +61,6 @@ async function answerFirstRow(page: Page, full_answer: string) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
 })
 
 test('a fresh quiz shows its computed columns between Q# and Alt Text', async ({ page }) => {
@@ -298,7 +296,7 @@ test('a column is dragged into a new place by its handle', async ({ page }) => {
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'notes'), columnGrip(page, 'title'))
   await closeManage(page)
-  expect(await headersShown(page, 3)).toEqual(['Notes', 'Title', 'Clueing'])
+  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Notes', 'Title', 'Clueing'])
 })
 
 // A quiz starts with Title, Clueing and Hint as its first three columns. Dropping Title onto
@@ -308,21 +306,21 @@ test('a column dropped against the upper edge of a row lands above it', async ({
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'top')
   await closeManage(page)
-  expect(await headersShown(page, 3)).toEqual(['Clueing', 'Title', 'Hint'])
+  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Clueing', 'Title', 'Hint'])
 })
 
 test('a column dropped against the lower edge of the same row lands below it', async ({ page }) => {
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'bottom')
   await closeManage(page)
-  expect(await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
 })
 
 test('a column is moved by the arrow keys once its handle has focus', async ({ page }) => {
   await openManage(page)
   await stepBy(columnGrip(page, 'title'), 2)
   await closeManage(page)
-  expect(await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
 })
 
 test('the widgets are listed in their order, and can be dragged too', async ({ page }) => {
@@ -402,9 +400,9 @@ test('sorting by a computed column orders the questions by what it came to', asy
   }
   await page.getByLabel('Quiz name').click()
   await page.getByRole('button', { name: 'Answer Letter Count' }).click()
-  const answers = await page.locator('tbody tr').getByRole('textbox', { name: 'Full Answer' }).evaluateAll((boxes) => boxes.map((box) => (box as HTMLTextAreaElement).value))
+  const answers = page.locator('tbody tr').getByRole('textbox', { name: 'Full Answer' })
   // The two blank rows have no letters, which is nought and sorts first.
-  expect(answers).toEqual(['', '', 'a', 'bb', 'ccc'])
+  await expect.poll(async () => await answers.evaluateAll((boxes) => boxes.map((box) => (box as HTMLTextAreaElement).value))).toEqual(['', '', 'a', 'bb', 'ccc'])
   await waitUntilSaved(page)
 })
 

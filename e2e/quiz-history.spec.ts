@@ -3,7 +3,6 @@ import { reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
 })
 
 /** Open the gear modal, which is where everything about a quiz's history lives */
@@ -115,7 +114,7 @@ test('an edit is committed on its own once the wait is up, and not before', asyn
   await page.getByLabel('Quiz name').blur()
 
   // The suite runs with a two-second wait, so a moment after the edit nothing is committed yet...
-  expect(await committedEntryCount(page)).toBe(0)
+  await expect.poll(async () => await committedEntryCount(page)).toBe(0)
   // ...and with nobody asking, the timer alone produces the history.
   await expect.poll(async () => await committedEntryCount(page), { timeout: 15_000 }).toBeGreaterThan(0)
 

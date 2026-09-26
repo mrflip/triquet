@@ -1,6 +1,6 @@
+import type * as Z from 'zod'
 import { mintId } from '../lib/ids'
 import { Validator } from '../lib/validator'
-import type { PlayingRow } from '../db/drizzle-schema'
 import { AskValidators, ModelTierVals, askError, type LastErrT } from './ask'
 import type { GuessDoneT, GuessT } from './guess'
 import { IshValidators, IshesPerTextMax, type IshesDoneT, type IshesT, type IshItemT } from './ish'
@@ -45,8 +45,8 @@ export const PlayingValidators = Validator(({ obj, arr, oneof, bool, textish, no
   return { items, response, row }
 })
 
-/** One time a player was put one of a question's texts, and what came back */
-export type PlayingT = PlayingRow
+/** One time a player was put one of a question's texts, and what came back: its row, with its id and when it was asked */
+export type PlayingT = Z.output<typeof PlayingValidators.row> & { id: string, created_at: number }
 
 /** One of a question's played cells: which player, shown which of its texts, and the field it shows in */
 export type PlaySlot = {
@@ -169,7 +169,7 @@ function blankPlaying(question: QuestionT, slot: PlaySlot, id: string, created_a
     asked_text:         question[slot.textkind].trim(),
     status:             'done',
     reply_text:         null,
-    items:              null,
+    items:              [],
     message:            null,
     response:           null,
     truncated:          false,
@@ -220,7 +220,7 @@ function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesT
   if (! done) { return failed ? askError(lastErrOf(failed)) : null }
   return {
     status:             'done',
-    items:              done.items ?? [],
+    items:              done.items,
     truncated:          done.truncated,
     stale:              done.asked_text !== currentText.trim(),
     model_tier_applied: done.model_tier_applied ?? undefined,

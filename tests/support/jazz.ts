@@ -5,9 +5,9 @@ import { createPolicyTestApp, type PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
 import permissions from '../../src/db/permissions'
 import { perform, type OpenQuiz } from '../../src/state/perform'
-import { loadWorkspace } from '../../src/state/quiz-rows'
+import { loadAccountRows, loadWorkspace } from '../../src/state/quiz-rows'
 import { writeWorkspace } from '../../src/state/quiz-writing'
-import type { WorkspaceAction } from '../../src/state/workspace-reducer'
+import type { WorkspaceAction } from '../../src/state/actions'
 import type { WorkspaceT } from '../../src/models/workspace'
 import { present } from './present'
 
@@ -35,7 +35,7 @@ export type Seeded = {
   open: OpenQuiz
   /** The workspace as its rows now make it up */
   read: () => Promise<WorkspaceT>
-  /** Carry out `action`, then let a millisecond pass, so the next write is newer by `$createdAt` */
+  /** Carry out `action` on the rows as they stand, then let a millisecond pass, so the next write is newer by `$createdAt` */
   act:  (action: WorkspaceAction) => Promise<void>
 }
 
@@ -56,7 +56,7 @@ export async function seedWorkspace(testApp: PolicyTestApp, workspace: Workspace
   const { active_quiz_id: quiz_id } = await read()
   const open = { workspace_id, quiz_id }
   const act = async (action: WorkspaceAction) => {
-    await perform(db, open, action)
+    await perform(db, await loadAccountRows(db), open, action)
     await new Promise((resolve) => { setTimeout(resolve, 2) })
   }
   return { db, open, read, act }

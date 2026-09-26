@@ -1,27 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { openDb } from '../../src/db/client'
-import { playerFor, playerStatuses, promptFor } from '../../src/db/players'
-import { QuickGuessPrompt } from '../../src/lib/ask/prompts'
+import { playerFor, playerStatuses, promptFor } from '../../../src/lib/ask/players'
+import { QuickGuessPrompt } from '../../../src/lib/ask/prompts'
 
 describe('playerFor', () => {
-  it('finds each seeded player', async () => {
-    const db = await openDb(':memory:')
-    const dumdum = await playerFor(db, 'dumdum')
+  it('finds each seeded player', () => {
+    const dumdum = playerFor('dumdum')
     expect(dumdum.model_tier).to.eq('quick')
     expect(dumdum.prompts.clueing).to.eq(QuickGuessPrompt)
-    const numnum = await playerFor(db, 'numnum')
+    const numnum = playerFor('numnum')
     expect(Object.keys(numnum.prompts)).to.have.members(['clueing', 'hint', 'bulk'])
   })
 })
 
 describe('promptFor', () => {
-  it('fills the player\'s prompt for that kind of text', async () => {
-    const dumdum = await playerFor(await openDb(':memory:'), 'dumdum')
+  it('fills the player\'s prompt for that kind of text', () => {
+    const dumdum = playerFor('dumdum')
     expect(promptFor(dumdum, 'clueing', { clueing: 'Which region?' })).to.contain('Question: Which region?')
   })
 
-  it('refuses a kind of text the player is never asked about', async () => {
-    const dumdum = await playerFor(await openDb(':memory:'), 'dumdum')
+  it('refuses a kind of text the player is never asked about', () => {
+    const dumdum = playerFor('dumdum')
     expect(() => promptFor(dumdum, 'hint', { hint: 'BUT NOT' })).to.throw('no hint prompt')
   })
 })
@@ -29,24 +27,24 @@ describe('promptFor', () => {
 describe('playerStatuses', () => {
   afterEach(() => { vi.unstubAllEnvs() })
 
-  it('says both players can play when the server holds credentials for their service', async () => {
+  it('says both players can play when the server holds credentials for their service', () => {
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
-    const statuses = await playerStatuses(await openDb(':memory:'))
+    const statuses = playerStatuses()
     expect(statuses.map((status) => [status.label, status.servicelabel, status.credentialed])).to.deep.eq([
       ['dumdum', 'claude', true],
       ['numnum', 'claude', true],
     ])
   })
 
-  it('says neither can when it does not', async () => {
+  it('says neither can when it does not', () => {
     vi.stubEnv('ANTHROPIC_API_KEY', '')
-    const statuses = await playerStatuses(await openDb(':memory:'))
+    const statuses = playerStatuses()
     expect(statuses.map((status) => status.credentialed)).to.deep.eq([false, false])
   })
 
-  it('never carries the credential itself', async () => {
+  it('never carries the credential itself', () => {
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-secret')
-    const statuses = await playerStatuses(await openDb(':memory:'))
+    const statuses = playerStatuses()
     expect(JSON.stringify(statuses)).not.to.contain('sk-secret')
   })
 })

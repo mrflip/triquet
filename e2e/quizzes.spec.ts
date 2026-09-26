@@ -3,8 +3,6 @@ import { newQuiz, openQuiz, reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
   await page.getByLabel('Quiz name').click()
@@ -25,8 +23,7 @@ test('a quiz with its title cleared shows as Untitled quiz in the switcher', asy
   await newQuiz(page)
   await page.getByLabel('Quiz name').fill('')
   await page.getByLabel('Quiz name').blur()
-  const labels = await page.getByLabel('Open quiz').locator('option').evaluateAll((nodes) => nodes.map((node) => node.textContent))
-  expect(labels).toEqual(['Quiz one', 'Untitled quiz'])
+  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['Quiz one', 'Untitled quiz'])
 })
 
 test('deleting asks inline, and the neighbouring quiz opens', async ({ page }) => {
@@ -87,6 +84,5 @@ test('unlocking finds the quiz exactly as it was', async ({ page }) => {
 
 test('the switcher marks a locked quiz', async ({ page }) => {
   await page.getByRole('button', { name: 'Lock quiz' }).click()
-  const labels = await page.getByLabel('Open quiz').locator('option').evaluateAll((nodes) => nodes.map((node) => node.textContent))
-  expect(labels).toEqual(['🔒 Quiz one'])
+  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['🔒 Quiz one'])
 })

@@ -1,5 +1,4 @@
-import { appDb } from '../../../db/client'
-import { playerStatuses } from '../../../db/players'
+import { playerStatuses } from '../../../lib/ask/players'
 import { PlayerStatusValidators } from '../../../models/player-status'
 
 /**
@@ -9,7 +8,7 @@ import { PlayerStatusValidators } from '../../../models/player-status'
  * they are -- only whether they exist, so a cell can say so calmly instead of failing when it
  * is double-clicked.
  */
-export async function GET(): Promise<Response> {
-  const players = await playerStatuses(await appDb())
+export function GET(): Response {
+  const players = playerStatuses()
   return Response.json(PlayerStatusValidators.playerStatuses({ players }))
 }

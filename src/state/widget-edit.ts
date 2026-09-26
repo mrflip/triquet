@@ -4,7 +4,7 @@ import { DefaultOwner, ExpressionValidators, type ExpressionT } from '../models/
 import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type ExpressingT, type PlayingPatch, type PlayingWidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
-import type { WorkspaceAction } from './workspace-reducer'
+import type { WorkspaceAction } from './actions'
 
 /** What the expression select says for "write a new one", which no expression is labelled */
 export const NewExpression = ''

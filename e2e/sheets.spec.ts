@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitUntilSaved } from './support'
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
@@ -9,13 +10,12 @@ async function sheetsText(page: Page): Promise<string> {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
   for (const [ii, [qnum, clueing]] of ([['3', 'third'], ['1', 'first'], ['2', 'second']] as const).entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(clueing)
   }
   await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
 })
 
 test('a header row of column labels in alphabetical order, then a line per question in rank order', async ({ page }) => {
@@ -47,7 +47,7 @@ test('the export is the same however the grid is sorted', async ({ page }) => {
   const qnumHeader = page.getByRole('button', { name: 'Q#', exact: true })
   await qnumHeader.click()
   await qnumHeader.click()
-  expect(await sheetsText(page)).toEqual(wasText)
+  await expect.poll(async () => await sheetsText(page)).toEqual(wasText)
 })
 
 test('a line break in a field never starts a new spreadsheet row', async ({ page }) => {

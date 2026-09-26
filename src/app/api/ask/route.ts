@@ -5,8 +5,7 @@ import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/
 import { bulkItemsBlock } from '../../../lib/ask/prompts'
 import { MaxTokensForJob, ModelForTier, PlayerForJob } from '../../../lib/ask/models'
 import * as Credentials from '../../../lib/credentials'
-import { appDb } from '../../../db/client'
-import { playerFor, promptFor } from '../../../db/players'
+import { playerFor, promptFor } from '../../../lib/ask/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failureReplyFor } from '../../../lib/ask/failures'
 import { vetReply } from '../../../lib/ask/replies'
@@ -35,7 +34,7 @@ export async function POST(request: Request): Promise<Response> {
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
 
   try {
-    const player = await playerFor(await appDb(), PlayerForJob[parsed.data.job])
+    const player = playerFor(PlayerForJob[parsed.data.job])
     if (! Credentials.has(player.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
     const client = new Anthropic({ apiKey: Credentials.get(player.servicelabel) })
     return replied(vetReply(await answerAsk(client, player, parsed.data)))

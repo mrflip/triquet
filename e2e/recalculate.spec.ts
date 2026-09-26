@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved } from './support'
+import { newQuiz, reloadOnceSaved, waitUntilSaved } from './support'
 
 /** The cell of column `colname` in the row at `rowIdx` */
 function cellOf(page: Page, rowIdx: number, colname: string) {
@@ -24,13 +24,12 @@ async function stubRun(page: Page, valueOf: (key: string) => number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.context().clearCookies()
-  await page.goto('/')
   for (const ii of [0, 1, 2]) {
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
   }
   await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
 })
 
 test('one run fills every clueing and hint, with a single cost figure for the lot', async ({ page }) => {
@@ -84,9 +83,7 @@ test('a failed run changes nothing, and says so', async ({ page }) => {
 })
 
 test('a quiz with no text at all gets its own notice rather than an empty request', async ({ page }) => {
-  await page.context().clearCookies()
-  // Not a reload: the address still names the old workspace's quiz, which the new one lacks.
-  await page.goto('/')
+  await newQuiz(page)
   await page.route('**/api/ask', (route) => route.abort())
   await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
   await expect(page.getByText('No questions or hints have any text yet — nothing to recalculate.')).toBeVisible()

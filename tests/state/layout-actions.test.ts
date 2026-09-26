@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { PolicyTestApp } from 'jazz-tools/testing'
-import { openQuizOf } from '../../src/state/workspace-reducer'
-import { expressionUsage } from '../../src/state/layout-actions'
-import { perform } from '../../src/state/perform'
+import { countExpressingWidgets } from '../../src/state/layout-actions'
+import { loadAccountRows } from '../../src/state/quiz-rows'
 import { NewExpression, planExpressingEdit } from '../../src/state/widget-edit'
 import { Question } from '../../src/models/question'
-import { Workspace, type WorkspaceT } from '../../src/models/workspace'
+import { Workspace, openQuizOf, type WorkspaceT } from '../../src/models/workspace'
 import { present } from '../support/present'
 import { openTestApp, seedWorkspace, type Seeded } from '../support/jazz'
 
@@ -68,8 +67,8 @@ describe('add_widget', () => {
   })
 
   it('refuses a widget that is not one', async () => {
-    const { db, open } = await seed()
-    await expect(perform(db, open, { kind: 'add_widget', widget: { ...Widget, label: 'No Good' } })).rejects.toThrow(Z.ZodError)
+    const { act } = await seed()
+    await expect(act({ kind: 'add_widget', widget: { ...Widget, label: 'No Good' } })).rejects.toThrow(Z.ZodError)
   })
 
   it('refuses while the quiz is locked', async () => {
@@ -100,9 +99,9 @@ describe('edit_widget', () => {
   })
 
   it('validates the patch for the kind of widget it is', async () => {
-    const { db, open } = await withWidget()
-    await expect(perform(db, open, { kind: 'edit_widget', label: 'dumdum', patch: { player_label: 'smartypants' as never } })).rejects.toThrow(Z.ZodError)
-    await expect(perform(db, open, { kind: 'edit_widget', label: 'dumdum', patch: { textkind: 'hint' } })).rejects.toThrow(Z.ZodError)
+    const { act } = await withWidget()
+    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { player_label: 'smartypants' as never } })).rejects.toThrow(Z.ZodError)
+    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { textkind: 'hint' } })).rejects.toThrow(Z.ZodError)
   })
 
   it('does nothing for a widget the quiz does not have', async () => {
@@ -200,8 +199,8 @@ describe('add_column', () => {
   })
 
   it('refuses a column that is not one', async () => {
-    const { db, open } = await seed()
-    await expect(perform(db, open, { kind: 'add_column', column: { ...column, width_px: 5 } })).rejects.toThrow(Z.ZodError)
+    const { act } = await seed()
+    await expect(act({ kind: 'add_column', column: { ...column, width_px: 5 } })).rejects.toThrow(Z.ZodError)
   })
 
   it('refuses while the quiz is locked', async () => {
@@ -319,8 +318,8 @@ describe('add_expression', () => {
   })
 
   it('refuses an expression that is not one', async () => {
-    const { db, open } = await seed()
-    await expect(perform(db, open, { kind: 'add_expression', expression: { label: 'shout', formula: '' } })).rejects.toThrow(Z.ZodError)
+    const { act } = await seed()
+    await expect(act({ kind: 'add_expression', expression: { label: 'shout', formula: '' } })).rejects.toThrow(Z.ZodError)
   })
 })
 
@@ -342,8 +341,8 @@ describe('edit_expression', () => {
   })
 
   it('refuses an empty formula', async () => {
-    const { db, open } = await seed()
-    await expect(perform(db, open, { kind: 'edit_expression', label: 'answer_reversed', patch: { formula: '' } })).rejects.toThrow(Z.ZodError)
+    const { act } = await seed()
+    await expect(act({ kind: 'edit_expression', label: 'answer_reversed', patch: { formula: '' } })).rejects.toThrow(Z.ZodError)
   })
 })
 
@@ -367,17 +366,18 @@ describe('delete_expression', () => {
   })
 })
 
-describe('expressionUsage', () => {
+describe('countExpressingWidgets', () => {
   it('counts the widgets, across every quiz, that work an expression', async () => {
     const { db, open, act } = await seed()
     await act({ kind: 'new_quiz' })
-    expect(await expressionUsage(db, open.workspace_id, 'clueing_full')).to.eq(2)
+    expect(countExpressingWidgets(await loadAccountRows(db), open.workspace_id, 'clueing_full')).to.eq(2)
   })
 
   it('counts nought for an expression nobody works, or that does not exist', async () => {
     const { db, open } = await seed()
-    expect(await expressionUsage(db, open.workspace_id, 'answer_reversed')).to.eq(0)
-    expect(await expressionUsage(db, open.workspace_id, 'absent')).to.eq(0)
+    const held = await loadAccountRows(db)
+    expect(countExpressingWidgets(held, open.workspace_id, 'answer_reversed')).to.eq(0)
+    expect(countExpressingWidgets(held, open.workspace_id, 'absent')).to.eq(0)
   })
 })
 

@@ -1,9 +1,7 @@
 import * as Z from 'zod'
-import { createInsertSchema } from 'drizzle-zod'
 import { Validator } from '../lib/validator'
 import { AskValidators } from './ask'
 import { ServicelabelVals } from '../lib/credentials'
-import { players } from '../db/drizzle-schema'
 import { BulkIshesPrompt, ClueingIshesPrompt, HintIshesPrompt, QuickGuessPrompt } from '../lib/ask/prompts'
 import { MaxTokensForJob } from '../lib/ask/models'
 import { PlayerLabelVals } from './player-label'
@@ -15,7 +13,7 @@ export const PromptkindVals = ['clueing', 'hint', 'bulk'] as const
 export type Promptkind = typeof PromptkindVals[number]
 export type PlayerPrompts = Partial<Record<Promptkind, string>>
 
-export const PlayerValidators = Validator(({ zod, oneof, noteish, titleish, uint }) => {
+export const PlayerValidators = Validator(({ obj, zod, oneof, noteish, titleish, uint }) => {
   const playerLabel = oneof(PlayerLabelVals)
     .describe('Which player: "dumdum" answers a clueing the way a fast, not-especially-careful player would; "numnum" lists every number-like span in a clueing or a hint.')
 
@@ -25,15 +23,13 @@ export const PlayerValidators = Validator(({ zod, oneof, noteish, titleish, uint
   const prompts = zod.partialRecord(oneof(PromptkindVals), noteish.min(1))
     .describe('The prompt template this player is given for each kind of text it can be shown, with `{{placeholders}}` still in it. A kind absent here is one the player is never asked about.')
 
-  // drizzle-zod calls any function it is handed as a refinement, and our callable validators
-  // are functions, so those are passed wrapped rather than bare.
-  const player = createInsertSchema(players, {
-    label:      playerLabel,
-    title:      titleish,
-    blurb:      noteish,
+  const player = obj({
+    label:        playerLabel,
+    title:        titleish,
+    blurb:        noteish,
     servicelabel,
-    model_tier: () => AskValidators.modelTier,
-    max_tokens: uint.min(1)
+    model_tier:   AskValidators.modelTier,
+    max_tokens:   uint.min(1)
       .describe('How much room the player is given to answer a single text.'),
     prompts,
   })
@@ -66,5 +62,5 @@ const SeedPlayerDNAs: readonly PlayerDNA[] = [
   },
 ]
 
-/** The players every database holds, rewritten to match this build whenever it is opened */
+/** Every player there is, with the brief this build gives each */
 export const SeedPlayers: readonly PlayerT[] = SeedPlayerDNAs.map((dna) => PlayerValidators.player(dna))

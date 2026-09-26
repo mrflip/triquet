@@ -65,7 +65,7 @@ export type QuestionRowProps = {
 export function QuestionRow({ question, questions, locked, gripShown, resizeToken, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
-  const { rowRef, handleRef, dragging, landing, onHandleKeyDown } = useReorderable({ listkey: QuestionListkey, itemkey: question.id, idx, count, disabled: ! gripShown || locked, onMove })
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question.id, idx, count, disabled: ! gripShown || locked, onMove })
 
   const heightPx = Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
@@ -193,6 +193,7 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
             tabIndex={grippable ? 0 : -1}
             aria-label={`Reorder ${question.title || 'this question'}`}
             onKeyDown={onHandleKeyDown}
+            onBlur={onHandleBlur}
           >
             ⠿
           </div>

@@ -2,12 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
-import { perform } from '../../src/state/perform'
 import { LocalFirst, loadWorkspace } from '../../src/state/quiz-rows'
 import { ensureWorkspace } from '../../src/state/quiz-actions'
-import { openQuizOf } from '../../src/state/workspace-reducer'
 import { SeedExpressions } from '../../src/models/expression'
-import { Workspace, type WorkspaceT } from '../../src/models/workspace'
+import { Workspace, openQuizOf, type WorkspaceT } from '../../src/models/workspace'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
@@ -152,9 +150,9 @@ describe('perform', () => {
     })
 
     it('refuses text the model rejects rather than storing it', async () => {
-      const { db, open, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openWorkspace())
       const { id } = firstOf(await read())
-      await expect(perform(db, open, { kind: 'edit_question', question_id: id, patch: { title: 'x'.repeat(201) } })).rejects.toThrow(Z.ZodError)
+      await expect(act({ kind: 'edit_question', question_id: id, patch: { title: 'x'.repeat(201) } })).rejects.toThrow(Z.ZodError)
     })
 
     it('chains to another question, held by that question\'s label', async () => {
@@ -671,6 +669,19 @@ describe('ensureWorkspace', () => {
     const db = freshDb(testApp)
     const first = await ensureWorkspace(db)
     expect(await ensureWorkspace(db)).to.eq(first)
+    expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
+  })
+})
+
+describe('ensureWorkspace, asked by several views at once', () => {
+  let testApp: PolicyTestApp
+  beforeAll(async () => { testApp = await openTestApp() })
+  afterAll(async () => { await testApp.shutdown() })
+
+  it('makes one workspace, and hands every one of them its id', async () => {
+    const db = freshDb(testApp)
+    const found = await Promise.all([ensureWorkspace(db), ensureWorkspace(db), ensureWorkspace(db)])
+    expect(new Set(found).size).to.eq(1)
     expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
   })
 })

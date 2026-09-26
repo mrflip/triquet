@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Question, QuestionValidators, type QuestionDNA } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
+import { ValidatorKit } from '../../src/lib/validator'
 import * as Labelmaker from '../../src/lib/labelmaker'
 
 const anId = mintId()
@@ -130,7 +131,7 @@ describe('QuestionValidators.questionPatch', () => {
 describe('Question.blank', () => {
   it('mints an id and leaves everything else empty', () => {
     const question = Question.blank()
-    expect(question.id).to.have.length(26)
+    expect(ValidatorKit.treeid.safeParse(question.id).success).to.eq(true)
     expect(question.clueing).to.eq('')
   })
 

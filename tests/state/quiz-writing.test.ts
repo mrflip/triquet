@@ -8,6 +8,7 @@ import {
   changedFields, deleteQuiz, playingFieldsOf, repositioned, transact, updateQuestion, updateQuiz, writeQuiz, writeWorkspace,
 } from '../../src/state/quiz-writing'
 import { Expression } from '../../src/models/expression'
+import type { PlayingT } from '../../src/models/playing'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Workspace, type WorkspaceT } from '../../src/models/workspace'
@@ -79,11 +80,11 @@ describe('repositioned', () => {
 })
 
 describe('playingFieldsOf', () => {
-  it('drops the tree\'s id and time, which are the row\'s own, and gives a reply without spans an empty list', () => {
+  it('drops the tree\'s id and time, which are the row\'s own', () => {
     const playing = {
       id: 'x', question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', player_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
-      reply_text: 'Leon', items: null, message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null, created_at: 9,
-    } as const
+      reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null, created_at: 9,
+    } satisfies PlayingT
     expect(playingFieldsOf(playing)).to.deep.eq({
       question_id: playing.question_id, player_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
       reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null,

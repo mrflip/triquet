@@ -25,7 +25,7 @@ export type AskFailurekind = keyof typeof AskFailureNotices
 /** Notices about the tool itself rather than about one cell */
 export const AppNotices = {
   nothingToRecalculate: 'No questions or hints have any text yet — nothing to recalculate.',
-  saveFailed:           "Couldn't save your latest changes — they'll be tried again with your next edit",
+  changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
   loadFailed:           "Couldn't open your quizzes — reload the page to try again.",
   untitledQuiz:         'Untitled quiz',
   copied:               'Copied',
