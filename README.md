@@ -41,8 +41,8 @@ Use these standard commands:
     pnpm test:e2e         # end-to-end specs, on :3002 (Doppler's dev_e2e)
     pnpm lint && pnpm typecheck && pnpm build
 
-    doppler run -c dev_janitor -- scripts/jazz_healthcheck   # the real Jazz app it names: reachable, schema deployed?
-    doppler run -c dev_janitor -- scripts/jazz_deploy        # publish schema.ts and permissions.ts to it
+    ./scripts/doppledo dev_janitor ./scripts/jazz_healthcheck   # the real Jazz app it names: reachable, schema deployed?
+    ./scripts/doppledo dev_janitor ./scripts/jazz_deploy        # publish schema.ts and permissions.ts to it
 
 Coding agents use `pnpm dev:agent` (port 3001, build directory `.next-agent`) and `pnpm build:agent`
 instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server you already have

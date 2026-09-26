@@ -4,7 +4,7 @@
 # publishes on its own, so this refuses to run unless JAZZ_REAL_DB is "true".
 #
 # Reads NEXT_PUBLIC_JAZZ_APP_ID, NEXT_PUBLIC_JAZZ_SERVER_URL, JAZZ_ADMIN_SECRET and JAZZ_REAL_DB.
-# Usage: doppler run --config dev_aijanitor -- scripts/jazz_deploy
+# Usage: ./scripts/doppledo dev_janitor ./scripts/jazz_deploy
 set -euo pipefail
 cd "$(dirname "$0")/.."
 JAZZ_ADMIN_SNIPPET=$(echo "$JAZZ_ADMIN_SECRET" | sd '^(..).*(..)$' '$1...$2')

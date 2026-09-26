@@ -86,9 +86,9 @@ its ports and directories (`dev_claude`, `dev_e2e`). Jazz runs locally inside th
 (agents: port 3201, `data/jazz-agent/`; e2e: 3202, `data/jazz-e2e/`) unless `JAZZ_REAL_DB=true`;
 never the human's 3200 or `data/jazz/`. Housekeeping on the agents'
 Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `dev_aijanitor`,
-never `dev_janitor`. Never kill a process you did not start. If you meet another shared resource
--- a port, a cache or output directory, a database -- give yourself a parallel one the same way,
-and add its script to `package.json`.
+never `dev_janitor`. Never kill a process that doesn't belong to `agent` or `e2e`.
+If you meet another shared resource -- a port, a cache or output directory,
+a database -- give yourself a parallel one the same way, and add its script to `package.json`.
 
 ## Architecture
 

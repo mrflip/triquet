@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 # Checks that Doppler is set up for this checkout: prints "triquet" when it is, and fails when it is not.
 set -euo pipefail
+doppler       run -- printenv TRIQUET_ENV
+doppler       run -- printenv DOPPLER_PROJECT
+doppler       run -- printenv DOPPLER_CONFIG
 exec doppler run -- printenv KILROYWUZHERE
