@@ -1,3 +1,4 @@
+import { withTimeout } from 'es-toolkit'
 import type { Db } from 'jazz-tools'
 import { app, type QuestionRow } from '../db/schema'
 import * as Chain from '../lib/chain'
@@ -242,8 +243,10 @@ const WorkspaceLookups = new WeakMap<Db, Promise<string>>()
  * The workspace is the one `account` made, found by who made it rather than by anything this
  * browser remembers, so it is the same workspace on any device the account is used on, and a
  * workspace someone else shares with the account is never mistaken for its own. This browser's
- * copy is asked first; only when it holds none is the server asked (when it can be reached), so a
- * device that has not synced yet does not make a second. Everyone who asks of one database shares
+ * copy is asked first; only when it holds none is the server asked, so a device that has not
+ * synced yet does not make a second. A server that fails the read, or has not answered within
+ * `ServerLookupMillis`, is given up on and the workspace made here: offline, or facing a server
+ * that will not serve this app, the author still gets to work. Everyone who asks of one database shares
  * one lookup, so views opening at once cannot each make their own. Should two ever exist, the one
  * made first is the one used.
  *
@@ -264,13 +267,21 @@ export async function ensureWorkspace(db: Db, account: string): Promise<string> 
   }
 }
 
+/** How long a browser holding no workspace waits to hear from the server before making its own */
+export const ServerLookupMillis = 3000
+
 /** The earliest workspace `account` made, or a blank one made now */
 async function findOrMakeWorkspace(db: Db, account: string): Promise<string> {
   const earliest = app.workspaces.where({ '$createdBy.account': account }).orderBy('$createdAt').limit(1)
   const [local] = await db.all(earliest, LocalFirst)
   if (local) { return local.id }
-  const [remote] = await db.all(earliest, { tier: 'remote-if-possible' })
-  if (remote) { return remote.id }
+  try {
+    const [remote] = await withTimeout(async () => await db.all(earliest, { tier: 'remote-if-possible' }), ServerLookupMillis)
+    if (remote) { return remote.id }
+  } catch {
+    // The server only advises here. One that cannot be reached fails the read, and one that will
+    // not serve this app never answers; either way this browser goes on alone.
+  }
   const made = await transact(db, (tx) => writeWorkspace(tx, Workspace.blank(), null))
   if (made === null) { throw new Error('Making a workspace wrote nothing') }
   return made

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import { useWorkspace } from '../state/use-workspace'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
+import styles from './workbench.module.css'
 
 /**
- * Sends the author to the quiz they were last on, minting one when this workspace has none.
+ * Sends the author to the quiz they were last on, minting one when this workspace has none,
+ * saying "Opening your quizzes…" meanwhile, or why they could not be opened.
  *
  * What the bare addresses -- `/` and `/my/quiz` -- do instead of showing anything. Each of them
  * sends once and never again: the workspace is a fresh object after every save and every
@@ -20,7 +22,7 @@ import * as Routes from '../lib/routes'
  */
 export function OpenQuizRedirect() {
   const router = useRouter()
-  const { workspace, quiz, loaded, dispatch } = useWorkspace()
+  const { workspace, quiz, loaded, saveNotice, dispatch } = useWorkspace()
   // A string, so the effect below compares it by value rather than by the workspace's identity.
   const openLabel = quiz === null ? null : Labelmaker.effectiveLabelOf(quiz)
   const sent = useRef(false)
@@ -45,5 +47,6 @@ export function OpenQuizRedirect() {
     if (loaded) { send() }
   }, [loaded, openLabel])
 
-  return null
+  // On the way past, say what is happening, or why it stopped, rather than show nothing.
+  return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main>
 }

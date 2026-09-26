@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import type { PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
 import { LocalFirst, loadWorkspace } from '../../src/state/quiz-rows'
-import { ensureWorkspace } from '../../src/state/quiz-actions'
+import { ServerLookupMillis, ensureWorkspace } from '../../src/state/quiz-actions'
 import { SeedExpressions } from '../../src/models/expression'
 import { Workspace, openQuizOf, type WorkspaceT } from '../../src/models/workspace'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
@@ -671,6 +671,48 @@ describe('ensureWorkspace', () => {
     const elsewhere = testApp.as(sessionFor('the same account, another device', account))
     expect(await ensureWorkspace(elsewhere, account)).to.eq(first)
     expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
+  })
+})
+
+describe('ensureWorkspace, when the server never answers', () => {
+  let testApp: PolicyTestApp
+  beforeAll(async () => { testApp = await openTestApp() })
+  afterAll(async () => { await testApp.shutdown() })
+
+  it('stops waiting, and makes the workspace in this browser', { timeout: ServerLookupMillis + 5000 }, async () => {
+    const { db, account } = freshAccount(testApp)
+    // A server that cannot be reached, or will not serve this app, leaves a read that asks it
+    // hanging for good; everything else about the database works.
+    const unanswered = new Proxy(db, {
+      get(target, key) {
+        const member: unknown = Reflect.get(target, key)
+        if (key !== 'all' || typeof member !== 'function') { return typeof member === 'function' ? member.bind(target) as unknown : member }
+        return async (...args: unknown[]) => {
+          const [, options] = args as [unknown, { tier?: string } | undefined]
+          if (options?.tier === 'remote-if-possible') { return await new Promise(() => { /* never answered */ }) }
+          return await (member as (...rest: unknown[]) => Promise<unknown>).apply(target, args)
+        }
+      },
+    })
+    const workspace_id = await ensureWorkspace(unanswered, account)
+    expect(await loadWorkspace(db, workspace_id)).to.not.eq(null)
+  })
+
+  it('makes the workspace in this browser when the server cannot be reached at all', async () => {
+    const { db, account } = freshAccount(testApp)
+    const unreachable = new Proxy(db, {
+      get(target, key) {
+        const member: unknown = Reflect.get(target, key)
+        if (key !== 'all' || typeof member !== 'function') { return typeof member === 'function' ? member.bind(target) as unknown : member }
+        return async (...args: unknown[]) => {
+          const [, options] = args as [unknown, { tier?: string } | undefined]
+          if (options?.tier === 'remote-if-possible') { throw new Error('[object Event]') }
+          return await (member as (...rest: unknown[]) => Promise<unknown>).apply(target, args)
+        }
+      },
+    })
+    const workspace_id = await ensureWorkspace(unreachable, account)
+    expect(await loadWorkspace(db, workspace_id)).to.not.eq(null)
   })
 })
 
