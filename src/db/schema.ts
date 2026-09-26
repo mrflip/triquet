@@ -127,3 +127,12 @@ export const schema = JZS.defineSchema({ workspaces, expressions, quizzes, widge
 
 /** The typed handle every query and write starts from */
 export const app = JZS.defineApp(schema)
+
+/** One row of each table, as a query reads it back */
+export type WorkspaceRow  = JZS.RowOf<typeof app.workspaces>
+export type ExpressionRow = JZS.RowOf<typeof app.expressions>
+export type QuizRow       = JZS.RowOf<typeof app.quizzes>
+export type WidgetRow     = JZS.RowOf<typeof app.widgets>
+export type ColumnRow     = JZS.RowOf<typeof app.columns>
+export type QuestionRow   = JZS.RowOf<typeof app.questions>
+export type PlayingRow    = JZS.RowOf<typeof app.playings>

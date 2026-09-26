@@ -4,11 +4,11 @@ import { Quiz, QuizValidators, type QuizT } from './quiz'
 import { ExpressionValidators, SeedExpressions, keyOf, type ExpressionT } from './expression'
 import { defaultLayoutFor } from './layout'
 
-export const WorkspaceValidators = Validator(({ obj, arr, ulid, rowid }) => {
+export const WorkspaceValidators = Validator(({ obj, arr, rowid, treeid }) => {
   const workspace = obj({
     quizzes:        arr(QuizValidators.quiz).min(1)
       .describe('Every quiz this browser holds. Never empty -- deleting the last quiz is refused rather than leaving the author staring at nothing.'),
-    active_quiz_id: ulid
+    active_quiz_id: treeid
       .describe('Which quiz is on screen. A value that names no existing quiz is repaired to the first quiz rather than treated as fatal.'),
     expressions:    arr(ExpressionValidators.expression).default([])
       .describe('The calculations this workspace can put to work as columns, by any of its quizzes.'),

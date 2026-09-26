@@ -5,7 +5,7 @@ import * as Labelmaker from '../lib/labelmaker'
 import { GuessValidators, type GuessT } from './guess'
 import { IshValidators, type IshesT } from './ish'
 
-export const QuestionValidators = Validator(({ obj, str, textish, noteish, titleish, ulid, label, rowid, uint }) => {
+export const QuestionValidators = Validator(({ obj, str, textish, noteish, titleish, label, rowid, uint, treeid }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -22,7 +22,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
     .describe('A freeform-editable local identifier, generated once at creation. Unlike the id, an author can read it, type it, and paste it back after a round-trip through another tool.')
   const forced_label = label.nullable()
     .describe('An author-chosen label overriding the generated one, or null to keep the generated one.')
-  const chains_to = ulid.nullable()
+  const chains_to = treeid.nullable()
     .describe('The question that follows this one in the quiz, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same quiz; anything dangling or self-referential is cleared rather than kept.')
   const clueing_ishes = IshValidators.ishes
     .describe('Extraction over this question\'s clueing. What the standard Clueing sum columns are worked out from.')
@@ -36,7 +36,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
     .describe('The answer, as it will actually be read out.')
 
   const question = obj({
-    id:            ulid,
+    id:            treeid,
     qnum:          qnum.default(''),
     clueing:       clueing.default(''),
     hint:          hint.default(''),

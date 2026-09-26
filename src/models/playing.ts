@@ -2,10 +2,10 @@ import { mintId } from '../lib/ids'
 import { Validator } from '../lib/validator'
 import type { PlayingRow } from '../db/drizzle-schema'
 import { AskValidators, ModelTierVals, askError, type LastErrT } from './ask'
-import type { GuessDNA, GuessDoneT, GuessT } from './guess'
-import { IshValidators, IshesPerTextMax, type IshesDNA, type IshesDoneT, type IshesT, type IshItemT } from './ish'
+import type { GuessDoneT, GuessT } from './guess'
+import { IshValidators, IshesPerTextMax, type IshesDoneT, type IshesT, type IshItemT } from './ish'
 import { PlayerLabelVals, type PlayerLabel } from './player-label'
-import type { QuestionDNA, QuestionT } from './question'
+import type { QuestionT } from './question'
 import { TextkindVals, type Textkind } from '../lib/ask/contract'
 
 /** How an ask came out: with a reply, or with a failure */
@@ -121,7 +121,7 @@ export function latestBySlot(playings: readonly PlayingT[]): Map<string, SlotLat
 export function resultsFor(
   question: Pick<QuestionT, 'id' | 'clueing' | 'hint'>,
   latest: ReadonlyMap<string, SlotLatest>,
-): Pick<QuestionDNA, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
+): Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
   const historyOf = (slot: PlaySlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
   return {
     guess:         guessFrom(historyOf(PlaySlots[0])),
@@ -198,7 +198,7 @@ function failedFrom(question: QuestionT, slot: PlaySlot, err: LastErrT, id: stri
 }
 
 /** The guess a cell's history comes to */
-function guessFrom(history: SlotLatest | undefined): GuessDNA {
+function guessFrom(history: SlotLatest | undefined): GuessT {
   if (! history) { return null }
   const { done, failed } = history
   if (! done) { return failed ? askError(lastErrOf(failed)) : null }
@@ -214,7 +214,7 @@ function guessFrom(history: SlotLatest | undefined): GuessDNA {
 }
 
 /** The extraction a cell's history comes to for `currentText` */
-function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesDNA {
+function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesT {
   if (! history) { return null }
   const { done, failed } = history
   if (! done) { return failed ? askError(lastErrOf(failed)) : null }

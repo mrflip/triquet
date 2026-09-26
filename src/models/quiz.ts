@@ -19,7 +19,7 @@ export const BlankQuestionQty = 5
 /** The version every quiz starts on, and so the branch its history begins on */
 export const DefaultVersion = 'main'
 
-export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, ulid, rowid }) => {
+export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, rowid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -41,7 +41,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     .describe('What the last "Recalculate all ishes" run cost, kept per quiz. Never cleared by, and never clears, an individual cell\'s own token figure.')
 
   const quiz = obj({
-    id:              ulid,
+    id:              treeid,
     title:           titleish.default('')
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),

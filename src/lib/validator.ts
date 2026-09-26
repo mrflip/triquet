@@ -32,6 +32,8 @@ export const ValidatorKit = {
   ulid:      CK.ulid,
   /** A row's id, as Jazz mints it: internal, never shown, and only ever held to point at that row */
   rowid:     Z.uuid(),
+  /** An id in a quiz as the tool holds it whole: its row's id once written, or a ULID minted for one not written yet */
+  treeid:    Z.union([CK.ulid, Z.uuid()]),
   /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
   label:     CK.label,
   /** Epoch milliseconds */

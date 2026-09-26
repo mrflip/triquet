@@ -292,7 +292,7 @@ export default defineConfig([
       // this the only way to satisfy the rule is to pad it with a token runtime assertion,
       // which tells the reader nothing about what the test is for.
       'vitest/expect-expect': ['error', {
-        assertFunctionNames: ['expect', 'expectTypeOf', 'accepts', 'rejects'],
+        assertFunctionNames: ['expect', 'expectTypeOf', 'accepts', 'rejects', 'expectUnchanged'],
       }],
       // A bulk example list indexes a namespace by a name from its table (`CK[ckname]`), which
       // this rule cannot follow. tsc checks the same thing properly, and does.
