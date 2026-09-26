@@ -75,6 +75,15 @@ In particular, address:
 * what do we do about mismatches that aren't *patently* absurd -- `nth(arr, "1")`,
   `nth(arr, 1.5)`, `nth(arr, -1)`, `nth(arr, inf)`, `nth(arr, MAX_SAFE_INTEGER + 99)`?
 
+## Rows and Policies (Jazz)
+
+Anything that writes or subscribes to rows is tested against a real Jazz database from
+`jazz-tools/testing`, not a mock: `createPolicyTestApp` for a policy, `startLocalJazzServer`
+when sync or several clients are the behaviour under test. Assert user-visible rows, subscription
+deliveries, and accepted or rejected writes through the public API. Tell a query that has not
+delivered yet apart from one that delivered nothing. Request the durability tier the assertion
+depends on, and no higher. Row ids are never asserted on; find rows by label.
+
 ## Validation Boundaries
 
 Remember where the code under test sits in the Sketch/DNA/Real/Live lifecycle (`notes/guidelines.md`).

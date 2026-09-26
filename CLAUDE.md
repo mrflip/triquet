@@ -13,8 +13,19 @@ a second layer of puzzle that is revealed as the first solutions start coming in
 store, edit and refine the question text, and also to assess questions for fairness and difficulty/
 
 Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
-a validator needs no migration path for anyone's quizzes (the schema migrations in `/drizzle` still
-get generated, since databases exist on developer machines).
+a validator needs no migration path for anyone's quizzes.
+
+**Storage is moving from libSQL + Drizzle to Jazz v2**, a local-first database, as a trial so we
+can learn from potential users before choosing infrastructure. Jazz is an alpha, newer than your
+training: use the `jazz` skill and the installed `jazz-tools` source, never recall. Rows, not a
+tree: actions write rows, views subscribe to rows. Row ids are Jazz's and internal; refer by
+label. Validate between the UI and the app, not by the database alone. Until the move is done,
+`src/db/` and `/drizzle` still run: keep them working, but don't build on them. Turso is out for
+good. See `notes/decisions/2026-09-jazz.md`; the plan is `whiteboard/jazz-migration.md`.
+
+**The app is client-first**: static hosting plus stateless functions, working with the network
+off except for asking. The ask route is the one named server function. Never add a second
+without a Coach. See `notes/decisions/2026-09-client-first.md`.
 
 Project instructions, loaded at the start of every session. Keep this file short and true:
 everything here costs context on every task, whether or not the task needs it.
@@ -75,12 +86,16 @@ per directory, so as an agent **use `pnpm dev:agent` (port 3100) and `pnpm build
 the app at `data/agent.db`, never the human's `data/triquet.db`. Never kill a process you
 did not start. If you meet another shared resource -- a port, a cache or output directory, a
 database -- give yourself a parallel one the same way, and add its script to `package.json`.
+Jazz's development sync server and its data directory count: when they arrive, the agent
+scripts give the agent its own port and data directory for them, the same way.
 
 ## Architecture
 
 Where code lives. Imports run down this list, never up: a lower layer knows nothing of the ones
-above it. (`lib` and `models` are peers, and lean on each other freely. The one sanctioned climb:
-a model built from its table with `drizzle-zod` imports that table from `db/schema`.)
+above it. (`lib` and `models` are peers, and lean on each other freely. `db` sits above both:
+`db/schema.ts` takes value validators from `models`, and nothing in `models` imports from `db`.
+Row types come from `db`. Until the Drizzle files are gone, `models/player.ts` still climbs into
+`db/schema` through `drizzle-zod`; that climb leaves with them.)
 
 * `src/app/` -- Next.js App Router: pages, the theme and palette, and the route handlers under
   `api/`. Pages are thin; they hand off to a component.
@@ -90,8 +105,10 @@ a model built from its table with `drizzle-zod` imports that table from `db/sche
 * `src/state/` -- everything between a view and the data: the reducers (pure, and where every
   editing action is defined), the workspace store, the asking and players hooks, and the quiz
   history mirror with its commit scheduler.
-* `src/db/` -- server only. The Drizzle schema, the connection, and the repository functions
-  that load and save a workspace. Migrations are generated into `/drizzle`.
+* `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, and the app handle),
+  `permissions.ts` (the only place authorization is written), and the client setup. Today it
+  still holds the **outgoing** Drizzle schema, connection and repositories, with migrations in
+  `/drizzle`; those leave with the move.
 * `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a
   class of statics (`fill`, `blank`, `exposed`). Nothing here is instantiated.
 * `src/lib/` -- facilities: pure functions around one concern each, imported as a namespace
@@ -129,7 +146,7 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
-  - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
+  - `notes/tests.md` *(auto-loads with any test file)* -- test conventions.
   - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.

@@ -19,7 +19,7 @@ To this, you can add:
 
 In future, we may also offer api requests with a payload and response structure we design (calling a purpose-built edge worker), or perhaps even a templated graphql or rest request
 
-Data is stored in a local libSQL database file beside the app, and we plan to later allow cloud sync. Each quiz's history is also recorded in a git repo on the browser's FS: not a second source of truth, but the best past-versions view we know of -- easy comparison of drafts, and an exit door for anyone who outgrows the tool
+We're moving storage to [Jazz](https://jazz.tools) v2, a local-first database: each browser keeps its own copy and a sync server carries it between devices and collaborators. You can start using the app and never log in; logging in (later) is what lets you collaborate with yourself across browsers, and with people you authorize. Jazz is still in alpha. We chose it on purpose, as a trial, to learn what people need before we commit to infrastructure (see `notes/decisions/2026-09-jazz.md`; Turso was ruled out over concurrent tab access and last-push-wins conflicts). The app itself is written for the browser: static hosting plus one stateless function for asking a model (`notes/decisions/2026-09-client-first.md`). Until the move lands, data still lives in a local libSQL file. Each quiz's history is also recorded in a git repo on the browser's FS: not a second source of truth, but the best past-versions view we know of -- easy comparison of drafts, and an exit door for anyone who outgrows the tool
 
 ## Developing
 
@@ -44,10 +44,12 @@ Coding agents use `pnpm dev:agent` (port 3100, build directory `.next-agent`) an
 instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server you already have
 running. Next.js refuses to start a second dev server in the same directory.
 
-Quizzes live in a local libSQL (Turso) database file, `data/triquet.db`, created and migrated on
-first use; `TRIQUET_DATABASE_URL` points elsewhere (`file:...`, or `:memory:`). The agent scripts use
-`data/agent.db`. After changing `src/db/schema.ts`, run `pnpm db:generate` and commit the new
-migration in `drizzle/`. Each browser finds its own workspace by a cookie.
+**Storage is mid-move to Jazz v2** (plan: `whiteboard/jazz-migration.md`), and this section
+will change when the move is done. Until then, quizzes live in a local libSQL database file,
+`data/triquet.db`, created and migrated on first use; `TRIQUET_DATABASE_URL` points elsewhere
+(`file:...`, or `:memory:`). The agent scripts use `data/agent.db`. Each browser finds its own
+workspace by a cookie. Please don't build anything new on this layer. There is no migration
+path: export your quizzes as JSON before the move and bring them back through the import tool.
 
 Each quiz's edit history is committed to an in-browser git repository about 30 seconds after the
 first edit in a burst; `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` (2 to 600) changes that wait.

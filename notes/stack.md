@@ -31,8 +31,10 @@ don't trust a recalled version number, including one recalled by an agent.
 
 ### Application framework
 
-* **Next.js** (App Router) on **Vercel**. Server Components for anything that touches user data;
-  client components only where interaction demands it.
+* **Next.js** (App Router) on **Vercel**. **Client-first**: the app runs on static hosting plus
+  stateless functions, and works with the network off except for asking. Pages prerender at
+  build; user data never renders on a server. The ask route is the one named server function.
+  See `notes/decisions/2026-09-client-first.md`.
 * **TypeScript**, as strict as reasonably possible: . See `eslint.config.mjs`.
 * **Material UI** for the component layer.
 * **Zod 4** for validation at every module entrypoint, through the `Validator` kit. See
@@ -40,8 +42,19 @@ don't trust a recalled version number, including one recalled by an agent.
   - Zod is **patched** (`patches/zod@4.6.5.patch`): issues carry the refused input by default.
     Deliberate; `notes/guidelines.md` says what follows from it. A Zod bump re-cuts the patch.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
-* **Turso** (libSQL) as the primary database, with **Drizzle ORM** on top. `drizzle-zod` and `drizzle-kit`, checked into the repo
-  - the app must always work with turso in local mode; cloud mode is an add-on
+* **Jazz v2** (`jazz-tools`, pinned to its 2.0.0 alpha) as the database: local-first, a copy in
+  each browser, synced through a Jazz server. **On trial, and a deliberate exception** to the
+  four-way test above: it is alpha and newer than the agent's cutoff. Work from the installed
+  source and the `jazz` skill, never from memory. See `notes/decisions/2026-09-jazz.md`.
+  - Rows, not a tree: actions write rows, views subscribe to rows. The relational shape lives in
+    `src/db/schema.ts` in Jazz's own DSL (tables are not authored in Zod); only a column holding
+    a structured value takes a Zod schema, through `JZS.json()`. Row ids are
+    Jazz's and internal; refer by label. Field names stay `underscore_case`.
+  - **Outgoing:** libSQL (`@libsql/client`), Drizzle (`drizzle-orm`, `drizzle-zod`,
+    `drizzle-kit`) and `/drizzle`'s migrations remain only until the move is done. Don't build
+    on them.
+  - **Turso is not coming back**, in local mode or cloud: concerns about concurrent access
+    across tabs, and a conflict resolution that is last-push-wins in some cases.
 * pnpm
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every
@@ -61,7 +74,8 @@ don't trust a recalled version number, including one recalled by an agent.
 
 Settled; reach for these before writing the equivalent.
 
-* **ulid** for ids (lowercased; `lib/ids.ts`). **unique-names-generator** for fresh labels.
+* **unique-names-generator** for fresh labels. (**ulid** and `lib/ids.ts` are outgoing with the
+  Jazz move: row ids are Jazz's own.)
 * **safe-stable-stringify**, behind `UU.jsonify`. Don't import it directly.
 * **Papa Parse** for TSV/CSV, in and out. **fflate** for zipping a download.
 * **clsx** for composing class names in the grid.
@@ -104,7 +118,10 @@ Settled; reach for these before writing the equivalent.
 
 ### Testing
 
-* **Vitest** with chai-style assertions. See `.claude/rules/testing.md`.
+* **Vitest** with chai-style assertions. See `notes/tests.md`.
+* **`jazz-tools/testing`** (`startLocalJazzServer`, `createPolicyTestApp`) for anything that
+  touches rows or policies; model the real topology when sync or permissions are the behaviour
+  under test.
 * **Playwright** for end-to-end, kept to a thin layer: the handful of flows where a break is
   invisible to unit tests (auth round-trip, upload, publish).
 
@@ -157,7 +174,11 @@ it a decision rather than a default.
 
 * **CodeMirror 6** for the editing surface: markdown source with live preview.
 * Object storage and delivery — S3? Vercel? Cloudflare? Abuse the DB? Something else?
-* Authentication: Auth.js? Clerk? WorkOS? Cognito?
+* Authentication, **deferred until the Jazz move lands** (TODO 1 in
+  `notes/decisions/2026-09-jazz.md`). Shape agreed: local-first accounts with no login as the
+  default; later, one hosted hub (Clerk or WorkOS) federating Google as Jazz's single issuer,
+  `linkJWT` at the threshold, a written collision policy. Better Auth is the named alternative
+  and would put our own server in the login path. Provision through the Vercel Marketplace.
 * Rich-text editing: do we want markdown+preview, or a wysiwg? how do we keep safe?
   - **TipTap**? **unified / remark / rehype** for the pipeline, via **react-markdown** for rendering.
   - `remark-parse` → `remark-gfm` → `remark-rehype` → **`rehype-sanitize`** → render.
@@ -174,15 +195,14 @@ it a decision rather than a default.
 Raised in review and not yet decided. Until one is settled, don't build further in its
 direction, and don't "fix" the code to match the line above that it contradicts.
 
-* **What the product is, and so where the database lives**: a hosted app over Turso cloud, a
-  truly local-first app with the database in the browser, or a localhost tool. `file:` libSQL has
-  no disk to live on at Vercel, and `openDb` refuses anything else today. Most of the items
-  below wait on this one.
-* **The rendering policy.** "Server Components for anything that touches user data" is followed
-  nowhere: every page is a client component and data arrives by fetch from a route handler.
-* **Client state and data fetching.** `state/workspace-store.ts` is a hand-rolled store:
-  serialised optimistic saves, retry, cross-tab refetch, a pagehide flush. TanStack Query, Server
-  Actions with `useOptimistic`, or an entry under Hand-rolled on purpose.
+Settled in Sept 2026, and recorded in `notes/decisions/`: where the database lives (Jazz,
+local-first), the rendering policy (client-first; pages prerender at build), client state
+(Jazz subscriptions replace `workspace-store.ts` and the tree reducers), models versus schema
+(relational shape in `schema.ts`, structured values in Zod), and the shape of identity (deferred;
+see *Authentication* above). Still open:
+
+* **Where the sync server runs** for the trial: Jazz Cloud or our own. Tied to where Jazz Cloud
+  takes the JWKS settings, which the docs do not show.
 * **How thick the end-to-end layer should be.** The line above says thin; the suite is sixteen
   spec files and larger than any unit area. Tied to whether components and hooks get tests of
   their own (Testing Library, Vitest browser mode).

@@ -1,3 +1,12 @@
+Outline a plan for Opus to migrate the project to use Jazz v2. (In stack.md, please record that turso is out because there were concerns about concurrent access across tabs, and the conflict resolution of last-push-wins in some cases). Don't yet write code, but please update docs where needed -- re-read them first, as they may have changed.
+
+Unless you advise otherwise, this would not retain the current database, and presumably not retain drizzle or drizzle-zod.
+From biggest to least: I *do* want to have zod validators; I *do* want a single source of truth for the schema; I *do* want to go with the grain of jazz. Let me know if those conflict.
+I'm aware of the jazz trial limitations.
+
+Currently models have/will ahve these separate pieces: 1) that part of the jazz schema, 2) WidgetValidators; 3) exporting various typedefs (`export type WidgetT = Z.output<...>`); 4) the class, with its `declare` lines and functionality.
+
+
 ## **Expand**:
 
 Yes add the architecture section. Don't yet put work into describing the data flow, I want to talk about that.  Write the vocabulary list -- I'm curious how well it's grokked. I pulled the stuff about live() out. Please write out the patch pattern section. I am pretty sure I do want the tests you described, will add a work thread on that

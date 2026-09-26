@@ -2,6 +2,36 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-25: Jazz decision recorded, migration planned
+
+Docs only; no code changed, nothing committed. `notes/decisions/2026-09-jazz.md` (rewritten) and
+`notes/decisions/2026-09-client-first.md` (new) carry the discussion; `stack.md`, `CLAUDE.md`,
+`README.md`, `guidelines.md`, `testing.md` and `vocabulary.md` point at them. The plan is
+`whiteboard/jazz-migration.md`.
+
+**Judgement calls you may want to overturn**
+
+* **`src/db/` keeps its name** and becomes the Jazz layer (schema, permissions, client setup),
+  no longer "server only". It now sits *above* `models` in the import order, since
+  `schema.ts` takes Zod value schemas from the models. The old sanctioned climb (`player.ts`
+  into `db/schema`) is noted as leaving with Drizzle.
+* **The players table becomes a constant.** Nothing about a player was ever user data; the
+  table existed to be asked "is there a key?". `/api/players` stays as part of the ask
+  exception (it reads env, holds no state).
+* **"Open with a Coach" in `stack.md` is now mostly a settled-list** with one open item (where
+  the sync server runs). The other open items (e2e thickness, OPFS, formulas in a worker, the AI
+  layer, MUI on the grid) are untouched.
+* **Model guidance in the plan** is a heuristic, not a benchmark: I have no measured ranking of
+  Opus 5.5 against Fable 5.1 or Sonnet 5. I read "Claude" in your question as Sonnet 5.
+
+**Noticed, not acted on**
+
+* `stack.md`'s Testing line pointed at `.claude/rules/testing.md`, which does not exist; it now
+  points at `notes/tests.md`.
+* `testing.md` still says "Sketch/DNA/Real/Live" (flagged on 2026-09-20; still there).
+* The e2e specs already prove the app runs with `/api/ask` aborted; that is the client-first
+  rule as a test. Worth keeping one spec that asserts it on purpose.
+
 ## 2026-09-20: Guidance-doc review, swept in
 
 Docs and small code fixes from the review of `CLAUDE.md`, `stack.md` and `guidelines.md`. Nothing
@@ -28,7 +58,7 @@ committed. Lint, typecheck and unit tests pass; e2e not run (no UI or route beha
 
 **Noticed, not acted on**
 
-* `notes/testing.md` still says "Sketch/DNA/Real/Live"; guidelines no longer defines those
+* `notes/tests.md` still says "Sketch/DNA/Real/Live"; guidelines no longer defines those
   phases. I reworded the `CLAUDE.md` pointer and left `testing.md`'s sentence for you.
 * `models/player.ts` imports the `players` table from `db/schema` (for `drizzle-zod`): the one
   place a model reaches up into `db`. Client code only takes types from it, and

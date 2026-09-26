@@ -44,8 +44,9 @@ the domain.
 
 ## Identity
 
-* **id** -- a lowercase ULID, minted client-side, fixed for life, never shown. What the database
-  and the reducers key on.
+* **id** -- Jazz's own row id, whatever it wants it to be; fixed for life, never shown. An
+  internal detail: where a label relationship is reasonable and equally powerful, refer by label
+  instead, scoped where it must be (`quizlabel-questionlabel` as a selector id).
 * **label** -- a freeform-string-derived identifier a person can read, type and paste back:
   lowercase letters, digits, underscore; letter first. Unique among siblings, not globally.
   Labels are what URLs, formulas, exports, git paths and column sources use, because people
