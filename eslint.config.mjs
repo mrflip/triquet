@@ -29,8 +29,9 @@ export default defineConfig([
     // CLAUDE.md: staged past-project files, not code this project runs.
     'aside/**',
     'relics/**',
-    // Written by the Jazz migration tool, double-quoted and long-named; regenerated, never hand-edited.
-    'migrations/**',
+    // Written by the Jazz migration tool (scripts/jazz_migration), in its own double-quoted style.
+    // In src/db because Jazz's dev server reads migrations only from beside the schema.
+    'src/db/migrations/**',
   ]),
 
   // == [1. Stock Next.js + TypeScript defaults] ==
