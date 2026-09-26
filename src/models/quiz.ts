@@ -19,8 +19,8 @@ export const BlankQuestionQty = 5
 /** The version every quiz starts on, and so the branch its history begins on */
 export const DefaultVersion = 'main'
 
-export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, ulid }) => {
-  const columnSortkey = zod.custom<ColumnSortkey>((val) => typeof val === 'string' && /^column:[a-z][a-z0-9_]*[a-z0-9]$/.test(val), 'should be "column:" and then a label')
+export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, ulid, rowid }) => {
+  const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
 
@@ -63,7 +63,20 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     })
     .describe('One trivia quiz. Chain integrity and column labels are checked here rather than on the question or the column, because each is only meaningful relative to its siblings.')
 
-  return { sortkey, bulkIshesRun, quiz }
+  const row = obj({
+    workspace_id:    rowid
+      .describe('The workspace this quiz belongs to.'),
+    title:           titleish,
+    label:           quizLabel,
+    forced_label,
+    version,
+    locked:          bool,
+    last_sortkey:    sortkey.nullable(),
+    bulk_ishes_last: bulkIshesRun,
+  })
+    .describe('One quiz as the database holds it: its own fields, with its questions, widgets and columns in rows of their own.')
+
+  return { sortkey, bulkIshesRun, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */

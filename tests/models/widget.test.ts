@@ -86,3 +86,29 @@ describe('the two kinds of widget in one list', () => {
     expect(playingsOf(widgets).map((widget) => widget.label)).to.deep.eq(['dumdum'])
   })
 })
+
+describe('WidgetValidators.row', () => {
+  const Base = { quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'thing', description: '', position: 0 }
+  const Expressing = { ...Base, kind: 'expressing', expression_label: 'shout', player_label: null, textkind: null } satisfies Z.input<typeof WidgetValidators.row>
+  const Playing = { ...Base, kind: 'playing', expression_label: null, player_label: 'numnum', textkind: 'hint' } satisfies Z.input<typeof WidgetValidators.row>
+
+  it('takes either kind as the database holds it, the other kind\'s fields null', () => {
+    expect(WidgetValidators.row(Expressing)).to.deep.eq(Expressing)
+    expect(WidgetValidators.row(Playing)).to.deep.eq(Playing)
+  })
+
+  const Refused: [object, string][] = [
+    [{ ...Expressing, expression_label: null },          'an expressing that names no expression'],
+    [{ ...Expressing, player_label: 'dumdum' },          'an expressing that also names a player'],
+    [{ ...Playing, textkind: null },                     'a playing that names no text'],
+    [{ ...Playing, expression_label: 'shout' },          'a playing that also names an expression'],
+    [{ ...Playing, player_label: 'dumdum' },             'a player that is not put that text in this tool'],
+    [{ ...Playing, player_label: 'smartypants' },        'a player there is not'],
+    [{ ...Playing, position: -1 },                       'a place before the first'],
+  ]
+  for (const [row, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => WidgetValidators.row(row as never)).to.throw(Z.ZodError)
+    })
+  }
+})

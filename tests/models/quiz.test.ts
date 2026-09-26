@@ -142,3 +142,29 @@ describe('Quiz.blank', () => {
     expect(() => Quiz.blank('', 'Not A Label')).to.throw(Z.ZodError)
   })
 })
+
+describe('QuizValidators.row', () => {
+  const Row = {
+    workspace_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
+  }
+
+  it('takes a quiz as the database holds it, sort memory and batch cost included', () => {
+    const run = { approx_tokens: 4200, text_count: 28, updated_at: 1_700_000_000_000 }
+    expect(QuizValidators.row({ ...Row, last_sortkey: 'column:clueing', bulk_ishes_last: run })).to.deep.eq({ ...Row, last_sortkey: 'column:clueing', bulk_ishes_last: run })
+    expect(QuizValidators.row({ ...Row, last_sortkey: 'chain_order' }).last_sortkey).to.eq('chain_order')
+  })
+
+  const Refused: [object, string][] = [
+    [{ workspace_id: 'princes' },            'a workspace that is not a row id'],
+    [{ label: 'Princes' },                   'a label that is not one'],
+    [{ title: 'x'.repeat(83) },              'a title past 82 characters'],
+    [{ last_sortkey: 'column:Clueing' },     'a sort memory naming a column that is not a label'],
+    [{ last_sortkey: 'clueing' },            'a sort memory that is neither a column nor the chain order'],
+    [{ locked: 'no' },                       'a lock that is not a yes or no'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => QuizValidators.row({ ...Row, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
+})

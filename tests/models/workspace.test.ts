@@ -102,3 +102,14 @@ describe('Workspace.revive', () => {
     expect(() => Workspace.revive({ quizzes: [], active_quiz_id: mintId() })).to.throw(Z.ZodError)
   })
 })
+
+describe('WorkspaceValidators.row', () => {
+  it('takes the open quiz, or none', () => {
+    expect(WorkspaceValidators.row({ active_quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9' }).active_quiz_id).to.eq('01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9')
+    expect(WorkspaceValidators.row({ active_quiz_id: null }).active_quiz_id).to.eq(null)
+  })
+
+  it('refuses an open quiz that is not a row id', () => {
+    expect(() => WorkspaceValidators.row({ active_quiz_id: '01j0000000000000000000000a' })).to.throw(Z.ZodError)
+  })
+})

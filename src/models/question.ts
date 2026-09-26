@@ -5,7 +5,7 @@ import * as Labelmaker from '../lib/labelmaker'
 import { GuessValidators, type GuessT } from './guess'
 import { IshValidators, type IshesT } from './ish'
 
-export const QuestionValidators = Validator(({ obj, str, textish, noteish, titleish, ulid, label }) => {
+export const QuestionValidators = Validator(({ obj, str, textish, noteish, titleish, ulid, label, rowid, uint }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -69,7 +69,26 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
   })
     .describe('The fields of one question being revised. A key absent from a patch means "leave whatever is already there", so no field here carries a default. The id is not among them: a question keeps the id it was minted with for its whole life.')
 
-  return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, question, questionPatch }
+  const row = obj({
+    quiz_id:      rowid
+      .describe('The quiz this question belongs to.'),
+    position:     uint
+      .describe('The question\'s place in its quiz\'s committed order, counting from zero.'),
+    label:        questionLabel,
+    forced_label,
+    title,
+    qnum,
+    clueing,
+    hint,
+    chains_to:    label.nullable()
+      .describe('The label of the question that follows this one in the quiz, or null when unchained. Must name a different question in the same quiz.'),
+    full_answer,
+    alt_text,
+    notes,
+  })
+    .describe('One question as the database holds it: only what the author writes. What players replied is in rows of their own.')
+
+  return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, question, questionPatch, row }
 })
 
 export type QuestionDNA   = Z.input<typeof QuestionValidators.question>

@@ -30,6 +30,8 @@ export const ValidatorKit = {
   titleish:  CK.titleish,
   /** Lowercase Crockford-base32 ULID, as minted by `mintId` */
   ulid:      CK.ulid,
+  /** A row's id, as Jazz mints it: internal, never shown, and only ever held to point at that row */
+  rowid:     Z.uuid(),
   /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
   label:     CK.label,
   /** Epoch milliseconds */

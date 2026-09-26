@@ -4,7 +4,7 @@ import { Quiz, QuizValidators, type QuizT } from './quiz'
 import { ExpressionValidators, SeedExpressions, keyOf, type ExpressionT } from './expression'
 import { defaultLayoutFor } from './layout'
 
-export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
+export const WorkspaceValidators = Validator(({ obj, arr, ulid, rowid }) => {
   const workspace = obj({
     quizzes:        arr(QuizValidators.quiz).min(1)
       .describe('Every quiz this browser holds. Never empty -- deleting the last quiz is refused rather than leaving the author staring at nothing.'),
@@ -37,7 +37,13 @@ export const WorkspaceValidators = Validator(({ obj, arr, ulid }) => {
     })
     .describe('Everything the tool holds for one person in one browser. This is also exactly what the Export panel emits and what Import accepts.')
 
-  return { workspace }
+  const row = obj({
+    active_quiz_id: rowid.nullable()
+      .describe('Which quiz is on screen, or null before there is one.'),
+  })
+    .describe('One workspace as the database holds it: one per account. Its quizzes and expressions are rows of their own.')
+
+  return { workspace, row }
 })
 
 export type WorkspaceDNA = Z.input<typeof WorkspaceValidators.workspace>

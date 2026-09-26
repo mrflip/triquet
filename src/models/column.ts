@@ -24,7 +24,7 @@ export const WidthPxMax = 800
 const QuestionSourcePattern = String.raw`${QuestionWidgetLabel}\.(${[...QuestionFieldVals, ...QuestionViewVals].join('|')})`
 const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${PA.Label.re.source.replace(/^\^/, '').replace(/\$$/, '')})$`)
 
-export const ColumnValidators = Validator(({ obj, str, titleish, label, int }) => {
+export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uint, rowid }) => {
   const columnLabel = label
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, or the label of a widget')
@@ -49,7 +49,16 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int }) =
   })
     .describe('The fields of one column being revised. A key absent means "leave whatever is already there".')
 
-  return { column, columnPatch }
+  const row = obj({
+    quiz_id:  rowid
+      .describe('The quiz this column belongs to.'),
+    ...column.shape,
+    position: uint
+      .describe('The column\'s place among its quiz\'s columns, counting from zero.'),
+  })
+    .describe('One column as the database holds it.')
+
+  return { column, columnPatch, row }
 })
 
 export type ColumnDNA   = Z.input<typeof ColumnValidators.column>

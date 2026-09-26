@@ -8,7 +8,7 @@ export type ExpressionOwner = typeof ExpressionOwnerVals[number]
 /** The owner an expression has unless it says otherwise */
 export const DefaultOwner: ExpressionOwner = 'tq'
 
-export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, noteish }) => {
+export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, noteish, uint, rowid }) => {
   const owner = oneof(ExpressionOwnerVals)
     .describe('Who wrote the expression. With the label it names the expression uniquely, so two owners may each have a "letter_count" without either being confused for the other.')
   const expressionLabel = label
@@ -32,7 +32,19 @@ export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, 
   })
     .describe('The fields of one expression being revised. A key absent from a patch means "leave whatever is already there". The owner and label are not among them: they are what other things refer to it by.')
 
-  return { owner, expression, expressionPatch }
+  const row = obj({
+    workspace_id: rowid
+      .describe('The workspace this expression belongs to.'),
+    owner,
+    label:        expressionLabel,
+    formula,
+    description,
+    position:     uint
+      .describe('The expression\'s place in the order the author lists them, counting from zero.'),
+  })
+    .describe('One expression as the database holds it.')
+
+  return { owner, expression, expressionPatch, row }
 })
 
 export type ExpressionDNA   = Z.input<typeof ExpressionValidators.expression>

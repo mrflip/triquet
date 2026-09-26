@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { latestBySlot, resultsFor, slotkeyOf, unrecordedPlayings, type PlayingT } from '../../src/models/playing'
+import * as Z from 'zod'
+import { PlayingValidators, latestBySlot, resultsFor, slotkeyOf, unrecordedPlayings, type PlayingT } from '../../src/models/playing'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 
@@ -191,4 +192,38 @@ describe('unrecordedPlayings', () => {
   it('records nothing for a question no player has been put', () => {
     expect(unrecordedPlayings(Question.blank(), NoneRecorded)).to.deep.eq([])
   })
+})
+
+describe('PlayingValidators.row', () => {
+  const Done = {
+    question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', player_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
+    reply_text: null, items: [{ text: 'three', value: 3, kind: 'wordish' }], message: null, response: null, truncated: false,
+    model_tier_applied: 'careful', approx_tokens: 210,
+  } satisfies Z.input<typeof PlayingValidators.row>
+  const Failed = {
+    ...Done, status: 'error', items: [], message: 'The model was busy.', response: { error: 'overloaded' }, model_tier_applied: null, approx_tokens: null,
+  } satisfies Z.input<typeof PlayingValidators.row>
+
+  it('takes a reply, and a failure, as the database holds them', () => {
+    expect(PlayingValidators.row(Done)).to.deep.eq(Done)
+    expect(PlayingValidators.row(Failed)).to.deep.eq(Failed)
+  })
+
+  it('keeps a dumdum reply exactly as it came, surrounding space and all', () => {
+    expect(PlayingValidators.row({ ...Done, player_label: 'dumdum', reply_text: '  Hamlet\n', items: [] }).reply_text).to.eq('  Hamlet\n')
+  })
+
+  const Refused: [object, string][] = [
+    [{ question_id: 'hamlet' },                                   'a question that is not a row id'],
+    [{ status: 'pending' },                                       'a status there is not'],
+    [{ items: null },                                             'no spans at all, rather than an empty list'],
+    [{ items: [{ text: '', value: 3, kind: 'numeral' }] },        'a span with no text'],
+    [{ items: Array.from({ length: 201 }, () => Done.items[0]) }, 'more spans than one text may carry'],
+    [{ approx_tokens: -1 },                                       'a negative token count'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => PlayingValidators.row({ ...Done, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
 })

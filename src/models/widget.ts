@@ -10,10 +10,15 @@ import type { ExpressionT } from './expression'
 export const WidgetkindVals = ['expressing', 'playing'] as const
 export type Widgetkind = typeof WidgetkindVals[number]
 
+/** Whether the tool puts `player_label` the question's `textkind` text */
+function isPlaySlot(player_label: PlayerLabel, textkind: Textkind): boolean {
+  return PlaySlots.some((slot) => slot.player_label === player_label && slot.textkind === textkind)
+}
+
 /** The widget every quiz has without being told: the questions' own fields. No quiz may label one of its own this. */
 export const QuestionWidgetLabel = 'question'
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, discrim }) => {
+export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, discrim, uint, rowid }) => {
   const widgetLabel = label
     .describe('What the widget is called within its quiz, unique there and never `question`, which is the questions\' own widget. Columns name the widgets they show by this label.')
   const description = noteish
@@ -28,19 +33,22 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
   })
     .describe('One expression put to work in one quiz: for every question, the value its formula comes to.')
 
+  const playerLabel = oneof(PlayerLabelVals)
+    .describe('Which player is put the quiz\'s questions.')
+  const textkind = oneof(TextkindVals)
+    .describe('Which of a question\'s texts the player is shown.')
+
   const playing = obj({
     kind:          lit('playing'),
     label:         widgetLabel,
-    player_label:  oneof(PlayerLabelVals)
-      .describe('Which player is put the quiz\'s questions.'),
-    textkind:      oneof(TextkindVals)
-      .describe('Which of a question\'s texts the player is shown.'),
+    player_label:  playerLabel,
+    textkind,
     description:   description.default(''),
   })
     .check((context) => {
-      const { player_label, textkind } = context.value
-      if (PlaySlots.every((slot) => slot.player_label !== player_label || slot.textkind !== textkind)) {
-        context.issues.push({ code: 'custom', input: textkind, path: ['textkind'], message: `${player_label} is not put a ${textkind} in this tool` })
+      const { player_label, textkind: kindShown } = context.value
+      if (! isPlaySlot(player_label, kindShown)) {
+        context.issues.push({ code: 'custom', input: kindShown, path: ['textkind'], message: `${player_label} is not put a ${kindShown} in this tool` })
       }
     })
     .describe('A connection from a quiz to a player: what the player answered for each question, shown for the text given. The answers are kept on the questions, so removing this only stops showing them.')
@@ -63,7 +71,38 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
   })
     .describe('The fields of one playing widget being revised. A key absent means "leave whatever is already there".')
 
-  return { widgetLabel, expressing, playing, widget, expressingPatch, playingPatch }
+  const row = obj({
+    quiz_id:          rowid
+      .describe('The quiz this widget belongs to.'),
+    label:            widgetLabel,
+    kind:             oneof(WidgetkindVals)
+      .describe('What the widget is: an expression put to work, or a player put to the quiz.'),
+    expression_label: label.nullable()
+      .describe('Which of the workspace\'s expressions an expressing widget works; null for a playing widget.'),
+    player_label:     playerLabel.nullable(),
+    textkind:         textkind.nullable(),
+    description,
+    position:         uint
+      .describe('The widget\'s place among its quiz\'s widgets, counting from zero.'),
+  })
+    .check((context) => {
+      const { kind, expression_label, player_label, textkind: kindShown } = context.value
+      const flag = (fieldkey: string, message: string) => { context.issues.push({ code: 'custom', input: context.value, path: [fieldkey], message }) }
+      if (kind === 'expressing') {
+        if (expression_label === null) { flag('expression_label', 'An expressing widget names the expression it works') }
+        if (player_label !== null || kindShown !== null) { flag('player_label', 'An expressing widget puts no player to the quiz') }
+        return
+      }
+      if (expression_label !== null) { flag('expression_label', 'A playing widget works no expression') }
+      if (player_label === null || kindShown === null) {
+        flag('player_label', 'A playing widget names its player and the text that player is shown')
+      } else if (! isPlaySlot(player_label, kindShown)) {
+        flag('textkind', `${player_label} is not put a ${kindShown} in this tool`)
+      }
+    })
+    .describe('One widget as the database holds it: the fields of both kinds, with those the other kind uses left null.')
+
+  return { widgetLabel, expressing, playing, widget, expressingPatch, playingPatch, row }
 })
 
 export type ExpressingDNA   = Z.input<typeof WidgetValidators.expressing>

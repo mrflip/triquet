@@ -1,11 +1,49 @@
 import { mintId } from '../lib/ids'
+import { Validator } from '../lib/validator'
 import type { PlayingRow } from '../db/drizzle-schema'
-import { askError, type LastErrT } from './ask'
+import { AskValidators, ModelTierVals, askError, type LastErrT } from './ask'
 import type { GuessDNA, GuessDoneT, GuessT } from './guess'
-import type { IshesDNA, IshesDoneT, IshesT, IshItemT } from './ish'
-import type { PlayerLabel } from './player'
+import { IshValidators, IshesPerTextMax, type IshesDNA, type IshesDoneT, type IshesT, type IshItemT } from './ish'
+import { PlayerLabelVals, type PlayerLabel } from './player-label'
 import type { QuestionDNA, QuestionT } from './question'
-import type { Textkind } from '../lib/ask/contract'
+import { TextkindVals, type Textkind } from '../lib/ask/contract'
+
+/** How an ask came out: with a reply, or with a failure */
+export const PlayingStatusVals = ['done', 'error'] as const
+export type PlayingStatus = typeof PlayingStatusVals[number]
+
+export const PlayingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, rowid }) => {
+  const items = arr(IshValidators.ishItem).max(IshesPerTextMax)
+    .describe('A numnum reply: every number-like span it found, in the order they appear in the text asked. Empty for any other playing.')
+  const { response } = AskValidators.lastErr.shape
+
+  const row = obj({
+    question_id:        rowid
+      .describe('The question whose text was put to the player.'),
+    player_label:       oneof(PlayerLabelVals)
+      .describe('Which player was asked.'),
+    textkind:           oneof(TextkindVals)
+      .describe('Which of the question\'s texts was put to the player.'),
+    asked_text:         textish.nullable()
+      .describe('That text, trimmed, exactly as put; null when it is not known.'),
+    status:             oneof(PlayingStatusVals)
+      .describe('Whether the ask came back with a reply or with a failure.'),
+    reply_text:         textish.nullable()
+      .describe('A dumdum reply, verbatim and untrimmed.'),
+    items,
+    message:            noteish.nullable()
+      .describe('Why the ask failed, in the author\'s words.'),
+    response:           response.nullable(),
+    truncated:          bool
+      .describe('True when the reply was cut short before it finished.'),
+    model_tier_applied: oneof(ModelTierVals).nullable()
+      .describe('Which tier answered, when one did.'),
+    approx_tokens:      AskValidators.approxTokens.nullable(),
+  })
+    .describe('One time a player was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `$createdAt`.')
+
+  return { items, response, row }
+})
 
 /** One time a player was put one of a question's texts, and what came back */
 export type PlayingT = PlayingRow
