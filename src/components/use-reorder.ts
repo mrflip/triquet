@@ -46,7 +46,7 @@ export type Reorderable = {
  * Nothing moves until the drop, and the list is never reordered here: the caller is told what
  * moved where and hands back the new order, so what is on screen is always what is held. The
  * index handed back counts the list as it stands once the row has been lifted out of it, which
- * is what `moveQuestion` and the layout reducer's `movedTo` both expect.
+ * is what `moveQuestion` and the layout actions' `movedTo` both expect.
  *
  * The grip is the draggable rather than the row, so the browser's drag preview is the grip
  * itself -- a row of the question grid is two thousand pixels wide and makes a wretched one.

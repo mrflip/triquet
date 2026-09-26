@@ -1,5 +1,17 @@
 # Jazz migration
 
+**Status (2026-09-26): done.** Phases 0 to 5 are in, each with an "as built" note below; the app
+runs on Jazz alone. Open for a Coach, none of them blocking:
+
+* Point `dev_aijanitor` at a fresh Jazz app (it still holds the phase 0 placeholder schema), and
+  run `scripts/jazz_deploy` under the matching janitor config before a real database serves
+  this schema (`prd_janitor` for production).
+* Where `JazzProvider` sits: it still wraps the whole app, so the prerendered page is a progress
+  bar.
+* Where the sync server runs for the trial (`stack.md`, *Open with a Coach*).
+* No `/code-review` pass was run on any phase.
+* The Coach's own JSON has not been imported; the import e2e specs pass.
+
 Move storage from libSQL + Drizzle to Jazz v2, rows-first, client-only, with the graceful path
 from local-only to identified designed in and the identified half deferred. Decisions this plan
 carries are in `notes/decisions/2026-09-jazz.md` and `2026-09-client-first.md`; read those

@@ -12,10 +12,11 @@ the domain.
 ## The things an author makes
 
 * **workspace** -- everything the tool holds for one person in one browser: their quizzes, their
-  expressions, and which quiz is open. Found by a cookie; there are no accounts. It is also
-  exactly what Export emits and Import accepts.
+  expressions, and which quiz was last open. One per account, found by the account that made it;
+  accounts are local-first, made silently on first visit, with no login. It is also exactly
+  what Export emits and Import accepts.
 * **quiz** -- an ordered list of questions, plus the widgets and columns that say what else the
-  grid shows. The array order *is* the display order; sorting and dragging rewrite it.
+  grid shows. Each question's `position` *is* the display order; sorting and dragging rewrite it.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`. Everything else a quiz shows
   is a widget.

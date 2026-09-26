@@ -48,11 +48,10 @@ don't trust a recalled version number, including one recalled by an agent.
   source and the `jazz` skill, never from memory. See `notes/decisions/2026-09-jazz.md`.
   - Rows, not a tree: actions write rows, views subscribe to rows. The relational shape lives in
     `src/db/schema.ts` in Jazz's own DSL (tables are not authored in Zod); only a column holding
-    a structured value takes a Zod schema, through `JZS.json()`. Row ids are
-    Jazz's and internal; refer by label. Field names stay `underscore_case`.
-  - **Outgoing:** libSQL (`@libsql/client`), Drizzle (`drizzle-orm`, `drizzle-zod`,
-    `drizzle-kit`) and `/drizzle`'s migrations remain only until the move is done. Don't build
-    on them.
+    a structured value takes a Zod schema, through `JZS.json()` (or `jsonText`, while a nullable
+    JSON column cannot hold a value). Row ids are Jazz's and internal; refer by label. Field names
+    stay `underscore_case`. Read one table per query; write through `perform`.
+  - **Gone for good:** libSQL, Drizzle and their migrations (Sept 2026).
   - **Turso is not coming back**, in local mode or cloud: concerns about concurrent access
     across tabs, and a conflict resolution that is last-push-wins in some cases.
 * pnpm
@@ -74,8 +73,8 @@ don't trust a recalled version number, including one recalled by an agent.
 
 Settled; reach for these before writing the equivalent.
 
-* **unique-names-generator** for fresh labels. (**ulid** and `lib/ids.ts` are outgoing with the
-  Jazz move: row ids are Jazz's own.)
+* **unique-names-generator** for fresh labels. (Row ids are Jazz's own; `lib/ids.ts` mints a UUID
+  for a question or quiz the tool holds before it is written.)
 * **safe-stable-stringify**, behind `UU.jsonify`. Don't import it directly.
 * **Papa Parse** for TSV/CSV, in and out. **fflate** for zipping a download.
 * **clsx** for composing class names in the grid.
@@ -85,7 +84,7 @@ Settled; reach for these before writing the equivalent.
 
 * **JSONata**, pinned to **1.8.9**, the maintained synchronous line (`latest-v1` on npm). 2.x is
   async-only. The design has each widget able to read everything before it in one pass of the
-  stack, and the reducer's sort reads formula values too; both want a synchronous answer, and
+  stack, and the sort action reads formula values too; both want a synchronous answer, and
   an async evaluator would mean cells arriving a tick late. The way to 2.x, if a formula ever
   needs it, is to work every value out on write and cache it, so a render only reads. That
   cache is not written. `lib/formulas.ts` is the only file that imports `jsonata`.
@@ -206,7 +205,7 @@ direction, and don't "fix" the code to match the line above that it contradicts.
 
 Settled in Sept 2026, and recorded in `notes/decisions/`: where the database lives (Jazz,
 local-first), the rendering policy (client-first; pages prerender at build), client state
-(Jazz subscriptions replace `workspace-store.ts` and the tree reducers), models versus schema
+(Jazz subscriptions, one per table, assembled into the quiz tree; `perform` writes rows), models versus schema
 (relational shape in `schema.ts`, structured values in Zod), and the shape of identity (deferred;
 see *Authentication* above). Still open:
 

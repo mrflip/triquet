@@ -113,8 +113,9 @@ export type LightbulbPatch = Z.output<typeof LightbulbValidators.lightbulbPatch>
   is *take this*; and a lookup says what "cleared" means for each field.
 * **What a patch leaves out is a statement.** An id is never in one. Neither is anything other
   things refer to the model by (an expression's `owner` and `label`), nor anything derived.
-* A reducer applies a patch by spreading it: `{ ...lightbulb, ...patch }`. The patch was
-  validated at the entrypoint, so nothing downstream re-checks it.
+* An action applies a patch by spreading it over the row it revises (`{ ...held, ...patch }`),
+  and the row validator checks the result whole before anything is written. The patch itself
+  was validated at the entrypoint.
 
 ### Zod is patched, on purpose
 

@@ -194,7 +194,7 @@ export async function deleteExpression(db: Db, held: AccountRows, open: OpenQuiz
 
 /**
  * Carry out an action on the open quiz's widgets or columns, or on the workspace's expressions,
- * writing rows: the row-writing successor of `layoutReducer`. See `perform`.
+ * writing the rows it comes to. See `perform`.
  */
 export async function performLayout(db: Db, held: AccountRows, open: OpenQuiz, action: LayoutAction): Promise<void> {
   switch (action.kind) {

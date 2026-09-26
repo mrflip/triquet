@@ -20,7 +20,7 @@ users before choosing infrastructure. Jazz is an alpha, newer than your training
 skill and the installed `jazz-tools` source, never recall. Rows, not a tree: actions write rows
 (through `perform`), views subscribe to rows. Row ids are Jazz's and internal; refer by label.
 Validate between the UI and the app, not by the database alone. Read flat: one query per table,
-never several `include`s (alpha.56 can hang on them). libSQL, Drizzle and Turso are out for good. See `notes/decisions/2026-09-jazz.md`; the plan is `whiteboard/jazz-migration.md`.
+never several `include`s (alpha.56 can hang on them). libSQL, Drizzle and Turso are out for good. See `notes/decisions/2026-09-jazz.md`; how the move went is in `whiteboard/jazz-migration.md`.
 
 **The app is client-first**: static hosting plus stateless functions, working with the network
 off except for asking. The ask route is the one named server function. Never add a second

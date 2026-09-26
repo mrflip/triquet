@@ -8,8 +8,7 @@ import { isLayoutAction, type WorkspaceAction } from './actions'
 export type { OpenQuiz } from './quiz-actions'
 
 /**
- * Carry out what the author did, writing rows: the row-writing successor of `workspaceReducer`,
- * over the same actions.
+ * Carry out what the author did, writing the rows it comes to.
  *
  * Actions that revise the quiz on screen are refused outright while it is locked; actions about
  * the workspace (opening, making, deleting and locking quizzes, and the expressions) are not.

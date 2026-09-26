@@ -91,14 +91,14 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
           if (target) { goTo(target) }
         }}
         onNew={() => {
-          // The label is settled here rather than in the reducer, because the address this is
+          // The label is settled here rather than in the action, because the address this is
           // about to go to has to name it.
           const fresh = Labelmaker.freshLabelFor(workspace.quizzes)
           dispatch({ kind: 'new_quiz', label: fresh })
           router.push(Routes.quizPath(fresh))
         }}
         onDelete={(quiz_id) => {
-          // Worked out before the deletion, and matching the neighbour the reducer will settle
+          // Worked out before the deletion, and matching the neighbour the action will settle
           // on: afterwards this address names a quiz that is not there any more.
           const idx = workspace.quizzes.findIndex((each) => each.id === quiz_id)
           const left = workspace.quizzes.filter((each) => each.id !== quiz_id)
