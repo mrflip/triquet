@@ -7,13 +7,14 @@
 # Usage: doppler run --config dev_aijanitor -- scripts/jazz_deploy
 set -euo pipefail
 cd "$(dirname "$0")/.."
+JAZZ_ADMIN_SNIPPET=$(echo "$JAZZ_ADMIN_SECRET" | sd '^(..).*(..)$' '$1...$2')
 
 if [[ "${JAZZ_REAL_DB:-}" != "true" ]]; then
   echo "JAZZ_REAL_DB is not \"true\": run this under a janitor config, which names a real database." >&2
   exit 1
 fi
 echo "Deploying to Jazz app ${NEXT_PUBLIC_JAZZ_APP_ID:?not set} at ${NEXT_PUBLIC_JAZZ_SERVER_URL:?not set}"
-: "${JAZZ_ADMIN_SECRET:?not set}"
+: "${JAZZ_ADMIN_SNIPPET}"
 pnpm --silent exec jazz-tools deploy --schema-dir src/db
 echo
 exec scripts/jazz_healthcheck

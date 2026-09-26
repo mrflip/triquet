@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Clears a Next.js build directory, by moving it into a fresh temporary directory; nothing is
+# deleted. Its generated route types go with it, which is the cure when a deleted route leaves
+# tsc failing on a stale validator.ts.
+#
+# Refuses unless NEXT_DIST_DIR names a directory at the top of the repo starting with ".next",
+# and, when PORT is set, while anything is listening on it: stop that dev server first.
+#
+# Reads NEXT_DIST_DIR, and PORT when set.
+# Usage: doppler run --config dev_claude -- scripts/nuke-next
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+distdir="${NEXT_DIST_DIR:?not set}"
+
+if [[ ! "$distdir" =~ ^\.next[A-Za-z0-9_-]*$ ]]; then
+  echo "NEXT_DIST_DIR is \"$distdir\": expected .next, or .next-something." >&2
+  exit 1
+fi
+if [[ -n "${PORT:-}" ]] && lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t > /dev/null 2>&1; then
+  echo "Something is listening on PORT $PORT: stop that dev server first." >&2
+  exit 1
+fi
+if [[ ! -e "$distdir" ]]; then
+  echo "$distdir does not exist: nothing to clear."
+  exit 0
+fi
+
+stash="$(mktemp -d "${TMPDIR:-/tmp}/triquet-nuke-next.XXXXXX")"
+mv "$distdir" "$stash/"
+echo "Moved $distdir to $stash/$(basename "$distdir")"
