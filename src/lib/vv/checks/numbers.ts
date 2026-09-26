@@ -10,7 +10,7 @@ export const safenum  = num.min(PA.Safeint.min).max(PA.Safeint.max).describe('sa
 /**
  * A real number.
  *
- * The relic spelled this `num.finite()`; zod 4 rejects `Infinity` and `NaN` from `z.number()`
+ * The relic spelled this `num.finite()`; zod 4 rejects `Infinity` and `NaN` from `ZZ.number()`
  * already, and `.finite()` is a deprecated no-op. Kept as a name because "float" says what the
  * field holds in a way that "number" does not.
  */

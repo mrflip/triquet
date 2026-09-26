@@ -283,19 +283,19 @@ with STYLE.md. In particular, **make all data model fields underbar_case**
 import { z } from 'zod'
 
 // Coach note: please use a lower-case ULID in place of a UUIDv4
-const Id = z.string().min(1)
+const Id = ZZ.string().min(1)
   .describe('Opaque stable identifier for a quiz or a question. Newly created records mint a lowercase ULID. Ids arriving from an import are accepted as-is provided they are non-empty, because a hand-written quiz file has no reason to know about ULIDs.')
 
-const Timestamp = z.int().positive()
+const Timestamp = ZZ.int().positive()
   .describe('Epoch milliseconds at which a model result was written. Set only by the app, never typed by a person. Surfaced to the author as a hover tooltip, never as a visible column.')
 
-const ModelTier = z.enum(['quick', 'careful'])
+const ModelTier = ZZ.enum(['quick', 'careful'])
   .describe('Which tier answered: "quick" for the deliberately hasty first-instinct guess, "careful" for the more thorough ish extraction. Stored per result so an older result stays honestly labelled even after the app changes which tier it asks for a given job.')
 
-const ApproxTokens = z.int().nonnegative()
+const ApproxTokens = ZZ.int().nonnegative()
   .describe('Rough size of one ask plus its answer, estimated from character count because the page cannot observe real usage. Displayed as "~N tok" so the author can see what a habit of refreshing costs them. Never presented as exact.')
 
-const Sortkey = z.enum([
+const Sortkey = ZZ.enum([
   'qnum', 'short_answer', 'chains_to', 'clueing_plus_rank',
   'clueing_full', 'clueing_numeral', 'butnot_full', 'butnot_numeral',
   'hint_full', 'hint_numeral', 'clueing_plus_butnot_full',
@@ -306,67 +306,67 @@ const Sortkey = z.enum([
 
 // ---------- number extraction ----------
 
-const NumberishItem = z.object({
-  text:  z.string().min(1)
+const NumberishItem = ZZ.object({
+  text:  ZZ.string().min(1)
     .describe('The span exactly as it appears in the source text, preserving punctuation, currency, and script: "#17-19", "9,000+", "千", "douzaine", "Feb 27". Shown verbatim so the author can see precisely what the model latched onto and judge whether a player would too.'),
-  value: z.number()
+  value: ZZ.number()
     .describe('What a reasonable player would add up for that span. Magnitude phrases carry their whole value ("300 million" is 300000000, not 300), and fractions stay fractional ("quarter" is 0.25). Zod 4 rejects NaN and Infinity here without further checks.'),
-  kind:  z.enum(['numeral', 'wordish'])
+  kind:  ZZ.enum(['numeral', 'wordish'])
     .describe('"numeral" when the span is written in digits, "wordish" when it reads as a number in words, as an ordinal, or as a magnitude phrase. The two are totalled separately so the author can compare the strict digits-only reading of a clue against the generous reading.'),
 })
   .describe('One number-like span found in a question or a hint.')
 
-const AskError = z.object({
-  status:    z.literal('error'),
-  message:   z.string().min(1)
+const AskError = ZZ.object({
+  status:    ZZ.literal('error'),
+  message:   ZZ.string().min(1)
     .describe('Plain-language reason the ask failed, written for the author rather than copied from an error code. Displayed in place of the result, with an invitation to try again.'),
   updated_at: Timestamp,
 })
   .describe('A failed ask, kept in place of whatever was there before so the failure is visible rather than leaving a silently empty cell.')
 
-const NumberishDone = z.object({
-  status:           z.literal('done'),
-  items:            z.array(NumberishItem).max(200).default([])
+const NumberishDone = ZZ.object({
+  status:           ZZ.literal('done'),
+  items:            ZZ.array(NumberishItem).max(200).default([])
     .describe('Every span found, in the order it appears in the source text. An empty array is a real answer meaning "nothing here reads as a number", and is displayed as "None found" rather than as a blank cell.'),
   model_tier_applied: ModelTier.optional(),
-  truncated:        z.boolean().default(false)
+  truncated:        ZZ.boolean().default(false)
     .describe('True when the answer was cut short before it finished. Shown as "· cut short" so a suspiciously small list is never mistaken for a complete one.'),
   approx_tokens:    ApproxTokens.optional()
     .describe('Present for a single-cell ask. Deliberately absent for a result that came from one batched request covering many cells, because attributing a share of that cost to one cell would be a made-up number.'),
-  stale:            z.boolean().default(false)
+  stale:            ZZ.boolean().default(false)
     .describe('True when the text this was extracted from has been edited since. The result stays on screen, greyed and italic, rather than vanishing — a slightly-out-of-date total is more useful to the author than an empty cell, as long as it is honestly marked.'),
   updated_at:        Timestamp,
 })
 
-const Numberish = z.discriminatedUnion('status', [NumberishDone, AskError]).nullable()
+const Numberish = ZZ.discriminatedUnion('status', [NumberishDone, AskError]).nullable()
   .describe('The extraction for one piece of text, or null when it has never been asked for. Null, an error, and a successful empty list are three genuinely different states and each reads differently on screen.')
 
 // ---------- the ambiguity check ----------
 
-const GuessDone = z.object({
-  status:           z.literal('done'),
-  text:             z.string()
+const GuessDone = ZZ.object({
+  status:           ZZ.literal('done'),
+  text:             ZZ.string()
     .describe('The model\'s answer, as one line, verbatim and untrimmed of its own wording. The author compares this against the intended short answer by eye; the tool never scores the comparison for them.'),
   model_tier_applied: ModelTier.optional(),
-  truncated:        z.boolean().default(false),
+  truncated:        ZZ.boolean().default(false),
   approx_tokens:    ApproxTokens.optional(),
   updated_at:        Timestamp,
 })
 
-const Guess = z.discriminatedUnion('status', [GuessDone, AskError]).nullable()
+const Guess = ZZ.discriminatedUnion('status', [GuessDone, AskError]).nullable()
   .describe('What a fast, not-especially-careful reader answered, or null when never asked. This is the ambiguity signal the tool is named for: a guess that differs from the intended short answer means the question has a second reading the author could not see from the inside.')
 
 // ---------- a question ----------
 
-const Question = z.object({
+const Question = ZZ.object({
   id:           Id,
-  qnum:         z.string().regex(/^(\d+(\.\d+)?)?$/).default('')
+  qnum:         ZZ.string().regex(/^(\d+(\.\d+)?)?$/).default('')
     .describe('The author\'s own question number, kept as text on purpose. Blank means unranked and sorts last. Decimals are a feature, not an accident: typing 3.1 means "put this between whatever is 3 and 4 right now" without renumbering anything else. Duplicates and gaps are both legal.'),
-  clueing:       z.string().max(10000).default('')
+  clueing:       ZZ.string().max(10000).default('')
     .describe('The question as it will be asked. Markdown-ish emphasis, quoted verse, and non-Latin scripts all appear in real rounds and must survive untouched; the tool never rewrites this text.'),
-  hint:         z.string().max(10000).default('')
+  hint:         ZZ.string().max(10000).default('')
     .describe('This question\'s own "BUT NOT …" misdirection: a clue for something that is NOT this answer but shares its name. It belongs to the question whose answer it disguises, and is displayed alongside whichever OTHER question chains to this one.'),
-  short_answer: z.string().max(200).default('')
+  short_answer: ZZ.string().max(200).default('')
     .describe('The intended answer in as few words as possible. Does triple duty: the thing a guess is compared against, the label this question shows under other questions\' chain dropdowns, and the key an import matches questions on.'),
   chains_to:    Id.nullable().default(null)
     .describe('The question that follows this one in the round, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same round; anything dangling or self-referential is cleared rather than kept.'),
@@ -375,32 +375,32 @@ const Question = z.object({
     .describe('Extraction over this question\'s text. Feeds Question Full Sum, Question Numeral Sum, Q + #, and Q+B Full.'),
   hint_ishes:    Numberish.default(null)
     .describe('Extraction over this question\'s own hint. Feeds this question\'s Hint sums, and is borrowed by whichever question chains to this one for its BUT NOT sums and BUT NOT ishes.'),
-  alt_text:     z.string().max(10000).default('')
+  alt_text:     ZZ.string().max(10000).default('')
     .describe('Freeform notes column, carried through to the spreadsheet export. The tool ascribes no meaning to it.'),
-  notes:        z.string().max(10000).default('')
+  notes:        ZZ.string().max(10000).default('')
     .describe('Second freeform notes column, carried through to the spreadsheet export.'),
-  full_answer:  z.string().max(10000).default('')
+  full_answer:  ZZ.string().max(10000).default('')
     .describe('The long-form answer as it will actually be read out, as opposed to the terse short answer used for matching and chaining.'),
 })
   .describe('One question in a round. Every field is optional on the way in and defaulted, so a partially-filled question is always a legal question — the author is drafting, not filling in a form.')
 
 // ---------- a round ----------
 
-const BulkIshesRun = z.object({
+const BulkIshesRun = ZZ.object({
   approx_tokens: ApproxTokens,
-  text_count:   z.int().nonnegative()
+  text_count:   ZZ.int().nonnegative()
     .describe('How many texts went into that one batched request, so "~4,200 tok last time (28 texts)" reads as a cost per run rather than a mystery number.'),
   updated_at:   Timestamp,
 }).nullable()
   .describe('What the last "Recalculate all ishes" run cost, kept per round. Never cleared by, and never clears, an individual cell\'s own token figure.')
 
-const Quiz = z.object({
+const Quiz = ZZ.object({
   id:            Id,
-  title:         z.string().max(200).default('')
+  title:         ZZ.string().max(200).default('')
     .describe('What the author calls this round. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
-  questions:     z.array(Question).default([])
+  questions:     ZZ.array(Question).default([])
     .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
-  locked:        z.boolean().default(false)
+  locked:        ZZ.boolean().default(false)
     .describe('When true this round accepts no edits at all — a finished draft sent out for playtesting, kept readable and copyable but frozen against accidental change.'),
   last_sortkey:    Sortkey.nullable().default(null),
   bulk_ishes_last: BulkIshesRun.default(null),
@@ -425,8 +425,8 @@ const Quiz = z.object({
   })
   .describe('One trivia round. Chain integrity is checked here rather than on the question, because a chain is only meaningful relative to its siblings.')
 
-const Workspace = z.object({
-  quizzes:      z.array(Quiz).min(1)
+const Workspace = ZZ.object({
+  quizzes:      ZZ.array(Quiz).min(1)
     .describe('Every round this browser holds. Never empty — deleting the last round is refused rather than leaving the author staring at nothing.'),
   active_quiz_id: Id
     .describe('Which round is on screen. A value that names no existing round is repaired to the first round rather than treated as fatal.'),
@@ -447,33 +447,33 @@ Import needs a *different* schema from the one above, for one specific reason: i
 stored questions never hold a null where a string belongs.
 
 ```ts
-const ImportQuestion = z.object({
+const ImportQuestion = ZZ.object({
   id:           Id.optional(),
-  qnum:         z.string().regex(/^(\d+(\.\d+)?)?$/).nullable().optional(),
-  clueing:      z.string().nullable().optional(),
-  hint:         z.string().nullable().optional(),
-  short_answer: z.string().nullable().optional(),
-  chains_to:    z.string().nullable().optional(),
+  qnum:         ZZ.string().regex(/^(\d+(\.\d+)?)?$/).nullable().optional(),
+  clueing:      ZZ.string().nullable().optional(),
+  hint:         ZZ.string().nullable().optional(),
+  short_answer: ZZ.string().nullable().optional(),
+  chains_to:    ZZ.string().nullable().optional(),
   guess:        Guess.optional(),
   clueing_ishes: Numberish.optional(),
   hint_ishes:   Numberish.optional(),
-  alt_text:     z.string().nullable().optional(),
-  notes:        z.string().nullable().optional(),
-  full_answer:  z.string().nullable().optional(),
+  alt_text:     ZZ.string().nullable().optional(),
+  notes:        ZZ.string().nullable().optional(),
+  full_answer:  ZZ.string().nullable().optional(),
 })
   .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
 
-const ImportQuiz = z.object({
+const ImportQuiz = ZZ.object({
   id:    Id.optional(),
-  title: z.string().max(200).nullable().optional(),
-  questions: z.array(ImportQuestion).default([]),
+  title: ZZ.string().max(200).nullable().optional(),
+  questions: ZZ.array(ImportQuestion).default([]),
 })
   .describe('One round as it arrives from an import. Only the questions are merged; a pasted round\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this round contains.')
 
-const ImportPayload = z.union([
-  z.object({ quizzes: z.array(ImportQuiz).min(1), active_quiz_id: Id.optional() }),
+const ImportPayload = ZZ.union([
+  ZZ.object({ quizzes: ZZ.array(ImportQuiz).min(1), active_quiz_id: Id.optional() }),
   ImportQuiz,
-  z.array(ImportQuestion),
+  ZZ.array(ImportQuestion),
 ])
   .describe('What the Import box accepts: a whole exported workspace, a single round, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
 ```
