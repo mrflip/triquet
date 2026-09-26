@@ -82,11 +82,15 @@ Anything that writes or subscribes to rows is tested against a real Jazz databas
 of milliseconds, with our permissions enforced), `startLocalJazzServer` when sync or several
 clients are the behaviour under test. `testApp.as(session)` is one account's database; the
 session is `{ user_id, issuer, claims, authMode: 'local-first' }`, typed as
-`Parameters<PolicyTestApp['as']>[0]` since Jazz does not export `Session`. Don't open a memory
+`Parameters<PolicyTestApp['as']>[0]` since Jazz does not export `Session`; `tests/support/jazz.ts`
+has `openTestApp()` and `sessionFor(user_id)`. Don't open a memory
 driver by hand: it skips permissions, and needs a stand-in account store. Assert user-visible rows, subscription
 deliveries, and accepted or rejected writes through the public API. Tell a query that has not
 delivered yet apart from one that delivered nothing. Request the durability tier the assertion
-depends on, and no higher. Row ids are never asserted on; find rows by label.
+depends on, and no higher. Row ids are never asserted on; find rows by label. `$createdAt`
+counts milliseconds, so a test that orders two inserts by it waits a few between them. A write
+to a row the account cannot read throws on the spot; a delete is refused only at the edge, so
+assert it with `expectDenied`.
 
 The e2e suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory, Jazz server and `data/e2e.db`); Playwright refuses to start locally otherwise. Each

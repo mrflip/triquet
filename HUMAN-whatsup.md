@@ -2,6 +2,45 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Jazz phase 1 -- schema, permissions, row validators
+
+Committed as `48b31f3`, findings filed after it. Seven tables in `src/db/schema.ts`, each
+`managedByCreator()`, and a Zod row validator per table in its model (`QuizValidators.row` and
+so on). `tests/db/` now runs against a real in-process Jazz server: round trips per table,
+permissions (another account sees nothing and can change nothing), and the coherence test,
+which I broke on purpose to see it fail both at run time and in `tsc`. Lint, typecheck, unit
+tests (1810) and e2e (129) pass. The running app is untouched.
+
+**Judgement calls you may want to overturn**
+
+* **alpha.56 broke two of the plan's column choices**, so I worked around them rather than
+  stop. Both are pinned by canary tests that fail when a bump fixes them:
+  - Optional JSON columns refuse every value. `bulk_ishes_last` and `playings.response` are
+    stored as JSON text through a 30-line helper, `jsonText<TT>()`, a typed `transform` on a
+    nullable string. Jazz no longer checks those two values; their row validators do.
+  - Payload-bearing enums refuse every insert, so `widgets` did not get its tagged union: it
+    keeps a nullable column per kind, as the Drizzle table has it, and the row validator
+    checks which kind holds which. The decision record says so now.
+* **`playings.items` is a required array defaulting to `[]`**, not nullable. Nothing reads a
+  difference between "no spans" and "not a numnum reply", and it keeps one real Zod-checked
+  JSON column in the schema.
+* **The sort memory's column form is a Zod template literal** (`column:<label>`), replacing a
+  `zod.custom` that JSON Schema cannot express. Same pattern; the refusal message is now Zod's
+  generic one rather than "should be "column:" and then a label".
+* **`rowid` joins the validator kit** (`Z.uuid()`); Jazz mints UUIDv7s.
+* **`active_quiz_id` is a relation**, as the plan's table has it. Every other cross-reference
+  is a label; the export will have to turn this one into a label in phase 3.
+
+**Needs a Coach**
+
+* **Point `dev_aijanitor` at a fresh Jazz app.** Deploying there refuses the new schema as
+  "not connected to the previous schema" (the phase 0 placeholder) and asks for a migration.
+  I didn't write a migration for a throwaway table. Nothing needs the cloud app until phase 3.
+
+**Not done**
+
+* No `/code-review` pass: it isn't a skill I can invoke here. I reviewed the diff myself.
+
 ## 2026-09-26: Doppler configs, Jazz housekeeping scripts, findings filed
 
 Code committed as `fbdac46`, this docs sweep after it. The findings from this thread now live

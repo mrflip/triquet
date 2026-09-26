@@ -96,9 +96,9 @@ touches the UI. Each phase is a PR-sized unit; a `/code-review` pass at the end 
   are readable in-process as `app.wasmSchema[table].columns` (`name`, `column_type`), which is
   what the coherence test needs.
 * **The placeholder is deployed to the agents' real app** (`dev_aijanitor`). Replacing it there
-  may demand a migration (`pnpm exec jazz-tools migrations create`); pointing `dev_aijanitor`
-  at a fresh Jazz app is the simpler way out, since nothing in it matters. Wipe
-  `data/jazz-agent/` and `data/jazz-e2e/`; `data/jazz/` is the human's to wipe.
+  demands a migration (confirmed in phase 1, below); pointing `dev_aijanitor` at a fresh Jazz
+  app is the simpler way out, since nothing in it matters. `data/jazz-agent/` and
+  `data/jazz-e2e/` were wiped in phase 1; `data/jazz/` is the human's to wipe.
 * **How `withJazz` behaves (alpha.56).** In dev it publishes `schema.ts` and `permissions.ts` on
   start and on every save. It connects to the server the environment names whenever
   `NEXT_PUBLIC_JAZZ_SERVER_URL` *and* an admin secret are both present, and otherwise starts a
@@ -146,6 +146,42 @@ models. Tables, with the mapping:
   schema through `getCollectedSchema()` (or the app handle, whichever the spike finds cleaner).
 * Exit: schema and permissions compile, are exercised by tests against a real Jazz db, and
   nothing else has changed.
+
+**Phase 1 as built (2026-09-26, alpha.56).** Where it departs from the table above:
+
+* **alpha.56 cannot hold three things the table assumed**, each pinned by a canary test in
+  `tests/db/schema.test.ts` so a bump shows when the workaround can go:
+  - *An optional JSON column refuses every value* ("value does not match type ... Json"), on
+    insert and on update; only null-by-omission gets in. Required JSON columns work, for
+    objects, arrays and numbers, but not a bare top-level string. So a nullable structured
+    value (`bulk_ishes_last`, `playings.response`) is a nullable string column holding JSON
+    text, through `jsonText<TT>()` in `src/db/json-text.ts` (a typed `transform`, written with
+    `UU.jsonify`). The column no longer checks the value; the row validator does.
+  - *A payload-bearing enum refuses every insert* ("decode cells: unknown tag N in enum"), and
+    its fields may not be enums anyway ("Payload enum v1 fields must be scalar columns"). So
+    `widgets` keeps today's shape: `kind` an enum, `expression_label`, `player_label` and
+    `textkind` nullable, the row validator checking which kind holds which.
+  - *An insert with no content cells is refused*: a workspace is inserted with
+    `active_quiz_id: null` spelled out.
+* `playings.items` is a required JSON array defaulting to `[]`, not nullable: nothing told null
+  from empty. It is the one column where Jazz still checks the Zod schema.
+* `last_sortkey` is a nullable string with a typed `transform` to `Sortkey`. The sort memory's
+  column form is now `zod.templateLiteral(['column:', label])` rather than `zod.custom`, since
+  JSON Schema can express it (and so can the coherence test).
+* The validator kit has `rowid` (`Z.uuid()`; Jazz mints UUIDv7). Row validators name each
+  parent `<parent>_id: rowid`, with a `JZS.rel` beside it in the table.
+* `active_quiz_id` is a relation, as planned. The export will need it as a label (phase 3).
+* The coherence test reads the compiled columns from `app.wasmSchema` and the column builders
+  from `schema` (to recognise `jsonText` columns), and checks names, nullability, base type,
+  enum values, JSON schemas, relations, and the row type at the type level. Broken on purpose,
+  it fails both at run time and in `tsc`.
+* Found along the way: `$createdAt` counts milliseconds, so two inserts in one millisecond
+  tie. An update to a row the account cannot read throws synchronously, before any sync
+  ("read policy denied UPDATE"); a delete is refused only at the edge (`expectDenied`).
+* **The agents' Jazz Cloud app still holds the placeholder.** `jazz_deploy` under
+  `dev_aijanitor` says the new schema "is not connected to the previous schema" and asks for
+  `migrations create --fromHash cfb3ee9c72d3`. No migration was written for a throwaway
+  table: a Coach points `dev_aijanitor` at a fresh app before phase 3 ships.
 
 ### Phase 2: the write side (design-heavy; the largest phase)
 
@@ -225,6 +261,8 @@ paragraph and `src/db/` entry, `stack.md` Outgoing lines, `guidelines.md`'s
 * The alpha moves under us. Pinned exact; a bump is a decision, made after reading the diff.
 * JSON-column validation turned out to be enforced (phase 0), but only what JSON Schema can
   say, with a message not fit for an author. The entrypoint checks still carry the messages.
+  And only on required JSON columns: the nullable ones are JSON text (phase 1), checked by
+  their row validators alone.
 * A reorder under concurrent edits is LWW per row; two people dragging at once can interleave.
   Acceptable for the trial; note it in the decision record if it bites.
 * The e2e suite is the largest test area and leans on server reset. If the fresh-context reset
