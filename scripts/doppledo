@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Runs a doppler command in a subshell, and prints the command and its output.
+# Usage: ./scripts/doppledo <${stage}_${actor}> <command> [arguments...]
+
+# exit unless there is a doppler stage and a command to run
+if [[ -z "${1}" || -z "${2}" ]]; then
+  echo 1>&2 "Need a stage_actor and a command: ./scripts/doppledo <\${stage}_\${actor}> <command> [arguments...]"
+  exit 1
+fi
+stage_actor="$1"
+shift
+
+if echo "${stage_actor:-}" | grep -qE '^[a-z]+_[a-z]+$'; then
+  echo 1>&2 "Running as $stage_actor: $@"
+  doppler run --config "${stage_actor}" -- "$@"
+else
+  echo 1>&2 "Invalid stage_actor: $stage_actor -- should be in the form <stage>_<actor> eg prd_janitor"
+  exit 1
+fi

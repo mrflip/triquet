@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Resets the local Jazz database a dev server runs, by moving its data directory into a fresh
+# temporary directory; nothing is deleted. The .env in that directory (withJazz's record of the
+# local app id) goes with it, so the next dev server starts empty under a new app id. Browsers
+# that opened the old one keep a local copy of it, which the new app never reads.
+#
+# Refuses unless JAZZ_DEV_DATA_DIR names a directory directly under data/ starting with "jazz",
+# and while anything is listening on JAZZ_DEV_PORT: stop that dev server first. Never touches a
+# cloud database, which has no data directory here.
+#
+# Reads JAZZ_DEV_DATA_DIR and JAZZ_DEV_PORT.
+# Usage: doppler run --config dev_claude -- scripts/nuke-jazz_local
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+datadir="${JAZZ_DEV_DATA_DIR:?not set}"
+port="${JAZZ_DEV_PORT:?not set}"
+
+if [[ ! "$datadir" =~ ^data/jazz[A-Za-z0-9_-]*$ ]]; then
+  echo "JAZZ_DEV_DATA_DIR is \"$datadir\": expected data/jazz, or data/jazz-something." >&2
+  exit 1
+fi
+if lsof -nP -iTCP:"$port" -sTCP:LISTEN -t > /dev/null 2>&1; then
+  echo "Something is listening on JAZZ_DEV_PORT $port: stop that dev server first." >&2
+  exit 1
+fi
+if [[ ! -e "$datadir" ]]; then
+  echo "$datadir does not exist: nothing to reset."
+  exit 0
+fi
+
+stash="$(mktemp -d "${TMPDIR:-/tmp}/triquet-nuke-jazz.XXXXXX")"
+mv "$datadir" "$stash/"
+echo "Moved $datadir to $stash/$(basename "$datadir")"

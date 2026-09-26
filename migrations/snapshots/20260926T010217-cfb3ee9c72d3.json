@@ -1,0 +1,13 @@
+{
+  "spike_notes": {
+    "columns": [
+      {
+        "name": "text",
+        "column_type": {
+          "type": "Text"
+        },
+        "nullable": false
+      }
+    ]
+  }
+}

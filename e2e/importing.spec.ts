@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitUntilSaved } from './support'
 
 /** Paste `payload` into the Import box and run it */
 async function runImport(page: Page, payload: unknown) {
@@ -18,6 +19,7 @@ test.beforeEach(async ({ page }) => {
   await fieldAt(page, 'Clueing', 0).fill('Which region?')
   await fieldAt(page, 'Notes', 0).fill('keep me')
   await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
 })
 
 test('a partial paste changes exactly what it names and nothing else', async ({ page }) => {

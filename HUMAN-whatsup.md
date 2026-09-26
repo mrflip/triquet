@@ -2,6 +2,27 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Blank page in production -- found and fixed
+
+The Vercel deploy showed the loading bar, then nothing. Reproduced locally: a production build
+served by `next start`, against a local Jazz server. A first visit found no workspace in the
+browser, and asked the server. When the server could not be reached, that read failed; when it
+did not serve the app, the read never answered. The failure went to a notice the root page never
+showed, so the page was blank. Now the server gets 3 seconds (`ServerLookupMillis`) and any failure
+means this browser makes the workspace (the server only advises there), and the redirect page
+says "Opening your quizzes…" or why it stopped. All three cases now reach the grid in about two
+seconds: server unreachable, app unknown to the server, and the working case.
+
+Separately: `pnpm deploy prd_janitor` ran pnpm's own `deploy` command, which copied the whole
+package (2.8 GB, `data/` included) into `prd_janitor/`. Our script never ran. Delete that folder:
+it also breaks `tsc` and type-aware lint (two copies of every type), and slows the dev server's
+file watching. The deploy is `doppler run --config prd_janitor -- scripts/jazz_deploy`.
+
+**Noticed, not fixed:** an import writes the whole merged quiz, merged from the screen as it
+stood when Import was pressed. An edit made a moment earlier, still being written, is put back.
+The import spec now waits for the save first, as the other specs do; the real fix is for an
+import to write only what it changes.
+
 ## 2026-09-26: Jazz migration done -- read this one first
 
 Phases 1 to 5 are committed, each as code and then its findings (`48b31f3` to `33c8678`). The

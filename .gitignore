@@ -79,3 +79,6 @@ next-env.d.ts
 # local databases -- the directory is kept, its contents are not
 /data/*
 !/data/.gitkeep
+
+
+notes/example_export.json
