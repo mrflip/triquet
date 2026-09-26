@@ -113,7 +113,9 @@ Settled; reach for these before writing the equivalent.
   secret in a code comment. Syncing to Vercel and to GitHub Actions comes with deployment.
   Dev mode scripts run under `doppler run`, each with its own config and so its own ports,
   build directory and Jazz server: the directory's default for `dev`, `dev_claude` for
-  `dev:agent`, `dev_e2e` for `test:e2e`. The Jazz admin and backend secrets live only in the
+  `dev:agent`, `dev_e2e` for `test:e2e`. There is a convenience script, `./scripts/doppledo`
+  for running as an alternative stage_actor (eg `dev_agent`).
+  The Jazz admin and backend secrets live only in the
   janitor configs (`dev_janitor`, `dev_aijanitor`, `prd_janitor`), which the housekeeping
   scripts in `scripts/` run under. Staging, production and CI get their environment from Doppler's
   syncs, not the CLI; CI runs `playwright test` directly.
