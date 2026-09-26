@@ -17,19 +17,17 @@ async function stubIshes(page: Page, items: unknown[]) {
   })
 }
 
-/** The cell of column `colname` in the row at `ii` */
-function cellOf(page: Page, ii: number, colname: string) {
-  return page.locator('tbody tr').nth(ii).locator(`td[data-colname="${colname}"]`)
+/** The cell of column `colname` in the row at `rowIdx` */
+function cellOf(page: Page, rowIdx: number, colname: string) {
+  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
 }
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 })
 
 test('an uncomputed sum reads as a dash, never as a zero', async ({ page }) => {
@@ -67,7 +65,7 @@ test('editing the clueing greys the sums without emptying them', async ({ page }
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toContainText('300,000,048')
 
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Reworded, with no numbers at all')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toContainText('300,000,048')
   await expect(cellOf(page, 0, 'Clueing Full Sum').locator('span').first()).toHaveClass(/stale/)
@@ -75,9 +73,9 @@ test('editing the clueing greys the sums without emptying them', async ({ page }
 })
 
 test('BUT NOT ishes mirrors the chained-to hint rather than computing its own', async ({ page }) => {
-  await page.getByRole('textbox', { name: 'Short answer' }).nth(1).fill('damson')
+  await page.getByRole('textbox', { name: 'Title' }).nth(1).fill('damson')
   await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(1).fill('BUT NOT the 1994 film')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
   await page.getByRole('combobox', { name: 'Chains to' }).first().selectOption({ label: 'damson' })
 
   await expect(cellOf(page, 0, 'BUT NOT ishes'))

@@ -1,8 +1,3 @@
----
-paths:
-  - "**"
----
-
 # Development Guidelines
 
 How we structure and document code in this project. Read this before designing a module
@@ -31,24 +26,6 @@ data. Short, single-concern stanzas.
 
 ## Validation
 
-We distinguish these distinct lifecycle phases for structured data:
-
-* *Sketch* -- convenient, generous, elegant data format indicating the caller's intent, requesting
-  opinionated defaults. Use when that generosity is warranted over what DNA offers. It may have a
-  different shape than the later stages. However, fields with the same name may narrow in type but
-  must always mean the same thing (eg don't use `strategy` for both a strategy record and an enum
-  indicating which record to select).
-* *DNA* -- same structure as `Real` up to validating, defaulting and nulling fields. Can be
-  broader: eg accepting a policy record, or a policy record handle, and offering a default if
-  neither is present.
-* *Real* -- fully validated plain JS object (POJO). Every field exists (possibly null, never
-  undefined). If it belongs to a model, it is a subset of that type. Defaults have been applied.
-  Further typechecking is neither needed nor (within module boundary) invited.
-* *Live* -- model class instance: data, getters, functions, etc.
-
-Use these verbs: `fill(dna: FooDNA): FooReal`; `live(dna: FooDNA | FooReal): Foo`;
-`get real(): FooReal` (serializing getter); `get dupe(overrides: FooPatch): FooReal`.
-
 Use these to construct types:
 
 ```ts
@@ -59,12 +36,12 @@ export type  LightbulbTech     = typeof LightbulbTechVals[number]
 export type  Socketkind        = typeof SocketkindVals[number]
 
 export const LightbulbValidators = Validator(({ // from our custom library, it namespaces and provides these...
-  obj, title, uint, oneof, // aliased / standardized Zod validators: oneof = enum, obj = object, uint = safe unsigned int
+  obj, titleish, uint, oneof, // aliased / standardized Zod validators: oneof = enum, obj = object, uint = safe unsigned int
 }) => {
   const lightbulbTech = oneof(LightbulbTechVals)
   const socketkind    = oneof(SocketkindVals)
   const lightbulb = obj({
-    title,
+    title:        titleish,
     lumens:       uint.min(0).max(200).nullable(),
     /** Light bulb technology; @default{ 'led' } */
     tech:         lightbulbTech.default('led'),
@@ -89,6 +66,66 @@ export class Lightbulb implements LightbulbT {
   }
 }
 ```
+
+Build every schema through a `Validator` block, or from the kit's aliases where a block is more
+than the job needs. Import `zod` itself only for its types (`Z.input`, `Z.output`, `Z.ZodError`);
+the kit's `zod` key is the escape hatch for the rare thing it does not alias.
+
+### Where validation sits, with a local-first database
+
+The entrypoints that matter most are **between the UI and the app**: a field's new value being
+submitted, an import, a reply from a model. Validate there, with the same Zod schemas the
+columns are declared with. Never rely on the database alone to refuse bad data: a write refused
+by the runtime makes a lousy message and is invisible to a front-end developer. Add every check
+the tools make easy (Zod on `JZS.json()` columns, `JZS.enum()` for closed sets); what a column cannot
+carry, such as a length limit on `JZS.string()`, is an entrypoint check. Past the boundary, rows
+are clean.
+
+### The patch pattern
+
+A model that can be revised field by field publishes a second schema beside its own, `fooPatch`,
+and a `FooPatch` type. **Do not derive it with `.partial()`.** A default still fires through
+`.partial()`, so a one-field patch built that way arrives carrying every *other* field's default
+and quietly wipes what the author had.
+
+Instead, name each field once, bare -- its checks and its `.describe()`, no default -- and then
+give it opposite treatment in the two schemas: `.default(...)` in the model, `.optional()` in
+the patch.
+
+```ts
+export const LightbulbValidators = Validator(({ obj, titleish, uint, ulid }) => {
+  const title  = titleish.describe('What the box says.')
+  const lumens = uint.max(200).nullable().describe('Brightness; null when unrated.')
+
+  const lightbulb      = obj({ id: ulid, title: title.default(''), lumens: lumens.default(null) })
+  const lightbulbPatch = obj({           title: title.optional(),  lumens: lumens.optional() })
+  return { lightbulb, lightbulbPatch }
+})
+
+export type LightbulbPatch = Z.output<typeof LightbulbValidators.lightbulbPatch>
+```
+
+* **A key absent from a patch means "leave whatever is already there".** Nothing in a patch
+  carries a default, ever.
+* **`null` means "clear it"**, and only for a field whose model type is nullable. Where input
+  arrives from outside and every field must be clearable (see `models/import.ts`), the three
+  states are spelled `.nullable().optional()`: absent is *leave it*, null is *clear it*, a value
+  is *take this*; and a lookup says what "cleared" means for each field.
+* **What a patch leaves out is a statement.** An id is never in one. Neither is anything other
+  things refer to the model by (an expression's `owner` and `label`), nor anything derived.
+* An action applies a patch by spreading it over the row it revises (`{ ...held, ...patch }`),
+  and the row validator checks the result whole before anything is written. The patch itself
+  was validated at the entrypoint.
+
+### Zod is patched, on purpose
+
+`patches/zod@4.6.5.patch` flips `reportInput` to default **true**: every Zod issue carries the
+value that was refused. `lib/vv/reporting` depends on it to tell the four kinds of nothing apart
+(unset, missing, nil, blank) and to quote the offending value in the message. This is a
+deliberate, understood trade. Its consequence: **a `ZodError` contains user text.** Show it to the
+author who typed it; never log it whole, send it to a third party, or return it from a route
+handler -- answer with a notice instead. Bumping Zod means re-cutting the patch for the new
+version; `tests/lib/zod-patch.test.ts` fails loudly if it did not apply.
 
 ## Documentation and Comments
 

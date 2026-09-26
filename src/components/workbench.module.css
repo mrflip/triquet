@@ -43,6 +43,15 @@
   white-space:  nowrap;
 }
 
+/* A flex box inside the rotated cell, so the text can sit at the bottom (the "right" edge once
+   you turn your head to read it) without taking the th itself out of table-cell layout. */
+.headVerticalInner {
+  display:         flex;
+  height:          100%;
+  justify-content: flex-end;
+  align-items:     flex-end;
+}
+
 .headCentered {
   text-align:  center;
   white-space: normal;
@@ -131,6 +140,86 @@
   text-align:       right;
   white-space:      normal;
   word-break:       keep-all;
+}
+
+.expressedText {
+  font-family:   var(--font-data);
+  font-size:     12px;
+  text-align:    left;
+  white-space:   normal;
+  overflow-wrap: anywhere;
+}
+
+.askWrap { position: relative }
+
+.errBadge {
+  position:      absolute;
+  top:           2px;
+  right:         2px;
+  font-size:     11px;
+  line-height:   1;
+  padding:       2px 4px;
+  border:        none;
+  border-radius: var(--radius-input);
+  background:    var(--bad-soft);
+  color:         var(--bad);
+  cursor:        pointer;
+}
+
+.errBadgeInline {
+  position: static;
+  margin-left: 6px;
+}
+
+.foldSummary {
+  display:     flex;
+  gap:         12px;
+  align-items: baseline;
+  cursor:      pointer;
+  font-size:   12px;
+}
+
+.foldLabel { flex: none; font-weight: 600 }
+
+.foldOneLine {
+  flex:          1;
+  min-width:     0;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  white-space:   nowrap;
+  text-align:    right;
+  font-family:   var(--font-data);
+  color:         var(--muted);
+}
+
+.foldBody {
+  font-family:   var(--font-data);
+  font-size:     12px;
+  max-height:    240px;
+  overflow:      auto;
+  margin:        4px 0 8px;
+  padding:       6px 8px;
+  border:        1px solid var(--border);
+  border-radius: var(--radius-input);
+  white-space:   pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.previewResult {
+  font-family: var(--font-data);
+  font-size:   13px;
+  padding:     6px 8px;
+  border:      1px solid var(--border);
+  border-radius: var(--radius-input);
+  overflow-wrap: anywhere;
+}
+
+.errJson {
+  font-family: var(--font-data);
+  font-size:   12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin:      0;
 }
 
 .muted  { color: var(--muted) }
@@ -229,6 +318,15 @@
   font-size: 12px;
 }
 
+.repoList {
+  list-style: none;
+  margin:     0;
+  padding:    0;
+  font-size:  13px;
+}
+
+.repoList li { padding: 2px 0 }
+
 .panelHeading {
   font-family: var(--font-display);
   font-weight: 600;
@@ -286,7 +384,11 @@
 
 .rowDragging { opacity: 0.45 }
 
-.rowDropTarget > td { border-top: 2px solid var(--accent) }
+/* An inset shadow rather than a border, so the row the drop is aimed at does not grow by two
+   pixels and nudge every row below it as the pointer passes over. A tr draws no box-shadow of
+   its own under border-collapse: separate, so its cells draw it; a plain row draws its own. */
+.rowDropAbove, .rowDropAbove > td { box-shadow: inset 0 2px 0 var(--accent) }
+.rowDropBelow, .rowDropBelow > td { box-shadow: inset 0 -2px 0 var(--accent) }
 
 /* == Panels == */
 

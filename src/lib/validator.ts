@@ -1,4 +1,5 @@
 import * as Z from 'zod'
+import * as CK from './vv/checks/strings'
 
 /**
  * Aliased, standardized Zod builders handed to every `Validator` block. Naming follows
@@ -19,12 +20,22 @@ export const ValidatorKit = {
   //
   /** Generic string, no constraints beyond being one */
   str:       Z.string(),
-  /** Freeform prose the author types: long, but not unbounded */
-  text:      Z.string().max(10_000),
-  /** Human-readable label, independent of any identity it might accompany */
-  title:     Z.string().max(200),
-  /** Lowercase Crockford-base32 ULID, as minted by `mintId` */
-  ulid:      Z.string().regex(/^[0-9a-hjkmnp-tv-z]{26}$/),
+  /** Prose exactly as the author wrote it: newlines welcome, control characters not, never trimmed */
+  textish:   CK.textish,
+  /** Prose as `textish` takes it, but trimmed */
+  noteish:   CK.noteish,
+  /** A formula's source: newlines welcome, control characters not, never trimmed, at most 999 characters */
+  formulaish: CK.formulaish,
+  /** Human-readable name on one line, independent of any identity it might accompany */
+  titleish:  CK.titleish,
+  /** Lowercase Crockford-base32 ULID, as this tool minted ids before it kept its quizzes in Jazz */
+  ulid:      CK.ulid,
+  /** A row's id, as Jazz mints it: internal, never shown, and only ever held to point at that row */
+  rowid:     Z.uuid(),
+  /** An id in a quiz as the tool holds it whole: its row's id once written, or a ULID minted for one not written yet */
+  treeid:    Z.union([CK.ulid, Z.uuid()]),
+  /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
+  label:     CK.label,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
   //
@@ -82,4 +93,48 @@ export function callable<SC extends Z.ZodType>(schema: SC): Callable<SC> {
   const parse = (dna: Z.input<SC>): Z.output<SC> => schema.parse(dna)
   Object.setPrototypeOf(parse, schema)
   return parse as Callable<SC>
+}
+
+/** The keys of a schema's definition that hold a single schema inside it */
+const SoleChildKeys = ['innerType', 'element', 'in', 'out', 'left', 'right', 'keyType', 'valueType', 'rest'] as const
+
+/**
+ * The plain schema under a callable wrapper, with every wrapper embedded inside it unwrapped
+ * too, for tools that key on a schema's identity and so cannot see through one, such as
+ * `Z.toJSONSchema`.
+ *
+ * This edits the schemas' definitions in place, swapping each wrapper for the schema it wraps;
+ * both parse identically, so nothing that already holds them notices. Safe to call twice.
+ *
+ * @param schema - Any schema, callable or not.
+ * @returns The plain schema.
+ *
+ * @example Z.toJSONSchema(plain(LightbulbValidators.lightbulb))
+ */
+export function plain<SC extends Z.ZodType>(schema: SC): SC {
+  return unwrapped(schema, new Set()) as SC
+}
+
+/** `schema` unwrapped, and its children with it, remembering which it has done */
+function unwrapped(schema: Z.ZodType, done: Set<object>): Z.ZodType {
+  const bare: Z.ZodType = typeof schema === 'function' ? Object.getPrototypeOf(schema) as Z.ZodType : schema
+  if (done.has(bare)) { return bare }
+  done.add(bare)
+  const def = bare._zod.def as unknown as Record<string, unknown>
+  for (const key of SoleChildKeys) {
+    if (isSchema(def[key])) { def[key] = unwrapped(def[key], done) }
+  }
+  for (const holder of [def.shape, def.options]) {
+    if (typeof holder !== 'object' || holder === null) { continue }
+    const bag = holder as Record<string, unknown>
+    for (const [ckey, child] of Object.entries(bag)) {
+      if (isSchema(child)) { bag[ckey] = unwrapped(child, done) }
+    }
+  }
+  return bare
+}
+
+/** Whether `val` is a Zod schema, callable or not */
+function isSchema(val: unknown): val is Z.ZodType {
+  return (typeof val === 'object' || typeof val === 'function') && val !== null && '_zod' in val
 }

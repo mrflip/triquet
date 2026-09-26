@@ -1,6 +1,8 @@
-import { qnumOf } from './rank'
-import { SumColkeyVals, sumsForRound, type SumColkey } from './sums'
-import type { Sortkey } from '../models/quiz'
+import * as Expressed from './expressed'
+import * as Rank from './rank'
+import { resolve, type Resolved } from './columns'
+import { columnLabelOf } from '../models/column'
+import type { QuizT, Sortkey } from '../models/quiz'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 
@@ -18,15 +20,15 @@ export type SortValueOf = (question: QuestionT) => SortValue
  * way. Ties are settled by where the questions already sit, so a sort never shuffles
  * indistinguishable rows. Text sorts case-insensitively and locale-aware.
  *
- * @param questions - The round's questions, in their committed display order.
+ * @param questions - The quiz's questions, in their committed display order.
  * @param valueOf - How the sorted column reads one question.
  * @param descending - Whether to reverse the present values; absences stay at the bottom.
  * @returns A new array; the input is left alone.
  *
- * @example sortQuestions(questions, (question) => question.short_answer, false)
+ * @example sortQuestions(questions, (question) => question.title, false)
  */
 export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValueOf, descending: boolean): QuestionT[] {
-  const seats = new Map(questions.map((question, ii) => [question.id, ii]))
+  const seats = new Map(questions.map((question, idx) => [question.id, idx]))
   const seatOf = (question: QuestionT) => seats.get(question.id) ?? 0
 
   return questions.toSorted((aa, bb) => {
@@ -42,54 +44,49 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
 }
 
 /**
- * How a given column reads a question, for the round it belongs to.
+ * How a given column reads a question, for the quiz it belongs to.
  *
- * A sum nobody has computed yet reads as absent, which sinks that question to the bottom in
- * either direction -- the honest reading of "nothing here has been computed yet".
+ * A column with nothing to show for a question reads as absent, which sinks that question to
+ * the bottom in either direction -- the honest reading of "nothing here has been computed yet".
+ * A sort memory that names no column of the quiz, or a column that cannot be ordered, reads
+ * everything as absent and so leaves the order alone.
  *
  * @param sortkey - Which column was clicked.
- * @param questions - The round's questions, for columns that read across questions.
+ * @param quiz - The quiz's questions, columns and widgets.
+ * @param expressed - The quiz's computed values, for a column that shows one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, questions: readonly QuestionT[]): SortValueOf {
-  switch (sortkey) {
-  case 'qnum': {
-    return qnumOf
-  }
-  case 'short_answer': {
-    return (question) => question.short_answer
-  }
-  case 'chains_to': {
-    const answerForId = new Map(questions.map((question) => [question.id, question.short_answer]))
-    return (question) => (question.chains_to === null ? null : answerForId.get(question.chains_to) ?? null)
-  }
-  case 'chain_order': {
-    // Not a column: "Sort by chain order" walks the graph rather than reading a value.
+export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>, expressed: Expressed.ExpressedForQuiz): SortValueOf {
+  const label = columnLabelOf(sortkey)
+  const column = quiz.columns.find((each) => each.label === label)
+  const source = column ? resolve(column.source, quiz.widgets) : null
+  if (! source) { return () => null }
+  return readerFor(source, quiz.questions, expressed)
+}
+
+/** How a thing a column shows reads one question */
+function readerFor(source: Resolved, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
+  const questionForId = new Map(questions.map((question) => [question.id, question]))
+  const targetOf = (question: QuestionT) => (question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null)
+  switch (source.kind) {
+  case 'field': {
+    if (source.field === 'qnum') { return Rank.qnumOf }
+    if (source.field === 'title') { return (question) => question.title }
+    if (source.field === 'chains_to') { return (question) => targetOf(question)?.title ?? null }
     return () => null
   }
-  case 'clueing_ishes': {
-    return (question) => ishCountOf(question.clueing_ishes)
+  case 'view': {
+    return source.view === 'butnot_ishes' ? (question) => ishCountOf(targetOf(question)?.hint_ishes ?? null) : () => null
   }
-  case 'hint_ishes': {
-    return (question) => ishCountOf(question.hint_ishes)
+  case 'playing': {
+    const { field } = source.slot
+    return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
   }
-  case 'butnot_ishes': {
-    const questionForId = new Map(questions.map((question) => [question.id, question]))
-    return (question) => {
-      const target = question.chains_to === null ? null : questionForId.get(question.chains_to)
-      return ishCountOf(target?.hint_ishes ?? null)
-    }
-  }
-  default: {
-    const sums = sumsForRound(questions)
-    const sumColkey: SumColkey = sortkey
-    return (question) => sums.get(question.id)?.[sumColkey].total ?? null
+  case 'expressing': {
+    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, source.widget.label, question.id))
   }
   }
 }
-
-/** The eight sum columns, for the exhaustiveness check above */
-export const SumSortkeys: readonly SumColkey[] = SumColkeyVals
 
 /**
  * How many spans an extraction found, or null when it never ran.

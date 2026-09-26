@@ -1,4 +1,6 @@
 import type { ModelTier } from '../../models/ask'
+import type { PlayerLabel } from '../../models/player'
+import type { AskRequestT } from './contract'
 
 /**
  * Which model answers for each tier.
@@ -19,3 +21,10 @@ export const MaxTokensForJob = {
   ishes:      4000,
   bulk_ishes: 32_000,
 } as const
+
+/** Which player each job is put to */
+export const PlayerForJob = {
+  guess:      'dumdum',
+  ishes:      'numnum',
+  bulk_ishes: 'numnum',
+} as const satisfies Record<AskRequestT['job'], PlayerLabel>

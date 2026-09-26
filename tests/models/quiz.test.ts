@@ -3,19 +3,23 @@ import * as Z from 'zod'
 import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
+import * as Labelmaker from '../../src/lib/labelmaker'
 
 const quizId = mintId()
 
 describe('Quiz.fill', () => {
   it('defaults every field but the id', () => {
-    expect(Quiz.fill({ id: quizId })).to.deep.eq({
+    const quiz = Quiz.fill({ id: quizId })
+    expect(quiz).to.deep.include({
       id:              quizId,
-      title:           '',
       questions:       [],
       locked:          false,
       last_sortkey:    null,
       bulk_ishes_last: null,
+      forced_label:    null,
     })
+    expect(quiz.label).to.match(/^[a-z]+_[a-z]+$/)
+    expect(quiz.title).to.eq(Labelmaker.titleize(quiz.label))
   })
 
   it('keeps the questions in the order given, because that array IS the order', () => {
@@ -24,13 +28,13 @@ describe('Quiz.fill', () => {
     expect(quiz.questions.map((question) => question.id)).to.deep.eq([three.id, two.id, one.id])
   })
 
-  it('accepts a chain between two questions in the round', () => {
+  it('accepts a chain between two questions in the quiz', () => {
     const [ante, post] = [Question.blank(), Question.blank()]
     const quiz = Quiz.fill({ id: quizId, questions: [{ ...ante, chains_to: post.id }, post] })
     expect(quiz.questions[0]?.chains_to).to.eq(post.id)
   })
 
-  it('refuses a chain pointing at a question in no round', () => {
+  it('refuses a chain pointing at a question in no quiz', () => {
     const question = Question.blank()
     expect(() => Quiz.fill({ id: quizId, questions: [{ ...question, chains_to: mintId() }] })).to.throw(Z.ZodError)
   })
@@ -56,6 +60,54 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ id: quizId, last_sortkey: 'q_full' as never })).to.throw(Z.ZodError)
   })
 
+  it('accepts a sort memory naming one of its columns, or the chain order', () => {
+    expect(Quiz.fill({ id: quizId, last_sortkey: 'column:clueing_full' }).last_sortkey).to.eq('column:clueing_full')
+    expect(Quiz.fill({ id: quizId, last_sortkey: 'chain_order' }).last_sortkey).to.eq('chain_order')
+  })
+
+  it('rejects a sort memory naming a column badly, or the old kind of name', () => {
+    const outcomes = ['column:', 'column:Clueing', 'column:a', 'column:x_', 'expressing:clueing_full', 'qnum']
+      .map((sortkey) => QuizValidators.quiz.safeParse({ id: quizId, last_sortkey: sortkey }).success)
+    expect(outcomes).to.deep.eq([false, false, false, false, false, false])
+  })
+
+  it('keeps its widgets and its columns each in the order given', () => {
+    const widgets = [
+      { kind: 'expressing' as const, label: 'zed', expression_label: 'answer_reversed' },
+      { kind: 'playing' as const, label: 'aye', player_label: 'dumdum' as const, textkind: 'clueing' as const },
+    ]
+    const columns = [
+      { label: 'zed_col', title: 'Zed', source: 'zed', width_px: 78 },
+      { label: 'aye_col', title: 'Aye', source: 'aye', width_px: 160 },
+    ]
+    const quiz = Quiz.fill({ id: quizId, widgets, columns })
+    expect(quiz.widgets.map((widget) => widget.label)).to.deep.eq(['zed', 'aye'])
+    expect(quiz.columns.map((column) => column.label)).to.deep.eq(['zed_col', 'aye_col'])
+  })
+
+  const Widget = { kind: 'expressing' as const, label: 'zed', expression_label: 'answer_reversed' }
+  const Col = { label: 'zed', title: 'Zed', source: 'question.title', width_px: 78 }
+
+  const Refused: [object, string][] = [
+    [{ widgets: [Widget, { ...Widget, description: 'again' }] },                                'two widgets sharing a label'],
+    [{ widgets: [{ ...Widget, label: 'question' }] },                                           'a widget labelled as the questions are'],
+    [{ columns: [Col, { ...Col, title: 'Again' }] },                                            'two columns sharing a label'],
+    [{ columns: [{ ...Col, source: 'nowhere' }] },                                              'a column showing a widget the quiz does not have'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => Quiz.fill({ id: quizId, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
+
+  it('accepts a widget and a column that share a label, since one is what a thing is and the other where it is shown', () => {
+    expect(() => Quiz.fill({ id: quizId, widgets: [Widget], columns: [{ ...Col, source: 'zed' }] })).to.not.throw()
+  })
+
+  it('exposes its label and its title, and none of its housekeeping', () => {
+    expect(Quiz.exposed).to.deep.eq(['label', 'title'])
+  })
+
   it('remembers what the last batch run cost', () => {
     const quiz = Quiz.fill({ id: quizId, bulk_ishes_last: { approx_tokens: 4200, text_count: 28, updated_at: 1 } })
     expect(quiz.bulk_ishes_last).to.deep.eq({ approx_tokens: 4200, text_count: 28, updated_at: 1 })
@@ -77,6 +129,42 @@ describe('Quiz.blank', () => {
   })
 
   it('takes a title when one is offered', () => {
-    expect(Quiz.blank('Round two').title).to.eq('Round two')
+    expect(Quiz.blank('Quiz two').title).to.eq('Quiz two')
   })
+
+  it('takes a label when one is offered, and titles itself from it', () => {
+    const quiz = Quiz.blank('', 'danishprinces')
+    expect(quiz.label).to.eq('danishprinces')
+    expect(quiz.title).to.eq('Danishprinces')
+  })
+
+  it('refuses a label that is not one', () => {
+    expect(() => Quiz.blank('', 'Not A Label')).to.throw(Z.ZodError)
+  })
+})
+
+describe('QuizValidators.row', () => {
+  const Row = {
+    workspace_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
+  }
+
+  it('takes a quiz as the database holds it, sort memory and batch cost included', () => {
+    const run = { approx_tokens: 4200, text_count: 28, updated_at: 1_700_000_000_000 }
+    expect(QuizValidators.row({ ...Row, last_sortkey: 'column:clueing', bulk_ishes_last: run })).to.deep.eq({ ...Row, last_sortkey: 'column:clueing', bulk_ishes_last: run })
+    expect(QuizValidators.row({ ...Row, last_sortkey: 'chain_order' }).last_sortkey).to.eq('chain_order')
+  })
+
+  const Refused: [object, string][] = [
+    [{ workspace_id: 'princes' },            'a workspace that is not a row id'],
+    [{ label: 'Princes' },                   'a label that is not one'],
+    [{ title: 'x'.repeat(83) },              'a title past 82 characters'],
+    [{ last_sortkey: 'column:Clueing' },     'a sort memory naming a column that is not a label'],
+    [{ last_sortkey: 'clueing' },            'a sort memory that is neither a column nor the chain order'],
+    [{ locked: 'no' },                       'a lock that is not a yes or no'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => QuizValidators.row({ ...Row, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
 })

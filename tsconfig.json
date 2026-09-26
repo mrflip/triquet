@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "#inspect-env": [
+        "./src/lib/inspectify-node.ts"
       ]
     }
   },
@@ -34,9 +37,17 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    ".next-agent/types/**/*.ts",
+    ".next-agent/dev/types/**/*.ts",
+    ".next-agent-build/types/**/*.ts",
+    ".next-agent-build/dev/types/**/*.ts",
+    ".next-e2e/types/**/*.ts",
+    ".next-e2e/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "aside",
+    "relics"
   ]
 }

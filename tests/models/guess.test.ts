@@ -12,6 +12,10 @@ describe('GuessValidators.guess', () => {
     expect(guess?.status === 'done' && guess.text).to.eq('  Leon, probably?  ')
   })
 
+  it('refuses an answer carrying control characters', () => {
+    expect(() => GuessValidators.guess({ status: 'done', text: 'Le\u{1}on', updated_at: 1 })).to.throw(Z.ZodError)
+  })
+
   it('accepts an empty answer, which is a different thing from never having asked', () => {
     const guess = GuessValidators.guess({ status: 'done', text: '', updated_at: 1 })
     expect(guess?.status).to.eq('done')
@@ -22,11 +26,16 @@ describe('GuessValidators.guess', () => {
     expect(guess).to.deep.include({ model_tier_applied: 'quick', approx_tokens: 84, truncated: false })
   })
 
+  it('defaults an unspecified tier to quick', () => {
+    const guess = GuessValidators.guess({ status: 'done', text: 'Leon', updated_at: 1 })
+    expect(guess).to.deep.include({ model_tier_applied: 'quick' })
+  })
+
   it('rejects a tier it does not recognize', () => {
     expect(() => GuessValidators.guess({ status: 'done', text: 'Leon', model_tier_applied: 'sonnet' as never, updated_at: 1 })).to.throw(Z.ZodError)
   })
 
   it('rejects an error with no message, which would read as an empty cell', () => {
-    expect(() => GuessValidators.guess({ status: 'error', message: '', updated_at: 1 })).to.throw(Z.ZodError)
+    expect(() => GuessValidators.guess({ status: 'error', message: '', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } })).to.throw(Z.ZodError)
   })
 })

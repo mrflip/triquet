@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 /** Stand in for the ask route, so these tests never spend real model usage */
 async function stubAsk(page: Page, reply: unknown, status = 200) {
@@ -7,17 +8,15 @@ async function stubAsk(page: Page, reply: unknown, status = 200) {
   })
 }
 
-/** The Quick-model guess cell of the row at `ii` */
-function guessCell(page: Page, ii: number) {
-  return page.getByRole('button', { name: 'Ask Quick-model guess' }).nth(ii)
+/** The Quick-model guess cell of the row at `rowIdx` */
+function guessCell(page: Page, rowIdx: number) {
+  return page.getByRole('button', { name: 'Ask Quick-model guess' }).nth(rowIdx)
 }
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 })
 
 test('a never-asked cell invites the author to ask', async ({ page }) => {
@@ -56,7 +55,7 @@ test('an answer survives a reload', async ({ page }) => {
   await stubAsk(page, { ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('Leon')
-  await page.reload()
+  await reloadOnceSaved(page)
   await expect(guessCell(page, 0)).toContainText('Leon')
 })
 
@@ -65,10 +64,15 @@ test('with the network off the rest of the page still edits, sorts and saves', a
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('A connection hiccup — try again.')
 
-  await page.getByRole('textbox', { name: 'Short answer' }).first().fill('Leon')
-  await page.getByRole('button', { name: 'Short answer' }).click()
-  await page.getByLabel('Round name').fill('Still working')
-  await page.reload()
-  await expect(page.getByLabel('Round name')).toHaveValue('Still working')
-  await expect(page.getByRole('textbox', { name: 'Short answer' }).first()).toHaveValue('Leon')
+  await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
+  await page.getByRole('button', { name: 'Title' }).click()
+  await page.getByLabel('Quiz name').fill('Still working')
+  await page.getByLabel('Quiz name').blur()
+  await reloadOnceSaved(page)
+  await expect(page.getByLabel('Quiz name')).toHaveValue('Still working')
+  // Sorting by title moves 'Leon' among the other questions' own generated titles, so it is
+  // found by its value rather than assumed to stay first.
+  const titles = page.getByRole('textbox', { name: 'Title' })
+  await expect(titles.first()).toBeVisible()
+  await expect.poll(async () => await titles.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))).toContain('Leon')
 })

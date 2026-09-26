@@ -1,17 +1,25 @@
 import { expect, test, type Page } from '@playwright/test'
+import { dragOnto, reloadOnceSaved, stepBy } from './support'
 
-/** Fill the first `pairs.length` questions with a Q# and a short answer */
-async function fillRound(page: Page, pairs: [string, string][]) {
+/** Fill the first `pairs.length` questions with a Q# and a title, clearing the rest */
+async function fillQuiz(page: Page, pairs: [string, string][]) {
   for (const [ii, [qnum, answer]] of pairs.entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
-    await page.getByRole('textbox', { name: 'Short answer' }).nth(ii).fill(answer)
+    await page.getByRole('textbox', { name: 'Title' }).nth(ii).fill(answer)
   }
-  await page.getByLabel('Round name').click()
+  // A fresh question is titled from its generated label rather than left blank; clear the
+  // untouched rows so they stay genuinely unranked and unnamed, as these tests expect.
+  const titles = page.getByRole('textbox', { name: 'Title' })
+  const rowCount = await titles.count()
+  for (let idx = pairs.length; idx < rowCount; idx += 1) {
+    await titles.nth(idx).fill('')
+  }
+  await page.getByLabel('Quiz name').click()
 }
 
-/** The short answers, top to bottom, once the grid is on screen */
+/** The titles, top to bottom, once the grid is on screen */
 async function answersShown(page: Page): Promise<string[]> {
-  const fields = page.getByRole('textbox', { name: 'Short answer' })
+  const fields = page.getByRole('textbox', { name: 'Title' })
   await expect(fields.first()).toBeVisible()
   return fields.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))
 }
@@ -25,46 +33,78 @@ async function qnumsShown(page: Page): Promise<string[]> {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
 })
 
 test('a decimal Q# leaves the question where it is', async ({ page }) => {
-  await fillRound(page, [['4', 'd'], ['3.1', 'c'], ['6', 'f'], ['1', 'a']])
-  expect(await answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
+  await fillQuiz(page, [['4', 'd'], ['3.1', 'c'], ['6', 'f'], ['1', 'a']])
+  await expect.poll(async () => await answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
 })
 
 test('Renumber Q# tidies the numbers without moving a question', async ({ page }) => {
-  await fillRound(page, [['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']])
+  await fillQuiz(page, [['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']])
   await page.getByRole('button', { name: 'Renumber Q#' }).click()
-  expect(await answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
-  expect(await qnumsShown(page)).toEqual(['3', '2', '4', '1', ''])
+  await expect.poll(async () => await answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
+  await expect.poll(async () => await qnumsShown(page)).toEqual(['3', '2', '4', '1', ''])
 })
 
 test('a sort survives a reload, with its header still bold', async ({ page }) => {
-  await fillRound(page, [['3', 'cherry'], ['1', 'apple'], ['2', 'banana']])
-  await page.getByRole('button', { name: 'Short answer' }).click()
-  expect(await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
+  await fillQuiz(page, [['3', 'cherry'], ['1', 'apple'], ['2', 'banana']])
+  await page.getByRole('button', { name: 'Title' }).click()
+  await expect.poll(async () => await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
 
-  await page.reload()
+  await reloadOnceSaved(page)
 
-  expect(await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
-  await expect(page.getByRole('columnheader', { name: 'Short answer' })).toHaveClass(/headSorted/)
+  await expect.poll(async () => await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
+  await expect(page.getByRole('columnheader', { name: 'Title' })).toHaveClass(/headSorted/)
   // The arrow marks only this session's sort, so it is gone after a reload.
-  await expect(page.getByRole('columnheader', { name: 'Short answer' })).toHaveAttribute('aria-sort', 'none')
+  await expect(page.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('aria-sort', 'none')
 })
 
 test('clicking the same header again reverses it', async ({ page }) => {
-  await fillRound(page, [['3', 'cherry'], ['1', 'apple'], ['2', 'banana']])
-  await page.getByRole('button', { name: 'Short answer' }).click()
-  await page.getByRole('button', { name: 'Short answer' }).click()
-  // Questions with no short answer sink to the bottom in both directions.
-  expect(await answersShown(page)).toEqual(['cherry', 'banana', 'apple', '', ''])
+  await fillQuiz(page, [['3', 'cherry'], ['1', 'apple'], ['2', 'banana']])
+  await page.getByRole('button', { name: 'Title' }).click()
+  await page.getByRole('button', { name: 'Title' }).click()
+  // Questions with no title sink to the bottom in both directions.
+  await expect.poll(async () => await answersShown(page)).toEqual(['cherry', 'banana', 'apple', '', ''])
 })
 
-test('the grip column collapses once the round is out of Q# order', async ({ page }) => {
+/** The grip of the question titled `title`, in the grid */
+function questionGrip(page: Page, title: string) {
+  return page.getByRole('button', { name: `Reorder ${title}`, exact: true })
+}
+
+test('a question dragged up lands above the row it was dropped on, and is renumbered from the top', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await dragOnto(page, questionGrip(page, 'cherry'), questionGrip(page, 'apple'), 'top')
+  await expect.poll(async () => await answersShown(page)).toEqual(['cherry', 'apple', 'banana', '', ''])
+  // A drag adopts every question into the sequence, including the two that never had a Q#.
+  await expect.poll(async () => await qnumsShown(page)).toEqual(['1', '2', '3', '4', '5'])
+})
+
+test('a question dropped against a row\'s lower edge lands below it', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await dragOnto(page, questionGrip(page, 'apple'), questionGrip(page, 'cherry'), 'bottom')
+  await expect.poll(async () => await answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
+})
+
+test('a question is moved by the arrow keys once its grip has focus, and the move survives a reload', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await stepBy(questionGrip(page, 'apple'), 2)
+  await expect.poll(async () => await answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
+  await reloadOnceSaved(page)
+  await expect.poll(async () => await answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
+})
+
+test('a locked quiz refuses the arrow keys as it refuses a drag', async ({ page }) => {
+  await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
+  await page.getByRole('button', { name: 'Lock quiz' }).click()
+  await stepBy(questionGrip(page, 'apple'), 2)
+  await expect.poll(async () => await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
+})
+
+test('the grip column collapses once the quiz is out of Q# order', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Short answer' }).click()
+  await page.getByRole('button', { name: 'Title' }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeHidden()
   // The cell itself stays in the row, at zero width, so no later cell shifts left.
   const cells = await page.locator('tbody tr').first().locator('td').count()

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Workspace } from '../../src/models/workspace'
+import { Workspace, WorkspaceValidators } from '../../src/models/workspace'
+import { Expression, SeedExpressions } from '../../src/models/expression'
+import { defaultLayoutFor } from '../../src/models/layout'
 import { Quiz } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 
 describe('Workspace.fill', () => {
-  it('holds the rounds it is given, with one of them open', () => {
-    const quiz = Quiz.blank('Round one')
+  it('holds the quizzes it is given, with one of them open', () => {
+    const quiz = Quiz.blank('Quiz one')
     const workspace = Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
     expect(workspace.quizzes).to.have.length(1)
     expect(workspace.active_quiz_id).to.eq(quiz.id)
@@ -16,21 +18,77 @@ describe('Workspace.fill', () => {
     expect(() => Workspace.fill({ quizzes: [], active_quiz_id: mintId() })).to.throw(Z.ZodError)
   })
 
-  it('refuses an open round that is not in the workspace', () => {
+  it('refuses an open quiz that is not in the workspace', () => {
     expect(() => Workspace.fill({ quizzes: [Quiz.blank()], active_quiz_id: mintId() })).to.throw(Z.ZodError)
   })
 })
 
 describe('Workspace.blank', () => {
-  it('opens with exactly one round, and opens it', () => {
+  it('starts with the standard expressions, and the open quiz showing the standard columns', () => {
+    const workspace = Workspace.blank()
+    expect(workspace.expressions).to.deep.eq([...SeedExpressions])
+    const layout = defaultLayoutFor(SeedExpressions)
+    expect(workspace.quizzes[0]?.widgets).to.deep.eq(layout.widgets)
+    expect(workspace.quizzes[0]?.columns).to.deep.eq(layout.columns)
+  })
+
+  it('opens with exactly one quiz, and opens it', () => {
     const workspace = Workspace.blank()
     expect(workspace.quizzes).to.have.length(1)
     expect(workspace.active_quiz_id).to.eq(workspace.quizzes[0]?.id)
   })
 })
 
+describe('Workspace.fill with expressions', () => {
+  const quiz = Quiz.blank('Quiz one')
+  const widget = { kind: 'expressing' as const, label: 'lettered', expression_label: 'answer_letter_count' }
+  const expression = Expression.fill({ label: 'answer_letter_count', formula: '$length(qn.full_answer)' })
+
+  it('accepts a widget naming an expression the workspace holds', () => {
+    const workspace = Workspace.fill({ quizzes: [{ ...quiz, widgets: [widget] }], active_quiz_id: quiz.id, expressions: [expression] })
+    expect(workspace.quizzes[0]?.widgets).to.have.length(1)
+  })
+
+  it('refuses a widget naming an expression the workspace does not hold, saying which widget', () => {
+    const outcome = WorkspaceValidators.workspace.safeParse({ quizzes: [{ ...quiz, widgets: [widget] }], active_quiz_id: quiz.id, expressions: [] })
+    expect(outcome.success).to.eq(false)
+    expect(outcome.error?.issues[0]?.path).to.deep.eq(['quizzes', 0, 'widgets', 0, 'expression_label'])
+  })
+
+  it('refuses two expressions sharing an owner and a label', () => {
+    expect(() => Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [expression, { ...expression, formula: '1' }] })).to.throw(Z.ZodError)
+  })
+
+  it('defaults to holding no expressions', () => {
+    expect(Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id }).expressions).to.deep.eq([])
+  })
+})
+
 describe('Workspace.revive', () => {
-  it('repairs an open-round id that names nothing, rather than throwing', () => {
+  it('gives a workspace with no expressions -- one saved before there were any -- the standard ones, and its quizzes the standard widgets and columns', () => {
+    const [ante, post] = [Quiz.blank('Ante'), Quiz.blank('Post')]
+    const revived = Workspace.revive({ quizzes: [ante, post], active_quiz_id: ante.id, expressions: [] })
+    expect(revived.expressions).to.deep.eq([...SeedExpressions])
+    expect(revived.quizzes.map((held) => [held.widgets.length, held.columns.length])).to.deep.eq([[11, 21], [11, 21]])
+  })
+
+  it('leaves the columns a quiz already has alone even then', () => {
+    const widget = { kind: 'expressing' as const, label: 'answer_reversed', expression_label: 'answer_reversed' }
+    const column = { label: 'backward', title: 'Backward', source: 'answer_reversed', width_px: 78 }
+    const quiz = { ...Quiz.blank('Mine'), widgets: [widget], columns: [column] }
+    const revived = Workspace.revive({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [] })
+    expect(revived.quizzes[0]?.columns.map((held) => held.label)).to.deep.eq(['backward'])
+  })
+
+  it('does not add anything to a workspace that has expressions, however few', () => {
+    const quiz = Quiz.blank('Mine')
+    const expression = Expression.fill({ label: 'answer_reversed', formula: '1' })
+    const revived = Workspace.revive({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [expression] })
+    expect(revived.expressions).to.deep.eq([expression])
+    expect(revived.quizzes[0]?.columns).to.deep.eq([])
+  })
+
+  it('repairs an open-quiz id that names nothing, rather than throwing', () => {
     const quiz = Quiz.blank()
     expect(Workspace.revive({ quizzes: [quiz], active_quiz_id: mintId() }).active_quiz_id).to.eq(quiz.id)
   })
@@ -42,5 +100,16 @@ describe('Workspace.revive', () => {
 
   it('still throws on damage it cannot repair', () => {
     expect(() => Workspace.revive({ quizzes: [], active_quiz_id: mintId() })).to.throw(Z.ZodError)
+  })
+})
+
+describe('WorkspaceValidators.row', () => {
+  it('takes the open quiz, or none', () => {
+    expect(WorkspaceValidators.row({ active_quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9' }).active_quiz_id).to.eq('01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9')
+    expect(WorkspaceValidators.row({ active_quiz_id: null }).active_quiz_id).to.eq(null)
+  })
+
+  it('refuses an open quiz that is not a row id', () => {
+    expect(() => WorkspaceValidators.row({ active_quiz_id: '01j0000000000000000000000a' })).to.throw(Z.ZodError)
   })
 })

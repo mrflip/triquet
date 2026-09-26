@@ -6,8 +6,7 @@
  * see exactly what was sent -- the Prompts used panel shows these strings unchanged, with their
  * placeholders visible.
  *
- * Only the placeholder names differ from Features-v1 appendix A: `{{clueing}}` rather than
- * `{{question}}`, because that is what the field is called here. The prose is untouched, and
+ * The placeholder is `{{clueing}}`, because that is what the field is called here; the prose
  * still says "question" to the model, which is the word a player would use.
  */
 

@@ -9,18 +9,27 @@ export type IshKind = typeof IshKindVals[number]
 /** Most spans one text can carry before the list stops being evidence and starts being noise */
 export const IshesPerTextMax = 200
 
-export const IshValidators = Validator(({ obj, arr, oneof, str, num, bool, timestamp, lit, discrim }) => {
+export const IshValidators = Validator(({ obj, arr, oneof, str, textish, num, bool, timestamp, lit, discrim }) => {
   const ishKind = oneof(IshKindVals)
     .describe('"numeral" when the span is written in digits, "wordish" when it reads as a number in words, as an ordinal, or as a magnitude phrase. The two are totalled separately so the author can compare the strict digits-only reading of a clue against the generous reading.')
 
+  const spanText = 'The span exactly as it appears in the source text, preserving punctuation, currency, and script: "#17-19", "9,000+", "千", "douzaine", "Feb 27". Shown verbatim so the author can see precisely what the model latched onto and judge whether a player would too.'
+  const spanValue = num
+    .describe('What a reasonable player would add up for that span. Magnitude phrases carry their whole value ("300 million" is 300000000, not 300), and fractions stay fractional ("quarter" is 0.25). Zod rejects NaN and Infinity here without further checks.')
+
   const ishItem = obj({
-    text:  str.min(1)
-      .describe('The span exactly as it appears in the source text, preserving punctuation, currency, and script: "#17-19", "9,000+", "千", "douzaine", "Feb 27". Shown verbatim so the author can see precisely what the model latched onto and judge whether a player would too.'),
-    value: num
-      .describe('What a reasonable player would add up for that span. Magnitude phrases carry their whole value ("300 million" is 300000000, not 300), and fractions stay fractional ("quarter" is 0.25). Zod rejects NaN and Infinity here without further checks.'),
+    text:  textish.min(1).describe(spanText),
+    value: spanValue,
     kind:  ishKind,
   })
     .describe('One number-like span found in a clueing or a hint.')
+
+  const ishItemReply = obj({
+    text:  str.min(1).describe(spanText),
+    value: spanValue,
+    kind:  ishKind,
+  })
+    .describe('One span as the model is asked to give it: any string at all, so the answer arrives to be judged rather than being refused on the way in. It is clipped and held to `ishItem` before anything keeps it.')
 
   const ishesDone = obj({
     status:             lit('done'),
@@ -34,12 +43,14 @@ export const IshValidators = Validator(({ obj, arr, oneof, str, num, bool, times
     stale:              bool.default(false)
       .describe('True when the text this was extracted from has been edited since. The result stays on screen, greyed and italic, rather than vanishing -- a slightly-out-of-date total is more useful to the author than an empty cell, as long as it is honestly marked.'),
     updated_at:         timestamp,
+    last_err:           AskValidators.lastErr.nullable().default(null)
+      .describe('The most recent failed refresh of this extraction, which leaves the items and the stale flag as they were; null after any success.'),
   })
 
   const ishes = discrim('status', [ishesDone, AskValidators.askError]).nullable()
     .describe('The extraction for one piece of text, or null when it has never been asked for. Null, an error, and a successful empty list are three genuinely different states and each reads differently on screen.')
 
-  return { ishKind, ishItem, ishesDone, ishes }
+  return { ishKind, ishItem, ishItemReply, ishesDone, ishes }
 })
 
 /**

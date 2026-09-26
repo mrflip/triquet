@@ -3,28 +3,30 @@
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
-import { sheetsExport } from '../../lib/sheets'
+import * as Sheets from '../../lib/sheets'
+import * as UU from '../../lib/useful'
 import { PromptTemplates } from '../../lib/ask/prompts'
+import type { ExpressedForQuiz } from '../../lib/expressed'
 import type { QuizT } from '../../models/quiz'
 import type { WorkspaceT } from '../../models/workspace'
 import styles from '../workbench.module.css'
 
 /** The titled sections below the grid: ways to get the work back out, and what was asked */
-export function Panels({ quiz, workspace, onMerged }: Readonly<{ quiz: QuizT, workspace: WorkspaceT, onMerged: (quiz: QuizT) => void }>) {
+export function Panels({ quiz, workspace, expressed, onMerged }: Readonly<{ quiz: QuizT, workspace: WorkspaceT, expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
   return (
     <div className={styles.panels}>
       <Panel
         title="Copy for Sheets"
-        blurb="Tab-separated, one line per question, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet."
+        blurb="Tab-separated: a header row, then one line per question, with every column the grid has, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet."
       >
-        <ReadonlyBox label="Copy for Sheets" text={sheetsExport(quiz.questions)} />
+        <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, expressed)} />
       </Panel>
 
       <Panel
         title="Export"
-        blurb="Every round you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a round between browsers."
+        blurb="Every quiz you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a quiz between browsers."
       >
-        <ReadonlyBox label="Export" text={JSON.stringify(workspace)} rows={10} dense />
+        <ReadonlyBox label="Export" text={UU.jsonify(workspace)} rows={10} dense />
       </Panel>
 
       <ImportPanel quiz={quiz} locked={quiz.locked} onMerged={onMerged} />

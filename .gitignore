@@ -1,8 +1,39 @@
 # dependencies
 node_modules/
 
+# scratch space -- the top-level directory is kept, its contents are not
+**/tmp/*
+**/temp/*
+
+# Various turds some utilities leave behind
+*.pid
+*.pid.lock
+*.seed
+*.lcov
+.node_repl_history
+
+# editors
+*.swp
+*.swo
+*~
+\#*\#
+.#*
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# OS generated files
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+.Spotlight-V100
+.Trashes
+
 # next.js
 .next/
+.next-*/
+.next-agent-build/
 out/
 
 # production
@@ -13,11 +44,20 @@ coverage/
 
 # misc
 *.tsbuildinfo
-.DS_Store
+.eslintcache
+
+# vercel -- written by `vercel link`
+.vercel
 
 # env files -- never commit secrets; use Doppler
 .env*
 !.env*.template
+
+# secrets -- anything that names itself a secret stays out, unless it is a template
+*secret*
+!*secret*template*
+!*template*secret*
+*.pem
 
 # logs
 npm-debug.log*
@@ -33,3 +73,9 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# dist/
+
+# local databases -- the directory is kept, its contents are not
+/data/*
+!/data/.gitkeep

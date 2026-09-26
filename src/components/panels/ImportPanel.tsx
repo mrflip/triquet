@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Button } from '@mui/material'
 import clsx from 'clsx'
 import { Panel } from './Panel'
-import { importInto, type ImportLogEntry } from '../../lib/importing'
+import * as Importing from '../../lib/importing'
+import type { ImportLogEntry } from '../../lib/importing'
 import type { QuizT } from '../../models/quiz'
 import styles from '../workbench.module.css'
 
@@ -15,7 +16,7 @@ export type ImportPanelProps = {
 }
 
 /**
- * The counterpart to Export: move a round between browsers, recover a backup, or fold a
+ * The counterpart to Export: move a quiz between browsers, recover a backup, or fold a
  * collaborator's edits back into your own copy.
  *
  * Results are reported twice -- a one-line summary next to the button, and a scrollable log
@@ -28,7 +29,7 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
   const [log, setLog] = useState<ImportLogEntry[]>([])
 
   const runImport = () => {
-    const outcome = importInto(quiz, pasted)
+    const outcome = Importing.importInto(quiz, pasted)
     setSummary({ text: outcome.summary, ok: outcome.ok })
     setLog(outcome.log)
     console.warn('Triquet import:', outcome.summary, outcome.log)
@@ -42,7 +43,7 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
   return (
     <Panel
       title="Import"
-      blurb="Paste back anything Export ever gave you, a single round, or a bare list of questions. Questions are matched by short answer; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
+      blurb="Paste back anything Export ever gave you, a single quiz, or a bare list of questions. Questions are matched by title; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
     >
       <textarea
         className={styles.pasteBox}
@@ -61,9 +62,9 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
       {log.length === 0 ? null : (
         <div className={styles.importLog}>
           {log.map((entry) => (
-            <div key={`${String(entry.position)}-${entry.short_answer}`}>
+            <div key={`${String(entry.position)}-${entry.title}`}>
               <div>
-                {entry.position}. {entry.short_answer === '' ? '(no short answer)' : entry.short_answer} — {entry.outcome}
+                {entry.position}. {entry.title === '' ? '(no title)' : entry.title} — {entry.outcome}
               </div>
               {entry.issues.map((issue) => (
                 <div key={`${issue.fieldpath}-${issue.code}`} className={styles.importIssue}>

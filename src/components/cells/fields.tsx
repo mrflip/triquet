@@ -73,7 +73,7 @@ export function StretchField({ committed, onCommit, locked, placeholder, label, 
   )
 }
 
-/** Short answer: one line, borderless until touched */
+/** Title: one line, borderless until touched */
 export function PlainField({ committed, onCommit, locked, placeholder, label }: Readonly<FieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   return (

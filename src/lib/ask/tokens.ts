@@ -1,4 +1,4 @@
-/** Characters per token, roughly, across the scripts a real round actually carries */
+/** Characters per token, roughly, across the scripts a real quiz actually carries */
 export const CharsPerToken = 4
 
 /**

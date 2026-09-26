@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Question, QuestionValidators } from '../../src/models/question'
+import { Question, QuestionValidators, type QuestionDNA } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
+import { ValidatorKit } from '../../src/lib/validator'
+import * as Labelmaker from '../../src/lib/labelmaker'
 
 const anId = mintId()
 
@@ -26,12 +28,13 @@ const QnumCases: [string, boolean, string][] = [
 
 describe('Question.fill', () => {
   it('defaults every field but the id', () => {
-    expect(Question.fill({ id: anId })).to.deep.eq({
+    const question = Question.fill({ id: anId })
+    expect(question).to.deep.include({
       id:            anId,
       qnum:          '',
       clueing:       '',
       hint:          '',
-      short_answer:  '',
+      forced_label:  null,
       chains_to:     null,
       guess:         null,
       clueing_ishes: null,
@@ -40,6 +43,16 @@ describe('Question.fill', () => {
       notes:         '',
       full_answer:   '',
     })
+    expect(question.label).to.match(/^[a-z]+_[a-z]+$/)
+  })
+
+  it('populates a blank title from the generated label, titleized', () => {
+    const question = Question.fill({ id: anId })
+    expect(question.title).to.eq(Labelmaker.titleize(question.label))
+  })
+
+  it('leaves a given title alone even though a label was generated too', () => {
+    expect(Question.fill({ id: anId, title: 'Leon' }).title).to.eq('Leon')
   })
 
   it('keeps the text it is given, untouched', () => {
@@ -59,8 +72,8 @@ describe('Question.fill', () => {
     expect(() => Question.fill({ id: 'question-1' })).to.throw(Z.ZodError)
   })
 
-  it('rejects a short answer past 200 characters', () => {
-    expect(() => Question.fill({ id: anId, short_answer: 'x'.repeat(201) })).to.throw(Z.ZodError)
+  it('rejects a title past 200 characters', () => {
+    expect(() => Question.fill({ id: anId, title: 'x'.repeat(201) })).to.throw(Z.ZodError)
   })
 
   it('accepts a done guess and a done extraction', () => {
@@ -74,7 +87,7 @@ describe('Question.fill', () => {
   })
 
   it('accepts an error in place of a result', () => {
-    const question = Question.fill({ id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1 } })
+    const question = Question.fill({ id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } } })
     expect(question.guess?.status).to.eq('error')
   })
 
@@ -89,7 +102,7 @@ describe('Question.fill', () => {
 
 describe('QuestionValidators.questionPatch', () => {
   it('carries only the fields the patch names', () => {
-    expect(QuestionValidators.questionPatch({ short_answer: 'Leon' })).to.deep.eq({ short_answer: 'Leon' })
+    expect(QuestionValidators.questionPatch({ title: 'Leon' })).to.deep.eq({ title: 'Leon' })
   })
 
   it('reads an empty patch as "change nothing"', () => {
@@ -97,7 +110,7 @@ describe('QuestionValidators.questionPatch', () => {
   })
 
   it('never fills an absent field in with a default, which would wipe what the author had', () => {
-    const patch = QuestionValidators.questionPatch({ short_answer: 'Leon' })
+    const patch = QuestionValidators.questionPatch({ title: 'Leon' })
     expect(patch).to.not.have.property('clueing')
     expect(patch).to.not.have.property('chains_to')
   })
@@ -118,11 +131,63 @@ describe('QuestionValidators.questionPatch', () => {
 describe('Question.blank', () => {
   it('mints an id and leaves everything else empty', () => {
     const question = Question.blank()
-    expect(question.id).to.have.length(26)
+    expect(ValidatorKit.treeid.safeParse(question.id).success).to.eq(true)
     expect(question.clueing).to.eq('')
   })
 
   it('mints a distinct id each time', () => {
     expect(Question.blank().id).to.not.eq(Question.blank().id)
   })
+})
+
+describe('QuestionValidators, field by field', () => {
+  it('keeps a clueing and a hint exactly as written, surrounding space and all', () => {
+    const question = Question.fill({ id: anId, clueing: '  "Verse,\n   indented"  ', hint: '\tBUT NOT this ' })
+    expect(question.clueing).to.eq('  "Verse,\n   indented"  ')
+    expect(question.hint).to.eq('\tBUT NOT this ')
+  })
+
+  it('trims the notes, the alt text and the answer', () => {
+    const question = Question.fill({ id: anId, notes: ' check this\n', alt_text: '  alt ', full_answer: ' Leon, in Spain ' })
+    expect([question.notes, question.alt_text, question.full_answer]).to.deep.eq(['check this', 'alt', 'Leon, in Spain'])
+  })
+
+  const Refused: [QuestionDNA, string][] = [
+    [{ id: anId, clueing: 'x'.repeat(3601) },    'a clueing past 3600 characters'],
+    [{ id: anId, hint: 'BUT NOT\u{1}' },          'a hint carrying a control character'],
+    [{ id: anId, notes: 'x'.repeat(3601) },      'notes past 3600 characters'],
+    [{ id: anId, title: 'x'.repeat(83) },        'a title past 82 characters'],
+    [{ id: anId, title: 'Two\nlines' },          'a title on more than one line'],
+    [{ id: anId, label: 'ends_' },               'a label ending in an underscore'],
+    [{ id: anId, label: 'x'.repeat(41) },        'a label past 40 characters'],
+  ]
+  for (const [dna, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => Question.fill(dna)).to.throw(Z.ZodError)
+    })
+  }
+})
+
+describe('QuestionValidators.row', () => {
+  const Row = {
+    quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', position: 0, label: 'hamlet', forced_label: null, title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
+    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '',
+  }
+
+  it('takes a question as the database holds it, its clueing untouched', () => {
+    expect(QuestionValidators.row(Row)).to.deep.eq(Row)
+  })
+
+  const Refused: [object, string][] = [
+    [{ quiz_id: 'hamlet' },                  'a quiz that is not a row id'],
+    [{ position: -1 },                       'a place before the first'],
+    [{ position: 1.5 },                      'a place between two'],
+    [{ chains_to: '01j0000000000000000000000a' }, 'a chain naming a question by id rather than by label'],
+    [{ qnum: 'three' },                      'a question number that is not a number'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => QuestionValidators.row({ ...Row, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
 })

@@ -5,15 +5,56 @@ working in this codebase. Read this before naming anything or writing a doc bloc
 vocabulary below is specific and not guessable from general TypeScript habit.
 
 For architecture and process -- the validation lifecycle, documentation policy, testing -- see
-`GUIDELINES.md`. `eslint.config.mjs` is the ultimate and best source of truth for anything
+`notes/guidelines.md`. `eslint.config.mjs` is the ultimate and best source of truth for anything
 mechanically enforceable; where it and this document disagree, the linter wins and this document
 is a bug.
 
 ## Important Miscellany
 
 * For text files: end with a newline, no trailing spaces; these will cause a lint error
+
+## Imports and Facility Namespacing
+
+The rules below are specific examples of three principles:
+1. Follow framework and package conventions. React, MUI and Next.js get imported the way their ecosystems do it; this rule is about our own modules, selecting a single best practice out of many
+2. Node offers several different ways to import code; accept that as a tailwind for code that reads as prose.
+3. Structure your imports around good object-oriented technique.
+
+### Basics
+
 * Import paths carry no extension (`./thing`, not `./thing.ts`) -- the grain of Next.js and the
   wider ecosystem. Not mechanically enforced either direction; just don't add one.
+
+### Use Splat (`* as Modulename`) imports for a module not grouped as a noun
+
+use `import * as Labelmaker from ...` to turn a module of coherent, related behavior into a robust facility.
+Importing functions directly puts everyone in a global namespace, with many quiet dysfunctions following behind) GOOD: `import * as Labelmaker`. BAD: `import { normalize } ...`
+Use the Startcase filename as the import, in general (a couple exceptions will be made clear)
+Functions within such file should be vigorous verbal phrases that do NOT have the module name tacked on: `normalize`, not `labelmakerNormalize`. Most things in `lib` are like this one: bare functions around a single concern that become objects with a splat import
+
+* situational: `import { SOME_CONST } from ...` might totally make sense when you want that to feel local to the file.
+* situational: certain frequently-used libraries with global vibes use a two-letter shorthand: `import * as UU from '.../utils'`; similarly `ST` for storage. A short punchy name for ambient facilities
+* situational: If the length of the import statement becomes cumbersome, do a splat import using a two-or-three letter shorthand ending in 'T' (eg PT = product types; QYT = query types, ...). GOOD: `import type { ProductSomthing, ProductFoo } from ...`. BAD: `import type { Product ... 19 things...} from ...` INSTEAD: `import type * as PT from ...`
+* exception: **`es-toolkit/compat`** is our lodash-shaped utility surface (see `notes/stack.md`). Import it as a single blanket default import named `_`, lodash-style, rather than naming individual functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is the one sanctioned exception to "no single-letter names".
+
+### Use Named (`import { Foo }`) Imports for already-namespaced facilities
+
+* If a file has **One primary export**, import it and its friends directly.
+  GOOD: `import { Product } from '../models/product'`      -- then `Product.fill(dna)`
+  Ancillary consts ride along on the same line: `import { Product, ProductKinds } from ...`
+
+* If a file is **organized into coherent uniform objects**:
+  GOOD: `import { AppNotices } from '../lib/appnotices'`   -- then `AppNotices.saveSuccess`
+
+A good test, for a module that sits between these rules: does this import put *targeted well-named nouns* in scope, or several loose verbs? One noun, however it arrives, is the goal.
+
+### Tailnotes for imports:
+
+* Use files, not barrel `index.ts` re-exports
+* Mock with `vi.mock('../lib/foo')`
+* Hooks stay named, so `eslint-plugin-react-hooks` can recognise them by their `use` prefix.
+
+REPEATING: This section on various import styles applies only when there's not alread a single standard practice. Do not deviate from standard framework conventions.
 
 ## Naming Conventions
 
@@ -30,10 +71,14 @@ model type. A typename is a string.
 **Add `name`, `kind`, `handle`, `flavor`, un-camel'ed, for an isomorphic selector**; `woodname`
 is a string, `wood` is an object.
 
+**Use `label` for a freeform-string-derived identifier (local or global) driven by the user** -- eg using the title of a quiz as the url pathseg.
+
 Specificity is a virtue: `bboxHt` makes clear that this height might depend on coordinate system.
 Don't add a tag when it's obvious: `title`, not `titleStr`.
 However, when genericity is exactly the salient feature, use one of the following tags as is:
 Good: `pad(str)` (any string might enjoy good padding).
+
+### Specific Naming Tags
 
 Tags to append or use directly:
 
@@ -41,11 +86,14 @@ Tags to append or use directly:
 * `ckey`           -- `string|number` collection key: string for a map, index number for an array
 * `idx`            -- array index, when it's known to be an integer array index
 * `val`            -- any-typed, truly generic value. `vv`/`kk` are secondary choices in a lambda when `key` or `val` is in-scope
-* `kind`, `flavor` -- legible enumerated strong identifier. Use `handle` for legible freeform strong identifier (eg a slugged title)
+* `kind`, `flavor` -- legible **enumerated** strong identifier: picking from a menu or taxononmy. Use `label` or `handle` for legible freeform strong identifier (eg a slugged title)
+  - all of these, and tag, should apply strict identifier validation: `\w` only, starts with a letter, ends with a letter or number, two or more characters; usually also lowercase-only
 * `props` and `propnames` for structured objects; `fieldnames` and `fields` for their definitions (i.e. the fields of the class are the props of the instance)
 * `iter`           -- sequence iteration counter
-* `ii`/`jj`/`kk` for array iterators, or for element indexes in a grid pattern (use `row` and `col`, or `horiz` and `vert` exactly and only in their precise meaning). One may use `iter` or `seq`, `fooIter` or `fooSeq`, `fooIter0 / fooIter1 / fooIter2`, but ii/jj/kk are never foo'ed
-  - (avoid, however, index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, ii) => {})` is useable)
+* `ii`/`jj`/`kk` are for a literal `for (...)` loop's own bound variable ONLY -- `for (const [ii, foo] of foos.entries())`, `for (let ii = 0; ...)`. Never as a lambda/callback parameter, a named function parameter, a keyword arg, or a field name: an array index reaching a parameter list is `idx`, or a more specific `fooIdx` when a salient noun is in scope (`lineIdx`, `rowIdx`) -- `foos.map((foo, idx) => ...)`, never `foos.map((foo, ii) => ...)`
+  - `row`, `col`, `lvl` for element indexes in a grid pattern (use  `horiz` and `vert` exactly and only in their precise meaning).
+  * You may use `iter` or `seq`, `fooIter` or `fooSeq`, `fooIter0 / fooIter1 / fooIter2` as varnames, but `ii/jj/kk` are never foo'ed
+  - (Also keep in mind we prefer functional programming -- eschew index-based iteration unless there's a reason neither `for (const foo in foos)` nor `_.map(foos, (foo, idx) => {})` is useable)
 * `count` or `ct`  -- reported quantity
 * `qty` or `nFoos` -- input quantity
 * `dotkey`         -- string with dotted segments to indicate a ckey path
@@ -66,14 +114,14 @@ Tags to append or use directly:
 * `num`            -- generic num
 * `err`            -- error; **never** use `error` as a variable name
 * `obj`            -- specifically to mean 'object-like'; otherwise use `bag`, and double-check whether its object-ness is really the most salient
-* `name`           -- identifier perfectly isomorphic with what it identifies, though it may be contextual. Prefer `title`, `kind`, `handle` when they are a better match. Lots and lots of things have name in their name, don't casually make it more crowded
+* `name`           -- identifier perfectly isomorphic with what it identifies, though it may be contextual. Prefer `title`, `kind`, `label`, `handle`, `flavor` when they are a better match. Lots and lots of things have name in their name, don't casually make it more crowded
 * `title`          -- human readable name, independent of the item's identity. Don't use title as an identifier or vice-versa
 * `Model`          -- parent class / generic term for a business model data structure
 
 ### Variables
 
-- `const` by default, `var` only where the value is actually reassigned -- which you should
-  rarely do
+- `const` by default, `let` only where the value is actually reassigned -- which you should
+  rarely do. Never `var`: `eslint.config.mjs` forbids it outright.
 - functional programming is strongly preferred
 
 Mildly prefer to not camelcase within the name of a reified concept. Good: `lightbulb`,
@@ -189,27 +237,7 @@ Use whitespace to make parallel construction clear, as we do with test examples:
 
 ## Mechanically Enforced
 
-`eslint.config.mjs` enforces the following. They are listed here so you write conforming code the
-first time rather than discovering them at lint. This section is a summary, not the authority.
-
-**Formatting**
-
-* Semicolonless (`semi: never`). Two-space indents, `switch` cases not extra-indented.
-* Unix line endings; file ends with a newline; no trailing whitespace; no runs of blank lines.
-* Space after a unary `!` (`! approved`), matching the negation rule above.
-* No space between a named function and its parens (`paintRange(range)`); space before an
-  anonymous or async-arrow function's parens.
-* Consistent line breaking within a call's arguments and parameter lists -- all on one line, or
-  all on their own.
-
-**Correctness -- these are errors, not taste**
-
-* `throw new Error(...)`, never a bare string or object literal. Stack traces matter.
-* No floating promises; no promises used where a sync value is expected. `await` inside
-  `try`/`catch` rather than returning the promise bare.
-* No `any`. If a type is genuinely unknown, `unknown` plus a narrowing check.
-* No unused variables, except those prefixed `_`.
-* `console.log` is a warning; `console.warn` and `console.error` are fine.
+`eslint.config.mjs` enforces a strict set of rules; exceptions are as follow
 
 **Deliberately not enforced** -- so don't "fix" these:
 

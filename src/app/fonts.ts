@@ -1,6 +1,6 @@
 import { JetBrains_Mono, Work_Sans, Zilla_Slab } from 'next/font/google'
 
-/** Display: the round name and the panel headings. A printed quiz sheet, not a dashboard. */
+/** Display: the quiz name and the panel headings. A printed quiz sheet, not a dashboard. */
 export const zillaSlab = Zilla_Slab({
   subsets:  ['latin'],
   weight:   ['500', '600'],
@@ -16,7 +16,7 @@ export const workSans = Work_Sans({
   display:  'swap',
 })
 
-/** Data: short answers, Q#, every sum, the ish lists, the guess, the export boxes */
+/** Data: titles, Q#, every sum, the ish lists, the guess, the export boxes */
 export const jetbrainsMono = JetBrains_Mono({
   subsets:  ['latin'],
   weight:   ['400', '500'],

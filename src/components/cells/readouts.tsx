@@ -2,25 +2,50 @@
 
 import clsx from 'clsx'
 import { CellNotices } from '../../lib/notices'
+import type { Expressed } from '../../lib/expressed'
 import styles from '../workbench.module.css'
 
 /**
- * A number that wraps only between thousands groups.
+ * One computed cell: a number, some text, a muted dash for nothing, or a warning when the formula failed.
  *
- * `3,000,000` may break after either comma and never inside a group, and takes no extra width
- * when it does not need to break at all.
+ * A number wraps only between thousands groups -- `3,000,000` may break after either comma and
+ * never inside a group, and takes no extra width when it does not need to break at all. A value
+ * worked out from something since edited is greyed and italic rather than dropped. The cell
+ * scrolls inside the row: a computed column never makes its row taller.
  *
- * @param total - The sum to show, already rounded, or null when there is nothing behind it yet.
+ * @param reading - What the expressing came to for this question.
+ * @param wide - Whether the column has room to say why a formula failed.
+ * @param heightPx - The tallest the cell may be, which is the height of the row.
  */
-export function SumReadout({ total, stale }: Readonly<{ total: number | null, stale: boolean }>) {
-  if (total === null) { return <span className={styles.muted}>{CellNotices.sumUncomputable}</span> }
-  const groups = total.toLocaleString('en-US').split(',')
+export function ExpressedReadout({ reading, wide, heightPx }: Readonly<{ reading: Expressed, wide: boolean, heightPx: number }>) {
   return (
-    <span className={stale ? styles.stale : undefined}>
-      {groups.map((group, ii) => (
-        <span key={`${group}-${String(ii)}`}>
-          {ii > 0 ? ',' : ''}
-          {ii > 0 ? <wbr /> : null}
+    <ReadonlyCell heightPx={heightPx}>
+      <div className={reading.status === 'value' && typeof reading.val === 'number' ? styles.sum : styles.expressedText}>
+        <ExpressedBody reading={reading} wide={wide} />
+      </div>
+    </ReadonlyCell>
+  )
+}
+
+/** The inside of a computed cell */
+function ExpressedBody({ reading, wide }: Readonly<{ reading: Expressed, wide: boolean }>) {
+  if (reading.status === 'nothing') { return <span className={styles.muted}>{CellNotices.nothingExpressed}</span> }
+  if (reading.status === 'error') {
+    return (
+      <span className={styles.muted} title={reading.message} role="img" aria-label={`The formula failed: ${reading.message}`}>
+        {CellNotices.expressedError}{wide ? ` ${reading.message}` : ''}
+      </span>
+    )
+  }
+  const stale = reading.stale ? styles.stale : undefined
+  if (typeof reading.val !== 'number') { return <span className={stale}>{String(reading.val)}</span> }
+  const groups = reading.val.toLocaleString('en-US').split(',')
+  return (
+    <span className={stale}>
+      {groups.map((group, idx) => (
+        <span key={`${group}-${String(idx)}`}>
+          {idx > 0 ? ',' : ''}
+          {idx > 0 ? <wbr /> : null}
           {group}
         </span>
       ))}

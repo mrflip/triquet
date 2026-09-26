@@ -1,19 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
-import * as Z from 'zod'
+import type * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
-import { BulkIshesPrompt, ClueingIshesPrompt, HintIshesPrompt, QuickGuessPrompt, bulkItemsBlock, renderPrompt } from '../../../lib/ask/prompts'
-import { MaxTokensForJob, ModelForTier } from '../../../lib/ask/models'
+import { bulkItemsBlock } from '../../../lib/ask/prompts'
+import { MaxTokensForJob, ModelForTier, PlayerForJob } from '../../../lib/ask/models'
+import * as Credentials from '../../../lib/credentials'
+import { playerFor, promptFor } from '../../../lib/ask/players'
 import { approxTokensFor } from '../../../lib/ask/tokens'
-import { failurekindFor } from '../../../lib/ask/failures'
+import { failureReplyFor } from '../../../lib/ask/failures'
+import { vetReply } from '../../../lib/ask/replies'
+import { ValidatorKit } from '../../../lib/validator'
 import { IshValidators } from '../../../models/ish'
+import type { PlayerT } from '../../../models/player'
+
+const { obj, arr, str } = ValidatorKit
 
 /** The shape every single-text ish job constrains the model's answer to */
-const IshItemsFormat = Z.object({ items: Z.array(IshValidators.ishItem) })
+const IshItemsFormat = obj({ items: arr(IshValidators.ishItemReply) })
 
 /** The same, one group per tagged text, for the batched job */
-const BulkGroupFormat = Z.object({ key: Z.string(), items: Z.array(IshValidators.ishItem) })
-const BulkGroupsFormat = Z.object({ groups: Z.array(BulkGroupFormat) })
+const BulkGroupFormat = obj({ key: str, items: arr(IshValidators.ishItemReply) })
+const BulkGroupsFormat = obj({ groups: arr(BulkGroupFormat) })
 
 /**
  * The one place this tool reaches outside the browser.
@@ -23,63 +30,62 @@ const BulkGroupsFormat = Z.object({ groups: Z.array(BulkGroupFormat) })
  * never a bare status code, so the browser always has an author-shaped sentence to show.
  */
 export async function POST(request: Request): Promise<Response> {
-  const client = anthropicClient()
-  if (! client) { return replied({ ok: false, failurekind: 'unavailable' }) }
-
   const parsed = AskContract.askRequest.safeParse(await request.json())
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
 
   try {
-    return replied(await answerAsk(client, parsed.data))
+    const player = playerFor(PlayerForJob[parsed.data.job])
+    if (! Credentials.has(player.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
+    const client = new Anthropic({ apiKey: Credentials.get(player.servicelabel) })
+    return replied(vetReply(await answerAsk(client, player, parsed.data)))
   } catch (err) {
-    return replied({ ok: false, failurekind: failurekindFor(err) })
+    return replied(failureReplyFor(err))
   }
 }
 
-/** Whichever job was asked for, answered */
-async function answerAsk(client: Anthropic, ask: AskRequestT): Promise<AskReplyT> {
+/** Whichever job was asked for, answered by the player it was put to */
+async function answerAsk(client: Anthropic, player: PlayerT, ask: AskRequestT): Promise<AskReplyT> {
   switch (ask.job) {
   case 'guess': {
-    return await answerGuess(client, ask.clueing)
+    return await answerGuess(client, player, ask.clueing)
   }
   case 'ishes': {
-    const template = ask.textkind === 'clueing' ? ClueingIshesPrompt : HintIshesPrompt
-    const prompt = renderPrompt(template, { [ask.textkind]: ask.text })
-    const outcome = await extract(client, prompt, IshItemsFormat, MaxTokensForJob.ishes)
+    const prompt = promptFor(player, ask.textkind, { [ask.textkind]: ask.text })
+    const outcome = await extract(client, player, prompt, IshItemsFormat, player.max_tokens)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'ishes', items: outcome.parsed.items, truncated: outcome.truncated,
-      model_tier_applied: 'careful', approx_tokens: approxTokensFor(prompt, outcome.raw),
+      model_tier_applied: player.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
     }
   }
   case 'bulk_ishes': {
-    const prompt = renderPrompt(BulkIshesPrompt, { items: bulkItemsBlock(ask.items) })
-    const outcome = await extract(client, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
+    const prompt = promptFor(player, 'bulk', { items: bulkItemsBlock(ask.items) })
+    const outcome = await extract(client, player, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'bulk_ishes', groups: outcome.parsed.groups, truncated: outcome.truncated,
-      model_tier_applied: 'careful', approx_tokens: approxTokensFor(prompt, outcome.raw),
+      model_tier_applied: player.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
       text_count: ask.items.length,
     }
   }
   }
 }
 
-/** The hasty first-instinct read, from the quick tier and with no thinking to slow it down */
-async function answerGuess(client: Anthropic, clueing: string): Promise<AskReplyT> {
-  const prompt = renderPrompt(QuickGuessPrompt, { clueing })
+/** Dumdum's hasty first-instinct read, with no thinking to slow it down */
+async function answerGuess(client: Anthropic, dumdum: PlayerT, clueing: string): Promise<AskReplyT> {
+  const prompt = promptFor(dumdum, 'clueing', { clueing })
   const answer = await client.messages.create({
-    model:      ModelForTier.quick,
-    max_tokens: MaxTokensForJob.guess,
+    model:      ModelForTier[dumdum.model_tier],
+    max_tokens: dumdum.max_tokens,
     messages:   [{ role: 'user', content: prompt }],
   })
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
-  const text = textOf(answer.content).trim()
-  if (text === '') { return { ok: false, failurekind: 'emptyAnswer' } }
+  const text = textOf(answer.content)
+  if (text.trim() === '') { return { ok: false, failurekind: 'emptyAnswer' } }
   return {
     ok: true, job: 'guess', text,
     truncated:          answer.stop_reason === 'max_tokens',
-    model_tier_applied: 'quick',
+    model_tier_applied: dumdum.model_tier,
     approx_tokens:      approxTokensFor(prompt, text),
   }
 }
@@ -88,10 +94,10 @@ type Extracted<SC extends Z.ZodType> =
   | { ok: true, parsed: Z.output<SC>, raw: string, truncated: boolean }
   | { ok: false, failurekind: 'declined' | 'unreadable' }
 
-/** One structured extraction from the careful tier, or the reason there was not one */
-async function extract<SC extends Z.ZodType>(client: Anthropic, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
+/** One structured extraction from `player`, or the reason there was not one */
+async function extract<SC extends Z.ZodType>(client: Anthropic, player: PlayerT, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
   const answer = await client.messages.parse({
-    model: ModelForTier.careful,
+    model: ModelForTier[player.model_tier],
     max_tokens,
     messages:      [{ role: 'user', content: prompt }],
     output_config: { format: zodOutputFormat(format) },
@@ -109,18 +115,6 @@ function textOf(content: readonly { type: string }[]): string {
     .filter((block): block is { type: 'text', text: string } => block.type === 'text')
     .map((block) => block.text)
     .join('')
-}
-
-/**
- * The SDK client, or null when this deployment has no credentials.
- *
- * A tool with no key is not broken -- it is a tool whose asking half is unavailable, and the
- * whole rest of the page must keep working. Doppler supplies the key; nothing is read from a
- * file in the repo.
- */
-function anthropicClient(): Anthropic | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  return apiKey ? new Anthropic({ apiKey }) : null
 }
 
 /** One reply, validated on the way out as well as on the way in */

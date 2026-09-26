@@ -17,6 +17,9 @@ const SourceFiles = ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}']
 export default defineConfig([
   globalIgnores([
     '.next/**',
+    '.next-agent/**',
+    '.next-e2e/**',
+    '.next-*/**',
     'out/**',
     'build/**',
     'dist/**',
@@ -74,7 +77,9 @@ export default defineConfig([
       '@stylistic/no-multiple-empty-lines':        ['warn'],
       '@stylistic/no-trailing-spaces':             ['warn'],
       '@stylistic/semi':                           ['warn', 'never'],
-      '@stylistic/space-unary-ops':                ['warn', { overrides: { '!': true } }],
+      // '@stylistic/space-unary-ops' is not carried: its `!` override also fires on
+      // TypeScript's postfix non-null assertion (`arr[0]!`), which it cannot distinguish
+      // from the negation operator the rule is aimed at.
 
       // Off because we align values into columns, and quote style is a
       // by-hand convention (STYLE.md).
@@ -96,6 +101,8 @@ export default defineConfig([
       'no-implicit-coercion':                      ['error', { allow: ['!!'] }],
       'no-implicit-globals':                       ['error'],
       'no-negated-condition':                      ['error'],
+      // STYLE.md: const by default, let where genuinely reassigned, never var.
+      'no-var':                                    ['error'],
       'no-unsafe-negation':                        ['error', { enforceForOrderingRelations: true }],
       'prefer-destructuring':                      ['warn', { object: true, array: false }],
 
@@ -281,6 +288,18 @@ export default defineConfig([
     rules: {
       'vitest/no-disabled-tests': 'warn',
       'vitest/no-focused-tests': 'warn',
+      // A type-level test asserts with `expectTypeOf` and has no runtime to check. Without
+      // this the only way to satisfy the rule is to pad it with a token runtime assertion,
+      // which tells the reader nothing about what the test is for.
+      'vitest/expect-expect': ['error', {
+        assertFunctionNames: ['expect', 'expectTypeOf', 'accepts', 'rejects', 'expectUnchanged'],
+      }],
+      // A bulk example list indexes a namespace by a name from its table (`CK[ckname]`), which
+      // this rule cannot follow. tsc checks the same thing properly, and does.
+      'import-x/namespace': 'off',
+      // Same ground as vitest/expect-expect above, but with no way to name our own assertion
+      // helpers. One rule enforcing this is enough, and that one is the one we can configure.
+      'sonarjs/assertions-in-tests': 'off',
       // notes/testing.md mandates bulk example lists, whose `it(blurb, ...)` title is a
       // variable by construction.
       'vitest/valid-title': 'off',

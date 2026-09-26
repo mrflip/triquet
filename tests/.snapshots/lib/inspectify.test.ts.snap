@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`inspectify > renders a mixed bag the same way each run 1`] = `"{ str: 'hi', num: 1, nope: undefined, nil: null, list: [ 1, { deep: true } ], set: Set(1) { 'aa' } }"`;

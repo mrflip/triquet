@@ -3,26 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@mui/material'
 import clsx from 'clsx'
+import * as Clipboard from '../../lib/clipboard'
 import { AppNotices } from '../../lib/notices'
 import styles from '../workbench.module.css'
-
-/**
- * Whether the clipboard accepted `text`.
- *
- * In an insecure context `navigator.clipboard` is not there at all, and even where it is the
- * browser may refuse; both reach the author as the same fallback rather than as an error.
- *
- * @param text - What to put on the clipboard.
- * @returns True when it landed.
- */
-async function clipboardTook(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
-}
 
 /** How long an inline copy confirmation stays on screen */
 export const CopyNoteMs = 2500
@@ -53,7 +36,7 @@ export function ReadonlyBox({ label, text, rows = 8, dense = false }: Readonly<R
   }, [note])
 
   const copy = useCallback(() => {
-    void clipboardTook(text).then((took) => {
+    void Clipboard.took(text).then((took) => {
       if (! took) { boxRef.current?.select() }
       setNote(took ? AppNotices.copied : AppNotices.copyRefused)
     })

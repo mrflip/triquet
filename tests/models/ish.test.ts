@@ -40,7 +40,7 @@ describe('IshValidators.ishes', () => {
 
   it('defaults the bookkeeping flags on a done result', () => {
     expect(IshValidators.ishes({ status: 'done', updated_at: 1 })).to.deep.eq({
-      status: 'done', items: [], truncated: false, stale: false, updated_at: 1,
+      status: 'done', items: [], truncated: false, stale: false, updated_at: 1, model_tier_applied: 'quick', last_err: null,
     })
   })
 
@@ -51,8 +51,9 @@ describe('IshValidators.ishes', () => {
   })
 
   it('carries an error in place of a result', () => {
-    expect(IshValidators.ishes({ status: 'error', message: 'Too many requests right now — try again shortly.', updated_at: 1 }))
-      .to.deep.eq({ status: 'error', message: 'Too many requests right now — try again shortly.', updated_at: 1 })
+    const err = { message: 'Too many requests right now — try again shortly.', response: { ok: false, failurekind: 'rateLimited' }, at: 1 }
+    expect(IshValidators.ishes({ status: 'error', message: err.message, updated_at: 1, last_err: err }))
+      .to.deep.eq({ status: 'error', message: err.message, updated_at: 1, last_err: err })
   })
 
   it('rejects a status that is neither done nor error', () => {

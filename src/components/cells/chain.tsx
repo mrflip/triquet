@@ -1,20 +1,20 @@
 'use client'
 
 import clsx from 'clsx'
-import { chainSnippet } from '../../lib/chain'
+import * as Chain from '../../lib/chain'
 import { CellNotices } from '../../lib/notices'
 import type { QuestionT } from '../../models/question'
 import styles from '../workbench.module.css'
 
 export type ChainPickerProps = {
   question:  QuestionT
-  /** Every question in the round, so the picker can offer all the others */
+  /** Every question in the quiz, so the picker can offer all the others */
   questions: QuestionT[]
   locked:    boolean
   onChain:   (chains_to: string | null) => void
 }
 
-/** Which question follows this one. Every other question in the round, by its short answer. */
+/** Which question follows this one. Every other question in the quiz, by its title. */
 export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
   return (
     <select
@@ -27,7 +27,7 @@ export function ChainPicker({ question, questions, locked, onChain }: Readonly<C
       <option value="">{CellNotices.chainUnset}</option>
       {questions.filter((other) => other.id !== question.id).map((other) => (
         <option key={other.id} value={other.id}>
-          {other.short_answer === '' ? CellNotices.chainTargetUnnamed : other.short_answer}
+          {other.title === '' ? CellNotices.chainTargetUnnamed : other.title}
         </option>
       ))}
     </select>
@@ -53,7 +53,7 @@ export function ButnotPreview({ target, chained, heightPx }: Readonly<ButnotPrev
       style={{ maxHeight: `${String(heightPx)}px` }}
       title={notice === null ? target?.hint : undefined}
     >
-      {notice ?? chainSnippet(target?.hint ?? '')}
+      {notice ?? Chain.chainSnippet(target?.hint ?? '')}
     </div>
   )
 }

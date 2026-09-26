@@ -2,8 +2,9 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { GuessValidators } from './guess'
 import { IshValidators } from './ish'
+import { QuestionValidators } from './question'
 
-export const ImportValidators = Validator(({ obj, arr, str, title, text, union, zod }) => {
+export const ImportValidators = Validator(({ obj, arr, str, titleish, union, zod }) => {
   // Ids arriving from an import are accepted as-is provided they are non-empty: a hand-written
   // quiz file has no reason to know about ULIDs, and an id minted in another browser means
   // nothing here anyway -- it is only ever used to resolve that file's own chains.
@@ -11,17 +12,17 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
 
   const importQuestion = obj({
     id:            foreignId.optional(),
-    qnum:          str.regex(/^(\d+(\.\d+)?)?$/).nullable().optional(),
-    clueing:       text.nullable().optional(),
-    hint:          text.nullable().optional(),
-    short_answer:  str.max(200).nullable().optional(),
+    qnum:          QuestionValidators.qnum.nullable().optional(),
+    clueing:       QuestionValidators.clueing.nullable().optional(),
+    hint:          QuestionValidators.hint.nullable().optional(),
+    title:         QuestionValidators.title.nullable().optional(),
     chains_to:     foreignId.nullable().optional(),
     guess:         GuessValidators.guess.optional(),
     clueing_ishes: IshValidators.ishes.optional(),
     hint_ishes:    IshValidators.ishes.optional(),
-    alt_text:      text.nullable().optional(),
-    notes:         text.nullable().optional(),
-    full_answer:   text.nullable().optional(),
+    alt_text:      QuestionValidators.alt_text.nullable().optional(),
+    notes:         QuestionValidators.notes.nullable().optional(),
+    full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
     .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
 
@@ -31,10 +32,10 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
 
   const importQuiz = obj({
     id:        foreignId.optional(),
-    title:     title.nullable().optional(),
+    title:     titleish.nullable().optional(),
     questions: looseQuestions,
   })
-    .describe('One round as it arrives from an import. Only the questions are merged; a pasted round\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this round contains.')
+    .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
 
   const importWorkspace = obj({
     quizzes:        arr(importQuiz).min(1),
@@ -42,7 +43,7 @@ export const ImportValidators = Validator(({ obj, arr, str, title, text, union, 
   })
 
   const importPayload = union([importWorkspace, importQuiz, looseQuestions])
-    .describe('What the Import box accepts: a whole exported workspace, a single round, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
+    .describe('What the Import box accepts: a whole exported workspace, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
 
   return { importQuestion, importQuiz, importWorkspace, importPayload }
 })
@@ -55,7 +56,7 @@ export type ImportPayloadT    = Z.output<typeof ImportValidators.importPayload>
 
 /** Fields an import may revise; the id is not among them, and neither is anything derived */
 export const ImportableFieldnames = [
-  'qnum', 'clueing', 'hint', 'short_answer', 'chains_to',
+  'qnum', 'clueing', 'hint', 'title', 'chains_to',
   'guess', 'clueing_ishes', 'hint_ishes', 'alt_text', 'notes', 'full_answer',
 ] as const
 export type ImportableFieldname = typeof ImportableFieldnames[number]
@@ -65,7 +66,7 @@ export const ClearedValueFor: Record<ImportableFieldname, string | null> = {
   qnum:          '',
   clueing:       '',
   hint:          '',
-  short_answer:  '',
+  title:         '',
   chains_to:     null,
   guess:         null,
   clueing_ishes: null,

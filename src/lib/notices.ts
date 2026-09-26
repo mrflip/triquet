@@ -1,9 +1,8 @@
 /**
  * Every string the tool shows an author in place of a result, gathered in one place.
  *
- * Features-v1 appendices B and C. A failure reaches the author as a sentence, never as a code,
- * and never as a blank cell -- so these are content, and they live together where they can be
- * read as a set and revised as a set.
+ * A failure reaches the author as a sentence, never as a code, and never as a blank cell -- so
+ * these are content, and they live together where they can be read as a set and revised as a set.
  */
 
 /** Why an ask failed, in the author's language */
@@ -26,11 +25,30 @@ export type AskFailurekind = keyof typeof AskFailureNotices
 /** Notices about the tool itself rather than about one cell */
 export const AppNotices = {
   nothingToRecalculate: 'No questions or hints have any text yet — nothing to recalculate.',
-  saveFailed:           "Couldn't save to this browser — storage may be full, disabled, or private-browsing",
+  changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
+  loadFailed:           "Couldn't open your quizzes — reload the page to try again.",
   untitledQuiz:         'Untitled quiz',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
+  copyFailed:           "Couldn't reach the clipboard — nothing was copied.",
+  nothingToMilestone:   'No history here yet — make an edit first.',
+  noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
+  noRepositories:       'No history has been kept in this browser yet.',
 } as const
+
+/**
+ * What a player's cell reads when the server holds no credentials for the service behind it.
+ *
+ * @param title - What the player is called.
+ * @param servicelabel - The service it needs credentials for.
+ * @returns A calm sentence: nothing is broken, it just is not set up.
+ *
+ * @example playerUnavailableNotice('Dumdum', 'claude')  // => "Dumdum can't play yet — no Claude credentials are set up for this app."
+ */
+export function playerUnavailableNotice(title: string, servicelabel: string): string {
+  const service = servicelabel.charAt(0).toUpperCase() + servicelabel.slice(1)
+  return `${title} can't play yet — no ${service} credentials are set up for this app.`
+}
 
 /** What a cell reads when it holds no result, or a result the author should read differently */
 export const CellNotices = {
@@ -42,9 +60,10 @@ export const CellNotices = {
   butnotNoTarget:    'Target question not found',
   butnotNoHint:      'No hint entered yet',
   butnotIshesUnasked: "Not computed yet — double-click that question's Hint Ishes",
-  sumUncomputable:   '–',
+  nothingExpressed:  '–',
+  expressedError:    '⚠',
   chainUnset:        '— pick —',
-  chainTargetUnnamed: '(no short answer yet)',
+  chainTargetUnnamed: '(no title yet)',
   stale:             '· stale',
   truncated:         '· cut short',
 } as const

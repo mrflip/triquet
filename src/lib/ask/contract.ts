@@ -14,10 +14,10 @@ export const AskFailurekindVals = [
   'accountOff', 'sessionExpired', 'connection', 'unknown', 'unavailable', 'missingFromRun',
 ] as const satisfies readonly AskFailurekind[]
 
-export const AskContract = Validator(({ obj, arr, oneof, str, uint, bool, lit, discrim, union }) => {
+export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, bool, lit, discrim, union }) => {
   const textkind    = oneof(TextkindVals)
   const failurekind = oneof(AskFailurekindVals)
-  const askable     = str.min(1).max(10_000)
+  const askable     = textish.min(1)
 
   const guessAsk = obj({ job: lit('guess'), clueing: askable })
   const ishesAsk = obj({ job: lit('ishes'), textkind, text: askable })
@@ -26,12 +26,19 @@ export const AskContract = Validator(({ obj, arr, oneof, str, uint, bool, lit, d
   const askRequest = discrim('job', [guessAsk, ishesAsk, bulkAsk])
     .describe('What the browser is asking the model for. Validated on the way in, because this is the one place in the tool where data crosses a process boundary.')
 
-  const askFailed = obj({ ok: lit(false), failurekind })
+  const failureDetail = obj({
+    name:    str.max(120).optional(),
+    status:  uint.optional(),
+    message: str.max(600).optional(),
+  })
+    .describe('What the SDK or the runtime said, kept so the author can read what really happened; never anything from the request, and so never a credential.')
+
+  const askFailed = obj({ ok: lit(false), failurekind, detail: failureDetail.optional() })
 
   const guessDone = obj({
     ok:                 lit(true),
     job:                lit('guess'),
-    text:               str,
+    text:               textish,
     truncated:          bool,
     model_tier_applied: AskValidators.modelTier,
     approx_tokens:      uint,

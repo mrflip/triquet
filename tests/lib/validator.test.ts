@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Validator, callable } from '../../src/lib/validator'
+import { Validator, callable, plain } from '../../src/lib/validator'
 
 const LightbulbTechVals = ['led', 'incandescent', 'fluorescent'] as const
 
-const LightbulbValidators = Validator(({ obj, title, uint, oneof }) => {
+const LightbulbValidators = Validator(({ obj, titleish, uint, oneof }) => {
   const lightbulbTech = oneof(LightbulbTechVals)
   const lightbulb = obj({
-    title,
+    title:  titleish,
     lumens: uint.max(20_000).nullable().default(null),
     tech:   lightbulbTech.default('led'),
   })
@@ -54,5 +54,28 @@ describe('callable', () => {
 
   it('reports instanceof as the wrapped schema does', () => {
     expect(callable(Z.string()) instanceof Z.ZodString).to.eq(true)
+  })
+})
+
+describe('plain', () => {
+  const inner = Validator(({ oneof }) => ({ tier: oneof(['a', 'b']).default('a') }))
+  const outer = Validator(({ obj, num }) => ({ both: obj({ tier: inner.tier.optional(), num }) }))
+
+  it('lets Z.toJSONSchema see through a wrapped default, which it cannot otherwise', () => {
+    expect(() => Z.toJSONSchema(outer.both)).to.throw(TypeError)
+    expect(() => Z.toJSONSchema(plain(outer.both))).to.not.throw()
+  })
+
+  it('leaves parsing exactly as it was', () => {
+    plain(outer.both)
+    expect(outer.both({ num: 3 })).to.deep.eq({ tier: 'a', num: 3 })
+    expect(inner.tier(undefined as never)).to.eq('a')
+    expect(() => outer.both({ num: 3, tier: 'z' as never })).to.throw(Z.ZodError)
+  })
+
+  it('is safe to call twice, and returns the plain schema', () => {
+    const once = plain(outer.both)
+    expect(plain(once)).to.eq(once)
+    expect(typeof once).to.eq('object')
   })
 })

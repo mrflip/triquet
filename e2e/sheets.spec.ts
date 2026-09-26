@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitUntilSaved } from './support'
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
@@ -9,20 +10,36 @@ async function sheetsText(page: Page): Promise<string> {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
   for (const [ii, [qnum, clueing]] of ([['3', 'third'], ['1', 'first'], ['2', 'second']] as const).entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(clueing)
   }
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
 })
 
-test('seven clean columns, in rank order', async ({ page }) => {
+test('a header row of column labels in alphabetical order, then a line per question in rank order', async ({ page }) => {
   const text = await sheetsText(page)
   const lines = text.split('\n')
-  expect(lines[0]?.split('\t')).toHaveLength(7)
-  expect(lines.slice(0, 3).map((line) => line.split('\t', 2)[1])).toEqual(['first', 'second', 'third'])
+  const header = lines[0]?.split('\t') ?? []
+  expect(header).toEqual(header.toSorted((aa, bb) => aa.localeCompare(bb)))
+  expect(header).toContain('clueing_full')
+  expect(header).toContain('guess')
+  const clueingCol = header.indexOf('clueing')
+  expect(lines.slice(1, 4).map((line) => line.split('\t')[clueingCol])).toEqual(['first', 'second', 'third'])
+  expect(new Set(lines.map((line) => line.split('\t').length))).toEqual(new Set([header.length]))
+})
+
+test('a column added to the quiz is in the export, under its label', async ({ page }) => {
+  await page.getByRole('button', { name: 'Manage quiz' }).click()
+  await page.getByRole('button', { name: '+ New expressing…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New expressing' })
+  await editor.getByRole('combobox', { name: 'Expression' }).click()
+  await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await page.getByRole('dialog', { name: 'Manage this quiz' }).getByRole('button', { name: 'Cancel' }).click()
+  const text = await sheetsText(page)
+  expect(text.split('\n', 1)[0]?.split('\t')).toContain('answer_reversed')
 })
 
 test('the export is the same however the grid is sorted', async ({ page }) => {
@@ -30,15 +47,15 @@ test('the export is the same however the grid is sorted', async ({ page }) => {
   const qnumHeader = page.getByRole('button', { name: 'Q#', exact: true })
   await qnumHeader.click()
   await qnumHeader.click()
-  expect(await sheetsText(page)).toEqual(wasText)
+  await expect.poll(async () => await sheetsText(page)).toEqual(wasText)
 })
 
 test('a line break in a field never starts a new spreadsheet row', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Notes' }).first().fill('two\nlines')
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
   const text = await sheetsText(page)
   expect(text).toContain('two<br/>lines')
-  expect(text.split('\n')).toHaveLength(5)
+  expect(text.split('\n')).toHaveLength(6)
 })
 
 test('clicking the box selects the lot', async ({ page }) => {

@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import clsx from 'clsx'
-import { Columns, GridWidthPx, type Headkind } from './columns'
+import { GripWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
-import { EmptySums, sumsForRound } from '../lib/sums'
+import type { ExpressedForQuiz } from '../lib/expressed'
 import type { Askkind } from '../state/use-asking'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
@@ -18,41 +17,39 @@ export type SortMark = {
 
 export type QuestionTableProps = {
   questions:    QuestionT[]
+  /** The quiz's columns, in the order they appear */
+  specs:        ColumnSpec[]
+  /** What each computed column came to for each question */
+  expressed:    ExpressedForQuiz
   locked:       boolean
-  /** The grip column only takes up space while the round is in Q# order */
+  /** The grip column only takes up space while the quiz is in Q# order */
   gripShown:    boolean
-  /** Which column the round was last committed to, bold across reloads as a reminder */
+  /** Which column the quiz was last committed to, bold across reloads as a reminder */
   lastSortkey:  Sortkey | null
   /** Which column was sorted in this session, and which way; the only thing an arrow marks */
   sortMark:     SortMark | null
   onSort:       (sortkey: Sortkey) => void
   onChain:      (question_id: string, chains_to: string | null) => void
   asking:       (question_id: string, askkind: Askkind) => boolean
+  /** Why a kind of ask cannot be made at all, when it cannot; null when it can */
+  unavailableNotice: (askkind: Askkind) => string | null
   onAsk:        (question: QuestionT, askkind: Askkind) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
-  onDrag:       (question_id: string, onto_idx: number) => void
+  /** Told which question moved, and the index it lands on once it has been lifted out */
+  onMove:       (question_id: string, onto_idx: number) => void
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, onAsk, onEdit, onDrag }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
-  // Derived on demand and stored nowhere, so a sum is never out of step with its extraction.
-  const sums = sumsForRound(questions)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [overIdx, setOverIdx] = useState<number | null>(null)
-
-  const settle = (onto_idx: number) => {
-    if (draggingId !== null) { onDrag(draggingId, onto_idx) }
-    setDraggingId(null)
-    setOverIdx(null)
-  }
 
   return (
     <div className={styles.scroller}>
-      <table className={styles.grid} style={{ width: `${String(GridWidthPx)}px` }}>
+      <table className={styles.grid} style={{ width: `${String(gridWidthPx(specs))}px` }}>
         <thead>
           <tr>
-            {Columns.map((column) => {
+            <th scope="col" className={clsx(styles.head, ! gripShown && styles.gripCollapsed)} style={{ width: `${String(GripWidthPx)}px` }} />
+            {specs.map((column) => {
               const sortkey = column.sortkey ?? null
               return (
                 <th
@@ -62,21 +59,23 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
                   style={{ width: `${String(column.widthPx)}px` }}
                   aria-sort={ariaSortFor(sortkey, sortMark)}
                 >
-                  {sortkey === null ? column.title : (
-                    <button type="button" className={styles.headButton} disabled={locked} onClick={() => { onSort(sortkey) }}>
-                      {column.title}
-                      {/* Decorative: the direction is already on the header as aria-sort, and
-                          folding the arrow into the button's name would rename it on every click. */}
-                      <span aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
-                    </button>
-                  )}
+                  <span className={clsx(column.headkind === 'vertical' && styles.headVerticalInner)}>
+                    {sortkey === null ? column.title : (
+                      <button type="button" className={styles.headButton} disabled={locked} onClick={() => { onSort(sortkey) }}>
+                        {column.title}
+                        {/* Decorative: the direction is already on the header as aria-sort, and
+                            folding the arrow into the button's name would rename it on every click. */}
+                        <span aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
+                      </button>
+                    )}
+                  </span>
                 </th>
               )
             })}
           </tr>
         </thead>
         <tbody>
-          {questions.map((question, ii) => (
+          {questions.map((question, idx) => (
             <QuestionRow
               key={question.id}
               question={question}
@@ -84,15 +83,14 @@ export function QuestionTable({ questions, locked, gripShown, lastSortkey, sortM
               locked={locked}
               gripShown={gripShown}
               resizeToken={resizeToken}
-              dragging={draggingId === question.id}
-              dropTarget={overIdx === ii && draggingId !== null && draggingId !== question.id}
-              onDragBegin={() => { setDraggingId(question.id) }}
-              onDragOver={() => { setOverIdx(ii) }}
-              onDrop={() => { settle(ii) }}
-              onDragEnd={() => { setDraggingId(null); setOverIdx(null) }}
+              idx={idx}
+              count={questions.length}
+              onMove={onMove}
               onChain={(chains_to) => { onChain(question.id, chains_to) }}
-              sums={sums.get(question.id) ?? EmptySums}
+              specs={specs}
+              expressed={expressed}
               asking={(askkind) => asking(question.id, askkind)}
+              unavailableNotice={unavailableNotice}
               onAsk={(askkind) => { onAsk(question, askkind) }}
               onAskTarget={(askkind) => {
                 const target = questions.find((other) => other.id === question.chains_to)
@@ -113,7 +111,7 @@ function headClassOf(headkind: Headkind): string | undefined {
   return headkind === 'centered' ? styles.headCentered : undefined
 }
 
-/** The arrow marking the column sorted in this session -- not the one the round remembers */
+/** The arrow marking the column sorted in this session -- not the one the quiz remembers */
 function arrowFor(sortkey: Sortkey, sortMark: SortMark | null): string {
   if (sortMark?.sortkey !== sortkey) { return '' }
   return sortMark.descending ? ' ↓' : ' ↑'

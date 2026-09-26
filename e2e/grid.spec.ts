@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test'
+import { reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
 })
 
 test('a fresh workspace opens with blank questions rather than a void', async ({ page }) => {
-  await expect(page.getByLabel('Round name')).toBeVisible()
+  await expect(page.getByLabel('Quiz name')).toBeVisible()
   await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
 })
 
@@ -17,24 +16,24 @@ test('every column is present from the start, so the layout never shifts later',
 })
 
 test('what you type survives a reload', async ({ page }) => {
-  await page.getByLabel('Round name').fill('Léon and other régions')
+  await page.getByLabel('Quiz name').fill('Léon and other régions')
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   await clueing.fill('Which region gave its name to 千 other things?')
-  await page.getByRole('textbox', { name: 'Short answer' }).first().fill('Leon')
+  await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
   // Edits commit on blur, so move focus off the field before reloading.
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
 
-  await page.reload()
+  await reloadOnceSaved(page)
 
-  await expect(page.getByLabel('Round name')).toHaveValue('Léon and other régions')
+  await expect(page.getByLabel('Quiz name')).toHaveValue('Léon and other régions')
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first())
     .toHaveValue('Which region gave its name to 千 other things?')
-  await expect(page.getByRole('textbox', { name: 'Short answer' }).first()).toHaveValue('Leon')
+  await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Leon')
 })
 
-test('the round name reaches the browser tab', async ({ page }) => {
-  await page.getByLabel('Round name').fill('Round one')
-  await expect(page).toHaveTitle('Round one — Triquet')
+test('the quiz name reaches the browser tab', async ({ page }) => {
+  await page.getByLabel('Quiz name').fill('Quiz one')
+  await expect(page).toHaveTitle('Quiz one — Triquet')
 })
 
 test('adding a question appends a blank one', async ({ page }) => {
@@ -46,7 +45,7 @@ test('a long clueing sets the height of its hint box too', async ({ page }) => {
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   const hint = page.getByRole('textbox', { name: 'Hint' }).first()
   const wasHt = await hint.evaluate((node) => node.clientHeight)
-  await clueing.fill(Array.from({ length: 12 }, (_ignored, ii) => `line ${String(ii)} of a long clueing`).join('\n'))
+  await clueing.fill(Array.from({ length: 12 }, (_ignored, lineIdx) => `line ${String(lineIdx)} of a long clueing`).join('\n'))
   await expect.poll(async () => hint.evaluate((node) => node.clientHeight)).toBeGreaterThan(wasHt)
 })
 

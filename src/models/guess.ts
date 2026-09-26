@@ -2,19 +2,21 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { AskValidators } from './ask'
 
-export const GuessValidators = Validator(({ obj, str, bool, timestamp, lit, discrim }) => {
+export const GuessValidators = Validator(({ obj, textish, bool, timestamp, lit, discrim }) => {
   const guessDone = obj({
     status:             lit('done'),
-    text:               str
-      .describe('The model\'s answer, as one line, verbatim and untrimmed of its own wording. The author compares this against the intended short answer by eye; the tool never scores the comparison for them.'),
+    text:               textish
+      .describe('Dumdum\'s reply, verbatim and untrimmed, cut only to length. The author compares this against the answer by eye; the tool never scores the comparison for them.'),
     model_tier_applied: AskValidators.modelTier.optional(),
     truncated:          bool.default(false),
     approx_tokens:      AskValidators.approxTokens.optional(),
     updated_at:         timestamp,
+    last_err:           AskValidators.lastErr.nullable().default(null)
+      .describe('The most recent failed refresh of this guess, which leaves the guess itself as it was; null after any success.'),
   })
 
   const guess = discrim('status', [guessDone, AskValidators.askError]).nullable()
-    .describe('What a fast, not-especially-careful reader answered, or null when never asked. This is the ambiguity signal: a guess that differs from the intended short answer means the question has a second reading the author could not see from the inside.')
+    .describe('What a fast, not-especially-careful reader answered, or null when never asked. This is the ambiguity signal: a guess that differs from the answer means the question has a second reading the author could not see from the inside.')
 
   return { guessDone, guess }
 })

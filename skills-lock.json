@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "skills": {
+    "jazz": {
+      "source": "garden-co/jazz",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "packages/create-jazz/skills/jazz/SKILL.md",
+      "computedHash": "6859b79109c213f4b53efb81d5b573daab65893a390e10f9e3b291b55e3c36c9"
+    },
+    "material-ui-nextjs": {
+      "source": "mui/material-ui",
+      "sourceType": "github",
+      "skillPath": "skills/material-ui-nextjs/SKILL.md",
+      "computedHash": "c304c084df2b50efd47e2557209f87f2da6ffe4ec0c43fecf0b9096fe77ed7a0"
+    },
+    "material-ui-review": {
+      "source": "mui/material-ui",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/material-ui-review/SKILL.md",
+      "computedHash": "553c204be0dd3e7c602035be74d8edf69a16b9e6694863295b68cf015ee64edf"
+    },
+    "material-ui-styling": {
+      "source": "mui/material-ui",
+      "sourceType": "github",
+      "skillPath": "skills/material-ui-styling/SKILL.md",
+      "computedHash": "3aee2bcb4c2ea1fcba3d97f7e43a3208bfc0d477f494d06dad22c1ec25c33ac3"
+    },
+    "material-ui-theming": {
+      "source": "mui/material-ui",
+      "sourceType": "github",
+      "skillPath": "skills/material-ui-theming/SKILL.md",
+      "computedHash": "06f09d0152bf43a8f64d170a67418e7f33ac265bc995e2fed47adb5bcc979a54"
+    },
+    "vitest": {
+      "source": "antfu/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vitest/SKILL.md",
+      "computedHash": "943d436114c677802426741980146c07560bf375297666b03062444f4b98a785"
+    }
+  }
+}

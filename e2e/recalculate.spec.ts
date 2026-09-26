@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
+import { newQuiz, reloadOnceSaved, waitUntilSaved } from './support'
 
-/** The cell of column `colname` in the row at `ii` */
-function cellOf(page: Page, ii: number, colname: string) {
-  return page.locator('tbody tr').nth(ii).locator(`td[data-colname="${colname}"]`)
+/** The cell of column `colname` in the row at `rowIdx` */
+function cellOf(page: Page, rowIdx: number, colname: string) {
+  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
 }
 
 /** Answer the combined run by giving every key one span worth `value` */
@@ -23,13 +24,12 @@ async function stubRun(page: Page, valueOf: (key: string) => number) {
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
   for (const ii of [0, 1, 2]) {
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
   }
-  await page.getByLabel('Round name').click()
+  await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
 })
 
 test('one run fills every clueing and hint, with a single cost figure for the lot', async ({ page }) => {
@@ -82,9 +82,8 @@ test('a failed run changes nothing, and says so', async ({ page }) => {
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toHaveText('7')
 })
 
-test('a round with no text at all gets its own notice rather than an empty request', async ({ page }) => {
-  await page.evaluate(() => { localStorage.clear() })
-  await page.reload()
+test('a quiz with no text at all gets its own notice rather than an empty request', async ({ page }) => {
+  await newQuiz(page)
   await page.route('**/api/ask', (route) => route.abort())
   await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
   await expect(page.getByText('No questions or hints have any text yet — nothing to recalculate.')).toBeVisible()
@@ -94,6 +93,6 @@ test('the cost figure is kept across reloads', async ({ page }) => {
   await stubRun(page, () => 7)
   await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
   await expect(page.getByText('~4,200 tok last time (6 texts)')).toBeVisible()
-  await page.reload()
+  await reloadOnceSaved(page)
   await expect(page.getByText('~4,200 tok last time (6 texts)')).toBeVisible()
 })

@@ -17,10 +17,10 @@ export type QuizSwitcherProps = {
 }
 
 /**
- * Every round this browser holds, and what can be done to the set of them.
+ * Every quiz this browser holds, and what can be done to the set of them.
  *
- * None of these is blocked by a lock: switching away, making another round, deleting one and
- * unlocking all stay available, because locking a round must never be a trap.
+ * None of these is blocked by a lock: switching away, making another quiz, deleting one and
+ * unlocking all stay available, because locking a quiz must never be a trap.
  */
 export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSetLock }: Readonly<QuizSwitcherProps>) {
   const [confirming, setConfirming] = useState(false)
@@ -31,7 +31,7 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
       <select
         className={clsx(styles.field, styles.fieldData)}
         style={{ width: 'auto', minWidth: 220 }}
-        aria-label="Open round"
+        aria-label="Open quiz"
         value={openQuiz.id}
         onChange={(event) => { onOpen(event.target.value) }}
       >
@@ -63,7 +63,7 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
       ) : (
         <Button
           size="small" variant="outlined" disabled={isLast}
-          title={isLast ? 'The last round cannot be deleted' : undefined}
+          title={isLast ? 'The last quiz cannot be deleted' : undefined}
           onClick={() => { setConfirming(true) }}
         >
           Delete quiz
@@ -73,7 +73,7 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
       <span style={{ flex: 1 }} />
 
       <Button size="small" variant={openQuiz.locked ? 'contained' : 'outlined'} onClick={() => { onSetLock(! openQuiz.locked) }}>
-        {openQuiz.locked ? 'Unlock round' : 'Lock round'}
+        {openQuiz.locked ? 'Unlock quiz' : 'Lock quiz'}
       </Button>
     </Stack>
   )
