@@ -4,7 +4,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { DefaultDatabaseUrl, databaseUrlFrom, openDb } from '../../src/db/client'
-import { players } from '../../src/db/schema'
+import { players } from '../../src/db/drizzle-schema'
 import { SeedPlayers } from '../../src/models/player'
 
 describe('openDb', () => {

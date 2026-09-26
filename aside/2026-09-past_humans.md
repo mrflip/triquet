@@ -252,7 +252,7 @@ in the document:**
 
     pnpm dev              # the app
     pnpm test             # 1357 vitest specs
-    pnpm test:e2e         # 99 playwright specs, starts its own dev server on :3100
+    pnpm test:e2e         # 99 playwright specs, starts its own dev server on :3002
     pnpm lint && pnpm typecheck && pnpm build
 
 Asking Claude needs `ANTHROPIC_API_KEY` in the environment. Without it the grid works and each

@@ -31,7 +31,7 @@ first, then this.
 3. A review of validation boundaries once rows settle.
 4. Turning the transitional notes ("outgoing", "mid-move") into what we learned.
 5. Strengthening the Zod/Jazz sync checks beyond the phase 1 coherence test: compare
-   `Z.toJSONSchema` output against Jazz's compiled schema for whole tables (`pnpm dlx jazz-tools
+   `Z.toJSONSchema` output against Jazz's compiled schema for whole tables (`pnpm exec jazz-tools
    schema export` prints it as JSON; it may be reachable in-process too), lean on the
    type-level equality as the backstop for every table, and decide which side a new column is
    added to first so the failure message says which is behind.
@@ -45,7 +45,7 @@ touches the UI. Each phase is a PR-sized unit; a `/code-review` pass at the end 
 
 * Install `jazz-tools@2.0.0-alpha.56` (exact). `withJazz()` in `next.config.ts`, with the dev
   server's `port` and `dataDir` read from env so the agent scripts can point at their own:
-  `dev:agent` gets a Jazz port beside 3100 and `data/jazz-agent/`; `.gitignore` already covers
+  `dev:agent` gets a Jazz port beside 3200 and `data/jazz-agent/`; `.gitignore` already covers
   `/data/*`. Keep `distDir` and `turbopack.root` as they are.
 * `JazzProvider` in `src/app/providers.tsx`, local-first session as the initial state.
 * **Spikes, each a throwaway test, answers recorded in `HUMAN-whatsup.md`:**
@@ -57,6 +57,34 @@ touches the UI. Each phase is a PR-sized unit; a `/code-review` pass at the end 
   - The Playwright `webServer`: does `dev:agent` bring the Jazz dev server up by itself, and
     is a fresh browser context enough to reset state between specs?
 * Exit: the app still runs on libSQL; Jazz is installed, provides, and the four answers are in.
+
+**Phase 0 answers (2026-09-25, alpha.56).** Detail in `HUMAN-whatsup.md`.
+
+* **JSON columns are enforced.** `db.insert` throws synchronously, before any sync, on a value
+  its column's JSON schema refuses: `WriteError("encoding error: JSON schema validation failed
+  for column `reply`: 42 is not a string")`. First issue only; not a message for an author.
+* **Callables pass, but use `plain()`.** A `Validator` callable presents `~standard.jsonSchema`
+  and compiles, but loses its own top-level `.describe()` (Zod keys metadata on identity), so
+  its column schema differs from `Z.toJSONSchema(plain(...))`. Write `JZS.json(plain(X.y))`.
+* **Default harness: `createPolicyTestApp`.** Opens in about 35 ms, and a round trip with an
+  edge wait takes about 25 ms. Permissions are enforced and one account's rows are hidden from
+  another. Sessions are `{ user_id, issuer, claims, authMode: 'local-first' }`; the type is
+  `Parameters<PolicyTestApp['as']>[0]` (Jazz does not export `Session`). The memory driver
+  works too, but needs a hand-made `AccountStore` and an unused `serverUrl`
+  (`createAccountManager` → `createLocalFirst()` → `createDb({ account, driver: { type: 'memory' } })`),
+  and it evaluates no permissions.
+* **Playwright: `dev:agent` brings Jazz up itself.** A fresh browser context starts empty
+  *only because rows are per-account*: rows do reach the server, and a policy that lets anyone
+  read shows a fresh context everyone's rows. Keep every table creator-owned, or wipe
+  `data/jazz-agent/` before a run. Offline works: with the sync server blocked, a first visit
+  still makes its account and writes locally.
+* **Seams for phase 1.** `src/db/schema.ts` holds one placeholder table (`spike_notes`) because
+  an empty schema will not deploy (the permissions publish 404s). When it goes, wipe
+  `data/jazz-agent/`, since the server keeps schema history. The Drizzle schema is now
+  `src/db/drizzle-schema.ts`, because Jazz loads whatever `schema.ts` is in `schemaDir`.
+  `unicorn/max-nested-calls` (3) trips on `defineApp(defineSchema({ t: table({ c: string() }) }))`:
+  declare the schema and the app separately, and expect to lift payload-enum tables into their
+  own consts. `JZS.table()` requires its relations argument, even `{}`.
 
 ### Phase 1: schema and permissions (design-heavy; one focused session, one model)
 
@@ -151,20 +179,7 @@ Turn "outgoing" and "mid-move" into what is. `README.md` Developing section, `CL
 paragraph and `src/db/` entry, `stack.md` Outgoing lines, `guidelines.md`'s
 "Sketch/DNA/Real/Live" mention in `testing.md`.
 
-## Which model, and when to spawn
-
-* **Phases 1 and 2 (schema, permissions, the write side): Opus 5.5**,
-  and the *same* model for both phases, one session each if possible. These are the two places
-  where the work is against an alpha API newer than training, and where the judgement calls
-  (enum cases vs nullable columns, what `.transform()` should carry, how an action maps to rows)
-  propagate into every later file.
-* **Phase 0 spikes and phase 3's deletions, dependency removal and e2e re-pointing: Opus 5.5 in plan mode**
-  Mechanical, well-specified, and the checks (`lint`, `typecheck`, `test`) catch mistakes.
-* **Test porting in phase 2 and 3: Sonnet 5, in parallel**, after the schema and the first two
-  actions have landed as the pattern to copy.
-* **Phases 4 and 5: any.**
-
-Sub-agents:
+## Sub-agents:
 
 * **Reading the `jazz-tools` package** is the one job worth an Explore agent: `dist/` is large,
   and the main session's context should hold the design, not the type declarations. Ask for

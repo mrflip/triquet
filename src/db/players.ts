@@ -1,5 +1,5 @@
 import { asc, eq } from 'drizzle-orm'
-import { players } from './schema'
+import { players } from './drizzle-schema'
 import * as Credentials from '../lib/credentials'
 import { renderPrompt } from '../lib/ask/prompts'
 import type { Db } from './client'

@@ -9,9 +9,11 @@
     "claudeCode.allowDangerouslySkipPermissions": true,
     "claudeCode.initialPermissionMode": "bypassPermissions",
     "search.exclude": {
+      "**/.next-*/**": true,
       "**/ripd": true,
       "**/tmp": true
     },
-    "search.globalFindClipboard": true
+    "search.globalFindClipboard": true,
+    "typescript.tsdk": "node_modules/typescript/lib"
   }
 }

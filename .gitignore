@@ -32,7 +32,7 @@ ehthumbs.db
 
 # next.js
 .next/
-.next-agent/
+.next-*/
 .next-agent-build/
 out/
 

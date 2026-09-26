@@ -2,7 +2,7 @@ import path from 'node:path'
 import { createClient } from '@libsql/client'
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
-import * as schema from './schema'
+import * as schema from './drizzle-schema'
 import { SeedPlayers } from '../models/player'
 import { ValidatorKit } from '../lib/validator'
 

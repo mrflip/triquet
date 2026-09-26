@@ -81,21 +81,23 @@ The top three values while writing code are **empathy, safety and readability**.
 ## Global resources
 
 Never touch a resource a human may already be using. Next.js allows one dev server and one build
-per directory, so as an agent **use `pnpm dev:agent` (port 3100) and `pnpm build:agent`**, never
-`pnpm dev` / `pnpm build`; Playwright already starts `dev:agent` itself. Those scripts also point
-the app at `data/agent.db`, never the human's `data/triquet.db`. Never kill a process you
-did not start. If you meet another shared resource -- a port, a cache or output directory, a
-database -- give yourself a parallel one the same way, and add its script to `package.json`.
-Jazz's development sync server and its data directory count: when they arrive, the agent
-scripts give the agent its own port and data directory for them, the same way.
+per directory, so as an agent **use `pnpm dev:agent` (port 3001) and `pnpm build:agent`**, never
+`pnpm dev` / `pnpm build`, and run e2e only as `pnpm test:e2e` (port 3002). Doppler supplies each
+its ports and directories (`dev_claude`, `dev_e2e`); the scripts point the app at `data/agent.db`
+or `data/e2e.db`, never the human's `data/triquet.db`. Jazz runs locally inside the dev server
+(agents: port 3201, `data/jazz-agent/`) unless `JAZZ_REAL_DB=true`. Housekeeping on the agents'
+Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `dev_aijanitor`,
+never `dev_janitor`. Never kill a process you did not start. If you meet another shared resource
+-- a port, a cache or output directory, a database -- give yourself a parallel one the same way,
+and add its script to `package.json`.
 
 ## Architecture
 
 Where code lives. Imports run down this list, never up: a lower layer knows nothing of the ones
 above it. (`lib` and `models` are peers, and lean on each other freely. `db` sits above both:
 `db/schema.ts` takes value validators from `models`, and nothing in `models` imports from `db`.
-Row types come from `db`. Until the Drizzle files are gone, `models/player.ts` still climbs into
-`db/schema` through `drizzle-zod`; that climb leaves with them.)
+Row types come from `db`. Until the Drizzle files are gone, `models/player.ts` and
+`models/playing.ts` still climb into `db/drizzle-schema`; that climb leaves with them.)
 
 * `src/app/` -- Next.js App Router: pages, the theme and palette, and the route handlers under
   `api/`. Pages are thin; they hand off to a component.
@@ -146,7 +148,7 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
-  - `notes/tests.md` *(auto-loads with any test file)* -- test conventions.
+  - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
   - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.

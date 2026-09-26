@@ -18,7 +18,8 @@ export default defineConfig([
   globalIgnores([
     '.next/**',
     '.next-agent/**',
-    '.next-agent-build/**',
+    '.next-e2e/**',
+    '.next-*/**',
     'out/**',
     'build/**',
     'dist/**',

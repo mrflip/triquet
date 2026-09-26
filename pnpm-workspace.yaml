@@ -1,5 +1,6 @@
 allowBuilds:
-  esbuild: false
+  esbuild: true
+  protobufjs: true
   unrs-resolver: true
 patchedDependencies:
   zod@4.6.5: patches/zod@4.6.5.patch

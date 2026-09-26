@@ -2,6 +2,81 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-25: Jazz phase 0 -- installed, wired, four spikes answered
+
+`jazz-tools@2.0.0-alpha.56` is installed (pinned exact; the `alpha` tag still points at it).
+`withJazz` is in `next.config.ts`, and `JazzProvider` wraps the app with a local-first session.
+The app still runs on libSQL. Lint, typecheck, unit tests (1567), e2e (129 plus 3 spike specs,
+since removed) and `build:agent` all pass. Nothing committed.
+
+**The four answers**
+
+1. **Does the runtime reject a JSON write that breaks the column's schema? Yes.** `db.insert`
+   throws synchronously and locally, before any sync, with `WriteError("encoding error: JSON
+   schema validation failed for column `reply`: 42 is not a string")`. The edge rejects it the
+   same way. Only what JSON Schema can say is checked (`minLength` yes; refinements and
+   transforms no), and the message names only the first problem. The entrypoint checks still
+   write the messages an author sees; the column is a real second net, not decoration.
+2. **Does a `Validator` callable pass as `StandardJSONSchemaV1`? Yes, but use `plain()`.** Zod's
+   `~standard` getter resolves through the callable's prototype, so it compiles. It loses its
+   own top-level `.describe()`, though, because Zod keys descriptions on the schema's identity.
+   The column's JSON schema then differs from `Z.toJSONSchema(plain(...))`, which the coherence
+   test compares against.
+3. **Which harness? `createPolicyTestApp`.** It starts a real in-process server in about 35 ms,
+   a round trip with an edge wait takes about 25 ms, it enforces permissions (one account's rows
+   hidden from another, verified), and it is Jazz's public testing API. The memory driver is
+   just as fast, but it evaluates no permissions and needs a hand-made `AccountStore` plus a
+   `serverUrl` it never uses.
+4. **Playwright: does `dev:agent` bring Jazz up, and is a fresh context enough? Yes, and yes,
+   on one condition.** `withJazz` runs the sync server inside `next dev`, so the existing
+   `webServer` entry needs no change. A fresh context starts empty *only because each
+   local-first account sees only its own rows*. With a read-by-anyone policy, the fresh
+   context saw earlier runs' rows. So the reset holds while every table is creator-owned;
+   otherwise wipe `data/jazz-agent/` before a run.
+
+Bonus, for client-first: with the sync server blocked (HTTP and WebSocket), a *first* visit
+still makes its account, writes and reads. An established tab keeps working when the server
+goes away.
+
+**Judgement calls you may want to overturn**
+
+* **A production build without Jazz env shows an error instead of the app.** `withJazz` fills
+  `NEXT_PUBLIC_JAZZ_APP_ID` / `_SERVER_URL` only in dev. Without them, `SyncProvider` renders
+  an MUI Alert naming the two variables, so `pnpm build && pnpm start` (and any preview
+  deploy) now shows that alert, although the app itself needs nothing from Jazz yet. CI's
+  `pnpm build` still passes. The alternative is to render the app without Jazz when
+  unconfigured, a fallback path phase 3 would have to remove. This is tied to the open "where
+  does the sync server run" item.
+* **The whole app waits for the Jazz session.** Server render and first paint are an MUI
+  `LinearProgress`, then the app (under a second locally). That is how `JazzProvider` works,
+  but it means the prerendered shell no longer paints before the data, as the client-first note
+  hoped. Phase 3 may want the page chrome outside the provider.
+* **Placeholder table.** An empty Jazz schema will not deploy (the permissions publish 404s),
+  so `src/db/schema.ts` has one `spike_notes` table, creator-owned, which nothing reads.
+  Phase 1 replaces it.
+* **The Drizzle schema moved to `src/db/drizzle-schema.ts`.** Jazz loads whatever
+  `schema.ts` sits in its `schemaDir` (`src/db`). Ten imports and `drizzle.config.ts` follow it.
+* **Human ports and data:** `pnpm dev` now also runs Jazz on :3001 with data in `data/jazz/`,
+  kept out of the default `node_modules/.cache` so a reinstall can't wipe it. The port is
+  pinned rather than random because the browser's account is enrolled against the server URL.
+  Agents get :3101 and `data/jazz-agent/`. README and CLAUDE.md say so.
+* **The spikes were thrown away**, not kept in `whiteboard/`: exploratory code that logs
+  instead of asserting would have needed lint exemptions to live in the tree. Their answers,
+  and the one non-obvious harness recipe, are in the plan under Phase 0.
+* **`protobufjs`'s build script is denied** in `pnpm-workspace.yaml`. It came in through
+  jazz-tools' OpenTelemetry deps, and its postinstall only prints a version warning.
+
+**Noticed, not acted on**
+
+* `withJazz` writes the app id into `<schemaDir>/.env`, which is `src/db/.env` (gitignored
+  by `.env*`). The plugin reads an `envDir` option at runtime, but its types leave it out.
+* `playwright.config.ts` has `reuseExistingServer: ! process.env.CI`. When an agent's own
+  `dev:agent` is already running, without the `webServer` env (stand-in API key, 2 s commit
+  debounce), 19 specs fail for reasons unrelated to what they test. It bit me once today.
+* jazz-tools brings in roughly 300 MB of native and WASM binaries (`jazz-napi`, `jazz-wasm`).
+* Jazz's dev inspector overlay (a 🎵 button, Alt+Shift+J) mounts in dev. The e2e suite
+  doesn't notice it.
+
 ## 2026-09-25: Jazz decision recorded, migration planned
 
 Docs only; no code changed, nothing committed. `notes/decisions/2026-09-jazz.md` (rewritten) and
@@ -21,8 +96,6 @@ Docs only; no code changed, nothing committed. `notes/decisions/2026-09-jazz.md`
 * **"Open with a Coach" in `stack.md` is now mostly a settled-list** with one open item (where
   the sync server runs). The other open items (e2e thickness, OPFS, formulas in a worker, the AI
   layer, MUI on the grid) are untouched.
-* **Model guidance in the plan** is a heuristic, not a benchmark: I have no measured ranking of
-  Opus 5.5 against Fable 5.1 or Sonnet 5. I read "Claude" in your question as Sonnet 5.
 
 **Noticed, not acted on**
 

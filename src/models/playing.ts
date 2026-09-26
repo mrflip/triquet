@@ -1,5 +1,5 @@
 import { mintId } from '../lib/ids'
-import type { PlayingRow } from '../db/schema'
+import type { PlayingRow } from '../db/drizzle-schema'
 import { askError, type LastErrT } from './ask'
 import type { GuessDNA, GuessDoneT, GuessT } from './guess'
 import type { IshesDNA, IshesDoneT, IshesT, IshItemT } from './ish'

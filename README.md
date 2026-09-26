@@ -35,14 +35,23 @@ We don't hand-roll what a maintained library already does. Reach for a Material 
 
 Use these standard commands:
 
-    pnpm dev              # the app, on :3000
+    scripts/kilroy        # prints "triquet" when Doppler is set up for this checkout
+    pnpm dev              # the app, on :3000 (Doppler's default config for this directory)
     pnpm test             # unit specs
-    pnpm test:e2e         # end-to-end specs, on :3100
+    pnpm test:e2e         # end-to-end specs, on :3002 (Doppler's dev_e2e)
     pnpm lint && pnpm typecheck && pnpm build
 
-Coding agents use `pnpm dev:agent` (port 3100, build directory `.next-agent`) and `pnpm build:agent`
+    doppler run -c dev_janitor -- scripts/jazz_healthcheck   # the real Jazz app it names: reachable, schema deployed?
+    doppler run -c dev_janitor -- scripts/jazz_deploy        # publish schema.ts and permissions.ts to it
+
+Coding agents use `pnpm dev:agent` (port 3001, build directory `.next-agent`) and `pnpm build:agent`
 instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server you already have
-running. Next.js refuses to start a second dev server in the same directory.
+running. Next.js refuses to start a second dev server in the same directory. Each dev script runs
+under a Doppler config that gives it its own port, build directory and Jazz server: your default
+config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for `pnpm test:e2e`. The e2e
+suite always runs the app with a stand-in API key and its own `data/e2e.db`, and refuses to run
+locally outside `dev_e2e`. CI runs `playwright test` directly, with GitHub's environment;
+Vercel supplies its own.
 
 **Storage is mid-move to Jazz v2** (plan: `whiteboard/jazz-migration.md`), and this section
 will change when the move is done. Until then, quizzes live in a local libSQL database file,
@@ -50,6 +59,17 @@ will change when the move is done. Until then, quizzes live in a local libSQL da
 (`file:...`, or `:memory:`). The agent scripts use `data/agent.db`. Each browser finds its own
 workspace by a cookie. Please don't build anything new on this layer. There is no migration
 path: export your quizzes as JSON before the move and bring them back through the import tool.
+
+Jazz is already installed beside it. In development it runs a local Jazz sync server inside the
+Next process, on `JAZZ_DEV_PORT` with its data in `JAZZ_DEV_DATA_DIR` (3200 and `data/jazz/` for
+you), publishes `src/db/schema.ts` and `permissions.ts` to it on every start and save, and
+records its app id in a `.env` inside that data directory. It
+ignores any Jazz Cloud variables the environment carries, unless `JAZZ_REAL_DB=true`: then it
+starts no server, uses `NEXT_PUBLIC_JAZZ_APP_ID` and `NEXT_PUBLIC_JAZZ_SERVER_URL` as given, and
+publishes nothing. Deploying to a real database is housekeeping, done under the `*janitor`
+Doppler configs, which alone hold the admin secret. A
+production build needs `NEXT_PUBLIC_JAZZ_APP_ID` and `NEXT_PUBLIC_JAZZ_SERVER_URL` at build time;
+without them the page says so instead of opening.
 
 Each quiz's edit history is committed to an in-browser git repository about 30 seconds after the
 first edit in a burst; `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` (2 to 600) changes that wait.

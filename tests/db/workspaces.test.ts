@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { openDb, type Db } from '../../src/db/client'
-import { playings, questions } from '../../src/db/schema'
+import { playings, questions } from '../../src/db/drizzle-schema'
 import { createWorkspace, loadWorkspace, saveChange } from '../../src/db/workspaces'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'

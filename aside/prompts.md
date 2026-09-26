@@ -7,6 +7,17 @@ I'm aware of the jazz trial limitations.
 Currently models have/will ahve these separate pieces: 1) that part of the jazz schema, 2) WidgetValidators; 3) exporting various typedefs (`export type WidgetT = Z.output<...>`); 4) the class, with its `declare` lines and functionality.
 
 
+* **Phases 1 and 2 (schema, permissions, the write side): Opus 5.5**,
+  and the *same* model for both phases, one session each if possible. These are the two places
+  where the work is against an alpha API newer than training, and where the judgement calls
+  (enum cases vs nullable columns, what `.transform()` should carry, how an action maps to rows)
+  propagate into every later file.
+* **Phase 0 spikes and phase 3's deletions, dependency removal and e2e re-pointing: Opus 5.5 in plan mode**
+  Mechanical, well-specified, and the checks (`lint`, `typecheck`, `test`) catch mistakes.
+* **Test porting in phase 2 and 3: Sonnet 5, in parallel**, after the schema and the first two
+  actions have landed as the pattern to copy.
+* **Phases 4 and 5: any.**
+*
 ## **Expand**:
 
 Yes add the architecture section. Don't yet put work into describing the data flow, I want to talk about that.  Write the vocabulary list -- I'm curious how well it's grokked. I pulled the stuff about live() out. Please write out the patch pattern section. I am pretty sure I do want the tests you described, will add a work thread on that

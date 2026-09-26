@@ -112,13 +112,15 @@ Settled; reach for these before writing the equivalent.
 
 * **Doppler.** Never a `.env` file in the repo, never a secret pasted into a chat, never a
   secret in a code comment. Syncing to Vercel and to GitHub Actions comes with deployment.
+  Dev mode scripts (eg `dev` and `dev:agent`) are set up with `doppler run`. Staging and production
+  sync directly with doppler using env vars as-is.
 * **GitHub Actions** (`.github/workflows/ci.yml`): `tsc --noEmit`, `eslint`, `vitest run`,
   `next build` and the Playwright suite. All gate a merge; agent-authored PRs go through the
   same gates as anyone's.
 
 ### Testing
 
-* **Vitest** with chai-style assertions. See `notes/tests.md`.
+* **Vitest** with chai-style assertions. See `notes/testing.md`.
 * **`jazz-tools/testing`** (`startLocalJazzServer`, `createPolicyTestApp`) for anything that
   touches rows or policies; model the real topology when sync or permissions are the behaviour
   under test.

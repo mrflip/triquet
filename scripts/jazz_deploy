@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Publishes src/db/schema.ts, permissions.ts and any migration they need to the real Jazz
+# database this environment names, then runs the healthcheck against it. A local dev server
+# publishes on its own, so this refuses to run unless JAZZ_REAL_DB is "true".
+#
+# Reads NEXT_PUBLIC_JAZZ_APP_ID, NEXT_PUBLIC_JAZZ_SERVER_URL, JAZZ_ADMIN_SECRET and JAZZ_REAL_DB.
+# Usage: doppler run --config dev_aijanitor -- scripts/jazz_deploy
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [[ "${JAZZ_REAL_DB:-}" != "true" ]]; then
+  echo "JAZZ_REAL_DB is not \"true\": run this under a janitor config, which names a real database." >&2
+  exit 1
+fi
+echo "Deploying to Jazz app ${NEXT_PUBLIC_JAZZ_APP_ID:?not set} at ${NEXT_PUBLIC_JAZZ_SERVER_URL:?not set}"
+: "${JAZZ_ADMIN_SECRET:?not set}"
+pnpm --silent exec jazz-tools deploy --schema-dir src/db
+echo
+exec scripts/jazz_healthcheck

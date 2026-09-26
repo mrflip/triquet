@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Checks the Jazz database this environment names, without changing it: that src/db/schema.ts and
+# permissions.ts validate, that the server answers to the environment's admin secret, and that it
+# holds our current schema and which permissions it serves.
+#
+# Reads NEXT_PUBLIC_JAZZ_APP_ID, NEXT_PUBLIC_JAZZ_SERVER_URL and JAZZ_ADMIN_SECRET.
+# Usage: doppler run --config dev_aijanitor -- scripts/jazz_healthcheck
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "Jazz app ${NEXT_PUBLIC_JAZZ_APP_ID:?not set} at ${NEXT_PUBLIC_JAZZ_SERVER_URL:?not set}"
+: "${JAZZ_ADMIN_SECRET:?not set}"
+echo
+echo "--- local schema"
+pnpm --silent exec jazz-tools validate --schema-dir src/db
+pnpm --silent exec jazz-tools schema hash --schema-dir src/db | grep "schema hash"
+echo
+echo "--- server"
+pnpm --silent exec jazz-tools permissions status --schema-dir src/db

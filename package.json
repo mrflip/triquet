@@ -10,17 +10,23 @@
       "default": "./src/lib/inspectify-browser.ts"
     }
   },
+  "pnpm": {
+    "allowedBuildScripts": [
+      "esbuild",
+      "protobufjs"
+    ]
+  },
   "scripts": {
-    "dev": "next dev -p 3000",
-    "dev:agent": "cross-env PORT=3100 NEXT_DIST_DIR=.next-agent TRIQUET_DATABASE_URL=file:data/agent.db next dev -p 3100",
+    "dev": "doppler run -- next dev",
+    "dev:agent": "doppler run --config dev_claude -- cross-env TRIQUET_DATABASE_URL=file:data/agent.db next dev",
     "build": "next build",
-    "build:agent": "cross-env NEXT_DIST_DIR=.next-agent-build TRIQUET_DATABASE_URL=file:data/agent.db next build",
+    "build:agent": "doppler run --config dev_claude -- cross-env NEXT_DIST_DIR=.next-agent-build TRIQUET_DATABASE_URL=file:data/agent.db next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "doppler run --config dev_e2e -- playwright test",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -41,6 +47,7 @@
     "es-toolkit": "^1.52.0",
     "fflate": "^0.8.3",
     "isomorphic-git": "^1.42.2",
+    "jazz-tools": "2.0.0-alpha.56",
     "jsonata": "1.8.9",
     "next": "^16.3.5",
     "papaparse": "^5.7.0",
