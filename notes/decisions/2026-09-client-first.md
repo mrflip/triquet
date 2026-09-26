@@ -26,7 +26,10 @@ Component could reach user data only through a backend session. Replaced by the 
   client-only alternative. It may arrive as its own independent feature; it does not replace
   the proxy, because it moves the cost and the account to the author.
 * **The Jazz sync server.** A server, but not ours: Jazz Cloud or Jazz's own binary with env
-  vars. Its lock-in is the data format and protocol, accepted in `2026-09-jazz.md`.
+  vars. Its lock-in is the data format and protocol, accepted in `2026-09-jazz.md`. It is not
+  needed to start: with it unreachable, a first visit still makes its local-first account and
+  reads and writes locally, and an open tab keeps working when it goes away (verified on
+  alpha.56, sync server blocked in Playwright).
 
 ## What gets harder client-only, and the answer to each
 

@@ -21,8 +21,15 @@ first, then this.
 * `import { schema as JZS } from 'jazz-tools'`, never `s`: `JZS.table(...)`, `JZS.string()`,
   and the types `JZS.RowOf<typeof app.quizzes>` (a type, not a call).
 * Validate between the UI and the app with the same Zod schemas the columns use.
-* Agents use `dev:agent` and their own Jazz dev server port and data directory (phase 0 adds
-  them). Never the human's.
+* Agents use `pnpm dev:agent` (Doppler `dev_claude`: app on 3001, Jazz on 3201, `data/jazz-agent/`)
+  and run e2e only as `pnpm test:e2e` (`dev_e2e`: 3002, 3202, `data/jazz-e2e/`). Never the
+  human's 3000, 3200 or `data/jazz/`. Dev Jazz is local unless `JAZZ_REAL_DB=true`.
+* Housekeeping against the agents' real Jazz app, `scripts/jazz_deploy` and
+  `scripts/jazz_healthcheck`, runs under `doppler run --config dev_aijanitor --`; never under
+  `dev_janitor`, which is the human's. Only the janitor configs hold the admin secret.
+* Run the CLI as `pnpm exec jazz-tools … --schema-dir src/db`. `pnpm dlx` builds a throwaway
+  install that pnpm refuses for its unapproved build scripts, and without `--schema-dir` Jazz
+  looks for `schema.ts` at the root.
 
 ## Out of scope (recorded TODOs)
 
@@ -73,10 +80,11 @@ touches the UI. Each phase is a PR-sized unit; a `/code-review` pass at the end 
   works too, but needs a hand-made `AccountStore` and an unused `serverUrl`
   (`createAccountManager` → `createLocalFirst()` → `createDb({ account, driver: { type: 'memory' } })`),
   and it evaluates no permissions.
-* **Playwright: `dev:agent` brings Jazz up itself.** A fresh browser context starts empty
-  *only because rows are per-account*: rows do reach the server, and a policy that lets anyone
-  read shows a fresh context everyone's rows. Keep every table creator-owned, or wipe
-  `data/jazz-agent/` before a run. Offline works: with the sync server blocked, a first visit
+* **Playwright: the dev server brings Jazz up itself.** (Since then e2e has its own config and
+  server: `pnpm test:e2e`, Jazz on 3202, `data/jazz-e2e/`.) A fresh browser context starts
+  empty *only because rows are per-account*: rows do reach the server, and a policy that lets
+  anyone read shows a fresh context everyone's rows. Keep every table creator-owned, or wipe
+  `data/jazz-e2e/` before a run. Offline works: with the sync server blocked, a first visit
   still makes its account and writes locally.
 * **Seams for phase 1.** `src/db/schema.ts` holds one placeholder table (`spike_notes`) because
   an empty schema will not deploy (the permissions publish 404s). When it goes, wipe
@@ -84,7 +92,21 @@ touches the UI. Each phase is a PR-sized unit; a `/code-review` pass at the end 
   `src/db/drizzle-schema.ts`, because Jazz loads whatever `schema.ts` is in `schemaDir`.
   `unicorn/max-nested-calls` (3) trips on `defineApp(defineSchema({ t: table({ c: string() }) }))`:
   declare the schema and the app separately, and expect to lift payload-enum tables into their
-  own consts. `JZS.table()` requires its relations argument, even `{}`.
+  own consts. `JZS.table()` requires its relations argument, even `{}`. The compiled columns
+  are readable in-process as `app.wasmSchema[table].columns` (`name`, `column_type`), which is
+  what the coherence test needs.
+* **The placeholder is deployed to the agents' real app** (`dev_aijanitor`). Replacing it there
+  may demand a migration (`pnpm exec jazz-tools migrations create`); pointing `dev_aijanitor`
+  at a fresh Jazz app is the simpler way out, since nothing in it matters. Wipe
+  `data/jazz-agent/` and `data/jazz-e2e/`; `data/jazz/` is the human's to wipe.
+* **How `withJazz` behaves (alpha.56).** In dev it publishes `schema.ts` and `permissions.ts` on
+  start and on every save. It connects to the server the environment names whenever
+  `NEXT_PUBLIC_JAZZ_SERVER_URL` *and* an admin secret are both present, and otherwise starts a
+  local one and overwrites the URL the browser gets. So `next.config.ts` removes the cloud
+  variables for the dev server unless `JAZZ_REAL_DB=true`, and then passes `server: false`. It
+  records its app id in a `.env` inside `envDir`, an option its types omit; we point it at the
+  Jazz data directory. `JazzProvider` renders its `loading` view until the session is ready,
+  server render included, so the prerendered page is our progress bar.
 
 ### Phase 1: schema and permissions (design-heavy; one focused session, one model)
 
@@ -135,8 +157,9 @@ stay pure and untouched.
 
 * Reorders write `position` on the rows that moved. A sort commits the new positions.
 * Relabel is still a move (routing decision); it writes the row, then navigates.
-* Each former reducer test becomes a test that runs the action against a memory db and reads
-  rows back by label. Coverage must not drop: port every case.
+* Each former reducer test becomes a test that runs the action against a `createPolicyTestApp`
+  database (the phase 0 default) and reads rows back by label. Coverage must not drop: port
+  every case.
 * `workspace-store.ts` is deleted; nothing replaces it. `use-workspace.ts` becomes a thin hook
   over `useAll`/`useOne`.
 * Exit: every action has a row-writing successor with tests; the UI is not yet switched.
@@ -149,12 +172,18 @@ stay pure and untouched.
   one place (`lib/quiz-bag.ts` or a sibling). The reducers used to hand them a tree; now a
   function assembles one. The export format is unchanged, so import keeps working.
 * `OpenQuizRedirect` reads `active_quiz` from the workspace row.
+* Decide where `JazzProvider` sits. It renders a progress bar until the session is ready, server
+  render included, so today no page chrome paints ahead of the data; the client-first note
+  wants the shell to prerender. Page chrome outside the provider is the likely answer.
+* Before this ships to a real database, `scripts/jazz_deploy` under the matching janitor config:
+  a client whose schema the server does not hold cannot be expected to sync.
 * Delete `lib/workspace/port.ts`, `lib/players/port.ts` (players are constants; only the
   credentialed flag is fetched, from `/api/players` which now reads env alone),
   `app/api/workspace/route.ts`, the cookie, `src/db/{client,players,workspaces}.ts`,
   `/drizzle`, `tests/db/{client,migrations,players,workspaces}.test.ts`, `lib/ids.ts` and its
   test. Remove `@libsql/client`, `drizzle-orm`, `drizzle-zod`, `drizzle-kit`, `ulid`, the
-  `db:generate` script, `TRIQUET_DATABASE_URL` from the agent scripts.
+  `db:generate` script, and `TRIQUET_DATABASE_URL` from `dev:agent`, `build:agent` and
+  Playwright's `webServer.env`, with `data/agent.db` and `data/e2e.db`.
 * e2e: re-point the specs. Most stub `/api/ask` and `/api/players` and keep working;
   `quizzes`, `routing`, `importing`, `quiz-history` need the fresh-context reset from the phase 0
   spike. Add one spec that asserts the app works with every route except `/api/ask` blocked
@@ -194,8 +223,8 @@ paragraph and `src/db/` entry, `stack.md` Outgoing lines, `guidelines.md`'s
 ## Risks, named
 
 * The alpha moves under us. Pinned exact; a bump is a decision, made after reading the diff.
-* JSON-column validation may be typing-only (phase 0 spike). If so, the entrypoint checks carry
-  the whole load, which is what the validation policy says anyway.
+* JSON-column validation turned out to be enforced (phase 0), but only what JSON Schema can
+  say, with a message not fit for an author. The entrypoint checks still carry the messages.
 * A reorder under concurrent edits is LWW per row; two people dragging at once can interleave.
   Acceptable for the trial; note it in the decision record if it bites.
 * The e2e suite is the largest test area and leans on server reset. If the fresh-context reset

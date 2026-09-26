@@ -2,6 +2,28 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Doppler configs, Jazz housekeeping scripts, findings filed
+
+Code committed as `fbdac46`, this docs sweep after it. The findings from this thread now live
+where later readers look: the migration plan (ground rules, phase 0 answers, phases 1-3,
+risks), both decision records, `stack.md` (Secrets and CI, Testing) and `testing.md` (the
+default Jazz harness, how e2e is isolated).
+
+**Superseding parts of the entry below**
+
+* `src/db/.env` is gone. Jazz writes its app id into the Jazz data directory now
+  (`data/jazz*/.env`), through `withJazz`'s untyped `envDir` option.
+* The "production build shows an alert" concern is settled by `prd` carrying the Jazz app id
+  and URL. `next.config.ts` clears the cloud variables only for the dev server, so a build
+  always keeps them.
+* The e2e suite has its own Doppler config (`dev_e2e`) and server; `dev:agent:bare` is gone.
+
+**Still open**
+
+* The agents' real Jazz app holds the placeholder schema; phase 1 either writes a migration
+  or points `dev_aijanitor` at a fresh app (the plan says so).
+* No `/code-review` pass on phase 0 yet.
+
 ## 2026-09-25: Jazz phase 0 -- installed, wired, four spikes answered
 
 `jazz-tools@2.0.0-alpha.56` is installed (pinned exact; the `alpha` tag still points at it).

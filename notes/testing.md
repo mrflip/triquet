@@ -78,11 +78,21 @@ In particular, address:
 ## Rows and Policies (Jazz)
 
 Anything that writes or subscribes to rows is tested against a real Jazz database from
-`jazz-tools/testing`, not a mock: `createPolicyTestApp` for a policy, `startLocalJazzServer`
-when sync or several clients are the behaviour under test. Assert user-visible rows, subscription
+`jazz-tools/testing`, not a mock: `createPolicyTestApp` by default (an in-process server in tens
+of milliseconds, with our permissions enforced), `startLocalJazzServer` when sync or several
+clients are the behaviour under test. `testApp.as(session)` is one account's database; the
+session is `{ user_id, issuer, claims, authMode: 'local-first' }`, typed as
+`Parameters<PolicyTestApp['as']>[0]` since Jazz does not export `Session`. Don't open a memory
+driver by hand: it skips permissions, and needs a stand-in account store. Assert user-visible rows, subscription
 deliveries, and accepted or rejected writes through the public API. Tell a query that has not
 delivered yet apart from one that delivered nothing. Request the durability tier the assertion
 depends on, and no higher. Row ids are never asserted on; find rows by label.
+
+The e2e suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
+directory, Jazz server and `data/e2e.db`); Playwright refuses to start locally otherwise. Each
+spec's fresh browser context is a fresh local-first account, and that isolates specs only
+because every table is creator-owned. A table readable across accounts would leak rows between
+specs through the shared server; then wipe `data/jazz-e2e/` before a run.
 
 ## Validation Boundaries
 

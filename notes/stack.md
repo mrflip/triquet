@@ -112,8 +112,12 @@ Settled; reach for these before writing the equivalent.
 
 * **Doppler.** Never a `.env` file in the repo, never a secret pasted into a chat, never a
   secret in a code comment. Syncing to Vercel and to GitHub Actions comes with deployment.
-  Dev mode scripts (eg `dev` and `dev:agent`) are set up with `doppler run`. Staging and production
-  sync directly with doppler using env vars as-is.
+  Dev mode scripts run under `doppler run`, each with its own config and so its own ports,
+  build directory and Jazz server: the directory's default for `dev`, `dev_claude` for
+  `dev:agent`, `dev_e2e` for `test:e2e`. The Jazz admin and backend secrets live only in the
+  janitor configs (`dev_janitor`, `dev_aijanitor`, `prd_janitor`), which the housekeeping
+  scripts in `scripts/` run under. Staging, production and CI get their environment from Doppler's
+  syncs, not the CLI; CI runs `playwright test` directly.
 * **GitHub Actions** (`.github/workflows/ci.yml`): `tsc --noEmit`, `eslint`, `vitest run`,
   `next build` and the Playwright suite. All gate a merge; agent-authored PRs go through the
   same gates as anyone's.
@@ -122,8 +126,8 @@ Settled; reach for these before writing the equivalent.
 
 * **Vitest** with chai-style assertions. See `notes/testing.md`.
 * **`jazz-tools/testing`** (`startLocalJazzServer`, `createPolicyTestApp`) for anything that
-  touches rows or policies; model the real topology when sync or permissions are the behaviour
-  under test.
+  touches rows or policies; `createPolicyTestApp` by default. Model the real topology when sync
+  or permissions are the behaviour under test.
 * **Playwright** for end-to-end, kept to a thin layer: the handful of flows where a break is
   invisible to unit tests (auth round-trip, upload, publish).
 
