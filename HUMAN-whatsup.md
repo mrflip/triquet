@@ -2,6 +2,44 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Jazz migration done -- read this one first
+
+Phases 1 to 5 are committed, each as code and then its findings (`48b31f3` to `33c8678`). The
+app runs on Jazz alone; libSQL, Drizzle, the store and the reducers are gone. At the end: lint
+clean, 1782 unit tests, 130 e2e specs (one new: the client-first rule), and `tsc` clean over
+everything but your `.next`.
+
+**Do first**
+
+1. Run `pnpm dev` once before `pnpm build` or `pnpm typecheck`: your `.next/dev/types` still
+   names the deleted workspace route (phase 3 entry).
+2. If `pnpm dev` complains about the Jazz schema, wipe `data/jazz/`, which may hold the phase 0
+   placeholder's history. That one is yours to wipe.
+3. Your quizzes are still in `data/triquet.db`, which nothing reads now. Bring them in through
+   the import panel.
+
+**Decisions I made that you may want to overturn**, detailed in the phase entries below:
+
+* The widgets table kept a nullable column per kind, and two nullable structured values are
+  JSON text. alpha.56 can't do either the plan's way; canary tests show when it can.
+* Actions write from the rows on screen, and changes dispatched together queue.
+* Rows are owned by account, not identity. That's a change to `permissions.ts` the plan didn't
+  foresee, but the agreed sign-in path needs it.
+* ULIDs are gone; `lib/ids.ts` stayed, minting UUIDs.
+* e2e asserts with retries, and its timeout is 10 s.
+
+**Left for a Coach** (also at the top of `whiteboard/jazz-migration.md`): a fresh Jazz app for
+`dev_aijanitor`; a `jazz_deploy` before any real database serves this schema; where
+`JazzProvider` sits; where the sync server runs; no `/code-review` pass on any phase (not a
+skill I could invoke here).
+
+**Noticed in phase 5**
+
+* `tsconfig.json` includes every build folder's generated types (Next adds each one it sees),
+  so one person's stale folder breaks everyone's `tsc`. Excluding the folders other than your
+  own would fix it, but Next re-adds them.
+* The "Sketch/DNA/Real/Live" line in `testing.md`, flagged since 09-20, is fixed.
+
 ## 2026-09-26: Jazz phase 4 -- the seam for signing in
 
 Committed as `a6f23d2`. One change you should look at: **permissions now own rows by account,
