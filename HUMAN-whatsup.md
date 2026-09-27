@@ -2,6 +2,21 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: Exports and quiz histories carry no ids
+
+The Export box and each quiz's `.tq.json` in its history now name everything by label: no ids
+at any depth, and a chain names its target by label. Import resolves chains by label and picks a
+quiz out of a whole export by label, then title. It still reads ids, so your pre-hunt backup
+(ids and all) imports as before, chains included. Built from the whole tree minus its ids rather
+than from the models' `exposed` lists, which are the formula bag's and would have dropped the
+version, widgets and columns a history file needs.
+
+One thing for you before PR 3, in `whiteboard/hunts-and-idents-handoff.md` ("Known race"): a
+visitor whose browser has never synced, on a server too slow to answer within three seconds,
+makes a second ident with the label they typed, and then *is* that second one. Reviews hang off
+idents, so I'd fix it first by resolving the current ident through its label (earliest wins, as
+for hunts). Say if you'd rather it wait.
+
 ## 2026-09-27: Bots, then hunts and idents (PRs 1 and 2 of the playtester plan)
 
 Two branches, stacked: `20260927-bots` (players became bots) and `20260927-hunts` (idents,

@@ -61,7 +61,8 @@ the domain.
 
 ## Identity
 
-* **id** -- Jazz's own row id, whatever it wants it to be; fixed for life, never shown. An
+* **id** -- Jazz's own row id, whatever it wants it to be; fixed for life, never shown: not on
+  screen, not in the Export box, not in a quiz's history (`lib/exporting.ts`). An
   internal detail: where a label relationship is reasonable and equally powerful, refer by label
   instead, scoped where it must be (`quizlabel-questionlabel` as a selector id).
 * **label** -- a freeform-string-derived identifier a person can read, type and paste back:

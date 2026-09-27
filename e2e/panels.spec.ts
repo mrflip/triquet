@@ -17,6 +17,8 @@ test('Export emits the whole hunt as compact JSON', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/h/${hunt.label}/`))
   // Compact, not pretty-printed: backup material, not prose.
   expect(text).not.toContain('\n')
+  // Everything by label: ids are the database's, and mean nothing to a smith.
+  expect(text).not.toContain('"id"')
 })
 
 test('the Copy button copies and says so', async ({ page, context }) => {
