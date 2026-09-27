@@ -23,6 +23,15 @@ export function SyncFailed({ onRetry }: Readonly<{ onRetry: () => void }>) {
   )
 }
 
+/** What the page shows when the browser's Jazz database opened with no account to open it as */
+export function SyncSignedOut() {
+  return (
+    <Alert severity="error">
+      Your quizzes could not be opened: this browser has no account for them.
+    </Alert>
+  )
+}
+
 /** What the page shows when this build was given nowhere to sync to: a mistake in deploying, never in using */
 export function SyncUnconfigured() {
   return (

@@ -2,6 +2,22 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Production stalls after each deploy until the Jazz key is deleted
+
+Suspect (not yet confirmed): Jazz runs storage and sync in a SharedWorker whose *name* includes
+the worker script's URL, which is content-hashed per build, while the IndexedDB it opens is named
+only by app, env and account. A worker from the previous deploy (an open tab, or one still
+closing) keeps the database's exclusive Web Lock, so the new deploy's worker can't open it.
+Deleting the localStorage key makes a new account, and with it a new database, so nothing is
+contending, but that browser's old quizzes are no longer reachable. The worker's logs go to the
+worker's console, not the page's, which is why the page shows no errors.
+
+Logging is turned up for now (branch `20260926-jazz_logging`): `NEXT_PUBLIC_JAZZ_LOG_LEVEL`
+(default `debug`) sets how much Jazz's runtime logs; the page logs each session state change, the
+Jazz localStorage key *names*, each table's arrival, and the errors `useWorkspace` used to
+swallow. The chatter goes out as `console.warn` because the linter allows only warn and error.
+The `signedOut` view was blank; it now says so.
+
 ## 2026-09-26: e2e in CI -- silent, not (as far as we know) stuck
 
 The CI e2e job printed "Running 130 tests" and then nothing for eight minutes. The `dot`

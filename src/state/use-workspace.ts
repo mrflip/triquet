@@ -80,9 +80,12 @@ export function useWorkspace(label?: string): WorkspaceHandle {
     let current = true
     const find = async () => {
       try {
+        console.warn('Workspace: finding the workspace for account', account)
         const found = await ensureWorkspace(db, account)
+        console.warn('Workspace: found', found)
         if (current) { setWorkspaceId(found) }
-      } catch {
+      } catch (err) {
+        console.error('Workspace: could not be found or made', err)
         if (current) { setSaveNotice(AppNotices.loadFailed) }
       }
     }
@@ -99,6 +102,22 @@ export function useWorkspace(label?: string): WorkspaceHandle {
   const widgets     = useAll(app.widgets, LocalFirst)
   const columns     = useAll(app.columns, LocalFirst)
   const playings    = useAll(app.playings.select('*', '$createdAt'), LocalFirst)
+
+  // How many rows each table has delivered, or that it is still waiting, logged as it changes.
+  const tables = { workspaces, quizzes, expressions, questions, widgets, columns, playings }
+  const arrivals = Object.entries(tables).map(([table, { data, error: err }]) => `${table}:${err ? 'failed' : String(data?.length ?? 'waiting')}`).join(' ')
+  useEffect(() => {
+    console.warn('Workspace: rows', arrivals, { ms: Math.round(performance.now()) })
+  }, [arrivals])
+  useEffect(() => {
+    const failures = {
+      workspaces: workspaces.error, quizzes: quizzes.error, expressions: expressions.error, questions: questions.error,
+      widgets: widgets.error, columns: columns.error, playings: playings.error,
+    }
+    for (const [table, err] of Object.entries(failures)) {
+      if (err) { console.error(`Workspace: the ${table} subscription failed`, err) }
+    }
+  }, [workspaces.error, quizzes.error, expressions.error, questions.error, widgets.error, columns.error, playings.error])
 
   const rows = useMemo((): AccountRows | null => {
     if (! workspaces.data || ! quizzes.data || ! expressions.data || ! questions.data || ! widgets.data || ! columns.data || ! playings.data) { return null }
@@ -148,7 +167,8 @@ export function useWorkspace(label?: string): WorkspaceHandle {
         setSaveNotice(null)
         const after = await loadWorkspace(db, workspace_id)
         if (after) { mirrorWorkspace(before, after) }
-      } catch {
+      } catch (err) {
+        console.error('Workspace: a change could not be kept', action, err)
         setSaveNotice(AppNotices.changeFailed)
       } finally {
         setWriting((was) => was - 1)
