@@ -57,6 +57,16 @@ don't trust a recalled version number, including one recalled by an agent.
     a structured value takes a Zod schema, through `JZS.json()` (or `jsonText`, while a nullable
     JSON column cannot hold a value). Row ids are Jazz's and internal; refer by label. Field names
     stay `underscore_case`. Read one table per query; write through `perform`.
+  - **Its browser runtime is served from `public/jazz/<version>/`, not from the bundle** (Sept
+    2026). Jazz names the SharedWorker that holds a browser's database after the worker script's
+    URL, and a bundled worker's URL changes with every deploy. The new deploy's worker then
+    cannot open the database the old one still holds, and the page stalls with nothing in its
+    console. `next.config.ts` copies the worker and WASM out of the package at every dev start and
+    build (`src/db/publish-runtime-assets.ts`), under a version that is the package's own plus a
+    digest of the files, and hands the page Jazz's `runtimeSources` (`baseUrl`, `wasmVersion`), so
+    the URL changes only when Jazz's bytes do. A Jazz upgrade still starts a second worker once;
+    the "couldn't open" notices say what to do then. A bug is filed upstream: when Jazz fixes it,
+    drop the copy and the `runtimeSources`. The copy is gitignored.
   - **Gone for good:** libSQL, Drizzle and their migrations (Sept 2026).
   - **Turso is not coming back**, in local mode or cloud: concerns about concurrent access
     across tabs, and a conflict resolution that is last-push-wins in some cases.
