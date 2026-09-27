@@ -27,6 +27,7 @@ export const AppNotices = {
   nothingToRecalculate: 'No questions or hints have any text yet — nothing to recalculate.',
   changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
   loadFailed:           "Couldn't open your quizzes — reload the page to try again.",
+  otherWorkers:         'You may try closing other tabs, or open this address in Chrome and terminate the other jazz-runtime shared workers:',
   untitledQuiz:         'Untitled quiz',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
