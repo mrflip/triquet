@@ -35,6 +35,9 @@ don't trust a recalled version number, including one recalled by an agent.
   stateless functions, and works with the network off except for asking. Pages prerender at
   build; user data never renders on a server. The ask route is the one named server function.
   See `notes/decisions/2026-09-client-first.md`.
+* **Node 24**, the newest LTS Vercel runs, and the same everywhere. `.tool-versions` holds the exact
+  version, for asdf and CI (`node-version-file`); `engines.node` in `package.json` holds the major,
+  which is all Vercel reads. `@types/node` follows the same major.
 * **TypeScript**, as strict as reasonably possible: . See `eslint.config.mjs`.
 * **Material UI** for the component layer.
 * **`@next/mdx`** (with `@mdx-js/loader`, `@mdx-js/react`, `@types/mdx`) for static content. It is
