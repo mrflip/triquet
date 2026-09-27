@@ -17,7 +17,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
   const hint = textish
     .describe('This question\'s own "BUT NOT ..." misdirection: a clue for something that is NOT this answer but shares its name. It belongs to the question whose answer it disguises, and is displayed alongside whichever OTHER question chains to this one.')
   const title = titleish
-    .describe('A brief name for the question, which can optionally be added to its text. Also what this question is called in other questions\' chain dropdowns, and the key an import matches questions on. Not the answer: that is `full_answer`.')
+    .describe('A brief name for the question, which can optionally be added to its text. Also what this question is called in other questions\' chain dropdowns. Not the answer: that is `full_answer`.')
   const questionLabel = label
     .describe('A freeform-editable local identifier, generated once at creation. Unlike the id, an author can read it, type it, and paste it back after a round-trip through another tool.')
   const forced_label = label.nullable()

@@ -12,6 +12,16 @@ function fieldAt(page: Page, name: string, rowIdx: number) {
   return page.locator('tbody').getByRole('textbox', { name, exact: true }).nth(rowIdx)
 }
 
+/** The label of the open quiz's question at `rowIdx`, as the Export box has it */
+async function labelAt(page: Page, rowIdx: number): Promise<string> {
+  const exported = JSON.parse(await page.getByRole('textbox', { name: 'Export' }).inputValue()) as {
+    active_quiz_id: string
+    quizzes:        { id: string, questions: { label: string }[] }[]
+  }
+  const quiz = exported.quizzes.find((each) => each.id === exported.active_quiz_id)
+  return quiz?.questions[rowIdx]?.label ?? ''
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.getByLabel('Quiz name').fill('Quiz one')
@@ -23,20 +33,20 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a partial paste changes exactly what it names and nothing else', async ({ page }) => {
-  await runImport(page, [{ title: 'Leon', clueing: 'Reworded' }])
+  await runImport(page, [{ label: await labelAt(page, 0), clueing: 'Reworded' }])
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Reworded')
   await expect(fieldAt(page, 'Notes', 0)).toHaveValue('keep me')
 })
 
 test('an explicit null clears the field', async ({ page }) => {
-  await runImport(page, [{ title: 'Leon', notes: null }])
+  await runImport(page, [{ label: await labelAt(page, 0), notes: null }])
   await expect(fieldAt(page, 'Notes', 0)).toHaveValue('')
 })
 
-test('a title nothing here holds is appended, and a chain is remapped', async ({ page }) => {
+test('a label nothing here holds is appended, and a chain is remapped', async ({ page }) => {
   await runImport(page, [
-    { id: 'theirs-1', title: 'Leon', chains_to: 'theirs-2' },
-    { id: 'theirs-2', title: 'Nantes', hint: 'BUT NOT the edict' },
+    { id: 'theirs-1', label: await labelAt(page, 0), chains_to: 'theirs-2' },
+    { id: 'theirs-2', label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },
   ])
   await expect(page.locator('tbody tr')).toHaveCount(6)
   await expect(page.locator('tbody tr').first().locator('td[data-colname="BUT NOT"] > div'))
@@ -45,8 +55,8 @@ test('a title nothing here holds is appended, and a chain is remapped', async ({
 
 test('a question that fails validation is skipped whole, and logged with the field and code', async ({ page }) => {
   await runImport(page, [
-    { title: 'Leon', qnum: 'three', clueing: 'Should not land' },
-    { title: 'Nantes', clueing: 'Should land' },
+    { label: await labelAt(page, 0), qnum: 'three', clueing: 'Should not land' },
+    { label: 'nantes_one', clueing: 'Should land' },
   ])
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Which region?')
   await expect(page.getByText(/0 merged, 1 added, 1 skipped/)).toBeVisible()
@@ -54,7 +64,7 @@ test('a question that fails validation is skipped whole, and logged with the fie
 })
 
 test('a run that merged something clears the box; one that failed keeps the text', async ({ page }) => {
-  await runImport(page, [{ title: 'Leon', clueing: 'Reworded' }])
+  await runImport(page, [{ label: await labelAt(page, 0), clueing: 'Reworded' }])
   await expect(page.getByRole('textbox', { name: 'Import' })).toHaveValue('')
 
   await page.getByRole('textbox', { name: 'Import' }).fill('{"quizzes":[')
@@ -78,7 +88,7 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
 })
 
 test('importing is refused while the quiz is locked', async ({ page }) => {
-  await page.getByRole('textbox', { name: 'Import' }).fill('[{"title":"Leon","clueing":"Sneaked in"}]')
+  await page.getByRole('textbox', { name: 'Import' }).fill('[{"label":"anyone","clueing":"Sneaked in"}]')
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled()
 })
