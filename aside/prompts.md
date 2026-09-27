@@ -1,10 +1,19 @@
+We're evaluating Jazz as the database, and it's not going terribly but it's definitely not going well. I want to do a quick review of what I'd miss out on if we went with a more ~~(sane)~~ conventional architecture.
 
+Here's a list of what I am still hoping for; treat them as desiderata, not hard requirements. No one of them should drive the decision.
 
-Survey the major models and make an illustrative list of proposed urls; don't be tied down by the various motley routes I've specified previously. Protect the top-level namespace with a single-letter (`h`, above). Github does a very good job with their url design.
+* **No distinct backend layer** requiring a different coding paradigm (graphQL and postgres and urql and express) or deploy cycle or even minor schema-transduction mismatches. In fact, I'd prefer (but don't require) that it is...
+* **Also: Mostly-client-only** -- we'd use vercel for deploys and previews and hosting, but the code was, in principle, a small distance from being able to run off S3 with a couple edge workers maybe.
+* **Multiplayer, or at least real-time collaborative** at the field level -- If I toggle a checkbox, collaborators see the change more-or-less immediately. Things like "offline mode" or "yjs-style shared text boxes" are nice-to-haves, but developing a quiz together, or solving a puzzle as a team,  would be a major feature. (Note: a multiplayer framework that makes us responsible for fine-grained conflict resolution scattered around the codebase is a no-go).
+* **Ergonomic** -- most of the code is business logic. Details of permissioning, optimistic updates, leaky abstractions -- these are easily handled by helpers, or better yet absent.
+* **Zero-ops infrastructure, from as few places as reasonable** -- Vercel, Github, Doppler are gimmes, and nothing is contemplated that would cause a higher paid tier. Having a BYOK database is a nice to have -- one that I don't forsee us having -- so ink in a database provider of some sort. Google for OAuth with a small key vault worker: not a big deal but a little deal.
+* **Disciplined interface** -- GraphQL gives you this, and an ORM gives you this. I don't want code that is interleaved with custom queries (as a matter of practice or a matter of "this is what happens when the demo meets delivery")
+* **Agent-coder friendly** -- tried and true and already gradient-descended into your brain
+* **Boring** -- no chance that an agent is going to hit a weird use case for my not-very-weird app
 
-* make an illustrative list of proposed urls for various resource; don't be tied down by the various motley routes I've specified previously. Protect the top-level namespace with a single-letter (`h`, above). Github does a very good job with their url design.
+If I understand right, the most vanilla on-its-surface choice is Supabase and Drizzle running on actual SSR Next.js. Evaluate that against the scorecard; and separately, evaluate that with PowerSync in the mix.
+Besides Jazz, other things that might check some of those boxes include WatermelonDB and Codex. Please also evaluate those. Then list any others I might also reconsider.
 
-..
 
 Outline a plan for Opus to migrate the project to use Jazz v2. (In stack.md, please record that turso is out because there were concerns about concurrent access across tabs, and the conflict resolution of last-push-wins in some cases). Don't yet write code, but please update docs where needed -- re-read them first, as they may have changed.
 
