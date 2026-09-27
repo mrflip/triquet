@@ -35,21 +35,19 @@
   white-space:    nowrap;
 }
 
+/* The cell stays horizontal and only its title turns: Safari before 26 ignores writing-mode on a
+   table cell. The title sits bottom-right, over the right-aligned numbers below it. */
 .headVertical {
-  writing-mode: vertical-lr;
-  text-orientation: mixed;
-  height:       150px;
-  padding:      8px 2px;
-  white-space:  nowrap;
+  height:      150px;
+  padding:     8px 2px;
+  text-align:  right;
 }
 
-/* A flex box inside the rotated cell, so the text can sit at the bottom (the "right" edge once
-   you turn your head to read it) without taking the th itself out of table-cell layout. */
 .headVerticalInner {
-  display:         flex;
-  height:          100%;
-  justify-content: flex-end;
-  align-items:     flex-end;
+  display:          inline-block;
+  vertical-align:   bottom;
+  writing-mode:     vertical-lr;
+  text-orientation: mixed;
 }
 
 .headCentered {
@@ -381,6 +379,27 @@
 }
 
 .headButton:hover { color: var(--ink) }
+
+/* Upright even when its title is turned on its side, so up and down still mean ascending and descending */
+.headArrow {
+  margin-inline-start: 0.25em;
+  text-orientation:    upright;
+}
+
+/* Beside a turned title the arrow's room is kept whether or not it shows, so marking a column
+   never makes the header taller and shifts the grid below it. Empty, the room moves above the
+   title, and the title rests on the grid until an arrow lifts it. */
+.headVerticalInner .headButton {
+  display: inline-flex;
+  gap:     0.25em;
+}
+
+.headVerticalInner .headArrow {
+  inline-size: 1em;
+  margin:      0;
+}
+
+.headVerticalInner .headArrow:empty { order: -1 }
 
 .rowDragging { opacity: 0.45 }
 

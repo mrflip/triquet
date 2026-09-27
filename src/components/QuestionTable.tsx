@@ -85,7 +85,7 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
                         {column.title}
                         {/* Decorative: the direction is already on the header as aria-sort, and
                             folding the arrow into the button's name would rename it on every click. */}
-                        <span aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
+                        <span className={styles.headArrow} aria-hidden="true">{arrowFor(sortkey, sortMark)}</span>
                       </button>
                     )}
                   </span>
@@ -137,7 +137,7 @@ function headClassOf(headkind: Headkind): string | undefined {
 /** The arrow marking the column sorted in this session -- not the one the quiz remembers */
 function arrowFor(sortkey: Sortkey, sortMark: SortMark | null): string {
   if (sortMark?.sortkey !== sortkey) { return '' }
-  return sortMark.descending ? ' ↓' : ' ↑'
+  return sortMark.descending ? '↓' : '↑'
 }
 
 /** What a screen reader is told about this column's part in the current order */
