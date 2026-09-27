@@ -83,8 +83,8 @@ next-env.d.ts
 /data/*
 !/data/.gitkeep
 
-
 notes/example_export.json
+notes/example-quiz.json
 
 # claude code worktrees (git worktree checkouts made by an agent session)
 .claude/worktrees/
