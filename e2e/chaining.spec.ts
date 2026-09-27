@@ -1,14 +1,9 @@
-import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved, waitUntilSaved } from './support'
+import type { Page } from '@playwright/test'
+import { cellOf, expect, fillRows, reloadOnceSaved, test, valuesOf, waitUntilSaved } from './support'
 
 /** Fill the first questions with a Q#, a title and a hint */
 async function fillQuiz(page: Page, rows: [string, string, string][]) {
-  for (const [ii, [qnum, answer, hint]] of rows.entries()) {
-    await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
-    await page.getByRole('textbox', { name: 'Title' }).nth(ii).fill(answer)
-    await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(hint)
-  }
-  await page.getByLabel('Quiz name').click()
+  await fillRows(page, rows.map(([qnum, answer, hint]) => ({ 'Q#': qnum, Title: answer, Hint: hint })))
 }
 
 /** Chain the question at `rowIdx` to the one labelled `answer` */
@@ -20,12 +15,12 @@ async function chainTo(page: Page, rowIdx: number, answer: string) {
 async function answersShown(page: Page): Promise<string[]> {
   const fields = page.getByRole('textbox', { name: 'Title' })
   await expect(fields.first()).toBeVisible()
-  return fields.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))
+  return valuesOf(fields)
 }
 
 /** The BUT NOT cell of the row at `rowIdx` */
 function butnotCell(page: Page, rowIdx: number) {
-  return page.locator('tbody tr').nth(rowIdx).locator('td[data-colname="BUT NOT"] > div')
+  return cellOf(page, rowIdx, 'BUT NOT').locator('> div')
 }
 
 /** The first four titles, top to bottom */
@@ -35,7 +30,6 @@ async function firstFourShown(page: Page): Promise<string[]> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await fillQuiz(page, [
     ['3', 'cherry', 'BUT NOT the fruit-flavoured one'],
     ['1', 'apple',  'BUT NOT the company from Cupertino, founded in 1976'],
@@ -77,10 +71,10 @@ test('sort by chain order reads the quiz in presentation order, and backward', a
   await chainTo(page, 0, 'damson')
 
   await page.getByRole('button', { name: 'Sort by chain order' }).click()
-  await expect.poll(async () => await firstFourShown(page)).toEqual(['apple', 'banana', 'cherry', 'damson'])
+  await expect.poll(() => firstFourShown(page)).toEqual(['apple', 'banana', 'cherry', 'damson'])
 
   await page.getByRole('button', { name: 'Sort by chain order' }).click()
-  await expect.poll(async () => await firstFourShown(page)).toEqual(['damson', 'cherry', 'banana', 'apple'])
+  await expect.poll(() => firstFourShown(page)).toEqual(['damson', 'cherry', 'banana', 'apple'])
 })
 
 test('a chain order survives a reload', async ({ page }) => {
@@ -90,5 +84,5 @@ test('a chain order survives a reload', async ({ page }) => {
   await waitUntilSaved(page)
   const wasShown = await answersShown(page)
   await reloadOnceSaved(page)
-  await expect.poll(async () => await answersShown(page)).toEqual(wasShown)
+  await expect.poll(() => answersShown(page)).toEqual(wasShown)
 })

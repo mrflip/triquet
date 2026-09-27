@@ -136,7 +136,12 @@ Settled; reach for these before writing the equivalent.
   touches rows or policies; `createPolicyTestApp` by default. Model the real topology when sync
   or permissions are the behaviour under test.
 * **Playwright** for end-to-end, kept to a thin layer: the handful of flows where a break is
-  invisible to unit tests (auth round-trip, upload, publish).
+  invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
+  Its web-first assertions are the e2e style; see `notes/testing.md`.
+* **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of testing.md's Playwright
+  section (`no-wait-for-selector`, `prefer-web-first-assertions`, `prefer-to-have-count` and
+  the rest of its recommended set). Added Sept 2026 after a review found one-shot reads and
+  hand waits that nothing was watching for.
 
 ### Agents
 

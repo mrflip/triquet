@@ -1,21 +1,9 @@
 import { readFile } from 'node:fs/promises'
-import { expect, test, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
-import { reloadOnceSaved } from './support'
-
-test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-})
-
-/** Open the gear modal, which is where everything about a quiz's history lives */
-async function openManage(page: Page) {
-  await page.getByRole('button', { name: 'Manage quiz' }).click()
-  await expect(page.getByText('Manage this quiz')).toBeVisible()
-}
+import { expect, openManage, reloadOnceSaved, test } from './support'
 
 test('a quiz starts on the main version, and the author can move it to another', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await openManage(page)
   await expect(page.getByLabel('Version')).toHaveValue('main')
 
@@ -28,8 +16,6 @@ test('a quiz starts on the main version, and the author can move it to another',
 })
 
 test('editing a quiz builds a history that a milestone can tag', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
@@ -39,8 +25,6 @@ test('editing a quiz builds a history that a milestone can tag', async ({ page }
 })
 
 test('a milestone names the version it marks', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await openManage(page)
   await page.getByLabel('Version').fill('playtest')
   await page.getByRole('button', { name: 'Apply' }).click()
@@ -51,8 +35,6 @@ test('a milestone names the version it marks', async ({ page }) => {
 })
 
 test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
@@ -68,8 +50,6 @@ test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
 })
 
 test('the history survives a reload, because it lives in the browser and not in the page', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
@@ -79,7 +59,6 @@ test('the history survives a reload, because it lives in the browser and not in 
   await expect(page.getByRole('status')).toHaveText(/^main-m-/)
 
   await reloadOnceSaved(page)
-  await page.waitForSelector('table')
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
   await expect(page.getByRole('status')).toHaveText(/^main-m-/)
@@ -110,30 +89,33 @@ async function committedEntryCount(page: Page): Promise<number> {
 }
 
 test('an edit is committed on its own once the wait is up, and not before', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   // The quiz's creation is committed at once, without waiting out the clock.
-  await expect.poll(async () => await committedEntryCount(page)).toBeGreaterThan(0)
+  await expect.poll(() => committedEntryCount(page)).toBeGreaterThan(0)
   const created = await committedEntryCount(page)
 
+  // The page's clock is taken over, so the wait is stepped through rather than waited out: held
+  // still from before the edit, moved to a hair short of the two seconds the suite runs with,
+  // then across them. Jazz keeps its own time in its worker, which this leaves alone.
+  await page.clock.install()
+  await page.clock.pauseAt(Date.now() + 1000)
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
-  // The suite runs with a two-second wait, so a moment after the edit it is not committed yet...
+  await page.clock.runFor(1900)
+  // A deliberate one-shot: with the clock held short of the wait, "not yet" is the whole claim.
   expect(await committedEntryCount(page)).toBe(created)
   // ...and with nobody asking, the timer alone produces the history.
-  await expect.poll(async () => await committedEntryCount(page), { timeout: 15_000 }).toBeGreaterThan(created)
+  await page.clock.runFor(200)
+  await expect.poll(() => committedEntryCount(page)).toBeGreaterThan(created)
+  await page.clock.resume()
 
   await reloadOnceSaved(page)
-  await page.waitForSelector('table')
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
   await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
 })
 
 test('a milestone marks the edit made a moment ago, without waiting out the clock', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
@@ -160,14 +142,10 @@ async function pathsMatching(page: Page, pattern: RegExp): Promise<string[]> {
 }
 
 test('a new quiz has a history from the moment it is made, before any edit', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
-  await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/heads\/main$/)).toHaveLength(1)
+  await expect.poll(() => pathsMatching(page, /\.git\/refs\/heads\/main$/)).toHaveLength(1)
 })
 
 test('an import is committed on either side, and tagged', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
@@ -175,17 +153,15 @@ test('an import is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('button', { name: 'Import', exact: true }).click()
   await expect(page.getByText(/1 added/)).toBeVisible()
 
-  await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/tags\/main-import-\d{14}z$/)).toHaveLength(1)
+  await expect.poll(() => pathsMatching(page, /\.git\/refs\/tags\/main-import-\d{14}z$/)).toHaveLength(1)
 })
 
 test('a deletion is committed on either side, and tagged', async ({ page }) => {
-  await page.goto('/')
-  await page.waitForSelector('table')
   await page.getByRole('textbox', { name: 'Title' }).first().fill('hamlet')
   await page.getByLabel('Quiz name').click()
 
   await page.getByRole('button', { name: 'Delete hamlet', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 
-  await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/tags\/main-delete-\d{14}z$/)).toHaveLength(1)
+  await expect.poll(() => pathsMatching(page, /\.git\/refs\/tags\/main-delete-\d{14}z$/)).toHaveLength(1)
 })

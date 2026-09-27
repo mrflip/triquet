@@ -1,29 +1,25 @@
-import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved } from './support'
+import type { Page } from '@playwright/test'
+import { expect, fillRows, reloadOnceSaved, test, valuesOf } from './support'
 
 /** Title the first `titles.length` questions, top to bottom */
 async function titleQuiz(page: Page, titles: string[]) {
-  for (const [ii, title] of titles.entries()) {
-    await page.getByRole('textbox', { name: 'Title' }).nth(ii).fill(title)
-  }
-  await page.getByLabel('Quiz name').click()
+  await fillRows(page, titles.map((title) => ({ Title: title })))
 }
 
 /** The first `qty` titles, top to bottom, once the grid is on screen */
 async function titlesShown(page: Page, qty: number): Promise<string[]> {
   const fields = page.getByRole('textbox', { name: 'Title' })
   await expect(fields.first()).toBeVisible()
-  const titles = await fields.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))
+  const titles = await valuesOf(fields)
   return titles.slice(0, qty)
 }
 
 /** How many questions the grid shows */
 async function questionCount(page: Page): Promise<number> {
-  return await page.getByRole('textbox', { name: 'Title' }).count()
+  return page.getByRole('textbox', { name: 'Title' }).count()
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await titleQuiz(page, ['apple', 'banana', 'cherry'])
 })
 
@@ -35,10 +31,10 @@ test('a trash can deletes its question once the author confirms, and the deletio
   await dialog.getByRole('button', { name: 'Delete' }).click()
 
   await expect(dialog).toBeHidden()
-  await expect.poll(async () => await titlesShown(page, 2)).toEqual(['apple', 'cherry'])
+  await expect.poll(() => titlesShown(page, 2)).toEqual(['apple', 'cherry'])
   await reloadOnceSaved(page)
-  await expect.poll(async () => await titlesShown(page, 2)).toEqual(['apple', 'cherry'])
-  expect(await questionCount(page)).toBe(before - 1)
+  await expect.poll(() => titlesShown(page, 2)).toEqual(['apple', 'cherry'])
+  await expect.poll(() => questionCount(page)).toBe(before - 1)
 })
 
 test('keeping it deletes nothing, and so does Enter, which lands on keeping it', async ({ page }) => {
@@ -49,7 +45,7 @@ test('keeping it deletes nothing, and so does Enter, which lands on keeping it',
   await page.keyboard.press('Enter')
 
   await expect(page.getByRole('dialog')).toBeHidden()
-  await expect.poll(async () => await titlesShown(page, 3)).toEqual(['apple', 'banana', 'cherry'])
+  await expect.poll(() => titlesShown(page, 3)).toEqual(['apple', 'banana', 'cherry'])
 })
 
 test('batch mode swaps each grip and trash can for a checkbox, and deletes the checked questions once confirmed', async ({ page }) => {
@@ -66,7 +62,7 @@ test('batch mode swaps each grip and trash can for a checkbox, and deletes the c
   await expect(dialog).toContainText('cherry')
   await dialog.getByRole('button', { name: 'Delete' }).click()
 
-  await expect.poll(async () => await titlesShown(page, 1)).toEqual(['banana'])
+  await expect.poll(() => titlesShown(page, 1)).toEqual(['banana'])
   // The job done, the grid leaves batch mode.
   await expect(page.getByRole('button', { name: 'Select questions' })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()

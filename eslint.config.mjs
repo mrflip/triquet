@@ -10,6 +10,7 @@ import sonarjs                         from 'eslint-plugin-sonarjs'
 import importX                         from 'eslint-plugin-import-x'
 import stylistic                       from '@stylistic/eslint-plugin'
 import vitest                          from '@vitest/eslint-plugin'
+import playwright                      from 'eslint-plugin-playwright'
 
 /** Everything we lint; matches the glob eslint-config-next registers its plugins for. */
 const SourceFiles = ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}']
@@ -308,6 +309,35 @@ export default defineConfig([
       'vitest/valid-title': 'off',
       // Chai-style assertions are bare expressions by design.
       '@typescript-eslint/no-unused-expressions': 'off',
+    },
+  },
+
+  // == [End to end] == the mechanical form of notes/testing.md's Playwright section: locate
+  // through locators, assert with a retry, never wait by hand.
+  {
+    name: 'triquet/e2e',
+    files: ['e2e/**/*.ts'],
+    extends: [playwright.configs['flat/recommended']],
+    rules: {
+      // No React here: the `use` a fixture is handed is Playwright's, not a hook.
+      'react-hooks/rules-of-hooks':             'off',
+      // playwright/expect-expect covers this ground and knows expect.poll; sonar's does not.
+      'sonarjs/assertions-in-tests':            'off',
+      'playwright/no-skipped-test':             'warn',
+      'playwright/no-focused-test':             'warn',
+      // A read of the page is a snapshot of one instant; the locator matcher retries.
+      'playwright/prefer-web-first-assertions': 'error',
+      'playwright/prefer-to-have-count':        'error',
+      'playwright/prefer-to-have-length':       'error',
+      'playwright/prefer-locator':              'error',
+      'playwright/prefer-native-locators':      'error',
+      // toStrictEqual's extra rigour (undefined keys, class identity) means nothing for the lists
+      // of strings these specs compare; the rule would only churn every expect.poll.
+      'playwright/prefer-strict-equal':         'off',
+      'playwright/no-wait-for-selector':        'error',
+      'playwright/no-wait-for-timeout':         'error',
+      'playwright/no-nth-methods':              'off',    // the grid is addressed by row index by nature
+      'playwright/no-raw-locators':             'off',    // td[data-colname] is the column's own name
     },
   },
 ])

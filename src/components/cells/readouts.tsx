@@ -38,10 +38,10 @@ function ExpressedBody({ reading, wide }: Readonly<{ reading: Expressed, wide: b
     )
   }
   const stale = reading.stale ? styles.stale : undefined
-  if (typeof reading.val !== 'number') { return <span className={stale}>{String(reading.val)}</span> }
+  if (typeof reading.val !== 'number') { return <span className={stale} data-stale={reading.stale || undefined}>{String(reading.val)}</span> }
   const groups = reading.val.toLocaleString('en-US').split(',')
   return (
-    <span className={stale}>
+    <span className={stale} data-stale={reading.stale || undefined}>
       {groups.map((group, idx) => (
         <span key={`${group}-${String(idx)}`}>
           {idx > 0 ? ',' : ''}

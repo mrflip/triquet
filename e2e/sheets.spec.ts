@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { waitUntilSaved } from './support'
+import { type Page } from '@playwright/test'
+import { closeManage, expect, fillRows, openManage, test, waitUntilSaved } from './support'
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
@@ -9,12 +9,11 @@ async function sheetsText(page: Page): Promise<string> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-  for (const [ii, [qnum, clueing]] of ([['3', 'third'], ['1', 'first'], ['2', 'second']] as const).entries()) {
-    await page.getByRole('textbox', { name: 'Q#' }).nth(ii).fill(qnum)
-    await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(clueing)
-  }
-  await page.getByLabel('Quiz name').click()
+  await fillRows(page, [
+    { 'Q#': '3', Clueing: 'third' },
+    { 'Q#': '1', Clueing: 'first' },
+    { 'Q#': '2', Clueing: 'second' },
+  ])
   await waitUntilSaved(page)
 })
 
@@ -31,13 +30,13 @@ test('a header row of column labels in alphabetical order, then a line per quest
 })
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
-  await page.getByRole('button', { name: 'Manage quiz' }).click()
+  await openManage(page)
   await page.getByRole('button', { name: '+ New expressing…' }).click()
   const editor = page.getByRole('dialog', { name: 'New expressing' })
   await editor.getByRole('combobox', { name: 'Expression' }).click()
   await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
-  await page.getByRole('dialog', { name: 'Manage this quiz' }).getByRole('button', { name: 'Cancel' }).click()
+  await closeManage(page)
   const text = await sheetsText(page)
   expect(text.split('\n', 1)[0]?.split('\t')).toContain('answer_reversed')
 })
@@ -47,7 +46,7 @@ test('the export is the same however the grid is sorted', async ({ page }) => {
   const qnumHeader = page.getByRole('button', { name: 'Q#', exact: true })
   await qnumHeader.click()
   await qnumHeader.click()
-  await expect.poll(async () => await sheetsText(page)).toEqual(wasText)
+  await expect.poll(() => sheetsText(page)).toEqual(wasText)
 })
 
 test('a line break in a field never starts a new spreadsheet row', async ({ page }) => {

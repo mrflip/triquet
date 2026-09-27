@@ -1,8 +1,6 @@
-import { expect, test } from '@playwright/test'
-import { newQuiz, openQuiz, reloadOnceSaved } from './support'
+import { expect, newQuiz, openQuiz, reloadOnceSaved, test } from './support'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
   await page.getByLabel('Quiz name').click()
