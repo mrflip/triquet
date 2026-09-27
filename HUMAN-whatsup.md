@@ -2,6 +2,22 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: e2e in CI -- six shards, one worker each
+
+A worker per core on CI failed badly: both sharded runs failed in every shard, 35 specs in the
+later one, nearly all on the 30-second test timeout. That is what the 16-worker run here
+foretold, only much worse: at one worker a CI spec already takes about 12 seconds (32 minutes
+for 137), four times this Mac, so there is no headroom for a second one on the box. Halving to
+`'50%'` would have been a guess.
+
+So CI goes wide instead of deep: six shards, one worker each. That is the per-machine load that
+passed 137 of 137 in both runs before sharding, so it should come in around 7 or 8 minutes with
+nothing flaky. If it needs to be faster, add shards to the matrix; don't add workers.
+
+Locally nothing changes (half the cores, no retry). That is now the only place specs run side by
+side against one server, so a collision between specs can only show up here, which is the early
+warning. `pnpm test:e2e --shard=2/6` runs one CI shard's specs.
+
 ## 2026-09-26: Deleting questions -- a trash can per row, and a batch mode
 
 The grid's first column is now a gutter, 40px wide rather than 32px, and it never collapses: it

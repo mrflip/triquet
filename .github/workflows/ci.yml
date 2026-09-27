@@ -73,15 +73,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-  # The suite split four ways, each shard on a runner and dev server of its own; `pnpm exec
-  # playwright test --shard=2/4` runs one shard's specs locally. Every shard runs to the end, so
-  # one failure never hides another.
+  # The suite split six ways, each shard on a runner and dev server of its own; `pnpm test:e2e
+  # --shard=2/6` runs one shard's specs locally. Every shard runs to the end, so one failure
+  # never hides another.
   e2e:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     # A bound for when something hangs: GitHub's own is six hours.
     timeout-minutes: 20
     # What Doppler's dev_e2e config gives a local run; e2e/environment.setup.ts checks them.
