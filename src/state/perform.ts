@@ -1,6 +1,7 @@
 import type { Db } from 'jazz-tools'
 import * as Layout from './layout-actions'
 import * as Quiz from './quiz-actions'
+import * as Review from './review-actions'
 import type { OpenQuiz } from './quiz-actions'
 import type { HeldRows } from './quiz-rows'
 import { isLayoutAction, type HuntAction } from './actions'
@@ -11,7 +12,8 @@ export type { OpenQuiz } from './quiz-actions'
  * Carry out what the author did, writing the rows it comes to.
  *
  * Actions that revise the quiz on screen are refused outright while it is locked; actions about
- * its realm and hunt (making, deleting and locking quizzes, and the expressions) are not.
+ * its realm and hunt (making, deleting and locking quizzes, and the expressions), and reviews,
+ * are not -- a locked quiz is exactly what a finished draft sent out for playtesting looks like.
  * A refused action writes nothing and says nothing.
  *
  * Nothing is read first: an action works from `held`, the rows the screen is showing, and writes
@@ -20,12 +22,13 @@ export type { OpenQuiz } from './quiz-actions'
  * @param db - The account's database.
  * @param held - Every row held, as the screen has them.
  * @param open - The quiz on the author's screen, where an action on "the quiz" lands.
+ * @param ident_id - Who is acting; only a review action reads it.
  * @param action - What the author did.
  * @throws When the action carries something invalid; nothing is written.
  *
- * @example await perform(db, held, open, { kind: 'add_question' })
+ * @example await perform(db, held, open, ident.id, { kind: 'add_question' })
  */
-export async function perform(db: Db, held: HeldRows, open: OpenQuiz, action: HuntAction): Promise<void> {
+export async function perform(db: Db, held: HeldRows, open: OpenQuiz, ident_id: string, action: HuntAction): Promise<void> {
   if (isLayoutAction(action)) {
     await Layout.performLayout(db, held, open, action)
     return
@@ -50,6 +53,9 @@ export async function perform(db: Db, held: HeldRows, open: OpenQuiz, action: Hu
   case 'replace_open_quiz':   { await Quiz.replaceOpenQuiz(db, held, open, action.quiz); return }
   case 'new_quiz':            { await Quiz.newQuiz(db, held, open, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, held, open, action.quiz_id); return }
-  case 'set_lock':            { await Quiz.setLock(db, held, action.quiz_id, action.locked) }
+  case 'set_lock':            { await Quiz.setLock(db, held, action.quiz_id, action.locked); return }
+  case 'open_review':         { await Review.openReview(db, held, action.quiz_id, ident_id); return }
+  case 'set_overall':         { await Review.setOverall(db, held, action.quiz_id, ident_id, action.overall); return }
+  case 'set_review_phase':    { await Review.setReviewPhase(db, held, action.quiz_id, ident_id, action.phase); return }
   }
 }

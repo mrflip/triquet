@@ -1,6 +1,6 @@
 import _ from 'es-toolkit/compat'
 import type { Db } from 'jazz-tools'
-import { app, type BottingRow, type ColumnRow, type ExpressionRow, type HuntRow, type QuestionRow, type QuizRow, type RealmRow, type WidgetRow } from '../db/schema'
+import { app, type BottingRow, type ColumnRow, type ExpressionRow, type HuntRow, type QuestionRow, type QuizRow, type RealmRow, type ReviewRow, type WidgetRow } from '../db/schema'
 import * as Labelmaker from '../lib/labelmaker'
 import { latestBySlot, resultsFor } from '../models/botting'
 import type { ExpressionT } from '../models/expression'
@@ -46,6 +46,7 @@ export type HuntContents = {
   widgets:     readonly WidgetRow[]
   columns:     readonly ColumnRow[]
   bottings:    readonly HeldBotting[]
+  reviews:     readonly ReviewRow[]
 }
 
 /** One quiz's rows: its own, and its children's, each list in its committed order */
@@ -55,6 +56,8 @@ export type QuizRows = {
   widgets:   readonly WidgetRow[]
   columns:   readonly ColumnRow[]
   bottings:  readonly HeldBotting[]
+  /** This quiz's reviews, oldest first: the order two idents' duplicate reviews are settled by */
+  reviews:   readonly ReviewRow[]
 }
 
 /** One hunt's own rows: the hunt's, its realms' in order, its quizzes' in the order they were made, and its expressions in order */
@@ -105,6 +108,7 @@ export function huntQueries(hunt_id: string, quiz_ids: readonly string[]) {
     questions:   app.questions.where(ofQuizzes),
     widgets:     app.widgets.where(ofQuizzes),
     columns:     app.columns.where(ofQuizzes),
+    reviews:     app.reviews.where(ofQuizzes).orderBy('$createdAt'),
   } as const
 }
 
@@ -142,14 +146,15 @@ export async function loadDirectory(db: Db): Promise<Directory> {
 export async function loadHeldRows(db: Db, hunt_id: string): Promise<HeldRows> {
   const directory = await loadDirectory(db)
   const queries = huntQueries(hunt_id, quizzesOf(directory, hunt_id).map((quiz) => quiz.id))
-  const [expressions, questions, widgets, columns] = await Promise.all([
+  const [expressions, questions, widgets, columns, reviews] = await Promise.all([
     db.all(queries.expressions, LocalFirst),
     db.all(queries.questions, LocalFirst),
     db.all(queries.widgets, LocalFirst),
     db.all(queries.columns, LocalFirst),
+    db.all(queries.reviews, LocalFirst),
   ])
   const bottings = await db.all(bottingsQuery(questions.map((row) => row.id)), LocalFirst)
-  return { ...directory, expressions, questions, widgets, columns, bottings }
+  return { ...directory, expressions, questions, widgets, columns, bottings, reviews }
 }
 
 /** `held` in their committed order */
@@ -166,7 +171,7 @@ function byPosition<RT extends { position: number }>(held: readonly RT[]): RT[] 
  *
  * @example quizRowsOf(held, open.quiz_id)?.questions.length
  */
-export function quizRowsOf(held: Pick<HeldRows, 'quizzes' | 'questions' | 'widgets' | 'columns' | 'bottings'>, quiz_id: string): QuizRows | null {
+export function quizRowsOf(held: Pick<HeldRows, 'quizzes' | 'questions' | 'widgets' | 'columns' | 'bottings' | 'reviews'>, quiz_id: string): QuizRows | null {
   const quiz = held.quizzes.find((row) => row.id === quiz_id)
   if (! quiz) { return null }
   const questions = byPosition(held.questions.filter((row) => row.quiz_id === quiz_id))
@@ -177,7 +182,21 @@ export function quizRowsOf(held: Pick<HeldRows, 'quizzes' | 'questions' | 'widge
     widgets:  byPosition(held.widgets.filter((row) => row.quiz_id === quiz_id)),
     columns:  byPosition(held.columns.filter((row) => row.quiz_id === quiz_id)),
     bottings: held.bottings.filter((row) => question_ids.has(row.question_id)),
+    reviews:  held.reviews.filter((row) => row.quiz_id === quiz_id),
   }
+}
+
+/**
+ * The review of `reviews` `ident_id` has made, the earliest should two exist.
+ *
+ * @param reviews - A quiz's reviews, oldest first (as `huntQueries` orders them).
+ * @param ident_id - Whose review to find.
+ * @returns The review, or undefined when that ident has not opened one.
+ *
+ * @example reviewRowFor(quizRows.reviews, ident.id)?.phase
+ */
+export function reviewRowFor(reviews: readonly ReviewRow[], ident_id: string): ReviewRow | undefined {
+  return reviews.find((review) => review.ident_id === ident_id)
 }
 
 /**
@@ -244,14 +263,15 @@ export function huntListingsOf(directory: Directory): HuntListing[] {
 
 /** One quiz's rows, as this browser holds them; null when it holds no such quiz */
 export async function loadQuizRows(db: Db, quiz_id: string): Promise<QuizRows | null> {
-  const [quizzes, questions, widgets, columns] = await Promise.all([
+  const [quizzes, questions, widgets, columns, reviews] = await Promise.all([
     db.all(app.quizzes.where({ id: quiz_id }), LocalFirst),
     db.all(app.questions.where({ quiz_id }), LocalFirst),
     db.all(app.widgets.where({ quiz_id }), LocalFirst),
     db.all(app.columns.where({ quiz_id }), LocalFirst),
+    db.all(app.reviews.where({ quiz_id }).orderBy('$createdAt'), LocalFirst),
   ])
   const bottings = await db.all(bottingsQuery(questions.map((row) => row.id)), LocalFirst)
-  return quizRowsOf({ quizzes, questions, widgets, columns, bottings }, quiz_id)
+  return quizRowsOf({ quizzes, questions, widgets, columns, bottings, reviews }, quiz_id)
 }
 
 /**

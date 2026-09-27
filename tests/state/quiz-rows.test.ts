@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Db } from 'jazz-tools'
 import type { PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
-import { askedAt, expressionFrom, huntFrom, huntListingsOf, huntRowFor, idsIn, idsKey, huntRowsOf, LocalFirst, loadDirectory, loadHeldRows, loadHunt, loadQuizRows, quizFrom, type QuizRows } from '../../src/state/quiz-rows'
+import { askedAt, expressionFrom, huntFrom, huntListingsOf, huntRowFor, idsIn, idsKey, huntRowsOf, LocalFirst, loadDirectory, loadHeldRows, loadHunt, loadQuizRows, quizFrom, reviewRowFor, type QuizRows } from '../../src/state/quiz-rows'
 import { transact, writeHunt } from '../../src/state/quiz-writing'
 import { SeedExpressions } from '../../src/models/expression'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -153,6 +153,36 @@ describe('reading rows', () => {
       expect(held.bottings.map((row) => row.reply_text)).to.deep.eq(['Leon'])
       expect(held.expressions).to.deep.eq([])
       expect([...held.widgets, ...held.columns].filter((row) => row.quiz_id !== mine.quiz_id)).to.deep.eq([])
+    })
+
+    it('reads only the named hunt\'s reviews', async () => {
+      const mine = await holding(testApp, Hunt.blank())
+      const theirs = await holding(testApp, Hunt.blank())
+      mine.db.insert(app.reviews, { quiz_id: mine.quiz_id, ident_id: mintId(), overall: '', phase: 'empty' })
+      mine.db.insert(app.reviews, { quiz_id: theirs.quiz_id, ident_id: mintId(), overall: '', phase: 'empty' })
+      const held = await loadHeldRows(mine.db, mine.hunt_id)
+      expect(held.reviews.map((row) => row.quiz_id)).to.deep.eq([mine.quiz_id])
+    })
+  })
+
+  describe('reviewRowFor', () => {
+    it('finds the ident\'s review among a quiz\'s reviews', async () => {
+      const mine = await holding(testApp, Hunt.blank())
+      const ident_id = mintId()
+      mine.db.insert(app.reviews, { quiz_id: mine.quiz_id, ident_id, overall: 'Mine', phase: 'draft' })
+      const { reviews } = present(await loadQuizRows(mine.db, mine.quiz_id))
+      expect(reviewRowFor(reviews, ident_id)?.overall).to.eq('Mine')
+      expect(reviewRowFor(reviews, mintId())).to.eq(undefined)
+    })
+
+    it('takes the earlier when two reviews answer to one ident', async () => {
+      const mine = await holding(testApp, Hunt.blank())
+      const ident_id = mintId()
+      mine.db.insert(app.reviews, { quiz_id: mine.quiz_id, ident_id, overall: 'First', phase: 'empty' })
+      await pause(3)
+      mine.db.insert(app.reviews, { quiz_id: mine.quiz_id, ident_id, overall: 'Second', phase: 'empty' })
+      const { reviews } = present(await loadQuizRows(mine.db, mine.quiz_id))
+      expect(reviewRowFor(reviews, ident_id)?.overall).to.eq('First')
     })
   })
 

@@ -61,8 +61,13 @@ export type Seeded = {
   open: OpenQuiz
   /** The hunt as its rows now make it up */
   read: () => Promise<Seen>
-  /** Carry out `action` on the rows as they stand, then let a millisecond pass, so the next write is newer by `$createdAt` */
-  act:  (action: HuntAction) => Promise<void>
+  /**
+   * Carry out `action` on the rows as they stand, then let a millisecond pass, so the next write
+   * is newer by `$createdAt`.
+   *
+   * @param ident_id - Who is acting; only a review action reads it, so most callers omit it.
+   */
+  act:  (action: HuntAction, ident_id?: string) => Promise<void>
 }
 
 /** A fresh account's database, one no other test shares */
@@ -86,8 +91,8 @@ export async function seedHunt(testApp: PolicyTestApp, hunt: HuntT, open_idx = 0
     const now = present(await loadHunt(db, hunt_id), 'the seeded hunt')
     return { hunt: now, quizzes: present(now.realms[0]).quizzes, expressions: now.expressions, open_quiz_id: open.quiz_id }
   }
-  const act = async (action: HuntAction) => {
-    await perform(db, await loadHeldRows(db, hunt_id), open, action)
+  const act = async (action: HuntAction, ident_id: string = randomUUID()) => {
+    await perform(db, await loadHeldRows(db, hunt_id), open, ident_id, action)
     await new Promise((resolve) => { setTimeout(resolve, 2) })
   }
   return { db, open, read, act }
