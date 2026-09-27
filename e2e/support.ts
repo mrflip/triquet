@@ -1,4 +1,4 @@
-import { test as base, expect, type Locator, type Page } from '@playwright/test'
+import { test as base, expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 
 /** Where the fixture's page begins by default: a fresh ident's fresh hunt, open on its quiz */
 export const FreshHunt = 'fresh hunt'
@@ -27,6 +27,21 @@ export const test = base.extend<{ startAt: string | null }>({
   },
 })
 export { expect } from '@playwright/test'
+
+/** The browser contexts `otherVisitor` opened for this test, closed once it is done */
+const Others: BrowserContext[] = []
+
+// eslint-disable-next-line unicorn/no-top-level-side-effects -- registering the fixture's own cleanup hook, the way `test.extend` above does
+test.afterEach(async () => {
+  await Promise.all(Others.splice(0).map(async (context) => { await context.close() }))
+})
+
+/** A page in a browser of its own: another visitor, with an account of their own, on the same Jazz server */
+export async function otherVisitor(browser: Browser): Promise<Page> {
+  const context = await browser.newContext()
+  Others.push(context)
+  return await context.newPage()
+}
 
 /** The row at `rowIdx` of the grid, counting from the top */
 export function rowAt(page: Page, rowIdx: number): Locator {
