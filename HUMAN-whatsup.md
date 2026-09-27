@@ -2,6 +2,26 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: e2e specs converged on Playwright's grain; assertion style follows the runner
+
+Branch `20260927-e2e_practices`. The review, advice and plans are in
+`whiteboard/testing-practices.md` (section 6 says how it went); a stub for the later ESLint review
+is in `whiteboard/eslint-review.md`. What landed: `eslint-plugin-playwright` on `e2e/**` with its
+recommended set plus the retry rules; a `test` in `e2e/support.ts` whose `page` has already opened
+the workbench (`test.use({ startAt: null })` for a spec that must stub first), with `cellOf`,
+`rowAt`, `valuesOf`, `fillRows`, `openManage`, `stubAsk` shared instead of copied; every
+`waitForSelector` and double `goto` gone; every `page.url()`/`count()` one-shot now a retrying
+matcher; the two CSS-class assertions now read `data-sorted` and `data-stale`; the debounce test
+drives the scheduler with `page.clock` (a mutation check confirmed the fake clock is what fires
+it). `notes/testing.md` now opens with "the assertion style follows the runner" and has a
+Playwright section; the vitest skill is back in `.claude/skills/` with a narrowed description and a
+house-rules preamble. Chai in `tests/` needed no conversion at all: my earlier "20 `toEqual`" were
+`toEqualTypeOf`. Suite: 144 passed, 2.5 min (baseline 3.6). Two things for a Coach: the agent
+shell has no Doppler project, so the suite ran as CI does (`CI=true` and the four variables), on
+ports 3003/3203 because 3002 was held by a human's own run; details and a proposal in the
+whiteboard. `scripts/jazz_migration` could not be run for the same reason; no schema changed.
+`gh` is not authenticated here, so the branch is pushed but the PR is yours to open.
+
 ## 2026-09-27: e2e in CI -- six shards, one worker each
 
 A worker per core on CI failed badly: both sharded runs failed in every shard, 35 specs in the

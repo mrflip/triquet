@@ -82,3 +82,6 @@ next-env.d.ts
 
 
 notes/example_export.json
+
+# claude code worktrees (git worktree checkouts made by an agent session)
+.claude/worktrees/
