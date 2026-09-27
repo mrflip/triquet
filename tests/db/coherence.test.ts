@@ -6,7 +6,7 @@ import { isJsonText } from '../../src/db/json-text'
 import { plain } from '../../src/lib/validator'
 import { ColumnValidators } from '../../src/models/column'
 import { ExpressionValidators } from '../../src/models/expression'
-import { PlayingValidators } from '../../src/models/playing'
+import { BottingValidators } from '../../src/models/botting'
 import { QuestionValidators } from '../../src/models/question'
 import { QuizValidators } from '../../src/models/quiz'
 import { WidgetValidators } from '../../src/models/widget'
@@ -24,7 +24,7 @@ const RowValidators = {
   widgets:     WidgetValidators.row,
   columns:     ColumnValidators.row,
   questions:   QuestionValidators.row,
-  playings:    PlayingValidators.row,
+  bottings:    BottingValidators.row,
 } as const
 
 type JsonSchemaish = { type?: string | string[], anyOf?: JsonSchemaish[], oneOf?: JsonSchemaish[], enum?: unknown[], const?: unknown, format?: string }
@@ -124,6 +124,6 @@ describe('every table and its row validator', () => {
     expectTypeOf<Z.output<typeof WidgetValidators.row>>().toEqualTypeOf<RowOf<typeof app.widgets>>()
     expectTypeOf<Z.output<typeof ColumnValidators.row>>().toEqualTypeOf<RowOf<typeof app.columns>>()
     expectTypeOf<Z.output<typeof QuestionValidators.row>>().toEqualTypeOf<RowOf<typeof app.questions>>()
-    expectTypeOf<Z.output<typeof PlayingValidators.row>>().toEqualTypeOf<RowOf<typeof app.playings>>()
+    expectTypeOf<Z.output<typeof BottingValidators.row>>().toEqualTypeOf<RowOf<typeof app.bottings>>()
   })
 })

@@ -95,17 +95,17 @@ describe('reading rows', () => {
       const rows = await rowsOf(db, quiz_id)
       expect(rows.quiz.title).to.eq('Princes')
       expect(rows.questions.map((row) => [row.title, row.position])).to.deep.eq([['b', 0], ['a', 1], ['c', 2]])
-      expect([rows.widgets, rows.columns, rows.playings]).to.deep.eq([[], [], []])
+      expect([rows.widgets, rows.columns, rows.bottings]).to.deep.eq([[], [], []])
     })
 
-    it('reads the playings of its questions, and when each was asked once Jazz has stamped it', async () => {
+    it('reads the bottings of its questions, and when each was asked once Jazz has stamped it', async () => {
       const guess = { status: 'done' as const, text: 'Leon', truncated: false, updated_at: Date.now(), last_err: null }
       const quiz = { ...Quiz.blank(), questions: [{ ...Question.blank(), clueing: 'Who?', guess }] }
       const { db, quiz_id } = await holding(testApp, Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id }))
-      const { playings } = await rowsOf(db, quiz_id)
-      expect(playings[0]).to.deep.include({ player_label: 'dumdum', textkind: 'clueing', reply_text: 'Leon', asked_text: 'Who?' })
+      const { bottings } = await rowsOf(db, quiz_id)
+      expect(bottings[0]).to.deep.include({ bot_label: 'dumdum', textkind: 'clueing', reply_text: 'Leon', asked_text: 'Who?' })
       await pause(200)
-      const { playings: stamped } = await rowsOf(db, quiz_id)
+      const { bottings: stamped } = await rowsOf(db, quiz_id)
       expect(stamped[0]?.$createdAt).to.be.instanceOf(Date)
     })
 
@@ -159,7 +159,7 @@ describe('reading rows', () => {
       const ask = async (reply_text: string) => {
         const items = [{ text: reply_text, value: 1, kind: 'numeral' as const }]
         await transact(db, (tx) => {
-          tx.insert(app.playings, { question_id, player_label: 'numnum', textkind: 'clueing', asked_text: '', status: 'done', reply_text, truncated: false, items })
+          tx.insert(app.bottings, { question_id, bot_label: 'numnum', textkind: 'clueing', asked_text: '', status: 'done', reply_text, truncated: false, items })
         })
       }
       await ask('older')
@@ -183,17 +183,17 @@ describe('reading rows', () => {
 })
 
 describe('askedAt', () => {
-  const playing = {
-    id: '', question_id: '', player_label: 'dumdum', textkind: 'clueing', asked_text: null, status: 'done', reply_text: null,
+  const botting = {
+    id: '', question_id: '', bot_label: 'dumdum', textkind: 'clueing', asked_text: null, status: 'done', reply_text: null,
     items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null,
   } as const
 
-  it('is when Jazz stamped the playing', () => {
-    expect(askedAt({ ...playing, items: [], $createdAt: new Date(1_700_000_000_000) })).to.eq(1_700_000_000_000)
+  it('is when Jazz stamped the botting', () => {
+    expect(askedAt({ ...botting, items: [], $createdAt: new Date(1_700_000_000_000) })).to.eq(1_700_000_000_000)
   })
 
   it('is now for one it has not stamped yet', () => {
     const before = Date.now()
-    expect(askedAt({ ...playing, items: [] })).to.be.at.least(before)
+    expect(askedAt({ ...botting, items: [] })).to.be.at.least(before)
   })
 })

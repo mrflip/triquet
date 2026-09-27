@@ -1,7 +1,7 @@
 import * as Labelmaker from '../lib/labelmaker'
 import { Column } from '../models/column'
 import { DefaultOwner, ExpressionValidators, type ExpressionT } from '../models/expression'
-import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type ExpressingT, type PlayingPatch, type PlayingWidgetT } from '../models/widget'
+import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type ExpressingT, type BottingPatch, type BottingWidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
 import type { WorkspaceAction } from './actions'
@@ -11,7 +11,7 @@ export const NewExpression = ''
 
 /** How wide the column a new widget brings with it is: a number's, or a list's */
 export const NewExpressingWidthPx = 78
-export const NewPlayingWidthPx = 170
+export const NewBottingWidthPx = 170
 
 /** Everything the expressing editor holds while it is open */
 export type ExpressingEdit = {
@@ -69,32 +69,32 @@ export function planExpressingEdit(edit: Readonly<ExpressingEdit>, workspace: Wo
   return { ok: true, actions: [...expressionActions, ...widgetActions] }
 }
 
-/** What the playing editor holds while it is open */
-export type PlayingEdit = Pick<PlayingWidgetT, 'label' | 'player_label' | 'textkind' | 'description'> & {
+/** What the botting editor holds while it is open */
+export type BottingEdit = Pick<BottingWidgetT, 'label' | 'bot_label' | 'textkind' | 'description'> & {
   /** The widget being edited, or null for a new one */
-  widget: PlayingWidgetT | null
+  widget: BottingWidgetT | null
 }
 
 /**
- * The actions that applying `edit` of a playing widget comes to, or the reason it cannot be.
+ * The actions that applying `edit` of a botting widget comes to, or the reason it cannot be.
  * A new widget brings a column to show it, just before Alt Text.
  *
  * @param edit - The editor's state.
  * @param quiz - The quiz the widget belongs to.
  * @returns The plan.
  */
-export function planPlayingEdit(edit: Readonly<PlayingEdit>, quiz: QuizT): WidgetPlan {
+export function planBottingEdit(edit: Readonly<BottingEdit>, quiz: QuizT): WidgetPlan {
   const label = Labelmaker.normalize(edit.label)
   if (label === '') { return refused('Give the widget a label.', true) }
   const siblings = new Set(quiz.widgets.filter((other) => other.label !== edit.widget?.label).map((other) => other.label))
   if (label === QuestionWidgetLabel || siblings.has(label)) { return refused('Another widget in this quiz already has that label.', true) }
-  const checked = WidgetValidators.playing.safeParse({ kind: 'playing', label, player_label: edit.player_label, textkind: edit.textkind, description: edit.description })
+  const checked = WidgetValidators.botting.safeParse({ kind: 'botting', label, bot_label: edit.bot_label, textkind: edit.textkind, description: edit.description })
   if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That widget will not do.') }
   if (quiz.locked) { return { ok: true, actions: [] } }
   return {
     ok:      true,
     actions: edit.widget === null
-      ? [{ kind: 'add_widget', widget: checked.data }, newColumnFor(quiz, checked.data.label, NewPlayingWidthPx)]
+      ? [{ kind: 'add_widget', widget: checked.data }, newColumnFor(quiz, checked.data.label, NewBottingWidthPx)]
       : editWidgetActions(edit.widget, checked.data),
   }
 }
@@ -122,9 +122,9 @@ function newColumnFor(quiz: QuizT, label: string, width_px: number): WorkspaceAc
 }
 
 /** Revising only what changed in an existing widget */
-function editWidgetActions(held: ExpressingT | PlayingWidgetT, next: ExpressingT | PlayingWidgetT): WorkspaceAction[] {
+function editWidgetActions(held: ExpressingT | BottingWidgetT, next: ExpressingT | BottingWidgetT): WorkspaceAction[] {
   const changed = Object.entries(next).filter(([key, val]) => key !== 'kind' && (held as Record<string, unknown>)[key] !== val)
   if (changed.length === 0) { return [] }
-  const patch: ExpressingPatch | PlayingPatch = Object.fromEntries(changed)
+  const patch: ExpressingPatch | BottingPatch = Object.fromEntries(changed)
   return [{ kind: 'edit_widget', label: held.label, patch }]
 }

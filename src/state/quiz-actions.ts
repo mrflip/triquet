@@ -9,7 +9,7 @@ import * as Rank from '../lib/rank'
 import * as Sortings from '../lib/sortings'
 import { qnumSortkeyOf } from '../lib/columns'
 import { askError, type LastErrT } from '../models/ask'
-import { PlaySlots, unrecordedPlayings, type PlaySlot } from '../models/playing'
+import { BotSlots, unrecordedBottings, type BotSlot } from '../models/botting'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../models/question'
 import { Quiz } from '../models/quiz'
 import { defaultLayoutFor } from '../models/layout'
@@ -20,7 +20,7 @@ import type { Textkind } from '../lib/ask/contract'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../models/quiz'
 import { Workspace, type WorkspaceT } from '../models/workspace'
 import { LocalFirst, expressionFrom, quizFrom, quizRowsOf, workspaceRowsOf, type AccountRows, type QuizRows } from './quiz-rows'
-import { deleteQuiz, playingFieldsOf, transact, updateQuestion, updateQuiz, updateWorkspace, writeQuiz, writeWorkspace, type Tx } from './quiz-writing'
+import { deleteQuiz, bottingFieldsOf, transact, updateQuestion, updateQuiz, updateWorkspace, writeQuiz, writeWorkspace, type Tx } from './quiz-writing'
 
 /** The quiz an author has on screen, and the workspace it belongs to: where every action lands */
 export type OpenQuiz = {
@@ -96,7 +96,7 @@ export async function editQuestion(db: Db, held: AccountRows, open: OpenQuiz, qu
     const { guess, clueing_ishes, hint_ishes, chains_to, ...fields } = clean
     updateQuestion(tx, held, { ...fields, ...(chains_to !== undefined && { chains_to: chainLabelFor(rows, held, chains_to) }) })
     const results = { guess, clueing_ishes, hint_ishes }
-    for (const slot of PlaySlots) {
+    for (const slot of BotSlots) {
       const result = results[slot.field]
       if (result) { recordResult(tx, quizFrom(rows), held, slot, result) }
     }
@@ -123,7 +123,7 @@ export async function addQuestion(db: Db, held: AccountRows, open: OpenQuiz): Pr
 }
 
 /**
- * Delete questions from the open quiz, with every reply their players gave. The questions left
+ * Delete questions from the open quiz, with every reply their bots gave. The questions left
  * close ranks and keep their Q#s; a chain to a deleted question is cleared rather than left to
  * be picked up by whichever question answers to that label next. Ids of no question here are
  * passed over.
@@ -133,8 +133,8 @@ export async function deleteQuestions(db: Db, held: AccountRows, open: OpenQuiz,
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const [gone, kept] = _.partition(rows.questions, (row) => doomed.has(row.id))
     const goneLabels = new Set(gone.map((row) => Labelmaker.effectiveLabelOf(row)))
-    for (const playing of rows.playings) {
-      if (doomed.has(playing.question_id)) { tx.delete(app.playings, playing.id) }
+    for (const botting of rows.bottings) {
+      if (doomed.has(botting.question_id)) { tx.delete(app.bottings, botting.id) }
     }
     for (const row of gone) { tx.delete(app.questions, row.id) }
     for (const [position, row] of kept.entries()) {
@@ -187,25 +187,25 @@ export async function sortByChainOrder(db: Db, held: AccountRows, open: OpenQuiz
   await reorderOpenQuiz(db, held, open, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
 }
 
-/** The slot a player's reply to a question's text lands in */
-function slotFor(field: PlaySlot['field']): PlaySlot {
-  return PlaySlots.find((slot) => slot.field === field) ?? PlaySlots[0]
+/** The slot a bot's reply to a question's text lands in */
+function slotFor(field: BotSlot['field']): BotSlot {
+  return BotSlots.find((slot) => slot.field === field) ?? BotSlots[0]
 }
 
 /**
- * Record `result` as the newest in `slot` of the question `held`: a reply as a playing that
+ * Record `result` as the newest in `slot` of the question `held`: a reply as a botting that
  * answered, a failure as one that failed. What the cell held before stays in its history.
  */
-function recordResult(tx: Tx, quiz: QuizT, held: QuestionRow, slot: PlaySlot, result: NonNullable<GuessT | IshesT>): void {
+function recordResult(tx: Tx, quiz: QuizT, held: QuestionRow, slot: BotSlot, result: NonNullable<GuessT | IshesT>): void {
   const question = quiz.questions.find((each) => each.id === held.id)
   if (! question) { return }
   const alone = { ...question, guess: null, clueing_ishes: null, hint_ishes: null, [slot.field]: result }
-  const recording = unrecordedPlayings(alone, new Map())
-  for (const playing of recording) { tx.insert(app.playings, playingFieldsOf(playing)) }
+  const recording = unrecordedBottings(alone, new Map())
+  for (const botting of recording) { tx.insert(app.bottings, bottingFieldsOf(botting)) }
 }
 
 /** Record a reply, or a failure, in one played cell of a question of the open quiz */
-async function recordInCell(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, field: PlaySlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
+async function recordInCell(db: Db, held: AccountRows, open: OpenQuiz, question_id: string, field: BotSlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.questions.find((row) => row.id === question_id)
     if (held) { recordResult(tx, quizFrom(rows), held, slotFor(field), result) }

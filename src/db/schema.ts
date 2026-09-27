@@ -3,8 +3,8 @@ import { plain } from '../lib/validator'
 import { TextkindVals } from '../lib/ask/contract'
 import { ModelTierVals, type LastErrT } from '../models/ask'
 import { ExpressionOwnerVals } from '../models/expression'
-import { PlayerLabelVals } from '../models/player-label'
-import { PlayingValidators, PlayingStatusVals } from '../models/playing'
+import { BotLabelVals } from '../models/bot-label'
+import { BottingValidators, BottingStatusVals } from '../models/botting'
 import type { BulkIshesRunT, Sortkey } from '../models/quiz'
 import { WidgetkindVals } from '../models/widget'
 import { jsonText } from './json-text'
@@ -52,7 +52,7 @@ const quizzes = JZS.table({
 
 /**
  * Something a quiz can show for every question, kept in the order the author lists them: an
- * expression put to work, or a player put to the quiz. One table for both, so that they share
+ * expression put to work, or a bot put to the quiz. One table for both, so that they share
  * one order; the columns only one kind uses are null for the other.
  */
 const widgets = JZS.table({
@@ -60,7 +60,7 @@ const widgets = JZS.table({
   label:            JZS.string(),
   kind:             JZS.enum(...WidgetkindVals),
   expression_label: JZS.string().optional(),
-  player_label:     JZS.enum(...PlayerLabelVals).optional(),
+  bot_label:     JZS.enum(...BotLabelVals).optional(),
   textkind:         JZS.enum(...TextkindVals).optional(),
   description:      JZS.string(),
   position:         JZS.int(),
@@ -80,7 +80,7 @@ const columns = JZS.table({
   quiz: JZS.rel('quizzes', 'quiz_id'),
 })
 
-/** One question: only what the author writes. What players replied lives in `playings`. */
+/** One question: only what the author writes. What bots replied lives in `bottings`. */
 const questions = JZS.table({
   quiz_id:      JZS.uuid(),
   position:     JZS.int(),
@@ -97,22 +97,22 @@ const questions = JZS.table({
   notes:        JZS.string(),
 }, {
   quiz:     JZS.rel('quizzes', 'quiz_id'),
-  playings: JZS.reverse('playings', 'question'),
+  bottings: JZS.reverse('bottings', 'question'),
 })
 
 /**
- * One time a player was put one of a question's texts, and what came back. Never revised: a
- * fresh ask is a fresh row, and what the grid shows is the newest row for each player and text,
+ * One time a bot was put one of a question's texts, and what came back. Never revised: a
+ * fresh ask is a fresh row, and what the grid shows is the newest row for each bot and text,
  * by `$createdAt`.
  */
-const playings = JZS.table({
+const bottings = JZS.table({
   question_id:        JZS.uuid(),
-  player_label:       JZS.enum(...PlayerLabelVals),
+  bot_label:       JZS.enum(...BotLabelVals),
   textkind:           JZS.enum(...TextkindVals),
   asked_text:         JZS.string().optional(),
-  status:             JZS.enum(...PlayingStatusVals),
+  status:             JZS.enum(...BottingStatusVals),
   reply_text:         JZS.string().optional(),
-  items:              JZS.json(plain(PlayingValidators.items)).default([]),
+  items:              JZS.json(plain(BottingValidators.items)).default([]),
   message:            JZS.string().optional(),
   response:           jsonText<NonNullable<LastErrT['response']>>(),
   truncated:          JZS.boolean(),
@@ -123,7 +123,7 @@ const playings = JZS.table({
 })
 
 /** The app's tables, in Jazz's own DSL. Each has a row validator in `models/` that says what the column cannot. */
-export const schema = JZS.defineSchema({ workspaces, expressions, quizzes, widgets, columns, questions, playings })
+export const schema = JZS.defineSchema({ workspaces, expressions, quizzes, widgets, columns, questions, bottings })
 
 /** The typed handle every query and write starts from */
 export const app = JZS.defineApp(schema)
@@ -135,4 +135,4 @@ export type QuizRow       = JZS.RowOf<typeof app.quizzes>
 export type WidgetRow     = JZS.RowOf<typeof app.widgets>
 export type ColumnRow     = JZS.RowOf<typeof app.columns>
 export type QuestionRow   = JZS.RowOf<typeof app.questions>
-export type PlayingRow    = JZS.RowOf<typeof app.playings>
+export type BottingRow    = JZS.RowOf<typeof app.bottings>

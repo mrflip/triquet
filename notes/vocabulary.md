@@ -60,7 +60,7 @@ the domain.
 ## Widgets and columns
 
 * **widget** -- something that has a value for every question. A quiz opts into its widgets; they
-  sit in one ordered list. Two kinds exist: expressing and playing. The questions' own fields
+  sit in one ordered list. Two kinds exist: expressing and botting. The questions' own fields
   behave as a built-in widget labelled `question`, which no other widget may be labelled.
 * **column** -- what the grid shows: a `label`, a `title`, a `width_px` and a `source`. Kept apart
   from widgets on purpose: a widget *has* a value, a column *shows* one. Removing a column keeps
@@ -77,18 +77,21 @@ the domain.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
   JSON Schema and the git table are all built from these lists, so hiding a field is one edit.
 
-## Players
+## Bots
 
-* **player** -- someone who can be put a question and reply; a model with a brief. Seeded:
+*Player* means a human taking the quiz, and is kept for that. The prompts have always used it
+that way; the model bots were called players until September 2026.
+
+* **bot** -- something that can be put a question and reply; a model with a brief. Seeded:
   **dumdum**, the hasty guesser, and **numnum**, the number spotter.
-* **playing** -- two things, related. As a *widget*, a connection from a quiz to a player for one
-  textkind. As a *row* in `playings`, one time a player was put one text, append-only. Named
-  "playing" rather than "answering" to stay clear of `full_answer`; the reply is `reply_text`.
-* **ask** -- the act of putting a text to a player, and the request that does it. An ask has a
+* **botting** -- two things, related. As a *widget*, a connection from a quiz to a bot for one
+  textkind. As a *row* in `bottings`, one time a bot was put one text, append-only. Named
+  "botting" rather than "answering" to stay clear of `full_answer`; the reply is `reply_text`.
+* **ask** -- the act of putting a text to a bot, and the request that does it. An ask has a
   **job** (`guess`, `ishes`, `bulk_ishes`).
-* **textkind** -- which of a question's texts a player is shown: `clueing` or `hint`.
-* **slot** -- one played cell: a (player, textkind) pair and the question field that shows it.
-  The newest playing per slot is what the grid projects.
+* **textkind** -- which of a question's texts a bot is shown: `clueing` or `hint`.
+* **slot** -- one played cell: a (bot, textkind) pair and the question field that shows it.
+  The newest botting per slot is what the grid projects.
 * **guess** -- dumdum's reply to a clueing. The ambiguity signal: a guess that differs from the
   answer means a second reading the author could not see from inside.
 * **ish**, **ishes** -- a number-like span numnum found in a text ("300 million", "third", "千"),
@@ -98,9 +101,9 @@ the domain.
   text stays on screen, marked.
 * **last_err** -- a failed ask never replaces a value; it rides along on the cell until a success
   clears it.
-* **model tier** -- `quick` or `careful`: a feature of the player, not a cost dodge.
-* **servicelabel** -- which outside service serves a player (`claude`), and so whose credentials
-  it needs. **unavailable** is a player with none.
+* **model tier** -- `quick` or `careful`: a feature of the bot, not a cost dodge.
+* **servicelabel** -- which outside service serves a bot (`claude`), and so whose credentials
+  it needs. **unavailable** is a bot with none.
 
 ## Around the edges
 

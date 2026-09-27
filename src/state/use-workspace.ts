@@ -101,10 +101,10 @@ export function useWorkspace(label?: string): WorkspaceHandle {
   const questions   = useAll(app.questions, LocalFirst)
   const widgets     = useAll(app.widgets, LocalFirst)
   const columns     = useAll(app.columns, LocalFirst)
-  const playings    = useAll(app.playings.select('*', '$createdAt'), LocalFirst)
+  const bottings    = useAll(app.bottings.select('*', '$createdAt'), LocalFirst)
 
   // How many rows each table has delivered, or that it is still waiting, logged as it changes.
-  const tables = { workspaces, quizzes, expressions, questions, widgets, columns, playings }
+  const tables = { workspaces, quizzes, expressions, questions, widgets, columns, bottings }
   const arrivals = Object.entries(tables).map(([table, { data, error: err }]) => `${table}:${err ? 'failed' : String(data?.length ?? 'waiting')}`).join(' ')
   useEffect(() => {
     console.warn('Workspace: rows', arrivals, { ms: Math.round(performance.now()) })
@@ -112,20 +112,20 @@ export function useWorkspace(label?: string): WorkspaceHandle {
   useEffect(() => {
     const failures = {
       workspaces: workspaces.error, quizzes: quizzes.error, expressions: expressions.error, questions: questions.error,
-      widgets: widgets.error, columns: columns.error, playings: playings.error,
+      widgets: widgets.error, columns: columns.error, bottings: bottings.error,
     }
     for (const [table, err] of Object.entries(failures)) {
       if (err) { console.error(`Workspace: the ${table} subscription failed`, err) }
     }
-  }, [workspaces.error, quizzes.error, expressions.error, questions.error, widgets.error, columns.error, playings.error])
+  }, [workspaces.error, quizzes.error, expressions.error, questions.error, widgets.error, columns.error, bottings.error])
 
   const rows = useMemo((): AccountRows | null => {
-    if (! workspaces.data || ! quizzes.data || ! expressions.data || ! questions.data || ! widgets.data || ! columns.data || ! playings.data) { return null }
+    if (! workspaces.data || ! quizzes.data || ! expressions.data || ! questions.data || ! widgets.data || ! columns.data || ! bottings.data) { return null }
     return {
       workspaces: workspaces.data, quizzes: quizzes.data, expressions: expressions.data, questions: questions.data,
-      widgets: widgets.data, columns: columns.data, playings: playings.data,
+      widgets: widgets.data, columns: columns.data, bottings: bottings.data,
     }
-  }, [workspaces.data, quizzes.data, expressions.data, questions.data, widgets.data, columns.data, playings.data])
+  }, [workspaces.data, quizzes.data, expressions.data, questions.data, widgets.data, columns.data, bottings.data])
 
   // Null until the workspace and its quizzes have arrived: each table arrives on its own.
   const held = useMemo(() => (rows && workspace_id !== null ? workspaceFrom(rows, workspace_id) : null), [rows, workspace_id])

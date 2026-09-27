@@ -2,7 +2,7 @@ import type { Db } from 'jazz-tools'
 import { app, type ColumnRow, type WidgetRow } from '../db/schema'
 import { ColumnValidators, sortkeyOf, sourceOf, type ColumnDNA, type ColumnPatch } from '../models/column'
 import { ExpressionValidators, keyOf, type ExpressionDNA, type ExpressionPatch } from '../models/expression'
-import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type PlayingPatch, type WidgetDNA, type WidgetT } from '../models/widget'
+import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type BottingPatch, type WidgetDNA, type WidgetT } from '../models/widget'
 import { workspaceRowsOf, type AccountRows, type QuizRows } from './quiz-rows'
 import { repositioned, transact, updateColumn, updateExpression, updateQuiz, updateWidget, type Tx } from './quiz-writing'
 import { reviseOpenQuiz, type OpenQuiz } from './quiz-actions'
@@ -35,8 +35,8 @@ function widgetFields(widget: WidgetT) {
     label:            widget.label,
     kind:             widget.kind,
     expression_label: widget.kind === 'expressing' ? widget.expression_label : null,
-    player_label:     widget.kind === 'playing' ? widget.player_label : null,
-    textkind:         widget.kind === 'playing' ? widget.textkind : null,
+    bot_label:     widget.kind === 'botting' ? widget.bot_label : null,
+    textkind:         widget.kind === 'botting' ? widget.textkind : null,
     description:      widget.description,
   }
 }
@@ -54,11 +54,11 @@ export async function addWidget(db: Db, held: AccountRows, open: OpenQuiz, dna: 
  * Revise a widget of the open quiz, its patch validated for the kind of widget it is. A rename
  * onto a label a sibling has is refused, and carries the columns that show the widget with it.
  */
-export async function editWidget(db: Db, held: AccountRows, open: OpenQuiz, label: string, patch: ExpressingPatch | PlayingPatch): Promise<void> {
+export async function editWidget(db: Db, held: AccountRows, open: OpenQuiz, label: string, patch: ExpressingPatch | BottingPatch): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.widgets.find((widget) => widget.label === label)
     if (! held) { return }
-    const clean = held.kind === 'expressing' ? WidgetValidators.expressingPatch(patch) : WidgetValidators.playingPatch(patch)
+    const clean = held.kind === 'expressing' ? WidgetValidators.expressingPatch(patch) : WidgetValidators.bottingPatch(patch)
     const renamedOnto = clean.label ?? label
     if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { return }
     updateWidget(tx, held, { ...clean })

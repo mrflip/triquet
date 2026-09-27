@@ -1,6 +1,6 @@
 import type { ColumnDNA, ColumnPatch } from '../models/column'
 import type { ExpressionDNA, ExpressionPatch } from '../models/expression'
-import type { ExpressingPatch, PlayingPatch, WidgetDNA } from '../models/widget'
+import type { ExpressingPatch, BottingPatch, WidgetDNA } from '../models/widget'
 import type { QuestionPatch } from '../models/question'
 import type { LastErrT } from '../models/ask'
 import type { GuessT } from '../models/guess'
@@ -16,7 +16,7 @@ import type { WorkspaceT } from '../models/workspace'
 /** Everything the author can do to a quiz's widgets and columns, and to the workspace's expressions */
 export type LayoutAction =
   | { kind: 'add_widget', widget: WidgetDNA }
-  | { kind: 'edit_widget', label: string, patch: ExpressingPatch | PlayingPatch }
+  | { kind: 'edit_widget', label: string, patch: ExpressingPatch | BottingPatch }
   | { kind: 'delete_widget', label: string }
   | { kind: 'move_widget', label: string, onto_idx: number }
   | { kind: 'add_column', column: ColumnDNA, onto_idx?: number }

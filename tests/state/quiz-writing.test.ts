@@ -5,10 +5,10 @@ import type { PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
 import { LocalFirst, loadQuizRows, loadWorkspace, loadWorkspaceRows, type QuizRows } from '../../src/state/quiz-rows'
 import {
-  changedFields, deleteQuiz, playingFieldsOf, repositioned, transact, updateQuestion, updateQuiz, writeQuiz, writeWorkspace,
+  changedFields, deleteQuiz, bottingFieldsOf, repositioned, transact, updateQuestion, updateQuiz, writeQuiz, writeWorkspace,
 } from '../../src/state/quiz-writing'
 import { Expression } from '../../src/models/expression'
-import type { PlayingT } from '../../src/models/playing'
+import type { BottingT } from '../../src/models/botting'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Workspace, type WorkspaceT } from '../../src/models/workspace'
@@ -54,7 +54,7 @@ async function heldCounts(db: Db): Promise<number[]> {
     await db.all(app.questions, LocalFirst),
     await db.all(app.widgets, LocalFirst),
     await db.all(app.columns, LocalFirst),
-    await db.all(app.playings, LocalFirst),
+    await db.all(app.bottings, LocalFirst),
   ]
   return counts.map((rows) => rows.length)
 }
@@ -79,14 +79,14 @@ describe('repositioned', () => {
   })
 })
 
-describe('playingFieldsOf', () => {
+describe('bottingFieldsOf', () => {
   it('drops the tree\'s id and time, which are the row\'s own', () => {
-    const playing = {
-      id: 'x', question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', player_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
+    const botting = {
+      id: 'x', question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
       reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null, created_at: 9,
-    } satisfies PlayingT
-    expect(playingFieldsOf(playing)).to.deep.eq({
-      question_id: playing.question_id, player_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
+    } satisfies BottingT
+    expect(bottingFieldsOf(botting)).to.deep.eq({
+      question_id: botting.question_id, bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
       reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null,
     })
   })
@@ -159,7 +159,7 @@ describe('writing rows', () => {
       const after = await held.rows()
       expect(after.questions.map((row) => [row.title, row.position])).to.deep.eq([['new', 0], ['AA', 1]])
       expect(after.questions[1]?.id).to.eq(first.id)
-      expect(after.playings.map((row) => row.question_id)).to.deep.eq([first.id])
+      expect(after.bottings.map((row) => row.question_id)).to.deep.eq([first.id])
     })
 
     it('writes a chain as the label of the question it names', async () => {
@@ -190,8 +190,8 @@ describe('writing rows', () => {
       await transact(held.db, (tx) => writeQuiz(tx, held.workspace_id, older, before))
       const newer = { ...tree, questions: tree.questions.map((question) => ({ ...question, guess: guessed('Lyon') })) }
       await transact(held.db, (tx) => writeQuiz(tx, held.workspace_id, newer, before))
-      const { playings } = await held.rows()
-      expect(playings.map((row) => row.reply_text)).to.have.members(['Leon', 'Lyon'])
+      const { bottings } = await held.rows()
+      expect(bottings.map((row) => row.reply_text)).to.have.members(['Leon', 'Lyon'])
     })
 
     it('records nothing again when a quiz is written back as it was read', async () => {

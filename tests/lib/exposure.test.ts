@@ -19,11 +19,11 @@ describe('exposedColumnsOf', () => {
     expect(headers).to.include.members(['question.title', 'question.clueing', 'question.label', 'question.chains_to', 'question.qnum'])
   })
 
-  it('leaves out what is not exposed: the id, the label override, and the players\' answers held on the question', () => {
+  it('leaves out what is not exposed: the id, the label override, and the bots\' answers held on the question', () => {
     expect(headers).to.not.include.members(['question.id', 'question.forced_label', 'question.guess', 'question.clueing_ishes'])
   })
 
-  it('has each player\'s exposed fields under the player widget\'s label, and never its costs or failures', () => {
+  it('has each bot\'s exposed fields under the bot widget\'s label, and never its costs or failures', () => {
     expect(headers).to.include.members(['dumdum.status', 'dumdum.text', 'numnum_clueing.items', 'numnum_clueing.stale', 'numnum_hint.status'])
     expect(headers.filter((header) => /token|tier|updated|last_err|message|truncated/.test(header))).to.deep.eq([])
   })
@@ -76,7 +76,7 @@ describe('tableOf', () => {
     expect(rows.map((row) => [row[label], row[chain]])).to.deep.eq([['the_book', 'the_film'], ['the_film', '']])
   })
 
-  it('shows what a player answered as text: the status, the answer, the spans as JSON, whether stale', () => {
+  it('shows what a bot answered as text: the status, the answer, the spans as JSON, whether stale', () => {
     const question = {
       ...Question.blank(),
       guess: { status: 'done' as const, text: 'Lyon', truncated: false, updated_at: 1, last_err: null },
@@ -87,7 +87,7 @@ describe('tableOf', () => {
     expect(cells).to.deep.eq(['done', 'Lyon', '[{"kind":"numeral","text":"3","value":3}]', 'true'])
   })
 
-  it('shows a player never asked as empty cells', () => {
+  it('shows a bot never asked as empty cells', () => {
     const { header, rows } = tableOf()
     expect(present(rows[0])[header.indexOf('dumdum.status')]).to.eq('')
   })

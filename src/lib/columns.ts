@@ -1,6 +1,6 @@
 import { sortkeyOf, sourceOf, type ColumnT, type QuestionField, type QuestionView } from '../models/column'
-import { PlayingWidget, type ExpressingT, type PlayingWidgetT, type WidgetT } from '../models/widget'
-import type { PlaySlot } from '../models/playing'
+import { BottingWidget, type ExpressingT, type BottingWidgetT, type WidgetT } from '../models/widget'
+import type { BotSlot } from '../models/botting'
 import type { Sortkey } from '../models/quiz'
 
 /** How a column's header is drawn: along the row, rotated into it, or centred and wrapped */
@@ -11,7 +11,7 @@ export type Resolved =
   | { kind: 'field', field: QuestionField }
   | { kind: 'view', view: QuestionView }
   | { kind: 'expressing', widget: ExpressingT }
-  | { kind: 'playing', widget: PlayingWidgetT, slot: PlaySlot }
+  | { kind: 'botting', widget: BottingWidgetT, slot: BotSlot }
 
 /** One column as the grid draws it */
 export type ColumnSpec = {
@@ -46,7 +46,7 @@ export function resolve(source: string, widgets: readonly WidgetT[]): Resolved |
   const widget = widgets.find((each) => each.label === named.label)
   if (! widget) { return null }
   if (widget.kind === 'expressing') { return { kind: 'expressing', widget } }
-  return { kind: 'playing', widget, slot: PlayingWidget.slotOf(widget) }
+  return { kind: 'botting', widget, slot: BottingWidget.slotOf(widget) }
 }
 
 /** Whether ordering the quiz by this can mean something: a value each question has, or a count of what it found */
@@ -59,7 +59,7 @@ function sortable(source: Resolved): boolean {
 /** How a column's header is drawn: a number's rotated into it, a list's centred, prose's along the row */
 function headkindOf(source: Resolved, widthPx: number): Headkind {
   if (source.kind === 'expressing') { return widthPx <= 100 ? 'vertical' : 'plain' }
-  const isList = source.kind === 'view' ? source.view === 'butnot_ishes' : source.kind === 'playing' && source.slot.field !== 'guess'
+  const isList = source.kind === 'view' ? source.view === 'butnot_ishes' : source.kind === 'botting' && source.slot.field !== 'guess'
   return isList ? 'centered' : 'plain'
 }
 

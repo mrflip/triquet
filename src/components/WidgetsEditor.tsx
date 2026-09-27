@@ -7,9 +7,9 @@ import { ConfirmRemove } from './ConfirmRemove'
 import { ExpressionFields, type ExpressionDraft } from './ExpressionFields'
 import { SortableList } from './SortableList'
 import { TextkindVals } from '../lib/ask/contract'
-import { NewExpression, planExpressingEdit, planPlayingEdit, type WidgetPlan } from '../state/widget-edit'
-import { PlayerLabelVals } from '../models/player-label'
-import type { ExpressingT, PlayingWidgetT, WidgetT } from '../models/widget'
+import { NewExpression, planExpressingEdit, planBottingEdit, type WidgetPlan } from '../state/widget-edit'
+import { BotLabelVals } from '../models/bot-label'
+import type { ExpressingT, BottingWidgetT, WidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
 import type { WorkspaceT } from '../models/workspace'
 import type { WorkspaceAction } from '../state/actions'
@@ -23,7 +23,7 @@ export type WidgetsEditorProps = {
 }
 
 /** Which widget's editor is open: one of the quiz's, or a new one of a kind */
-type Editing = { kind: 'widget', label: string } | { kind: 'new_expressing' } | { kind: 'new_playing' } | null
+type Editing = { kind: 'widget', label: string } | { kind: 'new_expressing' } | { kind: 'new_botting' } | null
 
 /**
  * A quiz's widgets -- what it can show for every question besides the questions' own fields --
@@ -56,14 +56,14 @@ export function WidgetsEditor({ workspace, quiz, dispatch, onEditExpressions }: 
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
         <Button size="small" variant="outlined" disabled={quiz.locked} onClick={() => { setEditing({ kind: 'new_expressing' }) }}>+ New expressing…</Button>
-        <Button size="small" variant="outlined" disabled={quiz.locked} onClick={() => { setEditing({ kind: 'new_playing' }) }}>+ New playing…</Button>
+        <Button size="small" variant="outlined" disabled={quiz.locked} onClick={() => { setEditing({ kind: 'new_botting' }) }}>+ New botting…</Button>
         <Button size="small" variant="outlined" onClick={onEditExpressions}>Edit expressions…</Button>
       </Stack>
       {(editing?.kind === 'new_expressing' || edited?.kind === 'expressing') && (
         <ExpressingDialog key={edited?.label ?? 'new'} workspace={workspace} quiz={quiz} widget={edited?.kind === 'expressing' ? edited : null} dispatch={dispatch} onClose={close} />
       )}
-      {(editing?.kind === 'new_playing' || edited?.kind === 'playing') && (
-        <PlayingDialog key={edited?.label ?? 'new'} quiz={quiz} widget={edited?.kind === 'playing' ? edited : null} dispatch={dispatch} onClose={close} />
+      {(editing?.kind === 'new_botting' || edited?.kind === 'botting') && (
+        <BottingDialog key={edited?.label ?? 'new'} quiz={quiz} widget={edited?.kind === 'botting' ? edited : null} dispatch={dispatch} onClose={close} />
       )}
     </Stack>
   )
@@ -71,7 +71,7 @@ export function WidgetsEditor({ workspace, quiz, dispatch, onEditExpressions }: 
 
 /** What kind of widget it is, and what it does, in a few words */
 function widgetNote(widget: WidgetT): string {
-  return widget.kind === 'expressing' ? `expressing ${widget.expression_label}` : `playing: ${widget.player_label}, ${widget.textkind}`
+  return widget.kind === 'expressing' ? `expressing ${widget.expression_label}` : `botting: ${widget.bot_label}, ${widget.textkind}`
 }
 
 const BlankExpression: ExpressionDraft = { label: '', description: '', formula: '' }
@@ -176,37 +176,37 @@ function ExpressingDialog({ workspace, quiz, widget, dispatch, onClose }: Readon
   )
 }
 
-type PlayingDialogProps = {
+type BottingDialogProps = {
   quiz:     QuizT
   /** The widget being edited, or null to make a new one */
-  widget:   PlayingWidgetT | null
+  widget:   BottingWidgetT | null
   dispatch: (action: WorkspaceAction) => void
   onClose:  () => void
 }
 
-/** One playing widget: which player is put which text. Nothing is applied until Apply. */
-function PlayingDialog({ quiz, widget, dispatch, onClose }: Readonly<PlayingDialogProps>) {
+/** One botting widget: which bot is put which text. Nothing is applied until Apply. */
+function BottingDialog({ quiz, widget, dispatch, onClose }: Readonly<BottingDialogProps>) {
   const [label, setLabel] = useState(widget?.label ?? '')
-  const [player_label, setPlayer] = useState(widget?.player_label ?? PlayerLabelVals[0])
+  const [bot_label, setBot] = useState(widget?.bot_label ?? BotLabelVals[0])
   const [textkind, setTextkind] = useState(widget?.textkind ?? 'clueing')
   const [description, setDescription] = useState(widget?.description ?? '')
   const [issue, setIssue] = useState<string | null>(null)
 
   const onApply = () => {
-    carryOut(planPlayingEdit({ widget, label, player_label, textkind, description }, quiz), dispatch, (problem) => { setIssue(problem) }, onClose)
+    carryOut(planBottingEdit({ widget, label, bot_label, textkind, description }, quiz), dispatch, (problem) => { setIssue(problem) }, onClose)
   }
 
   return (
-    <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="sm" aria-labelledby="playing-dialog-title">
-      <ClosableTitle id="playing-dialog-title" onClose={onClose}>{widget ? `Playing: ${widget.label}` : 'New playing'}</ClosableTitle>
+    <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="sm" aria-labelledby="botting-dialog-title">
+      <ClosableTitle id="botting-dialog-title" onClose={onClose}>{widget ? `Botting: ${widget.label}` : 'New botting'}</ClosableTitle>
       <DialogContent>
         <Stack spacing={1.5} sx={{ mt: 1 }}>
           <TextField size="small" label="Widget label" value={label} disabled={quiz.locked} helperText="Names it within this quiz."
             onChange={(event) => { setLabel(event.target.value); setIssue(null) }} />
           <Stack direction="row" spacing={1}>
-            <TextField select size="small" label="Player" value={player_label} disabled={quiz.locked} sx={{ flex: 1 }}
-              onChange={(event) => { setPlayer(PlayerLabelVals.find((each) => each === event.target.value) ?? PlayerLabelVals[0]); setIssue(null) }}>
-              {PlayerLabelVals.map((each) => <MenuItem key={each} value={each}>{each}</MenuItem>)}
+            <TextField select size="small" label="Bot" value={bot_label} disabled={quiz.locked} sx={{ flex: 1 }}
+              onChange={(event) => { setBot(BotLabelVals.find((each) => each === event.target.value) ?? BotLabelVals[0]); setIssue(null) }}>
+              {BotLabelVals.map((each) => <MenuItem key={each} value={each}>{each}</MenuItem>)}
             </TextField>
             <TextField select size="small" label="Is shown" value={textkind} disabled={quiz.locked} sx={{ flex: 1 }}
               onChange={(event) => { setTextkind(TextkindVals.find((each) => each === event.target.value) ?? 'clueing'); setIssue(null) }}>

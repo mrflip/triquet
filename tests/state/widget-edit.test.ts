@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { NewExpression, planExpressingEdit, planPlayingEdit, type ExpressingEdit, type PlayingEdit } from '../../src/state/widget-edit'
+import { NewExpression, planExpressingEdit, planBottingEdit, type ExpressingEdit, type BottingEdit } from '../../src/state/widget-edit'
 import { Workspace } from '../../src/models/workspace'
-import type { ExpressingT, PlayingWidgetT } from '../../src/models/widget'
+import type { ExpressingT, BottingWidgetT } from '../../src/models/widget'
 import type { QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
 
@@ -9,7 +9,7 @@ const workspace = Workspace.blank()
 const quiz = present(workspace.quizzes[0])
 const held = present(quiz.widgets.find((each): each is ExpressingT => each.label === 'hint_full'))
 const heldExpression = present(workspace.expressions.find((each) => each.label === 'hint_full'))
-const dumdum = present(quiz.widgets.find((each): each is PlayingWidgetT => each.label === 'dumdum'))
+const dumdum = present(quiz.widgets.find((each): each is BottingWidgetT => each.label === 'dumdum'))
 const lockedQuiz = (): QuizT => ({ ...quiz, locked: true })
 
 /** An edit of the standard Hint Full Sum widget, as opened and untouched */
@@ -133,38 +133,38 @@ describe('planExpressingEdit, on a locked quiz', () => {
   })
 })
 
-/** A playing edit as opened and untouched */
-function playing(patch: Partial<PlayingEdit> = {}): PlayingEdit {
-  return { widget: dumdum, label: 'dumdum', player_label: 'dumdum', textkind: 'clueing', description: '', ...patch }
+/** A botting edit as opened and untouched */
+function botting(patch: Partial<BottingEdit> = {}): BottingEdit {
+  return { widget: dumdum, label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing', description: '', ...patch }
 }
 
-describe('planPlayingEdit', () => {
+describe('planBottingEdit', () => {
   it('comes to nothing when nothing was changed', () => {
-    const plan = planPlayingEdit(playing(), quiz)
+    const plan = planBottingEdit(botting(), quiz)
     expect(plan).to.deep.eq({ ok: true, actions: [] })
   })
 
   it('revises only what changed', () => {
-    const plan = planPlayingEdit(playing({ description: 'The quick one.' }), quiz)
+    const plan = planBottingEdit(botting({ description: 'The quick one.' }), quiz)
     expect(plan).to.deep.eq({ ok: true, actions: [{ kind: 'edit_widget', label: 'dumdum', patch: { description: 'The quick one.' } }] })
   })
 
   it('adds a new widget with a column to show it, just before Alt Text', () => {
-    const plan = planPlayingEdit(playing({ widget: null, label: 'numnum_again', player_label: 'numnum' }), quiz)
+    const plan = planBottingEdit(botting({ widget: null, label: 'numnum_again', bot_label: 'numnum' }), quiz)
     expect(plan.ok && plan.actions.map((action) => action.kind)).to.deep.eq(['add_widget', 'add_column'])
   })
 
-  it('refuses a player that is not put that text, naming the trouble', () => {
-    const plan = planPlayingEdit(playing({ textkind: 'hint' }), quiz)
+  it('refuses a bot that is not put that text, naming the trouble', () => {
+    const plan = planBottingEdit(botting({ textkind: 'hint' }), quiz)
     expect(plan.ok ? '' : plan.issue).to.match(/dumdum is not put a hint/)
   })
 
   it('refuses a label a sibling has, or no label', () => {
-    expect(planPlayingEdit(playing({ label: 'numnum_hint' }), quiz).ok).to.eq(false)
-    expect(planPlayingEdit(playing({ label: '' }), quiz)).to.deep.include({ ok: false, labelIssue: 'Give the widget a label.' })
+    expect(planBottingEdit(botting({ label: 'numnum_hint' }), quiz).ok).to.eq(false)
+    expect(planBottingEdit(botting({ label: '' }), quiz)).to.deep.include({ ok: false, labelIssue: 'Give the widget a label.' })
   })
 
   it('comes to nothing on a locked quiz', () => {
-    expect(planPlayingEdit(playing({ description: 'x' }), lockedQuiz())).to.deep.eq({ ok: true, actions: [] })
+    expect(planBottingEdit(botting({ description: 'x' }), lockedQuiz())).to.deep.eq({ ok: true, actions: [] })
   })
 })

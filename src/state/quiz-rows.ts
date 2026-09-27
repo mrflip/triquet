@@ -1,8 +1,8 @@
 import _ from 'es-toolkit/compat'
 import type { Db } from 'jazz-tools'
-import { app, type ColumnRow, type ExpressionRow, type PlayingRow, type QuestionRow, type QuizRow, type WidgetRow, type WorkspaceRow } from '../db/schema'
+import { app, type ColumnRow, type ExpressionRow, type BottingRow, type QuestionRow, type QuizRow, type WidgetRow, type WorkspaceRow } from '../db/schema'
 import * as Labelmaker from '../lib/labelmaker'
-import { latestBySlot, resultsFor } from '../models/playing'
+import { latestBySlot, resultsFor } from '../models/botting'
 import type { ExpressionT } from '../models/expression'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
@@ -13,14 +13,14 @@ import type { WorkspaceT } from '../models/workspace'
 export const LocalFirst = { tier: 'local-first' } as const
 
 /**
- * A playing as read back, with when it was asked. Jazz stamps `$createdAt` a moment after a write
- * lands, so a playing read back at once may not have it yet.
+ * A botting as read back, with when it was asked. Jazz stamps `$createdAt` a moment after a write
+ * lands, so a botting read back at once may not have it yet.
  */
-export type HeldPlaying = PlayingRow & { $createdAt?: Date }
+export type HeldBotting = BottingRow & { $createdAt?: Date }
 
-/** When a playing was asked, in epoch milliseconds; one not stamped yet was asked just now */
-export function askedAt(playing: HeldPlaying): number {
-  return playing.$createdAt?.getTime() ?? Date.now()
+/** When a botting was asked, in epoch milliseconds; one not stamped yet was asked just now */
+export function askedAt(botting: HeldBotting): number {
+  return botting.$createdAt?.getTime() ?? Date.now()
 }
 
 /**
@@ -34,7 +34,7 @@ export type AccountRows = {
   questions:   readonly QuestionRow[]
   widgets:     readonly WidgetRow[]
   columns:     readonly ColumnRow[]
-  playings:    readonly HeldPlaying[]
+  bottings:    readonly HeldBotting[]
 }
 
 /** One quiz's rows: its own, and its children's, each list in its committed order */
@@ -43,7 +43,7 @@ export type QuizRows = {
   questions: readonly QuestionRow[]
   widgets:   readonly WidgetRow[]
   columns:   readonly ColumnRow[]
-  playings:  readonly HeldPlaying[]
+  bottings:  readonly HeldBotting[]
 }
 
 /** One workspace's rows: its own, its quizzes' own in the order they were made, and its expressions in order */
@@ -65,16 +65,16 @@ export type WorkspaceRows = {
  * @example const held = await loadAccountRows(db)
  */
 export async function loadAccountRows(db: Db): Promise<AccountRows> {
-  const [workspaces, quizzes, expressions, questions, widgets, columns, playings] = await Promise.all([
+  const [workspaces, quizzes, expressions, questions, widgets, columns, bottings] = await Promise.all([
     db.all(app.workspaces, LocalFirst),
     db.all(app.quizzes.orderBy('$createdAt'), LocalFirst),
     db.all(app.expressions, LocalFirst),
     db.all(app.questions, LocalFirst),
     db.all(app.widgets, LocalFirst),
     db.all(app.columns, LocalFirst),
-    db.all(app.playings.select('*', '$createdAt'), LocalFirst),
+    db.all(app.bottings.select('*', '$createdAt'), LocalFirst),
   ])
-  return { workspaces, quizzes, expressions, questions, widgets, columns, playings }
+  return { workspaces, quizzes, expressions, questions, widgets, columns, bottings }
 }
 
 /** `held` in their committed order */
@@ -101,7 +101,7 @@ export function quizRowsOf(held: AccountRows, quiz_id: string): QuizRows | null 
     questions,
     widgets:  byPosition(held.widgets.filter((row) => row.quiz_id === quiz_id)),
     columns:  byPosition(held.columns.filter((row) => row.quiz_id === quiz_id)),
-    playings: held.playings.filter((row) => question_ids.has(row.question_id)),
+    bottings: held.bottings.filter((row) => question_ids.has(row.question_id)),
   }
 }
 
@@ -134,7 +134,7 @@ export async function loadWorkspaceRows(db: Db, workspace_id: string): Promise<W
 
 /**
  * The quiz its rows make up, as the tree the rest of the tool reads: each question showing the
- * newest reply from each of its players, and its chain naming the question it points at.
+ * newest reply from each of its bots, and its chain naming the question it points at.
  *
  * The tree's ids are the rows' ids. A chain is held as a label, and here names the sibling that
  * answers to it; a chain to a label no sibling answers to reads as no chain.
@@ -145,7 +145,7 @@ export async function loadWorkspaceRows(db: Db, workspace_id: string): Promise<W
  * @example quizFrom(quizRowsOf(held, quiz_id)).questions.length
  */
 export function quizFrom(rows: QuizRows): QuizT {
-  const latest = latestBySlot(rows.playings.map((playing) => ({ ...playing, created_at: askedAt(playing) })))
+  const latest = latestBySlot(rows.bottings.map((botting) => ({ ...botting, created_at: askedAt(botting) })))
   const idForLabel = new Map(rows.questions.map((question) => [Labelmaker.effectiveLabelOf(question), question.id]))
   const questions = rows.questions.map((row): QuestionT => {
     const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
@@ -204,8 +204,8 @@ export function expressionFrom(row: ExpressionRow): ExpressionT {
  * saw to it that its kind's fields are there.
  */
 function widgetFrom(row: WidgetRow): WidgetT {
-  const { kind, label, description, expression_label, player_label, textkind } = row
+  const { kind, label, description, expression_label, bot_label, textkind } = row
   if (kind === 'expressing' && expression_label !== null) { return { kind, label, description, expression_label } }
-  if (kind === 'playing' && player_label !== null && textkind !== null) { return { kind, label, description, player_label, textkind } }
+  if (kind === 'botting' && bot_label !== null && textkind !== null) { return { kind, label, description, bot_label, textkind } }
   throw new Error(`The widget ${label} lacks the fields a ${kind} widget has`)
 }

@@ -250,7 +250,7 @@ see *Authentication* above). Still open:
 * **lightning-fs or OPFS** under the quiz history.
 * **Formulas off the main thread** (a Worker via Comlink), which would also dissolve the
   objection to async JSONata.
-* **The AI layer**: the SDK direct, or a provider-neutral layer, given that a player already
+* **The AI layer**: the SDK direct, or a provider-neutral layer, given that a bot already
   names its `servicelabel`.
 * **MUI on the grid's hot path.** The grid styles with a CSS module and tokens because Emotion
   per cell was judged too dear; say where that line sits for everything that is not the grid.

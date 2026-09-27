@@ -6,15 +6,15 @@ import { Quiz } from '../../src/models/quiz'
 describe('defaultLayoutFor', () => {
   const layout = defaultLayoutFor(SeedExpressions)
 
-  it('starts a quiz with the players, then the eight sums, as widgets', () => {
+  it('starts a quiz with the bots, then the eight sums, as widgets', () => {
     expect(layout.widgets.map((widget) => `${widget.kind}:${widget.label}`)).to.deep.eq([
-      'playing:dumdum', 'playing:numnum_clueing', 'playing:numnum_hint',
+      'botting:dumdum', 'botting:numnum_clueing', 'botting:numnum_hint',
       'expressing:clueing_plus_rank', 'expressing:clueing_full', 'expressing:clueing_numeral', 'expressing:butnot_full',
       'expressing:butnot_numeral', 'expressing:hint_full', 'expressing:hint_numeral', 'expressing:clueing_plus_butnot_full',
     ])
   })
 
-  it('lays the grid out as it has always been: the questions\' fields, the sums between Q# and Alt Text, then the players\' answers', () => {
+  it('lays the grid out as it has always been: the questions\' fields, the sums between Q# and Alt Text, then the bots\' answers', () => {
     expect(layout.columns.map((column) => column.title)).to.deep.eq([
       'Title', 'Clueing', 'Hint', 'Chains to', 'BUT NOT', 'Q#',
       'Clueing + Rank', 'Clueing Full Sum', 'Clueing Numeral Sum', 'BUT NOT Full Sum', 'BUT NOT Numeral Sum', 'Hint Full Sum', 'Hint Numeral Sum', 'Clueing+BUT NOT Full',
@@ -37,7 +37,7 @@ describe('defaultLayoutFor', () => {
     expect(without.widgets).to.have.length(10)
   })
 
-  it('is just the players and the fixed columns for a workspace with no expressions', () => {
+  it('is just the bots and the fixed columns for a workspace with no expressions', () => {
     const bare = defaultLayoutFor([])
     expect(bare.widgets).to.have.length(3)
     expect(bare.columns).to.have.length(13)

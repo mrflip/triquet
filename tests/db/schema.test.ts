@@ -80,7 +80,7 @@ describe('schema', () => {
     it('reaches its questions, widgets and columns by relation, ordered by position', async () => {
       const { quiz } = seedQuiz('qz_children')
       db.insert(app.questions, { quiz_id: quiz.id, position: 1, label: 'lear', title: 'Lear', qnum: '', clueing: '', hint: '', full_answer: '', alt_text: '', notes: '' })
-      db.insert(app.widgets, { quiz_id: quiz.id, label: 'dumdum', kind: 'playing', player_label: 'dumdum', textkind: 'clueing', description: '', position: 0 })
+      db.insert(app.widgets, { quiz_id: quiz.id, label: 'dumdum', kind: 'botting', bot_label: 'dumdum', textkind: 'clueing', description: '', position: 0 })
       db.insert(app.columns, { quiz_id: quiz.id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 })
       const [held] = await db.all(app.quizzes.where({ id: quiz.id }).include({
         questions: app.questions.orderBy('position'), widgets: true, columns: true,
@@ -93,8 +93,8 @@ describe('schema', () => {
 
   describe('widgets', () => {
     const Kinds = [
-      [{ kind: 'expressing', expression_label: 'shout', player_label: null, textkind: null },   'an expressing, naming its expression'],
-      [{ kind: 'playing', expression_label: null, player_label: 'numnum', textkind: 'hint' },    'a playing, naming its player and text'],
+      [{ kind: 'expressing', expression_label: 'shout', bot_label: null, textkind: null },   'an expressing, naming its expression'],
+      [{ kind: 'botting', expression_label: null, bot_label: 'numnum', textkind: 'hint' },    'a botting, naming its bot and text'],
     ] as const
     for (const [kindFields, describes] of Kinds) {
       it(`round-trips ${describes}`, async () => {
@@ -135,17 +135,17 @@ describe('schema', () => {
     })
   })
 
-  describe('playings', () => {
+  describe('bottings', () => {
     it('round-trips a numnum reply, its spans held as they came', async () => {
       const { question } = seedQuiz('pl_done')
       const items = [{ text: 'three', value: 3, kind: 'wordish' }, { text: '#17', value: 17, kind: 'numeral' }] as const
-      const playing = db.insert(app.playings, {
-        question_id: question.id, player_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
+      const botting = db.insert(app.bottings, {
+        question_id: question.id, bot_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
         items: [...items], truncated: false, model_tier_applied: 'careful', approx_tokens: 210,
       }).value
-      const [held] = await db.all(app.playings.where({ id: playing.id }))
+      const [held] = await db.all(app.bottings.where({ id: botting.id }))
       expect(held && sansId(held)).to.deep.eq({
-        question_id: question.id, player_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
+        question_id: question.id, bot_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
         reply_text: null, items, message: null, response: null, truncated: false, model_tier_applied: 'careful', approx_tokens: 210,
       })
     })
@@ -153,22 +153,22 @@ describe('schema', () => {
     it('defaults the spans to none, and holds a failure with the response as it came back', async () => {
       const { question } = seedQuiz('pl_error')
       const response = { error: { kind: 'overloaded', detail: [1, null, 'x'] } }
-      const playing = db.insert(app.playings, {
-        question_id: question.id, player_label: 'dumdum', textkind: 'clueing', status: 'error', message: 'The model was busy.', response, truncated: false,
+      const botting = db.insert(app.bottings, {
+        question_id: question.id, bot_label: 'dumdum', textkind: 'clueing', status: 'error', message: 'The model was busy.', response, truncated: false,
       }).value
-      const [held] = await db.all(app.playings.where({ id: playing.id }))
+      const [held] = await db.all(app.bottings.where({ id: botting.id }))
       expect([held?.items, held?.message, held?.response]).to.deep.eq([[], 'The model was busy.', response])
     })
 
-    it('are found newest first for one question, player and text', async () => {
+    it('are found newest first for one question, bot and text', async () => {
       const { question } = seedQuiz('pl_newest')
       for (const reply_text of ['first', 'second']) {
-        db.insert(app.playings, { question_id: question.id, player_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text, truncated: false })
+        db.insert(app.bottings, { question_id: question.id, bot_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text, truncated: false })
         // `$createdAt` counts milliseconds, and two asks of one cell are never closer than that
         await new Promise((resolve) => { setTimeout(resolve, 3) })
       }
-      const newest = await db.all(app.playings.where({ question_id: question.id, player_label: 'dumdum', textkind: 'clueing' }).orderBy('$createdAt', 'desc').limit(1))
-      expect(newest.map((playing) => playing.reply_text)).to.deep.eq(['second'])
+      const newest = await db.all(app.bottings.where({ question_id: question.id, bot_label: 'dumdum', textkind: 'clueing' }).orderBy('$createdAt', 'desc').limit(1))
+      expect(newest.map((botting) => botting.reply_text)).to.deep.eq(['second'])
     })
   })
 })

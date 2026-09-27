@@ -74,7 +74,7 @@ describe('Quiz.fill', () => {
   it('keeps its widgets and its columns each in the order given', () => {
     const widgets = [
       { kind: 'expressing' as const, label: 'zed', expression_label: 'answer_reversed' },
-      { kind: 'playing' as const, label: 'aye', player_label: 'dumdum' as const, textkind: 'clueing' as const },
+      { kind: 'botting' as const, label: 'aye', bot_label: 'dumdum' as const, textkind: 'clueing' as const },
     ]
     const columns = [
       { label: 'zed_col', title: 'Zed', source: 'zed', width_px: 78 },
