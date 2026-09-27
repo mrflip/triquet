@@ -30,6 +30,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "doppler run --config dev_e2e -- playwright test",
+    "test:e2e:agent": "doppler run --config dev_e2e -- env PORT=3003 JAZZ_DEV_PORT=3203 JAZZ_DEV_DATA_DIR=data/jazz-e2e-agent NEXT_DIST_DIR=.next-e2e-agent playwright test",
     "migrations:check": "scripts/jazz_migrations_check",
     "newb": "scripts/newb"
   },

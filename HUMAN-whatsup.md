@@ -16,11 +16,12 @@ drives the scheduler with `page.clock` (a mutation check confirmed the fake cloc
 it). `notes/testing.md` now opens with "the assertion style follows the runner" and has a
 Playwright section; the vitest skill is back in `.claude/skills/` with a narrowed description and a
 house-rules preamble. Chai in `tests/` needed no conversion at all: my earlier "20 `toEqual`" were
-`toEqualTypeOf`. Suite: 144 passed, 2.5 min (baseline 3.6). Two things for a Coach: the agent
-shell has no Doppler project, so the suite ran as CI does (`CI=true` and the four variables), on
-ports 3003/3203 because 3002 was held by a human's own run; details and a proposal in the
-whiteboard. `scripts/jazz_migration` could not be run for the same reason; no schema changed.
-`gh` is not authenticated here, so the branch is pushed but the PR is yours to open.
+`toEqualTypeOf`. Suite: 144 passed, 2.5 min (baseline 3.6), run as `pnpm test:e2e` once Doppler was
+set up for the agent shell. Ports 3002/3202 were held by a human's own run at the time, so the
+work used 3003/3203; that is now `pnpm test:e2e:agent`, and CLAUDE.md says a bespoke port on the
+30xx/32xx pattern is fine until agents have containers. `scripts/jazz_migration` wrote nothing;
+no schema changed. `gh` is not authenticated here, so the branch is pushed but the PR is yours to
+open.
 
 ## 2026-09-27: e2e in CI -- six shards, one worker each
 

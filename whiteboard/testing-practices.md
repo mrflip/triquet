@@ -236,12 +236,10 @@ Steps 1 to 3 are one sitting. Step 4 is a spike with a fallback. Steps 5 to 7 ar
   comparison for no gain. `sonarjs/assertions-in-tests` is off there too, as in `tests/`, since
   `playwright/expect-expect` knows `expect.poll` and sonar's does not. `react-hooks/rules-of-hooks`
   is off in `e2e/` because a fixture's `use` is Playwright's.
-* **Two environment wrinkles for a Coach.** (1) The agent's shell has no Doppler project
-  configured (the CLI token at `/` scope lists a workplace without triquet), so `pnpm test:e2e`
-  cannot start from an agent session; the suite was run the way CI runs it, `CI=true` plus the
-  four variables from `ci.yml`. (2) Ports 3002/3202 were held by a human's own Playwright run from
-  `~/code/triquet`, so this work used 3003/3203, `data/jazz-e2e-agent` and `.next-e2e-agent`.
-  CLAUDE.md says to add such a parallel resource as a script; a script that sets `CI=true` to get
-  past the Doppler check felt like routing around a guardrail, so none was added. Proposal: a
-  `dev_e2e_agent` Doppler config (ports 3003/3203) and a `test:e2e:agent` script, and a note in
-  CLAUDE.md on how an agent shell gets a Doppler project.
+* **Environment.** The agent shell had no Doppler project at first (fixed the same day: the
+  Coach is setting up a workspace for agents), so the first runs went the way CI runs, `CI=true`
+  plus the four variables from `ci.yml`; the final run was `pnpm test:e2e` proper, 144 passed in
+  2.5 minutes. Ports 3002/3202 were held by a human's own Playwright run from `~/code/triquet`, so
+  this work used 3003/3203, `data/jazz-e2e-agent` and `.next-e2e-agent`; that is now
+  `pnpm test:e2e:agent`, and CLAUDE.md says a bespoke port on the 30xx/32xx pattern is fine
+  until agents have containers of their own.
