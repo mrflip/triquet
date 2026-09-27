@@ -64,9 +64,20 @@ Read these before adding the review screen; PR 3 plugs into all of them.
 
 ## Where the build differs from the plan
 
-* **The quiz history mirror is keyed by quiz id**, not `<hunt>/<realm>/<quiz>` labels as the plan
-  said. Ids are unique across hunts and never change, so nothing needed re-keying. It records
-  only what this tab edited.
+* **The quiz history (the mirror: each quiz's git repository in the browser) follows the quiz.**
+  Relabelling a quiz is a new label on the same thing, and editing it new content for the same
+  thing, so both land in the one history. That is why the repository's storage folder is named
+  by the quiz's id, which the smith never sees. Inside the repository everything is by label:
+  `tq/hunt/<hunt>/realm/<realm>/quiz/<quiz>.qq.tsv` and `.tq.json`, and the hunt's expressions
+  at `tq/hunt/<hunt>/<hunt>.tqexpressions.json`. A relabel at any level is a move git shows as
+  a rename. Repositories made before this layout are not migrated (the Coach's call); their
+  next commit writes the new paths and drops the old ones, as any commit does. The mirror
+  records only what this tab edited.
+* **Be mindful of where ids reach the smith.** Smiths export, edit and re-import, and merge
+  questions between drafts; labels are how they say which is which, and a collision of labels
+  there is a feature, not a bug. Today the Export box and each `.tq.json` still carry Jazz ids
+  (and `chains_to` as an id), because both print the whole tree rather than the models'
+  `exposed` fields. Whether to strip them is waiting on the Coach; don't add new places ids show.
 * **`QuizNotFound` kept its listing** of the hunt's quizzes and of the history repos (marking
   those not in this hunt), but dropped the "make a quiz called…" offer, per the plan.
 * **Old exports still import.** `importWorkspace` stays beside `importHunt` for the author's

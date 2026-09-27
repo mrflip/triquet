@@ -7,7 +7,7 @@ import * as Labelmaker from '../lib/labelmaker'
 import * as Quizgit from '../lib/quizgit'
 import { createCommitScheduler, type MirrorSnapshot } from './commit-scheduler'
 import { MirrorSettings } from '../models/mirror-settings'
-import { Hunt, type HuntT } from '../models/hunt'
+import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
 
 /** Where this browser keeps the quiz histories, alongside but separate from the database itself */
@@ -67,7 +67,7 @@ export async function enqueue<TT>(work: (fs: Quizgit.GitFs) => Promise<TT>): Pro
 /** Record `latest` in its repository, describing what moved since `baseline`; nothing, if nothing did. With no baseline, open the history if it has none. */
 async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapshot): Promise<void> {
   if (! baseline) {
-    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions))
+    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions, latest.place))
     return
   }
   const changes = [
@@ -75,7 +75,7 @@ async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapsh
     ...Changes.expressionChanges(baseline.expressions, latest.expressions),
   ]
   if (changes.length === 0) { return }
-  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.expressions, changes))
+  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.expressions, latest.place, changes))
 }
 
 /**
@@ -114,6 +114,12 @@ async function writesLanded(): Promise<void> {
   await Promise.allSettled(writing)
 }
 
+/** Every quiz of `hunt`, each with where it sits */
+function placedQuizzes(hunt: HuntT): { quiz: QuizT, place: Quizgit.QuizPlace }[] {
+  const huntLabel = Labelmaker.effectiveLabelOf(hunt)
+  return hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => ({ quiz, place: { hunt: huntLabel, realm: realm.label } })))
+}
+
 /** The quizzes this tab has already made sure have a history */
 const opened = new Set<string>()
 
@@ -127,12 +133,12 @@ const opened = new Set<string>()
  * @param hunt - The hunt as it now stands.
  */
 export function openHistories(hunt: HuntT): void {
-  for (const quiz of Hunt.quizzesOf(hunt)) {
+  for (const { quiz, place } of placedQuizzes(hunt)) {
     if (opened.has(quiz.id)) { continue }
     opened.add(quiz.id)
     const open = async () => {
       try {
-        await enqueue(async (fs) => await Quizgit.commitFirst(fs, quiz, hunt.expressions))
+        await enqueue(async (fs) => await Quizgit.commitFirst(fs, quiz, hunt.expressions, place))
       } catch {
         // A record that misses a commit is a smaller loss than an edit that fails.
       }
@@ -157,11 +163,11 @@ export function openHistories(hunt: HuntT): void {
  * @param after - The hunt as it now stands.
  */
 export function mirrorHunt(before: HuntT, after: HuntT): void {
-  const wasById = new Map(Hunt.quizzesOf(before).map((quiz) => [quiz.id, quiz]))
-  for (const quiz of Hunt.quizzesOf(after)) {
+  const wasById = new Map(placedQuizzes(before).map((placed) => [placed.quiz.id, placed]))
+  for (const { quiz, place } of placedQuizzes(after)) {
     const was = wasById.get(quiz.id) ?? null
-    if (quiz === was && before.expressions === after.expressions) { continue }
-    scheduler.note(was ? { quiz: was, expressions: before.expressions } : null, { quiz, expressions: after.expressions })
+    if (quiz === was?.quiz && before.expressions === after.expressions && place.hunt === was.place.hunt && place.realm === was.place.realm) { continue }
+    scheduler.note(was ? { quiz: was.quiz, expressions: before.expressions, place: was.place } : null, { quiz, expressions: after.expressions, place })
     if (! was) { void scheduler.flush(quiz.id) }
   }
 }
