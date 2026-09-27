@@ -1,5 +1,6 @@
 'use client'
 
+import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
@@ -27,6 +28,7 @@ export function Panels({ quiz, workspace, expressed, onMerged }: Readonly<{ quiz
         blurb="Every quiz you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a quiz between browsers."
       >
         <ReadonlyBox label="Export" text={UU.jsonify(workspace)} rows={10} dense />
+        <FullHistoryDownload quiz={quiz} />
       </Panel>
 
       <ImportPanel quiz={quiz} locked={quiz.locked} onMerged={onMerged} />
