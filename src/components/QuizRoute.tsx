@@ -2,14 +2,13 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import { useHunt } from '../state/use-hunt'
 import { useIdent } from '../state/use-ident'
 import { OpeningNotice } from './SyncNotices'
 import { QuizNotFound } from './QuizNotFound'
+import { ReviewScreen } from './ReviewScreen'
 import { Workbench } from './Workbench'
-import styles from './workbench.module.css'
 
 export type QuizRouteProps = {
   /** The hunt, realm and quiz the address names */
@@ -28,7 +27,7 @@ export type QuizRouteProps = {
 export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const { finding, hunt, realm, quiz, dispatch, unsaved, saveNotice } = useHunt(labels)
+  const { finding, hunt, realm, quiz, reviews, dispatch, unsaved, saveNotice } = useHunt(labels)
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
@@ -43,7 +42,7 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   }
   if (! hunt || ! realm || ! quiz) { return <QuizNotFound labels={labels} hunt={hunt} /> }
   if (act === 'review') {
-    return <main className={styles.page}><p className={styles.microcopy}>{AppNotices.reviewComingSoon}</p></main>
+    return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
   }
-  return <Workbench hunt={hunt} realm={realm} quiz={quiz} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
+  return <Workbench hunt={hunt} realm={realm} quiz={quiz} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
 }
