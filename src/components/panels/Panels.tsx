@@ -4,6 +4,7 @@ import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
+import * as Exporting from '../../lib/exporting'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { PromptTemplates } from '../../lib/ask/prompts'
@@ -27,7 +28,7 @@ export function Panels({ quiz, hunt, expressed, onMerged }: Readonly<{ quiz: Qui
         title="Export"
         blurb="Every quiz of this hunt, not just this one. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz's questions back."
       >
-        <ReadonlyBox label="Export" text={UU.jsonify(hunt)} rows={10} dense />
+        <ReadonlyBox label="Export" text={UU.jsonify(Exporting.huntExported(hunt))} rows={10} dense />
         <FullHistoryDownload quiz={quiz} />
       </Panel>
 

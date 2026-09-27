@@ -3,6 +3,7 @@ import { zipSync } from 'fflate'
 import _ from 'es-toolkit/compat'
 import Papa from 'papaparse'
 import * as Changes from './changes'
+import * as Exporting from './exporting'
 import * as Expressed from './expressed'
 import * as Exposure from './exposure'
 import * as Labelmaker from './labelmaker'
@@ -129,8 +130,9 @@ export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
  * the hunt's expressions, moving together in one commit.
  *
  * The `.qq.tsv` is what a commit reads as -- a line per question, so a diff is legible to anyone.
- * It is also lossy, so the `.tq.json` beside it carries the whole quiz, and is what could restore
- * one from its own history. The expressions its widgets work are in the hunt's own file.
+ * It is also lossy, so the `.tq.json` beside it carries the whole quiz as a smith is handed it
+ * (by label, without ids), and is what could restore one from its own history through Import.
+ * The expressions its widgets work are in the hunt's own file.
  * All are written in a fixed order (sorted keys for the JSON), because a diff that shuffles its
  * lines for no reason is a diff nobody reads.
  *
@@ -148,7 +150,7 @@ export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], plac
   const paths = quizPathsFor(quiz, place)
   return new Map([
     [paths.tsv, questionsTsv(quiz, Expressed.forQuiz(quiz, expressions))],
-    [paths.json, `${UU.jsonify(quiz, { pretty: true })}\n`],
+    [paths.json, `${UU.jsonify(Exporting.quizExported(quiz), { pretty: true })}\n`],
     [expressionsPathFor(place), `${UU.jsonify(expressions, { pretty: true })}\n`],
   ])
 }

@@ -75,11 +75,23 @@ Read these before adding the review screen; PR 3 plugs into all of them.
   a rename. Repositories made before this layout are not migrated (the Coach's call); their
   next commit writes the new paths and drops the old ones, as any commit does. The mirror
   records only what this tab edited.
-* **Be mindful of where ids reach the smith.** Smiths export, edit and re-import, and merge
-  questions between drafts; labels are how they say which is which, and a collision of labels
-  there is a feature, not a bug. Today the Export box and each `.tq.json` still carry Jazz ids
-  (and `chains_to` as an id), because both print the whole tree rather than the models'
-  `exposed` fields. Whether to strip them is waiting on the Coach; don't add new places ids show.
+* **Ids never reach the smith** in anything they read, export or diff; labels do. Smiths export,
+  edit and re-import, and merge questions between drafts; labels are how they say which is
+  which, and a collision of labels there is a feature, not a bug. The Export box and each
+  `.tq.json` are built by `lib/exporting.ts` (`huntExported`, `quizExported`): no ids at any
+  depth, `chains_to` as the target's label. Import resolves a pasted chain by label, and picks a
+  quiz out of a whole export by label then title; it still accepts ids, for backups made before
+  this. Anything new a smith sees (the review screen, the reviews panel) follows the same rule.
+* **Known race: a duplicate ident under a slow server.** Assuming an ident looks its label up
+  locally, then asks the server for up to `ServerLookupMillis` (3 s). A browser that has never
+  synced, on a slow or loaded server, gets no answer in time and makes a second ident with the
+  same label; `useIdent` then shows that one, by id, rather than the earlier one the label rule
+  says wins. Seen once in e2e under heavy machine load (`routing.spec.ts`, "makes one who types
+  an ident someone else made"). It matters for PR 3, because a review hangs off an ident: two
+  idents with one label would split one person's reviews. The likely fix is for `useIdent` to
+  resolve the identing's ident through its label (the earliest ident with that label), so a
+  duplicate folds into the original once sync delivers it. Raise it with the Coach before PR 3
+  builds on `ident.id`.
 * **`QuizNotFound` kept its listing** of the hunt's quizzes and of the history repos (marking
   those not in this hunt), but dropped the "make a quiz called…" offer, per the plan.
 * **Old exports still import.** `importWorkspace` stays beside `importHunt` for the author's

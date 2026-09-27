@@ -5,9 +5,10 @@ import { IshValidators } from './ish'
 import { QuestionValidators } from './question'
 
 export const ImportValidators = Validator(({ obj, arr, str, titleish, label, union, zod }) => {
-  // Ids arriving from an import are accepted as-is provided they are non-empty: a hand-written
-  // quiz file has no reason to know about ULIDs, and an id minted in another browser means
-  // nothing here anyway -- it is only ever used to resolve that file's own chains.
+  // What an export names things by. The Export box hands out labels only, but a backup made
+  // before it did carries ids, which are accepted as-is provided they are non-empty: an id
+  // minted in another browser means nothing here anyway -- it is only ever used to resolve that
+  // file's own chains, and to pick out a quiz. A chain may name its target either way.
   const foreignId = str.min(1)
 
   const importQuestion = obj({
@@ -33,9 +34,11 @@ export const ImportValidators = Validator(({ obj, arr, str, titleish, label, uni
   const looseQuestions = arr(zod.unknown()).default([])
 
   const importQuiz = obj({
-    id:        foreignId.optional(),
-    title:     titleish.nullable().optional(),
-    questions: looseQuestions,
+    id:           foreignId.optional(),
+    label:        label.optional(),
+    forced_label: label.nullable().optional(),
+    title:        titleish.nullable().optional(),
+    questions:    looseQuestions,
   })
     .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
 

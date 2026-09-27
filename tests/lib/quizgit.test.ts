@@ -8,6 +8,7 @@ import Papa from 'papaparse'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import * as Changes from '../../src/lib/changes'
 import { Expression } from '../../src/models/expression'
+import * as Exporting from '../../src/lib/exporting'
 import * as Quizgit from '../../src/lib/quizgit'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -226,16 +227,17 @@ describe('quizFiles', () => {
     expect(Quizgit.quizFiles(quiz, [], Here).keys().toArray()).to.deep.eq([OursTsv, OursJson, HereExpressions])
   })
 
-  it('holds the whole quiz as JSON, which the TSV alone could never give back', () => {
+  it('holds the whole quiz as JSON, which the TSV alone could never give back, as a smith is handed it', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?', hint: 'BUT NOT a stoat', qnum: '3' })])
-    expect(JSON.parse(jsonOf(quiz))).to.deep.eq(structuredClone(quiz))
+    expect(JSON.parse(jsonOf(quiz))).to.deep.eq(structuredClone(Exporting.quizExported(quiz)))
   })
 
   it('pretty-prints it, so a diff reads as lines rather than as one enormous one', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
     const written = jsonOf(quiz)
     expect(written.split('\n').length).to.be.greaterThan(20)
-    expect(written).to.include('\n  "id": ')
+    expect(written).to.include('\n  "title": ')
+    expect(written).to.not.include('"id"')
     expect(written.endsWith('\n')).to.eq(true)
   })
 
