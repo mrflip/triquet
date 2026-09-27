@@ -62,11 +62,15 @@ export async function enqueue<TT>(work: (fs: Quizgit.GitFs) => Promise<TT>): Pro
   }
 }
 
-/** Record `latest` in its repository, describing what moved since `baseline`; nothing, if nothing did */
+/** Record `latest` in its repository, describing what moved since `baseline`; nothing, if nothing did. With no baseline, open the history if it has none. */
 async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapshot): Promise<void> {
+  if (! baseline) {
+    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions))
+    return
+  }
   const changes = [
-    ...Changes.quizChanges(baseline?.quiz ?? null, latest.quiz),
-    ...Changes.expressionChanges(baseline?.expressions ?? null, latest.expressions),
+    ...Changes.quizChanges(baseline.quiz, latest.quiz),
+    ...Changes.expressionChanges(baseline.expressions, latest.expressions),
   ]
   if (changes.length === 0) { return }
   await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.expressions, changes))
@@ -108,11 +112,41 @@ async function writesLanded(): Promise<void> {
   await Promise.allSettled(writing)
 }
 
+/** The quizzes this tab has already made sure have a history */
+const opened = new Set<string>()
+
+/**
+ * Make sure every quiz in `workspace` has a history, starting with the quiz as it stands.
+ *
+ * A quiz can arrive without anyone dispatching anything: a workspace's first quiz is made along
+ * with it, and one made on another device arrives by sync. Each is opened once per tab, and a
+ * quiz that already has commits is left alone. Fire-and-forget, like the mirror it feeds.
+ *
+ * @param workspace - The workspace as it now stands.
+ */
+export function openHistories(workspace: WorkspaceT): void {
+  for (const quiz of workspace.quizzes) {
+    if (opened.has(quiz.id)) { continue }
+    opened.add(quiz.id)
+    const open = async () => {
+      try {
+        await enqueue(async (fs) => await Quizgit.commitFirst(fs, quiz, workspace.expressions))
+      } catch {
+        // A record that misses a commit is a smaller loss than an edit that fails.
+      }
+    }
+    void open()
+  }
+}
+
 /**
  * Note every quiz that moved between two readings of the workspace, for committing after the wait.
  *
  * Fire-and-forget by design: the caller has already written the change to storage, and must not
  * wait on, or fail for, a mirror that is only ever a record.
+ *
+ * A quiz that has only now come into being is committed at once rather than after the wait, so
+ * its history opens with its creation even if the tab closes before the wait is up.
  *
  * A deleted quiz is left exactly as it stood. Its history is the one thing deletion should not
  * take away, and nothing else in this browser still holds it.
@@ -126,6 +160,7 @@ export function mirrorWorkspace(before: WorkspaceT, after: WorkspaceT): void {
     const was = wasById.get(quiz.id) ?? null
     if (quiz === was && before.expressions === after.expressions) { continue }
     scheduler.note(was ? { quiz: was, expressions: before.expressions } : null, { quiz, expressions: after.expressions })
+    if (! was) { void scheduler.flush(quiz.id) }
   }
 }
 
@@ -159,6 +194,26 @@ export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
   await writesLanded()
   await scheduler.flush(quiz.id)
   return await enqueue(async (fs) => await Quizgit.milestoneQuiz(fs, quiz))
+}
+
+/**
+ * Carry out an import so that the history shows exactly what it did: the quiz as it stood is
+ * committed first, then the import is applied and committed, then the commit is tagged.
+ *
+ * Without the first commit, edits still waiting for their commit would be folded into the
+ * import's and pass for its doing.
+ *
+ * @param quiz - The quiz being imported into.
+ * @param applyImport - Applies the import; it must dispatch the change synchronously, so that it is being written by the time this looks.
+ * @returns The tag left behind, or null when there was no history here to tag.
+ */
+export async function importIntoQuiz(quiz: QuizT, applyImport: () => void): Promise<string | null> {
+  await writesLanded()
+  await scheduler.flush(quiz.id)
+  applyImport()
+  await writesLanded()
+  await scheduler.flush(quiz.id)
+  return await enqueue(async (fs) => await Quizgit.markImport(fs, quiz))
 }
 
 /**
