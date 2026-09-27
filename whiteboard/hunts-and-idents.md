@@ -2,10 +2,12 @@
 
 Status: plan, 2026-09-27, agreed with the Coach (Flip). For the implementing agent.
 
-**Progress:** PRs 1 (bots) and 2 (idents and hunts) are built and committed. Read
-`whiteboard/hunts-and-idents-handoff.md` before PR 3: it records where the build departs from
-this plan (reads are scoped to the open hunt; the mirror is keyed by quiz id) and what alpha.56
-taught.
+**Progress:** PRs 1 (bots, `20260927-bots`) and 2 (idents and hunts, `20260927-hunts`) are
+built and committed, neither merged nor deployed. PR 3 starts from `20260927-hunts`. Read
+`whiteboard/hunts-and-idents-handoff.md` first: it records where the build departs from this
+plan (reads are scoped to the open hunt; the history is keyed by the quiz's hidden id, its files
+by hunt, realm and quiz label) and what alpha.56 taught. Where this plan and the handoff
+disagree, the handoff is newer.
 
 The goal is narrow: within a week, a couple of friends open a link, say who they are, and
 review one quiz without stepping on the author's work. Everything here is the first cut of the
@@ -279,9 +281,12 @@ realm's quizzes.
 
 ### Quiz history mirror (`state/quiz-mirror.ts`, `lib/quizgit.ts`)
 
-Repositories are keyed by quiz label today. Two hunts can each have a quiz `home`; key the
-repository directory by `<hunt>/<realm>/<quiz>` effective labels. A reviewer's browser mirrors
-the quizzes it opens, which is harmless and matches the mirror's job as an exit door.
+*As built:* the history follows the quiz, so its repository's storage folder stays keyed by the
+quiz's hidden id (a relabel is a new label on the same thing). The files inside are by label:
+`tq/hunt/<hunt>/realm/<realm>/quiz/<quiz>.{qq.tsv,tq.json}`, the hunt's expressions at
+`tq/hunt/<hunt>/<hunt>.tqexpressions.json`. Old repositories are not migrated. A reviewer's
+browser mirrors the quizzes it opens, which is harmless and matches the mirror's job as an exit
+door.
 
 ### Migration
 
@@ -476,14 +481,15 @@ that use it (`2026-09-jazz.md`'s *seams as built* paragraph). Do not keep a `wor
 
 * **`useSearchParams`** needs a `Suspense` boundary above it or the build fails the page's
   prerender. Put it in `app/h/[hunt]/[realm]/[quiz]/page.tsx`.
-* **`in` queries and per-hunt scoping** are not attempted in this alpha: read whole tables as
-  today. If the coherence or e2e suites slow noticeably, that is the first thing to revisit,
-  under a Coach.
+* ~~**`in` queries and per-hunt scoping** are not attempted in this alpha.~~ Superseded in PR 2
+  (the Coach agreed): whole-table reads could not survive the e2e suite, so everything below the
+  directory is read for the open hunt, with `in` lists. New tables (reviews, reviewings,
+  huntings) are scoped the same way; see the handoff.
 * **The ask route is untouched**: still unauthenticated, still holding no key at present.
   Nothing here changes its guidance.
-* **Every browser now syncs every hunt**, and the e2e suite's local server accumulates them
-  across specs. Specs must not assume the hunts list is empty or has one entry; assert on the
-  hunt they made.
+* **Every browser lists every hunt** (the directory: hunts, realms, quizzes), and the e2e suite's
+  local server accumulates them across specs. Specs must not assume the hunts list is empty or
+  has one entry; assert on the hunt they made.
 * **Two accounts in one e2e spec** is new to the suite: two `browser.newContext()`s against the
   same local Jazz server on 3202. Write the helper once in `e2e/support.ts`.
 * **Emoji in buttons** need an `aria-label`; the emoji is the glyph, not the name.

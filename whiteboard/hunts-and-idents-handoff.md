@@ -7,9 +7,11 @@ stands; this is what building PRs 1 and 2 taught, and where the built code diffe
 
 * **PR 1, bots**: committed on `20260927-bots`. Players became bots throughout; *player* is now
   reserved for a human taking the quiz.
-* **PR 2, idents and hunts**: committed on `20260927-hunts`, stacked on PR 1. Unit (1927),
-  lint, type, migration and e2e (150) suites green. Start PR 3 from there with
-  `pnpm run newb reviews`.
+* **PR 2, idents and hunts**: committed on `20260927-hunts`, stacked on PR 1, as `476f8eb`
+  plus `8e87ed9` (history files under hunt and realm). Unit (1928), lint, type, migration and
+  e2e (150) suites green. Start PR 3 from there with `pnpm run newb reviews`.
+* **The e2e database** (`data/jazz-e2e/`) was reset during PR 2 and holds PR 2's schema. After
+  PR 3's migration, expect to reset it again before the first e2e run.
 * Neither is merged or deployed. They must deploy together: after PR 1 alone, the author's
   existing `playing` widgets break.
 
