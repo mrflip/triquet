@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Fails when src/db/migrations is not ready to deploy: when src/db/schema.ts has changed since the
+# latest snapshot without a migration (or snapshot) to match, or a migration is still "unnamed"
+# or holds a TODO. Changes nothing: it tries `jazz-tools migrations create` against a copy.
+# Needs no environment, so CI runs it.
+#
+# Usage: pnpm migrations:check
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+migrations_dir="src/db/migrations"
+problems=0
+
+# The real path, as Jazz refuses a migrations directory reached through a symlink (macOS's /var)
+scratch="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/triquet-migrations-check.XXXXXX")" && pwd -P)"
+trap 'rm -rf "$scratch"' EXIT
+cp -R "$migrations_dir" "$scratch/migrations"
+
+pnpm --silent exec jazz-tools migrations create --schema-dir src/db --migrations-dir "$scratch/migrations" > "$scratch/create.log" 2>&1 \
+  || { cat "$scratch/create.log" >&2; exit 1; }
+if [[ -n "$(diff -rq "$migrations_dir" "$scratch/migrations" | grep -v '\.jazz-' || true)" ]]; then
+  echo "src/db/schema.ts has changed with no migration to match. Run ./scripts/doppledo <config> ./scripts/jazz_migration" >&2
+  echo "(If your branch already has a migration and main has since gained one, delete yours and its" >&2
+  echo "snapshot first, so the new one starts from main's.)" >&2
+  problems=1
+fi
+
+for migration in "$migrations_dir"/*.ts; do
+  [[ -e "$migration" ]] || continue
+  if [[ "$(basename "$migration")" == *-unnamed-* ]]; then
+    echo "$migration is still unnamed: name it for what the change is." >&2
+    problems=1
+  fi
+  if grep -q 'TODO' "$migration"; then
+    echo "$migration still holds a TODO:" >&2
+    grep -n 'TODO' "$migration" | sed 's/^/  /' >&2
+    problems=1
+  fi
+done
+
+if [[ "$problems" -eq 0 ]]; then
+  echo "Migrations are ready: the schema is the one the latest snapshot holds, and every migration is named and complete."
+fi
+exit "$problems"

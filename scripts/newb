@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Starts a new git branch from where you stand, named for today and what it is for:
+# `newb migration_scripts` on 2026-09-25 switches to a new branch 20260925-migration_scripts.
+# The name follows the label rules: lowercase letters, digits and single underscores, starting
+# with a letter.
+#
+# Its upstream is set to origin/<branch>, so a plain `git push` publishes it.
+#
+# Usage: pnpm run newb <branch_name>   (or ./scripts/newb <branch_name>)
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: pnpm run newb <branch_name>, eg pnpm run newb migration_scripts" >&2
+  exit 1
+fi
+label="$1"
+if [[ ! "$label" =~ ^[a-z](_?[a-z0-9])+$ ]]; then
+  echo "\"$label\" is not a label: use lowercase letters, digits and single underscores, starting with a letter (eg 'migration_scripts')." >&2
+  exit 1
+fi
+
+branch="$(date +%Y%m%d)-${label}"
+git switch --create "$branch"
+# Its upstream is origin's branch of the same name, which the first plain `git push` creates.
+# Nothing is pushed now: until then, git status shows the upstream as [gone].
+git config "branch.${branch}.remote" origin
+git config "branch.${branch}.merge" "refs/heads/${branch}"
+echo "Upstream: origin/${branch} (created by your first git push)" >&2

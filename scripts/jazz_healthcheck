@@ -4,7 +4,7 @@
 # holds our current schema and which permissions it serves.
 #
 # Reads NEXT_PUBLIC_JAZZ_APP_ID, NEXT_PUBLIC_JAZZ_SERVER_URL and JAZZ_ADMIN_SECRET.
-# Usage: doppler run --config dev_aijanitor -- scripts/jazz_healthcheck
+# Usage: ./scripts/doppledo dev_janitor ./scripts/jazz_healthcheck
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
