@@ -1,192 +1,157 @@
-# Hunts and idents: handoff after PR 2
+# Hunts and idents: handoff after PR 3
 
-For the agent picking up at PR 3 (reviews) of `whiteboard/hunts-and-idents.md`. The plan still
-stands; this is what building PRs 1 and 2 taught, and where the built code differs from the plan.
+For the agent picking up at PR 4 (reviewings) of `whiteboard/hunts-and-idents.md`. The plan still
+stands; this is what building PRs 1 through 3 taught, and where the built code differs from the
+plan. Read `notes/vocabulary.md`'s *Playtesting* section too -- `review` and `phase` are built;
+`reviewing` is only named there so far.
 
 ## Where things stand
 
-* **`20260927-hunts` is rebased onto main** (after #10, the e2e practices, and #11, Jazz's worker
-  URL) and holds, in order: the plan, PR 1 (bots: players became bots, *player* reserved for a
-  human taking the quiz), PR 2 (idents and hunts), the history files under hunt and realm, and
-  exports without ids. Unit (1946), lint, type, migration and e2e (150) suites green. Start PR 3
-  from there with `pnpm run newb reviews`. The old `20260927-bots` branch predates the rebase;
-  don't build on it.
-* **The e2e database** (`data/jazz-e2e/`) holds PR 2's schema. After PR 3's migration, expect to
-  reset it before the first e2e run. It also grows by ~150 hunts a full run, and every browser
-  syncs the whole directory (every hunt, realm and quiz) before it opens anything: at ~550 hunts
-  a second visitor's first load took 7 s, and the friend specs in `routing.spec.ts` timed out
-  under a parallel run. If those go slow or red after many local runs, reset it. CI starts
-  empty. The real fix is PR 5 and 6: the directory narrowed to the ident's own hunts.
-* Neither is merged or deployed. They must deploy together: after PR 1 alone, the author's
-  existing `playing` widgets break.
+* **`20260927-hunts_playtesting` holds PRs 1 through 3**, three commits for PR 3: the reviews
+  table and its actions, the review screen and the panel, and the e2e spec. Unit (1983), lint,
+  type, migration and e2e (152) suites green. Neither PR is merged or deployed.
+* **The e2e database was reset before this PR's run** (`./scripts/doppledo dev_e2e
+  ./scripts/nuke-jazz_local`, no e2e server running) because the migration added a table. Expect
+  to do the same before PR 4's first e2e run, per the note below.
+* PRs 1 and 2 must still deploy together with PR 3, or the author's existing `playing` widgets
+  break and reviews will have no `reviews` table to write to.
 
-## The shape PR 2 left
+## The shape PR 3 left
 
-Read these before adding the review screen; PR 3 plugs into all of them.
+Read these before adding reviewings; PR 4 plugs into all of them.
 
-* **Rows.** `HeldRows` (`state/quiz-rows.ts`) is two parts. The **directory** (hunts, realms,
-  quizzes) is every hunt's, read whole, so any address resolves and `/my/hunts` can list
-  everything. The **hunt contents** (expressions, questions, widgets, columns, bottings) are the
-  open hunt's only: expressions by `hunt_id`, the quiz children by `quiz_id: { in: quiz ids }`,
-  bottings by `question_id: { in: question ids }` (`huntQueries`, `bottingsQuery`).
-  - `useDirectory()` subscribes to the directory (the hunts list uses it, with
-    `huntListingsOf`). `useHeldRows(huntLabel)` adds the contents of the hunt the label names.
-    `loadDirectory(db)` and `loadHeldRows(db, hunt_id)` are the same as one-off reads.
-  - An `in` list changes whenever a quiz or question is added, and `useAll` delivers `undefined`
-    while a changed query first runs. `useKept` in `use-held-rows.ts` holds each table's last
-    delivery for the same hunt meanwhile, so the page never blanks. Id lists are keyed as sorted
-    text (`idsKey`/`idsIn`) so an unrelated directory delivery makes no new query.
-  - `huntRowsOf`, `quizRowsOf` and `huntRowFor(held, label)` pick one hunt's or quiz's rows
-    out; `huntFrom(held, hunt_id)` builds the `HuntT` tree the views read. `huntFrom` returns
-    null until realms *and* their quizzes have arrived: each table arrives on its own, so a hunt
-    seen with no realm is "not yet", not "empty".
-  - **Reviews and reviewings** join the hunt contents the same way: reviews by
-    `quiz_id: { in: quiz ids }`, reviewings by `review_id: { in: review ids }` (a second
-    dependent key, like bottings), each through `useKept`.
-* **Actions.** Two vocabularies in `state/actions.ts`:
-  - `HuntAction`, carried out by `perform(db, held, open, action)` against `OpenQuiz`
-    (`{ hunt_id, realm_id, quiz_id }`, from the address). `open_review`, `set_overall`,
-    `set_review_phase`, `set_reviewing` and `peek_answer` belong here: they act on the quiz the
-    address names.
-  - `AccountAction` (`assume_ident`, `new_hunt`), carried out by `performAccount` in
-    `state/account-actions.ts` through `useAccountActions()`. For actions with no open quiz.
-* **Who the visitor is.** `useIdent()` gives `{ ident, loaded }`: the account's newest identing
-  by `$createdAt`, an unstamped one counting as now. A review's `ident_id` is `ident.id`.
-  `perform` does not know the ident today; the review actions will need it passed in (on the
-  action, or as a new argument threaded through `useHunt`'s dispatch). Decide once and say which.
-* **The page.** `app/h/[hunt]/[realm]/[quiz]/page.tsx` reads the segments and `act`, and hands
-  off to `components/QuizRoute.tsx`, which sends an identless visitor to
-  `/?then=<path and query>`, replaces a missing `act` with `smith`, and waits while `useHunt`'s
-  `finding` is `'waiting'`. `act === 'review'` currently renders `AppNotices.reviewComingSoon`:
-  that line is where `ReviewScreen` goes. `useHunt(labels)` hands back
-  `{ finding, hunt, realm, quiz, dispatch, unsaved, saveNotice }`; the review screen takes the
-  same `dispatch` and sets `data-unsaved={unsaved}` on its `main`, which e2e waits on.
-* **Looking something up.** A browser that has never synced holds nothing. `lookUp(db, query)`
-  (`state/lookup.ts`) reads locally, then asks the server for up to `ServerLookupMillis` (3 s)
-  when it found nothing. Use it wherever "not found" must be true rather than "not synced yet"
-  (e.g. PR 5's `add_hunting` resolving an ident label).
-* **Addresses.** Only `lib/routes.ts` writes one: `quizPath(labels, act)`, `rootPath(then)`,
-  `huntsPath()`, `switchIdentPath()`, `actFrom`, `thenFrom`. See
-  `notes/decisions/2026-09-resource-urls.md`.
+* **Rows.** `HeldRows`/`HuntContents`/`QuizRows` (`state/quiz-rows.ts`) all gained a `reviews`
+  field, scoped and subscribed exactly like `bottings`: `huntQueries` adds `app.reviews.where({
+  quiz_id: { in: quiz_ids } }).orderBy('$createdAt')`, `use-held-rows.ts` subscribes and keeps it
+  through `useKept` the same way. `quizRowsOf` filters a quiz's reviews out of the held rows.
+  `reviewRowFor(reviews, ident_id)` finds one ident's review, taking the earliest should two
+  exist -- it relies on the query's own `orderBy('$createdAt')`, the same trick `huntRowFor` plays
+  off `DirectoryQueries.hunts`. **Reviewings will need the same second-dependent-key pattern
+  bottings use**: `reviewingsQuery(review_ids)` keyed off the reviews actually held, exactly as
+  `bottingsQuery` is keyed off the questions held. Follow that shape in `use-held-rows.ts` rather
+  than inventing a new one.
+* **The acting ident is threaded through `perform`, not carried on the action.** Decided the
+  question the PR 2 handoff left open: `perform(db, held, open, ident_id, action)` takes a new
+  positional argument, and `useHunt`'s `dispatch` supplies it from its own `useIdent()` call (see
+  `use-hunt.ts`). Every existing action ignores the parameter; only `open_review`, `set_overall`
+  and `set_review_phase` read it. `tests/support/jazz.ts`'s `act` grew a second, optional
+  `ident_id` parameter (default a fresh random uuid) for the same reason. **`set_reviewing` and
+  `peek_answer` will use this parameter too** -- do not add a second way of saying who is acting.
+* **Review actions carry their own `quiz_id`, rather than relying on `open.quiz_id`.** The plan
+  writes them as `{ quiz_id, ... }`, and the implementation takes that literally:
+  `state/review-actions.ts`'s functions take `(db, held, quiz_id, ident_id, ...)`, not an
+  `OpenQuiz`. `perform`'s switch passes `action.quiz_id` for these three cases, not `open.quiz_id`
+  -- in practice always the same value today, since the review screen only ever acts on the open
+  quiz, but it means these functions do not need `OpenQuiz` at all. Follow the same shape for
+  `set_reviewing`/`peek_answer`, which the plan writes the same way.
+* **A review is never refused for a locked quiz.** `review-actions.ts` does not go through
+  `reviseOpenQuiz` (which checks `rows.quiz.locked`) at all -- it calls `quizRowsOf` and
+  `transact` directly. This is deliberate, not an oversight: a lock is what a finished draft sent
+  out for playtesting looks like, so refusing a review on one would defeat the milestone. Keep
+  `set_reviewing` and `peek_answer` off `reviseOpenQuiz` too.
+* **The client-side "shared only" filter** is `sharedReviewsOf` in `models/review.ts`, one small
+  function so PR 6 can delete it whole. `ReviewsPanel` is the only caller today; the per-question
+  table PR 4 adds to it should read through the same filtered list, not add a second filter.
+* **Views.** `ReviewScreen.tsx` (`act=review`) reads `quiz`, `ident` and `reviews` as props from
+  `QuizRoute`, which gets them from `useHunt`'s now-wider `HuntHandle` (`reviews:
+  readonly ReviewRow[]`, the open quiz's reviews, every ident's). It opens the ident's review on
+  mount (`open_review`, idempotent), shows each question in rank order (`Rank.inRankOrder`) via a
+  `ReviewQuestionRow`, then an Overall `TextField` (autosaving through `useDraft`, same pattern as
+  every other field) and share/withdraw buttons. `PR 4's per-question fields belong inside
+  `ReviewQuestionRow`, added after the answer lock, per the plan's row-height rule -- see below.
+  `cells/answer-lock.tsx` is the lock: `revealed`/`confirming` state, nothing stored. **It takes
+  only `{ answer }` today.** PR 4 needs a `peeked` callback fired the moment `revealed` first
+  becomes true; add it as an optional prop rather than reworking the dialog.
+  `panels/ReviewsPanel.tsx` (under the smith's grid, first among the panels) lists every shared
+  review by reviewer title (resolved through the new `useIdents()` hook in `state/use-ident.ts`,
+  a whole-table subscription like the hunt directory) and overall note, verbatim. PR 4 adds a
+  compact per-question table to each block, read-only, as the plan describes.
 
 ## Where the build differs from the plan
 
-* **The quiz history (the mirror: each quiz's git repository in the browser) follows the quiz.**
-  Relabelling a quiz is a new label on the same thing, and editing it new content for the same
-  thing, so both land in the one history. That is why the repository's storage folder is named
-  by the quiz's id, which the smith never sees. Inside the repository everything is by label:
-  `tq/hunt/<hunt>/realm/<realm>/quiz/<quiz>.qq.tsv` and `.tq.json`, and the hunt's expressions
-  at `tq/hunt/<hunt>/<hunt>.tqexpressions.json`. A relabel at any level is a move git shows as
-  a rename. Repositories made before this layout are not migrated (the Coach's call); their
-  next commit writes the new paths and drops the old ones, as any commit does. The mirror
-  records only what this tab edited.
-* **Ids never reach the smith** in anything they read, export or diff; labels do. Smiths export,
-  edit and re-import, and merge questions between drafts; labels are how they say which is
-  which, and a collision of labels there is a feature, not a bug. The Export box and each
-  `.tq.json` are built by `lib/exporting.ts` (`huntExported`, `quizExported`): no ids at any
-  depth, `chains_to` as the target's label. Import resolves a pasted chain by label, and picks a
-  quiz out of a whole export by label then title; it still accepts ids, for backups made before
-  this. Anything new a smith sees (the review screen, the reviews panel) follows the same rule.
-* **Known race: a duplicate ident under a slow server.** Assuming an ident looks its label up
-  locally, then asks the server for up to `ServerLookupMillis` (3 s). A browser that has never
-  synced, on a slow or loaded server, gets no answer in time and makes a second ident with the
-  same label; `useIdent` then shows that one, by id, rather than the earlier one the label rule
-  says wins. Seen once in e2e under heavy machine load (`routing.spec.ts`, "makes one who types
-  an ident someone else made"). It matters for PR 3, because a review hangs off an ident: two
-  idents with one label would split one person's reviews. The likely fix is for `useIdent` to
-  resolve the identing's ident through its label (the earliest ident with that label), so a
-  duplicate folds into the original once sync delivers it. Raise it with the Coach before PR 3
-  builds on `ident.id`.
-* **`QuizNotFound` kept its listing** of the hunt's quizzes and of the history repos (marking
-  those not in this hunt), but dropped the "make a quiz called…" offer, per the plan.
-* **Old exports still import.** `importWorkspace` stays beside `importHunt` for the author's
-  pre-hunt backups. It restores questions only: custom expressions, widgets and columns are not.
-* **`HuntsList`** (at `/my/hunts`) lists every hunt, has *+ New hunt* and a *Be someone else*
-  link to `/?switch`. PR 5 filters it by hunting.
+* **No UI switches between `act=smith` and `act=review` yet.** A reviewer's link is the smith's
+  address with `?act=review` typed over `?act=smith`; there is no button offering it. This
+  matches the plan's "wide open is still wide open" note and is unchanged from the PR 2 handoff --
+  not a new gap, just still true.
+* **`AnswerLock` has no callback yet.** See above; it is the one place PR 4 must extend rather
+  than just plug into.
+* **`otherVisitor` moved from `routing.spec.ts` into `e2e/support.ts`**, per the PR 2 handoff's
+  own suggestion ("lift it into support.ts when a second spec wants it"). `reviews.spec.ts` is
+  that second spec. Its `test.afterEach` registration needed an
+  `eslint-disable-next-line unicorn/no-top-level-side-effects` -- reported here as CLAUDE.md asks:
+  the alternative (registering the hook lazily, inside `otherVisitor`) does not work, because
+  Playwright hooks must be registered during file collection, not from inside a running test.
+* **MUI's `Stack` in this install (`@mui/material` 9.4) refuses `alignItems` as a direct prop**
+  whenever another prop like `spacing` is also given -- a `tsc` overload-resolution failure, not a
+  runtime one. `ExpressionsModal.tsx` already worked around this by putting `alignItems` inside
+  `sx`; `ReviewScreen.tsx` and `answer-lock.tsx` follow the same workaround. Do the same rather
+  than fighting the overload.
+
+## Known race, carried forward and not touched
+
+**A duplicate ident under a slow server** (from the PR 2 handoff) is still unresolved: two idents
+sharing one label can arise if a browser that has never synced does not hear from the server
+within `ServerLookupMillis`. It now also means a reviewer's identity could, in principle, split
+across two idents with one label, splitting their reviews the same way. The Coach's instruction
+for this round was explicit: **do not fix this now** -- prove out reviews first, then raise it.
+Nothing in PR 3 makes it more or less likely than PR 2 already did; `reviewRowFor`'s "take the
+earlier" rule is the same mitigation `huntRowFor` already uses, not a new one.
+
+## For PR 4 in particular
+
+* **Schema**: `reviewings { review_id: uuid, question_id: uuid, get_rate?: int, guesses: string,
+  comments: string, minutes?: float, keep_it: boolean, needs_fact_check: boolean,
+  elimination_candidate: boolean, peeked: boolean }`, relations to `reviews` and `questions`, in
+  `src/db/schema.ts`; a `models/reviewing.ts` beside `models/review.ts`. Run
+  `./scripts/doppledo dev_claude ./scripts/jazz_migration` once the schema and model are in place,
+  same as PR 3's migration (a plain `createTables`, no edits needed) -- but check, don't assume.
+* **Row height**: reuse `GrowingField` and `StretchField` from `cells/fields.tsx` exactly as the
+  grid's `QuestionRow.tsx` does, so *Comments* (growing) and everything else (stretched) settle on
+  one height together. Do not write a third field component for the review screen.
+* **The answer lock's `peeked` flag**: add an optional `onReveal` prop to `AnswerLock`, called
+  once, the first time `revealed` becomes true (a `useRef` guard, since `revealed` can toggle back
+  and forth after that). Wire it from `ReviewQuestionRow` to `set_reviewing`'s `peeked: true` --
+  the reviewing row should already exist or be made lazily, per the plan ("Rows are made lazily,
+  on the first commit to that question's row").
+* **`ReviewsPanel`'s per-question table**: add it per shared review block, reading the same
+  `sharedReviewsOf` list this PR already filters with; join each review's reviewings by
+  `review_id`. Needs the reviewings equivalent of `quizRowsOf`'s `reviews` field -- give
+  `QuizRows` a `reviewings` field the same way, filtered by the questions' ids rather than the
+  quiz's, since a reviewing points at a question, not a quiz.
+* **Tests**: model bounds (get rate 0/100/101/-1, minutes 0/2.5/-1); `perform.test.ts` cases for
+  `set_reviewing` (upserts, a patch leaves absent fields alone, moves the review to `draft`) and
+  `peek_answer` (sets `peeked` once, idempotent after); e2e -- the reviewer fills a row, the
+  comments field grows the row and the guesses field does not, the smith sees the row after
+  sharing. `e2e/reviews.spec.ts` is the file to extend, not a new one.
 
 ## Jazz, alpha.56, learned the hard way
 
-* **Migrations.** Let `./scripts/doppledo dev_claude ./scripts/jazz_migration` write them, then
-  read them. uuid columns are `s.add.ref(table, { default })` / `s.drop.ref(table,
-  { backwardsDefault })`; there is no `s.add.uuid`. A rename is `s.renameFrom('old')`. A new
-  required ref on existing rows needs a default; PR 2 used the nil uuid, which orphans the old
-  rows on purpose.
-* **Changing an enum's value list fails the typed migration check** (no lens retypes an enum)
-  but the server applies it. PR 1's migration carries an explained `@ts-expect-error` for this;
-  PR 3's `phase` and PR 5's `role` are new enums, so they should not hit it. Adding a value to an
-  existing enum later would.
-* **`in` queries** are `where({ col: { in: [...] } })`, not `where({ col: [...] })`.
-* **The unit test server is shared, and every hunt table is readable by every account.** The
-  directory, and any whole-table read in a test, sees every other test's rows. Scope assertions
-  to your own hunt or quiz id; never assert a table's count.
-* **Whole-table subscriptions don't survive the e2e suite.** With every table read whole, each
-  browser synced every spec's hunt and heard every other worker's edits: the full run took
-  21 minutes and 26 specs failed on timeouts and lost edits, while each file passed alone.
-  Scoping reads to the open hunt fixed it. Keep new tables scoped.
-* **`hopTo` scopes correctly but crashes the unit tests** in alpha.56: it leaves an operation
-  suspended in the Node runtime, and the next `testApp.as(...)` (a `set_identity_claims`)
-  re-enters it and aborts the worker with SIGABRT ("synchronous node operation … reentered a
-  suspended operation"). Also, `.select('*', ...)` after a hop reads `*` as the starting table's
-  columns. Use `where` with `in` lists instead.
-* **`$createdAt` arrives late.** A row read back at once may lack it. Order with a fallback to
-  now (`askedAt`, `madeAt`), and in tests wait a couple of ms between writes you order by it
-  (`seedHunt`'s `act` does).
-* **After a schema change the e2e database can wedge**: every subscription stays `waiting` and the
-  hunts page never leaves "Opening your hunts…". The browser console log (`Rows: hunts:waiting
-  …`, from `use-held-rows.ts`) shows it. Reset with
-  `./scripts/doppledo dev_e2e ./scripts/nuke-jazz_local` while no e2e server runs. Expect to do
-  this after each PR's migration. The agent dev server's `data/jazz-agent/` can need the same
-  under `dev_claude`.
+Everything the PR 2 handoff said here still holds; nothing in PR 3 contradicted it. Worth
+restating the two most load-bearing for PR 4:
 
-## Next.js and tooling
+* **The shared test server holds every test's rows, and every hunt table is readable by every
+  account.** Scope assertions to your own hunt, quiz or ident id; never assert a table's count.
+  `tests/state/perform.test.ts`'s new `open_review`/`set_overall`/`set_review_phase` blocks all
+  filter by a freshly minted `ident_id`, never by counting `app.reviews` whole.
+* **Whole-table subscriptions don't survive the e2e suite.** `reviews` is scoped by quiz ids in
+  `huntQueries`, same as questions/widgets/columns; keep `reviewings` scoped the same way, by
+  question ids the way `bottingsQuery` is. `idents` stays a legitimate whole-table read
+  (`useIdents`), because it is small and already read whole for `useIdent`; do not scope it.
+* **After a schema change the e2e database can wedge.** Reset with
+  `./scripts/doppledo dev_e2e ./scripts/nuke-jazz_local`, no e2e server running, before PR 4's
+  migration's first e2e run.
 
-* **`useSearchParams` needs a `Suspense` boundary** above it or the build fails the prerender.
-  The quiz page and `/` both have one.
-* **MUI's `component={Link}`** from a client component needs the client re-export in
-  `components/NextLink.tsx`; import `Link` from there.
-* **Stale generated route types.** After removing or renaming a route, `tsc` complains about
-  `.next-agent*/types` and `.next-e2e/types` naming the old one. Delete those `types` folders.
-* **Lint findings to expect**, and the fixes this codebase settled on: a class of statics only
-  (`implements` the type, with `declare` fields); cognitive complexity (split into named helpers);
-  `no-thenable` on an object with a `then` key (build `URLSearchParams` from an array of pairs);
-  declarations before an early return (move them after it).
-* **Shell.** zsh does not word-split a variable, so a file list in one variable is one argument.
-  Write bulk renames as a bash script in the scratchpad, and use `/usr/bin/grep` for `-Z`.
+## Next.js, tooling and e2e conventions
 
-## e2e conventions now
+Unchanged from the PR 2 handoff:
 
-* **Read `notes/testing.md`'s Playwright section first**: main reworked the suite (specs import
-  `test` and `expect` from `e2e/support.ts`, assert only with retrying matchers, and a Playwright
-  lint holds them to it). The fixture's `page` starts in a fresh ident's fresh hunt, on its quiz
-  at `?act=smith` (`startAt: FreshHunt`, by way of `startHunt`); a spec about the way in says
-  `test.use({ startAt: null })`, as `routing.spec.ts` does. Test bodies do not `goto('/')`,
-  which is the ident gate; to start over, use `page.reload()` or `loadAfresh`.
-* **Hunts are shared across specs**, so find everything by your own random labels and titles,
-  never by position in a list.
-* **A second visitor** is a second `browser.newContext()`: see `otherVisitor(browser)` in
-  `e2e/routing.spec.ts`, which closes its contexts in `afterEach`. PR 3's share-and-see flow and
-  PR 5's role redirect both need it; lift it into `support.ts` when a second spec wants it.
-* **The Export box shows the hunt**: `{ realms: [{ quizzes: [...] }], expressions, ... }`. There
-  is no `active_quiz_id`; find a quiz by title or label.
-* **Every address ends in `?act=…`**, so a URL pattern anchored with `$` on the path never
-  matches. `newQuiz` and `openQuiz` compare `new URL(page.url()).pathname` instead. Under load
-  the address changes a moment before the screen does, so both helpers also wait for the new
-  quiz's title to show; a spec that types straight after a navigation types into the old quiz.
-* **A queued second write lands later than it looks.** Two dispatches in a row (the gear's Apply
-  sends a relabel and a version) run one after the other, the second rereading the rows. A spec
-  that reopens a view after such a change calls `waitUntilSaved` first; the modal seeds its
-  fields once, on opening.
-* The full suite, 150 specs, runs in about three minutes locally. If it creeps back toward
-  twenty, something is reading every hunt's rows again.
-
-## For PR 3 in particular
-
-* The answer lock, the chained BUT NOT and the row-height rule are specified in the plan; reuse
-  `ButnotPreview` (`cells/chain.tsx`), `GrowingField` and `StretchField` (`cells/fields.tsx`).
-* "Smiths see only shared reviews" is a client-side filter until PR 6. Since everything is
-  readable by everyone, write the filter in one function so PR 6 can delete it.
-* `open_review` must be idempotent under two tabs: find the (quiz, ident) review before inserting,
-  and when two exist anyway, read the earliest by `$createdAt`, as labels do.
-* Add *review*, *reviewing* and *phase* to `notes/vocabulary.md` (the plan has the wording).
-* **Wide open is still wide open**: a reviewer can set `act=smith` and edit. Accepted for the
-  week; don't add half-measures before PR 5.
+* `useSearchParams` needs a `Suspense` boundary above it; MUI's `component={Link}` needs the
+  client re-export in `components/NextLink.tsx`. Stale `.next-agent*/types` /
+  `.next-e2e/types` folders need deleting after a route rename.
+* Read `notes/testing.md`'s Playwright section before writing more e2e. `e2e/support.ts`'s
+  `otherVisitor(browser)` is now there for any spec that wants a second visitor;
+  `enterReview(reviewer, link)` in `e2e/reviews.spec.ts` is a private helper for the deep-link
+  login flow reviews need -- lift it into support.ts too if a third spec wants exactly that
+  sequence (a fresh visitor arriving at a deep link rather than at `/my/hunts`).
+* The full suite is 152 specs now, still around three minutes locally. If it creeps toward
+  twenty, something is reading every hunt's rows again -- reviews or reviewings included.
