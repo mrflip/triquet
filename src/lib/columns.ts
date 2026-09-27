@@ -28,8 +28,8 @@ export type ColumnSpec = {
   sortkey?: Sortkey
 }
 
-/** The grip that reorders a row belongs to the grid rather than to the quiz, and is always first */
-export const GripWidthPx = 32
+/** The gutter holding a row's grip and trash can, or its checkbox, belongs to the grid rather than to the quiz, and is always first */
+export const GutterWidthPx = 40
 
 /**
  * What `source` shows, given the widgets a quiz has.
@@ -102,10 +102,10 @@ export function specsFor(quiz: { columns: readonly ColumnT[], widgets: readonly 
 /**
  * How wide the grid insists on being, so the container scrolls rather than the page.
  *
- * @param specs - The grid's columns, not counting the grip.
+ * @param specs - The grid's columns, not counting the gutter.
  */
 export function gridWidthPx(specs: readonly ColumnSpec[]): number {
-  return specs.reduce((acc, spec) => acc + spec.widthPx, GripWidthPx)
+  return specs.reduce((acc, spec) => acc + spec.widthPx, GutterWidthPx)
 }
 
 /**

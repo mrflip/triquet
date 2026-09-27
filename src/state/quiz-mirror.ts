@@ -199,23 +199,27 @@ export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
 }
 
 /**
- * Carry out an import so that the history shows exactly what it did: the quiz as it stood is
- * committed first, then the import is applied and committed, then the commit is tagged.
+ * Carry out a sweeping change -- an import, a deletion -- so that the history shows exactly what
+ * it did: the quiz as it stood is committed first, then the change is applied and committed, then
+ * that commit is tagged.
  *
  * Without the first commit, edits still waiting for their commit would be folded into the
- * import's and pass for its doing.
+ * change's and pass for its doing. The first commit is a no-op when nothing was waiting.
  *
- * @param quiz - The quiz being imported into.
- * @param applyImport - Applies the import; it must dispatch the change synchronously, so that it is being written by the time this looks.
+ * @param quiz - The quiz being changed.
+ * @param markkind - What the change is, which names the tag.
+ * @param apply - Applies the change; it must dispatch it synchronously, so that it is being written by the time this looks.
  * @returns The tag left behind, or null when there was no history here to tag.
+ *
+ * @example void QuizMirror.markedChange(quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
  */
-export async function importIntoQuiz(quiz: QuizT, applyImport: () => void): Promise<string | null> {
+export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, apply: () => void): Promise<string | null> {
   await writesLanded()
   await scheduler.flush(quiz.id)
-  applyImport()
+  apply()
   await writesLanded()
   await scheduler.flush(quiz.id)
-  return await enqueue(async (fs) => await Quizgit.markImport(fs, quiz))
+  return await enqueue(async (fs) => await Quizgit.markChange(fs, quiz, markkind))
 }
 
 /**

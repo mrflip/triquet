@@ -286,18 +286,19 @@ describe('commitFirst', () => {
   })
 })
 
-describe('importTagFor', () => {
-  it('reads as a milestone tag does, with import where the m was', () => {
-    expect(Quizgit.importTagFor('main', new Date('2026-09-18T18:45:04.123Z'))).to.eq('main-import-20260918184504z')
+describe('markTagFor', () => {
+  it('reads as a milestone tag does, with the markkind where the m was', () => {
+    expect(Quizgit.markTagFor('main', 'import', new Date('2026-09-18T18:45:04.123Z'))).to.eq('main-import-20260918184504z')
+    expect(Quizgit.markTagFor('main', 'delete', new Date('2026-09-18T18:45:04.123Z'))).to.eq('main-delete-20260918184504z')
   })
 
   it('carries the version, however much it looks like the marker', () => {
-    expect(Quizgit.importTagFor('m_two', new Date('2026-01-01T00:00:00.000Z'))).to.eq('m_two-import-20260101000000z')
+    expect(Quizgit.markTagFor('m_two', 'import', new Date('2026-01-01T00:00:00.000Z'))).to.eq('m_two-import-20260101000000z')
   })
 
   it('sorts as text in the order the moments happened', () => {
-    const earlier = Quizgit.importTagFor('main', new Date('2026-09-18T09:00:00Z'))
-    const later = Quizgit.importTagFor('main', new Date('2026-09-18T10:00:00Z'))
+    const earlier = Quizgit.markTagFor('main', 'delete', new Date('2026-09-18T09:00:00Z'))
+    const later = Quizgit.markTagFor('main', 'delete', new Date('2026-09-18T10:00:00Z'))
     expect(earlier < later).to.eq(true)
   })
 })
@@ -415,13 +416,13 @@ describe('milestoneQuiz', () => {
   })
 })
 
-describe('markImport', () => {
-  it('tags the commit the import landed in, leaving the commit before it untagged', async () => {
+describe('markChange', () => {
+  it('tags the commit the change landed in, leaving the commit before it untagged', async () => {
     const before = quizOf([questionOf('quiet_otter')])
     const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Imported' }] }
     await commitFresh(before)
     await commitStep(before, after)
-    const tag = await Quizgit.markImport(suite.fs, after, new Date('2026-09-18T18:45:04.123Z'))
+    const tag = await Quizgit.markChange(suite.fs, after, 'import', new Date('2026-09-18T18:45:04.123Z'))
 
     expect(tag).to.eq('main-import-20260918184504z')
     const tagged = gitSays(after, 'rev-parse', present(tag))
@@ -429,18 +430,18 @@ describe('markImport', () => {
     expect(tagged).to.not.eq(gitSays(after, 'rev-parse', 'HEAD~1'))
   })
 
-  it('does not clobber an earlier import made in the same second', async () => {
+  it('does not clobber an earlier change of that kind made in the same second', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
     const at = new Date('2026-09-18T18:45:04.123Z')
-    const first = await Quizgit.markImport(suite.fs, quiz, at)
-    const second = await Quizgit.markImport(suite.fs, quiz, at)
+    const first = await Quizgit.markChange(suite.fs, quiz, 'delete', at)
+    const second = await Quizgit.markChange(suite.fs, quiz, 'delete', at)
     expect(second).to.eq(`${present(first)}-2`)
   })
 
   it('says there was nothing to tag where the quiz has no history yet', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    expect(await Quizgit.markImport(suite.fs, quiz)).to.eq(null)
+    expect(await Quizgit.markChange(suite.fs, quiz, 'import')).to.eq(null)
   })
 })
 

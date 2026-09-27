@@ -15,6 +15,72 @@ once; the "couldn't open" notices now suggest closing other tabs or terminating 
 `chrome://`. Not yet seen on Vercel itself. The `?dpl=` Skew Protection parameter, which may be what
 changed the bundled URL, doesn't touch these paths.
 
+## 2026-09-27: e2e in CI -- six shards, one worker each
+
+A worker per core on CI failed badly: both sharded runs failed in every shard, 35 specs in the
+later one, nearly all on the 30-second test timeout. That is what the 16-worker run here
+foretold, only much worse: at one worker a CI spec already takes about 12 seconds (32 minutes
+for 137), four times this Mac, so there is no headroom for a second one on the box. Halving to
+`'50%'` would have been a guess.
+
+So CI goes wide instead of deep: six shards, one worker each. That is the per-machine load that
+passed 137 of 137 in both runs before sharding, so it should come in around 7 or 8 minutes with
+nothing flaky. If it needs to be faster, add shards to the matrix; don't add workers.
+
+Locally nothing changes (half the cores, no retry). That is now the only place specs run side by
+side against one server, so a collision between specs can only show up here, which is the early
+warning. `pnpm test:e2e --shard=2/6` runs one CI shard's specs.
+
+## 2026-09-26: Deleting questions -- a trash can per row, and a batch mode
+
+The grid's first column is now a gutter, 40px wide rather than 32px, and it never collapses: it
+holds the grip over a trash can, or only the trash can when the quiz is out of Q# order. "Select
+questions" in the toolbar swaps each grip and trash can for a checkbox (with a select-all in the
+header) and adds "Delete checked (N)". Both routes go through one confirming dialog and one
+action, `delete_questions`.
+
+A deletion goes into the quiz history the way an import does: a commit of whatever was still
+waiting, the deletion as a commit of its own, and a tag on it, `main-delete-<stamp>z`. The
+import path now goes through the same code: `QuizMirror.markedChange(quiz, markkind, apply)`
+and `Quizgit.markChange`/`markTagFor`, replacing `importIntoQuiz`/`markImport`/`importTagFor`.
+Import tags are named exactly as before.
+
+Things you might want to push back on:
+
+* Survivors keep their Q#s, so deleting Q2 of 1-2-3 leaves 1 and 3. Renumber Q# tidies up. I
+  didn't renumber automatically because a delete shouldn't renumber things you didn't touch.
+* A chain pointing at a deleted question is cleared rather than left dangling. Otherwise a later
+  question given that label would pick up the chain.
+* The dialog says "There is no undo." The quiz history still has the question, but nothing in
+  the app can bring it back.
+* Batch mode ends after a batch delete.
+* MUI v9's Dialog ignores `autoFocus` on a child: the focus trap takes focus for the paper. The
+  dialog puts focus on "Keep it" from the transition's `onEntering` instead, which is the pattern
+  MUI's own confirmation-dialog demo uses.
+
+## 2026-09-26: e2e in CI -- four shards, a worker per core
+
+CI's e2e job took 32 minutes, and passed. Nothing in the specs waits on purpose: no sleeps, no
+serial blocks, and one spec at a time locally takes a median 2.5s, none over 7.1s. The cost is
+137 specs, each a fresh browser that loads the dev bundle and opens a new Jazz account, run one
+at a time on a runner that reported two or three cores (Playwright said "1 worker" at its
+default of half). The repo is public, so `ubuntu-latest` should be GitHub's 4-core box, and
+personal plans can't have larger runners anyway; with `workers: '100%'` on CI, the log's
+"Running N tests using N workers" line now says how many cores it got.
+
+The job is now a matrix of four shards, each on its own runner and dev server, and each shard
+runs a worker per core. Every shard runs the `environment` setup first, and runs to the end
+even when another fails. A failed shard uploads `playwright-report-<shard>`.
+`pnpm test:e2e --shard=2/4` runs that shard's specs locally.
+
+Locally the suite keeps Playwright's half the cores, 8 workers on this Mac: 137 passed in 1.9
+minutes, against 6.5 at one worker. At 16 workers it was no faster (1.8 minutes), and one spec
+failed because its page took more than 10s to render, which is load, not a collision. A
+worker per core on CI is that same load per core, so if CI starts reporting flaky specs whose
+first assertion timed out, the fix is `'50%'` there, not a longer timeout.
+
+Flaky specs show on CI as error annotations and in the run summary even though the job passes,
+so the retry reports a collision rather than hiding it. Locally there is no retry at all.
 ## 2026-09-26: Production stalls after each deploy until the Jazz key is deleted
 
 Suspect (not yet confirmed): Jazz runs storage and sync in a SharedWorker whose *name* includes

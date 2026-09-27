@@ -47,6 +47,7 @@ export type WorkspaceAction =
   | { kind: 'reversion_quiz', version: string }
   | { kind: 'edit_question', question_id: string, patch: QuestionPatch }
   | { kind: 'add_question' }
+  | { kind: 'delete_questions', question_ids: readonly string[] }
   | { kind: 'sort_questions', sortkey: Sortkey, descending: boolean }
   | { kind: 'renumber_qnums' }
   | { kind: 'move_question', question_id: string, onto_idx: number }

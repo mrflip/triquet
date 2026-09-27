@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import { withTimeout } from 'es-toolkit'
 import type { Db } from 'jazz-tools'
 import { app, type QuestionRow } from '../db/schema'
@@ -118,6 +119,28 @@ export async function addQuestion(db: Db, held: AccountRows, open: OpenQuiz): Pr
       position: rows.questions.length,
       chains_to: null,
     }))
+  })
+}
+
+/**
+ * Delete questions from the open quiz, with every reply their players gave. The questions left
+ * close ranks and keep their Q#s; a chain to a deleted question is cleared rather than left to
+ * be picked up by whichever question answers to that label next. Ids of no question here are
+ * passed over.
+ */
+export async function deleteQuestions(db: Db, held: AccountRows, open: OpenQuiz, question_ids: readonly string[]): Promise<void> {
+  const doomed = new Set(question_ids)
+  await reviseOpenQuiz(db, held, open, (tx, rows) => {
+    const [gone, kept] = _.partition(rows.questions, (row) => doomed.has(row.id))
+    const goneLabels = new Set(gone.map((row) => Labelmaker.effectiveLabelOf(row)))
+    for (const playing of rows.playings) {
+      if (doomed.has(playing.question_id)) { tx.delete(app.playings, playing.id) }
+    }
+    for (const row of gone) { tx.delete(app.questions, row.id) }
+    for (const [position, row] of kept.entries()) {
+      const orphaned = row.chains_to !== null && goneLabels.has(row.chains_to)
+      updateQuestion(tx, row, { position, ...(orphaned && { chains_to: null }) })
+    }
   })
 }
 

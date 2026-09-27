@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { Checkbox, IconButton } from '@mui/material'
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import clsx from 'clsx'
-import { GripWidthPx, type ColumnSpec } from '../lib/columns'
+import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { ExpressedReadout } from './cells/readouts'
 import * as Expressed from '../lib/expressed'
@@ -34,6 +36,11 @@ export type QuestionRowProps = {
   questions:   QuestionT[]
   locked:      boolean
   gripShown:   boolean
+  /** Whether this question is checked, in batch mode; null outside it, where its grip and trash can show instead */
+  checked:     boolean | null
+  onCheck:     (on: boolean) => void
+  /** Asks to delete this question; the asking-first is the caller's */
+  onDelete:    () => void
   resizeToken: number
   /** Where this question sits in the grid, and how many there are, so its grip can move it */
   idx:         number
@@ -56,16 +63,20 @@ export type QuestionRowProps = {
 }
 
 /**
- * One question, across every column.
+ * One question, across every column, after a gutter holding its grip and trash can -- or, in
+ * batch mode, its checkbox.
  *
  * The Clueing and Hint boxes grow with their own content and the taller of the two sets the
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
  */
-export function QuestionRow({ question, questions, locked, gripShown, resizeToken, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
-  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question.id, idx, count, disabled: ! gripShown || locked, onMove })
+  const batching = checked !== null
+  const grippable = gripShown && ! batching && ! locked
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question.id, idx, count, disabled: ! grippable, onMove })
+  const questionName = question.title || 'this question'
 
   const heightPx = Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
@@ -170,8 +181,6 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
     </td>
   )
 
-  const grippable = gripShown && ! locked
-
   return (
     <tr
       ref={rowRef}
@@ -181,23 +190,35 @@ export function QuestionRow({ question, questions, locked, gripShown, resizeToke
         landing === 'bottom' && styles.rowDropBelow,
       )}
     >
-      <td
-        className={clsx(styles.cell, ! gripShown && styles.gripCollapsed)}
-        style={{ width: `${String(GripWidthPx)}px` }}
-      >
-        {gripShown && (
-          <div
-            ref={handleRef}
-            className={clsx(styles.grip, locked && styles.gripLocked)}
-            role="button"
-            tabIndex={grippable ? 0 : -1}
-            aria-label={`Reorder ${question.title || 'this question'}`}
-            onKeyDown={onHandleKeyDown}
-            onBlur={onHandleBlur}
-          >
-            ⠿
-          </div>
-        )}
+      <td className={styles.cell} style={{ width: `${String(GutterWidthPx)}px` }}>
+        <div className={styles.gutter}>
+          {batching ? (
+            <Checkbox
+              size="small" sx={{ p: 0.25 }} checked={checked}
+              slotProps={{ input: { 'aria-label': `Select ${questionName}` } }}
+              onChange={(event) => { onCheck(event.target.checked) }}
+            />
+          ) : (
+            <>
+              {gripShown && (
+                <div
+                  ref={handleRef}
+                  className={clsx(styles.grip, locked && styles.gripLocked)}
+                  role="button"
+                  tabIndex={grippable ? 0 : -1}
+                  aria-label={`Reorder ${questionName}`}
+                  onKeyDown={onHandleKeyDown}
+                  onBlur={onHandleBlur}
+                >
+                  ⠿
+                </div>
+              )}
+              <IconButton size="small" sx={{ p: 0.25 }} disabled={locked} aria-label={`Delete ${questionName}`} onClick={onDelete}>
+                <DeleteOutlinedIcon fontSize="small" />
+              </IconButton>
+            </>
+          )}
+        </div>
       </td>
       {/* The double-click shortcut on a Full Sum is undocumented on screen, on purpose: it is
           muscle memory for someone iterating hard on one clue's total, and the ishes cell it
