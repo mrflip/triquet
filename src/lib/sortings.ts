@@ -78,7 +78,7 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], expressed:
   case 'view': {
     return source.view === 'butnot_ishes' ? (question) => ishCountOf(targetOf(question)?.hint_ishes ?? null) : () => null
   }
-  case 'playing': {
+  case 'botting': {
     const { field } = source.slot
     return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
   }

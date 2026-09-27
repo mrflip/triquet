@@ -33,8 +33,8 @@ export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, 
     .describe('The fields of one expression being revised. A key absent from a patch means "leave whatever is already there". The owner and label are not among them: they are what other things refer to it by.')
 
   const row = obj({
-    workspace_id: rowid
-      .describe('The workspace this expression belongs to.'),
+    hunt_id:      rowid
+      .describe('The hunt this expression belongs to.'),
     owner,
     label:        expressionLabel,
     formula,
@@ -167,5 +167,5 @@ const TextSeedDNAs: readonly ExpressionDNA[] = [
   },
 ]
 
-/** The expressions every new workspace starts with */
+/** The expressions every new hunt starts with */
 export const SeedExpressions: readonly ExpressionT[] = [...SumSeedDNAs, ...TextSeedDNAs].map((dna) => Expression.fill(dna))

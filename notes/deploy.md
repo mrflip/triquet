@@ -32,8 +32,8 @@ changes what Jazz holds needs one more step, *before* it merges (below).
 | Components, state, lib, models (outside the rows below) | no | no |
 | `src/db/permissions.ts` | yes | no |
 | A table or column in `src/db/schema.ts`: added, removed, renamed, or its type, nullability or reference (`JZS.rel`) changed | yes | yes |
-| A value list behind a `JZS.enum()` column (`PlayerLabelVals`, `TextkindVals`, `ModelTierVals`, `WidgetkindVals`, `ExpressionOwnerVals`, `PlayingStatusVals`) | yes | yes |
-| A Zod validator behind a `JZS.json()` column (today, `IshValidators.ishItem`, behind `playings.items`), **descriptions included** | yes | yes |
+| A value list behind a `JZS.enum()` column (`BotLabelVals`, `TextkindVals`, `ModelTierVals`, `WidgetkindVals`, `ExpressionOwnerVals`, `BottingStatusVals`) | yes | yes |
+| A Zod validator behind a `JZS.json()` column (today, `IshValidators.ishItem`, behind `bottings.items`), **descriptions included** | yes | yes |
 | A validator behind a `jsonText` column, or a row validator in `models/` | no | no |
 | Only a reverse relation (`JZS.reverse`) | no | no |
 

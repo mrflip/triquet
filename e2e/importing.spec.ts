@@ -12,13 +12,12 @@ function fieldAt(page: Page, name: string, rowIdx: number) {
   return page.locator('tbody').getByRole('textbox', { name, exact: true }).nth(rowIdx)
 }
 
-/** The label of the open quiz's question at `rowIdx`, as the Export box has it */
+/** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Export box has the hunt */
 async function labelAt(page: Page, rowIdx: number): Promise<string> {
   const exported = JSON.parse(await page.getByRole('textbox', { name: 'Export' }).inputValue()) as {
-    active_quiz_id: string
-    quizzes:        { id: string, questions: { label: string }[] }[]
+    realms: { quizzes: { title: string, questions: { label: string }[] }[] }[]
   }
-  const quiz = exported.quizzes.find((each) => each.id === exported.active_quiz_id)
+  const quiz = exported.realms.flatMap((realm) => realm.quizzes).find((each) => each.title === 'Quiz one')
   return quiz?.questions[rowIdx]?.label ?? ''
 }
 

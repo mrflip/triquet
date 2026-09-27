@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { type Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
-import { expect, openManage, reloadOnceSaved, test } from './support'
+import { expect, openManage, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 test('a quiz starts on the main version, and the author can move it to another', async ({ page }) => {
   await openManage(page)
@@ -10,6 +10,7 @@ test('a quiz starts on the main version, and the author can move it to another',
   await page.getByLabel('Version').fill('draft two')
   await page.getByRole('button', { name: 'Apply' }).click()
   await expect(page.getByText('Manage this quiz')).toBeHidden()
+  await waitUntilSaved(page)
 
   await openManage(page)
   await expect(page.getByLabel('Version')).toHaveValue('draft_two')
@@ -28,6 +29,7 @@ test('a milestone names the version it marks', async ({ page }) => {
   await openManage(page)
   await page.getByLabel('Version').fill('playtest')
   await page.getByRole('button', { name: 'Apply' }).click()
+  await waitUntilSaved(page)
 
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
@@ -89,9 +91,16 @@ async function committedEntryCount(page: Page): Promise<number> {
 }
 
 test('an edit is committed on its own once the wait is up, and not before', async ({ page }) => {
-  // The quiz's creation is committed at once, without waiting out the clock.
+  // The quiz's creation is committed at once, without waiting out the clock; its writing is let
+  // settle before counting, since a count taken mid-write undercounts.
   await expect.poll(() => committedEntryCount(page)).toBeGreaterThan(0)
-  const created = await committedEntryCount(page)
+  const settled = { count: -1 }
+  await expect.poll(async () => {
+    const was = settled.count
+    settled.count = await committedEntryCount(page)
+    return settled.count === was
+  }, { intervals: [500] }).toBe(true)
+  const created = settled.count
 
   // The page's clock is taken over, so the wait is stepped through rather than waited out: held
   // still from before the edit, moved to a hair short of the two seconds the suite runs with,

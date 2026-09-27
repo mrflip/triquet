@@ -24,7 +24,8 @@ describe('ImportValidators.importQuestion', () => {
 
 describe('ImportValidators.importPayload', () => {
   const PayloadCases = [
-    [{ quizzes: [{ title: 'One', questions: [{ clueing: 'Who?' }] }] }, 'a whole workspace'],
+    [{ realms: [{ quizzes: [{ title: 'One', questions: [{ clueing: 'Who?' }] }] }] }, 'a whole hunt'],
+    [{ quizzes: [{ title: 'One', questions: [{ clueing: 'Who?' }] }] }, 'a whole workspace from before hunts'],
     [{ title: 'One', questions: [{ clueing: 'Who?' }] },                'a single quiz'],
     [[{ clueing: 'Who?' }],                                             'a bare list of questions'],
   ] as const
@@ -38,6 +39,11 @@ describe('ImportValidators.importPayload', () => {
   it('leaves each question unjudged, so one bad one cannot block the rest', () => {
     const quiz = ImportValidators.importQuiz({ questions: [{ clueing: 'Who?' }, 'not a question'] })
     expect(quiz.questions).to.deep.eq([{ clueing: 'Who?' }, 'not a question'])
+  })
+
+  it('rejects a hunt holding no realms, or a realm holding no quizzes', () => {
+    expect(() => ImportValidators.importHunt({ realms: [] })).to.throw(Z.ZodError)
+    expect(() => ImportValidators.importHunt({ realms: [{ quizzes: [] }] })).to.throw(Z.ZodError)
   })
 
   it('rejects a workspace holding no quizzes', () => {

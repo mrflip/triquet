@@ -11,14 +11,14 @@ import * as Rank from '../lib/rank'
 import { ExpressionValidators, type ExpressionT } from '../models/expression'
 import type { PromptSubject } from '../lib/formula-prompt'
 import type { QuizT } from '../models/quiz'
-import type { WorkspaceT } from '../models/workspace'
+import { Hunt, type HuntT } from '../models/hunt'
 import styles from './workbench.module.css'
 
 /** The parts of an expression being edited */
 export type ExpressionDraft = Pick<ExpressionT, 'label' | 'description' | 'formula'>
 
 export type ExpressionFieldsProps = {
-  workspace:     WorkspaceT
+  hunt:          HuntT
   /** The quiz whose questions the preview starts on */
   defaultQuizId: string
   draft:         ExpressionDraft
@@ -36,14 +36,15 @@ export type ExpressionFieldsProps = {
  * and a button that copies a prompt asking a chatbot for the formula.
  *
  * The preview is worked out from the draft as it is typed, so a mistake is named, and a fix is
- * seen, before anything is applied. Any quiz of the workspace and any of its questions can be
+ * seen, before anything is applied. Any quiz of the hunt and any of its questions can be
  * picked; it starts on the lowest-numbered question of the open quiz.
  */
-export function ExpressionFields({ workspace, defaultQuizId, draft, onChange, labelEditable, labelIssue, expressing }: Readonly<ExpressionFieldsProps>) {
+export function ExpressionFields({ hunt, defaultQuizId, draft, onChange, labelEditable, labelIssue, expressing }: Readonly<ExpressionFieldsProps>) {
   const [quizId, setQuizId] = useState(defaultQuizId)
   const [questionId, setQuestionId] = useState<string | null>(null)
 
-  const quiz: QuizT | undefined = workspace.quizzes.find((held) => held.id === quizId) ?? workspace.quizzes[0]
+  const quizzes = useMemo(() => Hunt.quizzesOf(hunt), [hunt])
+  const quiz: QuizT | undefined = quizzes.find((held) => held.id === quizId) ?? quizzes[0]
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
   const question = ranked.find((held) => held.id === questionId) ?? ranked[0]
   const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz ? Expressed.bagsFor(quiz) : new Map()), [quiz])
@@ -81,7 +82,7 @@ export function ExpressionFields({ workspace, defaultQuizId, draft, onChange, la
           select size="small" label="Preview quiz" value={quiz?.id ?? ''} sx={{ minWidth: 180 }}
           onChange={(event) => { setQuizId(event.target.value); setQuestionId(null) }}
         >
-          {workspace.quizzes.map((held) => <MenuItem key={held.id} value={held.id}>{held.title || held.label}</MenuItem>)}
+          {quizzes.map((held) => <MenuItem key={held.id} value={held.id}>{held.title || held.label}</MenuItem>)}
         </TextField>
         <TextField
           select size="small" label="Preview question" value={question?.id ?? ''} sx={{ minWidth: 220 }}

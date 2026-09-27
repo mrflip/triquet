@@ -86,7 +86,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
     alt_text,
     notes,
   })
-    .describe('One question as the database holds it: only what the author writes. What players replied is in rows of their own.')
+    .describe('One question as the database holds it: only what the author writes. What bots replied is in rows of their own.')
 
   return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, question, questionPatch, row }
 })
@@ -115,7 +115,7 @@ export class Question implements QuestionT {
   /**
    * The fields a question shows the outside world, alphabetically: what an expression may read
    * and what a quiz's git table carries. Everything but the id, the override of the label (the
-   * label in force is what is shown), and the players' answers, which belong to the playing
+   * label in force is what is shown), and the bots' answers, which belong to the botting
    * widgets that show them.
    */
   static readonly exposed = ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'] as const

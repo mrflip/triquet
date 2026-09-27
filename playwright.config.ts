@@ -50,7 +50,7 @@ export default defineConfig({
     env:                 {
       PORT:                                        port,
       NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS: '2',
-      // A stand-in key, so the players read as able to play and the specs stub what they ask;
+      // A stand-in key, so the bots read as able to play and the specs stub what they ask;
       // it also means nothing here can ever spend real model usage, whatever the environment holds.
       ANTHROPIC_API_KEY:                           'sk-ant-not-a-real-key',
     },

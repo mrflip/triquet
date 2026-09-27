@@ -21,7 +21,7 @@ export const ChangeSigils: Readonly<Record<Changekind, string>> = {
 /** What the quiz's own fields are filed under, where a question would carry its label */
 export const QuizScope = 'quiz'
 
-/** What the workspace's expressions are filed under, since they belong to no one quiz */
+/** What the hunt's expressions are filed under, since they belong to no one quiz */
 export const WidgetsScope = 'widgets'
 
 /** Where the question order is filed, so a pure reordering still says something */
@@ -70,7 +70,7 @@ export function quizChanges(before: QuizT | null, after: QuizT | null): Change[]
 }
 
 /**
- * Whether the workspace's expressions moved between two readings.
+ * Whether the hunt's expressions moved between two readings.
  *
  * Every quiz's repository keeps a copy of them, so a revised expression is a change to each --
  * even one that touched no quiz.

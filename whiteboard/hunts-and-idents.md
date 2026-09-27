@@ -2,6 +2,11 @@
 
 Status: plan, 2026-09-27, agreed with the Coach (Flip). For the implementing agent.
 
+**Progress:** PRs 1 (bots) and 2 (idents and hunts) are built and committed. Read
+`whiteboard/hunts-and-idents-handoff.md` before PR 3: it records where the build departs from
+this plan (reads are scoped to the open hunt; the mirror is keyed by quiz id) and what alpha.56
+taught.
+
 The goal is narrow: within a week, a couple of friends open a link, say who they are, and
 review one quiz without stepping on the author's work. Everything here is the first cut of the
 model sketched in `notes/future-models.md`, shaped so that roles, creds and real authorization

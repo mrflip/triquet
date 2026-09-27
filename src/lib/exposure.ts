@@ -1,7 +1,7 @@
 import * as Expressed from './expressed'
 import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
-import { PlayingWidget, QuestionWidgetLabel, type WidgetT } from '../models/widget'
+import { BottingWidget, QuestionWidgetLabel, type WidgetT } from '../models/widget'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 
@@ -30,7 +30,7 @@ function byCode(aa: string, bb: string): number {
 
 /**
  * The columns a quiz's table has: every exposed field of every widget, the questions' own
- * widget and the quiz's playings and expressings alike, ordered alphabetically by widget label
+ * widget and the quiz's bottings and expressings alike, ordered alphabetically by widget label
  * and then by field label.
  *
  * The order depends on nothing the author arranges -- not the grid's columns or their order, not
@@ -88,11 +88,11 @@ function widgetColumns(widget: WidgetT): ExposedColumn[] {
       return reading.status === 'value' ? String(reading.val) : ''
     })]
   }
-  const { field } = PlayingWidget.slotOf(widget)
-  return PlayingWidget.exposed(widget).map((fieldname) => column(widget.label, fieldname, ({ question }) => playedText(question, field, fieldname)))
+  const { field } = BottingWidget.slotOf(widget)
+  return BottingWidget.exposed(widget).map((fieldname) => column(widget.label, fieldname, ({ question }) => playedText(question, field, fieldname)))
 }
 
-/** One exposed field of what a player answered, as text; nothing when it was never asked */
+/** One exposed field of what a bot answered, as text; nothing when it was never asked */
 function playedText(question: QuestionT, field: 'guess' | 'clueing_ishes' | 'hint_ishes', fieldname: string): string {
   const held = question[field]
   if (held === null) { return '' }

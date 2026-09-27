@@ -2,8 +2,8 @@ import type { Db } from 'jazz-tools'
 import { app, type ColumnRow, type WidgetRow } from '../db/schema'
 import { ColumnValidators, sortkeyOf, sourceOf, type ColumnDNA, type ColumnPatch } from '../models/column'
 import { ExpressionValidators, keyOf, type ExpressionDNA, type ExpressionPatch } from '../models/expression'
-import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type PlayingPatch, type WidgetDNA, type WidgetT } from '../models/widget'
-import { workspaceRowsOf, type AccountRows, type QuizRows } from './quiz-rows'
+import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type BottingPatch, type WidgetDNA, type WidgetT } from '../models/widget'
+import { huntRowsOf, type HeldRows, type QuizRows } from './quiz-rows'
 import { repositioned, transact, updateColumn, updateExpression, updateQuiz, updateWidget, type Tx } from './quiz-writing'
 import { reviseOpenQuiz, type OpenQuiz } from './quiz-actions'
 import type { LayoutAction } from './actions'
@@ -35,14 +35,14 @@ function widgetFields(widget: WidgetT) {
     label:            widget.label,
     kind:             widget.kind,
     expression_label: widget.kind === 'expressing' ? widget.expression_label : null,
-    player_label:     widget.kind === 'playing' ? widget.player_label : null,
-    textkind:         widget.kind === 'playing' ? widget.textkind : null,
+    bot_label:     widget.kind === 'botting' ? widget.bot_label : null,
+    textkind:         widget.kind === 'botting' ? widget.textkind : null,
     description:      widget.description,
   }
 }
 
 /** Put a widget at the end of the open quiz's widgets. A label a sibling has, or the questions' own, is refused. */
-export async function addWidget(db: Db, held: AccountRows, open: OpenQuiz, dna: WidgetDNA): Promise<void> {
+export async function addWidget(db: Db, held: HeldRows, open: OpenQuiz, dna: WidgetDNA): Promise<void> {
   const widget = WidgetValidators.widget(dna)
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     if (labelTaken(rows, widget.label)) { return }
@@ -54,11 +54,11 @@ export async function addWidget(db: Db, held: AccountRows, open: OpenQuiz, dna: 
  * Revise a widget of the open quiz, its patch validated for the kind of widget it is. A rename
  * onto a label a sibling has is refused, and carries the columns that show the widget with it.
  */
-export async function editWidget(db: Db, held: AccountRows, open: OpenQuiz, label: string, patch: ExpressingPatch | PlayingPatch): Promise<void> {
+export async function editWidget(db: Db, held: HeldRows, open: OpenQuiz, label: string, patch: ExpressingPatch | BottingPatch): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.widgets.find((widget) => widget.label === label)
     if (! held) { return }
-    const clean = held.kind === 'expressing' ? WidgetValidators.expressingPatch(patch) : WidgetValidators.playingPatch(patch)
+    const clean = held.kind === 'expressing' ? WidgetValidators.expressingPatch(patch) : WidgetValidators.bottingPatch(patch)
     const renamedOnto = clean.label ?? label
     if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { return }
     updateWidget(tx, held, { ...clean })
@@ -79,7 +79,7 @@ function deleteColumns(tx: Tx, rows: QuizRows, doomed: (column: ColumnRow) => bo
 }
 
 /** Delete a widget of the open quiz, and the columns that showed it: a column with nothing to show is not a column */
-export async function deleteWidget(db: Db, held: AccountRows, open: OpenQuiz, label: string): Promise<void> {
+export async function deleteWidget(db: Db, held: HeldRows, open: OpenQuiz, label: string): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.widgets.find((widget) => widget.label === label)
     if (! held) { return }
@@ -89,7 +89,7 @@ export async function deleteWidget(db: Db, held: AccountRows, open: OpenQuiz, la
 }
 
 /** Move a widget of the open quiz to `onto_idx` among its siblings */
-export async function moveWidget(db: Db, held: AccountRows, open: OpenQuiz, label: string, onto_idx: number): Promise<void> {
+export async function moveWidget(db: Db, held: HeldRows, open: OpenQuiz, label: string, onto_idx: number): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     repositioned(movedTo(rows.widgets, label, onto_idx), (row: WidgetRow, position) => { updateWidget(tx, row, { position }) })
   })
@@ -99,7 +99,7 @@ export async function moveWidget(db: Db, held: AccountRows, open: OpenQuiz, labe
  * Put a column into the open quiz at `onto_idx`, or at the end. A label a sibling has, or a
  * source the quiz cannot show, is refused.
  */
-export async function addColumn(db: Db, held: AccountRows, open: OpenQuiz, dna: ColumnDNA, onto_idx?: number): Promise<void> {
+export async function addColumn(db: Db, held: HeldRows, open: OpenQuiz, dna: ColumnDNA, onto_idx?: number): Promise<void> {
   const column = ColumnValidators.column(dna)
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     if (rows.columns.some((other) => other.label === column.label) || ! showable(rows, column.source)) { return }
@@ -116,7 +116,7 @@ export async function addColumn(db: Db, held: AccountRows, open: OpenQuiz, dna: 
  * Revise a column of the open quiz. A rename onto a sibling's label, or a source the quiz cannot
  * show, is refused; a rename carries the sort memory with it.
  */
-export async function editColumn(db: Db, held: AccountRows, open: OpenQuiz, label: string, patch: ColumnPatch): Promise<void> {
+export async function editColumn(db: Db, held: HeldRows, open: OpenQuiz, label: string, patch: ColumnPatch): Promise<void> {
   const clean = ColumnValidators.columnPatch(patch)
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     const held = rows.columns.find((column) => column.label === label)
@@ -130,34 +130,34 @@ export async function editColumn(db: Db, held: AccountRows, open: OpenQuiz, labe
 }
 
 /** Delete a column of the open quiz, forgetting a sort memory that named it */
-export async function deleteColumn(db: Db, held: AccountRows, open: OpenQuiz, label: string): Promise<void> {
+export async function deleteColumn(db: Db, held: HeldRows, open: OpenQuiz, label: string): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => { deleteColumns(tx, rows, (column) => column.label === label) })
 }
 
 /** Move a column of the open quiz to `onto_idx` among its siblings */
-export async function moveColumn(db: Db, held: AccountRows, open: OpenQuiz, label: string, onto_idx: number): Promise<void> {
+export async function moveColumn(db: Db, held: HeldRows, open: OpenQuiz, label: string, onto_idx: number): Promise<void> {
   await reviseOpenQuiz(db, held, open, (tx, rows) => {
     repositioned(movedTo(rows.columns, label, onto_idx), (row: ColumnRow, position) => { updateColumn(tx, row, { position }) })
   })
 }
 
-// The expressions belong to the workspace rather than to a quiz, so a locked quiz refuses none of
+// The expressions belong to the hunt rather than to a quiz, so a locked quiz refuses none of
 // them: a column's numbers change with its formula, but the quiz itself does not.
 
-/** Add an expression to the end of the workspace's. One whose owner and label another has is refused. */
-export async function addExpression(db: Db, held: AccountRows, open: OpenQuiz, dna: ExpressionDNA): Promise<void> {
+/** Add an expression to the end of the hunt's. One whose owner and label another has is refused. */
+export async function addExpression(db: Db, held: HeldRows, open: OpenQuiz, dna: ExpressionDNA): Promise<void> {
   const expression = ExpressionValidators.expression(dna)
-  const rows = workspaceRowsOf(held, open.workspace_id)
+  const rows = huntRowsOf(held, open.hunt_id)
   if (! rows || rows.expressions.some((other) => keyOf(other) === keyOf(expression))) { return }
   await transact(db, (tx) => {
-    tx.insert(app.expressions, ExpressionValidators.row({ ...expression, workspace_id: rows.workspace.id, position: rows.expressions.length }))
+    tx.insert(app.expressions, ExpressionValidators.row({ ...expression, hunt_id: rows.hunt.id, position: rows.expressions.length }))
   })
 }
 
-/** Revise the workspace's expression labelled `label` */
-export async function editExpression(db: Db, held: AccountRows, open: OpenQuiz, label: string, patch: ExpressionPatch): Promise<void> {
+/** Revise the hunt's expression labelled `label` */
+export async function editExpression(db: Db, held: HeldRows, open: OpenQuiz, label: string, patch: ExpressionPatch): Promise<void> {
   const clean = ExpressionValidators.expressionPatch(patch)
-  const rows = workspaceRowsOf(held, open.workspace_id)
+  const rows = huntRowsOf(held, open.hunt_id)
   if (! rows) { return }
   await transact(db, (tx) => {
     for (const expression of rows.expressions) {
@@ -167,24 +167,24 @@ export async function editExpression(db: Db, held: AccountRows, open: OpenQuiz, 
 }
 
 /**
- * How many widgets, across every quiz of the workspace, work the expression labelled `label`.
+ * How many widgets, across every quiz of the hunt, work the expression labelled `label`.
  *
- * @param held - Everything the account holds.
- * @param workspace_id - Which workspace.
+ * @param held - Every row held.
+ * @param hunt_id - Which hunt.
  * @param label - An expression's label.
  * @returns How many expressing widgets name it; an expression is only deletable at zero.
  *
- * @example countExpressingWidgets(held, workspace_id, 'clueing_full')  // => 1
+ * @example countExpressingWidgets(held, hunt_id, 'clueing_full')  // => 1
  */
-export function countExpressingWidgets(held: AccountRows, workspace_id: string, label: string): number {
-  const quiz_ids = new Set(workspaceRowsOf(held, workspace_id)?.quizzes.map((quiz) => quiz.id))
+export function countExpressingWidgets(held: HeldRows, hunt_id: string, label: string): number {
+  const quiz_ids = new Set(huntRowsOf(held, hunt_id)?.quizzes.map((quiz) => quiz.id))
   return held.widgets.filter((widget) => quiz_ids.has(widget.quiz_id) && widget.kind === 'expressing' && widget.expression_label === label).length
 }
 
-/** Delete the workspace's expression labelled `label`. Refused while a widget works it: that widget would have nothing to show. */
-export async function deleteExpression(db: Db, held: AccountRows, open: OpenQuiz, label: string): Promise<void> {
-  const rows = workspaceRowsOf(held, open.workspace_id)
-  if (! rows || countExpressingWidgets(held, open.workspace_id, label) > 0) { return }
+/** Delete the hunt's expression labelled `label`. Refused while a widget works it: that widget would have nothing to show. */
+export async function deleteExpression(db: Db, held: HeldRows, open: OpenQuiz, label: string): Promise<void> {
+  const rows = huntRowsOf(held, open.hunt_id)
+  if (! rows || countExpressingWidgets(held, open.hunt_id, label) > 0) { return }
   await transact(db, (tx) => {
     for (const expression of rows.expressions) {
       if (expression.label === label) { tx.delete(app.expressions, expression.id) }
@@ -193,10 +193,10 @@ export async function deleteExpression(db: Db, held: AccountRows, open: OpenQuiz
 }
 
 /**
- * Carry out an action on the open quiz's widgets or columns, or on the workspace's expressions,
+ * Carry out an action on the open quiz's widgets or columns, or on the hunt's expressions,
  * writing the rows it comes to. See `perform`.
  */
-export async function performLayout(db: Db, held: AccountRows, open: OpenQuiz, action: LayoutAction): Promise<void> {
+export async function performLayout(db: Db, held: HeldRows, open: OpenQuiz, action: LayoutAction): Promise<void> {
   switch (action.kind) {
   case 'add_widget':          { await addWidget(db, held, open, action.widget); return }
   case 'edit_widget':         { await editWidget(db, held, open, action.label, action.patch); return }

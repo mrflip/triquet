@@ -20,38 +20,43 @@ describe('schema', () => {
   })
   afterAll(async () => { await testApp.shutdown() })
 
-  /** A workspace holding one quiz with one question, the parents every other row hangs from */
+  /** A hunt with one realm holding one quiz with one question, the parents every other row hangs from */
   function seedQuiz(label: string) {
-    const workspace = db.insert(app.workspaces, { active_quiz_id: null }).value
-    const quiz = db.insert(app.quizzes, { workspace_id: workspace.id, title: 'Princes', label, version: 'main', locked: false }).value
-    db.update(app.workspaces, workspace.id, { active_quiz_id: quiz.id })
+    const hunt = db.insert(app.hunts, { label, forced_label: null, title: 'Plays' }).value
+    const realm = db.insert(app.realms, { hunt_id: hunt.id, label: 'home', title: 'Home', position: 0 }).value
+    const quiz = db.insert(app.quizzes, { realm_id: realm.id, title: 'Princes', label, version: 'main', locked: false }).value
     const question = db.insert(app.questions, {
       quiz_id: quiz.id, position: 0, label: 'hamlet', title: 'Hamlet', qnum: '1', clueing: 'Dane, melancholy', hint: '',
       full_answer: 'Hamlet', alt_text: '', notes: '',
     }).value
-    return { workspace, quiz, question }
+    return { hunt, realm, quiz, question }
   }
 
-  describe('workspaces', () => {
-    it('holds which quiz is open, and reaches it and its siblings by relation', async () => {
-      const { workspace } = seedQuiz('ws_open')
-      const [held] = await db.all(app.workspaces.where({ id: workspace.id }).include({ active_quiz: true, quizzes: true }))
-      expect(held?.active_quiz?.label).to.eq('ws_open')
-      expect(held?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['ws_open'])
+  describe('idents and identings', () => {
+    it('round-trip, an identing reaching its ident by relation', async () => {
+      const ident = db.insert(app.idents, { label: 'flip_kromer', title: 'Flip' }).value
+      const identing = db.insert(app.identings, { ident_id: ident.id }).value
+      const [held] = await db.all(app.identings.where({ id: identing.id }).include({ ident: true }))
+      expect([held?.ident_id, held?.ident?.label, held?.ident?.title]).to.deep.eq([ident.id, 'flip_kromer', 'Flip'])
     })
+  })
 
-    it('holds no open quiz as null', async () => {
-      const workspace = db.insert(app.workspaces, { active_quiz_id: null }).value
-      const [held] = await db.all(app.workspaces.where({ id: workspace.id }))
-      expect(held && sansId(held)).to.deep.eq({ active_quiz_id: null })
+  describe('hunts and realms', () => {
+    it('round-trip, a hunt reaching its realms and a realm its quizzes by relation', async () => {
+      const { hunt, realm } = seedQuiz('ht_nested')
+      const [heldHunt] = await db.all(app.hunts.where({ id: hunt.id }).include({ realms: true }))
+      const [heldRealm] = await db.all(app.realms.where({ id: realm.id }).include({ quizzes: true }))
+      expect(heldHunt && _.omit(heldHunt, ['id', 'realms'])).to.deep.eq({ label: 'ht_nested', forced_label: null, title: 'Plays' })
+      expect(heldHunt?.realms.map((each) => [each.label, each.title, each.position])).to.deep.eq([['home', 'Home', 0]])
+      expect(heldRealm?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['ht_nested'])
     })
   })
 
   describe('expressions', () => {
-    it('round-trips every field, and belongs to its workspace', async () => {
-      const { workspace } = seedQuiz('ex_quiz')
-      db.insert(app.expressions, { workspace_id: workspace.id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.', position: 3 })
-      const [held] = await db.all(app.workspaces.where({ id: workspace.id }).include({ expressions: true }))
+    it('round-trips every field, and belongs to its hunt', async () => {
+      const { hunt } = seedQuiz('ex_quiz')
+      db.insert(app.expressions, { hunt_id: hunt.id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.', position: 3 })
+      const [held] = await db.all(app.hunts.where({ id: hunt.id }).include({ expressions: true }))
       expect(held?.expressions.map((expression) => [expression.owner, expression.label, expression.formula, expression.description, expression.position]))
         .to.deep.eq([['tq', 'shout', '$uppercase(qn.title)', 'Loud.', 3]])
     })
@@ -61,7 +66,7 @@ describe('schema', () => {
     it('round-trips its own fields, with the optional ones null when omitted', async () => {
       const { quiz } = seedQuiz('qz_plain')
       const [held] = await db.all(app.quizzes.where({ id: quiz.id }))
-      expect(_.omit(held, ['id', 'workspace_id'])).to.deep.eq({
+      expect(_.omit(held, ['id', 'realm_id'])).to.deep.eq({
         title: 'Princes', label: 'qz_plain', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
       })
     })
@@ -80,7 +85,7 @@ describe('schema', () => {
     it('reaches its questions, widgets and columns by relation, ordered by position', async () => {
       const { quiz } = seedQuiz('qz_children')
       db.insert(app.questions, { quiz_id: quiz.id, position: 1, label: 'lear', title: 'Lear', qnum: '', clueing: '', hint: '', full_answer: '', alt_text: '', notes: '' })
-      db.insert(app.widgets, { quiz_id: quiz.id, label: 'dumdum', kind: 'playing', player_label: 'dumdum', textkind: 'clueing', description: '', position: 0 })
+      db.insert(app.widgets, { quiz_id: quiz.id, label: 'dumdum', kind: 'botting', bot_label: 'dumdum', textkind: 'clueing', description: '', position: 0 })
       db.insert(app.columns, { quiz_id: quiz.id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 })
       const [held] = await db.all(app.quizzes.where({ id: quiz.id }).include({
         questions: app.questions.orderBy('position'), widgets: true, columns: true,
@@ -93,8 +98,8 @@ describe('schema', () => {
 
   describe('widgets', () => {
     const Kinds = [
-      [{ kind: 'expressing', expression_label: 'shout', player_label: null, textkind: null },   'an expressing, naming its expression'],
-      [{ kind: 'playing', expression_label: null, player_label: 'numnum', textkind: 'hint' },    'a playing, naming its player and text'],
+      [{ kind: 'expressing', expression_label: 'shout', bot_label: null, textkind: null },   'an expressing, naming its expression'],
+      [{ kind: 'botting', expression_label: null, bot_label: 'numnum', textkind: 'hint' },    'a botting, naming its bot and text'],
     ] as const
     for (const [kindFields, describes] of Kinds) {
       it(`round-trips ${describes}`, async () => {
@@ -135,17 +140,17 @@ describe('schema', () => {
     })
   })
 
-  describe('playings', () => {
+  describe('bottings', () => {
     it('round-trips a numnum reply, its spans held as they came', async () => {
       const { question } = seedQuiz('pl_done')
       const items = [{ text: 'three', value: 3, kind: 'wordish' }, { text: '#17', value: 17, kind: 'numeral' }] as const
-      const playing = db.insert(app.playings, {
-        question_id: question.id, player_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
+      const botting = db.insert(app.bottings, {
+        question_id: question.id, bot_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
         items: [...items], truncated: false, model_tier_applied: 'careful', approx_tokens: 210,
       }).value
-      const [held] = await db.all(app.playings.where({ id: playing.id }))
+      const [held] = await db.all(app.bottings.where({ id: botting.id }))
       expect(held && sansId(held)).to.deep.eq({
-        question_id: question.id, player_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
+        question_id: question.id, bot_label: 'numnum', textkind: 'clueing', asked_text: 'three and #17', status: 'done',
         reply_text: null, items, message: null, response: null, truncated: false, model_tier_applied: 'careful', approx_tokens: 210,
       })
     })
@@ -153,22 +158,22 @@ describe('schema', () => {
     it('defaults the spans to none, and holds a failure with the response as it came back', async () => {
       const { question } = seedQuiz('pl_error')
       const response = { error: { kind: 'overloaded', detail: [1, null, 'x'] } }
-      const playing = db.insert(app.playings, {
-        question_id: question.id, player_label: 'dumdum', textkind: 'clueing', status: 'error', message: 'The model was busy.', response, truncated: false,
+      const botting = db.insert(app.bottings, {
+        question_id: question.id, bot_label: 'dumdum', textkind: 'clueing', status: 'error', message: 'The model was busy.', response, truncated: false,
       }).value
-      const [held] = await db.all(app.playings.where({ id: playing.id }))
+      const [held] = await db.all(app.bottings.where({ id: botting.id }))
       expect([held?.items, held?.message, held?.response]).to.deep.eq([[], 'The model was busy.', response])
     })
 
-    it('are found newest first for one question, player and text', async () => {
+    it('are found newest first for one question, bot and text', async () => {
       const { question } = seedQuiz('pl_newest')
       for (const reply_text of ['first', 'second']) {
-        db.insert(app.playings, { question_id: question.id, player_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text, truncated: false })
+        db.insert(app.bottings, { question_id: question.id, bot_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text, truncated: false })
         // `$createdAt` counts milliseconds, and two asks of one cell are never closer than that
         await new Promise((resolve) => { setTimeout(resolve, 3) })
       }
-      const newest = await db.all(app.playings.where({ question_id: question.id, player_label: 'dumdum', textkind: 'clueing' }).orderBy('$createdAt', 'desc').limit(1))
-      expect(newest.map((playing) => playing.reply_text)).to.deep.eq(['second'])
+      const newest = await db.all(app.bottings.where({ question_id: question.id, bot_label: 'dumdum', textkind: 'clueing' }).orderBy('$createdAt', 'desc').limit(1))
+      expect(newest.map((botting) => botting.reply_text)).to.deep.eq(['second'])
     })
   })
 })

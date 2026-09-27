@@ -37,8 +37,10 @@ test('a column added to the quiz is in the export, under its label', async ({ pa
   await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await closeManage(page)
-  const text = await sheetsText(page)
-  expect(text.split('\n', 1)[0]?.split('\t')).toContain('answer_reversed')
+  await expect.poll(async () => {
+    const text = await sheetsText(page)
+    return text.split('\n', 1)[0]?.split('\t')
+  }).toContain('answer_reversed')
 })
 
 test('the export is the same however the grid is sorted', async ({ page }) => {

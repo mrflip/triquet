@@ -2,7 +2,7 @@ import { MirrorSettings } from '../models/mirror-settings'
 import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
 
-/** What a repository holds: the quiz, and the workspace's expressions that its widgets work */
+/** What a repository holds: the quiz, and the hunt's expressions that its widgets work */
 export type MirrorSnapshot = {
   quiz:        QuizT
   expressions: readonly ExpressionT[]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { ConfirmDeleteQuestions } from './ConfirmDeleteQuestions'
@@ -9,40 +9,43 @@ import { Footnote } from './Footnote'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
-import { QuizNotFound } from './QuizNotFound'
 import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
-import { OpeningNotice } from './SyncNotices'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
 import * as QuizMirror from '../state/quiz-mirror'
-import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
-import { usePlayers } from '../state/use-players'
+import { useBots } from '../state/use-bots'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
+import type { HuntT } from '../models/hunt'
+import type { QuizT } from '../models/quiz'
+import type { RealmT } from '../models/realm'
+import type { HuntHandle } from '../state/use-hunt'
 import styles from './workbench.module.css'
 
-export type WorkbenchProps = {
-  /** Which quiz the address names; the one thing that decides what is on screen */
-  label: string
+export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'unsaved' | 'saveNotice'> & {
+  /** The hunt the address names */
+  hunt:  HuntT
+  /** The realm the address names, whose quizzes are the open quiz's siblings */
+  realm: RealmT
+  /** The quiz the address names: the one on screen */
+  quiz:  QuizT
 }
 
 /**
- * The whole tool: one quiz on screen, saved the moment anything changes.
+ * The whole tool, as a smith works it: one quiz on screen, saved the moment anything changes.
  *
  * The address decides which quiz that is, and nothing decides the address in return. Anything
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
- * by navigating; every editing action lands on the quiz the address names, and the workspace's
- * own `active_quiz_id` follows along behind, for a bare address to go back to next time.
+ * by navigating, and every editing action lands on the quiz the address names.
  */
-export function Workbench({ label }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, dispatch, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
-  const { workspace, quiz, loaded, dispatch, unsaved, saveNotice } = useWorkspace(label)
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
-  const { unavailableNotice } = usePlayers()
+  const { unavailableNotice } = useBots()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
@@ -51,36 +54,19 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
   const [editingExpressions, setEditingExpressions] = useState(false)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
-  const specs = useMemo(() => (quiz ? specsFor(quiz) : []), [quiz])
-  const expressed = useMemo(() => (quiz ? Expressed.forQuiz(quiz, workspace.expressions) : new Map()), [quiz, workspace.expressions])
-  const questionIds = useMemo(() => quiz?.questions.map((question) => question.id) ?? [], [quiz])
-  const checklist = useChecklist(quiz?.id ?? null, questionIds)
+  const specs = useMemo(() => specsFor(quiz), [quiz])
+  const expressed = useMemo(() => Expressed.forQuiz(quiz, hunt.expressions), [quiz, hunt.expressions])
+  const questionIds = useMemo(() => quiz.questions.map((question) => question.id), [quiz])
+  const checklist = useChecklist(quiz.id, questionIds)
   // The questions the author has asked to delete, until they confirm or keep them.
   const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
 
-  // The workspace remembers which quiz was open last, for a bare address to go back to. Ids
-  // rather than objects, so a fresh reading of the workspace does not look like a change of quiz.
-  const quizId = quiz?.id ?? null
-  useEffect(() => {
-    if (quizId !== null && quizId !== workspace.active_quiz_id) { dispatch({ kind: 'open_quiz', quiz_id: quizId }) }
-  }, [quizId, workspace.active_quiz_id, dispatch])
-
-  if (! loaded) { return <OpeningNotice notice={saveNotice} /> }
+  /** Where the quiz of this realm labelled `label` is worked on */
+  const pathFor = (label: string) => Routes.quizPath({ hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label, quiz: label }, 'smith')
 
   /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
   const goTo = (target: Labelmaker.Labelled) => {
-    router.push(Routes.quizPath(Labelmaker.effectiveLabelOf(target)))
-  }
-
-  if (! quiz) {
-    return (
-      <QuizNotFound
-        label={label}
-        workspace={workspace}
-        onOpen={goTo}
-        onCreate={(fresh) => { dispatch({ kind: 'new_quiz', label: fresh }); router.push(Routes.quizPath(fresh)) }}
-      />
-    )
+    router.push(pathFor(Labelmaker.effectiveLabelOf(target)))
   }
 
   const batching = checklist.checking && ! quiz.locked
@@ -95,27 +81,27 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
   return (
     <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved}>
       <QuizSwitcher
-        quizzes={workspace.quizzes}
+        quizzes={realm.quizzes}
         openQuiz={quiz}
         onOpen={(quiz_id) => {
-          const target = workspace.quizzes.find((each) => each.id === quiz_id)
+          const target = realm.quizzes.find((each) => each.id === quiz_id)
           if (target) { goTo(target) }
         }}
         onNew={() => {
           // The label is settled here rather than in the action, because the address this is
           // about to go to has to name it.
-          const fresh = Labelmaker.freshLabelFor(workspace.quizzes)
+          const fresh = Labelmaker.freshLabelFor(realm.quizzes)
           dispatch({ kind: 'new_quiz', label: fresh })
-          router.push(Routes.quizPath(fresh))
+          router.push(pathFor(fresh))
         }}
         onDelete={(quiz_id) => {
           // Worked out before the deletion, and matching the neighbour the action will settle
           // on: afterwards this address names a quiz that is not there any more.
-          const idx = workspace.quizzes.findIndex((each) => each.id === quiz_id)
-          const left = workspace.quizzes.filter((each) => each.id !== quiz_id)
+          const idx = realm.quizzes.findIndex((each) => each.id === quiz_id)
+          const left = realm.quizzes.filter((each) => each.id !== quiz_id)
           const neighbour = left[Math.min(idx, left.length - 1)]
           dispatch({ kind: 'delete_quiz', quiz_id })
-          if (neighbour) { router.replace(Routes.quizPath(Labelmaker.effectiveLabelOf(neighbour))) }
+          if (neighbour) { router.replace(pathFor(Labelmaker.effectiveLabelOf(neighbour))) }
         }}
         onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz.id, locked }) }}
       />
@@ -132,10 +118,11 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
         <QuizManageModal
           open
           onClose={() => { setManaging(false) }}
-          workspace={workspace}
+          hunt={hunt}
+          realm={realm}
           quiz={quiz}
           dispatch={dispatch}
-          onRelabelled={(relabelled) => { router.replace(Routes.quizPath(relabelled)) }}
+          onRelabelled={(relabelled) => { router.replace(pathFor(relabelled)) }}
           onOpen={goTo}
           onEditExpressions={() => { setEditingExpressions(true) }}
         />
@@ -143,7 +130,7 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
       {editingExpressions && (
         <ExpressionsModal
           onClose={() => { setEditingExpressions(false) }}
-          workspace={workspace}
+          hunt={hunt}
           quizId={quiz.id}
           dispatch={dispatch}
         />
@@ -204,7 +191,7 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
       <Footnote />
       <Panels
         quiz={quiz}
-        workspace={workspace}
+        hunt={hunt}
         expressed={expressed}
         onMerged={(merged) => {
           void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })

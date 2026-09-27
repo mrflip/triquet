@@ -13,7 +13,7 @@ export type GuessCellProps = {
   /** A question with no text is not asked about at all */
   askable:  boolean
   locked:   boolean
-  /** Why the player cannot play, when it cannot; the cell says so instead of inviting an ask */
+  /** Why the bot cannot play, when it cannot; the cell says so instead of inviting an ask */
   notice:   string | null
   heightPx: number
   onAsk:    () => void

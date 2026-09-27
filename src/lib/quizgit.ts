@@ -89,13 +89,13 @@ export async function flushFs(fs: GitFs): Promise<void> {
   await fs.promises.flush?.()
 }
 
-/** Where the workspace's expressions are kept in every repository: beside the quizzes, in the one place they are all read from */
+/** Where the hunt's expressions are kept in every repository: beside the quizzes, in the one place they are all read from */
 export const ExpressionsPath = 'tq/widgets/my.tqexpressions.json'
 
 /**
  * `quiz`'s table as tab-separated text, a header line first and one line per question after.
  *
- * It has a column for every exposed field of every widget -- the questions' own, the players',
+ * It has a column for every exposed field of every widget -- the questions' own, the bots',
  * and each expression's value -- alphabetically by widget label and then by field label, and its
  * rows are in order of question label. Neither depends on how the author has arranged the grid
  * or the quiz, so a commit's diff of it shows what changed and nothing else. Quoting is Papa
@@ -115,7 +115,7 @@ export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
 
 /**
  * The whole working tree for `quiz`: a legible table of its questions, a complete JSON file, and
- * the workspace's expressions, moving together in one commit.
+ * the hunt's expressions, moving together in one commit.
  *
  * The `.qq.tsv` is what a commit reads as -- a line per question, so a diff is legible to anyone.
  * It is also lossy, so the `.tq.json` beside it carries the whole quiz, and is what could restore
@@ -126,7 +126,7 @@ export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
  * Renaming the quiz moves its files, which git reads as a rename rather than as a loss.
  *
  * @param quiz - The quiz as it now stands.
- * @param expressions - The workspace's expressions.
+ * @param expressions - The hunt's expressions.
  * @returns Every file the repository should hold, and nothing else, by repository-relative path.
  *
  * @example quizFiles(quiz, expressions).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, the expressions path]
@@ -170,7 +170,7 @@ function tagStampOf(at: Date): string {
  *
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
- * @param expressions - The workspace's expressions, kept in the same commit.
+ * @param expressions - The hunt's expressions, kept in the same commit.
  * @returns The new commit's oid, or null when the quiz's branch already had commits.
  *
  * @example await commitFirst(fs, quiz, expressions)
@@ -214,7 +214,7 @@ export function markTagFor(version: string, markkind: Markkind, at: Date): strin
  *
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
- * @param expressions - The workspace's expressions, kept in the same commit.
+ * @param expressions - The hunt's expressions, kept in the same commit.
  * @param changes - What moved, as `Changes.quizChanges` and `Changes.expressionChanges` reported it.
  * @returns The new commit's oid, or null when nothing changed and nothing was committed.
  *
@@ -343,7 +343,7 @@ export type RepoSummary = {
 /**
  * Every quiz repository the filesystem holds, newest work first.
  *
- * Independent of the workspace on purpose: a deleted quiz leaves its repository behind, and this
+ * Independent of the database on purpose: a deleted quiz leaves its repository behind, and this
  * is where it can still be found. A directory that is not a repository is left out.
  *
  * @param fs - Where the repositories live.

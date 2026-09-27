@@ -28,6 +28,12 @@ export const AppNotices = {
   changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
   loadFailed:           "Couldn't open your quizzes — reload the page to try again.",
   otherWorkers:         'You may try closing other tabs, or open this address in Chrome and terminate the other jazz-runtime shared workers:',
+  opening:              'Opening…',
+  openingHunts:         'Opening your hunts…',
+  noHunts:              'No hunts yet.',
+  identLabelShape:      'An ident label is 6 to 24 lowercase letters, digits and single underscores, starting with a letter. Spaces become underscores.',
+  identLabelNeeded:     'Type the label you go by.',
+  reviewComingSoon:     'The review screen is on its way.',
   untitledQuiz:         'Untitled quiz',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
@@ -38,15 +44,15 @@ export const AppNotices = {
 } as const
 
 /**
- * What a player's cell reads when the server holds no credentials for the service behind it.
+ * What a bot's cell reads when the server holds no credentials for the service behind it.
  *
- * @param title - What the player is called.
+ * @param title - What the bot is called.
  * @param servicelabel - The service it needs credentials for.
  * @returns A calm sentence: nothing is broken, it just is not set up.
  *
- * @example playerUnavailableNotice('Dumdum', 'claude')  // => "Dumdum can't play yet — no Claude credentials are set up for this app."
+ * @example botUnavailableNotice('Dumdum', 'claude')  // => "Dumdum can't play yet — no Claude credentials are set up for this app."
  */
-export function playerUnavailableNotice(title: string, servicelabel: string): string {
+export function botUnavailableNotice(title: string, servicelabel: string): string {
   const service = servicelabel.charAt(0).toUpperCase() + servicelabel.slice(1)
   return `${title} can't play yet — no ${service} credentials are set up for this app.`
 }

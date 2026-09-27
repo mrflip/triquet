@@ -49,7 +49,7 @@ export function Toolbar({ locked, bulkIshesLast, running, runNotice, runFailure,
       )}
       <Button size="small" variant="outlined" disabled={locked} onClick={onSortByChain}>Sort by chain order</Button>
       <Button size="small" variant="outlined" disabled={locked} onClick={onRenumber}>Renumber Q#</Button>
-      {/* Not disabled by a lock: the expressions belong to the workspace, not to this quiz. */}
+      {/* Not disabled by a lock: the expressions belong to the hunt, not to this quiz. */}
       <Button size="small" variant="outlined" onClick={onEditExpressions}>Edit expressions</Button>
       <span style={{ flex: 1 }} />
       <Button size="small" variant="contained" disabled={locked || running} onClick={onRecalculate}>

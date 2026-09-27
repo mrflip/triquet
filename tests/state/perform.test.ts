@@ -2,40 +2,42 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
-import { LocalFirst, loadWorkspace } from '../../src/state/quiz-rows'
-import { ServerLookupMillis, ensureWorkspace } from '../../src/state/quiz-actions'
+import { LocalFirst } from '../../src/state/quiz-rows'
 import { SeedExpressions } from '../../src/models/expression'
-import { Workspace, openQuizOf, type WorkspaceT } from '../../src/models/workspace'
+import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
 import { present } from '../support/present'
-import { freshAccount, openTestApp, seedWorkspace, sessionFor } from '../support/jazz'
+import { huntHolding, openOf, openTestApp, seedHunt, type Seen } from '../support/jazz'
 
-/** A workspace holding one quiz built from `qnum, title` pairs, open */
-function workspaceOf(...pairs: [string, string][]): WorkspaceT {
+/** A hunt holding one quiz built from `qnum, title` pairs, with the standard expressions and layout */
+function huntOf(...pairs: [string, string][]): HuntT {
   const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
   const quiz = { ...Quiz.blank('Quiz one'), ...defaultLayoutFor(SeedExpressions), questions }
-  return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id, expressions: [...SeedExpressions] })
+  return huntHolding([quiz], SeedExpressions)
 }
 
-/** A workspace holding one quiz of blank questions, open */
-function openWorkspace(locked = false): WorkspaceT {
-  const quiz = { ...Quiz.blank('Quiz one'), locked }
-  return Workspace.fill({ quizzes: [quiz], active_quiz_id: quiz.id })
+/** A hunt holding one quiz of blank questions */
+function openHunt(locked = false): HuntT {
+  return huntHolding([{ ...Quiz.blank('Quiz one'), locked }])
 }
 
-/** A workspace holding the quizzes titled `titles`, blank, with the one at `open_idx` open */
-function workspaceTitled(titles: string[], open_idx: number, locked_idx = -1): WorkspaceT {
-  const quizzes = titles.map((title, idx) => ({ ...Quiz.blank(title), locked: idx === locked_idx }))
-  return Workspace.fill({ quizzes, active_quiz_id: present(quizzes[open_idx]).id })
+/** A hunt holding the quizzes titled `titles`, blank, the one at `locked_idx` locked */
+function huntTitled(titles: string[], locked_idx = -1): HuntT {
+  return huntHolding(titles.map((title, idx) => ({ ...Quiz.blank(title), locked: idx === locked_idx })))
 }
 
-const openOf    = (workspace: WorkspaceT) => present(openQuizOf(workspace), 'the open quiz')
-const titlesOf  = (workspace: WorkspaceT) => openOf(workspace).questions.map((question) => question.title)
-const qnumsOf   = (workspace: WorkspaceT) => openOf(workspace).questions.map((question) => question.qnum)
-const firstOf   = (workspace: WorkspaceT) => present(openOf(workspace).questions[0])
-const quizNamed = (workspace: WorkspaceT, title: string) => present(workspace.quizzes.find((quiz) => quiz.title === title), title)
+/** `hunt` with every quiz locked */
+function lockedAll(hunt: HuntT): HuntT {
+  return { ...hunt, realms: hunt.realms.map((realm) => ({ ...realm, quizzes: realm.quizzes.map((quiz) => ({ ...quiz, locked: true })) })) }
+}
+
+const titlesOf  = (seen: Seen) => openOf(seen).questions.map((question) => question.title)
+const qnumsOf   = (seen: Seen) => openOf(seen).questions.map((question) => question.qnum)
+const firstOf   = (seen: Seen) => present(openOf(seen).questions[0])
+const quizNamed = (seen: Seen, title: string) => present(seen.quizzes.find((quiz) => quiz.title === title), title)
+const newestOf  = (seen: Seen) => present(seen.quizzes.at(-1), 'the newest quiz')
 
 /** What a cell shows of a failure: when it happened is the row's own time */
 function failureOf(cell: { last_err: unknown } | null) {
@@ -52,8 +54,8 @@ function staleOf(ishes: { status: string, stale?: boolean } | null): boolean {
   return ishes?.status === 'done' && ishes.stale === true
 }
 
-/** The first question's clueing extraction, as the workspace now holds it */
-async function firstClueingIshes(read: () => Promise<WorkspaceT>) {
+/** The first question's clueing extraction, as the hunt now holds it */
+async function firstClueingIshes(read: () => Promise<Seen>) {
   return firstOf(await read()).clueing_ishes
 }
 
@@ -62,23 +64,23 @@ describe('perform', () => {
   beforeAll(async () => { testApp = await openTestApp() })
   afterAll(async () => { await testApp.shutdown() })
 
-  const seed = async (workspace: WorkspaceT) => await seedWorkspace(testApp, workspace)
+  const seed = async (hunt: HuntT, open_idx = 0) => await seedHunt(testApp, hunt, open_idx)
 
   describe('retitle_quiz', () => {
     it('renames the open quiz', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       await act({ kind: 'retitle_quiz', title: 'Quiz two' })
       expect(openOf(await read()).title).to.eq('Quiz two')
     })
 
     it('accepts an empty title without rewriting it', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       await act({ kind: 'retitle_quiz', title: '' })
       expect(openOf(await read()).title).to.eq('')
     })
 
     it('refuses while the quiz is locked', async () => {
-      const { act, read } = await seed(openWorkspace(true))
+      const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await act({ kind: 'retitle_quiz', title: 'Quiz two' })
       expect(await read()).to.deep.eq(ante)
@@ -87,14 +89,14 @@ describe('perform', () => {
 
   describe('relabel_quiz', () => {
     it('overrides the generated label of the open quiz, and leaves the generated one alone', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       const generated = openOf(await read()).label
       await act({ kind: 'relabel_quiz', label: 'leon' })
       expect([openOf(await read()).forced_label, openOf(await read()).label]).to.deep.eq(['leon', generated])
     })
 
     it('refuses while the quiz is locked', async () => {
-      const { act, read } = await seed(openWorkspace(true))
+      const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await act({ kind: 'relabel_quiz', label: 'leon' })
       expect(await read()).to.deep.eq(ante)
@@ -103,7 +105,7 @@ describe('perform', () => {
 
   describe('reversion_quiz', () => {
     it('puts the open quiz on another version', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       await act({ kind: 'reversion_quiz', version: 'playtest' })
       expect(openOf(await read()).version).to.eq('playtest')
     })
@@ -111,7 +113,7 @@ describe('perform', () => {
 
   describe('add_question', () => {
     it('appends a blank question to the end', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'add_question' })
       const after = openOf(await read())
       expect(after.questions.slice(0, 2).map((question) => question.title)).to.deep.eq(['a', 'b'])
@@ -120,7 +122,7 @@ describe('perform', () => {
     })
 
     it('refuses while the quiz is locked', async () => {
-      const { act, read } = await seed(openWorkspace(true))
+      const { act, read } = await seed(openHunt(true))
       await act({ kind: 'add_question' })
       expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
     })
@@ -128,7 +130,7 @@ describe('perform', () => {
 
   describe('edit_question', () => {
     it('rewrites only the named question, and only the named fields', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       const target = present(openOf(await read()).questions[1])
       await act({ kind: 'edit_question', question_id: target.id, patch: { clueing: 'Which région?' } })
       const after = openOf(await read())
@@ -136,34 +138,34 @@ describe('perform', () => {
     })
 
     it('leaves the quiz alone when the question is not in it', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       const ante = await read()
       await act({ kind: 'edit_question', question_id: 'nobody', patch: { clueing: 'x' } })
       expect(await read()).to.deep.eq(ante)
     })
 
     it('ignores fields the patch does not mention', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       const ante = await read()
       await act({ kind: 'edit_question', question_id: firstOf(ante).id, patch: {} })
       expect(await read()).to.deep.eq(ante)
     })
 
     it('refuses text the model rejects rather than storing it', async () => {
-      const { act, read } = await seed(openWorkspace())
+      const { act, read } = await seed(openHunt())
       const { id } = firstOf(await read())
       await expect(act({ kind: 'edit_question', question_id: id, patch: { title: 'x'.repeat(201) } })).rejects.toThrow(Z.ZodError)
     })
 
     it('chains to another question, held by that question\'s label', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'edit_question', question_id: present(first).id, patch: { chains_to: present(second).id } })
       expect(firstOf(await read()).chains_to).to.eq(present(second).id)
     })
 
     it('refuses while the quiz is locked', async () => {
-      const { act, read } = await seed(openWorkspace(true))
+      const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await act({ kind: 'edit_question', question_id: firstOf(ante).id, patch: { clueing: 'x' } })
       expect(await read()).to.deep.eq(ante)
@@ -172,25 +174,25 @@ describe('perform', () => {
 
   describe('sort_questions', () => {
     it('commits the new order into the quiz rather than draping it over the top', async () => {
-      const { act, read } = await seed(workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
+      const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
       expect(titlesOf(await read())).to.deep.eq(['apple', 'banana', 'cherry'])
     })
 
     it('remembers which column put the quiz in this order', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'sort_questions', sortkey: 'column:qnum', descending: false })
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
     })
 
     it('reverses when asked', async () => {
-      const { act, read } = await seed(workspaceOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
+      const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
       expect(titlesOf(await read())).to.deep.eq(['cherry', 'banana', 'apple'])
     })
 
-    it('sorts by what an expressing works out, with the expressions the workspace holds', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+    it('sorts by what an expressing works out, with the expressions the hunt holds', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const [first, second, third] = openOf(await read()).questions
       const clueings: [string, string][] = [[present(first).id, 'one two three'], [present(second).id, 'one'], [present(third).id, 'one two']]
       for (const [question_id, clueing] of clueings) { await act({ kind: 'edit_question', question_id, patch: { clueing } }) }
@@ -201,8 +203,7 @@ describe('perform', () => {
     })
 
     it('refuses while the quiz is locked', async () => {
-      const locked = workspaceOf(['3', 'cherry'], ['1', 'apple'])
-      const { act, read } = await seed({ ...locked, quizzes: locked.quizzes.map((quiz) => ({ ...quiz, locked: true })) })
+      const { act, read } = await seed(lockedAll(huntOf(['3', 'cherry'], ['1', 'apple'])))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
       expect(titlesOf(await read())).to.deep.eq(['cherry', 'apple'])
     })
@@ -210,7 +211,7 @@ describe('perform', () => {
 
   describe('renumber_qnums', () => {
     it('tidies the numbers with no question moving', async () => {
-      const { act, read } = await seed(workspaceOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']))
+      const { act, read } = await seed(huntOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']))
       await act({ kind: 'renumber_qnums' })
       const after = await read()
       expect(qnumsOf(after)).to.deep.eq(['3', '2', '4', '1'])
@@ -218,15 +219,14 @@ describe('perform', () => {
     })
 
     it('does not claim the quiz is now in Q# order, which would immediately re-sort it', async () => {
-      const { act, read } = await seed(workspaceOf(['4', 'd'], ['1', 'a']))
+      const { act, read } = await seed(huntOf(['4', 'd'], ['1', 'a']))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
       await act({ kind: 'renumber_qnums' })
       expect(openOf(await read()).last_sortkey).to.eq('column:title')
     })
 
     it('refuses while the quiz is locked', async () => {
-      const locked = workspaceOf(['4', 'd'])
-      const { act, read } = await seed({ ...locked, quizzes: locked.quizzes.map((quiz) => ({ ...quiz, locked: true })) })
+      const { act, read } = await seed(lockedAll(huntOf(['4', 'd'])))
       await act({ kind: 'renumber_qnums' })
       expect(qnumsOf(await read())).to.deep.eq(['4'])
     })
@@ -234,7 +234,7 @@ describe('perform', () => {
 
   describe('move_question', () => {
     it('moves the question and renumbers everything by its new position', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const dragged = present(openOf(await read()).questions[2])
       await act({ kind: 'move_question', question_id: dragged.id, onto_idx: 0 })
       const after = await read()
@@ -243,14 +243,14 @@ describe('perform', () => {
     })
 
     it('adopts a question that had no Q# into the sequence', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['', 'b']))
       const dragged = present(openOf(await read()).questions[1])
       await act({ kind: 'move_question', question_id: dragged.id, onto_idx: 0 })
       expect(qnumsOf(await read())).to.deep.eq(['1', '2'])
     })
 
     it('leaves the quiz in Q# order, which is the only order a drag is offered in', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'move_question', question_id: firstOf(await read()).id, onto_idx: 1 })
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
     })
@@ -258,7 +258,7 @@ describe('perform', () => {
 
   describe('delete_questions', () => {
     it('deletes the named questions, and the rest close ranks keeping their Q#s', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
       const [, second, , fourth] = openOf(await read()).questions
       await act({ kind: 'delete_questions', question_ids: [present(second).id, present(fourth).id] })
       const after = await read()
@@ -267,17 +267,17 @@ describe('perform', () => {
     })
 
     it('takes each deleted question\'s replies with it, and leaves the others\' alone', async () => {
-      const { act, read, db } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read, db } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_ishes', question_id: present(first).id, textkind: 'clueing', ishes: found(1) })
       await act({ kind: 'set_ishes', question_id: present(second).id, textkind: 'clueing', ishes: found(2) })
       await act({ kind: 'delete_questions', question_ids: [present(first).id] })
-      const playings = await db.all(app.playings, LocalFirst)
-      expect(playings.map((playing) => playing.question_id)).to.deep.eq([present(second).id])
+      const bottings = await db.all(app.bottings.where({ question_id: { in: [present(first).id, present(second).id] } }), LocalFirst)
+      expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second).id])
     })
 
     it('clears a chain to a deleted question, so a later question answering to its label does not inherit it', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
       await act({ kind: 'delete_questions', question_ids: [present(second).id] })
@@ -285,19 +285,19 @@ describe('perform', () => {
     })
 
     it('passes over an id that names no question of the quiz', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'delete_questions', question_ids: ['nowhere'] })
       expect(titlesOf(await read())).to.deep.eq(['a', 'b'])
     })
 
     it('can empty the quiz', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'delete_questions', question_ids: openOf(await read()).questions.map((question) => question.id) })
       expect(titlesOf(await read())).to.deep.eq([])
     })
 
     it('refuses while the quiz is locked', async () => {
-      const { act, read } = await seed(openWorkspace(true))
+      const { act, read } = await seed(openHunt(true))
       await act({ kind: 'delete_questions', question_ids: [firstOf(await read()).id] })
       expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
     })
@@ -305,14 +305,14 @@ describe('perform', () => {
 
   describe('set_chain', () => {
     it('chains one question to another, which the quiz then shows', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
       expect(firstOf(await read()).chains_to).to.eq(present(second).id)
     })
 
     it('unchains with null', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
       await act({ kind: 'set_chain', question_id: present(first).id, chains_to: null })
@@ -320,7 +320,7 @@ describe('perform', () => {
     })
 
     it('clears a chain to itself, or to no question of the quiz, rather than keeping it', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const first = firstOf(await read())
       await act({ kind: 'set_chain', question_id: first.id, chains_to: first.id })
       expect(firstOf(await read()).chains_to).to.eq(null)
@@ -331,7 +331,7 @@ describe('perform', () => {
 
   describe('sort_by_chain_order', () => {
     it('walks the chains from the lowest Q#, and remembers doing so', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const [first, , third] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(third).id })
       await act({ kind: 'sort_by_chain_order', descending: false })
@@ -343,7 +343,7 @@ describe('perform', () => {
 
   describe('set_ishes', () => {
     it('stores an extraction against the text it came from', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({
         kind: 'set_ishes', question_id: firstOf(await read()).id, textkind: 'hint',
         ishes: { status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], truncated: false, stale: false, updated_at: 1, last_err: null },
@@ -354,8 +354,7 @@ describe('perform', () => {
     })
 
     it('refuses while the quiz is locked', async () => {
-      const locked = workspaceOf(['1', 'a'])
-      const { act, read } = await seed({ ...locked, quizzes: locked.quizzes.map((quiz) => ({ ...quiz, locked: true })) })
+      const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       await act({
         kind: 'set_ishes', question_id: firstOf(await read()).id, textkind: 'clueing',
         ishes: { status: 'done', items: [], truncated: false, stale: false, updated_at: 1, last_err: null },
@@ -372,7 +371,7 @@ describe('perform', () => {
 
     /** A question already holding a guess and a clueing extraction */
     const withHeld = async () => {
-      const seeded = await seed(workspaceOf(['1', 'a']))
+      const seeded = await seed(huntOf(['1', 'a']))
       const { id } = firstOf(await seeded.read())
       await seeded.act({ kind: 'set_guess', question_id: id, guess: held })
       await seeded.act({ kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: ishesHeld })
@@ -397,7 +396,7 @@ describe('perform', () => {
     })
 
     it('becomes the cell\'s only content when it never had a value', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'fail_guess', question_id: firstOf(await read()).id, err })
       const { guess } = firstOf(await read())
       expect(guess).to.deep.include({ status: 'error', message: err.message })
@@ -430,8 +429,7 @@ describe('perform', () => {
     })
 
     it('is refused while the quiz is locked', async () => {
-      const locked = workspaceOf(['1', 'a'])
-      const { act, read } = await seed({ ...locked, quizzes: locked.quizzes.map((quiz) => ({ ...quiz, locked: true })) })
+      const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       await act({ kind: 'fail_guess', question_id: firstOf(await read()).id, err })
       expect(firstOf(await read()).guess).to.eq(null)
     })
@@ -450,7 +448,7 @@ describe('perform', () => {
 
   describe('apply_bulk_ishes', () => {
     it('lands each text\'s extraction in its cell, and keeps what the run cost', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       const run = { approx_tokens: 4200, text_count: 2, updated_at: 9 }
       await act({
@@ -471,7 +469,7 @@ describe('perform', () => {
 
     /** A question with an extraction for each text named */
     const extractedFrom = async (...textkinds: ('clueing' | 'hint')[]) => {
-      const seeded = await seed(workspaceOf(['1', 'a']))
+      const seeded = await seed(huntOf(['1', 'a']))
       const { id } = firstOf(await seeded.read())
       for (const textkind of textkinds) { await seeded.act({ kind: 'set_ishes', question_id: id, textkind, ishes: extracted }) }
       return { ...seeded, id }
@@ -484,7 +482,7 @@ describe('perform', () => {
     })
 
     it('leaves the extraction visible rather than throwing it away', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       const { id } = firstOf(await read())
       await act({ kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: { ...extracted, items: [{ text: '300', value: 300, kind: 'numeral' }] } })
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
@@ -519,61 +517,41 @@ describe('perform', () => {
     })
   })
 
-  describe('open_quiz', () => {
-    it('switches to a quiz the workspace holds', async () => {
-      const { act, read } = await seed(workspaceTitled(['one', 'two'], 0))
-      await act({ kind: 'open_quiz', quiz_id: quizNamed(await read(), 'two').id })
-      expect(openOf(await read()).title).to.eq('two')
-    })
-
-    it('ignores a quiz the workspace does not hold', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
-      const ante = await read()
-      await act({ kind: 'open_quiz', quiz_id: 'gone' })
-      expect(await read()).to.deep.eq(ante)
-    })
-
-    it('switches away from a locked quiz, because locking must never be a trap', async () => {
-      const { act, read } = await seed(workspaceTitled(['one', 'two'], 0, 0))
-      await act({ kind: 'open_quiz', quiz_id: quizNamed(await read(), 'two').id })
-      expect(openOf(await read()).title).to.eq('two')
-    })
-  })
-
   describe('new_quiz', () => {
-    it('adds a quiz and opens it', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+    it('adds a quiz to the open quiz\'s realm, leaving the open quiz as it was', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const ante = await read()
       await act({ kind: 'new_quiz' })
       const after = await read()
       expect(after.quizzes).to.have.length(2)
-      expect(after.active_quiz_id).to.eq(after.quizzes[1]?.id)
+      expect(openOf(after)).to.deep.eq(openOf(ante))
     })
 
-    it('starts the new quiz with the same blank questions a fresh workspace has', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+    it('starts the new quiz with the same blank questions a fresh hunt has', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz' })
-      expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
+      expect(newestOf(await read()).questions).to.have.length(BlankQuestionQty)
     })
 
     it('works from a locked quiz', async () => {
-      const { act, read } = await seed(workspaceTitled(['one'], 0, 0))
+      const { act, read } = await seed(huntTitled(['one'], 0))
       await act({ kind: 'new_quiz' })
       const { quizzes } = await read()
       expect(quizzes).to.have.length(2)
     })
 
-    it('starts the new quiz with the standard columns, for the expressions the workspace still has', async () => {
-      const whole = await seed(Workspace.blank())
+    it('starts the new quiz with the standard columns, for the expressions the hunt still has', async () => {
+      const whole = await seed(Hunt.blank())
       await whole.act({ kind: 'new_quiz' })
-      expect([openOf(await whole.read()).widgets.length, openOf(await whole.read()).columns.length]).to.deep.eq([11, 21])
-      const blank = Workspace.blank()
+      expect([newestOf(await whole.read()).widgets.length, newestOf(await whole.read()).columns.length]).to.deep.eq([11, 21])
+      const blank = Hunt.blank()
       const fewer = await seed({ ...blank, expressions: blank.expressions.filter((expression) => expression.label !== 'hint_full') })
       await fewer.act({ kind: 'new_quiz' })
-      expect([openOf(await fewer.read()).widgets.length, openOf(await fewer.read()).columns.length]).to.deep.eq([10, 20])
+      expect([newestOf(await fewer.read()).widgets.length, newestOf(await fewer.read()).columns.length]).to.deep.eq([10, 20])
     })
 
-    it('keeps the workspace\'s expressions', async () => {
-      const { act, read } = await seed(Workspace.blank())
+    it('keeps the hunt\'s expressions', async () => {
+      const { act, read } = await seed(Hunt.blank())
       const ante = await read()
       await act({ kind: 'new_quiz' })
       const { expressions } = await read()
@@ -581,13 +559,13 @@ describe('perform', () => {
     })
 
     it('starts the new quiz under the label it is given', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz', label: 'princes' })
-      expect(openOf(await read()).label).to.eq('princes')
+      expect(newestOf(await read()).label).to.eq('princes')
     })
 
     it('refuses a label a quiz already answers to, rather than making a second quiz at one address', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz', label: 'princes' })
       const ante = await read()
       await act({ kind: 'new_quiz', label: 'princes' })
@@ -595,7 +573,7 @@ describe('perform', () => {
     })
 
     it('counts an overriding label as taken', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'relabel_quiz', label: 'leon' })
       const ante = await read()
       await act({ kind: 'new_quiz', label: 'leon' })
@@ -604,44 +582,46 @@ describe('perform', () => {
   })
 
   describe('delete_quiz', () => {
-    it('removes the quiz, everything it held, and opens its neighbour', async () => {
-      const { db, act, read } = await seed(workspaceTitled(['one', 'two', 'three'], 1))
-      await act({ kind: 'delete_quiz', quiz_id: quizNamed(await read(), 'two').id })
+    it('removes the quiz and everything it held', async () => {
+      const { db, act, read } = await seed(huntTitled(['one', 'two', 'three']), 1)
+      const doomed = quizNamed(await read(), 'two').id
+      await act({ kind: 'delete_quiz', quiz_id: doomed })
       const after = await read()
       expect(after.quizzes.map((quiz) => quiz.title)).to.deep.eq(['one', 'three'])
-      expect(openOf(after).title).to.eq('three')
-      expect(await db.all(app.questions, LocalFirst)).to.have.length(2 * BlankQuestionQty)
+      expect(await db.all(app.questions.where({ quiz_id: doomed }), LocalFirst)).to.have.length(0)
     })
 
-    it('opens the quiz before it when the last one goes', async () => {
-      const { act, read } = await seed(workspaceTitled(['one', 'two'], 1))
-      await act({ kind: 'delete_quiz', quiz_id: quizNamed(await read(), 'two').id })
-      expect(openOf(await read()).title).to.eq('one')
-    })
-
-    it('refuses to delete the last remaining quiz', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+    it('refuses to delete the realm\'s last quiz', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
       const ante = await read()
       await act({ kind: 'delete_quiz', quiz_id: openOf(ante).id })
       expect(await read()).to.deep.eq(ante)
     })
 
     it('leaves the open quiz alone when some other quiz goes', async () => {
-      const { act, read } = await seed(workspaceTitled(['one', 'two'], 0))
+      const { act, read } = await seed(huntTitled(['one', 'two']), 0)
       await act({ kind: 'delete_quiz', quiz_id: quizNamed(await read(), 'two').id })
       expect(openOf(await read()).title).to.eq('one')
+    })
+
+    it('refuses a quiz of another realm', async () => {
+      const mine = await seed(huntTitled(['one', 'two']), 0)
+      const theirs = await seed(huntTitled(['three', 'four']), 0)
+      const ante = await theirs.read()
+      await mine.act({ kind: 'delete_quiz', quiz_id: quizNamed(ante, 'four').id })
+      expect(await theirs.read()).to.deep.eq(ante)
     })
   })
 
   describe('set_lock', () => {
     it('freezes a quiz', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'set_lock', quiz_id: openOf(await read()).id, locked: true })
       expect(openOf(await read()).locked).to.eq(true)
     })
 
     it('unfreezes one, from inside the lock', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read()).id
       await act({ kind: 'set_lock', quiz_id, locked: true })
       await act({ kind: 'set_lock', quiz_id, locked: false })
@@ -649,7 +629,7 @@ describe('perform', () => {
     })
 
     it('leaves the quiz exactly as it was', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const ante = await read()
       await act({ kind: 'set_lock', quiz_id: openOf(ante).id, locked: true })
       await act({ kind: 'set_lock', quiz_id: openOf(ante).id, locked: false })
@@ -659,7 +639,7 @@ describe('perform', () => {
 
   describe('replace_open_quiz', () => {
     it('takes a merged quiz whole: fields revised, questions matched by id, new ones added, missing ones gone', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const quiz = openOf(await read())
       const [first] = quiz.questions
       const merged = { ...quiz, title: 'Merged', questions: [{ ...present(first), clueing: 'Imported' }, { ...Question.blank(), title: 'fresh' }] }
@@ -670,7 +650,7 @@ describe('perform', () => {
     })
 
     it('records the replies a merged quiz brings, once', async () => {
-      const { act, read } = await seed(workspaceOf(['1', 'a']))
+      const { act, read } = await seed(huntOf(['1', 'a']))
       const quiz = openOf(await read())
       const guess = { status: 'done' as const, text: 'Leon', truncated: false, updated_at: Date.now(), last_err: null }
       const merged = { ...quiz, questions: quiz.questions.map((question) => ({ ...question, guess })) }
@@ -680,98 +660,10 @@ describe('perform', () => {
     })
 
     it('refuses while the quiz is locked', async () => {
-      const { act, read } = await seed(openWorkspace(true))
+      const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await act({ kind: 'replace_open_quiz', quiz: { ...openOf(ante), title: 'Merged' } })
       expect(await read()).to.deep.eq(ante)
     })
-  })
-
-  describe('replace_workspace', () => {
-    it('takes a workspace wholesale, lock and all', async () => {
-      const { act, read } = await seed(openWorkspace())
-      const other = openWorkspace(true)
-      await act({ kind: 'replace_workspace', workspace: other })
-      const after = await read()
-      expect(after.quizzes).to.have.length(1)
-      expect([openOf(after).title, openOf(after).locked]).to.deep.eq(['Quiz one', true])
-    })
-  })
-})
-
-describe('ensureWorkspace', () => {
-  let testApp: PolicyTestApp
-  beforeAll(async () => { testApp = await openTestApp() })
-  afterAll(async () => { await testApp.shutdown() })
-
-  it('makes a fresh account its workspace: one blank quiz, open, with the standard layout', async () => {
-    const { db, account } = freshAccount(testApp)
-    const workspace = present(await loadWorkspace(db, await ensureWorkspace(db, account)))
-    const blank = Workspace.blank()
-    expect([workspace.quizzes.length, openOf(workspace).questions.length, openOf(workspace).columns.length, workspace.expressions.length])
-      .to.deep.eq([1, BlankQuestionQty, present(blank.quizzes[0]).columns.length, blank.expressions.length])
-  })
-
-  it('finds the workspace an account already has, from any identity of it, rather than making another', async () => {
-    const { db, account } = freshAccount(testApp)
-    const first = await ensureWorkspace(db, account)
-    const elsewhere = testApp.as(sessionFor('the same account, another device', account))
-    expect(await ensureWorkspace(elsewhere, account)).to.eq(first)
-    expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
-  })
-})
-
-describe('ensureWorkspace, when the server never answers', () => {
-  let testApp: PolicyTestApp
-  beforeAll(async () => { testApp = await openTestApp() })
-  afterAll(async () => { await testApp.shutdown() })
-
-  it('stops waiting, and makes the workspace in this browser', { timeout: ServerLookupMillis + 5000 }, async () => {
-    const { db, account } = freshAccount(testApp)
-    // A server that cannot be reached, or will not serve this app, leaves a read that asks it
-    // hanging for good; everything else about the database works.
-    const unanswered = new Proxy(db, {
-      get(target, key) {
-        const member: unknown = Reflect.get(target, key)
-        if (key !== 'all' || typeof member !== 'function') { return typeof member === 'function' ? member.bind(target) as unknown : member }
-        return async (...args: unknown[]) => {
-          const [, options] = args as [unknown, { tier?: string } | undefined]
-          if (options?.tier === 'remote-if-possible') { return await new Promise(() => { /* never answered */ }) }
-          return await (member as (...rest: unknown[]) => Promise<unknown>).apply(target, args)
-        }
-      },
-    })
-    const workspace_id = await ensureWorkspace(unanswered, account)
-    expect(await loadWorkspace(db, workspace_id)).to.not.eq(null)
-  })
-
-  it('makes the workspace in this browser when the server cannot be reached at all', async () => {
-    const { db, account } = freshAccount(testApp)
-    const unreachable = new Proxy(db, {
-      get(target, key) {
-        const member: unknown = Reflect.get(target, key)
-        if (key !== 'all' || typeof member !== 'function') { return typeof member === 'function' ? member.bind(target) as unknown : member }
-        return async (...args: unknown[]) => {
-          const [, options] = args as [unknown, { tier?: string } | undefined]
-          if (options?.tier === 'remote-if-possible') { throw new Error('[object Event]') }
-          return await (member as (...rest: unknown[]) => Promise<unknown>).apply(target, args)
-        }
-      },
-    })
-    const workspace_id = await ensureWorkspace(unreachable, account)
-    expect(await loadWorkspace(db, workspace_id)).to.not.eq(null)
-  })
-})
-
-describe('ensureWorkspace, asked by several views at once', () => {
-  let testApp: PolicyTestApp
-  beforeAll(async () => { testApp = await openTestApp() })
-  afterAll(async () => { await testApp.shutdown() })
-
-  it('makes one workspace, and hands every one of them its id', async () => {
-    const { db, account } = freshAccount(testApp)
-    const found = await Promise.all([ensureWorkspace(db, account), ensureWorkspace(db, account), ensureWorkspace(db, account)])
-    expect(new Set(found).size).to.eq(1)
-    expect(await db.all(app.workspaces, LocalFirst)).to.have.length(1)
   })
 })

@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { NewExpression, planExpressingEdit, planPlayingEdit, type ExpressingEdit, type PlayingEdit } from '../../src/state/widget-edit'
-import { Workspace } from '../../src/models/workspace'
-import type { ExpressingT, PlayingWidgetT } from '../../src/models/widget'
+import { NewExpression, planExpressingEdit, planBottingEdit, type ExpressingEdit, type BottingEdit } from '../../src/state/widget-edit'
+import { Hunt } from '../../src/models/hunt'
+import type { ExpressingT, BottingWidgetT } from '../../src/models/widget'
 import type { QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
 
-const workspace = Workspace.blank()
-const quiz = present(workspace.quizzes[0])
+const hunt = Hunt.blank()
+const quiz = present(Hunt.quizzesOf(hunt)[0])
 const held = present(quiz.widgets.find((each): each is ExpressingT => each.label === 'hint_full'))
-const heldExpression = present(workspace.expressions.find((each) => each.label === 'hint_full'))
-const dumdum = present(quiz.widgets.find((each): each is PlayingWidgetT => each.label === 'dumdum'))
+const heldExpression = present(hunt.expressions.find((each) => each.label === 'hint_full'))
+const dumdum = present(quiz.widgets.find((each): each is BottingWidgetT => each.label === 'dumdum'))
 const lockedQuiz = (): QuizT => ({ ...quiz, locked: true })
 
 /** An edit of the standard Hint Full Sum widget, as opened and untouched */
@@ -26,7 +26,7 @@ function fresh(patch: Partial<ExpressingEdit> = {}): ExpressingEdit {
 }
 
 function actionsOf(edit: ExpressingEdit, target: QuizT = quiz) {
-  const plan = planExpressingEdit(edit, workspace, target)
+  const plan = planExpressingEdit(edit, hunt, target)
   if (! plan.ok) { throw new Error(`Expected a plan, got: ${plan.issue}`) }
   return plan.actions
 }
@@ -50,20 +50,20 @@ describe('planExpressingEdit, editing a widget', () => {
   })
 
   it('points the widget at another expression', () => {
-    const other = present(workspace.expressions.find((each) => each.label === 'answer_reversed'))
+    const other = present(hunt.expressions.find((each) => each.label === 'answer_reversed'))
     const actions = actionsOf({ ...untouched(), expressionLabel: 'answer_reversed', expression: other })
     expect(actions).to.deep.eq([{ kind: 'edit_widget', label: 'hint_full', patch: { expression_label: 'answer_reversed' } }])
   })
 
   it('refuses a label a sibling widget already has, or the questions\' own', () => {
     for (const label of ['clueing_full', 'question']) {
-      expect(planExpressingEdit({ ...untouched(), label }, workspace, quiz)).to.deep.include({ ok: false, issue: 'Another widget in this quiz already has that label.' })
+      expect(planExpressingEdit({ ...untouched(), label }, hunt, quiz)).to.deep.include({ ok: false, issue: 'Another widget in this quiz already has that label.' })
     }
   })
 
   it('refuses an empty formula, and a description too long', () => {
-    expect(planExpressingEdit({ ...untouched(), expression: { ...heldExpression, formula: '' } }, workspace, quiz).ok).to.eq(false)
-    expect(planExpressingEdit({ ...untouched(), description: 'x'.repeat(3601) }, workspace, quiz).ok).to.eq(false)
+    expect(planExpressingEdit({ ...untouched(), expression: { ...heldExpression, formula: '' } }, hunt, quiz).ok).to.eq(false)
+    expect(planExpressingEdit({ ...untouched(), description: 'x'.repeat(3601) }, hunt, quiz).ok).to.eq(false)
   })
 })
 
@@ -84,7 +84,7 @@ describe('planExpressingEdit, making a new widget', () => {
   })
 
   it('can work an existing expression without adding one', () => {
-    const reversed = present(workspace.expressions.find((each) => each.label === 'answer_reversed'))
+    const reversed = present(hunt.expressions.find((each) => each.label === 'answer_reversed'))
     const actions = actionsOf(fresh({ expressionLabel: 'answer_reversed', expression: reversed }))
     expect(actions.map((action) => action.kind)).to.deep.eq(['add_widget', 'add_column'])
   })
@@ -110,20 +110,20 @@ describe('planExpressingEdit, making a new widget', () => {
   ]
   for (const [patch, issue, describes] of Refused) {
     it(`refuses ${describes}`, () => {
-      const plan = planExpressingEdit(fresh(patch), workspace, quiz)
+      const plan = planExpressingEdit(fresh(patch), hunt, quiz)
       expect(plan.ok).to.eq(false)
       expect(plan.ok ? '' : plan.issue).to.match(issue)
     })
   }
 
   it('points a taken-label refusal at the label field', () => {
-    const plan = planExpressingEdit(fresh({ expression: { label: 'clueing_full', description: '', formula: '1' } }), workspace, quiz)
+    const plan = planExpressingEdit(fresh({ expression: { label: 'clueing_full', description: '', formula: '1' } }), hunt, quiz)
     expect(plan).to.deep.include({ ok: false, labelIssue: 'Another expression already has that label.' })
   })
 })
 
 describe('planExpressingEdit, on a locked quiz', () => {
-  it('leaves the widget alone and revises only the expression, which belongs to the workspace', () => {
+  it('leaves the widget alone and revises only the expression, which belongs to the hunt', () => {
     const actions = actionsOf({ ...untouched(), description: 'Ignored', expression: { ...heldExpression, formula: '1' } }, lockedQuiz())
     expect(actions.map((action) => action.kind)).to.deep.eq(['edit_expression'])
   })
@@ -133,38 +133,38 @@ describe('planExpressingEdit, on a locked quiz', () => {
   })
 })
 
-/** A playing edit as opened and untouched */
-function playing(patch: Partial<PlayingEdit> = {}): PlayingEdit {
-  return { widget: dumdum, label: 'dumdum', player_label: 'dumdum', textkind: 'clueing', description: '', ...patch }
+/** A botting edit as opened and untouched */
+function botting(patch: Partial<BottingEdit> = {}): BottingEdit {
+  return { widget: dumdum, label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing', description: '', ...patch }
 }
 
-describe('planPlayingEdit', () => {
+describe('planBottingEdit', () => {
   it('comes to nothing when nothing was changed', () => {
-    const plan = planPlayingEdit(playing(), quiz)
+    const plan = planBottingEdit(botting(), quiz)
     expect(plan).to.deep.eq({ ok: true, actions: [] })
   })
 
   it('revises only what changed', () => {
-    const plan = planPlayingEdit(playing({ description: 'The quick one.' }), quiz)
+    const plan = planBottingEdit(botting({ description: 'The quick one.' }), quiz)
     expect(plan).to.deep.eq({ ok: true, actions: [{ kind: 'edit_widget', label: 'dumdum', patch: { description: 'The quick one.' } }] })
   })
 
   it('adds a new widget with a column to show it, just before Alt Text', () => {
-    const plan = planPlayingEdit(playing({ widget: null, label: 'numnum_again', player_label: 'numnum' }), quiz)
+    const plan = planBottingEdit(botting({ widget: null, label: 'numnum_again', bot_label: 'numnum' }), quiz)
     expect(plan.ok && plan.actions.map((action) => action.kind)).to.deep.eq(['add_widget', 'add_column'])
   })
 
-  it('refuses a player that is not put that text, naming the trouble', () => {
-    const plan = planPlayingEdit(playing({ textkind: 'hint' }), quiz)
+  it('refuses a bot that is not put that text, naming the trouble', () => {
+    const plan = planBottingEdit(botting({ textkind: 'hint' }), quiz)
     expect(plan.ok ? '' : plan.issue).to.match(/dumdum is not put a hint/)
   })
 
   it('refuses a label a sibling has, or no label', () => {
-    expect(planPlayingEdit(playing({ label: 'numnum_hint' }), quiz).ok).to.eq(false)
-    expect(planPlayingEdit(playing({ label: '' }), quiz)).to.deep.include({ ok: false, labelIssue: 'Give the widget a label.' })
+    expect(planBottingEdit(botting({ label: 'numnum_hint' }), quiz).ok).to.eq(false)
+    expect(planBottingEdit(botting({ label: '' }), quiz)).to.deep.include({ ok: false, labelIssue: 'Give the widget a label.' })
   })
 
   it('comes to nothing on a locked quiz', () => {
-    expect(planPlayingEdit(playing({ description: 'x' }), lockedQuiz())).to.deep.eq({ ok: true, actions: [] })
+    expect(planBottingEdit(botting({ description: 'x' }), lockedQuiz())).to.deep.eq({ ok: true, actions: [] })
   })
 })
