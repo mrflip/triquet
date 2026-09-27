@@ -53,7 +53,7 @@ export const Upalnumbar   = { re: /^[A-Z0-9_]*$/,            msg: 'should have o
 export const Loalnumbar   = { re: /^[a-z0-9_]*$/,            msg: 'should have only lowercase plain letters/_/numbers' } as const satisfies Patternbag
 export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plain letters, numbers, and the occasional space' } as const satisfies Patternbag
 
-export const Label      = { re: /^[a-z](_?[a-z0-9])*[a-z0-9]$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
+export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 export const Dashlabel  = { re: /^[a-z][a-z0-9_-]*$/,   min: 1, max: 25, msg: 'should have only plain lowercase letters/_/-/numbers with a letter first' } as const satisfies Patternbag
 export const Handleish  = { re: /^[a-z][a-z0-9_]*$/,    min: 1, max: 36, msg: 'should have only lowercase plain letters/_/numbers with a letter first' } as const satisfies Patternbag
 export const Keyish     = { re: /^[\w\-.:/+]*$/,        min: 1, max: 90, msg: 'should be letters, numbers, .-_/:' } as const satisfies Patternbag
