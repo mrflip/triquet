@@ -89,6 +89,10 @@ Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `d
 never `dev_janitor`. Never kill a process that doesn't belong to `agent` or `e2e`.
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
+A bespoke port is fine: follow the pattern, `30xx` for the web server and `32xx` for its Jazz
+server, with a matching `data/jazz-<name>/` and `.next-<name>` (`pnpm test:e2e:agent` is the
+worked example: 3003/3203, for when a human's own run holds 3002). Agents will get containers of
+their own in time; until then, share by convention.
 
 Start a new line of work on its own branch with `pnpm run newb <label>`, which makes
 `YYYYMMDD-<label>` from where you stand. Use it freely. At every commit-able milestone, run

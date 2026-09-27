@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { waitUntilSaved } from './support'
+import type { Page } from '@playwright/test'
+import { expect, test, waitUntilSaved } from './support'
 
 /** Paste `payload` into the Import box and run it */
 async function runImport(page: Page, payload: unknown) {
@@ -23,7 +23,6 @@ async function labelAt(page: Page, rowIdx: number): Promise<string> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await page.getByLabel('Quiz name').fill('Quiz one')
   await fieldAt(page, 'Title', 0).fill('Leon')
   await fieldAt(page, 'Clueing', 0).fill('Which region?')

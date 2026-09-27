@@ -1,11 +1,17 @@
 ---
 name: vitest
-description: Vitest fast unit testing framework powered by Vite with Jest-compatible API. Use when writing tests, mocking, configuring coverage, or working with test filtering and fixtures.
+description: Reference for Vitest 5's API - config, the vi utilities (mocks, spies, fake timers), snapshots, test.extend fixtures, tags, concurrency, coverage, type testing. Use when you need a specific Vitest API, not for writing ordinary tests; assertion style in this repo is chai, per notes/testing.md, which wins over the jest-style examples here.
 metadata:
   author: Anthony Fu
   version: "2026.6.22"
   source: Generated from https://github.com/vitest-dev/vitest, scripts located at https://github.com/antfu/skills
 ---
+
+> **House rules first.** This is an API reference generated from the upstream docs, and its
+> examples use Jest-style matchers (`toBe`, `toEqual`). In this repository the assertion style is
+> chai (`expect(x).to.deep.equal(y)`), test layout and coverage rules are in `notes/testing.md`,
+> and that file wins wherever the two differ. Come here for a Vitest mechanism -- `vi.mock`,
+> fake timers, `test.extend`, tags, snapshots -- not for how to write a test.
 
 Vitest is a next-generation testing framework powered by Vite. It provides a Jest-compatible API with native ESM, TypeScript, and JSX support out of the box. Vitest shares the same config, transformers, resolvers, and plugins with your Vite app.
 

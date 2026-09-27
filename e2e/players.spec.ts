@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { cellOf, expect, test } from './support'
 
 /** Stand in for the server saying no player has credentials, without touching its real environment */
 async function stubNoCredentials(page: Page) {
@@ -25,17 +26,7 @@ async function requestSentWithin(page: Page, pattern: string, ms: number): Promi
   }
 }
 
-/** The first row's cell in the sum column named `colname` */
-function sumCell(page: Page, colname: string) {
-  return page.locator('tbody tr').first().locator(`td[data-colname="${colname}"]`)
-}
-
-test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-})
-
 test('with credentials, a never-asked cell invites the author to ask', async ({ page }) => {
-  await page.goto('/')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
   const cell = page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
@@ -44,6 +35,8 @@ test('with credentials, a never-asked cell invites the author to ask', async ({ 
 })
 
 test.describe('with no credentials for the players\' service', () => {
+  test.use({ startAt: null })
+
   test.beforeEach(async ({ page }) => {
     await stubNoCredentials(page)
     await page.goto('/')
@@ -69,8 +62,10 @@ test.describe('with no credentials for the players\' service', () => {
   test('a shortcut on a sum column asks nothing either', async ({ page }) => {
     const askWasSent = requestSentWithin(page, '**/api/ask', 1000)
     for (const colname of ['Clueing Full Sum', 'Hint Full Sum']) {
-      await sumCell(page, colname).dblclick()
+      await cellOf(page, 0, colname).dblclick()
     }
+    // Deliberate one-shot "not yet" check: this waits out the 1s window itself, so there is
+    // nothing left to retry against.
     expect(await askWasSent).toBe(false)
   })
 })

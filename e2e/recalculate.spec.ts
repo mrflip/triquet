@@ -1,10 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { newQuiz, reloadOnceSaved, waitUntilSaved } from './support'
-
-/** The cell of column `colname` in the row at `rowIdx` */
-function cellOf(page: Page, rowIdx: number, colname: string) {
-  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
-}
+import { type Page } from '@playwright/test'
+import { cellOf, expect, newQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 /** Answer the combined run by giving every key one span worth `value` */
 async function stubRun(page: Page, valueOf: (key: string) => number) {
@@ -23,7 +18,6 @@ async function stubRun(page: Page, valueOf: (key: string) => number) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   for (const ii of [0, 1, 2]) {
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).nth(ii).fill(`Clueing number ${String(ii)}`)
     await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(ii).fill(`BUT NOT hint ${String(ii)}`)
