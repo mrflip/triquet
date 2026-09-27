@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GripWidthPx, gridWidthPx, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
+import { GutterWidthPx, gridWidthPx, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
 import { Column } from '../../src/models/column'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { SeedExpressions } from '../../src/models/expression'
@@ -77,11 +77,11 @@ describe('specsFor and gridWidthPx', () => {
   })
 
   it('adds the widths up with the grip, so the grid can insist on them', () => {
-    expect(gridWidthPx(specs)).to.eq(GripWidthPx + layout.columns.reduce((acc, column) => acc + column.width_px, 0))
+    expect(gridWidthPx(specs)).to.eq(GutterWidthPx + layout.columns.reduce((acc, column) => acc + column.width_px, 0))
   })
 
   it('is as wide as the grip alone for a quiz with no columns', () => {
-    expect(gridWidthPx([])).to.eq(GripWidthPx)
+    expect(gridWidthPx([])).to.eq(GutterWidthPx)
   })
 })
 

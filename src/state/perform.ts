@@ -36,6 +36,7 @@ export async function perform(db: Db, held: AccountRows, open: OpenQuiz, action:
   case 'reversion_quiz':      { await Quiz.reversionQuiz(db, held, open, action.version); return }
   case 'edit_question':       { await Quiz.editQuestion(db, held, open, action.question_id, action.patch); return }
   case 'add_question':        { await Quiz.addQuestion(db, held, open); return }
+  case 'delete_questions':    { await Quiz.deleteQuestions(db, held, open, action.question_ids); return }
   case 'sort_questions':      { await Quiz.sortQuestions(db, held, open, action.sortkey, action.descending); return }
   case 'renumber_qnums':      { await Quiz.renumberQnums(db, held, open); return }
   case 'move_question':       { await Quiz.moveQuestion(db, held, open, action.question_id, action.onto_idx); return }

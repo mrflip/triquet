@@ -102,11 +102,11 @@ test('a locked quiz refuses the arrow keys as it refuses a drag', async ({ page 
   await expect.poll(async () => await answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
 })
 
-test('the grip column collapses once the quiz is out of Q# order', async ({ page }) => {
+test('the grips go once the quiz is out of Q# order, and the trash cans stay', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Title' }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeHidden()
-  // The cell itself stays in the row, at zero width, so no later cell shifts left.
+  await expect(page.getByRole('button', { name: /^Delete/ }).first()).toBeVisible()
   const cells = await page.locator('tbody tr').first().locator('td').count()
   expect(cells).toBe(22)
 })

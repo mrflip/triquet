@@ -256,6 +256,53 @@ describe('perform', () => {
     })
   })
 
+  describe('delete_questions', () => {
+    it('deletes the named questions, and the rest close ranks keeping their Q#s', async () => {
+      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
+      const [, second, , fourth] = openOf(await read()).questions
+      await act({ kind: 'delete_questions', question_ids: [present(second).id, present(fourth).id] })
+      const after = await read()
+      expect(titlesOf(after)).to.deep.eq(['a', 'c'])
+      expect(qnumsOf(after)).to.deep.eq(['1', '3'])
+    })
+
+    it('takes each deleted question\'s replies with it, and leaves the others\' alone', async () => {
+      const { act, read, db } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const [first, second] = openOf(await read()).questions
+      await act({ kind: 'set_ishes', question_id: present(first).id, textkind: 'clueing', ishes: found(1) })
+      await act({ kind: 'set_ishes', question_id: present(second).id, textkind: 'clueing', ishes: found(2) })
+      await act({ kind: 'delete_questions', question_ids: [present(first).id] })
+      const playings = await db.all(app.playings, LocalFirst)
+      expect(playings.map((playing) => playing.question_id)).to.deep.eq([present(second).id])
+    })
+
+    it('clears a chain to a deleted question, so a later question answering to its label does not inherit it', async () => {
+      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      const [first, second] = openOf(await read()).questions
+      await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
+      await act({ kind: 'delete_questions', question_ids: [present(second).id] })
+      expect(firstOf(await read()).chains_to).to.eq(null)
+    })
+
+    it('passes over an id that names no question of the quiz', async () => {
+      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      await act({ kind: 'delete_questions', question_ids: ['nowhere'] })
+      expect(titlesOf(await read())).to.deep.eq(['a', 'b'])
+    })
+
+    it('can empty the quiz', async () => {
+      const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))
+      await act({ kind: 'delete_questions', question_ids: openOf(await read()).questions.map((question) => question.id) })
+      expect(titlesOf(await read())).to.deep.eq([])
+    })
+
+    it('refuses while the quiz is locked', async () => {
+      const { act, read } = await seed(openWorkspace(true))
+      await act({ kind: 'delete_questions', question_ids: [firstOf(await read()).id] })
+      expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
+    })
+  })
+
   describe('set_chain', () => {
     it('chains one question to another, which the quiz then shows', async () => {
       const { act, read } = await seed(workspaceOf(['1', 'a'], ['2', 'b']))

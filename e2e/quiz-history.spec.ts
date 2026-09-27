@@ -177,3 +177,15 @@ test('an import is committed on either side, and tagged', async ({ page }) => {
 
   await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/tags\/main-import-\d{14}z$/)).toHaveLength(1)
 })
+
+test('a deletion is committed on either side, and tagged', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForSelector('table')
+  await page.getByRole('textbox', { name: 'Title' }).first().fill('hamlet')
+  await page.getByLabel('Quiz name').click()
+
+  await page.getByRole('button', { name: 'Delete hamlet', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
+
+  await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/tags\/main-delete-\d{14}z$/)).toHaveLength(1)
+})

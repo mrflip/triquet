@@ -26,6 +26,11 @@ export default defineConfig({
   // One retry on CI, so a failure there comes with a trace; a spec that passes only on its retry
   // is reported as flaky rather than hidden.
   retries:     process.env.CI ? 1 : 0,
+  // One spec at a time on CI: a runner's few slow cores already carry the dev server, Jazz and the
+  // browser, and a second worker there times specs out. CI goes wide by sharding instead. Locally,
+  // half the cores and no retry, so specs that collide over the one server they share fail here,
+  // the only place they run side by side.
+  workers:     process.env.CI ? 1 : '50%',
   // A fresh page opens its Jazz database before it shows anything, most of a second in dev,
   // and a route's first visit also waits for it to compile.
   expect:      { timeout: 10_000 },

@@ -153,8 +153,12 @@ export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[]): Map
  * @example milestoneTagFor('main', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-m-20260918184504z'
  */
 export function milestoneTagFor(version: string, at: Date): string {
-  const stamp = at.toISOString().slice(0, 19).replaceAll(/\D/g, '')
-  return `${version}-m-${stamp}z`
+  return `${version}-m-${tagStampOf(at)}z`
+}
+
+/** `at` to the second in UTC, digits only, so tags sort as text in the order their moments happened */
+function tagStampOf(at: Date): string {
+  return at.toISOString().slice(0, 19).replaceAll(/\D/g, '')
 }
 
 /**
@@ -178,20 +182,26 @@ export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly 
   return await commitQuiz(fs, quiz, expressions, Changes.quizChanges(null, quiz))
 }
 
+/** The sweeping changes the history brackets with commits and tags: an import merged in, questions deleted */
+export const MarkkindVals = ['import', 'delete'] as const
+export type Markkind = typeof MarkkindVals[number]
+
 /**
- * The tag an import leaves behind: the version it landed on, and when.
+ * The tag a sweeping change leaves behind: the version it landed on, what it was, and when.
  *
- * Stamped as a milestone's is, so the two sort together by time; `import` in place of `m` is what
- * tells them apart in a list of tags.
+ * Stamped as a milestone's is, so they all sort together by time; the markkind in place of `m`
+ * is what tells them apart in a list of tags.
  *
  * @param version - The quiz's version, which is also its branch.
+ * @param markkind - What the change was.
  * @param at - The moment being stamped.
  * @returns A valid, sortable tag name.
  *
- * @example importTagFor('main', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-import-20260918184504z'
+ * @example markTagFor('main', 'import', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-import-20260918184504z'
+ * @example markTagFor('main', 'delete', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-delete-20260918184504z'
  */
-export function importTagFor(version: string, at: Date): string {
-  return milestoneTagFor(version, at).replace('-m-', '-import-')
+export function markTagFor(version: string, markkind: Markkind, at: Date): string {
+  return `${version}-${markkind}-${tagStampOf(at)}z`
 }
 
 /**
@@ -244,20 +254,21 @@ export async function milestoneQuiz(fs: GitFs, quiz: QuizT, at: Date = new Date(
 }
 
 /**
- * Mark an import: tag `quiz`'s current commit as the one the import just landed in.
+ * Mark a sweeping change: tag `quiz`'s current commit as the one the change just landed in.
  *
- * The caller commits the quiz as it stood before the import, and as it stood after, so the tag
+ * The caller commits the quiz as it stood before the change, and as it stood after, so the tag
  * sits on the second of those and the first is the commit before it.
  *
  * @param fs - Where the repositories live.
- * @param quiz - The quiz the import went into.
+ * @param quiz - The quiz the change was made to.
+ * @param markkind - What the change was.
  * @param at - The moment to stamp; now, when omitted.
  * @returns The tag left behind, disambiguated when that second already has one, or null when there was nothing to tag.
  *
- * @example await markImport(fs, quiz)  // => 'main-import-20260918184504z'
+ * @example await markChange(fs, quiz, 'import')  // => 'main-import-20260918184504z'
  */
-export async function markImport(fs: GitFs, quiz: QuizT, at: Date = new Date()): Promise<string | null> {
-  return await tagHead(fs, quiz, importTagFor(quiz.version, at))
+export async function markChange(fs: GitFs, quiz: QuizT, markkind: Markkind, at: Date = new Date()): Promise<string | null> {
+  return await tagHead(fs, quiz, markTagFor(quiz.version, markkind, at))
 }
 
 /** Tag the current commit `wanted`, or the first numbered variation of it that is free; null when there is no commit */
