@@ -76,6 +76,7 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
                   key={column.colkey}
                   scope="col"
                   className={clsx(styles.head, headClassOf(column.headkind), sortkey !== null && sortkey === lastSortkey && styles.headSorted)}
+                  data-sorted={(sortkey !== null && sortkey === lastSortkey) || undefined}
                   style={{ width: `${String(column.widthPx)}px` }}
                   aria-sort={ariaSortFor(sortkey, sortMark)}
                 >

@@ -9,9 +9,21 @@ paths:
 
 # Testing Conventions
 
-Vitest, with chai-style assertions (`expect(foo).to.eq(bar)`). Style rules from `STYLE.md` apply
-in test files too -- semicolonless, single quotes by default, braced blocks, no single-letter
-names.
+Two runners, and the assertion style follows the runner:
+
+* **Vitest** for everything in `tests/`, with chai-style assertions: `expect(foo).to.eq(bar)`,
+  `to.deep.equal` (`to.equal` is `===`; an object or array wants `deep`), `to.be.true`,
+  `to.have.lengthOf`, `to.throw`. Vitest's `expect` *is* chai with Jest's matchers added, so the
+  chains are first-class. Two Vitest-only forms have no chai spelling and are allowed:
+  `await expect(promise).rejects.toThrow(...)` and `toMatchSnapshot()`. Never `toBe`, `toEqual`
+  or `toHaveLength` in `tests/`; one you find there is a bug, not a precedent.
+* **Playwright** for everything in `e2e/`, with its web-first assertions on locators:
+  `await expect(locator).toHaveValue(...)`. Playwright's `expect` has no chai interface, and a
+  locator assertion retries until it holds, which is the reason to use one.
+
+A skill or reference that shows `toBe`/`toEqual` (the Vitest docs do) is an API reference, not
+a style guide. This file wins. Style rules from `STYLE.md` apply in test files too --
+semicolonless, single quotes by default, braced blocks, no single-letter names.
 
 Put all test files in `/tests`, with a path and name that exactly parallels the source: `src/foo/bar.ts` -> `tests/foo/bar.test.ts` (and similarly for all standard React/Next conventions). Test and build artifacts should never pollute the source tree.
 Put fixtures in `/fixtures` under a mostly-similar convention: if a fixture file exists in the main to serve `bar.ts`: `src/foo/bar-examples.json` or `src/foo/bar/demo_photo.png`, etc. If it serves most things in `src/foo`, use `/fixtures/foo/whatever.blah` (never `/fixtures/foo-...` for a directory). This particular rule will be more loosely followed than most, as various other concerns will drive their location.
@@ -97,11 +109,52 @@ assert it with `expectDenied`. Read with `LocalFirst` (from `state/quiz-rows`): 
 stall once the shared test server holds many accounts. A row read back at once may not carry
 `$createdAt` yet; wait a moment before asserting on it.
 
-A change lands a moment after the author makes it, so a spec asserts with retries (`expect`
-on a locator, or `expect.poll` around a read), never a one-shot read straight after an action,
-and waits with `waitUntilSaved` before it reloads.
+## End to End (Playwright)
 
-The e2e suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
+The suite is a thin layer: the handful of flows a unit test cannot see -- the grid's heights,
+autosave and reload survival, routing, the browser's history store, the network being off.
+Everything else is a unit test. `eslint-plugin-playwright` enforces the mechanical half of what
+follows on `e2e/**`.
+
+**Locate as a person would.** `getByRole`, `getByLabel`, `getByText` first; a data attribute the
+app already carries (`td[data-colname]`) second; CSS or XPath only for structure the page has no
+name for, and then in one helper in `e2e/support.ts`, not inline in a spec. Never assert on a
+CSS-module class name: give the element an aria or data attribute and assert that.
+
+**Assert with a retry.** A change lands a moment after the author makes it. Every assertion
+about the page is `await expect(locator).toX(...)`, which retries until it holds or the expect
+timeout runs out. A read that returns a value -- `page.url()`, `count()`, `allTextContents()`,
+`inputValue()`, `evaluate()` -- is a snapshot of one instant, and `expect(await read()).toBe(x)`
+fails on the instant before the change lands.
+
+* `expect(page).toHaveURL(...)`, never `expect(page.url())`. `toHaveCount`, never `count()`.
+  `toHaveText([...])`, never `allTextContents()`. `toHaveValue`, never `inputValue()`.
+* When no locator matcher fits (the values of a column of textboxes, a count from IndexedDB,
+  the paths in a downloaded zip), wrap the read: `await expect.poll(() => read()).toEqual(...)`.
+  `valuesOf(locator)` in support is for the first of those.
+* A one-shot `expect(await read())` is allowed only to say "not yet", after a retrying
+  assertion has established the state, and a comment says which it is.
+* Never `waitForSelector`, `waitForTimeout` or `waitForLoadState('networkidle')`. Actions wait
+  for their target on their own; a state the next step needs is an `expect` on it. Wait with
+  `waitUntilSaved` before a reload.
+* A timer of the app's (a debounce, a scheduler) is tested with `page.clock`, not by waiting
+  it out.
+
+**Share through fixtures, not copies.** `e2e/support.ts` extends Playwright's `test`; specs
+import `test` and `expect` from there. Its `page` has already opened the workbench, so a spec
+begins with the thing it is about; a spec that must stub a route before the first load says
+`test.use({ startAt: null })` and goes there itself. A helper two specs need lives in support
+with a doc block; a helper one spec needs lives at the top of that spec.
+
+**Stub the network at the route.** `stubAsk` (`page.route('**/api/ask', ...)`) stands in for
+the players, so nothing here ever spends model usage. Start `waitForEvent('download')` before
+the click.
+
+**A negative needs a window.** "Nothing was sent" or "not committed yet" cannot be proved by
+one read. Give it a bounded window (`page.clock`, or `waitForRequest` with a timeout) and say
+in a comment what the window is and why it is long enough.
+
+The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory and Jazz server); Playwright refuses to start locally otherwise. Each
 spec's fresh browser context is a fresh local-first account, and that isolates specs only
 because every table is creator-owned. A table readable across accounts would leak rows between

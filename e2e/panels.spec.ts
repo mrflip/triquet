@@ -1,16 +1,17 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
   await page.getByLabel('Quiz name').click()
 })
 
 test('Export emits the whole workspace as compact JSON', async ({ page }) => {
-  const text = await page.getByRole('textbox', { name: 'Export' }).inputValue()
+  const exportBox = page.getByRole('textbox', { name: 'Export' })
+  await expect(exportBox).toHaveValue(/"title":"Quiz one"/)
+  const text = await exportBox.inputValue()
   const workspace = JSON.parse(text) as { quizzes: { title: string }[], active_quiz_id: string }
   expect(workspace.quizzes[0]?.title).toBe('Quiz one')
   expect(workspace.active_quiz_id).toBeTruthy()

@@ -1,4 +1,85 @@
-import { expect, type Locator, type Page } from '@playwright/test'
+import { test as base, expect, type Locator, type Page } from '@playwright/test'
+
+/**
+ * The suite's `test`: Playwright's, with the page already at the workbench.
+ *
+ * Every spec imports `test` and `expect` from here. `page` has gone to `startAt` (`/` unless a
+ * spec says otherwise) and has its grid on screen, so a spec begins with the thing it is about
+ * rather than with a `goto`. A spec that must stub a route before the first load says
+ * `test.use({ startAt: null })` and goes there itself.
+ */
+export const test = base.extend<{ startAt: string | null }>({
+  startAt: ['/', { option: true }],
+  page:    async ({ page, startAt }, use) => {
+    if (startAt !== null) {
+      await page.goto(startAt)
+      await expect(page.getByRole('table')).toBeVisible()
+    }
+    await use(page)
+  },
+})
+export { expect } from '@playwright/test'
+
+/** The row at `rowIdx` of the grid, counting from the top */
+export function rowAt(page: Page, rowIdx: number): Locator {
+  return page.locator('tbody').getByRole('row').nth(rowIdx)
+}
+
+/** The cell of column `colname` in the row at `rowIdx`; the column's label is its own name */
+export function cellOf(page: Page, rowIdx: number, colname: string): Locator {
+  return rowAt(page, rowIdx).locator(`td[data-colname="${colname}"]`)
+}
+
+/**
+ * The values of every field `fields` resolves to, top to bottom, at this instant.
+ *
+ * No locator matcher reads the values of several textboxes (`toHaveValues` is for a multiple
+ * select), so this is read inside `expect.poll`, which retries it until the list matches.
+ */
+export async function valuesOf(fields: Locator): Promise<string[]> {
+  return await fields.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))
+}
+
+/**
+ * Fill the grid's first rows, one object per row naming each field by its label, and commit
+ * by moving focus off the grid: `fillRows(page, [{ 'Q#': '1', Title: 'apple' }])`.
+ */
+export async function fillRows(page: Page, rows: Record<string, string>[]): Promise<void> {
+  for (const [rowIdx, row] of rows.entries()) {
+    for (const [fieldname, val] of Object.entries(row)) {
+      await page.getByRole('textbox', { name: fieldname, exact: true }).nth(rowIdx).fill(val)
+    }
+  }
+  await page.getByLabel('Quiz name').click()
+}
+
+/** The gear's dialog, where a quiz's label, version, columns and widgets live */
+export function manageDialog(page: Page): Locator {
+  return page.getByRole('dialog', { name: 'Manage this quiz' })
+}
+
+/** Open the gear's dialog */
+export async function openManage(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Manage quiz' }).click()
+  await expect(manageDialog(page)).toBeVisible()
+}
+
+/** Close the gear's dialog without applying anything */
+export async function closeManage(page: Page): Promise<void> {
+  await manageDialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+}
+
+/**
+ * Stand in for the ask route with `reply`, replacing any earlier stand-in, so no spec can ever
+ * spend real model usage.
+ */
+export async function stubAsk(page: Page, reply: unknown, status = 200): Promise<void> {
+  await page.unroute('**/api/ask')
+  await page.route('**/api/ask', async (route) => {
+    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(reply) })
+  })
+}
 
 /**
  * Reload once every change on screen has been saved, as a person who paused a moment would.

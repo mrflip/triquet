@@ -2,6 +2,39 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: e2e specs converged on Playwright's grain; assertion style follows the runner
+
+Branch `20260927-e2e_practices`. The review, advice and plans are in
+`whiteboard/testing-practices.md` (section 6 says how it went); a stub for the later ESLint review
+is in `whiteboard/eslint-review.md`. What landed: `eslint-plugin-playwright` on `e2e/**` with its
+recommended set plus the retry rules; a `test` in `e2e/support.ts` whose `page` has already opened
+the workbench (`test.use({ startAt: null })` for a spec that must stub first), with `cellOf`,
+`rowAt`, `valuesOf`, `fillRows`, `openManage`, `stubAsk` shared instead of copied; every
+`waitForSelector` and double `goto` gone; every `page.url()`/`count()` one-shot now a retrying
+matcher; the two CSS-class assertions now read `data-sorted` and `data-stale`; the debounce test
+drives the scheduler with `page.clock` (a mutation check confirmed the fake clock is what fires
+it). `notes/testing.md` now opens with "the assertion style follows the runner" and has a
+Playwright section; the vitest skill is back in `.claude/skills/` with a narrowed description and a
+house-rules preamble. Chai in `tests/` needed no conversion at all: my earlier "20 `toEqual`" were
+`toEqualTypeOf`. Suite: 144 passed, 2.5 min (baseline 3.6), run as `pnpm test:e2e` once Doppler was
+set up for the agent shell. Ports 3002/3202 were held by a human's own run at the time, so the
+work used 3003/3203; that is now `pnpm test:e2e:agent`, and CLAUDE.md says a bespoke port on the
+30xx/32xx pattern is fine until agents have containers. `scripts/jazz_migration` wrote nothing;
+no schema changed. `gh` is not authenticated here, so the branch is pushed but the PR is yours to
+open.
+
+## 2026-09-27: Is Jazz staying? The review is written up
+
+`notes/database-decisions.md` holds the Coach's desiderata for storage and hosting, the scorecard,
+and a write-up of each candidate: Supabase (SSR with Drizzle, and client-side), Supabase with
+PowerSync, Convex, Zero, TanStack DB, Firestore. Triplit, ElectricSQL and InstantDB are ruled out
+as acqui-hired; Liveblocks and WatermelonDB on fit. It leans Convex if multiplayer is a
+first-month feature, client-side Supabase if not. The "where the sync server runs" open item moved
+there from `stack.md`, and "libSQL, Drizzle and Turso are out for good" was softened everywhere to
+"Turso is out; Drizzle returns only through the note", since two candidates would bring Drizzle
+back. `stack.md`'s four-way test is now worded in the desiderata's terms; the haircut of the rest
+of `stack.md` waits until this is settled. Branch `20260927-database_decisions`, nothing committed.
+
 ## 2026-09-27: Jazz's worker, served from a fixed URL
 
 Confirmed that each deploy's new SharedWorker can't open the database the previous deploy's worker

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { cellOf, expect, test } from './support'
 
 const ThreeSpans = [
   { text: '#17-19', value: 36, kind: 'numeral' },
@@ -17,13 +18,7 @@ async function stubIshes(page: Page, items: unknown[]) {
   })
 }
 
-/** The cell of column `colname` in the row at `rowIdx` */
-function cellOf(page: Page, rowIdx: number, colname: string) {
-  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
-}
-
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')
@@ -68,7 +63,7 @@ test('editing the clueing greys the sums without emptying them', async ({ page }
   await page.getByLabel('Quiz name').click()
 
   await expect(cellOf(page, 0, 'Clueing Full Sum')).toContainText('300,000,048')
-  await expect(cellOf(page, 0, 'Clueing Full Sum').locator('span').first()).toHaveClass(/stale/)
+  await expect(cellOf(page, 0, 'Clueing Full Sum').locator('[data-stale]')).toHaveCount(1)
   await expect(cellOf(page, 0, 'Clueing ishes')).toContainText('· stale')
 })
 

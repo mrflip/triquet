@@ -1,15 +1,7 @@
-import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved } from './support'
+import type { Page } from '@playwright/test'
+import { expect, reloadOnceSaved, stubAsk, test } from './support'
 
 const RateLimited = 'Too many requests right now — try again shortly.'
-
-/** Stand in for the ask route, so these tests never spend real model usage */
-async function stubAsk(page: Page, reply: unknown) {
-  await page.unroute('**/api/ask')
-  await page.route('**/api/ask', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reply) })
-  })
-}
 
 const guessReply = (text: string) => ({ ok: true, job: 'guess', text, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
 const failure = { ok: false, failurekind: 'rateLimited', detail: { name: 'RateLimitError', status: 429, message: 'slow down' } }
@@ -18,7 +10,6 @@ const failure = { ok: false, failurekind: 'rateLimited', detail: { name: 'RateLi
 const guessCell = (page: Page) => page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })

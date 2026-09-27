@@ -1,12 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { reloadOnceSaved } from './support'
-
-/** Stand in for the ask route, so these tests never spend real model usage */
-async function stubAsk(page: Page, reply: unknown, status = 200) {
-  await page.route('**/api/ask', async (route) => {
-    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(reply) })
-  })
-}
+import type { Page } from '@playwright/test'
+import { expect, reloadOnceSaved, stubAsk, test, valuesOf } from './support'
 
 /** The Quick-model guess cell of the row at `rowIdx` */
 function guessCell(page: Page, rowIdx: number) {
@@ -14,7 +7,6 @@ function guessCell(page: Page, rowIdx: number) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })
@@ -74,5 +66,5 @@ test('with the network off the rest of the page still edits, sorts and saves', a
   // found by its value rather than assumed to stay first.
   const titles = page.getByRole('textbox', { name: 'Title' })
   await expect(titles.first()).toBeVisible()
-  await expect.poll(async () => await titles.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value))).toContain('Leon')
+  await expect.poll(() => valuesOf(titles)).toContain('Leon')
 })

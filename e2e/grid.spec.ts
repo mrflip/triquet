@@ -1,9 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { reloadOnceSaved } from './support'
-
-test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-})
+import { expect, reloadOnceSaved, test } from './support'
 
 test('a fresh workspace opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Quiz name')).toBeVisible()
@@ -44,9 +39,10 @@ test('adding a question appends a blank one', async ({ page }) => {
 test('a long clueing sets the height of its hint box too', async ({ page }) => {
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   const hint = page.getByRole('textbox', { name: 'Hint' }).first()
+  await expect(hint).toBeVisible()
   const wasHt = await hint.evaluate((node) => node.clientHeight)
   await clueing.fill(Array.from({ length: 12 }, (_ignored, lineIdx) => `line ${String(lineIdx)} of a long clueing`).join('\n'))
-  await expect.poll(async () => hint.evaluate((node) => node.clientHeight)).toBeGreaterThan(wasHt)
+  await expect.poll(() => hint.evaluate((node) => node.clientHeight)).toBeGreaterThan(wasHt)
 })
 
 test('the page never scrolls sideways, however wide the grid is', async ({ page }) => {

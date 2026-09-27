@@ -1,25 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
-import { dragOnto, reloadOnceSaved, stepBy, waitUntilSaved } from './support'
-
-/** The cell of column `colname` in the row at `rowIdx` */
-function cellOf(page: Page, rowIdx: number, colname: string) {
-  return page.locator('tbody tr').nth(rowIdx).locator(`td[data-colname="${colname}"]`)
-}
-
-/** The gear's dialog, where a quiz's columns and widgets are listed */
-const manage = (page: Page) => page.getByRole('dialog', { name: 'Manage this quiz' })
-
-/** Open the gear's dialog */
-async function openManage(page: Page) {
-  await page.getByRole('button', { name: 'Manage quiz' }).click()
-  await expect(manage(page)).toBeVisible()
-}
-
-/** Close the gear's dialog */
-async function closeManage(page: Page) {
-  await manage(page).getByRole('button', { name: 'Cancel' }).click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-}
+import type { Page } from '@playwright/test'
+import { cellOf, closeManage, dragOnto, expect, manageDialog, openManage, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
 
 /** Put an expressing widget working the existing expression `expression_label` on the open quiz, with the column it brings, and close the gear's dialog */
 async function addColumn(page: Page, expression_label: string) {
@@ -59,16 +39,13 @@ async function answerFirstRow(page: Page, full_answer: string) {
   await page.getByLabel('Quiz name').click()
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.goto('/')
-})
-
 test('a fresh quiz shows its computed columns between Q# and Alt Text', async ({ page }) => {
   await expect(page.getByRole('columnheader', { name: 'Alt Text' })).toBeVisible()
-  const headers = await page.getByRole('columnheader').allTextContents()
-  const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim())
-  const between = titles.slice(titles.indexOf('Q#') + 1, titles.indexOf('Alt Text'))
-  expect(between).toEqual([
+  await expect.poll(async () => {
+    const headers = await page.getByRole('columnheader').allTextContents()
+    const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim())
+    return titles.slice(titles.indexOf('Q#') + 1, titles.indexOf('Alt Text'))
+  }).toEqual([
     'Clueing + Rank', 'Clueing Full Sum', 'Clueing Numeral Sum', 'BUT NOT Full Sum',
     'BUT NOT Numeral Sum', 'Hint Full Sum', 'Hint Numeral Sum', 'Clueing+BUT NOT Full',
   ])
@@ -289,14 +266,14 @@ async function headersShown(page: Page, count: number): Promise<string[]> {
 
 /** One column's grip, named exactly: several widgets' labels begin with a column's label */
 function columnGrip(page: Page, label: string) {
-  return manage(page).getByRole('list', { name: 'Columns' }).getByRole('button', { name: `Reorder ${label}`, exact: true })
+  return manageDialog(page).getByRole('list', { name: 'Columns' }).getByRole('button', { name: `Reorder ${label}`, exact: true })
 }
 
 test('a column is dragged into a new place by its handle', async ({ page }) => {
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'notes'), columnGrip(page, 'title'))
   await closeManage(page)
-  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Notes', 'Title', 'Clueing'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Notes', 'Title', 'Clueing'])
 })
 
 // A quiz starts with Title, Clueing and Hint as its first three columns. Dropping Title onto
@@ -306,29 +283,31 @@ test('a column dropped against the upper edge of a row lands above it', async ({
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'top')
   await closeManage(page)
-  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Clueing', 'Title', 'Hint'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Clueing', 'Title', 'Hint'])
 })
 
 test('a column dropped against the lower edge of the same row lands below it', async ({ page }) => {
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'bottom')
   await closeManage(page)
-  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
 })
 
 test('a column is moved by the arrow keys once its handle has focus', async ({ page }) => {
   await openManage(page)
   await stepBy(columnGrip(page, 'title'), 2)
   await closeManage(page)
-  await expect.poll(async () => await headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
 })
 
 test('the widgets are listed in their order, and can be dragged too', async ({ page }) => {
   await openManage(page)
-  const list = manage(page).getByRole('list', { name: 'Widgets' })
+  const list = manageDialog(page).getByRole('list', { name: 'Widgets' })
   await dragOnto(page, list.getByRole('button', { name: 'Reorder hint_full' }), list.getByRole('button', { name: 'Reorder dumdum' }))
-  const labels = await manage(page).getByRole('group', { name: /^Widget / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
-  expect(labels[0]).toBe('Widget hint_full')
+  await expect.poll(async () => {
+    const labels = await manageDialog(page).getByRole('group', { name: /^Widget / }).evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+    return labels[0]
+  }).toBe('Widget hint_full')
 })
 
 test('every dialog has a close button, and an editor is not dismissed by clicking behind it', async ({ page }) => {
@@ -339,7 +318,7 @@ test('every dialog has a close button, and an editor is not dismissed by clickin
   await expect(editor).toBeVisible()
   await editor.getByRole('button', { name: 'Close' }).click()
   await expect(editor).toHaveCount(0)
-  await manage(page).getByRole('button', { name: 'Close' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Close' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
@@ -402,7 +381,7 @@ test('sorting by a computed column orders the questions by what it came to', asy
   await page.getByRole('button', { name: 'Answer Letter Count' }).click()
   const answers = page.locator('tbody tr').getByRole('textbox', { name: 'Full Answer' })
   // The two blank rows have no letters, which is nought and sorts first.
-  await expect.poll(async () => await answers.evaluateAll((boxes) => boxes.map((box) => (box as HTMLTextAreaElement).value))).toEqual(['', '', 'a', 'bb', 'ccc'])
+  await expect.poll(() => valuesOf(answers)).toEqual(['', '', 'a', 'bb', 'ccc'])
   await waitUntilSaved(page)
 })
 

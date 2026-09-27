@@ -19,8 +19,11 @@ choice lives in `notes/decisions/`, one file per decision, and is pointed to fro
 
 A dependency that appears in none of these is unlisted: propose it in chat before adding it.
 
-Everything here is chosen against the same four-way test: futureproof, safe, pleasant to work
-with, and old enough to be within the agent's training cutoff.
+Everything here is chosen against the same test: **boring** (proven, widely adopted, no weird
+use cases waiting for a not-very-weird app), **agent-friendly** (old enough to be in the agent's
+training), **ergonomic**, **zero-ops from as few places as reasonable**, and offering a
+**disciplined interface**. The full list, as it applies to storage and hosting, is in
+`notes/database-decisions.md`.
 
 Version numbers and release status drift. Before pinning anything, check the current release --
 don't trust a recalled version number, including one recalled by an agent.
@@ -50,8 +53,9 @@ don't trust a recalled version number, including one recalled by an agent.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
 * **Jazz v2** (`jazz-tools`, pinned to its 2.0.0 alpha) as the database: local-first, a copy in
   each browser, synced through a Jazz server. **On trial, and a deliberate exception** to the
-  four-way test above: it is alpha and newer than the agent's cutoff. Work from the installed
-  source and the `jazz` skill, never from memory. See `notes/decisions/2026-09-jazz.md`.
+  test above: it is alpha and newer than the agent's cutoff. Work from the installed source and
+  the `jazz` skill, never from memory. See `notes/decisions/2026-09-jazz.md`; whether it stays
+  is the open question in `notes/database-decisions.md`.
   - Rows, not a tree: actions write rows, views subscribe to rows. The relational shape lives in
     `src/db/schema.ts` in Jazz's own DSL (tables are not authored in Zod); only a column holding
     a structured value takes a Zod schema, through `JZS.json()` (or `jsonText`, while a nullable
@@ -67,9 +71,8 @@ don't trust a recalled version number, including one recalled by an agent.
     the URL changes only when Jazz's bytes do. A Jazz upgrade still starts a second worker once;
     the "couldn't open" notices say what to do then. A bug is filed upstream: when Jazz fixes it,
     drop the copy and the `runtimeSources`. The copy is gitignored.
-  - **Gone for good:** libSQL, Drizzle and their migrations (Sept 2026).
-  - **Turso is not coming back**, in local mode or cloud: concerns about concurrent access
-    across tabs, and a conflict resolution that is last-push-wins in some cases.
+  - **Turso is not coming back**; libSQL and Drizzle went with it (Sept 2026). Drizzle returns
+    only through `notes/database-decisions.md`.
 * pnpm
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every
@@ -146,7 +149,12 @@ Settled; reach for these before writing the equivalent.
   touches rows or policies; `createPolicyTestApp` by default. Model the real topology when sync
   or permissions are the behaviour under test.
 * **Playwright** for end-to-end, kept to a thin layer: the handful of flows where a break is
-  invisible to unit tests (auth round-trip, upload, publish).
+  invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
+  Its web-first assertions are the e2e style; see `notes/testing.md`.
+* **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of testing.md's Playwright
+  section (`no-wait-for-selector`, `prefer-web-first-assertions`, `prefer-to-have-count` and
+  the rest of its recommended set). Added Sept 2026 after a review found one-shot reads and
+  hand waits that nothing was watching for.
 
 ### Agents
 
@@ -232,13 +240,11 @@ Raised in review and not yet decided. Until one is settled, don't build further 
 direction, and don't "fix" the code to match the line above that it contradicts.
 
 Settled in Sept 2026, and recorded in `notes/decisions/`: where the database lives (Jazz,
-local-first), the rendering policy (client-first; pages prerender at build), client state
+local-first; reopened in `notes/database-decisions.md`), the rendering policy (client-first; pages prerender at build), client state
 (Jazz subscriptions, one per table, assembled into the quiz tree; `perform` writes rows), models versus schema
 (relational shape in `schema.ts`, structured values in Zod), and the shape of identity (deferred;
 see *Authentication* above). Still open:
 
-* **Where the sync server runs** for the trial: Jazz Cloud or our own. Tied to where Jazz Cloud
-  takes the JWKS settings, which the docs do not show.
 * **How thick the end-to-end layer should be.** The line above says thin; the suite is sixteen
   spec files and larger than any unit area. Tied to whether components and hooks get tests of
   their own (Testing Library, Vitest browser mode).

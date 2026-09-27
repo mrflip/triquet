@@ -20,7 +20,7 @@ users before choosing infrastructure. Jazz is an alpha, newer than your training
 skill and the installed `jazz-tools` source, never recall. Rows, not a tree: actions write rows
 (through `perform`), views subscribe to rows. Row ids are Jazz's and internal; refer by label.
 Validate between the UI and the app, not by the database alone. Read flat: one query per table,
-never several `include`s (alpha.56 can hang on them). libSQL, Drizzle and Turso are out for good. See `notes/decisions/2026-09-jazz.md`; how the move went is in `whiteboard/jazz-migration.md`.
+never several `include`s (alpha.56 can hang on them). Turso is out for good. See `notes/decisions/2026-09-jazz.md`; how the move went is in `whiteboard/jazz-migration.md`. Whether Jazz stays is open: `notes/database-decisions.md` holds what we want from storage and the candidates scored against it.
 
 **The app is client-first**: static hosting plus stateless functions, working with the network
 off except for asking. The ask route is the one named server function. Never add a second
@@ -48,9 +48,9 @@ The top three values while writing code are **empathy, safety and readability**.
   is slow. Cleverness is rarely called for -- but if it seems to be, propose it.
 * **Never treat secret keys or other sensitive data with imaginative code.** Use best practices
   and established libraries, always.
-* **On new toolkits**: nothing still being proven, but we're happy to move with the front of the
-  crowd as soon as it's clear that will have the best long-term relevance. Developer ergonomics
-  are important.
+* **On new toolkits**: boring, agent-friendly, ergonomic, zero-ops, with a disciplined interface
+  (`notes/stack.md` spells the test out). Nothing still being proven, but we're happy to move with
+  the front of the crowd as soon as it's clear that will have the best long-term relevance.
 
 ## Non-Negotiables
 
@@ -89,6 +89,10 @@ Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `d
 never `dev_janitor`. Never kill a process that doesn't belong to `agent` or `e2e`.
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
+A bespoke port is fine: follow the pattern, `30xx` for the web server and `32xx` for its Jazz
+server, with a matching `data/jazz-<name>/` and `.next-<name>` (`pnpm test:e2e:agent` is the
+worked example: 3003/3203, for when a human's own run holds 3002). Agents will get containers of
+their own in time; until then, share by convention.
 
 Start a new line of work on its own branch with `pnpm run newb <label>`, which makes
 `YYYYMMDD-<label>` from where you stand. Use it freely. At every commit-able milestone, run
@@ -151,6 +155,8 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
+  - `notes/database-decisions.md` -- the open question of whether Jazz stays: what we want from
+    storage and hosting, and each candidate scored against it.
   - `notes/deploy.md` -- how a change reaches production; when a schema change needs a migration
     and a Jazz deploy. Agents never deploy to production.
   - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
