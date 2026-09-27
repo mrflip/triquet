@@ -80,21 +80,23 @@ export function useHeldRows(huntLabel: string): HeldRows | null {
   const questions   = useAll(queries?.questions, LocalFirst)
   const widgets     = useAll(queries?.widgets, LocalFirst)
   const columns     = useAll(queries?.columns, LocalFirst)
+  const reviews     = useAll(queries?.reviews, LocalFirst)
   const keptQuestions = useKept(hunt_id, questions.data)
   const questionKey = keptQuestions ? idsKey(keptQuestions) : null
   const bottingsQueried = useMemo(() => (questionKey === null ? undefined : bottingsQuery(idsIn(questionKey))), [questionKey])
   const bottings    = useAll(bottingsQueried, LocalFirst)
-  useArrivalLog({ expressions, questions, widgets, columns, bottings })
+  useArrivalLog({ expressions, questions, widgets, columns, bottings, reviews })
 
   const keptExpressions = useKept(hunt_id, expressions.data)
   const keptWidgets = useKept(hunt_id, widgets.data)
   const keptColumns = useKept(hunt_id, columns.data)
   const keptBottings = useKept(hunt_id, bottings.data)
+  const keptReviews = useKept(hunt_id, reviews.data)
 
   return useMemo((): HeldRows | null => {
     if (! directory) { return null }
-    if (queries === null) { return { ...directory, expressions: [], questions: [], widgets: [], columns: [], bottings: [] } }
-    if (! keptExpressions || ! keptQuestions || ! keptWidgets || ! keptColumns || ! keptBottings) { return null }
-    return { ...directory, expressions: keptExpressions, questions: keptQuestions, widgets: keptWidgets, columns: keptColumns, bottings: keptBottings }
-  }, [directory, queries, keptExpressions, keptQuestions, keptWidgets, keptColumns, keptBottings])
+    if (queries === null) { return { ...directory, expressions: [], questions: [], widgets: [], columns: [], bottings: [], reviews: [] } }
+    if (! keptExpressions || ! keptQuestions || ! keptWidgets || ! keptColumns || ! keptBottings || ! keptReviews) { return null }
+    return { ...directory, expressions: keptExpressions, questions: keptQuestions, widgets: keptWidgets, columns: keptColumns, bottings: keptBottings, reviews: keptReviews }
+  }, [directory, queries, keptExpressions, keptQuestions, keptWidgets, keptColumns, keptBottings, keptReviews])
 }

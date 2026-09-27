@@ -22,6 +22,7 @@ describe('permissions', () => {
     const question = db.insert(app.questions, {
       quiz_id: quiz.id, position: 0, label: 'hamlet', title: 'Hamlet', qnum: '', clueing: '', hint: '', full_answer: '', alt_text: '', notes: '',
     }).value
+    const ident = db.insert(app.idents, { label: `reviewer_${label}`, title: 'Reviewer' }).value
     const rows = {
       hunt,
       realm,
@@ -31,6 +32,7 @@ describe('permissions', () => {
       widget:     db.insert(app.widgets, { quiz_id: quiz.id, label: 'shout', kind: 'expressing', expression_label: 'shout', description: '', position: 0 }).value,
       column:     db.insert(app.columns, { quiz_id: quiz.id, label: 'shout', title: 'Shout', source: 'shout', width_px: 90, position: 0 }).value,
       botting:    db.insert(app.bottings, { question_id: question.id, bot_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text: 'Hamlet', truncated: false }).value,
+      review:     db.insert(app.reviews, { quiz_id: quiz.id, ident_id: ident.id, overall: '', phase: 'empty' }).value,
     }
     await db.update(app.quizzes, quiz.id, { title: 'Princes' }).wait({ tier: 'edge' })
     return rows
@@ -47,12 +49,13 @@ describe('permissions', () => {
       db.all(app.widgets.where({ id: seeded.widget.id })),
       db.all(app.columns.where({ id: seeded.column.id })),
       db.all(app.bottings.where({ id: seeded.botting.id })),
+      db.all(app.reviews.where({ id: seeded.review.id })),
     ])
-    const [hunts, realms, quizzes, questions, expressions, widgets, columns, bottings] = counts.map((rows) => rows.length)
-    return { hunts, realms, quizzes, questions, expressions, widgets, columns, bottings }
+    const [hunts, realms, quizzes, questions, expressions, widgets, columns, bottings, reviews] = counts.map((rows) => rows.length)
+    return { hunts, realms, quizzes, questions, expressions, widgets, columns, bottings, reviews }
   }
 
-  const EveryRow = { hunts: 1, realms: 1, quizzes: 1, questions: 1, expressions: 1, widgets: 1, columns: 1, bottings: 1 }
+  const EveryRow = { hunts: 1, realms: 1, quizzes: 1, questions: 1, expressions: 1, widgets: 1, columns: 1, bottings: 1, reviews: 1 }
 
   describe('the hunt tables, open to every account for the trial', () => {
     it('let an account read back every row it wrote', async () => {

@@ -5,10 +5,11 @@ import type { PolicyTestApp } from 'jazz-tools/testing'
 import { app } from '../../src/db/schema'
 import { LocalFirst, huntRowsOf, loadHeldRows, loadHunt, loadQuizRows, type QuizRows } from '../../src/state/quiz-rows'
 import {
-  changedFields, deleteQuiz, bottingFieldsOf, repositioned, transact, updateQuestion, updateQuiz, writeHunt, writeQuiz,
+  changedFields, deleteQuiz, bottingFieldsOf, repositioned, transact, updateQuestion, updateQuiz, updateReview, writeHunt, writeQuiz,
 } from '../../src/state/quiz-writing'
 import type { BottingT } from '../../src/models/botting'
 import { Hunt, type HuntT } from '../../src/models/hunt'
+import { mintId } from '../../src/lib/ids'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
@@ -54,6 +55,7 @@ async function heldCounts(db: Db, quiz_id: string, question_ids: readonly string
     await db.all(app.widgets.where({ quiz_id }), LocalFirst),
     await db.all(app.columns.where({ quiz_id }), LocalFirst),
     await db.all(app.bottings.where({ question_id: { in: [...question_ids] } }), LocalFirst),
+    await db.all(app.reviews.where({ quiz_id }), LocalFirst),
   ]
   return counts.map((rows) => rows.length)
 }
@@ -138,6 +140,15 @@ describe('writing rows', () => {
       const { quiz: after } = await rows()
       expect(after.title).to.eq('Princes')
     })
+
+    it('updateReview writes only the fields that change', async () => {
+      const { db, quiz_id } = await holding(testApp, titled('aa'))
+      const review = db.insert(app.reviews, { quiz_id, ident_id: mintId(), overall: '', phase: 'empty' }).value
+      await transact(db, (tx) => { updateReview(tx, review, { overall: 'Went well.', phase: 'draft' }) })
+      const [after] = await db.all(app.reviews.where({ id: review.id }), LocalFirst)
+      expect([after?.overall, after?.phase]).to.deep.eq(['Went well.', 'draft'])
+      expect(await transact(db, (tx) => { updateReview(tx, present(after), { overall: 'Went well.' }) })).to.eq(null)
+    })
   })
 
   describe('writeQuiz', () => {
@@ -207,11 +218,12 @@ describe('writing rows', () => {
       const blank = Hunt.blank()
       const quiz = { ...present(Hunt.quizzesOf(blank)[0]), questions: [{ ...Question.blank(), clueing: 'Who?', guess: guessed('Leon') }] }
       const { db, rows, quiz_id } = await holding(testApp, huntHolding([quiz], blank.expressions))
+      db.insert(app.reviews, { quiz_id, ident_id: mintId(), overall: '', phase: 'empty' })
       const held = await rows()
       const question_ids = held.questions.map((row) => row.id)
-      expect(await heldCounts(db, quiz_id, question_ids)).to.deep.eq([1, 1, 11, 21, 1])
+      expect(await heldCounts(db, quiz_id, question_ids)).to.deep.eq([1, 1, 11, 21, 1, 1])
       await transact(db, (tx) => { deleteQuiz(tx, held) })
-      expect(await heldCounts(db, quiz_id, question_ids)).to.deep.eq([0, 0, 0, 0, 0])
+      expect(await heldCounts(db, quiz_id, question_ids)).to.deep.eq([0, 0, 0, 0, 0, 0])
     })
   })
 

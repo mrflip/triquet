@@ -14,6 +14,7 @@ import { HuntValidators } from '../../src/models/hunt'
 import { IdentValidators } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import { RealmValidators } from '../../src/models/realm'
+import { ReviewValidators } from '../../src/models/review'
 
 // Each table is declared twice on purpose: the Jazz table in `db/schema.ts`, and the Zod row
 // validator in its model, which says what a column cannot. This walks every table and holds
@@ -31,6 +32,7 @@ const RowValidators = {
   columns:     ColumnValidators.row,
   questions:   QuestionValidators.row,
   bottings:    BottingValidators.row,
+  reviews:     ReviewValidators.row,
 } as const
 
 type JsonSchemaish = { type?: string | string[], anyOf?: JsonSchemaish[], oneOf?: JsonSchemaish[], enum?: unknown[], const?: unknown, format?: string }
@@ -134,5 +136,6 @@ describe('every table and its row validator', () => {
     expectTypeOf<Z.output<typeof ColumnValidators.row>>().toEqualTypeOf<RowOf<typeof app.columns>>()
     expectTypeOf<Z.output<typeof QuestionValidators.row>>().toEqualTypeOf<RowOf<typeof app.questions>>()
     expectTypeOf<Z.output<typeof BottingValidators.row>>().toEqualTypeOf<RowOf<typeof app.bottings>>()
+    expectTypeOf<Z.output<typeof ReviewValidators.row>>().toEqualTypeOf<RowOf<typeof app.reviews>>()
   })
 })

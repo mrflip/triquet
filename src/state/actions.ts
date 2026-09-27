@@ -5,6 +5,7 @@ import type { QuestionPatch } from '../models/question'
 import type { LastErrT } from '../models/ask'
 import type { GuessT } from '../models/guess'
 import type { IshesT } from '../models/ish'
+import type { ReviewPhase } from '../models/review'
 import type { Textkind } from '../lib/ask/contract'
 import type { BulkLanding } from '../lib/ask/bulk'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../models/quiz'
@@ -60,6 +61,9 @@ export type HuntAction =
   | { kind: 'delete_quiz', quiz_id: string }
   | { kind: 'set_lock', quiz_id: string, locked: boolean }
   | { kind: 'replace_open_quiz', quiz: QuizT }
+  | { kind: 'open_review', quiz_id: string }
+  | { kind: 'set_overall', quiz_id: string, overall: string }
+  | { kind: 'set_review_phase', quiz_id: string, phase: Exclude<ReviewPhase, 'empty'> }
 
 
 /** What a visitor can do before any quiz is open: become an ident, and make a hunt */

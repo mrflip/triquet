@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useAll, useSession } from 'jazz-tools/react'
-import { app } from '../db/schema'
+import { app, type IdentRow } from '../db/schema'
 import type { IdentT } from '../models/ident'
 import { LocalFirst } from './quiz-rows'
 
@@ -38,4 +38,15 @@ export function useIdent(): IdentHandle {
     const ident = idents.data.find((row) => row.id === newest.ident_id)
     return ident ? { ident: { id: ident.id, label: ident.label, title: ident.title }, loaded: true } : { ident: null, loaded: false }
   }, [identings.data, idents.data])
+}
+
+/**
+ * Every ident this browser holds, live: small and global, like the hunt directory, for
+ * resolving a review's `ident_id` to a title.
+ *
+ * @returns The idents, once the table has delivered; null until then.
+ */
+export function useIdents(): readonly IdentRow[] | null {
+  const idents = useAll(app.idents, LocalFirst)
+  return idents.data ?? null
 }

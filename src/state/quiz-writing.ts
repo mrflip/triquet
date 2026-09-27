@@ -1,13 +1,14 @@
 import _ from 'es-toolkit/compat'
 import type * as Z from 'zod'
 import type { Db } from 'jazz-tools'
-import { app, type ColumnRow, type ExpressionRow, type QuestionRow, type QuizRow, type WidgetRow } from '../db/schema'
+import { app, type ColumnRow, type ExpressionRow, type QuestionRow, type QuizRow, type ReviewRow, type WidgetRow } from '../db/schema'
 import * as Labelmaker from '../lib/labelmaker'
 import { ColumnValidators } from '../models/column'
 import { ExpressionValidators } from '../models/expression'
 import { BottingValidators, slotkeyOf, unrecordedBottings, type BottingT } from '../models/botting'
 import { QuestionValidators } from '../models/question'
 import { QuizValidators } from '../models/quiz'
+import { ReviewValidators } from '../models/review'
 import { WidgetValidators } from '../models/widget'
 import { HuntValidators, type HuntT } from '../models/hunt'
 import { RealmValidators } from '../models/realm'
@@ -115,6 +116,12 @@ export function updateWidget(tx: Tx, held: WidgetRow, patch: Partial<Z.output<ty
 export function updateColumn(tx: Tx, held: ColumnRow, patch: Partial<Z.output<typeof ColumnValidators.row>>): void {
   const changed = changedFields(held, ColumnValidators.row({ ..._.omit(held, ['id']), ...patch }))
   if (! _.isEmpty(changed)) { tx.update(app.columns, held.id, changed) }
+}
+
+/** Revise a review's row */
+export function updateReview(tx: Tx, held: ReviewRow, patch: Partial<Z.output<typeof ReviewValidators.row>>): void {
+  const changed = changedFields(held, ReviewValidators.row({ ..._.omit(held, ['id']), ...patch }))
+  if (! _.isEmpty(changed)) { tx.update(app.reviews, held.id, changed) }
 }
 
 /**
@@ -249,6 +256,7 @@ export function deleteQuiz(tx: Tx, held: QuizRows): void {
   for (const question of held.questions) { tx.delete(app.questions, question.id) }
   for (const widget of held.widgets) { tx.delete(app.widgets, widget.id) }
   for (const column of held.columns) { tx.delete(app.columns, column.id) }
+  for (const review of held.reviews) { tx.delete(app.reviews, review.id) }
   tx.delete(app.quizzes, held.quiz.id)
 }
 
