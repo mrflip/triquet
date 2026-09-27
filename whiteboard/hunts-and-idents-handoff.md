@@ -5,13 +5,18 @@ stands; this is what building PRs 1 and 2 taught, and where the built code diffe
 
 ## Where things stand
 
-* **PR 1, bots**: committed on `20260927-bots`. Players became bots throughout; *player* is now
-  reserved for a human taking the quiz.
-* **PR 2, idents and hunts**: committed on `20260927-hunts`, stacked on PR 1, as `476f8eb`
-  plus `8e87ed9` (history files under hunt and realm). Unit (1928), lint, type, migration and
-  e2e (150) suites green. Start PR 3 from there with `pnpm run newb reviews`.
-* **The e2e database** (`data/jazz-e2e/`) was reset during PR 2 and holds PR 2's schema. After
-  PR 3's migration, expect to reset it again before the first e2e run.
+* **`20260927-hunts` is rebased onto main** (after #10, the e2e practices, and #11, Jazz's worker
+  URL) and holds, in order: the plan, PR 1 (bots: players became bots, *player* reserved for a
+  human taking the quiz), PR 2 (idents and hunts), the history files under hunt and realm, and
+  exports without ids. Unit (1946), lint, type, migration and e2e (150) suites green. Start PR 3
+  from there with `pnpm run newb reviews`. The old `20260927-bots` branch predates the rebase;
+  don't build on it.
+* **The e2e database** (`data/jazz-e2e/`) holds PR 2's schema. After PR 3's migration, expect to
+  reset it before the first e2e run. It also grows by ~150 hunts a full run, and every browser
+  syncs the whole directory (every hunt, realm and quiz) before it opens anything: at ~550 hunts
+  a second visitor's first load took 7 s, and the friend specs in `routing.spec.ts` timed out
+  under a parallel run. If those go slow or red after many local runs, reset it. CI starts
+  empty. The real fix is PR 5 and 6: the directory narrowed to the ident's own hunts.
 * Neither is merged or deployed. They must deploy together: after PR 1 alone, the author's
   existing `playing` widgets break.
 
@@ -150,9 +155,12 @@ Read these before adding the review screen; PR 3 plugs into all of them.
 
 ## e2e conventions now
 
-* Every spec's `beforeEach` calls `startHunt(page)` (`e2e/support.ts`): a fresh ident, a fresh
-  hunt, landing on its quiz at `?act=smith`. Test bodies do not `goto('/')`; to start over, use
-  `page.reload()` or `loadAfresh`.
+* **Read `notes/testing.md`'s Playwright section first**: main reworked the suite (specs import
+  `test` and `expect` from `e2e/support.ts`, assert only with retrying matchers, and a Playwright
+  lint holds them to it). The fixture's `page` starts in a fresh ident's fresh hunt, on its quiz
+  at `?act=smith` (`startAt: FreshHunt`, by way of `startHunt`); a spec about the way in says
+  `test.use({ startAt: null })`, as `routing.spec.ts` does. Test bodies do not `goto('/')`,
+  which is the ident gate; to start over, use `page.reload()` or `loadAfresh`.
 * **Hunts are shared across specs**, so find everything by your own random labels and titles,
   never by position in a list.
 * **A second visitor** is a second `browser.newContext()`: see `otherVisitor(browser)` in
