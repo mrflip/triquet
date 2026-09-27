@@ -2,6 +2,25 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: e2e in CI -- silent, not (as far as we know) stuck
+
+The CI e2e job printed "Running 130 tests" and then nothing for eight minutes. The `dot`
+reporter writes one character per spec and no newline until the 80th, and GitHub's log shows
+only whole lines, so up to 80 specs, passing or failing, left no trace. The same job run
+locally, with an empty environment and one worker as a 2-vCPU runner gets, passed all 130 in 6.4
+minutes on this Mac; CI's first pass also compiles every page. So the likeliest story is a slow
+run that had not yet reached 80, not a hang. The next CI run will tell: CI now uses the `list`
+and `github` reporters, has a 40-minute ceiling, and gets `dev_e2e`'s ports and directories.
+
+`playwright.config.ts` now refuses to start when the environment would put the suite on
+another session's port, build or database, or on a real Jazz database, listing every
+complaint (`e2e/environment.ts`). An `environment` setup project runs before the specs: it
+prints the relevant variables (values hidden where the name looks secret), checks Jazz's
+`/health`, and opens the first page so no spec pays for compiling it.
+
+Not done: traces are `on-first-retry` with no retries, so CI never records one; and no report
+is uploaded when a run fails.
+
 ## 2026-09-26: Blank page in production -- found and fixed
 
 The Vercel deploy showed the loading bar, then nothing. Reproduced locally: a production build

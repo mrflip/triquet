@@ -68,6 +68,14 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # A bound for when something hangs: GitHub's own is six hours.
+    timeout-minutes: 40
+    # What Doppler's dev_e2e config gives a local run; e2e/environment.setup.ts checks them.
+    env:
+      PORT: 3002
+      JAZZ_DEV_PORT: 3202
+      JAZZ_DEV_DATA_DIR: data/jazz-e2e
+      NEXT_DIST_DIR: .next-e2e
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
