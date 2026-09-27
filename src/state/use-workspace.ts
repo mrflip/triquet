@@ -7,7 +7,7 @@ import { app } from '../db/schema'
 import { AppNotices } from '../lib/notices'
 import * as Labelmaker from '../lib/labelmaker'
 import { Workspace, openQuizOf, type WorkspaceT } from '../models/workspace'
-import { mirrorWorkspace, trackWrite } from './quiz-mirror'
+import { mirrorWorkspace, openHistories, trackWrite } from './quiz-mirror'
 import { perform } from './perform'
 import { ensureWorkspace } from './quiz-actions'
 import { LocalFirst, loadAccountRows, loadWorkspace, workspaceFrom, type AccountRows } from './quiz-rows'
@@ -113,6 +113,10 @@ export function useWorkspace(label?: string): WorkspaceHandle {
 
   const workspace = held ?? Unloaded
   const quiz = held && quizOn(held, label)
+
+  useEffect(() => {
+    if (held) { openHistories(held) }
+  }, [held])
 
   useEffect(() => {
     document.title = quiz?.title ? `${quiz.title} — Triquet` : 'Triquet'
