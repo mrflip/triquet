@@ -1,8 +1,9 @@
 'use client'
 
-import { OpenQuizRedirect } from '../components/OpenQuizRedirect'
+import { Suspense } from 'react'
+import { IdentGate } from '../components/IdentGate'
 
-/** The root address shows nothing of its own; it sends the author to their quiz */
+/** The front door: say who you are, then go on to your hunts, or to wherever a link was taking you */
 export default function HomePage() {
-  return <OpenQuizRedirect />
+  return <Suspense><IdentGate /></Suspense>
 }

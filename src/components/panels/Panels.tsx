@@ -4,16 +4,17 @@ import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
+import * as Exporting from '../../lib/exporting'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { ExpressedForQuiz } from '../../lib/expressed'
 import type { QuizT } from '../../models/quiz'
-import type { WorkspaceT } from '../../models/workspace'
+import type { HuntT } from '../../models/hunt'
 import styles from '../workbench.module.css'
 
 /** The titled sections below the grid: ways to get the work back out, and what was asked */
-export function Panels({ quiz, workspace, expressed, onMerged }: Readonly<{ quiz: QuizT, workspace: WorkspaceT, expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
+export function Panels({ quiz, hunt, expressed, onMerged }: Readonly<{ quiz: QuizT, hunt: HuntT, expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
   return (
     <div className={styles.panels}>
       <Panel
@@ -25,9 +26,9 @@ export function Panels({ quiz, workspace, expressed, onMerged }: Readonly<{ quiz
 
       <Panel
         title="Export"
-        blurb="Every quiz you have here, not just this one. Copy it somewhere safe to back up your progress, or paste part of it back through Import to move a quiz between browsers."
+        blurb="Every quiz of this hunt, not just this one. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz's questions back."
       >
-        <ReadonlyBox label="Export" text={UU.jsonify(workspace)} rows={10} dense />
+        <ReadonlyBox label="Export" text={UU.jsonify(Exporting.huntExported(hunt))} rows={10} dense />
         <FullHistoryDownload quiz={quiz} />
       </Panel>
 

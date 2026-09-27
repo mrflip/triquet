@@ -1,6 +1,6 @@
 import { expect, reloadOnceSaved, test } from './support'
 
-test('a fresh workspace opens with blank questions rather than a void', async ({ page }) => {
+test('a fresh hunt\'s quiz opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Quiz name')).toBeVisible()
   await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
 })

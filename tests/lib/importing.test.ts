@@ -36,7 +36,35 @@ describe('importInto', () => {
       expect(findByLabel(after, 'leon').clueing).to.eq('Reworded')
     })
 
-    it('takes a whole workspace, matching the open quiz by name', () => {
+    it('takes a whole hunt, matching the open quiz by name across its realms', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({
+        label:  'quiet_otter',
+        realms: [
+          { label: 'home', quizzes: [{ title: 'Some other quiz', questions: [{ label: 'leon', clueing: 'Wrong one' }] }] },
+          { label: 'away', quizzes: [{ title: 'Quiz one', questions: [{ label: 'leon', clueing: 'Right one' }] }] },
+        ],
+        expressions: [],
+      }))
+      expect(findByLabel(present(outcome.quiz), 'leon').clueing).to.eq('Right one')
+      expect(outcome.summary).to.include('whole hunt of 2 quiz(zes); matched this quiz by name')
+    })
+
+    it('matches the open quiz by label before name', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({
+        label:  'quiet_otter',
+        realms: [{ label: 'home', quizzes: [
+          { label: 'other_quiz', title: 'Quiz one', questions: [{ label: 'leon', clueing: 'Wrong one' }] },
+          { label: Labelmaker.effectiveLabelOf(quiz), title: 'Renamed since', questions: [{ label: 'leon', clueing: 'Right one' }] },
+        ] }],
+        expressions: [],
+      }))
+      expect(findByLabel(present(outcome.quiz), 'leon').clueing).to.eq('Right one')
+      expect(outcome.summary).to.include('matched this quiz by label')
+    })
+
+    it('takes a whole workspace exported before hunts, matching the open quiz by name', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const outcome = Importing.importInto(quiz, JSON.stringify({
         quizzes: [
@@ -155,7 +183,19 @@ describe('importInto', () => {
   })
 
   describe('chains', () => {
-    it('remaps a chain through the pasted data\'s own ids', () => {
+    it('resolves a chain named by label onto the question here holding that label', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
+      const after = importedInto(quiz, [{ label: 'leon', chains_to: 'nantes' }])
+      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes').id)
+    })
+
+    it('resolves a chain named by label onto a question the same import appended', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const after = importedInto(quiz, [{ label: 'leon', chains_to: 'nantes' }, { label: 'nantes' }])
+      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes').id)
+    })
+
+    it('remaps a chain through an older backup\'s own ids', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
       const after = importedInto(quiz, [
         { id: 'theirs-1', label: 'leon', chains_to: 'theirs-2' },

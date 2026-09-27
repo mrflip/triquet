@@ -28,11 +28,12 @@ export function OtherWorkersHelp() {
  * try when it was the opening that failed.
  *
  * @param notice - Why the quizzes could not be opened; null while they are still on the way.
+ * @param waiting - What to say while they are on the way.
  */
-export function OpeningNotice({ notice }: Readonly<{ notice: string | null }>) {
+export function OpeningNotice({ notice, waiting = 'Opening your quizzes…' }: Readonly<{ notice: string | null, waiting?: string }>) {
   return (
     <main className={styles.page}>
-      <p className={styles.microcopy}>{notice ?? 'Opening your quizzes…'}</p>
+      <p className={styles.microcopy}>{notice ?? waiting}</p>
       {notice === AppNotices.loadFailed ? <OtherWorkersHelp /> : null}
     </main>
   )

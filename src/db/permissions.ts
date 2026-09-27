@@ -4,46 +4,33 @@ import { app } from './schema'
 /**
  * Who may read and write which rows: the only place authorization is written.
  *
- * Every row belongs to the account that made it, and no other account can see or touch it.
- * Ownership is the account's, not the identity's, so an identity linked to the account later
- * (signing in, on another device) holds everything the account made before it.
+ * For the playtesting trial the hunt tables are open to every account: anyone who can reach the
+ * app can read and change any hunt. A hunt is found by its address, and an address is not a
+ * secret. Membership and roles come next, and the policy that enforces them after that.
+ *
+ * Two tables are not open. An identing -- which ident this account has taken on -- is visible
+ * only to the account that wrote it, as it is that account's own history. An ident may be made
+ * by anyone but never changed or removed, so an ident someone has taken on cannot be pulled
+ * from under them.
  */
 export default JZS.definePermissions(app, ({ policy, session }) => {
   const ownAccount = { '$createdBy.account': session.user.account }
-  const { workspaces, expressions, quizzes, widgets, columns, questions, playings } = policy
+  const { idents, identings, hunts, realms, expressions, quizzes, widgets, columns, questions, bottings } = policy
 
-  workspaces.allowRead.where(ownAccount)
-  workspaces.allowInsert.where(ownAccount)
-  workspaces.allowUpdate.where(ownAccount)
-  workspaces.allowDelete.where(ownAccount)
+  identings.allowRead.where(ownAccount)
+  identings.allowInsert.where(ownAccount)
+  identings.allowUpdate.where(ownAccount)
+  identings.allowDelete.where(ownAccount)
 
-  expressions.allowRead.where(ownAccount)
-  expressions.allowInsert.where(ownAccount)
-  expressions.allowUpdate.where(ownAccount)
-  expressions.allowDelete.where(ownAccount)
+  idents.allowRead.always()
+  idents.allowInsert.always()
+  idents.allowUpdate.never()
+  idents.allowDelete.never()
 
-  quizzes.allowRead.where(ownAccount)
-  quizzes.allowInsert.where(ownAccount)
-  quizzes.allowUpdate.where(ownAccount)
-  quizzes.allowDelete.where(ownAccount)
-
-  widgets.allowRead.where(ownAccount)
-  widgets.allowInsert.where(ownAccount)
-  widgets.allowUpdate.where(ownAccount)
-  widgets.allowDelete.where(ownAccount)
-
-  columns.allowRead.where(ownAccount)
-  columns.allowInsert.where(ownAccount)
-  columns.allowUpdate.where(ownAccount)
-  columns.allowDelete.where(ownAccount)
-
-  questions.allowRead.where(ownAccount)
-  questions.allowInsert.where(ownAccount)
-  questions.allowUpdate.where(ownAccount)
-  questions.allowDelete.where(ownAccount)
-
-  playings.allowRead.where(ownAccount)
-  playings.allowInsert.where(ownAccount)
-  playings.allowUpdate.where(ownAccount)
-  playings.allowDelete.where(ownAccount)
+  for (const table of [hunts, realms, expressions, quizzes, widgets, columns, questions, bottings]) {
+    table.allowRead.always()
+    table.allowInsert.always()
+    table.allowUpdate.always()
+    table.allowDelete.always()
+  }
 })

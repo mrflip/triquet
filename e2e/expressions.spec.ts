@@ -13,7 +13,7 @@ async function addColumn(page: Page, expression_label: string) {
   await closeManage(page)
 }
 
-/** Open the workspace's expressions, and then one of them */
+/** Open the hunt's expressions, and then one of them */
 async function openExpression(page: Page, label: string) {
   await page.getByRole('button', { name: 'Edit expressions' }).click()
   await expect(page.getByRole('dialog', { name: 'Expressions' })).toBeVisible()

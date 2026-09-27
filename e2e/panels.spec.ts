@@ -8,15 +8,17 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Quiz name').click()
 })
 
-test('Export emits the whole workspace as compact JSON', async ({ page }) => {
+test('Export emits the whole hunt as compact JSON', async ({ page }) => {
   const exportBox = page.getByRole('textbox', { name: 'Export' })
   await expect(exportBox).toHaveValue(/"title":"Quiz one"/)
   const text = await exportBox.inputValue()
-  const workspace = JSON.parse(text) as { quizzes: { title: string }[], active_quiz_id: string }
-  expect(workspace.quizzes[0]?.title).toBe('Quiz one')
-  expect(workspace.active_quiz_id).toBeTruthy()
+  const hunt = JSON.parse(text) as { label: string, realms: { label: string, quizzes: { title: string }[] }[] }
+  expect(hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])).toEqual([['home', ['Quiz one']]])
+  await expect(page).toHaveURL(new RegExp(`/h/${hunt.label}/`))
   // Compact, not pretty-printed: backup material, not prose.
   expect(text).not.toContain('\n')
+  // Everything by label: ids are the database's, and mean nothing to a smith.
+  expect(text).not.toContain('"id"')
 })
 
 test('the Copy button copies and says so', async ({ page, context }) => {

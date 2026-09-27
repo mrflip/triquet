@@ -1,5 +1,5 @@
 import type { ModelTier } from '../../models/ask'
-import type { PlayerLabel } from '../../models/player'
+import type { BotLabel } from '../../models/bot'
 import type { AskRequestT } from './contract'
 
 /**
@@ -22,9 +22,9 @@ export const MaxTokensForJob = {
   bulk_ishes: 32_000,
 } as const
 
-/** Which player each job is put to */
-export const PlayerForJob = {
+/** Which bot each job is put to */
+export const BotForJob = {
   guess:      'dumdum',
   ishes:      'numnum',
   bulk_ishes: 'numnum',
-} as const satisfies Record<AskRequestT['job'], PlayerLabel>
+} as const satisfies Record<AskRequestT['job'], BotLabel>

@@ -143,8 +143,10 @@ type PayloadReading =
 /**
  * The pasted text read as whichever of the three accepted shapes it is.
  *
- * Given a whole workspace it takes the quiz matching the open one by id, failing that by name,
- * failing that the first one -- and says which reading it took, so the author is never guessing.
+ * Given a whole hunt, or a whole workspace exported before there were hunts, it takes the quiz
+ * matching the open one by label, failing that by name, failing that the first one -- and says
+ * which reading it took, so the author is never guessing. (A backup made before exports dropped
+ * their ids is matched by id first.)
  */
 function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   let raw: unknown
@@ -154,15 +156,14 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
     return { ok: false, summary: "That isn't readable as JSON, so nothing was changed. Your text is still here." }
   }
 
+  const hunt = ImportValidators.importHunt.safeParse(raw)
+  if (hunt.success) {
+    return readWhole(hunt.data.realms.flatMap((realm) => realm.quizzes), 'hunt', openQuiz)
+  }
+
   const workspace = ImportValidators.importWorkspace.safeParse(raw)
   if (workspace.success) {
-    const chosen = quizFromWorkspace(workspace.data.quizzes, openQuiz)
-    if (! chosen) { return { ok: false, summary: 'That workspace holds no quizzes, so nothing was changed.' } }
-    return {
-      ok:      true,
-      quiz:    chosen,
-      reading: `Read as a whole workspace of ${String(workspace.data.quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
-    }
+    return readWhole(workspace.data.quizzes, 'workspace', openQuiz)
   }
 
   const quiz = ImportValidators.importQuiz.safeParse(raw)
@@ -178,18 +179,38 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   return { ok: false, summary: "That isn't a shape this tool recognises, so nothing was changed. Your text is still here." }
 }
 
-/** How the quiz was picked out of a pasted workspace, for the log */
+/** The quiz of a whole export matching the open one, and how it was picked, for the log */
+function readWhole(quizzes: readonly ImportQuizT[], whole: 'hunt' | 'workspace', openQuiz: QuizT): PayloadReading {
+  const chosen = quizFromExport(quizzes, openQuiz)
+  if (! chosen) { return { ok: false, summary: `That ${whole} holds no quizzes, so nothing was changed.` } }
+  return {
+    ok:      true,
+    quiz:    chosen,
+    reading: `Read as a whole ${whole} of ${String(quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
+  }
+}
+
+/** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: ImportQuizT, openQuiz: QuizT): string {
-  if (chosen.id === openQuiz.id) { return 'matched this quiz by id' }
+  if (chosen.id !== undefined && chosen.id === openQuiz.id) { return 'matched this quiz by id' }
+  if (labelOfPasted(chosen) === Labelmaker.effectiveLabelOf(openQuiz)) { return 'matched this quiz by label' }
   return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
 }
 
+/** The label in force of a pasted quiz, or null when it carries none */
+function labelOfPasted(quiz: ImportQuizT): string | null {
+  return quiz.forced_label ?? quiz.label ?? null
+}
+
 /**
- * A workspace's quiz chosen against the one on screen: by id, failing that by name, failing
- * that the first.
+ * An export's quiz chosen against the one on screen: by id where the export carries ids (a
+ * backup from before exports dropped them), then by label, then by name, failing all that the
+ * first.
  */
-export function quizFromWorkspace(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
-  return quizzes.find((quiz) => quiz.id === openQuiz.id)
+export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
+  const label = Labelmaker.effectiveLabelOf(openQuiz)
+  return quizzes.find((quiz) => quiz.id !== undefined && quiz.id === openQuiz.id)
+    ?? quizzes.find((quiz) => labelOfPasted(quiz) === label)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
     ?? quizzes[0]
 }
@@ -208,15 +229,18 @@ function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>)
     if (! Object.hasOwn(bag, fieldname)) { continue }
     patch[fieldname] = bag[fieldname] === null ? ClearedValueFor[fieldname] : clean[fieldname]
   }
-  // Chains are remapped in a second pass, never copied: a pasted chain points at an id from
-  // wherever it came from, which means nothing here.
+  // Chains are remapped in a second pass, never copied: a pasted chain names its target by label,
+  // or by an id from wherever it came from, and either has to be found among the questions here.
   delete patch.chains_to
   return patch
 }
 
 /**
- * Chains re-pointed from the pasted data's own ids onto the questions here that those pasted
- * questions were merged into or appended as. Anything unresolvable is left unset and logged.
+ * Chains re-pointed onto the questions here. A pasted chain names its target by label, the label
+ * in force of a question here once the import has merged or appended it; or, in a backup from
+ * before exports dropped their ids, by the pasted question's own id, which leads to the question
+ * that pasted question was merged into or appended as. Anything unresolvable is left unset and
+ * logged.
  */
 function remapChains(
   questions: readonly QuestionT[],
@@ -225,13 +249,14 @@ function remapChains(
   log: ImportLogEntry[],
 ): QuestionT[] {
   if (orders.length === 0) { return [...questions] }
+  const idForLabel = new Map(questions.map((question) => [Labelmaker.effectiveLabelOf(question), question.id]))
 
   return questions.map((question) => {
     const order = orders.find((each) => each.question_id === question.id)
     if (! order) { return question }
     if (order.foreignTarget === null) { return { ...question, chains_to: null } }
 
-    const localId = idForForeignId.get(order.foreignTarget)
+    const localId = idForForeignId.get(order.foreignTarget) ?? idForLabel.get(order.foreignTarget)
     if (localId === undefined || localId === question.id) {
       noteChainLoss(log, Labelmaker.effectiveLabelOf(question))
       return { ...question, chains_to: null }

@@ -1,11 +1,13 @@
 import { MirrorSettings } from '../models/mirror-settings'
 import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
+import type { QuizPlace } from '../lib/quizgit'
 
-/** What a repository holds: the quiz, and the workspace's expressions that its widgets work */
+/** What a repository holds: the quiz, the hunt's expressions that its widgets work, and where the quiz sits */
 export type MirrorSnapshot = {
   quiz:        QuizT
   expressions: readonly ExpressionT[]
+  place:       QuizPlace
 }
 
 /** What to do when a quiz's wait is up: record `latest`, which differs from `baseline` by the burst of edits */

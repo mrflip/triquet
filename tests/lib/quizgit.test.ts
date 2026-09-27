@@ -8,6 +8,7 @@ import Papa from 'papaparse'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import * as Changes from '../../src/lib/changes'
 import { Expression } from '../../src/models/expression'
+import * as Exporting from '../../src/lib/exporting'
 import * as Quizgit from '../../src/lib/quizgit'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -83,12 +84,12 @@ function gitSays(quiz: QuizT, ...args: string[]): string {
 
 /** Commit `quiz` as the only thing that has ever happened to it */
 async function commitFresh(quiz: QuizT): Promise<string | null> {
-  return await Quizgit.commitQuiz(suite.fs, quiz, [], Changes.quizChanges(null, quiz))
+  return await Quizgit.commitQuiz(suite.fs, quiz, [], Here, Changes.quizChanges(null, quiz))
 }
 
 /** Commit the step from `before` to `after`, as the app itself would */
 async function commitStep(before: QuizT, after: QuizT): Promise<string | null> {
-  return await Quizgit.commitQuiz(suite.fs, after, [], Changes.quizChanges(before, after))
+  return await Quizgit.commitQuiz(suite.fs, after, [], Here, Changes.quizChanges(before, after))
 }
 
 beforeEach(() => {
@@ -100,26 +101,34 @@ afterEach(() => {
   rmSync(suite.root, { recursive: true, force: true })
 })
 
-const OursDir = 'tq/hunt/ours/ours/puz/ours/quiz'
+/** Where every quiz in these tests sits */
+const Here: Quizgit.QuizPlace = { hunt: 'deep_lake', realm: 'home' }
+const HereExpressions = 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
+
+const OursDir = 'tq/hunt/deep_lake/realm/home/quiz'
 const OursTsv = `${OursDir}/ours.qq.tsv`
 const OursJson = `${OursDir}/ours.tq.json`
 
 /** The whole-quiz export as `quizFiles` writes it, for a quiz labelled `ours` */
-const jsonOf = (quiz: QuizT) => Quizgit.quizFiles(quiz, []).get(OursJson) ?? ''
+const jsonOf = (quiz: QuizT) => Quizgit.quizFiles(quiz, [], Here).get(OursJson) ?? ''
 
 /** The questions file as `quizFiles` writes it, for a quiz labelled `ours` */
-const tsvOf = (quiz: QuizT) => Quizgit.quizFiles(quiz, []).get(OursTsv) ?? ''
+const tsvOf = (quiz: QuizT) => Quizgit.quizFiles(quiz, [], Here).get(OursTsv) ?? ''
 
 describe('quizPathsFor', () => {
-  it('nests both files under the hunt, puzzle and quiz levels, each named for the quiz for now', () => {
-    expect(Quizgit.quizPathsFor({ label: 'quiet_otter', forced_label: null })).to.deep.eq({
-      tsv:  'tq/hunt/quiet_otter/quiet_otter/puz/quiet_otter/quiz/quiet_otter.qq.tsv',
-      json: 'tq/hunt/quiet_otter/quiet_otter/puz/quiet_otter/quiz/quiet_otter.tq.json',
+  it('nests both files under the hunt and realm, each named for the quiz', () => {
+    expect(Quizgit.quizPathsFor({ label: 'quiet_otter', forced_label: null }, Here)).to.deep.eq({
+      tsv:  'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.qq.tsv',
+      json: 'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.tq.json',
     })
   })
 
   it('follows an author\'s override rather than the generated label', () => {
-    expect(Quizgit.quizPathsFor({ label: 'quiet_otter', forced_label: 'ours' })).to.deep.eq({ tsv: OursTsv, json: OursJson })
+    expect(Quizgit.quizPathsFor({ label: 'quiet_otter', forced_label: 'ours' }, Here)).to.deep.eq({ tsv: OursTsv, json: OursJson })
+  })
+
+  it('moves with the hunt and the realm', () => {
+    expect(Quizgit.quizPathsFor({ label: 'ours', forced_label: null }, { hunt: 'high_tarn', realm: 'finals' }).json).to.eq('tq/hunt/high_tarn/realm/finals/quiz/ours.tq.json')
   })
 })
 
@@ -163,7 +172,7 @@ describe('questionsTsv', () => {
     const widgets = [{ kind: 'expressing' as const, label: 'aaa', expression_label: 'answer_reversed', description: '' }]
     const withWidget = { ...quizOf([questionOf('one_a', { full_answer: 'stressed' })]), widgets }
     const expressions = [Expression.fill({ label: 'answer_reversed', formula: '$join($reverse($split(qn.full_answer, "")))' })]
-    const lines = Quizgit.quizFiles(withWidget, expressions).get(OursTsv)?.split('\n') ?? []
+    const lines = Quizgit.quizFiles(withWidget, expressions, Here).get(OursTsv)?.split('\n') ?? []
     expect(lines[0]?.split('\t', 2)).to.deep.eq(['aaa.value', 'question.alt_text'])
     expect(lines[1]?.split('\t', 1)).to.deep.eq(['desserts'])
   })
@@ -191,43 +200,44 @@ describe('questionsTsv', () => {
 describe('the expressions file', () => {
   const expressions = [Expression.fill({ label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.' })]
 
-  it('holds the workspace\'s expressions as sorted, pretty-printed JSON', () => {
-    const written = Quizgit.quizFiles(quizOf([]), expressions).get(Quizgit.ExpressionsPath) ?? ''
+  it('holds the hunt\'s expressions as sorted, pretty-printed JSON', () => {
+    const written = Quizgit.quizFiles(quizOf([]), expressions, Here).get(HereExpressions) ?? ''
     expect(JSON.parse(written)).to.deep.eq(structuredClone(expressions))
     expect(written).to.include('\n    "description": "Loud."')
     expect(written.endsWith('\n')).to.eq(true)
   })
 
-  it('lives at tq/widgets/my.tqexpressions.json in every quiz\'s repository', () => {
-    expect(Quizgit.ExpressionsPath).to.eq('tq/widgets/my.tqexpressions.json')
+  it('lives at the hunt\'s own level, named for the hunt, in every quiz\'s repository', () => {
+    expect(Quizgit.expressionsPathFor(Here)).to.eq(HereExpressions)
   })
 
   it('is committed with the quiz, and a commit follows a change to it alone', async () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who?' })])
-    await Quizgit.commitQuiz(suite.fs, quiz, [], Changes.quizChanges(null, quiz))
-    const changed = await Quizgit.commitQuiz(suite.fs, quiz, expressions, Changes.expressionChanges([], expressions))
+    await Quizgit.commitQuiz(suite.fs, quiz, [], Here, Changes.quizChanges(null, quiz))
+    const changed = await Quizgit.commitQuiz(suite.fs, quiz, expressions, Here, Changes.expressionChanges([], expressions))
     expect(changed).to.be.a('string')
-    expect(gitSays(quiz, 'show', 'HEAD:tq/widgets/my.tqexpressions.json')).to.include('"shout"')
+    expect(gitSays(quiz, 'show', `HEAD:${HereExpressions}`)).to.include('"shout"')
     expect(gitSays(quiz, 'log', '-1', '--format=%s')).to.eq('widgets ~expressions')
   })
 })
 
 describe('quizFiles', () => {
-  it('is the questions table and the whole quiz at their nested paths, and the workspace\'s expressions beside them', () => {
+  it('is the questions table and the whole quiz at their nested paths, and the hunt\'s expressions above them', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
-    expect(Quizgit.quizFiles(quiz, []).keys().toArray()).to.deep.eq([OursTsv, OursJson, 'tq/widgets/my.tqexpressions.json'])
+    expect(Quizgit.quizFiles(quiz, [], Here).keys().toArray()).to.deep.eq([OursTsv, OursJson, HereExpressions])
   })
 
-  it('holds the whole quiz as JSON, which the TSV alone could never give back', () => {
+  it('holds the whole quiz as JSON, which the TSV alone could never give back, as a smith is handed it', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?', hint: 'BUT NOT a stoat', qnum: '3' })])
-    expect(JSON.parse(jsonOf(quiz))).to.deep.eq(structuredClone(quiz))
+    expect(JSON.parse(jsonOf(quiz))).to.deep.eq(structuredClone(Exporting.quizExported(quiz)))
   })
 
   it('pretty-prints it, so a diff reads as lines rather than as one enormous one', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
     const written = jsonOf(quiz)
     expect(written.split('\n').length).to.be.greaterThan(20)
-    expect(written).to.include('\n  "id": ')
+    expect(written).to.include('\n  "title": ')
+    expect(written).to.not.include('"id"')
     expect(written.endsWith('\n')).to.eq(true)
   })
 
@@ -264,15 +274,15 @@ describe('milestoneTagFor', () => {
 describe('commitFirst', () => {
   it('opens a history that has none, with the quiz as it stands', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    expect(await Quizgit.commitFirst(suite.fs, quiz, [])).to.be.a('string')
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here)).to.be.a('string')
     expect(gitSays(quiz, 'log', '--oneline')).to.include('+quiz')
     expect(gitSays(quiz, 'status', '--porcelain')).to.eq('')
   })
 
   it('does nothing where the history is already under way, so asking twice leaves one commit', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    await Quizgit.commitFirst(suite.fs, quiz, [])
-    expect(await Quizgit.commitFirst(suite.fs, quiz, [])).to.eq(null)
+    await Quizgit.commitFirst(suite.fs, quiz, [], Here)
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here)).to.eq(null)
     expect(gitSays(quiz, 'rev-list', '--count', 'HEAD')).to.eq('1')
   })
 
@@ -281,7 +291,7 @@ describe('commitFirst', () => {
     const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?' }] }
     await commitFresh(before)
     await commitStep(before, after)
-    expect(await Quizgit.commitFirst(suite.fs, after, [])).to.eq(null)
+    expect(await Quizgit.commitFirst(suite.fs, after, [], Here)).to.eq(null)
     expect(gitSays(after, 'rev-list', '--count', 'HEAD')).to.eq('2')
   })
 })
@@ -319,7 +329,7 @@ describe('commitQuiz', () => {
   it('tracks the quiz\'s files and the expressions, at their paths', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
-    expect(gitSays(quiz, 'ls-files').split('\n')).to.deep.eq([OursTsv, OursJson, Quizgit.ExpressionsPath])
+    expect(gitSays(quiz, 'ls-files').split('\n')).to.deep.eq([HereExpressions, OursTsv, OursJson])
   })
 
   it('makes the shorthand the whole message, with no body repeating the quiz', async () => {
@@ -379,9 +389,9 @@ describe('commitQuiz', () => {
     await commitStep(before, after)
 
     expect(gitSays(after, 'ls-files').split('\n')).to.deep.eq([
-      'tq/hunt/renamed/renamed/puz/renamed/quiz/renamed.qq.tsv',
-      'tq/hunt/renamed/renamed/puz/renamed/quiz/renamed.tq.json',
-      Quizgit.ExpressionsPath,
+      HereExpressions,
+      'tq/hunt/deep_lake/realm/home/quiz/renamed.qq.tsv',
+      'tq/hunt/deep_lake/realm/home/quiz/renamed.tq.json',
     ])
     expect(gitSays(after, 'status', '--porcelain')).to.eq('')
   })
@@ -463,7 +473,7 @@ describe('zipQuizRepo', () => {
     const saysHere = (...args: string[]) => gitIn(clone, args)
     expect(saysHere('log', '--format=%s')).to.eq('+quiz')
     expect(saysHere('tag', '--list')).to.eq('main-m-20260918184504z')
-    expect(saysHere('ls-files').split('\n')).to.deep.eq([OursTsv, OursJson, Quizgit.ExpressionsPath])
+    expect(saysHere('ls-files').split('\n')).to.deep.eq([HereExpressions, OursTsv, OursJson])
     expect(saysHere('show', `HEAD:${OursTsv}`)).to.eq(tsvOf(quiz).slice(0, -1))
     expect(saysHere('status', '--porcelain')).to.eq('')
   })

@@ -1,40 +1,51 @@
 import _ from 'es-toolkit/compat'
 import type { Db } from 'jazz-tools'
-import { app, type ColumnRow, type ExpressionRow, type PlayingRow, type QuestionRow, type QuizRow, type WidgetRow, type WorkspaceRow } from '../db/schema'
+import { app, type BottingRow, type ColumnRow, type ExpressionRow, type HuntRow, type QuestionRow, type QuizRow, type RealmRow, type WidgetRow } from '../db/schema'
 import * as Labelmaker from '../lib/labelmaker'
-import { latestBySlot, resultsFor } from '../models/playing'
+import { latestBySlot, resultsFor } from '../models/botting'
 import type { ExpressionT } from '../models/expression'
+import type { HuntT } from '../models/hunt'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import type { RealmT } from '../models/realm'
 import type { WidgetT } from '../models/widget'
-import type { WorkspaceT } from '../models/workspace'
 
 /** Reads come from what this browser holds, so everything built on them works with the network off */
 export const LocalFirst = { tier: 'local-first' } as const
 
 /**
- * A playing as read back, with when it was asked. Jazz stamps `$createdAt` a moment after a write
- * lands, so a playing read back at once may not have it yet.
+ * A botting as read back, with when it was asked. Jazz stamps `$createdAt` a moment after a write
+ * lands, so a botting read back at once may not have it yet.
  */
-export type HeldPlaying = PlayingRow & { $createdAt?: Date }
+export type HeldBotting = BottingRow & { $createdAt?: Date }
 
-/** When a playing was asked, in epoch milliseconds; one not stamped yet was asked just now */
-export function askedAt(playing: HeldPlaying): number {
-  return playing.$createdAt?.getTime() ?? Date.now()
+/** When a botting was asked, in epoch milliseconds; one not stamped yet was asked just now */
+export function askedAt(botting: HeldBotting): number {
+  return botting.$createdAt?.getTime() ?? Date.now()
 }
 
 /**
- * Every row an account holds, table by table, each in any order: what its subscriptions deliver,
- * and what every action reads before it writes. An account's rows are its own, so this is small.
+ * The rows one hunt is read from, table by table: what the subscriptions deliver, and what every
+ * action reads before it writes. The hunts, realms and quizzes are the directory, every hunt's,
+ * so that any label can be looked up; the rest are the open hunt's own. The hunts and quizzes
+ * come in the order they were made; the rest in any order.
  */
-export type AccountRows = {
-  workspaces:  readonly WorkspaceRow[]
+export type HeldRows = Directory & HuntContents
+
+/** Every hunt, realm and quiz row this browser can read: enough to list them and resolve any address */
+export type Directory = {
+  hunts:       readonly HuntRow[]
+  realms:      readonly RealmRow[]
   quizzes:     readonly QuizRow[]
+}
+
+/** One hunt's rows below its quizzes, and its expressions */
+export type HuntContents = {
   expressions: readonly ExpressionRow[]
   questions:   readonly QuestionRow[]
   widgets:     readonly WidgetRow[]
   columns:     readonly ColumnRow[]
-  playings:    readonly HeldPlaying[]
+  bottings:    readonly HeldBotting[]
 }
 
 /** One quiz's rows: its own, and its children's, each list in its committed order */
@@ -43,38 +54,102 @@ export type QuizRows = {
   questions: readonly QuestionRow[]
   widgets:   readonly WidgetRow[]
   columns:   readonly ColumnRow[]
-  playings:  readonly HeldPlaying[]
+  bottings:  readonly HeldBotting[]
 }
 
-/** One workspace's rows: its own, its quizzes' own in the order they were made, and its expressions in order */
-export type WorkspaceRows = {
-  workspace:   WorkspaceRow
+/** One hunt's own rows: the hunt's, its realms' in order, its quizzes' in the order they were made, and its expressions in order */
+export type HuntRows = {
+  hunt:        HuntRow
+  realms:      readonly RealmRow[]
   quizzes:     readonly QuizRow[]
   expressions: readonly ExpressionRow[]
 }
 
+/** The queries behind `Directory`, one flat query per table, as both a load and a subscription make them */
+export const DirectoryQueries = {
+  hunts:   app.hunts.orderBy('$createdAt'),
+  realms:  app.realms,
+  quizzes: app.quizzes.orderBy('$createdAt'),
+} as const
+
 /**
- * Every row this account holds, as this browser holds them.
+ * The ids of `rows`, as one piece of text in a settled order: the same text for as long as the
+ * rows are the same ones, so a query built from it is the same query. `idsIn` reads it back.
+ */
+export function idsKey(rows: readonly { id: string }[]): string {
+  return rows.map((row) => row.id).toSorted((aa, bb) => aa.localeCompare(bb)).join(' ')
+}
+
+/** The ids an `idsKey` holds */
+export function idsIn(key: string): string[] {
+  return key === '' ? [] : key.split(' ')
+}
+
+/** The quiz rows of the hunt `hunt_id`, out of the directory */
+export function quizzesOf(directory: Directory, hunt_id: string): QuizRow[] {
+  const realm_ids = new Set(directory.realms.filter((realm) => realm.hunt_id === hunt_id).map((realm) => realm.id))
+  return directory.quizzes.filter((quiz) => realm_ids.has(quiz.realm_id))
+}
+
+/**
+ * The queries behind one hunt's `HuntContents`, bar its bottings: one flat query per table, each
+ * matching only that hunt's rows, so a browser holds and hears about only the hunt it has open.
+ *
+ * @param hunt_id - Which hunt.
+ * @param quiz_ids - Its quizzes' ids.
+ */
+export function huntQueries(hunt_id: string, quiz_ids: readonly string[]) {
+  const ofQuizzes = { quiz_id: { in: [...quiz_ids] } }
+  return {
+    expressions: app.expressions.where({ hunt_id }),
+    questions:   app.questions.where(ofQuizzes),
+    widgets:     app.widgets.where(ofQuizzes),
+    columns:     app.columns.where(ofQuizzes),
+  } as const
+}
+
+/**
+ * The bottings of the questions `question_ids`, and when each was asked.
+ *
+ * @param question_ids - Which questions.
+ */
+export function bottingsQuery(question_ids: readonly string[]) {
+  return app.bottings.where({ question_id: { in: [...question_ids] } }).select('*', '$createdAt')
+}
+
+/** Every hunt, realm and quiz row this browser holds */
+export async function loadDirectory(db: Db): Promise<Directory> {
+  const [hunts, realms, quizzes] = await Promise.all([
+    db.all(DirectoryQueries.hunts, LocalFirst),
+    db.all(DirectoryQueries.realms, LocalFirst),
+    db.all(DirectoryQueries.quizzes, LocalFirst),
+  ])
+  return { hunts, realms, quizzes }
+}
+
+/**
+ * The directory, and one hunt's rows, as this browser holds them.
  *
  * One flat query per table: in this Jazz release, a query that includes two relations, or nests
  * one include in another, can block the page for good.
  *
  * @param db - The account's database.
- * @returns Its rows.
+ * @param hunt_id - Which hunt's rows to read beyond the directory.
+ * @returns The rows.
  *
- * @example const held = await loadAccountRows(db)
+ * @example const held = await loadHeldRows(db, open.hunt_id)
  */
-export async function loadAccountRows(db: Db): Promise<AccountRows> {
-  const [workspaces, quizzes, expressions, questions, widgets, columns, playings] = await Promise.all([
-    db.all(app.workspaces, LocalFirst),
-    db.all(app.quizzes.orderBy('$createdAt'), LocalFirst),
-    db.all(app.expressions, LocalFirst),
-    db.all(app.questions, LocalFirst),
-    db.all(app.widgets, LocalFirst),
-    db.all(app.columns, LocalFirst),
-    db.all(app.playings.select('*', '$createdAt'), LocalFirst),
+export async function loadHeldRows(db: Db, hunt_id: string): Promise<HeldRows> {
+  const directory = await loadDirectory(db)
+  const queries = huntQueries(hunt_id, quizzesOf(directory, hunt_id).map((quiz) => quiz.id))
+  const [expressions, questions, widgets, columns] = await Promise.all([
+    db.all(queries.expressions, LocalFirst),
+    db.all(queries.questions, LocalFirst),
+    db.all(queries.widgets, LocalFirst),
+    db.all(queries.columns, LocalFirst),
   ])
-  return { workspaces, quizzes, expressions, questions, widgets, columns, playings }
+  const bottings = await db.all(bottingsQuery(questions.map((row) => row.id)), LocalFirst)
+  return { ...directory, expressions, questions, widgets, columns, bottings }
 }
 
 /** `held` in their committed order */
@@ -83,15 +158,15 @@ function byPosition<RT extends { position: number }>(held: readonly RT[]): RT[] 
 }
 
 /**
- * One quiz's rows, out of everything the account holds.
+ * One quiz's rows, out of everything held.
  *
- * @param held - Everything the account holds.
+ * @param held - The rows held, including the quiz's own.
  * @param quiz_id - Which quiz.
- * @returns Its rows, or null when the account holds no such quiz.
+ * @returns Its rows, or null when no such quiz is held.
  *
  * @example quizRowsOf(held, open.quiz_id)?.questions.length
  */
-export function quizRowsOf(held: AccountRows, quiz_id: string): QuizRows | null {
+export function quizRowsOf(held: Pick<HeldRows, 'quizzes' | 'questions' | 'widgets' | 'columns' | 'bottings'>, quiz_id: string): QuizRows | null {
   const quiz = held.quizzes.find((row) => row.id === quiz_id)
   if (! quiz) { return null }
   const questions = byPosition(held.questions.filter((row) => row.quiz_id === quiz_id))
@@ -101,40 +176,87 @@ export function quizRowsOf(held: AccountRows, quiz_id: string): QuizRows | null 
     questions,
     widgets:  byPosition(held.widgets.filter((row) => row.quiz_id === quiz_id)),
     columns:  byPosition(held.columns.filter((row) => row.quiz_id === quiz_id)),
-    playings: held.playings.filter((row) => question_ids.has(row.question_id)),
+    bottings: held.bottings.filter((row) => question_ids.has(row.question_id)),
   }
 }
 
 /**
- * One workspace's own rows, out of everything the account holds.
+ * One hunt's own rows, out of everything held.
  *
- * @param held - Everything the account holds.
- * @param workspace_id - Which workspace.
- * @returns Its rows, or null when the account holds no such workspace.
+ * @param held - The rows held: the directory, and this hunt's own.
+ * @param hunt_id - Which hunt.
+ * @returns Its rows, or null when no such hunt is held.
  */
-export function workspaceRowsOf(held: AccountRows, workspace_id: string): WorkspaceRows | null {
-  const workspace = held.workspaces.find((row) => row.id === workspace_id)
-  if (! workspace) { return null }
+export function huntRowsOf(held: HeldRows, hunt_id: string): HuntRows | null {
+  const hunt = held.hunts.find((row) => row.id === hunt_id)
+  if (! hunt) { return null }
+  const realms = byPosition(held.realms.filter((row) => row.hunt_id === hunt_id))
+  const realm_ids = new Set(realms.map((row) => row.id))
   return {
-    workspace,
-    quizzes:     held.quizzes.filter((row) => row.workspace_id === workspace_id),
-    expressions: byPosition(held.expressions.filter((row) => row.workspace_id === workspace_id)),
+    hunt,
+    realms,
+    quizzes:     held.quizzes.filter((row) => realm_ids.has(row.realm_id)),
+    expressions: byPosition(held.expressions.filter((row) => row.hunt_id === hunt_id)),
   }
 }
 
-/** One quiz's rows, as this browser holds them; null when this account holds no such quiz */
-export async function loadQuizRows(db: Db, quiz_id: string): Promise<QuizRows | null> {
-  return quizRowsOf(await loadAccountRows(db), quiz_id)
+/**
+ * The hunt answering to `label`: the one made first, should two have been made with one label.
+ *
+ * @param held - The directory held; its hunts come in the order they were made.
+ * @param label - The label an address names, matched against whichever label is in force.
+ * @returns The hunt's row, or undefined when none answers to it.
+ *
+ * @example huntRowFor(held, 'quiet_otter')?.id
+ */
+export function huntRowFor(held: Pick<HeldRows, 'hunts'>, label: string): HuntRow | undefined {
+  return Labelmaker.entityForLabel(held.hunts, label)
 }
 
-/** One workspace's own rows, as this browser holds them; null when this account holds no such workspace */
-export async function loadWorkspaceRows(db: Db, workspace_id: string): Promise<WorkspaceRows | null> {
-  return workspaceRowsOf(await loadAccountRows(db), workspace_id)
+/** A hunt as the hunts list shows it: its labels and title, and each realm's quizzes as rows */
+export type HuntListing = Pick<HuntRow, 'id' | 'label' | 'forced_label' | 'title'> & {
+  realms: { id: string, label: string, quizzes: readonly QuizRow[] }[]
+}
+
+/**
+ * Every hunt in the directory, as the hunts list shows it, in the order they were made: each
+ * titled as `huntFrom` titles it, with its realms in order and their quizzes in the order they
+ * were made.
+ *
+ * @param directory - Every hunt, realm and quiz row held.
+ * @returns The hunts.
+ *
+ * @example huntListingsOf(directory).map((hunt) => hunt.title)
+ */
+export function huntListingsOf(directory: Directory): HuntListing[] {
+  return directory.hunts.map((hunt) => ({
+    id:           hunt.id,
+    label:        hunt.label,
+    forced_label: hunt.forced_label,
+    title:        hunt.title === '' ? Labelmaker.titleize(Labelmaker.effectiveLabelOf(hunt)) : hunt.title,
+    realms:       byPosition(directory.realms.filter((realm) => realm.hunt_id === hunt.id)).map((realm) => ({
+      id:      realm.id,
+      label:   realm.label,
+      quizzes: directory.quizzes.filter((quiz) => quiz.realm_id === realm.id),
+    })),
+  }))
+}
+
+/** One quiz's rows, as this browser holds them; null when it holds no such quiz */
+export async function loadQuizRows(db: Db, quiz_id: string): Promise<QuizRows | null> {
+  const [quizzes, questions, widgets, columns] = await Promise.all([
+    db.all(app.quizzes.where({ id: quiz_id }), LocalFirst),
+    db.all(app.questions.where({ quiz_id }), LocalFirst),
+    db.all(app.widgets.where({ quiz_id }), LocalFirst),
+    db.all(app.columns.where({ quiz_id }), LocalFirst),
+  ])
+  const bottings = await db.all(bottingsQuery(questions.map((row) => row.id)), LocalFirst)
+  return quizRowsOf({ quizzes, questions, widgets, columns, bottings }, quiz_id)
 }
 
 /**
  * The quiz its rows make up, as the tree the rest of the tool reads: each question showing the
- * newest reply from each of its players, and its chain naming the question it points at.
+ * newest reply from each of its bots, and its chain naming the question it points at.
  *
  * The tree's ids are the rows' ids. A chain is held as a label, and here names the sibling that
  * answers to it; a chain to a label no sibling answers to reads as no chain.
@@ -145,14 +267,14 @@ export async function loadWorkspaceRows(db: Db, workspace_id: string): Promise<W
  * @example quizFrom(quizRowsOf(held, quiz_id)).questions.length
  */
 export function quizFrom(rows: QuizRows): QuizT {
-  const latest = latestBySlot(rows.playings.map((playing) => ({ ...playing, created_at: askedAt(playing) })))
+  const latest = latestBySlot(rows.bottings.map((botting) => ({ ...botting, created_at: askedAt(botting) })))
   const idForLabel = new Map(rows.questions.map((question) => [Labelmaker.effectiveLabelOf(question), question.id]))
   const questions = rows.questions.map((row): QuestionT => {
     const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
     return { ..._.omit(row, ['quiz_id', 'position']), chains_to: target === row.id ? null : target, ...resultsFor(row, latest) }
   })
   return {
-    ..._.omit(rows.quiz, ['workspace_id']),
+    ..._.omit(rows.quiz, ['realm_id']),
     questions,
     widgets: rows.widgets.map((row) => widgetFrom(row)),
     columns: rows.columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
@@ -160,38 +282,46 @@ export function quizFrom(rows: QuizRows): QuizT {
 }
 
 /**
- * The workspace an account's rows make up: its quizzes in the order they were made, each whole,
- * and its expressions in order. An open quiz the workspace no longer holds (deleted in another
- * tab, say) falls back to the first.
+ * The hunt its rows make up: its realms in order, each holding its quizzes whole in the order
+ * they were made, and its expressions in order.
  *
- * @param held - Everything the account holds.
- * @param workspace_id - Which workspace.
- * @returns The workspace; null when the account holds no such workspace, or none of its quizzes
- *   has arrived yet (each table arrives on its own, and a workspace is never without a quiz).
+ * @param held - The directory held, and this hunt's own rows.
+ * @param hunt_id - Which hunt.
+ * @returns The hunt; null when no such hunt is held, or it has not all arrived yet (each table
+ *   arrives on its own, and a hunt is never without a realm, nor a realm without a quiz).
  *
- * @example workspaceFrom(held, workspace_id)?.quizzes.length
+ * @example huntFrom(held, hunt_id)?.realms[0]?.quizzes.length
  */
-export function workspaceFrom(held: AccountRows, workspace_id: string): WorkspaceT | null {
-  const rows = workspaceRowsOf(held, workspace_id)
-  if (! rows || rows.quizzes.length === 0) { return null }
-  const quizzes = rows.quizzes.map((quiz) => quizRowsOf(held, quiz.id)).filter((each) => each !== null)
-  const { active_quiz_id } = rows.workspace
+export function huntFrom(held: HeldRows, hunt_id: string): HuntT | null {
+  const rows = huntRowsOf(held, hunt_id)
+  if (! rows || rows.realms.length === 0) { return null }
+  const realms = rows.realms.map((realm): RealmT => ({
+    id:      realm.id,
+    label:   realm.label,
+    title:   realm.title === '' ? Labelmaker.titleize(realm.label) : realm.title,
+    quizzes: rows.quizzes.filter((quiz) => quiz.realm_id === realm.id).map((quiz) => quizRowsOf(held, quiz.id)).filter((each) => each !== null).map((each) => quizFrom(each)),
+  }))
+  if (realms.some((realm) => realm.quizzes.length === 0)) { return null }
+  const { id, label, forced_label, title } = rows.hunt
   return {
-    quizzes:        quizzes.map((each) => quizFrom(each)),
-    active_quiz_id: rows.quizzes.some((quiz) => quiz.id === active_quiz_id) ? active_quiz_id ?? '' : rows.quizzes[0]?.id ?? '',
-    expressions:    rows.expressions.map((row) => expressionFrom(row)),
+    id,
+    label,
+    forced_label,
+    title:       title === '' ? Labelmaker.titleize(Labelmaker.effectiveLabelOf(rows.hunt)) : title,
+    realms,
+    expressions: rows.expressions.map((row) => expressionFrom(row)),
   }
 }
 
 /**
- * The workspace its rows make up, every quiz whole, as this browser holds them.
+ * The hunt its rows make up, every quiz whole, as this browser holds them.
  *
  * @param db - The account's database.
- * @param workspace_id - Which workspace.
- * @returns The workspace, or null when this account holds no such workspace or it holds no quizzes.
+ * @param hunt_id - Which hunt.
+ * @returns The hunt, or null when this browser holds no such hunt or not all of it yet.
  */
-export async function loadWorkspace(db: Db, workspace_id: string): Promise<WorkspaceT | null> {
-  return workspaceFrom(await loadAccountRows(db), workspace_id)
+export async function loadHunt(db: Db, hunt_id: string): Promise<HuntT | null> {
+  return huntFrom(await loadHeldRows(db, hunt_id), hunt_id)
 }
 
 /** An expression, from its row */
@@ -204,8 +334,8 @@ export function expressionFrom(row: ExpressionRow): ExpressionT {
  * saw to it that its kind's fields are there.
  */
 function widgetFrom(row: WidgetRow): WidgetT {
-  const { kind, label, description, expression_label, player_label, textkind } = row
+  const { kind, label, description, expression_label, bot_label, textkind } = row
   if (kind === 'expressing' && expression_label !== null) { return { kind, label, description, expression_label } }
-  if (kind === 'playing' && player_label !== null && textkind !== null) { return { kind, label, description, player_label, textkind } }
+  if (kind === 'botting' && bot_label !== null && textkind !== null) { return { kind, label, description, bot_label, textkind } }
   throw new Error(`The widget ${label} lacks the fields a ${kind} widget has`)
 }

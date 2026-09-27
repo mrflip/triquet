@@ -46,7 +46,7 @@ Component could reach user data only through a backend session. Replaced by the 
 ## Not `output: 'export'`, yet
 
 "Serves from S3" is a stronger constraint than "no server of ours", and it has a cost: a static
-export forbids dynamic segments it cannot enumerate at build, and `/my/quiz/<label>` cannot be
+export forbids dynamic segments it cannot enumerate at build, and `/h/<hunt>/<realm>/<quiz>` cannot be
 prerendered for labels that do not exist yet. Either a per-host rewrite rule or walking the
 routing decision back to `?label=`. Neither is worth it now. The constraint we hold is *static
 hosting plus stateless functions*; the export switch waits for a move to be on the table.

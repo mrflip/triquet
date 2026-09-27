@@ -5,9 +5,10 @@ import { IshValidators } from './ish'
 import { QuestionValidators } from './question'
 
 export const ImportValidators = Validator(({ obj, arr, str, titleish, label, union, zod }) => {
-  // Ids arriving from an import are accepted as-is provided they are non-empty: a hand-written
-  // quiz file has no reason to know about ULIDs, and an id minted in another browser means
-  // nothing here anyway -- it is only ever used to resolve that file's own chains.
+  // What an export names things by. The Export box hands out labels only, but a backup made
+  // before it did carries ids, which are accepted as-is provided they are non-empty: an id
+  // minted in another browser means nothing here anyway -- it is only ever used to resolve that
+  // file's own chains, and to pick out a quiz. A chain may name its target either way.
   const foreignId = str.min(1)
 
   const importQuestion = obj({
@@ -33,26 +34,36 @@ export const ImportValidators = Validator(({ obj, arr, str, titleish, label, uni
   const looseQuestions = arr(zod.unknown()).default([])
 
   const importQuiz = obj({
-    id:        foreignId.optional(),
-    title:     titleish.nullable().optional(),
-    questions: looseQuestions,
+    id:           foreignId.optional(),
+    label:        label.optional(),
+    forced_label: label.nullable().optional(),
+    title:        titleish.nullable().optional(),
+    questions:    looseQuestions,
   })
     .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
+
+  const importRealm = obj({ quizzes: arr(importQuiz).min(1) })
+  const importHunt = obj({
+    realms: arr(importRealm).min(1),
+  })
+    .describe('A whole hunt, as the Export box hands it over: its quizzes are read realm by realm, and everything else about it is ignored.')
 
   const importWorkspace = obj({
     quizzes:        arr(importQuiz).min(1),
     active_quiz_id: foreignId.optional(),
   })
+    .describe('A whole workspace, as the Export box handed it over before quizzes lived in hunts. Still accepted, so an old backup can be brought back.')
 
-  const importPayload = union([importWorkspace, importQuiz, looseQuestions])
-    .describe('What the Import box accepts: a whole exported workspace, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
+  const importPayload = union([importHunt, importWorkspace, importQuiz, looseQuestions])
+    .describe('What the Import box accepts: a whole exported hunt, a whole workspace exported before hunts, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
 
-  return { importQuestion, importQuiz, importWorkspace, importPayload }
+  return { importQuestion, importQuiz, importHunt, importWorkspace, importPayload }
 })
 
 export type ImportQuestionDNA = Z.input<typeof ImportValidators.importQuestion>
 export type ImportQuestionT   = Z.output<typeof ImportValidators.importQuestion>
 export type ImportQuizT       = Z.output<typeof ImportValidators.importQuiz>
+export type ImportHuntT       = Z.output<typeof ImportValidators.importHunt>
 export type ImportWorkspaceT  = Z.output<typeof ImportValidators.importWorkspace>
 export type ImportPayloadT    = Z.output<typeof ImportValidators.importPayload>
 

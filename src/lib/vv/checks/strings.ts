@@ -51,6 +51,7 @@ export const blobbish = str.regex(PA.Textish.re, PA.Textish.msg).max(PA.Blobbish
 //
 
 export const label     = lower.min(PA.Label.min).max(PA.Label.max).regex(PA.Label.re, PA.Label.msg).describe('simple label')
+export const identlabel = lower.min(PA.Identlabel.min).max(PA.Identlabel.max).regex(PA.Identlabel.re, PA.Identlabel.msg).describe('ident label')
 export const dashlabel = lower.min(PA.Dashlabel.min).max(PA.Dashlabel.max).regex(PA.Dashlabel.re, PA.Dashlabel.msg).describe('dash-separated label')
 export const handleish = lower.min(PA.Handleish.min).max(PA.Handleish.max).regex(PA.Handleish.re, PA.Handleish.msg).describe('record handle')
 export const keyish    = trimmed.min(PA.Keyish.min).max(PA.Keyish.max).regex(PA.Keyish.re, PA.Keyish.msg).describe('freeform key')

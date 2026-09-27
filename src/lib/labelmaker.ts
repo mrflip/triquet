@@ -27,7 +27,7 @@ export function localBlankLabel(existingLabels: ReadonlySet<string>, fallback: s
   return normalize(fallback)
 }
 
-/** How many characters of a fresh id disambiguate a label: its random tail, and plenty within one workspace */
+/** How many characters of a fresh id disambiguate a label: its random tail, and plenty within one realm */
 const FallbackSuffixLen = 8
 
 /**
@@ -107,7 +107,7 @@ export type Labelled = {
  * @param entities - The siblings the new one must not collide with.
  * @returns An `adjective_animal` label absent from them.
  *
- * @example freshLabelFor(workspace.quizzes)  // => 'quiet_otter', say
+ * @example freshLabelFor(realm.quizzes)  // => 'quiet_otter', say
  */
 export function freshLabelFor(entities: readonly Labelled[]): string {
   return localBlankLabel(new Set(entities.map((entity) => effectiveLabelOf(entity))), mintId())

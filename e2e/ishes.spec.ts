@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, expect, test } from './support'
+import { cellOf, expect, test, waitUntilSaved } from './support'
 
 const ThreeSpans = [
   { text: '#17-19', value: 36, kind: 'numeral' },
@@ -23,6 +23,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')
   await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
 })
 
 test('an uncomputed sum reads as a dash, never as a zero', async ({ page }) => {

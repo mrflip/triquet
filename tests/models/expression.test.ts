@@ -72,14 +72,14 @@ describe('SeedExpressions', () => {
 })
 
 describe('ExpressionValidators.row', () => {
-  const Row = { workspace_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.', position: 2 } satisfies Z.input<typeof ExpressionValidators.row>
+  const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.', position: 2 } satisfies Z.input<typeof ExpressionValidators.row>
 
   it('takes an expression as the database holds it', () => {
     expect(ExpressionValidators.row(Row)).to.deep.eq(Row)
   })
 
   const Refused: [object, string][] = [
-    [{ workspace_id: 'shout' },      'a workspace that is not a row id'],
+    [{ hunt_id: 'shout' },           'a hunt that is not a row id'],
     [{ owner: 'someone' },           'an owner there is not'],
     [{ formula: '' },                'an empty formula'],
     [{ position: -1 },               'a place before the first'],

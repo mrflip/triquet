@@ -9,7 +9,7 @@ import { GrowingField, PlainField, QnumField, StretchField } from './cells/field
 import { ExpressedReadout } from './cells/readouts'
 import * as Expressed from '../lib/expressed'
 import type { QuestionField } from '../models/column'
-import type { PlaySlot } from '../models/playing'
+import type { BotSlot } from '../models/botting'
 import { askableTextOf, type Askkind } from '../state/use-asking'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { GuessCell } from './cells/guess'
@@ -148,8 +148,8 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What one player answered, in the cell that asks it again */
-  const playedBody = (field: PlaySlot['field']): React.JSX.Element => {
+  /** What one bot answered, in the cell that asks it again */
+  const playedBody = (field: BotSlot['field']): React.JSX.Element => {
     if (field === 'guess') {
       return (
         <GuessCell

@@ -1,17 +1,25 @@
 import { test as base, expect, type Locator, type Page } from '@playwright/test'
 
+/** Where the fixture's page begins by default: a fresh ident's fresh hunt, open on its quiz */
+export const FreshHunt = 'fresh hunt'
+
 /**
  * The suite's `test`: Playwright's, with the page already at the workbench.
  *
- * Every spec imports `test` and `expect` from here. `page` has gone to `startAt` (`/` unless a
- * spec says otherwise) and has its grid on screen, so a spec begins with the thing it is about
- * rather than with a `goto`. A spec that must stub a route before the first load says
- * `test.use({ startAt: null })` and goes there itself.
+ * Every spec imports `test` and `expect` from here. `page` has said who it is, made a hunt of its
+ * own and opened the hunt's quiz (`startAt` is `FreshHunt` unless a spec says otherwise), and has
+ * its grid on screen, so a spec begins with the thing it is about rather than with a way in.
+ * Specs share one Jazz server and every hunt on it, so each begins in a hunt no other can name.
+ * `startAt` as a path goes there instead, and waits for the grid. A spec that must stub a route
+ * before the first load, or is about the way in itself, says `test.use({ startAt: null })` and
+ * goes there itself.
  */
 export const test = base.extend<{ startAt: string | null }>({
-  startAt: ['/', { option: true }],
+  startAt: [FreshHunt, { option: true }],
   page:    async ({ page, startAt }, use) => {
-    if (startAt !== null) {
+    if (startAt === FreshHunt) {
+      await startHunt(page)
+    } else if (startAt !== null) {
       await page.goto(startAt)
       await expect(page.getByRole('table')).toBeVisible()
     }
@@ -81,6 +89,47 @@ export async function stubAsk(page: Page, reply: unknown, status = 200): Promise
   })
 }
 
+/** A fresh ident label no other spec will use: specs share one Jazz server, and every ident on it */
+export function freshIdentLabel(): string {
+  return `tester_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
+}
+
+/**
+ * Say who this browser is at the front door, and wait to be sent on to the hunts.
+ *
+ * @param label - The ident to become; a fresh one when omitted.
+ * @returns The ident's label.
+ */
+export async function assumeIdent(page: Page, label = freshIdentLabel()): Promise<string> {
+  await page.goto('/')
+  await page.getByLabel('Ident label').fill(label)
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page).toHaveURL(/\/my\/hunts$/)
+  return label
+}
+
+/** Where a new hunt's quiz is worked on: its hunt and quiz share a label, in the realm `home` */
+export const NewHuntUrl = /\/h\/([a-z0-9_]+)\/home\/\1\?act=smith$/
+
+/** Make a hunt from the hunts list, and wait until its quiz is on screen */
+export async function newHunt(page: Page): Promise<void> {
+  await page.getByRole('button', { name: '+ New hunt' }).click()
+  await expect(page).toHaveURL(NewHuntUrl)
+  await expect(page.getByRole('table')).toBeVisible()
+}
+
+/**
+ * A fresh browser's way in to a quiz: say who it is, make a hunt, and open the hunt's quiz.
+ * What every spec about the grid starts from.
+ *
+ * @returns The ident's label.
+ */
+export async function startHunt(page: Page): Promise<string> {
+  const label = await assumeIdent(page)
+  await newHunt(page)
+  return label
+}
+
 /**
  * Reload once every change on screen has been saved, as a person who paused a moment would.
  *
@@ -106,15 +155,19 @@ export async function waitUntilSaved(page: Page): Promise<void> {
  */
 export async function newQuiz(page: Page): Promise<void> {
   const before = new URL(page.url()).pathname
+  const title = await page.getByLabel('Quiz name').inputValue()
   await page.getByRole('button', { name: '+ New quiz' }).click()
-  await expect(page).not.toHaveURL(new RegExp(`${before}$`))
+  await expect.poll(() => new URL(page.url()).pathname).not.toBe(before)
+  // The address moves a moment before the screen does; a fresh quiz's generated title never
+  // matches the one it was made from.
+  await expect(page.getByLabel('Quiz name')).not.toHaveValue(title)
 }
 
 /** Switch to the quiz titled `title` from the switcher, and wait until the browser is there */
 export async function openQuiz(page: Page, title: string): Promise<void> {
   const before = new URL(page.url()).pathname
   await page.getByLabel('Open quiz').selectOption({ label: title })
-  await expect(page).not.toHaveURL(new RegExp(`${before}$`))
+  await expect.poll(() => new URL(page.url()).pathname).not.toBe(before)
   await expect(page.getByLabel('Quiz name')).toHaveValue(title)
 }
 
