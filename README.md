@@ -86,3 +86,4 @@ credentials only through `src/lib/credentials.ts`: `Credentials.has('claude')` a
 
 * The text blobs are not terribly large -- they're usually not more than a sentence or short paragraph (a few hundred characters). A clueing, hint or note is capped at 3600 characters; titles at 82
 * People will often want to export, manipulate, and re-import data, forcing some unusual decisions (particularly, using the locally-unique label for many things where a global ID is easier to reason about)
+
