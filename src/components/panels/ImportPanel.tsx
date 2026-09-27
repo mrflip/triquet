@@ -43,7 +43,7 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
   return (
     <Panel
       title="Import"
-      blurb="Paste back anything Export ever gave you, a single quiz, or a bare list of questions. Questions are matched by title; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
+      blurb="Paste back anything Export ever gave you, a single quiz, or a bare list of questions. Questions are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
     >
       <textarea
         className={styles.pasteBox}
@@ -62,9 +62,9 @@ export function ImportPanel({ quiz, locked, onMerged }: Readonly<ImportPanelProp
       {log.length === 0 ? null : (
         <div className={styles.importLog}>
           {log.map((entry) => (
-            <div key={`${String(entry.position)}-${entry.title}`}>
+            <div key={`${String(entry.position)}-${entry.label}`}>
               <div>
-                {entry.position}. {entry.title === '' ? '(no title)' : entry.title} — {entry.outcome}
+                {entry.position}. {entry.label === '' ? '(no label)' : entry.label} — {entry.outcome}
               </div>
               {entry.issues.map((issue) => (
                 <div key={`${issue.fieldpath}-${issue.code}`} className={styles.importIssue}>

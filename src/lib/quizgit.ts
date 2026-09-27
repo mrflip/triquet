@@ -158,6 +158,43 @@ export function milestoneTagFor(version: string, at: Date): string {
 }
 
 /**
+ * Open `quiz`'s history with its present state, unless it already has one.
+ *
+ * What makes a quiz's history start at its creation rather than at its first edit: a quiz this
+ * browser has never committed is committed as it stands. Safe to ask twice, or to ask of a quiz
+ * whose history is under way, because it then does nothing.
+ *
+ * @param fs - Where the repositories live.
+ * @param quiz - The quiz as it now stands.
+ * @param expressions - The workspace's expressions, kept in the same commit.
+ * @returns The new commit's oid, or null when the quiz's branch already had commits.
+ *
+ * @example await commitFirst(fs, quiz, expressions)
+ */
+export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[]): Promise<string | null> {
+  const dir = repopathFor(quiz)
+  await openRepo(fs, dir, quiz.version)
+  if (await hasCommits(fs, dir)) { return null }
+  return await commitQuiz(fs, quiz, expressions, Changes.quizChanges(null, quiz))
+}
+
+/**
+ * The tag an import leaves behind: the version it landed on, and when.
+ *
+ * Stamped as a milestone's is, so the two sort together by time; `import` in place of `m` is what
+ * tells them apart in a list of tags.
+ *
+ * @param version - The quiz's version, which is also its branch.
+ * @param at - The moment being stamped.
+ * @returns A valid, sortable tag name.
+ *
+ * @example importTagFor('main', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-import-20260918184504z'
+ */
+export function importTagFor(version: string, at: Date): string {
+  return milestoneTagFor(version, at).replace('-m-', '-import-')
+}
+
+/**
  * Commit `quiz` to its own repository, on the branch its version names.
  *
  * Creates the repository on first sight, and the branch the first time a version is used, so an
@@ -203,11 +240,33 @@ export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly E
  * @example await milestoneQuiz(fs, quiz)  // => 'main-m-20260918184504z'
  */
 export async function milestoneQuiz(fs: GitFs, quiz: QuizT, at: Date = new Date()): Promise<string | null> {
+  return await tagHead(fs, quiz, milestoneTagFor(quiz.version, at))
+}
+
+/**
+ * Mark an import: tag `quiz`'s current commit as the one the import just landed in.
+ *
+ * The caller commits the quiz as it stood before the import, and as it stood after, so the tag
+ * sits on the second of those and the first is the commit before it.
+ *
+ * @param fs - Where the repositories live.
+ * @param quiz - The quiz the import went into.
+ * @param at - The moment to stamp; now, when omitted.
+ * @returns The tag left behind, disambiguated when that second already has one, or null when there was nothing to tag.
+ *
+ * @example await markImport(fs, quiz)  // => 'main-import-20260918184504z'
+ */
+export async function markImport(fs: GitFs, quiz: QuizT, at: Date = new Date()): Promise<string | null> {
+  return await tagHead(fs, quiz, importTagFor(quiz.version, at))
+}
+
+/** Tag the current commit `wanted`, or the first numbered variation of it that is free; null when there is no commit */
+async function tagHead(fs: GitFs, quiz: QuizT, wanted: string): Promise<string | null> {
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
   if (! await hasCommits(fs, dir)) { return null }
   const taken = new Set(await git.listTags({ fs, dir }))
-  const ref = untakenTag(milestoneTagFor(quiz.version, at), taken)
+  const ref = untakenTag(wanted, taken)
   await git.tag({ fs, dir, ref })
   return ref
 }

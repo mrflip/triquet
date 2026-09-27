@@ -1,4 +1,6 @@
-import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import { expect, test, type Page } from '@playwright/test'
+import { unzipSync } from 'fflate'
 import { reloadOnceSaved } from './support'
 
 test.beforeEach(async ({ page }) => {
@@ -6,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 /** Open the gear modal, which is where everything about a quiz's history lives */
-async function openManage(page: import('@playwright/test').Page) {
+async function openManage(page: Page) {
   await page.getByRole('button', { name: 'Manage quiz' }).click()
   await expect(page.getByText('Manage this quiz')).toBeVisible()
 }
@@ -88,7 +90,7 @@ test('the history survives a reload, because it lives in the browser and not in 
  * committed. Checks the database exists first, because merely opening a missing one would create
  * it empty and leave the app unable to set it up properly.
  */
-async function committedEntryCount(page: import('@playwright/test').Page): Promise<number> {
+async function committedEntryCount(page: Page): Promise<number> {
   return await page.evaluate(async () => {
     const name = 'triquet-quizzes'
     const known = await indexedDB.databases()
@@ -110,13 +112,17 @@ async function committedEntryCount(page: import('@playwright/test').Page): Promi
 test('an edit is committed on its own once the wait is up, and not before', async ({ page }) => {
   await page.goto('/')
   await page.waitForSelector('table')
+  // The quiz's creation is committed at once, without waiting out the clock.
+  await expect.poll(async () => await committedEntryCount(page)).toBeGreaterThan(0)
+  const created = await committedEntryCount(page)
+
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
-  // The suite runs with a two-second wait, so a moment after the edit nothing is committed yet...
-  await expect.poll(async () => await committedEntryCount(page)).toBe(0)
+  // The suite runs with a two-second wait, so a moment after the edit it is not committed yet...
+  expect(await committedEntryCount(page)).toBe(created)
   // ...and with nobody asking, the timer alone produces the history.
-  await expect.poll(async () => await committedEntryCount(page), { timeout: 15_000 }).toBeGreaterThan(0)
+  await expect.poll(async () => await committedEntryCount(page), { timeout: 15_000 }).toBeGreaterThan(created)
 
   await reloadOnceSaved(page)
   await page.waitForSelector('table')
@@ -134,4 +140,40 @@ test('a milestone marks the edit made a moment ago, without waiting out the cloc
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
   await expect(page.getByRole('status')).toHaveText(/^main-m-/)
+})
+
+/** Every path in the zip of the open quiz's history, which is what a git client would see */
+async function historyPaths(page: Page): Promise<string[]> {
+  await openManage(page)
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download as git' }).click()
+  const download = await downloading
+  const bytes = await readFile(await download.path())
+  await page.keyboard.press('Escape')
+  return Object.keys(unzipSync(new Uint8Array(bytes)))
+}
+
+/** The paths in the open quiz's history that `pattern` matches */
+async function pathsMatching(page: Page, pattern: RegExp): Promise<string[]> {
+  const paths = await historyPaths(page)
+  return paths.filter((each) => pattern.test(each))
+}
+
+test('a new quiz has a history from the moment it is made, before any edit', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForSelector('table')
+  await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/heads\/main$/)).toHaveLength(1)
+})
+
+test('an import is committed on either side, and tagged', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForSelector('table')
+  await page.getByLabel('Quiz name').fill('Danish princes')
+  await page.getByLabel('Quiz name').blur()
+
+  await page.getByRole('textbox', { name: 'Import' }).fill('[{"label":"hamlet","clueing":"Imported"}]')
+  await page.getByRole('button', { name: 'Import', exact: true }).click()
+  await expect(page.getByText(/1 added/)).toBeVisible()
+
+  await expect.poll(async () => await pathsMatching(page, /\.git\/refs\/tags\/main-import-\d{14}z$/)).toHaveLength(1)
 })

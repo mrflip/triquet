@@ -261,6 +261,47 @@ describe('milestoneTagFor', () => {
   })
 })
 
+describe('commitFirst', () => {
+  it('opens a history that has none, with the quiz as it stands', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [])).to.be.a('string')
+    expect(gitSays(quiz, 'log', '--oneline')).to.include('+quiz')
+    expect(gitSays(quiz, 'status', '--porcelain')).to.eq('')
+  })
+
+  it('does nothing where the history is already under way, so asking twice leaves one commit', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    await Quizgit.commitFirst(suite.fs, quiz, [])
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [])).to.eq(null)
+    expect(gitSays(quiz, 'rev-list', '--count', 'HEAD')).to.eq('1')
+  })
+
+  it('leaves a history that an edit began exactly as the edit made it', async () => {
+    const before = quizOf([questionOf('quiet_otter')])
+    const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?' }] }
+    await commitFresh(before)
+    await commitStep(before, after)
+    expect(await Quizgit.commitFirst(suite.fs, after, [])).to.eq(null)
+    expect(gitSays(after, 'rev-list', '--count', 'HEAD')).to.eq('2')
+  })
+})
+
+describe('importTagFor', () => {
+  it('reads as a milestone tag does, with import where the m was', () => {
+    expect(Quizgit.importTagFor('main', new Date('2026-09-18T18:45:04.123Z'))).to.eq('main-import-20260918184504z')
+  })
+
+  it('carries the version, however much it looks like the marker', () => {
+    expect(Quizgit.importTagFor('m_two', new Date('2026-01-01T00:00:00.000Z'))).to.eq('m_two-import-20260101000000z')
+  })
+
+  it('sorts as text in the order the moments happened', () => {
+    const earlier = Quizgit.importTagFor('main', new Date('2026-09-18T09:00:00Z'))
+    const later = Quizgit.importTagFor('main', new Date('2026-09-18T10:00:00Z'))
+    expect(earlier < later).to.eq(true)
+  })
+})
+
 describe('commitQuiz', () => {
   it('commits nothing at all when nothing changed', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
@@ -371,6 +412,35 @@ describe('milestoneQuiz', () => {
 
     expect(second).to.eq(`${present(first)}-2`)
     expect(gitSays(quiz, 'tag', '--list').split('\n')).to.have.lengthOf(2)
+  })
+})
+
+describe('markImport', () => {
+  it('tags the commit the import landed in, leaving the commit before it untagged', async () => {
+    const before = quizOf([questionOf('quiet_otter')])
+    const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Imported' }] }
+    await commitFresh(before)
+    await commitStep(before, after)
+    const tag = await Quizgit.markImport(suite.fs, after, new Date('2026-09-18T18:45:04.123Z'))
+
+    expect(tag).to.eq('main-import-20260918184504z')
+    const tagged = gitSays(after, 'rev-parse', present(tag))
+    expect(tagged).to.eq(gitSays(after, 'rev-parse', 'HEAD'))
+    expect(tagged).to.not.eq(gitSays(after, 'rev-parse', 'HEAD~1'))
+  })
+
+  it('does not clobber an earlier import made in the same second', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    await commitFresh(quiz)
+    const at = new Date('2026-09-18T18:45:04.123Z')
+    const first = await Quizgit.markImport(suite.fs, quiz, at)
+    const second = await Quizgit.markImport(suite.fs, quiz, at)
+    expect(second).to.eq(`${present(first)}-2`)
+  })
+
+  it('says there was nothing to tag where the quiz has no history yet', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    expect(await Quizgit.markImport(suite.fs, quiz)).to.eq(null)
   })
 })
 

@@ -12,6 +12,7 @@ import { QuizNotFound } from './QuizNotFound'
 import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
+import * as QuizMirror from '../state/quiz-mirror'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
 import { usePlayers } from '../state/use-players'
@@ -174,7 +175,9 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
         quiz={quiz}
         workspace={workspace}
         expressed={expressed}
-        onMerged={(merged) => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) }}
+        onMerged={(merged) => {
+          void QuizMirror.importIntoQuiz(quiz, () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })
+        }}
       />
     </main>
   )

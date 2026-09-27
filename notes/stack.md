@@ -37,6 +37,9 @@ don't trust a recalled version number, including one recalled by an agent.
   See `notes/decisions/2026-09-client-first.md`.
 * **TypeScript**, as strict as reasonably possible: . See `eslint.config.mjs`.
 * **Material UI** for the component layer.
+* **`@next/mdx`** (with `@mdx-js/loader`, `@mdx-js/react`, `@types/mdx`) for static content. It is
+  written as markdown under `src/content/`, imported as a component, and dressed by
+  `src/mdx-components.tsx`. `.md` files are compiled too, so content stays plain markdown.
 * **Zod 4** for validation at every module entrypoint, through the `Validator` kit. See
   `notes/guidelines.md`.
   - Zod is **patched** (`patches/zod@4.6.5.patch`): issues carry the refused input by default.

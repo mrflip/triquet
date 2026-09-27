@@ -4,7 +4,7 @@ import { GuessValidators } from './guess'
 import { IshValidators } from './ish'
 import { QuestionValidators } from './question'
 
-export const ImportValidators = Validator(({ obj, arr, str, titleish, union, zod }) => {
+export const ImportValidators = Validator(({ obj, arr, str, titleish, label, union, zod }) => {
   // Ids arriving from an import are accepted as-is provided they are non-empty: a hand-written
   // quiz file has no reason to know about ULIDs, and an id minted in another browser means
   // nothing here anyway -- it is only ever used to resolve that file's own chains.
@@ -12,6 +12,8 @@ export const ImportValidators = Validator(({ obj, arr, str, titleish, union, zod
 
   const importQuestion = obj({
     id:            foreignId.optional(),
+    label:         label.optional(),
+    forced_label:  label.nullable().optional(),
     qnum:          QuestionValidators.qnum.nullable().optional(),
     clueing:       QuestionValidators.clueing.nullable().optional(),
     hint:          QuestionValidators.hint.nullable().optional(),
@@ -24,7 +26,7 @@ export const ImportValidators = Validator(({ obj, arr, str, titleish, union, zod
     notes:         QuestionValidators.notes.nullable().optional(),
     full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
-    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
+    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
 
   // The shape is read loosely first and each question validated on its own afterwards, so one
   // bad question is skipped and logged rather than blocking the whole import.

@@ -20,8 +20,12 @@ export default defineConfig({
   testDir:     './e2e',
   fullyParallel: true,
   // GitHub shows a log a whole line at a time: `list` gives each spec a line as it finishes, and
-  // `github` pins each failure to its line of the spec.
-  reporter:    process.env.CI ? [['list'], ['github']] : 'list',
+  // `github` pins each failure to its line of the spec. The html report, with the traces a retry
+  // records, is uploaded when the job fails.
+  reporter:    process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
+  // One retry on CI, so a failure there comes with a trace; a spec that passes only on its retry
+  // is reported as flaky rather than hidden.
+  retries:     process.env.CI ? 1 : 0,
   // A fresh page opens its Jazz database before it shows anything, most of a second in dev,
   // and a route's first visit also waits for it to compile.
   expect:      { timeout: 10_000 },

@@ -113,7 +113,7 @@ describe('identifiers', () => {
 // is tested once, in reporting.test.ts, rather than again at every check.
 describe('the advice each pattern gives', () => {
   const Cases: [keyof typeof CK, string, string][] = [
-    ['label',     'Abc',       'should have only plain lowercase letters/_/numbers, with a letter first and a letter or number last'],
+    ['label',     'Abc',       'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row'],
     ['handleish', 'Abc',       'should be all lowercase'],
     ['camel',     'abc',       'should be an UpperFirstLetterCamelCased name'],
     ['locamel',   'Abc',       'should be a lowerFirstLetterCamelCased name'],
