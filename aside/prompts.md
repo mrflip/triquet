@@ -1,3 +1,11 @@
+
+
+Survey the major models and make an illustrative list of proposed urls; don't be tied down by the various motley routes I've specified previously. Protect the top-level namespace with a single-letter (`h`, above). Github does a very good job with their url design.
+
+* make an illustrative list of proposed urls for various resource; don't be tied down by the various motley routes I've specified previously. Protect the top-level namespace with a single-letter (`h`, above). Github does a very good job with their url design.
+
+..
+
 Outline a plan for Opus to migrate the project to use Jazz v2. (In stack.md, please record that turso is out because there were concerns about concurrent access across tabs, and the conflict resolution of last-push-wins in some cases). Don't yet write code, but please update docs where needed -- re-read them first, as they may have changed.
 
 Unless you advise otherwise, this would not retain the current database, and presumably not retain drizzle or drizzle-zod.
