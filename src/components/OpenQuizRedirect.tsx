@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useWorkspace } from '../state/use-workspace'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
-import styles from './workbench.module.css'
+import { OpeningNotice } from './SyncNotices'
 
 /**
  * Sends the author to the quiz they were last on, minting one when this workspace has none,
@@ -48,5 +48,5 @@ export function OpenQuizRedirect() {
   }, [loaded, openLabel])
 
   // On the way past, say what is happening, or why it stopped, rather than show nothing.
-  return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main>
+  return <OpeningNotice notice={saveNotice} />
 }

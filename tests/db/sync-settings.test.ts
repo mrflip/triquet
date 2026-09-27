@@ -7,12 +7,27 @@ describe('syncSettings', () => {
     vi.stubEnv('NEXT_PUBLIC_JAZZ_APP_ID', 'triquet-test')
     vi.stubEnv('NEXT_PUBLIC_JAZZ_SERVER_URL', 'http://127.0.0.1:3202')
     vi.stubEnv('NEXT_PUBLIC_JAZZ_LOG_LEVEL', undefined)
+    vi.stubEnv('NEXT_PUBLIC_JAZZ_RUNTIME_VERSION', undefined)
   })
 
   afterEach(() => { vi.unstubAllEnvs() })
 
   it('reads the app and server, and logs at debug unless told otherwise', () => {
-    expect(syncSettings()).to.deep.eq({ appId: 'triquet-test', serverUrl: 'http://127.0.0.1:3202', logLevel: 'debug' })
+    expect(syncSettings()).to.deep.include({ appId: 'triquet-test', serverUrl: 'http://127.0.0.1:3202', logLevel: 'debug' })
+  })
+
+  it('leaves Jazz to load its runtime from the bundle when the build published none', () => {
+    expect(syncSettings()?.runtimeSources).to.eq(undefined)
+  })
+
+  it('points Jazz at the runtime the build published, by its version', () => {
+    vi.stubEnv('NEXT_PUBLIC_JAZZ_RUNTIME_VERSION', '2.0.0-alpha.56-3f9a1c0b2e7d')
+    expect(syncSettings()?.runtimeSources).to.deep.eq({ baseUrl: '/jazz/2.0.0-alpha.56-3f9a1c0b2e7d/', wasmVersion: '2.0.0-alpha.56-3f9a1c0b2e7d' })
+  })
+
+  it('refuses a runtime version that would not stay one segment of a path', () => {
+    vi.stubEnv('NEXT_PUBLIC_JAZZ_RUNTIME_VERSION', '..')
+    expect(() => syncSettings()).to.throw(ZodError)
   })
 
   it('takes the log level the build was given', () => {

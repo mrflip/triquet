@@ -12,6 +12,7 @@ import { QuizHeader } from './QuizHeader'
 import { QuizNotFound } from './QuizNotFound'
 import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
+import { OpeningNotice } from './SyncNotices'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
 import * as QuizMirror from '../state/quiz-mirror'
@@ -64,7 +65,7 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
     if (quizId !== null && quizId !== workspace.active_quiz_id) { dispatch({ kind: 'open_quiz', quiz_id: quizId }) }
   }, [quizId, workspace.active_quiz_id, dispatch])
 
-  if (! loaded) { return <main className={styles.page}><p className={styles.microcopy}>{saveNotice ?? 'Opening your quizzes…'}</p></main> }
+  if (! loaded) { return <OpeningNotice notice={saveNotice} /> }
 
   /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
   const goTo = (target: Labelmaker.Labelled) => {

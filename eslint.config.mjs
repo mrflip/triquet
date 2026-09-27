@@ -25,6 +25,8 @@ export default defineConfig([
     'dist/**',
     'coverage/**',
     'next-env.d.ts',
+    // Jazz's runtime, copied out of its package at build (src/db/publish-runtime-assets.ts).
+    'public/jazz/**',
     '**/*.generated.*',
     // CLAUDE.md: staged past-project files, not code this project runs.
     'aside/**',

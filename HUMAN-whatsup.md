@@ -2,6 +2,19 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: Jazz's worker, served from a fixed URL
+
+Confirmed that each deploy's new SharedWorker can't open the database the previous deploy's worker
+still holds. Branch `20260927-jazz_worker_url` serves Jazz's worker and WASM from
+`public/jazz/<version>/`, copied by `next.config.ts` at every dev start and build, so the worker's
+name changes only when Jazz does (see `notes/stack.md`). Checked with two production builds whose
+bundles differed: a tab on build A stayed open, the server switched to build B, and a new tab
+opened the same account and workspace through the one worker. A Jazz upgrade will still collide
+once; the "couldn't open" notices now suggest closing other tabs or terminating the old worker at
+`chrome://inspect/#workers`. The address is shown with a copy button because a page can't link to
+`chrome://`. Not yet seen on Vercel itself. The `?dpl=` Skew Protection parameter, which may be what
+changed the bundled URL, doesn't touch these paths.
+
 ## 2026-09-27: e2e in CI -- six shards, one worker each
 
 A worker per core on CI failed badly: both sharded runs failed in every shard, 35 specs in the

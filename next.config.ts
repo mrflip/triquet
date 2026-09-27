@@ -1,7 +1,11 @@
+import { createRequire } from 'node:module'
+import path from 'node:path'
 import type { NextConfig } from 'next'
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 import createMDX from '@next/mdx'
 import { withJazz } from 'jazz-tools/dev/next'
+import { publishRuntimeAssets } from './src/db/publish-runtime-assets'
+import { RuntimeAssetsDir } from './src/db/runtime-assets'
 
 /** Agents build and serve from their own directory, so they never trample a human's running `pnpm dev` */
 const nextConfig = {
@@ -9,6 +13,11 @@ const nextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
+  // Jazz's runtime is served under a path named for its version, so it never changes in place.
+  headers: () => Promise.resolve([{
+    source:  `/${RuntimeAssetsDir}/:path*`,
+    headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+  }]),
 } satisfies NextConfig
 
 /** Static content is written as markdown and imported as a component, `.md` files included */
@@ -41,6 +50,18 @@ const jazzOptions: Parameters<typeof withJazz>[1] & { envDir: string } = {
 
 type NextConfigContext = Parameters<ReturnType<typeof withJazz>>[1]
 
+/**
+ * Serves Jazz's worker and WASM from `public/`, at a URL that changes only with the runtime,
+ * rather than from the bundle, whose URLs change with every build. Jazz names the SharedWorker
+ * that holds a browser's database after the worker's URL, so a bundled worker has a new name
+ * after each deploy, and the new one cannot open the database the old one still holds. Returns
+ * the version the page is to ask Jazz for.
+ */
+function servedJazzRuntime(): string {
+  const packageDir = path.dirname(createRequire(import.meta.url).resolve('jazz-tools/package.json'))
+  return publishRuntimeAssets(packageDir, path.join(import.meta.dirname, 'public'))
+}
+
 export default async function config(phase: string, context: NextConfigContext) {
   // `withJazz` connects to whatever server the environment names whenever it also finds an admin
   // secret. A local database must not see the real one's variables, so it cannot be steered
@@ -50,5 +71,6 @@ export default async function config(phase: string, context: NextConfigContext) 
     delete process.env.NEXT_PUBLIC_JAZZ_SERVER_URL
     delete process.env.JAZZ_ADMIN_SECRET
   }
-  return withMDX(await withJazz(nextConfig, jazzOptions)(phase, context))
+  const env = { NEXT_PUBLIC_JAZZ_RUNTIME_VERSION: servedJazzRuntime() }
+  return withMDX(await withJazz({ ...nextConfig, env }, jazzOptions)(phase, context))
 }
