@@ -5,7 +5,6 @@ import { Button, Dialog, DialogActions, DialogContent, Stack, TextField, Typogra
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { WidgetsEditor } from './WidgetsEditor'
-import * as Downloading from '../lib/downloading'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
@@ -59,9 +58,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRe
   }
 
   const onDownload = async () => {
-    const zipped = await QuizMirror.quizRepoZip(quiz)
-    if (! zipped) { setNoted(AppNotices.noHistoryHere); return }
-    Downloading.offerDownload(`${Labelmaker.effectiveLabelOf(quiz)}.zip`, zipped, 'application/zip')
+    if (! await QuizMirror.downloadQuizRepo(quiz)) { setNoted(AppNotices.noHistoryHere) }
   }
 
   return (

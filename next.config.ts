@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
+import createMDX from '@next/mdx'
 import { withJazz } from 'jazz-tools/dev/next'
 
 /** Agents build and serve from their own directory, so they never trample a human's running `pnpm dev` */
@@ -9,6 +10,9 @@ const nextConfig = {
     root: import.meta.dirname,
   },
 } satisfies NextConfig
+
+/** Static content is written as markdown and imported as a component, `.md` files included */
+const withMDX = createMDX({ extension: /\.(md|mdx)$/ })
 
 /**
  * Whether this environment works against the real Jazz database its variables name. Only then
@@ -46,5 +50,5 @@ export default async function config(phase: string, context: NextConfigContext) 
     delete process.env.NEXT_PUBLIC_JAZZ_SERVER_URL
     delete process.env.JAZZ_ADMIN_SECRET
   }
-  return await withJazz(nextConfig, jazzOptions)(phase, context)
+  return withMDX(await withJazz(nextConfig, jazzOptions)(phase, context))
 }

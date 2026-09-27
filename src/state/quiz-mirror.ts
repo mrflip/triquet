@@ -2,6 +2,8 @@
 
 import LightningFS from '@isomorphic-git/lightning-fs'
 import * as Changes from '../lib/changes'
+import * as Downloading from '../lib/downloading'
+import * as Labelmaker from '../lib/labelmaker'
 import * as Quizgit from '../lib/quizgit'
 import { createCommitScheduler, type MirrorSnapshot } from './commit-scheduler'
 import { MirrorSettings } from '../models/mirror-settings'
@@ -229,6 +231,19 @@ export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
   await writesLanded()
   await scheduler.flush(quiz.id)
   return await enqueue(async (fs) => await Quizgit.zipQuizRepo(fs, quiz))
+}
+
+/**
+ * Hand the browser `quiz`'s whole history to download, as a zip named for the quiz.
+ *
+ * @param quiz - The quiz to package.
+ * @returns Whether a download was offered; false where this browser keeps no history.
+ */
+export async function downloadQuizRepo(quiz: QuizT): Promise<boolean> {
+  const zipped = await quizRepoZip(quiz)
+  if (! zipped) { return false }
+  Downloading.offerDownload(`${Labelmaker.effectiveLabelOf(quiz)}.zip`, zipped, 'application/zip')
+  return true
 }
 
 /**

@@ -53,3 +53,23 @@ test('every prompt is shown verbatim, placeholders and all', async ({ page }) =>
 test('every read-only box has a Copy button', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(6)
 })
+
+test('Download Full History hands over the quiz\'s history as a zip', async ({ page }) => {
+  const exportPanel = page.getByRole('region', { name: 'Export' })
+  const downloading = page.waitForEvent('download')
+  await exportPanel.getByRole('button', { name: 'Download Full History' }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toMatch(/\.zip$/)
+})
+
+test('the quiet note beside it explains, in a dialog, how to see the history', async ({ page }) => {
+  const exportPanel = page.getByRole('region', { name: 'Export' })
+  await exportPanel.getByRole('button', { name: '(How to see Full History)' }).click()
+
+  const help = page.getByRole('dialog', { name: 'How to see Full History' })
+  await expect(help.getByText(/which a computer can expand into a file tree/)).toBeVisible()
+  await expect(help.getByText(/I don't know how to install Fork/)).toBeVisible()
+
+  await help.getByRole('button', { name: 'Close' }).click()
+  await expect(help).toBeHidden()
+})
