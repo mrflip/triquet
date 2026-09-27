@@ -2,6 +2,7 @@ import type * as Z from 'zod'
 import * as Chain from './chain'
 import * as Rank from './rank'
 import { mintId } from './ids'
+import * as Labelmaker from './labelmaker'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportQuizT } from '../models/import'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
@@ -17,7 +18,8 @@ export type ImportIssue = {
 export type ImportLogEntry = {
   /** 1-based position in the pasted list, so the author can find it again */
   position:     number
-  title: string
+  /** The label in force for the question, or '' where the paste named none and the question was skipped */
+  label:        string
   outcome:      'merged' | 'added' | 'skipped'
   issues:       ImportIssue[]
 }
@@ -36,20 +38,20 @@ export type ImportOutcome = {
 /**
  * `pasted` merged into `quiz`.
  *
- * Questions are matched to existing ones **by title**, compared case-insensitively and
- * ignoring surrounding whitespace. Title is the right key because it is the one field
- * that stays stable while an author rewrites a question around it, and because ids minted in
- * another browser are meaningless here.
+ * Questions are matched to existing ones **by label**: the label in force, meaning the forced
+ * label where a question has one. A label is the one name that survives both the author
+ * rewriting a question's title and a round trip through another tool, and ids minted in another
+ * browser are meaningless here.
  *
- * Nothing is ever deleted by an import. A title with no match becomes a new question
- * appended to the quiz; a question that fails validation is skipped entirely rather than
- * half-merged, and named in the log.
+ * Nothing is ever deleted by an import. A label with no match becomes a new question appended to
+ * the quiz under that label; so does a question with no label at all, under a fresh one. A
+ * question that fails validation is skipped entirely rather than half-merged, and named in the log.
  *
  * @param quiz - The quiz on screen.
  * @param pasted - Whatever is in the Import box.
  * @returns The revised quiz, a one-line summary, and a line per question.
  *
- * @example importInto(quiz, '[{"title":"Leon","clueing":"Which region?"}]')
+ * @example importInto(quiz, '[{"label":"quiet_otter","clueing":"Which region?"}]')
  */
 export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
   const payload = readPayload(pasted, quiz)
@@ -61,9 +63,9 @@ export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
   }
 
   const merge: MergeState = {
-    questions:          [...quiz.questions],
-    log:                [],
-    answerForForeignId: new Map(),
+    questions:       [...quiz.questions],
+    log:             [],
+    idForForeignId:  new Map(),
     // Two passes: fields first, so every question a chain might point at exists before chains
     // are resolved, whether it was merged into an existing question or freshly appended.
     chainOrders:        [],
@@ -73,7 +75,7 @@ export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
 
   // Two cleanups over the whole quiz, not just the questions the import touched.
   const questions = Rank.renumberByRank(Chain.clearDanglingChains(
-    remapChains(merge.questions, merge.chainOrders, merge.answerForForeignId, merge.log),
+    remapChains(merge.questions, merge.chainOrders, merge.idForForeignId, merge.log),
   ))
 
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
@@ -91,12 +93,13 @@ export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
 type MergeState = {
   questions:          QuestionT[]
   log:                ImportLogEntry[]
-  answerForForeignId: Map<string, string>
-  chainOrders:        { question_id: string, foreignTarget: string | null }[]
+  /** The question here that each pasted question's own id came to stand for, so its chains can be re-pointed */
+  idForForeignId: Map<string, string>
+  chainOrders:    { question_id: string, foreignTarget: string | null }[]
 }
 
 /**
- * One incoming question folded in: merged onto the question holding its title, or
+ * One incoming question folded in: merged onto the question holding its label, or
  * appended when nothing here holds it.
  *
  * A question that fails validation is skipped *entirely* rather than half-merged, and named in
@@ -107,18 +110,18 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
   const parsed = ImportValidators.importQuestion.safeParse(raw)
 
   if (! parsed.success) {
-    const shownAnswer = typeof bag.title === 'string' ? bag.title : ''
-    merge.log.push({ position, title: shownAnswer, outcome: 'skipped', issues: issuesOf(parsed.error) })
+    const shownLabel = typeof bag.label === 'string' ? bag.label : ''
+    merge.log.push({ position, label: shownLabel, outcome: 'skipped', issues: issuesOf(parsed.error) })
     return
   }
 
-  if (typeof bag.id === 'string' && typeof parsed.data.title === 'string') {
-    merge.answerForForeignId.set(bag.id, parsed.data.title)
-  }
-
-  const seatIdx = seatFor(merge.questions, bag, parsed.data.title ?? '')
+  const incomingLabel = parsed.data.forced_label ?? parsed.data.label ?? null
+  const seatIdx = seatFor(merge.questions, incomingLabel)
   const seated = seatIdx === -1 ? undefined : merge.questions[seatIdx]
-  const revised = { ...(seated ?? Question.fill({ id: mintId() })), ...patchFrom(bag, parsed.data) }
+  const fresh = Question.fill({ id: mintId(), ...(incomingLabel !== null && { label: incomingLabel }) })
+  const revised = { ...(seated ?? fresh), ...patchFrom(bag, parsed.data) }
+
+  if (typeof bag.id === 'string') { merge.idForForeignId.set(bag.id, revised.id) }
 
   merge.questions = seated === undefined
     ? [...merge.questions, revised]
@@ -130,7 +133,7 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
       foreignTarget: typeof bag.chains_to === 'string' ? bag.chains_to : null,
     })
   }
-  merge.log.push({ position, title: revised.title, outcome: seated === undefined ? 'added' : 'merged', issues: [] })
+  merge.log.push({ position, label: Labelmaker.effectiveLabelOf(revised), outcome: seated === undefined ? 'added' : 'merged', issues: [] })
 }
 
 type PayloadReading =
@@ -212,27 +215,25 @@ function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>)
 }
 
 /**
- * Chains resolved through the pasted data's own id-to-title map and re-pointed at the
- * question holding that title here. Anything unresolvable is left unset and logged.
+ * Chains re-pointed from the pasted data's own ids onto the questions here that those pasted
+ * questions were merged into or appended as. Anything unresolvable is left unset and logged.
  */
 function remapChains(
   questions: readonly QuestionT[],
   orders: readonly { question_id: string, foreignTarget: string | null }[],
-  answerForForeignId: ReadonlyMap<string, string>,
+  idForForeignId: ReadonlyMap<string, string>,
   log: ImportLogEntry[],
 ): QuestionT[] {
   if (orders.length === 0) { return [...questions] }
-  const idForAnswer = new Map(questions.map((question) => [matchkeyOf(question.title), question.id]))
 
   return questions.map((question) => {
     const order = orders.find((each) => each.question_id === question.id)
     if (! order) { return question }
     if (order.foreignTarget === null) { return { ...question, chains_to: null } }
 
-    const foreignAnswer = answerForForeignId.get(order.foreignTarget)
-    const localId = foreignAnswer === undefined ? undefined : idForAnswer.get(matchkeyOf(foreignAnswer))
+    const localId = idForForeignId.get(order.foreignTarget)
     if (localId === undefined || localId === question.id) {
-      noteChainLoss(log, question.title)
+      noteChainLoss(log, Labelmaker.effectiveLabelOf(question))
       return { ...question, chains_to: null }
     }
     return { ...question, chains_to: localId }
@@ -240,8 +241,8 @@ function remapChains(
 }
 
 /** Records an unresolvable chain against the question that carried it */
-function noteChainLoss(log: ImportLogEntry[], title: string) {
-  const entry = log.find((each) => each.title === title)
+function noteChainLoss(log: ImportLogEntry[], label: string) {
+  const entry = log.find((each) => each.label === label)
   entry?.issues.push({
     fieldpath: 'chains_to',
     message:   'Chain target could not be resolved to a question in this quiz; left unset',
@@ -252,28 +253,12 @@ function noteChainLoss(log: ImportLogEntry[], title: string) {
 /**
  * Which existing question an incoming one belongs to, or -1 to append it.
  *
- * Title is the stated key, and the right one across browsers: it is the field that stays
- * stable while an author rewrites a question around it, where an id minted elsewhere means
- * nothing. But an id that names a question *in this quiz* is an exact match and is tried
- * first, which is what makes pasting your own export straight back idempotent -- without it,
- * every question you had not named yet would be appended as a duplicate.
- *
- * A question with neither a known id nor a title has no key at all, so it is appended
- * rather than merged onto whichever blank it happens to sit next to.
+ * A question with no label has no key at all, so it is appended rather than merged onto
+ * whichever question it happens to sit next to.
  */
-function seatFor(questions: readonly QuestionT[], bag: Record<string, unknown>, title: string): number {
-  if (typeof bag.id === 'string') {
-    const byId = questions.findIndex((question) => question.id === bag.id)
-    if (byId !== -1) { return byId }
-  }
-  const matchkey = matchkeyOf(title)
-  if (matchkey === '') { return -1 }
-  return questions.findIndex((question) => matchkeyOf(question.title) === matchkey)
-}
-
-/** How two titles are compared: case-insensitively, ignoring surrounding whitespace */
-export function matchkeyOf(title: string): string {
-  return title.trim().toLowerCase()
+function seatFor(questions: readonly QuestionT[], incomingLabel: string | null): number {
+  if (incomingLabel === null) { return -1 }
+  return questions.findIndex((question) => Labelmaker.effectiveLabelOf(question) === incomingLabel)
 }
 
 /** Every validation issue, with the field path, what was wrong, and the code */
