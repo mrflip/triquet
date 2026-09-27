@@ -272,8 +272,8 @@ describe('perform', () => {
       await act({ kind: 'set_ishes', question_id: present(first).id, textkind: 'clueing', ishes: found(1) })
       await act({ kind: 'set_ishes', question_id: present(second).id, textkind: 'clueing', ishes: found(2) })
       await act({ kind: 'delete_questions', question_ids: [present(first).id] })
-      const playings = await db.all(app.playings, LocalFirst)
-      expect(playings.map((playing) => playing.question_id)).to.deep.eq([present(second).id])
+      const bottings = await db.all(app.bottings, LocalFirst)
+      expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second).id])
     })
 
     it('clears a chain to a deleted question, so a later question answering to its label does not inherit it', async () => {

@@ -5,7 +5,7 @@ import { app, type ColumnRow, type ExpressionRow, type QuestionRow, type QuizRow
 import * as Labelmaker from '../lib/labelmaker'
 import { ColumnValidators } from '../models/column'
 import { ExpressionValidators, keyOf } from '../models/expression'
-import { PlayingValidators, slotkeyOf, unrecordedPlayings, type PlayingT } from '../models/playing'
+import { BottingValidators, slotkeyOf, unrecordedBottings, type BottingT } from '../models/botting'
 import { QuestionValidators } from '../models/question'
 import { QuizValidators } from '../models/quiz'
 import { WidgetValidators } from '../models/widget'
@@ -70,11 +70,11 @@ export function changedFields<RT extends object>(held: RT, fields: Partial<RT>):
 }
 
 /**
- * A playing as the tree's history of a cell gives it, as the row that records it: the row's id
+ * A botting as the tree's history of a cell gives it, as the row that records it: the row's id
  * and its time are Jazz's own.
  */
-export function playingFieldsOf(playing: PlayingT): Z.output<typeof PlayingValidators.row> {
-  return PlayingValidators.row(_.omit(playing, ['id', 'created_at']))
+export function bottingFieldsOf(botting: BottingT): Z.output<typeof BottingValidators.row> {
+  return BottingValidators.row(_.omit(botting, ['id', 'created_at']))
 }
 
 /** Every row of `ordered` whose position is not its place in the list, each handed to `write` with its place */
@@ -163,18 +163,18 @@ export function writeQuiz(tx: Tx, workspace_id: string, quiz: QuizT, held: QuizR
 /** The questions of a quiz, in order, with the replies they show that are not yet recorded */
 function writeQuestions(tx: Tx, quiz_id: string, questions: readonly QuestionT[], held: QuizRows | null): void {
   const heldQuestions = held?.questions ?? []
-  const heldPlayings = held?.playings ?? []
+  const heldBottings = held?.bottings ?? []
   const kept = new Set(questions.map((question) => question.id))
   const dropped = new Set(heldQuestions.map((row) => row.id).filter((question_id) => ! kept.has(question_id)))
-  for (const playing of heldPlayings) {
-    if (dropped.has(playing.question_id)) { tx.delete(app.playings, playing.id) }
+  for (const botting of heldBottings) {
+    if (dropped.has(botting.question_id)) { tx.delete(app.bottings, botting.id) }
   }
   for (const question_id of dropped) { tx.delete(app.questions, question_id) }
   const labelForId = new Map(questions.map((question) => [question.id, Labelmaker.effectiveLabelOf(question)]))
   const recordedAt = new Map<string, number>()
-  for (const playing of heldPlayings) {
-    const slotkey = slotkeyOf(playing)
-    recordedAt.set(slotkey, Math.max(recordedAt.get(slotkey) ?? 0, askedAt(playing)))
+  for (const botting of heldBottings) {
+    const slotkey = slotkeyOf(botting)
+    recordedAt.set(slotkey, Math.max(recordedAt.get(slotkey) ?? 0, askedAt(botting)))
   }
   for (const [position, question] of questions.entries()) {
     const fields = QuestionValidators.row({
@@ -194,8 +194,8 @@ function writeQuestions(tx: Tx, quiz_id: string, questions: readonly QuestionT[]
     const heldQuestion = heldQuestions.find((row) => row.id === question.id)
     const question_id = heldQuestion ? heldQuestion.id : tx.insert(app.questions, fields).id
     if (heldQuestion) { updateQuestion(tx, heldQuestion, fields) }
-    const unrecorded = unrecordedPlayings({ ...question, id: question_id }, recordedAt)
-    for (const playing of unrecorded) { tx.insert(app.playings, playingFieldsOf(playing)) }
+    const unrecorded = unrecordedBottings({ ...question, id: question_id }, recordedAt)
+    for (const botting of unrecorded) { tx.insert(app.bottings, bottingFieldsOf(botting)) }
   }
 }
 
@@ -213,8 +213,8 @@ function writeWidgets(tx: Tx, quiz_id: string, widgets: readonly WidgetT[], held
       label:            widget.label,
       kind:             widget.kind,
       expression_label: widget.kind === 'expressing' ? widget.expression_label : null,
-      player_label:     widget.kind === 'playing' ? widget.player_label : null,
-      textkind:         widget.kind === 'playing' ? widget.textkind : null,
+      bot_label:     widget.kind === 'botting' ? widget.bot_label : null,
+      textkind:         widget.kind === 'botting' ? widget.textkind : null,
       description:      widget.description,
     })
     const heldWidget = heldWidgets.find((row) => row.label === widget.label)
@@ -251,7 +251,7 @@ function writeColumns(tx: Tx, quiz_id: string, columns: QuizT['columns'], held: 
  * @param held - The quiz's rows.
  */
 export function deleteQuiz(tx: Tx, held: QuizRows): void {
-  for (const playing of held.playings) { tx.delete(app.playings, playing.id) }
+  for (const botting of held.bottings) { tx.delete(app.bottings, botting.id) }
   for (const question of held.questions) { tx.delete(app.questions, question.id) }
   for (const widget of held.widgets) { tx.delete(app.widgets, widget.id) }
   for (const column of held.columns) { tx.delete(app.columns, column.id) }

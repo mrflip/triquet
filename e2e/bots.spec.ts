@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 
-/** Stand in for the server saying no player has credentials, without touching its real environment */
+/** Stand in for the server saying no bot has credentials, without touching its real environment */
 async function stubNoCredentials(page: Page) {
-  await page.route('**/api/players', async (route) => {
+  await page.route('**/api/bots', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body:        JSON.stringify({
-        players: [
+        bots: [
           { label: 'dumdum', title: 'Dumdum', servicelabel: 'claude', credentialed: false },
           { label: 'numnum', title: 'Numnum', servicelabel: 'claude', credentialed: false },
         ],
@@ -43,7 +43,7 @@ test('with credentials, a never-asked cell invites the author to ask', async ({ 
   await expect(cell).toBeEnabled()
 })
 
-test.describe('with no credentials for the players\' service', () => {
+test.describe('with no credentials for the bots\' service', () => {
   test.beforeEach(async ({ page }) => {
     await stubNoCredentials(page)
     await page.goto('/')
@@ -52,13 +52,13 @@ test.describe('with no credentials for the players\' service', () => {
     await page.getByLabel('Quiz name').click()
   })
 
-  test('a player\'s cell says so calmly, and is not offered', async ({ page }) => {
+  test('a bot\'s cell says so calmly, and is not offered', async ({ page }) => {
     const cell = page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
     await expect(cell).toHaveText("Dumdum can't play yet — no Claude credentials are set up for this app.")
     await expect(cell).toBeDisabled()
   })
 
-  test('so does the other player, in each of its cells', async ({ page }) => {
+  test('so does the other bot, in each of its cells', async ({ page }) => {
     for (const name of ['Ask Clueing ishes', 'Ask Hint Ishes']) {
       const cell = page.getByRole('button', { name }).first()
       await expect(cell).toHaveText("Numnum can't play yet — no Claude credentials are set up for this app.")

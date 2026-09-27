@@ -1,12 +1,12 @@
 import { Column, type ColumnT } from './column'
-import { Expressing, PlayingWidget, type ExpressingT, type WidgetT } from './widget'
+import { Expressing, BottingWidget, type ExpressingT, type WidgetT } from './widget'
 import type { ExpressionT } from './expression'
 
-/** The players every quiz starts with a widget for, in the order the grid has always shown them */
-const DefaultPlayings = [
-  { kind: 'playing', label: 'dumdum',         player_label: 'dumdum', textkind: 'clueing' },
-  { kind: 'playing', label: 'numnum_clueing', player_label: 'numnum', textkind: 'clueing' },
-  { kind: 'playing', label: 'numnum_hint',    player_label: 'numnum', textkind: 'hint' },
+/** The bots every quiz starts with a widget for, in the order the grid has always shown them */
+const DefaultBottings = [
+  { kind: 'botting', label: 'dumdum',         bot_label: 'dumdum', textkind: 'clueing' },
+  { kind: 'botting', label: 'numnum_clueing', bot_label: 'numnum', textkind: 'clueing' },
+  { kind: 'botting', label: 'numnum_hint',    bot_label: 'numnum', textkind: 'hint' },
 ] as const
 
 /** The eight sum columns, which are also the labels of the expressions and widgets behind them */
@@ -30,9 +30,9 @@ export type Layout = {
 /**
  * The widgets and columns a new quiz starts with.
  *
- * Widgets: a playing for each player-and-text the tool knows, then a widget for each of the
+ * Widgets: a botting for each bot-and-text the tool knows, then a widget for each of the
  * eight sums whose expression `expressions` still holds. Columns: the questions' own fields, the
- * sums between Q# and Alt Text, then the notes and the players' answers -- the grid this tool has
+ * sums between Q# and Alt Text, then the notes and the bots' answers -- the grid this tool has
  * always had.
  *
  * @param expressions - The workspace's expressions.
@@ -44,7 +44,7 @@ export function defaultLayoutFor(expressions: readonly ExpressionT[]): Layout {
   const held = new Set(expressions.map((expression) => expression.label))
   const sums = DefaultSums.filter(([label]) => held.has(label))
   const widgets: WidgetT[] = [
-    ...DefaultPlayings.map((dna) => PlayingWidget.fill(dna)),
+    ...DefaultBottings.map((dna) => BottingWidget.fill(dna)),
     ...sums.map(([label]): ExpressingT => Expressing.fill({ kind: 'expressing', label, expression_label: label })),
   ]
   const columns = [

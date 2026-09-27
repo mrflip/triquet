@@ -28,7 +28,7 @@ describe('permissions', () => {
       expression: db.insert(app.expressions, { workspace_id: workspace.id, owner: 'tq', label: 'shout', formula: '1', description: '', position: 0 }).value,
       widget:     db.insert(app.widgets, { quiz_id: quiz.id, label: 'shout', kind: 'expressing', expression_label: 'shout', description: '', position: 0 }).value,
       column:     db.insert(app.columns, { quiz_id: quiz.id, label: 'shout', title: 'Shout', source: 'shout', width_px: 90, position: 0 }).value,
-      playing:    db.insert(app.playings, { question_id: question.id, player_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text: 'Hamlet', truncated: false }).value,
+      botting:    db.insert(app.bottings, { question_id: question.id, bot_label: 'dumdum', textkind: 'clueing', status: 'done', reply_text: 'Hamlet', truncated: false }).value,
     }
     await db.update(app.quizzes, quiz.id, { title: 'Princes' }).wait({ tier: 'edge' })
     return rows
@@ -36,8 +36,8 @@ describe('permissions', () => {
 
   it('lets an account read back every row it wrote', async () => {
     await seedEverything(alice, 'alice_reads')
-    const quizzes = await alice.all(app.quizzes.where({ label: 'alice_reads' }).include({ questions: { playings: true }, widgets: true, columns: true }))
-    expect(quizzes.map((quiz) => [quiz.questions.length, quiz.questions[0]?.playings.length, quiz.widgets.length, quiz.columns.length])).to.deep.eq([[1, 1, 1, 1]])
+    const quizzes = await alice.all(app.quizzes.where({ label: 'alice_reads' }).include({ questions: { bottings: true }, widgets: true, columns: true }))
+    expect(quizzes.map((quiz) => [quiz.questions.length, quiz.questions[0]?.bottings.length, quiz.widgets.length, quiz.columns.length])).to.deep.eq([[1, 1, 1, 1]])
   })
 
   it('lets an account change and delete its own rows', async () => {
@@ -57,7 +57,7 @@ describe('permissions', () => {
       widgets:     await db.all(app.widgets),
       columns:     await db.all(app.columns),
       questions:   await db.all(app.questions),
-      playings:    await db.all(app.playings),
+      bottings:    await db.all(app.bottings),
     }
   }
 
@@ -65,7 +65,7 @@ describe('permissions', () => {
     await seedEverything(alice, 'alice_hidden')
     const seenByAlice = await everythingSeenBy(alice)
     expect(Object.values(seenByAlice).every((rows) => rows.length > 0)).to.eq(true)
-    expect(await everythingSeenBy(bob)).to.deep.eq({ workspaces: [], expressions: [], quizzes: [], widgets: [], columns: [], questions: [], playings: [] })
+    expect(await everythingSeenBy(bob)).to.deep.eq({ workspaces: [], expressions: [], quizzes: [], widgets: [], columns: [], questions: [], bottings: [] })
   })
 
   it('refuses another account\'s change to a row it cannot see, before it leaves the browser', async () => {

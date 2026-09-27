@@ -4,29 +4,29 @@ import { Validator } from '../lib/validator'
 import { AskValidators, ModelTierVals, askError, type LastErrT } from './ask'
 import type { GuessDoneT, GuessT } from './guess'
 import { IshValidators, IshesPerTextMax, type IshesDoneT, type IshesT, type IshItemT } from './ish'
-import { PlayerLabelVals, type PlayerLabel } from './player-label'
+import { BotLabelVals, type BotLabel } from './bot-label'
 import type { QuestionT } from './question'
 import { TextkindVals, type Textkind } from '../lib/ask/contract'
 
 /** How an ask came out: with a reply, or with a failure */
-export const PlayingStatusVals = ['done', 'error'] as const
-export type PlayingStatus = typeof PlayingStatusVals[number]
+export const BottingStatusVals = ['done', 'error'] as const
+export type BottingStatus = typeof BottingStatusVals[number]
 
-export const PlayingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, rowid }) => {
+export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, rowid }) => {
   const items = arr(IshValidators.ishItem).max(IshesPerTextMax)
-    .describe('A numnum reply: every number-like span it found, in the order they appear in the text asked. Empty for any other playing.')
+    .describe('A numnum reply: every number-like span it found, in the order they appear in the text asked. Empty for any other botting.')
   const { response } = AskValidators.lastErr.shape
 
   const row = obj({
     question_id:        rowid
-      .describe('The question whose text was put to the player.'),
-    player_label:       oneof(PlayerLabelVals)
-      .describe('Which player was asked.'),
+      .describe('The question whose text was put to the bot.'),
+    bot_label:       oneof(BotLabelVals)
+      .describe('Which bot was asked.'),
     textkind:           oneof(TextkindVals)
-      .describe('Which of the question\'s texts was put to the player.'),
+      .describe('Which of the question\'s texts was put to the bot.'),
     asked_text:         textish.nullable()
       .describe('That text, trimmed, exactly as put; null when it is not known.'),
-    status:             oneof(PlayingStatusVals)
+    status:             oneof(BottingStatusVals)
       .describe('Whether the ask came back with a reply or with a failure.'),
     reply_text:         textish.nullable()
       .describe('A dumdum reply, verbatim and untrimmed.'),
@@ -40,61 +40,61 @@ export const PlayingValidators = Validator(({ obj, arr, oneof, bool, textish, no
       .describe('Which tier answered, when one did.'),
     approx_tokens:      AskValidators.approxTokens.nullable(),
   })
-    .describe('One time a player was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `$createdAt`.')
+    .describe('One time a bot was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `$createdAt`.')
 
   return { items, response, row }
 })
 
-/** One time a player was put one of a question's texts, and what came back: its row, with its id and when it was asked */
-export type PlayingT = Z.output<typeof PlayingValidators.row> & { id: string, created_at: number }
+/** One time a bot was put one of a question's texts, and what came back: its row, with its id and when it was asked */
+export type BottingT = Z.output<typeof BottingValidators.row> & { id: string, created_at: number }
 
-/** One of a question's played cells: which player, shown which of its texts, and the field it shows in */
-export type PlaySlot = {
-  player_label: PlayerLabel
+/** One of a question's played cells: which bot, shown which of its texts, and the field it shows in */
+export type BotSlot = {
+  bot_label: BotLabel
   textkind:     Textkind
   field:        'guess' | 'clueing_ishes' | 'hint_ishes'
 }
 
 /** Every played cell a question has, in the order the grid shows them */
-export const PlaySlots = [
-  { player_label: 'dumdum', textkind: 'clueing', field: 'guess' },
-  { player_label: 'numnum', textkind: 'clueing', field: 'clueing_ishes' },
-  { player_label: 'numnum', textkind: 'hint',    field: 'hint_ishes' },
-] as const satisfies readonly PlaySlot[]
+export const BotSlots = [
+  { bot_label: 'dumdum', textkind: 'clueing', field: 'guess' },
+  { bot_label: 'numnum', textkind: 'clueing', field: 'clueing_ishes' },
+  { bot_label: 'numnum', textkind: 'hint',    field: 'hint_ishes' },
+] as const satisfies readonly BotSlot[]
 
 /**
- * Which cell an playing belongs to, as one string.
+ * Which cell a botting belongs to, as one string.
  *
- * @example slotkeyOf({ question_id: 'q1', player_label: 'dumdum', textkind: 'clueing' })  // => 'q1:dumdum:clueing'
+ * @example slotkeyOf({ question_id: 'q1', bot_label: 'dumdum', textkind: 'clueing' })  // => 'q1:dumdum:clueing'
  */
-export function slotkeyOf(playing: Pick<PlayingT, 'question_id' | 'player_label' | 'textkind'>): string {
-  return `${playing.question_id}:${playing.player_label}:${playing.textkind}`
+export function slotkeyOf(botting: Pick<BottingT, 'question_id' | 'bot_label' | 'textkind'>): string {
+  return `${botting.question_id}:${botting.bot_label}:${botting.textkind}`
 }
 
 /** What the grid needs to know about one cell's history: its newest result, and any failure since */
 export type SlotLatest = {
-  /** The newest successful playing, if there ever was one */
-  done:   PlayingT | null
-  /** The newest failed playing, only when it is newer than every success */
-  failed: PlayingT | null
+  /** The newest successful botting, if there ever was one */
+  done:   BottingT | null
+  /** The newest failed botting, only when it is newer than every success */
+  failed: BottingT | null
 }
 
 /**
- * The newest result and the newest failure since it, for each cell, from any pile of playings.
+ * The newest result and the newest failure since it, for each cell, from any pile of bottings.
  *
  * A failure older than the newest success is history and no longer says anything about the cell.
  *
- * @param playings - Playings for any number of questions, in any order.
+ * @param bottings - Bottings for any number of questions, in any order.
  * @returns Each cell's `SlotLatest`, by `slotkeyOf`.
  */
-export function latestBySlot(playings: readonly PlayingT[]): Map<string, SlotLatest> {
-  const done = new Map<string, PlayingT>()
-  const failed = new Map<string, PlayingT>()
-  for (const playing of playings) {
-    const held = playing.status === 'done' ? done : failed
-    const slotkey = slotkeyOf(playing)
+export function latestBySlot(bottings: readonly BottingT[]): Map<string, SlotLatest> {
+  const done = new Map<string, BottingT>()
+  const failed = new Map<string, BottingT>()
+  for (const botting of bottings) {
+    const held = botting.status === 'done' ? done : failed
+    const slotkey = slotkeyOf(botting)
     const newest = held.get(slotkey)
-    if (! newest || playing.created_at > newest.created_at) { held.set(slotkey, playing) }
+    if (! newest || botting.created_at > newest.created_at) { held.set(slotkey, botting) }
   }
   const latest = new Map<string, SlotLatest>()
   const slotkeys = new Set([...done.keys(), ...failed.keys()])
@@ -112,7 +112,7 @@ export function latestBySlot(playings: readonly PlayingT[]): Map<string, SlotLat
  *
  * A number-spotting result is stale when the text it was asked about is no longer the text the
  * question holds. A failure since the newest result rides along as its `last_err`; a cell that
- * has only ever failed shows the failure; a cell with no playing is null.
+ * has only ever failed shows the failure; a cell with no botting is null.
  *
  * @param question - The question's own fields, as stored.
  * @param latest - Each cell's history, as `latestBySlot` gives it.
@@ -122,32 +122,32 @@ export function resultsFor(
   question: Pick<QuestionT, 'id' | 'clueing' | 'hint'>,
   latest: ReadonlyMap<string, SlotLatest>,
 ): Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
-  const historyOf = (slot: PlaySlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
+  const historyOf = (slot: BotSlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
   return {
-    guess:         guessFrom(historyOf(PlaySlots[0])),
-    clueing_ishes: ishesFrom(historyOf(PlaySlots[1]), question.clueing),
-    hint_ishes:    ishesFrom(historyOf(PlaySlots[2]), question.hint),
+    guess:         guessFrom(historyOf(BotSlots[0])),
+    clueing_ishes: ishesFrom(historyOf(BotSlots[1]), question.clueing),
+    hint_ishes:    ishesFrom(historyOf(BotSlots[2]), question.hint),
   }
 }
 
 /**
- * The playings a question is holding that are newer than anything already recorded.
+ * The bottings a question is holding that are newer than anything already recorded.
  *
  * A cell whose result, or whose failure, is no newer than what was recorded yields nothing, so
  * offering the same question twice records nothing the second time; an empty cell yields
- * nothing either. A result and a failure riding on it are recorded as two playings.
+ * nothing either. A result and a failure riding on it are recorded as two bottings.
  *
  * @param question - The question as the author now has it.
- * @param recordedAt - When each cell's newest recorded playing was made, by `slotkeyOf`; a cell absent has none.
- * @param mint - Supplies each new playing's id.
- * @returns The new playings, one per result and one per failure.
+ * @param recordedAt - When each cell's newest recorded botting was made, by `slotkeyOf`; a cell absent has none.
+ * @param mint - Supplies each new botting's id.
+ * @returns The new bottings, one per result and one per failure.
  */
-export function unrecordedPlayings(
+export function unrecordedBottings(
   question: QuestionT,
   recordedAt: ReadonlyMap<string, number>,
   mint: () => string = mintId,
-): PlayingT[] {
-  return PlaySlots.flatMap((slot) => {
+): BottingT[] {
+  return BotSlots.flatMap((slot) => {
     const result = question[slot.field]
     if (result === null) { return [] }
     const recorded = recordedAt.get(slotkeyOf({ question_id: question.id, ...slot })) ?? 0
@@ -160,11 +160,11 @@ export function unrecordedPlayings(
 }
 
 /** A row with nothing filled in yet, for `slot` of `question` */
-function blankPlaying(question: QuestionT, slot: PlaySlot, id: string, created_at: number): PlayingT {
+function blankBotting(question: QuestionT, slot: BotSlot, id: string, created_at: number): BottingT {
   return {
     id,
     question_id:        question.id,
-    player_label:       slot.player_label,
+    bot_label:       slot.bot_label,
     textkind:           slot.textkind,
     asked_text:         question[slot.textkind].trim(),
     status:             'done',
@@ -179,22 +179,22 @@ function blankPlaying(question: QuestionT, slot: PlaySlot, id: string, created_a
   }
 }
 
-/** A successful result found in one of `question`'s cells, as a playing */
-function doneFrom(question: QuestionT, slot: PlaySlot, result: GuessDoneT | IshesDoneT, id: string): PlayingT {
-  const playing: PlayingT = {
-    ...blankPlaying(question, slot, id, result.updated_at),
+/** A successful result found in one of `question`'s cells, as a botting */
+function doneFrom(question: QuestionT, slot: BotSlot, result: GuessDoneT | IshesDoneT, id: string): BottingT {
+  const botting: BottingT = {
+    ...blankBotting(question, slot, id, result.updated_at),
     truncated:          result.truncated,
     model_tier_applied: result.model_tier_applied ?? null,
     approx_tokens:      result.approx_tokens ?? null,
   }
-  if ('text' in result) { return { ...playing, reply_text: result.text } }
+  if ('text' in result) { return { ...botting, reply_text: result.text } }
   // A result already marked stale was asked about some earlier text, which is no longer known.
-  return { ...playing, items: result.items, asked_text: result.stale ? null : playing.asked_text }
+  return { ...botting, items: result.items, asked_text: result.stale ? null : botting.asked_text }
 }
 
-/** A failed ask, as a playing */
-function failedFrom(question: QuestionT, slot: PlaySlot, err: LastErrT, id: string): PlayingT {
-  return { ...blankPlaying(question, slot, id, err.at), status: 'error', message: err.message, response: err.response }
+/** A failed ask, as a botting */
+function failedFrom(question: QuestionT, slot: BotSlot, err: LastErrT, id: string): BottingT {
+  return { ...blankBotting(question, slot, id, err.at), status: 'error', message: err.message, response: err.response }
 }
 
 /** The guess a cell's history comes to */
@@ -230,9 +230,9 @@ function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesT
   }
 }
 
-/** A failed playing, as the `last_err` its cell keeps */
-function lastErrOf(playing: PlayingT): LastErrT {
-  return { message: playing.message ?? '', response: playing.response ?? null, at: playing.created_at }
+/** A failed botting, as the `last_err` its cell keeps */
+function lastErrOf(botting: BottingT): LastErrT {
+  return { message: botting.message ?? '', response: botting.response ?? null, at: botting.created_at }
 }
 
 /** What of a guess is shown to the outside world: whether there is an answer, and the answer */

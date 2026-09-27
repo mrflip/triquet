@@ -50,7 +50,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     questions:       arr(QuestionValidators.question).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
     widgets:         arr(WidgetValidators.widget).default([])
-      .describe('What this quiz can show for every question besides the questions\' own fields: the players put to it, and the expressions put to work. Their order is the order they are listed in.'),
+      .describe('What this quiz can show for every question besides the questions\' own fields: the bots put to it, and the expressions put to work. Their order is the order they are listed in.'),
     columns:         arr(ColumnValidators.column).default([])
       .describe('The columns of this quiz\'s grid, in the order they appear. Kept apart from the widgets: a column says what to show and how wide, and a widget is what has a value.'),
     locked:          bool.default(false)

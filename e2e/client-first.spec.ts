@@ -2,14 +2,14 @@ import { expect, test } from '@playwright/test'
 import { reloadOnceSaved } from './support'
 
 // The client-first rule (notes/decisions/2026-09-client-first.md) as a test: with nothing reachable
-// but the page itself -- no sync server, no players route -- the app still opens, edits and keeps
-// what it is given. Only asking a player needs the network.
+// but the page itself -- no sync server, no bots route -- the app still opens, edits and keeps
+// what it is given. Only asking a bot needs the network.
 
 test('with the sync server and every route but asking blocked, the app opens, edits and keeps its changes', async ({ page, baseURL }) => {
   const appHost = new URL(String(baseURL)).host
   await page.route((url) => url.host !== appHost, (route) => route.abort())
   await page.routeWebSocket((url) => url.host !== appHost, (socket) => { void socket.close() })
-  await page.route('**/api/players', (route) => route.abort())
+  await page.route('**/api/bots', (route) => route.abort())
 
   await page.goto('/')
   await page.waitForSelector('table')

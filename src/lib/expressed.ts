@@ -5,7 +5,7 @@ import * as Rank from './rank'
 import * as UU from './useful'
 import { expressingsOf, type ExpressingT } from '../models/widget'
 import type { ExpressionT } from '../models/expression'
-import { exposeGuess, exposeIshes } from '../models/playing'
+import { exposeGuess, exposeIshes } from '../models/botting'
 import { Question, type QuestionT } from '../models/question'
 import { Quiz, type QuizT } from '../models/quiz'
 
@@ -138,7 +138,7 @@ export function bagsFor(quiz: QuizT): ReadonlyMap<string, QuizBag> {
 
 /**
  * `question` as a formula sees it: only its exposed fields, its label the one in force and its
- * chain named by label, its rank added, and what the players answered as their exposed fields.
+ * chain named by label, its rank added, and what the bots answered as their exposed fields.
  */
 function stripped(question: QuestionT, rank: number | null, labelForId: ReadonlyMap<string, string>): Record<string, unknown> {
   const chained = question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null

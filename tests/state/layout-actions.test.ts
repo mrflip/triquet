@@ -100,7 +100,7 @@ describe('edit_widget', () => {
 
   it('validates the patch for the kind of widget it is', async () => {
     const { act } = await withWidget()
-    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { player_label: 'smartypants' as never } })).rejects.toThrow(Z.ZodError)
+    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { bot_label: 'smartypants' as never } })).rejects.toThrow(Z.ZodError)
     await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { textkind: 'hint' } })).rejects.toThrow(Z.ZodError)
   })
 
@@ -136,7 +136,7 @@ describe('delete_widget', () => {
     expect(quizOf(await read()).last_sortkey).to.eq('column:clueing_full')
   })
 
-  it('keeps the answers a player gave, which are the question\'s history and not the widget\'s', async () => {
+  it('keeps the answers a bot gave, which are the question\'s history and not the widget\'s', async () => {
     const guess = { status: 'done' as const, text: 'Lyon', truncated: false, updated_at: Date.now(), last_err: null }
     const blank = Workspace.blank()
     const quiz = { ...present(blank.quizzes[0]), questions: [{ ...Question.blank(), clueing: 'Where?', guess }] }

@@ -95,7 +95,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRe
 
           <section>
             <Typography variant="h6" component="h3">Widgets</Typography>
-            <p className={styles.microcopy}>What this quiz can show for every question besides the questions&apos; own fields: players put to it, and expressions put to work. A column shows a widget.</p>
+            <p className={styles.microcopy}>What this quiz can show for every question besides the questions&apos; own fields: bots put to it, and expressions put to work. A column shows a widget.</p>
             <WidgetsEditor workspace={workspace} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
           </section>
 

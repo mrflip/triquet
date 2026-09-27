@@ -93,7 +93,7 @@ describe('sortValueFor', () => {
     expect(answers(sorted)).to.deep.eq(['a', 'b'])
   })
 
-  it('reads a player\'s extraction column as how many spans it found', () => {
+  it('reads a bot\'s extraction column as how many spans it found', () => {
     const [aa, bb] = questionsOf(['1', 'a'], ['2', 'b'])
     const questions = [{ ...present(aa), clueing_ishes: found(3) }, { ...present(bb), clueing_ishes: found(1) }]
     const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:clueing_ishes', quizOf(questions), NoneExpressed), false)

@@ -17,7 +17,7 @@ import { useChecklist } from './use-checklist'
 import * as QuizMirror from '../state/quiz-mirror'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
-import { usePlayers } from '../state/use-players'
+import { useBots } from '../state/use-bots'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
@@ -41,7 +41,7 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
   const router = useRouter()
   const { workspace, quiz, loaded, dispatch, unsaved, saveNotice } = useWorkspace(label)
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
-  const { unavailableNotice } = usePlayers()
+  const { unavailableNotice } = useBots()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.

@@ -6,7 +6,7 @@ import { Quiz } from './quiz'
 
 export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, uint, textish, label, titleish, union }) => {
   const played = oneof(['done', 'error'])
-    .describe('Whether the player answered: `done`, or `error` when asking failed and there was never an answer.')
+    .describe('Whether the bot answered: `done`, or `error` when asking failed and there was never an answer.')
 
   const guess = obj({ status: played, text: textish.optional() })
     .nullable()
@@ -14,7 +14,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
 
   const ishes = obj({ status: played, items: arr(IshValidators.ishItem).optional(), stale: bool.optional() })
     .nullable()
-    .describe('Every number-like span a player found in one text, and whether that text has been edited since (`stale`); null when never asked. Nothing about cost, model, time or failure is shown.')
+    .describe('Every number-like span a bot found in one text, and whether that text has been edited since (`stale`); null when never asked. Nothing about cost, model, time or failure is shown.')
 
   const exposedQuestion = QuestionValidators.question.pick(Object.fromEntries(Question.exposed.map((field) => [field, true])) as Record<typeof Question.exposed[number], true>)
   const bagQuestion = exposedQuestion

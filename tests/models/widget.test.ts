@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Expression } from '../../src/models/expression'
-import { Expressing, PlayingWidget, WidgetValidators, expressingsOf, playingsOf } from '../../src/models/widget'
+import { Expressing, BottingWidget, WidgetValidators, expressingsOf, bottingsOf } from '../../src/models/widget'
 
 describe('Expressing.fill', () => {
   it('defaults the description to nothing, and trims the one it is given', () => {
@@ -41,35 +41,35 @@ describe('Expressing.forExpression', () => {
   })
 })
 
-describe('PlayingWidget', () => {
+describe('BottingWidget', () => {
   const Allowed: [string, string, string][] = [
     ['dumdum', 'clueing', 'guess'],
     ['numnum', 'clueing', 'clueing_ishes'],
     ['numnum', 'hint',    'hint_ishes'],
   ]
-  for (const [player_label, textkind, field] of Allowed) {
-    it(`connects ${player_label} to a ${textkind}, held in ${field}`, () => {
-      const widget = PlayingWidget.fill({ kind: 'playing', label: 'thing', player_label, textkind } as never)
-      expect(PlayingWidget.slotOf(widget).field).to.eq(field)
+  for (const [bot_label, textkind, field] of Allowed) {
+    it(`connects ${bot_label} to a ${textkind}, held in ${field}`, () => {
+      const widget = BottingWidget.fill({ kind: 'botting', label: 'thing', bot_label, textkind } as never)
+      expect(BottingWidget.slotOf(widget).field).to.eq(field)
     })
   }
 
-  it('refuses a player that is not put that text in this tool', () => {
-    expect(() => PlayingWidget.fill({ kind: 'playing', label: 'thing', player_label: 'dumdum', textkind: 'hint' })).to.throw(Z.ZodError)
+  it('refuses a bot that is not put that text in this tool', () => {
+    expect(() => BottingWidget.fill({ kind: 'botting', label: 'thing', bot_label: 'dumdum', textkind: 'hint' })).to.throw(Z.ZodError)
   })
 
-  it('refuses a player there is not', () => {
-    expect(() => PlayingWidget.fill({ kind: 'playing', label: 'thing', player_label: 'smartypants' as never, textkind: 'clueing' })).to.throw(Z.ZodError)
+  it('refuses a bot there is not', () => {
+    expect(() => BottingWidget.fill({ kind: 'botting', label: 'thing', bot_label: 'smartypants' as never, textkind: 'clueing' })).to.throw(Z.ZodError)
   })
 
   it('exposes the answer and whether it is stale, and never the cost, the model, the time or the failure', () => {
-    expect(PlayingWidget.exposed({ player_label: 'dumdum', textkind: 'clueing' })).to.deep.eq(['status', 'text'])
-    expect(PlayingWidget.exposed({ player_label: 'numnum', textkind: 'hint' })).to.deep.eq(['items', 'stale', 'status'])
+    expect(BottingWidget.exposed({ bot_label: 'dumdum', textkind: 'clueing' })).to.deep.eq(['status', 'text'])
+    expect(BottingWidget.exposed({ bot_label: 'numnum', textkind: 'hint' })).to.deep.eq(['items', 'stale', 'status'])
   })
 
   it('exposes its fields alphabetically, so a table of them is in a fixed order', () => {
-    for (const [player_label, textkind] of Allowed) {
-      const fields = PlayingWidget.exposed({ player_label, textkind } as never)
+    for (const [bot_label, textkind] of Allowed) {
+      const fields = BottingWidget.exposed({ bot_label, textkind } as never)
       expect(fields).to.deep.eq(fields.toSorted((aa, bb) => aa.localeCompare(bb)))
     }
   })
@@ -77,34 +77,34 @@ describe('PlayingWidget', () => {
 
 describe('the two kinds of widget in one list', () => {
   const widgets = [
-    WidgetValidators.widget({ kind: 'playing', label: 'dumdum', player_label: 'dumdum', textkind: 'clueing' }),
+    WidgetValidators.widget({ kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' }),
     WidgetValidators.widget({ kind: 'expressing', label: 'letters', expression_label: 'answer_letter_count' }),
   ]
 
   it('are told apart by kind', () => {
     expect(expressingsOf(widgets).map((widget) => widget.label)).to.deep.eq(['letters'])
-    expect(playingsOf(widgets).map((widget) => widget.label)).to.deep.eq(['dumdum'])
+    expect(bottingsOf(widgets).map((widget) => widget.label)).to.deep.eq(['dumdum'])
   })
 })
 
 describe('WidgetValidators.row', () => {
   const Base = { quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'thing', description: '', position: 0 }
-  const Expressing = { ...Base, kind: 'expressing', expression_label: 'shout', player_label: null, textkind: null } satisfies Z.input<typeof WidgetValidators.row>
-  const Playing = { ...Base, kind: 'playing', expression_label: null, player_label: 'numnum', textkind: 'hint' } satisfies Z.input<typeof WidgetValidators.row>
+  const Expressing = { ...Base, kind: 'expressing', expression_label: 'shout', bot_label: null, textkind: null } satisfies Z.input<typeof WidgetValidators.row>
+  const Botting = { ...Base, kind: 'botting', expression_label: null, bot_label: 'numnum', textkind: 'hint' } satisfies Z.input<typeof WidgetValidators.row>
 
   it('takes either kind as the database holds it, the other kind\'s fields null', () => {
     expect(WidgetValidators.row(Expressing)).to.deep.eq(Expressing)
-    expect(WidgetValidators.row(Playing)).to.deep.eq(Playing)
+    expect(WidgetValidators.row(Botting)).to.deep.eq(Botting)
   })
 
   const Refused: [object, string][] = [
     [{ ...Expressing, expression_label: null },          'an expressing that names no expression'],
-    [{ ...Expressing, player_label: 'dumdum' },          'an expressing that also names a player'],
-    [{ ...Playing, textkind: null },                     'a playing that names no text'],
-    [{ ...Playing, expression_label: 'shout' },          'a playing that also names an expression'],
-    [{ ...Playing, player_label: 'dumdum' },             'a player that is not put that text in this tool'],
-    [{ ...Playing, player_label: 'smartypants' },        'a player there is not'],
-    [{ ...Playing, position: -1 },                       'a place before the first'],
+    [{ ...Expressing, bot_label: 'dumdum' },          'an expressing that also names a bot'],
+    [{ ...Botting, textkind: null },                     'a botting that names no text'],
+    [{ ...Botting, expression_label: 'shout' },          'a botting that also names an expression'],
+    [{ ...Botting, bot_label: 'dumdum' },             'a bot that is not put that text in this tool'],
+    [{ ...Botting, bot_label: 'smartypants' },        'a bot there is not'],
+    [{ ...Botting, position: -1 },                       'a place before the first'],
   ]
   for (const [row, describes] of Refused) {
     it(`refuses ${describes}`, () => {

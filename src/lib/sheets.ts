@@ -30,7 +30,7 @@ export function cellTextOf(source: Resolved, { question, target, expressed }: Re
   case 'view': {
     return source.view === 'butnot' ? target?.hint ?? '' : spansOf(target?.hint_ishes ?? null)
   }
-  case 'playing': {
+  case 'botting': {
     return source.slot.field === 'guess' ? guessTextOf(question.guess) : spansOf(question[source.slot.field])
   }
   case 'expressing': {

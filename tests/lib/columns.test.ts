@@ -3,13 +3,13 @@ import { GutterWidthPx, gridWidthPx, qnumSortkeyOf, resolve, specFor, specsFor }
 import { Column } from '../../src/models/column'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { SeedExpressions } from '../../src/models/expression'
-import { Expressing, PlayingWidget } from '../../src/models/widget'
+import { Expressing, BottingWidget } from '../../src/models/widget'
 import { present } from '../support/present'
 
 const layout = defaultLayoutFor(SeedExpressions)
 const widgets = [
-  PlayingWidget.fill({ kind: 'playing', label: 'dumdum', player_label: 'dumdum', textkind: 'clueing' }),
-  PlayingWidget.fill({ kind: 'playing', label: 'numnum_hint', player_label: 'numnum', textkind: 'hint' }),
+  BottingWidget.fill({ kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' }),
+  BottingWidget.fill({ kind: 'botting', label: 'numnum_hint', bot_label: 'numnum', textkind: 'hint' }),
   Expressing.fill({ kind: 'expressing', label: 'total', expression_label: 'clueing_full' }),
 ]
 const columnOf = (source: string, width_px = 100, label = 'col') => Column.fill({ label, title: 'Col', source, width_px })
@@ -19,9 +19,9 @@ describe('resolve', () => {
     expect(resolve('question.clueing', widgets)).to.deep.eq({ kind: 'field', field: 'clueing' })
     expect(resolve('question.butnot', widgets)).to.deep.eq({ kind: 'view', view: 'butnot' })
     expect(resolve('total', widgets)).to.deep.eq({ kind: 'expressing', widget: widgets[2] })
-    expect(resolve('numnum_hint', widgets)).to.deep.include({ kind: 'playing' })
+    expect(resolve('numnum_hint', widgets)).to.deep.include({ kind: 'botting' })
     const hint = present(resolve('numnum_hint', widgets))
-    expect(hint.kind === 'playing' ? hint.slot.field : null).to.eq('hint_ishes')
+    expect(hint.kind === 'botting' ? hint.slot.field : null).to.eq('hint_ishes')
   })
 
   it('finds nothing for a widget the quiz does not have', () => {

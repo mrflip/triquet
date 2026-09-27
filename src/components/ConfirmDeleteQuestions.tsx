@@ -42,7 +42,7 @@ export function ConfirmDeleteQuestions({ doomed, onConfirm, onClose }: Readonly<
           {unnamed > 0 && <ListItem disableGutters><ListItemText secondary={`and ${String(unnamed)} more`} /></ListItem>}
         </List>
         <DialogContentText id="delete-questions-consequence">
-          {single ? 'Its players’ replies go with it, and a chain to it is cleared.' : 'Their players’ replies go with them, and a chain to any of them is cleared.'}
+          {single ? 'Its bots’ replies go with it, and a chain to it is cleared.' : 'Their bots’ replies go with them, and a chain to any of them is cleared.'}
           {' '}There is no undo.
         </DialogContentText>
       </DialogContent>

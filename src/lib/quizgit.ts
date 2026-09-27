@@ -95,7 +95,7 @@ export const ExpressionsPath = 'tq/widgets/my.tqexpressions.json'
 /**
  * `quiz`'s table as tab-separated text, a header line first and one line per question after.
  *
- * It has a column for every exposed field of every widget -- the questions' own, the players',
+ * It has a column for every exposed field of every widget -- the questions' own, the bots',
  * and each expression's value -- alphabetically by widget label and then by field label, and its
  * rows are in order of question label. Neither depends on how the author has arranged the grid
  * or the quiz, so a commit's diff of it shows what changed and nothing else. Quoting is Papa

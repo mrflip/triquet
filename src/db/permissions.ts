@@ -10,7 +10,7 @@ import { app } from './schema'
  */
 export default JZS.definePermissions(app, ({ policy, session }) => {
   const ownAccount = { '$createdBy.account': session.user.account }
-  const { workspaces, expressions, quizzes, widgets, columns, questions, playings } = policy
+  const { workspaces, expressions, quizzes, widgets, columns, questions, bottings } = policy
 
   workspaces.allowRead.where(ownAccount)
   workspaces.allowInsert.where(ownAccount)
@@ -42,8 +42,8 @@ export default JZS.definePermissions(app, ({ policy, session }) => {
   questions.allowUpdate.where(ownAccount)
   questions.allowDelete.where(ownAccount)
 
-  playings.allowRead.where(ownAccount)
-  playings.allowInsert.where(ownAccount)
-  playings.allowUpdate.where(ownAccount)
-  playings.allowDelete.where(ownAccount)
+  bottings.allowRead.where(ownAccount)
+  bottings.allowInsert.where(ownAccount)
+  bottings.allowUpdate.where(ownAccount)
+  bottings.allowDelete.where(ownAccount)
 })
