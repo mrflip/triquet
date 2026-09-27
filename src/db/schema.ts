@@ -6,6 +6,7 @@ import { ExpressionOwnerVals } from '../models/expression'
 import { BotLabelVals } from '../models/bot-label'
 import { BottingValidators, BottingStatusVals } from '../models/botting'
 import type { BulkIshesRunT, Sortkey } from '../models/quiz'
+import { ReviewPhaseVals } from '../models/review'
 import { WidgetkindVals } from '../models/widget'
 import { jsonText } from './json-text'
 
@@ -104,6 +105,17 @@ const columns = JZS.table({
   quiz: JZS.rel('quizzes', 'quiz_id'),
 })
 
+/** One ident's review of one quiz: an overall note and how far along it is. Hidden from the smiths until shared. */
+const reviews = JZS.table({
+  quiz_id:  JZS.uuid(),
+  ident_id: JZS.uuid(),
+  overall:  JZS.string(),
+  phase:    JZS.enum(...ReviewPhaseVals),
+}, {
+  quiz:  JZS.rel('quizzes', 'quiz_id'),
+  ident: JZS.rel('idents', 'ident_id'),
+})
+
 /** One question: only what the author writes. What bots replied lives in `bottings`. */
 const questions = JZS.table({
   quiz_id:      JZS.uuid(),
@@ -147,7 +159,7 @@ const bottings = JZS.table({
 })
 
 /** The app's tables, in Jazz's own DSL. Each has a row validator in `models/` that says what the column cannot. */
-export const schema = JZS.defineSchema({ idents, identings, hunts, realms, expressions, quizzes, widgets, columns, questions, bottings })
+export const schema = JZS.defineSchema({ idents, identings, hunts, realms, expressions, quizzes, widgets, columns, questions, bottings, reviews })
 
 /** The typed handle every query and write starts from */
 export const app = JZS.defineApp(schema)
@@ -163,3 +175,4 @@ export type WidgetRow     = JZS.RowOf<typeof app.widgets>
 export type ColumnRow     = JZS.RowOf<typeof app.columns>
 export type QuestionRow   = JZS.RowOf<typeof app.questions>
 export type BottingRow    = JZS.RowOf<typeof app.bottings>
+export type ReviewRow     = JZS.RowOf<typeof app.reviews>

@@ -8,11 +8,13 @@ import type { QuizLabels } from '../lib/routes'
 import { Hunt, type HuntT } from '../models/hunt'
 import { Realm, type RealmT } from '../models/realm'
 import type { QuizT } from '../models/quiz'
+import type { ReviewRow } from '../db/schema'
 import { askServer } from './lookup'
 import { mirrorHunt, openHistories, trackWrite } from './quiz-mirror'
 import { perform, type OpenQuiz } from './perform'
-import { DirectoryQueries, huntFrom, huntRowFor, loadHeldRows, loadHunt, type HeldRows } from './quiz-rows'
+import { DirectoryQueries, huntFrom, huntRowFor, loadHeldRows, loadHunt, quizRowsOf, type HeldRows } from './quiz-rows'
 import { useHeldRows } from './use-held-rows'
+import { useIdent } from './use-ident'
 import type { HuntAction } from './actions'
 
 /** Where finding the quiz an address names stands: still looking, looked and it is not there, or found */
@@ -27,6 +29,8 @@ export type HuntHandle = {
   realm:      RealmT | null
   /** The quiz the labels name; null when the realm has no such quiz, or has not arrived */
   quiz:       QuizT | null
+  /** The quiz's reviews, every ident's; empty until the quiz is found */
+  reviews:    readonly ReviewRow[]
   /** Whether a change dispatched here is still being written */
   unsaved:    boolean
   /** Why the last change could not be kept; null while all is well */
@@ -91,6 +95,7 @@ function findIn(rows: HeldRows | null, labels: QuizLabels, heard: Heard | null):
 export function useHunt(labels: QuizLabels): HuntHandle {
   const db: Db = useDb()
   const rows = useHeldRows(labels.hunt)
+  const { ident } = useIdent()
   const [heard, setHeard] = useState<Heard | null>(null)
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const [writing, setWriting] = useState(0)
@@ -100,6 +105,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const { hunt: huntLabel, realm: realmLabel, quiz: quizLabel } = labels
   const held = useMemo(() => findIn(rows, { hunt: huntLabel, realm: realmLabel, quiz: quizLabel }, heard), [rows, huntLabel, realmLabel, quizLabel, heard])
   const { hunt, realm, quiz } = held
+  const reviews = rows && quiz ? quizRowsOf(rows, quiz.id)?.reviews ?? [] : []
 
   // A hunt label this browser holds nothing for is asked of the server, once per label.
   const unheard = rows !== null && ! huntRowFor(rows, huntLabel) && heard?.label !== huntLabel
@@ -124,15 +130,15 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
   const open: OpenQuiz | null = hunt && realm && quiz ? { hunt_id: hunt.id, realm_id: realm.id, quiz_id: quiz.id } : null
-  const latest = useRef({ rows, hunt, open })
-  useEffect(() => { latest.current = { rows, hunt, open } })
+  const latest = useRef({ rows, hunt, open, ident })
+  useEffect(() => { latest.current = { rows, hunt, open, ident } })
 
   // The change still being written, for the next one to wait its turn behind.
   const ahead = useRef<Promise<void> | null>(null)
 
   const dispatch = useCallback((action: HuntAction) => {
-    const { rows: shown, hunt: before, open: there } = latest.current
-    if (shown === null || before === null || there === null) { return }
+    const { rows: shown, hunt: before, open: there, ident: actor } = latest.current
+    if (shown === null || before === null || there === null || actor === null) { return }
     const waitFor = ahead.current
     const carryOut = async () => {
       setWriting((was) => was + 1)
@@ -143,7 +149,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
         // own works from the rows on screen, and so writes before the author can act again.
         if (waitFor) { await waitFor }
         const current = waitFor ? await loadHeldRows(db, there.hunt_id) : shown
-        await perform(db, current, there, action)
+        await perform(db, current, there, actor.id, action)
         setSaveNotice(null)
         const after = await loadHunt(db, there.hunt_id)
         if (after) { mirrorHunt(before, after) }
@@ -165,5 +171,5 @@ export function useHunt(labels: QuizLabels): HuntHandle {
     trackWrite(work)
   }, [db])
 
-  return { ...held, unsaved: writing > 0, saveNotice, dispatch }
+  return { ...held, reviews, unsaved: writing > 0, saveNotice, dispatch }
 }

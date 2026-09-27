@@ -176,6 +176,28 @@ describe('schema', () => {
       expect(newest.map((botting) => botting.reply_text)).to.deep.eq(['second'])
     })
   })
+
+  describe('reviews', () => {
+    it('round-trips its fields, defaulted empty for a fresh review', async () => {
+      const { quiz } = seedQuiz('rv_quiz')
+      const ident = db.insert(app.idents, { label: 'reviewer_one', title: 'Reviewer' }).value
+      const review = db.insert(app.reviews, { quiz_id: quiz.id, ident_id: ident.id, overall: '', phase: 'empty' }).value
+      const [held] = await db.all(app.reviews.where({ id: review.id }))
+      expect(held && sansId(held)).to.deep.eq({ quiz_id: quiz.id, ident_id: ident.id, overall: '', phase: 'empty' })
+    })
+
+    it('moves through its phases, and holds the overall note it was given', async () => {
+      const { quiz } = seedQuiz('rv_phase')
+      const ident = db.insert(app.idents, { label: 'reviewer_two', title: 'Reviewer' }).value
+      const review = db.insert(app.reviews, { quiz_id: quiz.id, ident_id: ident.id, overall: '', phase: 'empty' }).value
+      db.update(app.reviews, review.id, { overall: 'Went well.', phase: 'draft' })
+      const [drafted] = await db.all(app.reviews.where({ id: review.id }))
+      expect([drafted?.overall, drafted?.phase]).to.deep.eq(['Went well.', 'draft'])
+      db.update(app.reviews, review.id, { phase: 'shared' })
+      const [shared] = await db.all(app.reviews.where({ id: review.id }))
+      expect(shared?.phase).to.eq('shared')
+    })
+  })
 })
 
 // The schema works around these. When a Jazz bump makes one of them pass, the workaround it

@@ -63,7 +63,6 @@ describe('importInto', () => {
       expect(findByLabel(present(outcome.quiz), 'leon').clueing).to.eq('Right one')
       expect(outcome.summary).to.include('matched this quiz by label')
     })
-
     it('takes a whole workspace exported before hunts, matching the open quiz by name', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const outcome = Importing.importInto(quiz, JSON.stringify({

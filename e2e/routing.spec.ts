@@ -1,5 +1,5 @@
-import type { Browser, BrowserContext, Page } from '@playwright/test'
-import { assumeIdent, closeManage, expect, freshIdentLabel, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, startHunt, test, waitUntilSaved } from './support'
+import type { Page } from '@playwright/test'
+import { assumeIdent, closeManage, expect, freshIdentLabel, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -12,20 +12,6 @@ function huntLabelOf(page: Page): string {
 /** A title no other spec gives a quiz: specs share one Jazz server, and the hunts list shows every hunt on it */
 function freshTitle(stem: string): string {
   return `${stem} ${crypto.randomUUID().slice(0, 8)}`
-}
-
-/** The browser contexts a spec opened for a second visitor, closed once it is done */
-const Others: BrowserContext[] = []
-
-test.afterEach(async () => {
-  await Promise.all(Others.splice(0).map(async (context) => { await context.close() }))
-})
-
-/** A page in a browser of its own: another visitor, with an account of their own */
-async function otherVisitor(browser: Browser): Promise<Page> {
-  const context = await browser.newContext()
-  Others.push(context)
-  return await context.newPage()
 }
 
 test.describe('the front door', () => {

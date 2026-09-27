@@ -7,6 +7,7 @@ import { SeedExpressions } from '../../src/models/expression'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
+import { mintId } from '../../src/lib/ids'
 import { Question } from '../../src/models/question'
 import { present } from '../support/present'
 import { huntHolding, openOf, openTestApp, seedHunt, type Seen } from '../support/jazz'
@@ -38,6 +39,9 @@ const qnumsOf   = (seen: Seen) => openOf(seen).questions.map((question) => quest
 const firstOf   = (seen: Seen) => present(openOf(seen).questions[0])
 const quizNamed = (seen: Seen, title: string) => present(seen.quizzes.find((quiz) => quiz.title === title), title)
 const newestOf  = (seen: Seen) => present(seen.quizzes.at(-1), 'the newest quiz')
+
+/** For sorting ids into a stable order to compare */
+const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
 
 /** What a cell shows of a failure: when it happened is the row's own time */
 function failureOf(cell: { last_err: unknown } | null) {
@@ -634,6 +638,93 @@ describe('perform', () => {
       await act({ kind: 'set_lock', quiz_id: openOf(ante).id, locked: true })
       await act({ kind: 'set_lock', quiz_id: openOf(ante).id, locked: false })
       expect(openOf(await read()).questions).to.deep.eq(openOf(ante).questions)
+    })
+  })
+
+  describe('open_review', () => {
+    it('opens an empty review for the acting ident', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      const reviews = await db.all(app.reviews.where({ ident_id }), LocalFirst)
+      expect(reviews.map((review) => [review.overall, review.phase])).to.deep.eq([['', 'empty']])
+    })
+
+    it('is idempotent: opening it again writes nothing new', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.have.length(1)
+    })
+
+    it('gives each ident its own review of the same quiz', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const quiz_id = openOf(await read()).id
+      const [aliceId, bobId] = [mintId(), mintId()]
+      await act({ kind: 'open_review', quiz_id }, aliceId)
+      await act({ kind: 'open_review', quiz_id }, bobId)
+      const reviews = await db.all(app.reviews.where({ quiz_id }), LocalFirst)
+      expect(reviews.map((review) => review.ident_id).toSorted(alphabetically)).to.deep.eq([aliceId, bobId].toSorted(alphabetically))
+    })
+
+    it('works on a locked quiz, since reviewing one is the point', async () => {
+      const { act, read, db } = await seed(openHunt(true))
+      const ident_id = mintId()
+      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.have.length(1)
+    })
+  })
+
+  describe('set_overall', () => {
+    it('writes the note and moves an empty review to draft', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      const quiz_id = openOf(await read()).id
+      await act({ kind: 'open_review', quiz_id }, ident_id)
+      await act({ kind: 'set_overall', quiz_id, overall: 'Went well.' }, ident_id)
+      const [review] = await db.all(app.reviews.where({ ident_id }), LocalFirst)
+      expect([review?.overall, review?.phase]).to.deep.eq(['Went well.', 'draft'])
+    })
+
+    it('leaves a shared review shared', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      const quiz_id = openOf(await read()).id
+      await act({ kind: 'open_review', quiz_id }, ident_id)
+      await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, ident_id)
+      await act({ kind: 'set_overall', quiz_id, overall: 'One more thought.' }, ident_id)
+      const [review] = await db.all(app.reviews.where({ ident_id }), LocalFirst)
+      expect([review?.overall, review?.phase]).to.deep.eq(['One more thought.', 'shared'])
+    })
+
+    it('writes nothing when the review has not been opened', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      await act({ kind: 'set_overall', quiz_id: openOf(await read()).id, overall: 'Too soon.' }, ident_id)
+      expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.deep.eq([])
+    })
+  })
+
+  describe('set_review_phase', () => {
+    it('moves a review between draft and shared, both ways', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      const quiz_id = openOf(await read()).id
+      await act({ kind: 'open_review', quiz_id }, ident_id)
+      await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, ident_id)
+      const [shared] = await db.all(app.reviews.where({ ident_id }), LocalFirst)
+      expect(shared?.phase).to.eq('shared')
+      await act({ kind: 'set_review_phase', quiz_id, phase: 'draft' }, ident_id)
+      const [withdrawn] = await db.all(app.reviews.where({ ident_id }), LocalFirst)
+      expect(withdrawn?.phase).to.eq('draft')
+    })
+
+    it('writes nothing when the review has not been opened', async () => {
+      const { act, read, db } = await seed(huntOf(['1', 'a']))
+      const ident_id = mintId()
+      await act({ kind: 'set_review_phase', quiz_id: openOf(await read()).id, phase: 'shared' }, ident_id)
+      expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.deep.eq([])
     })
   })
 

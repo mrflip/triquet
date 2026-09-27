@@ -15,7 +15,7 @@ import { app } from './schema'
  */
 export default JZS.definePermissions(app, ({ policy, session }) => {
   const ownAccount = { '$createdBy.account': session.user.account }
-  const { idents, identings, hunts, realms, expressions, quizzes, widgets, columns, questions, bottings } = policy
+  const { idents, identings, hunts, realms, expressions, quizzes, widgets, columns, questions, bottings, reviews } = policy
 
   identings.allowRead.where(ownAccount)
   identings.allowInsert.where(ownAccount)
@@ -27,7 +27,7 @@ export default JZS.definePermissions(app, ({ policy, session }) => {
   idents.allowUpdate.never()
   idents.allowDelete.never()
 
-  for (const table of [hunts, realms, expressions, quizzes, widgets, columns, questions, bottings]) {
+  for (const table of [hunts, realms, expressions, quizzes, widgets, columns, questions, bottings, reviews]) {
     table.allowRead.always()
     table.allowInsert.always()
     table.allowUpdate.always()
