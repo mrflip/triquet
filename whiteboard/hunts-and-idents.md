@@ -315,7 +315,7 @@ One migration: drop `workspaces`; create `idents`, `identings`, `hunts`, `realms
   account) assumes another ident, opens the pasted link, and sees the first's questions, all
   against the local Jazz server on 3202.
 
-## PR 3: reviews
+## PR 3: Playtesting (`reviews` and `reviewings`)
 
 ### Schema and model
 
