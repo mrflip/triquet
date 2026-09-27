@@ -11,14 +11,14 @@ import { NewExpression, planExpressingEdit, planBottingEdit, type WidgetPlan } f
 import { BotLabelVals } from '../models/bot-label'
 import type { ExpressingT, BottingWidgetT, WidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
-import type { WorkspaceT } from '../models/workspace'
-import type { WorkspaceAction } from '../state/actions'
+import type { HuntT } from '../models/hunt'
+import type { HuntAction } from '../state/actions'
 import styles from './workbench.module.css'
 
 export type WidgetsEditorProps = {
-  workspace:         WorkspaceT
+  hunt:              HuntT
   quiz:              QuizT
-  dispatch:          (action: WorkspaceAction) => void
+  dispatch:          (action: HuntAction) => void
   onEditExpressions: () => void
 }
 
@@ -29,7 +29,7 @@ type Editing = { kind: 'widget', label: string } | { kind: 'new_expressing' } | 
  * A quiz's widgets -- what it can show for every question besides the questions' own fields --
  * listed in their order, dragged into a new one by their handles, each with a gear that opens it.
  */
-export function WidgetsEditor({ workspace, quiz, dispatch, onEditExpressions }: Readonly<WidgetsEditorProps>) {
+export function WidgetsEditor({ hunt, quiz, dispatch, onEditExpressions }: Readonly<WidgetsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited: WidgetT | null = editing?.kind === 'widget' ? quiz.widgets.find((each) => each.label === editing.label) ?? null : null
   const close = () => { setEditing(null) }
@@ -60,7 +60,7 @@ export function WidgetsEditor({ workspace, quiz, dispatch, onEditExpressions }: 
         <Button size="small" variant="outlined" onClick={onEditExpressions}>Edit expressions…</Button>
       </Stack>
       {(editing?.kind === 'new_expressing' || edited?.kind === 'expressing') && (
-        <ExpressingDialog key={edited?.label ?? 'new'} workspace={workspace} quiz={quiz} widget={edited?.kind === 'expressing' ? edited : null} dispatch={dispatch} onClose={close} />
+        <ExpressingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} widget={edited?.kind === 'expressing' ? edited : null} dispatch={dispatch} onClose={close} />
       )}
       {(editing?.kind === 'new_botting' || edited?.kind === 'botting') && (
         <BottingDialog key={edited?.label ?? 'new'} quiz={quiz} widget={edited?.kind === 'botting' ? edited : null} dispatch={dispatch} onClose={close} />
@@ -77,18 +77,18 @@ function widgetNote(widget: WidgetT): string {
 const BlankExpression: ExpressionDraft = { label: '', description: '', formula: '' }
 
 /** Runs `plan`, dispatching what it comes to; says what is wrong instead when it is refused */
-function carryOut(plan: WidgetPlan, dispatch: (action: WorkspaceAction) => void, refuse: (issue: string, labelIssue: string | null) => void, done: () => void) {
+function carryOut(plan: WidgetPlan, dispatch: (action: HuntAction) => void, refuse: (issue: string, labelIssue: string | null) => void, done: () => void) {
   if (! plan.ok) { refuse(plan.issue, plan.labelIssue); return }
   for (const action of plan.actions) { dispatch(action) }
   done()
 }
 
 type ExpressingDialogProps = {
-  workspace: WorkspaceT
+  hunt:      HuntT
   quiz:      QuizT
   /** The widget being edited, or null to make a new one */
   widget:    ExpressingT | null
-  dispatch:  (action: WorkspaceAction) => void
+  dispatch:  (action: HuntAction) => void
   onClose:   () => void
 }
 
@@ -96,13 +96,13 @@ type ExpressingDialogProps = {
  * One expressing widget and the expression behind it, edited together.
  *
  * The widget's label and description sit above the expression it works, whose formula is
- * written with a live preview against any question in the workspace. Nothing is applied until
+ * written with a live preview against any question in the hunt. Nothing is applied until
  * Apply. A new widget can work an existing expression or a new one written on the spot, and
  * brings a column to show it. Removing a widget asks first; an expression is never removed from
  * here, because a widget may still be working it.
  */
-function ExpressingDialog({ workspace, quiz, widget, dispatch, onClose }: Readonly<ExpressingDialogProps>) {
-  const heldExpression = workspace.expressions.find((expression) => expression.label === widget?.expression_label)
+function ExpressingDialog({ hunt, quiz, widget, dispatch, onClose }: Readonly<ExpressingDialogProps>) {
+  const heldExpression = hunt.expressions.find((expression) => expression.label === widget?.expression_label)
   const [label, setLabel] = useState(widget?.label ?? '')
   const [description, setDescription] = useState(widget?.description ?? '')
   const [expressionLabel, setExpressionLabel] = useState(widget?.expression_label ?? NewExpression)
@@ -115,12 +115,12 @@ function ExpressingDialog({ workspace, quiz, widget, dispatch, onClose }: Readon
   const pickExpression = (picked: string) => {
     setExpressionLabel(picked)
     setLabelIssue(null)
-    setDraft(workspace.expressions.find((expression) => expression.label === picked) ?? BlankExpression)
+    setDraft(hunt.expressions.find((expression) => expression.label === picked) ?? BlankExpression)
   }
 
   const onApply = () => {
     carryOut(
-      planExpressingEdit({ widget, label, description, expressionLabel, expression: draft }, workspace, quiz),
+      planExpressingEdit({ widget, label, description, expressionLabel, expression: draft }, hunt, quiz),
       dispatch,
       (problem, forLabel) => { setIssue(problem); setLabelIssue(forLabel) },
       onClose,
@@ -142,11 +142,11 @@ function ExpressingDialog({ workspace, quiz, widget, dispatch, onClose }: Readon
           <TextField select size="small" label="Expression" value={expressionLabel} disabled={quiz.locked} sx={{ maxWidth: 360 }}
             onChange={(event) => { pickExpression(event.target.value) }}>
             <MenuItem value={NewExpression}>＋ New expression…</MenuItem>
-            {workspace.expressions.map((each) => <MenuItem key={each.label} value={each.label}>{each.label}</MenuItem>)}
+            {hunt.expressions.map((each) => <MenuItem key={each.label} value={each.label}>{each.label}</MenuItem>)}
           </TextField>
           <ExpressionFields
             key={expressionLabel}
-            workspace={workspace}
+            hunt={hunt}
             defaultQuizId={quiz.id}
             draft={draft}
             onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null); setLabelIssue(null) }}
@@ -180,7 +180,7 @@ type BottingDialogProps = {
   quiz:     QuizT
   /** The widget being edited, or null to make a new one */
   widget:   BottingWidgetT | null
-  dispatch: (action: WorkspaceAction) => void
+  dispatch: (action: HuntAction) => void
   onClose:  () => void
 }
 

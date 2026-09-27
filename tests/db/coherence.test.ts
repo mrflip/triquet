@@ -10,7 +10,10 @@ import { BottingValidators } from '../../src/models/botting'
 import { QuestionValidators } from '../../src/models/question'
 import { QuizValidators } from '../../src/models/quiz'
 import { WidgetValidators } from '../../src/models/widget'
-import { WorkspaceValidators } from '../../src/models/workspace'
+import { HuntValidators } from '../../src/models/hunt'
+import { IdentValidators } from '../../src/models/ident'
+import { IdentingValidators } from '../../src/models/identing'
+import { RealmValidators } from '../../src/models/realm'
 
 // Each table is declared twice on purpose: the Jazz table in `db/schema.ts`, and the Zod row
 // validator in its model, which says what a column cannot. This walks every table and holds
@@ -18,7 +21,10 @@ import { WorkspaceValidators } from '../../src/models/workspace'
 
 /** Every table, and the row validator its writes pass through */
 const RowValidators = {
-  workspaces:  WorkspaceValidators.row,
+  idents:      IdentValidators.row,
+  identings:   IdentingValidators.row,
+  hunts:       HuntValidators.row,
+  realms:      RealmValidators.row,
   expressions: ExpressionValidators.row,
   quizzes:     QuizValidators.row,
   widgets:     WidgetValidators.row,
@@ -118,7 +124,10 @@ describe('every table and its row validator', () => {
 
   it('give every row the type Jazz reads back, apart from its id', () => {
     type RowOf<TT> = Omit<JZS.RowOf<TT>, 'id'>
-    expectTypeOf<Z.output<typeof WorkspaceValidators.row>>().toEqualTypeOf<RowOf<typeof app.workspaces>>()
+    expectTypeOf<Z.output<typeof IdentValidators.row>>().toEqualTypeOf<RowOf<typeof app.idents>>()
+    expectTypeOf<Z.output<typeof IdentingValidators.row>>().toEqualTypeOf<RowOf<typeof app.identings>>()
+    expectTypeOf<Z.output<typeof HuntValidators.row>>().toEqualTypeOf<RowOf<typeof app.hunts>>()
+    expectTypeOf<Z.output<typeof RealmValidators.row>>().toEqualTypeOf<RowOf<typeof app.realms>>()
     expectTypeOf<Z.output<typeof ExpressionValidators.row>>().toEqualTypeOf<RowOf<typeof app.expressions>>()
     expectTypeOf<Z.output<typeof QuizValidators.row>>().toEqualTypeOf<RowOf<typeof app.quizzes>>()
     expectTypeOf<Z.output<typeof WidgetValidators.row>>().toEqualTypeOf<RowOf<typeof app.widgets>>()

@@ -114,8 +114,8 @@ Row types come from `db`.)
   `use-reorder`) live beside it.
 * `src/state/` -- everything between a view and the data: the action vocabulary (`actions.ts`),
   `perform` and the row-writing actions it dispatches to, reading rows and projecting them into
-  the quiz tree (`quiz-rows.ts`), writing a tree back (`quiz-writing.ts`), the workspace hook,
-  the asking and bots hooks, and the quiz history mirror with its commit scheduler.
+  the quiz tree (`quiz-rows.ts`), writing a tree back (`quiz-writing.ts`), the held-rows, ident and
+  hunt hooks, the asking and bots hooks, and the quiz history mirror with its commit scheduler.
 * `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, row types, and the
   app handle), `permissions.ts` (the only place authorization is written), and the client setup.
 * `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a

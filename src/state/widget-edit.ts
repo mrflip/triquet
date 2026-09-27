@@ -3,8 +3,8 @@ import { Column } from '../models/column'
 import { DefaultOwner, ExpressionValidators, type ExpressionT } from '../models/expression'
 import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type ExpressingT, type BottingPatch, type BottingWidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
-import type { WorkspaceT } from '../models/workspace'
-import type { WorkspaceAction } from './actions'
+import type { HuntT } from '../models/hunt'
+import type { HuntAction } from './actions'
 
 /** What the expression select says for "write a new one", which no expression is labelled */
 export const NewExpression = ''
@@ -26,7 +26,7 @@ export type ExpressingEdit = {
 
 /** What applying an edit comes to: the actions to dispatch, or what to tell the author is wrong */
 export type WidgetPlan =
-  | { ok: true, actions: WorkspaceAction[] }
+  | { ok: true, actions: HuntAction[] }
   | { ok: false, issue: string, labelIssue: string | null }
 
 /**
@@ -35,24 +35,24 @@ export type WidgetPlan =
  * A new expression is added before the widget that works it. An existing expression is revised
  * only if its formula or description changed. A new widget brings a column to show it, just
  * before Alt Text. On a locked quiz the widget is left alone and only the expression -- which
- * belongs to the workspace -- can be revised.
+ * belongs to the hunt -- can be revised.
  *
  * @param edit - The editor's state.
- * @param workspace - The workspace as it stands.
+ * @param hunt - The hunt as it stands.
  * @param quiz - The quiz the widget belongs to.
  * @returns The plan.
  *
- * @example planExpressingEdit(edit, workspace, quiz)  // => { ok: true, actions: [{ kind: 'add_expression', ... }, { kind: 'add_widget', ... }, { kind: 'add_column', ... }] }
+ * @example planExpressingEdit(edit, hunt, quiz)  // => { ok: true, actions: [{ kind: 'add_expression', ... }, { kind: 'add_widget', ... }, { kind: 'add_column', ... }] }
  */
-export function planExpressingEdit(edit: Readonly<ExpressingEdit>, workspace: WorkspaceT, quiz: QuizT): WidgetPlan {
+export function planExpressingEdit(edit: Readonly<ExpressingEdit>, hunt: Pick<HuntT, 'expressions'>, quiz: QuizT): WidgetPlan {
   const isNew = edit.expressionLabel === NewExpression
   const expression_label = isNew ? Labelmaker.normalize(edit.expression.label) : edit.expressionLabel
   if (isNew && expression_label === '') { return refused('Give the new expression a label.', true) }
-  if (isNew && workspace.expressions.some((other) => other.label === expression_label)) { return refused('Another expression already has that label.', true) }
+  if (isNew && hunt.expressions.some((other) => other.label === expression_label)) { return refused('Another expression already has that label.', true) }
   const expression = ExpressionValidators.expression.safeParse({ owner: DefaultOwner, label: expression_label, formula: edit.expression.formula, description: edit.expression.description })
   if (! expression.success) { return refused(expression.error.issues[0]?.message ?? 'That formula will not do.') }
 
-  const expressionActions = expressionActionsFor(workspace, expression.data, isNew)
+  const expressionActions = expressionActionsFor(hunt, expression.data, isNew)
   if (quiz.locked) { return { ok: true, actions: expressionActions } }
 
   const siblings = new Set(quiz.widgets.filter((other) => other.label !== edit.widget?.label).map((other) => other.label))
@@ -63,7 +63,7 @@ export function planExpressingEdit(edit: Readonly<ExpressingEdit>, workspace: Wo
   const checked = WidgetValidators.expressing.safeParse({ kind: 'expressing', label, expression_label, description: edit.description })
   if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That widget will not do.') }
 
-  const widgetActions: WorkspaceAction[] = edit.widget === null
+  const widgetActions: HuntAction[] = edit.widget === null
     ? [{ kind: 'add_widget', widget: checked.data }, newColumnFor(quiz, checked.data.label, NewExpressingWidthPx)]
     : editWidgetActions(edit.widget, checked.data)
   return { ok: true, actions: [...expressionActions, ...widgetActions] }
@@ -105,15 +105,15 @@ function refused(issue: string, labelIssue = false): WidgetPlan {
 }
 
 /** Adding the expression when it is new, revising it when it changed, and nothing otherwise */
-function expressionActionsFor(workspace: WorkspaceT, expression: ExpressionT, isNew: boolean): WorkspaceAction[] {
+function expressionActionsFor(hunt: Pick<HuntT, 'expressions'>, expression: ExpressionT, isNew: boolean): HuntAction[] {
   if (isNew) { return [{ kind: 'add_expression', expression }] }
-  const held = workspace.expressions.find((other) => other.label === expression.label)
+  const held = hunt.expressions.find((other) => other.label === expression.label)
   if (held?.formula === expression.formula && held.description === expression.description) { return [] }
   return [{ kind: 'edit_expression', label: expression.label, patch: { formula: expression.formula, description: expression.description } }]
 }
 
 /** A column showing the widget labelled `label`, titled after it, for a new widget to bring with it */
-function newColumnFor(quiz: QuizT, label: string, width_px: number): WorkspaceAction {
+function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntAction {
   const taken = new Set(quiz.columns.map((column) => column.label))
   const columnLabel = taken.has(label) ? Labelmaker.appendFallback(label) : label
   const column = Column.fill({ label: columnLabel, title: Labelmaker.titleize(label), source: label, width_px })
@@ -122,7 +122,7 @@ function newColumnFor(quiz: QuizT, label: string, width_px: number): WorkspaceAc
 }
 
 /** Revising only what changed in an existing widget */
-function editWidgetActions(held: ExpressingT | BottingWidgetT, next: ExpressingT | BottingWidgetT): WorkspaceAction[] {
+function editWidgetActions(held: ExpressingT | BottingWidgetT, next: ExpressingT | BottingWidgetT): HuntAction[] {
   const changed = Object.entries(next).filter(([key, val]) => key !== 'kind' && (held as Record<string, unknown>)[key] !== val)
   if (changed.length === 0) { return [] }
   const patch: ExpressingPatch | BottingPatch = Object.fromEntries(changed)

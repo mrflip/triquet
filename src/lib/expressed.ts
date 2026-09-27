@@ -65,7 +65,7 @@ const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
  * failure rather than waiting on it again.
  *
  * @param quiz - The quiz whose columns are wanted.
- * @param expressions - The workspace's expressions, which the quiz's expressings name.
+ * @param expressions - The hunt's expressions, which the quiz's expressings name.
  * @returns For each expressing's label, each question's result by id.
  *
  * @example forQuiz(quiz, expressions).get('clueing_full')?.get(question.id)

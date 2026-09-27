@@ -88,6 +88,7 @@ describe('identifiers', () => {
   const Cases: [keyof typeof CK, string[], string[]][] = [
     ['label',     ['abc', 'a_1', 'ab', 'x'.repeat(40)],  ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41)]],
     ['dashlabel', ['a-b', 'abc', 'a_1'],      ['Abc', '1abc', '']],
+    ['identlabel', ['sixsix', 'flip_k', 'a1b2c3', 'x'.repeat(24)], ['fivee', 'Flipper', '1flipper', 'flip__k', 'flipper_', 'x'.repeat(25)]],
     ['handleish', ['abc', 'a_1'],             ['Abc', '1abc', 'a-b', '', 'x'.repeat(37)]],
     ['camel',     ['Abc', 'A1', 'AbcDef'],    ['abc', '1Abc', '_Abc', 'A_1', ',']],
     ['locamel',   ['abC', 'aB1'],             ['Abc', '1abc', '_abc', 'a_1', ',']],

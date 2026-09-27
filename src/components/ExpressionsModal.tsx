@@ -6,29 +6,28 @@ import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
 import { ExpressionFields, type ExpressionDraft } from './ExpressionFields'
 import { ExpressionValidators, type ExpressionT } from '../models/expression'
-import { expressionUsage } from '../models/workspace'
-import type { WorkspaceAction } from '../state/actions'
-import type { WorkspaceT } from '../models/workspace'
+import { Hunt, type HuntT } from '../models/hunt'
+import type { HuntAction } from '../state/actions'
 import styles from './workbench.module.css'
 
 export type ExpressionsModalProps = {
   onClose:   () => void
-  workspace: WorkspaceT
+  hunt:      HuntT
   /** The quiz the preview starts on */
   quizId:    string
-  dispatch:  (action: WorkspaceAction) => void
+  dispatch:  (action: HuntAction) => void
 }
 
 /**
- * The workspace's expressions -- the calculations any quiz can show as a column -- listed, each
+ * The hunt's expressions -- the calculations any quiz can show as a column -- listed, each
  * with a gear that opens its formula for editing and, when no column works it, removing.
  *
  * New expressions are written from a new column's editor, where they can be tried against real
  * questions and put to work at once; this list is for revisiting and tidying them.
  */
-export function ExpressionsModal({ onClose, workspace, quizId, dispatch }: Readonly<ExpressionsModalProps>) {
+export function ExpressionsModal({ onClose, hunt, quizId, dispatch }: Readonly<ExpressionsModalProps>) {
   const [editing, setEditing] = useState<string | null>(null)
-  const edited = workspace.expressions.find((expression) => expression.label === editing)
+  const edited = hunt.expressions.find((expression) => expression.label === editing)
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="expressions-title">
@@ -40,13 +39,13 @@ export function ExpressionsModal({ onClose, workspace, quizId, dispatch }: Reado
           &ldquo;New expression&rdquo;.
         </p>
         <Stack spacing={1}>
-          {workspace.expressions.map((expression) => (
+          {hunt.expressions.map((expression) => (
             <Stack key={`${expression.owner}/${expression.label}`} direction="row" spacing={1} role="group" aria-label={`Expression ${expression.label}`} sx={{ alignItems: 'center' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <strong>{expression.label}</strong>
                 <div className={styles.microcopy}>{expression.description}</div>
               </div>
-              <span className={styles.microcopy}>{usageNote(expressionUsage(workspace, expression.label))}</span>
+              <span className={styles.microcopy}>{usageNote(Hunt.expressionUsage(hunt, expression.label))}</span>
               <IconButton size="small" aria-label={`Edit expression ${expression.label}`} onClick={() => { setEditing(expression.label) }}>⚙</IconButton>
             </Stack>
           ))}
@@ -56,7 +55,7 @@ export function ExpressionsModal({ onClose, workspace, quizId, dispatch }: Reado
       {edited && (
         <ExpressionEditor
           key={edited.label}
-          workspace={workspace}
+          hunt={hunt}
           quizId={quizId}
           expression={edited}
           dispatch={dispatch}
@@ -74,10 +73,10 @@ function usageNote(usage: number): string {
 }
 
 type ExpressionEditorProps = {
-  workspace:  WorkspaceT
+  hunt:       HuntT
   quizId:     string
   expression: ExpressionT
-  dispatch:   (action: WorkspaceAction) => void
+  dispatch:   (action: HuntAction) => void
   onClose:    () => void
 }
 
@@ -85,10 +84,10 @@ type ExpressionEditorProps = {
  * One expression on its own: formula and description to revise with a live preview, and a
  * removal that asks first and is not offered while any column works the expression.
  */
-function ExpressionEditor({ workspace, quizId, expression, dispatch, onClose }: Readonly<ExpressionEditorProps>) {
+function ExpressionEditor({ hunt, quizId, expression, dispatch, onClose }: Readonly<ExpressionEditorProps>) {
   const [draft, setDraft] = useState<ExpressionDraft>(expression)
   const [issue, setIssue] = useState<string | null>(null)
-  const usage = expressionUsage(workspace, expression.label)
+  const usage = Hunt.expressionUsage(hunt, expression.label)
 
   const onApply = () => {
     const patch = ExpressionValidators.expressionPatch.safeParse({ formula: draft.formula, description: draft.description })
@@ -103,7 +102,7 @@ function ExpressionEditor({ workspace, quizId, expression, dispatch, onClose }: 
       <DialogContent>
         <Stack spacing={1} sx={{ mt: 1 }}>
           <ExpressionFields
-            workspace={workspace}
+            hunt={hunt}
             defaultQuizId={quizId}
             draft={draft}
             onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null) }}

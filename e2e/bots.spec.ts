@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { cellOf, expect, test } from './support'
+import { cellOf, expect, startHunt, test } from './support'
 
 /** Stand in for the server saying no bot has credentials, without touching its real environment */
 async function stubNoCredentials(page: Page) {
@@ -39,7 +39,7 @@ test.describe('with no credentials for the bots\' service', () => {
 
   test.beforeEach(async ({ page }) => {
     await stubNoCredentials(page)
-    await page.goto('/')
+    await startHunt(page)
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
     await page.getByRole('textbox', { name: 'Hint', exact: true }).first().fill('BUT NOT three')
     await page.getByLabel('Quiz name').click()

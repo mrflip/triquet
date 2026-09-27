@@ -8,30 +8,32 @@ import { WidgetsEditor } from './WidgetsEditor'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
-import type { WorkspaceAction } from '../state/actions'
+import type { HuntAction } from '../state/actions'
+import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
-import type { WorkspaceT } from '../models/workspace'
+import type { RealmT } from '../models/realm'
 import styles from './workbench.module.css'
 
 export type QuizManageModalProps = {
   open:      boolean
   onClose:   () => void
-  workspace: WorkspaceT
+  hunt:      HuntT
+  realm:     RealmT
   quiz:      QuizT
-  dispatch:  (action: WorkspaceAction) => void
+  dispatch:  (action: HuntAction) => void
   /** Told the quiz's new label once it has one, so the address can follow it there */
   onRelabelled: (label: string) => void
-  /** Go to another quiz of the workspace */
+  /** Go to another quiz of the realm */
   onOpen:    (quiz: QuizT) => void
-  /** Open the workspace's expressions for editing */
+  /** Open the hunt's expressions for editing */
   onEditExpressions: () => void
 }
 
 /**
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
- * and a quick way to open any other quiz in the workspace by name (bottom).
+ * and a quick way to open any other quiz in the realm by name (bottom).
  */
-export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRelabelled, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onRelabelled, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -40,7 +42,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRe
   const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
-    const taken = workspace.quizzes.some((other) => other.id !== quiz.id && Labelmaker.effectiveLabelOf(other) === cleaned)
+    const taken = realm.quizzes.some((other) => other.id !== quiz.id && Labelmaker.effectiveLabelOf(other) === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     const version = Labelmaker.normalize(versionDraft)
     if (version === '') { setIssue('Enter a version.'); return }
@@ -96,7 +98,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRe
           <section>
             <Typography variant="h6" component="h3">Widgets</Typography>
             <p className={styles.microcopy}>What this quiz can show for every question besides the questions&apos; own fields: bots put to it, and expressions put to work. A column shows a widget.</p>
-            <WidgetsEditor workspace={workspace} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
+            <WidgetsEditor hunt={hunt} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
           </section>
 
           <section>
@@ -115,7 +117,7 @@ export function QuizManageModal({ open, onClose, workspace, quiz, dispatch, onRe
           <section>
             <Typography variant="h6" component="h3">All quizzes</Typography>
             <Stack spacing={0.5} sx={{ maxHeight: '60vh', overflowY: 'auto', mt: 1 }}>
-              {workspace.quizzes.map((other) => (
+              {realm.quizzes.map((other) => (
                 <Button
                   key={other.id}
                   variant={other.id === quiz.id ? 'contained' : 'outlined'}

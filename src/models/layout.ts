@@ -35,7 +35,7 @@ export type Layout = {
  * sums between Q# and Alt Text, then the notes and the bots' answers -- the grid this tool has
  * always had.
  *
- * @param expressions - The workspace's expressions.
+ * @param expressions - The hunt's expressions.
  * @returns The widgets and columns, in order.
  *
  * @example defaultLayoutFor(SeedExpressions).columns.length  // => 21

@@ -1,219 +1,298 @@
-import { closeManage, expect, loadAfresh, newQuiz, openManage, openQuiz, test, waitUntilSaved } from './support'
+import type { Browser, BrowserContext, Page } from '@playwright/test'
+import { assumeIdent, closeManage, expect, freshIdentLabel, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, startHunt, test, waitUntilSaved } from './support'
 
-test('the root page sends the author to their quiz, named in the path', async ({ page }) => {
-  await expect(page).toHaveURL(/\/my\/quiz\/[a-z]+_[a-z]+$/)
+// These are about the way in, so each goes in by itself rather than from the fixture's hunt.
+test.use({ startAt: null })
+
+/** The hunt label an address names */
+function huntLabelOf(page: Page): string {
+  return String(new URL(page.url()).pathname.split('/', 3)[2])
+}
+
+/** A title no other spec gives a quiz: specs share one Jazz server, and the hunts list shows every hunt on it */
+function freshTitle(stem: string): string {
+  return `${stem} ${crypto.randomUUID().slice(0, 8)}`
+}
+
+/** The browser contexts a spec opened for a second visitor, closed once it is done */
+const Others: BrowserContext[] = []
+
+test.afterEach(async () => {
+  await Promise.all(Others.splice(0).map(async (context) => { await context.close() }))
 })
 
-test('a bare /my/quiz sends the author on to the quiz they were last using', async ({ page }) => {
-  await expect(page).toHaveURL(/\/my\/quiz\//)
-  const opened = new URL(page.url()).pathname
-  await loadAfresh(page, '/my/quiz')
-  await expect(page).toHaveURL(opened)
+/** A page in a browser of its own: another visitor, with an account of their own */
+async function otherVisitor(browser: Browser): Promise<Page> {
+  const context = await browser.newContext()
+  Others.push(context)
+  return await context.newPage()
+}
+
+test.describe('the front door', () => {
+  test('asks a visitor who has not said who they are', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
+  })
+
+  test('sends a visitor who has said on to their hunts', async ({ page }) => {
+    const label = await assumeIdent(page)
+    await loadAfresh(page, '/')
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+    await expect(page.getByText(`(${label})`)).toBeVisible()
+  })
+
+  test('refuses a label too short to be an ident\'s, saying why', async ({ page }) => {
+    await page.goto('/')
+    await page.getByLabel('Ident label').fill('flip')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByText(/An ident label is 6 to 24/)).toBeVisible()
+    await expect(page).toHaveURL((url) => url.pathname === '/')
+  })
+
+  test('makes an ident of what was typed, titled as asked', async ({ page }) => {
+    const label = freshIdentLabel()
+    await page.goto('/')
+    await page.getByLabel('Ident label').fill(label.replaceAll('_', ' ').toUpperCase())
+    await page.getByLabel('Title').fill('Flip the Tester')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+    await expect(page.getByText(`You are Flip the Tester (${label}).`)).toBeVisible()
+  })
+
+  test('lets a visitor become someone else', async ({ page }) => {
+    await assumeIdent(page)
+    await page.getByRole('link', { name: 'Be someone else' }).click()
+    const other = freshIdentLabel()
+    await page.getByLabel('Ident label').fill(other)
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+    await expect(page.getByText(`(${other})`)).toBeVisible()
+  })
+
+  test('makes one who types an ident someone else made into that ident', async ({ page, browser }) => {
+    const label = freshIdentLabel()
+    await page.goto('/')
+    await page.getByLabel('Ident label').fill(label)
+    await page.getByLabel('Title').fill('The First')
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+
+    const elsewhere = await otherVisitor(browser)
+    await elsewhere.goto('/')
+    await elsewhere.getByLabel('Ident label').fill(label)
+    await elsewhere.getByLabel('Title').fill('The Second')
+    await elsewhere.getByRole('button', { name: 'Continue' }).click()
+    await expect(elsewhere.getByText(`You are The First (${label}).`)).toBeVisible()
+  })
 })
 
-test('a #label from when quizzes were addressed by hash still lands where it meant to', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-  const firstLabel = new URL(page.url()).pathname.split('/').pop()
-  await newQuiz(page)
-  await page.getByLabel('Quiz name').fill('Quiz two')
-  await page.getByLabel('Quiz name').blur()
-  await waitUntilSaved(page)
+test.describe('the hunts', () => {
+  test('are shown only to someone who has said who they are, who is brought back after', async ({ page }) => {
+    await page.goto('/my/hunts')
+    await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fhunts$/)
+    await page.getByLabel('Ident label').fill(freshIdentLabel())
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+  })
 
-  await loadAfresh(page, `/my/quiz#${String(firstLabel)}`)
-  await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-  await expect(page).toHaveURL(`/my/quiz/${String(firstLabel)}`)
+  test('make a new one whose quiz shares its label and title, open for work', async ({ page }) => {
+    await startHunt(page)
+    const label = huntLabelOf(page)
+    await expect(page).toHaveURL(new RegExp(String.raw`/h/${label}/home/${label}\?act=smith$`))
+    await expect(page.getByLabel('Quiz name')).toHaveValue(/^[A-Z]/)
+  })
+
+  test('list each hunt with its quizzes, which open when followed', async ({ page }) => {
+    await startHunt(page)
+    const title = freshTitle('Listed quiz')
+    await page.getByLabel('Quiz name').fill(title)
+    await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
+    const path = new URL(page.url()).pathname
+    await loadAfresh(page, '/my/hunts')
+    await page.getByRole('link', { name: title }).click()
+    await expect(page).toHaveURL(`${path}?act=smith`)
+    await expect(page.getByLabel('Quiz name')).toHaveValue(title)
+  })
 })
 
-test('the root page redirects once, not once per save', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-  await newQuiz(page)
-  await page.getByLabel('Quiz name').fill('Quiz two')
-  await page.getByLabel('Quiz name').blur()
-  await waitUntilSaved(page)
-
-  // The workspace is a fresh object after every save and every refetch. A redirect that watched
-  // it would fire again on each, sending the browser somewhere new each time -- and the page it
-  // lands on dispatches as it opens, which announces another workspace, which fires it again.
-  const landings: string[] = []
-  page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) { landings.push(frame.url()) } })
-  await loadAfresh(page, '/')
-  // Settling is the observable condition: a redirect that kept firing would keep dispatching,
-  // and the page would never report itself saved.
-  await waitUntilSaved(page)
-
-  const quizLandings = landings.filter((url) => url.includes('/my/quiz'))
-  expect(quizLandings.length).toBeLessThanOrEqual(2)
-  expect(new Set(quizLandings).size).toBe(1)
-})
-
-test('a pasted address wins over whichever quiz the workspace last had open', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-  const firstUrl = page.url()
-  await newQuiz(page)
-  await page.getByLabel('Quiz name').fill('Quiz two')
-  await page.getByLabel('Quiz name').blur()
-  await waitUntilSaved(page)
-
-  // Quiz two is the open one, so the address and the workspace disagree on arrival. The address
-  // is the request and must be honoured; rewriting it to the open quiz would throw the request
-  // away, and the two would then take turns undoing each other.
-  await loadAfresh(page, firstUrl)
-  await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-  await waitUntilSaved(page)
-  await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-  await expect(page).toHaveURL(firstUrl)
-})
-
-test('an address naming a quiz opens straight to it', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-  await newQuiz(page)
-  await page.getByLabel('Quiz name').fill('Quiz two')
-  await page.getByLabel('Quiz name').blur()
-  const secondUrl = page.url()
-
-  await page.goto(secondUrl)
-  await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz two')
-})
-
-test('switching quizzes moves the address to match', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-  const firstUrl = page.url()
-
-  await newQuiz(page)
-  await page.getByLabel('Quiz name').blur()
-  await expect(page).not.toHaveURL(firstUrl)
-
-  await openQuiz(page, 'Quiz one')
-  await expect(page).toHaveURL(firstUrl)
-})
-
-test('the gear icon opens a modal for managing the label, and for opening any other quiz', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-
-  await openManage(page)
-  await expect(page.getByLabel('Label', { exact: true })).toHaveValue(/^[a-z]+_[a-z]+$/)
-
-  await page.getByLabel('Label', { exact: true }).fill('Leon\'s Quiz!!')
-  await page.getByRole('button', { name: 'Apply' }).click()
-  await expect(page.getByText('Manage this quiz')).toBeHidden()
-
-  await expect(page).toHaveURL(/\/my\/quiz\/leon_s_quiz$/)
-})
-
-test('a label already used by another quiz is refused, with the field left open to fix', async ({ page }) => {
-  await openManage(page)
-  await page.getByLabel('Label', { exact: true }).fill('leon')
-  await page.getByRole('button', { name: 'Apply' }).click()
-  await expect(page.getByText('Manage this quiz')).toBeHidden()
-  // A relabel is a move, so this settles a navigation as well as a save.
-  await expect(page).toHaveURL(/\/my\/quiz\/leon$/)
-  await waitUntilSaved(page)
-
-  await newQuiz(page)
-  await waitUntilSaved(page)
-  await openManage(page)
-  await page.getByLabel('Label', { exact: true }).fill('leon')
-  await page.getByRole('button', { name: 'Apply' }).click()
-
-  await expect(page.getByText('Another quiz already uses that label.')).toBeVisible()
-  await expect(page.getByText('Manage this quiz')).toBeVisible()
-})
-
-test('the "All quizzes" list opens another quiz and closes the modal', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-
-  await newQuiz(page)
-  await page.getByLabel('Quiz name').fill('Quiz two')
-  await page.getByLabel('Quiz name').blur()
-
-  await openManage(page)
-  await page.getByRole('button', { name: 'Quiz one' }).click()
-  await expect(page.getByText('Manage this quiz')).toBeHidden()
-  await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-})
-
-test.describe('an address naming a quiz that is not here', () => {
+test.describe('an address naming a quiz', () => {
   test.beforeEach(async ({ page }) => {
+    await startHunt(page)
     await page.getByLabel('Quiz name').fill('Quiz one')
     await page.getByLabel('Quiz name').blur()
     await waitUntilSaved(page)
-    await loadAfresh(page, '/my/quiz/asdf')
-    await expect(page.getByRole('heading', { name: 'No such quiz' })).toBeVisible()
   })
 
-  test('says which label it looked for, and lists the quizzes there are', async ({ page }) => {
-    await expect(page.getByText('Nothing here is labelled “asdf”.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Quiz one' })).toBeVisible()
-    await expect(page).toHaveURL('/my/quiz/asdf')
-  })
-
-  test('offers to make a quiz under that label', async ({ page }) => {
-    await page.getByRole('button', { name: /Make a quiz called .asdf./ }).click()
-    await expect(page.getByLabel('Quiz name')).toHaveValue('Asdf')
-    await expect(page).toHaveURL('/my/quiz/asdf')
-  })
-
-  test('opens an existing quiz from the list, and moves the address to it', async ({ page }) => {
-    await page.getByRole('button', { name: 'Quiz one' }).click()
+  test('is presented to a smith when it names no presentation', async ({ page }) => {
+    const path = new URL(page.url()).pathname
+    await loadAfresh(page, path)
+    await expect(page).toHaveURL(`${path}?act=smith`)
     await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-    await expect(page).not.toHaveURL('/my/quiz/asdf')
   })
-})
 
-test('the history repositories are listed on their own, including those of deleted quizzes', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Quiz one')
-  await page.getByLabel('Quiz name').blur()
-  const label = String(new URL(page.url()).pathname.split('/').pop())
-  await openManage(page)
-  await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
-  await closeManage(page)
-
-  await newQuiz(page)
-  await openQuiz(page, 'Quiz one')
-  await page.getByRole('button', { name: 'Delete quiz' }).click()
-  await page.getByRole('button', { name: 'Yes' }).click()
-  await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
-  await waitUntilSaved(page)
-
-  await loadAfresh(page, '/my/quiz/nothing')
-  const repo = page.getByRole('listitem').filter({ hasText: label })
-  await expect(repo).toContainText('main')
-  await expect(repo).toContainText('quiz deleted')
-})
-
-test.describe('editing the address of a page that is already open', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.getByLabel('Quiz name').fill('Quiz one')
-    await page.getByLabel('Quiz name').blur()
+  test('opens straight to the quiz it names', async ({ page }) => {
     await newQuiz(page)
     await page.getByLabel('Quiz name').fill('Quiz two')
     await page.getByLabel('Quiz name').blur()
     await waitUntilSaved(page)
-  })
-
-  test('moves to another quiz when its label is put in the address', async ({ page }) => {
+    const secondUrl = page.url()
     await openQuiz(page, 'Quiz one')
-    const firstPath = new URL(page.url()).pathname
-    await openQuiz(page, 'Quiz two')
-    await page.goto(firstPath)
-    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
-    await expect(page).toHaveURL(firstPath)
+
+    await loadAfresh(page, secondUrl)
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz two')
+    await expect(page).toHaveURL(secondUrl)
   })
 
-  test('says so when the label put in the address is not a quiz, and the back button returns', async ({ page }) => {
-    const before = new URL(page.url()).pathname
-    await page.goto('/my/quiz/asdf')
+  test('moves when another quiz is picked from the switcher', async ({ page }) => {
+    const firstUrl = page.url()
+    await newQuiz(page)
+    await page.getByLabel('Quiz name').blur()
+    await expect(page).not.toHaveURL(firstUrl)
+    await openQuiz(page, 'Quiz one')
+    await expect(page).toHaveURL(firstUrl)
+  })
+
+  test('moves with its quiz when the gear icon relabels it', async ({ page }) => {
+    const hunt = huntLabelOf(page)
+    await openManage(page)
+    await expect(page.getByLabel('Label', { exact: true })).toHaveValue(/^[a-z]+_[a-z]+/)
+    await page.getByLabel('Label', { exact: true }).fill('Leon\'s Quiz!!')
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(manageDialog(page)).toBeHidden()
+    await expect(page).toHaveURL(new RegExp(String.raw`/h/${hunt}/home/leon_s_quiz\?act=smith$`))
+  })
+
+  test('refuses a label another quiz of the realm uses, with the field left open to fix', async ({ page }) => {
+    await openManage(page)
+    await page.getByLabel('Label', { exact: true }).fill('leon')
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(manageDialog(page)).toBeHidden()
+    await expect(page).toHaveURL(/\/home\/leon\?act=smith$/)
+    await waitUntilSaved(page)
+
+    await newQuiz(page)
+    await waitUntilSaved(page)
+    await openManage(page)
+    await page.getByLabel('Label', { exact: true }).fill('leon')
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(page.getByText('Another quiz already uses that label.')).toBeVisible()
+    await expect(manageDialog(page)).toBeVisible()
+  })
+
+  test('lets the "All quizzes" list open another quiz and close the modal', async ({ page }) => {
+    await newQuiz(page)
+    await page.getByLabel('Quiz name').fill('Quiz two')
+    await page.getByLabel('Quiz name').blur()
+    await openManage(page)
+    await page.getByRole('button', { name: 'Quiz one' }).click()
+    await expect(manageDialog(page)).toBeHidden()
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+  })
+
+  test('says so when the label put in it is not a quiz, and the back button returns', async ({ page }) => {
+    const before = page.url()
+    await page.goto(`/h/${huntLabelOf(page)}/home/asdf`)
     await expect(page.getByRole('heading', { name: 'No such quiz' })).toBeVisible()
     await page.goBack()
-    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz two')
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
     await expect(page).toHaveURL(before)
+  })
+})
+
+test.describe('an address naming a quiz that is not there', () => {
+  test('says which quiz of which hunt it looked for, and lists the hunt\'s quizzes', async ({ page }) => {
+    await startHunt(page)
+    await page.getByLabel('Quiz name').fill('Quiz one')
+    await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
+    const hunt = huntLabelOf(page)
+    await loadAfresh(page, `/h/${hunt}/home/asdf?act=smith`)
+    await expect(page.getByRole('heading', { name: 'No such quiz' })).toBeVisible()
+    await expect(page.getByText(`has no quiz at “${hunt}/home/asdf”.`)).toBeVisible()
+    await page.getByRole('link', { name: 'Quiz one' }).click()
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+  })
+
+  test('says there is no such hunt, once the server has had its say', async ({ page }) => {
+    await assumeIdent(page)
+    await page.goto('/h/no_such_hunt_here/home/asdf?act=smith')
+    await expect(page.getByText('There is no hunt labelled “no_such_hunt_here”.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Your hunts' })).toBeVisible()
+  })
+
+  test('lists the history repositories this browser holds, including those of deleted quizzes', async ({ page }) => {
+    await startHunt(page)
+    await page.getByLabel('Quiz name').fill('Quiz one')
+    await page.getByLabel('Quiz name').blur()
+    await openManage(page)
+    await page.getByLabel('Label', { exact: true }).fill('kept_history')
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(page).toHaveURL(/\/home\/kept_history\?act=smith$/)
+    await openManage(page)
+    await page.getByRole('button', { name: 'Mark a milestone' }).click()
+    await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
+    await closeManage(page)
+
+    await newQuiz(page)
+    await openQuiz(page, 'Quiz one')
+    await page.getByRole('button', { name: 'Delete quiz' }).click()
+    await page.getByRole('button', { name: 'Yes' }).click()
+    await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
+    await waitUntilSaved(page)
+
+    await loadAfresh(page, `/h/${huntLabelOf(page)}/home/nothing`)
+    const repo = page.getByRole('listitem').filter({ hasText: 'kept_history' })
+    await expect(repo).toContainText('main')
+    await expect(repo).toContainText('not in this hunt')
+  })
+})
+
+test.describe('a link handed to a friend', () => {
+  test('brings a friend who has not said who they are through the front door and back to it', async ({ page, browser }) => {
+    await startHunt(page)
+    await page.getByLabel('Quiz name').fill('For my friends')
+    await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which prince was Danish?')
+    await page.getByLabel('Quiz name').click()
+    await waitUntilSaved(page)
+    const link = page.url()
+
+    const friend = await otherVisitor(browser)
+    await friend.goto(link)
+    await expect(friend.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
+    await friend.getByLabel('Ident label').fill(freshIdentLabel())
+    await friend.getByRole('button', { name: 'Continue' }).click()
+    await expect(friend).toHaveURL(link)
+    await expect(friend.getByLabel('Quiz name')).toHaveValue('For my friends')
+    await expect(friend.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which prince was Danish?')
+  })
+
+  test('lets the friend\'s edits reach the author, for the trial', async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const link = page.url()
+
+    const friend = await otherVisitor(browser)
+    await assumeIdent(friend)
+    await friend.goto(link)
+    await expect(friend).toHaveURL(NewHuntUrl)
+    await friend.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Written by a friend')
+    await friend.getByLabel('Quiz name').click()
+    await waitUntilSaved(friend)
+
+    await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Written by a friend')
+  })
+
+  test('shows the friend the author\'s hunt among the hunts', async ({ page, browser }) => {
+    await startHunt(page)
+    const title = freshTitle('A hunt to find')
+    await page.getByLabel('Quiz name').fill(title)
+    await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
+
+    const friend = await otherVisitor(browser)
+    await assumeIdent(friend)
+    await friend.getByRole('link', { name: title }).click()
+    await expect(friend.getByLabel('Quiz name')).toHaveValue(title)
   })
 })

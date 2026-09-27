@@ -9,12 +9,28 @@ the domain.
 
 
 
+## Who and where
+
+* **ident** -- a persona in the app, named by a global label a person types to become it: 6 to
+  24 characters of the label alphabet, normalised from what was typed. No password: anyone may
+  assume any ident, for now. Has a `title` for display. Never changed or deleted.
+* **identing** -- one account taking on one ident. The account's newest identing is its current
+  ident; that row, not browser storage, is what "logged in" means. The one table no other account
+  can read. (Later, a cred will be the thing an identing hangs off.)
+* **hunt** -- the unit of URL scope and, later, of membership: holds realms and expressions, and
+  is exactly what Export emits. Its label is global; should two share one, the earlier-made wins.
+* **realm** -- a division of a hunt, holding quizzes; the address's middle segment. Every hunt
+  starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
+  scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.
+* **act** -- the presentation an address asks for (`?act=`): `smith` (the Workbench) or `review`.
+  The path names the resource, the act how to show it. See
+  `notes/decisions/2026-09-resource-urls.md`.
+* **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them.
+* **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
+  and addresses said which was open. Import still reads an old workspace export, questions only.
+
 ## The things an author makes
 
-* **workspace** -- everything the tool holds for one person in one browser: their quizzes, their
-  expressions, and which quiz was last open. One per account, found by the account that made it;
-  accounts are local-first, made silently on first visit, with no login. It is also exactly
-  what Export emits and Import accepts.
 * **quiz** -- an ordered list of questions, plus the widgets and columns that say what else the
   grid shows. Each question's `position` *is* the display order; sorting and dragging rewrite it.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
@@ -49,7 +65,8 @@ the domain.
   internal detail: where a label relationship is reasonable and equally powerful, refer by label
   instead, scoped where it must be (`quizlabel-questionlabel` as a selector id).
 * **label** -- a freeform-string-derived identifier a person can read, type and paste back:
-  lowercase letters, digits, underscore; letter first. Unique among siblings, not globally.
+  lowercase letters, digits, underscore; letter first. Unique among siblings, not globally;
+  idents and hunts have no parent, so theirs are global.
   Labels are what URLs, formulas, exports, git paths and column sources use, because people
   export, edit and re-import -- so many things refer by label where an id would be easier.
 * **forced_label** / **effective label** -- a generated label (`quiet_otter`) can be overridden by
@@ -66,8 +83,8 @@ the domain.
   from widgets on purpose: a widget *has* a value, a column *shows* one. Removing a column keeps
   its widget; removing a widget takes its columns.
 * **source** -- what a column shows: `question.<field>`, `question.<view>`, or a widget's label.
-* **expression** -- a reusable JSONata **formula** with a label and description, owned by the
-  workspace (`owner` is `tq` for the seeded ones). Generic: it knows nothing of any quiz.
+* **expression** -- a reusable JSONata **formula** with a label and description, held by a
+  hunt (`owner` is `tq` for the seeded ones). Generic: it knows nothing of any quiz.
 * **expressing** -- a widget: one expression put to work in one quiz. The noun is deliberate --
   an *expression* is the recipe, an *expressing* is it being worked here.
 * **expressed** -- what an expressing came to for one question: a value, `nothing` (a muted
@@ -108,7 +125,7 @@ that way; the model bots were called players until September 2026.
 ## Around the edges
 
 * **locked** -- a quiz frozen against edits. Never a trap: switching, unlocking, exporting and
-  editing the workspace's expressions all stay available.
+  editing the hunt's expressions all stay available.
 * **sort memory** (`last_sortkey`) -- which column last committed the quiz to its order. A
   label, not a live sort.
 * **notice** -- a sentence shown to the author in place of a result. Failures reach the author

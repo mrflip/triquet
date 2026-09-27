@@ -36,6 +36,8 @@ export const ValidatorKit = {
   treeid:    Z.union([CK.ulid, Z.uuid()]),
   /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
   label:     CK.label,
+  /** An ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become */
+  identlabel: CK.identlabel,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
   //

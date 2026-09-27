@@ -20,38 +20,43 @@ describe('schema', () => {
   })
   afterAll(async () => { await testApp.shutdown() })
 
-  /** A workspace holding one quiz with one question, the parents every other row hangs from */
+  /** A hunt with one realm holding one quiz with one question, the parents every other row hangs from */
   function seedQuiz(label: string) {
-    const workspace = db.insert(app.workspaces, { active_quiz_id: null }).value
-    const quiz = db.insert(app.quizzes, { workspace_id: workspace.id, title: 'Princes', label, version: 'main', locked: false }).value
-    db.update(app.workspaces, workspace.id, { active_quiz_id: quiz.id })
+    const hunt = db.insert(app.hunts, { label, forced_label: null, title: 'Plays' }).value
+    const realm = db.insert(app.realms, { hunt_id: hunt.id, label: 'home', title: 'Home', position: 0 }).value
+    const quiz = db.insert(app.quizzes, { realm_id: realm.id, title: 'Princes', label, version: 'main', locked: false }).value
     const question = db.insert(app.questions, {
       quiz_id: quiz.id, position: 0, label: 'hamlet', title: 'Hamlet', qnum: '1', clueing: 'Dane, melancholy', hint: '',
       full_answer: 'Hamlet', alt_text: '', notes: '',
     }).value
-    return { workspace, quiz, question }
+    return { hunt, realm, quiz, question }
   }
 
-  describe('workspaces', () => {
-    it('holds which quiz is open, and reaches it and its siblings by relation', async () => {
-      const { workspace } = seedQuiz('ws_open')
-      const [held] = await db.all(app.workspaces.where({ id: workspace.id }).include({ active_quiz: true, quizzes: true }))
-      expect(held?.active_quiz?.label).to.eq('ws_open')
-      expect(held?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['ws_open'])
+  describe('idents and identings', () => {
+    it('round-trip, an identing reaching its ident by relation', async () => {
+      const ident = db.insert(app.idents, { label: 'flip_kromer', title: 'Flip' }).value
+      const identing = db.insert(app.identings, { ident_id: ident.id }).value
+      const [held] = await db.all(app.identings.where({ id: identing.id }).include({ ident: true }))
+      expect([held?.ident_id, held?.ident?.label, held?.ident?.title]).to.deep.eq([ident.id, 'flip_kromer', 'Flip'])
     })
+  })
 
-    it('holds no open quiz as null', async () => {
-      const workspace = db.insert(app.workspaces, { active_quiz_id: null }).value
-      const [held] = await db.all(app.workspaces.where({ id: workspace.id }))
-      expect(held && sansId(held)).to.deep.eq({ active_quiz_id: null })
+  describe('hunts and realms', () => {
+    it('round-trip, a hunt reaching its realms and a realm its quizzes by relation', async () => {
+      const { hunt, realm } = seedQuiz('ht_nested')
+      const [heldHunt] = await db.all(app.hunts.where({ id: hunt.id }).include({ realms: true }))
+      const [heldRealm] = await db.all(app.realms.where({ id: realm.id }).include({ quizzes: true }))
+      expect(heldHunt && _.omit(heldHunt, ['id', 'realms'])).to.deep.eq({ label: 'ht_nested', forced_label: null, title: 'Plays' })
+      expect(heldHunt?.realms.map((each) => [each.label, each.title, each.position])).to.deep.eq([['home', 'Home', 0]])
+      expect(heldRealm?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['ht_nested'])
     })
   })
 
   describe('expressions', () => {
-    it('round-trips every field, and belongs to its workspace', async () => {
-      const { workspace } = seedQuiz('ex_quiz')
-      db.insert(app.expressions, { workspace_id: workspace.id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.', position: 3 })
-      const [held] = await db.all(app.workspaces.where({ id: workspace.id }).include({ expressions: true }))
+    it('round-trips every field, and belongs to its hunt', async () => {
+      const { hunt } = seedQuiz('ex_quiz')
+      db.insert(app.expressions, { hunt_id: hunt.id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: 'Loud.', position: 3 })
+      const [held] = await db.all(app.hunts.where({ id: hunt.id }).include({ expressions: true }))
       expect(held?.expressions.map((expression) => [expression.owner, expression.label, expression.formula, expression.description, expression.position]))
         .to.deep.eq([['tq', 'shout', '$uppercase(qn.title)', 'Loud.', 3]])
     })
@@ -61,7 +66,7 @@ describe('schema', () => {
     it('round-trips its own fields, with the optional ones null when omitted', async () => {
       const { quiz } = seedQuiz('qz_plain')
       const [held] = await db.all(app.quizzes.where({ id: quiz.id }))
-      expect(_.omit(held, ['id', 'workspace_id'])).to.deep.eq({
+      expect(_.omit(held, ['id', 'realm_id'])).to.deep.eq({
         title: 'Princes', label: 'qz_plain', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
       })
     })

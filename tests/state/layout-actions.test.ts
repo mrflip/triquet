@@ -2,29 +2,38 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { PolicyTestApp } from 'jazz-tools/testing'
 import { countExpressingWidgets } from '../../src/state/layout-actions'
-import { loadAccountRows } from '../../src/state/quiz-rows'
+import { loadHeldRows } from '../../src/state/quiz-rows'
 import { NewExpression, planExpressingEdit } from '../../src/state/widget-edit'
 import { Question } from '../../src/models/question'
-import { Workspace, openQuizOf, type WorkspaceT } from '../../src/models/workspace'
+import { Hunt, type HuntT } from '../../src/models/hunt'
 import { present } from '../support/present'
-import { openTestApp, seedWorkspace, type Seeded } from '../support/jazz'
+import { huntHolding, openOf, openTestApp, seedHunt, type Seeded, type Seen } from '../support/jazz'
 
-/** A fresh workspace with the standard expressions and its quiz laid out as a new quiz's is */
-function standard(locked = false): WorkspaceT {
-  const workspace = Workspace.blank()
-  return { ...workspace, quizzes: workspace.quizzes.map((quiz) => ({ ...quiz, locked })) }
+/** A fresh hunt with the standard expressions and its quiz laid out as a new quiz's is */
+function standard(locked = false): HuntT {
+  const hunt = Hunt.blank()
+  return { ...hunt, realms: hunt.realms.map((realm) => ({ ...realm, quizzes: realm.quizzes.map((quiz) => ({ ...quiz, locked })) })) }
 }
 
-const quizOf    = (workspace: WorkspaceT) => present(openQuizOf(workspace))
-const widgetsOf = (workspace: WorkspaceT) => quizOf(workspace).widgets.map((widget) => widget.label)
-const columnsOf = (workspace: WorkspaceT) => quizOf(workspace).columns.map((column) => column.label)
-const StandardColumns = columnsOf(standard())
-const StandardWidgets = widgetsOf(standard())
+/** The one quiz of a fresh standard hunt */
+const standardQuiz = () => present(Hunt.quizzesOf(standard())[0])
+
+/** A standard hunt whose one quiz holds `questions` */
+const standardWith = (questions: ReturnType<typeof Question.blank>[]) => {
+  const blank = Hunt.blank()
+  return huntHolding([{ ...present(Hunt.quizzesOf(blank)[0]), questions }], blank.expressions)
+}
+
+const quizOf    = (seen: Seen) => openOf(seen)
+const widgetsOf = (seen: Seen) => quizOf(seen).widgets.map((widget) => widget.label)
+const columnsOf = (seen: Seen) => quizOf(seen).columns.map((column) => column.label)
+const StandardColumns = standardQuiz().columns.map((column) => column.label)
+const StandardWidgets = standardQuiz().widgets.map((widget) => widget.label)
 
 /** Every expression but `answer_reversed` */
-const others = (workspace: WorkspaceT) => workspace.expressions.filter((expression) => expression.label !== 'answer_reversed')
-/** The workspace's expressions' labels */
-const labelsOf = (workspace: WorkspaceT) => workspace.expressions.map((expression) => expression.label)
+const others = (seen: Seen) => seen.expressions.filter((expression) => expression.label !== 'answer_reversed')
+/** The hunt's expressions' labels */
+const labelsOf = (seen: Seen) => seen.expressions.map((expression) => expression.label)
 
 const Widget = { kind: 'expressing' as const, label: 'backward', expression_label: 'answer_reversed' }
 
@@ -33,9 +42,9 @@ const Server: { testApp: PolicyTestApp | null } = { testApp: null }
 beforeAll(async () => { Server.testApp = await openTestApp() })
 afterAll(async () => { await Server.testApp?.shutdown() })
 
-const seed = async (workspace: WorkspaceT = standard()) => await seedWorkspace(present(Server.testApp, 'the test server'), workspace)
+const seed = async (hunt: HuntT = standard()) => await seedHunt(present(Server.testApp, 'the test server'), hunt)
 
-/** A standard workspace with the `backward` widget added */
+/** A standard hunt with the `backward` widget added */
 async function withWidget(): Promise<Seeded> {
   const seeded = await seed()
   await seeded.act({ kind: 'add_widget', widget: Widget })
@@ -60,7 +69,7 @@ describe('add_widget', () => {
     expect(columnsOf(await read())).to.deep.eq(StandardColumns)
   })
 
-  it('refuses a label a widget already has, or the questions\' own, leaving the workspace as it was', async () => {
+  it('refuses a label a widget already has, or the questions\' own, leaving the hunt as it was', async () => {
     await expectUnchanged(await withWidget(),
       { kind: 'add_widget', widget: { ...Widget, description: 'again' } },
       { kind: 'add_widget', widget: { ...Widget, label: 'question' } })
@@ -138,9 +147,7 @@ describe('delete_widget', () => {
 
   it('keeps the answers a bot gave, which are the question\'s history and not the widget\'s', async () => {
     const guess = { status: 'done' as const, text: 'Lyon', truncated: false, updated_at: Date.now(), last_err: null }
-    const blank = Workspace.blank()
-    const quiz = { ...present(blank.quizzes[0]), questions: [{ ...Question.blank(), clueing: 'Where?', guess }] }
-    const { act, read } = await seed(Workspace.fill({ ...blank, quizzes: [quiz], active_quiz_id: quiz.id }))
+    const { act, read } = await seed(standardWith([{ ...Question.blank(), clueing: 'Where?', guess }]))
     await act({ kind: 'delete_widget', label: 'dumdum' })
     const after = await read()
     expect(quizOf(after).questions[0]?.guess).to.deep.include({ status: 'done', text: 'Lyon' })
@@ -282,9 +289,7 @@ describe('move_column', () => {
 
 describe('sort_questions by a column that shows an expressing', () => {
   it('orders the questions by what the widget came to, and remembers the column', async () => {
-    const blank = Workspace.blank()
-    const quiz = { ...present(blank.quizzes[0]), questions: ['ccc', 'a', 'bb'].map((full_answer) => ({ ...Question.blank(), full_answer })) }
-    const { act, read } = await seed(Workspace.fill({ ...blank, quizzes: [quiz], active_quiz_id: quiz.id }))
+    const { act, read } = await seed(standardWith(['ccc', 'a', 'bb'].map((full_answer) => ({ ...Question.blank(), full_answer }))))
     await act({ kind: 'add_widget', widget: { kind: 'expressing', label: 'letters', expression_label: 'answer_letter_count' } })
     await act({ kind: 'add_column', column: { label: 'letters', title: 'Letters', source: 'letters', width_px: 78 } })
     await act({ kind: 'sort_questions', sortkey: 'column:letters', descending: false })
@@ -297,20 +302,20 @@ describe('sort_questions by a column that shows an expressing', () => {
 describe('add_expression', () => {
   const shout = { label: 'shout', formula: '$uppercase(qn.title)' }
 
-  it('adds an expression to the end of the workspace\'s, owned by tq', async () => {
+  it('adds an expression to the end of the hunt\'s, owned by tq', async () => {
     const { act, read } = await seed()
     await act({ kind: 'add_expression', expression: shout })
     const { expressions } = await read()
     expect(expressions.at(-1)).to.deep.eq({ owner: 'tq', description: '', ...shout })
   })
 
-  it('refuses a label already taken, leaving the workspace as it was', async () => {
+  it('refuses a label already taken, leaving the hunt as it was', async () => {
     const seeded = await seed()
     await seeded.act({ kind: 'add_expression', expression: shout })
     await expectUnchanged(seeded, { kind: 'add_expression', expression: { ...shout, formula: '1' } })
   })
 
-  it('works from a locked quiz, because the expressions belong to the workspace', async () => {
+  it('works from a locked quiz, because the expressions belong to the hunt', async () => {
     const { act, read } = await seed(standard(true))
     await act({ kind: 'add_expression', expression: shout })
     const { expressions } = await read()
@@ -370,22 +375,23 @@ describe('countExpressingWidgets', () => {
   it('counts the widgets, across every quiz, that work an expression', async () => {
     const { db, open, act } = await seed()
     await act({ kind: 'new_quiz' })
-    expect(countExpressingWidgets(await loadAccountRows(db), open.workspace_id, 'clueing_full')).to.eq(2)
+    expect(countExpressingWidgets(await loadHeldRows(db, open.hunt_id), open.hunt_id, 'clueing_full')).to.eq(2)
   })
 
   it('counts nought for an expression nobody works, or that does not exist', async () => {
     const { db, open } = await seed()
-    const held = await loadAccountRows(db)
-    expect(countExpressingWidgets(held, open.workspace_id, 'answer_reversed')).to.eq(0)
-    expect(countExpressingWidgets(held, open.workspace_id, 'absent')).to.eq(0)
+    const held = await loadHeldRows(db, open.hunt_id)
+    expect(countExpressingWidgets(held, open.hunt_id, 'answer_reversed')).to.eq(0)
+    expect(countExpressingWidgets(held, open.hunt_id, 'absent')).to.eq(0)
   })
 })
 
 describe('the widgets and columns of a new quiz', () => {
-  it('are the standard ones, and a new quiz takes them from the workspace\'s expressions', async () => {
+  it('are the standard ones, and a new quiz takes them from the hunt\'s expressions', async () => {
     const { act, read } = await seed()
     await act({ kind: 'new_quiz' })
-    expect(quizOf(await read()).widgets).to.deep.eq(present(Workspace.blank().quizzes[0]).widgets)
+    const { quizzes } = await read()
+    expect(present(quizzes.at(-1)).widgets).to.deep.eq(standardQuiz().widgets)
   })
 })
 

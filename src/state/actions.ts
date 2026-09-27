@@ -8,12 +8,11 @@ import type { IshesT } from '../models/ish'
 import type { Textkind } from '../lib/ask/contract'
 import type { BulkLanding } from '../lib/ask/bulk'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../models/quiz'
-import type { WorkspaceT } from '../models/workspace'
 
 // The vocabulary of what an author can do. A view says which of these happened, and `perform`
 // writes the rows it comes to.
 
-/** Everything the author can do to a quiz's widgets and columns, and to the workspace's expressions */
+/** Everything the author can do to a quiz's widgets and columns, and to the hunt's expressions */
 export type LayoutAction =
   | { kind: 'add_widget', widget: WidgetDNA }
   | { kind: 'edit_widget', label: string, patch: ExpressingPatch | BottingPatch }
@@ -38,10 +37,9 @@ export function isLayoutAction(action: { kind: string }): action is LayoutAction
   return LayoutKinds.has(action.kind)
 }
 
-/** Everything the author can do to their workspace */
-export type WorkspaceAction =
+/** Everything the author can do from inside a quiz: to it, to its realm's quizzes, and to its hunt's expressions */
+export type HuntAction =
   | LayoutAction
-  | { kind: 'replace_workspace', workspace: WorkspaceT }
   | { kind: 'retitle_quiz', title: string }
   | { kind: 'relabel_quiz', label: string }
   | { kind: 'reversion_quiz', version: string }
@@ -58,9 +56,13 @@ export type WorkspaceAction =
   | { kind: 'fail_guess', question_id: string, err: LastErrT }
   | { kind: 'fail_ishes', question_id: string, textkind: Textkind, err: LastErrT }
   | { kind: 'apply_bulk_ishes', landings: readonly BulkLanding[], run: BulkIshesRunT }
-  | { kind: 'open_quiz', quiz_id: string }
   | { kind: 'new_quiz', label?: string }
   | { kind: 'delete_quiz', quiz_id: string }
   | { kind: 'set_lock', quiz_id: string, locked: boolean }
   | { kind: 'replace_open_quiz', quiz: QuizT }
 
+
+/** What a visitor can do before any quiz is open: become an ident, and make a hunt */
+export type AccountAction =
+  | { kind: 'assume_ident', label: string, title: string }
+  | { kind: 'new_hunt', label: string }

@@ -64,8 +64,8 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     .describe('One trivia quiz. Chain integrity and column labels are checked here rather than on the question or the column, because each is only meaningful relative to its siblings.')
 
   const row = obj({
-    workspace_id:    rowid
-      .describe('The workspace this quiz belongs to.'),
+    realm_id:        rowid
+      .describe('The realm this quiz belongs to.'),
     title:           titleish,
     label:           quizLabel,
     forced_label,

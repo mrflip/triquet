@@ -143,8 +143,9 @@ type PayloadReading =
 /**
  * The pasted text read as whichever of the three accepted shapes it is.
  *
- * Given a whole workspace it takes the quiz matching the open one by id, failing that by name,
- * failing that the first one -- and says which reading it took, so the author is never guessing.
+ * Given a whole hunt, or a whole workspace exported before there were hunts, it takes the quiz
+ * matching the open one by id, failing that by name, failing that the first one -- and says which
+ * reading it took, so the author is never guessing.
  */
 function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   let raw: unknown
@@ -154,15 +155,14 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
     return { ok: false, summary: "That isn't readable as JSON, so nothing was changed. Your text is still here." }
   }
 
+  const hunt = ImportValidators.importHunt.safeParse(raw)
+  if (hunt.success) {
+    return readWhole(hunt.data.realms.flatMap((realm) => realm.quizzes), 'hunt', openQuiz)
+  }
+
   const workspace = ImportValidators.importWorkspace.safeParse(raw)
   if (workspace.success) {
-    const chosen = quizFromWorkspace(workspace.data.quizzes, openQuiz)
-    if (! chosen) { return { ok: false, summary: 'That workspace holds no quizzes, so nothing was changed.' } }
-    return {
-      ok:      true,
-      quiz:    chosen,
-      reading: `Read as a whole workspace of ${String(workspace.data.quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
-    }
+    return readWhole(workspace.data.quizzes, 'workspace', openQuiz)
   }
 
   const quiz = ImportValidators.importQuiz.safeParse(raw)
@@ -178,17 +178,28 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   return { ok: false, summary: "That isn't a shape this tool recognises, so nothing was changed. Your text is still here." }
 }
 
-/** How the quiz was picked out of a pasted workspace, for the log */
+/** The quiz of a whole export matching the open one, and how it was picked, for the log */
+function readWhole(quizzes: readonly ImportQuizT[], whole: 'hunt' | 'workspace', openQuiz: QuizT): PayloadReading {
+  const chosen = quizFromExport(quizzes, openQuiz)
+  if (! chosen) { return { ok: false, summary: `That ${whole} holds no quizzes, so nothing was changed.` } }
+  return {
+    ok:      true,
+    quiz:    chosen,
+    reading: `Read as a whole ${whole} of ${String(quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
+  }
+}
+
+/** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: ImportQuizT, openQuiz: QuizT): string {
   if (chosen.id === openQuiz.id) { return 'matched this quiz by id' }
   return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
 }
 
 /**
- * A workspace's quiz chosen against the one on screen: by id, failing that by name, failing
+ * An export's quiz chosen against the one on screen: by id, failing that by name, failing
  * that the first.
  */
-export function quizFromWorkspace(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
+export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
   return quizzes.find((quiz) => quiz.id === openQuiz.id)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
     ?? quizzes[0]

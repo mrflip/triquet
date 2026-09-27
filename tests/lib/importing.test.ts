@@ -36,7 +36,21 @@ describe('importInto', () => {
       expect(findByLabel(after, 'leon').clueing).to.eq('Reworded')
     })
 
-    it('takes a whole workspace, matching the open quiz by name', () => {
+    it('takes a whole hunt, matching the open quiz by name across its realms', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({
+        label:  'quiet_otter',
+        realms: [
+          { label: 'home', quizzes: [{ title: 'Some other quiz', questions: [{ label: 'leon', clueing: 'Wrong one' }] }] },
+          { label: 'away', quizzes: [{ title: 'Quiz one', questions: [{ label: 'leon', clueing: 'Right one' }] }] },
+        ],
+        expressions: [],
+      }))
+      expect(findByLabel(present(outcome.quiz), 'leon').clueing).to.eq('Right one')
+      expect(outcome.summary).to.include('whole hunt of 2 quiz(zes); matched this quiz by name')
+    })
+
+    it('takes a whole workspace exported before hunts, matching the open quiz by name', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const outcome = Importing.importInto(quiz, JSON.stringify({
         quizzes: [

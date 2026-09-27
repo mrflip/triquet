@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { NewExpression, planExpressingEdit, planBottingEdit, type ExpressingEdit, type BottingEdit } from '../../src/state/widget-edit'
-import { Workspace } from '../../src/models/workspace'
+import { Hunt } from '../../src/models/hunt'
 import type { ExpressingT, BottingWidgetT } from '../../src/models/widget'
 import type { QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
 
-const workspace = Workspace.blank()
-const quiz = present(workspace.quizzes[0])
+const hunt = Hunt.blank()
+const quiz = present(Hunt.quizzesOf(hunt)[0])
 const held = present(quiz.widgets.find((each): each is ExpressingT => each.label === 'hint_full'))
-const heldExpression = present(workspace.expressions.find((each) => each.label === 'hint_full'))
+const heldExpression = present(hunt.expressions.find((each) => each.label === 'hint_full'))
 const dumdum = present(quiz.widgets.find((each): each is BottingWidgetT => each.label === 'dumdum'))
 const lockedQuiz = (): QuizT => ({ ...quiz, locked: true })
 
@@ -26,7 +26,7 @@ function fresh(patch: Partial<ExpressingEdit> = {}): ExpressingEdit {
 }
 
 function actionsOf(edit: ExpressingEdit, target: QuizT = quiz) {
-  const plan = planExpressingEdit(edit, workspace, target)
+  const plan = planExpressingEdit(edit, hunt, target)
   if (! plan.ok) { throw new Error(`Expected a plan, got: ${plan.issue}`) }
   return plan.actions
 }
@@ -50,20 +50,20 @@ describe('planExpressingEdit, editing a widget', () => {
   })
 
   it('points the widget at another expression', () => {
-    const other = present(workspace.expressions.find((each) => each.label === 'answer_reversed'))
+    const other = present(hunt.expressions.find((each) => each.label === 'answer_reversed'))
     const actions = actionsOf({ ...untouched(), expressionLabel: 'answer_reversed', expression: other })
     expect(actions).to.deep.eq([{ kind: 'edit_widget', label: 'hint_full', patch: { expression_label: 'answer_reversed' } }])
   })
 
   it('refuses a label a sibling widget already has, or the questions\' own', () => {
     for (const label of ['clueing_full', 'question']) {
-      expect(planExpressingEdit({ ...untouched(), label }, workspace, quiz)).to.deep.include({ ok: false, issue: 'Another widget in this quiz already has that label.' })
+      expect(planExpressingEdit({ ...untouched(), label }, hunt, quiz)).to.deep.include({ ok: false, issue: 'Another widget in this quiz already has that label.' })
     }
   })
 
   it('refuses an empty formula, and a description too long', () => {
-    expect(planExpressingEdit({ ...untouched(), expression: { ...heldExpression, formula: '' } }, workspace, quiz).ok).to.eq(false)
-    expect(planExpressingEdit({ ...untouched(), description: 'x'.repeat(3601) }, workspace, quiz).ok).to.eq(false)
+    expect(planExpressingEdit({ ...untouched(), expression: { ...heldExpression, formula: '' } }, hunt, quiz).ok).to.eq(false)
+    expect(planExpressingEdit({ ...untouched(), description: 'x'.repeat(3601) }, hunt, quiz).ok).to.eq(false)
   })
 })
 
@@ -84,7 +84,7 @@ describe('planExpressingEdit, making a new widget', () => {
   })
 
   it('can work an existing expression without adding one', () => {
-    const reversed = present(workspace.expressions.find((each) => each.label === 'answer_reversed'))
+    const reversed = present(hunt.expressions.find((each) => each.label === 'answer_reversed'))
     const actions = actionsOf(fresh({ expressionLabel: 'answer_reversed', expression: reversed }))
     expect(actions.map((action) => action.kind)).to.deep.eq(['add_widget', 'add_column'])
   })
@@ -110,20 +110,20 @@ describe('planExpressingEdit, making a new widget', () => {
   ]
   for (const [patch, issue, describes] of Refused) {
     it(`refuses ${describes}`, () => {
-      const plan = planExpressingEdit(fresh(patch), workspace, quiz)
+      const plan = planExpressingEdit(fresh(patch), hunt, quiz)
       expect(plan.ok).to.eq(false)
       expect(plan.ok ? '' : plan.issue).to.match(issue)
     })
   }
 
   it('points a taken-label refusal at the label field', () => {
-    const plan = planExpressingEdit(fresh({ expression: { label: 'clueing_full', description: '', formula: '1' } }), workspace, quiz)
+    const plan = planExpressingEdit(fresh({ expression: { label: 'clueing_full', description: '', formula: '1' } }), hunt, quiz)
     expect(plan).to.deep.include({ ok: false, labelIssue: 'Another expression already has that label.' })
   })
 })
 
 describe('planExpressingEdit, on a locked quiz', () => {
-  it('leaves the widget alone and revises only the expression, which belongs to the workspace', () => {
+  it('leaves the widget alone and revises only the expression, which belongs to the hunt', () => {
     const actions = actionsOf({ ...untouched(), description: 'Ignored', expression: { ...heldExpression, formula: '1' } }, lockedQuiz())
     expect(actions.map((action) => action.kind)).to.deep.eq(['edit_expression'])
   })

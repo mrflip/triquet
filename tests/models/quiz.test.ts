@@ -145,7 +145,7 @@ describe('Quiz.blank', () => {
 
 describe('QuizValidators.row', () => {
   const Row = {
-    workspace_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
+    realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
   }
 
   it('takes a quiz as the database holds it, sort memory and batch cost included', () => {
@@ -155,7 +155,7 @@ describe('QuizValidators.row', () => {
   })
 
   const Refused: [object, string][] = [
-    [{ workspace_id: 'princes' },            'a workspace that is not a row id'],
+    [{ realm_id: 'princes' },                'a realm that is not a row id'],
     [{ label: 'Princes' },                   'a label that is not one'],
     [{ title: 'x'.repeat(83) },              'a title past 82 characters'],
     [{ last_sortkey: 'column:Clueing' },     'a sort memory naming a column that is not a label'],

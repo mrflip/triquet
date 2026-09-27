@@ -1,20 +1,20 @@
 import _ from 'es-toolkit/compat'
 import type * as Z from 'zod'
 import type { Db } from 'jazz-tools'
-import { app, type ColumnRow, type ExpressionRow, type QuestionRow, type QuizRow, type WidgetRow, type WorkspaceRow } from '../db/schema'
+import { app, type ColumnRow, type ExpressionRow, type QuestionRow, type QuizRow, type WidgetRow } from '../db/schema'
 import * as Labelmaker from '../lib/labelmaker'
 import { ColumnValidators } from '../models/column'
-import { ExpressionValidators, keyOf } from '../models/expression'
+import { ExpressionValidators } from '../models/expression'
 import { BottingValidators, slotkeyOf, unrecordedBottings, type BottingT } from '../models/botting'
 import { QuestionValidators } from '../models/question'
 import { QuizValidators } from '../models/quiz'
 import { WidgetValidators } from '../models/widget'
-import { WorkspaceValidators } from '../models/workspace'
+import { HuntValidators, type HuntT } from '../models/hunt'
+import { RealmValidators } from '../models/realm'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
-import type { WorkspaceT } from '../models/workspace'
-import { askedAt, type QuizRows, type WorkspaceRows } from './quiz-rows'
+import { askedAt, type QuizRows } from './quiz-rows'
 
 /** What a write inside a transaction is made through */
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
@@ -87,12 +87,6 @@ export function repositioned<RT extends { position: number }>(ordered: readonly 
 // Each update below is held to its row validator whole, as the row would stand afterwards, and
 // then writes only the fields that change; one that changes nothing writes nothing.
 
-/** Revise a workspace's own row */
-export function updateWorkspace(tx: Tx, held: WorkspaceRow, patch: Partial<Z.output<typeof WorkspaceValidators.row>>): void {
-  const changed = changedFields(held, WorkspaceValidators.row({ ..._.omit(held, ['id']), ...patch }))
-  if (! _.isEmpty(changed)) { tx.update(app.workspaces, held.id, changed) }
-}
-
 /** Revise an expression's row */
 export function updateExpression(tx: Tx, held: ExpressionRow, patch: Partial<Z.output<typeof ExpressionValidators.row>>): void {
   const changed = changedFields(held, ExpressionValidators.row({ ..._.omit(held, ['id']), ...patch }))
@@ -133,17 +127,17 @@ export function updateColumn(tx: Tx, held: ColumnRow, patch: Partial<Z.output<ty
  * label of the question it names.
  *
  * @param tx - The transaction to write through.
- * @param workspace_id - The workspace the quiz belongs to.
+ * @param realm_id - The realm the quiz belongs to.
  * @param quiz - The quiz as it should be, every field already valid.
  * @param held - The quiz's rows as they stand; null for a quiz not yet written.
  * @returns The quiz's row id.
  * @throws When a row the quiz would come to is not valid; nothing of the transaction is kept.
  *
- * @example await transact(db, (tx) => writeQuiz(tx, workspace_id, Quiz.blank(), null))
+ * @example await transact(db, (tx) => writeQuiz(tx, realm_id, Quiz.blank(), null))
  */
-export function writeQuiz(tx: Tx, workspace_id: string, quiz: QuizT, held: QuizRows | null): string {
+export function writeQuiz(tx: Tx, realm_id: string, quiz: QuizT, held: QuizRows | null): string {
   const fields = QuizValidators.row({
-    workspace_id,
+    realm_id,
     title:           quiz.title,
     label:           quiz.label,
     forced_label:    quiz.forced_label,
@@ -213,7 +207,7 @@ function writeWidgets(tx: Tx, quiz_id: string, widgets: readonly WidgetT[], held
       label:            widget.label,
       kind:             widget.kind,
       expression_label: widget.kind === 'expressing' ? widget.expression_label : null,
-      bot_label:     widget.kind === 'botting' ? widget.bot_label : null,
+      bot_label:        widget.kind === 'botting' ? widget.bot_label : null,
       textkind:         widget.kind === 'botting' ? widget.textkind : null,
       description:      widget.description,
     })
@@ -259,50 +253,24 @@ export function deleteQuiz(tx: Tx, held: QuizRows): void {
 }
 
 /**
- * Write `workspace` into rows, whole: its expressions in the order given, each of its quizzes as
- * `writeQuiz` does, and which quiz is open. The quizzes and expressions it no longer holds are
- * deleted.
- *
- * A quiz is the row with its id; one whose id is not a row of this workspace is new. An
- * expression is the row with its owner and label.
+ * Write a new hunt into rows, whole: its own row, its realms in order, each realm's quizzes as
+ * `writeQuiz` writes them, and its expressions in order.
  *
  * @param tx - The transaction to write through.
- * @param workspace - The workspace as it should be, every field already valid.
- * @param held - The workspace's rows as they stand, and every one of its quizzes' rows; null for a workspace not yet written.
- * @returns The workspace's row id.
- * @throws When a row the workspace would come to is not valid; nothing of the transaction is kept.
+ * @param hunt - The hunt as it should be, every field already valid.
+ * @returns The hunt's row id.
+ * @throws When a row the hunt would come to is not valid; nothing of the transaction is kept.
+ *
+ * @example await transact(db, (tx) => writeHunt(tx, Hunt.blank('quiet_otter')))
  */
-export function writeWorkspace(tx: Tx, workspace: WorkspaceT, held: { rows: WorkspaceRows, quizzes: readonly QuizRows[] } | null): string {
-  const workspace_id = held ? held.rows.workspace.id : tx.insert(app.workspaces, WorkspaceValidators.row({ active_quiz_id: null })).id
-  const heldExpressions = held?.rows.expressions ?? []
-  const keptExpressions = new Set(workspace.expressions.map((expression) => keyOf(expression)))
-  for (const expression of heldExpressions) {
-    if (! keptExpressions.has(keyOf(expression))) { tx.delete(app.expressions, expression.id) }
+export function writeHunt(tx: Tx, hunt: HuntT): string {
+  const hunt_id = tx.insert(app.hunts, HuntValidators.row({ label: hunt.label, forced_label: hunt.forced_label, title: hunt.title })).id
+  for (const [position, expression] of hunt.expressions.entries()) {
+    tx.insert(app.expressions, ExpressionValidators.row({ hunt_id, position, ...expression }))
   }
-  for (const [position, expression] of workspace.expressions.entries()) {
-    const fields = ExpressionValidators.row({ workspace_id, position, ...expression })
-    const heldExpression = heldExpressions.find((row) => keyOf(row) === keyOf(expression))
-    if (heldExpression) {
-      updateExpression(tx, heldExpression, fields)
-    } else {
-      tx.insert(app.expressions, fields)
-    }
+  for (const [position, realm] of hunt.realms.entries()) {
+    const realm_id = tx.insert(app.realms, RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title })).id
+    for (const quiz of realm.quizzes) { writeQuiz(tx, realm_id, quiz, null) }
   }
-
-  const heldQuizzes = held?.quizzes ?? []
-  const keptQuizzes = new Set(workspace.quizzes.map((quiz) => quiz.id))
-  for (const quizRows of heldQuizzes) {
-    if (! keptQuizzes.has(quizRows.quiz.id)) { deleteQuiz(tx, quizRows) }
-  }
-  const rowIdFor = new Map(workspace.quizzes.map((quiz) => [
-    quiz.id,
-    writeQuiz(tx, workspace_id, quiz, heldQuizzes.find((rows) => rows.quiz.id === quiz.id) ?? null),
-  ]))
-  const active_quiz_id = rowIdFor.get(workspace.active_quiz_id) ?? null
-  if (held) {
-    updateWorkspace(tx, held.rows.workspace, { active_quiz_id })
-  } else {
-    tx.update(app.workspaces, workspace_id, { active_quiz_id })
-  }
-  return workspace_id
+  return hunt_id
 }

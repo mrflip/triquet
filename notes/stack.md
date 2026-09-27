@@ -79,11 +79,12 @@ don't trust a recalled version number, including one recalled by an agent.
 
 ### Routing
 
-* **Next's App Router owns the address.** A quiz lives at `/my/quiz/<label>`; `src/lib/routes.ts`
-  is the one place a URL's shape is written. The address decides which quiz is on screen, and
+* **Next's App Router owns the address.** A quiz lives at `/h/<hunt>/<realm>/<quiz>?act=smith`
+  (or `review`): the path names the resource, the query the presentation. `src/lib/routes.ts` is
+  the one place a URL's shape is written. The address decides which quiz is on screen, and
   nothing decides the address in return: never add a second mechanism that writes the URL.
   Navigation is a transition, so wait for the arrival before acting on the quiz moved to.
-  See `notes/decisions/2026-09-path-routing.md`.
+  See `notes/decisions/2026-09-path-routing.md` and `2026-09-resource-urls.md`.
 
 ### Small libraries in use
 

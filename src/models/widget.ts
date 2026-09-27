@@ -28,7 +28,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
     kind:             lit('expressing'),
     label:            widgetLabel,
     expression_label: label
-      .describe('Which of the workspace\'s expressions works out this widget\'s value for every question.'),
+      .describe('Which of the hunt\'s expressions works out this widget\'s value for every question.'),
     description:      description.default(''),
   })
     .describe('One expression put to work in one quiz: for every question, the value its formula comes to.')
@@ -78,7 +78,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
     kind:             oneof(WidgetkindVals)
       .describe('What the widget is: an expression put to work, or a bot put to the quiz.'),
     expression_label: label.nullable()
-      .describe('Which of the workspace\'s expressions an expressing widget works; null for a botting widget.'),
+      .describe('Which of the hunt\'s expressions an expressing widget works; null for a botting widget.'),
     bot_label:     botLabel.nullable(),
     textkind:         textkind.nullable(),
     description,
