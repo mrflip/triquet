@@ -4,19 +4,23 @@ import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
+import { ReviewsPanel } from './ReviewsPanel'
 import * as Exporting from '../../lib/exporting'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { ExpressedForQuiz } from '../../lib/expressed'
+import type { ReviewRow } from '../../db/schema'
 import type { QuizT } from '../../models/quiz'
 import type { HuntT } from '../../models/hunt'
 import styles from '../workbench.module.css'
 
-/** The titled sections below the grid: ways to get the work back out, and what was asked */
-export function Panels({ quiz, hunt, expressed, onMerged }: Readonly<{ quiz: QuizT, hunt: HuntT, expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
+/** The titled sections below the grid: what reviewers said, ways to get the work back out, and what was asked */
+export function Panels({ quiz, hunt, reviews, expressed, onMerged }: Readonly<{ quiz: QuizT, hunt: HuntT, reviews: readonly ReviewRow[], expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
   return (
     <div className={styles.panels}>
+      <ReviewsPanel reviews={reviews} />
+
       <Panel
         title="Copy for Sheets"
         blurb="Tab-separated: a header row, then one line per question, with every column the grid has, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet."

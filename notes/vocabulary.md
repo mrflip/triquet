@@ -123,6 +123,20 @@ that way; the model bots were called players until September 2026.
 * **servicelabel** -- which outside service serves a bot (`claude`), and so whose credentials
   it needs. **unavailable** is a bot with none.
 
+## Playtesting
+
+* **review** -- one ident's review of one quiz: an overall note and a **phase**. One per (quiz,
+  ident); opened the moment a reviewer first sees the review screen, upserted from there.
+* **phase** -- how far a review has come: `empty` (nothing written), `draft` (the reviewer is
+  still working), or `shared` (the smiths can see it). Nothing moves a review back to `empty`;
+  sharing and withdrawing move it between `draft` and `shared` only, and sharing is live, not a
+  snapshot -- an edit after sharing stays visible.
+* **reviewing** -- one review's verdict on one question: get rate, guesses, comments, minutes,
+  and three flags (`keep_it`, `needs_fact_check`, `elimination_candidate`). Not yet built; the
+  plan is in `whiteboard/hunts-and-idents.md`.
+* **the lock** -- the answer, hidden behind a confirmation until a reviewer chooses to see it.
+  Neither the confirmation nor the reveal is stored, apart from `peeked` once reviewings exist.
+
 ## Around the edges
 
 * **locked** -- a quiz frozen against edits. Never a trap: switching, unlocking, exporting and

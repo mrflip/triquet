@@ -26,7 +26,7 @@ import type { RealmT } from '../models/realm'
 import type { HuntHandle } from '../state/use-hunt'
 import styles from './workbench.module.css'
 
-export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'unsaved' | 'saveNotice'> & {
+export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'unsaved' | 'saveNotice' | 'reviews'> & {
   /** The hunt the address names */
   hunt:  HuntT
   /** The realm the address names, whose quizzes are the open quiz's siblings */
@@ -42,7 +42,7 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'unsaved' | 'saveNoti
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
  * by navigating, and every editing action lands on the quiz the address names.
  */
-export function Workbench({ hunt, realm, quiz, dispatch, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
@@ -192,6 +192,7 @@ export function Workbench({ hunt, realm, quiz, dispatch, unsaved, saveNotice }: 
       <Panels
         quiz={quiz}
         hunt={hunt}
+        reviews={reviews}
         expressed={expressed}
         onMerged={(merged) => {
           void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })
