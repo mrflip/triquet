@@ -18,8 +18,9 @@ complaint (`e2e/environment.ts`). An `environment` setup project runs before the
 prints the relevant variables (values hidden where the name looks secret), checks Jazz's
 `/health`, and opens the first page so no spec pays for compiling it.
 
-Not done: traces are `on-first-retry` with no retries, so CI never records one; and no report
-is uploaded when a run fails.
+Since: CI retries a failed spec once, so it records a trace, and a failed job uploads the html
+report and `test-results/` as the `playwright-report` artifact (14 days). A new push to a pull
+request cancels that pull request's run in progress; pushes to main are never cancelled.
 
 ## 2026-09-26: Blank page in production -- found and fixed
 
