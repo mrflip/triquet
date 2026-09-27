@@ -73,10 +73,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  # The suite split four ways, each shard on a runner and dev server of its own; `pnpm exec
+  # playwright test --shard=2/4` runs one shard's specs locally. Every shard runs to the end, so
+  # one failure never hides another.
   e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     # A bound for when something hangs: GitHub's own is six hours.
-    timeout-minutes: 40
+    timeout-minutes: 20
     # What Doppler's dev_e2e config gives a local run; e2e/environment.setup.ts checks them.
     env:
       PORT: 3002
@@ -92,13 +99,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm exec playwright test
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
       # The html report holds each failure's trace, screenshot and log; `pnpm exec playwright
       # show-report` opens it once downloaded and unzipped.
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/

@@ -2,6 +2,30 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: e2e in CI -- four shards, a worker per core
+
+CI's e2e job took 32 minutes, and passed. Nothing in the specs waits on purpose: no sleeps, no
+serial blocks, and one spec at a time locally takes a median 2.5s, none over 7.1s. The cost is
+137 specs, each a fresh browser that loads the dev bundle and opens a new Jazz account, run one
+at a time on a runner that reported two or three cores (Playwright said "1 worker" at its
+default of half). The repo is public, so `ubuntu-latest` should be GitHub's 4-core box, and
+personal plans can't have larger runners anyway; with `workers: '100%'` on CI, the log's
+"Running N tests using N workers" line now says how many cores it got.
+
+The job is now a matrix of four shards, each on its own runner and dev server, and each shard
+runs a worker per core. Every shard runs the `environment` setup first, and runs to the end
+even when another fails. A failed shard uploads `playwright-report-<shard>`.
+`pnpm test:e2e --shard=2/4` runs that shard's specs locally.
+
+Locally the suite keeps Playwright's half the cores, 8 workers on this Mac: 137 passed in 1.9
+minutes, against 6.5 at one worker. At 16 workers it was no faster (1.8 minutes), and one spec
+failed because its page took more than 10s to render, which is load, not a collision. A
+worker per core on CI is that same load per core, so if CI starts reporting flaky specs whose
+first assertion timed out, the fix is `'50%'` there, not a longer timeout.
+
+Flaky specs show on CI as error annotations and in the run summary even though the job passes,
+so the retry reports a collision rather than hiding it. Locally there is no retry at all.
+
 ## 2026-09-26: e2e in CI -- silent, not (as far as we know) stuck
 
 The CI e2e job printed "Running 130 tests" and then nothing for eight minutes. The `dot`

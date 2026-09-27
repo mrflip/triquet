@@ -26,6 +26,10 @@ export default defineConfig({
   // One retry on CI, so a failure there comes with a trace; a spec that passes only on its retry
   // is reported as flaky rather than hidden.
   retries:     process.env.CI ? 1 : 0,
+  // A worker per core on CI, where the runner does nothing else. Locally, Playwright's default of
+  // half the cores: as many specs at once against one server as a CI shard runs, or more, and no
+  // retry, so a collision fails here before CI reports it as flaky.
+  workers:     process.env.CI ? '100%' : '50%',
   // A fresh page opens its Jazz database before it shows anything, most of a second in dev,
   // and a route's first visit also waits for it to compile.
   expect:      { timeout: 10_000 },
