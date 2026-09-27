@@ -22,25 +22,39 @@ export const QuestionsExt = '.qq.tsv'
 /** The file-name extension of the whole-quiz JSON file */
 export const QuizJsonExt = '.tq.json'
 
+/** Where a quiz sits: its hunt's effective label, and its realm's label. The quiz's own label is on the quiz. */
+export type QuizPlace = {
+  hunt:  string
+  realm: string
+}
+
 /**
- * Where inside its repository `quiz`'s two files live.
- *
- * The directories spell out a hierarchy that does not exist yet -- a hunt, holding puzzles,
- * holding quizzes -- so that when it does, a quiz's files are already where they belong and git
- * can be asked about one puzzle or one hunt with a path. Until then every level is named for the
- * quiz, which is the only thing there is to name it for. The extensions make each file findable
- * by glob: `*.qq.tsv` for questions, `*.tq.json` for whole quizzes.
+ * Where inside its repository `quiz`'s two files live: under its hunt and realm, by label, so
+ * git can be asked about one realm or one hunt with a path, and a quiz's files move when
+ * anything above them is relabelled. The extensions make each file findable by glob: `*.qq.tsv`
+ * for questions, `*.tq.json` for whole quizzes.
  *
  * @param quiz - Anything carrying a label.
+ * @param place - The hunt and realm it sits in.
  * @returns Repository-relative paths for the questions file and the whole-quiz file.
  *
- * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }).json
- *   // => 'tq/hunt/quiet_otter/quiet_otter/puz/quiet_otter/quiz/quiet_otter.tq.json'
+ * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }, { hunt: 'deep_lake', realm: 'home' }).json
+ *   // => 'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.tq.json'
  */
-export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>): { tsv: string, json: string } {
+export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: QuizPlace): { tsv: string, json: string } {
   const label = Labelmaker.effectiveLabelOf(quiz)
-  const dir = `tq/hunt/${label}/${label}/puz/${label}/quiz`
+  const dir = `tq/hunt/${place.hunt}/realm/${place.realm}/quiz`
   return { tsv: `${dir}/${label}${QuestionsExt}`, json: `${dir}/${label}${QuizJsonExt}` }
+}
+
+/**
+ * Where the hunt's expressions are kept in every repository of its quizzes: at the hunt's own
+ * level, since they belong to it rather than to any one quiz.
+ *
+ * @example expressionsPathFor({ hunt: 'deep_lake', realm: 'home' })  // => 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
+ */
+export function expressionsPathFor(place: QuizPlace): string {
+  return `tq/hunt/${place.hunt}/${place.hunt}.tqexpressions.json`
 }
 
 /** Where `quiz`'s repository sits. Keyed by id, so renaming a quiz never orphans its history. */
@@ -89,9 +103,6 @@ export async function flushFs(fs: GitFs): Promise<void> {
   await fs.promises.flush?.()
 }
 
-/** Where the hunt's expressions are kept in every repository: beside the quizzes, in the one place they are all read from */
-export const ExpressionsPath = 'tq/widgets/my.tqexpressions.json'
-
 /**
  * `quiz`'s table as tab-separated text, a header line first and one line per question after.
  *
@@ -119,24 +130,26 @@ export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
  *
  * The `.qq.tsv` is what a commit reads as -- a line per question, so a diff is legible to anyone.
  * It is also lossy, so the `.tq.json` beside it carries the whole quiz, and is what could restore
- * one from its own history. The expressions its widgets work are in `tq/widgets/my.tqexpressions.json`.
+ * one from its own history. The expressions its widgets work are in the hunt's own file.
  * All are written in a fixed order (sorted keys for the JSON), because a diff that shuffles its
  * lines for no reason is a diff nobody reads.
  *
- * Renaming the quiz moves its files, which git reads as a rename rather than as a loss.
+ * Renaming the quiz, or its realm or hunt, moves its files, which git reads as a rename rather
+ * than as a loss.
  *
  * @param quiz - The quiz as it now stands.
  * @param expressions - The hunt's expressions.
+ * @param place - The hunt and realm it sits in.
  * @returns Every file the repository should hold, and nothing else, by repository-relative path.
  *
  * @example quizFiles(quiz, expressions).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, the expressions path]
  */
-export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[]): Map<string, string> {
-  const paths = quizPathsFor(quiz)
+export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace): Map<string, string> {
+  const paths = quizPathsFor(quiz, place)
   return new Map([
     [paths.tsv, questionsTsv(quiz, Expressed.forQuiz(quiz, expressions))],
     [paths.json, `${UU.jsonify(quiz, { pretty: true })}\n`],
-    [ExpressionsPath, `${UU.jsonify(expressions, { pretty: true })}\n`],
+    [expressionsPathFor(place), `${UU.jsonify(expressions, { pretty: true })}\n`],
   ])
 }
 
@@ -171,15 +184,16 @@ function tagStampOf(at: Date): string {
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
  * @param expressions - The hunt's expressions, kept in the same commit.
+ * @param place - The hunt and realm it sits in.
  * @returns The new commit's oid, or null when the quiz's branch already had commits.
  *
- * @example await commitFirst(fs, quiz, expressions)
+ * @example await commitFirst(fs, quiz, expressions, { hunt: 'deep_lake', realm: 'home' })
  */
-export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[]): Promise<string | null> {
+export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace): Promise<string | null> {
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
   if (await hasCommits(fs, dir)) { return null }
-  return await commitQuiz(fs, quiz, expressions, Changes.quizChanges(null, quiz))
+  return await commitQuiz(fs, quiz, expressions, place, Changes.quizChanges(null, quiz))
 }
 
 /** The sweeping changes the history brackets with commits and tags: an import merged in, questions deleted */
@@ -215,21 +229,22 @@ export function markTagFor(version: string, markkind: Markkind, at: Date): strin
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
  * @param expressions - The hunt's expressions, kept in the same commit.
+ * @param place - The hunt and realm it sits in.
  * @param changes - What moved, as `Changes.quizChanges` and `Changes.expressionChanges` reported it.
  * @returns The new commit's oid, or null when nothing changed and nothing was committed.
  *
  * The commit message is the shorthand alone. The quiz itself is in the tree, and a body that
  * repeated it would only be a second copy to drift.
  *
- * @example await commitQuiz(fs, quiz, expressions, quizChanges(before, quiz))
+ * @example await commitQuiz(fs, quiz, expressions, place, quizChanges(before, quiz))
  */
-export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], changes: readonly Changes.Change[]): Promise<string | null> {
+export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
   const message = Changes.shorthandFor(changes)
   if (message === null) { return null }
 
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
-  const { written, removed } = await syncTree(fs, dir, quizFiles(quiz, expressions))
+  const { written, removed } = await syncTree(fs, dir, quizFiles(quiz, expressions, place))
 
   for (const filepath of written) { await git.add({ fs, dir, filepath }) }
   for (const filepath of removed) { await git.remove({ fs, dir, filepath }) }
@@ -371,7 +386,7 @@ async function summarizeRepo(fs: GitFs, id: string): Promise<RepoSummary | null>
     const filepaths = await git.listFiles({ fs, dir, ref: 'HEAD' })
     return {
       id, branch,
-      label:        labelFromPath(filepaths[0]),
+      label:        quizLabelIn(filepaths),
       message:      latest?.commit.message.trim() ?? null,
       committed_at: latest ? latest.commit.committer.timestamp * 1000 : null,
     }
@@ -380,10 +395,10 @@ async function summarizeRepo(fs: GitFs, id: string): Promise<RepoSummary | null>
   }
 }
 
-/** The quiz label in a path `quizPathsFor` made: `tq/hunt/{label}/...`; null for any other path */
-function labelFromPath(filepath: string | undefined): string | null {
-  const [root, hunt, label] = filepath?.split('/') ?? []
-  return root === 'tq' && hunt === 'hunt' && label ? label : null
+/** The quiz label the whole-quiz file among `filepaths` is named for; null when there is none */
+function quizLabelIn(filepaths: readonly string[]): string | null {
+  const json = filepaths.find((filepath) => filepath.endsWith(QuizJsonExt))
+  return json === undefined ? null : json.slice(json.lastIndexOf('/') + 1, -QuizJsonExt.length)
 }
 
 /** Open `dir` as a repository on branch `version`, creating either the first time it is needed */

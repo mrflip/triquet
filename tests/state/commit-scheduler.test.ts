@@ -15,13 +15,16 @@ function recordInto(landed: Landed[]) {
 }
 
 /** A scheduler that records what it commits, with `seconds` as its wait */
+/** Where every quiz in these tests sits */
+const Here = { hunt: 'deep_lake', realm: 'home' }
+
 function schedulerOf(seconds: number, landed: Landed[], commit?: (was: MirrorSnapshot | null, now: MirrorSnapshot) => Promise<unknown>) {
   const scheduler = createCommitScheduler({
     seconds,
     commit: commit ?? recordInto(landed),
   })
-  // These tests are about quizzes; the expressions that ride along are none.
-  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, expressions: [] }, { quiz: after, expressions: [] }) } }
+  // These tests are about quizzes; the expressions that ride along are none, and every quiz sits in one place.
+  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, expressions: [], place: Here }, { quiz: after, expressions: [], place: Here }) } }
 }
 
 const titled = (quiz: QuizT, title: string): QuizT => ({ ...quiz, title })
@@ -172,8 +175,8 @@ describe('createCommitScheduler, carrying the expressions', () => {
     })
     const quiz = Quiz.blank('One')
     const expression = { owner: 'tq' as const, label: 'shout', formula: '1', description: '' }
-    scheduler.note({ quiz, expressions: [] }, { quiz, expressions: [expression] })
-    scheduler.note({ quiz, expressions: [expression] }, { quiz, expressions: [expression, { ...expression, label: 'whisper' }] })
+    scheduler.note({ quiz, expressions: [], place: Here }, { quiz, expressions: [expression], place: Here })
+    scheduler.note({ quiz, expressions: [expression], place: Here }, { quiz, expressions: [expression, { ...expression, label: 'whisper' }], place: Here })
     await sec(2)
     expect(seen).to.deep.eq([[0, 2]])
   })

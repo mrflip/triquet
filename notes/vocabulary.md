@@ -131,6 +131,9 @@ that way; the model bots were called players until September 2026.
 * **notice** -- a sentence shown to the author in place of a result. Failures reach the author
   as sentences, never codes; they live together in `lib/notices.ts`.
 * **mirror** -- the quiz's git history in the browser. A past-versions view and an exit door,
-  not a source of truth. `.qq.tsv` is the diffable table; `.tq.json` is the whole quiz.
+  not a source of truth. `.qq.tsv` is the diffable table; `.tq.json` is the whole quiz; both sit
+  at `tq/hunt/<hunt>/realm/<realm>/quiz/`, and the hunt's expressions at
+  `tq/hunt/<hunt>/<hunt>.tqexpressions.json`. The history follows the quiz: a relabel is a new
+  label on the same thing, an edit new content for it.
 * **meta** -- the second-layer puzzle a quiz can hide. The reason widgets exist.
 * **Coach**, **agent** -- the humans and the AI on this project. See `CLAUDE.md`.
