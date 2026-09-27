@@ -163,6 +163,16 @@ agrees to another.
     exists. Left alone because sortable headers can be rotated (`writing-mode: vertical-lr`) and
     un-rotating that component's arrow costs more than the dozen lines it saves. Small enough to
     revisit if the vertical headers ever go.
+* **The grid's batch-mode selection is a small hook, not react-stately.** Weighed Sept 2026 and
+  kept. `useChecklist` (`src/components/use-checklist.ts`) holds a mode flag and a set of checked
+  ids, and forgets both when the quiz changes. react-stately's `useCheckboxGroupState` would
+  replace only the set, and now brings the whole `react-stately` package with it.
+  `useMultipleSelectionState` answers select-all with an `'all'` sentinel and wants a React Aria
+  collection for the rest. **If the grid ever needs more** -- shift-click ranges, arrow-key or
+  keyboard multi-select, select-all across a filter -- **stop extending the hook and shift to
+  React Aria**. Those behaviours are what react-aria's `useTable`/`useGridList` exist for, and
+  hand-rolling them would be exactly what the Library-first rule forbids. That shift would
+  reopen the bespoke-grid decision above, so it is a conversation with a Coach, not a refactor.
 
 ## Later, i.e when we get there
 

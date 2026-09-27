@@ -1,7 +1,8 @@
 'use client'
 
+import { Checkbox } from '@mui/material'
 import clsx from 'clsx'
-import { GripWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
+import { GutterWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { QuestionRow } from './QuestionRow'
 import { useSettledResize } from './use-settled-resize'
 import type { ExpressedForQuiz } from '../lib/expressed'
@@ -22,8 +23,16 @@ export type QuestionTableProps = {
   /** What each computed column came to for each question */
   expressed:    ExpressedForQuiz
   locked:       boolean
-  /** The grip column only takes up space while the quiz is in Q# order */
+  /** Grips are offered only while the quiz is in Q# order */
   gripShown:    boolean
+  /** Batch mode: each row shows a checkbox in place of its grip and trash can */
+  batching:     boolean
+  isChecked:    (question_id: string) => boolean
+  onCheck:      (question_id: string, on: boolean) => void
+  /** Check every question, or none */
+  onCheckAll:   (on: boolean) => void
+  /** Asks to delete one question; the asking-first is the caller's */
+  onDelete:     (question_id: string) => void
   /** Which column the quiz was last committed to, bold across reloads as a reminder */
   lastSortkey:  Sortkey | null
   /** Which column was sorted in this session, and which way; the only thing an arrow marks */
@@ -40,15 +49,26 @@ export type QuestionTableProps = {
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, specs, expressed, locked, gripShown, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, expressed, locked, gripShown, batching, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
+  const checkedCount = questions.filter((question) => isChecked(question.id)).length
 
   return (
     <div className={styles.scroller}>
       <table className={styles.grid} style={{ width: `${String(gridWidthPx(specs))}px` }}>
         <thead>
           <tr>
-            <th scope="col" className={clsx(styles.head, ! gripShown && styles.gripCollapsed)} style={{ width: `${String(GripWidthPx)}px` }} />
+            <th scope="col" className={styles.head} style={{ width: `${String(GutterWidthPx)}px` }}>
+              {batching && (
+                <Checkbox
+                  size="small" sx={{ p: 0.25 }}
+                  checked={checkedCount > 0 && checkedCount === questions.length}
+                  indeterminate={checkedCount > 0 && checkedCount < questions.length}
+                  slotProps={{ input: { 'aria-label': 'Select all questions' } }}
+                  onChange={(event) => { onCheckAll(event.target.checked) }}
+                />
+              )}
+            </th>
             {specs.map((column) => {
               const sortkey = column.sortkey ?? null
               return (
@@ -82,6 +102,9 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
               questions={questions}
               locked={locked}
               gripShown={gripShown}
+              checked={batching ? isChecked(question.id) : null}
+              onCheck={(on) => { onCheck(question.id, on) }}
+              onDelete={() => { onDelete(question.id) }}
               resizeToken={resizeToken}
               idx={idx}
               count={questions.length}

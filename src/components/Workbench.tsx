@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
+import { ConfirmDeleteQuestions } from './ConfirmDeleteQuestions'
 import { ExpressionsModal } from './ExpressionsModal'
 import { Footnote } from './Footnote'
 import { Panels } from './panels/Panels'
@@ -12,6 +13,7 @@ import { QuizNotFound } from './QuizNotFound'
 import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
+import { useChecklist } from './use-checklist'
 import * as QuizMirror from '../state/quiz-mirror'
 import { useWorkspace } from '../state/use-workspace'
 import { useAsking } from '../state/use-asking'
@@ -50,6 +52,10 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
   // column is never out of step with what it reads.
   const specs = useMemo(() => (quiz ? specsFor(quiz) : []), [quiz])
   const expressed = useMemo(() => (quiz ? Expressed.forQuiz(quiz, workspace.expressions) : new Map()), [quiz, workspace.expressions])
+  const questionIds = useMemo(() => quiz?.questions.map((question) => question.id) ?? [], [quiz])
+  const checklist = useChecklist(quiz?.id ?? null, questionIds)
+  // The questions the author has asked to delete, until they confirm or keep them.
+  const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
 
   // The workspace remembers which quiz was open last, for a bare address to go back to. Ids
   // rather than objects, so a fresh reading of the workspace does not look like a change of quiz.
@@ -75,6 +81,9 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
       />
     )
   }
+
+  const batching = checklist.checking && ! quiz.locked
+  const doomed = quiz.questions.filter((question) => doomedIds?.includes(question.id))
 
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
@@ -138,12 +147,29 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
           dispatch={dispatch}
         />
       )}
+      {doomed.length > 0 && (
+        <ConfirmDeleteQuestions
+          doomed={doomed}
+          onClose={() => { setDoomedIds(null) }}
+          onConfirm={() => {
+            const question_ids = doomed.map((question) => question.id)
+            void QuizMirror.markedChange(quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
+            setDoomedIds(null)
+            checklist.end()
+          }}
+        />
+      )}
       <QuestionTable
         questions={quiz.questions}
         specs={specs}
         expressed={expressed}
         locked={quiz.locked}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
+        batching={batching}
+        isChecked={checklist.isChecked}
+        onCheck={checklist.toggle}
+        onCheckAll={checklist.checkAll}
+        onDelete={(question_id) => { setDoomedIds([question_id]) }}
         lastSortkey={quiz.last_sortkey}
         sortMark={sortMark}
         onSort={onSort}
@@ -160,6 +186,10 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
         running={running}
         runNotice={runNotice}
         runFailure={runFailure}
+        batching={batching}
+        checkedCount={checklist.checked.length}
+        onBatch={(on) => { if (on) { checklist.begin() } else { checklist.end() } }}
+        onDeleteChecked={() => { setDoomedIds(checklist.checked) }}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
         onRecalculate={() => { recalculateAll(quiz.questions) }}
@@ -176,7 +206,7 @@ export function Workbench({ label }: Readonly<WorkbenchProps>) {
         workspace={workspace}
         expressed={expressed}
         onMerged={(merged) => {
-          void QuizMirror.importIntoQuiz(quiz, () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })
+          void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })
         }}
       />
     </main>

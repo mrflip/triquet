@@ -2,6 +2,33 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-26: Deleting questions -- a trash can per row, and a batch mode
+
+The grid's first column is now a gutter, 40px wide rather than 32px, and it never collapses: it
+holds the grip over a trash can, or only the trash can when the quiz is out of Q# order. "Select
+questions" in the toolbar swaps each grip and trash can for a checkbox (with a select-all in the
+header) and adds "Delete checked (N)". Both routes go through one confirming dialog and one
+action, `delete_questions`.
+
+A deletion goes into the quiz history the way an import does: a commit of whatever was still
+waiting, the deletion as a commit of its own, and a tag on it, `main-delete-<stamp>z`. The
+import path now goes through the same code: `QuizMirror.markedChange(quiz, markkind, apply)`
+and `Quizgit.markChange`/`markTagFor`, replacing `importIntoQuiz`/`markImport`/`importTagFor`.
+Import tags are named exactly as before.
+
+Things you might want to push back on:
+
+* Survivors keep their Q#s, so deleting Q2 of 1-2-3 leaves 1 and 3. Renumber Q# tidies up. I
+  didn't renumber automatically because a delete shouldn't renumber things you didn't touch.
+* A chain pointing at a deleted question is cleared rather than left dangling. Otherwise a later
+  question given that label would pick up the chain.
+* The dialog says "There is no undo." The quiz history still has the question, but nothing in
+  the app can bring it back.
+* Batch mode ends after a batch delete.
+* MUI v9's Dialog ignores `autoFocus` on a child: the focus trap takes focus for the paper. The
+  dialog puts focus on "Keep it" from the transition's `onEntering` instead, which is the pattern
+  MUI's own confirmation-dialog demo uses.
+
 ## 2026-09-26: e2e in CI -- four shards, a worker per core
 
 CI's e2e job took 32 minutes, and passed. Nothing in the specs waits on purpose: no sleeps, no

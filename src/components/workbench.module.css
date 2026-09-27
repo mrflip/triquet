@@ -69,12 +69,12 @@
   overflow:       hidden;
 }
 
-/* Never removed from the row -- removing a cell would shift every later cell one column left
-   of the width it was written for. */
-.gripCollapsed {
-  width:    0;
-  padding:  0;
-  overflow: hidden;
+/* The first cell of a row: its grip over its trash can, or in batch mode its checkbox */
+.gutter {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            4px;
 }
 
 .grip {
@@ -361,7 +361,7 @@
     color:          var(--muted);
   }
 
-  .gripCollapsed { display: none }
+  .gutter { flex-direction: row; justify-content: flex-start }
   .sum { text-align: left }
 }
 
