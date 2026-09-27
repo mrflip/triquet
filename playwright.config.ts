@@ -1,9 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
+import * as Environment from './e2e/environment'
 
 // Locally the suite runs under Doppler's `dev_e2e` config (`pnpm test:e2e`), which gives it a port,
 // build directory and Jazz server of its own; anywhere else it could land on someone's dev server.
-if (! process.env.CI && process.env.DOPPLER_CONFIG !== 'dev_e2e') {
-  throw new Error('Run the e2e suite with `pnpm test:e2e`, under Doppler\'s dev_e2e config')
+// Checked here because nothing later runs before the web server starts.
+const complaints = Environment.complaintsAbout(process.env)
+if (complaints.length > 0) {
+  throw new Error(`Not an environment to run the e2e suite in:\n  ${complaints.join('\n  ')}`)
 }
 
 const port = process.env.PORT ?? '3002'
@@ -16,7 +19,9 @@ const port = process.env.PORT ?? '3002'
 export default defineConfig({
   testDir:     './e2e',
   fullyParallel: true,
-  reporter:    process.env.CI ? 'dot' : 'list',
+  // GitHub shows a log a whole line at a time: `list` gives each spec a line as it finishes, and
+  // `github` pins each failure to its line of the spec.
+  reporter:    process.env.CI ? [['list'], ['github']] : 'list',
   // A fresh page opens its Jazz database before it shows anything, most of a second in dev,
   // and a route's first visit also waits for it to compile.
   expect:      { timeout: 10_000 },
@@ -24,7 +29,11 @@ export default defineConfig({
     baseURL: `http://localhost:${port}`,
     trace:   'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // Checks that the suite has a server, build and database of its own, and warms the first page.
+    { name: 'environment', testMatch: /\.setup\.ts$/, use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['environment'] },
+  ],
   webServer: {
     command:             'pnpm exec next dev',
     url:                 `http://localhost:${port}`,
