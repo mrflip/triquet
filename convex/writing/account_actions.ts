@@ -1,5 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import * as PA from '../../src/lib/vv/patterns'
+import { refuse } from '../../src/lib/refusals'
 import { Hunt } from '../../src/models/hunt'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
@@ -35,11 +36,13 @@ export async function assumeIdent(db: Writer, browser_key: string, label: string
  * A label some hunt already answers to is refused, as a quiz's is: the caller has already put
  * it in an address. So is one hunt more than the app may hold.
  *
- * @returns The hunt's row id; null when it was refused.
+ * @returns The hunt's row id.
+ * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
  */
-export async function newHunt(db: Writer, label: string): Promise<Id<'hunts'> | null> {
+export async function newHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
   const [taken, hunts] = await Promise.all([huntForLabel(db, label), huntsOf(db)])
-  if (taken || hunts.length >= PA.HuntsInApp.max) { return null }
+  if (taken) { refuse('labelTaken') }
+  if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
   return await writeHunt(db, Hunt.blank(label))
 }
 
@@ -49,9 +52,10 @@ export async function newHunt(db: Writer, label: string): Promise<Id<'hunts'> | 
  * @param db - The mutation's database.
  * @param browser_key - The visitor's browser.
  * @param action - What the visitor did.
- * @returns The id of the ident taken on or the hunt made; null when the hunt was refused.
+ * @returns The id of the ident taken on or the hunt made.
+ * @throws A refusal when the action cannot be carried out; nothing is written.
  */
-export async function performAccount(db: Writer, browser_key: string, action: AccountActionT): Promise<Id<'idents'> | Id<'hunts'> | null> {
+export async function performAccount(db: Writer, browser_key: string, action: AccountActionT): Promise<Id<'idents'> | Id<'hunts'>> {
   switch (action.kind) {
   case 'assume_ident': { return await assumeIdent(db, browser_key, action.label, action.title) }
   case 'new_hunt':     { return await newHunt(db, action.label) }

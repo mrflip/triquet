@@ -1,4 +1,5 @@
 import { ValidatorKit } from '../src/lib/validator'
+import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { huntFrom, huntListingOf, quizFrom, shallowHuntOf, type HuntListingT, type ShallowHuntT } from '../src/lib/rows'
 import { ActionValidators } from '../src/models/actions'
 import { IdentingValidators } from '../src/models/identing'
@@ -49,15 +50,17 @@ export const whole = zQuery({
 /**
  * Carry out what the author did from inside a quiz, writing the rows it comes to: see
  * `writing/perform`. Who is acting is the ident the browser `browser_key` took on last.
+ *
+ * @throws A `ConvexError` whose data is a refusal (`lib/refusals`) when the action cannot be
+ *   carried out, or `{ ZodError }` when an argument is not valid; nothing is written.
  */
 export const perform = zMutation({
   args:    { open: ActionValidators.open, action: ActionValidators.huntAction, browser_key: IdentingValidators.browserKey },
   returns: zod.null(),
-  handler: async (ctx, { open: place, action, browser_key }) => {
-    if (mayChangeHunt(browser_key, place.hunt_id)) {
-      const ident = await identFor(ctx.db, browser_key)
-      await performAction(ctx.db, place, ident?._id ?? null, action)
-    }
+  handler: async (ctx, { open: place, action, browser_key }) => await refusingInvalid(async () => {
+    if (! mayChangeHunt(browser_key, place.hunt_id)) { refuse('notPermitted') }
+    const ident = await identFor(ctx.db, browser_key)
+    await performAction(ctx.db, place, ident?._id ?? null, action)
     return null
-  },
+  }),
 })

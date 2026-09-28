@@ -24,10 +24,12 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
    `api.reviews.forQuiz({ quiz_id })` (each review with its `reviewer`), `api.idents.current({
    browser_key })`, and the mutations `api.hunts.perform({ open, action, browser_key })` and
    `api.idents.performAccount({ action, browser_key })`.
-4. The views already say every action in a shape `hunts.perform` takes
+4. A refused mutation rejects with a `ConvexError`: show `noticeOf(err)` (`src/lib/refusals.ts`)
+   where `use-hunt` and `use-account-actions` catch a failed write today.
+5. The views already say every action in a shape `hunts.perform` takes
    (`tests/models/actions.test.ts` holds `state/actions.ts`'s `HuntAction` to it at compile
    time). Phase 2 points the imports at `src/models/actions.ts` and deletes `state/actions.ts`.
-5. *Deleted tests and their successors* below lists which Jazz tests phase 2 deletes, and what
+6. *Deleted tests and their successors* below lists which Jazz tests phase 2 deletes, and what
    already replaces each.
 
 ## 3. Decisions taken
@@ -56,10 +58,16 @@ Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
   a container still runs a dev server and an e2e suite side by side, so the script stays.
 * **Caps**, in `src/lib/vv/patterns.ts` (*Collection sizes*): 999 questions and 999 reviews per
   quiz; 99 widgets and 99 columns per quiz; 99 realms and 99 expressions per hunt; 99 hunts in the
-  app (plan, settled item 16). The tree validators apply those a tree holds. **99 quizzes per
-  realm is mine, not yet agreed**: a realm's quizzes are read with a bound like every other
-  child, and nothing had set one. Every write that would pass a cap is refused, silently, as
-  other refusals are.
+  app (plan, settled item 16); 99 quizzes per realm (proposed in phase 1, agreed). The tree
+  validators apply those a tree holds. Every write that would pass a cap is refused.
+* **Every refusal says why** (Coach, phase 1): by Convex's standard channel for an expected
+  failure, a `ConvexError` whose data is `{ failurekind, message }` (`src/lib/refusals.ts`;
+  the sentences are `RefusalNotices` in `lib/notices.ts`). A row validator refusing inside a
+  handler becomes `{ failurekind: 'invalid', message, ZodError }` through `refusingInvalid`; a
+  refused argument keeps convex-helpers' `{ ZodError }`. `noticeOf(err)` reads any of them as
+  the sentence to show, and anything unmeant as `AppNotices.changeFailed`. Idempotent requests
+  are not refusals: opening a review already open, deleting what is already gone (a quiz, a
+  widget, a column, questions by id), and a bulk run's landing for a question deleted meanwhile.
 * **Convex's AI files** installed by the Coach: `convex/_generated/ai/guidelines.md`, a block in
   `CLAUDE.md` and `AGENTS.md`, and the `convex-*` skills. `CLAUDE.md` says this project's rules
   win where they differ.
@@ -90,14 +98,6 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 
 Newest first.
 
-* **Refusals from inside a handler still say nothing.** The phase 0 proposal (a
-  `ConvexError({ failurekind })` for a locked quiz or a taken label) is not built: the Jazz
-  actions refused silently, the tests say so, and whether an author needs a notice for any of
-  them is a phase 2 question, asked with the views in hand. What does reach the caller today:
-  a refused argument, as `ConvexError` data `{ ZodError: [...] }`; a wrong-typed id or an unknown
-  action, as Convex's plain `ArgumentValidationError`; a row validator refusing inside a handler
-  (a widget patch wrong for its kind), as a plain error, which production shows only as "Server
-  Error". The last wants a decision in phase 2.
 * **`reviews.forQuiz` joins each review's reviewer; there is no `idents.all`.** The views used
   every ident only to title a review's author, and every ident is an unbounded read.
 * **Indexes order children by position.** `by_hunt_id_and_position`, `by_quiz_id_and_position`
@@ -313,10 +313,6 @@ Worth a run on a quiet machine before merging.
   key is minted from a secret made in its own data directory. Only phase 3's cloud deployments
   have keys (production for the Coach, preview for Vercel), and agents never hold the
   production one.
-* **Quizzes per realm, 99?** Proposed in phase 1, not yet agreed (*Decisions taken*).
-* **Should a refusal say so?** A locked quiz, a taken label, a cap reached: each writes nothing
-  and tells the author nothing, as under Jazz. Phase 2 can answer with a notice through
-  `ConvexError`; say if you want that, and for which.
 * **Before phase 3** (unchanged from the plan): a Convex team and project, the production and
   preview deploy keys, and Vercel's build command.
 

@@ -1,4 +1,7 @@
 import { convexTest, type TestConvex } from 'convex-test'
+import { ConvexError } from 'convex/values'
+import { expect } from 'vitest'
+import * as Z from 'zod'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
@@ -100,4 +103,33 @@ export async function identified(tt: Tester, label: string): Promise<{ browser_k
   await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title: '' }, browser_key })
   const ident = await tt.run(async (ctx) => await identForLabel(ctx.db, label))
   return { browser_key, ident_id: present(ident, 'the ident')._id }
+}
+
+/** A refusal's data, as far as a test needs it */
+const RefusalShape = Z.object({ failurekind: Z.string() })
+
+/**
+ * Why `pending` was refused: the `failurekind` of the refusal it threw. Fails the test when it
+ * went through, or failed some other way.
+ *
+ * @example expect(await refusedAs(act({ kind: 'add_question' }))).to.eq('quizLocked')
+ */
+export async function refusedAs(pending: Promise<unknown>): Promise<string> {
+  try {
+    await pending
+  } catch (err) {
+    const refusal = RefusalShape.safeParse(err instanceof ConvexError ? err.data : null)
+    if (refusal.success) { return refusal.data.failurekind }
+    throw err
+  }
+  throw new Error('expected a refusal, and the call went through')
+}
+
+/**
+ * `pending` refused, for the reason `failurekind`.
+ *
+ * @example await expectRefusal(act({ kind: 'add_question' }), 'quizLocked')
+ */
+export async function expectRefusal(pending: Promise<unknown>, failurekind: string): Promise<void> {
+  expect(await refusedAs(pending)).to.eq(failurekind)
 }

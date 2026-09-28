@@ -1,4 +1,5 @@
 import { ValidatorKit } from '../src/lib/validator'
+import { refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
 import { IdentingValidators } from '../src/models/identing'
 import type { IdentT } from '../src/models/ident'
@@ -21,10 +22,12 @@ export const current = zQuery({
  * Carry out what a visitor did before opening any quiz: take on an ident, or make a hunt. See
  * `writing/account_actions`.
  *
- * @returns The ident taken on, or the hunt made; null when the hunt was refused.
+ * @returns The ident taken on, or the hunt made.
+ * @throws A `ConvexError` whose data is a refusal (`lib/refusals`), or `{ ZodError }` for an
+ *   argument that is not valid; nothing is written.
  */
 export const performAccount = zMutation({
   args:    { action: ActionValidators.accountAction, browser_key: IdentingValidators.browserKey },
-  returns: zod.union([zid('idents'), zid('hunts'), zod.null()]),
-  handler: async (ctx, { action, browser_key }) => await performAccountAction(ctx.db, browser_key, action),
+  returns: zod.union([zid('idents'), zid('hunts')]),
+  handler: async (ctx, { action, browser_key }) => await refusingInvalid(async () => await performAccountAction(ctx.db, browser_key, action)),
 })

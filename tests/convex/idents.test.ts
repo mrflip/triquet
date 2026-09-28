@@ -6,7 +6,7 @@ import { BlankQuestionQty } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { openTester, wholeHunt, type Tester } from '../support/convex'
+import { openTester, refusedAs, wholeHunt, type Tester } from '../support/convex'
 
 /** Take on the ident labelled `label` as the browser `browser_key`, through the public function */
 async function assume(tt: Tester, browser_key: string, label: string, title = '') {
@@ -101,7 +101,7 @@ describe('idents.performAccount: new_hunt', () => {
   it('refuses a label some hunt already answers to', async () => {
     const tt = openTester()
     await makeHunt(tt, 'taken_label')
-    expect(await makeHunt(tt, 'taken_label')).to.eq(null)
+    expect(await refusedAs(makeHunt(tt, 'taken_label'))).to.eq('labelTaken')
     expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
   })
 
@@ -113,7 +113,7 @@ describe('idents.performAccount: new_hunt', () => {
         await ctx.db.insert('hunts', { label, forced_label: null, title: '' })
       }
     })
-    expect(await makeHunt(tt, 'one_too_many')).to.eq(null)
+    expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
   })
 
   it('writes the whole hunt in one go: a realm for it, and its quiz in the realm', async () => {

@@ -4,7 +4,7 @@ import { NewExpression, planExpressingEdit } from '../../../src/state/widget-edi
 import { Question } from '../../../src/models/question'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
 import { present } from '../../support/present'
-import { huntHolding, openOf, openTester, seedHunt, type Seeded, type Seen } from '../../support/convex'
+import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen } from '../../support/convex'
 
 /** A fresh hunt with the standard expressions and its quiz laid out as a new quiz's is */
 function standard(locked = false): HuntT {
@@ -48,10 +48,10 @@ async function withWidget(): Promise<Seeded> {
   return seeded
 }
 
-/** Whatever `seeded` holds is unchanged by `act`ing out `actions` */
-async function expectUnchanged(seeded: Seeded, ...actions: Parameters<Seeded['act']>[0][]): Promise<void> {
+/** Each of `refusals` refused for its own reason, and whatever `seeded` holds unchanged by them */
+async function expectRefused(seeded: Seeded, ...refusals: [Parameters<Seeded['act']>[0], string][]): Promise<void> {
   const ante = await seeded.read()
-  for (const action of actions) { await seeded.act(action) }
+  for (const [action, failurekind] of refusals) { expect(await refusedAs(seeded.act(action))).to.eq(failurekind) }
   expect(await seeded.read()).to.deep.eq(ante)
 }
 
@@ -67,9 +67,9 @@ describe('add_widget', () => {
   })
 
   it('refuses a label a widget already has, or the questions\' own, leaving the hunt as it was', async () => {
-    await expectUnchanged(await withWidget(),
-      { kind: 'add_widget', widget: { ...Widget, description: 'again' } },
-      { kind: 'add_widget', widget: { ...Widget, label: 'question' } })
+    await expectRefused(await withWidget(),
+      [{ kind: 'add_widget', widget: { ...Widget, description: 'again' } }, 'labelTaken'],
+      [{ kind: 'add_widget', widget: { ...Widget, label: 'question' } },    'labelTaken'])
   })
 
   it('refuses a widget that is not one', async () => {
@@ -78,7 +78,7 @@ describe('add_widget', () => {
   })
 
   it('refuses while the quiz is locked', async () => {
-    await expectUnchanged(await seed(standard(true)), { kind: 'add_widget', widget: Widget })
+    await expectRefused(await seed(standard(true)), [{ kind: 'add_widget', widget: Widget }, 'quizLocked'])
   })
 })
 
@@ -99,23 +99,23 @@ describe('edit_widget', () => {
   })
 
   it('refuses a rename onto a sibling\'s label, or the questions\' own', async () => {
-    await expectUnchanged(await withWidget(),
-      { kind: 'edit_widget', label: 'backward', patch: { label: 'dumdum' } },
-      { kind: 'edit_widget', label: 'backward', patch: { label: 'question' } })
+    await expectRefused(await withWidget(),
+      [{ kind: 'edit_widget', label: 'backward', patch: { label: 'dumdum' } },   'labelTaken'],
+      [{ kind: 'edit_widget', label: 'backward', patch: { label: 'question' } }, 'labelTaken'])
   })
 
   it('validates the patch for the kind of widget it is', async () => {
     const { act } = await withWidget()
-    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { bot_label: 'smartypants' as never } })).rejects.toThrow()
-    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { textkind: 'hint' } })).rejects.toThrow()
+    await expect(act({ kind: 'edit_widget', label: 'dumdum', patch: { bot_label: 'smartypants' as never } })).rejects.toThrow(/Validator error/)
+    expect(await refusedAs(act({ kind: 'edit_widget', label: 'dumdum', patch: { textkind: 'hint' } }))).to.eq('invalid')
   })
 
-  it('does nothing for a widget the quiz does not have', async () => {
-    await expectUnchanged(await seed(), { kind: 'edit_widget', label: 'absent', patch: { description: 'x' } })
+  it('refuses a widget the quiz does not have', async () => {
+    await expectRefused(await seed(), [{ kind: 'edit_widget', label: 'absent', patch: { description: 'x' } }, 'widgetGone'])
   })
 
   it('refuses while the quiz is locked', async () => {
-    await expectUnchanged(await seed(standard(true)), { kind: 'edit_widget', label: 'dumdum', patch: { description: 'x' } })
+    await expectRefused(await seed(standard(true)), [{ kind: 'edit_widget', label: 'dumdum', patch: { description: 'x' } }, 'quizLocked'])
   })
 })
 
@@ -161,15 +161,15 @@ describe('move_widget', () => {
     expect(columnsOf(after)).to.deep.eq(StandardColumns)
   })
 
-  it('puts a widget at the end for an index past it, and leaves the list alone for a label it does not have', async () => {
+  it('puts a widget at the end for an index past it, and refuses a label it does not have', async () => {
     const { act, read } = await seed()
     await act({ kind: 'move_widget', label: 'dumdum', onto_idx: 99 })
     expect(widgetsOf(await read()).at(-1)).to.eq('dumdum')
-    await expectUnchanged(await seed(), { kind: 'move_widget', label: 'absent', onto_idx: 0 })
+    await expectRefused(await seed(), [{ kind: 'move_widget', label: 'absent', onto_idx: 0 }, 'widgetGone'])
   })
 
   it('refuses while the quiz is locked', async () => {
-    await expectUnchanged(await seed(standard(true)), { kind: 'move_widget', label: 'hint_full', onto_idx: 0 })
+    await expectRefused(await seed(standard(true)), [{ kind: 'move_widget', label: 'hint_full', onto_idx: 0 }, 'quizLocked'])
   })
 })
 
@@ -197,9 +197,9 @@ describe('add_column', () => {
   })
 
   it('refuses a label a column has, and a source the quiz cannot show', async () => {
-    await expectUnchanged(await seed(),
-      { kind: 'add_column', column: { ...column, label: 'title' } },
-      { kind: 'add_column', column: { ...column, source: 'nowhere' } })
+    await expectRefused(await seed(),
+      [{ kind: 'add_column', column: { ...column, label: 'title' } },    'labelTaken'],
+      [{ kind: 'add_column', column: { ...column, source: 'nowhere' } }, 'sourceUnshowable'])
   })
 
   it('refuses a column that is not one', async () => {
@@ -208,7 +208,7 @@ describe('add_column', () => {
   })
 
   it('refuses while the quiz is locked', async () => {
-    await expectUnchanged(await seed(standard(true)), { kind: 'add_column', column })
+    await expectRefused(await seed(standard(true)), [{ kind: 'add_column', column }, 'quizLocked'])
   })
 })
 
@@ -233,14 +233,14 @@ describe('edit_column', () => {
   })
 
   it('refuses a rename onto a sibling\'s label, a source nothing can show, and a column that is not there', async () => {
-    await expectUnchanged(await seed(),
-      { kind: 'edit_column', label: 'notes', patch: { label: 'hint' } },
-      { kind: 'edit_column', label: 'notes', patch: { source: 'nowhere' } },
-      { kind: 'edit_column', label: 'absent', patch: { title: 'x' } })
+    await expectRefused(await seed(),
+      [{ kind: 'edit_column', label: 'notes', patch: { label: 'hint' } },      'labelTaken'],
+      [{ kind: 'edit_column', label: 'notes', patch: { source: 'nowhere' } },  'sourceUnshowable'],
+      [{ kind: 'edit_column', label: 'absent', patch: { title: 'x' } },        'columnGone'])
   })
 
   it('refuses while the quiz is locked', async () => {
-    await expectUnchanged(await seed(standard(true)), { kind: 'edit_column', label: 'notes', patch: { title: 'x' } })
+    await expectRefused(await seed(standard(true)), [{ kind: 'edit_column', label: 'notes', patch: { title: 'x' } }, 'quizLocked'])
   })
 })
 
@@ -309,7 +309,7 @@ describe('add_expression', () => {
   it('refuses a label already taken, leaving the hunt as it was', async () => {
     const seeded = await seed()
     await seeded.act({ kind: 'add_expression', expression: shout })
-    await expectUnchanged(seeded, { kind: 'add_expression', expression: { ...shout, formula: '1' } })
+    await expectRefused(seeded, [{ kind: 'add_expression', expression: { ...shout, formula: '1' } }, 'labelTaken'])
   })
 
   it('works from a locked quiz, because the expressions belong to the hunt', async () => {
@@ -356,8 +356,8 @@ describe('delete_expression', () => {
     expect(labelsOf(await read())).to.not.include('answer_reversed')
   })
 
-  it('refuses to remove one a widget works, and says nothing changed', async () => {
-    await expectUnchanged(await seed(), { kind: 'delete_expression', label: 'clueing_full' })
+  it('refuses to remove one a widget works, saying why', async () => {
+    await expectRefused(await seed(), [{ kind: 'delete_expression', label: 'clueing_full' }, 'expressionInUse'])
   })
 
   it('removes it once the widget is gone', async () => {

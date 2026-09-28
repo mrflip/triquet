@@ -1,4 +1,5 @@
 import * as PA from '../../src/lib/vv/patterns'
+import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
 import type { QuizRows } from '../../src/lib/rows'
 import { ColumnValidators, sortkeyOf, sourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
@@ -12,6 +13,20 @@ import { reviseOpenQuiz } from './quiz_actions'
 /** A widget's patch as an action carries it: the fields of either kind, checked against the widget it revises */
 export type WidgetPatchDNA = ExpressingPatch & BottingPatch
 
+/** The widget of the quiz labelled `label`, refusing when there is none */
+function widgetIn(rows: QuizRows, label: string): Doc<'widgets'> {
+  const held = rows.widgets.find((widget) => widget.label === label)
+  if (! held) { refuse('widgetGone') }
+  return held
+}
+
+/** The column of the quiz labelled `label`, refusing when there is none */
+function columnIn(rows: QuizRows, label: string): Doc<'columns'> {
+  const held = rows.columns.find((column) => column.label === label)
+  if (! held) { refuse('columnGone') }
+  return held
+}
+
 /** Whether a widget of the quiz already has this label, or it is the questions' own */
 function labelTaken(rows: QuizRows, label: string): boolean {
   return label === QuestionWidgetLabel || rows.widgets.some((widget) => widget.label === label)
@@ -23,10 +38,9 @@ function showable(rows: QuizRows, source: string): boolean {
   return named.kind !== 'widget' || rows.widgets.some((widget) => widget.label === named.label)
 }
 
-/** `items` with the one labelled `label` lifted out and dropped at `onto_idx` */
+/** `items` with the one labelled `label` lifted out and dropped at `onto_idx`; `label` names one of them */
 function movedTo<RT extends { label: string }>(items: readonly RT[], label: string, onto_idx: number): RT[] {
   const from_idx = items.findIndex((item) => item.label === label)
-  if (from_idx === -1) { return [...items] }
   const lifted = [...items]
   const [moved] = lifted.splice(from_idx, 1)
   if (moved) { lifted.splice(Math.max(0, Math.min(onto_idx, lifted.length)), 0, moved) }
@@ -39,7 +53,8 @@ function movedTo<RT extends { label: string }>(items: readonly RT[], label: stri
  */
 export async function addWidget(db: Writer, open: OpenQuizT, widget: WidgetT): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    if (labelTaken(rows, widget.label) || rows.widgets.length >= PA.WidgetsPerQuiz.max) { return }
+    if (labelTaken(rows, widget.label)) { refuse('labelTaken') }
+    if (rows.widgets.length >= PA.WidgetsPerQuiz.max) { refuse('widgetsFull') }
     await db.insert('widgets', WidgetValidators.row({ ...widgetFieldsOf(widget), quiz_id: rows.quiz._id, position: rows.widgets.length }))
   })
 }
@@ -52,11 +67,10 @@ export async function addWidget(db: Writer, open: OpenQuizT, widget: WidgetT): P
  */
 export async function editWidget(db: Writer, open: OpenQuizT, label: string, patch: WidgetPatchDNA): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    const held = rows.widgets.find((widget) => widget.label === label)
-    if (! held) { return }
+    const held = widgetIn(rows, label)
     const clean = held.kind === 'expressing' ? WidgetValidators.expressingPatch(patch) : WidgetValidators.bottingPatch(patch)
     const renamedOnto = clean.label ?? label
-    if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { return }
+    if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { refuse('labelTaken') }
     await updateWidget(db, held, { ...clean })
     for (const column of rows.columns) {
       if (column.source === label) { await updateColumn(db, column, { source: renamedOnto }) }
@@ -87,6 +101,7 @@ export async function deleteWidget(db: Writer, open: OpenQuizT, label: string): 
 /** Move a widget of the open quiz to `onto_idx` among its siblings */
 export async function moveWidget(db: Writer, open: OpenQuizT, label: string, onto_idx: number): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
+    widgetIn(rows, label)
     await repositioned(movedTo(rows.widgets, label, onto_idx), async (row, position) => { await updateWidget(db, row, { position }) })
   })
 }
@@ -97,8 +112,9 @@ export async function moveWidget(db: Writer, open: OpenQuizT, label: string, ont
  */
 export async function addColumn(db: Writer, open: OpenQuizT, column: ColumnT, onto_idx?: number): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    const clash = rows.columns.some((other) => other.label === column.label)
-    if (clash || ! showable(rows, column.source) || rows.columns.length >= PA.ColumnsPerQuiz.max) { return }
+    if (rows.columns.some((other) => other.label === column.label)) { refuse('labelTaken') }
+    if (! showable(rows, column.source)) { refuse('sourceUnshowable') }
+    if (rows.columns.length >= PA.ColumnsPerQuiz.max) { refuse('columnsFull') }
     const at = onto_idx === undefined ? rows.columns.length : Math.max(0, Math.min(onto_idx, rows.columns.length))
     for (const [idx, held] of rows.columns.entries()) {
       const position = idx < at ? idx : idx + 1
@@ -114,11 +130,10 @@ export async function addColumn(db: Writer, open: OpenQuizT, column: ColumnT, on
  */
 export async function editColumn(db: Writer, open: OpenQuizT, label: string, patch: ColumnPatch): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    const held = rows.columns.find((column) => column.label === label)
+    const held = columnIn(rows, label)
     const renamedOnto = patch.label ?? label
-    const clash = renamedOnto !== label && rows.columns.some((other) => other.label === renamedOnto)
-    const unshowable = patch.source !== undefined && ! showable(rows, patch.source)
-    if (! held || clash || unshowable) { return }
+    if (renamedOnto !== label && rows.columns.some((other) => other.label === renamedOnto)) { refuse('labelTaken') }
+    if (patch.source !== undefined && ! showable(rows, patch.source)) { refuse('sourceUnshowable') }
     await updateColumn(db, held, { ...patch })
     if (rows.quiz.last_sortkey === sortkeyOf({ label })) { await updateQuiz(db, rows.quiz, { last_sortkey: sortkeyOf({ label: renamedOnto }) }) }
   })
@@ -132,6 +147,7 @@ export async function deleteColumn(db: Writer, open: OpenQuizT, label: string): 
 /** Move a column of the open quiz to `onto_idx` among its siblings */
 export async function moveColumn(db: Writer, open: OpenQuizT, label: string, onto_idx: number): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
+    columnIn(rows, label)
     await repositioned(movedTo(rows.columns, label, onto_idx), async (row, position) => { await updateColumn(db, row, { position }) })
   })
 }
@@ -145,23 +161,24 @@ export async function moveColumn(db: Writer, open: OpenQuizT, label: string, ont
  */
 export async function addExpression(db: Writer, open: OpenQuizT, expression: ExpressionT): Promise<void> {
   const [hunt, held] = await Promise.all([db.get('hunts', open.hunt_id), expressionsOf(db, open.hunt_id)])
-  const full = held.length >= PA.ExpressionsPerHunt.max
-  if (! hunt || full || held.some((other) => keyOf(other) === keyOf(expression))) { return }
+  if (! hunt) { refuse('huntGone') }
+  if (held.some((other) => keyOf(other) === keyOf(expression))) { refuse('labelTaken') }
+  if (held.length >= PA.ExpressionsPerHunt.max) { refuse('expressionsFull') }
   await db.insert('expressions', ExpressionValidators.row({ ...expression, hunt_id: open.hunt_id, position: held.length }))
 }
 
-/** Revise the hunt's expression labelled `label` */
+/** Revise the hunt's expression labelled `label`; refused when the hunt has none */
 export async function editExpression(db: Writer, open: OpenQuizT, label: string, patch: ExpressionPatch): Promise<void> {
   const expressions = await expressionsOf(db, open.hunt_id)
-  for (const expression of expressions) {
-    if (expression.label === label) { await updateExpression(db, expression, { ...patch }) }
-  }
+  const labelled = expressions.filter((expression) => expression.label === label)
+  if (labelled.length === 0) { refuse('expressionGone') }
+  for (const expression of labelled) { await updateExpression(db, expression, { ...patch }) }
 }
 
 /** Delete the hunt's expression labelled `label`. Refused while a widget works it: that widget would have nothing to show. */
 export async function deleteExpression(db: Writer, open: OpenQuizT, label: string): Promise<void> {
   const usage = await expressionUsageOf(db, await realmsOf(db, open.hunt_id))
-  if ((usage.get(label) ?? 0) > 0) { return }
+  if ((usage.get(label) ?? 0) > 0) { refuse('expressionInUse') }
   const expressions = await expressionsOf(db, open.hunt_id)
   for (const expression of expressions) {
     if (expression.label === label) { await db.delete('expressions', expression._id) }
