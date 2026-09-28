@@ -63,7 +63,7 @@ REPEATING: This section on various import styles applies only when there's not a
 **Smush variable tags `name`, `kind`, `label`, `path`, `bag` and `key` into one unit: `fooname` and `foolabel`,
   but not `fooCount` or `fooIter`. (added 20260916)
 
-**Model fields are underscore_case** for database compatability. (added 20260916)
+**Model fields are underbar_case** for database compatability. (added 20260916)
 
 **Validators match the case and name of their check**. If the field is `foo_count`, call the validator `foo_count`. Craft function guards to match the convenience of the function:
 

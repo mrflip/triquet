@@ -17,8 +17,9 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 * **Phase 4 (the evaluation, the ergonomics pass, Jazz's last traces)**: built on
   `20260928-convex_phase4b`, stacked on it, not yet merged. The verdict is written (keep Convex:
   `notes/database-decisions.md`, *Verdict*; `notes/decisions/2026-09-convex.md`), pending the
-  Coach's word. On 2026-09-28: lint and typecheck green; 1902 unit and convex tests and 164 e2e
-  specs green.
+  Coach's word. Then, on the Coach's word, a quiz holds its questions' order and each question
+  is a query of its own (*Deviations*). On 2026-09-28: lint and typecheck green; 1914 unit and
+  convex tests and 164 e2e specs green.
 * **Next**: phase 5 (reviewings), a branch stacked on this one. Phase 3b (the cloud) waits on the
   Coach's account and blocks nothing; when it lands, re-measure (*Measurements*).
 
@@ -106,6 +107,26 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 ## 4. Deviations from the plan
 
 Newest first.
+
+* **A quiz holds its questions' order, and each question is a query of its own** (the Coach,
+  2026-09-28). `quizzes.row_ordering` lists the questions by `_id`; questions lost `position`,
+  and are indexed `by_quiz_id` (for a quiz's deletion) and read by id. Ids rather than labels:
+  a label changes on a relabel, which would rewrite the quiz row, and a question's query is
+  asked by id, so a label would cost a lookup per row. `quizzes.open` is now the quiz's frame
+  (its fields, that order, its widgets and columns) and `questions.open` one question with its
+  bots' newest replies; `useQuiz` (`state/use-quiz.ts`) assembles them with the server's own
+  projection (`quizFromSeen`), holding the quiz last read whole while a question just added is
+  on its way, and the history feed follows a watch per question. **This goes against the plan's
+  settled item 6 and the "never a query per row" lines** in the plan, `notes/stack.md`'s history
+  and `notes/decisions/2026-09-convex.md` (*Rules that follow*, and "a parent's children through
+  the parent's index"). The Coach is reviewing that guidance and asked for it to be left as it
+  stands and not followed: the code, not those lines, is current.
+* **Every action reads what it needs**: the quiz row, and the questions it names by id, for an
+  edit, a chain, a bot's reply, an add or a retitle; the layout alone for a widget or column;
+  the questions for a move, a renumbering or the chain order, and their bots' replies too only
+  for a sort; the whole quiz only for a quiz replaced or deleted. A test holds the order to
+  naming every question of the quiz exactly once, whatever the actions do.
+* **The hunt listing leaves out each quiz's `row_ordering`**: it is the quiz's own screen's.
 
 * **No optimistic updates** (phase 4). The plan named four candidates for where the wait is
   felt; measured on a local backend, none is (*Measurements*). The cloud's round trip decides;
@@ -218,6 +239,19 @@ Newest first.
 ## 5. Discoveries
 
 ### Phase 4
+
+* **Convex reruns a query whose read set changed, but sends nothing when the result is the
+  same.** A reorder writes the quiz row, which `hunts.open` reads (as every quiz row of the
+  hunt); with `row_ordering` left out of its result, it reruns (about 10 KiB of I/O) and
+  delivers nothing.
+* **Per question, a text edit costs about 3 KiB** of database I/O with a second browser
+  watching, down from 46: the mutation reads the quiz row and the question, and only that
+  question's query reruns. A move still costs about 45 KiB: it reads every question for their
+  Q#s, and reruns the frame and `hunts.open`.
+* **A new question takes a second round trip to appear**: the frame names it, then its own
+  query is asked for. The first paint of a quiz likewise takes one more.
+* **`useQueries` hands back the same object until one of its queries changes**, so a `useMemo`
+  over it and the frame holds still between unrelated renders.
 
 * **The backend's function log is the bill.** `convex logs --jsonl --success` gives every
   execution's `usageStats` (database I/O read and written, documents read), its `returnBytes`,
@@ -397,6 +431,21 @@ production build, a 24-question hunt and a second browser watching:
 | Database I/O per edit | 46 KiB | | | 110 KiB |
 | Function calls per edit (uncached) | 3.7 (2.2) | | | 3.7 (2.2) |
 
+After the order moved onto the quiz and each question became a query (same session and hunt):
+
+| | Local | 80 ms network | Local, 60 questions |
+|---|---|---|---|
+| Reorder, until shown (median ms) | 92 | 170 | 209 |
+| A text commit, until saved | 60 | 140 | 180 |
+| Add a question, until shown | 115 | 261 | 228 |
+| Quiz on screen, fresh tab | 235 | 495 | 482 |
+| Database I/O per edit (this session's mix) | 32 KiB | | 54 KiB |
+| Downloaded per edit, each browser | 5.2 KiB | | 7 KiB |
+| Function calls per edit (uncached) | 10.1 (4.2) | | 16.9 (5.1) |
+
+By action, locally, with the reruns each causes: a text edit 3 KiB (was 46), an add 25 (45), the
+lock 24 (34), a sort 51 (80), a move 45 (45).
+
 How: a Playwright script (kept out of the repo) drove the app through the Import box and five
 kinds of edit, proxied the Convex websocket to log every frame and to delay each message for the
 simulated networks, and read the backend's function log (`convex logs --jsonl --success`) for
@@ -441,6 +490,10 @@ Worth a run on a quiet machine before merging.
 
 * **The verdict** (`notes/database-decisions.md`, *Verdict*, and `notes/decisions/2026-09-convex.md`)
   is written for your word: keep Convex.
+* **The "never a query per row" guidance** is yours to review (left as it stands, not followed).
+* **One open choice about the order**: kept on the quiz row as asked, a move, an add or a sort
+  reruns `hunts.open` (about 10 KiB of I/O, nothing resent). Its own one-row-per-quiz table
+  would spare that, at the cost of one more document per quiz.
 * **Doppler**: `NEXT_PUBLIC_CONVEX_URL` is in `dev_claude` and `dev_e2e` (done, thank you);
   `scripts/convex_dev` sets it from the role anyway, so `dev` needs nothing new. Nothing reads
   these any more, and they can go: `JAZZ_DEV_PORT`, `JAZZ_DEV_DATA_DIR`, `JAZZ_REAL_DB`,

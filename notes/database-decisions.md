@@ -216,7 +216,9 @@ appendix predicted: about 46 KiB per edit on a quiz the sample's size, most of i
 own read of the open quiz and the rerun of `quizzes.open`. On the free plan that is roughly
 ninety hours of steady editing a month; on Starter, overage is cents. Asking for the whole hunt
 again after every change for the Export box was the largest single cost, and it is now asked
-for only on request.
+for only on request. *Since then* (same day): each action reads what it needs, and each question
+is a query of its own, so a text edit costs about 3 KiB and the session's mix about 32 KiB
+(*Appendix*, *Measured*).
 
 **Recommendations**, in order:
 
@@ -225,8 +227,8 @@ for only on request.
 3. When the cloud lands (phase 3b), re-measure; add an optimistic `move_question` first if a
    reorder passes about 150 ms, reusing `Rank`'s pure functions so its effect is not spelled
    twice.
-4. Cheaper reads, when bandwidth matters: `hunts.perform` reads the whole open quiz for every
-   action, half of all database I/O; most actions need a row or two.
+4. ~~Cheaper reads, when bandwidth matters~~: done the same day. Each action reads what it
+   needs, and each question is its own query.
 5. Memoize the grid's formulas by question: on a large quiz the recompute on every redelivery,
    not the network, is most of the wait (about 70 ms of 200 at 60 questions).
 
@@ -363,3 +365,21 @@ A fresh tab paints its shell in 30 to 60 ms and needs about three round trips fo
 
 A quiz screen holds four live queries (`idents.current`, `hunts.open`, `quizzes.open`,
 `reviews.forQuiz`), none per row, as designed.
+
+**Since then** (same day, same session and hunt): a quiz holds its questions' order, each
+question is a query of its own (`questions.open`), and each action reads what it needs.
+
+| | Before | After |
+|---|---|---|
+| Database I/O per edit, this session's mix | 46 KiB | 32 KiB |
+| Downloaded per edit, each browser | 15 KiB | 5.2 KiB |
+| Function calls per edit (not cached) | 3.7 (2.2) | 10.1 (4.2) |
+| A text edit, with the reruns it causes | 46 KiB | 3 KiB |
+| A move | 45 KiB | 45 KiB |
+| Add a question, until shown (local; 80 ms network) | 84; 162 ms | 115; 261 ms |
+| The quiz on screen, fresh tab (local; 80 ms network) | 225; 400 ms | 235; 495 ms |
+
+At a steady edit every fifteen seconds of mostly text, that is a few MiB of I/O an hour rather
+than eleven. A move still reads every question (for their Q#s); a new question, and a fresh tab,
+take one more round trip, since a question's query is asked for once the quiz names it. A quiz
+screen now holds a query per question as well as the four above.
