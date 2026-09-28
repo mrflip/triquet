@@ -1,4 +1,4 @@
-import { expect, grid, reloadOnceSaved, test } from './support'
+import { expect, grid, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 test('a fresh hunt\'s quiz opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Quiz name')).toBeVisible()
@@ -24,6 +24,17 @@ test('what you type survives a reload', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first())
     .toHaveValue('Which region gave its name to 千 other things?')
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Leon')
+})
+
+test('a Q# of a lone point means no number, and is left blank rather than refused', async ({ page }) => {
+  const qnum = page.getByRole('textbox', { name: 'Q#', exact: true }).first()
+  await qnum.pressSequentially('.')
+  await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
+  // Not refused: a refusal's notice is up before the page counts the change as settled.
+  await expect(page.getByRole('status')).toHaveCount(0)
+  await reloadOnceSaved(page)
+  await expect(qnum).toHaveValue('')
 })
 
 test('the quiz name reaches the browser tab', async ({ page }) => {
