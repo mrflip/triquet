@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@mui/material'
+import { Button, TextField } from '@mui/material'
 import clsx from 'clsx'
 import { Panel } from './Panel'
 import * as Importing from '../../lib/importing'
@@ -48,13 +48,16 @@ export function ImportPanel({ quiz, locked, onImport }: Readonly<ImportPanelProp
       title="Import"
       blurb="Paste back anything Export ever gave you, a single quiz, or a bare list of questions. Questions are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
     >
-      <textarea
-        className={styles.pasteBox}
-        aria-label="Import"
-        rows={6}
+      <TextField
+        multiline
+        minRows={6}
+        fullWidth
+        size="small"
         placeholder="Paste exported JSON here"
         value={pasted}
         onChange={(event) => { setPasted(event.target.value) }}
+        slotProps={{ htmlInput: { 'aria-label': 'Import' } }}
+        sx={{ mt: 1, '& textarea': { fontFamily: 'var(--font-data)', fontSize: 12 } }}
       />
       <div className={styles.panelRow}>
         <Button size="small" variant="contained" disabled={locked || pasted.trim() === ''} onClick={runImport}>Import</Button>

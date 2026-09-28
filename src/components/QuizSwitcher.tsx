@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Stack } from '@mui/material'
-import clsx from 'clsx'
+import { Button, Select, Stack } from '@mui/material'
 import { AppNotices } from '../lib/notices'
 import type { QuizT } from '../models/quiz'
 import styles from './workbench.module.css'
@@ -29,19 +28,20 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
 
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
-      <select
-        className={clsx(styles.field, styles.fieldData)}
-        style={{ width: 'auto', minWidth: 220 }}
-        aria-label="Open quiz"
+      <Select
+        native
+        size="small"
         value={openQuiz._id}
         onChange={(event) => { onOpen(event.target.value) }}
+        inputProps={{ 'aria-label': 'Open quiz' }}
+        sx={{ minWidth: 220, fontFamily: 'var(--font-data)', fontSize: 12 }}
       >
         {quizzes.map((quiz) => (
           <option key={quiz._id} value={quiz._id}>
             {quiz.locked ? '🔒 ' : ''}{quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
           </option>
         ))}
-      </select>
+      </Select>
 
       <Button size="small" variant="outlined" onClick={onNew}>+ New quiz</Button>
 
