@@ -89,21 +89,25 @@ describe('the two kinds of widget in one list', () => {
 
 describe('WidgetValidators.row', () => {
   const Base = { quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'thing', description: '', position: 0 }
-  const Expressing = { ...Base, kind: 'expressing', expression_label: 'shout', bot_label: null, textkind: null } satisfies Z.input<typeof WidgetValidators.row>
-  const Botting = { ...Base, kind: 'botting', expression_label: null, bot_label: 'numnum', textkind: 'hint' } satisfies Z.input<typeof WidgetValidators.row>
+  const Expressing = { ...Base, kind: 'expressing', expression_label: 'shout' } satisfies Z.input<typeof WidgetValidators.row>
+  const Botting = { ...Base, kind: 'botting', bot_label: 'numnum', textkind: 'hint' } satisfies Z.input<typeof WidgetValidators.row>
 
-  it('takes either kind as the database holds it, the other kind\'s fields null', () => {
+  it('takes either kind as the database holds it, with its own kind\'s fields alone', () => {
     expect(WidgetValidators.row(Expressing)).to.deep.eq(Expressing)
     expect(WidgetValidators.row(Botting)).to.deep.eq(Botting)
   })
 
+  it('drops the other kind\'s fields, which the table has no place for', () => {
+    expect(WidgetValidators.row({ ...Expressing, bot_label: 'dumdum', textkind: 'clueing' } as never)).to.deep.eq(Expressing)
+    expect(WidgetValidators.row({ ...Botting, expression_label: 'shout' } as never)).to.deep.eq(Botting)
+  })
+
   const Refused: [object, string][] = [
     [{ ...Expressing, expression_label: null },          'an expressing that names no expression'],
-    [{ ...Expressing, bot_label: 'dumdum' },          'an expressing that also names a bot'],
     [{ ...Botting, textkind: null },                     'a botting that names no text'],
-    [{ ...Botting, expression_label: 'shout' },          'a botting that also names an expression'],
-    [{ ...Botting, bot_label: 'dumdum' },             'a bot that is not put that text in this tool'],
-    [{ ...Botting, bot_label: 'smartypants' },        'a bot there is not'],
+    [{ ...Botting, bot_label: 'dumdum' },                'a bot that is not put that text in this tool'],
+    [{ ...Botting, bot_label: 'smartypants' },           'a bot there is not'],
+    [{ ...Botting, kind: 'gadget' },                     'a kind there is not'],
     [{ ...Botting, position: -1 },                       'a place before the first'],
   ]
   for (const [row, describes] of Refused) {

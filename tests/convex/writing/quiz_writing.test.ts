@@ -3,10 +3,9 @@ import * as Z from 'zod'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { quizRowsOf, realmsOf, reviewsOf } from '../../../convex/reading'
 import {
-  bottingFieldsOf, changedFields, deleteQuiz, repositioned, updateQuestion, updateQuiz, updateReview, writeHunt, writeQuiz,
+  changedFields, deleteQuiz, repositioned, updateQuestion, updateQuiz, updateReview, writeHunt, writeQuiz,
 } from '../../../convex/writing/quiz_writing'
 import type { QuizRows } from '../../../src/lib/rows'
-import type { BottingT } from '../../../src/models/botting'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
 import { Question } from '../../../src/models/question'
 import { Quiz, type QuizT } from '../../../src/models/quiz'
@@ -84,19 +83,6 @@ describe('repositioned', () => {
       return Promise.resolve()
     })
     expect(unmoved).to.deep.eq([])
-  })
-})
-
-describe('bottingFieldsOf', () => {
-  it('drops the tree\'s id and time, which are the row\'s own', () => {
-    const botting = {
-      id: 'x', question_id: 'j97d0qbj35dar1v8edndzckvsx8f828f', bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
-      reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null, created_at: 9,
-    } satisfies BottingT
-    expect(bottingFieldsOf(botting)).to.deep.eq({
-      question_id: botting.question_id, bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done',
-      reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null,
-    })
   })
 })
 
@@ -178,6 +164,19 @@ describe('writeQuiz', () => {
     const after = await held.rows()
     expect(after.widgets.map((row) => row.label)).to.deep.eq(revised.widgets.map((widget) => widget.label))
     expect(after.columns.map((row) => row.label)).to.deep.eq(revised.columns.map((column) => column.label))
+  })
+
+  it('rewrites a widget whole when its label now names a widget of the other kind', async () => {
+    const held = await holding(Hunt.blank())
+    const tree = await held.quiz()
+    const [first, ...rest] = tree.widgets
+    const swapped = present(first).kind === 'botting'
+      ? { kind: 'expressing' as const, label: present(first).label, description: '', expression_label: 'shout' }
+      : { kind: 'botting' as const, label: present(first).label, description: '', bot_label: 'dumdum' as const, textkind: 'clueing' as const }
+    await held.revise(async (db, rows) => { await writeQuiz(db, held.realm_id, { ...tree, widgets: [swapped, ...rest] }, rows) })
+    const after = await held.rows()
+    expect(after.widgets[0]).to.deep.include({ ...swapped, position: 0 })
+    expect(after.widgets[0]).to.not.have.any.keys(present(first).kind === 'botting' ? ['bot_label', 'textkind'] : ['expression_label'])
   })
 
   it('records a reply the quiz shows only when it is newer than the newest recorded', async () => {

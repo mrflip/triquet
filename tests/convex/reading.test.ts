@@ -114,6 +114,22 @@ describe('quizRowsOf', () => {
     const cells = Object.values(slots).map((slot) => [slot.newest.message ?? slot.newest.items[0]?.text, slot.done?.items[0]?.text ?? null])
     expect(cells).to.have.deep.members([['failed twice', 'answered'], ['never answered', null]])
   })
+
+  it('keeps cells apart: another bot, or another text, is another cell', async () => {
+    const quiz = { ...Quiz.blank(), questions: [Question.blank()] }
+    const { tt, quiz_id } = await holding(huntHolding([quiz]))
+    const { questions } = await rowsOf(tt, quiz_id)
+    const question_id = present(questions[0])._id
+    await tt.run(async (ctx) => {
+      for (const botting of [
+        numnum(question_id, 'done', 'clueing'),
+        { ...numnum(question_id, 'done', 'hint'), textkind: 'hint' as const },
+        { ...numnum(question_id, 'error', 'guess'), bot_label: 'dumdum' as const },
+      ]) { await ctx.db.insert('bottings', botting) }
+    })
+    const { slots } = await rowsOf(tt, quiz_id)
+    expect(Object.keys(slots)).to.have.members([`${question_id}:numnum:clueing`, `${question_id}:numnum:hint`, `${question_id}:dumdum:clueing`])
+  })
 })
 
 describe('identFor', () => {
