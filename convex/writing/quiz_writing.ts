@@ -12,7 +12,7 @@ import { QuestionValidators, type QuestionT } from '../../src/models/question'
 import { QuizValidators, type QuizT } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
-import { WidgetValidators, type WidgetT } from '../../src/models/widget'
+import { WidgetValidators, type BottingPatch, type ExpressingPatch, type WidgetT } from '../../src/models/widget'
 import { reviewsOf } from '../reading'
 
 /** What a mutation writes through */
@@ -24,14 +24,6 @@ const SystemFields = ['_id', '_creationTime'] as const
 /** The fields of `fields` that differ from what `held` has, for an update that writes only what changed */
 export function changedFields<RT extends object>(held: RT, fields: Partial<RT>): Partial<RT> {
   return _.pickBy(fields, (val, key) => ! _.isEqual(val, held[key as keyof RT])) as Partial<RT>
-}
-
-/**
- * A botting as the tree's history of a cell gives it, as the row that records it: the row's id
- * and its time are the database's own.
- */
-export function bottingFieldsOf(botting: BottingT): Z.output<typeof BottingValidators.row> {
-  return BottingValidators.row(_.omit(botting, ['id', 'created_at']))
 }
 
 /** Every row of `ordered` whose position is not its place in the list, each handed to `write` with its place */
@@ -62,9 +54,9 @@ export async function updateQuestion(db: Writer, held: Doc<'questions'>, patch: 
   if (! _.isEmpty(changed)) { await db.patch('questions', held._id, changed) }
 }
 
-/** Revise a widget's row */
-export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: Partial<Z.output<typeof WidgetValidators.row>>): Promise<void> {
-  const changed = changedFields(held, WidgetValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+/** Revise a widget's row, keeping its kind: a widget that changes kind is replaced whole */
+export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: ExpressingPatch & BottingPatch & { position?: number }): Promise<void> {
+  const changed = changedFields(held, WidgetValidators.row({ ...held, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('widgets', held._id, changed) }
 }
 
@@ -82,7 +74,7 @@ export async function updateReview(db: Writer, held: Doc<'reviews'>, patch: Part
 
 /** Record each botting of `bottings` as a row of its own */
 export async function insertBottings(db: Writer, bottings: readonly BottingT[]): Promise<void> {
-  for (const botting of bottings) { await db.insert('bottings', bottingFieldsOf(botting)) }
+  for (const botting of bottings) { await db.insert('bottings', BottingValidators.row(botting)) }
 }
 
 /** Delete a question and every botting it was ever asked */
@@ -160,18 +152,6 @@ async function writeQuestions(db: Writer, quiz_id: Id<'quizzes'>, questions: rea
   }
 }
 
-/** The row fields of `widget`, the other kind's left null */
-export function widgetFieldsOf(widget: WidgetT) {
-  return {
-    label:            widget.label,
-    kind:             widget.kind,
-    expression_label: widget.kind === 'expressing' ? widget.expression_label : null,
-    bot_label:        widget.kind === 'botting' ? widget.bot_label : null,
-    textkind:         widget.kind === 'botting' ? widget.textkind : null,
-    description:      widget.description,
-  }
-}
-
 /** The widgets of a quiz, in order */
 async function writeWidgets(db: Writer, quiz_id: Id<'quizzes'>, widgets: readonly WidgetT[], heldWidgets: readonly Doc<'widgets'>[]): Promise<void> {
   const kept = new Set(widgets.map((widget) => widget.label))
@@ -179,12 +159,14 @@ async function writeWidgets(db: Writer, quiz_id: Id<'quizzes'>, widgets: readonl
     if (! kept.has(widget.label)) { await db.delete('widgets', widget._id) }
   }
   for (const [position, widget] of widgets.entries()) {
-    const fields = WidgetValidators.row({ ...widgetFieldsOf(widget), quiz_id, position })
+    const fields = WidgetValidators.row({ ...widget, quiz_id, position })
     const heldWidget = heldWidgets.find((row) => row.label === widget.label)
-    if (heldWidget) {
+    if (! heldWidget) {
+      await db.insert('widgets', fields)
+    } else if (heldWidget.kind === fields.kind) {
       await updateWidget(db, heldWidget, fields)
     } else {
-      await db.insert('widgets', fields)
+      await db.replace('widgets', heldWidget._id, fields)
     }
   }
 }

@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { BottingValidators, latestBySlot, resultsFor, slotkeyOf, unrecordedBottings, type BottingT } from '../../src/models/botting'
+import { BottingValidators, resultsFor, slotkeyOf, unrecordedBottings, type RecordedBottingT, type SlotLatest } from '../../src/models/botting'
 import { Question } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 
-const bottingOf = (overrides: Partial<BottingT>): BottingT => ({
-  id:                 mintId(),
+const bottingOf = (overrides: Partial<RecordedBottingT>): RecordedBottingT => ({
   question_id:        'q1',
   bot_label:       'dumdum',
   textkind:           'clueing',
@@ -18,9 +17,12 @@ const bottingOf = (overrides: Partial<BottingT>): BottingT => ({
   truncated:          false,
   model_tier_applied: 'quick',
   approx_tokens:      84,
-  created_at:         1,
+  _creationTime:      1,
   ...overrides,
 })
+
+/** A history of one cell of `q1`, as the server's walk of it would hand it over */
+const cellOf = (latest: SlotLatest, slotkey = 'q1:dumdum:clueing') => new Map([[slotkey, latest]])
 
 const NoneRecorded = new Map<string, number>()
 
@@ -30,95 +32,63 @@ describe('slotkeyOf', () => {
   })
 })
 
-describe('latestBySlot', () => {
-  it('keeps only the newest result in each cell, however they arrive', () => {
-    const [older, newer] = [bottingOf({ created_at: 1 }), bottingOf({ created_at: 2 })]
-    expect(latestBySlot([newer, older]).get('q1:dumdum:clueing')).to.deep.eq({ done: newer, failed: null })
-    expect(latestBySlot([older, newer]).get('q1:dumdum:clueing')).to.deep.eq({ done: newer, failed: null })
-  })
-
-  it('keeps a failure only while it is newer than every result', () => {
-    const [done, failure] = [bottingOf({ created_at: 5 }), bottingOf({ status: 'error', reply_text: null, created_at: 9 })]
-    expect(latestBySlot([done, failure]).get('q1:dumdum:clueing')).to.deep.eq({ done, failed: failure })
-    const later = bottingOf({ created_at: 12 })
-    expect(latestBySlot([done, failure, later]).get('q1:dumdum:clueing')).to.deep.eq({ done: later, failed: null })
-  })
-
-  it('keeps a failure in a cell that has only ever failed', () => {
-    const failure = bottingOf({ status: 'error', reply_text: null })
-    expect(latestBySlot([failure]).get('q1:dumdum:clueing')).to.deep.eq({ done: null, failed: failure })
-  })
-
-  it('keeps cells apart: another bot, or another text, is another cell', () => {
-    const latest = latestBySlot([
-      bottingOf({}),
-      bottingOf({ bot_label: 'numnum', reply_text: null, items: [] }),
-      bottingOf({ bot_label: 'numnum', textkind: 'hint', reply_text: null, items: [] }),
-    ])
-    expect(latest.keys().toArray()).to.have.members(['q1:dumdum:clueing', 'q1:numnum:clueing', 'q1:numnum:hint'])
-  })
-
-  it('finds nothing in nothing', () => {
-    expect(latestBySlot([]).size).to.eq(0)
-  })
-})
-
 describe('resultsFor', () => {
   const question = { _id: 'q1', clueing: 'Who?', hint: 'BUT NOT three' }
 
   it('shows a dumdum botting as the guess', () => {
-    const { guess } = resultsFor(question, latestBySlot([bottingOf({})]))
+    const { guess } = resultsFor(question, cellOf({ done: bottingOf({}), failed: null }))
     expect(guess).to.deep.eq({ status: 'done', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84, updated_at: 1, last_err: null })
   })
 
   it('shows a numnum botting as the ishes of the text it was asked about', () => {
     const items = [{ text: 'three', value: 3, kind: 'wordish' as const }]
-    const latest = latestBySlot([bottingOf({ bot_label: 'numnum', textkind: 'hint', asked_text: 'BUT NOT three', reply_text: null, items })])
+    const latest = cellOf({ done: bottingOf({ bot_label: 'numnum', textkind: 'hint', asked_text: 'BUT NOT three', reply_text: null, items }), failed: null }, 'q1:numnum:hint')
     const results = resultsFor(question, latest)
     expect(results.hint_ishes).to.include({ status: 'done', stale: false })
     expect(results.clueing_ishes).to.eq(null)
   })
 
   it('marks ishes stale once the text they were asked about has been edited', () => {
-    const latest = latestBySlot([bottingOf({ bot_label: 'numnum', asked_text: 'Who, once?', reply_text: null, items: [] })])
+    const latest = cellOf({ done: bottingOf({ bot_label: 'numnum', asked_text: 'Who, once?', reply_text: null, items: [] }), failed: null }, 'q1:numnum:clueing')
     expect(resultsFor(question, latest).clueing_ishes).to.include({ stale: true })
   })
 
   it('marks ishes stale when what they were asked about is not known', () => {
-    const latest = latestBySlot([bottingOf({ bot_label: 'numnum', asked_text: null, reply_text: null, items: [] })])
+    const latest = cellOf({ done: bottingOf({ bot_label: 'numnum', asked_text: null, reply_text: null, items: [] }), failed: null }, 'q1:numnum:clueing')
     expect(resultsFor(question, latest).clueing_ishes).to.include({ stale: true })
   })
 
   it('shows a cell that has only ever failed as the error its cell reads, with the response', () => {
     const response = { ok: false, failurekind: 'connection' }
-    const latest = latestBySlot([bottingOf({ status: 'error', reply_text: null, message: 'A connection hiccup — try again.', response })])
+    const latest = cellOf({ done: null, failed: bottingOf({ status: 'error', reply_text: null, message: 'A connection hiccup — try again.', response }) })
     const err = { message: 'A connection hiccup — try again.', response, at: 1 }
     expect(resultsFor(question, latest).guess).to.deep.eq({ status: 'error', message: err.message, updated_at: 1, last_err: err })
   })
 
   it('leaves a result as it was when a failure came after it, carrying the failure as its last_err', () => {
     const response = { ok: false, failurekind: 'rateLimited' }
-    const latest = latestBySlot([
-      bottingOf({ created_at: 5 }),
-      bottingOf({ status: 'error', reply_text: null, message: 'Too many requests.', response, created_at: 9 }),
-    ])
+    const latest = cellOf({
+      done:   bottingOf({ _creationTime: 5 }),
+      failed: bottingOf({ status: 'error', reply_text: null, message: 'Too many requests.', response, _creationTime: 9 }),
+    })
     expect(resultsFor(question, latest).guess).to.deep.include({ status: 'done', text: 'Leon', updated_at: 5, last_err: { message: 'Too many requests.', response, at: 9 } })
   })
 
-  it('shows no last_err once a later success has cleared it', () => {
-    const latest = latestBySlot([
-      bottingOf({ created_at: 5 }),
-      bottingOf({ status: 'error', reply_text: null, message: 'Too many requests.', created_at: 9 }),
-      bottingOf({ reply_text: 'Lyon', created_at: 12 }),
-    ])
+  it('shows no last_err when the newest botting answered', () => {
+    const latest = cellOf({ done: bottingOf({ reply_text: 'Lyon', _creationTime: 12 }), failed: null })
     expect(resultsFor(question, latest).guess).to.deep.include({ text: 'Lyon', last_err: null })
   })
 
+  it('reads when a botting was asked in whole milliseconds, as the tree\'s timestamps are', () => {
+    const latest = cellOf({ done: bottingOf({ _creationTime: 1_727_470_000_000.625 }), failed: null })
+    expect(resultsFor(question, latest).guess).to.deep.include({ updated_at: 1_727_470_000_000 })
+  })
+
   it('still marks ishes stale, and still carries a failure, when both are so', () => {
-    const latest = latestBySlot([
-      bottingOf({ bot_label: 'numnum', asked_text: 'Who, once?', reply_text: null, items: [], created_at: 5 }),
-      bottingOf({ bot_label: 'numnum', status: 'error', reply_text: null, message: 'No.', created_at: 9 }),
-    ])
+    const latest = cellOf({
+      done:   bottingOf({ bot_label: 'numnum', asked_text: 'Who, once?', reply_text: null, items: [], _creationTime: 5 }),
+      failed: bottingOf({ bot_label: 'numnum', status: 'error', reply_text: null, message: 'No.', _creationTime: 9 }),
+    }, 'q1:numnum:clueing')
     expect(resultsFor(question, latest).clueing_ishes).to.deep.include({ stale: true, updated_at: 5 })
     expect(resultsFor(question, latest).clueing_ishes).to.have.property('last_err').that.deep.include({ at: 9 })
   })
@@ -133,10 +103,10 @@ describe('unrecordedBottings', () => {
 
   it('records a guess as a dumdum botting, asked the clueing', () => {
     const question = Question.fill({ _id: mintId(), clueing: '  Who?  ', guess })
-    const [botting] = unrecordedBottings(question, NoneRecorded, () => 'a1')
+    const [botting] = unrecordedBottings(question, NoneRecorded)
     expect(botting).to.include({
-      id: 'a1', question_id: question._id, bot_label: 'dumdum', textkind: 'clueing',
-      asked_text: 'Who?', status: 'done', reply_text: 'Leon', created_at: 5,
+      question_id: question._id, bot_label: 'dumdum', textkind: 'clueing',
+      asked_text: 'Who?', status: 'done', reply_text: 'Leon',
     })
   })
 
@@ -161,13 +131,13 @@ describe('unrecordedBottings', () => {
     const question = Question.fill({ _id: mintId(), clueing: 'Who?', guess: { status: 'error', message: err.message, updated_at: 5, last_err: err } })
     const bottings = unrecordedBottings(question, NoneRecorded)
     expect(bottings).to.have.length(1)
-    expect(bottings[0]).to.include({ status: 'error', message: 'Try again.', reply_text: null, created_at: 5 })
+    expect(bottings[0]).to.include({ status: 'error', message: 'Try again.', reply_text: null })
     expect(bottings[0]?.response).to.deep.eq(err.response)
   })
 
   it('records a failure riding on a result as a botting of its own, beside the result', () => {
     const question = Question.fill({ _id: mintId(), clueing: 'Who?', guess: { ...guess, last_err: { ...err, at: 9 } } })
-    expect(unrecordedBottings(question, NoneRecorded).map((botting) => [botting.status, botting.created_at])).to.deep.eq([['done', 5], ['error', 9]])
+    expect(unrecordedBottings(question, NoneRecorded).map((botting) => botting.status)).to.deep.eq(['done', 'error'])
   })
 
   it('records only the failure when the result was recorded already', () => {

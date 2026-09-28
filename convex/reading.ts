@@ -82,7 +82,7 @@ export async function expressionUsageOf(db: Reader, realms: readonly RealmRows[]
   const widgetlists = await Promise.all(quizzes.map(async (quiz) => await widgetsOf(db, quiz._id)))
   const usage = new Map<string, number>()
   for (const widget of widgetlists.flat()) {
-    if (widget.kind === 'expressing' && widget.expression_label !== null) {
+    if (widget.kind === 'expressing') {
       usage.set(widget.expression_label, (usage.get(widget.expression_label) ?? 0) + 1)
     }
   }

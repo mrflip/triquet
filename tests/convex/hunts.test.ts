@@ -840,7 +840,7 @@ async function crowded(tablename: 'questions' | 'widgets' | 'columns', qty: numb
       if (tablename === 'questions') {
         await ctx.db.insert('questions', { quiz_id, position, label: `q_${String(position)}`, forced_label: null, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
       } else if (tablename === 'widgets') {
-        await ctx.db.insert('widgets', { quiz_id, position, label: `w_${String(position)}`, kind: 'expressing', expression_label: 'x', bot_label: null, textkind: null, description: '' })
+        await ctx.db.insert('widgets', { quiz_id, position, label: `w_${String(position)}`, kind: 'expressing', expression_label: 'x', description: '' })
       } else {
         await ctx.db.insert('columns', { quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
       }

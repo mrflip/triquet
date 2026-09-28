@@ -1,7 +1,7 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from './labelmaker'
-import { resultsFor, type BottingT, type SlotLatest } from '../models/botting'
+import { resultsFor, type SlotLatest } from '../models/botting'
 import type { ExpressionT } from '../models/expression'
 import type { HuntT } from '../models/hunt'
 import type { QuestionT } from '../models/question'
@@ -65,16 +65,6 @@ export type ShallowHuntT = HuntListingT & { expressions: readonly CountedExpress
 export type ReviewedT = Doc<'reviews'> & { reviewer: Pick<Doc<'idents'>, 'label' | 'title'> | null }
 
 /**
- * A botting's row as the tree's history of a cell reads it: its id, and when it was asked in
- * whole epoch milliseconds.
- *
- * @example bottingFrom(row).created_at  // => 1727470000000
- */
-export function bottingFrom(row: Doc<'bottings'>): BottingT {
-  return { ..._.omit(row, ['_id', '_creationTime']), id: row._id, created_at: Math.floor(row._creationTime) }
-}
-
-/**
  * What one cell's history comes to: its newest answer, and the newest failure when that is
  * newer still.
  *
@@ -82,8 +72,8 @@ export function bottingFrom(row: Doc<'bottings'>): BottingT {
  */
 export function slotLatestOf(slot: SlotRows): SlotLatest {
   return {
-    done:   slot.done && bottingFrom(slot.done),
-    failed: slot.newest.status === 'error' ? bottingFrom(slot.newest) : null,
+    done:   slot.done,
+    failed: slot.newest.status === 'error' ? slot.newest : null,
   }
 }
 
@@ -128,15 +118,11 @@ export function expressionFrom(row: Doc<'expressions'>): ExpressionT {
   return { owner: row.owner, label: row.label, formula: row.formula, description: row.description }
 }
 
-/**
- * A widget, from its row: the fields of its own kind, and none of the other's. Its row validator
- * saw to it that its kind's fields are there.
- */
+/** A widget, from its row: the fields of its own kind, without its place */
 export function widgetFrom(row: Doc<'widgets'>): WidgetT {
-  const { kind, label, description, expression_label, bot_label, textkind } = row
-  if (kind === 'expressing' && expression_label !== null) { return { kind, label, description, expression_label } }
-  if (kind === 'botting' && bot_label !== null && textkind !== null) { return { kind, label, description, bot_label, textkind } }
-  throw new Error(`The widget ${label} lacks the fields a ${kind} widget has`)
+  const { label, description } = row
+  if (row.kind === 'expressing') { return { kind: row.kind, label, description, expression_label: row.expression_label } }
+  return { kind: row.kind, label, description, bot_label: row.bot_label, textkind: row.textkind }
 }
 
 /** A hunt's title as the screen shows it: a blank one reads as the label in force, titleized */
