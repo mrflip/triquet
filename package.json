@@ -24,6 +24,7 @@
     "build": "next build",
     "build:agent": "scripts/doppledo dev_claude cross-env NEXT_DIST_DIR=.next-agent-build next build",
     "start": "next start",
+    "start:agent": "scripts/doppledo dev_claude cross-env NEXT_DIST_DIR=.next-agent-build PORT=3004 next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
