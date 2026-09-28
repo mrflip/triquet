@@ -50,12 +50,15 @@ export type HuntRows = {
   expressions: readonly Doc<'expressions'>[]
 }
 
+/** A quiz's row as a realm lists it: everything but its questions' order, which only the quiz's own screen reads */
+export type ListedQuizT = Omit<Doc<'quizzes'>, 'row_ordering'>
+
 /** A realm as the hunts list and the switcher show it: titled, with its quizzes as rows */
 export type ShallowRealmT = {
   _id:     Id<'realms'>
   label:   string
   title:   string
-  quizzes: readonly Doc<'quizzes'>[]
+  quizzes: readonly ListedQuizT[]
 }
 
 /** A hunt as the hunts list shows it: its labels, its title, and each realm's quizzes as rows */
@@ -222,7 +225,12 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
     label,
     forced_label,
     title:  huntTitleOf(rows.hunt),
-    realms: rows.realms.map(({ realm, quizzes }) => ({ _id: realm._id, label: realm.label, title: realmTitleOf(realm), quizzes })),
+    realms: rows.realms.map(({ realm, quizzes }) => ({
+      _id:     realm._id,
+      label:   realm.label,
+      title:   realmTitleOf(realm),
+      quizzes: quizzes.map((quiz) => _.omit(quiz, ['row_ordering'])),
+    })),
   }
 }
 

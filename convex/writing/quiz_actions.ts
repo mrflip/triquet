@@ -19,7 +19,7 @@ import type { GuessT } from '../../src/models/guess'
 import type { IshesT } from '../../src/models/ish'
 import type { Textkind } from '../../src/lib/ask/contract'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../../src/models/quiz'
-import { expressionsOf, layoutRowsOf, questionOf, questionsOf, quizRowsOf, quizzesOf } from '../reading'
+import { expressionsOf, layoutRowsOf, questionOf, questionsOf, quizRowsOf, quizzesOf, slotsOf } from '../reading'
 import { deleteQuestion, deleteQuiz, insertBottings, updateQuestion, updateQuiz, writeQuiz, type Writer } from './quiz_writing'
 
 /** One landing of a combined run: where one text's answer lands, the extraction or the failure */
@@ -72,12 +72,21 @@ async function questionIn(db: Writer, quiz: Doc<'quizzes'>, question_id: string)
   return held
 }
 
-/** The open quiz's rows and the quiz they make up, for an action that works out a new order */
-async function reorderOpenQuiz(db: Writer, open: OpenQuizT, reorder: (quiz: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => {
-    const { questions, last_sortkey } = reorder(quizFrom(rows))
-    await writeOrder(db, rows, questions, last_sortkey)
-  })
+/** What a new order is worked out from: the quiz's own rows and questions, with its bots' replies only when asked for */
+type ReorderReads = { replies: boolean }
+
+/**
+ * The open quiz and its questions, for an action that works out a new order, refusing as
+ * `openQuizRow` does. The bots' replies are read only for an order that can depend on them (a
+ * sort, by a bot's column or a formula reading one); every other order leaves them unread, and
+ * the questions it is handed show none.
+ */
+async function reorderOpenQuiz(db: Writer, open: OpenQuizT, reads: ReorderReads, reorder: (quiz: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
+  const layout = revisable(await layoutRowsOf(db, open.quiz_id))
+  const questions = await questionsOf(db, layout.quiz)
+  const rows = { ...layout, questions, slots: reads.replies ? await slotsOf(db, questions) : new Map() }
+  const ordered = reorder(quizFrom(rows))
+  await writeOrder(db, rows, ordered.questions, ordered.last_sortkey)
 }
 
 /** The quiz put in the order of `ordered`, each question with the Q# `ordered` gives it */
@@ -172,7 +181,7 @@ export async function deleteQuestions(db: Writer, open: OpenQuizT, question_ids:
 export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortkey, descending: boolean): Promise<void> {
   const rows = await expressionsOf(db, open.hunt_id)
   const expressions = rows.map((row) => expressionFrom(row))
-  await reorderOpenQuiz(db, open, (quiz) => ({
+  await reorderOpenQuiz(db, open, { replies: true }, (quiz) => ({
     questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, Expressed.forQuiz(quiz, expressions)), descending),
     last_sortkey: sortkey,
   }))
@@ -185,12 +194,12 @@ export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortke
  * mode that re-sorts at once, undoing the promise that nothing moved.
  */
 export async function renumberQnums(db: Writer, open: OpenQuizT): Promise<void> {
-  await reorderOpenQuiz(db, open, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
+  await reorderOpenQuiz(db, open, { replies: false }, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
 }
 
 /** Drag one question of the open quiz to `onto_idx`, then number every question by where it sits. A drag leaves the quiz in Q# order. */
 export async function moveQuestion(db: Writer, open: OpenQuizT, question_id: string, onto_idx: number): Promise<void> {
-  await reorderOpenQuiz(db, open, (quiz) => ({
+  await reorderOpenQuiz(db, open, { replies: false }, (quiz) => ({
     questions:    Rank.renumberByPosition(Rank.moveQuestion(quiz.questions, question_id, onto_idx)),
     last_sortkey: qnumSortkeyOf(quiz),
   }))
@@ -207,7 +216,7 @@ export async function setChain(db: Writer, open: OpenQuizT, question_id: string,
 
 /** Put the open quiz in the order its chains walk, and remember that */
 export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: boolean): Promise<void> {
-  await reorderOpenQuiz(db, open, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
+  await reorderOpenQuiz(db, open, { replies: false }, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
 }
 
 /** The slot a bot's reply to a question's text lands in */
