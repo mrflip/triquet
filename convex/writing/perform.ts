@@ -40,11 +40,8 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'move_question':       { await Quiz.moveQuestion(db, open, action.question_id, action.onto_idx); return }
   case 'set_chain':           { await Quiz.setChain(db, open, action.question_id, action.chains_to); return }
   case 'sort_by_chain_order': { await Quiz.sortByChainOrder(db, open, action.descending); return }
-  case 'set_guess':           { await Quiz.setGuess(db, open, action.question_id, action.guess); return }
-  case 'set_ishes':           { await Quiz.setIshes(db, open, action.question_id, action.textkind, action.ishes); return }
-  case 'fail_guess':          { await Quiz.failGuess(db, open, action.question_id, action.err); return }
-  case 'fail_ishes':          { await Quiz.failIshes(db, open, action.question_id, action.textkind, action.err); return }
-  case 'apply_bulk_ishes':    { await Quiz.applyBulkIshes(db, open, action.landings, action.run); return }
+  case 'record_botting':      { await Quiz.recordBotting(db, open, action.botting); return }
+  case 'apply_bulk_ishes':    { await Quiz.applyBulkIshes(db, open, action.bottings, action.run); return }
   case 'replace_open_quiz':   { await Quiz.replaceOpenQuiz(db, open, action.quiz); return }
   case 'new_quiz':            { await Quiz.newQuiz(db, open, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, open, action.quiz_id); return }

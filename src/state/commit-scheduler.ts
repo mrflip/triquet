@@ -23,7 +23,7 @@ export type CommitScheduler = {
   /** Record that a quiz moved from `before` to `after`; commits after the wait unless one is already due */
   note:         (before: MirrorSnapshot | null, after: MirrorSnapshot) => void
   /** Commit one quiz's pending edits now, resolving when that commit has finished */
-  flush:        (quizId: string) => Promise<void>
+  flush:        (quiz_id: string) => Promise<void>
   /** Commit everything pending now */
   flushAll:     () => Promise<void>
   /** How many quizzes are waiting for their commit */
@@ -67,11 +67,11 @@ export function createCommitScheduler(opts: Readonly<CommitSchedulerOpts>): Comm
     }
   }
 
-  const flush = async (quizId: string): Promise<void> => {
-    const waiting = pending.get(quizId)
+  const flush = async (quiz_id: string): Promise<void> => {
+    const waiting = pending.get(quiz_id)
     if (! waiting) { return }
     clearTimeout(waiting.timer)
-    pending.delete(quizId)
+    pending.delete(quiz_id)
     await run(waiting)
   }
 
@@ -84,7 +84,7 @@ export function createCommitScheduler(opts: Readonly<CommitSchedulerOpts>): Comm
     },
     flush,
     async flushAll() {
-      await Promise.all(pending.keys().map(async (quizId) => { await flush(quizId) }))
+      await Promise.all(pending.keys().map(async (quiz_id) => { await flush(quiz_id) }))
     },
     pendingCount() {
       return pending.size

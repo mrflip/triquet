@@ -125,7 +125,7 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
 
   merge.questions = seated === undefined
     ? [...merge.questions, revised]
-    : merge.questions.map((question, jj) => (jj === seatIdx ? revised : question))
+    : merge.questions.map((question, idx) => (idx === seatIdx ? revised : question))
 
   if (Object.hasOwn(bag, 'chains_to')) {
     merge.chainOrders.push({

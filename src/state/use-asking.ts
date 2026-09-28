@@ -2,14 +2,14 @@
 
 import { useCallback, useState } from 'react'
 import { askModel } from '../lib/ask/port'
+import * as Bottings from '../lib/ask/bottings'
 import * as Bulk from '../lib/ask/bulk'
 import * as Errs from '../lib/ask/errs'
+import { BotForJob } from '../lib/ask/models'
 import { AppNotices } from '../lib/notices'
 import type { AskFailedT, AskReplyT, Textkind } from '../lib/ask/contract'
 import type { Askjob } from '../lib/ask/errs'
 import type { LastErrT } from '../models/ask'
-import type { GuessDoneT } from '../models/guess'
-import type { IshesDoneT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 import type { HuntActionDNA } from '../models/actions'
 
@@ -83,20 +83,13 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
     const text = askableTextOf(question, askkind)
     if (text === '') { return }
     void hold([askCellkey(question._id, askkind)], async () => {
-      if (askkind === 'guess') {
-        const reply = await askModel({ job: 'guess', clueing: text })
-        const guess = guessFrom(reply)
-        dispatch(guess
-          ? { kind: 'set_guess', question_id: question._id, guess }
-          : { kind: 'fail_guess', question_id: question._id, err: errFor(reply, 'guess') })
-        return
-      }
-      const textkind: Textkind = askkind
-      const reply = await askModel({ job: 'ishes', textkind, text })
-      const ishes = ishesFrom(reply)
-      dispatch(ishes
-        ? { kind: 'set_ishes', question_id: question._id, textkind, ishes }
-        : { kind: 'fail_ishes', question_id: question._id, textkind, err: errFor(reply, 'ishes') })
+      const job = askkind === 'guess' ? 'guess' : 'ishes'
+      const textkind: Textkind = askkind === 'guess' ? 'clueing' : askkind
+      const cell = { question_id: question._id, bot_label: BotForJob[job], textkind, asked_text: text }
+      const reply = await askModel(job === 'guess' ? { job, clueing: text } : { job, textkind, text })
+      const failed = Errs.failureOf(reply, job)
+      const botting = failed === null && reply.ok && reply.job !== 'bulk_ishes' ? Bottings.bottingFor(cell, reply) : Bottings.failedBottingFor(cell, failed ?? Unreadable)
+      dispatch({ kind: 'record_botting', botting })
     })
   }, [dispatch, hold])
 
@@ -117,11 +110,10 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
         setRunFailure(errFor(reply, 'bulk_ishes'))
         return
       }
-      const updated_at = Date.now()
       dispatch({
         kind:     'apply_bulk_ishes',
-        landings: Bulk.bulkLandingsFor(targets, reply, updated_at),
-        run:      { approx_tokens: reply.approx_tokens, text_count: reply.text_count, updated_at },
+        bottings: Bulk.bulkBottingsFor(targets, reply),
+        run:      { approx_tokens: reply.approx_tokens, text_count: reply.text_count, updated_at: Date.now() },
       })
     })
       .finally(() => { setRunning(false) })
@@ -137,37 +129,10 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
   }
 }
 
-/** The failure a reply amounts to, as a cell would keep it */
+/** What a reply that could not be read amounts to */
+const Unreadable: AskFailedT = { ok: false, failurekind: 'unreadable' }
+
+/** The failure a reply amounts to, as the toolbar keeps it for a combined run */
 function errFor(reply: AskReplyT, job: Askjob): LastErrT {
-  const failed: AskFailedT = Errs.failureOf(reply, job) ?? { ok: false, failurekind: 'unreadable' }
-  return Errs.lastErrFor(failed)
-}
-
-/** A reply read as the guess it becomes, or null when it is not one */
-function guessFrom(reply: AskReplyT): GuessDoneT | null {
-  if (! reply.ok || reply.job !== 'guess') { return null }
-  return {
-    status:             'done',
-    text:               reply.text,
-    truncated:          reply.truncated,
-    model_tier_applied: reply.model_tier_applied,
-    approx_tokens:      reply.approx_tokens,
-    updated_at:         Date.now(),
-    last_err:           null,
-  }
-}
-
-/** A reply read as the extraction it becomes, or null when it is not one */
-function ishesFrom(reply: AskReplyT): IshesDoneT | null {
-  if (! reply.ok || reply.job !== 'ishes') { return null }
-  return {
-    status:             'done',
-    items:              reply.items,
-    truncated:          reply.truncated,
-    stale:              false,
-    model_tier_applied: reply.model_tier_applied,
-    approx_tokens:      reply.approx_tokens,
-    updated_at:         Date.now(),
-    last_err:           null,
-  }
+  return Errs.lastErrFor(Errs.failureOf(reply, job) ?? Unreadable)
 }

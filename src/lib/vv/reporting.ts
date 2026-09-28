@@ -231,7 +231,7 @@ export function messagesOf(err: Z.ZodError): Record<string, string> {
  * offenders already.
  *
  * @param err - The error from a failed parse.
- * @returns The joined summary; `';; '` between fields, as the relic had it.
+ * @returns The joined summary, `';; '` between issues.
  *
  * @example explain(err)  // => "title «''» should not be empty;; lumens «400» should be «200» or less"
  */

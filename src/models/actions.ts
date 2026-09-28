@@ -1,12 +1,9 @@
 import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
-import { TextkindVals } from '../lib/ask/contract'
-import { AskValidators } from './ask'
+import { BottingValidators } from './botting'
 import { ColumnValidators } from './column'
 import { ExpressionValidators } from './expression'
-import { GuessValidators } from './guess'
 import { IdentValidators } from './ident'
-import { IshValidators } from './ish'
 import { QuestionValidators } from './question'
 import { QuizValidators } from './quiz'
 import { WidgetValidators } from './widget'
@@ -19,8 +16,6 @@ export const LayoutActionKindVals = [
 ] as const
 
 export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, str, zid }) => {
-  const textkind = oneof(TextkindVals)
-
   const open = obj({
     hunt_id:  zid('hunts'),
     realm_id: zid('realms'),
@@ -33,14 +28,6 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
   const widgetPatch = obj({ ...WidgetValidators.expressingPatch.shape, ...WidgetValidators.bottingPatch.shape })
 
   const question_ids = arr(zid('questions')).readonly()
-
-  const bulkLanding = obj({
-    question_id: zid('questions'),
-    textkind,
-    ishes:       IshValidators.ishesDone.nullable(),
-    err:         AskValidators.lastErr.nullable(),
-  })
-    .describe('Where one text\'s answer lands when a combined run comes back: the extraction, or the failure to ride along on whatever the cell holds.')
 
   const layoutAction = [
     obj({ kind: lit('add_widget'),        widget: WidgetValidators.widget }),
@@ -69,11 +56,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('move_question'),       question_id: zid('questions'), onto_idx: uint }),
     obj({ kind: lit('set_chain'),           question_id: zid('questions'), chains_to: zid('questions').nullable() }),
     obj({ kind: lit('sort_by_chain_order'), descending: bool }),
-    obj({ kind: lit('set_guess'),           question_id: zid('questions'), guess: GuessValidators.guess }),
-    obj({ kind: lit('set_ishes'),           question_id: zid('questions'), textkind, ishes: IshValidators.ishes }),
-    obj({ kind: lit('fail_guess'),          question_id: zid('questions'), err: AskValidators.lastErr }),
-    obj({ kind: lit('fail_ishes'),          question_id: zid('questions'), textkind, err: AskValidators.lastErr }),
-    obj({ kind: lit('apply_bulk_ishes'),    landings: arr(bulkLanding).readonly(), run: QuizValidators.bulkIshesRun }),
+    obj({ kind: lit('record_botting'),      botting: BottingValidators.row }),
+    obj({ kind: lit('apply_bulk_ishes'),    bottings: arr(BottingValidators.row).readonly(), run: QuizValidators.bulkIshesRun }),
     obj({ kind: lit('new_quiz'),            label: label.optional() }),
     obj({ kind: lit('delete_quiz'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_lock'),            quiz_id: zid('quizzes'), locked: bool }),

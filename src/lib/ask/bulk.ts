@@ -1,7 +1,6 @@
-import { lastErrFor } from './errs'
+import { bulkBottingFor, failedBottingFor } from './bottings'
 import type { BulkReplyT, Textkind } from './contract'
-import type { LastErrT } from '../../models/ask'
-import type { IshesDoneT } from '../../models/ish'
+import type { BottingRowDNA } from '../../models/botting'
 import type { QuestionT } from '../../models/question'
 
 /** One text going into a batched run: which cell it belongs to, and what it says */
@@ -10,17 +9,6 @@ export type BulkTarget = {
   question_id: string
   textkind:    Textkind
   text:        string
-}
-
-/**
- * Where one text's answer lands when the run comes back: the extraction, or -- for a text the
- * response left out -- the failure to ride along on whatever the cell already holds.
- */
-export type BulkLanding = {
-  question_id: string
-  textkind:    Textkind
-  ishes:       IshesDoneT | null
-  err:         LastErrT | null
 }
 
 /** How a text is tagged in the batched prompt, so its answer can be found again */
@@ -49,37 +37,22 @@ export function bulkTargetsOf(questions: readonly QuestionT[]): BulkTarget[] {
 }
 
 /**
- * Where each target's answer lands.
+ * What a combined run leaves in each cell it was asked about, as the bottings to record.
  *
- * A text the combined response left out gets a per-cell `last_err` inviting the author to refresh
- * that one on its own, and keeps whatever value and stale flag it had. Nothing filled by a run
- * carries a per-cell token figure: splitting one shared cost across many cells would be an
- * invented number, and the real figure lives on the run.
+ * A text the response answered gets its spans. A text it left out gets a failure inviting the
+ * author to refresh that one on its own, which rides along on whatever the cell already holds.
+ * Nothing filled by a run carries a per-cell token figure: splitting one shared cost across many
+ * cells would be an invented number, and the real figure lives on the run.
  *
  * @param targets - What went into the run.
  * @param reply - What came back.
- * @param updated_at - When the run finished.
- * @returns One landing per target, in the order they were asked about.
+ * @returns One botting per target, in the order they were asked about.
  */
-export function bulkLandingsFor(targets: readonly BulkTarget[], reply: BulkReplyT, updated_at: number = Date.now()): BulkLanding[] {
+export function bulkBottingsFor(targets: readonly BulkTarget[], reply: BulkReplyT): BottingRowDNA[] {
   const itemsForKey = new Map(reply.groups.map((group) => [group.key, group.items]))
   return targets.map((target) => {
+    const cell = { question_id: target.question_id, bot_label: 'numnum' as const, textkind: target.textkind, asked_text: target.text }
     const items = itemsForKey.get(target.key)
-    return {
-      question_id: target.question_id,
-      textkind:    target.textkind,
-      ishes:       items === undefined
-        ? null
-        : {
-          status:             'done' as const,
-          items,
-          truncated:          reply.truncated,
-          stale:              false,
-          model_tier_applied: reply.model_tier_applied,
-          updated_at,
-          last_err:           null,
-        },
-      err:         items === undefined ? lastErrFor({ ok: false, failurekind: 'missingFromRun' }, updated_at) : null,
-    }
+    return items === undefined ? failedBottingFor(cell, { ok: false, failurekind: 'missingFromRun' }) : bulkBottingFor(cell, items, reply)
   })
 }

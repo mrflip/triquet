@@ -158,6 +158,9 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
   - `notes/guidelines.md` -- validating at entrypoints, the `Validator` pattern and its DNA/Real
     types, the patch pattern, the documentation policy, testing philosophy. **Read before
     designing a module entrypoint or a data model.**
+  - `notes/queries_hooks_and_subscriptions.md` -- the words for reading from Convex (query
+    function, watch, fetch, facet, screen hook) and where to draw the lines between them. **Read
+    before adding a query function, a state hook, or a `useQuery`.**
   - `notes/stack.md` *(auto-loads with `package.json`)* -- what we build with: settled (**Use**),
     raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
