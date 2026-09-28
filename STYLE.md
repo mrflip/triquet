@@ -37,6 +37,7 @@ Functions within such file should be vigorous verbal phrases that do NOT have th
 * situational: If the length of the import statement becomes cumbersome, do a splat import using a two-or-three letter shorthand ending in 'T' (eg PT = product types; QYT = query types, ...). GOOD: `import type { ProductSomthing, ProductFoo } from ...`. BAD: `import type { Product ... 19 things...} from ...` INSTEAD: `import type * as PT from ...`
 * exception: **`es-toolkit/compat`** is our lodash-shaped utility surface (see `notes/stack.md`). Import it as a single blanket default import named `_`, lodash-style, rather than naming individual functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is the one sanctioned exception to "no single-letter names".
 * exception: **Convex's validator builder** is `CVX`: `import { v as CVX } from 'convex/values'`, then `CVX.string()`, `CVX.id('quizzes')`. Convex's docs, its rules file and every agent's training say `v`; the no-single-letter rule holds anyway, because `\bCVX\b` renames in one command and `v` never will. `eslint.config.mjs` refuses any other name for it.
+* exception: **Convex's query builders** are `cvx`: the callback `withIndex`, `filter` or `withSearchIndex` hands you is Convex's DSL and nothing of ours, and which kind it is is already said by the method it went to: `.withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id))`. Convex's docs say `q`; never that, and never `qq` or `qn`, which are a question's (see the tags below).
 
 ### Use Named (`import { Foo }`) Imports for already-namespaced facilities
 
@@ -109,6 +110,7 @@ Tags to append or use directly:
 * `ckey`           -- `string|number` collection key: string for a map, index number for an array
 * `idx`            -- array index, when it's known to be an integer array index
 * `val`            -- any-typed, truly generic value. `vv`/`kk` are secondary choices in a lambda when `key` or `val` is in-scope
+* `qn`             -- a question, when a shorthand is called for: an object satisfying `QuestionT`, and nothing else; `qns` for several. The same words a formula's bag uses, so they mean one thing everywhere. Never `qq`, so a stray one is easy to spot, and never a query builder (`cvx`).
 * `kind`, `flavor` -- legible **enumerated** strong identifier: picking from a menu or taxononmy. Use `label` or `handle` for legible freeform strong identifier (eg a slugged title)
   - all of these, and tag, should apply strict identifier validation: `\w` only, starts with a letter, ends with a letter or number, two or more characters; usually also lowercase-only
 * `props` and `propnames` for structured objects; `fieldnames` and `fields` for their definitions (i.e. the fields of the class are the props of the instance)
@@ -162,7 +164,9 @@ Mildly prefer to not camelcase within the name of a reified concept. Good: `ligh
 
 ## Strings
 
-`'` by default (no shift key). When forced to quote a key, use `"`.
+`'` by default (no shift key). `"` for a string likely to hold an apostrophe -- prose, a
+notice, a `describe()`, and every `it`/`describe` title -- so it reads without a backslash:
+`"That isn't readable"`, never `'That isn\'t readable'`. When forced to quote a key, use `"`.
 In cases where there's a parallel construction, switching quotes means the IDE can help align
 them:
 

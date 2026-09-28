@@ -43,14 +43,12 @@ export const ValidatorKit = {
   formulaish: CK.formulaish,
   /** Human-readable name on one line, independent of any identity it might accompany */
   titleish:  CK.titleish,
-  /** Lowercase Crockford-base32 ULID, as this tool minted ids before September 2026: old exports carry them */
-  ulid:      CK.ulid,
   /** A pointer to a row of the table named: internal, never shown, and checked against that table by Convex */
   zid,
   /** A random UUID, of the kind `crypto.randomUUID()` mints */
   uuid:      Z.uuid(),
-  /** An id in a quiz as the tool holds it whole: its row's id once written, a UUID minted for one not written yet, or an old export's ULID */
-  treeid:    Z.union([CK.convexid, Z.uuid(), CK.ulid]),
+  /** An id in a quiz as the tool holds it whole: its row's id; or a UUID, in a quiz built rather than read (a test's fixture) */
+  treeid:    rowidish,
   /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
   label:     CK.label,
   /** An ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become */

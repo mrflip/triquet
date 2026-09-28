@@ -10,13 +10,12 @@ import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
 import { expressionFrom, quizFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { BottingRowT } from '../../src/models/botting'
+import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
-import { Quiz } from '../../src/models/quiz'
-import { defaultLayoutFor } from '../../src/models/layout'
 import type { OpenQuizT } from '../../src/models/actions'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../../src/models/quiz'
 import { expressionsOf, layoutRowsOf, questionOf, questionsOf, quizRowsOf, quizzesOf, slotsOf } from '../reading'
-import { deleteQuestion, deleteQuiz, insertBottings, updateQuestion, updateQuiz, writeQuiz, type Writer } from './quiz_writing'
+import { deleteQuestion, deleteQuiz, insertBottings, insertQuiz, updateQuestion, updateQuiz, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row, the questions it names
 // by id, and the whole quiz only for an order worked out across every question. What an action
@@ -45,11 +44,6 @@ export async function openQuizRow(db: Writer, open: OpenQuizT): Promise<Doc<'qui
  */
 export async function reviseOpenLayout(db: Writer, open: OpenQuizT, write: (rows: LayoutRows) => Promise<void>): Promise<void> {
   await write(revisable(await layoutRowsOf(db, open.quiz_id)))
-}
-
-/** Run `write` against the open quiz's rows, whole, refusing as `openQuizRow` does. For an order worked out across every question, or a quiz replaced. */
-export async function reviseOpenQuiz(db: Writer, open: OpenQuizT, write: (rows: QuizRows) => Promise<void>): Promise<void> {
-  await write(revisable(await quizRowsOf(db, open.quiz_id)))
 }
 
 /** The row of the question `question_id` of `quiz`, refusing when it is not the quiz's */
@@ -135,7 +129,7 @@ async function chainLabelFor(db: Writer, held: Doc<'questions'>, chains_to: stri
 export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
   const quiz = await openQuizRow(db, open)
   if (quiz.row_ordering.length >= PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
-  const question_id = await db.insert('questions', QuestionValidators.row({ ...Question.blank(), quiz_id: quiz._id, chains_to: null }))
+  const question_id = await db.insert('questions', Question.blankRow(quiz._id))
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, question_id] })
 }
 
@@ -227,9 +221,35 @@ export async function applyBulkIshes(db: Writer, open: OpenQuizT, bottings: read
   await updateQuiz(db, quiz, { bulk_ishes_last: run })
 }
 
-/** Replace the open quiz with `quiz`, whole, as an import merged it: see `writeQuiz` */
-export async function replaceOpenQuiz(db: Writer, open: OpenQuizT, quiz: QuizT): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => { await writeQuiz(db, rows.quiz.realm_id, quiz, rows) })
+/**
+ * Fold imported questions into the open quiz, each by the label in force: one a question of
+ * the quiz answers to is revised by its patch; one none answers to adds a question under it,
+ * at the end, titled from its label unless the patch says otherwise. Nothing is deleted, and
+ * Q#s are then renumbered by rank, as the Import panel promises. A chain names its target by
+ * label: one naming no question the quiz will hold, or the question itself, is no chain.
+ *
+ * @throws A refusal (`quizGone`, `quizLocked`, `questionsFull`); nothing is written.
+ */
+export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[]): Promise<void> {
+  const quiz = await openQuizRow(db, open)
+  const rows = await questionsOf(db, quiz)
+  const held = new Map(rows.map((row) => [Labelmaker.effectiveLabelOf(row), row]))
+  const known = new Set([...held.keys(), ...imported.map((question) => question.label)])
+  if (known.size > PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
+  const added: Id<'questions'>[] = []
+  for (const { label, patch } of imported) {
+    const chained = patch.chains_to === undefined ? {} : { chains_to: patch.chains_to !== null && patch.chains_to !== label && known.has(patch.chains_to) ? patch.chains_to : null }
+    const fields = { ...patch, ...chained }
+    const row = held.get(label)
+    if (row) {
+      await updateQuestion(db, row, fields)
+    } else {
+      const fresh = QuestionValidators.row({ ...Question.blankRow(quiz._id, label), ...fields })
+      added.push(await db.insert('questions', fresh))
+    }
+  }
+  await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added] })
+  await reorderOpenQuiz(db, open, { replies: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
 }
 
 // What follows is about the realm rather than a quiz's contents, so a locked quiz refuses none of
@@ -250,12 +270,11 @@ export async function replaceOpenQuiz(db: Writer, open: OpenQuizT, quiz: QuizT):
  */
 export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Promise<Id<'quizzes'>> {
   const [realm, siblings, expressions] = await Promise.all([db.get('realms', open.realm_id), quizzesOf(db, open.realm_id), expressionsOf(db, open.hunt_id)])
-  const fresh = { ...Quiz.blank('', label), ...defaultLayoutFor(expressions.map((row) => expressionFrom(row))) }
-  const taken = siblings.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === Labelmaker.effectiveLabelOf(fresh))
+  const taken = label !== undefined && siblings.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === label)
   if (realm?.hunt_id !== open.hunt_id) { refuse('realmGone') }
   if (taken) { refuse('labelTaken') }
   if (siblings.length >= PA.QuizzesPerRealm.max) { refuse('quizzesFull') }
-  return await writeQuiz(db, open.realm_id, fresh, null)
+  return await insertQuiz(db, open.realm_id, '', label ?? Labelmaker.freshLabelFor(siblings), expressions.map((row) => expressionFrom(row)))
 }
 
 /**

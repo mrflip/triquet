@@ -143,8 +143,12 @@ describe('delete_widget', () => {
   })
 
   it('keeps the answers a bot gave, which are the question\'s history and not the widget\'s', async () => {
-    const guess = { status: 'done' as const, text: 'Lyon', truncated: false, updated_at: Date.now(), last_err: null }
-    const { act, read } = await seed(standardWith([{ ...Question.blank(), clueing: 'Where?', guess }]))
+    const { act, read } = await seed(standardWith([{ ...Question.blank(), clueing: 'Where?' }]))
+    const [question] = quizOf(await read()).questions
+    await act({ kind: 'record_botting', botting: {
+      question_id: present(question)._id, bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Where?', status: 'done', reply_text: 'Lyon',
+      items: [], message: null, response: null, truncated: false, model_tier_applied: 'quick', approx_tokens: null,
+    } })
     await act({ kind: 'delete_widget', label: 'dumdum' })
     const after = await read()
     expect(quizOf(after).questions[0]?.guess).to.deep.include({ status: 'done', text: 'Lyon' })

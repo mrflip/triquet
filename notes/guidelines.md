@@ -74,15 +74,20 @@ the kit's `zod` key is the escape hatch for the rare thing it does not alias.
 A Validator should be your first choice for filling in defaults, coercing types, collapsing union types, checking limits.
 
 ```ts
+// GOOD: No fear about measured being spreadable; offers generous interface without distracting code
 function convertUnits(measured: MeasuredT, units: MeasurementUnitOrSomethingOrSomethingElse) {
   const { measured: { val:fromVal, units:fromUnits }, intoUnits } = Validate.convertUnits.parse({ measured, intoUnits: units })
   // do stuff with fromVal, fromUnits and intoUnits...
   const intoVal = ...
   return { ...measured, val: intoVal, units: intoUnits }
 }
+// BAD:
+if (nBottles > 99) { throw new Error("At most 99 bottles per wall") }
+// BETTER: (using bareint.min(0).max(99).description('...')) -- min and max each have their own crafted message; no risk of having one limit here and a different one there
+const nBottles = Validator.placeBottles.parse(nBottles)
 ```
 
-No fear about measured being spreadable, and a generous interface for units without distracting code in the function
+Anticipate likely error conditions and refusals: make sure they are surfaced to the customer in a calm, frank manner. Test that they are handled as you expect. If an error condition doesn't signal a problem -- such as in convex, where repeating something already done is a refusal but not a problem -- do not surface it, and test that it is not surfaced.
 
 ### Where validation sits, with the database on the server
 

@@ -23,7 +23,8 @@ Two runners, and the assertion style follows the runner:
 
 A skill or reference that shows `toBe`/`toEqual` (the Vitest docs do) is an API reference, not
 a style guide. This file wins. Style rules from `STYLE.md` apply in test files too --
-semicolonless, single quotes by default, braced blocks, no single-letter names.
+semicolonless, braced blocks, no single-letter names, and `"` around an `it` or `describe`
+title, which so often holds an apostrophe (STYLE.md, *Strings*).
 
 Put all test files in `/tests`, with a path and name that exactly parallels the source: `src/foo/bar.ts` -> `tests/foo/bar.test.ts` (and similarly for all standard React/Next conventions). Test and build artifacts should never pollute the source tree.
 Put fixtures in `/fixtures` under a mostly-similar convention: if a fixture file exists in the main to serve `bar.ts`: `src/foo/bar-examples.json` or `src/foo/bar/demo_photo.png`, etc. If it serves most things in `src/foo`, use `/fixtures/foo/whatever.blah` (never `/fixtures/foo-...` for a directory). This particular rule will be more loosely followed than most, as various other concerns will drive their location.

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
-import { Quiz } from '../../src/models/quiz'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
@@ -45,7 +44,7 @@ const Actions: HuntActionDNA[] = [
   { kind: 'new_quiz', label: 'kings' },
   { kind: 'delete_quiz', quiz_id },
   { kind: 'set_lock', quiz_id, locked: true },
-  { kind: 'replace_open_quiz', quiz: Quiz.blank('Merged') },
+  { kind: 'import_questions', questions: [{ label: 'leon', patch: { clueing: 'Who?', chains_to: 'nantes' } }, { label: 'nantes', patch: {} }] },
   { kind: 'open_review', quiz_id },
   { kind: 'set_overall', quiz_id, overall: 'Went well.' },
   { kind: 'set_review_phase', quiz_id, phase: 'shared' },
@@ -67,7 +66,7 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'record_botting', botting: { ...Botted, textkind: 'hint' } },  'a botting of a bot that is not put that text'],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
     [{ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 101 } }, 'a get rate past certain'],
-    [{ kind: 'replace_open_quiz', quiz: { ...Quiz.blank(), locked: 'no' } }, 'a quiz that is not one'],
+    [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }, { label: 'leon', patch: {} }] }, 'an import naming one label twice'],
   ]
   for (const [dna, describes] of Refused) {
     it(`refuses ${describes}`, () => {

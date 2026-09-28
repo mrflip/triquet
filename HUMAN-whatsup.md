@@ -2,6 +2,24 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-28: The cloud, measured
+
+Production (`triquet.vercel.app`) against the local backend, the same script for both, with a
+second browser watching. A one-row edit shows in 150 to 230 ms (locally 60 to 95), a sort in 400
+(150), and a fresh tab in 590 (230). Bandwidth doesn't change. A reorder, at 233 ms, passes the
+150 ms line the verdict set, so the optimistic `move_question` is called for; the sort is the
+next candidate. The tables are in `notes/database-decisions.md` (*Measured in the cloud*).
+
+Two things for you:
+
+* **Database I/O and function calls** in the cloud are only on the Convex dashboard's usage
+  page. The runs were 19:17 to 19:28 UTC today, about 200 mutations over three hunts.
+* **Leftovers in production**: hunts `condemned_chipmunk` (a run that broke off early),
+  `distant_wallaby`, `comprehensive_vole` and `impossible_fish` (the script's own check), and
+  eight `measure_*` idents. There is no hunt deletion, so they stay until you clear them.
+
+The script is `scripts/measure-latency.ts`, and the summary `notes/20260928-cloud_measurements-a.md`.
+
 ## 2026-09-28: Convex phase 6, huntings
 
 Branch `20260928-convex_phase6`, stacked on phase 5's. Green: lint, typecheck, 2005 unit and

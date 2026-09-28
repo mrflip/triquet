@@ -95,7 +95,6 @@ describe('identifiers', () => {
     ['varname',   ['a', 'a_1', 'Abc'],        ['1abc', '_abc', '', ',']],
     ['snake',     ['a_b', 'abc'],             ['Abc', '1abc', 'a-b']],
     ['keyish',    ['a/b.c-d_e:f', 'abc'],     ['a b', '']],
-    ['ulid',      ['01jabcdefghjkmnpqrstvwxyz0'], ['abc', '', 'x'.repeat(26)]],
     ['convexid',  ['j97d0qbj35dar1v8edndzckvsx8f828f', '0000000000000000000000001quizzes'], ['abc', '', 'J97D0QBJ35DAR1V8EDNDZCKVSX8F828F', '3f0c9b1e-5d7a-4c2e-9f3b-8a1d6e2c4b70']],
   ]
   for (const [ckname, good, bad] of Cases) {

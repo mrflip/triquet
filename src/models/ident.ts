@@ -18,8 +18,9 @@ export const IdentValidators = Validator(({ obj, identlabel, titleish }) => {
   return { identLabel, title, row }
 })
 
-export type IdentDNA = Z.input<typeof IdentValidators.row>
-export type IdentT   = Z.output<typeof IdentValidators.row> & { _id: string }
+export type IdentDNA  = Z.input<typeof IdentValidators.row>
+export type IdentRowT = Z.output<typeof IdentValidators.row>
+export type IdentT    = IdentRowT & { _id: string }
 
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
@@ -42,17 +43,16 @@ export class Ident implements IdentT {
   }
 
   /**
-   * An ident's row, validated, with its title defaulting to its label titleized.
+   * An ident's row, validated, with a blank title defaulting to its label titleized.
    *
-   * @param label - The ident's label, already normalized.
-   * @param title - What to call it; blank means "use the label".
+   * @param dna - The label, already normalized, and what to call it; a blank title means "use the label".
    * @returns The row to insert.
    * @throws When the label is not an ident label, or the title is not a title.
    *
-   * @example Ident.fill('flip_kromer', '')  // => { label: 'flip_kromer', title: 'Flip Kromer' }
+   * @example Ident.fill({ label: 'flip_kromer', title: '' })  // => { label: 'flip_kromer', title: 'Flip Kromer' }
    */
-  static fill(label: string, title: string): Z.output<typeof IdentValidators.row> {
-    const named = title.trim() === '' ? Labelmaker.titleize(label) : title
-    return IdentValidators.row({ label, title: named })
+  static fill(dna: IdentDNA): IdentRowT {
+    const title = dna.title.trim() === '' ? Labelmaker.titleize(dna.label) : dna.title
+    return IdentValidators.row({ ...dna, title })
   }
 }

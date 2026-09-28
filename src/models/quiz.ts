@@ -132,6 +132,7 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgets' | 'columns'>)
 export type BulkIshesRunT = Z.output<typeof QuizValidators.bulkIshesRun>
 export type QuizDNA       = Z.input<typeof QuizValidators.quiz>
 export type QuizT         = Z.output<typeof QuizValidators.quiz>
+export type QuizRowT      = Z.output<typeof QuizValidators.row>
 
 /** One trivia quiz: a name, an ordered list of questions, and how it came to be in that order */
 export class Quiz implements QuizT {
@@ -186,6 +187,24 @@ export class Quiz implements QuizT {
       title,
       questions: Array.from({ length: BlankQuestionQty }, () => Question.blank()),
       ...(label !== undefined && { label }),
+    })
+  }
+
+  /**
+   * A fresh quiz's own row for `realm_id`, holding no questions yet: what `insertQuiz` writes
+   * first, before the questions that need its id.
+   *
+   * @param realm_id - The realm it belongs to.
+   * @param title - What to call it; blank means its label, titleized.
+   * @param label - The label it starts under; one is generated when omitted.
+   * @returns The row to insert.
+   *
+   * @example Quiz.blankRow(realm_id, '', 'princes').title  // => 'Princes'
+   */
+  static blankRow(realm_id: QuizRowT['realm_id'], title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
+    return QuizValidators.row({
+      realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, forced_label: null, version: DefaultVersion,
+      locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [],
     })
   }
 }

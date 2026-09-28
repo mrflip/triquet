@@ -268,26 +268,6 @@
 
 /* == Header, toolbar, panels == */
 
-.titleField {
-  font-family:   var(--font-display);
-  font-size:     30px;
-  font-weight:   600;
-  color:         inherit;
-  background:    transparent;
-  border:        1px solid transparent;
-  border-radius: var(--radius-input);
-  padding:       2px 6px;
-  width:         100%;
-  max-width:     640px;
-}
-
-.titleField:hover:not(:read-only) { border-color: var(--border) }
-.titleField:focus {
-  outline:      none;
-  border-color: var(--accent);
-  background:   color-mix(in srgb, var(--accent-soft) 45%, transparent);
-}
-
 .pill {
   display:        inline-block;
   border-radius:  var(--radius-pill);
@@ -433,31 +413,8 @@
   grid-column: 1 / -1;
 }
 
-.readonlyBox {
-  width:         100%;
-  box-sizing:    border-box;
-  margin-top:    8px;
-  font-family:   var(--font-data);
-  font-size:     12px;
-  line-height:   1.5;
-  color:         inherit;
-  background:    var(--surface-sunk);
-  border:        1px solid var(--border);
-  border-radius: var(--radius-input);
-  padding:       8px;
-  resize:        vertical;
-  white-space:   pre;
-  overflow:      auto;
-}
-
 /* Backup material to be copied out wholesale, not prose to be read: denser, so more of it is
    visible at once. */
-.readonlyBoxDense {
-  font-size:   10px;
-  line-height: 1.35;
-  white-space: pre-wrap;
-  word-break:  break-all;
-}
 
 .panelRow {
   display:     flex;
@@ -468,25 +425,6 @@
 }
 
 /* == Import == */
-
-.pasteBox {
-  width:         100%;
-  box-sizing:    border-box;
-  margin-top:    8px;
-  font-family:   var(--font-data);
-  font-size:     12px;
-  color:         inherit;
-  background:    var(--surface-sunk);
-  border:        1px solid var(--border);
-  border-radius: var(--radius-input);
-  padding:       8px;
-  resize:        vertical;
-}
-
-.pasteBox:focus {
-  outline:      none;
-  border-color: var(--accent);
-}
 
 .importLog {
   margin-top:    8px;

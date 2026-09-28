@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, expressionFrom, frameOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, recordedAtOf, reviewBy, seenQuestionOf, shallowHuntOf, slotLatestOf, widgetFrom,
+  assembledQuiz, expressionFrom, frameOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, slotLatestOf, widgetFrom,
   type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import { Quiz } from '../../src/models/quiz'
@@ -51,13 +51,6 @@ describe('slotLatestOf', () => {
 
   it('carries no answer for a cell that never had one', () => {
     expect(slotLatestOf({ newest: botting('error', 3, 'failed'), done: null }).done).to.eq(null)
-  })
-})
-
-describe('recordedAtOf', () => {
-  it('is when each cell\'s newest botting was made, to the fraction', () => {
-    const newest = botting('error', 3.5, 'failed')
-    expect(recordedAtOf(new Map([['cell', { newest, done: null }]]))).to.deep.eq(new Map([['cell', 3.5]]))
   })
 })
 

@@ -5,6 +5,7 @@ import { ColumnValidators } from './column'
 import { ExpressionValidators } from './expression'
 import { HuntingValidators } from './hunting'
 import { IdentValidators } from './ident'
+import { ImportValidators } from './import'
 import { QuestionValidators } from './question'
 import { QuizValidators } from './quiz'
 import { ReviewingValidators } from './reviewing'
@@ -63,7 +64,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('new_quiz'),            label: label.optional() }),
     obj({ kind: lit('delete_quiz'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_lock'),            quiz_id: zid('quizzes'), locked: bool }),
-    obj({ kind: lit('replace_open_quiz'),   quiz: QuizValidators.quiz }),
+    obj({ kind: lit('import_questions'),    questions: ImportValidators.importedQuestions }),
     obj({ kind: lit('open_review'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_overall'),         quiz_id: zid('quizzes'), overall: str }),
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),

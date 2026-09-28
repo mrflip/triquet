@@ -1,13 +1,12 @@
 import type { Id } from '../_generated/dataModel'
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
-import { Hunt } from '../../src/models/hunt'
 import { HuntingValidators } from '../../src/models/hunting'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
 import { huntForLabel, huntsOf, identFor, identForLabel } from '../reading'
-import { writeHunt, type Writer } from './quiz_writing'
+import { insertHunt, type Writer } from './quiz_writing'
 
 /**
  * Become the ident labelled `label`: the one there is, or one made now under `title`. Either way
@@ -27,7 +26,7 @@ import { writeHunt, type Writer } from './quiz_writing'
  */
 export async function assumeIdent(db: Writer, browser_key: string, label: string, title: string): Promise<Id<'idents'>> {
   const found = await identForLabel(db, label)
-  const ident_id = found ? found._id : await db.insert('idents', Ident.fill(label, title))
+  const ident_id = found ? found._id : await db.insert('idents', Ident.fill({ label, title }))
   await db.insert('identings', IdentingValidators.row({ browser_key, ident_id }))
   return ident_id
 }
@@ -47,7 +46,7 @@ export async function newHunt(db: Writer, browser_key: string, label: string): P
   if (! ident) { refuse('notIdentified') }
   if (taken) { refuse('labelTaken') }
   if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
-  const hunt_id = await writeHunt(db, Hunt.blank(label))
+  const hunt_id = await insertHunt(db, label)
   await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: ident._id, role: 'smith' }))
   return hunt_id
 }

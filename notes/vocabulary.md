@@ -32,7 +32,7 @@ the domain.
   hunt's maker is its first smith, and nobody changes their own hunting: another smith does.
   The hunts list shows one's own hunts; an address naming no `act` is shown as one's role asks.
 * **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
-  and addresses said which was open. Import still reads an old workspace export, questions only.
+  and addresses said which was open. Nothing reads one now.
 
 ## The things an author makes
 
@@ -146,6 +146,22 @@ that way; the model bots were called players until September 2026.
   smiths are not shown it.
 * **the lock** -- the answer, hidden behind a confirmation until a reviewer chooses to see it.
   Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`.
+
+## Reading from Convex
+
+How the browser gets rows; `notes/queries_hooks_and_subscriptions.md` says where to draw the
+lines between them, and these are here so they are findable beside the rest.
+
+* **query function** -- server code under `convex/` that reads rows and returns what a screen
+  shows. It knows nothing of how it is called.
+* **watch** -- calling a query function and staying subscribed: `useQuery`, `useQueries`,
+  `watchQuery`. Redelivers the moment anything it read changes.
+* **fetch** -- calling a query function once, with no subscription: `client.query`. For what
+  is large and asked for, such as the export.
+* **facet** -- what one watch covers: a set of rows that change together and are shown
+  together. One watch per facet.
+* **screen hook** -- the one hook that owns a screen's watches and hands props down (`useHunt`,
+  `useQuiz`, `useHuntsList`, `useIdent`). Components never watch.
 
 ## Around the edges
 

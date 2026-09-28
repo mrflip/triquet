@@ -90,6 +90,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
 export type QuestionDNA   = Z.input<typeof QuestionValidators.question>
 export type QuestionT     = Z.output<typeof QuestionValidators.question>
 export type QuestionPatch = Z.output<typeof QuestionValidators.questionPatch>
+export type QuestionRowT  = Z.output<typeof QuestionValidators.row>
 
 /** One question in a quiz: its clueing, its own BUT NOT hint, and everything hung off them */
 export class Question implements QuestionT {
@@ -139,5 +140,21 @@ export class Question implements QuestionT {
    */
   static blank(): QuestionT {
     return this.fill({ _id: mintId() })
+  }
+
+  /**
+   * A blank question's row for `quiz_id`: nothing written and unchained, under `label` or a
+   * fresh one, titled from it.
+   *
+   * @param quiz_id - The quiz it belongs to.
+   * @param label - The label it starts under; one is generated when omitted.
+   * @returns The row to insert.
+   *
+   * @example Question.blankRow(quiz_id, 'quiet_otter').title  // => 'Quiet Otter'
+   */
+  static blankRow(quiz_id: QuestionRowT['quiz_id'], label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuestionRowT {
+    return QuestionValidators.row({
+      quiz_id, label, forced_label: null, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
+    })
   }
 }

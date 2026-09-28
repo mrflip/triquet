@@ -59,5 +59,4 @@ export const camel     = str.trim().min(2).regex(PA.Camel.re, PA.Camel.msg).desc
 export const locamel   = str.trim().min(2).regex(PA.Locamel.re, PA.Locamel.msg).describe('lowerCamelCased name')
 export const varname   = str.trim().min(1).regex(PA.Varname.re, PA.Varname.msg).describe('variable name')
 export const snake     = str.trim().min(1).regex(PA.Snake.re, PA.Snake.msg).describe('underbar_cased name')
-export const ulid      = str.trim().regex(PA.Ulid.re, PA.Ulid.msg).describe('ulid')
 export const convexid  = str.regex(PA.Convexid.re, PA.Convexid.msg).describe('document id')
