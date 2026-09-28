@@ -1,5 +1,5 @@
 import type { Id } from '../../convex/_generated/dataModel'
-import { insertLayout, type Writer } from '../../convex/writing/quiz_writing'
+import { insertLayout, type QuizPlace, type Writer } from '../../convex/writing/quiz_writing'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import { ExpressionValidators } from '../../src/models/expression'
 import { HuntValidators, type HuntT } from '../../src/models/hunt'
@@ -14,15 +14,15 @@ import { RealmValidators } from '../../src/models/realm'
 // `record_botting`.
 
 /**
- * `quiz`, a fixture, written into rows under `realm_id`: its own row, its questions in the order
- * given, and its widgets and columns in the order given.
+ * `quiz`, a fixture, written into rows in the realm `place` names: its own row, its questions in
+ * the order given, and its widgets and columns in the order given.
  *
  * @returns The quiz's row id.
  * @throws When a row is not valid; the mutation writes nothing.
  *
- * @example await seedQuizRows(ctx.db, realm_id, Quiz.blank('Princes'))
+ * @example await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank('Princes'))
  */
-export async function seedQuizRows(db: Writer, realm_id: Id<'realms'>, quiz: QuizT): Promise<Id<'quizzes'>> {
+export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
   const { title, label, forced_label, version, locked, last_sortkey, bulk_ishes_last } = quiz
   const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, forced_label, version, locked, last_sortkey, bulk_ishes_last, row_ordering: [] }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
@@ -30,6 +30,7 @@ export async function seedQuizRows(db: Writer, realm_id: Id<'realms'>, quiz: Qui
   for (const question of quiz.questions) {
     const { label: questionLabel, forced_label: questionForced, title: questionTitle, qnum, clueing, hint, full_answer, alt_text, notes } = question
     const row = QuestionValidators.row({
+      hunt_id,
       quiz_id,
       label:        questionLabel,
       forced_label: questionForced,
@@ -65,7 +66,7 @@ export async function seedHuntRows(db: Writer, hunt: HuntT): Promise<Id<'hunts'>
   }
   for (const [position, realm] of hunt.realms.entries()) {
     const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title }))
-    for (const quiz of realm.quizzes) { await seedQuizRows(db, realm_id, quiz) }
+    for (const quiz of realm.quizzes) { await seedQuizRows(db, { hunt_id, realm_id }, quiz) }
   }
   return hunt_id
 }

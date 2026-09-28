@@ -68,6 +68,8 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
     .describe('The fields of one question being revised: what the author writes. A key absent from a patch means "leave whatever is already there", so no field here carries a default. The id is not among them: a question keeps the id it was minted with for its whole life. Neither are the bots\' replies, which are recorded rather than revised.')
 
   const row = obj({
+    hunt_id:      zid('hunts')
+      .describe('The hunt its quiz belongs to, which says who may read the question and change it.'),
     quiz_id:      zid('quizzes')
       .describe('The quiz this question belongs to. Its place there is the quiz\'s to say (`row_ordering`).'),
     label:        questionLabel,
@@ -143,18 +145,18 @@ export class Question implements QuestionT {
   }
 
   /**
-   * A blank question's row for `quiz_id`: nothing written and unchained, under `label` or a
-   * fresh one, titled from it.
+   * A blank question's row for the quiz `place` names: nothing written and unchained, under
+   * `label` or a fresh one, titled from it.
    *
-   * @param quiz_id - The quiz it belongs to.
+   * @param place - The quiz it belongs to, and that quiz's hunt.
    * @param label - The label it starts under; one is generated when omitted.
    * @returns The row to insert.
    *
-   * @example Question.blankRow(quiz_id, 'quiet_otter').title  // => 'Quiet Otter'
+   * @example Question.blankRow({ hunt_id, quiz_id }, 'quiet_otter').title  // => 'Quiet Otter'
    */
-  static blankRow(quiz_id: QuestionRowT['quiz_id'], label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuestionRowT {
+  static blankRow({ hunt_id, quiz_id }: Pick<QuestionRowT, 'hunt_id' | 'quiz_id'>, label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuestionRowT {
     return QuestionValidators.row({
-      quiz_id, label, forced_label: null, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
+      hunt_id, quiz_id, label, forced_label: null, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
     })
   }
 }

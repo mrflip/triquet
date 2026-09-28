@@ -12,6 +12,8 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, zid }) => {
     .describe('What the reviewer made of the quiz as a whole.')
 
   const row = obj({
+    hunt_id:  zid('hunts')
+      .describe('The hunt the quiz belongs to, which says who besides the reviewer may read the review once shared.'),
     quiz_id:  zid('quizzes')
       .describe('The quiz being reviewed.'),
     ident_id: zid('idents')
@@ -27,10 +29,12 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, zid }) => {
 export type ReviewRowT = Z.output<typeof ReviewValidators.row>
 
 /**
- * The reviews of `reviews` a smith may see: the shared ones.
+ * The reviews of `reviews` that are shared: what the smiths' panel shows. (Whether a review
+ * reaches a browser at all is the server's to say; a smith's own draft reaches theirs, and is not
+ * shared.)
  *
- * @param reviews - Every review of a quiz.
- * @returns Only the ones shared with the smiths.
+ * @param reviews - Reviews of a quiz.
+ * @returns Only the shared ones.
  *
  * @example sharedReviewsOf([{ phase: 'draft' }, { phase: 'shared' }])  // => [{ phase: 'shared' }]
  */

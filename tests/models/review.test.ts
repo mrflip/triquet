@@ -3,17 +3,18 @@ import * as Z from 'zod'
 import { ReviewValidators, sharedReviewsOf } from '../../src/models/review'
 
 describe('ReviewValidators.row', () => {
-  const Row = { quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', overall: '', phase: 'empty' } as const
+  const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', overall: '', phase: 'empty' } as const
 
   it('takes a review as the database holds it', () => {
     expect(ReviewValidators.row(Row)).to.deep.eq(Row)
   })
 
   it('defaults overall to empty and phase to empty', () => {
-    expect(ReviewValidators.row({ quiz_id: Row.quiz_id, ident_id: Row.ident_id })).to.deep.eq(Row)
+    expect(ReviewValidators.row({ hunt_id: Row.hunt_id, quiz_id: Row.quiz_id, ident_id: Row.ident_id })).to.deep.eq(Row)
   })
 
   const Refused: [object, string][] = [
+    [{ hunt_id: 'nope' },             'a hunt that is not a row id'],
     [{ quiz_id: 'nope' },             'a quiz that is not a row id'],
     [{ ident_id: 'nope' },            'an ident that is not a row id'],
     [{ phase: 'reviewed' },           'a phase outside the enum'],

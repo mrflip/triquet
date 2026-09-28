@@ -8,7 +8,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from '../lib/labelmaker'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
-import { assembledQuiz, type CountedExpressionT, type ReviewedT, type SeenQuestionT, type ShallowHuntT, type ShallowRealmT } from '../lib/rows'
+import { assembledQuiz, smithsOf, type CountedExpressionT, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
 import type { HuntActionDNA, OpenQuizT } from '../models/actions'
 import type { HuntRole } from '../models/hunting'
@@ -18,22 +18,27 @@ import { useBrowserKey } from './browser-key'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
 
-/** Where finding the quiz an address names stands: still looking, looked and it is not there, or found */
-export type Finding = 'waiting' | 'missing' | 'found'
+/**
+ * Where finding the quiz an address names stands: still looking, looked and it is not there,
+ * there but not this visitor's to see (they are not on its hunt), or found
+ */
+export type Finding = 'waiting' | 'missing' | 'refused' | 'found'
 
 export type HuntHandle = {
-  /** Whether the quiz the labels name has been found, or is not there to find */
+  /** Whether the quiz the labels name has been found, is not there to find, or is not this visitor's to see */
   finding:    Finding
-  /** The hunt the labels name, as a quiz's screen holds it; null when there is none, or it has not arrived */
+  /** The hunt the labels name, as a quiz's screen holds it; null when there is none, it is not this visitor's to see, or it has not arrived */
   hunt:       ShallowHuntT | null
   /** The realm the labels name; null when the hunt has no such realm, or has not arrived */
   realm:      ShallowRealmT | null
   /** The quiz the labels name, whole; null when the realm has no such quiz, or it has not arrived */
   quiz:       QuizT | null
-  /** The quiz's reviews, every ident's, oldest first; empty until the quiz is found */
+  /** The quiz's reviews this browser's ident may read (its own, and the shared ones), oldest first; empty until the quiz is found */
   reviews:    readonly ReviewedT[]
   /** What this browser's ident does on the hunt; null when it is not on it, or the hunt has not arrived */
   role:       HuntRole | null
+  /** Who could put this visitor on the hunt, or make them a smith of it; empty until the hunt has arrived */
+  smiths:     readonly SmithT[]
   /** Whether a change dispatched here is still being written */
   unsaved:    boolean
   /** Why the last change could not be kept; null while all is well */
@@ -85,13 +90,21 @@ export function placeIn(hunt: ShallowHuntT | null | undefined, labels: Pick<Quiz
 }
 
 /**
- * Where finding the quiz stands, once its place in the hunt is known: found once the quiz and its
- * reviews have arrived, missing when the quiz is not there after all (deleted a moment ago).
+ * Where finding the quiz stands: refused when the server says the visitor is not on its hunt;
+ * else, once its place in the hunt is known, found once the quiz and its reviews have arrived,
+ * missing when the quiz is not there after all (deleted a moment ago).
  */
-function findingOf(placing: Placing, quiz: QuizT | null | undefined, reviews: readonly ReviewedT[] | undefined): Finding {
+function findingOf(opening: HuntOpeningT | undefined, placing: Placing, quiz: QuizT | null | undefined, reviews: readonly ReviewedT[] | undefined): Finding {
+  if (opening?.why === 'notOnHunt') { return 'refused' }
   if (placing.finding !== 'placed') { return placing.finding }
   if (quiz === undefined || reviews === undefined) { return 'waiting' }
   return quiz ? 'found' : 'missing'
+}
+
+/** Who could put the visitor on the hunt, or make them a smith of it: its smiths, as the server said them */
+function smithsFor(opening: HuntOpeningT | undefined): readonly SmithT[] {
+  if (opening?.why === 'notOnHunt') { return opening.smiths }
+  return smithsOf(opening?.hunt?.members ?? [])
 }
 
 /** How many changes this page is writing */
@@ -133,12 +146,12 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
   useEffect(() => {
     if (quiz_id === null || browser_key === null) { return }
     const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label, browser_key })
-    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id, browser_key })
     const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
     const last: { snapshot: MirrorSnapshot | null, counted: readonly CountedExpressionT[] | null } = { snapshot: null, counted: null }
     const note = () => {
       try {
-        const hunt = huntWatch.localQueryResult()
+        const hunt = huntWatch.localQueryResult()?.hunt
         const frame = frameWatch.localQueryResult()
         const quiz = frame && assembledQuiz(frame, (question_id) => questionWatches.get(question_id)?.reading())
         const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
@@ -163,7 +176,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
       }
       for (const question_id of ordered) {
         if (questionWatches.has(question_id)) { continue }
-        const watch = convex.watchQuery(api.questions.open, { question_id })
+        const watch = convex.watchQuery(api.questions.open, { question_id, browser_key })
         questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
       }
     }
@@ -180,8 +193,8 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
 /**
  * The quiz `labels` names, live: the hunt as its screen holds it, the quiz whole, and its reviews,
  * kept current as they change here, in another tab, on another device, or at someone else's
- * hands; and every change written the moment it is dispatched. For someone not on the hunt, the
- * hunt alone: its quiz is not read for them.
+ * hands; and every change written the moment it is dispatched. Someone not on the hunt is shown
+ * none of it, only who could add them, and nothing more is asked for them.
  *
  * There is no save button and no save queue: a change goes to the server as soon as it is
  * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
@@ -199,19 +212,18 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   // A label that cannot be one names no hunt, and is not asked about.
   const askable = ValidatorKit.label.safeParse(labels.hunt).success
-  const huntSeen = useQuery(api.hunts.open, askable && browser_key !== null ? { hunt_label: labels.hunt, browser_key } : 'skip')
+  const opening = useQuery(api.hunts.open, askable && browser_key !== null ? { hunt_label: labels.hunt, browser_key } : 'skip')
+  const hunt = opening?.hunt ?? null
   // The quiz last found at this address, so a relabel does not lose it: see `placeIn`.
   const address = `${labels.hunt}/${labels.realm}/${labels.quiz}`
   const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
-  const placing = placeIn(askable ? huntSeen : null, labels, shown?.address === address ? shown.quiz_id : null)
-  // Someone not on the hunt is shown none of its quizzes, so none is read, or kept in their history.
-  const quiz_id = huntSeen?.role ? placing.quizRow?._id ?? null : null
+  const placing = placeIn(askable && opening === undefined ? undefined : hunt, labels, shown?.address === address ? shown.quiz_id : null)
+  const quiz_id = placing.quizRow?._id ?? null
   const quizSeen = useQuiz(quiz_id)
-  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null ? 'skip' : { quiz_id })
+  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null || browser_key === null ? 'skip' : { quiz_id, browser_key })
   useHistoryFeed(labels.hunt, browser_key, askable ? quiz_id : null)
 
-  const hunt = huntSeen ?? null
-  const finding = findingOf(placing, quizSeen, reviewsSeen)
+  const finding = findingOf(opening, placing, quizSeen, reviewsSeen)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
 
   // Kept as React keeps state derived from a render: set during the render, which React redoes.
@@ -255,5 +267,5 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 
-  return { finding, hunt, ...found, role: hunt?.role ?? null, unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
+  return { finding, hunt, ...found, role: hunt?.role ?? null, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
 }

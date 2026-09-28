@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, expressionFrom, frameOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, slotLatestOf, widgetFrom,
+  assembledQuiz, expressionFrom, frameOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, slotLatestOf, smithsOf, widgetFrom,
   type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import { Quiz } from '../../src/models/quiz'
@@ -28,7 +28,7 @@ const QuizRow: Doc<'quizzes'> = {
   version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [question_id],
 }
 const QuestionRow: Doc<'questions'> = {
-  _id: question_id, _creationTime: 2, quiz_id, label: 'leon', forced_label: null, title: 'Leon', qnum: '1',
+  _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', forced_label: null, title: 'Leon', qnum: '1',
   clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
 }
 const HuntRow: Doc<'hunts'> = { _id: idOf('hunts', 'h1'), _creationTime: 0, label: 'quiet_otter', forced_label: null, title: '' }
@@ -160,14 +160,25 @@ describe('huntListingOf', () => {
 
 describe('shallowHuntOf', () => {
   it('counts each expression\'s widgets, nought for one no widget works', () => {
-    expect(shallowHuntOf(Rows, new Map([['shout', 1]]), [], null).expressions[0]?.usage).to.eq(1)
-    expect(shallowHuntOf(Rows, new Map(), [], null).expressions[0]?.usage).to.eq(0)
+    expect(shallowHuntOf(Rows, new Map([['shout', 1]]), [], 'smith').expressions[0]?.usage).to.eq(1)
+    expect(shallowHuntOf(Rows, new Map(), [], 'smith').expressions[0]?.usage).to.eq(0)
   })
 
   it('carries who is on the hunt, and the role of whoever is looking', () => {
     const members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
     const hunt = shallowHuntOf(Rows, new Map(), members, 'reviewer')
     expect([hunt.members, hunt.role]).to.deep.eq([members, 'reviewer'])
+  })
+})
+
+describe("smithsOf", () => {
+  it("names the smiths among the members, by label and title, in the order they joined", () => {
+    const members = [
+      { ident_id: idOf('idents', 'i1'), label: 'alice_smiths',  title: 'Alice', role: 'smith' as const },
+      { ident_id: idOf('idents', 'i2'), label: 'bob_reviews',   title: 'Bob',   role: 'reviewer' as const },
+      { ident_id: idOf('idents', 'i3'), label: 'carol_smiths',  title: '',      role: 'smith' as const },
+    ]
+    expect(smithsOf(members)).to.deep.eq([{ label: 'alice_smiths', title: 'Alice' }, { label: 'carol_smiths', title: '' }])
   })
 })
 
@@ -181,7 +192,7 @@ describe('huntFrom', () => {
 
 describe('reviewBy', () => {
   const ident_id = idOf('idents', 'i1')
-  const ReviewRow: Doc<'reviews'> = { _id: idOf('reviews', 'v1'), _creationTime: 3, quiz_id, ident_id, overall: '', phase: 'draft' }
+  const ReviewRow: Doc<'reviews'> = { _id: idOf('reviews', 'v1'), _creationTime: 3, hunt_id: idOf('hunts', 'h1'), quiz_id, ident_id, overall: '', phase: 'draft' }
   const Other = { ...ReviewRow, _id: idOf('reviews', 'v2'), ident_id: idOf('idents', 'i2') }
   const Later = { ...ReviewRow, _id: idOf('reviews', 'v3'), _creationTime: 4, overall: 'Twice.' }
 

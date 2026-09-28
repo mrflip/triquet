@@ -129,7 +129,7 @@ async function chainLabelFor(db: Writer, held: Doc<'questions'>, chains_to: stri
 export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
   const quiz = await openQuizRow(db, open)
   if (quiz.row_ordering.length >= PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
-  const question_id = await db.insert('questions', Question.blankRow(quiz._id))
+  const question_id = await db.insert('questions', Question.blankRow({ hunt_id: open.hunt_id, quiz_id: quiz._id }))
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, question_id] })
 }
 
@@ -244,7 +244,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
     if (row) {
       await updateQuestion(db, row, fields)
     } else {
-      const fresh = QuestionValidators.row({ ...Question.blankRow(quiz._id, label), ...fields })
+      const fresh = QuestionValidators.row({ ...Question.blankRow({ hunt_id: open.hunt_id, quiz_id: quiz._id }, label), ...fields })
       added.push(await db.insert('questions', fresh))
     }
   }
@@ -274,7 +274,7 @@ export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Prom
   if (realm?.hunt_id !== open.hunt_id) { refuse('realmGone') }
   if (taken) { refuse('labelTaken') }
   if (siblings.length >= PA.QuizzesPerRealm.max) { refuse('quizzesFull') }
-  return await insertQuiz(db, open.realm_id, '', label ?? Labelmaker.freshLabelFor(siblings), expressions.map((row) => expressionFrom(row)))
+  return await insertQuiz(db, open, '', label ?? Labelmaker.freshLabelFor(siblings), expressions.map((row) => expressionFrom(row)))
 }
 
 /**

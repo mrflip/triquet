@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
+import type { Id } from '../../convex/_generated/dataModel'
 import { Question, QuestionValidators, type QuestionDNA } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 import { ValidatorKit } from '../../src/lib/validator'
@@ -170,7 +171,7 @@ describe('QuestionValidators, field by field', () => {
 
 describe('QuestionValidators.row', () => {
   const Row = {
-    quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', forced_label: null, title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
+    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', forced_label: null, title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
     hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '',
   }
 
@@ -179,6 +180,7 @@ describe('QuestionValidators.row', () => {
   })
 
   const Refused: [object, string][] = [
+    [{ hunt_id: 'hamlet' },                  'a hunt that is not a row id'],
     [{ quiz_id: 'hamlet' },                  'a quiz that is not a row id'],
     [{ chains_to: '01j0000000000000000000000a' }, 'a chain naming a question by id rather than by label'],
     [{ qnum: 'three' },                      'a question number that is not a number'],
@@ -188,4 +190,16 @@ describe('QuestionValidators.row', () => {
       expect(() => QuestionValidators.row({ ...Row, ...overrides })).to.throw(Z.ZodError)
     })
   }
+})
+
+describe("Question.blankRow", () => {
+  const place = { hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f8200' as Id<'hunts'>, quiz_id: 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'quizzes'> }
+
+  it("is a blank, unchained row of the quiz and hunt given, titled from its label", () => {
+    expect(Question.blankRow(place, 'quiet_otter')).to.deep.include({ ...place, label: 'quiet_otter', title: 'Quiet Otter', clueing: '', chains_to: null })
+  })
+
+  it("takes a fresh label when none is given", () => {
+    expect(Question.blankRow(place).label).to.match(/^[a-z][a-z0-9_]+$/)
+  })
 })

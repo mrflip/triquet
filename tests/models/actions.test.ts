@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
-import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
+import { ActionValidators, isLayoutAction, isReviewAction, LayoutActionKindVals, ReviewActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
@@ -99,5 +99,12 @@ describe('isLayoutAction', () => {
   it('picks out exactly the actions on widgets, columns and expressions', () => {
     const layout = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLayoutAction(action)).map((action) => action.kind)
     expect([...new Set(layout)]).to.deep.eq([...LayoutActionKindVals])
+  })
+})
+
+describe("isReviewAction", () => {
+  it("picks out exactly the actions on one's own review", () => {
+    const reviewing = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isReviewAction(action)).map((action) => action.kind)
+    expect([...new Set(reviewing)]).to.deep.eq([...ReviewActionKindVals])
   })
 })

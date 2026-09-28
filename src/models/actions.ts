@@ -18,6 +18,9 @@ export const LayoutActionKindVals = [
   'add_expression', 'edit_expression', 'delete_expression',
 ] as const
 
+/** The kinds of action about one's own review of a quiz: what a reviewer may do on a hunt */
+export const ReviewActionKindVals = ['open_review', 'set_overall', 'set_review_phase', 'set_reviewing', 'peek_answer'] as const
+
 export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, str, zid }) => {
   const open = obj({
     hunt_id:  zid('hunts'),
@@ -92,6 +95,8 @@ export type HuntActionDNA = Z.input<typeof ActionValidators.huntAction>
 export type HuntActionT   = Z.output<typeof ActionValidators.huntAction>
 /** What the author did to a quiz's widgets or columns, or to the hunt's expressions, validated */
 export type LayoutActionT = Extract<HuntActionT, { kind: typeof LayoutActionKindVals[number] }>
+/** What the author did to their own review of a quiz, validated */
+export type ReviewActionT = Extract<HuntActionT, { kind: typeof ReviewActionKindVals[number] }>
 /** What a visitor did before opening any quiz, as a view says it */
 export type AccountActionDNA = Z.input<typeof ActionValidators.accountAction>
 /** What a visitor did before opening any quiz, validated */
@@ -100,4 +105,9 @@ export type AccountActionT = Z.output<typeof ActionValidators.accountAction>
 /** Whether `action` is one that revises a quiz's widgets or columns, or the hunt's expressions */
 export function isLayoutAction(action: HuntActionT): action is LayoutActionT {
   return (LayoutActionKindVals as readonly string[]).includes(action.kind)
+}
+
+/** Whether `action` is one about the actor's own review of a quiz, which any role on the hunt may take */
+export function isReviewAction(action: HuntActionT): action is ReviewActionT {
+  return (ReviewActionKindVals as readonly string[]).includes(action.kind)
 }

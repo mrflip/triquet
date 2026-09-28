@@ -85,15 +85,27 @@ export type MemberT = {
   role:     HuntRole
 }
 
+/** A smith of a hunt, as someone not on it is told who to ask */
+export type SmithT = Pick<MemberT, 'label' | 'title'>
+
 /**
  * A hunt as a quiz's screen holds it: its listing, its expressions with their usage, who is on
- * it, and the role on it of whoever is looking (null for someone not on it).
+ * it, and the role on it of whoever is looking.
  */
 export type ShallowHuntT = HuntListingT & {
   expressions: readonly CountedExpressionT[]
   members:     readonly MemberT[]
-  role:        HuntRole | null
+  role:        HuntRole
 }
+
+/**
+ * What an address naming a hunt shows whoever is looking: the hunt, when they are on it; else
+ * why not, and for someone not on it, the smiths who could add them.
+ */
+export type HuntOpeningT =
+  | { why: null,         hunt: ShallowHuntT }
+  | { why: 'noSuchHunt', hunt: null }
+  | { why: 'notOnHunt',  hunt: null, smiths: readonly SmithT[] }
 
 /**
  * A review, with the label and title of the ident who wrote it (null for an ident no longer
@@ -171,7 +183,7 @@ export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]):
   const idForLabel = new Map(seen.map((question) => [Labelmaker.effectiveLabelOf(question), question._id]))
   const questions = seen.map((row): QuestionT => {
     const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
-    return { ..._.omit(row, ['_creationTime', 'quiz_id']), chains_to: target === row._id ? null : target }
+    return { ..._.omit(row, ['_creationTime', 'hunt_id', 'quiz_id']), chains_to: target === row._id ? null : target }
   })
   return { ..._.omit(frame, ['row_ordering']), questions }
 }
@@ -258,18 +270,28 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
  * @param rows - The hunt's own rows.
  * @param usage - How many widgets work each expression, by label; one absent works in none.
  * @param members - Who is on the hunt.
- * @param role - The looker's role on it; null when they are not on it.
+ * @param role - The looker's role on it.
  * @returns The shallow hunt.
  *
  * @example shallowHuntOf(rows, new Map([['clueing_full', 1]]), members, 'smith').expressions[0].usage  // => 1
  */
-export function shallowHuntOf(rows: HuntRows, usage: ReadonlyMap<string, number>, members: readonly MemberT[], role: HuntRole | null): ShallowHuntT {
+export function shallowHuntOf(rows: HuntRows, usage: ReadonlyMap<string, number>, members: readonly MemberT[], role: HuntRole): ShallowHuntT {
   return {
     ...huntListingOf(rows),
     expressions: rows.expressions.map((row) => ({ ...expressionFrom(row), usage: usage.get(row.label) ?? 0 })),
     members,
     role,
   }
+}
+
+/**
+ * The smiths among `members`, in the order they joined: who to ask to be put on a hunt, or made a
+ * smith of it.
+ *
+ * @example smithsOf(hunt.members)  // => [{ label: 'flip_kromer', title: 'Flip' }]
+ */
+export function smithsOf(members: readonly MemberT[]): SmithT[] {
+  return members.filter((member) => member.role === 'smith').map(({ label, title }) => ({ label, title }))
 }
 
 /**

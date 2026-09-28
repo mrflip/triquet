@@ -1,14 +1,13 @@
 import _ from 'es-toolkit/compat'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
-import { huntFrom, huntListingOf, quizFrom, shallowHuntOf, type ListedHuntT, type ShallowHuntT } from '../src/lib/rows'
+import { huntListingOf, shallowHuntOf, smithsOf, type HuntOpeningT, type ListedHuntT } from '../src/lib/rows'
 import { ActionValidators } from '../src/models/actions'
 import { IdentingValidators } from '../src/models/identing'
 import type { HuntT } from '../src/models/hunt'
-import type { QuizT } from '../src/models/quiz'
 import { zMutation, zQuery } from './functions'
-import { mayChangeHunt } from './authorize'
-import { expressionUsageOf, huntForLabel, huntingFor, huntingsFor, huntRowsOf, identFor, membersOf, quizRowsOf, realmsOf } from './reading'
+import { mayPerform, mayReadHunt, roleOn } from './authorize'
+import { expressionUsageOf, huntForLabel, huntingsFor, huntRowsOf, identFor, membersOf, realmsOf, wholeHuntOf } from './reading'
 import { perform as performAction } from './writing/perform'
 
 const { label, zid, zod } = ValidatorKit
@@ -31,52 +30,55 @@ export const list = zQuery({
 })
 
 /**
- * The hunt answering to `hunt_label`, as a quiz's screen holds it: its realms with their quizzes'
- * rows, its expressions with how many widgets work each, who is on it, and the role on it of the
- * ident the browser `browser_key` is now. Null when no hunt answers to it.
+ * The hunt answering to `hunt_label`, for the ident the browser `browser_key` is now. Someone on
+ * it is shown it as a quiz's screen holds it: its realms with their quizzes' rows, its expressions
+ * with how many widgets work each, who is on it, and their own role. Someone not on it is shown
+ * only that, and its smiths, who could add them. Says so when no hunt answers to the label.
  */
 export const open = zQuery({
   args:    { hunt_label: label, browser_key: IdentingValidators.browserKey },
-  handler: async (ctx, { hunt_label, browser_key }): Promise<ShallowHuntT | null> => {
+  handler: async (ctx, { hunt_label, browser_key }): Promise<HuntOpeningT> => {
     const [hunt, ident] = await Promise.all([huntForLabel(ctx.db, hunt_label), identFor(ctx.db, browser_key)])
-    const rows = hunt && await huntRowsOf(ctx.db, hunt._id)
-    if (! rows) { return null }
-    const [usage, members, hunting] = await Promise.all([
-      expressionUsageOf(ctx.db, rows.realms),
-      membersOf(ctx.db, rows.hunt._id),
-      ident && huntingFor(ctx.db, rows.hunt._id, ident._id),
-    ])
-    return shallowHuntOf(rows, usage, members, hunting?.role ?? null)
+    if (! hunt) { return { why: 'noSuchHunt', hunt: null } }
+    const [members, role] = await Promise.all([membersOf(ctx.db, hunt._id), roleOn(ctx.db, hunt._id, ident?._id ?? null)])
+    if (role === null) { return { why: 'notOnHunt', hunt: null, smiths: smithsOf(members) } }
+    const rows = await huntRowsOf(ctx.db, hunt._id)
+    if (! rows) { return { why: 'noSuchHunt', hunt: null } }
+    return { why: null, hunt: shallowHuntOf(rows, await expressionUsageOf(ctx.db, rows.realms), members, role) }
   },
 })
 
-/** The hunt `hunt_id`, every quiz whole, as the Export box emits it; null when there is no such hunt */
+/**
+ * The hunt `hunt_id`, every quiz whole, as the Export box emits it, for someone on it (the ident
+ * the browser `browser_key` is now). Null when there is no such hunt, or they are not on it.
+ */
 export const whole = zQuery({
-  args:    { hunt_id: zid('hunts') },
-  handler: async (ctx, { hunt_id }): Promise<HuntT | null> => {
-    const rows = await huntRowsOf(ctx.db, hunt_id)
-    if (! rows) { return null }
-    const quizzes = rows.realms.flatMap((realm) => realm.quizzes)
-    const whole = await Promise.all(quizzes.map(async (quiz) => await quizRowsOf(ctx.db, quiz._id)))
-    const quizFor = new Map<string, QuizT>(whole.filter((each) => each !== null).map((each) => [each.quiz._id, quizFrom(each)]))
-    return huntFrom(rows, quizFor)
+  args:    { hunt_id: zid('hunts'), browser_key: IdentingValidators.browserKey },
+  handler: async (ctx, { hunt_id, browser_key }): Promise<HuntT | null> => {
+    const ident = await identFor(ctx.db, browser_key)
+    if (! await mayReadHunt(ctx.db, hunt_id, ident?._id ?? null)) { return null }
+    return await wholeHuntOf(ctx.db, hunt_id)
   },
 })
 
 /**
  * Carry out what the author did from inside a quiz, writing the rows it comes to: see
- * `writing/perform`. Who is acting is the ident the browser `browser_key` took on last.
+ * `writing/perform`. Who is acting is the ident the browser `browser_key` took on last, and they
+ * must be allowed to (`authorize`): a smith of the hunt, or for their own review, anyone on it.
  *
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`) when the action cannot be
- *   carried out, or `{ ZodError }` when an argument is not valid; nothing is written.
+ *   carried out (`notIdentified` for a browser that has not said who it is, `notPermitted` for an
+ *   action its ident may not take), or `{ ZodError }` when an argument is not valid; nothing is
+ *   written.
  */
 export const perform = zMutation({
   args:    { open: ActionValidators.open, action: ActionValidators.huntAction, browser_key: IdentingValidators.browserKey },
   returns: zod.null(),
   handler: async (ctx, { open: place, action, browser_key }) => await refusingInvalid(async () => {
-    if (! mayChangeHunt(browser_key, place.hunt_id)) { refuse('notPermitted') }
     const ident = await identFor(ctx.db, browser_key)
-    await performAction(ctx.db, place, ident?._id ?? null, action)
+    if (! ident) { refuse('notIdentified') }
+    if (! await mayPerform(ctx.db, place, ident._id, action)) { refuse('notPermitted') }
+    await performAction(ctx.db, place, ident._id, action)
     return null
   }),
 })

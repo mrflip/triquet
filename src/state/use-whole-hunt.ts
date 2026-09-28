@@ -6,6 +6,7 @@ import { api } from '../../convex/_generated/api'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
+import { useBrowserKey } from './browser-key'
 
 /** The Export box's hunt: what was read, whether a read is on its way, and how to ask for one */
 export type WholeHuntAsk = {
@@ -39,6 +40,7 @@ type Outcome = Screen & { whole: HuntT | null }
  */
 export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): WholeHuntAsk {
   const convex = useConvex()
+  const browser_key = useBrowserKey()
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [asking, setAsking] = useState(false)
 
@@ -46,7 +48,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
     const ask = async () => {
       setAsking(true)
       try {
-        const whole = await convex.query(api.hunts.whole, { hunt_id: hunt._id })
+        const whole = browser_key === null ? null : await convex.query(api.hunts.whole, { hunt_id: hunt._id, browser_key })
         setOutcome({ hunt, openQuiz, whole })
       } catch (err) {
         console.error('Export: the hunt could not be read', err)
@@ -56,7 +58,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
       }
     }
     void ask()
-  }, [convex, hunt, openQuiz])
+  }, [convex, browser_key, hunt, openQuiz])
 
   const current = outcome?.hunt === hunt && outcome.openQuiz === openQuiz ? outcome : null
   return { whole: current?.whole ?? null, asking, failed: current !== null && current.whole === null, prepare }

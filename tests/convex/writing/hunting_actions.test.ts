@@ -3,6 +3,7 @@ import { membersOf } from '../../../convex/reading'
 import { failurekindOf, noticeOf } from '../../../src/lib/refusals'
 import { identUnknownNotice } from '../../../src/lib/notices'
 import * as PA from '../../../src/lib/vv/patterns'
+import { mintId } from '../../../src/lib/ids'
 import { Hunt } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
 import { expectRefusal, huntHolding, identified, openTester, seedHunt, type Seeded } from '../../support/convex'
@@ -12,9 +13,8 @@ import { expectRefusal, huntHolding, identified, openTester, seedHunt, type Seed
  * from, as a hunt made through `new_hunt` would.
  */
 async function smithed(locked = false) {
-  const seeded = await seedHunt(openTester(), locked ? huntHolding([{ ...Quiz.blank('Quiz one'), locked }]) : Hunt.blank())
-  const alice = await identified(seeded.tt, 'alice_smiths')
-  await seeded.tt.run(async (ctx) => { await ctx.db.insert('huntings', { hunt_id: seeded.open.hunt_id, ident_id: alice.ident_id, role: 'smith' }) })
+  const seeded = await seedHunt(openTester(), locked ? huntHolding([{ ...Quiz.blank('Quiz one'), locked }]) : Hunt.blank(), { smith: 'alice_smiths' })
+  const alice = seeded.smith
   const asAlice = async (action: Parameters<Seeded['act']>[0]) => { await seeded.act(action, alice.browser_key) }
   return { ...seeded, alice, asAlice }
 }
@@ -79,7 +79,7 @@ describe('hunts.perform: add_hunting', () => {
   it('refuses a browser that has not said who it is', async () => {
     const seeded = await smithed()
     await identified(seeded.tt, 'bob_reviews')
-    await expectRefusal(seeded.act({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' }), 'notIdentified')
+    await expectRefusal(seeded.act({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' }, mintId()), 'notIdentified')
   })
 
   it('works while the open quiz is locked: who is on the hunt is not the quiz\'s', async () => {
@@ -128,6 +128,6 @@ describe('hunts.perform: remove_hunting', () => {
 
   it('refuses a browser that has not said who it is', async () => {
     const seeded = await smithed()
-    await expectRefusal(seeded.act({ kind: 'remove_hunting', ident_id: seeded.alice.ident_id }), 'notIdentified')
+    await expectRefusal(seeded.act({ kind: 'remove_hunting', ident_id: seeded.alice.ident_id }, mintId()), 'notIdentified')
   })
 })
