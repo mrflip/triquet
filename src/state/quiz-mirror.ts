@@ -7,7 +7,6 @@ import * as Labelmaker from '../lib/labelmaker'
 import * as Quizgit from '../lib/quizgit'
 import { createCommitScheduler, type MirrorSnapshot } from './commit-scheduler'
 import { MirrorSettings } from '../models/mirror-settings'
-import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
 
 /** Where this browser keeps the quiz histories, alongside but separate from the database itself */
@@ -114,62 +113,49 @@ async function writesLanded(): Promise<void> {
   await Promise.allSettled(writing)
 }
 
-/** Every quiz of `hunt`, each with where it sits */
-function placedQuizzes(hunt: HuntT): { quiz: QuizT, place: Quizgit.QuizPlace }[] {
-  const huntLabel = Labelmaker.effectiveLabelOf(hunt)
-  return hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => ({ quiz, place: { hunt: huntLabel, realm: realm.label } })))
-}
-
 /** The quizzes this tab has already made sure have a history */
 const opened = new Set<string>()
 
 /**
- * Make sure every quiz in `hunt` has a history, starting with the quiz as it stands.
- *
- * A quiz can arrive without anyone dispatching anything: a hunt's first quiz is made along with
- * it, and one made on another device, or by someone else, arrives by sync. Each is opened once per tab, and a
- * quiz that already has commits is left alone. Fire-and-forget, like the mirror it feeds.
- *
- * @param hunt - The hunt as it now stands.
+ * Make sure the quiz `latest` holds has a history, starting with the quiz as it stands; a quiz
+ * that already has commits is left alone. Done once per quiz per tab, and at once rather than
+ * after the wait, so a quiz's history opens with its creation even if the tab closes straight
+ * after.
  */
-export function openHistories(hunt: HuntT): void {
-  for (const { quiz, place } of placedQuizzes(hunt)) {
-    if (opened.has(quiz._id)) { continue }
-    opened.add(quiz._id)
-    const open = async () => {
-      try {
-        await enqueue(async (fs) => await Quizgit.commitFirst(fs, quiz, hunt.expressions, place))
-      } catch {
-        // A record that misses a commit is a smaller loss than an edit that fails.
-      }
+function openHistory(latest: MirrorSnapshot): void {
+  if (opened.has(latest.quiz._id)) { return }
+  opened.add(latest.quiz._id)
+  const open = async () => {
+    try {
+      await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions, latest.place))
+    } catch {
+      // A record that misses a commit is a smaller loss than an edit that fails.
     }
-    void open()
   }
+  void open()
 }
 
 /**
- * Note every quiz that moved between two readings of a hunt, for committing after the wait.
+ * Note the open quiz as it now stands, for its history: whoever changed it, in this tab, another,
+ * or another browser. The first reading of a quiz makes sure it has a history; each after that
+ * notes what moved since the one before, for committing after the wait.
  *
- * Fire-and-forget by design: the caller has already written the change to storage, and must not
- * wait on, or fail for, a mirror that is only ever a record.
+ * Fire-and-forget by design: the change is already stored, and nothing waits on, or fails for, a
+ * mirror that is only ever a record. A deleted quiz is never read again, so its history is left
+ * exactly as it stood: the one thing deletion should not take away.
  *
- * A quiz that has only now come into being is committed at once rather than after the wait, so
- * its history opens with its creation even if the tab closes before the wait is up.
+ * @param before - The quiz as last read, or null for the first reading.
+ * @param after - The quiz as it now stands.
  *
- * A deleted quiz is left exactly as it stood. Its history is the one thing deletion should not
- * take away, and nothing else in this browser still holds it.
- *
- * @param before - The hunt as it stood.
- * @param after - The hunt as it now stands.
+ * @example mirrorQuiz(null, { quiz, expressions, place })  // opens the quiz's history
  */
-export function mirrorHunt(before: HuntT, after: HuntT): void {
-  const wasById = new Map(placedQuizzes(before).map((placed) => [placed.quiz._id, placed]))
-  for (const { quiz, place } of placedQuizzes(after)) {
-    const was = wasById.get(quiz._id) ?? null
-    if (quiz === was?.quiz && before.expressions === after.expressions && place.hunt === was.place.hunt && place.realm === was.place.realm) { continue }
-    scheduler.note(was ? { quiz: was.quiz, expressions: before.expressions, place: was.place } : null, { quiz, expressions: after.expressions, place })
-    if (! was) { void scheduler.flush(quiz._id) }
+export function mirrorQuiz(before: MirrorSnapshot | null, after: MirrorSnapshot): void {
+  if (before?.quiz._id !== after.quiz._id) {
+    openHistory(after)
+    return
   }
+  const moved = before.quiz !== after.quiz || before.expressions !== after.expressions || before.place.hunt !== after.place.hunt || before.place.realm !== after.place.realm
+  if (moved) { scheduler.note(before, after) }
 }
 
 /**

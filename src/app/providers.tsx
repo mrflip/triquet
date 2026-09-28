@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter'
 import { CssBaseline, ThemeProvider } from '@mui/material'
-import { JazzProvider } from 'jazz-tools/react'
-import { syncSettings } from '../db/sync-settings'
-import { SyncFailed, SyncOpening, SyncSignedOut, SyncUnconfigured } from '../components/SyncNotices'
-import { SyncLog, announceSync } from '../components/SyncLog'
+import { ConvexProvider, ConvexReactClient } from 'convex/react'
+import { SyncUnconfigured } from '../components/SyncNotices'
+import { SyncLog } from '../components/SyncLog'
+import { convexUrl } from '../state/convex-url'
 import { theme } from './theme'
 
 /** MUI's styling and theme, which everything on the page draws in, the header included */
@@ -22,26 +22,19 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 /**
- * The browser's Jazz database, opened under a local-first account: one made silently on first
- * visit and kept in this browser, with no login. Each view it can show logs the session's
- * state as it changes.
+ * The page's connection to its Convex deployment, which every hunt and quiz is read from and
+ * written to. There is no account and no login: a browser says who it is by a key it keeps.
  */
 export function SyncProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const settings = useMemo(() => syncSettings(), [])
-  useEffect(() => {
-    if (settings) { announceSync(settings) }
-  }, [settings])
-  if (! settings) { return <SyncUnconfigured /> }
+  const [client] = useState(() => {
+    const url = convexUrl()
+    return url === undefined ? null : new ConvexReactClient(url)
+  })
+  if (client === null) { return <SyncUnconfigured /> }
   return (
-    <JazzProvider
-      {...settings}
-      initial="local-first"
-      loading={<><SyncLog /><SyncOpening /></>}
-      signedOut={<><SyncLog /><SyncSignedOut /></>}
-      error={(state) => <><SyncLog /><SyncFailed onRetry={() => { void state.retry() }} /></>}
-    >
+    <ConvexProvider client={client}>
       <SyncLog />
       {children}
-    </JazzProvider>
+    </ConvexProvider>
   )
 }

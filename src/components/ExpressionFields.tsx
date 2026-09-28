@@ -10,17 +10,19 @@ import { formulaPrompt } from '../lib/formula-prompt'
 import * as Rank from '../lib/rank'
 import { ExpressionValidators, type ExpressionT } from '../models/expression'
 import type { PromptSubject } from '../lib/formula-prompt'
+import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import { Hunt, type HuntT } from '../models/hunt'
+import { useOtherQuiz } from '../state/use-other-quiz'
 import styles from './workbench.module.css'
 
 /** The parts of an expression being edited */
 export type ExpressionDraft = Pick<ExpressionT, 'label' | 'description' | 'formula'>
 
 export type ExpressionFieldsProps = {
-  hunt:          HuntT
-  /** The quiz whose questions the preview starts on */
-  defaultQuizId: string
+  /** The hunt, whose every quiz the preview can be pointed at */
+  hunt:          ShallowHuntT
+  /** The quiz on screen, whose questions the preview starts on */
+  openQuiz:      QuizT
   draft:         ExpressionDraft
   onChange:      (patch: Partial<ExpressionDraft>) => void
   /** A new expression is named here; an existing one is not renamed */
@@ -39,12 +41,15 @@ export type ExpressionFieldsProps = {
  * seen, before anything is applied. Any quiz of the hunt and any of its questions can be
  * picked; it starts on the lowest-numbered question of the open quiz.
  */
-export function ExpressionFields({ hunt, defaultQuizId, draft, onChange, labelEditable, labelIssue, expressing }: Readonly<ExpressionFieldsProps>) {
-  const [quizId, setQuizId] = useState(defaultQuizId)
+export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditable, labelIssue, expressing }: Readonly<ExpressionFieldsProps>) {
+  const [quizId, setQuizId] = useState<string>(openQuiz._id)
   const [questionId, setQuestionId] = useState<string | null>(null)
 
-  const quizzes = useMemo(() => Hunt.quizzesOf(hunt), [hunt])
-  const quiz: QuizT | undefined = quizzes.find((held) => held._id === quizId) ?? quizzes[0]
+  const quizzes = useMemo(() => hunt.realms.flatMap((realm) => realm.quizzes), [hunt])
+  // Another quiz than the one on screen is read for as long as the preview is pointed at it.
+  const picked = quizId === openQuiz._id ? null : quizzes.find((row) => row._id === quizId) ?? null
+  const other = useOtherQuiz(picked?._id ?? null)
+  const quiz: QuizT | null = picked ? other : openQuiz
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
   const question = ranked.find((held) => held._id === questionId) ?? ranked[0]
   const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz ? Expressed.bagsFor(quiz) : new Map()), [quiz])
@@ -79,7 +84,7 @@ export function ExpressionFields({ hunt, defaultQuizId, draft, onChange, labelEd
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, alignItems: 'center' }}>
         <TextField
-          select size="small" label="Preview quiz" value={quiz?._id ?? ''} sx={{ minWidth: 180 }}
+          select size="small" label="Preview quiz" value={quizId} sx={{ minWidth: 180 }}
           onChange={(event) => { setQuizId(event.target.value); setQuestionId(null) }}
         >
           {quizzes.map((held) => <MenuItem key={held._id} value={held._id}>{held.title || held.label}</MenuItem>)}

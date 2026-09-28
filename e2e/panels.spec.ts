@@ -6,6 +6,8 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
   await page.getByLabel('Quiz name').click()
+  // The export is read from the database once the edit has landed there.
+  await expect(page.getByRole('textbox', { name: 'Export' })).toHaveValue(/"title":"Quiz one"/)
 })
 
 test('Export emits the whole hunt as compact JSON', async ({ page }) => {

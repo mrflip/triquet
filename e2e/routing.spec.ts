@@ -9,7 +9,7 @@ function huntLabelOf(page: Page): string {
   return String(new URL(page.url()).pathname.split('/', 3)[2])
 }
 
-/** A title no other spec gives a quiz: specs share one Jazz server, and the hunts list shows every hunt on it */
+/** A title no other spec gives a quiz: specs share one database, and the hunts list shows every hunt in it */
 function freshTitle(stem: string): string {
   return `${stem} ${crypto.randomUUID().slice(0, 8)}`
 }

@@ -27,7 +27,7 @@ export type QuizRouteProps = {
 export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const { finding, hunt, realm, quiz, reviews, dispatch, unsaved, saveNotice } = useHunt(labels)
+  const { finding, hunt, realm, quiz, reviews, dispatch, landed, unsaved, saveNotice } = useHunt(labels)
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
@@ -44,5 +44,5 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   if (act === 'review') {
     return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
   }
-  return <Workbench hunt={hunt} realm={realm} quiz={quiz} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
+  return <Workbench hunt={hunt} realm={realm} quiz={quiz} reviews={reviews} dispatch={dispatch} landed={landed} unsaved={unsaved} saveNotice={saveNotice} />
 }

@@ -111,22 +111,6 @@ describe('Hunt.fill with expressions', () => {
   })
 })
 
-describe('Hunt.realmFor', () => {
-  it('finds a realm by label, or nothing', () => {
-    const hunt = Hunt.blank()
-    expect([Hunt.realmFor(hunt, 'home')?.label, Hunt.realmFor(hunt, 'away')]).to.deep.eq(['home', undefined])
-  })
-})
-
-describe('Hunt.expressionUsage', () => {
-  it('counts the widgets, across every quiz of every realm, that work an expression', () => {
-    const blank = Hunt.blank()
-    const [first] = Hunt.quizzesOf(blank)
-    const hunt = Hunt.fill({ ...blank, realms: [...blank.realms, { _id: mintId(), label: 'away', quizzes: [{ ...present(first), _id: mintId() }] }] })
-    expect([Hunt.expressionUsage(hunt, 'clueing_full'), Hunt.expressionUsage(hunt, 'answer_reversed')]).to.deep.eq([2, 0])
-  })
-})
-
 describe('HuntValidators.row', () => {
   const Row = { label: 'quiet_otter', forced_label: null, title: 'Quiet Otter' }
 

@@ -7,20 +7,19 @@ import { AnswerLock } from './cells/answer-lock'
 import { ButnotPreview } from './cells/chain'
 import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
-import type { ReviewRow } from '../db/schema'
+import { reviewBy, type ReviewedT } from '../lib/rows'
 import type { IdentT } from '../models/ident'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
-import { reviewRowFor } from '../state/quiz-rows'
-import type { HuntAction } from '../state/actions'
+import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type ReviewScreenProps = {
   quiz:       QuizT
   ident:      IdentT
   /** Every ident's review of this quiz */
-  reviews:    readonly ReviewRow[]
-  dispatch:   (action: HuntAction) => void
+  reviews:    readonly ReviewedT[]
+  dispatch:   (action: HuntActionDNA) => void
   unsaved:    boolean
   saveNotice: string | null
 }
@@ -40,7 +39,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
     dispatch({ kind: 'open_review', quiz_id: quiz._id })
   }, [dispatch, quiz._id, ident._id])
 
-  const own = reviewRowFor(reviews, ident._id) ?? null
+  const own = reviewBy(reviews, ident._id)
   const questions = useMemo(() => Rank.inRankOrder(quiz.questions), [quiz.questions])
   const { draft, onChange, onBlur } = useDraft(own?.overall ?? '', (overall) => {
     dispatch({ kind: 'set_overall', quiz_id: quiz._id, overall })

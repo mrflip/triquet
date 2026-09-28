@@ -48,9 +48,10 @@ test.describe('the icons', () => {
 })
 
 test.describe('the about page', () => {
-  test('shows without the database, which it never opens', async ({ page }) => {
-    // Without Jazz's runtime no page inside the sync boundary gets past its opening notice.
-    await page.route('**/jazz/**', (route) => route.abort())
+  test('shows without the database, which it never opens', async ({ page, baseURL }) => {
+    // With the database unreachable no page that reads it gets past its opening notice.
+    const appHost = new URL(String(baseURL)).host
+    await page.routeWebSocket((url) => url.host !== appHost, (socket) => { void socket.close() })
     await page.goto('/about')
     await expect(page.getByRole('heading', { name: 'About Triquet' })).toBeVisible()
   })

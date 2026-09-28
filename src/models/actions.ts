@@ -101,6 +101,8 @@ export type HuntActionDNA = Z.input<typeof ActionValidators.huntAction>
 export type HuntActionT   = Z.output<typeof ActionValidators.huntAction>
 /** What the author did to a quiz's widgets or columns, or to the hunt's expressions, validated */
 export type LayoutActionT = Extract<HuntActionT, { kind: typeof LayoutActionKindVals[number] }>
+/** What a visitor did before opening any quiz, as a view says it */
+export type AccountActionDNA = Z.input<typeof ActionValidators.accountAction>
 /** What a visitor did before opening any quiz, validated */
 export type AccountActionT = Z.output<typeof ActionValidators.accountAction>
 

@@ -10,12 +10,12 @@ import * as Labelmaker from '../lib/labelmaker'
 import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, type ColumnT } from '../models/column'
 import { QuestionWidgetLabel } from '../models/widget'
 import type { QuizT } from '../models/quiz'
-import type { HuntAction } from '../state/actions'
+import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type ColumnsEditorProps = {
   quiz:     QuizT
-  dispatch: (action: HuntAction) => void
+  dispatch: (action: HuntActionDNA) => void
 }
 
 /** Which column's editor is open: one of the quiz's, or a new one */
@@ -60,7 +60,7 @@ type ColumnRowProps = {
   column:   ColumnT
   handle:   React.ReactNode
   locked:   boolean
-  dispatch: (action: HuntAction) => void
+  dispatch: (action: HuntActionDNA) => void
   onEdit:   () => void
 }
 
@@ -92,7 +92,7 @@ type ColumnDialogProps = {
   quiz:     QuizT
   /** The column being edited, or null to make a new one */
   column:   ColumnT | null
-  dispatch: (action: HuntAction) => void
+  dispatch: (action: HuntActionDNA) => void
   onClose:  () => void
 }
 

@@ -11,7 +11,7 @@ import type { LastErrT } from '../models/ask'
 import type { GuessDoneT } from '../models/guess'
 import type { IshesDoneT } from '../models/ish'
 import type { QuestionT } from '../models/question'
-import type { HuntAction } from './actions'
+import type { HuntActionDNA } from '../models/actions'
 
 /** Which of a question's askable cells an ask is for */
 export const AskkindVals = ['guess', 'clueing', 'hint'] as const
@@ -56,7 +56,7 @@ export function askCellkey(question_id: string, askkind: Askkind): string {
  * @param dispatch - How a finished ask reaches the quiz.
  * @returns Whether each cell is busy, how to ask, and how to hold a batch of cells busy.
  */
-export function useAsking(dispatch: (action: HuntAction) => void): AskingHandle {
+export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHandle {
   const [inFlight, setInFlight] = useState<ReadonlySet<string>>(new Set())
   const [running, setRunning] = useState(false)
   const [runNotice, setRunNotice] = useState<string | null>(null)

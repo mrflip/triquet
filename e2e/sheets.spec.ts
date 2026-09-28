@@ -54,8 +54,8 @@ test('the export is the same however the grid is sorted', async ({ page }) => {
 test('a line break in a field never starts a new spreadsheet row', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Notes' }).first().fill('two\nlines')
   await page.getByLabel('Quiz name').click()
+  await expect.poll(() => sheetsText(page)).toContain('two<br/>lines')
   const text = await sheetsText(page)
-  expect(text).toContain('two<br/>lines')
   expect(text.split('\n')).toHaveLength(6)
 })
 

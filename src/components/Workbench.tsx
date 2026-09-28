@@ -20,17 +20,16 @@ import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
-import type { HuntT } from '../models/hunt'
+import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import type { RealmT } from '../models/realm'
 import type { HuntHandle } from '../state/use-hunt'
 import styles from './workbench.module.css'
 
-export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'unsaved' | 'saveNotice' | 'reviews'> & {
-  /** The hunt the address names */
-  hunt:  HuntT
+export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'landed' | 'unsaved' | 'saveNotice' | 'reviews'> & {
+  /** The hunt the address names, as a quiz's screen holds it */
+  hunt:  ShallowHuntT
   /** The realm the address names, whose quizzes are the open quiz's siblings */
-  realm: RealmT
+  realm: ShallowRealmT
   /** The quiz the address names: the one on screen */
   quiz:  QuizT
 }
@@ -42,7 +41,7 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'unsaved' | 'saveNoti
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
  * by navigating, and every editing action lands on the quiz the address names.
  */
-export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, reviews, dispatch, landed, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
@@ -69,6 +68,14 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
     router.push(pathFor(Labelmaker.effectiveLabelOf(target)))
   }
 
+  /**
+   * Go to the quiz labelled `label` once the change that makes it answer there has landed, and
+   * not at all when that change was refused: until then the address would name no quiz.
+   */
+  const goOnceLanded = async (label: string, how: 'push' | 'replace') => {
+    if (await landed()) { router[how](pathFor(label)) }
+  }
+
   const batching = checklist.checking && ! quiz.locked
   const doomed = quiz.questions.filter((question) => doomedIds?.includes(question._id))
 
@@ -92,7 +99,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
           // about to go to has to name it.
           const fresh = Labelmaker.freshLabelFor(realm.quizzes)
           dispatch({ kind: 'new_quiz', label: fresh })
-          router.push(pathFor(fresh))
+          void goOnceLanded(fresh, 'push')
         }}
         onDelete={(quiz_id) => {
           // Worked out before the deletion, and matching the neighbour the action will settle
@@ -122,7 +129,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
           realm={realm}
           quiz={quiz}
           dispatch={dispatch}
-          onRelabelled={(relabelled) => { router.replace(pathFor(relabelled)) }}
+          onRelabelled={(relabelled) => { void goOnceLanded(relabelled, 'replace') }}
           onOpen={goTo}
           onEditExpressions={() => { setEditingExpressions(true) }}
         />
@@ -131,7 +138,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
         <ExpressionsModal
           onClose={() => { setEditingExpressions(false) }}
           hunt={hunt}
-          quizId={quiz._id}
+          quiz={quiz}
           dispatch={dispatch}
         />
       )}

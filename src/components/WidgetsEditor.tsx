@@ -11,14 +11,14 @@ import { NewExpression, planExpressingEdit, planBottingEdit, type WidgetPlan } f
 import { BotLabelVals } from '../models/bot-label'
 import type { ExpressingT, BottingWidgetT, WidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
-import type { HuntT } from '../models/hunt'
-import type { HuntAction } from '../state/actions'
+import type { ShallowHuntT } from '../lib/rows'
+import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type WidgetsEditorProps = {
-  hunt:              HuntT
+  hunt:              ShallowHuntT
   quiz:              QuizT
-  dispatch:          (action: HuntAction) => void
+  dispatch:          (action: HuntActionDNA) => void
   onEditExpressions: () => void
 }
 
@@ -77,18 +77,18 @@ function widgetNote(widget: WidgetT): string {
 const BlankExpression: ExpressionDraft = { label: '', description: '', formula: '' }
 
 /** Runs `plan`, dispatching what it comes to; says what is wrong instead when it is refused */
-function carryOut(plan: WidgetPlan, dispatch: (action: HuntAction) => void, refuse: (issue: string, labelIssue: string | null) => void, done: () => void) {
+function carryOut(plan: WidgetPlan, dispatch: (action: HuntActionDNA) => void, refuse: (issue: string, labelIssue: string | null) => void, done: () => void) {
   if (! plan.ok) { refuse(plan.issue, plan.labelIssue); return }
   for (const action of plan.actions) { dispatch(action) }
   done()
 }
 
 type ExpressingDialogProps = {
-  hunt:      HuntT
+  hunt:      ShallowHuntT
   quiz:      QuizT
   /** The widget being edited, or null to make a new one */
   widget:    ExpressingT | null
-  dispatch:  (action: HuntAction) => void
+  dispatch:  (action: HuntActionDNA) => void
   onClose:   () => void
 }
 
@@ -147,7 +147,7 @@ function ExpressingDialog({ hunt, quiz, widget, dispatch, onClose }: Readonly<Ex
           <ExpressionFields
             key={expressionLabel}
             hunt={hunt}
-            defaultQuizId={quiz._id}
+            openQuiz={quiz}
             draft={draft}
             onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null); setLabelIssue(null) }}
             labelEditable={isNew}
@@ -180,7 +180,7 @@ type BottingDialogProps = {
   quiz:     QuizT
   /** The widget being edited, or null to make a new one */
   widget:   BottingWidgetT | null
-  dispatch: (action: HuntAction) => void
+  dispatch: (action: HuntActionDNA) => void
   onClose:  () => void
 }
 

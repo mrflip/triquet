@@ -3,8 +3,7 @@ import { Column } from '../models/column'
 import { DefaultOwner, ExpressionValidators, type ExpressionT } from '../models/expression'
 import { QuestionWidgetLabel, WidgetValidators, type ExpressingPatch, type ExpressingT, type BottingPatch, type BottingWidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
-import type { HuntT } from '../models/hunt'
-import type { HuntAction } from './actions'
+import type { HuntActionDNA } from '../models/actions'
 
 /** What the expression select says for "write a new one", which no expression is labelled */
 export const NewExpression = ''
@@ -26,7 +25,7 @@ export type ExpressingEdit = {
 
 /** What applying an edit comes to: the actions to dispatch, or what to tell the author is wrong */
 export type WidgetPlan =
-  | { ok: true, actions: HuntAction[] }
+  | { ok: true, actions: HuntActionDNA[] }
   | { ok: false, issue: string, labelIssue: string | null }
 
 /**
@@ -44,7 +43,7 @@ export type WidgetPlan =
  *
  * @example planExpressingEdit(edit, hunt, quiz)  // => { ok: true, actions: [{ kind: 'add_expression', ... }, { kind: 'add_widget', ... }, { kind: 'add_column', ... }] }
  */
-export function planExpressingEdit(edit: Readonly<ExpressingEdit>, hunt: Pick<HuntT, 'expressions'>, quiz: QuizT): WidgetPlan {
+export function planExpressingEdit(edit: Readonly<ExpressingEdit>, hunt: Readonly<{ expressions: readonly ExpressionT[] }>, quiz: QuizT): WidgetPlan {
   const isNew = edit.expressionLabel === NewExpression
   const expression_label = isNew ? Labelmaker.normalize(edit.expression.label) : edit.expressionLabel
   if (isNew && expression_label === '') { return refused('Give the new expression a label.', true) }
@@ -63,7 +62,7 @@ export function planExpressingEdit(edit: Readonly<ExpressingEdit>, hunt: Pick<Hu
   const checked = WidgetValidators.expressing.safeParse({ kind: 'expressing', label, expression_label, description: edit.description })
   if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That widget will not do.') }
 
-  const widgetActions: HuntAction[] = edit.widget === null
+  const widgetActions: HuntActionDNA[] = edit.widget === null
     ? [{ kind: 'add_widget', widget: checked.data }, newColumnFor(quiz, checked.data.label, NewExpressingWidthPx)]
     : editWidgetActions(edit.widget, checked.data)
   return { ok: true, actions: [...expressionActions, ...widgetActions] }
@@ -105,7 +104,7 @@ function refused(issue: string, labelIssue = false): WidgetPlan {
 }
 
 /** Adding the expression when it is new, revising it when it changed, and nothing otherwise */
-function expressionActionsFor(hunt: Pick<HuntT, 'expressions'>, expression: ExpressionT, isNew: boolean): HuntAction[] {
+function expressionActionsFor(hunt: Readonly<{ expressions: readonly ExpressionT[] }>, expression: ExpressionT, isNew: boolean): HuntActionDNA[] {
   if (isNew) { return [{ kind: 'add_expression', expression }] }
   const held = hunt.expressions.find((other) => other.label === expression.label)
   if (held?.formula === expression.formula && held.description === expression.description) { return [] }
@@ -113,7 +112,7 @@ function expressionActionsFor(hunt: Pick<HuntT, 'expressions'>, expression: Expr
 }
 
 /** A column showing the widget labelled `label`, titled after it, for a new widget to bring with it */
-function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntAction {
+function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntActionDNA {
   const taken = new Set(quiz.columns.map((column) => column.label))
   const columnLabel = taken.has(label) ? Labelmaker.appendFallback(label) : label
   const column = Column.fill({ label: columnLabel, title: Labelmaker.titleize(label), source: label, width_px })
@@ -122,7 +121,7 @@ function newColumnFor(quiz: QuizT, label: string, width_px: number): HuntAction 
 }
 
 /** Revising only what changed in an existing widget */
-function editWidgetActions(held: ExpressingT | BottingWidgetT, next: ExpressingT | BottingWidgetT): HuntAction[] {
+function editWidgetActions(held: ExpressingT | BottingWidgetT, next: ExpressingT | BottingWidgetT): HuntActionDNA[] {
   const changed = Object.entries(next).filter(([key, val]) => key !== 'kind' && (held as Record<string, unknown>)[key] !== val)
   if (changed.length === 0) { return [] }
   const patch: ExpressingPatch | BottingPatch = Object.fromEntries(changed)

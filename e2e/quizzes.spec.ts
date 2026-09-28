@@ -63,6 +63,8 @@ test('a locked quiz accepts no edits, but stays readable and copyable', async ({
 
 test('the lock holds even when an edit is forced past the disabled controls', async ({ page }) => {
   await page.getByRole('button', { name: 'Lock quiz' }).click()
+  // Forced only once the lock has landed, or the page would put the attribute straight back.
+  await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveAttribute('readonly', '')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().evaluate((node) => {
     const field = node as HTMLTextAreaElement
     field.removeAttribute('readonly')
