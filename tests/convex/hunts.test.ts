@@ -342,7 +342,7 @@ describe('hunts.perform', () => {
       const expectOrderHolds = async () => {
         const [ordered, held] = await tt.run(async (ctx) => {
           const quiz = present(await ctx.db.get('quizzes', open.quiz_id))
-          const rows = await ctx.db.query('questions').withIndex('by_quiz_id', (range) => range.eq('quiz_id', open.quiz_id)).collect()
+          const rows = await ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect()
           return [quiz.row_ordering.toSorted(byId), rows.map((row) => row._id).toSorted(byId)]
         })
         expect(ordered).to.deep.eq(held)
@@ -1119,14 +1119,14 @@ describe('hunts.perform, at the caps', () => {
   it('refuses a widget more than a quiz may hold', async () => {
     const { act, tt, open } = await crowded('widgets', 99)
     await expectRefusal(act({ kind: 'add_widget', widget: { kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' } }), 'widgetsFull')
-    const widgets = await tt.run(async (ctx) => await ctx.db.query('widgets').withIndex('by_quiz_id_and_position', (range) => range.eq('quiz_id', open.quiz_id)).collect())
+    const widgets = await tt.run(async (ctx) => await ctx.db.query('widgets').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect())
     expect(widgets).to.have.lengthOf(99)
   })
 
   it('refuses a column more than a quiz may hold', async () => {
     const { act, tt, open } = await crowded('columns', 99)
     await expectRefusal(act({ kind: 'add_column', column: { label: 'one_more', title: 'One more', source: 'question.qnum', width_px: 80 } }), 'columnsFull')
-    const columns = await tt.run(async (ctx) => await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (range) => range.eq('quiz_id', open.quiz_id)).collect())
+    const columns = await tt.run(async (ctx) => await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect())
     expect(columns).to.have.lengthOf(99)
   })
 

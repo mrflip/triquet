@@ -13,13 +13,13 @@ export type Reader = QueryCtx['db']
 
 /** The newest identing a browser has made, and so the ident it is now; null when it has never said */
 export async function identFor(db: Reader, browser_key: string): Promise<Doc<'idents'> | null> {
-  const identing = await db.query('identings').withIndex('by_browser_key', (range) => range.eq('browser_key', browser_key)).order('desc').first()
+  const identing = await db.query('identings').withIndex('by_browser_key', (cvx) => cvx.eq('browser_key', browser_key)).order('desc').first()
   return identing && await db.get('idents', identing.ident_id)
 }
 
 /** The ident answering to `label`: the earliest made, should two have been made with one */
 export async function identForLabel(db: Reader, label: string): Promise<Doc<'idents'> | null> {
-  return await db.query('idents').withIndex('by_label', (range) => range.eq('label', label)).first()
+  return await db.query('idents').withIndex('by_label', (cvx) => cvx.eq('label', label)).first()
 }
 
 /**
@@ -29,8 +29,8 @@ export async function identForLabel(db: Reader, label: string): Promise<Doc<'ide
  * @example (await huntForLabel(db, 'quiet_otter'))?._id
  */
 export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunts'> | null> {
-  const forced = await db.query('hunts').withIndex('by_forced_label', (range) => range.eq('forced_label', label)).first()
-  const minted = await db.query('hunts').withIndex('by_label', (range) => range.eq('label', label)).filter((where) => where.eq(where.field('forced_label'), null)).first()
+  const forced = await db.query('hunts').withIndex('by_forced_label', (cvx) => cvx.eq('forced_label', label)).first()
+  const minted = await db.query('hunts').withIndex('by_label', (cvx) => cvx.eq('label', label)).filter((cvx) => cvx.eq(cvx.field('forced_label'), null)).first()
   if (! forced || ! minted) { return forced ?? minted }
   return forced._creationTime < minted._creationTime ? forced : minted
 }
@@ -67,18 +67,18 @@ export async function membersOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Membe
 
 /** A hunt's realms in order, each with its quizzes' rows in the order they were made */
 export async function realmsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<RealmRows[]> {
-  const realms = await db.query('realms').withIndex('by_hunt_id_and_position', (range) => range.eq('hunt_id', hunt_id)).take(PA.RealmsPerHunt.max)
+  const realms = await db.query('realms').withIndex('by_hunt_id_and_position', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.RealmsPerHunt.max)
   return await Promise.all(realms.map(async (realm) => ({ realm, quizzes: await quizzesOf(db, realm._id) })))
 }
 
 /** A realm's quizzes' rows, in the order they were made */
 export async function quizzesOf(db: Reader, realm_id: Id<'realms'>): Promise<Doc<'quizzes'>[]> {
-  return await db.query('quizzes').withIndex('by_realm_id', (range) => range.eq('realm_id', realm_id)).take(PA.QuizzesPerRealm.max)
+  return await db.query('quizzes').withIndex('by_realm_id', (cvx) => cvx.eq('realm_id', realm_id)).take(PA.QuizzesPerRealm.max)
 }
 
 /** A hunt's expressions, in order */
 export async function expressionsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Doc<'expressions'>[]> {
-  return await db.query('expressions').withIndex('by_hunt_id_and_position', (range) => range.eq('hunt_id', hunt_id)).take(PA.ExpressionsPerHunt.max)
+  return await db.query('expressions').withIndex('by_hunt_id_and_position', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.ExpressionsPerHunt.max)
 }
 
 /**
@@ -95,7 +95,7 @@ export async function huntRowsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Hunt
 
 /** A quiz's widgets, in order */
 export async function widgetsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Doc<'widgets'>[]> {
-  return await db.query('widgets').withIndex('by_quiz_id_and_position', (range) => range.eq('quiz_id', quiz_id)).take(PA.WidgetsPerQuiz.max)
+  return await db.query('widgets').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.WidgetsPerQuiz.max)
 }
 
 /**
@@ -124,7 +124,7 @@ export async function expressionUsageOf(db: Reader, realms: readonly RealmRows[]
  */
 async function slotRowsOf(db: Reader, question_id: Id<'questions'>, slot: BotSlot): Promise<SlotRows | null> {
   const history = db.query('bottings')
-    .withIndex('by_question_id_and_bot_label_and_textkind', (range) => range.eq('question_id', question_id).eq('bot_label', slot.bot_label).eq('textkind', slot.textkind))
+    .withIndex('by_question_id_and_bot_label_and_textkind', (cvx) => cvx.eq('question_id', question_id).eq('bot_label', slot.bot_label).eq('textkind', slot.textkind))
     .order('desc')
   const seen: { newest: Doc<'bottings'> | null } = { newest: null }
   for await (const botting of history) {
@@ -170,7 +170,7 @@ export async function layoutRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<
   if (! quiz) { return null }
   const [widgets, columns] = await Promise.all([
     widgetsOf(db, quiz_id),
-    db.query('columns').withIndex('by_quiz_id_and_position', (range) => range.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
+    db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
   ])
   return { quiz, widgets, columns }
 }
@@ -192,12 +192,12 @@ export async function quizRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Qu
 
 /** A quiz's reviews, oldest first: the order two reviews by one ident are settled by */
 export async function reviewsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Doc<'reviews'>[]> {
-  return await db.query('reviews').withIndex('by_quiz_id', (range) => range.eq('quiz_id', quiz_id)).take(PA.ReviewsPerQuiz.max)
+  return await db.query('reviews').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.ReviewsPerQuiz.max)
 }
 
 /** The review of `quiz_id` that `ident_id` has made, the earliest should two exist; null when none */
 export async function reviewFor(db: Reader, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>): Promise<Doc<'reviews'> | null> {
-  return await db.query('reviews').withIndex('by_quiz_id_and_ident_id', (range) => range.eq('quiz_id', quiz_id).eq('ident_id', ident_id)).first()
+  return await db.query('reviews').withIndex('by_quiz_id_and_ident_id', (cvx) => cvx.eq('quiz_id', quiz_id).eq('ident_id', ident_id)).first()
 }
 
 /** A review's reviewings: at most one per question of its quiz, which the quiz's cap bounds */

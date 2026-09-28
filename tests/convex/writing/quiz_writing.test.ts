@@ -41,9 +41,9 @@ function titled(...titles: string[]): HuntT {
 async function heldCounts(tt: Tester, quiz_id: Id<'quizzes'>): Promise<number[]> {
   return await tt.run(async (ctx) => {
     const quiz = await ctx.db.get('quizzes', quiz_id)
-    const byQuiz = async (tablename: 'widgets' | 'columns') => await ctx.db.query(tablename).withIndex('by_quiz_id_and_position', (range) => range.eq('quiz_id', quiz_id)).collect()
+    const byQuiz = async (tablename: 'widgets' | 'columns') => await ctx.db.query(tablename).withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).collect()
     const [questions, widgets, columns] = await Promise.all([
-      ctx.db.query('questions').withIndex('by_quiz_id', (range) => range.eq('quiz_id', quiz_id)).collect(), byQuiz('widgets'), byQuiz('columns'),
+      ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).collect(), byQuiz('widgets'), byQuiz('columns'),
     ])
     const bottings = await ctx.db.query('bottings').collect()
     const reviews = await reviewsOf(ctx.db, quiz_id)
