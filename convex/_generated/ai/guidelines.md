@@ -27,6 +27,18 @@ http.route({
 
 ### Validators
 
+A Validator should be your first choice for filling in defaults, coercing types, collapsing union types, checking limits.
+
+```ts
+function convertUnits(measured: MeasuredT, units: MeasurementUnitOrSomethingOrSomethingElse) {
+  const { measured: { val:fromVal, units:fromUnits }, intoUnits } = Validate.convertUnits.parse({ measured, intoUnits: units })
+  // do stuff with fromVal, fromUnits and intoUnits...
+  const intoVal = ...
+  return { ...measured, val: intoVal, units: intoUnits }
+}
+```
+No fear about measured being spreadable, and a generous interface for units without distracting code in the function
+
 - Below is an example of an array validator:
 
 ```typescript

@@ -59,6 +59,23 @@ REPEATING: This section on various import styles applies only when there's not a
 
 ## Naming Conventions
 
+
+**Smush variable tags `name`, `kind`, `label`, `path`, `bag` and `key` into one unit: `fooname` and `foolabel`,
+  but not `fooCount` or `fooIter`. (added 20260916)
+
+**Model fields are underscore_case** for database compatability. (added 20260916)
+
+**Validators match the case and name of their check**. If the field is `foo_count`, call the validator `foo_count`. Craft function guards to match the convenience of the function:
+
+```ts
+function diamForHatSize(sized: { hatSize: HatSize }, lengthUnits: LengthUnit): number {
+  const { sized: { hatSize } } = Validate.diamForHatSize.parse({ sized, lengthUnits })
+  // ...do stuff with hatSize and lengthUnits
+}
+```
+
+_(added 20260916)_
+
 **No single-letter names.** Use `row`, `col`, `thing`. The only sanctioned short names are `ii`,
 `jj` for traditional index iterators.
 
@@ -81,8 +98,8 @@ is the database's (`_id`, `_creationTime`).
 
 Specificity is a virtue: `bboxHt` makes clear that this height might depend on coordinate system.
 Don't add a tag when it's obvious: `title`, not `titleStr`.
-However, when genericity is exactly the salient feature, use one of the following tags as is:
-Good: `pad(str)` (any string might enjoy good padding).
+However, when genericity is exactly the salient feature, use the tag directly: BAD: `pad(displayableStr)` BETTER: `pad(str)` (any string might enjoy good padding).
+It's much easier to process names where each segment represents a separation of concerns -- `fooCount`, `planTier`
 
 ### Specific Naming Tags
 
@@ -115,7 +132,6 @@ Tags to append or use directly:
 * `arr`, `foos`, `foolist` -- array names, as taste informs (is the foo-ness or the array-ness more salient?)
 * `xx` / `yy` / `zz` for **position** values within the contextually natural coordinate system. Tag with the frame when the frame is not obvious from context
 * `from` and `onto` for initial and final position, `beg` and `end` for starting and ending points of a sequence or continuum, `ante` and `post` for before/after in time or processing steps, `prev`, `curr` and `next` for a chain or other ordered situation
-* `loc` would be a variable describing a location; used locally it can have any convenient type, but it's often useful to follow the ducktyped-intent-map pattern described elsewhere. Use `pt` or `vertex` or `center` exactly when you want to specifically note that a location is a point, or a single-point junction, or a unique unambiguous and dominant central location
 * `str`            -- generic string
 * `num`            -- generic num
 * `err`            -- error; **never** use `error` as a variable name
