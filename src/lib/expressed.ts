@@ -68,7 +68,7 @@ const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
  * @param expressions - The hunt's expressions, which the quiz's expressings name.
  * @returns For each expressing's label, each question's result by id.
  *
- * @example forQuiz(quiz, expressions).get('clueing_full')?.get(question.id)
+ * @example forQuiz(quiz, expressions).get('clueing_full')?.get(question._id)
  */
 export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): ExpressedForQuiz {
   const formulaForLabel = new Map(expressions.map((expression) => [expression.label, expression.formula]))
@@ -86,7 +86,7 @@ export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): Expre
  * @param bag - The question's bag, from `bagsFor`; nothing is worked out without one.
  * @returns What a cell would show.
  *
- * @example previewOf('qn.title', bagsFor(quiz).get(question.id))
+ * @example previewOf('qn.title', bagsFor(quiz).get(question._id))
  */
 export function previewOf(formula: string, bag: QuizBag | undefined): Expressed {
   return bag ? reading(Formulas.evaluate(formula, bag)) : Nothing
