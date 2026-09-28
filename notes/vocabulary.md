@@ -147,6 +147,22 @@ that way; the model bots were called players until September 2026.
 * **the lock** -- the answer, hidden behind a confirmation until a reviewer chooses to see it.
   Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`.
 
+## Reading from Convex
+
+How the browser gets rows; `notes/queries_hooks_and_subscriptions.md` says where to draw the
+lines between them, and these are here so they are findable beside the rest.
+
+* **query function** -- server code under `convex/` that reads rows and returns what a screen
+  shows. It knows nothing of how it is called.
+* **watch** -- calling a query function and staying subscribed: `useQuery`, `useQueries`,
+  `watchQuery`. Redelivers the moment anything it read changes.
+* **fetch** -- calling a query function once, with no subscription: `client.query`. For what
+  is large and asked for, such as the export.
+* **facet** -- what one watch covers: a set of rows that change together and are shown
+  together. One watch per facet.
+* **screen hook** -- the one hook that owns a screen's watches and hands props down (`useHunt`,
+  `useQuiz`, `useHuntsList`, `useIdent`). Components never watch.
+
 ## Around the edges
 
 * **locked** -- a quiz frozen against edits. Never a trap: switching, unlocking, exporting and
