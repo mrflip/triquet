@@ -7,6 +7,12 @@ import { Quiz } from '../../src/models/quiz'
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
 
+/** Dumdum's reply to a question's clueing, as a botting */
+const Botted = {
+  question_id, bot_label: 'dumdum' as const, textkind: 'clueing' as const, asked_text: 'Who?', status: 'done' as const,
+  reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: 'quick' as const, approx_tokens: 12,
+}
+
 /** One of each action, as a view would say it */
 const Actions: HuntActionDNA[] = [
   { kind: 'add_widget', widget: { kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' } },
@@ -32,11 +38,9 @@ const Actions: HuntActionDNA[] = [
   { kind: 'move_question', question_id, onto_idx: 0 },
   { kind: 'set_chain', question_id, chains_to: null },
   { kind: 'sort_by_chain_order', descending: true },
-  { kind: 'set_guess', question_id, guess: { status: 'done', text: 'Leon', updated_at: 5 } },
-  { kind: 'set_ishes', question_id, textkind: 'hint', ishes: null },
-  { kind: 'fail_guess', question_id, err: { message: 'Overloaded', response: { status: 529 }, at: 5 } },
-  { kind: 'fail_ishes', question_id, textkind: 'clueing', err: { message: 'Overloaded', response: null, at: 5 } },
-  { kind: 'apply_bulk_ishes', landings: [{ question_id, textkind: 'clueing', ishes: null, err: null }], run: null },
+  { kind: 'record_botting', botting: Botted },
+  { kind: 'record_botting', botting: { ...Botted, status: 'error', reply_text: null, message: 'Overloaded', response: { status: 529 }, model_tier_applied: null, approx_tokens: null } },
+  { kind: 'apply_bulk_ishes', bottings: [{ ...Botted, bot_label: 'numnum', reply_text: null, items: [{ text: '1994', value: 1994, kind: 'numeral' }] }], run: null },
   { kind: 'new_quiz' },
   { kind: 'new_quiz', label: 'kings' },
   { kind: 'delete_quiz', quiz_id },
@@ -58,6 +62,7 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'relabel_quiz', label: 'Not A Label' },                        'a label that is not one'],
     [{ kind: 'move_question', question_id: 'nobody', onto_idx: 0 },         'a question that is not a row id'],
     [{ kind: 'move_widget', label: 'dumdum', onto_idx: -1 },                'a place before the first'],
+    [{ kind: 'record_botting', botting: { ...Botted, textkind: 'hint' } },  'a botting of a bot that is not put that text'],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
     [{ kind: 'replace_open_quiz', quiz: { ...Quiz.blank(), locked: 'no' } }, 'a quiz that is not one'],
   ]

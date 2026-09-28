@@ -11,6 +11,25 @@ import { TextkindVals, type Textkind } from '../lib/ask/contract'
 export const BottingStatusVals = ['done', 'error'] as const
 export type BottingStatus = typeof BottingStatusVals[number]
 
+/** One of a question's played cells: which bot, shown which of its texts, and the field it shows in */
+export type BotSlot = {
+  bot_label:    BotLabel
+  textkind:     Textkind
+  field:        'guess' | 'clueing_ishes' | 'hint_ishes'
+}
+
+/** Every played cell a question has, in the order the grid shows them */
+export const BotSlots = [
+  { bot_label: 'dumdum', textkind: 'clueing', field: 'guess' },
+  { bot_label: 'numnum', textkind: 'clueing', field: 'clueing_ishes' },
+  { bot_label: 'numnum', textkind: 'hint',    field: 'hint_ishes' },
+] as const satisfies readonly BotSlot[]
+
+/** Whether the tool puts `bot_label` a question's `textkind` text: whether the pair is one of `BotSlots` */
+export function isBotSlot(bot_label: BotLabel, textkind: Textkind): boolean {
+  return BotSlots.some((slot) => slot.bot_label === bot_label && slot.textkind === textkind)
+}
+
 export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, zid }) => {
   const items = arr(IshValidators.ishItem).max(IshesPerTextMax)
     .describe('A numnum reply: every number-like span it found, in the order they appear in the text asked. Empty for any other botting.')
@@ -39,33 +58,30 @@ export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, no
       .describe('Which tier answered, when one did.'),
     approx_tokens:      AskValidators.approxTokens.nullable(),
   })
-    .describe('One time a bot was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `_creationTime`.')
+    .check((context) => {
+      const { bot_label, textkind } = context.value
+      if (! isBotSlot(bot_label, textkind)) {
+        context.issues.push({ code: 'custom', input: textkind, path: ['textkind'], message: `${bot_label} is not put a ${textkind} in this tool` })
+      }
+    })
+    .describe('One time a bot was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `_creationTime`. Also what a browser sends to have one recorded.')
 
   return { items, response, row }
 })
+
+/** One botting as a browser says it, to be recorded: a row's fields, the question named by id */
+export type BottingRowDNA = Z.input<typeof BottingValidators.row>
+/** One botting as the server records it: a row's fields, validated */
+export type BottingRowT   = Z.output<typeof BottingValidators.row>
 
 /**
  * One time a bot was put one of a question's texts, and what came back, as a row's fields. It
  * names its question by the question's id in the tree.
  */
-export type BottingT = Omit<Z.output<typeof BottingValidators.row>, 'question_id'> & { question_id: string }
+export type BottingT = Omit<BottingRowT, 'question_id'> & { question_id: string }
 
 /** A botting the database holds: its fields, and when it was written, in epoch milliseconds (with a fraction) */
 export type RecordedBottingT = BottingT & { _creationTime: number }
-
-/** One of a question's played cells: which bot, shown which of its texts, and the field it shows in */
-export type BotSlot = {
-  bot_label:    BotLabel
-  textkind:     Textkind
-  field:        'guess' | 'clueing_ishes' | 'hint_ishes'
-}
-
-/** Every played cell a question has, in the order the grid shows them */
-export const BotSlots = [
-  { bot_label: 'dumdum', textkind: 'clueing', field: 'guess' },
-  { bot_label: 'numnum', textkind: 'clueing', field: 'clueing_ishes' },
-  { bot_label: 'numnum', textkind: 'hint',    field: 'hint_ishes' },
-] as const satisfies readonly BotSlot[]
 
 /**
  * Which cell a botting belongs to, as one string.

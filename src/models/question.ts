@@ -53,21 +53,19 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
   })
     .describe('One question in a quiz. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
-  // label and forced_label are absent: a patch never revises a question's label.
+  // label and forced_label are absent: a patch never revises a question's label. So are the
+  // bots' replies: those are recorded, never revised (`record_botting`).
   const questionPatch = obj({
     qnum:          qnum.optional(),
     clueing:       clueing.optional(),
     hint:          hint.optional(),
     title:         title.optional(),
     chains_to:     chains_to.optional(),
-    guess:         GuessValidators.guess.optional(),
-    clueing_ishes: clueing_ishes.optional(),
-    hint_ishes:    hint_ishes.optional(),
     alt_text:      alt_text.optional(),
     notes:         notes.optional(),
     full_answer:   full_answer.optional(),
   })
-    .describe('The fields of one question being revised. A key absent from a patch means "leave whatever is already there", so no field here carries a default. The id is not among them: a question keeps the id it was minted with for its whole life.')
+    .describe('The fields of one question being revised: what the author writes. A key absent from a patch means "leave whatever is already there", so no field here carries a default. The id is not among them: a question keeps the id it was minted with for its whole life. Neither are the bots\' replies, which are recorded rather than revised.')
 
   const row = obj({
     quiz_id:      zid('quizzes')

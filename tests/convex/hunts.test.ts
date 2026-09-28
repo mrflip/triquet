@@ -11,6 +11,7 @@ import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
+import type { BottingRowDNA } from '../../src/models/botting'
 import { present } from '../support/present'
 import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, type Seen, type Tester } from '../support/convex'
 
@@ -50,9 +51,27 @@ function failureOf(cell: { last_err: unknown } | null) {
   return cell && Z.object({ message: Z.string(), response: Z.json() }).nullable().parse(cell.last_err)
 }
 
-/** A numnum extraction that found `value`, once */
-function found(value: number) {
-  return { status: 'done' as const, items: [{ text: String(value), value, kind: 'numeral' as const }], truncated: false, stale: false, updated_at: 9, last_err: null }
+/** A botting of `question_id` as a browser sends one: numnum's extraction of a blank clueing, finding nothing, unless overridden */
+function botted(question_id: string, overrides: Partial<BottingRowDNA> = {}): BottingRowDNA {
+  return {
+    question_id, bot_label: 'numnum', textkind: 'clueing', asked_text: '', status: 'done', reply_text: null, items: [],
+    message: null, response: null, truncated: false, model_tier_applied: 'careful', approx_tokens: null, ...overrides,
+  }
+}
+
+/** Numnum's extraction of `question_id`'s `textkind`, which found `value` once */
+function found(question_id: string, value: number, textkind: 'clueing' | 'hint' = 'clueing'): BottingRowDNA {
+  return botted(question_id, { textkind, items: [{ text: String(value), value, kind: 'numeral' }] })
+}
+
+/** Dumdum's guess `text` at `question_id`'s clueing */
+function guessed(question_id: string, text: string): BottingRowDNA {
+  return botted(question_id, { bot_label: 'dumdum', reply_text: text, model_tier_applied: 'quick' })
+}
+
+/** A failed ask of `question_id`'s `textkind` by `bot_label`: its message, and the reply as it came back */
+function failed(question_id: string, bot_label: 'dumdum' | 'numnum', textkind: 'clueing' | 'hint', err: { message: string, response: unknown }): BottingRowDNA {
+  return botted(question_id, { bot_label, textkind, status: 'error', message: err.message, response: err.response as BottingRowDNA['response'], model_tier_applied: null })
 }
 
 /** Whether an extraction is marked stale */
@@ -327,8 +346,8 @@ describe('hunts.perform', () => {
     it('takes each deleted question\'s replies with it, and leaves the others\' alone', async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'set_ishes', question_id: present(first)._id, textkind: 'clueing', ishes: found(1) })
-      await act({ kind: 'set_ishes', question_id: present(second)._id, textkind: 'clueing', ishes: found(2) })
+      await act({ kind: 'record_botting', botting: found(present(first)._id, 1) })
+      await act({ kind: 'record_botting', botting: found(present(second)._id, 2) })
       await act({ kind: 'delete_questions', question_ids: [present(first)._id] })
       const bottings = await tt.run(async (ctx) => await ctx.db.query('bottings').collect())
       expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second)._id])
@@ -403,48 +422,60 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('set_ishes', () => {
-    it('stores an extraction against the text it came from', async () => {
+  describe('record_botting', () => {
+    it('stores an extraction against the text it came from, in its own cell', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      await act({
-        kind: 'set_ishes', question_id: firstOf(await read())._id, textkind: 'hint',
-        ishes: { status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], truncated: false, stale: false, updated_at: 1, last_err: null },
-      })
+      const { _id: id } = firstOf(await read())
+      await act({ kind: 'record_botting', botting: found(id, 1994, 'hint') })
       const question = firstOf(await read())
       expect(question.hint_ishes).to.deep.include({ status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], stale: false })
       expect(question.clueing_ishes).to.eq(null)
     })
 
+    it('stores a guess, with what it cost', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const { _id: id } = firstOf(await read())
+      await act({ kind: 'record_botting', botting: { ...guessed(id, 'Leon'), approx_tokens: 12 } })
+      expect(firstOf(await read()).guess).to.deep.include({ status: 'done', text: 'Leon', model_tier_applied: 'quick', approx_tokens: 12 })
+    })
+
+    it('marks an extraction stale when the text it was asked about is not the question\'s', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const { _id: id } = firstOf(await read())
+      await act({ kind: 'record_botting', botting: { ...found(id, 1), asked_text: 'An earlier clueing' } })
+      expect(staleOf(await firstClueingIshes(read))).to.eq(true)
+    })
+
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       const asked = firstOf(await read())
-      await expectRefusal(act({
-        kind: 'set_ishes', question_id: asked._id, textkind: 'clueing',
-        ishes: { status: 'done', items: [], truncated: false, stale: false, updated_at: 1, last_err: null },
-      }), 'quizLocked')
+      await expectRefusal(act({ kind: 'record_botting', botting: found(asked._id, 1) }), 'quizLocked')
       expect(firstOf(await read()).clueing_ishes).to.eq(null)
+    })
+
+    it('refuses a question of another quiz', async () => {
+      const { act, read } = await seed(huntTitled(['one', 'two']))
+      const other = present(quizNamed(await read(), 'two').questions[0])
+      await expectRefusal(act({ kind: 'record_botting', botting: found(other._id, 1) }), 'questionGone')
     })
   })
 
   describe('a failed ask', () => {
-    const err = { message: 'A connection hiccup — try again.', response: { ok: false, failurekind: 'connection' }, at: 9 }
-    const held = { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 3, last_err: null }
+    const err = { message: 'A connection hiccup — try again.', response: { ok: false, failurekind: 'connection' } }
     const items = [{ text: '300', value: 300, kind: 'numeral' as const }]
-    const ishesHeld = { status: 'done' as const, items, truncated: false, stale: false, updated_at: 3, last_err: null }
 
     /** A question already holding a guess and a clueing extraction */
     const withHeld = async () => {
       const seeded = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await seeded.read())
-      await seeded.act({ kind: 'set_guess', question_id: id, guess: held })
-      await seeded.act({ kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: ishesHeld })
+      await seeded.act({ kind: 'record_botting', botting: guessed(id, 'Leon') })
+      await seeded.act({ kind: 'record_botting', botting: botted(id, { items }) })
       return { ...seeded, id }
     }
 
-
     it('leaves a guess as it was and rides along on it as its last_err', async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'fail_guess', question_id: id, err })
+      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
       const { guess } = firstOf(await read())
       expect(guess).to.deep.include({ status: 'done', text: 'Leon', truncated: false })
       expect(failureOf(guess)).to.deep.eq({ message: err.message, response: err.response })
@@ -452,7 +483,7 @@ describe('hunts.perform', () => {
 
     it('leaves an extraction\'s items and stale flag exactly as they were', async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'fail_ishes', question_id: id, textkind: 'clueing', err })
+      await act({ kind: 'record_botting', botting: failed(id, 'numnum', 'clueing', err) })
       const { clueing_ishes } = firstOf(await read())
       expect(clueing_ishes).to.deep.include({ status: 'done', items, stale: false })
       expect(failureOf(clueing_ishes)).to.deep.eq({ message: err.message, response: err.response })
@@ -460,7 +491,8 @@ describe('hunts.perform', () => {
 
     it('becomes the cell\'s only content when it never had a value', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      await act({ kind: 'fail_guess', question_id: firstOf(await read())._id, err })
+      const { _id: id } = firstOf(await read())
+      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
       const { guess } = firstOf(await read())
       expect(guess).to.deep.include({ status: 'error', message: err.message })
       expect(failureOf(guess)).to.deep.eq({ message: err.message, response: err.response })
@@ -468,8 +500,8 @@ describe('hunts.perform', () => {
 
     it('is replaced by a newer failure, not stacked', async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'fail_guess', question_id: id, err })
-      await act({ kind: 'fail_guess', question_id: id, err: { ...err, message: 'Still no connection.' } })
+      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
+      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', { ...err, message: 'Still no connection.' }) })
       const { guess } = firstOf(await read())
       expect(guess).to.deep.include({ text: 'Leon' })
       expect(failureOf(guess)?.message).to.eq('Still no connection.')
@@ -477,14 +509,14 @@ describe('hunts.perform', () => {
 
     it('is cleared by any success', async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'fail_guess', question_id: id, err })
-      await act({ kind: 'set_guess', question_id: id, guess: { ...held, text: 'Lyon' } })
+      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
+      await act({ kind: 'record_botting', botting: guessed(id, 'Lyon') })
       expect(firstOf(await read()).guess).to.deep.include({ text: 'Lyon', last_err: null })
     })
 
     it('survives the text being edited, which only marks the extraction stale', async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'fail_ishes', question_id: id, textkind: 'clueing', err })
+      await act({ kind: 'record_botting', botting: failed(id, 'numnum', 'clueing', err) })
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
       const { clueing_ishes } = firstOf(await read())
       expect(clueing_ishes).to.deep.include({ stale: true })
@@ -494,7 +526,7 @@ describe('hunts.perform', () => {
     it('is refused while the quiz is locked', async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       const asked = firstOf(await read())
-      await expectRefusal(act({ kind: 'fail_guess', question_id: asked._id, err }), 'quizLocked')
+      await expectRefusal(act({ kind: 'record_botting', botting: failed(asked._id, 'dumdum', 'clueing', err) }), 'quizLocked')
       expect(firstOf(await read()).guess).to.eq(null)
     })
 
@@ -502,7 +534,7 @@ describe('hunts.perform', () => {
       const { act, read, id } = await withHeld()
       await act({
         kind: 'apply_bulk_ishes', run: { approx_tokens: 1, text_count: 1, updated_at: 9 },
-        landings: [{ question_id: id, textkind: 'clueing', ishes: null, err }],
+        bottings: [failed(id, 'numnum', 'clueing', err)],
       })
       const { clueing_ishes } = firstOf(await read())
       expect(clueing_ishes).to.deep.include({ status: 'done', items })
@@ -517,10 +549,7 @@ describe('hunts.perform', () => {
       const run = { approx_tokens: 4200, text_count: 2, updated_at: 9 }
       await act({
         kind: 'apply_bulk_ishes', run,
-        landings: [
-          { question_id: present(first)._id, textkind: 'clueing', ishes: found(1), err: null },
-          { question_id: present(second)._id, textkind: 'hint', ishes: found(2), err: null },
-        ],
+        bottings: [found(present(first)._id, 1), found(present(second)._id, 2, 'hint')],
       })
       const after = openOf(await read())
       expect(after.questions.map((question) => [question.clueing_ishes?.status ?? null, question.hint_ishes?.status ?? null])).to.deep.eq([['done', null], [null, 'done']])
@@ -528,17 +557,15 @@ describe('hunts.perform', () => {
     })
   })
 
+  /** A question with an extraction for each text named */
+  const extractedFrom = async (...textkinds: ('clueing' | 'hint')[]) => {
+    const seeded = await seed(huntOf(['1', 'a']))
+    const { _id: id } = firstOf(await seeded.read())
+    for (const textkind of textkinds) { await seeded.act({ kind: 'record_botting', botting: botted(id, { textkind }) }) }
+    return { ...seeded, id }
+  }
+
   describe('staleness', () => {
-    const extracted = { status: 'done' as const, items: [], truncated: false, stale: false, updated_at: 1, last_err: null }
-
-    /** A question with an extraction for each text named */
-    const extractedFrom = async (...textkinds: ('clueing' | 'hint')[]) => {
-      const seeded = await seed(huntOf(['1', 'a']))
-      const { _id: id } = firstOf(await seeded.read())
-      for (const textkind of textkinds) { await seeded.act({ kind: 'set_ishes', question_id: id, textkind, ishes: extracted }) }
-      return { ...seeded, id }
-    }
-
     it('marks the clueing extraction stale when the clueing is edited', async () => {
       const { act, read, id } = await extractedFrom('clueing')
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
@@ -548,7 +575,7 @@ describe('hunts.perform', () => {
     it('leaves the extraction visible rather than throwing it away', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
-      await act({ kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: { ...extracted, items: [{ text: '300', value: 300, kind: 'numeral' }] } })
+      await act({ kind: 'record_botting', botting: found(id, 300) })
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
       const { clueing_ishes } = firstOf(await read())
       expect(clueing_ishes?.status === 'done' && clueing_ishes.items).to.have.length(1)
@@ -650,7 +677,7 @@ describe('hunts.perform', () => {
       const { tt, act, read } = await seed(huntTitled(['one', 'two', 'three']), 1)
       const doomed = quizNamed(await read(), 'two')._id
       const asked = present(quizNamed(await read(), 'two').questions[0])
-      await act({ kind: 'set_guess', question_id: asked._id, guess: { status: 'done', text: 'gone', updated_at: 5 } })
+      await act({ kind: 'record_botting', botting: guessed(asked._id, 'gone') })
       await act({ kind: 'delete_quiz', quiz_id: doomed })
       const after = await read()
       expect(after.quizzes.map((quiz) => quiz.title)).to.deep.eq(['one', 'three'])

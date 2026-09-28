@@ -190,6 +190,7 @@ describe('BottingValidators.row', () => {
     [{ items: [{ text: '', value: 3, kind: 'numeral' }] },        'a span with no text'],
     [{ items: Array.from({ length: 201 }, () => Done.items[0]) }, 'more spans than one text may carry'],
     [{ approx_tokens: -1 },                                       'a negative token count'],
+    [{ bot_label: 'dumdum', textkind: 'hint' },                   'a bot put a text the tool never puts it'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
