@@ -6,7 +6,7 @@ export const ModelTierVals = ['quick', 'careful'] as const
 export type ModelTier = typeof ModelTierVals[number]
 
 export const AskValidators = Validator(({ obj, oneof, noteish, uint, timestamp, lit, zod }) => {
-  const modelTier = oneof(ModelTierVals).default('quick')
+  const model_tier = oneof(ModelTierVals).default('quick')
     .describe('Which tier answered: "quick" for the deliberately hasty first-instinct guess, "careful" for the more thorough ish extraction. Stored per result so an older result stays honestly labelled even after the app changes which tier it asks for a given job. Defaults to "quick" -- the tier the app reaches for when nothing says otherwise.')
 
   const approxTokens = uint
@@ -30,7 +30,7 @@ export const AskValidators = Validator(({ obj, oneof, noteish, uint, timestamp, 
   })
     .describe('A cell whose ask failed before it ever had a value. Once a cell has a value, a failure is only ever its `last_err`.')
 
-  return { modelTier, approxTokens, lastErr, askError }
+  return { model_tier, approxTokens, lastErr, askError }
 })
 
 export type LastErrT    = Z.output<typeof AskValidators.lastErr>

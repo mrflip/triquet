@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import * as Z from 'zod'
 import { zodOutputToConvex } from 'convex-helpers/server/zod4'
 import { Validator, ValidatorKit, callable, plain } from '../../src/lib/validator'
@@ -45,6 +45,48 @@ describe('Validator', () => {
 
   it('publishes only what the block returns', () => {
     expect(Object.keys(LightbulbValidators)).to.deep.eq(['lightbulb', 'lightbulbTech'])
+  })
+})
+
+describe('Validator with sources', () => {
+  const SocketValidators = Validator(({ oneof }) => ({ socket: oneof(['e26', 'gu10']) }))
+
+  const LampValidators = Validator(({ obj, titleish, lightbulb, lightbulbTech }) => {
+    const lamp = obj({ title: titleish, bulb: lightbulb, tech: lightbulbTech })
+    return { lamp }
+  }, LightbulbValidators)
+
+  const FixtureValidators = Validator(({ obj, lamp, socket }) => {
+    const fixture = obj({ lamp, socket })
+    return { fixture, socket }
+  }, [LampValidators, SocketValidators])
+
+  it('spreads one namespace into the kit', () => {
+    const lamp = LampValidators.lamp({ title: 'Desk', bulb: { title: 'Anglepoise' }, tech: 'led' })
+    expect(lamp.bulb).to.deep.eq({ title: 'Anglepoise', lumens: null, tech: 'led' })
+  })
+
+  it('spreads a list of namespaces into the kit', () => {
+    const lamp = { title: 'Desk', bulb: { title: 'Anglepoise' }, tech: 'led' } as const
+    expect(FixtureValidators.fixture({ lamp, socket: 'gu10' }).socket).to.eq('gu10')
+    expect(() => FixtureValidators.fixture({ lamp, socket: 'bayonet' as never })).to.throw(Z.ZodError)
+  })
+
+  it('carries the sources\' types through to what it publishes', () => {
+    type FixtureT = Z.output<typeof FixtureValidators.fixture>
+    expectTypeOf<FixtureT['lamp']['bulb']>().toEqualTypeOf<LightbulbT>()
+    expectTypeOf<FixtureT['socket']>().toEqualTypeOf<'e26' | 'gu10'>()
+  })
+
+  it('republishes a source\'s schema as it was, not a wrapper of a wrapper', () => {
+    expect(Object.getPrototypeOf(FixtureValidators.socket)).to.eq(Object.getPrototypeOf(SocketValidators.socket))
+    expect(typeof plain(FixtureValidators.socket)).to.eq('object')
+  })
+
+  it('refuses a name the kit or another source already gives', () => {
+    const Shadowing = Validator(({ oneof }) => ({ uint: oneof(['one']) }))
+    expect(() => Validator(({ uint }) => ({ uint }), Shadowing)).to.throw(/repeat a name/)
+    expect(() => Validator(({ socket }) => ({ socket }), [SocketValidators, SocketValidators])).to.throw(/repeat a name/)
   })
 })
 

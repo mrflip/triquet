@@ -35,7 +35,7 @@ export const IshValidators = Validator(({ obj, arr, oneof, str, textish, num, bo
     status:             lit('done'),
     items:              arr(ishItem).max(IshesPerTextMax).default([])
       .describe('Every span found, in the order it appears in the source text. An empty array is a real answer meaning "nothing here reads as a number", and is displayed as "None found" rather than as a blank cell.'),
-    model_tier_applied: AskValidators.modelTier.optional(),
+    model_tier_applied: AskValidators.model_tier.optional(),
     truncated:          bool.default(false)
       .describe('True when the answer was cut short before it finished. Shown as "· cut short" so a suspiciously small list is never mistaken for a complete one.'),
     approx_tokens:      AskValidators.approxTokens.optional()
