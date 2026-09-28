@@ -8,9 +8,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 jobs:
   no-merges-in-branch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
