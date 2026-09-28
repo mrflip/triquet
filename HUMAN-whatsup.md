@@ -2,6 +2,74 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-28: The order on the quiz, a query per question, and actions that read less
+
+On your word: a quiz holds its questions' order (`quizzes.row_ordering`, by `_id`: a label would
+make a relabel rewrite the quiz, and cost a lookup per row), questions lost `position`, and each
+question is a query of its own (`questions.open`) beside the quiz's frame (`quizzes.open`). Every
+action reads only what it needs. Green: lint, typecheck, 1914 unit and convex tests, 164 e2e.
+
+What it bought, measured as before (the 24-question hunt, a second browser watching):
+
+* **A text edit costs about 3 KiB of database I/O, down from 46**, and each browser downloads
+  about 5 KiB per edit instead of 15.
+* **A move costs what it did** (about 45 KiB): it reads every question for their Q#s.
+* **Function calls went up**, from 3.7 to 10.1 per edit, mostly cache hits; nowhere near binding.
+* **Adding a question, and a fresh tab, take one more round trip**: the quiz names the question,
+  then its query is asked for (add: 115 ms locally, 261 ms at an 80 ms network).
+
+Two things for you:
+
+* **The "never a query per row" guidance** is left as it stands and not followed, as you asked;
+  the progress document lists every line that now disagrees with the code.
+* **One choice on the order**: on the quiz row, a move, add or sort reruns `hunts.open` (about
+  10 KiB, nothing resent, since Convex sends nothing when a result is unchanged). Its own
+  one-row-per-quiz table would spare that. I left it where you asked.
+
+## 2026-09-28: Convex phase 4, the verdict: keep Convex
+
+Branch `20260928-convex_phase4b`, stacked on `20260928-convex_phase4` (whose phase 3a was done,
+just not yet marked in the progress document; it is now). Green: lint, typecheck, 1902 unit and
+convex tests, 164 e2e specs.
+
+**The verdict** is in `notes/database-decisions.md` (*Verdict*) and the decision record is
+`notes/decisions/2026-09-convex.md`, both waiting for your word. In one paragraph: every column of
+the scorecard held from experience except *Boring*, which stays at ● for a handful of surprises
+in the spike (none recurred, none needed a workaround worth the name). Offline and the silent
+account are not missed yet; the browser key stands in until the identity plan. What we gained is
+a server-side chokepoint for every write, global facts (label uniqueness in the transaction), a
+schema authored once in Zod, and a test suite that runs in two seconds plus an e2e suite in a
+minute that stopped flaking. Database I/O, not function calls, is the number that binds, as the
+appendix predicted.
+
+The numbers (local backend, production build, the sample-sized hunt, a second browser watching):
+
+* A change shows 70 to 90 ms after it is made locally, 150 to 175 ms at a simulated 80 ms
+  network, about 300 ms at 200 ms. A sort takes a little longer (it rewrites every place).
+* A fresh tab paints its shell in 30 to 60 ms, and the quiz in 225 ms locally, 400 ms at 80 ms.
+* Each edit costs about 46 KiB of database I/O and 3.7 function calls (2.2 not cached). At an
+  edit every fifteen seconds, the free plan's 1 GB lasts about ninety editing hours a month.
+* A quiz screen holds four live queries, none per row.
+
+Three things I decided that you may want to overrule:
+
+* **The Export box now reads the hunt only when asked** (*Prepare export*), and empties at the
+  next change on screen. Asking again after every change, on every open screen, was the largest
+  cost the app had: half of what each browser downloaded. This was the plan's named alternative.
+* **No optimistic updates.** Locally nothing is felt. When the cloud lands (3b), re-measure; an
+  optimistic reorder is first in line if it passes about 150 ms.
+* **The widgets table is a tagged union** now, since the bridge derives one cleanly.
+
+Two findings for later, neither built: on a 60-question quiz most of a change's 200 ms is the
+grid's formulas being recomputed for every question on each redelivery (memoizing by question
+would fix it); and `hunts.perform` reads the whole open quiz for every action, half of all
+database I/O.
+
+Also: `pnpm start:agent` serves the agents' production build on 3004; `scripts/convex_dev
+--reset` now empties and pushes again when a schema change refuses the push (it had stopped the
+e2e suite from starting); `whiteboard/jazz-migration.md` moved to `notes/prior-work/`. Still
+yours: the four Doppler variables from phase 2.
+
 ## 2026-09-28: The Convex plan, extended through the playtesting thread
 
 Assessed where phases 0 to 2 left things (all green today: lint, 1907 unit and convex tests,
@@ -85,7 +153,7 @@ in `whiteboard/convex_yay-progress.md`.
 
 Things you might trip over:
 
-* Convex refuses a hyphen in a module path, so `convex/**` and `tests/convex/**` are snake_case,
+* Convex refuses a hyphen in a module path, so `convex/**` and `tests/convex/**` are underbar_case,
   with an eslint block allowing it there.
 * The models are Convex-shaped already: every `<parent>_id` is a Convex id (UUIDs still pass, so
   Jazz works), and an identing names its browser. Two small Jazz-side bends make that fit:

@@ -1,10 +1,10 @@
 # Storage and hosting: what we want, and what could give it to us
 
-**Status (2026-09-27): open, with a Coach.** Jazz v2 is on trial as the database
-(`decisions/2026-09-jazz.md`); the trial is not going terribly, but it is not going well. This
-note is the review of what we would miss by moving to something more conventional, and of which
-conventional things are in the running. It settles nothing yet. When it does, the decision moves
-to `decisions/` and this note becomes its reasoning.
+**Status (2026-09-28): settled on Convex**, pending the Coach's word on the verdict below. The
+decision is `decisions/2026-09-convex.md`; this note is its reasoning. It began (2026-09-27) as
+the review of what we would miss by leaving Jazz v2 for something more conventional, and of which
+conventional things were in the running; Convex won on paper, the app moved to it, and *Verdict*
+re-scores it from experience.
 
 Ground rules for the review, from the Coach:
 
@@ -45,7 +45,7 @@ they bite hardest.
 ## What Jazz taught us
 
 The detail is in `decisions/2026-09-jazz.md` (*Learned in the move*) and
-`whiteboard/jazz-migration.md`. What matters for this review:
+`notes/prior-work/jazz-migration.md`. What matters for this review:
 
 * **What Jazz gives that nothing conventional does:** true local-first. A silent, no-login
   account on first visit; the app works with the network off; the rows live in the browser and
@@ -66,14 +66,16 @@ The detail is in `decisions/2026-09-jazz.md` (*Learned in the move*) and
 ## Scorecard
 
 ●● meets it, ● partly, ○ misses it. Struck-through rows are ruled out; see *Ruled out* below.
+The Convex row is as re-scored from experience on 2026-09-28 (*Verdict*); on paper it was the
+same bar *Boring*, which experience left at ●.
 
 | | No 2nd paradigm | Client-only | Multiplayer | Ergonomic | Zero-ops, few vendors | Disciplined interface | Agent-friendly | Boring |
 |---|---|---|---|---|---|---|---|---|
-| Jazz v2 (today) | ●● | ●● | ●● | ● | ● | ● | ○ | ○ |
+| Jazz v2 (until Sept 2026) | ●● | ●● | ●● | ● | ● | ● | ○ | ○ |
 | Supabase + Drizzle, SSR Next | ● | ○ | ● | ● | ●● | ●● | ●● | ●● |
 | Supabase, client-side (supabase-js + RLS) | ● | ●● | ● | ● | ●● | ● | ●● | ●● |
 | Supabase + PowerSync | ○ | ●● | ●● | ● | ● | ● | ● | ● |
-| Convex | ●● | ●● | ●● | ●● | ●● | ●● | ●● | ● |
+| **Convex (today)** | ●● | ●● | ●● | ●● | ●● | ●● | ●● | ● |
 | Zero (Rocicorp) | ●● | ● | ●● | ●● | ○ | ●● | ○ | ○ |
 | TanStack DB over Postgres | ● | ● | ● | ● | ● | ●● | ● | ○ |
 | Firebase Firestore | ● | ●● | ●● | ● | ● | ○ | ●● | ●● |
@@ -157,9 +159,82 @@ tax. Listed for completeness, not favoured.
   less upside.
 * **Turso**, as above.
 
-## Where this leans
+## Verdict (2026-09-28)
 
-The decision is between **Convex** and **client-side Supabase**, and it turns on one question:
+**Keep Convex.** The app has run on it since phase 2 of `whiteboard/convex_yay-plan.md`; every
+test's intent carried over; nothing needed a heroic workaround. Measured on a local backend, the
+cloud's numbers to follow (*Appendix*, *Measured*).
+
+**Re-scored from experience.** Every column held, bar the one it started weakest on:
+
+* *No second paradigm* ●●: schema and functions are TypeScript beside the app, and the tables are
+  derived from the Zod row validators we already had, so the schema is authored once. The bridge
+  took every shape we have, including a discriminated union (widgets, at last a tagged union), bar
+  one recursive JSON field that TypeScript cannot follow, written by hand and held by a canary.
+* *Client-only* ●●: static hosting plus the one stateless ask function stands; the functions run
+  in Convex, not on a server of ours. Pages prerender; no user data renders on a server.
+* *Multiplayer* ●●: a second browser sees each change one round trip after it lands, and every
+  mutation is a transaction, so there is no conflict code anywhere. The quiz history now hears a
+  collaborator's edits too.
+* *Ergonomic* ●●: no optimistic updates were needed (below); mutations read the truth instead of
+  writing from the rows on screen; a refusal reaches the author in a sentence through Convex's own
+  error channel. The rough edges were small: `useQuery` throws a query's error into React, and
+  the CLI rewrites `.env.local` on every push.
+* *Zero-ops, few vendors* ●●: one vendor. Isolation for agents and e2e cost four small scripts
+  running Convex's own backend binary per role, with no account and no quota. The cloud is untried
+  until phase 3b.
+* *Disciplined interface* ●●: one mutation for every edit (`hunts.perform`), one query per thing a
+  screen shows, arguments and rows through Zod, authorization in one file.
+* *Agent-friendly* ●●: Convex's own guidelines file for agents, and a training-deep API. The
+  stumbles were new spellings (`ctx.db.patch` takes the table first) the guidelines already had.
+* *Boring* ●, as scored: nothing hung and nothing lost data, but the spike met a handful of
+  undocumented-in-passing facts (a local deployment is one per checkout; codegen needs a running
+  deployment; a hyphen in a module path is refused at push; argument objects are strict at the
+  door). Each was found in an hour and none recurred.
+
+**What was lost from Jazz, and how much it was missed.**
+
+* *Working with the network off*: not missed. Nobody used it, and the client-first decision now
+  strikes it.
+* *A silent, no-login account*: not missed yet. The browser key gives the same first visit; what
+  it lacks (a verifiable root, a door to a second device) is the identity plan's job, and Convex
+  Auth's anonymous provider is the first candidate.
+* *No vendor holding the rows*: Convex holds them. The exit doors are the Export box, each quiz's
+  git history, `npx convex export`, and a self-hostable backend.
+* *Writes landing in microseconds*: a change now shows one round trip after it is made, 70 to
+  90 ms on a local backend and 150 to 175 ms at a simulated 80 ms network. Not felt, on the
+  local numbers; the cloud's decide it.
+
+**What was gained.** A server-side chokepoint that validates every write and will enforce
+authorization (the playtesting thread's phase 7); global facts, so a label's uniqueness is
+enforced in the transaction and the duplicate-ident race is gone; a schema authored once; 1,900
+unit and function tests in about two seconds, and an e2e suite that runs in a minute and stopped
+flaking; deploys with no migrations and no worker to strand; no query shape that hangs a page.
+
+**What it costs, measured.** Database I/O, not function calls, is the binding number, as the
+appendix predicted: about 46 KiB per edit on a quiz the sample's size, most of it the mutation's
+own read of the open quiz and the rerun of `quizzes.open`. On the free plan that is roughly
+ninety hours of steady editing a month; on Starter, overage is cents. Asking for the whole hunt
+again after every change for the Export box was the largest single cost, and it is now asked
+for only on request. *Since then* (same day): each action reads what it needs, and each question
+is a query of its own, so a text edit costs about 3 KiB and the session's mix about 32 KiB
+(*Appendix*, *Measured*).
+
+**Recommendations**, in order:
+
+1. Convert the trial to the decision (done in `decisions/2026-09-convex.md`, pending the Coach).
+2. Carry on with the playtesting thread (phases 5 to 7 of the plan), then the identity plan.
+3. When the cloud lands (phase 3b), re-measure; add an optimistic `move_question` first if a
+   reorder passes about 150 ms, reusing `Rank`'s pure functions so its effect is not spelled
+   twice.
+4. ~~Cheaper reads, when bandwidth matters~~: done the same day. Each action reads what it
+   needs, and each question is its own query.
+5. Memoize the grid's formulas by question: on a large quiz the recompute on every redelivery,
+   not the network, is most of the wait (about 70 ms of 200 at 60 questions).
+
+## Where this leaned (2026-09-27)
+
+The decision was between **Convex** and **client-side Supabase**, and it turns on one question:
 is multiplayer something we would build in the first month, or a promise for later? If the
 former, Convex: realtime and transactions are the default rather than something wired, and the
 static-plus-one-function shape survives. If the latter, client-side Supabase, accepting that
@@ -172,15 +247,11 @@ back without the first two; Supabase gives back neither without PowerSync.
 
 ## Open with a Coach
 
-* The question above: multiplayer now, or later?
-* If Jazz stays: **where the sync server runs** for the trial, Jazz Cloud or our own. Tied to
-  where Jazz Cloud takes the JWKS settings, which the docs do not show. (Moved here from
-  `stack.md`.)
-* If Jazz goes: which of the client-first decision's named exceptions survive. The ask route
-  stays a stateless function wherever it lives; "user data never renders on a server" holds under
-  Convex and client-side Supabase and falls under SSR.
-* Identity was deferred until the Jazz move landed (`decisions/2026-09-jazz.md`, TODO 1). Every
-  candidate above brings its own answer; settle storage first.
+* **The verdict above**, and with it `decisions/2026-09-convex.md`.
+* Answered by the move: multiplayer is now (Convex gives it by default); the ask route stays a
+  stateless Vercel function until identity says otherwise; "user data never renders on a server"
+  holds. Identity is the plan after the playtesting thread (`decisions/2026-09-convex.md`,
+  *Identity*).
 
 Facts checked 2026-09-27, and liable to drift: Zero 1.0 ([InfoQ](https://www.infoq.com/news/2026/06/zero-version-1/)),
 Convex's free tier ([limits](https://docs.convex.dev/production/state/limits)), Supabase's free tier
@@ -248,3 +319,67 @@ Sources, read 2026-09-27: [pricing](https://www.convex.dev/pricing),
 [How Convex Works](https://stack.convex.dev/how-convex-works),
 [query functions](https://docs.convex.dev/functions/query-functions), and a post-mortem,
 [Two users, tiny data](https://dev.to/dheerajakula/why-a-two-user-convex-chat-app-read-tens-of-mb-a-day-360k).
+
+### Measured (2026-09-28)
+
+The same sample-sized hunt, brought in through the Import box (24 questions by the end of the
+session, 11 widgets, 21 columns, 13 expressions), edited in the production build by a script
+while a second browser watched the same quiz: 46 mutations of five kinds (reorders, the lock,
+new questions, text commits, sorts). Server numbers are the local backend's own per-function
+log (`usageStats`), each execution counted once. A local backend, so these are the server's
+costs without the network; latency at a distance was simulated by delaying every websocket
+message, which adds round-trip time but not bandwidth limits.
+
+| Per edit, author plus one watcher | Before (export asked on every change) | Now (export on request) |
+|---|---|---|
+| Function calls | 6.0 (3.3 not cached) | 3.7 (2.2 not cached) |
+| Database I/O | 76 KiB | 46 KiB |
+| Downloaded by each browser | 34 KiB | 15 KiB |
+
+Where the 46 KiB goes: about 20 KiB is `hunts.perform` reading the open quiz, about 22 KiB the one
+uncached rerun of `quizzes.open` (the watcher's rerun is a cache hit, which costs no I/O), and a
+little `hunts.open` when a quiz row changes. At 60 questions the same edit costs 110 KiB. Nothing
+official says whether a cache hit counts as a billed function call; the table counts every one.
+
+**Against the free plan**, at a steady edit every fifteen seconds (240 an hour): about 900
+function calls and 11 MiB of database I/O an hour, so the 1 GB of I/O lasts about ninety editing
+hours a month and the million calls about eleven hundred. The appendix's month (22,000
+mutations, three listeners) comes to about 110,000 calls (11%) and 1.0 GB of I/O: at the free
+line, as it predicted; on Starter, a few cents at most. Only cloud deployments count: the agents'
+and e2e's local backends draw on no quota.
+
+| Wait the author sees (median, ms) | Local | 80 ms network | 200 ms network | Local, 60 questions |
+|---|---|---|---|---|
+| Reorder (arrow key) | 84 | 165 | 310 | 202 |
+| Four quick presses, after the last | 88 | 155 | 271 | 276 |
+| Lock or unlock | 70 | 152 | 284 | 174 |
+| Add a question | 84 | 162 | 290 | 214 |
+| A text commit, until saved | 76 | 158 | 280 | 202 |
+| Sort by a column (rewrites every place) | 140 | 220 | 350 | 421 |
+| The quiz on screen, fresh tab | 225 | 400 | 670 | 430 |
+
+The mutation's own round trip at the socket is 32 to 36 ms locally (86 for a sort); the rest of
+each wait is the page redrawing, most of it the grid's formulas recomputed for every question.
+A fresh tab paints its shell in 30 to 60 ms and needs about three round trips for the quiz
+(the socket, `hunts.open`, then `quizzes.open`, which waits on the hunt to resolve the labels).
+
+A quiz screen holds four live queries (`idents.current`, `hunts.open`, `quizzes.open`,
+`reviews.forQuiz`), none per row, as designed.
+
+**Since then** (same day, same session and hunt): a quiz holds its questions' order, each
+question is a query of its own (`questions.open`), and each action reads what it needs.
+
+| | Before | After |
+|---|---|---|
+| Database I/O per edit, this session's mix | 46 KiB | 32 KiB |
+| Downloaded per edit, each browser | 15 KiB | 5.2 KiB |
+| Function calls per edit (not cached) | 3.7 (2.2) | 10.1 (4.2) |
+| A text edit, with the reruns it causes | 46 KiB | 3 KiB |
+| A move | 45 KiB | 45 KiB |
+| Add a question, until shown (local; 80 ms network) | 84; 162 ms | 115; 261 ms |
+| The quiz on screen, fresh tab (local; 80 ms network) | 225; 400 ms | 235; 495 ms |
+
+At a steady edit every fifteen seconds of mostly text, that is a few MiB of I/O an hour rather
+than eleven. A move still reads every question (for their Q#s); a new question, and a fresh tab,
+take one more round trip, since a question's query is asked for once the quiz names it. A quiz
+screen now holds a query per question as well as the four above.

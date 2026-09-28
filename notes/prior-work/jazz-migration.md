@@ -29,7 +29,7 @@ first, then this.
 * Ids are internal details of the database. Preferable that business logic work with labels
   (possibly scoped: `quizlabel-questionlabel`). Never assert on an id in a test of business logic;
   be mindful which is more salient if closer to the DB.
-* `underscore_case` fields, as `STYLE.md` says. Jazz reserves only `$…` and `id`.
+* `underbar_case` fields, as `STYLE.md` says. Jazz reserves only `$…` and `id`.
 * `import { schema as JZS } from 'jazz-tools'`, never `s`: `JZS.table(...)`, `JZS.string()`,
   and the types `JZS.RowOf<typeof app.quizzes>` (a type, not a call).
 * Validate between the UI and the app with the same Zod schemas the columns use.

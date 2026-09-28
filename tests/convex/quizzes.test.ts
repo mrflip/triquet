@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { quizRowsOf, realmsOf } from '../../convex/reading'
+import { quizFromSeen } from '../../src/lib/rows'
 import { writeHunt } from '../../convex/writing/quiz_writing'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
@@ -24,12 +25,14 @@ function threeQuestions(): HuntT {
   return huntHolding([{ ...Quiz.blank(), questions: ['aa', 'bb', 'cc'].map((label) => ({ ...Question.blank(), label, title: label.toUpperCase() })) }])
 }
 
-/** The quiz, as `quizzes.open` delivers it */
+/** The quiz as a browser reads it: its frame from `quizzes.open`, each question from `questions.open`, assembled */
 async function opened(tt: Tester, quiz_id: Id<'quizzes'>) {
-  return present(await tt.query(api.quizzes.open, { quiz_id }))
+  const frame = present(await tt.query(api.quizzes.open, { quiz_id }))
+  const seen = await Promise.all(frame.row_ordering.map(async (question_id) => present(await tt.query(api.questions.open, { question_id }))))
+  return quizFromSeen(frame, seen)
 }
 
-describe('quizzes.open', () => {
+describe('a quiz as the browser assembles it from quizzes.open and questions.open', () => {
   it('reads back a quiz exactly as it was written, apart from its ids', async () => {
     const hunt = Hunt.blank()
     const { tt, quiz_id } = await holding(hunt)
@@ -88,6 +91,17 @@ describe('quizzes.open', () => {
     await tt.run(async (ctx) => { await ctx.db.patch('questions', present(question_id), { clueing: 'Reworded' }) })
     const editedQuiz = await opened(tt, quiz_id)
     expect(present(editedQuiz.questions[0]).clueing_ishes).to.deep.include({ stale: true })
+  })
+
+})
+
+describe('quizzes.open', () => {
+  it('reads the quiz without its questions: its fields, its layout, and its questions\' order by id', async () => {
+    const { tt, quiz_id, question_ids } = await holding(threeQuestions())
+    const frame = present(await tt.query(api.quizzes.open, { quiz_id }))
+    expect(frame.row_ordering).to.deep.eq(question_ids)
+    expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
+    expect(frame).to.include.keys('widgets', 'columns')
   })
 
   it('reads null for a quiz that is not there', async () => {

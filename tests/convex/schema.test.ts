@@ -16,11 +16,15 @@ import { WidgetValidators } from '../../src/models/widget'
 import { openTester, type Tester } from '../support/convex'
 
 // Every table's fields are derived from its row validator, bar one written by hand. This holds
-// the two together: the same fields, every one required, and a row the validator makes is one the
-// table takes, while a row with a field of the wrong type is refused.
+// the two together: the same fields (kind by kind, for a table that is a union), every one
+// required, and a row the validator makes is one the table takes, while a row with a field of the
+// wrong type is refused.
+
+/** A row validator: one shape, or a union of shapes told apart by a field */
+type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
 
 /** Every table, and the row validator its writes pass through */
-const RowValidators: Record<TableNames, Z.ZodObject> = {
+const RowValidators: Record<TableNames, RowValidator> = {
   bottings:    BottingValidators.row,
   columns:     ColumnValidators.row,
   expressions: ExpressionValidators.row,
@@ -37,6 +41,23 @@ const RowValidators: Record<TableNames, Z.ZodObject> = {
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
 
+/** A table's field validator as the schema holds it */
+type FieldValidator = { isOptional: string }
+
+/** Each shape a table's rows may take, as field validators by name */
+function tableShapesOf(tablename: TableNames): Record<string, FieldValidator>[] {
+  const validator = schema.tables[tablename].validator as { kind: string, fields?: Record<string, FieldValidator>, members?: { fields: Record<string, FieldValidator> }[] }
+  return validator.kind === 'union' ? (validator.members ?? []).map((member) => member.fields) : [validator.fields ?? {}]
+}
+
+/** Each shape a row validator's rows may take */
+function rowShapesOf(row: RowValidator): Record<string, unknown>[] {
+  return row instanceof Z.ZodDiscriminatedUnion ? row.options.map((option) => option.shape) : [row.shape]
+}
+
+/** The field names of each shape, in a stable order to compare */
+const namesOf = (shapes: Record<string, unknown>[]) => shapes.map((shape) => Object.keys(shape).toSorted(alphabetically).join(' ')).toSorted(alphabetically)
+
 type Samples = Record<TableNames, Record<string, unknown>>
 
 /** One valid row for every table, each written by its row validator, pointing at rows written before it */
@@ -47,9 +68,9 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: 'column:clueing', bulk_ishes_last: { approx_tokens: 9, text_count: 2, updated_at: 5 } })
+    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: 'column:clueing', bulk_ishes_last: { approx_tokens: 9, text_count: 2, updated_at: 5 }, row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
-    const question = QuestionValidators.row({ quiz_id, position: 0, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+    const question = QuestionValidators.row({ quiz_id, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)
     const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip' })
     const ident_id = await insert('idents', ident)
@@ -61,7 +82,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
       idents:      ident,
       identings:   IdentingValidators.row({ browser_key: crypto.randomUUID(), ident_id }),
       expressions: ExpressionValidators.row({ hunt_id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: '', position: 0 }),
-      widgets:     WidgetValidators.row({ quiz_id, label: 'dumdum', kind: 'botting', expression_label: null, bot_label: 'dumdum', textkind: 'clueing', description: '', position: 0 }),
+      widgets:     WidgetValidators.row({ quiz_id, label: 'dumdum', kind: 'botting', bot_label: 'dumdum', textkind: 'clueing', description: '', position: 0 }),
       columns:     ColumnValidators.row({ quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 200, position: 0 }),
       reviews:     ReviewValidators.row({ quiz_id, ident_id, overall: '', phase: 'empty' }),
       bottings:    BottingValidators.row({
@@ -92,16 +113,16 @@ describe('every table and its row validator', () => {
     expect(Object.keys(schema.tables).toSorted(alphabetically)).to.deep.eq(Object.keys(RowValidators).toSorted(alphabetically))
   })
 
-  for (const [tablename, row] of Object.entries(RowValidators) as [TableNames, Z.ZodObject][]) {
+  for (const [tablename, row] of Object.entries(RowValidators) as [TableNames, RowValidator][]) {
     describe(tablename, () => {
-      const fields = schema.tables[tablename].validator.fields as Record<string, { isOptional: string }>
+      const shapes = tableShapesOf(tablename)
 
       it('name the same fields', () => {
-        expect(Object.keys(fields).toSorted(alphabetically)).to.deep.eq(Object.keys(row.shape).toSorted(alphabetically))
+        expect(namesOf(shapes)).to.deep.eq(namesOf(rowShapesOf(row)))
       })
 
       it('require every field', () => {
-        expect(Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional')).to.deep.eq([])
+        expect(shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))).to.deep.eq([])
       })
 
       it('take a row the row validator makes', async () => {

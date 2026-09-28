@@ -8,13 +8,14 @@ import type { Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from '../lib/labelmaker'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
-import type { CountedExpressionT, ReviewedT, ShallowHuntT, ShallowRealmT } from '../lib/rows'
+import { assembledQuiz, type CountedExpressionT, type ReviewedT, type SeenQuestionT, type ShallowHuntT, type ShallowRealmT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
 import type { HuntActionDNA, OpenQuizT } from '../models/actions'
 import type { QuizT } from '../models/quiz'
 import type { MirrorSnapshot } from './commit-scheduler'
 import { useBrowserKey } from './browser-key'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
+import { useQuiz } from './use-quiz'
 
 /** Where finding the quiz an address names stands: still looking, looked and it is not there, or found */
 export type Finding = 'waiting' | 'missing' | 'found'
@@ -114,22 +115,29 @@ function uncounted(expressions: readonly CountedExpressionT[]): MirrorSnapshot['
   return expressions.map((expression) => _.omit(expression, ['usage']))
 }
 
+/** A watch on one question of the open quiz, and how to stop listening to it */
+type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: () => void }
+
 /**
  * Feed the open quiz's history from every reading of it, whoever made the change. Read through
  * watches rather than renders: the client tells a watch of a change before the change's own
  * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
+ * The quiz is its frame and a watch per question it orders, followed as the order changes; a
+ * reading with a question still on its way is not noted.
  */
 function useHistoryFeed(hunt_label: string, quiz_id: Id<'quizzes'> | null): void {
   const convex = useConvex()
   useEffect(() => {
     if (quiz_id === null) { return }
     const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
-    const quizWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
     const last: { snapshot: MirrorSnapshot | null, counted: readonly CountedExpressionT[] | null } = { snapshot: null, counted: null }
     const note = () => {
       try {
         const hunt = huntWatch.localQueryResult()
-        const quiz = quizWatch.localQueryResult()
+        const frame = frameWatch.localQueryResult()
+        const quiz = frame && assembledQuiz(frame, (question_id) => questionWatches.get(question_id)?.reading())
         const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
         if (! hunt || ! quiz || ! realm) { return }
         const expressions = last.snapshot && hunt.expressions === last.counted ? last.snapshot.expressions : uncounted(hunt.expressions)
@@ -142,9 +150,27 @@ function useHistoryFeed(hunt_label: string, quiz_id: Id<'quizzes'> | null): void
         console.error('Hunt: the quiz history missed a reading', err)
       }
     }
-    const stops = [huntWatch.onUpdate(note), quizWatch.onUpdate(note)]
+    // A watch for each question the frame orders, and none for one it no longer does.
+    const follow = () => {
+      const ordered = new Set(frameWatch.localQueryResult()?.row_ordering)
+      for (const [question_id, watch] of questionWatches) {
+        if (ordered.has(question_id)) { continue }
+        watch.stop()
+        questionWatches.delete(question_id)
+      }
+      for (const question_id of ordered) {
+        if (questionWatches.has(question_id)) { continue }
+        const watch = convex.watchQuery(api.questions.open, { question_id })
+        questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
+      }
+    }
+    const stops = [huntWatch.onUpdate(note), frameWatch.onUpdate(() => { follow(); note() })]
+    follow()
     note()
-    return () => { for (const stop of stops) { stop() } }
+    return () => {
+      for (const stop of stops) { stop() }
+      for (const watch of questionWatches.values()) { watch.stop() }
+    }
   }, [convex, hunt_label, quiz_id])
 }
 
@@ -175,7 +201,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
   const placing = placeIn(askable ? huntSeen : null, labels, shown?.address === address ? shown.quiz_id : null)
   const quiz_id = placing.quizRow?._id ?? null
-  const quizSeen = useQuery(api.quizzes.open, quiz_id === null ? 'skip' : { quiz_id })
+  const quizSeen = useQuiz(quiz_id)
   const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null ? 'skip' : { quiz_id })
   useHistoryFeed(labels.hunt, askable ? quiz_id : null)
 

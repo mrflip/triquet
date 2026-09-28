@@ -167,6 +167,22 @@ export async function waitUntilSaved(page: Page): Promise<void> {
 }
 
 /**
+ * Ask the Export box for the hunt once every change on screen has landed, and read what it holds.
+ *
+ * The box reads the hunt only when asked, and empties again at the next change on screen, so an
+ * export read before an edit has landed would be withdrawn by it.
+ *
+ * @returns The export, as the box holds it.
+ */
+export async function preparedExport(page: Page): Promise<string> {
+  await waitUntilSaved(page)
+  await page.getByRole('button', { name: 'Prepare export' }).click()
+  const exportBox = page.getByRole('textbox', { name: 'Export' })
+  await expect(exportBox).not.toHaveValue('')
+  return await exportBox.inputValue()
+}
+
+/**
  * Make a new quiz and wait until the browser has arrived at it.
  *
  * A quiz is addressed by its label, so making one is a navigation, and a navigation is a router

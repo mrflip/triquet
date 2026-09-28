@@ -1,19 +1,19 @@
 import { ValidatorKit } from '../src/lib/validator'
-import { quizFrom } from '../src/lib/rows'
-import type { QuizT } from '../src/models/quiz'
+import { frameOf, type QuizFrameT } from '../src/lib/rows'
 import { zQuery } from './functions'
-import { quizRowsOf } from './reading'
+import { layoutRowsOf } from './reading'
 
 const { zid } = ValidatorKit
 
 /**
- * The quiz `quiz_id`, whole, as the grid reads it: its questions, widgets and columns in order,
- * each question showing its bots' newest replies. Null when there is no such quiz.
+ * The quiz `quiz_id` without its questions, as the grid's frame: its own fields, its questions'
+ * order by row id, and its widgets and columns in order. Each question is its own query
+ * (`questions.open`), so an edit to one reruns that one alone. Null when there is no such quiz.
  */
 export const open = zQuery({
   args:    { quiz_id: zid('quizzes') },
-  handler: async (ctx, { quiz_id }): Promise<QuizT | null> => {
-    const rows = await quizRowsOf(ctx.db, quiz_id)
-    return rows && quizFrom(rows)
+  handler: async (ctx, { quiz_id }): Promise<QuizFrameT | null> => {
+    const rows = await layoutRowsOf(ctx.db, quiz_id)
+    return rows && frameOf(rows.quiz, rows.widgets, rows.columns)
   },
 })

@@ -47,7 +47,8 @@ has `page.clock`: install it before the edit, `runFor(1000)` and assert the coun
 retire `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` from the config. Caveat to spike first: the
 fake clock replaces every timer on the page, and Jazz's worker and sync loops use timers too. If
 Jazz stalls under it, keep `expect.poll` and leave the one-shot with a comment that names it as a
-"not yet" check.
+"not yet" check. (Since Convex replaced Jazz: Convex's client runs under the fake clock too;
+`e2e/quiz-history.spec.ts` edits with the clock held, and the edit lands.)
 
 **The "no request was sent" test** (`players.spec.ts:74`) is an acceptable negative: the
 `waitForRequest` timeout *is* the window. It should say so in a comment, and a

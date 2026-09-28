@@ -7,7 +7,8 @@
 #      someone else's or your own, is used and left alone.
 #   2. Pushes convex/ to it (regenerating convex/_generated/), and marks it clearable
 #      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for).
-#   3. With --reset, empties it (scripts/convex_reset).
+#   3. With --reset, empties it (scripts/convex_reset). A push that a schema change refuses, for
+#      rows the new schema no longer fits, is then retried once the backend is empty.
 #   4. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
 #   5. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend.
 #
@@ -80,7 +81,13 @@ while IFS='=' read -r envname val; do
   esac
 done < "${datadir}/cli.env"
 
-"$convex" dev --once --typecheck disable --tail-logs disable
+push() { "$convex" dev --once --typecheck disable --tail-logs disable; }
+if ! push; then
+  if [[ "$reset" != yes ]]; then exit 1; fi
+  echo "Emptying the ${role} backend, which --reset was going to do anyway, and pushing again." >&2
+  scripts/convex_reset "$role"
+  push
+fi
 "$convex" env set TRIQUET_CLEARABLE yes > /dev/null
 if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
 if [[ "$watch" == yes ]]; then

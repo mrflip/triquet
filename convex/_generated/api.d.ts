@@ -12,6 +12,7 @@ import type * as authorize from "../authorize.js";
 import type * as functions from "../functions.js";
 import type * as hunts from "../hunts.js";
 import type * as idents from "../idents.js";
+import type * as questions from "../questions.js";
 import type * as quizzes from "../quizzes.js";
 import type * as reading from "../reading.js";
 import type * as reviews from "../reviews.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   hunts: typeof hunts;
   idents: typeof idents;
+  questions: typeof questions;
   quizzes: typeof quizzes;
   reading: typeof reading;
   reviews: typeof reviews;

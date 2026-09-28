@@ -1,5 +1,4 @@
 import type * as Z from 'zod'
-import { mintId } from '../lib/ids'
 import { Validator } from '../lib/validator'
 import { AskValidators, ModelTierVals, askError, type LastErrT } from './ask'
 import type { GuessDoneT, GuessT } from './guess'
@@ -40,16 +39,19 @@ export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, no
       .describe('Which tier answered, when one did.'),
     approx_tokens:      AskValidators.approxTokens.nullable(),
   })
-    .describe('One time a bot was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `$createdAt`.')
+    .describe('One time a bot was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `_creationTime`.')
 
   return { items, response, row }
 })
 
 /**
- * One time a bot was put one of a question's texts, and what came back: its row, with its id and
- * when it was asked, in epoch milliseconds. It names its question by the question's id in the tree.
+ * One time a bot was put one of a question's texts, and what came back, as a row's fields. It
+ * names its question by the question's id in the tree.
  */
-export type BottingT = Omit<Z.output<typeof BottingValidators.row>, 'question_id'> & { question_id: string, id: string, created_at: number }
+export type BottingT = Omit<Z.output<typeof BottingValidators.row>, 'question_id'> & { question_id: string }
+
+/** A botting the database holds: its fields, and when it was written, in epoch milliseconds (with a fraction) */
+export type RecordedBottingT = BottingT & { _creationTime: number }
 
 /** One of a question's played cells: which bot, shown which of its texts, and the field it shows in */
 export type BotSlot = {
@@ -77,37 +79,9 @@ export function slotkeyOf(botting: Pick<BottingT, 'question_id' | 'bot_label' | 
 /** What the grid needs to know about one cell's history: its newest result, and any failure since */
 export type SlotLatest = {
   /** The newest successful botting, if there ever was one */
-  done:   BottingT | null
+  done:   RecordedBottingT | null
   /** The newest failed botting, only when it is newer than every success */
-  failed: BottingT | null
-}
-
-/**
- * The newest result and the newest failure since it, for each cell, from any pile of bottings.
- *
- * A failure older than the newest success is history and no longer says anything about the cell.
- *
- * @param bottings - Bottings for any number of questions, in any order.
- * @returns Each cell's `SlotLatest`, by `slotkeyOf`.
- */
-export function latestBySlot(bottings: readonly BottingT[]): Map<string, SlotLatest> {
-  const done = new Map<string, BottingT>()
-  const failed = new Map<string, BottingT>()
-  for (const botting of bottings) {
-    const held = botting.status === 'done' ? done : failed
-    const slotkey = slotkeyOf(botting)
-    const newest = held.get(slotkey)
-    if (! newest || botting.created_at > newest.created_at) { held.set(slotkey, botting) }
-  }
-  const latest = new Map<string, SlotLatest>()
-  const slotkeys = new Set([...done.keys(), ...failed.keys()])
-  for (const slotkey of slotkeys) {
-    const newestDone = done.get(slotkey) ?? null
-    const newestFailed = failed.get(slotkey) ?? null
-    const since = newestFailed && (! newestDone || newestFailed.created_at > newestDone.created_at) ? newestFailed : null
-    latest.set(slotkey, { done: newestDone, failed: since })
-  }
-  return latest
+  failed: RecordedBottingT | null
 }
 
 /**
@@ -118,7 +92,7 @@ export function latestBySlot(bottings: readonly BottingT[]): Map<string, SlotLat
  * has only ever failed shows the failure; a cell with no botting is null.
  *
  * @param question - The question's own fields, as stored.
- * @param latest - Each cell's history, as `latestBySlot` gives it.
+ * @param latest - Each cell's history, by `slotkeyOf`.
  * @returns The `guess`, `clueing_ishes` and `hint_ishes` fields for that question.
  */
 export function resultsFor(
@@ -142,30 +116,24 @@ export function resultsFor(
  *
  * @param question - The question as the author now has it.
  * @param recordedAt - When each cell's newest recorded botting was made, by `slotkeyOf`; a cell absent has none.
- * @param mint - Supplies each new botting's id.
  * @returns The new bottings, one per result and one per failure.
  */
-export function unrecordedBottings(
-  question: QuestionT,
-  recordedAt: ReadonlyMap<string, number>,
-  mint: () => string = mintId,
-): BottingT[] {
+export function unrecordedBottings(question: QuestionT, recordedAt: ReadonlyMap<string, number>): BottingT[] {
   return BotSlots.flatMap((slot) => {
     const result = question[slot.field]
     if (result === null) { return [] }
     const recorded = recordedAt.get(slotkeyOf({ question_id: question._id, ...slot })) ?? 0
     const err = result.last_err
     return [
-      ...(result.status === 'done' && result.updated_at > recorded ? [doneFrom(question, slot, result, mint())] : []),
-      ...(err && err.at > recorded ? [failedFrom(question, slot, err, mint())] : []),
+      ...(result.status === 'done' && result.updated_at > recorded ? [doneFrom(question, slot, result)] : []),
+      ...(err && err.at > recorded ? [failedFrom(question, slot, err)] : []),
     ]
   })
 }
 
 /** A row with nothing filled in yet, for `slot` of `question` */
-function blankBotting(question: QuestionT, slot: BotSlot, id: string, created_at: number): BottingT {
+function blankBotting(question: QuestionT, slot: BotSlot): BottingT {
   return {
-    id,
     question_id:        question._id,
     bot_label:       slot.bot_label,
     textkind:           slot.textkind,
@@ -178,14 +146,13 @@ function blankBotting(question: QuestionT, slot: BotSlot, id: string, created_at
     truncated:          false,
     model_tier_applied: null,
     approx_tokens:      null,
-    created_at,
   }
 }
 
 /** A successful result found in one of `question`'s cells, as a botting */
-function doneFrom(question: QuestionT, slot: BotSlot, result: GuessDoneT | IshesDoneT, id: string): BottingT {
+function doneFrom(question: QuestionT, slot: BotSlot, result: GuessDoneT | IshesDoneT): BottingT {
   const botting: BottingT = {
-    ...blankBotting(question, slot, id, result.updated_at),
+    ...blankBotting(question, slot),
     truncated:          result.truncated,
     model_tier_applied: result.model_tier_applied ?? null,
     approx_tokens:      result.approx_tokens ?? null,
@@ -196,8 +163,13 @@ function doneFrom(question: QuestionT, slot: BotSlot, result: GuessDoneT | Ishes
 }
 
 /** A failed ask, as a botting */
-function failedFrom(question: QuestionT, slot: BotSlot, err: LastErrT, id: string): BottingT {
-  return { ...blankBotting(question, slot, id, err.at), status: 'error', message: err.message, response: err.response }
+function failedFrom(question: QuestionT, slot: BotSlot, err: LastErrT): BottingT {
+  return { ...blankBotting(question, slot), status: 'error', message: err.message, response: err.response }
+}
+
+/** When a botting was asked, in whole epoch milliseconds, as the tree's timestamps are */
+function askedAt(botting: RecordedBottingT): number {
+  return Math.floor(botting._creationTime)
 }
 
 /** The guess a cell's history comes to */
@@ -211,7 +183,7 @@ function guessFrom(history: SlotLatest | undefined): GuessT {
     truncated:          done.truncated,
     model_tier_applied: done.model_tier_applied ?? undefined,
     approx_tokens:      done.approx_tokens ?? undefined,
-    updated_at:         done.created_at,
+    updated_at:         askedAt(done),
     last_err:           failed ? lastErrOf(failed) : null,
   }
 }
@@ -228,14 +200,14 @@ function ishesFrom(history: SlotLatest | undefined, currentText: string): IshesT
     stale:              done.asked_text !== currentText.trim(),
     model_tier_applied: done.model_tier_applied ?? undefined,
     approx_tokens:      done.approx_tokens ?? undefined,
-    updated_at:         done.created_at,
+    updated_at:         askedAt(done),
     last_err:           failed ? lastErrOf(failed) : null,
   }
 }
 
 /** A failed botting, as the `last_err` its cell keeps */
-function lastErrOf(botting: BottingT): LastErrT {
-  return { message: botting.message ?? '', response: botting.response ?? null, at: botting.created_at }
+function lastErrOf(botting: RecordedBottingT): LastErrT {
+  return { message: botting.message ?? '', response: botting.response ?? null, at: askedAt(botting) }
 }
 
 /** What of a guess is shown to the outside world: whether there is an answer, and the answer */
