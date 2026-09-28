@@ -36,6 +36,12 @@ describe('Routes.huntsPath', () => {
   })
 })
 
+describe('Routes.aboutPath', () => {
+  it('is /about', () => {
+    expect(Routes.aboutPath()).to.eq('/about')
+  })
+})
+
 describe('Routes.actFrom', () => {
   it('reads a presentation it knows', () => {
     expect([Routes.actFrom('smith'), Routes.actFrom('review')]).to.deep.eq(['smith', 'review'])

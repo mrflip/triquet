@@ -2,6 +2,25 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: The Triquet brand is in
+
+The palette now comes from the brand kit (`Brand` in `src/app/palette.ts`, also emitted as
+`--brand-*`). A site header with the logo sits on every page, and `/about` offers the kit for
+download. The brand swatches came from a quick spike, and legibility wins over them. Verdigris
+is deepened for light and lifted for dark. Bermuda and comet are soft fills where they can't
+carry text. `tests/app/palette.test.ts` and `theme.test.ts` hold every pairing to WCAG AA.
+The manifest's 192px icon is the 512 scaled down.
+
+The assets' C2PA metadata is stripped: SVGO removed only the metadata from the SVGs, and the
+PNGs were re-encoded losslessly, so every file renders pixel-identical. The pages that need Jazz
+now sit in the `(synced)` route group, whose layout holds `SyncProvider`. `/about` stands
+outside it and never opens the database.
+
+A trap in the e2e setup: `playwright.config.ts` reuses any server already on its port. While
+another checkout's server held 3002, `pnpm test:e2e` quietly tested that checkout's code, and
+wrote its throwaway hunts into that server's database. `pnpm test:e2e:agent` sidesteps it. Should
+`reuseExistingServer` check that the server is this checkout's?
+
 ## 2026-09-27: Exports and quiz histories carry no ids
 
 The Export box and each quiz's `.tq.json` in its history now name everything by label: no ids

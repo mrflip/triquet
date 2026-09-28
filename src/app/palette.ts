@@ -1,39 +1,59 @@
 /**
- * The colour system: a desaturated green-grey ground with a single ochre accent -- deliberately
- * not a blue-grey SaaS palette, and warm enough to read as paper.
+ * The Triquet brand's six colours, as `public/brand/tokens.css` names them. The themes below
+ * take their grounds, ink and accents from here; the tints between them are derived.
+ */
+export const Brand = {
+  bonjour:    '#e3dee0', // light ground
+  bermuda:    '#7488a1', // light accent
+  smoky:      '#433363', // main brand
+  martinique: '#16111b', // dark ground
+  comet:      '#5f6283', // dark accent
+  verdigris:  '#2f8480', // bell / highlight accent, both modes
+} as const
+
+/**
+ * The colour system: the brand's warm grey ground, its purple and blue-grey accents, and
+ * verdigris for the one highlight both modes share.
  *
  * Every colour is named here once for light and once for dark. The CSS custom properties the
  * grid uses and the MUI theme its buttons use are both generated from these, so a colour has
  * exactly one definition per theme and nothing is defined only inside a dark-mode branch.
+ *
+ * Legibility comes before fidelity to the swatches. A brand accent too faint to carry text on
+ * its own ground (bermuda on bonjour, comet on martinique) is that mode's soft fill instead, and
+ * `accent` takes a brand colour that reads. Verdigris is deepened for light and lifted for dark,
+ * so the focus ring shows on every surface and a label written on it reads.
  */
 export const LightPalette = {
-  page:        '#eef1ea',
-  surface:     '#ffffff',
-  surfaceSunk: '#e4e9e0',
-  ink:         '#1b2b28',
-  muted:       '#5b6b66',
-  border:      '#d7ddd0',
-  accent:      '#b8790f',
-  accentInk:   '#6b4a0e',
-  accentSoft:  '#f5e7c8',
+  page:        Brand.bonjour,
+  surface:     '#f4f1f2',
+  surfaceSunk: '#d8d2d5',
+  ink:         Brand.martinique,
+  muted:       '#4e5175',
+  border:      '#c8c0c5',
+  accent:      Brand.smoky,
+  accentInk:   Brand.martinique,
+  accentSoft:  Brand.bermuda,
+  highlight:   '#2a7773',
   good:        '#2f6f4f',
   goodSoft:    '#dbeadf',
-  bad:         '#ad3f2b',
+  bad:         '#a63c29',
   badSoft:     '#f6ded8',
 } as const
 
 export type Colorkey = keyof typeof LightPalette
 
 export const DarkPalette: Record<Colorkey, string> = {
-  page:        '#12201c',
-  surface:     '#1b2b26',
-  surfaceSunk: '#21322c',
-  ink:         '#e9f0ec',
-  muted:       '#93aba3',
-  border:      '#2c3f38',
-  accent:      '#e0a63a',
-  accentInk:   '#f5e2b8',
-  accentSoft:  '#33290f',
+  page:        Brand.martinique,
+  surface:     '#1f1926',
+  surfaceSunk: '#272030',
+  ink:         Brand.bonjour,
+  muted:       '#a7a0ae',
+  border:      '#362d40',
+  accent:      Brand.bermuda,
+  accentInk:   '#f4f1f2',
+  accentSoft:  Brand.comet,
+  highlight:   '#3f9d97',
   good:        '#5fae83',
   goodSoft:    '#1d3a2c',
   bad:         '#e0846c',
@@ -43,26 +63,28 @@ export const DarkPalette: Record<Colorkey, string> = {
 /**
  * The stylesheet defining every colour token, in all three viewer states: an explicit light
  * choice, an explicit dark choice, and the default where neither is stamped and the system
- * decides.
+ * decides. The brand's own colours come along as `--brand-*`, the same in every state, for
+ * whatever must show a brand colour whatever the theme.
  *
  * @returns CSS ready to drop into a style element.
  *
  * @example paletteCss().startsWith(':root {')  // => true
  */
 export function paletteCss(): string {
+  const brand = declarationsFor(Brand, 'brand-')
   const light = declarationsFor(LightPalette)
   const dark  = declarationsFor(DarkPalette)
   return [
-    `:root {${light}}`,
+    `:root {${brand}${light}}`,
     `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {${dark}} }`,
     `:root[data-theme="dark"] {${dark}}`,
   ].join('\n')
 }
 
-/** `--kebab-name: value;` for every colour in `palette` */
-function declarationsFor(palette: Record<Colorkey, string>): string {
+/** `--prefix-kebab-name: value;` for every colour in `palette` */
+function declarationsFor(palette: Readonly<Record<string, string>>, prefix = ''): string {
   return Object.entries(palette)
-    .map(([colorkey, hex]) => `--${kebab(colorkey)}:${hex};`)
+    .map(([colorkey, hex]) => `--${prefix}${kebab(colorkey)}:${hex};`)
     .join('')
 }
 

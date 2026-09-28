@@ -3,6 +3,14 @@
 import { createTheme } from '@mui/material/styles'
 import { DarkPalette, LightPalette } from './palette'
 
+// The theme is built with CSS variables, so its type carries them: `vars`, `colorSchemes`. This
+// is what MUI's `themeCssVarsAugmentation` declares, written out to suit our lint.
+declare module '@mui/material/styles' {
+  interface CssThemeVariables {
+    enabled: true
+  }
+}
+
 /**
  * MUI's slice of the design system.
  *
@@ -15,7 +23,9 @@ export const theme = createTheme({
   colorSchemes: {
     light: {
       palette: {
+        contrastThreshold: 4.5,
         primary:    { main: LightPalette.accent, contrastText: LightPalette.surface },
+        secondary:  { main: LightPalette.highlight, contrastText: LightPalette.surface },
         success:    { main: LightPalette.good },
         error:      { main: LightPalette.bad },
         background: { default: LightPalette.page, paper: LightPalette.surface },
@@ -25,7 +35,9 @@ export const theme = createTheme({
     },
     dark: {
       palette: {
+        contrastThreshold: 4.5,
         primary:    { main: DarkPalette.accent, contrastText: DarkPalette.page },
+        secondary:  { main: DarkPalette.highlight, contrastText: DarkPalette.page },
         success:    { main: DarkPalette.good },
         error:      { main: DarkPalette.bad },
         background: { default: DarkPalette.page, paper: DarkPalette.surface },
