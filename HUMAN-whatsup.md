@@ -2,7 +2,7 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
-## 2026-09-28: Convex phase 2, the app runs on Convex: one question for you
+## 2026-09-28: Convex phase 2, the app runs on Convex
 
 Branch `20260928-convex_client`, stacked on `20260927-convex_phase3`. Jazz is out: the browser
 reads through Convex queries and writes through `hunts.perform`, and a refused change says why on
@@ -10,15 +10,12 @@ screen. `pnpm dev:agent` (and `pnpm dev`, which I changed to match) starts the r
 backend beside Next through `scripts/convex_dev`. Details and every deviation are in
 `whiteboard/convex_yay-progress.md`.
 
-**The question: the hunts cap and the e2e suite.** One full run makes about 150 hunts, and the
-app refuses the 100th, so a local `pnpm test:e2e` fails 46 specs at "+ New hunt". CI's six
-shards fit. I suggest raising `HuntsInApp` to 999; the progress document has two other options.
+The hunts cap is now 999, as you agreed, so a whole e2e run fits in one go.
 
 For you to do by hand (the agent's classifier refused them): delete `public/jazz/` (eslint trips
 on it), the `jazz` skill (`.agents/skills/jazz/`, the `.claude/skills/jazz` symlink, its
 `skills-lock.json` entry), and your `data/jazz/`. Doppler's `JAZZ_*` and `NEXT_PUBLIC_JAZZ_*`
-variables can go. The new `CONVEX_DEPLOY_KEY` in the agents' configs is set aside by the local
-scripts; tell me what it is for when phase 3 starts.
+variables can go.
 
 Things you might trip over:
 
