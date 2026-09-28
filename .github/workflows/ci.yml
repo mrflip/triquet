@@ -64,6 +64,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  # convex/_generated/ is committed, and a push regenerates it: a checkout whose functions or
+  # schema changed without it fails here. Codegen needs a running deployment, so the job pushes
+  # to a local backend of its own (the binary cached as the e2e job caches it) and diffs.
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/convex/binaries
+          key: convex-backend-${{ runner.os }}-${{ hashFiles('scripts/convex_backend') }}
+      - run: scripts/convex_dev e2e true
+      - run: git diff --exit-code --stat convex/_generated
+
   # The suite split six ways, each shard on a runner and dev server of its own; `pnpm test:e2e
   # --shard=2/6` runs one shard's specs locally. Every shard runs to the end, so one failure
   # never hides another.

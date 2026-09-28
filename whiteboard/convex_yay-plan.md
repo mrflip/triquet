@@ -1,8 +1,10 @@
 # Convex, yay: moving the app off Jazz
 
 Status: plan, 2026-09-27, written for the implementing agent (Opus) and agreed in outline with the
-Coach (Flip). Nothing here is built. The hunts-and-playtesting thread
-(`whiteboard/hunts-and-idents.md`, PR 4 onward) pauses until this lands.
+Coach (Flip). **Extended 2026-09-28**: phases 0 to 2 are built on `20260928-convex_phase4` (not
+yet merged) and the app runs on Convex alone; *Where this stands*, under *Phases*, says what is
+left of the move, and the hunts-and-playtesting thread (`whiteboard/hunts-and-idents.md`, PR 4
+onward), which paused for it, resumes here as phases 5 to 7.
 
 **What we are doing.** Replacing Jazz v2 with [Convex](https://docs.convex.dev) as the database,
 keeping every model, every action, every view and every test's intent. The move is also an
@@ -20,7 +22,9 @@ Read first, in this order: `CLAUDE.md`, `STYLE.md`, `notes/vocabulary.md`, `note
 `notes/decisions/2026-09-client-first.md`, `notes/deploy.md`, `notes/testing.md`, and then
 `whiteboard/jazz-migration.md` for how the last move was run. Then this document, then
 `whiteboard/convex_yay-progress.md` if it exists (it is newer than this plan wherever they
-disagree).
+disagree). For phases 5 to 7, also `whiteboard/hunts-and-idents.md` and
+`whiteboard/hunts-and-idents-handoff.md`: what they say the app should do stands; how they say to
+build it is Jazz's, and the phases here say what replaces it.
 
 ## Ground rules for every session on this thread
 
@@ -178,21 +182,29 @@ document's *Decisions taken*.
 15. **This plan ends with the app working as it does today, on Convex.** Phases 0 to 4. Identity
     (Convex Auth or a hub) and the resumption of hunts-and-idents at PR 4 get a plan of their
     own once phase 4's verdict is in; *Identity, later* below is the brief for it, not a phase.
+    *Amended 2026-09-28 (Coach):* hunts-and-idents PRs 4 to 6 resume in this plan as phases 5
+    to 7, on the browser key; the identity plan follows them rather than preceding them.
 16. Put caps in place for oother things: 99 each for widgets, columns and expressions, and 999 for reviews
 
 ## For the Coach
 
 What needs a human, and when. Each is mirrored in `HUMAN-whatsup.md` and the progress document
-as it comes due.
+as it comes due. As of 2026-09-28:
 
-* **Before phase 3**: a Convex team and project; a production deploy key into `prd_janitor`; a
-  preview deploy key into Vercel's preview environment through Doppler's sync; Vercel's build
-  command set to `npx convex deploy --cmd 'pnpm build' --cmd-url-env-var-name
-  NEXT_PUBLIC_CONVEX_URL`. Phases 0 to 2 need no account: anonymous local deployments do.
-* **After phase 0**: the Doppler variables its isolation answer names for `dev_claude`,
-  `dev_e2e` and the human's own config (a `CONVEX_DEPLOYMENT` or a self-hosted URL and admin
-  key per role), and the retirement of every `JAZZ_*` and `NEXT_PUBLIC_JAZZ_*` variable.
-* **Phase 3**: the first production deploy, and removing `data/jazz/` from the human's checkout.
+* **Done**: `NEXT_PUBLIC_CONVEX_URL` in `dev_claude` and `dev_e2e`; Convex's AI files installed;
+  Jazz's files, skill and data directories removed.
+* **Still open from phase 2**: retire the Doppler variables nothing reads (`JAZZ_DEV_DATA_DIR`
+  and `JAZZ_DEV_PORT` in `dev_claude` and `dev_e2e`; `NEXT_PUBLIC_JAZZ_APP_ID` and
+  `NEXT_PUBLIC_JAZZ_SERVER_URL` in `dev_claude`). (The `.env.local` at the checkout root is the
+  CLI's, rewritten on every push, harmless; and stale `.next*/dev/types` no longer fail
+  typecheck.)
+* **For phase 3b**, whenever it suits: a Convex team and project; a production deploy key into
+  `prd_janitor`; a preview deploy key into Vercel's preview environment through Doppler's sync;
+  Vercel's build command set to `npx convex deploy --cmd 'pnpm build' --cmd-url-env-var-name
+  NEXT_PUBLIC_CONVEX_URL`. Then the first production deploy. Nothing in phases 3a to 7 waits on
+  this: every agent phase runs on local backends.
+* **Phase 6**: the huntings cap. **Phase 7**: the answer to its one design question (a query
+  refused, or a query answering "not yours"), before it is built.
 
 ## Architecture after the move
 
@@ -536,67 +548,264 @@ Exit: the app runs on Convex alone against a local deployment; `pnpm test:e2e` g
 build:agent` green with a `NEXT_PUBLIC_CONVEX_URL` set; the Coach can paste a hunt export into
 the Import box and get their quiz back.
 
-### Phase 3: the cloud, previews and CI (PR `convex_deploy`)
+### Where this stands (2026-09-28)
 
-Needs the Coach: a Convex team and project, a production deploy key into `prd_janitor`, a
-preview deploy key into Vercel's preview environment (through Doppler's sync), and Vercel's build
-command set to `npx convex deploy --cmd 'pnpm build' --cmd-url-env-var-name
-NEXT_PUBLIC_CONVEX_URL`. The agent prepares everything that does not need the account:
+Phases 0 to 2 are built and green on `20260928-convex_phase4`, off `main` at #12 and not yet
+merged: lint, 1907 unit and convex tests, and 163 e2e specs in about a minute; `pnpm typecheck`
+passes bar a stale `.next-e2e/dev/types` (phase 3a fixes the cause). The progress document has
+every deviation. What is left of the move is phase 3's agent half, phase 4, and a sweep of Jazz's
+last traces from the notes; then the playtesting thread resumes as phases 5 to 7.
 
-* `notes/deploy.md` rewritten: Vercel builds the app and deploys the functions in one step; a
-  preview deployment per branch (empty database, deleted after five days on the free plan);
-  production on merge to `main`; `ANTHROPIC_API_KEY` stays a Vercel variable (settled item 7).
-  Schema pushes and what refuses them. No migrations.
-* CI: the `e2e` job brings up a local deployment (phase 0's answer, in anonymous mode or with a
-  dev deploy key); the `migrations` job is replaced by the `_generated` drift check; the
-  `build` job needs a `NEXT_PUBLIC_CONVEX_URL` (any syntactically valid one; the build bakes it
-  and does not connect).
-* `scripts/convex_healthcheck` (does the deployment the environment names answer, and does its
-  schema match `convex/schema.ts`? `npx convex function-spec` or a `--dry-run` deploy is the
-  likely tool), and the `README.md` *Developing* section rewritten.
+**Phases 3a and 4 land on this branch, as one pull request**, the sweep inside phase 4. Phase 3b
+(the cloud) is a small PR of its own whenever the Coach's account exists, and blocks nothing.
+Phases 5, 6 and 7 are each a branch stacked on this one (`pnpm run newb <label>`), one PR each,
+per the ground rules. Every phase still ends green and updates the progress document.
 
-Exit: production serves from Convex; a PR gets a preview with its own deployment; CI green on
-all jobs. The Coach performs the production deploy; the agent watches the preview.
+### Phase 3a: the deploy story, CI and the healthcheck (this branch)
 
-### Phase 4: the evaluation, and the ergonomics pass (PR `convex_evaluation`)
+Everything of phase 3 that needs no Convex account. The Coach's half is phase 3b.
 
-This phase is the reason for the whole exercise. With the app running for real:
+* **`notes/deploy.md` rewritten** for Convex: Vercel builds the app and deploys the functions in
+  one step (`npx convex deploy --cmd 'pnpm build'`); a preview deployment per branch, with its
+  own empty database; production on merge to `main`; `ANTHROPIC_API_KEY` stays a Vercel variable
+  (settled item 7). A schema push validates every document and refuses if any fails; with no
+  data to keep, a dev or e2e backend is emptied (`scripts/convex_reset`) and pushed again, and
+  production is the Coach's call. No migrations, no `migrations` job, no permissions head. What
+  the local backends are, per role, and how CI brings one up. Keep the "does this change need a
+  deploy?" table in spirit: under Convex every merge deploys the functions, and the interesting
+  row is the schema.
+* **`README.md`**: the storage paragraph and *Developing* rewritten (Convex, a local backend per
+  role, `pnpm dev` / `dev:agent` / `test:e2e`, the `convex_*` scripts in place of the `jazz_*`
+  ones). `CLAUDE.md`'s pointer at `deploy.md` loses "still Jazz's".
+* **The `_generated` drift check in CI.** `convex codegen` needs a running deployment
+  (*Discoveries*), so a job starts a local backend with `scripts/convex_backend` (the binary
+  cached as the `e2e` job caches it), pushes `convex/` through `scripts/convex_dev`, then runs
+  `git diff --exit-code convex/_generated`. A non-zero exit from the push fails the job too, so
+  a stub is never mistaken for a regeneration.
+* **`pnpm typecheck` must not depend on another role's stale build directory.** `tsconfig.json`
+  includes every `.next-*/dev/types/**`, so a route rename fails typecheck until each role's dev
+  server has run again (the "stale `.next*/` route types" note, now biting `.next-e2e`). Propose
+  the fix in chat before making it; the likely answer is to include only the directory the
+  current role writes (`NEXT_DIST_DIR`, defaulting to `.next`), or to clear them
+  (`scripts/nuke-next`) before typecheck in CI. Either way `pnpm typecheck` runs clean in a fresh
+  checkout and after any rename.
+* **`scripts/convex_healthcheck <role>`**: does the deployment the environment names answer, and
+  do its functions match `convex/`? `npx convex function-spec` against it compared with the
+  checkout's, or a dry-run deploy: whichever the installed CLI offers cleanly. It writes
+  nothing. `scripts/doppledo prd_janitor scripts/convex_healthcheck` is the Coach's spelling
+  once 3b lands; `scripts/doppledo`'s usage line names it in place of `jazz_healthcheck`.
+
+Exit: `notes/deploy.md` and `README.md` describe Convex; CI has the drift check and every job is
+green; `pnpm typecheck` passes in a clean checkout; the healthcheck runs against a local role.
+
+### Phase 3b: the cloud (a small PR of its own, when the Coach's account exists)
+
+With the team, project and keys in place (*For the Coach*): the Coach's first `npx convex
+deploy` to production; Vercel's build command; a preview deployment for one pull request, which
+the agent watches; `TRIQUET_CLEARABLE` set on no cloud deployment; the healthcheck run against
+production under `prd_janitor`; `notes/deploy.md` gains what the first deploy taught. Nothing
+else in this plan waits on it: every agent phase runs on local backends.
+
+### Phase 4: the evaluation, the ergonomics pass, and Jazz's last traces (this branch)
+
+This phase is the reason for the whole exercise. With the app running for real (on a local
+backend until 3b lands; record the numbers with that caveat, and add the cloud's once it does):
 
 * **Measure** what phase 0 estimated: round trip for a reorder, a checkbox and the lock; time to
-  first paint of a quiz; the size and frequency of `quizzes.open` redeliveries while editing
-  the Coach's real quiz; **bandwidth and query/mutation volume per editing hour**, the two
-  numbers that drive Convex's price, against the free plan's monthly allowances; document counts.
-  Record them in the progress document.
+  first paint of a quiz; the size and frequency of `quizzes.open` redeliveries while editing the
+  Coach's real quiz (brought in through the Import box); the cost of `hunts.whole` asked again on
+  every change for the Export box (a phase 2 deviation: if it shows, an export prepared on demand
+  is the alternative); **bandwidth and query/mutation volume per editing hour**, the two numbers
+  that drive Convex's price, against the free plan's allowances; document counts. Record them
+  in the progress document's *Measurements*.
 * **Add optimistic updates** (`withOptimisticUpdate`) only where the measurement says the wait
-  is felt: `move_question`, `move_widget`, `move_column`, `set_lock` are the candidates. Each
-  is a pure function over `localStore`; never mutate what it returns.
-* **Check the subscription count** against React DevTools and the Convex dashboard's function
-  log: one live query per screen-level thing, none per row. If something subscribes more, fix
-  it here.
-* **The `widgets` union** and the `reviewings` table from hunts-and-idents PR 4, if trivially
-  additive, are the small items to sweep up.
+  is felt: `move_question`, `move_widget`, `move_column`, `set_lock` are the candidates. Each is
+  a pure function over `localStore`; never mutate what it returns. Say in the verdict how many
+  were needed.
+* **Check the subscription count** against React DevTools and the backend's function log: one
+  live query per screen-level thing (`hunts.open`, `quizzes.open`, `reviews.forQuiz`,
+  `idents.current`, the hunts list, and `useOtherQuiz` while the expression preview points at
+  another quiz), none per row. If something subscribes more, fix it here.
+* **Small sweeps the earlier phases left.** `BottingT` loses its minted `id` and `created_at`
+  (`_id` and `_creationTime` are the row's) and `latestBySlot` goes with them, `resultsFor`'s
+  tests building their `latest` maps by hand. The `widgets` union, only if
+  `zodOutputToConvexFields` derives it from `WidgetValidators` cleanly; otherwise a line in the
+  verdict. `SyncLog` keeps only what Convex's client exposes cheaply.
 * **Write the verdict** into `notes/database-decisions.md`: the scorecard row for Convex
   re-scored from experience, what was lost from Jazz and how much it was missed, what was gained,
-  and a recommendation. Move the decision to `notes/decisions/2026-09-convex.md` (the reasoning,
-  the shape of the data, the rules that follow, what it replaced, learned in the move), and
-  update `CLAUDE.md`'s storage paragraph, `notes/stack.md`, `notes/guidelines.md`'s "with a
-  local-first database" section, `notes/testing.md`'s Jazz section, `notes/vocabulary.md`'s *id*
-  entry, `README.md`, and the client-first decision per settled item 12. Turn every "outgoing" or
-  "mid-move" note into what is.
+  and a recommendation. Move the reasoning to `notes/decisions/2026-09-convex.md` (the shape of
+  the data, the rules that follow, what it replaced, learned in the move), written from the
+  progress document's *Decisions taken*, *Deviations* and *Discoveries*, and `notes/stack.md`'s
+  Convex entry shrinks to point at it.
+* **Jazz's last traces, swept**, once the verdict is written. `grep -rniI jazz` outside
+  `relics/`, `aside/`, `whiteboard/`, `notes/prior-work/` and the Jazz decision is the checklist;
+  on 2026-09-28 it finds:
+  - `CLAUDE.md`: the storage paragraph says what is; the `deploy.md` line (phase 3a).
+  - `notes/stack.md`: the *Jazz v2* entry becomes a line pointing at the decision; under
+    unique-names-generator, "Row ids are Jazz's own"; the Doppler paragraph's "Jazz server" and
+    "Jazz admin and backend secrets"; *Later*'s "second device without logging in" (Jazz's
+    `exportLocalFirstSecret`: the browser key has no such door, and the identity brief is the
+    answer); *Discuss*'s Authentication entry, rewritten as the brief in *Identity, later*; the
+    *Settled in Sept 2026* paragraph, which still says Jazz and one-subscription-per-table.
+  - `notes/guidelines.md`: *Where validation sits, with a local-first database* becomes *with
+    the database on the server*: the entrypoints are the same, the mutation is the chokepoint a
+    client cannot skip, the second net is Convex's schema, and `JZS.json()` / `JZS.enum()` become
+    the bridge's nested values and closed sets.
+  - `notes/decisions/2026-09-client-first.md`, per settled item 12: "with the network off" is
+    struck; the named exception becomes the Convex deployment; *global facts* are now possible
+    (a mutation reads by index inside the transaction); *trusting identity* points at the brief.
+  - `notes/decisions/2026-09-jazz.md`: a status line at the top, superseded by
+    `2026-09-convex.md`, and nothing else touched. It is history.
+  - `notes/vocabulary.md`: *id* is Convex's `_id`; *identing* says browser, not account.
+  - `notes/sandbox_setup.md`: "the page finds Jazz at `localhost:3201`" becomes the backends'
+    `34xx` ports.
+  - `whiteboard/testing-practices.md` reasons about Jazz's worker under the fake clock; one line
+    saying whether Convex's client behaves the same.
+  - `src/lib/validator.ts`'s ULID comment may stay as history, or say "before September 2026".
+  - `whiteboard/jazz-migration.md` moves to `notes/prior-work/`, as retrospectives are kept.
+    `whiteboard/hunts-and-idents-handoff.md` is rewritten at the end of phase 5 (below).
+  - Doppler's four variables: the Coach's (*For the Coach*).
+* **`HUMAN-whatsup.md`** carries the verdict's one-paragraph summary and the numbers.
 
-Exit: the notes describe the app as it is; the Coach has the verdict in writing.
+Exit: the notes describe the app as it is; the Coach has the verdict in writing; the grep above
+finds nothing.
+
+### Phase 5: reviewings (hunts-and-idents PR 4, on Convex)
+
+What `whiteboard/hunts-and-idents.md` *PR 4* and the handoff's *For PR 4 in particular* ask for,
+built the Convex way. The behaviour is theirs, to the letter; the mechanisms below replace the
+Jazz ones they name (`use-held-rows`, `reviewingsQuery`, `quizRowsOf`'s fields, `perform`'s
+`held`, the migration).
+
+* **Model and schema.** `src/models/reviewing.ts`: `{ review_id: zid('reviews'), question_id:
+  zid('questions'), get_rate: uint.max(100).nullable(), guesses (as `review.ts` shapes
+  `overall`), comments: textish, minutes: a non-negative number, nullable, keep_it,
+  needs_fact_check, elimination_candidate, peeked: bool }`, a `reviewingPatch` by the patch
+  pattern, and `Reviewing.blank(review_id, question_id)`. `convex/schema.ts`: `reviewings`
+  derived like the rest, indexed `by_review_id_and_question_id` (the upsert's lookup, and a
+  review's reviewings with the review alone bound) and `by_question_id` (a question's deletion).
+  The canary test grows a table. No migration: the local backends are emptied. No new cap: a
+  review holds at most one reviewing per question, so `QuestionsPerQuiz` bounds the read.
+* **Actions**, in `models/actions.ts`'s `huntAction`: `set_reviewing { quiz_id, question_id,
+  patch: reviewingPatch }` and `peek_answer { quiz_id, question_id }`. `writing/review_actions.ts`
+  gains `setReviewing` (the reviewer's review by `by_quiz_id_and_ident_id`, refused
+  `reviewNotOpened`; the question by id, refused `questionGone`; the reviewing found or inserted
+  blank, the row validated as it would stand, only the changed fields patched; an `empty` review
+  moved to `draft`, a `shared` one left) and `peekAnswer` (the same lookups; `peeked` set once, a
+  no-op after). Both go through `perform`'s `reviewer(ident_id)` and neither through
+  `reviseOpenQuiz`: a locked quiz is reviewable.
+* **Cascades.** `deleteQuestion` deletes the question's reviewings as it deletes its bottings
+  (`by_question_id`, `for await`); `deleteQuiz` deletes each review's reviewings before the
+  review. `replace_open_quiz` (an import) keeps questions by label, so their reviewings survive.
+* **Reads.** `reviews.forQuiz` hands each review back with its reviewings: `ReviewedT` gains
+  `reviewings: Doc<'reviewings'>[]`, `.take(QuestionsPerQuiz.max)`. One query, as now; no second
+  subscription, and nothing the browser assembles.
+* **Views.** `AnswerLock` gains an optional `onReveal`, called once, the first time `revealed`
+  becomes true (a `useRef` guard), which `ReviewQuestionRow` wires to `peek_answer`.
+  `ReviewQuestionRow` takes the reviewer's reviewing (or null) and `dispatch`, and after the lock
+  shows *Get rate* (a number field 0..100, the spinner suppressed, as `QnumField`), *Guesses*,
+  *Comments*, *Minutes*, and three `ToggleButton`s with `aria-label`s (👍 keep it, 🔍 needs fact
+  check, ✂️ elimination candidate), each saving on commit through `set_reviewing`. Row height
+  follows `QuestionRow.tsx`: *Comments* is a `GrowingField`, every other text box a
+  `StretchField`; no third field component. `ReviewsPanel` gains, per shared review, a compact
+  MUI `Table` of its reviewings in rank order: title, get rate (marked when `peeked`), minutes,
+  the flags as their emoji, guesses and comments verbatim; it reads the same `sharedReviewsOf`
+  list, which phase 7 deletes.
+* **Tests.** `tests/models/reviewing.test.ts` (get rate 0, 100, 101, -1; minutes 0, 2.5, -1; a
+  patch carries no default); `tests/convex/hunts.test.ts` (`set_reviewing` inserts then patches,
+  a patch leaves absent fields alone, moves `empty` to `draft` and leaves `shared` alone, is
+  refused unopened and for a question gone; `peek_answer` sets `peeked` once; deleting a question
+  or a quiz takes the reviewings with it); `tests/convex/reviews.test.ts` (the join);
+  `tests/convex/schema.test.ts` (the canary); `e2e/reviews.spec.ts` extended, not a new file: the
+  reviewer fills a row, the comments field grows the row and the guesses field does not, and
+  once shared the smith's panel shows the row with its get rate marked as peeked.
+* **The handoff.** At the end of this phase, rewrite `whiteboard/hunts-and-idents-handoff.md` for
+  phase 6 on Convex, dropping every Jazz mechanism: `useKept` and the `in` lists, the migration
+  steps, and the duplicate-ident race, which `assumeIdent` closed by reading the label inside the
+  transaction. `notes/vocabulary.md` already names *reviewing*; check its line matches.
+
+Exit: green suites; a reviewer's per-question verdicts reach the smith's panel once shared.
+
+### Phase 6: huntings (hunts-and-idents PR 5, on Convex)
+
+* **Model and schema.** `src/models/hunting.ts`: `{ hunt_id: zid('hunts'), ident_id:
+  zid('idents'), role: oneof(HuntRoleVals) }`, `HuntRoleVals = ['smith', 'reviewer']`.
+  `huntings` indexed `by_hunt_id` and `by_ident_id_and_hunt_id`. A cap, `HuntingsPerHunt`, 99
+  proposed; confirm the number in chat, as the others were.
+* **Actions.** `new_hunt` (an account action) also writes a `smith` hunting for the browser's
+  current ident, and is refused `notIdentified` without one (today it asks no ident). Two new
+  hunt actions through `perform`, on `open.hunt_id`: `add_hunting { ident_label, role }`
+  (resolves the label by `idents.by_label`, refuses `identUnknown` with the notice the thread
+  words; an existing hunting has its role replaced, never duplicated) and `remove_hunting
+  { ident_id }` (refused `notSelfRemovable` for one's own). Deleting a hunt is still no action.
+* **Reads.** `hunts.list` takes `browser_key` and lists only the hunts the current ident has a
+  hunting on, each with the role: the one listing across hunts, now by `by_ident_id_and_hunt_id`
+  rather than a walk of every hunt, which was the last unbounded read. `hunts.open` takes
+  `browser_key` too, and returns the caller's role (`null` for a stranger) beside the shallow
+  hunt, with the hunt's huntings joined to their idents' labels and titles for the members panel.
+  `useHunt` returns `role`.
+* **Routing.** `QuizRoute`: `act` absent goes to `smith` for a smith and `review` for a
+  reviewer; a stranger sees *You are not on this hunt. Ask a smith to add `<ident label>`.*, and
+  `act=smith` as a reviewer the same, phrased for the role. Client enforcement until phase 7.
+  **The link a smith hands a reviewer**, the gap both handoffs note (no UI switches `act`),
+  closes here: a *Copy reviewer link* `CopyButton` beside the members panel, giving
+  `quizPath(labels, 'review')`.
+* **Views.** `components/panels/MembersPanel.tsx`, smith view only: an MUI `Table` of huntings
+  (ident title, label, role, remove) and a row to add one (label field, role `Select`, *Add*).
+* **Tests.** Model; `tests/convex/idents.test.ts` (the creator is a smith; `new_hunt` refused
+  unidentified); `tests/convex/hunts.test.ts` (add resolves and replaces; remove refuses self;
+  `list` shows only one's own, with the role; `open` says the role); `e2e/routing.spec.ts`
+  (redirect by role; the stranger's notice); `e2e/reviews.spec.ts` (the smith adds the second
+  visitor's ident as a reviewer, who arrives with no `act` and lands on the review screen).
+  `e2e/support.ts` already makes every hunt as an ident (`startHunt`); the `list` change means no
+  spec may assume it sees another spec's hunts, which none should.
+
+Exit: `/my/hunts` is one's own; roles route; a smith can add a friend and hand them the link.
+
+### Phase 7: authorization (hunts-and-idents PR 6, on Convex)
+
+`convex/authorize.ts` stops being a seam and starts checking, keyed as the trial keys
+everything: the browser key names its newest identing, the identing its ident, and the ident's
+hunting on a hunt says what it may do. The honour system stays in one respect, as the thread
+says: anyone may still assume any ident, so this is as strong as that until the identity plan
+puts a credential behind the ident. Build it so that plan changes one function (`identFor(db,
+browser_key)` becomes a read of `ctx.auth`) and no rule.
+
+* **The rules**, each a function in `authorize.ts` and nowhere else: `mayReadHunt` (a hunting of
+  any role), `mayChangeHunt` (a smith's), `mayReadReview` (one's own, or shared and a smith of
+  its hunt), `mayWriteReview` (one's own). Idents and identings as today.
+* **Where they run.** Every query below the hunts list takes `browser_key` (`hunts.open`,
+  `hunts.whole`, `quizzes.open`, `reviews.forQuiz`) and asks before reading; `hunts.perform` asks
+  `mayChangeHunt` for a quiz, layout or hunting action and `mayWriteReview` for a review action.
+  `reviews.forQuiz` returns only what the caller may read, so `sharedReviewsOf` and the panel's
+  client-side filter are deleted whole, as the handoff built them to be.
+* **The one design question, for the Coach before building: a query that may not answer.**
+  `useQuery` throws a query's error into React (*Discoveries*), so a refusal thrown from
+  `hunts.open` would take the page down rather than show a notice. Proposed: a query answers
+  with what the caller may see, `null` for a hunt they may not read exactly as for one that does
+  not exist, and `hunts.open` says which with a small discriminant (`{ hunt: null, why:
+  'notOnHunt' | 'noSuchHunt' }`) so `QuizRoute` can word the notice; mutations refuse as they do
+  today. The alternative, an error boundary around the route, is the heavier answer.
+* **Tests.** `tests/convex/authorize.test.ts` grows a smith, a reviewer and a stranger on one
+  hunt, every rule each way; the function tests gain the refused cases (a reviewer's edit, a
+  stranger's read, a draft review invisible to the smith); e2e: a stranger's deep link shows the
+  notice, a reviewer who types `act=smith` is refused, `client-first.spec.ts` still holds. The
+  installed `convex-authz` skill is worth a pass at the end, as a second reader.
+
+Exit: the server enforces what phase 6 showed; wide open is over; the identity plan is next.
 
 ### Identity, later (not a phase of this plan)
 
-After phase 4 the app works as it does today, on Convex, and the Coach issues a new plan. Its
-brief, so the seams built here point the right way: evaluate Convex Auth (`@convex-dev/auth`,
-beta) with the Anonymous provider as the replacement for `browser_key`, and Google as the first
-real provider behind it, against the alternative the Jazz plan named (Clerk or WorkOS as a
-hosted hub, Convex trusting its JWTs). Client-side only (`ConvexAuthProvider`); we have no
-server components. The design must include the "anonymous user signs in with Google on a second
-device" collision policy. `identings` then hang off `ctx.auth.getUserIdentity().subject` and
-`browser_key` goes; `convex/authorize.ts` gains its first real check; the ask route moves into
-a Convex action if it must know who is asking (item 7). Then hunts-and-idents resumes at PR 4.
+After phase 7 the app works as the playtesting thread meant it to, on Convex, with the browser
+key standing in for a credential. The Coach then issues the identity plan. Its brief, so the
+seams built here point the right way: evaluate Convex Auth (`@convex-dev/auth`, beta) with the
+Anonymous provider as the replacement for `browser_key`, and Google as the first real provider
+behind it, against the alternative the Jazz plan named (Clerk or WorkOS as a hosted hub, Convex
+trusting its JWTs). Client-side only (`ConvexAuthProvider`); we have no server components. The
+design must include the "anonymous user signs in with Google on a second device" collision
+policy. `identings` then hang off `ctx.auth.getUserIdentity().subject` and `browser_key` goes
+from every argument list; `authorize.ts`'s rules keep their shape and change their first line;
+the ask route moves into a Convex action if it must know who is asking (item 7).
 
 ## The progress document
 

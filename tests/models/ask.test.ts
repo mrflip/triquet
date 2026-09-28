@@ -4,13 +4,13 @@ import { AskValidators, askError } from '../../src/models/ask'
 
 const LastErr = { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1_700_000_000_000 }
 
-describe('AskValidators.modelTier', () => {
+describe('AskValidators.model_tier', () => {
   it('defaults to quick, the tier the app reaches for first', () => {
-    expect(AskValidators.modelTier(undefined)).to.eq('quick')
+    expect(AskValidators.model_tier(undefined)).to.eq('quick')
   })
 
   it('rejects a tier it does not recognize', () => {
-    expect(() => AskValidators.modelTier('sonnet' as never)).to.throw(Z.ZodError)
+    expect(() => AskValidators.model_tier('sonnet' as never)).to.throw(Z.ZodError)
   })
 })
 

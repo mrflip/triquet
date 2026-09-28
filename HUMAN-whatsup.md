@@ -2,6 +2,29 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-28: The Convex plan, extended through the playtesting thread
+
+Assessed where phases 0 to 2 left things (all green today: lint, 1907 unit and convex tests,
+163 e2e specs; typecheck trips only on the stale `.next-e2e/dev/types`) and extended
+`whiteboard/convex_yay-plan.md` from *Where this stands* onward. Phases 3a and 4 stay on this
+branch as one PR; 3b is the cloud, yours to unblock whenever; phases 5 to 7 are hunts-and-idents
+PRs 4 to 6, translated onto Convex. The progress document's status matches.
+
+Three things I decided that you may want to overrule:
+
+* **Settled item 15 is amended**: the playtesting PRs now come before the identity plan, on the
+  browser key, rather than after it. Phase 7's authorization is therefore as strong as the honour
+  system, which the thread always said; it is built so the identity plan changes one function.
+* **Phase 7 asks you one design question before it is built**: a query the caller may not read
+  answers `null` with a reason (so `QuizRoute` can word the notice) rather than throwing, since
+  `useQuery` throws into React. My recommendation is in the phase.
+* **Phase 6 proposes a cap of 99 huntings per hunt**, like the other per-parent caps.
+
+Still yours from phase 2: the four Doppler variables. (The `.env.local` at the root turns out to
+be the CLI's, rewritten on every push; harmless, nothing to do. The stale `.next/dev/types` no
+longer fails typecheck: `validator.ts` is excluded.) Phase 3b's list (team, project, keys, Vercel's
+build command) is unchanged.
+
 ## 2026-09-28: Convex phase 2, the app runs on Convex
 
 Branch `20260928-convex_client`, stacked on `20260927-convex_phase3`. Jazz is out: the browser

@@ -19,7 +19,7 @@ To this, you can add:
 
 In future, we may also offer api requests with a payload and response structure we design (calling a purpose-built edge worker), or perhaps even a templated graphql or rest request
 
-Storage is [Jazz](https://jazz.tools) v2, a local-first database: each browser keeps its own copy and a sync server carries it between devices and collaborators. You can start using the app and never log in; logging in (later) is what lets you collaborate with yourself across browsers, and with people you authorize. Jazz is still in alpha. We chose it on purpose, as a trial, to learn what people need before we commit to infrastructure (see `notes/decisions/2026-09-jazz.md`; whether it stays is the open question in `notes/database-decisions.md`). The app itself is written for the browser: static hosting plus one stateless function for asking a model (`notes/decisions/2026-09-client-first.md`). Each quiz's history is also recorded in a git repo on the browser's FS: not a second source of truth, but the best past-versions view we know of -- easy comparison of drafts, and an exit door for anyone who outgrows the tool
+Storage is [Convex](https://convex.dev): the rows live in a Convex deployment, the functions in `convex/` are the only things that read or write them, and every browser subscribes to small queries that redeliver the moment anything they read changes. Convex replaced Jazz in September 2026, as an evaluation as much as a move (`notes/decisions/2026-09-convex.md` has the reasoning; `notes/database-decisions.md` the scorecard and verdict). The app itself is written for the browser: static hosting plus one stateless function for asking a model (`notes/decisions/2026-09-client-first.md`). Each quiz's history is also recorded in a git repo on the browser's FS: not a second source of truth, but the best past-versions view we know of -- easy comparison of drafts, and an exit door for anyone who outgrows the tool
 
 ## Developing
 
@@ -36,43 +36,34 @@ We don't hand-roll what a maintained library already does. Reach for a Material 
 Use these standard commands:
 
     scripts/kilroy        # prints "triquet" when Doppler is set up for this checkout
-    pnpm dev              # the app, on :3000 (Doppler's default config for this directory)
-    pnpm test             # unit specs
-    pnpm test:e2e         # end-to-end specs, on :3002 (Doppler's dev_e2e)
+    pnpm dev              # the app, on :3000, with your own Convex backend on :3400
+    pnpm test             # unit specs, and the Convex functions under convex-test
+    pnpm test:e2e         # end-to-end specs, on :3002 with a backend on :3402 (Doppler's dev_e2e)
     pnpm lint && pnpm typecheck && pnpm build
 
-    ./scripts/doppledo dev_janitor ./scripts/jazz_healthcheck   # the real Jazz app it names: reachable, schema deployed?
-    ./scripts/doppledo dev_janitor ./scripts/jazz_deploy        # publish schema.ts and permissions.ts to it
-    ./scripts/doppledo dev_mrflip ./scripts/jazz_migration      # write the migration a schema change needs
-    pnpm run newb <label>                                       # new branch named YYYYMMDD-<label>
+    scripts/convex_reset dev                # empty your backend, every row of every table
+    scripts/convex_healthcheck dev          # does it answer, and does it hold this checkout's functions?
+    pnpm run newb <label>                   # new branch named YYYYMMDD-<label>
 
-How a change reaches production, and when a schema change needs a migration and a Jazz deploy:
+How a change reaches production, and what a schema change means for a deployment:
 `notes/deploy.md`.
 
-Coding agents use `pnpm dev:agent` (port 3001, build directory `.next-agent`) and `pnpm build:agent`
-instead of `pnpm dev` and `pnpm build`, so they never collide with a dev server you already have
-running. Next.js refuses to start a second dev server in the same directory. Each dev script runs
-under a Doppler config that gives it its own port, build directory and Jazz server: your default
-config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for `pnpm test:e2e`. The e2e
-suite always runs the app with a stand-in API key and its own Jazz server, and refuses to run
-locally outside `dev_e2e`. CI runs `playwright test` directly, with GitHub's environment;
-Vercel supplies its own.
+Coding agents use `pnpm dev:agent` (port 3001, build directory `.next-agent`, backend on 3401)
+and `pnpm build:agent` instead of `pnpm dev` and `pnpm build`, so they never collide with a dev
+server you already have running. Next.js refuses to start a second dev server in the same
+directory. Each dev script runs under a Doppler config that gives it its own port and build
+directory: your default config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for
+`pnpm test:e2e`. The e2e suite always runs the app with a stand-in API key and a backend of its
+own, emptied as it starts, and refuses to run locally outside `dev_e2e`. CI runs `playwright
+test` directly, with GitHub's environment; Vercel supplies its own.
 
-**Quizzes live in Jazz v2**, a local-first database: each browser keeps its own copy under a
-local account made silently on first visit, writes land there first, and a sync server carries
-them onward. There was no migration from the libSQL database this replaced (`data/triquet.db`,
-now unused): bring old quizzes back through the import tool.
-
-In development the app runs a local Jazz sync server inside the
-Next process, on `JAZZ_DEV_PORT` with its data in `JAZZ_DEV_DATA_DIR` (3200 and `data/jazz/` for
-you), publishes `src/db/schema.ts` and `permissions.ts` to it on every start and save, and
-records its app id in a `.env` inside that data directory. It
-ignores any Jazz Cloud variables the environment carries, unless `JAZZ_REAL_DB=true`: then it
-starts no server, uses `NEXT_PUBLIC_JAZZ_APP_ID` and `NEXT_PUBLIC_JAZZ_SERVER_URL` as given, and
-publishes nothing. Deploying to a real database is housekeeping, done under the `*janitor`
-Doppler configs, which alone hold the admin secret. A
-production build needs `NEXT_PUBLIC_JAZZ_APP_ID` and `NEXT_PUBLIC_JAZZ_SERVER_URL` at build time;
-without them the page says so instead of opening.
+**Quizzes live in Convex.** In development each role has a local Convex backend of its own, run
+from Convex's open-source binary by `scripts/convex_backend <role>`, with its data in
+`data/convex-<role>/`; `scripts/convex_dev` (which `pnpm dev` and `pnpm dev:agent` go through)
+starts it when it is not running and pushes `convex/` to it, regenerating `convex/_generated/`,
+which is committed. No account is needed for any of that. A production build needs
+`NEXT_PUBLIC_CONVEX_URL` at build time, which Vercel's deploy command sets; without it the page
+says so instead of opening.
 
 Each quiz's edit history is committed to an in-browser git repository about 30 seconds after the
 first edit in a burst; `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` (2 to 600) changes that wait.

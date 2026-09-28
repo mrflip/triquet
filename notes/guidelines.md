@@ -71,6 +71,19 @@ Build every schema through a `Validator` block, or from the kit's aliases where 
 than the job needs. Import `zod` itself only for its types (`Z.input`, `Z.output`, `Z.ZodError`);
 the kit's `zod` key is the escape hatch for the rare thing it does not alias.
 
+A Validator should be your first choice for filling in defaults, coercing types, collapsing union types, checking limits.
+
+```ts
+function convertUnits(measured: MeasuredT, units: MeasurementUnitOrSomethingOrSomethingElse) {
+  const { measured: { val:fromVal, units:fromUnits }, intoUnits } = Validate.convertUnits.parse({ measured, intoUnits: units })
+  // do stuff with fromVal, fromUnits and intoUnits...
+  const intoVal = ...
+  return { ...measured, val: intoVal, units: intoUnits }
+}
+```
+
+No fear about measured being spreadable, and a generous interface for units without distracting code in the function
+
 ### Where validation sits, with a local-first database
 
 The entrypoints that matter most are **between the UI and the app**: a field's new value being
