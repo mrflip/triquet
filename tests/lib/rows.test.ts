@@ -167,8 +167,14 @@ describe('huntListingOf', () => {
 
 describe('shallowHuntOf', () => {
   it('counts each expression\'s widgets, nought for one no widget works', () => {
-    expect(shallowHuntOf(Rows, new Map([['shout', 1]])).expressions[0]?.usage).to.eq(1)
-    expect(shallowHuntOf(Rows, new Map()).expressions[0]?.usage).to.eq(0)
+    expect(shallowHuntOf(Rows, new Map([['shout', 1]]), [], null).expressions[0]?.usage).to.eq(1)
+    expect(shallowHuntOf(Rows, new Map(), [], null).expressions[0]?.usage).to.eq(0)
+  })
+
+  it('carries who is on the hunt, and the role of whoever is looking', () => {
+    const members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
+    const hunt = shallowHuntOf(Rows, new Map(), members, 'reviewer')
+    expect([hunt.members, hunt.role]).to.deep.eq([members, 'reviewer'])
   })
 })
 

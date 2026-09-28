@@ -12,7 +12,7 @@ function quizRow(tail: string, label: string, forced_label: string | null = null
 }
 
 const Hunt: ShallowHuntT = {
-  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', forced_label: null, title: 'Quiet Otter', expressions: [],
+  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', forced_label: null, title: 'Quiet Otter', expressions: [], members: [], role: 'smith',
   realms: [{
     _id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>, label: 'home', title: 'Home',
     quizzes:    [quizRow('q01', 'quiet_otter'), quizRow('q02', 'princes', 'kings'), quizRow('q03', 'quiet_otter')],

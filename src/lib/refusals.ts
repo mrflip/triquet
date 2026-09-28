@@ -24,12 +24,14 @@ const ArgRefusalShape = Z.object({ ZodError: Z.array(ArgIssueShape).min(1) })
  * mutation writes nothing.
  *
  * @param failurekind - Why.
+ * @param message - The sentence to show, when it says more than the refusal's own (`RefusalNotices`).
  * @throws Always.
  *
  * @example if (rows.quiz.locked) { refuse('quizLocked') }
+ * @example refuse('identUnknown', identUnknownNotice(ident_label))
  */
-export function refuse(failurekind: Refusalkind): never {
-  throw new ConvexError<RefusalT>({ failurekind, message: RefusalNotices[failurekind] })
+export function refuse(failurekind: Refusalkind, message: string = RefusalNotices[failurekind]): never {
+  throw new ConvexError<RefusalT>({ failurekind, message })
 }
 
 /**
@@ -58,6 +60,19 @@ export async function refusingInvalid<TT>(handler: () => Promise<TT>): Promise<T
   } catch (err) {
     throw refusalFor(err)
   }
+}
+
+/**
+ * Why a Convex function call was refused, for a caller that answers one refusal differently from
+ * the rest: the refusal's `failurekind` (`invalid` for something invalid), or null for anything
+ * that is not a refusal.
+ *
+ * @example if (failurekindOf(err) === 'labelTaken') { ... try another label }
+ */
+export function failurekindOf(err: unknown): string | null {
+  if (! (err instanceof ConvexError)) { return null }
+  const refusal = RefusalShape.safeParse(err.data)
+  return refusal.success ? refusal.data.failurekind : null
 }
 
 /**

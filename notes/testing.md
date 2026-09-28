@@ -155,10 +155,11 @@ in a comment what the window is and why it is long enough.
 The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory and Convex backend, emptied as the suite starts); Playwright refuses to start locally
 otherwise. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
-fresh hunt. Every hunt is open to every browser, so specs are isolated by those random labels, not by
-ownership: find rows and pages by your own labels and titles, never by position in a list every
-spec writes to. A second visitor is a second browser context (`browser.newContext()`), closed
-after the test.
+fresh hunt, of which that ident is the smith. Specs share one database, and every hunt in it is
+open to any browser that names it, so find rows and pages by your own labels and titles, never
+by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
+a smith puts them on the hunt through the members panel (`addMember`) before they can open it.
+The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 
 A change lands one round trip after the author makes it: the screen shows it once the server
 has it. A spec whose next step needs the change (a lock before forcing past it, a clueing before

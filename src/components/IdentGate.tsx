@@ -49,8 +49,8 @@ export function IdentGate() {
     if (label === '') { setIssue(AppNotices.identLabelNeeded); return }
     if (! IdentValidators.identLabel.safeParse(label).success) { setIssue(AppNotices.identLabelShape); return }
     setIssue(null)
-    const done = await act({ kind: 'assume_ident', label, title: titleDraft })
-    if (done && switching) { router.replace(then ?? Routes.huntsPath()) }
+    const { kept } = await act({ kind: 'assume_ident', label, title: titleDraft })
+    if (kept && switching) { router.replace(then ?? Routes.huntsPath()) }
   }
 
   return (

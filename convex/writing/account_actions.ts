@@ -2,10 +2,11 @@ import type { Id } from '../_generated/dataModel'
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import { Hunt } from '../../src/models/hunt'
+import { HuntingValidators } from '../../src/models/hunting'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
-import { huntForLabel, huntsOf, identForLabel } from '../reading'
+import { huntForLabel, huntsOf, identFor, identForLabel } from '../reading'
 import { writeHunt, type Writer } from './quiz_writing'
 
 /**
@@ -32,18 +33,23 @@ export async function assumeIdent(db: Writer, browser_key: string, label: string
 }
 
 /**
- * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label.
- * A label some hunt already answers to is refused, as a quiz's is: the caller has already put
- * it in an address. So is one hunt more than the app may hold.
+ * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label,
+ * with the ident the browser `browser_key` is now as its smith. A browser that has not said who
+ * it is is refused, since a hunt nobody is on is a hunt nobody can open. A label some hunt
+ * already answers to is refused, as a quiz's is: the caller has already put it in an address. So
+ * is one hunt more than the app may hold.
  *
  * @returns The hunt's row id.
- * @throws A refusal (`labelTaken`, `huntsFull`); nothing is written.
+ * @throws A refusal (`notIdentified`, `labelTaken`, `huntsFull`); nothing is written.
  */
-export async function newHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
-  const [taken, hunts] = await Promise.all([huntForLabel(db, label), huntsOf(db)])
+export async function newHunt(db: Writer, browser_key: string, label: string): Promise<Id<'hunts'>> {
+  const [ident, taken, hunts] = await Promise.all([identFor(db, browser_key), huntForLabel(db, label), huntsOf(db)])
+  if (! ident) { refuse('notIdentified') }
   if (taken) { refuse('labelTaken') }
   if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
-  return await writeHunt(db, Hunt.blank(label))
+  const hunt_id = await writeHunt(db, Hunt.blank(label))
+  await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: ident._id, role: 'smith' }))
+  return hunt_id
 }
 
 /**
@@ -58,6 +64,6 @@ export async function newHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
 export async function performAccount(db: Writer, browser_key: string, action: AccountActionT): Promise<Id<'idents'> | Id<'hunts'>> {
   switch (action.kind) {
   case 'assume_ident': { return await assumeIdent(db, browser_key, action.label, action.title) }
-  case 'new_hunt':     { return await newHunt(db, action.label) }
+  case 'new_hunt':     { return await newHunt(db, browser_key, action.label) }
   }
 }

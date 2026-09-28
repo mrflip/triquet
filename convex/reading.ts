@@ -2,7 +2,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import * as PA from '../src/lib/vv/patterns'
 import { BotSlots, slotkeyOf, type BotSlot } from '../src/models/botting'
-import type { HuntRows, LayoutRows, QuizRows, RealmRows, SlotRows } from '../src/lib/rows'
+import type { HuntRows, LayoutRows, MemberT, QuizRows, RealmRows, SlotRows } from '../src/lib/rows'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
 // that kind of child, which the writes refuse to pass: a read never silently drops a row. A
@@ -38,6 +38,31 @@ export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunt
 /** Every hunt, in the order they were made */
 export async function huntsOf(db: Reader): Promise<Doc<'hunts'>[]> {
   return await db.query('hunts').take(PA.HuntsInApp.max)
+}
+
+/** A hunt's huntings, in the order they were made */
+export async function huntingsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Doc<'huntings'>[]> {
+  return await db.query('huntings').withIndex('by_hunt_id', (qq) => qq.eq('hunt_id', hunt_id)).take(PA.HuntingsPerHunt.max)
+}
+
+/** An ident's huntings, one per hunt it is on at most, which the app's cap on hunts bounds */
+export async function huntingsFor(db: Reader, ident_id: Id<'idents'>): Promise<Doc<'huntings'>[]> {
+  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (qq) => qq.eq('ident_id', ident_id)).take(PA.HuntsInApp.max)
+}
+
+/** The hunting `ident_id` has on `hunt_id`, and so its role there; null when it is not on the hunt */
+export async function huntingFor(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>): Promise<Doc<'huntings'> | null> {
+  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (qq) => qq.eq('ident_id', ident_id).eq('hunt_id', hunt_id)).first()
+}
+
+/** A hunt's huntings, in the order they were made, each with the label and title of its ident */
+export async function membersOf(db: Reader, hunt_id: Id<'hunts'>): Promise<MemberT[]> {
+  const huntings = await huntingsOf(db, hunt_id)
+  const idents = await Promise.all(huntings.map(async (hunting) => await db.get('idents', hunting.ident_id)))
+  return huntings.flatMap((hunting, idx) => {
+    const ident = idents[idx]
+    return ident ? [{ ident_id: hunting.ident_id, label: ident.label, title: ident.title, role: hunting.role }] : []
+  })
 }
 
 /** A hunt's realms in order, each with its quizzes' rows in the order they were made */

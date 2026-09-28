@@ -6,6 +6,7 @@ import { BottingValidators } from '../../src/models/botting'
 import { ColumnValidators } from '../../src/models/column'
 import { ExpressionValidators } from '../../src/models/expression'
 import { HuntValidators } from '../../src/models/hunt'
+import { HuntingValidators } from '../../src/models/hunting'
 import { IdentValidators } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import { QuestionValidators } from '../../src/models/question'
@@ -30,6 +31,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
   columns:     ColumnValidators.row,
   expressions: ExpressionValidators.row,
   hunts:       HuntValidators.row,
+  huntings:    HuntingValidators.row,
   idents:      IdentValidators.row,
   identings:   IdentingValidators.row,
   questions:   QuestionValidators.row,
@@ -80,6 +82,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const review_id = await insert('reviews', review)
     return {
       hunts:       hunt,
+      huntings:    HuntingValidators.row({ hunt_id, ident_id, role: 'reviewer' }),
       realms:      realm,
       quizzes:     quiz,
       questions:   question,
@@ -106,6 +109,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   columns:     { width_px: '200px' },
   expressions: { owner: 'someone' },
   hunts:       { title: 7 },
+  huntings:    { role: 'owner' },
   idents:      { label: null },
   identings:   { browser_key: 12 },
   questions:   { position: 'first' },

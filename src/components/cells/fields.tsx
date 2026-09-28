@@ -120,13 +120,15 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
 /**
  * An optional non-negative number, committed when the box loses focus: as a number, or null
  * when it was emptied. Keystrokes that would make it anything else, or more than `max`, are not
- * taken, and what was typed is tidied on exit into the number it means (`2.50` becomes `2.5`).
+ * taken, and what was typed is tidied on exit into the number it means (`2.50` becomes `2.5`, and
+ * a lone `.` nothing).
  */
 export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, max, bare = false }: Readonly<NumberFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(
     committed === null ? '' : String(committed),
     (typed) => { onCommit(typed === '' ? null : Number(typed)) },
-    (typed) => (typed === '' ? '' : String(Number(typed))),
+    // A lone point means no number at all.
+    (typed) => (typed === '' || Number.isNaN(Number(typed)) ? '' : String(Number(typed))),
   )
   const inputMode = fractional ? 'decimal' : 'numeric'
   const numeric = {

@@ -1,21 +1,20 @@
-import type { Page } from '@playwright/test'
-import { expect, freshIdentLabel, otherVisitor, startHunt, test, waitUntilSaved } from './support'
+import type { Browser, Page } from '@playwright/test'
+import { addMember, assumeIdent, expect, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about a second visitor reviewing the first's hunt, so each goes in by itself.
 test.use({ startAt: null })
 
-/** The address `page` is at, presented for review instead of for smithing */
-function reviewUrlOf(page: Page): string {
-  return page.url().replace('act=smith', 'act=review')
-}
-
-/** A fresh visitor's way in to a review, deep-linked: through the front door and back to it */
-async function enterReview(reviewer: Page, link: string): Promise<void> {
-  await reviewer.goto(link)
-  await expect(reviewer.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
-  await reviewer.getByLabel('Ident label').fill(freshIdentLabel())
-  await reviewer.getByRole('button', { name: 'Continue' }).click()
-  await expect(reviewer).toHaveURL(link)
+/**
+ * A second visitor, put on the hunt `smith` has open as a reviewer, who follows a link naming
+ * no presentation and lands on the review.
+ */
+async function enterReview(smith: Page, browser: Browser): Promise<Page> {
+  const reviewer = await otherVisitor(browser)
+  const label = await assumeIdent(reviewer)
+  await addMember(smith, label, 'Reviewer')
+  await reviewer.goto(quizPathOf(smith))
+  await expect(reviewer).toHaveURL(/\?act=review$/)
+  return reviewer
 }
 
 /** Twelve lines of text, far taller than a row's floor */
@@ -31,8 +30,7 @@ test.describe('a review', () => {
     await page.getByLabel('Quiz name').click()
     await waitUntilSaved(page)
 
-    const reviewer = await otherVisitor(browser)
-    await enterReview(reviewer, reviewUrlOf(page))
+    const reviewer = await enterReview(page, browser)
     await expect(reviewer.getByRole('heading', { name: 'For review' })).toBeVisible()
     await expect(reviewer.getByText('Which prince was Danish?')).toBeVisible()
 
@@ -56,8 +54,7 @@ test.describe('a review', () => {
     await page.getByLabel('Quiz name').click()
     await waitUntilSaved(page)
 
-    const reviewer = await otherVisitor(browser)
-    await enterReview(reviewer, reviewUrlOf(page))
+    const reviewer = await enterReview(page, browser)
     await expect(reviewer.getByRole('button', { name: 'Reveal answer' }).first()).toBeVisible()
     await expect(reviewer.getByText('Hamlet')).toBeHidden()
 
@@ -77,8 +74,7 @@ test.describe('a review', () => {
     await page.getByLabel('Quiz name').click()
     await waitUntilSaved(page)
 
-    const reviewer = await otherVisitor(browser)
-    await enterReview(reviewer, reviewUrlOf(page))
+    const reviewer = await enterReview(page, browser)
     const row = reviewer.getByRole('region', { name: 'Danish prince' })
     await row.getByRole('button', { name: 'Reveal answer' }).click()
     await reviewer.getByRole('button', { name: 'Reveal', exact: true }).click()

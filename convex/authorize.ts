@@ -7,7 +7,8 @@ import type { Id } from './_generated/dataModel'
  *
  * For the playtesting trial every hunt is open to every browser: anyone who can reach the app can
  * read and change any hunt. A hunt is found by its address, and an address is not a secret.
- * Membership and roles come next, and the check that enforces them here after that.
+ * Who is on a hunt, and in what role, is kept (its huntings) and followed by the pages; this
+ * check does not consult it.
  *
  * Two kinds of row are not open, by what the functions offer rather than by a check. A browser's
  * identings are read only through its own key, so no browser sees which idents another has taken

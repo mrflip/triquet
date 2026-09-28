@@ -3,6 +3,7 @@ import { Validator } from '../lib/validator'
 import { BottingValidators } from './botting'
 import { ColumnValidators } from './column'
 import { ExpressionValidators } from './expression'
+import { HuntingValidators } from './hunting'
 import { IdentValidators } from './ident'
 import { QuestionValidators } from './question'
 import { QuizValidators } from './quiz'
@@ -68,8 +69,10 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),
     obj({ kind: lit('set_reviewing'),       quiz_id: zid('quizzes'), question_id: zid('questions'), patch: ReviewingValidators.reviewingPatch }),
     obj({ kind: lit('peek_answer'),         quiz_id: zid('quizzes'), question_id: zid('questions') }),
+    obj({ kind: lit('add_hunting'),         ident_label: IdentValidators.identLabel, role: HuntingValidators.role }),
+    obj({ kind: lit('remove_hunting'),      ident_id: zid('idents') }),
   ])
-    .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, and to its hunt\'s expressions.')
+    .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, to its hunt\'s expressions, and to who is on the hunt.')
 
   const accountAction = discrim('kind', [
     obj({ kind: lit('assume_ident'), label: IdentValidators.identLabel, title: str }),

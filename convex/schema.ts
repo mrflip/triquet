@@ -7,6 +7,7 @@ import { BottingValidators } from '../src/models/botting'
 import { ColumnValidators } from '../src/models/column'
 import { ExpressionValidators } from '../src/models/expression'
 import { HuntValidators } from '../src/models/hunt'
+import { HuntingValidators } from '../src/models/hunting'
 import { IdentValidators } from '../src/models/ident'
 import { IdentingValidators } from '../src/models/identing'
 import { QuestionValidators } from '../src/models/question'
@@ -40,6 +41,7 @@ const bottingFields     = {
 }
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
+const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
 
 /**
  * The app's tables. Children are read through their parent's index, in their committed order
@@ -53,7 +55,7 @@ export default defineSchema({
   idents:      defineTable(identFields).index('by_label', ['label']),
   /** One time a browser took on an ident: its newest is the ident it is now */
   identings:   defineTable(identingFields).index('by_browser_key', ['browser_key']),
-  /** A hunt: the unit of address and, later, of membership. Its realms hold its quizzes. */
+  /** A hunt: the unit of address and of membership. Its realms hold its quizzes. */
   hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_forced_label', ['forced_label']),
   /** A division of a hunt, holding quizzes, kept in the order its hunt lists them */
   realms:      defineTable(realmFields).index('by_hunt_id_and_position', ['hunt_id', 'position']),
@@ -73,4 +75,6 @@ export default defineSchema({
   reviews:     defineTable(reviewFields).index('by_quiz_id', ['quiz_id']).index('by_quiz_id_and_ident_id', ['quiz_id', 'ident_id']),
   /** One review's verdict on one question, made the first time the reviewer writes to it */
   reviewings:  defineTable(reviewingFields).index('by_review_id_and_question_id', ['review_id', 'question_id']).index('by_question_id', ['question_id']),
+  /** One ident's place on one hunt, with a role: at most one per hunt and ident */
+  huntings:    defineTable(huntingFields).index('by_hunt_id', ['hunt_id']).index('by_ident_id_and_hunt_id', ['ident_id', 'hunt_id']),
 })

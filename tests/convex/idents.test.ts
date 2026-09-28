@@ -6,20 +6,21 @@ import { BlankQuestionQty } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { openTester, refusedAs, wholeHunt, type Tester } from '../support/convex'
+import { identified, openTester, refusedAs, wholeHunt, type Tester } from '../support/convex'
 
 /** Take on the ident labelled `label` as the browser `browser_key`, through the public function */
 async function assume(tt: Tester, browser_key: string, label: string, title = '') {
   return await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title }, browser_key })
 }
 
-/** Make a hunt labelled `label`, through the public function */
-async function makeHunt(tt: Tester, label: string) {
-  return await tt.mutation(api.idents.performAccount, { action: { kind: 'new_hunt', label }, browser_key: mintId() })
+/** Make a hunt labelled `label` through the public function, as the browser `browser_key`, or as a fresh ident's browser */
+async function makeHunt(tt: Tester, label: string, browser_key?: string) {
+  const maker = browser_key === undefined ? await identified(tt, `maker_${mintId().slice(-8)}`) : { browser_key }
+  return await tt.mutation(api.idents.performAccount, { action: { kind: 'new_hunt', label }, browser_key: maker.browser_key })
 }
 
 /** Every row of a table, for the tests that count them */
-async function allOf<TN extends 'idents' | 'identings' | 'hunts'>(tt: Tester, tablename: TN) {
+async function allOf<TN extends 'idents' | 'identings' | 'hunts' | 'huntings'>(tt: Tester, tablename: TN) {
   return await tt.run(async (ctx) => await ctx.db.query(tablename).collect())
 }
 
@@ -96,6 +97,21 @@ describe('idents.performAccount: new_hunt', () => {
     expect(hunt._id).to.eq(hunt_id)
     expect([hunt.label, present(realm).label, present(quiz).label, present(quiz).title, present(quiz).questions.length])
       .to.deep.eq(['loud_heron', HomeRealmLabel, 'loud_heron', hunt.title, BlankQuestionQty])
+  })
+
+  it('puts the ident the browser is now on the hunt it made, as its smith', async () => {
+    const tt = openTester()
+    const alice = await identified(tt, 'alice_smiths')
+    const hunt_id = await makeHunt(tt, 'loud_heron', alice.browser_key)
+    const huntings = await allOf(tt, 'huntings')
+    expect(huntings.map((row) => [row.hunt_id, row.ident_id, row.role])).to.deep.eq([[hunt_id, alice.ident_id, 'smith']])
+  })
+
+  it('refuses a browser that has not said who it is, writing nothing', async () => {
+    const tt = openTester()
+    const pending = makeHunt(tt, 'loud_heron', mintId())
+    expect(await refusedAs(pending)).to.eq('notIdentified')
+    expect([await allOf(tt, 'hunts'), await allOf(tt, 'huntings')]).to.deep.eq([[], []])
   })
 
   it('refuses a label some hunt already answers to', async () => {

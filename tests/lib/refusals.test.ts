@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
-import { noticeOf, refusalFor, refuse, refusingInvalid } from '../../src/lib/refusals'
+import { failurekindOf, noticeOf, refusalFor, refuse, refusingInvalid } from '../../src/lib/refusals'
 import { AppNotices, RefusalNotices } from '../../src/lib/notices'
 
 /** What `run` threw; fails the test if it threw nothing */
@@ -65,6 +65,26 @@ describe('refusingInvalid', () => {
     await expect(refusingInvalid(async () => { await Promise.reject(zodError()) })).rejects.toThrow(ConvexError)
     await expect(refusingInvalid(async () => { await Promise.reject(new Error('fell over')) })).rejects.toThrow('fell over')
   })
+})
+
+describe('refuse, with a sentence of its own', () => {
+  it('carries the sentence given in place of the refusal\'s own', () => {
+    expect(dataOf(thrownBy(() => refuse('identUnknown', 'No ident is labelled "bob_reviews".')))).to.deep.eq({ failurekind: 'identUnknown', message: 'No ident is labelled "bob_reviews".' })
+  })
+})
+
+describe('failurekindOf', () => {
+  const Cases: [unknown, string | null, string][] = [
+    [thrownBy(() => refuse('labelTaken')),                                   'labelTaken', 'a refusal: its kind'],
+    [refusalFor(zodError()),                                                'invalid',    'something invalid'],
+    [new ConvexError({ ZodError: [{ message: 'should match pattern' }] }),   null,         'a refused argument, which is a caller\'s bug'],
+    [new Error('Server Error'),                                             null,         'an error the server did not mean to say'],
+  ]
+  for (const [err, failurekind, describes] of Cases) {
+    it(`reads ${describes}`, () => {
+      expect(failurekindOf(err)).to.eq(failurekind)
+    })
+  }
 })
 
 describe('noticeOf', () => {

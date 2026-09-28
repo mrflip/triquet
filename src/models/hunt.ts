@@ -22,9 +22,9 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
     forced_label: forced_label.default(null),
     title:        title.default(''),
     realms:       arr(RealmValidators.realm).min(PA.RealmsPerHunt.min).max(PA.RealmsPerHunt.max)
-      .describe('The hunt\'s realms, in order, at most 99. Every hunt has `home`, and for now nothing else.'),
+      .describe(`The hunt's realms, in order, at most ${String(PA.RealmsPerHunt.max)}. Every hunt has \`home\`, and for now nothing else.`),
     expressions:  arr(ExpressionValidators.expression).max(PA.ExpressionsPerHunt.max).default([])
-      .describe('The calculations any quiz of this hunt can put to work as columns, at most 99.'),
+      .describe(`The calculations any quiz of this hunt can put to work as columns, at most ${String(PA.ExpressionsPerHunt.max)}.`),
   })
     .check((context) => {
       for (const issue of integrityIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) }

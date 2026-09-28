@@ -4,6 +4,7 @@ import * as Labelmaker from './labelmaker'
 import { resultsFor, type SlotLatest } from '../models/botting'
 import type { ExpressionT } from '../models/expression'
 import type { HuntT } from '../models/hunt'
+import type { HuntRole } from '../models/hunting'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
@@ -70,11 +71,29 @@ export type HuntListingT = {
   realms:       readonly ShallowRealmT[]
 }
 
+/** A hunt as its hunts list shows one ident: its listing, and the ident's role on it */
+export type ListedHuntT = HuntListingT & { role: HuntRole }
+
 /** An expression, and how many widgets across the hunt work it: one is only deletable at zero */
 export type CountedExpressionT = ExpressionT & { usage: number }
 
-/** A hunt as a quiz's screen holds it: its listing, and its expressions with their usage */
-export type ShallowHuntT = HuntListingT & { expressions: readonly CountedExpressionT[] }
+/** One ident on a hunt, as the members panel shows it: who, and in what role */
+export type MemberT = {
+  ident_id: Id<'idents'>
+  label:    string
+  title:    string
+  role:     HuntRole
+}
+
+/**
+ * A hunt as a quiz's screen holds it: its listing, its expressions with their usage, who is on
+ * it, and the role on it of whoever is looking (null for someone not on it).
+ */
+export type ShallowHuntT = HuntListingT & {
+  expressions: readonly CountedExpressionT[]
+  members:     readonly MemberT[]
+  role:        HuntRole | null
+}
 
 /**
  * A review, with the label and title of the ident who wrote it (null for an ident no longer
@@ -241,19 +260,23 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
 }
 
 /**
- * A hunt as a quiz's screen holds it: its listing, and its expressions in order, each with how
- * many widgets across the hunt work it.
+ * A hunt as a quiz's screen holds it: its listing, its expressions in order, each with how many
+ * widgets across the hunt work it, who is on it, and the role of whoever is looking.
  *
  * @param rows - The hunt's own rows.
  * @param usage - How many widgets work each expression, by label; one absent works in none.
+ * @param members - Who is on the hunt.
+ * @param role - The looker's role on it; null when they are not on it.
  * @returns The shallow hunt.
  *
- * @example shallowHuntOf(rows, new Map([['clueing_full', 1]])).expressions[0].usage  // => 1
+ * @example shallowHuntOf(rows, new Map([['clueing_full', 1]]), members, 'smith').expressions[0].usage  // => 1
  */
-export function shallowHuntOf(rows: HuntRows, usage: ReadonlyMap<string, number>): ShallowHuntT {
+export function shallowHuntOf(rows: HuntRows, usage: ReadonlyMap<string, number>, members: readonly MemberT[], role: HuntRole | null): ShallowHuntT {
   return {
     ...huntListingOf(rows),
     expressions: rows.expressions.map((row) => ({ ...expressionFrom(row), usage: usage.get(row.label) ?? 0 })),
+    members,
+    role,
   }
 }
 

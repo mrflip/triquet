@@ -5,6 +5,7 @@ import { Expression, SeedExpressions } from '../../src/models/expression'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Quiz, type QuizDNA } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
+import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 
 /** A hunt of one realm, `home`, holding `quizzes` */
@@ -35,11 +36,11 @@ describe('Hunt.fill', () => {
     expect(() => Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms })).to.throw(Z.ZodError)
   })
 
-  it('holds 99 expressions, and refuses a hundredth', () => {
-    const expressions = Array.from({ length: 100 }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
-    const most = homeHolding([Quiz.blank()], { expressions: expressions.slice(0, 99) })
+  it(`holds ${String(PA.ExpressionsPerHunt.max)} expressions, and refuses one more`, () => {
+    const expressions = Array.from({ length: PA.ExpressionsPerHunt.max + 1 }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
+    const most = homeHolding([Quiz.blank()], { expressions: expressions.slice(0, PA.ExpressionsPerHunt.max) })
     const tooMany = homeHolding([Quiz.blank()], { expressions })
-    expect(Hunt.fill(most).expressions).to.have.lengthOf(99)
+    expect(Hunt.fill(most).expressions).to.have.lengthOf(PA.ExpressionsPerHunt.max)
     expect(() => Hunt.fill(tooMany)).to.throw(Z.ZodError)
   })
 

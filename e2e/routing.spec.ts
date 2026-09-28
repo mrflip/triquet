@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { assumeIdent, closeManage, expect, freshIdentLabel, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, startHunt, test, waitUntilSaved } from './support'
+import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -9,7 +9,7 @@ function huntLabelOf(page: Page): string {
   return String(new URL(page.url()).pathname.split('/', 3)[2])
 }
 
-/** A title no other spec gives a quiz: specs share one database, and the hunts list shows every hunt in it */
+/** A title no other spec gives a quiz, so a spec finds its own quiz by title */
 function freshTitle(stem: string): string {
   return `${stem} ${crypto.randomUUID().slice(0, 8)}`
 }
@@ -235,32 +235,61 @@ test.describe('an address naming a quiz that is not there', () => {
 })
 
 test.describe('a link handed to a friend', () => {
-  test('brings a friend who has not said who they are through the front door and back to it', async ({ page, browser }) => {
+  test('brings a friend who has not said who they are through the front door and back, to be told they are not on the hunt', async ({ page, browser }) => {
     await startHunt(page)
     await page.getByLabel('Quiz name').fill('For my friends')
+    await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
+    const link = page.url()
+
+    const friend = await otherVisitor(browser)
+    const label = freshIdentLabel()
+    await friend.goto(link)
+    await expect(friend.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
+    await friend.getByLabel('Ident label').fill(label)
+    await friend.getByRole('button', { name: 'Continue' }).click()
+    await expect(friend).toHaveURL(link)
+    await expect(friend.getByText(`You are not on this hunt. Ask a smith to add “${label}”.`)).toBeVisible()
+    await expect(friend.getByLabel('Quiz name')).toBeHidden()
+  })
+
+  test('opens the quiz for the friend the moment a smith adds them', async ({ page, browser }) => {
+    await startHunt(page)
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which prince was Danish?')
     await page.getByLabel('Quiz name').click()
     await waitUntilSaved(page)
-    const link = page.url()
 
     const friend = await otherVisitor(browser)
-    await friend.goto(link)
-    await expect(friend.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
-    await friend.getByLabel('Ident label').fill(freshIdentLabel())
-    await friend.getByRole('button', { name: 'Continue' }).click()
-    await expect(friend).toHaveURL(link)
-    await expect(friend.getByLabel('Quiz name')).toHaveValue('For my friends')
+    const label = await assumeIdent(friend)
+    await friend.goto(page.url())
+    await expect(friend.getByRole('heading', { name: 'Not on this hunt' })).toBeVisible()
+
+    await addMember(page, label, 'Smith')
     await expect(friend.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which prince was Danish?')
   })
 
-  test('lets the friend\'s edits reach the author, for the trial', async ({ page, browser }) => {
+  test('sends a reviewer who asks for the smiths\' presentation to review instead', async ({ page, browser }) => {
     await startHunt(page)
     await waitUntilSaved(page)
-    const link = page.url()
-
     const friend = await otherVisitor(browser)
-    await assumeIdent(friend)
-    await friend.goto(link)
+    const label = await assumeIdent(friend)
+    await addMember(page, label, 'Reviewer')
+
+    await friend.goto(page.url())
+    await expect(friend).toHaveURL(/\?act=smith$/)
+    await expect(friend.getByText(`You are a reviewer on this hunt, not a smith. Ask a smith to make “${label}” a smith.`)).toBeVisible()
+    await friend.getByRole('link', { name: 'Review this quiz' }).click()
+    await expect(friend).toHaveURL(/\?act=review$/)
+    await expect(friend.getByRole('button', { name: 'Share with the smiths' })).toBeVisible()
+  })
+
+  test('lets a friend made a smith make edits that reach the author', async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const friend = await otherVisitor(browser)
+    await addMember(page, await assumeIdent(friend), 'Smith')
+
+    await friend.goto(quizPathOf(page))
     await expect(friend).toHaveURL(NewHuntUrl)
     await friend.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Written by a friend')
     await friend.getByLabel('Quiz name').click()
@@ -272,21 +301,20 @@ test.describe('a link handed to a friend', () => {
   test('takes the author\'s address along when the friend relabels the quiz they both have open', async ({ page, browser }) => {
     await startHunt(page)
     await waitUntilSaved(page)
-    const link = page.url()
-
     const friend = await otherVisitor(browser)
-    await assumeIdent(friend)
-    await friend.goto(link)
+    await addMember(page, await assumeIdent(friend), 'Smith')
+
+    await friend.goto(page.url())
     await expect(friend).toHaveURL(NewHuntUrl)
     await openManage(friend)
     await friend.getByLabel('Label', { exact: true }).fill('renamed_by_a_friend')
     await friend.getByRole('button', { name: 'Apply' }).click()
 
     await expect(page).toHaveURL(new RegExp(String.raw`/h/${huntLabelOf(page)}/home/renamed_by_a_friend\?act=smith$`))
-    await expect(page.getByRole('table')).toBeVisible()
+    await expect(grid(page)).toBeVisible()
   })
 
-  test('shows the friend the author\'s hunt among the hunts', async ({ page, browser }) => {
+  test('lists the author\'s hunt among the friend\'s once they are on it, with their role', async ({ page, browser }) => {
     await startHunt(page)
     const title = freshTitle('A hunt to find')
     await page.getByLabel('Quiz name').fill(title)
@@ -294,8 +322,35 @@ test.describe('a link handed to a friend', () => {
     await waitUntilSaved(page)
 
     const friend = await otherVisitor(browser)
-    await assumeIdent(friend)
+    const label = await assumeIdent(friend)
+    await expect(friend.getByRole('heading', { name: 'Hunts' })).toBeVisible()
+    await expect(friend.getByRole('link', { name: title })).toBeHidden()
+
+    await addMember(page, label, 'Reviewer')
+    await expect(friend.getByRole('listitem').filter({ hasText: title })).toContainText('Reviewer')
     await friend.getByRole('link', { name: title }).click()
-    await expect(friend.getByLabel('Quiz name')).toHaveValue(title)
+    await expect(friend).toHaveURL(/\?act=review$/)
+  })
+
+  test('tells a smith who adds a label nobody has chosen what the friend must do first', async ({ page }) => {
+    await startHunt(page)
+    const members = page.getByRole('region', { name: 'Members' })
+    const label = freshIdentLabel()
+    await members.getByLabel('Ident label').fill(label)
+    await members.getByRole('button', { name: 'Add' }).click()
+    await expect(members.getByText(`No ident is labelled "${label}". They need to visit the app and choose it first.`)).toBeVisible()
+  })
+
+  test('lets a smith take a member off, who is then told they are not on the hunt', async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const friend = await otherVisitor(browser)
+    const label = await assumeIdent(friend)
+    await addMember(page, label, 'Smith')
+    await friend.goto(page.url())
+    await expect(friend.getByLabel('Quiz name')).toBeVisible()
+
+    await page.getByRole('region', { name: 'Members' }).getByRole('button', { name: `Remove ${label}` }).click()
+    await expect(friend.getByRole('heading', { name: 'Not on this hunt' })).toBeVisible()
   })
 })

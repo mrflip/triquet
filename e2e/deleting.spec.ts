@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, fillRows, reloadOnceSaved, test, valuesOf } from './support'
+import { expect, fillRows, grid, reloadOnceSaved, test, valuesOf } from './support'
 
 /** Title the first `titles.length` questions, top to bottom */
 async function titleQuiz(page: Page, titles: string[]) {
@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a trash can shows only in batch mode, where the grips give way to it', async ({ page }) => {
-  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+  await expect(grid(page).locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Batch select' }).click()
   await expect(page.getByRole('button', { name: 'Delete banana', exact: true })).toBeVisible()
@@ -75,7 +75,7 @@ test('batch mode swaps each grip for a checkbox, and deletes the checked questio
   // The job done, the grid leaves batch mode.
   await expect(page.getByRole('button', { name: 'Select questions' })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
-  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+  await expect(grid(page).locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
 })
 
 test('the header checkbox checks every question, or none', async ({ page }) => {
@@ -111,5 +111,5 @@ test('a locked quiz offers neither the trash cans nor batch mode', async ({ page
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByRole('button', { name: 'Batch select' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Select questions' })).toBeDisabled()
-  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+  await expect(grid(page).locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
 })

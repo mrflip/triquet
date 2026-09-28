@@ -17,7 +17,7 @@ the domain.
 * **identing** -- one browser taking on one ident, named by the browser's key. The browser's
   newest identing is its current ident; that row, not browser storage, is what "logged in" means.
   (Later, a cred will be the thing an identing hangs off.)
-* **hunt** -- the unit of URL scope and, later, of membership: holds realms and expressions, and
+* **hunt** -- the unit of URL scope and of membership: holds realms and expressions, and
   is exactly what Export emits. Its label is global; should two share one, the earlier-made wins.
 * **realm** -- a division of a hunt, holding quizzes; the address's middle segment. Every hunt
   starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
@@ -25,7 +25,12 @@ the domain.
 * **act** -- the presentation an address asks for (`?act=`): `smith` (the Workbench) or `review`.
   The path names the resource, the act how to show it. See
   `notes/decisions/2026-09-resource-urls.md`.
-* **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them.
+* **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them. Each
+  is a **role** on a hunt, held by a hunting.
+* **hunting** -- one ident's place on one hunt, with a role; a **member** of a hunt is an ident
+  with a hunting on it. One per (hunt, ident): putting someone on again changes their role. A
+  hunt's maker is its first smith, and nobody changes their own hunting: another smith does.
+  The hunts list shows one's own hunts; an address naming no `act` is shown as one's role asks.
 * **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
   and addresses said which was open. Import still reads an old workspace export, questions only.
 

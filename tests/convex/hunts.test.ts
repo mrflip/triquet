@@ -4,7 +4,8 @@ import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { reviewsOf } from '../../convex/reading'
+import { quizzesOf, reviewsOf } from '../../convex/reading'
+import * as PA from '../../src/lib/vv/patterns'
 import { noticeOf } from '../../src/lib/refusals'
 import { RefusalNotices } from '../../src/lib/notices'
 import { SeedExpressions } from '../../src/models/expression'
@@ -12,6 +13,8 @@ import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
+import type { HuntRole } from '../../src/models/hunting'
+import { mintId } from '../../src/lib/ids'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { BottingRowDNA } from '../../src/models/botting'
 import { present } from '../support/present'
@@ -1117,18 +1120,24 @@ describe('hunts.perform, at the caps', () => {
   })
 
   it('refuses an expression more than a hunt may hold', async () => {
-    const expressions = Array.from({ length: 99 }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
+    const expressions = Array.from({ length: PA.ExpressionsPerHunt.max }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
     const { act, read } = await seedHunt(openTester(), huntHolding([Quiz.blank()], expressions.map((dna) => ({ ...dna, owner: 'tq' as const, description: '' }))))
     await expectRefusal(act({ kind: 'add_expression', expression: { label: 'one_more', formula: '2' } }), 'expressionsFull')
     const { expressions: after } = await read()
-    expect(after).to.have.lengthOf(99)
+    expect(after).to.have.lengthOf(PA.ExpressionsPerHunt.max)
   })
 
   it('refuses a quiz more than a realm may hold', async () => {
-    const { act, read } = await seedHunt(openTester(), huntHolding(Array.from({ length: 99 }, () => Quiz.blank())))
+    const { act, tt, open } = await seedHunt(openTester(), openHunt())
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
+      }
+    })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')
-    const { quizzes } = await read()
-    expect(quizzes).to.have.lengthOf(99)
+    const quizzes = await tt.run(async (ctx) => await quizzesOf(ctx.db, open.realm_id))
+    expect(quizzes).to.have.lengthOf(PA.QuizzesPerRealm.max)
   })
 
   it('refuses a review more than a quiz may hold', async () => {
@@ -1175,16 +1184,53 @@ describe('hunts.perform, at the door', () => {
   })
 })
 
+/** Put `ident_id` on the hunt `hunt_id` as `role`, as a smith adding them would */
+async function joinHunt(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>, role: HuntRole) {
+  await tt.run(async (ctx) => { await ctx.db.insert('huntings', { hunt_id, ident_id, role }) })
+}
+
 describe('hunts.list', () => {
-  it('lists every hunt, titled, in the order they were made, with its realms\' quizzes in the order they were made', async () => {
+  it('lists the hunts one is on, titled, in the order they were made, with its realms\' quizzes in the order they were made', async () => {
     const tt = openTester()
-    await seedHunt(tt, { ...huntHolding([Quiz.blank('First'), Quiz.blank('Second')]), label: 'quiet_otter', title: '' })
-    await seedHunt(tt, { ...huntHolding([Quiz.blank('Only')]), label: 'loud_heron', title: 'The Heron Hunt' })
-    const hunts = await tt.query(api.hunts.list, {})
-    expect(hunts.map((hunt) => [hunt.label, hunt.title, hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])])).to.deep.eq([
-      ['quiet_otter', 'Quiet Otter', [['home', ['First', 'Second']]]],
-      ['loud_heron', 'The Heron Hunt', [['home', ['Only']]]],
+    const alice = await identified(tt, 'alice_smiths')
+    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('First'), Quiz.blank('Second')]), label: 'quiet_otter', title: '' })
+    const heron = await seedHunt(tt, { ...huntHolding([Quiz.blank('Only')]), label: 'loud_heron', title: 'The Heron Hunt' })
+    await joinHunt(tt, heron.open.hunt_id, alice.ident_id, 'smith')
+    await joinHunt(tt, otter.open.hunt_id, alice.ident_id, 'reviewer')
+    const hunts = await tt.query(api.hunts.list, { browser_key: alice.browser_key })
+    expect(hunts.map((hunt) => [hunt.label, hunt.title, hunt.role, hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])])).to.deep.eq([
+      ['quiet_otter', 'Quiet Otter', 'reviewer', [['home', ['First', 'Second']]]],
+      ['loud_heron', 'The Heron Hunt', 'smith', [['home', ['Only']]]],
     ])
+  })
+
+  it('leaves out the hunts one is not on', async () => {
+    const tt = openTester()
+    const alice = await identified(tt, 'alice_smiths')
+    const bob = await identified(tt, 'bob_reviews')
+    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Mine')]), label: 'quiet_otter' })
+    await seedHunt(tt, { ...huntHolding([Quiz.blank('Nobody\'s')]), label: 'loud_heron' })
+    await joinHunt(tt, otter.open.hunt_id, alice.ident_id, 'smith')
+    const listed = await tt.query(api.hunts.list, { browser_key: alice.browser_key })
+    expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
+    expect(await tt.query(api.hunts.list, { browser_key: bob.browser_key })).to.deep.eq([])
+  })
+
+  it('lists the hunts of the ident the browser took on last', async () => {
+    const tt = openTester()
+    const { browser_key } = await identified(tt, 'alice_smiths')
+    const bob = await identified(tt, 'bob_reviews')
+    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Bob\'s')]), label: 'quiet_otter' })
+    await joinHunt(tt, otter.open.hunt_id, bob.ident_id, 'reviewer')
+    await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'bob_reviews', title: '' }, browser_key })
+    const listed = await tt.query(api.hunts.list, { browser_key })
+    expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
+  })
+
+  it('lists nothing for a browser that has not said who it is', async () => {
+    const tt = openTester()
+    await seedHunt(tt, Hunt.blank('quiet_otter'))
+    expect(await tt.query(api.hunts.list, { browser_key: mintId() })).to.deep.eq([])
   })
 })
 
@@ -1193,7 +1239,7 @@ describe('hunts.open', () => {
     const tt = openTester()
     const { act } = await seedHunt(tt, { ...Hunt.blank('quiet_otter'), title: '' })
     await act({ kind: 'new_quiz' })
-    const hunt = present(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter' }))
+    const hunt = present(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: mintId() }))
     expect([hunt.title, hunt.realms.map((realm) => [realm.title, realm.quizzes.length])]).to.deep.eq(['Quiet Otter', [['Home', 2]]])
     expect(hunt.expressions.find((expression) => expression.label === 'clueing_full')?.usage).to.eq(2)
     expect(hunt.expressions.map((expression) => expression.label)).to.deep.eq(SeedExpressions.map((expression) => expression.label))
@@ -1203,14 +1249,38 @@ describe('hunts.open', () => {
     const tt = openTester()
     const { act } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     await act({ kind: 'add_expression', expression: { label: 'shout', formula: '$uppercase(qn.title)' } })
-    const hunt = present(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter' }))
+    const hunt = present(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: mintId() }))
     expect(hunt.expressions.at(-1)).to.deep.include({ label: 'shout', usage: 0 })
+  })
+
+  it('says who is on it, titled, in the order they were put on it', async () => {
+    const tt = openTester()
+    const { open } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const bob = await identified(tt, 'bob_reviews')
+    const alice = await identified(tt, 'alice_smiths')
+    await joinHunt(tt, open.hunt_id, alice.ident_id, 'smith')
+    await joinHunt(tt, open.hunt_id, bob.ident_id, 'reviewer')
+    const hunt = present(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: mintId() }))
+    expect(hunt.members.map((member) => [member.label, member.title, member.role, member.ident_id])).to.deep.eq([
+      ['alice_smiths', 'Alice Smiths', 'smith', alice.ident_id],
+      ['bob_reviews', 'Bob Reviews', 'reviewer', bob.ident_id],
+    ])
+  })
+
+  it('says the role on it of whoever is looking, and null for someone not on it', async () => {
+    const tt = openTester()
+    const { open } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const [alice, bob, carol] = [await identified(tt, 'alice_smiths'), await identified(tt, 'bob_reviews'), await identified(tt, 'carol_strays')]
+    await joinHunt(tt, open.hunt_id, alice.ident_id, 'smith')
+    await joinHunt(tt, open.hunt_id, bob.ident_id, 'reviewer')
+    const roleOf = async (browser_key: string) => present(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key })).role
+    expect([await roleOf(alice.browser_key), await roleOf(bob.browser_key), await roleOf(carol.browser_key), await roleOf(mintId())]).to.deep.eq(['smith', 'reviewer', null, null])
   })
 
   it('is null for a label no hunt answers to', async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'))
-    expect(await tt.query(api.hunts.open, { hunt_label: 'loud_heron' })).to.eq(null)
+    expect(await tt.query(api.hunts.open, { hunt_label: 'loud_heron', browser_key: mintId() })).to.eq(null)
   })
 })
 

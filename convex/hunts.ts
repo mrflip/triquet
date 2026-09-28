@@ -1,36 +1,52 @@
+import _ from 'es-toolkit/compat'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
-import { huntFrom, huntListingOf, quizFrom, shallowHuntOf, type HuntListingT, type ShallowHuntT } from '../src/lib/rows'
+import { huntFrom, huntListingOf, quizFrom, shallowHuntOf, type ListedHuntT, type ShallowHuntT } from '../src/lib/rows'
 import { ActionValidators } from '../src/models/actions'
 import { IdentingValidators } from '../src/models/identing'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
 import { zMutation, zQuery } from './functions'
 import { mayChangeHunt } from './authorize'
-import { expressionUsageOf, huntForLabel, huntRowsOf, huntsOf, identFor, quizRowsOf, realmsOf } from './reading'
+import { expressionUsageOf, huntForLabel, huntingFor, huntingsFor, huntRowsOf, identFor, membersOf, quizRowsOf, realmsOf } from './reading'
 import { perform as performAction } from './writing/perform'
 
 const { label, zid, zod } = ValidatorKit
 
-/** Every hunt, as the hunts list shows it, in the order they were made */
+/**
+ * The hunts the ident the browser `browser_key` is now is on, as the hunts list shows them, each
+ * with its role there, in the order they were made. None for a browser that has not said who it is.
+ */
 export const list = zQuery({
-  args:    {},
-  handler: async (ctx): Promise<HuntListingT[]> => {
-    const hunts = await huntsOf(ctx.db)
-    return await Promise.all(hunts.map(async (hunt) => huntListingOf({ hunt, realms: await realmsOf(ctx.db, hunt._id) })))
+  args:    { browser_key: IdentingValidators.browserKey },
+  handler: async (ctx, { browser_key }): Promise<ListedHuntT[]> => {
+    const ident = await identFor(ctx.db, browser_key)
+    const huntings = ident ? await huntingsFor(ctx.db, ident._id) : []
+    const listed = await Promise.all(huntings.map(async ({ hunt_id, role }) => {
+      const hunt = await ctx.db.get('hunts', hunt_id)
+      return hunt && { made: hunt._creationTime, listing: { ...huntListingOf({ hunt, realms: await realmsOf(ctx.db, hunt_id) }), role } }
+    }))
+    return _.sortBy(listed.filter((each) => each !== null), 'made').map(({ listing }) => listing)
   },
 })
 
 /**
  * The hunt answering to `hunt_label`, as a quiz's screen holds it: its realms with their quizzes'
- * rows, and its expressions with how many widgets work each. Null when no hunt answers to it.
+ * rows, its expressions with how many widgets work each, who is on it, and the role on it of the
+ * ident the browser `browser_key` is now. Null when no hunt answers to it.
  */
 export const open = zQuery({
-  args:    { hunt_label: label },
-  handler: async (ctx, { hunt_label }): Promise<ShallowHuntT | null> => {
-    const hunt = await huntForLabel(ctx.db, hunt_label)
+  args:    { hunt_label: label, browser_key: IdentingValidators.browserKey },
+  handler: async (ctx, { hunt_label, browser_key }): Promise<ShallowHuntT | null> => {
+    const [hunt, ident] = await Promise.all([huntForLabel(ctx.db, hunt_label), identFor(ctx.db, browser_key)])
     const rows = hunt && await huntRowsOf(ctx.db, hunt._id)
-    return rows && shallowHuntOf(rows, await expressionUsageOf(ctx.db, rows.realms))
+    if (! rows) { return null }
+    const [usage, members, hunting] = await Promise.all([
+      expressionUsageOf(ctx.db, rows.realms),
+      membersOf(ctx.db, rows.hunt._id),
+      ident && huntingFor(ctx.db, rows.hunt._id, ident._id),
+    ])
+    return shallowHuntOf(rows, usage, members, hunting?.role ?? null)
   },
 })
 
