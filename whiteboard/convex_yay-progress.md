@@ -7,11 +7,15 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 * **Phase 0 (spike and decisions)**: built on `20260927-convex_spike`, not yet merged.
 * **Phase 1 (the server side, beside Jazz)**: built on `20260927-convex_server`; rebased by the
   Coach onto main as `20260927-convex_phase3`, not yet merged.
-* **Phase 2 (the browser switch, and Jazz out)**: built on `20260928-convex_client`, stacked on
-  `20260927-convex_phase3`, not yet merged. **The app runs on Convex alone.** Lint, typecheck,
-  unit and convex suites green; e2e green in one run, now the app holds 999 hunts. `pnpm
-  build:agent` green in a clean checkout.
-* **Phase 3 (the cloud, previews and CI) is next.**
+* **Phase 2 (the browser switch, and Jazz out)**: built, and now carried with phases 0 and 1 on
+  `20260928-convex_phase4` (the Coach's rebase of `20260928-convex_client`), off `main` at #12,
+  not yet merged. **The app runs on Convex alone.** On 2026-09-28: lint green; 1907 unit and
+  convex tests green; 163 e2e specs green in about a minute (`pnpm test:e2e:agent`); `pnpm
+  typecheck` fails only on the stale `.next-e2e/dev/types` (phase 3a fixes the cause).
+* **Phases 3a and 4 are next, on this branch**, per the plan's 2026-09-28 extension (*Where this
+  stands*): the deploy story, CI's drift check, the healthcheck, then the measurements, the
+  verdict and the sweep of Jazz's last traces. Phase 3b (the cloud) waits on the Coach's account
+  and blocks nothing. Phases 5 to 7 are the playtesting thread's PRs 4 to 6, on Convex.
 
 ## 2. Start here
 
@@ -24,9 +28,11 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 2. The e2e suite brings up its own (`scripts/convex_dev e2e --reset next dev`, from
    `playwright.config.ts`), emptied as it starts. `pnpm test:e2e:agent` uses the `e2e-agent` role
    (3003/3403).
-3. Phase 3's work is in the plan; `notes/deploy.md` and `README.md` still describe Jazz and are
+3. Phase 3a's work is in the plan; `notes/deploy.md` and `README.md` still describe Jazz and are
    its to rewrite. `.github/workflows/ci.yml` already runs e2e against a local backend (with the
    binary cached) and has no `migrations` job; the `_generated` drift check is still to build.
+4. Phase 4's checklist of Jazz's last traces is in the plan, from a grep run on 2026-09-28;
+   rerun the grep before calling the sweep done.
 
 ## 3. Decisions taken
 
@@ -356,9 +362,10 @@ Worth a run on a quiet machine before merging.
   `data/jazz*/` directories, 2026-09-28), bar a few Doppler variables: `JAZZ_DEV_DATA_DIR` and
   `JAZZ_DEV_PORT` in `dev_claude` and `dev_e2e`, and `NEXT_PUBLIC_JAZZ_APP_ID` and
   `NEXT_PUBLIC_JAZZ_SERVER_URL` in `dev_claude`. Nothing reads them.
-* **A `.env.local`** at the checkout root, from an earlier `convex dev` run, names a Convex URL;
-  the environment's own `NEXT_PUBLIC_CONVEX_URL` wins over it, so it is harmless, but it is not
-  this project's convention (Doppler is).
+* **The `.env.local`** at the checkout root is the CLI's: every push (`convex dev --once`, so
+  every `scripts/convex_dev` run) rewrites it with the backend it pushed to last. Git ignores it
+  and the environment's `NEXT_PUBLIC_CONVEX_URL` wins over it, so it is harmless; there is no
+  flag to stop it (checked, 1.46.0). Nothing for you to do.
 * **The stale `.next*/` route types** (`.next/dev/types/validator.ts` and the agents' and e2e's)
   name the pages as they were before the `(synced)` route group and fail `pnpm typecheck` until
   a dev server in that directory regenerates them. Yours regenerate on your next `pnpm dev`.

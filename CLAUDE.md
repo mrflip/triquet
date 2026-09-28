@@ -161,8 +161,8 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
   - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
   - `notes/database-decisions.md` -- what we want from storage and hosting, and each candidate
     scored against it; Convex's verdict lands here.
-  - `notes/deploy.md` -- how a change reaches production (still Jazz's: phase 3 of the Convex
-    move rewrites it). Agents never deploy to production.
+  - `notes/deploy.md` -- how a change reaches production, and what a schema change means for a
+    deployment. Agents never deploy to production.
   - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
   - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
