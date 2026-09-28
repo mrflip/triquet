@@ -40,7 +40,7 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
     job:                lit('guess'),
     text:               textish,
     truncated:          bool,
-    model_tier_applied: AskValidators.modelTier,
+    model_tier_applied: AskValidators.model_tier,
     approx_tokens:      uint,
   })
 
@@ -49,7 +49,7 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
     job:                lit('ishes'),
     items:              arr(IshValidators.ishItem),
     truncated:          bool,
-    model_tier_applied: AskValidators.modelTier,
+    model_tier_applied: AskValidators.model_tier,
     approx_tokens:      uint,
   })
 
@@ -59,7 +59,7 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
     job:                lit('bulk_ishes'),
     groups:             arr(bulkGroup),
     truncated:          bool,
-    model_tier_applied: AskValidators.modelTier,
+    model_tier_applied: AskValidators.model_tier,
     approx_tokens:      uint,
     text_count:         uint,
   })

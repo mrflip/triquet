@@ -28,7 +28,7 @@ export const BotValidators = Validator(({ obj, zod, oneof, noteish, titleish, ui
     title:        titleish,
     blurb:        noteish,
     servicelabel,
-    model_tier:   AskValidators.modelTier,
+    model_tier:   AskValidators.model_tier,
     max_tokens:   uint.min(1)
       .describe('How much room the bot is given to answer a single text.'),
     prompts,
