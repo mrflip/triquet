@@ -66,6 +66,8 @@ export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_
 
 /** Lowercase Crockford base32, 26 characters, sortable by time */
 export const Ulid       = { re: /^[0-7][a-hjkmnp-tv-z0-9]{25}$/, min: 26, max: 26, msg: 'should be a 26-character lowercase ulid' } as const satisfies Patternbag
+/** A Convex document id: lowercase letters and digits, about 32 of them */
+export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
 
 //
 // == [String lengths] ==

@@ -8,7 +8,7 @@ export type ExpressionOwner = typeof ExpressionOwnerVals[number]
 /** The owner an expression has unless it says otherwise */
 export const DefaultOwner: ExpressionOwner = 'tq'
 
-export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, noteish, uint, rowid }) => {
+export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, noteish, uint, zid }) => {
   const owner = oneof(ExpressionOwnerVals)
     .describe('Who wrote the expression. With the label it names the expression uniquely, so two owners may each have a "letter_count" without either being confused for the other.')
   const expressionLabel = label
@@ -33,7 +33,7 @@ export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, 
     .describe('The fields of one expression being revised. A key absent from a patch means "leave whatever is already there". The owner and label are not among them: they are what other things refer to it by.')
 
   const row = obj({
-    hunt_id:      rowid
+    hunt_id:      zid('hunts')
       .describe('The hunt this expression belongs to.'),
     owner,
     label:        expressionLabel,

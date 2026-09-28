@@ -5,7 +5,7 @@ import * as Labelmaker from '../lib/labelmaker'
 import { GuessValidators, type GuessT } from './guess'
 import { IshValidators, type IshesT } from './ish'
 
-export const QuestionValidators = Validator(({ obj, str, textish, noteish, titleish, label, rowid, uint, treeid }) => {
+export const QuestionValidators = Validator(({ obj, str, textish, noteish, titleish, label, zid, uint, treeid }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -70,7 +70,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
     .describe('The fields of one question being revised. A key absent from a patch means "leave whatever is already there", so no field here carries a default. The id is not among them: a question keeps the id it was minted with for its whole life.')
 
   const row = obj({
-    quiz_id:      rowid
+    quiz_id:      zid('quizzes')
       .describe('The quiz this question belongs to.'),
     position:     uint
       .describe('The question\'s place in its quiz\'s committed order, counting from zero.'),
