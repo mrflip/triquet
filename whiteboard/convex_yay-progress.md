@@ -99,7 +99,7 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
   silently drops a row. Two reads are not capped: a botting cell's history, walked newest first
   and stopped at the first answer (so it reads one row, plus one per failure since), and a
   question's bottings when it is deleted, iterated with `for await` as the guidelines ask.
-* **Module names are snake_case** under `convex/` and `tests/convex/`: Convex refuses a hyphen
+* **Module names are underbar_case** under `convex/` and `tests/convex/`: Convex refuses a hyphen
   in a module path, which `unicorn/filename-case` otherwise demands. An eslint block
   (`triquet/convex-module-names`) allows it there only.
 

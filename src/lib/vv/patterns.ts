@@ -62,7 +62,7 @@ export const Keyish     = { re: /^[\w\-.:/+]*$/,        min: 1, max: 90, msg: 's
 export const Camel      = { re: /^[A-Z][A-Za-z0-9]*$/,  msg: 'should be an UpperFirstLetterCamelCased name' } as const satisfies Patternbag
 export const Locamel    = { re: /^[a-z][A-Za-z0-9]*$/,  msg: 'should be a lowerFirstLetterCamelCased name' } as const satisfies Patternbag
 export const Varname    = { re: /^[A-Za-z]\w*$/,        msg: 'should be a label and start with a letter' } as const satisfies Patternbag
-export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_snake_cased name' } as const satisfies Patternbag
+export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_underbar_cased name' } as const satisfies Patternbag
 
 /** Lowercase Crockford base32, 26 characters, sortable by time */
 export const Ulid       = { re: /^[0-7][a-hjkmnp-tv-z0-9]{25}$/, min: 26, max: 26, msg: 'should be a 26-character lowercase ulid' } as const satisfies Patternbag

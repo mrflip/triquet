@@ -62,7 +62,7 @@ stale and leaves it visible. Imports merge rather than replace. The one destruct
 Some names chosen while prototyping must not be carried forward. Chiefly:
 * Do not conflate "question" with "row". IMPORTANT: If you are adopting code from the prototype, each usage of the term "row" should become either `tableRow`, `question` or another variable name besides naked 'row'
 * The field names below are that of the **old prototype**, not an internal choice. That is why `short_answer` and
-`chains_to` are snake_case while `hintNumbers`, `altText` and `fullAnswer` are camelCase, and why
+`chains_to` are underbar_case while `hintNumbers`, `altText` and `fullAnswer` are camelCase, and why
 the question list inside a quiz is called `rows` in the code. Rename these everywhere in the codebase to names consistent
 with STYLE.md
 * **use underbar_case** for all fieldnames and database column names
@@ -275,7 +275,7 @@ contract — they say what a field means, not what type it is.
 ### Cleanliness >> Compatibility (for now)
 
 The field names below are that of the **old prototype**, not an internal choice. That is why `short_answer` and
-`chains_to` are snake_case while `hintNumbers`, `altText` and `fullAnswer` are camelCase, and why
+`chains_to` are underbar_case while `hintNumbers`, `altText` and `fullAnswer` are camelCase, and why
 the question list inside a quiz is called `rows` in the code. Rename these everywhere in the codebase to names consistent
 with STYLE.md. In particular, **make all data model fields underbar_case**
 

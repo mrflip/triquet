@@ -122,7 +122,7 @@ beneath everything: any layer may import its types, `api` and `Doc` among them.)
 * `convex/` -- the server, and the whole of it:
   `schema.ts` (derived from the row validators), one file per noun of public functions,
   `reading.ts` (indexed reads), `writing/` (the actions a mutation carries out), `authorize.ts`
-  (the only place authorization is written). Module names are snake_case: Convex refuses a
+  (the only place authorization is written). Module names are underbar_case: Convex refuses a
   hyphen. It may import from `src/lib` and `src/models`, nothing else in `src/`; `src/lib/rows.ts`
   holds the projections from rows to tree.
 * `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a
