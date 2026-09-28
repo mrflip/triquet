@@ -8,7 +8,7 @@ import * as Sortings from '../../src/lib/sortings'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { expressionFrom, quizFrom, type QuizRows } from '../../src/lib/rows'
+import { expressionFrom, quizFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import { askError, type LastErrT } from '../../src/models/ask'
 import { BotSlots, unrecordedBottings, type BotSlot } from '../../src/models/botting'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
@@ -19,7 +19,7 @@ import type { GuessT } from '../../src/models/guess'
 import type { IshesT } from '../../src/models/ish'
 import type { Textkind } from '../../src/lib/ask/contract'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../../src/models/quiz'
-import { expressionsOf, quizRowsOf, quizzesOf } from '../reading'
+import { expressionsOf, layoutRowsOf, questionOf, questionsOf, quizRowsOf, quizzesOf } from '../reading'
 import { deleteQuestion, deleteQuiz, insertBottings, updateQuestion, updateQuiz, writeQuiz, type Writer } from './quiz_writing'
 
 /** One landing of a combined run: where one text's answer lands, the extraction or the failure */
@@ -30,22 +30,44 @@ export type BulkLandingT = {
   err:         LastErrT | null
 }
 
+// Each action reads what it needs and no more: the open quiz's own row, the questions it names
+// by id, and the whole quiz only for an order worked out across every question. What an action
+// reads is what Convex bills, and what a mutation holds in its transaction.
+
+/** Refuse a change to a quiz that is gone or locked. The freeze is a property of the quiz, not of whether a button happened to be greyed out. */
+function revisable<RT extends { quiz: Doc<'quizzes'> }>(rows: RT | null): RT {
+  if (! rows) { refuse('quizGone') }
+  if (rows.quiz.locked) { refuse('quizLocked') }
+  return rows
+}
+
 /**
- * Run `write` against the open quiz's rows, as they stand, refusing when the quiz is locked or
- * gone. The freeze is a property of the quiz, not of whether a button happened to be greyed out.
+ * The open quiz's own row, refusing when the quiz is locked or gone.
  *
  * @throws A refusal (`quizGone`, `quizLocked`); nothing is written.
  */
-export async function reviseOpenQuiz(db: Writer, open: OpenQuizT, write: (rows: QuizRows) => Promise<void>): Promise<void> {
-  const rows = await quizRowsOf(db, open.quiz_id)
-  if (! rows) { refuse('quizGone') }
-  if (rows.quiz.locked) { refuse('quizLocked') }
-  await write(rows)
+export async function openQuizRow(db: Writer, open: OpenQuizT): Promise<Doc<'quizzes'>> {
+  const quiz = await db.get('quizzes', open.quiz_id)
+  return revisable(quiz && { quiz }).quiz
 }
 
-/** The row of the question `question_id` among the open quiz's, refusing when it is not there */
-function questionIn(rows: QuizRows, question_id: string): Doc<'questions'> {
-  const held = rows.questions.find((row) => row._id === question_id)
+/**
+ * Run `write` against the open quiz's own row and its widgets and columns, refusing as
+ * `openQuizRow` does. What a change to the quiz's layout needs.
+ */
+export async function reviseOpenLayout(db: Writer, open: OpenQuizT, write: (rows: LayoutRows) => Promise<void>): Promise<void> {
+  await write(revisable(await layoutRowsOf(db, open.quiz_id)))
+}
+
+/** Run `write` against the open quiz's rows, whole, refusing as `openQuizRow` does. For an order worked out across every question, or a quiz replaced. */
+export async function reviseOpenQuiz(db: Writer, open: OpenQuizT, write: (rows: QuizRows) => Promise<void>): Promise<void> {
+  await write(revisable(await quizRowsOf(db, open.quiz_id)))
+}
+
+/** The row of the question `question_id` of `quiz`, refusing when it is not the quiz's */
+async function questionIn(db: Writer, quiz: Doc<'quizzes'>, question_id: string): Promise<Doc<'questions'>> {
+  const id = db.normalizeId('questions', question_id)
+  const held = id && await questionOf(db, quiz._id, id)
   if (! held) { refuse('questionGone') }
   return held
 }
@@ -54,23 +76,24 @@ function questionIn(rows: QuizRows, question_id: string): Doc<'questions'> {
 async function reorderOpenQuiz(db: Writer, open: OpenQuizT, reorder: (quiz: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
     const { questions, last_sortkey } = reorder(quizFrom(rows))
-    await writeOrder(db, rows, questions)
-    if (last_sortkey !== undefined) { await updateQuiz(db, rows.quiz, { last_sortkey }) }
+    await writeOrder(db, rows, questions, last_sortkey)
   })
 }
 
-/** Each question's row put at its place in `ordered`, with the Q# `ordered` gives it */
-async function writeOrder(db: Writer, rows: QuizRows, ordered: readonly QuestionT[]): Promise<void> {
+/** The quiz put in the order of `ordered`, each question with the Q# `ordered` gives it */
+async function writeOrder(db: Writer, rows: QuizRows, ordered: readonly QuestionT[], last_sortkey: Sortkey | null | undefined): Promise<void> {
   const heldFor = new Map(rows.questions.map((row) => [row._id as string, row]))
-  for (const [position, question] of ordered.entries()) {
+  const placed = ordered.flatMap((question) => {
     const held = heldFor.get(question._id)
-    if (held) { await updateQuestion(db, held, { position, qnum: question.qnum }) }
-  }
+    return held ? [{ held, qnum: question.qnum }] : []
+  })
+  for (const { held, qnum } of placed) { await updateQuestion(db, held, { qnum }) }
+  await updateQuiz(db, rows.quiz, { row_ordering: placed.map(({ held }) => held._id), ...(last_sortkey !== undefined && { last_sortkey }) })
 }
 
 /** Retitle the open quiz. An empty title is kept as it is; the screen shows it as "Untitled quiz". */
 export async function retitleQuiz(db: Writer, open: OpenQuizT, title: string): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => { await updateQuiz(db, rows.quiz, { title }) })
+  await updateQuiz(db, await openQuizRow(db, open), { title })
 }
 
 /**
@@ -78,7 +101,7 @@ export async function retitleQuiz(db: Writer, open: OpenQuizT, title: string): P
  * against sibling quizzes, are the caller's to check first.
  */
 export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => { await updateQuiz(db, rows.quiz, { forced_label: label }) })
+  await updateQuiz(db, await openQuizRow(db, open), { forced_label: label })
 }
 
 /**
@@ -86,7 +109,7 @@ export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): P
  * there, not here; the shape of the name is the caller's to check.
  */
 export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => { await updateQuiz(db, rows.quiz, { version }) })
+  await updateQuiz(db, await openQuizRow(db, open), { version })
 }
 
 /**
@@ -98,30 +121,30 @@ export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string
  * longer the question's, which reading the rows works out.
  */
 export async function editQuestion(db: Writer, open: OpenQuizT, question_id: string, patch: QuestionPatch): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => {
-    const held = questionIn(rows, question_id)
-    const { guess, clueing_ishes, hint_ishes, chains_to, ...fields } = patch
-    await updateQuestion(db, held, { ...fields, ...(chains_to !== undefined && { chains_to: chainLabelFor(rows, held, chains_to) }) })
-    const results = { guess, clueing_ishes, hint_ishes }
-    for (const slot of BotSlots) {
-      const result = results[slot.field]
-      if (result) { await recordResult(db, quizFrom(rows), held, slot, result) }
-    }
-  })
+  const quiz = await openQuizRow(db, open)
+  const held = await questionIn(db, quiz, question_id)
+  const { guess, clueing_ishes, hint_ishes, chains_to, ...fields } = patch
+  await updateQuestion(db, held, { ...fields, ...(chains_to !== undefined && { chains_to: await chainLabelFor(db, held, chains_to) }) })
+  const results = { guess, clueing_ishes, hint_ishes }
+  for (const slot of BotSlots) {
+    const result = results[slot.field]
+    if (result) { await recordResult(db, held, slot, result) }
+  }
 }
 
-/** The label a chain from `held` to the question `chains_to` names is written as; null when it names no other question here */
-function chainLabelFor(rows: QuizRows, held: Doc<'questions'>, chains_to: string | null): string | null {
-  const target = rows.questions.find((row) => row._id === chains_to && row._id !== held._id)
-  return target ? Labelmaker.effectiveLabelOf(target) : null
+/** The label a chain from `held` to the question `chains_to` names is written as; null when it names no other question of its quiz */
+async function chainLabelFor(db: Writer, held: Doc<'questions'>, chains_to: string | null): Promise<string | null> {
+  const id = chains_to === null ? null : db.normalizeId('questions', chains_to)
+  const target = id === null || id === held._id ? null : await questionOf(db, held.quiz_id, id)
+  return target && Labelmaker.effectiveLabelOf(target)
 }
 
 /** Add a blank question to the end of the open quiz; refused when it holds as many as a quiz may */
 export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => {
-    if (rows.questions.length >= PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
-    await db.insert('questions', QuestionValidators.row({ ...Question.blank(), quiz_id: rows.quiz._id, position: rows.questions.length, chains_to: null }))
-  })
+  const quiz = await openQuizRow(db, open)
+  if (quiz.row_ordering.length >= PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
+  const question_id = await db.insert('questions', QuestionValidators.row({ ...Question.blank(), quiz_id: quiz._id, chains_to: null }))
+  await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, question_id] })
 }
 
 /**
@@ -132,15 +155,14 @@ export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
  */
 export async function deleteQuestions(db: Writer, open: OpenQuizT, question_ids: readonly string[]): Promise<void> {
   const doomed = new Set(question_ids)
-  await reviseOpenQuiz(db, open, async (rows) => {
-    const [gone, kept] = _.partition(rows.questions, (row) => doomed.has(row._id))
-    const goneLabels = new Set(gone.map((row) => Labelmaker.effectiveLabelOf(row)))
-    for (const row of gone) { await deleteQuestion(db, row._id) }
-    for (const [position, row] of kept.entries()) {
-      const orphaned = row.chains_to !== null && goneLabels.has(row.chains_to)
-      await updateQuestion(db, row, { position, ...(orphaned && { chains_to: null }) })
-    }
-  })
+  const quiz = await openQuizRow(db, open)
+  const [gone, kept] = _.partition(await questionsOf(db, quiz), (row) => doomed.has(row._id))
+  const goneLabels = new Set(gone.map((row) => Labelmaker.effectiveLabelOf(row)))
+  for (const row of gone) { await deleteQuestion(db, row._id) }
+  for (const row of kept) {
+    if (row.chains_to !== null && goneLabels.has(row.chains_to)) { await updateQuestion(db, row, { chains_to: null }) }
+  }
+  await updateQuiz(db, quiz, { row_ordering: kept.map((row) => row._id) })
 }
 
 /**
@@ -179,10 +201,8 @@ export async function moveQuestion(db: Writer, open: OpenQuizT, question_id: str
  * to no question here is no chain; a question not in the quiz is refused.
  */
 export async function setChain(db: Writer, open: OpenQuizT, question_id: string, chains_to: string | null): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => {
-    const held = questionIn(rows, question_id)
-    await updateQuestion(db, held, { chains_to: chainLabelFor(rows, held, chains_to) })
-  })
+  const held = await questionIn(db, await openQuizRow(db, open), question_id)
+  await updateQuestion(db, held, { chains_to: await chainLabelFor(db, held, chains_to) })
 }
 
 /** Put the open quiz in the order its chains walk, and remember that */
@@ -199,18 +219,15 @@ function slotFor(field: BotSlot['field']): BotSlot {
  * Record `result` as the newest in `slot` of the question `held`: a reply as a botting that
  * answered, a failure as one that failed. What the cell held before stays in its history.
  */
-async function recordResult(db: Writer, quiz: QuizT, held: Doc<'questions'>, slot: BotSlot, result: NonNullable<GuessT | IshesT>): Promise<void> {
-  const question = quiz.questions.find((each) => each._id === held._id)
-  if (! question) { return }
-  const alone = { ...question, guess: null, clueing_ishes: null, hint_ishes: null, [slot.field]: result }
+async function recordResult(db: Writer, held: Doc<'questions'>, slot: BotSlot, result: NonNullable<GuessT | IshesT>): Promise<void> {
+  const alone = { ..._.omit(held, ['_creationTime', 'quiz_id']), chains_to: null, guess: null, clueing_ishes: null, hint_ishes: null, [slot.field]: result }
   await insertBottings(db, unrecordedBottings(alone, new Map()))
 }
 
 /** Record a reply, or a failure, in one played cell of a question of the open quiz; a question not in it is refused */
 async function recordInCell(db: Writer, open: OpenQuizT, question_id: string, field: BotSlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => {
-    await recordResult(db, quizFrom(rows), questionIn(rows, question_id), slotFor(field), result)
-  })
+  const held = await questionIn(db, await openQuizRow(db, open), question_id)
+  await recordResult(db, held, slotFor(field), result)
 }
 
 /** Record dumdum's guess at a question. Null records nothing: a cell's history is never erased. */
@@ -242,15 +259,13 @@ export async function failIshes(db: Writer, open: OpenQuizT, question_id: string
  * A landing for a question deleted while the run was out is passed over.
  */
 export async function applyBulkIshes(db: Writer, open: OpenQuizT, landings: readonly BulkLandingT[], run: BulkIshesRunT): Promise<void> {
-  await reviseOpenQuiz(db, open, async (rows) => {
-    const quiz = quizFrom(rows)
-    for (const landing of landings) {
-      const held = rows.questions.find((row) => row._id === landing.question_id)
-      const result = landing.ishes ?? (landing.err ? askError(landing.err) : null)
-      if (held && result) { await recordResult(db, quiz, held, slotFor(landing.textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes'), result) }
-    }
-    await updateQuiz(db, rows.quiz, { bulk_ishes_last: run })
-  })
+  const quiz = await openQuizRow(db, open)
+  for (const landing of landings) {
+    const held = await questionOf(db, quiz._id, landing.question_id)
+    const result = landing.ishes ?? (landing.err ? askError(landing.err) : null)
+    if (held && result) { await recordResult(db, held, slotFor(landing.textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes'), result) }
+  }
+  await updateQuiz(db, quiz, { bulk_ishes_last: run })
 }
 
 /** Replace the open quiz with `quiz`, whole, as an import merged it: see `writeQuiz` */

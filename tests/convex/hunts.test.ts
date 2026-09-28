@@ -36,6 +36,9 @@ function lockedAll(hunt: HuntT): HuntT {
   return { ...hunt, realms: hunt.realms.map((realm) => ({ ...realm, quizzes: realm.quizzes.map((quiz) => ({ ...quiz, locked: true })) })) }
 }
 
+/** For sorting ids into a stable order to compare */
+const byId = (aa: string, bb: string) => aa.localeCompare(bb)
+
 const titlesOf  = (seen: Seen) => openOf(seen).questions.map((question) => question.title)
 const qnumsOf   = (seen: Seen) => openOf(seen).questions.map((question) => question.qnum)
 const firstOf   = (seen: Seen) => present(openOf(seen).questions[0])
@@ -282,6 +285,32 @@ describe('hunts.perform', () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'move_question', question_id: firstOf(await read())._id, onto_idx: 1 })
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
+    })
+  })
+
+  describe('the quiz\'s order of its questions', () => {
+    it('names every question of the quiz exactly once, whatever adds, moves, sorts, deletes or replaces them', async () => {
+      const { act, read, tt, open } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+      /** The order and the quiz's questions found by their index are the same ids, none twice */
+      const expectOrderHolds = async () => {
+        const [ordered, held] = await tt.run(async (ctx) => {
+          const quiz = present(await ctx.db.get('quizzes', open.quiz_id))
+          const rows = await ctx.db.query('questions').withIndex('by_quiz_id', (qq) => qq.eq('quiz_id', open.quiz_id)).collect()
+          return [quiz.row_ordering.toSorted(byId), rows.map((row) => row._id).toSorted(byId)]
+        })
+        expect(ordered).to.deep.eq(held)
+      }
+      await act({ kind: 'add_question' })
+      await expectOrderHolds()
+      await act({ kind: 'move_question', question_id: firstOf(await read())._id, onto_idx: 2 })
+      await expectOrderHolds()
+      await act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
+      await expectOrderHolds()
+      await act({ kind: 'delete_questions', question_ids: [firstOf(await read())._id] })
+      await expectOrderHolds()
+      await act({ kind: 'replace_open_quiz', quiz: { ...openOf(await read()), questions: [...openOf(await read()).questions.slice(1), Question.blank()] } })
+      await expectOrderHolds()
+      expect(titlesOf(await read())).to.have.length(3)
     })
   })
 
@@ -838,7 +867,9 @@ async function crowded(tablename: 'questions' | 'widgets' | 'columns', qty: numb
   await seeded.tt.run(async (ctx) => {
     for (const position of positions) {
       if (tablename === 'questions') {
-        await ctx.db.insert('questions', { quiz_id, position, label: `q_${String(position)}`, forced_label: null, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+        const question_id = await ctx.db.insert('questions', { quiz_id, label: `q_${String(position)}`, forced_label: null, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+        const quiz = present(await ctx.db.get('quizzes', quiz_id))
+        await ctx.db.patch('quizzes', quiz_id, { row_ordering: [...quiz.row_ordering, question_id] })
       } else if (tablename === 'widgets') {
         await ctx.db.insert('widgets', { quiz_id, position, label: `w_${String(position)}`, kind: 'expressing', expression_label: 'x', description: '' })
       } else {

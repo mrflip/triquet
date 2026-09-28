@@ -58,6 +58,7 @@ describe('identings, each browser\'s own', () => {
     expect(await publicFunctions()).to.deep.eq([
       'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:whole',
       'idents:current', 'idents:performAccount',
+      'questions:open',
       'quizzes:open',
       'reviews:forQuiz',
     ])

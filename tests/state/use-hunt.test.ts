@@ -7,7 +7,7 @@ import { placeIn } from '../../src/state/use-hunt'
 function quizRow(tail: string, label: string, forced_label: string | null = null): Doc<'quizzes'> {
   return {
     _id: `j97d0qbj35dar1v8edndzckvsx8f8${tail}` as Id<'quizzes'>, _creationTime: 1, realm_id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>,
-    title: '', label, forced_label, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
+    title: '', label, forced_label, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [],
   }
 }
 

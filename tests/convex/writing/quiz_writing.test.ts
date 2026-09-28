@@ -52,8 +52,10 @@ async function bottingsIn(tt: Tester) {
 async function heldCounts(tt: Tester, quiz_id: Id<'quizzes'>): Promise<number[]> {
   return await tt.run(async (ctx) => {
     const quiz = await ctx.db.get('quizzes', quiz_id)
-    const byQuiz = async (tablename: 'questions' | 'widgets' | 'columns') => await ctx.db.query(tablename).withIndex('by_quiz_id_and_position', (qq) => qq.eq('quiz_id', quiz_id)).collect()
-    const [questions, widgets, columns] = await Promise.all([byQuiz('questions'), byQuiz('widgets'), byQuiz('columns')])
+    const byQuiz = async (tablename: 'widgets' | 'columns') => await ctx.db.query(tablename).withIndex('by_quiz_id_and_position', (qq) => qq.eq('quiz_id', quiz_id)).collect()
+    const [questions, widgets, columns] = await Promise.all([
+      ctx.db.query('questions').withIndex('by_quiz_id', (qq) => qq.eq('quiz_id', quiz_id)).collect(), byQuiz('widgets'), byQuiz('columns'),
+    ])
     const bottings = await ctx.db.query('bottings').collect()
     const reviews = await reviewsOf(ctx.db, quiz_id)
     return [quiz ? 1 : 0, questions.length, widgets.length, columns.length, bottings.length, reviews.length]
@@ -142,7 +144,8 @@ describe('writeQuiz', () => {
     const revised = { ...tree, questions: [{ ...Question.blank(), title: 'new' }, { ...first, title: 'AA' }] }
     await held.revise(async (db, rows) => { await writeQuiz(db, held.realm_id, revised, rows) })
     const after = await held.rows()
-    expect(after.questions.map((row) => [row.title, row.position])).to.deep.eq([['new', 0], ['AA', 1]])
+    expect(after.questions.map((row) => row.title)).to.deep.eq(['new', 'AA'])
+    expect(after.quiz.row_ordering).to.deep.eq(after.questions.map((row) => row._id))
     expect(after.questions[1]?._id).to.eq(first._id)
     const bottings = await bottingsIn(held.tt)
     expect(bottings.map((row) => row.question_id)).to.deep.eq([first._id])

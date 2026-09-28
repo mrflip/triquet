@@ -112,17 +112,27 @@ export async function writeQuiz(db: Writer, realm_id: Id<'realms'>, quiz: QuizT,
     locked:          quiz.locked,
     last_sortkey:    quiz.last_sortkey,
     bulk_ishes_last: quiz.bulk_ishes_last,
+    row_ordering:    [],
   })
+  // A new quiz is written before its questions, which need its id, and takes their order after.
   const quiz_id = held ? held.quiz._id : await db.insert('quizzes', fields)
-  if (held) { await updateQuiz(db, held.quiz, fields) }
-  await writeQuestions(db, quiz_id, quiz.questions, held)
+  const row_ordering = await writeQuestions(db, quiz_id, quiz.questions, held)
+  if (held) {
+    await updateQuiz(db, held.quiz, { ...fields, row_ordering })
+  } else {
+    await db.patch('quizzes', quiz_id, QuizValidators.row({ ...fields, row_ordering }))
+  }
   await writeWidgets(db, quiz_id, quiz.widgets, held?.widgets ?? [])
   await writeColumns(db, quiz_id, quiz.columns, held?.columns ?? [])
   return quiz_id
 }
 
-/** The questions of a quiz, in order, with the replies they show that are not yet recorded */
-async function writeQuestions(db: Writer, quiz_id: Id<'quizzes'>, questions: readonly QuestionT[], held: QuizRows | null): Promise<void> {
+/**
+ * The questions of a quiz, with the replies they show that are not yet recorded.
+ *
+ * @returns Their row ids, in the order given: the quiz's `row_ordering`.
+ */
+async function writeQuestions(db: Writer, quiz_id: Id<'quizzes'>, questions: readonly QuestionT[], held: QuizRows | null): Promise<Id<'questions'>[]> {
   const heldQuestions = held?.questions ?? []
   const kept = new Set(questions.map((question) => question._id))
   for (const row of heldQuestions) {
@@ -130,10 +140,10 @@ async function writeQuestions(db: Writer, quiz_id: Id<'quizzes'>, questions: rea
   }
   const labelForId = new Map(questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   const recordedAt = recordedAtOf(held?.slots ?? new Map())
-  for (const [position, question] of questions.entries()) {
+  const ordering: Id<'questions'>[] = []
+  for (const question of questions) {
     const fields = QuestionValidators.row({
       quiz_id,
-      position,
       label:        question.label,
       forced_label: question.forced_label,
       title:        question.title,
@@ -149,7 +159,9 @@ async function writeQuestions(db: Writer, quiz_id: Id<'quizzes'>, questions: rea
     const question_id = heldQuestion ? heldQuestion._id : await db.insert('questions', fields)
     if (heldQuestion) { await updateQuestion(db, heldQuestion, fields) }
     await insertBottings(db, unrecordedBottings({ ...question, _id: question_id }, recordedAt))
+    ordering.push(question_id)
   }
+  return ordering
 }
 
 /** The widgets of a quiz, in order */
