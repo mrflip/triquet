@@ -106,9 +106,14 @@ Newest first.
   any quiz of the hunt, whose questions the shallow hunt no longer carries; `useOtherQuiz`
   subscribes to `quizzes.open` for the picked quiz while the dialog shows it (none for the open
   quiz, already on screen).
-* **Navigating to a quiz a change makes waits for the change to land** (`landed()` on
-  `HuntHandle`): a new quiz and a relabel. Going at once showed "No such quiz" for a round trip;
-  a refused change now stays on the page with its notice rather than going anywhere.
+* **A new quiz is gone to once it has been made** (`carryOut` on `HuntHandle`, which resolves
+  whether that one change was kept). Going at once showed "No such quiz" for a round trip; a
+  refused one now stays on the page with its notice.
+* **The address follows its quiz when it is relabelled**, here or by anyone else (`movedTo` on
+  `HuntHandle`, from `placeIn`, which keeps placing the quiz last shown at an address once it
+  answers to another label). The gear's Apply no longer navigates itself. Found by the phase's
+  `/code-review`: navigating after the relabel landed left a moment of "No such quiz", which
+  unmounted the editor and paused the history feed.
 * **The mirror is fed by watches, not renders** (`useHistoryFeed` in `use-hunt`). Convex's client
   calls a watch's listeners before it resolves the mutation that caused the change (checked in
   `browser/sync/client.js`, 1.46.0), so a milestone or marked change waiting on
@@ -187,7 +192,8 @@ Newest first.
 * **The round trip shows in the e2e suite, and only where a spec relied on a write landing in the
   same instant**: forcing an edit past a lock before the lock landed, focusing a cell before the
   clueing that enables it landed, reading the Sheets and Export boxes the instant after an edit,
-  and clicking the gear before a relabel's navigation. Five specs, each now waiting on the state
+  clicking the gear before a relabel's navigation, and pausing the page's clock before an edit
+  armed the commit timer. Six specs, each now waiting on the state
   its next step needs. The suite runs in about 25 s a shard, against minutes under Jazz.
 * **A refusal reaches the screen**: the full suite's 100th hunt was refused with "The app holds
   at most 99 hunts." on the hunts page, exactly as `RefusalNotices` words it.

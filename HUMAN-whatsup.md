@@ -24,8 +24,10 @@ Things you might trip over:
 
 * Your `.next/dev/types/` still names the pages as they were before the `(synced)` route group,
   which fails `pnpm typecheck` and `pnpm build:agent` until your next `pnpm dev` regenerates it.
-* A change now lands one round trip after it is made. Five e2e specs had relied on the same
+* A change now lands one round trip after it is made. Six e2e specs had relied on the same
   instant, and now wait for the state they need.
+* An open quiz that someone relabels takes your address along with it. That's new, and it came
+  out of the phase's code review.
 * The Export box asks for the whole hunt again after each change, instead of subscribing to it.
 
 ## 2026-09-27: The Triquet brand is in

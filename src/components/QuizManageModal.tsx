@@ -20,8 +20,6 @@ export type QuizManageModalProps = {
   realm:     ShallowRealmT
   quiz:      QuizT
   dispatch:  (action: HuntActionDNA) => void
-  /** Told the quiz's new label once it has one, so the address can follow it there */
-  onRelabelled: (label: string) => void
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the hunt's expressions for editing */
@@ -32,7 +30,7 @@ export type QuizManageModalProps = {
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
  * and a quick way to open any other quiz in the realm by name (bottom).
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onRelabelled, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -45,11 +43,10 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     const version = Labelmaker.normalize(versionDraft)
     if (version === '') { setIssue('Enter a version.'); return }
-    const moved = cleaned !== Labelmaker.effectiveLabelOf(quiz)
+    // The quiz is addressed by its label, so a relabel is also a move: the address follows it
+    // once it lands (`useHunt`'s `movedTo`).
     dispatch({ kind: 'relabel_quiz', label: cleaned })
     dispatch({ kind: 'reversion_quiz', version })
-    // The quiz is addressed by its label, so a relabel is also a move.
-    if (moved) { onRelabelled(cleaned) }
     onClose()
   }
 
