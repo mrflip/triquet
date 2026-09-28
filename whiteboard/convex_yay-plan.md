@@ -20,7 +20,7 @@ Read first, in this order: `CLAUDE.md`, `STYLE.md`, `notes/vocabulary.md`, `note
 `notes/database-decisions.md` (the scorecard this is testing), `notes/decisions/2026-09-jazz.md`
 (*The shape of the data* and *Learned in the move*: what to keep and what was a Jazz workaround),
 `notes/decisions/2026-09-client-first.md`, `notes/deploy.md`, `notes/testing.md`, and then
-`whiteboard/jazz-migration.md` for how the last move was run. Then this document, then
+`notes/prior-work/jazz-migration.md` for how the last move was run. Then this document, then
 `whiteboard/convex_yay-progress.md` if it exists (it is newer than this plan wherever they
 disagree). For phases 5 to 7, also `whiteboard/hunts-and-idents.md` and
 `whiteboard/hunts-and-idents-handoff.md`: what they say the app should do stands; how they say to

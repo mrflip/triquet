@@ -15,8 +15,8 @@ store, edit and refine the question text, and also to assess questions for fairn
 Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
 a validator needs no migration path for anyone's quizzes.
 
-**Storage is Convex**, replacing Jazz in September 2026; the move is also an evaluation, whose
-verdict lands in `notes/database-decisions.md`. The plan and its handoff are
+**Storage is Convex**, replacing Jazz in September 2026; the move was also an evaluation, whose
+verdict is in `notes/database-decisions.md` and whose decision is `notes/decisions/2026-09-convex.md`. The plan and its handoff are
 `whiteboard/convex_yay-plan.md` and `whiteboard/convex_yay-progress.md` (read the progress
 document's *Rules overrides* before touching `convex/`). Rows, not a tree: a view dispatches an
 action, the `hunts.perform` mutation writes the rows it comes to, and views subscribe to query
@@ -83,7 +83,8 @@ The top three values while writing code are **empathy, safety and readability**.
 You should be running in a container, and can verify by checking that `TQ_IS_SANDBOXED` is set to "true".
 
 Never touch a resource a human may already be using. Next.js allows one dev server and one build
-per directory, so as an agent **use `pnpm dev:agent` (port 3001) and `pnpm build:agent`**, never
+per directory, so as an agent **use `pnpm dev:agent` (port 3001) and `pnpm build:agent`** (served
+on 3004 by `pnpm start:agent`), never
 `pnpm dev` / `pnpm build`, and run e2e only as `pnpm test:e2e` (port 3002). Doppler supplies each
 its ports and directories (`dev_claude`, `dev_e2e`). Each role has a local Convex backend of its
 own (`scripts/convex_backend <dev|agent|e2e|e2e-agent>`): port `34xx`, HTTP actions on `35xx`,
