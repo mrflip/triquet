@@ -1,21 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Db } from 'jazz-tools'
-import { useDb } from 'jazz-tools/react'
-import { AppNotices } from '../lib/notices'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import _ from 'es-toolkit/compat'
+import { useConvex, useMutation, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
+import * as Labelmaker from '../lib/labelmaker'
+import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
-import { Hunt, type HuntT } from '../models/hunt'
-import { Realm, type RealmT } from '../models/realm'
+import type { CountedExpressionT, ReviewedT, ShallowHuntT, ShallowRealmT } from '../lib/rows'
+import { ValidatorKit } from '../lib/validator'
+import type { HuntActionDNA, OpenQuizT } from '../models/actions'
 import type { QuizT } from '../models/quiz'
-import type { ReviewRow } from '../db/schema'
-import { askServer } from './lookup'
-import { mirrorHunt, openHistories, trackWrite } from './quiz-mirror'
-import { perform, type OpenQuiz } from './perform'
-import { DirectoryQueries, huntFrom, huntRowFor, loadHeldRows, loadHunt, quizRowsOf, type HeldRows } from './quiz-rows'
-import { useHeldRows } from './use-held-rows'
-import { useIdent } from './use-ident'
-import type { HuntAction } from './actions'
+import type { MirrorSnapshot } from './commit-scheduler'
+import { useBrowserKey } from './browser-key'
+import { mirrorQuiz, trackWrite } from './quiz-mirror'
 
 /** Where finding the quiz an address names stands: still looking, looked and it is not there, or found */
 export type Finding = 'waiting' | 'missing' | 'found'
@@ -23,19 +22,72 @@ export type Finding = 'waiting' | 'missing' | 'found'
 export type HuntHandle = {
   /** Whether the quiz the labels name has been found, or is not there to find */
   finding:    Finding
-  /** The hunt the labels name, once it has all arrived; null otherwise */
-  hunt:       HuntT | null
+  /** The hunt the labels name, as a quiz's screen holds it; null when there is none, or it has not arrived */
+  hunt:       ShallowHuntT | null
   /** The realm the labels name; null when the hunt has no such realm, or has not arrived */
-  realm:      RealmT | null
-  /** The quiz the labels name; null when the realm has no such quiz, or has not arrived */
+  realm:      ShallowRealmT | null
+  /** The quiz the labels name, whole; null when the realm has no such quiz, or it has not arrived */
   quiz:       QuizT | null
-  /** The quiz's reviews, every ident's; empty until the quiz is found */
-  reviews:    readonly ReviewRow[]
+  /** The quiz's reviews, every ident's, oldest first; empty until the quiz is found */
+  reviews:    readonly ReviewedT[]
   /** Whether a change dispatched here is still being written */
   unsaved:    boolean
   /** Why the last change could not be kept; null while all is well */
   saveNotice: string | null
-  dispatch:   (action: HuntAction) => void
+  /** Carry out what the author did, on the quiz on screen */
+  dispatch:   (action: HuntActionDNA) => void
+  /** As `dispatch`, for a caller that goes on once the change has been written: whether it was kept */
+  carryOut:   (action: HuntActionDNA) => Promise<boolean>
+  /**
+   * The label the open quiz answers to now, when that is no longer the one the address names
+   * (it was relabelled, here or elsewhere): the address should follow it. Null otherwise.
+   */
+  movedTo:    string | null
+}
+
+/** A quiz's row, as its realm lists it */
+type QuizRow = ShallowRealmT['quizzes'][number]
+
+/** Where a quiz an address names stands in its hunt: the realm and quiz row, once found */
+export type Placing =
+  | { finding: 'waiting' | 'missing', realm: null, quizRow: null, movedTo: null }
+  | { finding: 'placed', realm: ShallowRealmT, quizRow: QuizRow, movedTo: string | null }
+
+/**
+ * Where the realm and quiz `labels` name sit in `hunt`: placed, missing, or not known until the
+ * hunt arrives. A quiz answers to the label in force for it; should two, the earlier made.
+ *
+ * The quiz last found at this address is still placed when it answers to another label now
+ * (relabelled, here or by someone else), with the label it answers to, so the address can follow
+ * it rather than lose it.
+ *
+ * @param hunt - The hunt the labels name: undefined while it is on its way, null when there is none.
+ * @param labels - The realm and quiz the address names.
+ * @param shown - The quiz last found at this address; null for none.
+ * @returns The realm and the quiz's row, or why there are none.
+ *
+ * @example placeIn(hunt, { realm: 'home', quiz: 'quiet_otter' }, null).quizRow?.title  // => 'Quiet Otter'
+ * @example placeIn(hunt, { realm: 'home', quiz: 'princes' }, shown).movedTo  // => 'kings', after a relabel
+ */
+export function placeIn(hunt: ShallowHuntT | null | undefined, labels: Pick<QuizLabels, 'realm' | 'quiz'>, shown: string | null): Placing {
+  const none = { realm: null, quizRow: null, movedTo: null }
+  if (hunt === undefined) { return { finding: 'waiting', ...none } }
+  const realm = hunt?.realms.find((each) => each.label === labels.realm)
+  if (! realm) { return { finding: 'missing', ...none } }
+  const quizRow = Labelmaker.entityForLabel(realm.quizzes, labels.quiz)
+  if (quizRow) { return { finding: 'placed', realm, quizRow, movedTo: null } }
+  const moved = realm.quizzes.find((row) => row._id === shown)
+  return moved ? { finding: 'placed', realm, quizRow: moved, movedTo: Labelmaker.effectiveLabelOf(moved) } : { finding: 'missing', ...none }
+}
+
+/**
+ * Where finding the quiz stands, once its place in the hunt is known: found once the quiz and its
+ * reviews have arrived, missing when the quiz is not there after all (deleted a moment ago).
+ */
+function findingOf(placing: Placing, quiz: QuizT | null | undefined, reviews: readonly ReviewedT[] | undefined): Finding {
+  if (placing.finding !== 'placed') { return placing.finding }
+  if (quiz === undefined || reviews === undefined) { return 'waiting' }
+  return quiz ? 'found' : 'missing'
 }
 
 /** How many changes this page is writing */
@@ -57,119 +109,120 @@ function holdThePage(holding: boolean): void {
   if (! holding && Writing.count === 0) { removeEventListener('beforeunload', askBeforeLeaving) }
 }
 
-/** What the server said about a hunt label this browser holds nothing for: whether it has one */
-type Heard = { label: string, found: boolean }
-
-/** The hunt, realm and quiz `labels` name among `rows`, and where finding them stands */
-function findIn(rows: HeldRows | null, labels: QuizLabels, heard: Heard | null): Pick<HuntHandle, 'finding' | 'hunt' | 'realm' | 'quiz'> {
-  const none = { hunt: null, realm: null, quiz: null }
-  if (! rows) { return { finding: 'waiting', ...none } }
-  const huntRow = huntRowFor(rows, labels.hunt)
-  if (! huntRow) {
-    const settled = heard?.label === labels.hunt && ! heard.found
-    return { finding: settled ? 'missing' : 'waiting', ...none }
-  }
-  const hunt = huntFrom(rows, huntRow.id)
-  if (! hunt) { return { finding: 'waiting', ...none } }
-  const realm = Hunt.realmFor(hunt, labels.realm) ?? null
-  const quiz = realm && (Realm.quizFor(realm, labels.quiz) ?? null)
-  return { finding: quiz ? 'found' : 'missing', hunt, realm, quiz }
+/** An expression as a quiz's history holds it: without the usage count the screen shows beside it */
+function uncounted(expressions: readonly CountedExpressionT[]): MirrorSnapshot['expressions'] {
+  return expressions.map((expression) => _.omit(expression, ['usage']))
 }
 
 /**
- * The quiz `labels` names, live: every row it holds, kept current as they change here, in another
- * tab, on another device, or at someone else's hands, and every change written the moment it is
- * dispatched.
+ * Feed the open quiz's history from every reading of it, whoever made the change. Read through
+ * watches rather than renders: the client tells a watch of a change before the change's own
+ * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
+ */
+function useHistoryFeed(hunt_label: string, quiz_id: Id<'quizzes'> | null): void {
+  const convex = useConvex()
+  useEffect(() => {
+    if (quiz_id === null) { return }
+    const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
+    const quizWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const last: { snapshot: MirrorSnapshot | null, counted: readonly CountedExpressionT[] | null } = { snapshot: null, counted: null }
+    const note = () => {
+      try {
+        const hunt = huntWatch.localQueryResult()
+        const quiz = quizWatch.localQueryResult()
+        const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
+        if (! hunt || ! quiz || ! realm) { return }
+        const expressions = last.snapshot && hunt.expressions === last.counted ? last.snapshot.expressions : uncounted(hunt.expressions)
+        const snapshot = { quiz, expressions, place: { hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label } }
+        mirrorQuiz(last.snapshot, snapshot)
+        last.snapshot = snapshot
+        last.counted = hunt.expressions
+      } catch (err) {
+        // A record that misses a reading is a smaller loss than a page that fails.
+        console.error('Hunt: the quiz history missed a reading', err)
+      }
+    }
+    const stops = [huntWatch.onUpdate(note), quizWatch.onUpdate(note)]
+    note()
+    return () => { for (const stop of stops) { stop() } }
+  }, [convex, hunt_label, quiz_id])
+}
+
+/**
+ * The quiz `labels` names, live: the hunt as its screen holds it, the quiz whole, and its reviews,
+ * kept current as they change here, in another tab, on another device, or at someone else's
+ * hands; and every change written the moment it is dispatched.
  *
- * A browser that has never synced holds nothing, so a hunt label it cannot find is only missing
- * once the server has been asked; until then it is still being looked for. A quiz of a hunt it
- * holds is found or missing at once.
- *
- * There is no save button and no save queue: a change is in this browser's database as soon as
- * it has been written, a moment after it is dispatched, and syncs from there. Leaving the page in
- * that moment asks first. A change is mirrored into its quiz's history by the tab that made it.
+ * There is no save button and no save queue: a change goes to the server as soon as it is
+ * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
+ * first. A change the server refuses writes nothing, and says why in `saveNotice`. Every reading
+ * of the open quiz, whoever changed it, goes into its history.
  *
  * @param labels - The hunt, realm and quiz the address names.
  * @returns The hunt, realm and quiz, a dispatcher, and why anything went wrong.
  */
 export function useHunt(labels: QuizLabels): HuntHandle {
-  const db: Db = useDb()
-  const rows = useHeldRows(labels.hunt)
-  const { ident } = useIdent()
-  const [heard, setHeard] = useState<Heard | null>(null)
+  const browser_key = useBrowserKey()
+  const perform = useMutation(api.hunts.perform)
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const [writing, setWriting] = useState(0)
 
-  // Keyed by the labels themselves, so a caller handing in a fresh object each render does not
-  // make a fresh hunt each render.
-  const { hunt: huntLabel, realm: realmLabel, quiz: quizLabel } = labels
-  const held = useMemo(() => findIn(rows, { hunt: huntLabel, realm: realmLabel, quiz: quizLabel }, heard), [rows, huntLabel, realmLabel, quizLabel, heard])
-  const { hunt, realm, quiz } = held
-  const reviews = rows && quiz ? quizRowsOf(rows, quiz._id)?.reviews ?? [] : []
+  // A label that cannot be one names no hunt, and is not asked about.
+  const askable = ValidatorKit.label.safeParse(labels.hunt).success
+  const huntSeen = useQuery(api.hunts.open, askable ? { hunt_label: labels.hunt } : 'skip')
+  // The quiz last found at this address, so a relabel does not lose it: see `placeIn`.
+  const address = `${labels.hunt}/${labels.realm}/${labels.quiz}`
+  const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
+  const placing = placeIn(askable ? huntSeen : null, labels, shown?.address === address ? shown.quiz_id : null)
+  const quiz_id = placing.quizRow?._id ?? null
+  const quizSeen = useQuery(api.quizzes.open, quiz_id === null ? 'skip' : { quiz_id })
+  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null ? 'skip' : { quiz_id })
+  useHistoryFeed(labels.hunt, askable ? quiz_id : null)
 
-  // A hunt label this browser holds nothing for is asked of the server, once per label.
-  const unheard = rows !== null && ! huntRowFor(rows, huntLabel) && heard?.label !== huntLabel
-  useEffect(() => {
-    if (! unheard) { return }
-    let current = true
-    const ask = async () => {
-      const remote = await askServer(db, DirectoryQueries.hunts)
-      if (current) { setHeard({ label: huntLabel, found: huntRowFor({ hunts: remote ?? [] }, huntLabel) !== undefined }) }
-    }
-    void ask()
-    return () => { current = false }
-  }, [db, unheard, huntLabel])
+  const hunt = huntSeen ?? null
+  const finding = findingOf(placing, quizSeen, reviewsSeen)
+  const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
 
-  useEffect(() => {
-    if (hunt) { openHistories(hunt) }
-  }, [hunt])
+  // Kept as React keeps state derived from a render: set during the render, which React redoes.
+  const foundId = found.quiz?._id ?? null
+  if (foundId !== null && (shown?.address !== address || shown.quiz_id !== foundId)) { setShown({ address, quiz_id: foundId }) }
 
   useEffect(() => {
-    document.title = quiz?.title ? `${quiz.title} — Triquet` : 'Triquet'
-  }, [quiz?.title])
+    document.title = found.quiz?.title ? `${found.quiz.title} — Triquet` : 'Triquet'
+  }, [found.quiz?.title])
 
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
-  const open: OpenQuiz | null = hunt && realm && quiz ? { hunt_id: hunt._id, realm_id: realm._id, quiz_id: quiz._id } : null
-  const latest = useRef({ rows, hunt, open, ident })
-  useEffect(() => { latest.current = { rows, hunt, open, ident } })
+  const open: OpenQuizT | null = hunt && found.realm && placing.quizRow ? { hunt_id: hunt._id, realm_id: found.realm._id, quiz_id: placing.quizRow._id } : null
+  const latest = useRef({ open, browser_key })
+  useEffect(() => { latest.current = { open, browser_key } })
 
-  // The change still being written, for the next one to wait its turn behind.
-  const ahead = useRef<Promise<void> | null>(null)
-
-  const dispatch = useCallback((action: HuntAction) => {
-    const { rows: shown, hunt: before, open: there, ident: actor } = latest.current
-    if (shown === null || before === null || there === null || actor === null) { return }
-    const waitFor = ahead.current
-    const carryOut = async () => {
+  const carryOut = useCallback(async (action: HuntActionDNA): Promise<boolean> => {
+    const { open: there, browser_key: key } = latest.current
+    if (there === null || key === null) { return false }
+    const write = async (): Promise<boolean> => {
       setWriting((was) => was + 1)
       holdThePage(true)
       try {
-        // A change dispatched while another is being written (an editor applying several at
-        // once, say) waits for it, then works from the rows as they now stand. A change on its
-        // own works from the rows on screen, and so writes before the author can act again.
-        if (waitFor) { await waitFor }
-        const current = waitFor ? await loadHeldRows(db, there.hunt_id) : shown
-        await perform(db, current, there, actor._id, action)
+        // The client sends one browser's changes in the order they were made, and the server
+        // carries each out against the rows as they then stand.
+        await perform({ open: there, action, browser_key: key })
         setSaveNotice(null)
-        const after = await loadHunt(db, there.hunt_id)
-        if (after) { mirrorHunt(before, after) }
+        return true
       } catch (err) {
         console.error('Hunt: a change could not be kept', action, err)
-        setSaveNotice(AppNotices.changeFailed)
+        setSaveNotice(noticeOf(err))
+        return false
       } finally {
         setWriting((was) => was - 1)
         holdThePage(false)
       }
     }
-    const work = carryOut()
-    ahead.current = work
-    const release = async () => {
-      await work
-      if (ahead.current === work) { ahead.current = null }
-    }
-    void release()
+    const work = write()
     trackWrite(work)
-  }, [db])
+    return await work
+  }, [perform])
 
-  return { ...held, reviews, unsaved: writing > 0, saveNotice, dispatch }
+  const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
+
+  return { finding, hunt, ...found, unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
 }

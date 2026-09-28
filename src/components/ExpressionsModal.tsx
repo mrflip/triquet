@@ -5,17 +5,18 @@ import { Button, Dialog, DialogActions, DialogContent, IconButton, Stack } from 
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
 import { ExpressionFields, type ExpressionDraft } from './ExpressionFields'
-import { ExpressionValidators, type ExpressionT } from '../models/expression'
-import { Hunt, type HuntT } from '../models/hunt'
-import type { HuntAction } from '../state/actions'
+import { ExpressionValidators } from '../models/expression'
+import type { CountedExpressionT, ShallowHuntT } from '../lib/rows'
+import type { QuizT } from '../models/quiz'
+import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type ExpressionsModalProps = {
   onClose:   () => void
-  hunt:      HuntT
-  /** The quiz the preview starts on */
-  quizId:    string
-  dispatch:  (action: HuntAction) => void
+  hunt:      ShallowHuntT
+  /** The quiz on screen, which the preview starts on */
+  quiz:      QuizT
+  dispatch:  (action: HuntActionDNA) => void
 }
 
 /**
@@ -25,7 +26,7 @@ export type ExpressionsModalProps = {
  * New expressions are written from a new column's editor, where they can be tried against real
  * questions and put to work at once; this list is for revisiting and tidying them.
  */
-export function ExpressionsModal({ onClose, hunt, quizId, dispatch }: Readonly<ExpressionsModalProps>) {
+export function ExpressionsModal({ onClose, hunt, quiz, dispatch }: Readonly<ExpressionsModalProps>) {
   const [editing, setEditing] = useState<string | null>(null)
   const edited = hunt.expressions.find((expression) => expression.label === editing)
 
@@ -45,7 +46,7 @@ export function ExpressionsModal({ onClose, hunt, quizId, dispatch }: Readonly<E
                 <strong>{expression.label}</strong>
                 <div className={styles.microcopy}>{expression.description}</div>
               </div>
-              <span className={styles.microcopy}>{usageNote(Hunt.expressionUsage(hunt, expression.label))}</span>
+              <span className={styles.microcopy}>{usageNote(expression.usage)}</span>
               <IconButton size="small" aria-label={`Edit expression ${expression.label}`} onClick={() => { setEditing(expression.label) }}>⚙</IconButton>
             </Stack>
           ))}
@@ -56,7 +57,7 @@ export function ExpressionsModal({ onClose, hunt, quizId, dispatch }: Readonly<E
         <ExpressionEditor
           key={edited.label}
           hunt={hunt}
-          quizId={quizId}
+          quiz={quiz}
           expression={edited}
           dispatch={dispatch}
           onClose={() => { setEditing(null) }}
@@ -73,10 +74,10 @@ function usageNote(usage: number): string {
 }
 
 type ExpressionEditorProps = {
-  hunt:       HuntT
-  quizId:     string
-  expression: ExpressionT
-  dispatch:   (action: HuntAction) => void
+  hunt:       ShallowHuntT
+  quiz:       QuizT
+  expression: CountedExpressionT
+  dispatch:   (action: HuntActionDNA) => void
   onClose:    () => void
 }
 
@@ -84,10 +85,10 @@ type ExpressionEditorProps = {
  * One expression on its own: formula and description to revise with a live preview, and a
  * removal that asks first and is not offered while any column works the expression.
  */
-function ExpressionEditor({ hunt, quizId, expression, dispatch, onClose }: Readonly<ExpressionEditorProps>) {
-  const [draft, setDraft] = useState<ExpressionDraft>(expression)
+function ExpressionEditor({ hunt, quiz, expression, dispatch, onClose }: Readonly<ExpressionEditorProps>) {
+  const [draft, setDraft] = useState<ExpressionDraft>({ label: expression.label, description: expression.description, formula: expression.formula })
   const [issue, setIssue] = useState<string | null>(null)
-  const usage = Hunt.expressionUsage(hunt, expression.label)
+  const { usage } = expression
 
   const onApply = () => {
     const patch = ExpressionValidators.expressionPatch.safeParse({ formula: draft.formula, description: draft.description })
@@ -103,7 +104,7 @@ function ExpressionEditor({ hunt, quizId, expression, dispatch, onClose }: Reado
         <Stack spacing={1} sx={{ mt: 1 }}>
           <ExpressionFields
             hunt={hunt}
-            defaultQuizId={quizId}
+            openQuiz={quiz}
             draft={draft}
             onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null) }}
             labelEditable={false}

@@ -87,47 +87,24 @@ In particular, address:
 * what do we do about mismatches that aren't *patently* absurd -- `nth(arr, "1")`,
   `nth(arr, 1.5)`, `nth(arr, -1)`, `nth(arr, inf)`, `nth(arr, MAX_SAFE_INTEGER + 99)`?
 
-## Rows and Policies (Jazz)
-
-Anything that writes or subscribes to rows is tested against a real Jazz database from
-`jazz-tools/testing`, not a mock: `createPolicyTestApp` by default (an in-process server in tens
-of milliseconds, with our permissions enforced), `startLocalJazzServer` when sync or several
-clients are the behaviour under test. `testApp.as(session)` is one account's database; the
-session is `{ user_id, issuer, claims, authMode: 'local-first' }`, typed as
-`Parameters<PolicyTestApp['as']>[0]` since Jazz does not export `Session`; `tests/support/jazz.ts`
-has `openTestApp()`, `sessionFor(user_id)`, `freshDb(testApp)` (an account no other test
-shares), `huntHolding(quizzes, expressions)` (a hunt tree whose home realm holds those quizzes,
-under a minted label) and `seedHunt(testApp, hunt, open_idx)`, which writes a hunt tree into a
-fresh account and hands back `open` (the quiz the test has open), `act` (run an action through
-`perform`) and `read` (the tree its rows now make up; `openOf(seen)` picks out the open quiz).
-Action tests seed a hunt tree as a fixture, act, and compare trees.
-
-The shared test server holds every test's rows, and every hunt table is readable across
-accounts, so the directory (`loadDirectory`: hunts, realms, quizzes) and any whole-table read
-see other tests' hunts. Assert on your own hunt (`read()`, `loadHeldRows(db, hunt_id)`, or rows
-filtered to your quiz's id), never on a count across a table. Don't open a memory
-driver by hand: it skips permissions, and needs a stand-in account store. Assert user-visible rows, subscription
-deliveries, and accepted or rejected writes through the public API. Tell a query that has not
-delivered yet apart from one that delivered nothing. Request the durability tier the assertion
-depends on, and no higher. Row ids are never asserted on; find rows by label. `$createdAt`
-counts milliseconds, so a test that orders two inserts by it waits a few between them. A write
-to a row the account cannot read throws on the spot; a delete is refused only at the edge, so
-assert it with `expectDenied`. Read with `LocalFirst` (from `state/quiz-rows`): edge-tier reads
-stall once the shared test server holds many accounts. A row read back at once may not carry
-`$createdAt` yet; wait a moment before asserting on it.
-
 ## Convex functions (convex-test)
 
 Everything under `convex/` is tested in `tests/convex/`, path for path, under `convex-test` in
 Vitest's `convex` project (the edge runtime). `tests/support/convex.ts` has `openTester()` (a
 fresh, empty deployment in this process: no test sees another's rows), `huntHolding`,
 `seedHunt(tt, hunt, open_idx)` (the hunt written, and `open`, `act` through `hunts.perform`, and
-`read` through `hunts.whole`, as the Jazz support has it), `openOf(seen)`, `wholeHunt` and
+`read` through `hunts.whole`), `openOf(seen)`, `wholeHunt` and
 `identified(tt, label)` (a fresh browser key that has taken on an ident; review actions need
 one). Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex
 value (no `Map`). Ids in an action must be ids: a malformed one is refused at Convex's door, so a
 test of "an id of no question here" uses a real question of another hunt. `_creationTime` never
-ties under convex-test, so no test pauses between writes.
+ties under convex-test, so no test pauses between writes. Action tests seed a hunt tree as a
+fixture, act, and compare trees; row ids are never asserted on, except where the key itself is
+under test.
+
+The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to the functions is
+React's and Convex's client's, and the e2e suite drives them. Anything pure inside one (`placeIn`
+in `use-hunt`) is exported and tested on its own.
 
 ## End to End (Playwright)
 
@@ -176,19 +153,16 @@ one read. Give it a bounded window (`page.clock`, or `waitForRequest` with a tim
 in a comment what the window is and why it is long enough.
 
 The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
-directory and Jazz server); Playwright refuses to start locally otherwise. Each
-spec's fresh browser context is a fresh local-first account, with a fresh ident and a fresh
-hunt. Hunts are readable across accounts, so specs are isolated by those random labels, not by
+directory and Convex backend, emptied as the suite starts); Playwright refuses to start locally
+otherwise. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
+fresh hunt. Every hunt is open to every browser, so specs are isolated by those random labels, not by
 ownership: find rows and pages by your own labels and titles, never by position in a list every
 spec writes to. A second visitor is a second browser context (`browser.newContext()`), closed
 after the test.
 
-After a schema change the e2e server can sit with every subscription waiting (the hunts page
-never leaves "Opening your hunts…"). Reset its database with
-`./scripts/doppledo dev_e2e ./scripts/nuke-jazz_local`, with no e2e server running, and rerun.
-Do the same when a local database has piled up many runs' hunts: every browser syncs every hunt's
-directory rows before it opens a quiz, so a fresh visitor's first load slows as it grows, and
-the specs with a second visitor are the first to time out.
+A change lands one round trip after the author makes it: the screen shows it once the server
+has it. A spec whose next step needs the change (a lock before forcing past it, a clueing before
+asking about it, an export that holds the edit) waits for it with a retrying assertion first.
 
 ## Validation Boundaries
 

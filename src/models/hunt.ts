@@ -128,23 +128,5 @@ export class Hunt implements HuntT {
   static quizzesOf(hunt: Pick<HuntT, 'realms'>): QuizT[] {
     return hunt.realms.flatMap((realm) => realm.quizzes)
   }
-
-  /** The realm of `hunt` labelled `label` */
-  static realmFor(hunt: Pick<HuntT, 'realms'>, label: string): RealmT | undefined {
-    return hunt.realms.find((realm) => realm.label === label)
-  }
-
-  /**
-   * How many widgets, across every quiz of the hunt, work the expression labelled `label`.
-   *
-   * @param hunt - The hunt as it stands.
-   * @param label - An expression's label.
-   * @returns How many expressing widgets name it; an expression is only deletable at zero.
-   *
-   * @example Hunt.expressionUsage(hunt, 'clueing_full')  // => 1
-   */
-  static expressionUsage(hunt: Pick<HuntT, 'realms'>, label: string): number {
-    return this.quizzesOf(hunt).reduce((total, quiz) => total + quiz.widgets.filter((widget) => widget.kind === 'expressing' && widget.expression_label === label).length, 0)
-  }
 }
 

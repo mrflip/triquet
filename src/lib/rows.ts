@@ -61,6 +61,9 @@ export type CountedExpressionT = ExpressionT & { usage: number }
 /** A hunt as a quiz's screen holds it: its listing, and its expressions with their usage */
 export type ShallowHuntT = HuntListingT & { expressions: readonly CountedExpressionT[] }
 
+/** A review, with the label and title of the ident who wrote it; null for an ident no longer there */
+export type ReviewedT = Doc<'reviews'> & { reviewer: Pick<Doc<'idents'>, 'label' | 'title'> | null }
+
 /**
  * A botting's row as the tree's history of a cell reads it: its id, and when it was asked in
  * whole epoch milliseconds.
@@ -204,4 +207,16 @@ export function huntFrom(rows: HuntRows, quizFor: ReadonlyMap<string, QuizT>): H
     })),
     expressions: rows.expressions.map((row) => expressionFrom(row)),
   }
+}
+
+/**
+ * The review of a quiz that `ident_id` wrote, out of the quiz's reviews oldest first: the earliest,
+ * should there be two.
+ *
+ * @returns The review, or null when that ident has written none.
+ *
+ * @example reviewBy(reviews, ident._id)?.phase  // => 'draft'
+ */
+export function reviewBy<RT extends Pick<Doc<'reviews'>, 'ident_id'>>(reviews: readonly RT[], ident_id: string): RT | null {
+  return reviews.find((review) => review.ident_id === ident_id) ?? null
 }

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Empties one role's local Convex backend: every row of every table, by testing:clearAll, which
+# the backend refuses unless it was marked clearable (scripts/convex_dev marks each role's). Only
+# ever a local backend: the role names one on 127.0.0.1, and production has no role here.
+#
+# The backend must be running (scripts/convex_backend <role>, or scripts/convex_dev).
+#
+# Usage: scripts/convex_reset <dev|agent|e2e|e2e-agent>
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+role="${1:-}"
+case "$role" in
+  dev | agent | e2e | e2e-agent) ;;
+  *) echo "Usage: scripts/convex_reset <dev|agent|e2e|e2e-agent>" >&2; exit 1 ;;
+esac
+clienv="data/convex-${role}/cli.env"
+if [[ ! -s "$clienv" ]]; then
+  echo "No ${clienv}: start the ${role} backend first (scripts/convex_backend ${role})." >&2
+  exit 1
+fi
+
+# A local role talks only to its own backend: a cloud deployment the environment names (a deploy
+# key, say) would otherwise win over it.
+unset CONVEX_DEPLOY_KEY CONVEX_DEPLOYMENT
+while IFS='=' read -r envname val; do
+  case "$envname" in
+    CONVEX_SELF_HOSTED_URL | CONVEX_SELF_HOSTED_ADMIN_KEY) export "${envname}=${val}" ;;
+  esac
+done < "$clienv"
+if [[ ! "${CONVEX_SELF_HOSTED_URL:-}" =~ ^http://127\.0\.0\.1:[0-9]+$ ]]; then
+  echo "${clienv} names ${CONVEX_SELF_HOSTED_URL:-no backend}, not a local one: refusing." >&2
+  exit 1
+fi
+
+# Each run deletes a batch of every table in one transaction and says how many rows it deleted;
+# run until one finds nothing left.
+for _ in $(seq 1 1000); do
+  deleted="$(./node_modules/.bin/convex run testing:clearAll | tail -n 1)"
+  if [[ ! "$deleted" =~ ^[0-9]+$ ]]; then
+    echo "testing:clearAll said \"${deleted}\" rather than how many rows it deleted." >&2
+    exit 1
+  fi
+  if [[ "$deleted" == 0 ]]; then
+    echo "The ${role} Convex backend is empty." >&2
+    exit 0
+  fi
+done
+echo "The ${role} Convex backend still had rows after 1000 runs." >&2
+exit 1

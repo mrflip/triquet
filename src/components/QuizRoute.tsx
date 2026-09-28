@@ -22,12 +22,12 @@ export type QuizRouteProps = {
  *
  * A visitor who has not said who they are is sent to say so, and brought back here. An address
  * that names no presentation is given one: for now everyone is a smith. An address naming no
- * quiz says so, once the server has had its say.
+ * quiz says so, once the server has had its say; one whose quiz is relabelled follows it.
  */
 export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const { finding, hunt, realm, quiz, reviews, dispatch, unsaved, saveNotice } = useHunt(labels)
+  const { finding, hunt, realm, quiz, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(labels)
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
@@ -37,6 +37,11 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
     if (act === null) { router.replace(Routes.quizPath(labels, 'smith')) }
   }, [act, labels, router])
 
+  // A quiz relabelled while it is open, here or elsewhere, takes its address with it.
+  useEffect(() => {
+    if (movedTo !== null) { router.replace(Routes.quizPath({ ...labels, quiz: movedTo }, act ?? 'smith')) }
+  }, [movedTo, labels, act, router])
+
   if (! loaded || ! ident || act === null || finding === 'waiting') {
     return <OpeningNotice notice={saveNotice} />
   }
@@ -44,5 +49,5 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   if (act === 'review') {
     return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
   }
-  return <Workbench hunt={hunt} realm={realm} quiz={quiz} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
+  return <Workbench hunt={hunt} realm={realm} quiz={quiz} reviews={reviews} dispatch={dispatch} carryOut={carryOut} unsaved={unsaved} saveNotice={saveNotice} />
 }

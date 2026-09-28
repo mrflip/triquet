@@ -56,13 +56,4 @@ export class Realm implements RealmT {
     const realm = RealmValidators.realm(dna)
     return realm.title === '' ? { ...realm, title: Labelmaker.titleize(realm.label) } : realm
   }
-
-  /**
-   * The quiz of `realm` answering to `label`, by whichever label is in force for each.
-   *
-   * @example Realm.quizFor(realm, 'quiet_otter')?.title  // => 'Quiet Otter'
-   */
-  static quizFor(realm: RealmT, label: string): QuizT | undefined {
-    return Labelmaker.entityForLabel(realm.quizzes, label)
-  }
 }

@@ -25,6 +25,8 @@ test('double-clicking asks, and the answer lands with its tier and cost', async 
 
 test('the keyboard asks too', async ({ page }) => {
   await stubAsk(page, { ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+  // Focusing, unlike a click, does not wait for the cell to take asks: it does once the clueing lands.
+  await expect(guessCell(page, 0)).toBeEnabled()
   await guessCell(page, 0).focus()
   await page.keyboard.press('Enter')
   await expect(guessCell(page, 0)).toContainText('Leon')

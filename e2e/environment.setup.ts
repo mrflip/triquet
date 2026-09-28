@@ -15,18 +15,17 @@ setup('reports the environment it runs under, without the values of anything sen
   expect(Environment.complaintsAbout(process.env)).toEqual([])
 })
 
-setup('finds its local Jazz server healthy', async ({ request }) => {
-  const url = `http://127.0.0.1:${String(process.env.JAZZ_DEV_PORT)}/health`
+setup('finds its local Convex backend answering', async ({ request }) => {
+  const url = `${String(process.env.NEXT_PUBLIC_CONVEX_URL)}/version`
   await expect(async () => {
     const response = await request.get(url)
     expect(response.ok(), `${url} answered ${String(response.status())}`).toBe(true)
-    expect(await response.json()).toEqual({ status: 'healthy' })
-  }, `the Jazz server the dev server starts should answer at ${url}`).toPass({ timeout: 30_000 })
+  }, `the Convex backend scripts/convex_dev starts should answer at ${url}`).toPass({ timeout: 30_000 })
 })
 
 setup('opens the app, so no spec pays for compiling its pages', async ({ page }) => {
-  // A first visit compiles each page and opens a Jazz database, which on a small CI runner can
-  // take far longer than any spec should wait. Every spec passes through all three pages.
+  // A first visit compiles each page, which on a small CI runner can take far longer than any
+  // spec should wait. Every spec passes through all three pages.
   setup.setTimeout(300_000)
   await page.goto('/')
   await page.getByLabel('Ident label').fill(freshIdentLabel())

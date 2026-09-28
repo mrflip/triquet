@@ -9,7 +9,7 @@ export const FreshHunt = 'fresh hunt'
  * Every spec imports `test` and `expect` from here. `page` has said who it is, made a hunt of its
  * own and opened the hunt's quiz (`startAt` is `FreshHunt` unless a spec says otherwise), and has
  * its grid on screen, so a spec begins with the thing it is about rather than with a way in.
- * Specs share one Jazz server and every hunt on it, so each begins in a hunt no other can name.
+ * Specs share one database and every hunt in it, so each begins in a hunt no other can name.
  * `startAt` as a path goes there instead, and waits for the grid. A spec that must stub a route
  * before the first load, or is about the way in itself, says `test.use({ startAt: null })` and
  * goes there itself.
@@ -36,7 +36,7 @@ test.afterEach(async () => {
   await Promise.all(Others.splice(0).map(async (context) => { await context.close() }))
 })
 
-/** A page in a browser of its own: another visitor, with an account of their own, on the same Jazz server */
+/** A page in a browser of its own: another visitor, with a browser key of their own, on the same database */
 export async function otherVisitor(browser: Browser): Promise<Page> {
   const context = await browser.newContext()
   Others.push(context)
@@ -109,7 +109,7 @@ export async function stubAsk(page: Page, reply: unknown, status = 200): Promise
   })
 }
 
-/** A fresh ident label no other spec will use: specs share one Jazz server, and every ident on it */
+/** A fresh ident label no other spec will use: specs share one database, and every ident in it */
 export function freshIdentLabel(): string {
   return `tester_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
 }

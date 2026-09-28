@@ -15,13 +15,12 @@
   },
   "pnpm": {
     "allowedBuildScripts": [
-      "esbuild",
-      "protobufjs"
+      "esbuild"
     ]
   },
   "scripts": {
-    "dev": "doppler run -- next dev",
-    "dev:agent": "scripts/doppledo dev_claude next dev",
+    "dev": "doppler run -- scripts/convex_dev dev --watch next dev",
+    "dev:agent": "scripts/doppledo dev_claude scripts/convex_dev agent --watch next dev",
     "build": "next build",
     "build:agent": "scripts/doppledo dev_claude cross-env NEXT_DIST_DIR=.next-agent-build next build",
     "start": "next start",
@@ -30,9 +29,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "scripts/doppledo dev_e2e playwright test",
-    "test:e2e:agent": "scripts/doppledo dev_e2e env PORT=3003 JAZZ_DEV_PORT=3203 JAZZ_DEV_DATA_DIR=data/jazz-e2e-agent NEXT_DIST_DIR=.next-e2e-agent playwright test",
-    "migrations:check": "scripts/jazz_migrations_check",
+    "test:e2e:agent": "scripts/doppledo dev_e2e env PORT=3003 CONVEX_ROLE=e2e-agent NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3403 NEXT_DIST_DIR=.next-e2e-agent playwright test",
     "convex:backend": "scripts/convex_backend",
+    "convex:reset": "scripts/convex_reset",
     "newb": "scripts/newb"
   },
   "dependencies": {
@@ -56,7 +55,6 @@
     "es-toolkit": "^1.52.0",
     "fflate": "^0.8.3",
     "isomorphic-git": "^1.42.2",
-    "jazz-tools": "2.0.0-alpha.56",
     "jsonata": "1.8.9",
     "next": "^16.3.5",
     "papaparse": "^5.7.0",

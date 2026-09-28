@@ -121,8 +121,8 @@ export const QuizzesPerRealm    = { min: 1, max: 99 } as const
 export const RealmsPerHunt      = { min: 1, max: 99 } as const
 /** Expressions in one hunt */
 export const ExpressionsPerHunt = { min: 0, max: 99 } as const
-/** Hunts in the whole app */
-export const HuntsInApp         = { min: 0, max: 99 } as const
+/** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */
+export const HuntsInApp         = { min: 0, max: 999 } as const
 
 //
 // == [Contact shapes] ==

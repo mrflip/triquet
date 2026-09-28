@@ -8,7 +8,8 @@ import type { QuizT } from '../models/quiz'
 import styles from './workbench.module.css'
 
 export type QuizSwitcherProps = {
-  quizzes:    readonly QuizT[]
+  /** The quizzes of the open quiz's realm */
+  quizzes:    readonly Pick<QuizT, '_id' | 'title' | 'locked'>[]
   openQuiz:   QuizT
   onOpen:     (quiz_id: string) => void
   onNew:      () => void

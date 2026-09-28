@@ -39,9 +39,6 @@ out/
 # production
 build/
 
-# Jazz's runtime, copied out of its package at build (src/db/publish-runtime-assets.ts)
-public/jazz/
-
 # testing / coverage
 coverage/
 

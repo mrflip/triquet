@@ -8,23 +8,20 @@ import { WidgetsEditor } from './WidgetsEditor'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
-import type { HuntAction } from '../state/actions'
-import type { HuntT } from '../models/hunt'
+import type { HuntActionDNA } from '../models/actions'
+import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import type { RealmT } from '../models/realm'
 import styles from './workbench.module.css'
 
 export type QuizManageModalProps = {
   open:      boolean
   onClose:   () => void
-  hunt:      HuntT
-  realm:     RealmT
+  hunt:      ShallowHuntT
+  realm:     ShallowRealmT
   quiz:      QuizT
-  dispatch:  (action: HuntAction) => void
-  /** Told the quiz's new label once it has one, so the address can follow it there */
-  onRelabelled: (label: string) => void
+  dispatch:  (action: HuntActionDNA) => void
   /** Go to another quiz of the realm */
-  onOpen:    (quiz: QuizT) => void
+  onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the hunt's expressions for editing */
   onEditExpressions: () => void
 }
@@ -33,7 +30,7 @@ export type QuizManageModalProps = {
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
  * and a quick way to open any other quiz in the realm by name (bottom).
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onRelabelled, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -46,11 +43,10 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     const version = Labelmaker.normalize(versionDraft)
     if (version === '') { setIssue('Enter a version.'); return }
-    const moved = cleaned !== Labelmaker.effectiveLabelOf(quiz)
+    // The quiz is addressed by its label, so a relabel is also a move: the address follows it
+    // once it lands (`useHunt`'s `movedTo`).
     dispatch({ kind: 'relabel_quiz', label: cleaned })
     dispatch({ kind: 'reversion_quiz', version })
-    // The quiz is addressed by its label, so a relabel is also a move.
-    if (moved) { onRelabelled(cleaned) }
     onClose()
   }
 

@@ -5,32 +5,28 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 ## 1. Status
 
 * **Phase 0 (spike and decisions)**: built on `20260927-convex_spike`, not yet merged.
-* **Phase 1 (the server side, beside Jazz)**: built on `20260927-convex_server`, stacked on the
-  spike branch, not yet merged. Lint, typecheck and the unit and convex suites green (89 files,
-  2274 tests). e2e not run: nothing the browser touches changed, bar the models (below). The app
-  still runs on Jazz.
-* **Phase 2 (the browser switch, and Jazz out) is next**, on a new branch.
+* **Phase 1 (the server side, beside Jazz)**: built on `20260927-convex_server`; rebased by the
+  Coach onto main as `20260927-convex_phase3`, not yet merged.
+* **Phase 2 (the browser switch, and Jazz out)**: built on `20260928-convex_client`, stacked on
+  `20260927-convex_phase3`, not yet merged. **The app runs on Convex alone.** Lint, typecheck,
+  unit and convex suites green; e2e green in one run, now the app holds 999 hunts. `pnpm
+  build:agent` green in a clean checkout.
+* **Phase 3 (the cloud, previews and CI) is next.**
 
 ## 2. Start here
 
-1. Start the agents' backend with `pnpm convex:backend agent` (foreground; give it a terminal or
-   the background), then push with `./node_modules/.bin/convex dev --once --typecheck disable
-   --env-file data/convex-agent/cli.env`. `convex/_generated/` regenerates only against a running
-   backend. Convex refuses a hyphen in a module path: `convex/**` is snake_case.
-2. Read `convex/_generated/ai/guidelines.md`, then *Rules overrides* below.
-3. The server's surface, for the hooks: `api.hunts.list`, `api.hunts.open({ hunt_label })` (the
-   shallow hunt, `ShallowHuntT` in `src/lib/rows.ts`), `api.hunts.whole({ hunt_id })` (the export;
-   named `whole` because `export` is a keyword), `api.quizzes.open({ quiz_id })`,
-   `api.reviews.forQuiz({ quiz_id })` (each review with its `reviewer`), `api.idents.current({
-   browser_key })`, and the mutations `api.hunts.perform({ open, action, browser_key })` and
-   `api.idents.performAccount({ action, browser_key })`.
-4. A refused mutation rejects with a `ConvexError`: show `noticeOf(err)` (`src/lib/refusals.ts`)
-   where `use-hunt` and `use-account-actions` catch a failed write today.
-5. The views already say every action in a shape `hunts.perform` takes
-   (`tests/models/actions.test.ts` holds `state/actions.ts`'s `HuntAction` to it at compile
-   time). Phase 2 points the imports at `src/models/actions.ts` and deletes `state/actions.ts`.
-6. *Deleted tests and their successors* below lists which Jazz tests phase 2 deletes, and what
-   already replaces each.
+1. `pnpm dev:agent` runs the agents' app on Convex: `scripts/convex_dev agent --watch next dev`
+   starts the agents' backend (3401) unless it is running, pushes `convex/` (regenerating
+   `convex/_generated/`), marks it clearable, keeps pushing as `convex/` changes, and runs the
+   dev server with `NEXT_PUBLIC_CONVEX_URL` naming it. `scripts/convex_reset <role>` empties a
+   role's backend. Both unset `CONVEX_DEPLOY_KEY`, so a cloud key in the environment never steers a
+   local role.
+2. The e2e suite brings up its own (`scripts/convex_dev e2e --reset next dev`, from
+   `playwright.config.ts`), emptied as it starts. `pnpm test:e2e:agent` uses the `e2e-agent` role
+   (3003/3403).
+3. Phase 3's work is in the plan; `notes/deploy.md` and `README.md` still describe Jazz and are
+   its to rewrite. `.github/workflows/ci.yml` already runs e2e against a local backend (with the
+   binary cached) and has no `migrations` job; the `_generated` drift check is still to build.
 
 ## 3. Decisions taken
 
@@ -57,10 +53,11 @@ Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
   Written into `CLAUDE.md`'s *Global resources*. Agents are moving into containers of their own;
   a container still runs a dev server and an e2e suite side by side, so the script stays.
 * **Caps**, in `src/lib/vv/patterns.ts` (*Collection sizes*): 999 questions and 999 reviews per
-  quiz; 99 widgets and 99 columns per quiz; 99 realms and 99 expressions per hunt; 99 hunts in the
-  app (plan, settled item 16); 99 quizzes per realm (proposed in phase 1, agreed). The tree
+  quiz; 99 widgets and 99 columns per quiz; 99 realms and 99 expressions per hunt; 999 hunts in the
+  app (99 in the plan, settled item 16; raised by the Coach in phase 2, so a whole e2e run fits); 99 quizzes per realm (proposed in phase 1, agreed). The tree
   validators apply those a tree holds. Every write that would pass a cap is refused.
-* **Every refusal says why** (Coach, phase 1): by Convex's standard channel for an expected
+* **Every refusal says why** (Coach, phase 1), and the browser shows it: `use-hunt` puts
+  `noticeOf(err)` in `saveNotice`, `use-account-actions` in `notice`. The rest of the entry: by Convex's standard channel for an expected
   failure, a `ConvexError` whose data is `{ failurekind, message }` (`src/lib/refusals.ts`;
   the sentences are `RefusalNotices` in `lib/notices.ts`). A row validator refusing inside a
   handler becomes `{ failurekind: 'invalid', message, ZodError }` through `refusingInvalid`; a
@@ -97,6 +94,40 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 ## 4. Deviations from the plan
 
 Newest first.
+
+* **The export is asked for again whenever the screen changes**, not once. The Export box has no
+  opening to hang "once" on (it is always on screen), and an export a step behind the author is
+  a backup that silently misses their last edits. `useWholeHunt` asks `hunts.whole` with a one-shot
+  query each time the shallow hunt or the open quiz is redelivered; never subscribed. Its cost is a
+  whole-hunt read per change, which phase 4 should measure (bandwidth); a button that prepares
+  the export on demand is the cheaper alternative if it shows.
+* **The expression preview subscribes to another quiz while it is pointed there.** It could pick
+  any quiz of the hunt, whose questions the shallow hunt no longer carries; `useOtherQuiz`
+  subscribes to `quizzes.open` for the picked quiz while the dialog shows it (none for the open
+  quiz, already on screen).
+* **A new quiz is gone to once it has been made** (`carryOut` on `HuntHandle`, which resolves
+  whether that one change was kept). Going at once showed "No such quiz" for a round trip; a
+  refused one now stays on the page with its notice.
+* **The address follows its quiz when it is relabelled**, here or by anyone else (`movedTo` on
+  `HuntHandle`, from `placeIn`, which keeps placing the quiz last shown at an address once it
+  answers to another label). The gear's Apply no longer navigates itself. Found by the phase's
+  `/code-review`: navigating after the relabel landed left a moment of "No such quiz", which
+  unmounted the editor and paused the history feed.
+* **The mirror is fed by watches, not renders** (`useHistoryFeed` in `use-hunt`). Convex's client
+  calls a watch's listeners before it resolves the mutation that caused the change (checked in
+  `browser/sync/client.js`, 1.46.0), so a milestone or marked change waiting on
+  `writesLanded()` sees its edit noted. `mirrorQuiz(before, after)` replaces `mirrorHunt`;
+  `openHistory` runs for the open quiz only.
+* **A hunt label that cannot be one is not asked about** (`use-hunt`): `hunts.open` refuses it as
+  an argument, and `useQuery` throws what a query throws.
+* **`pnpm dev` changed too**, to `scripts/convex_dev dev --watch next dev`: the human's server
+  needs a backend now, on 3400 as before. Nothing else of the human's was touched.
+* **`Hunt.expressionUsage`, `Hunt.realmFor` and `Realm.quizFor` are gone**: the expressions arrive
+  counted, and `placeIn` (`use-hunt`) places an address in the shallow hunt with
+  `Labelmaker.entityForLabel`.
+* **Not done: `BottingT` keeps `id` and `created_at`, and `latestBySlot` stays** (now used only by
+  `resultsFor`'s tests). With Jazz gone nothing needs either; dropping the minted `id` and
+  building the tests' `latest` maps by hand is a small sweep, left for phase 4.
 
 * **`reviews.forQuiz` joins each review's reviewer; there is no `idents.all`.** The views used
   every ident only to title a review's author, and every ident is an unbounded read.
@@ -155,7 +186,26 @@ Newest first.
 
 ## 5. Discoveries
 
-All with `convex` 1.46.0, `convex-helpers` 0.1.124, `convex-test` 0.0.60, local backend
+### Phase 2
+
+* **The round trip shows in the e2e suite, and only where a spec relied on a write landing in the
+  same instant**: forcing an edit past a lock before the lock landed, focusing a cell before the
+  clueing that enables it landed, reading the Sheets and Export boxes the instant after an edit,
+  clicking the gear before a relabel's navigation, and pausing the page's clock before an edit
+  armed the commit timer. Six specs, each now waiting on the state
+  its next step needs. The suite runs in about 25 s a shard, against minutes under Jazz.
+* **A refusal reaches the screen**: the full suite's 100th hunt was refused with "The app holds
+  at most 99 hunts." on the hunts page, exactly as `RefusalNotices` words it.
+* **`convex env set` and `convex run` take no `--env-file`**; they read
+  `CONVEX_SELF_HOSTED_URL` and `_ADMIN_KEY` from the environment, so the scripts export the two
+  from `cli.env`, read line by line. A `CONVEX_DEPLOY_KEY` in the environment wins over them, and
+  the CLI then asks for a cloud key.
+* **`useQuery` throws a query's error into React**, so an argument a query would refuse must be
+  kept from it (the hunt label, above).
+
+### Phase 1 and before
+
+All `convex` 1.46.0, `convex-helpers` 0.1.124, `convex-test` 0.0.60, local backend
 `precompiled-2026-09-21-0cf49cb`.
 
 ### Phase 1
@@ -302,13 +352,22 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **Doppler, in phase 2** (agents cannot edit Doppler): `NEXT_PUBLIC_CONVEX_URL` for `dev`
-  (`http://127.0.0.1:3400`), `dev_claude` (`:3401`) and `dev_e2e` (`:3402`); the e2e-agent run
-  overrides it on the command line as it does its ports today. Nothing else: the script knows
-  each role's ports and mints its own keys. Retiring with Jazz: `JAZZ_DEV_PORT`,
-  `JAZZ_DEV_DATA_DIR`, `JAZZ_REAL_DB`, `JAZZ_ADMIN_SECRET`, `JAZZ_ADMIN_SNIPPET`,
-  `NEXT_PUBLIC_JAZZ_SERVER_URL`, `NEXT_PUBLIC_JAZZ_APP_ID`, `NEXT_PUBLIC_JAZZ_RUNTIME_VERSION`,
-  `NEXT_PUBLIC_JAZZ_LOG_LEVEL`.
+* **Jazz's leftovers** are gone (the Coach removed `public/jazz/`, the `jazz` skill and the
+  `data/jazz*/` directories, 2026-09-28), bar a few Doppler variables: `JAZZ_DEV_DATA_DIR` and
+  `JAZZ_DEV_PORT` in `dev_claude` and `dev_e2e`, and `NEXT_PUBLIC_JAZZ_APP_ID` and
+  `NEXT_PUBLIC_JAZZ_SERVER_URL` in `dev_claude`. Nothing reads them.
+* **A `.env.local`** at the checkout root, from an earlier `convex dev` run, names a Convex URL;
+  the environment's own `NEXT_PUBLIC_CONVEX_URL` wins over it, so it is harmless, but it is not
+  this project's convention (Doppler is).
+* **The stale `.next*/` route types** (`.next/dev/types/validator.ts` and the agents' and e2e's)
+  name the pages as they were before the `(synced)` route group and fail `pnpm typecheck` until
+  a dev server in that directory regenerates them. Yours regenerate on your next `pnpm dev`.
+
+* **Doppler**: `NEXT_PUBLIC_CONVEX_URL` is in `dev_claude` and `dev_e2e` (done, thank you);
+  `scripts/convex_dev` sets it from the role anyway, so `dev` needs nothing new. Nothing reads
+  these any more, and they can go: `JAZZ_DEV_PORT`, `JAZZ_DEV_DATA_DIR`, `JAZZ_REAL_DB`,
+  `JAZZ_ADMIN_SECRET`, `JAZZ_ADMIN_SNIPPET`, `NEXT_PUBLIC_JAZZ_SERVER_URL`,
+  `NEXT_PUBLIC_JAZZ_APP_ID`, `NEXT_PUBLIC_JAZZ_RUNTIME_VERSION`, `NEXT_PUBLIC_JAZZ_LOG_LEVEL`.
 * **Containers need no Convex key each.** A local backend needs no account; each role's admin
   key is minted from a secret made in its own data directory. Only phase 3's cloud deployments
   have keys (production for the Coach, preview for Vercel), and agents never hold the
@@ -322,9 +381,9 @@ Phase 0 added `tests/convex/spike-bridge.test.ts` and `tests/convex/spike.test.t
 deleted both with the spike, and `tests/convex/schema.test.ts` (the canary) and
 `tests/convex/hunts.test.ts` (the refusal in our words) cover what they held.
 
-The Jazz tests stay until phase 2 deletes their modules. Their successors, already green:
+Phase 2 deleted the Jazz tests with their modules. Their successors, all green:
 
-| Jazz test (phase 2 deletes) | Successor |
+| Jazz test (deleted in phase 2) | Successor |
 | --- | --- |
 | `tests/state/perform.test.ts` | `tests/convex/hunts.test.ts` (`hunts.perform`), case for case |
 | `tests/state/layout-actions.test.ts` | `tests/convex/writing/layout_actions.test.ts` |
@@ -336,3 +395,7 @@ The Jazz tests stay until phase 2 deletes their modules. Their successors, alrea
 | `tests/db/coherence.test.ts` | `tests/convex/schema.test.ts` |
 | `tests/db/schema.test.ts` | none: its canaries pinned alpha.56's bugs |
 | `tests/db/json-text.test.ts`, `sync-settings`, `runtime-assets`, `publish-runtime-assets` | none: their modules go |
+| `tests/models/actions.test.ts`'s "takes whatever a view already says" | none needed: the views say `HuntActionDNA` itself now |
+| `tests/models/hunt.test.ts` (`Hunt.realmFor`, `Hunt.expressionUsage`) | `tests/state/use-hunt.test.ts` (`placeIn`); `tests/convex/writing/layout_actions.test.ts` (`expressionUsageOf`) |
+| `tests/models/realm.test.ts` (`Realm.quizFor`) | `tests/state/use-hunt.test.ts` (`placeIn`) |
+| `e2e/client-first.spec.ts` (the network off) | the same file: every host but the app's and its database's blocked, and asking blocked |

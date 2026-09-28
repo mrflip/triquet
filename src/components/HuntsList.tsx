@@ -1,15 +1,15 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Link, Stack, Typography } from '@mui/material'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import { HomeRealmLabel } from '../models/realm'
-import { huntListingsOf, type HuntListing } from '../state/quiz-rows'
+import type { HuntListingT } from '../lib/rows'
 import { useAccountActions } from '../state/use-account-actions'
-import { useDirectory } from '../state/use-held-rows'
+import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
 import NextLink from './NextLink'
 import { Panel } from './panels/Panel'
@@ -25,23 +25,21 @@ import styles from './workbench.module.css'
 export function HuntsList() {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const directory = useDirectory()
+  const hunts = useHuntsList()
   const { act, busy, notice } = useAccountActions()
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(Routes.huntsPath())) }
   }, [loaded, ident, router])
 
-  const hunts = useMemo(() => (directory ? huntListingsOf(directory) : null), [directory])
-
-  if (! loaded || ! ident || ! directory || hunts === null) {
+  if (! loaded || ! ident || hunts === null) {
     return <OpeningNotice notice={null} waiting={AppNotices.openingHunts} />
   }
 
   const onNew = async () => {
     // The label is settled here rather than in the action, because the address this is about
     // to go to has to name it.
-    const label = Labelmaker.freshLabelFor(directory.hunts)
+    const label = Labelmaker.freshLabelFor(hunts)
     const done = await act({ kind: 'new_hunt', label })
     if (done) { router.push(Routes.quizPath({ hunt: label, realm: HomeRealmLabel, quiz: label }, 'smith')) }
   }
@@ -57,7 +55,7 @@ export function HuntsList() {
         {notice !== null && <p className={styles.microcopy} role="alert">{notice}</p>}
         {hunts.length === 0 && <p className={styles.microcopy}>{AppNotices.noHunts}</p>}
         <Stack component="ul" spacing={1} sx={{ listStyle: 'none', p: 0, mt: 1 }}>
-          {hunts.map((hunt) => <HuntEntry key={hunt.id} hunt={hunt} />)}
+          {hunts.map((hunt) => <HuntEntry key={hunt._id} hunt={hunt} />)}
         </Stack>
       </Panel>
     </main>
@@ -65,7 +63,7 @@ export function HuntsList() {
 }
 
 /** One hunt: its title and label, and a link to each of its quizzes */
-function HuntEntry({ hunt }: Readonly<{ hunt: HuntListing }>) {
+function HuntEntry({ hunt }: Readonly<{ hunt: HuntListingT }>) {
   const huntLabel = Labelmaker.effectiveLabelOf(hunt)
   return (
     <li>
@@ -74,7 +72,7 @@ function HuntEntry({ hunt }: Readonly<{ hunt: HuntListing }>) {
       </Typography>
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (
-          <Link key={quiz.id} component={NextLink} href={Routes.quizPath({ hunt: huntLabel, realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) })}>
+          <Link key={quiz._id} component={NextLink} href={Routes.quizPath({ hunt: huntLabel, realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) })}>
             {quiz.locked ? '🔒 ' : ''}{quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
           </Link>
         )))}

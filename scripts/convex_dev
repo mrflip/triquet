@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Runs a command against one role's own local Convex backend, with the app's functions pushed to
+# it: `pnpm dev:agent` runs the agents' Next dev server this way, and the e2e suite its own.
+#
+#   1. Starts the role's backend (scripts/convex_backend) unless it is already answering, logging
+#      to data/convex-<role>/backend.log, and stops it again on the way out. One already running,
+#      someone else's or your own, is used and left alone.
+#   2. Pushes convex/ to it (regenerating convex/_generated/), and marks it clearable
+#      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for).
+#   3. With --reset, empties it (scripts/convex_reset).
+#   4. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
+#   5. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend.
+#
+# Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent> [--reset] [--watch] <command> [arguments...]
+#   eg   scripts/doppledo dev_claude scripts/convex_dev agent --watch next dev
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+usage="Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent> [--reset] [--watch] <command> [arguments...]"
+role="${1:-}"
+# The backend's port for each role, as scripts/convex_backend has it.
+case "$role" in
+  dev)       port=3400 ;;
+  agent)     port=3401 ;;
+  e2e)       port=3402 ;;
+  e2e-agent) port=3403 ;;
+  *) echo "$usage" >&2; exit 1 ;;
+esac
+shift
+reset=no
+watch=no
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --reset) reset=yes ;;
+    --watch) watch=yes ;;
+    *) echo "$usage" >&2; exit 1 ;;
+  esac
+  shift
+done
+if [[ $# -lt 1 ]]; then echo "$usage" >&2; exit 1; fi
+
+url="http://127.0.0.1:${port}"
+datadir="data/convex-${role}"
+convex=./node_modules/.bin/convex
+
+children=()
+stopChildren() {
+  for pid in "${children[@]}"; do kill "$pid" 2> /dev/null || true; done
+  wait 2> /dev/null || true
+}
+trap stopChildren EXIT
+trap 'exit 143' INT TERM
+
+answering() { curl --silent --fail --max-time 2 "${url}/version" > /dev/null; }
+
+if ! answering; then
+  mkdir -p "$datadir"
+  scripts/convex_backend "$role" > "${datadir}/backend.log" 2>&1 &
+  children+=("$!")
+  for _ in $(seq 1 60); do
+    answering && break
+    sleep 1
+  done
+  if ! answering; then
+    echo "The ${role} Convex backend did not answer at ${url}; its log:" >&2
+    tail -n 20 "${datadir}/backend.log" >&2
+    exit 1
+  fi
+fi
+
+# A local role talks only to its own backend: a cloud deployment the environment names (a deploy
+# key, say) would otherwise win over it.
+unset CONVEX_DEPLOY_KEY CONVEX_DEPLOYMENT
+
+# The CLI reads the backend's URL and admin key from these. cli.env is read line by line, never
+# sourced: the admin key holds a "|".
+while IFS='=' read -r envname val; do
+  case "$envname" in
+    CONVEX_SELF_HOSTED_URL | CONVEX_SELF_HOSTED_ADMIN_KEY) export "${envname}=${val}" ;;
+  esac
+done < "${datadir}/cli.env"
+
+"$convex" dev --once --typecheck disable --tail-logs disable
+"$convex" env set TRIQUET_CLEARABLE yes > /dev/null
+if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
+if [[ "$watch" == yes ]]; then
+  "$convex" dev --typecheck disable --tail-logs disable &
+  children+=("$!")
+fi
+
+export NEXT_PUBLIC_CONVEX_URL="$url"
+"$@" &
+children+=("$!")
+wait "$!"

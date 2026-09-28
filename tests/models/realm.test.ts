@@ -25,18 +25,6 @@ describe('Realm.fill', () => {
   })
 })
 
-describe('Realm.quizFor', () => {
-  const realm = Realm.fill({ _id: mintId(), quizzes: [Quiz.blank('', 'quiet_otter'), { ...Quiz.blank('', 'princes'), forced_label: 'kings' }] })
-
-  it('finds a quiz by the label in force', () => {
-    expect([Realm.quizFor(realm, 'quiet_otter')?.title, Realm.quizFor(realm, 'kings')?.label]).to.deep.eq(['Quiet Otter', 'princes'])
-  })
-
-  it('finds nothing by a label an override has replaced, or one nobody has', () => {
-    expect([Realm.quizFor(realm, 'princes'), Realm.quizFor(realm, 'nobody')]).to.deep.eq([undefined, undefined])
-  })
-})
-
 describe('RealmValidators.row', () => {
   const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'home', title: 'Home', position: 0 }
 

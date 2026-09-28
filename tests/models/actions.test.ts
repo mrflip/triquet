@@ -1,8 +1,7 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
-import type { AccountAction, HuntAction } from '../../src/state/actions'
 import { Quiz } from '../../src/models/quiz'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
@@ -76,17 +75,12 @@ describe('ActionValidators.huntAction', () => {
   it('crosses to Convex as a validator of its own', () => {
     expect(zodToConvex(ActionValidators.huntAction as Z.ZodType).kind).to.eq('union')
   })
-
-  it('takes whatever a view already says, so the views need not change to send it', () => {
-    expectTypeOf<HuntAction>().toExtend<HuntActionDNA>()
-  })
 })
 
 describe('ActionValidators.accountAction', () => {
   it('takes becoming an ident and making a hunt', () => {
     const actions: AccountActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'new_hunt', label: 'quiet_otter' }]
     expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
-    expectTypeOf<AccountAction>().toExtend<Z.input<typeof ActionValidators.accountAction>>()
   })
 
   it('refuses an ident label too short to be one', () => {
