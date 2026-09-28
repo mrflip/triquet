@@ -22,7 +22,7 @@ export function Panels({ quiz, hunt, reviews, expressed, onMerged }: Readonly<{ 
   const exporting = useWholeHunt(hunt, quiz)
   return (
     <div className={styles.panels}>
-      <ReviewsPanel reviews={reviews} />
+      <ReviewsPanel reviews={reviews} questions={quiz.questions} />
 
       <Panel
         title="Copy for Sheets"

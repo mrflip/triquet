@@ -17,7 +17,11 @@ choice lives in `notes/decisions/`, one file per decision, and is pointed to fro
 * **Hand-rolled on purpose** -- mechanisms a library could own, weighed with a Coach and kept.
 * **Later** -- settled in principle, not yet needed. Don't install ahead of the need.
 
-A dependency that appears in none of these is unlisted: propose it in chat before adding it.
+A dependency that appears in none of these is unlisted: propose it in chat before adding it --
+unless it is plainly the boring answer: widely used, solving the problem (and then some) without
+dragging in machinery, and ideally recommended by the neighbouring library. Then install it, list
+it here, and tell the Coach afterwards; don't write our own instead. `react-number-format`,
+below, is the worked example.
 
 Everything here is chosen against the same test: **boring** (proven, widely adopted, no weird
 use cases waiting for a not-very-weird app), **agent-friendly** (old enough to be in the agent's
@@ -90,6 +94,11 @@ Settled; reach for these before writing the equivalent.
 * **safe-stable-stringify**, behind `UU.jsonify`. Don't import it directly.
 * **Papa Parse** for TSV/CSV, in and out. **fflate** for zipping a download.
 * **clsx** for composing class names in the grid.
+* **react-number-format** (`NumericFormat`) for every box that takes a number: `NumberField` in
+  `components/cells/fields.tsx`, as an MUI `TextField` (`customInput`) or, in the grid's cells,
+  the grid's own borderless input. It owns what a number box needs (what may be typed, decimals,
+  no negatives, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
+  it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
 
 ### Formulas

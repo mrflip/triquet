@@ -428,6 +428,11 @@
   padding:       14px 16px;
 }
 
+/* A panel whose content is too broad for one column of the grid above takes the whole row. */
+.panelWide {
+  grid-column: 1 / -1;
+}
+
 .readonlyBox {
   width:         100%;
   box-sizing:    border-box;

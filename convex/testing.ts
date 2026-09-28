@@ -1,4 +1,3 @@
-import { internal } from './_generated/api'
 import { env } from './_generated/server'
 import schema from './schema'
 import { ValidatorKit } from '../src/lib/validator'
@@ -10,11 +9,11 @@ const { zod } = ValidatorKit
 const BatchSize = 500
 
 /**
- * Empty every table of a development or test deployment, a batch at a time, each batch in a
- * transaction of its own; the rest follows in a fresh run until nothing is left. Refused on a
+ * Empty every table of a development or test deployment, up to a batch of each table a run:
+ * run it again until it says it deleted nothing (`scripts/convex_reset` does). Refused on a
  * deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
  *
- * @returns How many rows this run deleted.
+ * @returns How many rows this run deleted; zero once the deployment is empty.
  * @throws On a deployment that may not be emptied; nothing is deleted.
  *
  * @example npx convex run testing:clearAll --env-file data/convex-agent/cli.env
@@ -30,7 +29,6 @@ export const clearAll = zInternalMutation({
       for (const row of rows) { await ctx.db.delete(tablename, row._id) }
       return rows.length
     }))
-    if (counts.includes(BatchSize)) { await ctx.scheduler.runAfter(0, internal.testing.clearAll, {}) }
     return counts.reduce((total, count) => total + count, 0)
   },
 })

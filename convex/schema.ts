@@ -13,6 +13,7 @@ import { QuestionValidators } from '../src/models/question'
 import { QuizValidators } from '../src/models/quiz'
 import { RealmValidators } from '../src/models/realm'
 import { ReviewValidators } from '../src/models/review'
+import { ReviewingValidators } from '../src/models/reviewing'
 import { WidgetValidators } from '../src/models/widget'
 
 // Every table's fields are its row validator's, through the bridge, which keeps each field's
@@ -38,6 +39,7 @@ const bottingFields     = {
   response: CVX.any() as VAny<LastErrT['response'] | null>,
 }
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
+const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 
 /**
  * The app's tables. Children are read through their parent's index, in their committed order
@@ -69,4 +71,6 @@ export default defineSchema({
   bottings:    defineTable(bottingFields).index('by_question_id_and_bot_label_and_textkind', ['question_id', 'bot_label', 'textkind']),
   /** One ident's review of one quiz. Hidden from the smiths until shared. */
   reviews:     defineTable(reviewFields).index('by_quiz_id', ['quiz_id']).index('by_quiz_id_and_ident_id', ['quiz_id', 'ident_id']),
+  /** One review's verdict on one question, made the first time the reviewer writes to it */
+  reviewings:  defineTable(reviewingFields).index('by_review_id_and_question_id', ['review_id', 'question_id']).index('by_question_id', ['question_id']),
 })

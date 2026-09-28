@@ -48,7 +48,9 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'set_lock':            { await Quiz.setLock(db, action.quiz_id, action.locked); return }
   case 'open_review':         { await Review.openReview(db, action.quiz_id, reviewer(ident_id)); return }
   case 'set_overall':         { await Review.setOverall(db, action.quiz_id, reviewer(ident_id), action.overall); return }
-  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, reviewer(ident_id), action.phase) }
+  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, reviewer(ident_id), action.phase); return }
+  case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, reviewer(ident_id), action.question_id, action.patch); return }
+  case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, reviewer(ident_id), action.question_id) }
   }
 }
 

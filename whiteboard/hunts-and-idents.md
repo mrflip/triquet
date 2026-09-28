@@ -359,8 +359,8 @@ reviews  { quiz_id: uuid, ident_id: uuid, overall: string, phase: enum(empty, dr
 
 The answer (`full_answer`) is present in every row but hidden behind a lock: an `IconButton`
 showing 🔒 (an emoji in a `Typography`/`span`, not an icon font). Clicking it opens a MUI
-`Dialog` asking to confirm ("Reveal the answer? Your get rate for this question will then be a
-guess at what you'd have done."). Confirming shows the answer with a small 🔓 `IconButton`
+`Dialog` asking to confirm ("Reveal the answer?", and nothing more: on the Coach's word,
+2026-09-28, the get-rate sentence it carried went). Confirming shows the answer with a small 🔓 `IconButton`
 beside it that hides it again without asking. Unlock state is per row and per session; it is
 not stored, except that PR 4 records `peeked` on the reviewing when the answer is first revealed.
 
@@ -387,8 +387,9 @@ reviewings { review_id: uuid, question_id: uuid,
 `guesses` is `noteish` (what they guessed, freeform); `comments` is `textish` (long prose, the
 one field that may grow the row); `minutes` is a non-negative number or null, decimals allowed
 (approximate minutes spent); the three flags are booleans, false by default; `peeked` is set
-true the first time the answer is revealed and never cleared, so a smith can tell a blind get
-rate from a seen one. One reviewing per (review, question): upsert. Migration.
+true the first time the answer is revealed and never cleared. *(Coach, 2026-09-28: it says only
+that they looked, not whether before or after the get rate, which is the reviewer's own estimate;
+and it serves the reviewer, not the smith, so the panel does not mark it.)* One reviewing per (review, question): upsert. Migration.
 
 ### Actions
 
@@ -412,7 +413,7 @@ of them, floored and capped as the grid does; every other text box in the row is
 behaves). Reuse those two components; do not write a third.
 
 `ReviewsPanel` gains, per shared review, a compact table of its reviewings by rank: title, get
-rate (marked when `peeked`), minutes, the flags as their emoji, guesses and comments verbatim.
+rate, minutes, the flags as their emoji, guesses and comments verbatim.
 Read-only.
 
 ### Tests

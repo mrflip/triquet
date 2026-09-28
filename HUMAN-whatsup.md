@@ -2,6 +2,35 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-28: Convex phase 5, reviewings
+
+Branch `20260928-convex_phase5`, stacked on phase 4's. Green: lint, typecheck, 1966 unit and
+convex tests, 165 e2e specs.
+
+A reviewer now gives a verdict on each question under the answer lock: get rate (0 to 100),
+guesses, comments, minutes, and three toggles (👍 keep it, 🔍 needs fact check, ✂️ elimination
+candidate). Each saves as it is committed, and revealing the answer records `peeked`. Once the
+review is shared, your Reviews panel shows a table of those verdicts in rank order, the get rate
+The panel spans the full width once it has a table.
+
+On your word since: the get rate is the reviewer's own estimate; `peeked` is the reviewer's own
+record (their lock says "Seen before"; the smiths' panel no longer marks it; the lock's dialog is
+its title alone); draft verdicts stay hidden by the client-side filter, a convenience rather than
+enforcement; and every number box, the grid's Q# included, is `react-number-format`, installed
+without asking, with that rule written into `CLAUDE.md` and `notes/stack.md`. Phase 6 raises caps
+to 999 as warranted, huntings included.
+
+One behaviour still for your word (details in the progress document, *For the Coach*):
+
+* **Two quick clicks on a toggle send the same value twice**, as the lock does. No optimistic
+  updates yet.
+
+Also fixed on the way: `scripts/convex_reset` could fail with an OCC conflict on a backend
+holding 500+ rows in a table, because `testing:clearAll` scheduled itself while the script also
+looped over it. Now the script is the only driver.
+
+The hunts-and-idents handoff is rewritten for phase 6 on Convex.
+
 ## 2026-09-28: The order on the quiz, a query per question, and actions that read less
 
 On your word: a quiz holds its questions' order (`quizzes.row_ordering`, by `_id`: a label would
