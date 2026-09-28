@@ -35,8 +35,8 @@ don't trust a recalled version number, including one recalled by an agent.
 ### Application framework
 
 * **Next.js** (App Router) on **Vercel**. **Client-first**: the app runs on static hosting plus
-  stateless functions, and works with the network off except for asking. Pages prerender at
-  build; user data never renders on a server. The ask route is the one named server function.
+  stateless functions, and the database. Pages prerender at build; user data never renders on a
+  server. The ask route is the one named server function.
   See `notes/decisions/2026-09-client-first.md`.
 * **Node 24**, the newest LTS Vercel runs, and the same everywhere. `.tool-versions` holds the exact
   version, for asdf and CI (`node-version-file`); `engines.node` in `package.json` holds the major,
@@ -51,34 +51,17 @@ don't trust a recalled version number, including one recalled by an agent.
   - Zod is **patched** (`patches/zod@4.6.5.patch`): issues carry the refused input by default.
     Deliberate; `notes/guidelines.md` says what follows from it. A Zod bump re-cuts the patch.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
-* **Jazz v2** was the database from September 2026 until Convex replaced it (phase 2 of
-  `whiteboard/convex_yay-plan.md`); `jazz-tools` is uninstalled. What it taught is in
-  `notes/decisions/2026-09-jazz.md`, and its verdict against Convex lands in
-  `notes/database-decisions.md` in phase 4.
+* **Convex** (`convex`, pinned exact) is the database, and `convex/` at the repo root the whole
+  server side. See `notes/decisions/2026-09-convex.md` for the shape of the data and the rules
+  that follow, and `notes/database-decisions.md` for the verdict. Read
+  `convex/_generated/ai/guidelines.md` before working in `convex/`, and work from the installed
+  source, not recall.
+  - **Jazz v2** was the database before it, for most of September 2026; `jazz-tools` is gone, and
+    what it taught is in `notes/decisions/2026-09-jazz.md`.
   - **Turso is not coming back**; libSQL and Drizzle went with it (Sept 2026). Drizzle returns
     only through `notes/database-decisions.md`.
-* **Convex** (`convex`, pinned exact) as the database, **running the app** since phase 2 of the plan in
-  `whiteboard/convex_yay-plan.md`; its progress, and what the spike found, are in
-  `whiteboard/convex_yay-progress.md`. Work from the installed source and Convex's current
-  guidelines, not recall. Settled with a Coach on 2026-09-27; the reasoning moves to
-  `notes/decisions/` when the plan's evaluation is written:
-  - `convex/` at the repo root is the whole server side. `convex/_generated/` is committed,
-    marked `-diff`, and a large regeneration goes in a commit of its own.
-  - The Zod row validators in `models/` are the source; `convex/schema.ts` derives each table
-    from them. Field names stay `underscore_case`; `_id` and `_creationTime` are Convex's, and
-    the tree types carry `_id` too. Stored fields are nullable, never optional. Structured values
-    (arrays, nested objects) are ordinary fields.
-  - Function arguments are our Zod schemas; every row passes its row validator before it is
-    written. Nothing validates rows read back: a query that returns documents declares no
-    `returns`, and a mutation returns null or an id and says so.
-  - Reads follow Convex's grain: one small query per thing a screen shows, joined on the server
-    by index, subscribed to once at the route component, props below. Never a query per row.
-  - No offline: the client-first decision is amended when the evaluation is written ("works with
-    the network off" goes; static hosting plus stateless functions stays). The ask route stays a
-    Vercel function until identity says otherwise. Identity for the trial is a browser key passed
-    as an argument, which authorizes nothing.
 * **convex-helpers** (pinned exact), Convex's own companion library. Its `server/zod4` is how a Zod
-  schema becomes a Convex validator (`zodOutputToConvexFields`, `zid`) and how a function takes
+  schema becomes a Convex validator (`zodOutputToConvexFields`, `zodOutputToConvex`, `zid`) and how a function takes
   Zod arguments (`zCustomQuery`, `zCustomMutation`). At 0.1.x its version number alone would make
   it *Discuss*; it is *Use* because it is the supported path, and what lets one schema drive the
   others.
@@ -102,8 +85,8 @@ don't trust a recalled version number, including one recalled by an agent.
 
 Settled; reach for these before writing the equivalent.
 
-* **unique-names-generator** for fresh labels. (Row ids are Jazz's own; `lib/ids.ts` mints a UUID
-  for a question or quiz the tool holds before it is written.)
+* **unique-names-generator** for fresh labels. (Row ids are Convex's own `_id`; `lib/ids.ts` mints
+  a UUID for a question or quiz the tool holds before it is written.)
 * **safe-stable-stringify**, behind `UU.jsonify`. Don't import it directly.
 * **Papa Parse** for TSV/CSV, in and out. **fflate** for zipping a download.
 * **clsx** for composing class names in the grid.
@@ -141,12 +124,11 @@ Settled; reach for these before writing the equivalent.
 * **Doppler.** Never a `.env` file in the repo, never a secret pasted into a chat, never a
   secret in a code comment. Syncing to Vercel and to GitHub Actions comes with deployment.
   Dev mode scripts run under `doppler run`, each with its own config and so its own ports,
-  build directory and Jazz server: the directory's default for `dev`, `dev_claude` for
+  build directory and local Convex backend: the directory's default for `dev`, `dev_claude` for
   `dev:agent`, `dev_e2e` for `test:e2e`. There is a convenience script, `./scripts/doppledo`
   for running as an alternative stage_actor (eg `dev_agent`).
-  The Jazz admin and backend secrets live only in the
-  janitor configs (`dev_janitor`, `dev_aijanitor`, `prd_janitor`), which the housekeeping
-  scripts in `scripts/` run under. Staging, production and CI get their environment from Doppler's
+  Convex's production deploy key lives only in `prd_janitor`, which the housekeeping scripts in
+  `scripts/` run under (`scripts/convex_healthcheck`); a local backend needs no key at all. Staging, production and CI get their environment from Doppler's
   syncs, not the CLI; CI runs `playwright test` directly.
 * **GitHub Actions** (`.github/workflows/ci.yml`): `tsc --noEmit`, `eslint`, `vitest run`,
   `next build` and the Playwright suite. All gate a merge; agent-authored PRs go through the
@@ -203,9 +185,11 @@ agrees to another.
 
 ## Later, i.e when we get there
 
-* **A second device without logging in**: Jazz's `exportLocalFirstSecret` (and its
-  recovery-phrase helpers) carry a local-first account to another browser. The no-login path to
-  multi-device, if authors want it before TODO 1's sign-in.
+* **A second device**: the browser key has no door to another browser; typing one's ident label
+  there is the trial's answer. The identity plan's is a sign-in (see *Authentication* under
+  Discuss).
+* **Rate limiting** the public functions (`convex-helpers`' rate limiter), if anyone ever abuses
+  a deployment's URL: every function is callable by whoever has it.
 * **MSW** for network mocking, so the same handlers serve tests and local development.
 * **Bruno** for full stack testing.
 * A **Content Security Policy** that would survive a sanitizer bug. Set it in `next.config`
@@ -227,11 +211,12 @@ it a decision rather than a default.
 
 * **CodeMirror 6** for the editing surface: markdown source with live preview.
 * Object storage and delivery — S3? Vercel? Cloudflare? Abuse the DB? Something else?
-* Authentication, **deferred until the Jazz move lands** (TODO 1 in
-  `notes/decisions/2026-09-jazz.md`). Shape agreed: local-first accounts with no login as the
-  default; later, one hosted hub (Clerk or WorkOS) federating Google as Jazz's single issuer,
-  `linkJWT` at the threshold, a written collision policy. Better Auth is the named alternative
-  and would put our own server in the login path. Provision through the Vercel Marketplace.
+* **Authentication**, the identity plan, after the playtesting thread (phases 5 to 7 of
+  `whiteboard/convex_yay-plan.md`). The brief: Convex Auth (`@convex-dev/auth`, beta) with the
+  anonymous provider replacing the browser key and Google behind it, weighed against a hosted hub
+  (Clerk or WorkOS) whose JWTs Convex trusts. Client-side only; the "anonymous here, signed in
+  there" collision designed, not discovered; `convex/authorize.ts` changes its first line and not
+  its rules. See `notes/decisions/2026-09-convex.md`, *Identity*.
 * Rich-text editing: do we want markdown+preview, or a wysiwg? how do we keep safe?
   - **TipTap**? **unified / remark / rehype** for the pipeline, via **react-markdown** for rendering.
   - `remark-parse` → `remark-gfm` → `remark-rehype` → **`rehype-sanitize`** → render.
@@ -248,11 +233,12 @@ it a decision rather than a default.
 Raised in review and not yet decided. Until one is settled, don't build further in its
 direction, and don't "fix" the code to match the line above that it contradicts.
 
-Settled in Sept 2026, and recorded in `notes/decisions/`: where the database lives (Jazz,
-local-first; reopened in `notes/database-decisions.md`), the rendering policy (client-first; pages prerender at build), client state
-(Jazz subscriptions, one per table, assembled into the quiz tree; `perform` writes rows), models versus schema
-(relational shape in `schema.ts`, structured values in Zod), and the shape of identity (deferred;
-see *Authentication* above). Still open:
+Settled in Sept 2026, and recorded in `notes/decisions/`: where the database lives (Convex, after
+a trial of Jazz; `notes/database-decisions.md` has the verdict), the rendering policy
+(client-first; pages prerender at build), client state (Convex queries, one per thing a screen
+shows, assembled on the server; `hunts.perform` writes rows), models versus schema (the Zod row
+validators are the source, and `convex/schema.ts` is derived from them), and the shape of
+identity (a browser key for the trial; see *Authentication* above). Still open:
 
 * **How thick the end-to-end layer should be.** The line above says thin; the suite is sixteen
   spec files and larger than any unit area. Tied to whether components and hooks get tests of
