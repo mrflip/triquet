@@ -2,7 +2,8 @@ import type { Id } from './_generated/dataModel'
 
 /**
  * Whether the browser `browser_key` may change the hunt `hunt_id`: the only place authorization
- * is written, and every function that writes a hunt asks it first.
+ * is written, and every function that writes a hunt asks it first, refusing (`notPermitted`)
+ * when it may not.
  *
  * For the playtesting trial every hunt is open to every browser: anyone who can reach the app can
  * read and change any hunt. A hunt is found by its address, and an address is not a secret.
@@ -17,7 +18,7 @@ import type { Id } from './_generated/dataModel'
  * @param _hunt_id - The hunt it would change.
  * @returns Whether it may; for the trial, always.
  *
- * @example if (! mayChangeHunt(browser_key, open.hunt_id)) { return null }
+ * @example if (! mayChangeHunt(browser_key, open.hunt_id)) { refuse('notPermitted') }
  */
 export function mayChangeHunt(_browser_key: string, _hunt_id: Id<'hunts'>): boolean {
   return true

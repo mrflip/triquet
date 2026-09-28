@@ -7,6 +7,7 @@ import * as Rank from '../../src/lib/rank'
 import * as Sortings from '../../src/lib/sortings'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
+import { refuse } from '../../src/lib/refusals'
 import { expressionFrom, quizFrom, type QuizRows } from '../../src/lib/rows'
 import { askError, type LastErrT } from '../../src/models/ask'
 import { BotSlots, unrecordedBottings, type BotSlot } from '../../src/models/botting'
@@ -30,13 +31,23 @@ export type BulkLandingT = {
 }
 
 /**
- * Run `write` against the open quiz's rows, as they stand, unless the quiz is locked or gone.
- * The freeze is a property of the quiz, not of whether a button happened to be greyed out.
+ * Run `write` against the open quiz's rows, as they stand, refusing when the quiz is locked or
+ * gone. The freeze is a property of the quiz, not of whether a button happened to be greyed out.
+ *
+ * @throws A refusal (`quizGone`, `quizLocked`); nothing is written.
  */
 export async function reviseOpenQuiz(db: Writer, open: OpenQuizT, write: (rows: QuizRows) => Promise<void>): Promise<void> {
   const rows = await quizRowsOf(db, open.quiz_id)
-  if (! rows || rows.quiz.locked) { return }
+  if (! rows) { refuse('quizGone') }
+  if (rows.quiz.locked) { refuse('quizLocked') }
   await write(rows)
+}
+
+/** The row of the question `question_id` among the open quiz's, refusing when it is not there */
+function questionIn(rows: QuizRows, question_id: string): Doc<'questions'> {
+  const held = rows.questions.find((row) => row._id === question_id)
+  if (! held) { refuse('questionGone') }
+  return held
 }
 
 /** The open quiz's rows and the quiz they make up, for an action that works out a new order */
@@ -81,15 +92,14 @@ export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string
 /**
  * Revise one question of the open quiz by a patch. A chain in the patch names the question it
  * points at; one that names no other question of the quiz is cleared. A reply in the patch is
- * recorded as the newest for its cell.
+ * recorded as the newest for its cell. A question not in the quiz is refused.
  *
  * Nothing is marked stale here: a reply is stale exactly when the text it was asked about is no
  * longer the question's, which reading the rows works out.
  */
 export async function editQuestion(db: Writer, open: OpenQuizT, question_id: string, patch: QuestionPatch): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    const held = rows.questions.find((row) => row._id === question_id)
-    if (! held) { return }
+    const held = questionIn(rows, question_id)
     const { guess, clueing_ishes, hint_ishes, chains_to, ...fields } = patch
     await updateQuestion(db, held, { ...fields, ...(chains_to !== undefined && { chains_to: chainLabelFor(rows, held, chains_to) }) })
     const results = { guess, clueing_ishes, hint_ishes }
@@ -106,10 +116,10 @@ function chainLabelFor(rows: QuizRows, held: Doc<'questions'>, chains_to: string
   return target ? Labelmaker.effectiveLabelOf(target) : null
 }
 
-/** Add a blank question to the end of the open quiz, unless it holds as many as a quiz may */
+/** Add a blank question to the end of the open quiz; refused when it holds as many as a quiz may */
 export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    if (rows.questions.length >= PA.QuestionsPerQuiz.max) { return }
+    if (rows.questions.length >= PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
     await db.insert('questions', QuestionValidators.row({ ...Question.blank(), quiz_id: rows.quiz._id, position: rows.questions.length, chains_to: null }))
   })
 }
@@ -164,11 +174,14 @@ export async function moveQuestion(db: Writer, open: OpenQuizT, question_id: str
   }))
 }
 
-/** Chain one question of the open quiz to another, or unchain it with null. A chain to itself or to no question here is no chain. */
+/**
+ * Chain one question of the open quiz to another, or unchain it with null. A chain to itself or
+ * to no question here is no chain; a question not in the quiz is refused.
+ */
 export async function setChain(db: Writer, open: OpenQuizT, question_id: string, chains_to: string | null): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    const held = rows.questions.find((row) => row._id === question_id)
-    if (held) { await updateQuestion(db, held, { chains_to: chainLabelFor(rows, held, chains_to) }) }
+    const held = questionIn(rows, question_id)
+    await updateQuestion(db, held, { chains_to: chainLabelFor(rows, held, chains_to) })
   })
 }
 
@@ -193,11 +206,10 @@ async function recordResult(db: Writer, quiz: QuizT, held: Doc<'questions'>, slo
   await insertBottings(db, unrecordedBottings(alone, new Map()))
 }
 
-/** Record a reply, or a failure, in one played cell of a question of the open quiz */
+/** Record a reply, or a failure, in one played cell of a question of the open quiz; a question not in it is refused */
 async function recordInCell(db: Writer, open: OpenQuizT, question_id: string, field: BotSlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
-    const held = rows.questions.find((row) => row._id === question_id)
-    if (held) { await recordResult(db, quizFrom(rows), held, slotFor(field), result) }
+    await recordResult(db, quizFrom(rows), questionIn(rows, question_id), slotFor(field), result)
   })
 }
 
@@ -227,6 +239,7 @@ export async function failIshes(db: Writer, open: OpenQuizT, question_id: string
 /**
  * Record what one combined run found, text by text: an extraction where it gave one, a failure
  * riding on whatever the cell held where it left a text out. The quiz keeps what the run cost.
+ * A landing for a question deleted while the run was out is passed over.
  */
 export async function applyBulkIshes(db: Writer, open: OpenQuizT, landings: readonly BulkLandingT[], run: BulkIshesRunT): Promise<void> {
   await reviseOpenQuiz(db, open, async (rows) => {
@@ -258,30 +271,38 @@ export async function replaceOpenQuiz(db: Writer, open: OpenQuizT, quiz: QuizT):
  * this one in one would be sent to the wrong quiz. `Labelmaker.freshLabelFor` gives one that will
  * do. A realm holding as many quizzes as a realm may refuses another.
  *
- * @returns The new quiz's row id; null when it was refused.
+ * @returns The new quiz's row id.
+ * @throws A refusal (`realmGone`, `labelTaken`, `quizzesFull`); nothing is written.
  */
-export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Promise<Id<'quizzes'> | null> {
+export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Promise<Id<'quizzes'>> {
   const [realm, siblings, expressions] = await Promise.all([db.get('realms', open.realm_id), quizzesOf(db, open.realm_id), expressionsOf(db, open.hunt_id)])
   const fresh = { ...Quiz.blank('', label), ...defaultLayoutFor(expressions.map((row) => expressionFrom(row))) }
   const taken = siblings.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === Labelmaker.effectiveLabelOf(fresh))
-  if (taken || realm?.hunt_id !== open.hunt_id || siblings.length >= PA.QuizzesPerRealm.max) { return null }
+  if (realm?.hunt_id !== open.hunt_id) { refuse('realmGone') }
+  if (taken) { refuse('labelTaken') }
+  if (siblings.length >= PA.QuizzesPerRealm.max) { refuse('quizzesFull') }
   return await writeQuiz(db, open.realm_id, fresh, null)
 }
 
 /**
  * Delete a quiz of the open quiz's realm and all it holds. The realm's last quiz cannot go: an
- * empty realm would leave its address leading nowhere, and the author with no way back.
+ * empty realm would leave its address leading nowhere, and the author with no way back. A quiz
+ * already gone is gone; one of another realm is refused.
+ *
+ * @throws A refusal (`notInRealm`, `lastQuiz`); nothing is written.
  */
 export async function deleteQuizFrom(db: Writer, open: OpenQuizT, quiz_id: Id<'quizzes'>): Promise<void> {
   const doomed = await quizRowsOf(db, quiz_id)
-  if (doomed?.quiz.realm_id !== open.realm_id) { return }
+  if (! doomed) { return }
+  if (doomed.quiz.realm_id !== open.realm_id) { refuse('notInRealm') }
   const siblings = await quizzesOf(db, open.realm_id)
-  if (siblings.length <= 1) { return }
+  if (siblings.length <= 1) { refuse('lastQuiz') }
   await deleteQuiz(db, doomed)
 }
 
-/** Lock or unlock a quiz. Works from inside the lock, and changes nothing else about the quiz. */
+/** Lock or unlock a quiz. Works from inside the lock, and changes nothing else about the quiz; a quiz gone is refused. */
 export async function setLock(db: Writer, quiz_id: Id<'quizzes'>, locked: boolean): Promise<void> {
   const quiz = await db.get('quizzes', quiz_id)
-  if (quiz) { await updateQuiz(db, quiz, { locked }) }
+  if (! quiz) { refuse('quizGone') }
+  await updateQuiz(db, quiz, { locked })
 }

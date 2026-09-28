@@ -4,6 +4,7 @@ import * as Quiz from './quiz_actions'
 import * as Review from './review_actions'
 import { isLayoutAction, type HuntActionT, type OpenQuizT } from '../../src/models/actions'
 import type { Writer } from './quiz_writing'
+import { refuse } from '../../src/lib/refusals'
 
 /**
  * Carry out what the author did, writing the rows it comes to, all in one transaction.
@@ -11,14 +12,14 @@ import type { Writer } from './quiz_writing'
  * Actions that revise the quiz on screen are refused outright while it is locked; actions about
  * its realm and hunt (making, deleting and locking quizzes, and the expressions), and reviews,
  * are not -- a locked quiz is exactly what a finished draft sent out for playtesting looks like.
- * A refused action writes nothing and says nothing. Each action reads the rows it needs as they
- * stand, inside the transaction.
+ * A refused action writes nothing and throws a refusal saying why (`lib/refusals`). Each action
+ * reads the rows it needs as they stand, inside the transaction.
  *
  * @param db - The mutation's database.
  * @param open - The quiz on the author's screen, where an action on "the quiz" lands.
- * @param ident_id - Who is acting; only a review action reads it, and writes nothing without one.
+ * @param ident_id - Who is acting; only a review action reads it, and is refused without one.
  * @param action - What the author did, validated.
- * @throws When a row the action comes to is not valid; nothing is written.
+ * @throws A refusal, or a Zod error when a row the action comes to is not valid; nothing is written.
  *
  * @example await perform(ctx.db, open, ident?._id ?? null, { kind: 'add_question' })
  */
@@ -48,8 +49,14 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'new_quiz':            { await Quiz.newQuiz(db, open, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, open, action.quiz_id); return }
   case 'set_lock':            { await Quiz.setLock(db, action.quiz_id, action.locked); return }
-  case 'open_review':         { if (ident_id) { await Review.openReview(db, action.quiz_id, ident_id) } return }
-  case 'set_overall':         { if (ident_id) { await Review.setOverall(db, action.quiz_id, ident_id, action.overall) } return }
-  case 'set_review_phase':    { if (ident_id) { await Review.setReviewPhase(db, action.quiz_id, ident_id, action.phase) } }
+  case 'open_review':         { await Review.openReview(db, action.quiz_id, reviewer(ident_id)); return }
+  case 'set_overall':         { await Review.setOverall(db, action.quiz_id, reviewer(ident_id), action.overall); return }
+  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, reviewer(ident_id), action.phase) }
   }
+}
+
+/** Who is reviewing, refusing a browser that has not said */
+function reviewer(ident_id: Id<'idents'> | null): Id<'idents'> {
+  if (! ident_id) { refuse('notIdentified') }
+  return ident_id
 }
