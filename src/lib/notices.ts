@@ -41,6 +41,7 @@ export const AppNotices = {
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
   copyFailed:           "Couldn't reach the clipboard — nothing was copied.",
+  exportUnread:         "Couldn't read the hunt for the export — try again.",
   nothingToMilestone:   'No history here yet — make an edit first.',
   noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
   noRepositories:       'No history has been kept in this browser yet.',

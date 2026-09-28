@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, test, waitUntilSaved } from './support'
+import { expect, preparedExport, test, waitUntilSaved } from './support'
 
 /** Paste `payload` into the Import box and run it */
 async function runImport(page: Page, payload: unknown) {
@@ -14,7 +14,7 @@ function fieldAt(page: Page, name: string, rowIdx: number) {
 
 /** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Export box has the hunt */
 async function labelAt(page: Page, rowIdx: number): Promise<string> {
-  const exported = JSON.parse(await page.getByRole('textbox', { name: 'Export' }).inputValue()) as {
+  const exported = JSON.parse(await preparedExport(page)) as {
     realms: { quizzes: { title: string, questions: { label: string }[] }[] }[]
   }
   const quiz = exported.realms.flatMap((realm) => realm.quizzes).find((each) => each.title === 'Quiz one')
@@ -76,7 +76,7 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
   await fieldAt(page, 'Clueing', 1).fill('Another one')
   await page.getByLabel('Quiz name').click()
 
-  const exported = await page.getByRole('textbox', { name: 'Export' }).inputValue()
+  const exported = await preparedExport(page)
   await page.getByRole('textbox', { name: 'Import' }).fill(exported)
   await page.getByRole('button', { name: 'Import', exact: true }).click()
 

@@ -1,4 +1,4 @@
-import { expect, test } from './support'
+import { expect, preparedExport, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -6,8 +6,16 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Quiz one')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region?')
   await page.getByLabel('Quiz name').click()
-  // The export is read from the database once the edit has landed there.
+  await preparedExport(page)
   await expect(page.getByRole('textbox', { name: 'Export' })).toHaveValue(/"title":"Quiz one"/)
+})
+
+test('the export is read only when asked, and a change on screen empties it again', async ({ page }) => {
+  const exportBox = page.getByRole('textbox', { name: 'Export' })
+  await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which county?')
+  await page.getByLabel('Quiz name').click()
+  await expect(exportBox).toHaveValue('')
+  expect(await preparedExport(page)).toContain('Which county?')
 })
 
 test('Export emits the whole hunt as compact JSON', async ({ page }) => {
