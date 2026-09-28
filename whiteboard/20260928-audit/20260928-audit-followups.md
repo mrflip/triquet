@@ -109,6 +109,22 @@ as planned, or into the audit branch.
   (`cells/chain.tsx`) and the error badge's `<button>` (`cells/ErrBadge.tsx`). Under the bespoke
   grid decision; not changed on 2026-09-28 when the chrome's were.
 
+## Stale lines in threads this branch did not touch
+
+For whoever holds those threads (another agent, as of 2026-09-28). Each names something the
+audit branch removed: `replace_open_quiz`, `writeQuiz`/`writeHunt`, `reviseOpenQuiz`, the ULID
+arm of `treeid`, ids in an old export.
+
+* `whiteboard/convex_yay-progress.md`: line 152 (*Phase 5: `replace_open_quiz` keeps a question
+  by its id*: the action is gone; an import matches by label, as the plan's phase 5 wanted), 187
+  (`writeQuiz` replacing a widget of another kind: no longer a path), 246 (`replace_open_quiz`),
+  260 (`treeid` and old exports' ids), 625 (`writeQuiz`'s cases).
+* `whiteboard/convex_yay-plan.md`: lines 114 to 115, 180, 457, 474 to 475, 664, 696, 699. A
+  plan, so history; a one-line note at the top that the import and the tree write path changed
+  on 2026-09-28 would do.
+* `whiteboard/hunts-and-idents-handoff.md` line 34 and `hunts-and-idents.md` line 214: the
+  claim (review actions never go through the open-quiz gate) still holds; the names do not.
+
 ## Complexity, one session each (audit §5)
 
 * `convex/writing/quiz_writing.ts`: the tree-to-rows diff is gone (the import change of
