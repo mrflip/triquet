@@ -219,6 +219,16 @@ export default defineConfig([
     },
   },
 
+  // Convex routes a function by its file's path, and refuses a hyphen in one: its modules and
+  // their tests are snake_case (`convex/writing/quiz_actions.ts`).
+  {
+    name: 'triquet/convex-module-names',
+    files: ['convex/**', 'tests/convex/**'],
+    rules: {
+      'unicorn/filename-case': ['error', { cases: { snakeCase: true } }],
+    },
+  },
+
   // These are all good ideas to enforce, but forbidding access to @ts-expect-error
   // etc can send the coach-coder development loop into a tailspin.
   // Use them judiciously, and ALWAYS report it in chat.
