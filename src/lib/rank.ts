@@ -90,10 +90,10 @@ export function renumberByPosition(questions: readonly QuestionT[]): QuestionT[]
  * @returns A new array; the same one when the question is not there or would not move.
  */
 export function moveQuestion(questions: readonly QuestionT[], question_id: string, onto_idx: number): QuestionT[] {
-  const from_idx = questions.findIndex((question) => question._id === question_id)
-  if (from_idx === -1) { return [...questions] }
+  const fromIdx = questions.findIndex((question) => question._id === question_id)
+  if (fromIdx === -1) { return [...questions] }
   const lifted = [...questions]
-  const [dragged] = lifted.splice(from_idx, 1)
+  const [dragged] = lifted.splice(fromIdx, 1)
   if (! dragged) { return [...questions] }
   lifted.splice(Math.max(0, Math.min(onto_idx, lifted.length)), 0, dragged)
   return lifted

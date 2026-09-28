@@ -47,55 +47,45 @@ describe('bulkTargetsOf', () => {
   })
 })
 
-describe('bulkLandingsFor', () => {
-  it('lands each group on the cell its key names', () => {
+describe('bulkBottingsFor', () => {
+  it('lands each group on the cell its key names, as numnum\'s botting of that text', () => {
     const questions = questionsOf(['Which region?', 'BUT NOT the 1994 film'])
     const question = present(questions[0])
     const targets = Bulk.bulkTargetsOf(questions)
-    const landings = Bulk.bulkLandingsFor(targets, replied([
+    const bottings = Bulk.bulkBottingsFor(targets, replied([
       { key: Bulk.bulkKeyFor(question._id, 'clueing'), items: [] },
       { key: Bulk.bulkKeyFor(question._id, 'hint'), items: oneSpan },
-    ]), 1)
-    const hintLanding = present(landings.find((landing) => landing.textkind === 'hint'))
-    expect(hintLanding.ishes?.status === 'done' && hintLanding.ishes.items).to.deep.eq(oneSpan)
+    ]))
+    const hintBotting = present(bottings.find((botting) => botting.textkind === 'hint'))
+    expect(hintBotting).to.deep.include({ question_id: question._id, bot_label: 'numnum', asked_text: 'BUT NOT the 1994 film', status: 'done', items: oneSpan })
   })
 
   it('carries no per-cell token figure, because one shared cost split many ways is invented', () => {
     const questions = questionsOf(['Which region?', ''])
     const question = present(questions[0])
-    const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: oneSpan }]), 1)
-    expect(present(landings[0]).ishes).to.not.have.property('approx_tokens')
+    const bottings = Bulk.bulkBottingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: oneSpan }]))
+    expect(present(bottings[0]).approx_tokens).to.eq(null)
   })
 
-  it('gives a text the run left out a per-cell failure to carry, and no value to replace what it had', () => {
+  it('gives a text the run left out a failure to carry, and no spans to replace what it had', () => {
     const questions = questionsOf(['Which region?', 'BUT NOT the film'])
     const question = present(questions[0])
-    const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: oneSpan }]), 1)
-    const hintLanding = present(landings.find((landing) => landing.textkind === 'hint'))
-    expect(hintLanding.ishes).to.eq(null)
-    expect(hintLanding.err).to.deep.eq({ message: AskFailureNotices.missingFromRun, response: { ok: false, failurekind: 'missingFromRun' }, at: 1 })
+    const bottings = Bulk.bulkBottingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: oneSpan }]))
+    const hintBotting = present(bottings.find((botting) => botting.textkind === 'hint'))
+    expect(hintBotting).to.deep.include({ status: 'error', items: [], message: AskFailureNotices.missingFromRun, response: { ok: false, failurekind: 'missingFromRun' } })
   })
 
   it('ignores a group for a text that was never asked about', () => {
     const questions = questionsOf(['Which region?', ''])
-    const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: 'c:someone-else', items: oneSpan }]), 1)
-    expect(landings).to.have.length(1)
-    expect(present(landings[0]).ishes).to.eq(null)
-    expect(present(landings[0]).err?.message).to.eq(AskFailureNotices.missingFromRun)
-  })
-
-  it('lands a result unstale, because it was just computed from the text as it stands', () => {
-    const questions = questionsOf(['Which region?', ''])
-    const question = present(questions[0])
-    const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: [] }]), 1)
-    expect(present(landings[0]).ishes).to.deep.include({ stale: false })
-    expect(present(landings[0]).err).to.eq(null)
+    const bottings = Bulk.bulkBottingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: 'c:someone-else', items: oneSpan }]))
+    expect(bottings).to.have.length(1)
+    expect(present(bottings[0])).to.deep.include({ status: 'error', message: AskFailureNotices.missingFromRun })
   })
 
   it('passes a cut-short run on to every cell it filled', () => {
     const questions = questionsOf(['Which region?', ''])
     const question = present(questions[0])
-    const landings = Bulk.bulkLandingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: [] }], true), 1)
-    expect(present(landings[0]).ishes).to.deep.include({ truncated: true })
+    const bottings = Bulk.bulkBottingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: [] }], true))
+    expect(present(bottings[0])).to.deep.include({ truncated: true, model_tier_applied: 'careful' })
   })
 })

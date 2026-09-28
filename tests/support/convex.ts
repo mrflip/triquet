@@ -69,15 +69,15 @@ export async function wholeHunt(tt: Tester, hunt_id: Id<'hunts'>): Promise<HuntT
 }
 
 /**
- * `hunt`, written into rows in `tt`, with the quiz at `open_idx` of its first realm open.
+ * `hunt`, written into rows in `tt`, with the quiz at `openIdx` of its first realm open.
  *
  * @example const { act, read } = await seedHunt(openTester(), Hunt.blank())
  */
-export async function seedHunt(tt: Tester, hunt: HuntT, open_idx = 0): Promise<Seeded> {
+export async function seedHunt(tt: Tester, hunt: HuntT, openIdx = 0): Promise<Seeded> {
   const hunt_id = await tt.run(async (ctx) => await writeHunt(ctx.db, hunt))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   const realm = present(home, 'the seeded realm')
-  const open = { hunt_id, realm_id: realm.realm._id, quiz_id: present(realm.quizzes[open_idx], 'the quiz to open')._id }
+  const open = { hunt_id, realm_id: realm.realm._id, quiz_id: present(realm.quizzes[openIdx], 'the quiz to open')._id }
   const read = async (): Promise<Seen> => {
     const now = await wholeHunt(tt, hunt_id)
     return { hunt: now, quizzes: present(now.realms[0]).quizzes, expressions: now.expressions, open_quiz_id: open.quiz_id }

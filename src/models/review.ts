@@ -29,9 +29,6 @@ export type ReviewRowT = Z.output<typeof ReviewValidators.row>
 /**
  * The reviews of `reviews` a smith may see: the shared ones.
  *
- * A client-side filter for the trial, where every review row is readable by every account; PR 6
- * moves this rule into the server's policy and this function goes with it.
- *
  * @param reviews - Every review of a quiz.
  * @returns Only the ones shared with the smiths.
  *

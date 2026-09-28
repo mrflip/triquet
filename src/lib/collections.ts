@@ -183,8 +183,6 @@ function scrubBy(clxn: object, reject: (val: unknown) => boolean): object {
 /**
  * `arr` as a non-empty array, checked.
  *
- * The relic routed this through a Zod schema; a length check is all it ever was.
- *
  * @param arr - The array to vouch for.
  * @returns The same array, typed as carrying at least one entry.
  * @throws BlankError when the array is empty.

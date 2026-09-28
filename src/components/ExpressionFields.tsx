@@ -42,16 +42,16 @@ export type ExpressionFieldsProps = {
  * picked; it starts on the lowest-numbered question of the open quiz.
  */
 export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditable, labelIssue, expressing }: Readonly<ExpressionFieldsProps>) {
-  const [quizId, setQuizId] = useState<string>(openQuiz._id)
-  const [questionId, setQuestionId] = useState<string | null>(null)
+  const [quiz_id, setQuizId] = useState<string>(openQuiz._id)
+  const [question_id, setQuestionId] = useState<string | null>(null)
 
   const quizzes = useMemo(() => hunt.realms.flatMap((realm) => realm.quizzes), [hunt])
   // Another quiz than the one on screen is read for as long as the preview is pointed at it.
-  const picked = quizId === openQuiz._id ? null : quizzes.find((row) => row._id === quizId) ?? null
+  const picked = quiz_id === openQuiz._id ? null : quizzes.find((row) => row._id === quiz_id) ?? null
   const other = useOtherQuiz(picked?._id ?? null)
   const quiz: QuizT | null = picked ? other : openQuiz
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
-  const question = ranked.find((held) => held._id === questionId) ?? ranked[0]
+  const question = ranked.find((held) => held._id === question_id) ?? ranked[0]
   const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz ? Expressed.bagsFor(quiz) : new Map()), [quiz])
   const bag = question ? bags.get(question._id) : undefined
 
@@ -84,7 +84,7 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, alignItems: 'center' }}>
         <TextField
-          select size="small" label="Preview quiz" value={quizId} sx={{ minWidth: 180 }}
+          select size="small" label="Preview quiz" value={quiz_id} sx={{ minWidth: 180 }}
           onChange={(event) => { setQuizId(event.target.value); setQuestionId(null) }}
         >
           {quizzes.map((held) => <MenuItem key={held._id} value={held._id}>{held.title || held.label}</MenuItem>)}

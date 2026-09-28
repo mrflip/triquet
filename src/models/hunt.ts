@@ -55,11 +55,11 @@ type Issue = { input: unknown, path: (string | number)[], message: string }
 function integrityIssues(hunt: Pick<HuntT, 'realms' | 'expressions'>): Issue[] {
   const labelsHeld = new Set(hunt.expressions.map((expression) => expression.label))
   return [
-    ...repeatIssues(hunt.expressions.map((expression) => keyOf(expression)), (ii) => ['expressions', ii, 'label'], 'Two expressions share an owner and a label'),
-    ...repeatIssues(hunt.realms.map((realm) => realm.label), (rr) => ['realms', rr, 'label'], 'Two realms of one hunt share a label'),
-    ...hunt.realms.flatMap((realm, rr) => [
-      ...repeatIssues(realm.quizzes.map((quiz) => Labelmaker.effectiveLabelOf(quiz)), (qq) => ['realms', rr, 'quizzes', qq, 'label'], 'Two quizzes of one realm answer to one label'),
-      ...realm.quizzes.flatMap((quiz, qq) => unheldExpressionIssues(quiz, labelsHeld, ['realms', rr, 'quizzes', qq])),
+    ...repeatIssues(hunt.expressions.map((expression) => keyOf(expression)), (idx) => ['expressions', idx, 'label'], 'Two expressions share an owner and a label'),
+    ...repeatIssues(hunt.realms.map((realm) => realm.label), (idx) => ['realms', idx, 'label'], 'Two realms of one hunt share a label'),
+    ...hunt.realms.flatMap((realm, realmIdx) => [
+      ...repeatIssues(realm.quizzes.map((quiz) => Labelmaker.effectiveLabelOf(quiz)), (idx) => ['realms', realmIdx, 'quizzes', idx, 'label'], 'Two quizzes of one realm answer to one label'),
+      ...realm.quizzes.flatMap((quiz, quizIdx) => unheldExpressionIssues(quiz, labelsHeld, ['realms', realmIdx, 'quizzes', quizIdx])),
     ]),
   ]
 }
@@ -71,9 +71,9 @@ function repeatIssues(keys: readonly string[], pathFor: (idx: number) => Issue['
 
 /** Every widget of `quiz` working an expression not among `labelsHeld`, placed under `path` */
 function unheldExpressionIssues(quiz: QuizT, labelsHeld: ReadonlySet<string>, path: Issue['path']): Issue[] {
-  return quiz.widgets.flatMap((widget, ii): Issue[] => (
+  return quiz.widgets.flatMap((widget, idx): Issue[] => (
     widget.kind === 'expressing' && ! labelsHeld.has(widget.expression_label)
-      ? [{ input: widget.expression_label, path: [...path, 'widgets', ii, 'expression_label'], message: 'A widget names an expression this hunt does not have' }]
+      ? [{ input: widget.expression_label, path: [...path, 'widgets', idx, 'expression_label'], message: 'A widget names an expression this hunt does not have' }]
       : []
   ))
 }

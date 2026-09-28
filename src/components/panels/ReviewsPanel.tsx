@@ -12,10 +12,10 @@ import { ReviewingFlags } from '../../models/reviewing'
 import styles from '../workbench.module.css'
 
 export type ReviewsPanelProps = {
-  /** Every ident's review of the open quiz; filtered to the shared ones here, client-side, until PR 6 */
-  reviews:   readonly ReviewedT[]
   /** The open quiz's questions, which a review's verdicts are about */
   questions: readonly QuestionT[]
+  /** Every ident's review of the open quiz; only the shared ones are shown */
+  reviews:   readonly ReviewedT[]
 }
 
 /**

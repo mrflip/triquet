@@ -3,13 +3,8 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import { TextkindVals, type Textkind } from '../lib/ask/contract'
 import { BotLabelVals, type BotLabel } from './bot-label'
-import { BotSlots, type BotSlot } from './botting'
+import { BotSlots, isBotSlot, type BotSlot } from './botting'
 import type { ExpressionT } from './expression'
-
-/** Whether the tool puts `bot_label` the question's `textkind` text */
-function isBotSlot(bot_label: BotLabel, textkind: Textkind): boolean {
-  return BotSlots.some((slot) => slot.bot_label === bot_label && slot.textkind === textkind)
-}
 
 /** The widget every quiz has without being told: the questions' own fields. No quiz may label one of its own this. */
 export const QuestionWidgetLabel = 'question'
@@ -37,7 +32,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
   const botting = obj({
     kind:          lit('botting'),
     label:         widgetLabel,
-    bot_label:  botLabel,
+    bot_label:     botLabel,
     textkind,
     description:   description.default(''),
   })
@@ -61,7 +56,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
 
   const bottingPatch = obj({
     label:        widgetLabel.optional(),
-    bot_label: oneof(BotLabelVals).optional(),
+    bot_label:    oneof(BotLabelVals).optional(),
     textkind:     oneof(TextkindVals).optional(),
     description:  description.optional(),
   })
@@ -130,7 +125,7 @@ export class Expressing implements ExpressingT {
 export class BottingWidget implements BottingWidgetT {
   declare kind:         'botting'
   declare label:        string
-  declare bot_label: BotLabel
+  declare bot_label:    BotLabel
   declare textkind:     Textkind
   declare description:  string
 

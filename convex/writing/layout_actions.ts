@@ -40,9 +40,9 @@ function showable(rows: LayoutRows, source: string): boolean {
 
 /** `items` with the one labelled `label` lifted out and dropped at `onto_idx`; `label` names one of them */
 function movedTo<RT extends { label: string }>(items: readonly RT[], label: string, onto_idx: number): RT[] {
-  const from_idx = items.findIndex((item) => item.label === label)
+  const fromIdx = items.findIndex((item) => item.label === label)
   const lifted = [...items]
-  const [moved] = lifted.splice(from_idx, 1)
+  const [moved] = lifted.splice(fromIdx, 1)
   if (moved) { lifted.splice(Math.max(0, Math.min(onto_idx, lifted.length)), 0, moved) }
   return lifted
 }

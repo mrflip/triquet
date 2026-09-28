@@ -9,26 +9,14 @@ import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
 import { expressionFrom, quizFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
-import { askError, type LastErrT } from '../../src/models/ask'
-import { BotSlots, unrecordedBottings, type BotSlot } from '../../src/models/botting'
+import type { BottingRowT } from '../../src/models/botting'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import type { OpenQuizT } from '../../src/models/actions'
-import type { GuessT } from '../../src/models/guess'
-import type { IshesT } from '../../src/models/ish'
-import type { Textkind } from '../../src/lib/ask/contract'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../../src/models/quiz'
 import { expressionsOf, layoutRowsOf, questionOf, questionsOf, quizRowsOf, quizzesOf, slotsOf } from '../reading'
 import { deleteQuestion, deleteQuiz, insertBottings, updateQuestion, updateQuiz, writeQuiz, type Writer } from './quiz_writing'
-
-/** One landing of a combined run: where one text's answer lands, the extraction or the failure */
-export type BulkLandingT = {
-  question_id: Id<'questions'>
-  textkind:    Textkind
-  ishes:       NonNullable<IshesT> | null
-  err:         LastErrT | null
-}
 
 // Each action reads what it needs and no more: the open quiz's own row, the questions it names
 // by id, and the whole quiz only for an order worked out across every question. What an action
@@ -123,8 +111,8 @@ export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string
 
 /**
  * Revise one question of the open quiz by a patch. A chain in the patch names the question it
- * points at; one that names no other question of the quiz is cleared. A reply in the patch is
- * recorded as the newest for its cell. A question not in the quiz is refused.
+ * points at; one that names no other question of the quiz is cleared. A question not in the
+ * quiz is refused.
  *
  * Nothing is marked stale here: a reply is stale exactly when the text it was asked about is no
  * longer the question's, which reading the rows works out.
@@ -132,13 +120,8 @@ export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string
 export async function editQuestion(db: Writer, open: OpenQuizT, question_id: string, patch: QuestionPatch): Promise<void> {
   const quiz = await openQuizRow(db, open)
   const held = await questionIn(db, quiz, question_id)
-  const { guess, clueing_ishes, hint_ishes, chains_to, ...fields } = patch
+  const { chains_to, ...fields } = patch
   await updateQuestion(db, held, { ...fields, ...(chains_to !== undefined && { chains_to: await chainLabelFor(db, held, chains_to) }) })
-  const results = { guess, clueing_ishes, hint_ishes }
-  for (const slot of BotSlots) {
-    const result = results[slot.field]
-    if (result) { await recordResult(db, held, slot, result) }
-  }
 }
 
 /** The label a chain from `held` to the question `chains_to` names is written as; null when it names no other question of its quiz */
@@ -219,60 +202,27 @@ export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: 
   await reorderOpenQuiz(db, open, { replies: false }, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
 }
 
-/** The slot a bot's reply to a question's text lands in */
-function slotFor(field: BotSlot['field']): BotSlot {
-  return BotSlots.find((slot) => slot.field === field) ?? BotSlots[0]
+/**
+ * Record one botting of a question of the open quiz: a bot's reply, or its failure, as the
+ * newest in its cell. What the cell held before stays in its history. A question not in the
+ * quiz is refused.
+ *
+ * @throws A refusal (`quizGone`, `quizLocked`, `questionGone`); nothing is written.
+ */
+export async function recordBotting(db: Writer, open: OpenQuizT, botting: BottingRowT): Promise<void> {
+  const held = await questionIn(db, await openQuizRow(db, open), botting.question_id)
+  await insertBottings(db, [{ ...botting, question_id: held._id }])
 }
 
 /**
- * Record `result` as the newest in `slot` of the question `held`: a reply as a botting that
- * answered, a failure as one that failed. What the cell held before stays in its history.
+ * Record what one combined run found, text by text: each text's botting as the newest in its
+ * cell, a failure where the run left a text out. The quiz keeps what the run cost. A botting
+ * for a question deleted while the run was out is passed over.
  */
-async function recordResult(db: Writer, held: Doc<'questions'>, slot: BotSlot, result: NonNullable<GuessT | IshesT>): Promise<void> {
-  const alone = { ..._.omit(held, ['_creationTime', 'quiz_id']), chains_to: null, guess: null, clueing_ishes: null, hint_ishes: null, [slot.field]: result }
-  await insertBottings(db, unrecordedBottings(alone, new Map()))
-}
-
-/** Record a reply, or a failure, in one played cell of a question of the open quiz; a question not in it is refused */
-async function recordInCell(db: Writer, open: OpenQuizT, question_id: string, field: BotSlot['field'], result: NonNullable<GuessT | IshesT>): Promise<void> {
-  const held = await questionIn(db, await openQuizRow(db, open), question_id)
-  await recordResult(db, held, slotFor(field), result)
-}
-
-/** Record dumdum's guess at a question. Null records nothing: a cell's history is never erased. */
-export async function setGuess(db: Writer, open: OpenQuizT, question_id: string, guess: GuessT): Promise<void> {
-  if (guess) { await recordInCell(db, open, question_id, 'guess', guess) }
-}
-
-/** Record numnum's extraction from one of a question's texts. Null records nothing. */
-export async function setIshes(db: Writer, open: OpenQuizT, question_id: string, textkind: Textkind, ishes: IshesT): Promise<void> {
-  if (ishes) { await recordInCell(db, open, question_id, textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes', ishes) }
-}
-
-/**
- * Record a failed ask for dumdum's guess. A failure never replaces a value: it rides along on
- * the newest reply as its `last_err`, and is the cell's only content when there never was one.
- */
-export async function failGuess(db: Writer, open: OpenQuizT, question_id: string, err: LastErrT): Promise<void> {
-  await recordInCell(db, open, question_id, 'guess', askError(err))
-}
-
-/** Record a failed ask for numnum's extraction, as `failGuess` does for a guess */
-export async function failIshes(db: Writer, open: OpenQuizT, question_id: string, textkind: Textkind, err: LastErrT): Promise<void> {
-  await recordInCell(db, open, question_id, textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes', askError(err))
-}
-
-/**
- * Record what one combined run found, text by text: an extraction where it gave one, a failure
- * riding on whatever the cell held where it left a text out. The quiz keeps what the run cost.
- * A landing for a question deleted while the run was out is passed over.
- */
-export async function applyBulkIshes(db: Writer, open: OpenQuizT, landings: readonly BulkLandingT[], run: BulkIshesRunT): Promise<void> {
+export async function applyBulkIshes(db: Writer, open: OpenQuizT, bottings: readonly BottingRowT[], run: BulkIshesRunT): Promise<void> {
   const quiz = await openQuizRow(db, open)
-  for (const landing of landings) {
-    const held = await questionOf(db, quiz._id, landing.question_id)
-    const result = landing.ishes ?? (landing.err ? askError(landing.err) : null)
-    if (held && result) { await recordResult(db, held, slotFor(landing.textkind === 'clueing' ? 'clueing_ishes' : 'hint_ishes'), result) }
+  for (const botting of bottings) {
+    if (await questionOf(db, quiz._id, botting.question_id)) { await insertBottings(db, [botting]) }
   }
   await updateQuiz(db, quiz, { bulk_ishes_last: run })
 }
