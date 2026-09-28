@@ -28,7 +28,7 @@ export function qnumOf(question: Pick<QuestionT, 'qnum'>): number | null {
  * @param questions - The quiz's questions, in any order.
  * @returns Each question's rank by id, null for the unranked.
  *
- * @example ranksOf([{ id: 'aa', qnum: '4' }, { id: 'bb', qnum: '1' }])  // => aa: 2, bb: 1
+ * @example ranksOf([{ _id: 'aa', qnum: '4' }, { _id: 'bb', qnum: '1' }])  // => aa: 2, bb: 1
  */
 export function ranksOf(questions: readonly QuestionT[]): RankForId {
   const ranks = new Map<string, number | null>(questions.map((question) => [question._id, null]))
