@@ -5,7 +5,6 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter'
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { SyncUnconfigured } from '../components/SyncNotices'
-import { SyncLog } from '../components/SyncLog'
 import { convexUrl } from '../state/convex-url'
 import { theme } from './theme'
 
@@ -33,7 +32,6 @@ export function SyncProvider({ children }: Readonly<{ children: ReactNode }>) {
   if (client === null) { return <SyncUnconfigured /> }
   return (
     <ConvexProvider client={client}>
-      <SyncLog />
       {children}
     </ConvexProvider>
   )
