@@ -3,8 +3,6 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    environment: 'node',
-    include: ['tests/**/*.test.ts'],
     exclude: ['**/node_modules/**', 'aside/**', 'relics/**'],
     setupFiles: ['tests/support/setup.ts'],
     // Snapshots mirror the test tree under one hidden directory, rather than dropping a
@@ -12,5 +10,27 @@ export default defineConfig({
     resolveSnapshotPath: (testpath, extension) => (
       path.join('tests', '.snapshots', path.relative(path.join(import.meta.dirname, 'tests'), testpath) + extension)
     ),
+    // The Convex functions run under convex-test, which wants the edge runtime Convex's own
+    // isolates resemble; everything else runs under node.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name:        'convex',
+          environment: 'edge-runtime',
+          include:     ['tests/convex/**/*.test.ts'],
+          server:      { deps: { inline: ['convex-test'] } },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name:        'unit',
+          environment: 'node',
+          include:     ['tests/**/*.test.ts'],
+          exclude:     ['tests/convex/**'],
+        },
+      },
+    ],
   },
 })
