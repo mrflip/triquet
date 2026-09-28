@@ -68,7 +68,7 @@ describe('Question.fill', () => {
     expect(() => Question.fill({} as never)).to.throw(Z.ZodError)
   })
 
-  it('rejects an id that is not a ULID', () => {
+  it('rejects an id that is not a row id or a UUID', () => {
     expect(() => Question.fill({ _id: 'question-1' })).to.throw(Z.ZodError)
   })
 
