@@ -80,6 +80,8 @@ The top three values while writing code are **empathy, safety and readability**.
 
 ## Global resources
 
+You should be running in a container, and can verify by checking that `TQ_IS_SANDBOXED` is set to "true".
+
 Never touch a resource a human may already be using. Next.js allows one dev server and one build
 per directory, so as an agent **use `pnpm dev:agent` (port 3001) and `pnpm build:agent`**, never
 `pnpm dev` / `pnpm build`, and run e2e only as `pnpm test:e2e` (port 3002). Doppler supplies each
