@@ -269,6 +269,23 @@ test.describe('a link handed to a friend', () => {
     await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Written by a friend')
   })
 
+  test('takes the author\'s address along when the friend relabels the quiz they both have open', async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const link = page.url()
+
+    const friend = await otherVisitor(browser)
+    await assumeIdent(friend)
+    await friend.goto(link)
+    await expect(friend).toHaveURL(NewHuntUrl)
+    await openManage(friend)
+    await friend.getByLabel('Label', { exact: true }).fill('renamed_by_a_friend')
+    await friend.getByRole('button', { name: 'Apply' }).click()
+
+    await expect(page).toHaveURL(new RegExp(String.raw`/h/${huntLabelOf(page)}/home/renamed_by_a_friend\?act=smith$`))
+    await expect(page.getByRole('table')).toBeVisible()
+  })
+
   test('shows the friend the author\'s hunt among the hunts', async ({ page, browser }) => {
     await startHunt(page)
     const title = freshTitle('A hunt to find')
