@@ -13,6 +13,12 @@ fi
 stage_actor="$1"
 shift
 
+if [[ -z ${DOPPLER_TOKEN:-} ]]; then
+  if [[ ${stage_actor} == dev_claude    ]]; then DOPPLER_TOKEN=DOPPLER_TOKEN_DEV_CLAUDE    ; fi
+  if [[ ${stage_actor} == dev_aijanitor ]]; then DOPPLER_TOKEN=DOPPLER_TOKEN_DEV_AIJANITOR ; fi
+  if [[ ${stage_actor} == dev_e2e       ]]; then DOPPLER_TOKEN=DOPPLER_TOKEN_DEV_E2E       ; fi
+fi
+
 if [[ ! "$stage_actor" =~ ^[a-z]+_[a-z0-9]+$ ]]; then
   echo "Invalid stage_actor: \"$stage_actor\" -- should be in the form <stage>_<actor>, eg prd_janitor or dev_e2e" >&2
   exit 1
