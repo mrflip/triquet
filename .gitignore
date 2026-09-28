@@ -87,3 +87,5 @@ notes/example-quiz.json
 
 # claude code worktrees (git worktree checkouts made by an agent session)
 .claude/worktrees/
+
+public/jazz
