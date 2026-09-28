@@ -12,10 +12,9 @@ backend beside Next through `scripts/convex_dev`. Details and every deviation ar
 
 The hunts cap is now 999, as you agreed, so a whole e2e run fits in one go.
 
-For you to do by hand (the agent's classifier refused them): delete `public/jazz/` (eslint trips
-on it), the `jazz` skill (`.agents/skills/jazz/`, the `.claude/skills/jazz` symlink, its
-`skills-lock.json` entry), and your `data/jazz/`. Doppler's `JAZZ_*` and `NEXT_PUBLIC_JAZZ_*`
-variables can go.
+Jazz's leftovers are gone, bar four Doppler variables nothing reads: `JAZZ_DEV_DATA_DIR` and
+`JAZZ_DEV_PORT` (in `dev_claude` and `dev_e2e`), and `NEXT_PUBLIC_JAZZ_APP_ID` and
+`NEXT_PUBLIC_JAZZ_SERVER_URL` (in `dev_claude`).
 
 Things you might trip over:
 
