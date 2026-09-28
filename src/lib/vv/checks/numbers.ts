@@ -7,13 +7,7 @@ export const bareint  = int.describe('integer')
 export const safeint  = int.min(PA.Safeint.min).max(PA.Safeint.max).describe('safe integer')
 /** A number JavaScript can still count on */
 export const safenum  = num.min(PA.Safeint.min).max(PA.Safeint.max).describe('safe number')
-/**
- * A real number.
- *
- * The relic spelled this `num.finite()`; zod 4 rejects `Infinity` and `NaN` from `ZZ.number()`
- * already, and `.finite()` is a deprecated no-op. Kept as a name because "float" says what the
- * field holds in a way that "number" does not.
- */
+/** A real number: `num` already refuses `Infinity` and `NaN`. Named for what the field holds. */
 export const float    = num.describe('decimal')
 
 export const uint32   = bareint.min(PA.Uint32.min).max(PA.Uint32.max).describe('uint32')

@@ -8,7 +8,7 @@ import type { ReviewedT } from '../../lib/rows'
 import styles from '../workbench.module.css'
 
 export type ReviewsPanelProps = {
-  /** Every ident's review of the open quiz; filtered to the shared ones here, client-side, until PR 6 */
+  /** Every ident's review of the open quiz; only the shared ones are shown */
   reviews: readonly ReviewedT[]
 }
 

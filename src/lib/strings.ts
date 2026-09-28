@@ -227,7 +227,7 @@ export function snipjoin(clxn: readonly unknown[] | TY.AnyBag, opts: ToSentenceO
   })
 }
 
-/** {@link snipjoin} under its older name; the two are the same call */
+/** The same call as {@link snipjoin} */
 export const briefSentence = snipjoin
 
 export type ShortenOpts = {
