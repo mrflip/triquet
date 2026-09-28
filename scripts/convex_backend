@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Runs a local Convex backend of one role's own, in the foreground, so a person's dev server, an
+# agent's and the e2e suite can each have a database at once on one machine. (Convex's own local
+# deployments are one per checkout: a second, named by its own env file, reuses the first one's
+# data and port.)
+#
+# Each role has fixed ports, 34xx for the backend and 35xx for its HTTP actions, with xx the
+# role's web port's own (dev 3000, agent 3001, e2e 3002, e2e-agent 3003), and a directory of its
+# own, data/convex-<role>/, holding the database, its file storage, the instance secret minted
+# on the first start, and cli.env: the URL and admin key the Convex CLI needs to push to it.
+#
+#   ./node_modules/.bin/convex dev --once --typecheck disable --env-file data/convex-agent/cli.env
+#
+# The admin key holds a "|", so pass cli.env with --env-file; never source it in a shell.
+#
+# The backend binary is Convex's own, at the version pinned below, kept where the Convex CLI
+# keeps it (~/.cache/convex/binaries/<version>/) and downloaded from Convex's GitHub releases
+# when missing. Needs curl and unzip for that. Refuses to start while something is listening on
+# the role's backend port. Stop it with Ctrl-C or SIGTERM; the data stays. To start a role
+# empty, stop its backend and move its data directory away.
+#
+# Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent>
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+backend_version="precompiled-2026-09-21-0cf49cb"
+
+role="${1:-}"
+case "$role" in
+  dev)       xx=00 ;;
+  agent)     xx=01 ;;
+  e2e)       xx=02 ;;
+  e2e-agent) xx=03 ;;
+  *)
+    echo "Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent>" >&2
+    exit 1
+    ;;
+esac
+port="34${xx}"
+site_port="35${xx}"
+datadir="data/convex-${role}"
+instance_name="triquet-${role}"
+
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64)                 artifact="convex-local-backend-aarch64-apple-darwin.zip" ;;
+  Darwin-x86_64)                artifact="convex-local-backend-x86_64-apple-darwin.zip" ;;
+  Linux-aarch64 | Linux-arm64)  artifact="convex-local-backend-aarch64-unknown-linux-gnu.zip" ;;
+  Linux-x86_64)                 artifact="convex-local-backend-x86_64-unknown-linux-gnu.zip" ;;
+  *)
+    echo "No Convex backend is published for $(uname -s) $(uname -m)." >&2
+    exit 1
+    ;;
+esac
+
+bindir="${XDG_CACHE_HOME:-$HOME/.cache}/convex/binaries/${backend_version}"
+binary="${bindir}/convex-local-backend"
+if [[ ! -x "$binary" ]]; then
+  echo "Downloading the Convex backend ${backend_version} to ${bindir}" >&2
+  scratch="$(mktemp -d "${TMPDIR:-/tmp}/triquet-convex-backend.XXXXXX")"
+  curl --fail --silent --show-error --location \
+    --output "${scratch}/${artifact}" \
+    "https://github.com/get-convex/convex-backend/releases/download/${backend_version}/${artifact}"
+  unzip -q "${scratch}/${artifact}" -d "$scratch"
+  mkdir -p "$bindir"
+  chmod +x "${scratch}/convex-local-backend"
+  mv "${scratch}/convex-local-backend" "$binary"
+  rm -rf "$scratch"
+fi
+
+if lsof -nP -iTCP:"$port" -sTCP:LISTEN -t > /dev/null 2>&1; then
+  echo "Something is already listening on ${port}, the ${role} backend's port: is it running already?" >&2
+  exit 1
+fi
+
+mkdir -p "$datadir"
+chmod 700 "$datadir"
+# The instance secret is minted once and lives with the data it guards: the backend needs the
+# same one every time it opens that database.
+secretfile="${datadir}/instance_secret"
+if [[ ! -s "$secretfile" ]]; then
+  (umask 077 && openssl rand -hex 32 > "$secretfile")
+fi
+instance_secret="$(cat "$secretfile")"
+
+admin_key="$("$binary" keygen admin-key --instance-name "$instance_name" --instance-secret "$instance_secret" | tail -n 1)"
+(umask 077 && printf 'CONVEX_SELF_HOSTED_URL=http://127.0.0.1:%s\nCONVEX_SELF_HOSTED_ADMIN_KEY=%s\n' "$port" "$admin_key" > "${datadir}/cli.env")
+
+echo "Convex backend for ${role}: http://127.0.0.1:${port} (HTTP actions on ${site_port}), data in ${datadir}" >&2
+exec "$binary" \
+  --port "$port" \
+  --site-proxy-port "$site_port" \
+  --interface 127.0.0.1 \
+  --instance-name "$instance_name" \
+  --instance-secret "$instance_secret" \
+  --local-storage "${datadir}/storage" \
+  --disable-beacon \
+  "${datadir}/backend.sqlite3"
