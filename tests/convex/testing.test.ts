@@ -18,7 +18,6 @@ async function countsIn(tt: Tester): Promise<Record<string, number>> {
 describe('testing.clearAll', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
-    vi.useRealTimers()
   })
 
   it('empties every table of a deployment that may be emptied', async () => {
@@ -38,16 +37,16 @@ describe('testing.clearAll', () => {
     expect(await countsIn(tt)).to.deep.eq(before)
   })
 
-  it('hands what one run cannot delete to the next', async () => {
+  it('deletes a batch of a table a run, leaving the rest for the next, and says none once empty', async () => {
     vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
-    vi.useFakeTimers()
     const tt = openTester()
     const labels = Array.from({ length: 501 }, (_unused, idx) => `ident_${String(idx)}`)
     await tt.run(async (ctx) => {
       for (const label of labels) { await ctx.db.insert('idents', { label, title: 'Someone' }) }
     })
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(500)
-    await tt.finishAllScheduledFunctions(vi.runAllTimers)
-    expect(await countsIn(tt)).to.deep.eq({})
+    expect(await countsIn(tt)).to.deep.eq({ idents: 1 })
+    expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(1)
+    expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(0)
   })
 })
