@@ -9,10 +9,9 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   Coach onto main as `20260927-convex_phase3`, not yet merged.
 * **Phase 2 (the browser switch, and Jazz out)**: built on `20260928-convex_client`, stacked on
   `20260927-convex_phase3`, not yet merged. **The app runs on Convex alone.** Lint, typecheck,
-  unit and convex suites green; e2e green in three shards (`pnpm test:e2e:agent --shard=n/3`),
-  but **not in one run**: the whole suite makes more hunts than the 99-hunt cap allows (see *For
-  the Coach*). `pnpm build:agent` green.
-* **Phase 3 (the cloud, previews and CI) is next**, once the Coach has answered the hunts cap.
+  unit and convex suites green; e2e green in one run, now the app holds 999 hunts. `pnpm
+  build:agent` green in a clean checkout.
+* **Phase 3 (the cloud, previews and CI) is next.**
 
 ## 2. Start here
 
@@ -20,11 +19,11 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
    starts the agents' backend (3401) unless it is running, pushes `convex/` (regenerating
    `convex/_generated/`), marks it clearable, keeps pushing as `convex/` changes, and runs the
    dev server with `NEXT_PUBLIC_CONVEX_URL` naming it. `scripts/convex_reset <role>` empties a
-   role's backend. Both unset `CONVEX_DEPLOY_KEY`: Doppler's agent configs now carry one.
+   role's backend. Both unset `CONVEX_DEPLOY_KEY`, so a cloud key in the environment never steers a
+   local role.
 2. The e2e suite brings up its own (`scripts/convex_dev e2e --reset next dev`, from
    `playwright.config.ts`), emptied as it starts. `pnpm test:e2e:agent` uses the `e2e-agent` role
-   (3003/3403). Until the hunts cap is settled, run it in shards (`--shard=1/3` and so on); CI's six
-   shards fit already.
+   (3003/3403).
 3. Phase 3's work is in the plan; `notes/deploy.md` and `README.md` still describe Jazz and are
    its to rewrite. `.github/workflows/ci.yml` already runs e2e against a local backend (with the
    binary cached) and has no `migrations` job; the `_generated` drift check is still to build.
@@ -54,8 +53,8 @@ Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
   Written into `CLAUDE.md`'s *Global resources*. Agents are moving into containers of their own;
   a container still runs a dev server and an e2e suite side by side, so the script stays.
 * **Caps**, in `src/lib/vv/patterns.ts` (*Collection sizes*): 999 questions and 999 reviews per
-  quiz; 99 widgets and 99 columns per quiz; 99 realms and 99 expressions per hunt; 99 hunts in the
-  app (plan, settled item 16); 99 quizzes per realm (proposed in phase 1, agreed). The tree
+  quiz; 99 widgets and 99 columns per quiz; 99 realms and 99 expressions per hunt; 999 hunts in the
+  app (99 in the plan, settled item 16; raised by the Coach in phase 2, so a whole e2e run fits); 99 quizzes per realm (proposed in phase 1, agreed). The tree
   validators apply those a tree holds. Every write that would pass a cap is refused.
 * **Every refusal says why** (Coach, phase 1), and the browser shows it: `use-hunt` puts
   `noticeOf(err)` in `saveNotice`, `use-account-actions` in `notice`. The rest of the entry: by Convex's standard channel for an expected
@@ -353,18 +352,6 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **The hunts cap and the e2e suite (phase 2, needs an answer).** The whole suite makes about 150
-  hunts in one run (a fresh hunt per spec), and the app refuses the 100th: 46 specs fail at
-  their `+ New hunt`. CI's six shards fit (about 26 each), so CI is unaffected; a local
-  `pnpm test:e2e` is not. Options:
-  - (a) raise `HuntsInApp` to 999: `hunts.list` then reads up to 999 hunts, each with its realms
-    and their quizzes, about 2000 index ranges at the extreme, under the 4096 per function;
-  - (b) let a clearable deployment (`TRIQUET_CLEARABLE=yes`) hold more hunts than production:
-    a few lines in `convex/`, and the only place a test setting changes what the app does;
-  - (c) keep the cap and have `pnpm test:e2e` run the suite in shards, emptying the backend
-    between them: no change to the app, a slower and odder test command.
-  My recommendation is (a): the cap's job is to bound reads, 999 still does, and the trial is far
-  from either number. Membership (hunts-and-idents PR 5) is what bounds `hunts.list` for real.
 * **Delete by hand** (the auto-mode classifier refused these to the agent): `public/jazz/` (the
   last build's copy of Jazz's runtime, untracked; eslint trips over it until it goes, and
   `.gitignore` no longer names it), the `jazz` skill (`.agents/skills/jazz/`, its
@@ -381,8 +368,6 @@ Worth a run on a quiet machine before merging.
   these any more, and they can go: `JAZZ_DEV_PORT`, `JAZZ_DEV_DATA_DIR`, `JAZZ_REAL_DB`,
   `JAZZ_ADMIN_SECRET`, `JAZZ_ADMIN_SNIPPET`, `NEXT_PUBLIC_JAZZ_SERVER_URL`,
   `NEXT_PUBLIC_JAZZ_APP_ID`, `NEXT_PUBLIC_JAZZ_RUNTIME_VERSION`, `NEXT_PUBLIC_JAZZ_LOG_LEVEL`.
-  The new `CONVEX_DEPLOY_KEY` in `dev_claude` and `dev_e2e` is set aside by the local-role
-  scripts; say which deployment it is for when phase 3 starts.
 * **Containers need no Convex key each.** A local backend needs no account; each role's admin
   key is minted from a secret made in its own data directory. Only phase 3's cloud deployments
   have keys (production for the Coach, preview for Vercel), and agents never hold the

@@ -199,13 +199,6 @@
       "skillPath": "skills/convex-verify/SKILL.md",
       "computedHash": "dbe65a37ca2e9a5afa55669b8928ce1dc3ac765151452008f9105bde049228f7"
     },
-    "jazz": {
-      "source": "garden-co/jazz",
-      "ref": "main",
-      "sourceType": "github",
-      "skillPath": "packages/create-jazz/skills/jazz/SKILL.md",
-      "computedHash": "6859b79109c213f4b53efb81d5b573daab65893a390e10f9e3b291b55e3c36c9"
-    },
     "material-ui-nextjs": {
       "source": "mui/material-ui",
       "sourceType": "github",

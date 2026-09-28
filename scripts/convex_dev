@@ -68,8 +68,8 @@ if ! answering; then
   fi
 fi
 
-# A local role talks only to its own backend: a cloud deployment the environment names (Doppler
-# gives the agents' configs a deploy key for the cloud) would otherwise win over it.
+# A local role talks only to its own backend: a cloud deployment the environment names (a deploy
+# key, say) would otherwise win over it.
 unset CONVEX_DEPLOY_KEY CONVEX_DEPLOYMENT
 
 # The CLI reads the backend's URL and admin key from these. cli.env is read line by line, never

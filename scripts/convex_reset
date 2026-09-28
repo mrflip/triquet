@@ -20,8 +20,8 @@ if [[ ! -s "$clienv" ]]; then
   exit 1
 fi
 
-# A local role talks only to its own backend: a cloud deployment the environment names (Doppler
-# gives the agents' configs a deploy key for the cloud) would otherwise win over it.
+# A local role talks only to its own backend: a cloud deployment the environment names (a deploy
+# key, say) would otherwise win over it.
 unset CONVEX_DEPLOY_KEY CONVEX_DEPLOYMENT
 while IFS='=' read -r envname val; do
   case "$envname" in
