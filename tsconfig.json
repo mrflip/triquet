@@ -17,7 +17,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "types": ["mdx"],
+    "types": [
+      "mdx"
+    ],
     "incremental": true,
     "plugins": [
       {
@@ -44,11 +46,14 @@
     ".next-agent-build/types/**/*.ts",
     ".next-agent-build/dev/types/**/*.ts",
     ".next-e2e/types/**/*.ts",
-    ".next-e2e/dev/types/**/*.ts"
+    ".next-e2e/dev/types/**/*.ts",
+    ".next-e2e-agent/types/**/*.ts",
+    ".next-e2e-agent/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "aside",
-    "relics"
+    "relics",
+    ".claude/worktrees"
   ]
 }

@@ -67,7 +67,7 @@
   overflow:       hidden;
 }
 
-/* The first cell of a row: its grip over its trash can, or in batch mode its checkbox */
+/* The first cell of a row: its grip, or in batch mode its checkbox over its trash can */
 .gutter {
   display:        flex;
   flex-direction: column;

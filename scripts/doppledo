@@ -17,5 +17,14 @@ if [[ ! "$stage_actor" =~ ^[a-z]+_[a-z0-9]+$ ]]; then
   echo "Invalid stage_actor: \"$stage_actor\" -- should be in the form <stage>_<actor>, eg prd_janitor or dev_e2e" >&2
   exit 1
 fi
+
+# A sandbox holds one service token per config, as DOPPLER_TOKEN_<STAGE_ACTOR>; use this config's
+# if there is one. Elsewhere, neither is set, and doppler falls back to the logged-in CLI.
+if [[ -z ${DOPPLER_TOKEN:-} ]]; then
+  token_var="DOPPLER_TOKEN_$(tr '[:lower:]' '[:upper:]' <<< "$stage_actor")"
+  if [[ -n ${!token_var:-} ]]; then
+    export DOPPLER_TOKEN="${!token_var}"
+  fi
+fi
 echo "Running as $stage_actor: $*" >&2
 exec doppler run --config "$stage_actor" -- "$@"

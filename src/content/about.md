@@ -1,0 +1,1 @@
+Triquet is a workbench for building trivia quizzes, including the ones with a meta puzzle: a second layer that comes into view as the first answers come in. It keeps the questions, helps you edit and refine them, and checks each one for fairness and difficulty.

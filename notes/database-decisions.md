@@ -186,3 +186,65 @@ Facts checked 2026-09-27, and liable to drift: Zero 1.0 ([InfoQ](https://www.inf
 Convex's free tier ([limits](https://docs.convex.dev/production/state/limits)), Supabase's free tier
 pausing after a week idle ([pricing](https://costbench.com/software/database-as-service/supabase/)),
 PowerSync's free tier ([pricing](https://powersync.com/pricing)).
+
+## Appendix: what Convex would bill us for
+
+Worked 2026-09-27 against the sample quiz (`notes/example-quiz.json`, untracked: 20 questions of
+about ten fields each, 21 columns, 11 widgets, 14 expressions), so that a later candidate can be
+sized the same way. Sources at the end of the appendix.
+
+**What a function call is.** "Explicit client calls, scheduled executions, subscription updates,
+and file accesses count as function calls." A query is one, a mutation is one, and each re-run of
+a subscribed query after a mutation touched its read set is one. Writes inside a mutation don't
+multiply anything: a mutation patching five fields across two tables is one call, up to the
+per-transaction cap of 16,000 documents.
+
+**Fan-out.** That same mutation, with six devices connected under our read-flat shape (one query
+per table), re-runs two queries on each device: one mutation plus twelve subscription updates.
+Read through one whole-quiz query it would be one plus six. The architecture write-up says the
+re-run happens per client session with a function-runner cache in front, so the second client's
+re-run is a cache hit; nothing official says whether a cache hit is billed. The numbers below
+count every re-run, which is the conservative reading.
+
+**Two people, a week of writes and rewrites, three clients' worth of listeners.** Field edits
+commit on blur (`use-draft`), so a field commit is one mutation, never one per keystroke. Asking
+the model lands one or two writes per question per textkind. Both people draft this quiz and a
+second, rewrite every text field several times, run the askers repeatedly and fiddle with layout:
+about 3,000 mutations a week, rounded up to 5,000. Three listeners and one and a half tables
+touched per mutation gives about five subscription updates per mutation; a page open is seven
+queries.
+
+| Per month, conservative | Estimate | Free tier | Share |
+|---|---|---|---|
+| Mutations | 22,000 | | |
+| Subscription re-runs | 110,000 | | |
+| Page-open queries | 13,000 | | |
+| Ask-route actions, if moved to Convex | 2,000 | | |
+| **Function calls** | **~150,000** | 1,000,000 | 15% |
+| Action compute for asks | ~2.5 GB-hours | 20 GB-hours | 12% |
+| Storage | under 1 MB | 0.5 GB | ~0% |
+| Database I/O, every re-run re-reads | ~1.4 GB | 1 GB | over |
+| Database I/O, cache shared across clients | ~0.5 GB | 1 GB | 50% |
+
+**The binding number is bandwidth, not calls.** Calls would have to grow seven-fold before the
+free tier noticed. Database I/O is `result size × re-runs`: each re-run of the questions query
+ships every question row, and a row carries its clueing, hint, notes and any ishes JSON, about
+20 KB per re-run for this quiz. Three listeners times twenty thousand mutations lands on the 1 GB
+line; a two-user chat app in the post linked below hit the same wall. Two design choices keep it
+under: query per open quiz rather than per account, and keep large blobs (ishes results, guesses)
+off the row that every field edit invalidates.
+
+**What crossing a line does.** Free is a hard cap: emails as a limit approaches, then the
+deployment is disabled for the rest of the calendar month and calls return errors until the
+first of the month. Starter has no monthly fee, needs a card, and meters the same overage at
+$2.20 per extra million calls or $0.22 per extra GB of I/O: a bad month is tens of cents. Limits
+are summed per team across all projects and deployments, so the agents' dev deployments, preview
+deployments and e2e runs draw on the same pool as production.
+
+Sources, read 2026-09-27: [pricing](https://www.convex.dev/pricing),
+[limits](https://docs.convex.dev/production/state/limits),
+[usage limits](https://docs.convex.dev/production/usage-limits),
+[pricing FAQ](https://www.convex.dev/pricing/faq),
+[How Convex Works](https://stack.convex.dev/how-convex-works),
+[query functions](https://docs.convex.dev/functions/query-functions), and a post-mortem,
+[Two users, tiny data](https://dev.to/dheerajakula/why-a-two-user-convex-chat-app-read-tens-of-mb-a-day-360k).

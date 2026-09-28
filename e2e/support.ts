@@ -76,6 +76,11 @@ export async function fillRows(page: Page, rows: Record<string, string>[]): Prom
   await page.getByLabel('Quiz name').click()
 }
 
+/** The head's `<link>` elements of one `rel`, such as the icons, which have no role to find them by */
+export function headLinks(page: Page, rel: string): Locator {
+  return page.locator(`head link[rel="${rel}"]`)
+}
+
 /** The gear's dialog, where a quiz's label, version, columns and widgets live */
 export function manageDialog(page: Page): Locator {
   return page.getByRole('dialog', { name: 'Manage this quiz' })

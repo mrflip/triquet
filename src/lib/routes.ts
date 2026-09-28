@@ -36,6 +36,11 @@ export function huntsPath(): string {
   return '/my/hunts'
 }
 
+/** What Triquet is, with its brand assets to download */
+export function aboutPath(): string {
+  return '/about'
+}
+
 /**
  * Where the quiz `labels` names lives, presented as `act`; without one, the page picks.
  *

@@ -95,10 +95,10 @@ test('a locked quiz refuses the arrow keys as it refuses a drag', async ({ page 
   await expect.poll(() => answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
 })
 
-test('the grips go once the quiz is out of Q# order, and the trash cans stay', async ({ page }) => {
+test('the grips go once the quiz is out of Q# order, and batch mode stays on offer', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Title' }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeHidden()
-  await expect(page.getByRole('button', { name: /^Delete/ }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Batch select' })).toBeEnabled()
   await expect(page.locator('tbody tr').first().locator('td')).toHaveCount(22)
 })

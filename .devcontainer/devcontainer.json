@@ -1,0 +1,15 @@
+{
+  "name": "claude-sandbox",
+  "build": { "dockerfile": "Dockerfile", "args": { "REPO": "${localWorkspaceFolderBasename}" } },
+  "remoteUser": "node",
+  "workspaceFolder": "/workspace/${localWorkspaceFolderBasename}",
+  "workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspace,type=bind",
+  "mounts": [
+    "source=tq-${devcontainerId}-claude,target=/home/node/.claude,type=volume",
+    "source=tq-${devcontainerId}-node_modules,target=/workspace/${localWorkspaceFolderBasename}/node_modules,type=volume"
+  ],
+  "containerEnv": { "CLAUDE_CONFIG_DIR": "/home/node/.claude" },
+  "runArgs": ["--env-file", "${localWorkspaceFolder}/.devcontainer/.env"],
+  "customizations": { "vscode": { "extensions": ["anthropic.claude-code"] } },
+  "postCreateCommand": "pnpm install"
+}
