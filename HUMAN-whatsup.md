@@ -2,6 +2,30 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-28: The order on the quiz, a query per question, and actions that read less
+
+On your word: a quiz holds its questions' order (`quizzes.row_ordering`, by `_id`: a label would
+make a relabel rewrite the quiz, and cost a lookup per row), questions lost `position`, and each
+question is a query of its own (`questions.open`) beside the quiz's frame (`quizzes.open`). Every
+action reads only what it needs. Green: lint, typecheck, 1914 unit and convex tests, 164 e2e.
+
+What it bought, measured as before (the 24-question hunt, a second browser watching):
+
+* **A text edit costs about 3 KiB of database I/O, down from 46**, and each browser downloads
+  about 5 KiB per edit instead of 15.
+* **A move costs what it did** (about 45 KiB): it reads every question for their Q#s.
+* **Function calls went up**, from 3.7 to 10.1 per edit, mostly cache hits; nowhere near binding.
+* **Adding a question, and a fresh tab, take one more round trip**: the quiz names the question,
+  then its query is asked for (add: 115 ms locally, 261 ms at an 80 ms network).
+
+Two things for you:
+
+* **The "never a query per row" guidance** is left as it stands and not followed, as you asked;
+  the progress document lists every line that now disagrees with the code.
+* **One choice on the order**: on the quiz row, a move, add or sort reruns `hunts.open` (about
+  10 KiB, nothing resent, since Convex sends nothing when a result is unchanged). Its own
+  one-row-per-quiz table would spare that. I left it where you asked.
+
 ## 2026-09-28: Convex phase 4, the verdict: keep Convex
 
 Branch `20260928-convex_phase4b`, stacked on `20260928-convex_phase4` (whose phase 3a was done,
