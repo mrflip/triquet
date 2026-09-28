@@ -159,6 +159,10 @@ describe('huntListingOf', () => {
     const listing = huntListingOf(Rows)
     expect([listing.title, listing.realms.map((realm) => [realm.title, realm.quizzes.map((quiz) => quiz.title)])]).to.deep.eq(['Quiet Otter', [['Home', ['Princes']]]])
   })
+
+  it('leaves out each quiz\'s order of its questions, which only the quiz\'s own screen reads', () => {
+    expect(huntListingOf(Rows).realms[0]?.quizzes[0]).to.not.have.any.keys('row_ordering')
+  })
 })
 
 describe('shallowHuntOf', () => {
