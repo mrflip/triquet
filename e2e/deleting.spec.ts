@@ -23,8 +23,17 @@ test.beforeEach(async ({ page }) => {
   await titleQuiz(page, ['apple', 'banana', 'cherry'])
 })
 
+test('a trash can shows only in batch mode, where the grips give way to it', async ({ page }) => {
+  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
+  await page.getByRole('button', { name: 'Batch select' }).click()
+  await expect(page.getByRole('button', { name: 'Delete banana', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
+})
+
 test('a trash can deletes its question once the author confirms, and the deletion survives a reload', async ({ page }) => {
   const before = await questionCount(page)
+  await page.getByRole('button', { name: 'Batch select' }).click()
   await page.getByRole('button', { name: 'Delete banana', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Delete this question?' })
   await expect(dialog).toContainText('banana')
@@ -38,6 +47,7 @@ test('a trash can deletes its question once the author confirms, and the deletio
 })
 
 test('keeping it deletes nothing, and so does Enter, which lands on keeping it', async ({ page }) => {
+  await page.getByRole('button', { name: 'Batch select' }).click()
   await page.getByRole('button', { name: 'Delete banana', exact: true }).click()
   await page.getByRole('button', { name: 'Keep it' }).click()
   await page.getByRole('button', { name: 'Delete banana', exact: true }).click()
@@ -48,10 +58,9 @@ test('keeping it deletes nothing, and so does Enter, which lands on keeping it',
   await expect.poll(() => titlesShown(page, 3)).toEqual(['apple', 'banana', 'cherry'])
 })
 
-test('batch mode swaps each grip and trash can for a checkbox, and deletes the checked questions once confirmed', async ({ page }) => {
+test('batch mode swaps each grip for a checkbox, and deletes the checked questions once confirmed', async ({ page }) => {
   await page.getByRole('button', { name: 'Select questions' }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
-  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Delete checked (0)' })).toBeDisabled()
 
   await page.getByRole('checkbox', { name: 'Select apple' }).check()
@@ -66,6 +75,7 @@ test('batch mode swaps each grip and trash can for a checkbox, and deletes the c
   // The job done, the grid leaves batch mode.
   await expect(page.getByRole('button', { name: 'Select questions' })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
+  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
 })
 
 test('the header checkbox checks every question, or none', async ({ page }) => {
@@ -88,6 +98,7 @@ test('leaving batch mode forgets what was checked', async ({ page }) => {
 
 test('a locked quiz offers neither the trash cans nor batch mode', async ({ page }) => {
   await page.getByRole('button', { name: 'Lock quiz' }).click()
-  await expect(page.getByRole('button', { name: 'Delete banana', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Batch select' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Select questions' })).toBeDisabled()
+  await expect(page.locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
 })

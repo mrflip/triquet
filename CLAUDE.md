@@ -29,8 +29,6 @@ without a Coach. See `notes/decisions/2026-09-client-first.md`.
 Project instructions, loaded at the start of every session. Keep this file short and true:
 everything here costs context on every task, whether or not the task needs it.
 
-You should be operating out of a sandbox whose container sets `$TQ_IS_SANDBOXED` to "true".
-
 ## Working Relationship
 
 This project follows an Agent-Coach approach. Experienced human architects are the Coaches, with

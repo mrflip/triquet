@@ -169,6 +169,7 @@ test('a deletion is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Title' }).first().fill('hamlet')
   await page.getByLabel('Quiz name').click()
 
+  await page.getByRole('button', { name: 'Batch select' }).click()
   await page.getByRole('button', { name: 'Delete hamlet', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 

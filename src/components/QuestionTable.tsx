@@ -1,6 +1,7 @@
 'use client'
 
-import { Checkbox } from '@mui/material'
+import { Checkbox, IconButton, Tooltip } from '@mui/material'
+import ChecklistIcon from '@mui/icons-material/Checklist'
 import clsx from 'clsx'
 import { GutterWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { QuestionRow } from './QuestionRow'
@@ -25,8 +26,10 @@ export type QuestionTableProps = {
   locked:       boolean
   /** Grips are offered only while the quiz is in Q# order */
   gripShown:    boolean
-  /** Batch mode: each row shows a checkbox in place of its grip and trash can */
+  /** Batch mode: each row shows a checkbox and trash can in place of its grip */
   batching:     boolean
+  /** Enter batch mode, from the grid's top-left corner */
+  onBatch:      () => void
   isChecked:    (question_id: string) => boolean
   onCheck:      (question_id: string, on: boolean) => void
   /** Check every question, or none */
@@ -49,7 +52,7 @@ export type QuestionTableProps = {
 }
 
 /** The grid: one row per question, scrolling sideways inside its own container */
-export function QuestionTable({ questions, specs, expressed, locked, gripShown, batching, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, expressed, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const checkedCount = questions.filter((question) => isChecked(question.id)).length
 
@@ -59,7 +62,7 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
         <thead>
           <tr>
             <th scope="col" className={styles.head} style={{ width: `${String(GutterWidthPx)}px` }}>
-              {batching && (
+              {batching ? (
                 <Checkbox
                   size="small" sx={{ p: 0.25 }}
                   checked={checkedCount > 0 && checkedCount === questions.length}
@@ -67,6 +70,15 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
                   slotProps={{ input: { 'aria-label': 'Select all questions' } }}
                   onChange={(event) => { onCheckAll(event.target.checked) }}
                 />
+              ) : (
+                // The span lets the tooltip hear the pointer while the button is disabled.
+                <Tooltip title="Select questions to delete">
+                  <span>
+                    <IconButton size="small" sx={{ p: 0.25 }} disabled={locked} aria-label="Batch select" onClick={onBatch}>
+                      <ChecklistIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               )}
             </th>
             {specs.map((column) => {
