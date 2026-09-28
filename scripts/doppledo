@@ -3,7 +3,7 @@ set -euo pipefail
 # Runs a command under a Doppler config, first printing (to stderr) the config and the command.
 # Usage: ./scripts/doppledo <${stage}_${actor}> <command> [arguments...]
 
-usage='Usage: ./scripts/doppledo <${stage}_${actor}> <command> [arguments...], eg ./scripts/doppledo prd_janitor ./scripts/jazz_healthcheck'
+usage='Usage: ./scripts/doppledo <${stage}_${actor}> <command> [arguments...], eg ./scripts/doppledo prd_janitor ./scripts/convex_healthcheck --cloud'
 
 # exit unless there is a doppler config and a command to run
 if [[ $# -lt 2 ]]; then
