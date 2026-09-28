@@ -154,6 +154,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
         locked={quiz.locked}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
         batching={batching}
+        onBatch={(on) => { if (on) { checklist.begin() } else { checklist.end() } }}
         isChecked={checklist.isChecked}
         onCheck={checklist.toggle}
         onCheckAll={checklist.checkAll}

@@ -9,12 +9,13 @@ import { SyncFailed, SyncOpening, SyncSignedOut, SyncUnconfigured } from '../com
 import { SyncLog, announceSync } from '../components/SyncLog'
 import { theme } from './theme'
 
+/** MUI's styling and theme, which everything on the page draws in, the header included */
 export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <SyncProvider>{children}</SyncProvider>
+        {children}
       </ThemeProvider>
     </AppRouterCacheProvider>
   )
@@ -25,7 +26,7 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
  * visit and kept in this browser, with no login. Each view it can show logs the session's
  * state as it changes.
  */
-function SyncProvider({ children }: Readonly<{ children: ReactNode }>) {
+export function SyncProvider({ children }: Readonly<{ children: ReactNode }>) {
   const settings = useMemo(() => syncSettings(), [])
   useEffect(() => {
     if (settings) { announceSync(settings) }

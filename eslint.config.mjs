@@ -28,6 +28,8 @@ export default defineConfig([
     'next-env.d.ts',
     // Jazz's runtime, copied out of its package at build (src/db/publish-runtime-assets.ts).
     'public/jazz/**',
+    // Agents' worktrees: another checkout's code, linted there if anywhere.
+    '.claude/worktrees/**',
     '**/*.generated.*',
     // Convex's generated types and function references: committed, never hand-edited.
     'convex/_generated/**',

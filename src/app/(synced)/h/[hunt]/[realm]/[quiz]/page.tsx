@@ -2,8 +2,8 @@
 
 import { Suspense, useMemo } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { QuizRoute } from '../../../../../components/QuizRoute'
-import * as Routes from '../../../../../lib/routes'
+import { QuizRoute } from '../../../../../../components/QuizRoute'
+import * as Routes from '../../../../../../lib/routes'
 
 /** One quiz, named by hunt, realm and quiz, presented as `?act=` asks */
 export default function QuizPage() {

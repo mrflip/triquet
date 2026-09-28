@@ -1,3 +1,5 @@
+You should be operating out of a sandbox whose container sets `$TQ_IS_SANDBOXED` to "true".
+
 We're evaluating Jazz as the database, and it's not going terribly but it's definitely not going well. I want to do a quick review of what I'd miss out on if we went with a more ~~(sane)~~ conventional architecture.
 
 Here's a list of what I am still hoping for; treat them as desiderata, not hard requirements. No one of them should drive the decision.

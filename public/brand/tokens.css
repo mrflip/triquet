@@ -1,0 +1,8 @@
+:root {
+  --triquet-bonjour: #E3DEE0;    /* light ground */
+  --triquet-bermuda: #7488A1;    /* light accent */
+  --triquet-smoky: #433363;      /* main brand */
+  --triquet-martinique: #16111B; /* dark ground */
+  --triquet-comet: #5F6283;      /* dark accent */
+  --triquet-verdigris: #2F8480;  /* bell / highlight accent, both modes */
+}

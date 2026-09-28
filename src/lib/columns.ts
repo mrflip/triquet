@@ -28,7 +28,7 @@ export type ColumnSpec = {
   sortkey?: Sortkey
 }
 
-/** The gutter holding a row's grip and trash can, or its checkbox, belongs to the grid rather than to the quiz, and is always first */
+/** The gutter holding a row's grip, or its checkbox and trash can, belongs to the grid rather than to the quiz, and is always first */
 export const GutterWidthPx = 40
 
 /**

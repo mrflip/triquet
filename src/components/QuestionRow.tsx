@@ -36,7 +36,7 @@ export type QuestionRowProps = {
   questions:   QuestionT[]
   locked:      boolean
   gripShown:   boolean
-  /** Whether this question is checked, in batch mode; null outside it, where its grip and trash can show instead */
+  /** Whether this question is checked, in batch mode, where its trash can shows too; null outside it, where its grip shows instead */
   checked:     boolean | null
   onCheck:     (on: boolean) => void
   /** Asks to delete this question; the asking-first is the caller's */
@@ -63,8 +63,8 @@ export type QuestionRowProps = {
 }
 
 /**
- * One question, across every column, after a gutter holding its grip and trash can -- or, in
- * batch mode, its checkbox.
+ * One question, across every column, after a gutter holding its grip -- or, in batch mode, its
+ * checkbox and trash can.
  *
  * The Clueing and Hint boxes grow with their own content and the taller of the two sets the
  * height for both, capped; the notes columns are stretched to that same height but never get a
@@ -193,30 +193,28 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       <td className={styles.cell} style={{ width: `${String(GutterWidthPx)}px` }}>
         <div className={styles.gutter}>
           {batching ? (
-            <Checkbox
-              size="small" sx={{ p: 0.25 }} checked={checked}
-              slotProps={{ input: { 'aria-label': `Select ${questionName}` } }}
-              onChange={(event) => { onCheck(event.target.checked) }}
-            />
-          ) : (
             <>
-              {gripShown && (
-                <div
-                  ref={handleRef}
-                  className={clsx(styles.grip, locked && styles.gripLocked)}
-                  role="button"
-                  tabIndex={grippable ? 0 : -1}
-                  aria-label={`Reorder ${questionName}`}
-                  onKeyDown={onHandleKeyDown}
-                  onBlur={onHandleBlur}
-                >
-                  ⠿
-                </div>
-              )}
-              <IconButton size="small" sx={{ p: 0.25 }} disabled={locked} aria-label={`Delete ${questionName}`} onClick={onDelete}>
+              <Checkbox
+                size="small" sx={{ p: 0.25 }} checked={checked}
+                slotProps={{ input: { 'aria-label': `Select ${questionName}` } }}
+                onChange={(event) => { onCheck(event.target.checked) }}
+              />
+              <IconButton size="small" sx={{ p: 0.25 }} aria-label={`Delete ${questionName}`} onClick={onDelete}>
                 <DeleteOutlinedIcon fontSize="small" />
               </IconButton>
             </>
+          ) : gripShown && (
+            <div
+              ref={handleRef}
+              className={clsx(styles.grip, locked && styles.gripLocked)}
+              role="button"
+              tabIndex={grippable ? 0 : -1}
+              aria-label={`Reorder ${questionName}`}
+              onKeyDown={onHandleKeyDown}
+              onBlur={onHandleBlur}
+            >
+              ⠿
+            </div>
           )}
         </div>
       </td>
