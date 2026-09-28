@@ -14,6 +14,12 @@ describe('Realm.fill', () => {
     expect(Realm.fill({ _id: mintId(), label: 'away', title: 'Far Away', quizzes: [Quiz.blank()] }).title).to.eq('Far Away')
   })
 
+  it('holds 99 quizzes, and refuses a hundredth', () => {
+    const quizzes = Array.from({ length: 100 }, () => Quiz.blank())
+    expect(Realm.fill({ _id: mintId(), quizzes: quizzes.slice(0, 99) }).quizzes).to.have.lengthOf(99)
+    expect(() => Realm.fill({ _id: mintId(), quizzes })).to.throw(Z.ZodError)
+  })
+
   it('refuses a realm holding no quiz', () => {
     expect(() => Realm.fill({ _id: mintId(), quizzes: [] })).to.throw(Z.ZodError)
   })
