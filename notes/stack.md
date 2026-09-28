@@ -177,7 +177,7 @@ Settled; reach for these before writing the equivalent.
   or permissions are the behaviour under test. Outgoing, with Jazz.
 * **convex-test** (with **@edge-runtime/vm**) for Convex functions: Vitest's `convex` project
   runs `tests/convex/**` under the edge runtime, everything else under node.
-* **Playwright** for end-to-end, kept to a thin layer: the handful of flows where a break is
+* **Playwright** for end-to-end, especially the handful of flows where a break is
   invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
   Its web-first assertions are the e2e style; see `notes/testing.md`.
 * **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of testing.md's Playwright

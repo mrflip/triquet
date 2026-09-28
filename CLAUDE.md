@@ -188,3 +188,17 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
   strongly preferred.
 * Parenthesize and space every negation: `if (! approved) { ... }`
 * Style with MUI (`sx`, the theme, and its components) first. `workbench.module.css` is for layout MUI cannot express; new rules there need a reason.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
