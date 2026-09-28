@@ -20,12 +20,12 @@ describe('Ident.labelFor', () => {
 
 describe('Ident.fill', () => {
   it('titles an ident after its label when it is given no title', () => {
-    expect(Ident.fill('flip_kromer', '')).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer' })
-    expect(Ident.fill('flip_kromer', ' '.repeat(3))).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer' })
+    expect(Ident.fill({ label: 'flip_kromer', title: '' })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer' })
+    expect(Ident.fill({ label: 'flip_kromer', title: ' '.repeat(3) })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer' })
   })
 
   it('keeps a title it is given, trimmed', () => {
-    expect(Ident.fill('flip_kromer', ' Flip ')).to.deep.eq({ label: 'flip_kromer', title: 'Flip' })
+    expect(Ident.fill({ label: 'flip_kromer', title: ' Flip ' })).to.deep.eq({ label: 'flip_kromer', title: 'Flip' })
   })
 
   const Refused = [
@@ -35,7 +35,7 @@ describe('Ident.fill', () => {
   ] as const
   for (const [label, describes] of Refused) {
     it(`refuses ${describes}`, () => {
-      expect(() => Ident.fill(label, 'Flip')).to.throw(Z.ZodError)
+      expect(() => Ident.fill({ label, title: 'Flip' })).to.throw(Z.ZodError)
     })
   }
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import _ from 'es-toolkit/compat'
 
 /** How long the window must hold still before heights are re-measured */
 export const ResizeSettleMs = 160
@@ -19,15 +20,11 @@ export function useSettledResize(): number {
   const [token, setToken] = useState(0)
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const onResize = () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => { setToken((was) => was + 1) }, ResizeSettleMs)
-    }
-    addEventListener('resize', onResize)
+    const settled = _.debounce(() => { setToken((was) => was + 1) }, ResizeSettleMs)
+    addEventListener('resize', settled)
     return () => {
-      clearTimeout(timer)
-      removeEventListener('resize', onResize)
+      settled.cancel()
+      removeEventListener('resize', settled)
     }
   }, [])
 

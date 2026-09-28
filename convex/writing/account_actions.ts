@@ -26,7 +26,7 @@ import { insertHunt, type Writer } from './quiz_writing'
  */
 export async function assumeIdent(db: Writer, browser_key: string, label: string, title: string): Promise<Id<'idents'>> {
   const found = await identForLabel(db, label)
-  const ident_id = found ? found._id : await db.insert('idents', Ident.fill(label, title))
+  const ident_id = found ? found._id : await db.insert('idents', Ident.fill({ label, title }))
   await db.insert('identings', IdentingValidators.row({ browser_key, ident_id }))
   return ident_id
 }
