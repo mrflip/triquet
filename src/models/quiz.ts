@@ -50,10 +50,10 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
-    widgets:         arr(WidgetValidators.widget).default([])
-      .describe('What this quiz can show for every question besides the questions\' own fields: the bots put to it, and the expressions put to work. Their order is the order they are listed in.'),
-    columns:         arr(ColumnValidators.column).default([])
-      .describe('The columns of this quiz\'s grid, in the order they appear. Kept apart from the widgets: a column says what to show and how wide, and a widget is what has a value.'),
+    widgets:         arr(WidgetValidators.widget).max(PA.WidgetsPerQuiz.max).default([])
+      .describe('What this quiz can show for every question besides the questions\' own fields: the bots put to it, and the expressions put to work. Their order is the order they are listed in. At most 99.'),
+    columns:         arr(ColumnValidators.column).max(PA.ColumnsPerQuiz.max).default([])
+      .describe('The columns of this quiz\'s grid, in the order they appear. Kept apart from the widgets: a column says what to show and how wide, and a widget is what has a value. At most 99.'),
     locked:          bool.default(false)
       .describe('When true this quiz accepts no edits at all -- a finished draft sent out for playtesting, kept readable and copyable but frozen against accidental change.'),
     last_sortkey:    sortkey.nullable().default(null),

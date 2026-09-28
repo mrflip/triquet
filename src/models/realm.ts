@@ -1,6 +1,7 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
+import * as PA from '../lib/vv/patterns'
 import { QuizValidators, type QuizT } from './quiz'
 
 /** The realm every hunt starts with, and for now the only one it has */
@@ -16,8 +17,8 @@ export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, row
     _id:     treeid,
     label:   realmLabel.default(HomeRealmLabel),
     title:   title.default(''),
-    quizzes: arr(QuizValidators.quiz).min(1)
-      .describe('The realm\'s quizzes, in the order they were made. Never empty: deleting its last quiz is refused rather than leaving an address that leads nowhere.'),
+    quizzes: arr(QuizValidators.quiz).min(PA.QuizzesPerRealm.min).max(PA.QuizzesPerRealm.max)
+      .describe('The realm\'s quizzes, in the order they were made, at most 99. Never empty: deleting its last quiz is refused rather than leaving an address that leads nowhere.'),
   })
     .describe('A division of a hunt, holding quizzes. Its quizzes\' labels are unique within it, so a quiz is addressed by hunt, realm and quiz.')
 

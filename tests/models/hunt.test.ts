@@ -35,6 +35,14 @@ describe('Hunt.fill', () => {
     expect(() => Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms })).to.throw(Z.ZodError)
   })
 
+  it('holds 99 expressions, and refuses a hundredth', () => {
+    const expressions = Array.from({ length: 100 }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
+    const most = homeHolding([Quiz.blank()], { expressions: expressions.slice(0, 99) })
+    const tooMany = homeHolding([Quiz.blank()], { expressions })
+    expect(Hunt.fill(most).expressions).to.have.lengthOf(99)
+    expect(() => Hunt.fill(tooMany)).to.throw(Z.ZodError)
+  })
+
   const Refused: [object, string][] = [
     [homeHolding([]),                                                                                              'a realm holding no quiz'],
     [{ _id: mintId(), label: 'quiet_otter', realms: [] },                                                         'a hunt holding no realm'],

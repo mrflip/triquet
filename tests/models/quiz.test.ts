@@ -55,6 +55,18 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ _id: quizId, questions })).to.throw(Z.ZodError)
   })
 
+  it('holds 99 widgets, and refuses a hundredth', () => {
+    const widgets = Array.from({ length: 100 }, (_unused, idx) => ({ kind: 'expressing' as const, label: `widget_${String(idx)}`, expression_label: 'letter_count' }))
+    expect(Quiz.fill({ _id: quizId, widgets: widgets.slice(0, 99) }).widgets).to.have.lengthOf(99)
+    expect(() => Quiz.fill({ _id: quizId, widgets })).to.throw(Z.ZodError)
+  })
+
+  it('holds 99 columns, and refuses a hundredth', () => {
+    const columns = Array.from({ length: 100 }, (_unused, idx) => ({ label: `column_${String(idx)}`, title: 'Title', source: 'question.title', width_px: 80 }))
+    expect(Quiz.fill({ _id: quizId, columns: columns.slice(0, 99) }).columns).to.have.lengthOf(99)
+    expect(() => Quiz.fill({ _id: quizId, columns })).to.throw(Z.ZodError)
+  })
+
   it('names the offending field when a chain dangles', () => {
     const question = Question.blank()
     const outcome = QuizValidators.quiz.safeParse({ _id: quizId, questions: [{ ...question, chains_to: mintId() }] })

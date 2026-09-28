@@ -106,11 +106,21 @@ export const Ubux     = { min: -1e12, max: 1e12 } as const
 // one more is refused.
 
 /** Questions in one quiz */
-export const QuestionsPerQuiz = { min: 0, max: 999 } as const
+export const QuestionsPerQuiz   = { min: 0, max: 999 } as const
+/** Widgets in one quiz */
+export const WidgetsPerQuiz     = { min: 0, max: 99 } as const
+/** Columns in one quiz */
+export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
+/** Reviews of one quiz, one per ident that opened one */
+export const ReviewsPerQuiz     = { min: 0, max: 999 } as const
+/** Quizzes in one realm; a realm is never without one */
+export const QuizzesPerRealm    = { min: 1, max: 99 } as const
 /** Realms in one hunt; every hunt has at least its home realm */
-export const RealmsPerHunt    = { min: 1, max: 99 } as const
+export const RealmsPerHunt      = { min: 1, max: 99 } as const
+/** Expressions in one hunt */
+export const ExpressionsPerHunt = { min: 0, max: 99 } as const
 /** Hunts in the whole app */
-export const HuntsInApp       = { min: 0, max: 99 } as const
+export const HuntsInApp         = { min: 0, max: 99 } as const
 
 //
 // == [Contact shapes] ==

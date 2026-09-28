@@ -178,6 +178,7 @@ document's *Decisions taken*.
 15. **This plan ends with the app working as it does today, on Convex.** Phases 0 to 4. Identity
     (Convex Auth or a hub) and the resumption of hunts-and-idents at PR 4 get a plan of their
     own once phase 4's verdict is in; *Identity, later* below is the brief for it, not a phase.
+16. Put caps in place for oother things: 99 each for widgets, columns and expressions, and 999 for reviews
 
 ## For the Coach
 
