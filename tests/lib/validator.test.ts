@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Validator, callable, plain } from '../../src/lib/validator'
+import { zodOutputToConvex } from 'convex-helpers/server/zod4'
+import { Validator, ValidatorKit, callable, plain } from '../../src/lib/validator'
 
 const LightbulbTechVals = ['led', 'incandescent', 'fluorescent'] as const
 
@@ -77,5 +78,24 @@ describe('plain', () => {
     const once = plain(outer.both)
     expect(plain(once)).to.eq(once)
     expect(typeof once).to.eq('object')
+  })
+})
+
+describe('ValidatorKit.zid', () => {
+  const pointer = ValidatorKit.zid('quizzes').describe('The quiz.')
+
+  it('takes a Convex document id, or a UUID', () => {
+    expect(pointer.parse('j97d0qbj35dar1v8edndzckvsx8f828f')).to.eq('j97d0qbj35dar1v8edndzckvsx8f828f')
+    expect(pointer.parse('3f0c9b1e-5d7a-4c2e-9f3b-8a1d6e2c4b70')).to.eq('3f0c9b1e-5d7a-4c2e-9f3b-8a1d6e2c4b70')
+  })
+
+  it('refuses what is not shaped like a row id', () => {
+    const refused = ['flip_kromer', '', 'J97D0QBJ35DAR1V8EDNDZCKVSX8F828F', 17]
+    expect(refused.map((val) => pointer.safeParse(val).success)).to.deep.eq([false, false, false, false])
+  })
+
+  it('is an id of its table to Convex, described or not', () => {
+    const converted = zodOutputToConvex(pointer)
+    expect([converted.kind, converted.tableName]).to.deep.eq(['id', 'quizzes'])
   })
 })

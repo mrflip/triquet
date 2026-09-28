@@ -12,13 +12,13 @@ import { TextkindVals, type Textkind } from '../lib/ask/contract'
 export const BottingStatusVals = ['done', 'error'] as const
 export type BottingStatus = typeof BottingStatusVals[number]
 
-export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, rowid }) => {
+export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, zid }) => {
   const items = arr(IshValidators.ishItem).max(IshesPerTextMax)
     .describe('A numnum reply: every number-like span it found, in the order they appear in the text asked. Empty for any other botting.')
   const { response } = AskValidators.lastErr.shape
 
   const row = obj({
-    question_id:        rowid
+    question_id:        zid('questions')
       .describe('The question whose text was put to the bot.'),
     bot_label:       oneof(BotLabelVals)
       .describe('Which bot was asked.'),
@@ -45,8 +45,11 @@ export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, no
   return { items, response, row }
 })
 
-/** One time a bot was put one of a question's texts, and what came back: its row, with its id and when it was asked */
-export type BottingT = Z.output<typeof BottingValidators.row> & { id: string, created_at: number }
+/**
+ * One time a bot was put one of a question's texts, and what came back: its row, with its id and
+ * when it was asked, in epoch milliseconds. It names its question by the question's id in the tree.
+ */
+export type BottingT = Omit<Z.output<typeof BottingValidators.row>, 'question_id'> & { question_id: string, id: string, created_at: number }
 
 /** One of a question's played cells: which bot, shown which of its texts, and the field it shows in */
 export type BotSlot = {
@@ -119,10 +122,10 @@ export function latestBySlot(bottings: readonly BottingT[]): Map<string, SlotLat
  * @returns The `guess`, `clueing_ishes` and `hint_ishes` fields for that question.
  */
 export function resultsFor(
-  question: Pick<QuestionT, 'id' | 'clueing' | 'hint'>,
+  question: Pick<QuestionT, '_id' | 'clueing' | 'hint'>,
   latest: ReadonlyMap<string, SlotLatest>,
 ): Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
-  const historyOf = (slot: BotSlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
+  const historyOf = (slot: BotSlot) => latest.get(slotkeyOf({ question_id: question._id, ...slot }))
   return {
     guess:         guessFrom(historyOf(BotSlots[0])),
     clueing_ishes: ishesFrom(historyOf(BotSlots[1]), question.clueing),
@@ -150,7 +153,7 @@ export function unrecordedBottings(
   return BotSlots.flatMap((slot) => {
     const result = question[slot.field]
     if (result === null) { return [] }
-    const recorded = recordedAt.get(slotkeyOf({ question_id: question.id, ...slot })) ?? 0
+    const recorded = recordedAt.get(slotkeyOf({ question_id: question._id, ...slot })) ?? 0
     const err = result.last_err
     return [
       ...(result.status === 'done' && result.updated_at > recorded ? [doneFrom(question, slot, result, mint())] : []),
@@ -163,7 +166,7 @@ export function unrecordedBottings(
 function blankBotting(question: QuestionT, slot: BotSlot, id: string, created_at: number): BottingT {
   return {
     id,
-    question_id:        question.id,
+    question_id:        question._id,
     bot_label:       slot.bot_label,
     textkind:           slot.textkind,
     asked_text:         question[slot.textkind].trim(),

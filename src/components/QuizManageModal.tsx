@@ -42,7 +42,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
   const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
-    const taken = realm.quizzes.some((other) => other.id !== quiz.id && Labelmaker.effectiveLabelOf(other) === cleaned)
+    const taken = realm.quizzes.some((other) => other._id !== quiz._id && Labelmaker.effectiveLabelOf(other) === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     const version = Labelmaker.normalize(versionDraft)
     if (version === '') { setIssue('Enter a version.'); return }
@@ -119,8 +119,8 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
             <Stack spacing={0.5} sx={{ maxHeight: '60vh', overflowY: 'auto', mt: 1 }}>
               {realm.quizzes.map((other) => (
                 <Button
-                  key={other.id}
-                  variant={other.id === quiz.id ? 'contained' : 'outlined'}
+                  key={other._id}
+                  variant={other._id === quiz._id ? 'contained' : 'outlined'}
                   size="small"
                   onClick={() => { onOpen(other); onClose() }}
                 >

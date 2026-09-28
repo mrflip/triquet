@@ -27,7 +27,7 @@ async function holding(testApp: PolicyTestApp, hunt: HuntT) {
   /** The first quiz, as its rows make it up */
   const quiz = async (): Promise<QuizT> => {
     const tree = present(await loadHunt(db, hunt_id))
-    return present(Hunt.quizzesOf(tree).find((each) => each.id === quiz_id))
+    return present(Hunt.quizzesOf(tree).find((each) => each._id === quiz_id))
   }
   return { db, hunt_id, realm_id, quiz_id, rows, quiz }
 }
@@ -169,13 +169,13 @@ describe('writing rows', () => {
       await transact(held.db, (tx) => writeQuiz(tx, held.realm_id, revised, before))
       const after = await held.rows()
       expect(after.questions.map((row) => [row.title, row.position])).to.deep.eq([['new', 0], ['AA', 1]])
-      expect(after.questions[1]?.id).to.eq(first.id)
-      expect(after.bottings.map((row) => row.question_id)).to.deep.eq([first.id])
+      expect(after.questions[1]?.id).to.eq(first._id)
+      expect(after.bottings.map((row) => row.question_id)).to.deep.eq([first._id])
     })
 
     it('writes a chain as the label of the question it names', async () => {
       const [first, second] = ['aa', 'bb'].map((label) => ({ ...Question.blank(), label }))
-      const quiz = { ...Quiz.blank(), questions: [{ ...present(first), chains_to: present(second).id }, present(second)] }
+      const quiz = { ...Quiz.blank(), questions: [{ ...present(first), chains_to: present(second)._id }, present(second)] }
       const { rows } = await holding(testApp, huntHolding([quiz]))
       const { questions } = await rows()
       expect(questions.map((row) => row.chains_to)).to.deep.eq(['bb', null])

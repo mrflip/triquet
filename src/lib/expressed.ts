@@ -68,7 +68,7 @@ const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
  * @param expressions - The hunt's expressions, which the quiz's expressings name.
  * @returns For each expressing's label, each question's result by id.
  *
- * @example forQuiz(quiz, expressions).get('clueing_full')?.get(question.id)
+ * @example forQuiz(quiz, expressions).get('clueing_full')?.get(question._id)
  */
 export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): ExpressedForQuiz {
   const formulaForLabel = new Map(expressions.map((expression) => [expression.label, expression.formula]))
@@ -86,7 +86,7 @@ export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): Expre
  * @param bag - The question's bag, from `bagsFor`; nothing is worked out without one.
  * @returns What a cell would show.
  *
- * @example previewOf('qn.title', bagsFor(quiz).get(question.id))
+ * @example previewOf('qn.title', bagsFor(quiz).get(question._id))
  */
 export function previewOf(formula: string, bag: QuizBag | undefined): Expressed {
   return bag ? reading(Formulas.evaluate(formula, bag)) : Nothing
@@ -123,15 +123,15 @@ export function sortValueOf(reading: Expressed): ExpressedSortValue {
  */
 export function bagsFor(quiz: QuizT): ReadonlyMap<string, QuizBag> {
   const ranks = Rank.ranksOf(quiz.questions)
-  const labelForId = new Map(quiz.questions.map((question) => [question.id, Labelmaker.effectiveLabelOf(question)]))
-  const qns = quiz.questions.map((question) => stripped(question, ranks.get(question.id) ?? null, labelForId))
+  const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
+  const qns = quiz.questions.map((question) => stripped(question, ranks.get(question._id) ?? null, labelForId))
   const quiz_label = Labelmaker.effectiveLabelOf(quiz)
   const quizBag = { ..._.pick(quiz, Quiz.exposed), label: quiz_label }
-  return new Map(quiz.questions.map((question, idx) => [question.id, {
+  return new Map(quiz.questions.map((question, idx) => [question._id, {
     quiz:     quizBag,
     qns,
     qn:       qns[idx] ?? {},
-    qn_label: labelForId.get(question.id) ?? '',
+    qn_label: labelForId.get(question._id) ?? '',
     quiz_label,
   }]))
 }
@@ -144,7 +144,7 @@ function stripped(question: QuestionT, rank: number | null, labelForId: Readonly
   const chained = question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null
   return {
     ..._.pick(question, Question.exposed),
-    label:         labelForId.get(question.id) ?? question.label,
+    label:         labelForId.get(question._id) ?? question.label,
     chains_to:     chained,
     rank,
     guess:         exposeGuess(question.guess),

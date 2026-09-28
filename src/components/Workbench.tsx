@@ -56,8 +56,8 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
   // column is never out of step with what it reads.
   const specs = useMemo(() => specsFor(quiz), [quiz])
   const expressed = useMemo(() => Expressed.forQuiz(quiz, hunt.expressions), [quiz, hunt.expressions])
-  const questionIds = useMemo(() => quiz.questions.map((question) => question.id), [quiz])
-  const checklist = useChecklist(quiz.id, questionIds)
+  const questionIds = useMemo(() => quiz.questions.map((question) => question._id), [quiz])
+  const checklist = useChecklist(quiz._id, questionIds)
   // The questions the author has asked to delete, until they confirm or keep them.
   const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
 
@@ -70,7 +70,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
   }
 
   const batching = checklist.checking && ! quiz.locked
-  const doomed = quiz.questions.filter((question) => doomedIds?.includes(question.id))
+  const doomed = quiz.questions.filter((question) => doomedIds?.includes(question._id))
 
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
@@ -84,7 +84,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
         quizzes={realm.quizzes}
         openQuiz={quiz}
         onOpen={(quiz_id) => {
-          const target = realm.quizzes.find((each) => each.id === quiz_id)
+          const target = realm.quizzes.find((each) => each._id === quiz_id)
           if (target) { goTo(target) }
         }}
         onNew={() => {
@@ -97,13 +97,13 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
         onDelete={(quiz_id) => {
           // Worked out before the deletion, and matching the neighbour the action will settle
           // on: afterwards this address names a quiz that is not there any more.
-          const idx = realm.quizzes.findIndex((each) => each.id === quiz_id)
-          const left = realm.quizzes.filter((each) => each.id !== quiz_id)
+          const idx = realm.quizzes.findIndex((each) => each._id === quiz_id)
+          const left = realm.quizzes.filter((each) => each._id !== quiz_id)
           const neighbour = left[Math.min(idx, left.length - 1)]
           dispatch({ kind: 'delete_quiz', quiz_id })
           if (neighbour) { router.replace(pathFor(Labelmaker.effectiveLabelOf(neighbour))) }
         }}
-        onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz.id, locked }) }}
+        onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz._id, locked }) }}
       />
       <QuizHeader
         title={quiz.title}
@@ -131,7 +131,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
         <ExpressionsModal
           onClose={() => { setEditingExpressions(false) }}
           hunt={hunt}
-          quizId={quiz.id}
+          quizId={quiz._id}
           dispatch={dispatch}
         />
       )}
@@ -140,7 +140,7 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, unsaved, saveN
           doomed={doomed}
           onClose={() => { setDoomedIds(null) }}
           onConfirm={() => {
-            const question_ids = doomed.map((question) => question.id)
+            const question_ids = doomed.map((question) => question._id)
             void QuizMirror.markedChange(quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
             setDoomedIds(null)
             checklist.end()

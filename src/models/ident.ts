@@ -19,11 +19,11 @@ export const IdentValidators = Validator(({ obj, identlabel, titleish }) => {
 })
 
 export type IdentDNA = Z.input<typeof IdentValidators.row>
-export type IdentT   = Z.output<typeof IdentValidators.row> & { id: string }
+export type IdentT   = Z.output<typeof IdentValidators.row> & { _id: string }
 
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
-  declare id:    string
+  declare _id:    string
   declare label: string
   declare title: string
 

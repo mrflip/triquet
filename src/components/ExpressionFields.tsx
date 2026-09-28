@@ -44,11 +44,11 @@ export function ExpressionFields({ hunt, defaultQuizId, draft, onChange, labelEd
   const [questionId, setQuestionId] = useState<string | null>(null)
 
   const quizzes = useMemo(() => Hunt.quizzesOf(hunt), [hunt])
-  const quiz: QuizT | undefined = quizzes.find((held) => held.id === quizId) ?? quizzes[0]
+  const quiz: QuizT | undefined = quizzes.find((held) => held._id === quizId) ?? quizzes[0]
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
-  const question = ranked.find((held) => held.id === questionId) ?? ranked[0]
+  const question = ranked.find((held) => held._id === questionId) ?? ranked[0]
   const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz ? Expressed.bagsFor(quiz) : new Map()), [quiz])
-  const bag = question ? bags.get(question.id) : undefined
+  const bag = question ? bags.get(question._id) : undefined
 
   const syntaxIssue = draft.formula === '' ? null : Formulas.check(draft.formula)
   const lengthIssue = ExpressionValidators.expressionPatch.safeParse({ formula: draft.formula }).error?.issues[0]?.message ?? null
@@ -79,17 +79,17 @@ export function ExpressionFields({ hunt, defaultQuizId, draft, onChange, labelEd
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1, alignItems: 'center' }}>
         <TextField
-          select size="small" label="Preview quiz" value={quiz?.id ?? ''} sx={{ minWidth: 180 }}
+          select size="small" label="Preview quiz" value={quiz?._id ?? ''} sx={{ minWidth: 180 }}
           onChange={(event) => { setQuizId(event.target.value); setQuestionId(null) }}
         >
-          {quizzes.map((held) => <MenuItem key={held.id} value={held.id}>{held.title || held.label}</MenuItem>)}
+          {quizzes.map((held) => <MenuItem key={held._id} value={held._id}>{held.title || held.label}</MenuItem>)}
         </TextField>
         <TextField
-          select size="small" label="Preview question" value={question?.id ?? ''} sx={{ minWidth: 220 }}
+          select size="small" label="Preview question" value={question?._id ?? ''} sx={{ minWidth: 220 }}
           disabled={ranked.length === 0}
           onChange={(event) => { setQuestionId(event.target.value) }}
         >
-          {ranked.map((held) => <MenuItem key={held.id} value={held.id}>{`${held.qnum === '' ? '–' : held.qnum} · ${held.title || held.label}`}</MenuItem>)}
+          {ranked.map((held) => <MenuItem key={held._id} value={held._id}>{`${held.qnum === '' ? '–' : held.qnum} · ${held.title || held.label}`}</MenuItem>)}
         </TextField>
       </Stack>
       <PreviewResult preview={preview} />

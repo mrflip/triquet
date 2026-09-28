@@ -29,9 +29,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "#inspect-env": [
-        "./src/lib/inspectify-node.ts"
       ]
     }
   },

@@ -86,7 +86,10 @@ its ports and directories (`dev_claude`, `dev_e2e`). Jazz runs locally inside th
 (agents: port 3201, `data/jazz-agent/`; e2e: 3202, `data/jazz-e2e/`) unless `JAZZ_REAL_DB=true`;
 never the human's 3200 or `data/jazz/`. Housekeeping on the agents'
 Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `dev_aijanitor`,
-never `dev_janitor`. Never kill a process that doesn't belong to `agent` or `e2e`.
+never `dev_janitor`. Convex, moving in beside Jazz, runs one local backend per role from
+`scripts/convex_backend <dev|agent|e2e|e2e-agent>` (`pnpm convex:backend agent`): port `34xx`,
+HTTP actions on `35xx`, data and the CLI's `cli.env` in `data/convex-<role>/`; never the human's
+`dev`. Never kill a process that doesn't belong to `agent` or `e2e`.
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
 A bespoke port is fine: follow the pattern, `30xx` for the web server and `32xx` for its Jazz
@@ -118,6 +121,12 @@ Row types come from `db`.)
   hunt hooks, the asking and bots hooks, and the quiz history mirror with its commit scheduler.
 * `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, row types, and the
   app handle), `permissions.ts` (the only place authorization is written), and the client setup.
+* `convex/` -- the Convex server, moving in beside Jazz (the app still runs on Jazz):
+  `schema.ts` (derived from the row validators), one file per noun of public functions,
+  `reading.ts` (indexed reads), `writing/` (the actions a mutation carries out), `authorize.ts`
+  (the only place authorization is written). Module names are snake_case: Convex refuses a
+  hyphen. It may import from `src/lib` and `src/models`, nothing else in `src/`; `src/lib/rows.ts`
+  holds the projections from rows to tree.
 * `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a
   class of statics (`fill`, `blank`, `exposed`). Nothing here is instantiated.
 * `src/lib/` -- facilities: pure functions around one concern each, imported as a namespace
@@ -188,3 +197,21 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
   strongly preferred.
 * Parenthesize and space every negation: `if (! approved) { ... }`
 * Style with MUI (`sx`, the theme, and its components) first. `workbench.module.css` is for layout MUI cannot express; new rules there need a reason.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
+
+Where Convex's guidelines and this project's rules differ (`CVX`, not `v`; no `returns` on a query
+that hands back documents; tests in `tests/convex/`; the per-table caps in `lib/vv/patterns.ts`),
+this project wins: see *Rules overrides* in `whiteboard/convex_yay-progress.md`.

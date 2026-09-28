@@ -28,8 +28,8 @@ export type SortValueOf = (question: QuestionT) => SortValue
  * @example sortQuestions(questions, (question) => question.title, false)
  */
 export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValueOf, descending: boolean): QuestionT[] {
-  const seats = new Map(questions.map((question, idx) => [question.id, idx]))
-  const seatOf = (question: QuestionT) => seats.get(question.id) ?? 0
+  const seats = new Map(questions.map((question, idx) => [question._id, idx]))
+  const seatOf = (question: QuestionT) => seats.get(question._id) ?? 0
 
   return questions.toSorted((aa, bb) => {
     const aaVal = valueOf(aa)
@@ -66,7 +66,7 @@ export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | '
 
 /** How a thing a column shows reads one question */
 function readerFor(source: Resolved, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
-  const questionForId = new Map(questions.map((question) => [question.id, question]))
+  const questionForId = new Map(questions.map((question) => [question._id, question]))
   const targetOf = (question: QuestionT) => (question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null)
   switch (source.kind) {
   case 'field': {
@@ -83,7 +83,7 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], expressed:
     return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
   }
   case 'expressing': {
-    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, source.widget.label, question.id))
+    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, source.widget.label, question._id))
   }
   }
 }

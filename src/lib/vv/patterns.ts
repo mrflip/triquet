@@ -66,6 +66,8 @@ export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_
 
 /** Lowercase Crockford base32, 26 characters, sortable by time */
 export const Ulid       = { re: /^[0-7][a-hjkmnp-tv-z0-9]{25}$/, min: 26, max: 26, msg: 'should be a 26-character lowercase ulid' } as const satisfies Patternbag
+/** A Convex document id: lowercase letters and digits, about 32 of them */
+export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
 
 //
 // == [String lengths] ==
@@ -98,6 +100,29 @@ export const Lng      = { min: -180, max: 180 } as const
 export const Portnum  = { min: 0, max: 65_535 } as const
 /** A money amount in the smallest unit, capped where a mistake stops looking like a typo */
 export const Ubux     = { min: -1e12, max: 1e12 } as const
+
+//
+// == [Collection sizes] ==
+//
+// The most one parent holds of a kind of child: what a read of them takes, and past which adding
+// one more is refused.
+
+/** Questions in one quiz */
+export const QuestionsPerQuiz   = { min: 0, max: 999 } as const
+/** Widgets in one quiz */
+export const WidgetsPerQuiz     = { min: 0, max: 99 } as const
+/** Columns in one quiz */
+export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
+/** Reviews of one quiz, one per ident that opened one */
+export const ReviewsPerQuiz     = { min: 0, max: 999 } as const
+/** Quizzes in one realm; a realm is never without one */
+export const QuizzesPerRealm    = { min: 1, max: 99 } as const
+/** Realms in one hunt; every hunt has at least its home realm */
+export const RealmsPerHunt      = { min: 1, max: 99 } as const
+/** Expressions in one hunt */
+export const ExpressionsPerHunt = { min: 0, max: 99 } as const
+/** Hunts in the whole app */
+export const HuntsInApp         = { min: 0, max: 99 } as const
 
 //
 // == [Contact shapes] ==

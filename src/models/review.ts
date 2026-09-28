@@ -5,16 +5,16 @@ import { Validator } from '../lib/validator'
 export const ReviewPhaseVals = ['empty', 'draft', 'shared'] as const
 export type ReviewPhase = typeof ReviewPhaseVals[number]
 
-export const ReviewValidators = Validator(({ obj, oneof, noteish, rowid }) => {
+export const ReviewValidators = Validator(({ obj, oneof, noteish, zid }) => {
   const phase = oneof(ReviewPhaseVals)
     .describe('How far the review has come. Nothing moves it back to `empty` once anything has been written; sharing and withdrawing move it between `draft` and `shared` only.')
   const overall = noteish
     .describe('What the reviewer made of the quiz as a whole.')
 
   const row = obj({
-    quiz_id:  rowid
+    quiz_id:  zid('quizzes')
       .describe('The quiz being reviewed.'),
-    ident_id: rowid
+    ident_id: zid('idents')
       .describe('Who is reviewing it.'),
     overall:  overall.default(''),
     phase:    phase.default('empty'),

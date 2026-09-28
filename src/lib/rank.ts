@@ -28,12 +28,12 @@ export function qnumOf(question: Pick<QuestionT, 'qnum'>): number | null {
  * @param questions - The quiz's questions, in any order.
  * @returns Each question's rank by id, null for the unranked.
  *
- * @example ranksOf([{ id: 'aa', qnum: '4' }, { id: 'bb', qnum: '1' }])  // => aa: 2, bb: 1
+ * @example ranksOf([{ _id: 'aa', qnum: '4' }, { _id: 'bb', qnum: '1' }])  // => aa: 2, bb: 1
  */
 export function ranksOf(questions: readonly QuestionT[]): RankForId {
-  const ranks = new Map<string, number | null>(questions.map((question) => [question.id, null]))
+  const ranks = new Map<string, number | null>(questions.map((question) => [question._id, null]))
   const ranked = questions.filter((question) => qnumOf(question) !== null).toSorted(byQnumThenAnswer)
-  for (const [ii, question] of ranked.entries()) { ranks.set(question.id, ii + 1) }
+  for (const [ii, question] of ranked.entries()) { ranks.set(question._id, ii + 1) }
   return ranks
 }
 
@@ -63,7 +63,7 @@ export function inRankOrder(questions: readonly QuestionT[]): QuestionT[] {
 export function renumberByRank(questions: readonly QuestionT[]): QuestionT[] {
   const ranks = ranksOf(questions)
   return questions.map((question) => {
-    const rank = ranks.get(question.id) ?? null
+    const rank = ranks.get(question._id) ?? null
     return rank === null ? question : { ...question, qnum: String(rank) }
   })
 }
@@ -90,7 +90,7 @@ export function renumberByPosition(questions: readonly QuestionT[]): QuestionT[]
  * @returns A new array; the same one when the question is not there or would not move.
  */
 export function moveQuestion(questions: readonly QuestionT[], question_id: string, onto_idx: number): QuestionT[] {
-  const from_idx = questions.findIndex((question) => question.id === question_id)
+  const from_idx = questions.findIndex((question) => question._id === question_id)
   if (from_idx === -1) { return [...questions] }
   const lifted = [...questions]
   const [dragged] = lifted.splice(from_idx, 1)

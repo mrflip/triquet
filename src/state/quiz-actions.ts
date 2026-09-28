@@ -51,7 +51,7 @@ async function reorderOpenQuiz(db: Db, held: HeldRows, open: OpenQuiz, reorder: 
 function writeOrder(tx: Tx, rows: QuizRows, ordered: readonly QuestionT[]): void {
   const heldFor = new Map(rows.questions.map((row) => [row.id, row]))
   for (const [position, question] of ordered.entries()) {
-    const held = heldFor.get(question.id)
+    const held = heldFor.get(question._id)
     if (held) { updateQuestion(tx, held, { position, qnum: question.qnum }) }
   }
 }
@@ -196,7 +196,7 @@ function slotFor(field: BotSlot['field']): BotSlot {
  * answered, a failure as one that failed. What the cell held before stays in its history.
  */
 function recordResult(tx: Tx, quiz: QuizT, held: QuestionRow, slot: BotSlot, result: NonNullable<GuessT | IshesT>): void {
-  const question = quiz.questions.find((each) => each.id === held.id)
+  const question = quiz.questions.find((each) => each._id === held.id)
   if (! question) { return }
   const alone = { ...question, guess: null, clueing_ishes: null, hint_ishes: null, [slot.field]: result }
   const recording = unrecordedBottings(alone, new Map())

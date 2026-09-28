@@ -1,28 +1,29 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
+import * as PA from '../lib/vv/patterns'
 import { QuizValidators, type QuizT } from './quiz'
 
 /** The realm every hunt starts with, and for now the only one it has */
 export const HomeRealmLabel = 'home'
 
-export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, rowid, treeid }) => {
+export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid, treeid }) => {
   const realmLabel = label
     .describe('What the realm is called in an address, unique among its hunt\'s realms. Every hunt has `home`.')
   const title = titleish
     .describe('What the realm is called on screen; a blank one displays as its label titleized.')
 
   const realm = obj({
-    id:      treeid,
+    _id:     treeid,
     label:   realmLabel.default(HomeRealmLabel),
     title:   title.default(''),
-    quizzes: arr(QuizValidators.quiz).min(1)
-      .describe('The realm\'s quizzes, in the order they were made. Never empty: deleting its last quiz is refused rather than leaving an address that leads nowhere.'),
+    quizzes: arr(QuizValidators.quiz).min(PA.QuizzesPerRealm.min).max(PA.QuizzesPerRealm.max)
+      .describe('The realm\'s quizzes, in the order they were made, at most 99. Never empty: deleting its last quiz is refused rather than leaving an address that leads nowhere.'),
   })
     .describe('A division of a hunt, holding quizzes. Its quizzes\' labels are unique within it, so a quiz is addressed by hunt, realm and quiz.')
 
   const row = obj({
-    hunt_id:  rowid
+    hunt_id:  zid('hunts')
       .describe('The hunt this realm belongs to.'),
     label:    realmLabel,
     title,
@@ -39,7 +40,7 @@ export type RealmT   = Z.output<typeof RealmValidators.realm>
 
 /** A division of a hunt, holding quizzes */
 export class Realm implements RealmT {
-  declare id:      string
+  declare _id:      string
   declare label:   string
   declare title:   string
   declare quizzes: QuizT[]

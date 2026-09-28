@@ -28,9 +28,9 @@ const QnumCases: [string, boolean, string][] = [
 
 describe('Question.fill', () => {
   it('defaults every field but the id', () => {
-    const question = Question.fill({ id: anId })
+    const question = Question.fill({ _id: anId })
     expect(question).to.deep.include({
-      id:            anId,
+      _id:           anId,
       qnum:          '',
       clueing:       '',
       hint:          '',
@@ -47,21 +47,21 @@ describe('Question.fill', () => {
   })
 
   it('populates a blank title from the generated label, titleized', () => {
-    const question = Question.fill({ id: anId })
+    const question = Question.fill({ _id: anId })
     expect(question.title).to.eq(Labelmaker.titleize(question.label))
   })
 
   it('leaves a given title alone even though a label was generated too', () => {
-    expect(Question.fill({ id: anId, title: 'Leon' }).title).to.eq('Leon')
+    expect(Question.fill({ _id: anId, title: 'Leon' }).title).to.eq('Leon')
   })
 
   it('keeps the text it is given, untouched', () => {
     const clueing = 'Which *région* gave its name to **Léon**, and to 千 other things?'
-    expect(Question.fill({ id: anId, clueing }).clueing).to.eq(clueing)
+    expect(Question.fill({ _id: anId, clueing }).clueing).to.eq(clueing)
   })
 
   it('drops keys it does not recognize', () => {
-    expect(Question.fill({ id: anId, hintNumbers: [1] } as never)).to.not.have.property('hintNumbers')
+    expect(Question.fill({ _id: anId, hintNumbers: [1] } as never)).to.not.have.property('hintNumbers')
   })
 
   it('rejects a missing id', () => {
@@ -69,16 +69,16 @@ describe('Question.fill', () => {
   })
 
   it('rejects an id that is not a ULID', () => {
-    expect(() => Question.fill({ id: 'question-1' })).to.throw(Z.ZodError)
+    expect(() => Question.fill({ _id: 'question-1' })).to.throw(Z.ZodError)
   })
 
   it('rejects a title past 200 characters', () => {
-    expect(() => Question.fill({ id: anId, title: 'x'.repeat(201) })).to.throw(Z.ZodError)
+    expect(() => Question.fill({ _id: anId, title: 'x'.repeat(201) })).to.throw(Z.ZodError)
   })
 
   it('accepts a done guess and a done extraction', () => {
     const question = Question.fill({
-      id:            anId,
+      _id:           anId,
       guess:         { status: 'done', text: 'Leon', updated_at: 1 },
       clueing_ishes: { status: 'done', items: [{ text: '千', value: 1000, kind: 'wordish' }], updated_at: 1 },
     })
@@ -87,14 +87,14 @@ describe('Question.fill', () => {
   })
 
   it('accepts an error in place of a result', () => {
-    const question = Question.fill({ id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } } })
+    const question = Question.fill({ _id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } } })
     expect(question.guess?.status).to.eq('error')
   })
 
   describe('qnum', () => {
     for (const [qnum, isLegal, blurb] of QnumCases) {
       it(blurb, () => {
-        expect(QuestionValidators.question.safeParse({ id: anId, qnum }).success).to.eq(isLegal)
+        expect(QuestionValidators.question.safeParse({ _id: anId, qnum }).success).to.eq(isLegal)
       })
     }
   })
@@ -120,7 +120,7 @@ describe('QuestionValidators.questionPatch', () => {
   })
 
   it('refuses to patch the id', () => {
-    expect(QuestionValidators.questionPatch({ id: anId } as never)).to.not.have.property('id')
+    expect(QuestionValidators.questionPatch({ _id: anId } as never)).to.not.have.property('_id')
   })
 
   it('validates what it does carry', () => {
@@ -131,35 +131,35 @@ describe('QuestionValidators.questionPatch', () => {
 describe('Question.blank', () => {
   it('mints an id and leaves everything else empty', () => {
     const question = Question.blank()
-    expect(ValidatorKit.treeid.safeParse(question.id).success).to.eq(true)
+    expect(ValidatorKit.treeid.safeParse(question._id).success).to.eq(true)
     expect(question.clueing).to.eq('')
   })
 
   it('mints a distinct id each time', () => {
-    expect(Question.blank().id).to.not.eq(Question.blank().id)
+    expect(Question.blank()._id).to.not.eq(Question.blank()._id)
   })
 })
 
 describe('QuestionValidators, field by field', () => {
   it('keeps a clueing and a hint exactly as written, surrounding space and all', () => {
-    const question = Question.fill({ id: anId, clueing: '  "Verse,\n   indented"  ', hint: '\tBUT NOT this ' })
+    const question = Question.fill({ _id: anId, clueing: '  "Verse,\n   indented"  ', hint: '\tBUT NOT this ' })
     expect(question.clueing).to.eq('  "Verse,\n   indented"  ')
     expect(question.hint).to.eq('\tBUT NOT this ')
   })
 
   it('trims the notes, the alt text and the answer', () => {
-    const question = Question.fill({ id: anId, notes: ' check this\n', alt_text: '  alt ', full_answer: ' Leon, in Spain ' })
+    const question = Question.fill({ _id: anId, notes: ' check this\n', alt_text: '  alt ', full_answer: ' Leon, in Spain ' })
     expect([question.notes, question.alt_text, question.full_answer]).to.deep.eq(['check this', 'alt', 'Leon, in Spain'])
   })
 
   const Refused: [QuestionDNA, string][] = [
-    [{ id: anId, clueing: 'x'.repeat(3601) },    'a clueing past 3600 characters'],
-    [{ id: anId, hint: 'BUT NOT\u{1}' },          'a hint carrying a control character'],
-    [{ id: anId, notes: 'x'.repeat(3601) },      'notes past 3600 characters'],
-    [{ id: anId, title: 'x'.repeat(83) },        'a title past 82 characters'],
-    [{ id: anId, title: 'Two\nlines' },          'a title on more than one line'],
-    [{ id: anId, label: 'ends_' },               'a label ending in an underscore'],
-    [{ id: anId, label: 'x'.repeat(41) },        'a label past 40 characters'],
+    [{ _id: anId, clueing: 'x'.repeat(3601) },    'a clueing past 3600 characters'],
+    [{ _id: anId, hint: 'BUT NOT\u{1}' },          'a hint carrying a control character'],
+    [{ _id: anId, notes: 'x'.repeat(3601) },      'notes past 3600 characters'],
+    [{ _id: anId, title: 'x'.repeat(83) },        'a title past 82 characters'],
+    [{ _id: anId, title: 'Two\nlines' },          'a title on more than one line'],
+    [{ _id: anId, label: 'ends_' },               'a label ending in an underscore'],
+    [{ _id: anId, label: 'x'.repeat(41) },        'a label past 40 characters'],
   ]
   for (const [dna, describes] of Refused) {
     it(`refuses ${describes}`, () => {

@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
+import * as PA from '../lib/vv/patterns'
 import { Quiz, type QuizT } from './quiz'
 import { ExpressionValidators, SeedExpressions, keyOf, type ExpressionT } from './expression'
 import { defaultLayoutFor } from './layout'
@@ -16,14 +17,14 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
 
   const hunt = obj({
-    id:           treeid,
+    _id:          treeid,
     label:        huntLabel,
     forced_label: forced_label.default(null),
     title:        title.default(''),
-    realms:       arr(RealmValidators.realm).min(1)
-      .describe('The hunt\'s realms, in order. Every hunt has `home`, and for now nothing else.'),
-    expressions:  arr(ExpressionValidators.expression).default([])
-      .describe('The calculations any quiz of this hunt can put to work as columns.'),
+    realms:       arr(RealmValidators.realm).min(PA.RealmsPerHunt.min).max(PA.RealmsPerHunt.max)
+      .describe('The hunt\'s realms, in order, at most 99. Every hunt has `home`, and for now nothing else.'),
+    expressions:  arr(ExpressionValidators.expression).max(PA.ExpressionsPerHunt.max).default([])
+      .describe('The calculations any quiz of this hunt can put to work as columns, at most 99.'),
   })
     .check((context) => {
       for (const issue of integrityIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) }
@@ -79,7 +80,7 @@ function unheldExpressionIssues(quiz: QuizT, labelsHeld: ReadonlySet<string>, pa
 
 /** Everything one hunt holds: its realms, their quizzes, and its expressions */
 export class Hunt implements HuntT {
-  declare id:           string
+  declare _id:           string
   declare label:        string
   declare forced_label: string | null
   declare title:        string
@@ -116,9 +117,9 @@ export class Hunt implements HuntT {
   static blank(label: string = Labelmaker.localBlankLabel(new Set(), mintId())): HuntT {
     const quiz = { ...Quiz.blank('', label), ...defaultLayoutFor(SeedExpressions) }
     return this.fill({
-      id:          mintId(),
+      _id:         mintId(),
       label,
-      realms:      [{ id: mintId(), label: HomeRealmLabel, quizzes: [quiz] }],
+      realms:      [{ _id: mintId(), label: HomeRealmLabel, quizzes: [quiz] }],
       expressions: [...SeedExpressions],
     })
   }

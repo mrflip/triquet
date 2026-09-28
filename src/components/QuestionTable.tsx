@@ -54,7 +54,7 @@ export type QuestionTableProps = {
 /** The grid: one row per question, scrolling sideways inside its own container */
 export function QuestionTable({ questions, specs, expressed, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
-  const checkedCount = questions.filter((question) => isChecked(question.id)).length
+  const checkedCount = questions.filter((question) => isChecked(question._id)).length
 
   return (
     <div className={styles.scroller}>
@@ -115,29 +115,29 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
         <tbody>
           {questions.map((question, idx) => (
             <QuestionRow
-              key={question.id}
+              key={question._id}
               question={question}
               questions={questions}
               locked={locked}
               gripShown={gripShown}
-              checked={batching ? isChecked(question.id) : null}
-              onCheck={(on) => { onCheck(question.id, on) }}
-              onDelete={() => { onDelete(question.id) }}
+              checked={batching ? isChecked(question._id) : null}
+              onCheck={(on) => { onCheck(question._id, on) }}
+              onDelete={() => { onDelete(question._id) }}
               resizeToken={resizeToken}
               idx={idx}
               count={questions.length}
               onMove={onMove}
-              onChain={(chains_to) => { onChain(question.id, chains_to) }}
+              onChain={(chains_to) => { onChain(question._id, chains_to) }}
               specs={specs}
               expressed={expressed}
-              asking={(askkind) => asking(question.id, askkind)}
+              asking={(askkind) => asking(question._id, askkind)}
               unavailableNotice={unavailableNotice}
               onAsk={(askkind) => { onAsk(question, askkind) }}
               onAskTarget={(askkind) => {
-                const target = questions.find((other) => other.id === question.chains_to)
+                const target = questions.find((other) => other._id === question.chains_to)
                 if (target) { onAsk(target, askkind) }
               }}
-              onEdit={(patch) => { onEdit(question.id, patch) }}
+              onEdit={(patch) => { onEdit(question._id, patch) }}
             />
           ))}
         </tbody>

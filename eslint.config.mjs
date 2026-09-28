@@ -31,6 +31,8 @@ export default defineConfig([
     // Agents' worktrees: another checkout's code, linted there if anywhere.
     '.claude/worktrees/**',
     '**/*.generated.*',
+    // Convex's generated types and function references: committed, never hand-edited.
+    'convex/_generated/**',
     // CLAUDE.md: staged past-project files, not code this project runs.
     'aside/**',
     'relics/**',
@@ -206,6 +208,29 @@ export default defineConfig([
     },
   },
 
+  // STYLE.md: Convex's validator builder is imported as `CVX`, never under its own one-letter
+  // name. Convex's docs and every agent's training say `v`, so the paste is caught here.
+  {
+    name: 'triquet/convex-values-as-cvx',
+    files: SourceFiles,
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: 'ImportDeclaration[source.value="convex/values"] > ImportSpecifier[imported.name="v"]:not([local.name="CVX"])',
+        message:  'Import Convex\'s validator builder as CVX: `import { v as CVX } from \'convex/values\'` (STYLE.md).',
+      }],
+    },
+  },
+
+  // Convex routes a function by its file's path, and refuses a hyphen in one: its modules and
+  // their tests are snake_case (`convex/writing/quiz_actions.ts`).
+  {
+    name: 'triquet/convex-module-names',
+    files: ['convex/**', 'tests/convex/**'],
+    rules: {
+      'unicorn/filename-case': ['error', { cases: { snakeCase: true } }],
+    },
+  },
+
   // These are all good ideas to enforce, but forbidding access to @ts-expect-error
   // etc can send the coach-coder development loop into a tailspin.
   // Use them judiciously, and ALWAYS report it in chat.
@@ -300,7 +325,7 @@ export default defineConfig([
       // this the only way to satisfy the rule is to pad it with a token runtime assertion,
       // which tells the reader nothing about what the test is for.
       'vitest/expect-expect': ['error', {
-        assertFunctionNames: ['expect', 'expectTypeOf', 'accepts', 'rejects', 'expectUnchanged'],
+        assertFunctionNames: ['expect', 'expectTypeOf', 'accepts', 'rejects', 'expectUnchanged', 'expectRefused', 'expectRefusal'],
       }],
       // A bulk example list indexes a namespace by a name from its table (`CK[ckname]`), which
       // this rule cannot follow. tsc checks the same thing properly, and does.

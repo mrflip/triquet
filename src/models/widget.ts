@@ -18,7 +18,7 @@ function isBotSlot(bot_label: BotLabel, textkind: Textkind): boolean {
 /** The widget every quiz has without being told: the questions' own fields. No quiz may label one of its own this. */
 export const QuestionWidgetLabel = 'question'
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, discrim, uint, rowid }) => {
+export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, discrim, uint, zid }) => {
   const widgetLabel = label
     .describe('What the widget is called within its quiz, unique there and never `question`, which is the questions\' own widget. Columns name the widgets they show by this label.')
   const description = noteish
@@ -72,7 +72,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
     .describe('The fields of one botting widget being revised. A key absent means "leave whatever is already there".')
 
   const row = obj({
-    quiz_id:          rowid
+    quiz_id:          zid('quizzes')
       .describe('The quiz this widget belongs to.'),
     label:            widgetLabel,
     kind:             oneof(WidgetkindVals)

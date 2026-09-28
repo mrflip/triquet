@@ -25,8 +25,8 @@ export function ChainPicker({ question, questions, locked, onChain }: Readonly<C
       onChange={(event) => { onChain(event.target.value === '' ? null : event.target.value) }}
     >
       <option value="">{CellNotices.chainUnset}</option>
-      {questions.filter((other) => other.id !== question.id).map((other) => (
-        <option key={other.id} value={other.id}>
+      {questions.filter((other) => other._id !== question._id).map((other) => (
+        <option key={other._id} value={other._id}>
           {other.title === '' ? CellNotices.chainTargetUnnamed : other.title}
         </option>
       ))}

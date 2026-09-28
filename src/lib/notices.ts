@@ -1,3 +1,5 @@
+import * as PA from './vv/patterns'
+
 /**
  * Every string the tool shows an author in place of a result, gathered in one place.
  *
@@ -45,6 +47,35 @@ export const AppNotices = {
   noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
   noRepositories:       'No history has been kept in this browser yet.',
 } as const
+
+/** Why the server refused a change, in the author's language: one per `failurekind` */
+export const RefusalNotices = {
+  notPermitted:     "You can't change this hunt.",
+  quizLocked:       'This quiz is locked — unlock it to change it.',
+  quizGone:         'That quiz is no longer here; someone may have deleted it.',
+  realmGone:        'That realm is no longer part of this hunt.',
+  huntGone:         'That hunt is no longer here.',
+  questionGone:     'That question is no longer in this quiz.',
+  widgetGone:       'That widget is no longer in this quiz.',
+  columnGone:       'That column is no longer in this quiz.',
+  expressionGone:   'That expression is no longer in this hunt.',
+  labelTaken:       'That label is already taken here — choose another.',
+  sourceUnshowable: "That column would show a widget this quiz doesn't have.",
+  expressionInUse:  'A widget still works this expression — remove the widget first.',
+  lastQuiz:         "A realm's last quiz can't be deleted — make another one first.",
+  notInRealm:       'That quiz belongs to another realm.',
+  notIdentified:    'Say who you are before reviewing.',
+  reviewNotOpened:  'Open your review of this quiz first.',
+  questionsFull:    `A quiz holds at most ${String(PA.QuestionsPerQuiz.max)} questions.`,
+  widgetsFull:      `A quiz holds at most ${String(PA.WidgetsPerQuiz.max)} widgets.`,
+  columnsFull:      `A quiz holds at most ${String(PA.ColumnsPerQuiz.max)} columns.`,
+  reviewsFull:      `A quiz holds at most ${String(PA.ReviewsPerQuiz.max)} reviews.`,
+  quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
+  expressionsFull:  `A hunt holds at most ${String(PA.ExpressionsPerHunt.max)} expressions.`,
+  huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
+} as const
+
+export type Refusalkind = keyof typeof RefusalNotices
 
 /**
  * What a bot's cell reads when the server holds no credentials for the service behind it.

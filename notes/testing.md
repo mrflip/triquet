@@ -116,6 +116,19 @@ assert it with `expectDenied`. Read with `LocalFirst` (from `state/quiz-rows`): 
 stall once the shared test server holds many accounts. A row read back at once may not carry
 `$createdAt` yet; wait a moment before asserting on it.
 
+## Convex functions (convex-test)
+
+Everything under `convex/` is tested in `tests/convex/`, path for path, under `convex-test` in
+Vitest's `convex` project (the edge runtime). `tests/support/convex.ts` has `openTester()` (a
+fresh, empty deployment in this process: no test sees another's rows), `huntHolding`,
+`seedHunt(tt, hunt, open_idx)` (the hunt written, and `open`, `act` through `hunts.perform`, and
+`read` through `hunts.whole`, as the Jazz support has it), `openOf(seen)`, `wholeHunt` and
+`identified(tt, label)` (a fresh browser key that has taken on an ident; review actions need
+one). Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex
+value (no `Map`). Ids in an action must be ids: a malformed one is refused at Convex's door, so a
+test of "an id of no question here" uses a real question of another hunt. `_creationTime` never
+ties under convex-test, so no test pauses between writes.
+
 ## End to End (Playwright)
 
 The suite is a thin layer: the handful of flows a unit test cannot see -- the grid's heights,

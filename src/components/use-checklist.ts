@@ -26,7 +26,7 @@ export type Checklist = {
  * @param itemkeys - The list's items, in order.
  * @returns Whether batch mode is on, what is checked, and how to change either.
  *
- * @example const { checking, checked, toggle } = useChecklist(quiz.id, quiz.questions.map((question) => question.id))
+ * @example const { checking, checked, toggle } = useChecklist(quiz._id, quiz.questions.map((question) => question._id))
  */
 export function useChecklist(scopekey: string | null, itemkeys: readonly string[]): Checklist {
   const [scope, setScope]       = useState(scopekey)

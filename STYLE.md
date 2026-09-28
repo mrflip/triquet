@@ -36,6 +36,7 @@ Functions within such file should be vigorous verbal phrases that do NOT have th
 * situational: certain frequently-used libraries with global vibes use a two-letter shorthand: `import * as UU from '.../utils'`; similarly `ST` for storage. A short punchy name for ambient facilities
 * situational: If the length of the import statement becomes cumbersome, do a splat import using a two-or-three letter shorthand ending in 'T' (eg PT = product types; QYT = query types, ...). GOOD: `import type { ProductSomthing, ProductFoo } from ...`. BAD: `import type { Product ... 19 things...} from ...` INSTEAD: `import type * as PT from ...`
 * exception: **`es-toolkit/compat`** is our lodash-shaped utility surface (see `notes/stack.md`). Import it as a single blanket default import named `_`, lodash-style, rather than naming individual functions: `import _ from 'es-toolkit/compat'`, then `_.map(...)`, `_.upperFirst(...)`. This is the one sanctioned exception to "no single-letter names".
+* exception: **Convex's validator builder** is `CVX`: `import { v as CVX } from 'convex/values'`, then `CVX.string()`, `CVX.id('quizzes')`. Convex's docs, its rules file and every agent's training say `v`; the no-single-letter rule holds anyway, because `\bCVX\b` renames in one command and `v` never will. `eslint.config.mjs` refuses any other name for it.
 
 ### Use Named (`import { Foo }`) Imports for already-namespaced facilities
 
@@ -72,6 +73,11 @@ model type. A typename is a string.
 is a string, `wood` is an object.
 
 **Use `label` for a freeform-string-derived identifier (local or global) driven by the user** -- eg using the title of a quiz as the url pathseg.
+
+**`_id` is a stored row's id, and a tree node's too** (`quiz._id`, `question._id`): Convex's
+spelling, kept from the database to the screen so nothing translates between them. A pointer to
+another row is `<parent>_id` (`quiz_id`). Our own field names never start with `_`; that prefix
+is the database's (`_id`, `_creationTime`).
 
 Specificity is a virtue: `bboxHt` makes clear that this height might depend on coordinate system.
 Don't add a tag when it's obvious: `title`, not `titleStr`.

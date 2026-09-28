@@ -105,7 +105,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const { hunt: huntLabel, realm: realmLabel, quiz: quizLabel } = labels
   const held = useMemo(() => findIn(rows, { hunt: huntLabel, realm: realmLabel, quiz: quizLabel }, heard), [rows, huntLabel, realmLabel, quizLabel, heard])
   const { hunt, realm, quiz } = held
-  const reviews = rows && quiz ? quizRowsOf(rows, quiz.id)?.reviews ?? [] : []
+  const reviews = rows && quiz ? quizRowsOf(rows, quiz._id)?.reviews ?? [] : []
 
   // A hunt label this browser holds nothing for is asked of the server, once per label.
   const unheard = rows !== null && ! huntRowFor(rows, huntLabel) && heard?.label !== huntLabel
@@ -129,7 +129,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   }, [quiz?.title])
 
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
-  const open: OpenQuiz | null = hunt && realm && quiz ? { hunt_id: hunt.id, realm_id: realm.id, quiz_id: quiz.id } : null
+  const open: OpenQuiz | null = hunt && realm && quiz ? { hunt_id: hunt._id, realm_id: realm._id, quiz_id: quiz._id } : null
   const latest = useRef({ rows, hunt, open, ident })
   useEffect(() => { latest.current = { rows, hunt, open, ident } })
 
@@ -149,7 +149,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
         // own works from the rows on screen, and so writes before the author can act again.
         if (waitFor) { await waitFor }
         const current = waitFor ? await loadHeldRows(db, there.hunt_id) : shown
-        await perform(db, current, there, actor.id, action)
+        await perform(db, current, there, actor._id, action)
         setSaveNotice(null)
         const after = await loadHunt(db, there.hunt_id)
         if (after) { mirrorHunt(before, after) }

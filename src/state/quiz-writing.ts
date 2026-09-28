@@ -165,13 +165,13 @@ export function writeQuiz(tx: Tx, realm_id: string, quiz: QuizT, held: QuizRows 
 function writeQuestions(tx: Tx, quiz_id: string, questions: readonly QuestionT[], held: QuizRows | null): void {
   const heldQuestions = held?.questions ?? []
   const heldBottings = held?.bottings ?? []
-  const kept = new Set(questions.map((question) => question.id))
+  const kept = new Set(questions.map((question) => question._id))
   const dropped = new Set(heldQuestions.map((row) => row.id).filter((question_id) => ! kept.has(question_id)))
   for (const botting of heldBottings) {
     if (dropped.has(botting.question_id)) { tx.delete(app.bottings, botting.id) }
   }
   for (const question_id of dropped) { tx.delete(app.questions, question_id) }
-  const labelForId = new Map(questions.map((question) => [question.id, Labelmaker.effectiveLabelOf(question)]))
+  const labelForId = new Map(questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   const recordedAt = new Map<string, number>()
   for (const botting of heldBottings) {
     const slotkey = slotkeyOf(botting)
@@ -192,10 +192,10 @@ function writeQuestions(tx: Tx, quiz_id: string, questions: readonly QuestionT[]
       alt_text:     question.alt_text,
       notes:        question.notes,
     })
-    const heldQuestion = heldQuestions.find((row) => row.id === question.id)
+    const heldQuestion = heldQuestions.find((row) => row.id === question._id)
     const question_id = heldQuestion ? heldQuestion.id : tx.insert(app.questions, fields).id
     if (heldQuestion) { updateQuestion(tx, heldQuestion, fields) }
-    const unrecorded = unrecordedBottings({ ...question, id: question_id }, recordedAt)
+    const unrecorded = unrecordedBottings({ ...question, _id: question_id }, recordedAt)
     for (const botting of unrecorded) { tx.insert(app.bottings, bottingFieldsOf(botting)) }
   }
 }

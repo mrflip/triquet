@@ -147,7 +147,7 @@ function ExpressingDialog({ hunt, quiz, widget, dispatch, onClose }: Readonly<Ex
           <ExpressionFields
             key={expressionLabel}
             hunt={hunt}
-            defaultQuizId={quiz.id}
+            defaultQuizId={quiz._id}
             draft={draft}
             onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null); setLabelIssue(null) }}
             labelEditable={isNew}

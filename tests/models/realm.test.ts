@@ -6,21 +6,27 @@ import { mintId } from '../../src/lib/ids'
 
 describe('Realm.fill', () => {
   it('is home unless it says otherwise, titled after its label', () => {
-    const realm = Realm.fill({ id: mintId(), quizzes: [Quiz.blank()] })
+    const realm = Realm.fill({ _id: mintId(), quizzes: [Quiz.blank()] })
     expect([realm.label, realm.title]).to.deep.eq([HomeRealmLabel, 'Home'])
   })
 
   it('keeps a title it is given', () => {
-    expect(Realm.fill({ id: mintId(), label: 'away', title: 'Far Away', quizzes: [Quiz.blank()] }).title).to.eq('Far Away')
+    expect(Realm.fill({ _id: mintId(), label: 'away', title: 'Far Away', quizzes: [Quiz.blank()] }).title).to.eq('Far Away')
+  })
+
+  it('holds 99 quizzes, and refuses a hundredth', () => {
+    const quizzes = Array.from({ length: 100 }, () => Quiz.blank())
+    expect(Realm.fill({ _id: mintId(), quizzes: quizzes.slice(0, 99) }).quizzes).to.have.lengthOf(99)
+    expect(() => Realm.fill({ _id: mintId(), quizzes })).to.throw(Z.ZodError)
   })
 
   it('refuses a realm holding no quiz', () => {
-    expect(() => Realm.fill({ id: mintId(), quizzes: [] })).to.throw(Z.ZodError)
+    expect(() => Realm.fill({ _id: mintId(), quizzes: [] })).to.throw(Z.ZodError)
   })
 })
 
 describe('Realm.quizFor', () => {
-  const realm = Realm.fill({ id: mintId(), quizzes: [Quiz.blank('', 'quiet_otter'), { ...Quiz.blank('', 'princes'), forced_label: 'kings' }] })
+  const realm = Realm.fill({ _id: mintId(), quizzes: [Quiz.blank('', 'quiet_otter'), { ...Quiz.blank('', 'princes'), forced_label: 'kings' }] })
 
   it('finds a quiz by the label in force', () => {
     expect([Realm.quizFor(realm, 'quiet_otter')?.title, Realm.quizFor(realm, 'kings')?.label]).to.deep.eq(['Quiet Otter', 'princes'])

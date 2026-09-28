@@ -1,5 +1,19 @@
 import * as Z from 'zod'
+import { zid as convexZid } from 'convex-helpers/server/zod4'
 import * as CK from './vv/checks/strings'
+
+/** What a row id looks like: a Convex document id, or a UUID */
+const rowidish = Z.union([CK.convexid, Z.uuid()])
+
+/**
+ * A pointer to a row of `tablename`, as Convex's own `zid` makes one, holding a row id's shape:
+ * the bridge to Convex still reads it as an id of that table.
+ *
+ * @example zid('quizzes').parse('j97d0qbj35dar1v8edndzckvsx8f828f')
+ */
+function zid<TN extends string>(tablename: TN) {
+  return convexZid(tablename).refine((val) => rowidish.safeParse(val).success, 'should be a row id')
+}
 
 /**
  * Aliased, standardized Zod builders handed to every `Validator` block. Naming follows
@@ -30,10 +44,12 @@ export const ValidatorKit = {
   titleish:  CK.titleish,
   /** Lowercase Crockford-base32 ULID, as this tool minted ids before it kept its quizzes in Jazz */
   ulid:      CK.ulid,
-  /** A row's id, as Jazz mints it: internal, never shown, and only ever held to point at that row */
-  rowid:     Z.uuid(),
-  /** An id in a quiz as the tool holds it whole: its row's id once written, or a ULID minted for one not written yet */
-  treeid:    Z.union([CK.ulid, Z.uuid()]),
+  /** A pointer to a row of the table named: internal, never shown, and checked against that table by Convex */
+  zid,
+  /** A random UUID, of the kind `crypto.randomUUID()` mints */
+  uuid:      Z.uuid(),
+  /** An id in a quiz as the tool holds it whole: its row's id once written, a UUID minted for one not written yet, or an old export's ULID */
+  treeid:    Z.union([CK.convexid, Z.uuid(), CK.ulid]),
   /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
   label:     CK.label,
   /** An ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become */

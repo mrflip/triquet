@@ -73,6 +73,32 @@ don't trust a recalled version number, including one recalled by an agent.
     drop the copy and the `runtimeSources`. The copy is gitignored.
   - **Turso is not coming back**; libSQL and Drizzle went with it (Sept 2026). Drizzle returns
     only through `notes/database-decisions.md`.
+  - **Outgoing**: Convex replaces it (below). Jazz runs the app until that plan's phase 2.
+* **Convex** (`convex`, pinned exact) as the database, **moving in** (Sept 2026), by the plan in
+  `whiteboard/convex_yay-plan.md`; its progress, and what the spike found, are in
+  `whiteboard/convex_yay-progress.md`. Work from the installed source and Convex's current
+  guidelines, not recall. Settled with a Coach on 2026-09-27; the reasoning moves to
+  `notes/decisions/` when the plan's evaluation is written:
+  - `convex/` at the repo root is the whole server side. `convex/_generated/` is committed,
+    marked `-diff`, and a large regeneration goes in a commit of its own.
+  - The Zod row validators in `models/` are the source; `convex/schema.ts` derives each table
+    from them. Field names stay `underscore_case`; `_id` and `_creationTime` are Convex's, and
+    the tree types carry `_id` too. Stored fields are nullable, never optional. Structured values
+    (arrays, nested objects) are ordinary fields.
+  - Function arguments are our Zod schemas; every row passes its row validator before it is
+    written. Nothing validates rows read back: a query that returns documents declares no
+    `returns`, and a mutation returns null or an id and says so.
+  - Reads follow Convex's grain: one small query per thing a screen shows, joined on the server
+    by index, subscribed to once at the route component, props below. Never a query per row.
+  - No offline: the client-first decision is amended when the evaluation is written ("works with
+    the network off" goes; static hosting plus stateless functions stays). The ask route stays a
+    Vercel function until identity says otherwise. Identity for the trial is a browser key passed
+    as an argument, which authorizes nothing.
+* **convex-helpers** (pinned exact), Convex's own companion library. Its `server/zod4` is how a Zod
+  schema becomes a Convex validator (`zodOutputToConvexFields`, `zid`) and how a function takes
+  Zod arguments (`zCustomQuery`, `zCustomMutation`). At 0.1.x its version number alone would make
+  it *Discuss*; it is *Use* because it is the supported path, and what lets one schema drive the
+  others.
 * pnpm
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every
@@ -148,8 +174,10 @@ Settled; reach for these before writing the equivalent.
 * **Vitest** with chai-style assertions. See `notes/testing.md`.
 * **`jazz-tools/testing`** (`startLocalJazzServer`, `createPolicyTestApp`) for anything that
   touches rows or policies; `createPolicyTestApp` by default. Model the real topology when sync
-  or permissions are the behaviour under test.
-* **Playwright** for end-to-end, kept to a thin layer: the handful of flows where a break is
+  or permissions are the behaviour under test. Outgoing, with Jazz.
+* **convex-test** (with **@edge-runtime/vm**) for Convex functions: Vitest's `convex` project
+  runs `tests/convex/**` under the edge runtime, everything else under node.
+* **Playwright** for end-to-end, especially the handful of flows where a break is
   invisible to unit tests (the grid, autosave and reload survival, routing, the history store).
   Its web-first assertions are the e2e style; see `notes/testing.md`.
 * **`eslint-plugin-playwright`** on `e2e/**`: the mechanical form of testing.md's Playwright

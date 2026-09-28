@@ -34,7 +34,7 @@ export function cellTextOf(source: Resolved, { question, target, expressed }: Re
     return source.slot.field === 'guess' ? guessTextOf(question.guess) : spansOf(question[source.slot.field])
   }
   case 'expressing': {
-    const reading = Expressed.readingOf(expressed, source.widget.label, question.id)
+    const reading = Expressed.readingOf(expressed, source.widget.label, question._id)
     return reading.status === 'value' ? String(reading.val) : ''
   }
   }
@@ -58,7 +58,7 @@ export function cellTextOf(source: Resolved, { question, target, expressed }: Re
 export function sheetsExport(quiz: QuizT, expressed: Expressed.ExpressedForQuiz): string {
   if (quiz.questions.length === 0) { return '' }
   const specs = specsFor(quiz).toSorted((aa, bb) => aa.header.localeCompare(bb.header))
-  const questionForId = new Map(quiz.questions.map((question) => [question.id, question]))
+  const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
 
   const header = specs.map((spec) => spec.header)
   const rows = Rank.inRankOrder(quiz.questions).map((question) => {

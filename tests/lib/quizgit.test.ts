@@ -163,7 +163,7 @@ describe('questionsTsv', () => {
 
   it('names a chain target by its label, not its id', () => {
     const target = questionOf('the_target', { title: 'Target' })
-    const source = questionOf('the_source', { title: 'Source', chains_to: target.id })
+    const source = questionOf('the_source', { title: 'Source', chains_to: target._id })
     const rows = tsvOf(quizOf([source, target])).split('\n')
     expect(rows[1]?.split('\t', 2)[1]).to.eq('the_target')
   })
@@ -499,7 +499,7 @@ describe('listRepos', () => {
     const quiz = quizOf([questionOf('q1', { clueing: 'Who?' })])
     await commitFresh(quiz)
     const [repo] = await Quizgit.listRepos(suite.fs)
-    expect(repo).to.include({ id: quiz.id, label: 'ours', branch: 'main' })
+    expect(repo).to.include({ id: quiz._id, label: 'ours', branch: 'main' })
     expect(repo?.message).to.eq(Changes.shorthandFor(Changes.quizChanges(null, quiz)))
     expect(repo?.committed_at).to.be.closeTo(Date.now(), 60_000)
   })
@@ -517,7 +517,7 @@ describe('listRepos', () => {
     const quiz = quizOf([])
     await Quizgit.milestoneQuiz(suite.fs, quiz)
     expect(await Quizgit.listRepos(suite.fs)).to.deep.eq([
-      { id: quiz.id, label: null, branch: 'main', message: null, committed_at: null },
+      { id: quiz._id, label: null, branch: 'main', message: null, committed_at: null },
     ])
   })
 

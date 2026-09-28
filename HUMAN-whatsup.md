@@ -2,6 +2,60 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-27: Convex phase 1, the server side: two questions for you
+
+Branch `20260927-convex_server`, stacked on the spike branch. The whole server is in `convex/`:
+schema derived from the row validators, the queries the views will subscribe to, `hunts.perform`
+and `idents.performAccount`, all tested under convex-test (a port of every Jazz action test, case
+for case, plus the queries and the caps). The app still runs on Jazz; phase 2 switches the
+browser. Your plan edit (the caps) rode in with the first commit. Details and every deviation are
+in `whiteboard/convex_yay-progress.md`.
+
+1. **Quizzes per realm: 99?** Every child is read with a bound now, and a realm's quizzes had
+   none. I used 99, like the others. Say if you want another number.
+2. **Should a refusal say so?** A locked quiz, a taken label, a cap reached: each writes nothing
+   and tells the author nothing, as under Jazz. Phase 2 could answer each with a notice. Which,
+   if any?
+
+Things you might trip over:
+
+* Convex refuses a hyphen in a module path, so `convex/**` and `tests/convex/**` are snake_case,
+  with an eslint block allowing it there.
+* The models are Convex-shaped already: every `<parent>_id` is a Convex id (UUIDs still pass, so
+  Jazz works), and an identing names its browser. Two small Jazz-side bends make that fit:
+  the identing insert and the coherence test.
+* The plan's botting index would have spent six index ranges per question, past Convex's 4096 per
+  function for a big quiz. One walk per cell spends three.
+* The Jazz migration check ran clean: the Jazz schema did not change.
+
+## 2026-09-27: Convex phase 0, the spike: three things for you
+
+Branch `20260927-convex_spike`. Convex is installed beside Jazz, the app still runs on Jazz,
+and the plan's eight phase 0 questions have answers in `whiteboard/convex_yay-progress.md`.
+The short of it: the Zod bridge converts every row validator we have, our patched Zod and error
+map run inside Convex, and a mutation round trip on a local backend is about 30 ms. The tree
+types now carry `_id` (the Jazz rows keep `id` until phase 2).
+
+What I need from you before phase 1:
+
+1. **Isolation.** Convex's own local deployments are one per checkout: a second one, named by
+   its own env file, silently reuses the first one's data and port. What works is the backend
+   binary the CLI already downloads, one per role with its own ports and data directory. I'd
+   like to write `scripts/convex_backend <role>` for it, on ports 34xx and 35xx (Jazz holds 32xx
+   until phase 2), and use it for your dev server too. Yes, or another way?
+2. **Doppler**, once (1) is settled: four variables per dev config, listed in the progress
+   document's *For the Coach*.
+3. **`npx convex ai-files install`** was refused me, as self-modification: it writes into
+   `CLAUDE.md`, `AGENTS.md` and the agent skills. Run it yourself if you want Convex's rules file
+   in the repo; I worked from the same guidelines, fetched.
+
+The e2e suite was flaky here under a load average near 20: a different handful of Jazz-bound
+specs failed each full run, and every one passed alone. At three workers, 151 of 152 passed.
+Worth one run on a quiet machine before this merges.
+
+One config change you might trip over: `tsconfig.json` no longer maps `#inspect-env` to the
+node half of `inspectify`. Convex's bundler honoured that path and pulled `node:util` into its
+V8 runtime; `package.json`'s imports map already picks the right half everywhere.
 ## 2026-09-27: The Triquet brand is in
 
 The palette now comes from the brand kit (`Brand` in `src/app/palette.ts`, also emitted as

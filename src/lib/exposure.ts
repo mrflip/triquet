@@ -58,7 +58,7 @@ export function exposedColumnsOf(quiz: Pick<QuizT, 'widgets'>): ExposedColumn[] 
  */
 export function tableOf(quiz: Pick<QuizT, 'widgets' | 'questions'>, expressed: Expressed.ExpressedForQuiz): { header: string[], rows: string[][] } {
   const columns = exposedColumnsOf(quiz)
-  const questionForId = new Map(quiz.questions.map((question) => [question.id, question]))
+  const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
   const rows = quiz.questions
     .toSorted((aa, bb) => byCode(Labelmaker.effectiveLabelOf(aa), Labelmaker.effectiveLabelOf(bb)))
     .map((question) => {
@@ -84,7 +84,7 @@ function questionText(field: typeof Question.exposed[number], { question, target
 function widgetColumns(widget: WidgetT): ExposedColumn[] {
   if (widget.kind === 'expressing') {
     return [column(widget.label, 'value', ({ question, expressed }) => {
-      const reading = Expressed.readingOf(expressed, widget.label, question.id)
+      const reading = Expressed.readingOf(expressed, widget.label, question._id)
       return reading.status === 'value' ? String(reading.val) : ''
     })]
   }
