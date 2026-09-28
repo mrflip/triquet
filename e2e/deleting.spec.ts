@@ -88,6 +88,17 @@ test('the header checkbox checks every question, or none', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Delete checked (0)' })).toBeDisabled()
 })
 
+test('the corner button leaves batch mode as well as entering it', async ({ page }) => {
+  const corner = page.getByRole('button', { name: 'Batch select' })
+  await corner.click()
+  await expect(corner).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('checkbox', { name: 'Select all questions' })).toBeVisible()
+  await corner.click()
+  await expect(corner).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('checkbox', { name: 'Select all questions' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
+})
+
 test('leaving batch mode forgets what was checked', async ({ page }) => {
   await page.getByRole('button', { name: 'Select questions' }).click()
   await page.getByRole('checkbox', { name: 'Select apple' }).check()
