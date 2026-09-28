@@ -24,9 +24,14 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   phase 4's, not yet merged. On 2026-09-28: lint and typecheck green; 1966 unit and convex tests
   and 165 e2e specs green (`pnpm test:e2e:agent`, about a minute). The hunts-and-idents handoff is
   rewritten for phase 6.
-* **Next**: phase 6 (huntings), a branch stacked on phase 5's. The Coach's word on caps: raise
-  them to 999 as warranted, `HuntingsPerHunt` included (the plan proposed 99). Phase 3b (the cloud): the Coach reports the app deployed to
-  Vercel; when the cloud's round trip can be measured, re-measure (*Measurements*).
+* **Phase 6 (huntings, hunts-and-idents PR 5)**: built on `20260928-convex_phase6`, stacked on
+  phase 5's, not yet merged. On 2026-09-28: lint and typecheck green; 2005 unit and convex tests
+  and 170 e2e specs green (`pnpm test:e2e:agent`, about a minute). The hunts-and-idents handoff is
+  rewritten for phase 7.
+* **Next**: phase 7 (authorization), a branch stacked on phase 6's, after the Coach answers its
+  design question (the plan's phase 7, and *For the Coach* below). Phase 3b (the cloud): the
+  Coach reports the app deployed to Vercel; when the cloud's round trip can be measured,
+  re-measure (*Measurements*).
 
 ## 2. Start here
 
@@ -106,6 +111,15 @@ Settled in phase 5 (Coach, 2026-09-28):
   after. The Q# box uses it too: a Q# is a number (`3.1` puts a question after 3 until the next
   renumbering), still kept as text, and tidied as a number (`3.10` becomes `3.1`).
 
+Settled in phase 6 (the Coach's word on caps, applied as warranted; confirm):
+
+* **Caps at 999**: `HuntingsPerHunt` (new), `QuizzesPerRealm` and `ExpressionsPerHunt` (were 99).
+  A realm's quizzes are a league's weeks, and two years of them pass 99; expressions are one
+  indexed read of small rows. **Left at 99**: `WidgetsPerQuiz` and `ColumnsPerQuiz` (a grid of 99
+  columns is past use, and `hunts.open` reads every quiz's widgets for the usage counts, so the
+  widget cap multiplies by the quiz cap) and `RealmsPerHunt` (every hunt has one realm). The
+  model and function tests read the caps rather than pinning 99.
+
 ### Rules overrides
 
 Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fetched
@@ -131,6 +145,32 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 ## 4. Deviations from the plan
 
 Newest first.
+
+* **Phase 6: `ownHunting`, not `notSelfRemovable`**, and it covers a change of one's own role as
+  well as removing oneself; asking for the role one already has is a no-op. The thread barred
+  only self-removal; a smith demoting themselves is the same act by another route.
+* **Phase 6: `notIdentified` says "Say who you are first."**, since `new_hunt` and the hunting
+  actions refuse with it too; `perform`'s `reviewer()` is `actor()`.
+* **Phase 6: `refuse(failurekind, message?)`**: `identUnknown` names the label, as the thread
+  words it (`identUnknownNotice`); `RefusalNotices.identUnknown` is the same sentence with `…`.
+* **Phase 6: the shallow hunt carries `members` and `role`** (`ShallowHuntT`), rather than the role
+  beside it; `hunts.list` returns `ListedHuntT` (a listing and its role), in the order the hunts
+  were made, sorted after the read (the index is by ident, then hunt id). `remove_hunting` of one
+  not on the hunt is a no-op, as deleting what is gone is elsewhere.
+* **Phase 6: someone not on the hunt reads the hunt alone**: `useHunt` asks for no quiz, reviews or
+  history feed for them, so a stranger's browser keeps no copy of a quiz it is told it may not
+  see. A smith may still open `act=review`; a reviewer at `act=smith` is offered *Review this quiz*.
+* **Phase 6: a new hunt's label is retried on a clash.** The browser picks the label (the address
+  it goes to names it) and now sees only its own hunts; `HuntsList` tries up to three fresh
+  labels when one is refused `labelTaken`. `useAccountActions.act` resolves to `{ kept,
+  failurekind }` (through `failurekindOf`, beside `noticeOf`). About 427,000 labels, so an e2e run
+  of 170 hunts clashed about one run in thirty without it. A server-minted label, returned for the
+  navigation, is the alternative the review raised.
+* **Phase 6: the members panel shows a refused add beneath its label field** (it is given
+  `saveNotice`), as well as in the header; `Workbench` is given the `ident`, as `ReviewScreen` is.
+* **Phase 6: the grid is the table named *Questions***, and e2e finds it as `grid(page)`: the
+  members table made "the table" ambiguous, and one spec (`importing.spec.ts`, a count of
+  `tbody tr`) was passing on the members row before the import had landed.
 
 * **Phase 5: a quiz's deletion does not sweep each review's reviewings.** The plan asked for it;
   every reviewing names a question of its review's quiz (`setReviewing` and `peekAnswer` check
@@ -284,6 +324,17 @@ Newest first.
 * **Convex's backends use 34xx and 35xx**, not 32xx: Jazz's dev servers hold 32xx until phase 2.
 
 ## 5. Discoveries
+
+### Phase 6
+
+* **Optimistic concurrency does not stop two smiths removing each other at once.** Each mutation
+  reads only the other's hunting, so neither read is the other's write, and both commit, leaving
+  no smith. Phase 7's check reads the actor's own hunting in the transaction, which puts the two
+  in conflict: whoever loses is retried and refused.
+* **A query that takes the browser key is cached per browser**: `hunts.open` no longer serves a
+  second browser from the first's result. Measured nowhere yet; phase 7 makes every query take it.
+* **Nothing else surprised.** A table, two indexes, two actions; `_generated/` changed only in
+  `api.d.ts` (one new module under `writing/`).
 
 ### Phase 5
 
@@ -532,10 +583,21 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
+* **Phase 7's design question** (the plan's phase 7): a query that may not answer. Proposed: it
+  answers `null` with a small discriminant (`notOnHunt` or `noSuchHunt`), as phase 6's
+  `NotOnHunt` view already words it client-side.
+* **Phase 6, to confirm**: the caps (*Decisions taken*); nobody changes their own hunting, role
+  included (*Deviations*); a new hunt's label retried in the browser rather than minted on the
+  server (*Deviations*).
+* **Phase 6, left as the plan shaped it** (the review pass raised them): the members ride in
+  `hunts.open`, so adding or removing one reruns the hunt's read (the usage counts included) and
+  empties a prepared Export, as an expression's edit does. Membership changes are rare; a query
+  of their own for the panel is the alternative.
 * **Phase 5, one behaviour to confirm** (built as the plan says; the review pass raised it):
   - A flag toggle sends the opposite of what the screen shows, so two clicks inside one round
     trip send the same value twice. The lock works the same way; both are candidates if
-    optimistic updates are taken up.
+    optimistic updates are taken up. (Held off in phase 6 on the Coach's word: nothing in it ran
+    into this.)
 
 * **Jazz's leftovers** are gone (the Coach removed `public/jazz/`, the `jazz` skill and the
   `data/jazz*/` directories, 2026-09-28), bar a few Doppler variables: `JAZZ_DEV_DATA_DIR` and
@@ -607,3 +669,14 @@ Phase 5 replaced one, with a successor, green:
 | Test (replaced in phase 5) | Successor |
 | --- | --- |
 | `tests/convex/testing.test.ts`, "hands what one run cannot delete to the next" | the same file, "deletes a batch of a table a run, leaving the rest for the next, and says none once empty" |
+
+Phase 6 changed these, by design (membership now decides what one sees), each with a successor,
+green:
+
+| Test (changed in phase 6) | Successor |
+| --- | --- |
+| `tests/convex/hunts.test.ts`, "lists every hunt" | the same file, "lists the hunts one is on, … with the role", "leaves out the hunts one is not on", "lists nothing for a browser that has not said who it is" |
+| `e2e/routing.spec.ts`, a friend through the front door "and back to it", editing | the same test, now told "You are not on this hunt"; "opens the quiz for the friend the moment a smith adds them" |
+| `e2e/routing.spec.ts`, "lets the friend's edits reach the author, for the trial" | "lets a friend made a smith make edits that reach the author" |
+| `e2e/routing.spec.ts`, "shows the friend the author's hunt among the hunts" | "lists the author's hunt among the friend's once they are on it, with their role" |
+| `e2e/reviews.spec.ts`, a reviewer deep-linked to `act=review` | put on the hunt as a reviewer, arriving with no `act` and landing on the review |

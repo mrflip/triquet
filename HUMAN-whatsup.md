@@ -2,6 +2,35 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-28: Convex phase 6, huntings
+
+Branch `20260928-convex_phase6`, stacked on phase 5's. Green: lint, typecheck, 2005 unit and
+convex tests, 170 e2e specs.
+
+Hunts have members now. Whoever makes a hunt is its smith. A smith adds someone from the new
+Members panel by the ident label they chose, as smith or reviewer. Adding them again changes their
+role, and a *Copy reviewer link* button sits beside it. `/my/hunts` lists only your own hunts,
+each with your role. A link that names no `act` opens as your role: smiths get the workbench,
+reviewers the review screen. A stranger sees *You are not on this hunt. Ask a smith to add
+“label”.*. A reviewer who asks for `act=smith` is told they're a reviewer and offered the review.
+All of this is client-side: the server stays wide open until phase 7.
+
+Choices for your word (details in the progress document, *For the Coach*):
+
+* **Caps**: huntings 999; quizzes per realm and expressions per hunt raised to 999; widgets,
+  columns and realms per hunt left at 99, since a grid of 99 columns is past use and every hunt
+  has one realm.
+* **Nobody changes their own hunting**: a smith can't remove themselves or change their own role.
+  The thread only barred self-removal; changing your own role is refused for the same reason.
+* **A new hunt's label** is picked in the browser, which now sees only its own hunts. On a
+  clash with someone else's hunt, it tries up to three fresh labels.
+
+Fixed on the way, in a commit of its own: a Q# or number box holding a lone `.` committed `NaN`,
+which the server refused (phase 5's `NumberField`). Also: one e2e spec was passing by coincidence
+once the page held a second table. The grid is now the table named *Questions*.
+
+Optimistic updates: still not taken up. Nothing in this phase ran into the rapid-toggle case.
+
 ## 2026-09-28: Convex phase 5, reviewings
 
 Branch `20260928-convex_phase5`, stacked on phase 4's. Green: lint, typecheck, 1966 unit and
