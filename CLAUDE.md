@@ -86,7 +86,10 @@ its ports and directories (`dev_claude`, `dev_e2e`). Jazz runs locally inside th
 (agents: port 3201, `data/jazz-agent/`; e2e: 3202, `data/jazz-e2e/`) unless `JAZZ_REAL_DB=true`;
 never the human's 3200 or `data/jazz/`. Housekeeping on the agents'
 Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `dev_aijanitor`,
-never `dev_janitor`. Never kill a process that doesn't belong to `agent` or `e2e`.
+never `dev_janitor`. Convex, moving in beside Jazz, runs one local backend per role from
+`scripts/convex_backend <dev|agent|e2e|e2e-agent>` (`pnpm convex:backend agent`): port `34xx`,
+HTTP actions on `35xx`, data and the CLI's `cli.env` in `data/convex-<role>/`; never the human's
+`dev`. Never kill a process that doesn't belong to `agent` or `e2e`.
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
 A bespoke port is fine: follow the pattern, `30xx` for the web server and `32xx` for its Jazz
@@ -202,3 +205,7 @@ Convex agent skills for common tasks can be installed by running
 `npx convex ai-files install`.
 
 <!-- convex-ai-end -->
+
+Where Convex's guidelines and this project's rules differ (`CVX`, not `v`; no `returns` on a query
+that hands back documents; tests in `tests/convex/`; the per-table caps in `lib/vv/patterns.ts`),
+this project wins: see *Rules overrides* in `whiteboard/convex_yay-progress.md`.
