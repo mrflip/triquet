@@ -31,6 +31,8 @@ export default defineConfig([
     // Agents' worktrees: another checkout's code, linted there if anywhere.
     '.claude/worktrees/**',
     '**/*.generated.*',
+    // Convex's generated types and function references: committed, never hand-edited.
+    'convex/_generated/**',
     // CLAUDE.md: staged past-project files, not code this project runs.
     'aside/**',
     'relics/**',
@@ -203,6 +205,19 @@ export default defineConfig([
       // asks that visual weight match didactic weight: a guard is not a choice between two
       // values, and should not have to read like one.
       'unicorn/prefer-ternary': 'off',
+    },
+  },
+
+  // STYLE.md: Convex's validator builder is imported as `CVX`, never under its own one-letter
+  // name. Convex's docs and every agent's training say `v`, so the paste is caught here.
+  {
+    name: 'triquet/convex-values-as-cvx',
+    files: SourceFiles,
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: 'ImportDeclaration[source.value="convex/values"] > ImportSpecifier[imported.name="v"]:not([local.name="CVX"])',
+        message:  'Import Convex\'s validator builder as CVX: `import { v as CVX } from \'convex/values\'` (STYLE.md).',
+      }],
     },
   },
 
