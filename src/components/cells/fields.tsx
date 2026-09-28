@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
+import { TextField } from '@mui/material'
 import clsx from 'clsx'
+import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
 import { useDraft } from '../use-draft'
 import styles from '../workbench.module.css'
 
@@ -89,22 +91,16 @@ export function PlainField({ committed, onCommit, locked, placeholder, label }: 
   )
 }
 
-/** Q#: free text holding an optional number, centred, with the spinner arrows suppressed */
+/**
+ * Q#: an optional number, in the grid's borderless box, held as the text the quiz keeps. A
+ * decimal places a question between two others (`3.1` after 3) until the quiz is renumbered.
+ */
 export function QnumField({ committed, onCommit, locked, label }: Readonly<FieldProps>) {
-  // A trailing dot is legal on the way to `3.1` but is not a Q#, so it is tidied away on exit.
-  const { draft, onChange, onBlur } = useDraft(committed, onCommit, (typed) => typed.replace(/\.$/, ''))
-  const onlyNumberish = useCallback((next: string) => {
-    if (/^(\d+(\.\d*)?)?$/.test(next)) { onChange(next) }
-  }, [onChange])
   return (
-    <input
-      className={clsx(styles.field, styles.fieldQnum)}
-      inputMode="decimal"
-      aria-label={label}
-      readOnly={locked}
-      value={draft}
-      onChange={(event) => { onlyNumberish(event.target.value) }}
-      onBlur={onBlur}
+    <NumberField
+      bare fractional label={label} locked={locked}
+      committed={committed === '' ? null : Number(committed)}
+      onCommit={(num) => { onCommit(num === null ? '' : String(num)) }}
     />
   )
 }
@@ -117,36 +113,35 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
   fractional: boolean
   /** The most that may be typed */
   max?:       number
+  /** The grid's own borderless box, rather than a labelled MUI text field */
+  bare?:      boolean
 }
 
 /**
- * A count or a percentage: free text holding an optional non-negative number, centred, with the
- * spinner arrows suppressed. Keystrokes that would make it anything else, or more than `max`, are
- * not taken; an empty box commits null.
+ * An optional non-negative number, committed when the box loses focus: as a number, or null
+ * when it was emptied. Keystrokes that would make it anything else, or more than `max`, are not
+ * taken, and what was typed is tidied on exit into the number it means (`2.50` becomes `2.5`).
  */
-export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, max }: Readonly<NumberFieldProps>) {
-  // What was typed is tidied on exit into the number it means, as the box will show it once
-  // committed: `2.` on the way to `2.5` becomes `2`, and `2.50` becomes `2.5`.
+export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, max, bare = false }: Readonly<NumberFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(
     committed === null ? '' : String(committed),
     (typed) => { onCommit(typed === '' ? null : Number(typed)) },
     (typed) => (typed === '' ? '' : String(Number(typed))),
   )
-  const shaped = fractional ? /^(\d+(\.\d*)?)?$/ : /^\d*$/
-  const onlyNumberish = (next: string) => {
-    const num = Number(next)
-    if (shaped.test(next) && Number.isFinite(num) && (max === undefined || num <= max)) { onChange(next) }
+  const inputMode = fractional ? 'decimal' : 'numeric'
+  const numeric = {
+    value:                draft,
+    valueIsNumericString: true,
+    allowNegative:        false,
+    decimalScale:         fractional ? undefined : 0,
+    placeholder,
+    onBlur,
+    isAllowed:            ({ floatValue }: NumberFormatValues) => max === undefined || floatValue === undefined || floatValue <= max,
+    // The box is told of the committed value as well as of keystrokes; only a keystroke is a draft.
+    onValueChange:        ({ value: typed }: NumberFormatValues, { event }: SourceInfo) => { if (event) { onChange(typed) } },
   }
-  return (
-    <input
-      className={clsx(styles.field, styles.fieldQnum)}
-      inputMode={fractional ? 'decimal' : 'numeric'}
-      aria-label={label}
-      placeholder={placeholder}
-      readOnly={locked}
-      value={draft}
-      onChange={(event) => { onlyNumberish(event.target.value) }}
-      onBlur={onBlur}
-    />
-  )
+  if (bare) {
+    return <NumericFormat {...numeric} className={clsx(styles.field, styles.fieldQnum)} inputMode={inputMode} aria-label={label} readOnly={locked} />
+  }
+  return <NumericFormat {...numeric} customInput={TextField} label={label} size="small" fullWidth slotProps={{ htmlInput: { inputMode, readOnly: locked } }} />
 }

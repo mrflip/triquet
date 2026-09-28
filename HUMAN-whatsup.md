@@ -11,17 +11,17 @@ A reviewer now gives a verdict on each question under the answer lock: get rate 
 guesses, comments, minutes, and three toggles (👍 keep it, 🔍 needs fact check, ✂️ elimination
 candidate). Each saves as it is committed, and revealing the answer records `peeked`. Once the
 review is shared, your Reviews panel shows a table of those verdicts in rank order, the get rate
-marked 🔓 when they saw the answer. The panel spans the full width once it has a table.
+The panel spans the full width once it has a table.
 
-On your word, the get rate is the reviewer's own estimate and `peeked` says only that they
-looked, not when: the model's description, the panel's mark ("Saw the answer"), the vocabulary
-and the lock's dialog (now "The smiths will see that you looked.") no longer imply an order.
+On your word since: the get rate is the reviewer's own estimate; `peeked` is the reviewer's own
+record (their lock says "Seen before"; the smiths' panel no longer marks it; the lock's dialog is
+its title alone); draft verdicts stay hidden by the client-side filter, a convenience rather than
+enforcement; and every number box, the grid's Q# included, is `react-number-format`, installed
+without asking, with that rule written into `CLAUDE.md` and `notes/stack.md`. Phase 6 raises caps
+to 999 as warranted, huntings included.
 
-Two behaviours for your word, each built as the plan says (details in the progress document,
-*For the Coach*):
+One behaviour still for your word (details in the progress document, *For the Coach*):
 
-* **Draft verdicts reach the smith's browser**, hidden only by the client-side filter, as the
-  overall note already is. Phase 7 moves that onto the server.
 * **Two quick clicks on a toggle send the same value twice**, as the lock does. No optimistic
   updates yet.
 
@@ -29,8 +29,7 @@ Also fixed on the way: `scripts/convex_reset` could fail with an OCC conflict on
 holding 500+ rows in a table, because `testing:clearAll` scheduled itself while the script also
 looped over it. Now the script is the only driver.
 
-The hunts-and-idents handoff is rewritten for phase 6 on Convex. Before phase 6, the plan asks
-you to confirm the huntings cap: 99 per hunt is proposed.
+The hunts-and-idents handoff is rewritten for phase 6 on Convex.
 
 ## 2026-09-28: The order on the quiz, a query per question, and actions that read less
 

@@ -41,13 +41,15 @@ PR 5 plugs into these.
   takes its reviewings (`deleteQuestion`), so a quiz's deletion does too.
 * **Reads.** `reviews.forQuiz` hands back each review with its reviewer's label and title and its
   reviewings (`ReviewedT` in `lib/rows.ts`), in one query. `useHunt` holds it as `reviews`.
-  Nothing is filtered on the server yet: `sharedReviewsOf` (`models/review.ts`) is the
-  client-side "shared only" filter, and `ReviewsPanel` its only caller; phase 7 deletes it.
+  Nothing is filtered on the server: `sharedReviewsOf` (`models/review.ts`) is the
+  client-side "shared only" filter, and `ReviewsPanel` its only caller. On the Coach's word that
+  is enough: hiding a review until shared makes a process convenient, it does not enforce one.
 * **Views.** `ReviewScreen.tsx` (`act=review`) opens the ident's review on mount and shows each
   question in rank order as a `ReviewQuestionRow`: the question read-only, the answer behind
-  `AnswerLock` (whose `onReveal` dispatches `peek_answer`), then the verdict's fields (Comments a
-  `GrowingField`, Guesses a `StretchField`, Get rate and Minutes a `NumberField`, three
-  `ToggleButton`s). `ReviewsPanel` shows each shared review with a table of its verdicts; it
+  `AnswerLock` (whose `onReveal` dispatches `peek_answer`, and which says "Seen before" once
+  `peeked`), then the verdict's fields (Comments a `GrowingField`, Guesses a `StretchField`, Get
+  rate and Minutes a `NumberField` on `react-number-format`, three `ToggleButton`s). `peeked` is
+  the reviewer's own: the smiths are not shown it. `ReviewsPanel` shows each shared review with a table of its verdicts; it
   spans the whole row of panels when it has one (`Panel`'s `wide`).
 
 ## For PR 5 in particular
@@ -62,8 +64,9 @@ PR 5 plugs into these.
   `enterReview` in `e2e/reviews.spec.ts` is the deep-link way in for a fresh visitor; lift it into
   support if a second spec wants it. Once `hunts.list` lists only one's own hunts, no spec may
   assume it sees another's, which none should.
-* **The cap**: `HuntingsPerHunt`, 99 proposed. Confirm it with the Coach before building, as the
-  other caps were.
+* **The caps**: `HuntingsPerHunt` is 999, and the Coach asks for the other caps to be raised to
+  999 where warranted (`lib/vv/patterns.ts`; several are 99). Each raise is a read that takes
+  more, so check the per-function limits in the progress document's *Discoveries* as you go.
 
 ## Tooling conventions, still true
 

@@ -19,7 +19,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
   const elimination_candidate = bool
     .describe('The reviewer would cut this question, were one to go.')
   const peeked = bool
-    .describe('Whether the reviewer has revealed the answer: set the first time they do, and never cleared.')
+    .describe('Whether the reviewer has revealed the answer: set the first time they do, and never cleared. The reviewer\'s own record, shown to them rather than to the smiths.')
 
   const row = obj({
     review_id:             zid('reviews')

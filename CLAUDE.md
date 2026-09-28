@@ -58,6 +58,7 @@ The top three values while writing code are **empathy, safety and readability**.
 * **Library first. Hand-rolling is a decision, not a default.** Before writing any mechanism a library could own (drag and drop, focus handling, keyboard navigation, popovers, tables, form state, virtualization, date math, parsing), look in this order:
   1. A Material UI component or an existing dependency.
   2. A new library. `notes/stack.md` says whether it is settled (**Use**), needs a Coach (**Discuss**), or is unlisted (propose it in chat).
+     An unlisted one that is widely used, solves the problem (and then some) without dragging in machinery, and ideally is recommended by the neighbouring library: install it, list it in `notes/stack.md`, and tell the Coach afterwards, rather than writing our own. The worked example is `react-number-format` for number fields, which MUI's own docs pair with `TextField`.
   3. Only then hand-roll -- and only after a Coach says yes in chat. Record the decision and its reason in `notes/stack.md` under *Hand-rolled on purpose*.
 
   Tripwires that mean "stop and ask": you are attaching native DOM event handlers beyond click/change; you are writing a raw `<table>`, `<button>` or `<dialog>` where MUI has one; you are adding a CSS-module rule that re-creates something `sx` or the theme can do; you are writing a small state machine for an interaction; you are past ~30 lines on behavior that is not specific to quizzes.

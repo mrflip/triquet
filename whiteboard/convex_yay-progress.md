@@ -24,8 +24,8 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   phase 4's, not yet merged. On 2026-09-28: lint and typecheck green; 1966 unit and convex tests
   and 165 e2e specs green (`pnpm test:e2e:agent`, about a minute). The hunts-and-idents handoff is
   rewritten for phase 6.
-* **Next**: phase 6 (huntings), a branch stacked on phase 5's; confirm the `HuntingsPerHunt` cap
-  (99 proposed) with the Coach first. Phase 3b (the cloud): the Coach reports the app deployed to
+* **Next**: phase 6 (huntings), a branch stacked on phase 5's. The Coach's word on caps: raise
+  them to 999 as warranted, `HuntingsPerHunt` included (the plan proposed 99). Phase 3b (the cloud): the Coach reports the app deployed to
   Vercel; when the cloud's round trip can be measured, re-measure (*Measurements*).
 
 ## 2. Start here
@@ -90,9 +90,21 @@ Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
 Settled in phase 5 (Coach, 2026-09-28):
 
 * **The get rate is the reviewer's own estimate, and `peeked` says only that they looked**, not
-  whether before or after they gave a rate. Nothing orders the two, and no wording implies it:
-  the lock's dialog says the smiths will see that you looked, and the panel's mark reads "Saw the
-  answer".
+  whether before or after they gave a rate. Nothing orders the two, and no wording implies it.
+* **`peeked` serves the reviewer, not the smith.** A reviewer looks, locks the answer again and
+  hands the question to someone else; their lock says "Seen before". The lock's dialog is its
+  title alone, and the smiths' panel does not mark it (the plan's "get rate, marked when
+  peeked" is withdrawn).
+* **Hiding a review until it is shared is a convenience for following a process, not
+  enforcement.** First reactions are often misunderstandings, or criticism not yet turned into
+  guidance, so smith and reviewer alike want them hidden until the reviewer shares the whole.
+  Anyone can already become the reviewer or call the API; the client-side `sharedReviewsOf`
+  filter is enough, and phase 7 should be read in that light.
+* **Number fields are `react-number-format` with MUI's `TextField`**, and the rule it set is in
+  `CLAUDE.md` and `notes/stack.md`: a library that is widely used, solves the problem without
+  dragging in machinery, and is recommended by its neighbour is installed first and told of
+  after. The Q# box uses it too: a Q# is a number (`3.1` puts a question after 3 until the next
+  renumbering), still kept as text, and tidied as a number (`3.10` becomes `3.1`).
 
 ### Rules overrides
 
@@ -128,9 +140,10 @@ Newest first.
 * **Phase 5: `peek_answer` leaves the review's phase alone.** The thread says the first write to
   a reviewing moves a review to `draft`; the plan names it for `set_reviewing` only. Seeing an
   answer writes nothing of the reviewer's own, so an `empty` review stays empty.
-* **Phase 5: `NumberField`** (`cells/fields.tsx`, beside `QnumField`, whose pattern it follows)
-  for get rate and minutes: an optional non-negative number, committed as a number or null,
-  tidied into the number it means on exit. It is not a third height component: the row's height
+* **Phase 5: `NumberField`** (`cells/fields.tsx`), `react-number-format`'s `NumericFormat`, for get
+  rate and minutes as MUI `TextField`s and for the grid's Q# as the grid's own borderless input
+  (MUI inputs stay out of the grid's cells, `notes/stack.md`). An optional non-negative number,
+  committed on blur as a number or null. It is not a third height component: the row's height
   is still Comments' (`GrowingField`), and Guesses is stretched to it (`StretchField`).
 * **Phase 5: `Panel` takes `wide`**, one rule in `workbench.module.css` (`.panelWide`, spanning the
   panels' grid): the verdicts table does not fit a 320-pixel column, and `ReviewsPanel` is wide
@@ -519,10 +532,7 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **Phase 5, two behaviours to confirm** (built as the plan says; the review pass raised them):
-  - A draft review's reviewings reach every browser on the quiz, the smith's included, and only
-    `sharedReviewsOf` keeps them off screen; as with `overall`, phase 7 moves the rule onto the
-    server.
+* **Phase 5, one behaviour to confirm** (built as the plan says; the review pass raised it):
   - A flag toggle sends the opposite of what the screen shows, so two clicks inside one round
     trip send the same value twice. The lock works the same way; both are candidates if
     optimistic updates are taken up.

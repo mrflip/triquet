@@ -708,7 +708,7 @@ Jazz ones they name (`use-held-rows`, `reviewingsQuery`, `quizRowsOf`'s fields, 
   check, ✂️ elimination candidate), each saving on commit through `set_reviewing`. Row height
   follows `QuestionRow.tsx`: *Comments* is a `GrowingField`, every other text box a
   `StretchField`; no third field component. `ReviewsPanel` gains, per shared review, a compact
-  MUI `Table` of its reviewings in rank order: title, get rate (marked when `peeked`), minutes,
+  MUI `Table` of its reviewings in rank order: title, get rate (not marked when `peeked`: see the progress document), minutes,
   the flags as their emoji, guesses and comments verbatim; it reads the same `sharedReviewsOf`
   list, which phase 7 deletes.
 * **Tests.** `tests/models/reviewing.test.ts` (get rate 0, 100, 101, -1; minutes 0, 2.5, -1; a

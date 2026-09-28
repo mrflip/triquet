@@ -71,10 +71,7 @@ function ReviewingsTable({ reviewings, ranked }: Readonly<{ reviewings: readonly
           {rows.map(({ question, reviewing }) => (
             <TableRow key={reviewing._id}>
               <TableCell>{question.title || AppNotices.untitledQuestion}</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                {reviewing.get_rate === null ? '–' : `${String(reviewing.get_rate)}%`}
-                {reviewing.peeked && <span role="img" aria-label={AppNotices.answerPeeked} title={AppNotices.answerPeeked}> 🔓</span>}
-              </TableCell>
+              <TableCell align="right">{reviewing.get_rate === null ? '–' : `${String(reviewing.get_rate)}%`}</TableCell>
               <TableCell align="right">{reviewing.minutes ?? '–'}</TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>
                 {ReviewingFlags.filter(({ flag }) => reviewing[flag]).map(({ flag, emoji, title }) => (

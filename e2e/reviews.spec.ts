@@ -70,7 +70,7 @@ test.describe('a review', () => {
     await expect(reviewer.getByText('Hamlet')).toBeHidden()
   })
 
-  test('carries a reviewer\'s verdict on a question to the smith once shared, marked when the answer was seen', async ({ page, browser }) => {
+  test('carries a reviewer\'s verdict on a question to the smith once shared', async ({ page, browser }) => {
     await startHunt(page)
     await page.getByRole('textbox', { name: 'Title', exact: true }).first().fill('Danish prince')
     await page.getByRole('textbox', { name: 'Full Answer', exact: true }).first().fill('Hamlet')
@@ -83,6 +83,8 @@ test.describe('a review', () => {
     await row.getByRole('button', { name: 'Reveal answer' }).click()
     await reviewer.getByRole('button', { name: 'Reveal', exact: true }).click()
     await expect(row.getByText('Hamlet')).toBeVisible()
+    await row.getByRole('button', { name: 'Hide answer' }).click()
+    await expect(row.getByText('Seen before')).toBeVisible()
 
     const guesses = row.getByRole('textbox', { name: 'Guesses' })
     const comments = row.getByRole('textbox', { name: 'Comments' })
@@ -106,7 +108,6 @@ test.describe('a review', () => {
 
     const verdict = page.getByRole('table', { name: 'Verdicts by question' }).getByRole('row', { name: /Danish prince/ })
     await expect(verdict).toContainText('40%')
-    await expect(verdict.getByRole('img', { name: 'Saw the answer' })).toBeVisible()
     await expect(verdict.getByRole('img', { name: 'Keep it' })).toBeVisible()
     await expect(verdict).toContainText('2.5')
     await expect(verdict).toContainText('line 11 of a long comment')

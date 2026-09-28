@@ -32,6 +32,9 @@ export type ReviewScreenProps = {
 /** Tall enough to preview a BUT NOT without the review screen's roomier rows scrolling it */
 const ButnotHeightPx = 240
 
+/** How far a labelled number field sits down, so its box lines up with the captioned text boxes beside it */
+const NumberFieldDropPx = '20px'
+
 /**
  * What a reviewer sees: the quiz's questions, read-only, each with its chained BUT NOT, its
  * answer behind a lock, and the reviewer's verdict on it; then an overall note, and a button to
@@ -138,20 +141,20 @@ function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, dispatch
       <Box sx={{ mb: 1 }}>
         <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={ButnotHeightPx} />
       </Box>
-      <AnswerLock answer={question.full_answer} onReveal={reviewing?.peeked ? undefined : peek} />
+      <AnswerLock answer={question.full_answer} seen={reviewing?.peeked ?? false} onReveal={reviewing?.peeked ? undefined : peek} />
       <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'flex-start', mt: 1 }}>
-        <VerdictBox caption="Get rate %" basis="0 0 5em">
-          <NumberField label="Get rate" committed={reviewing?.get_rate ?? null} fractional={false} max={100} locked={false} onCommit={(get_rate) => { commit({ get_rate }) }} />
-        </VerdictBox>
+        <Box sx={{ flex: '0 0 6.5em', mt: NumberFieldDropPx }}>
+          <NumberField label="Get rate %" committed={reviewing?.get_rate ?? null} fractional={false} max={100} locked={false} onCommit={(get_rate) => { commit({ get_rate }) }} />
+        </Box>
         <VerdictBox caption="Guesses" basis="1 1 10em">
           <StretchField label="Guesses" committed={reviewing?.guesses ?? ''} locked={false} onCommit={(guesses) => { commit({ guesses }) }} heightPx={heightPx} />
         </VerdictBox>
         <VerdictBox caption="Comments" basis="2 1 14em">
           <GrowingField label="Comments" committed={reviewing?.comments ?? ''} locked={false} onCommit={(comments) => { commit({ comments }) }} heightPx={heightPx} onNatural={setCommentsNaturalPx} resizeToken={resizeToken} />
         </VerdictBox>
-        <VerdictBox caption="Minutes" basis="0 0 5em">
+        <Box sx={{ flex: '0 0 6.5em', mt: NumberFieldDropPx }}>
           <NumberField label="Minutes" committed={reviewing?.minutes ?? null} fractional locked={false} onCommit={(minutes) => { commit({ minutes }) }} />
-        </VerdictBox>
+        </Box>
         <Stack direction="row" spacing={0.5} sx={{ alignSelf: 'flex-end' }}>
           {ReviewingFlags.map(({ flag, emoji, title }) => {
             const raised = reviewing?.[flag] ?? false
