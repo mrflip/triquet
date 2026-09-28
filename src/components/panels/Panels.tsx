@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '@mui/material'
 import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportPanel } from './ImportPanel'
 import { Panel } from './Panel'
@@ -8,6 +9,7 @@ import { ReviewsPanel } from './ReviewsPanel'
 import * as Exporting from '../../lib/exporting'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
+import { AppNotices } from '../../lib/notices'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { ExpressedForQuiz } from '../../lib/expressed'
 import type { ReviewedT, ShallowHuntT } from '../../lib/rows'
@@ -17,7 +19,7 @@ import styles from '../workbench.module.css'
 
 /** The titled sections below the grid: what reviewers said, ways to get the work back out, and what was asked */
 export function Panels({ quiz, hunt, reviews, expressed, onMerged }: Readonly<{ quiz: QuizT, hunt: ShallowHuntT, reviews: readonly ReviewedT[], expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
-  const whole = useWholeHunt(hunt, quiz)
+  const exporting = useWholeHunt(hunt, quiz)
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} />
@@ -31,9 +33,13 @@ export function Panels({ quiz, hunt, reviews, expressed, onMerged }: Readonly<{ 
 
       <Panel
         title="Export"
-        blurb="Every quiz of this hunt, not just this one. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz's questions back."
+        blurb="Every quiz of this hunt, not just this one, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz's questions back. Any change on screen empties the box again, so what it holds is never behind you."
       >
-        <ReadonlyBox label="Export" text={whole ? UU.jsonify(Exporting.huntExported(whole)) : ''} rows={10} dense />
+        <div className={styles.panelRow}>
+          <Button size="small" variant="outlined" disabled={exporting.asking} onClick={exporting.prepare}>Prepare export</Button>
+          {exporting.failed ? <span className={styles.microcopy} role="status">{AppNotices.exportUnread}</span> : null}
+        </div>
+        <ReadonlyBox label="Export" text={exporting.whole ? UU.jsonify(Exporting.huntExported(exporting.whole)) : ''} rows={10} dense />
         <FullHistoryDownload quiz={quiz} />
       </Panel>
 
