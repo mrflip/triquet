@@ -352,10 +352,10 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **Delete by hand** (the auto-mode classifier refused these to the agent): `public/jazz/` (the
-  last build's copy of Jazz's runtime, untracked; eslint trips over it until it goes, and
-  `.gitignore` no longer names it), the `jazz` skill (`.agents/skills/jazz/`, its
-  `.claude/skills/jazz` symlink, and its entry in `skills-lock.json`), and your own `data/jazz/`.
+* **Jazz's leftovers** are gone (the Coach removed `public/jazz/`, the `jazz` skill and the
+  `data/jazz*/` directories, 2026-09-28), bar a few Doppler variables: `JAZZ_DEV_DATA_DIR` and
+  `JAZZ_DEV_PORT` in `dev_claude` and `dev_e2e`, and `NEXT_PUBLIC_JAZZ_APP_ID` and
+  `NEXT_PUBLIC_JAZZ_SERVER_URL` in `dev_claude`. Nothing reads them.
 * **A `.env.local`** at the checkout root, from an earlier `convex dev` run, names a Convex URL;
   the environment's own `NEXT_PUBLIC_CONVEX_URL` wins over it, so it is harmless, but it is not
   this project's convention (Doppler is).
