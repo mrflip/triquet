@@ -100,6 +100,19 @@ export const Portnum  = { min: 0, max: 65_535 } as const
 export const Ubux     = { min: -1e12, max: 1e12 } as const
 
 //
+// == [Collection sizes] ==
+//
+// The most one parent holds of a kind of child: what a read of them takes, and past which adding
+// one more is refused.
+
+/** Questions in one quiz */
+export const QuestionsPerQuiz = { min: 0, max: 999 } as const
+/** Realms in one hunt; every hunt has at least its home realm */
+export const RealmsPerHunt    = { min: 1, max: 99 } as const
+/** Hunts in the whole app */
+export const HuntsInApp       = { min: 0, max: 99 } as const
+
+//
 // == [Contact shapes] ==
 //
 

@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
+import * as PA from '../lib/vv/patterns'
 import { Quiz, type QuizT } from './quiz'
 import { ExpressionValidators, SeedExpressions, keyOf, type ExpressionT } from './expression'
 import { defaultLayoutFor } from './layout'
@@ -20,8 +21,8 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
     label:        huntLabel,
     forced_label: forced_label.default(null),
     title:        title.default(''),
-    realms:       arr(RealmValidators.realm).min(1)
-      .describe('The hunt\'s realms, in order. Every hunt has `home`, and for now nothing else.'),
+    realms:       arr(RealmValidators.realm).min(PA.RealmsPerHunt.min).max(PA.RealmsPerHunt.max)
+      .describe('The hunt\'s realms, in order, at most 99. Every hunt has `home`, and for now nothing else.'),
     expressions:  arr(ExpressionValidators.expression).default([])
       .describe('The calculations any quiz of this hunt can put to work as columns.'),
   })
