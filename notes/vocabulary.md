@@ -14,9 +14,9 @@ the domain.
 * **ident** -- a persona in the app, named by a global label a person types to become it: 6 to
   24 characters of the label alphabet, normalised from what was typed. No password: anyone may
   assume any ident, for now. Has a `title` for display. Never changed or deleted.
-* **identing** -- one account taking on one ident. The account's newest identing is its current
-  ident; that row, not browser storage, is what "logged in" means. The one table no other account
-  can read. (Later, a cred will be the thing an identing hangs off.)
+* **identing** -- one browser taking on one ident, named by the browser's key. The browser's
+  newest identing is its current ident; that row, not browser storage, is what "logged in" means.
+  (Later, a cred will be the thing an identing hangs off.)
 * **hunt** -- the unit of URL scope and, later, of membership: holds realms and expressions, and
   is exactly what Export emits. Its label is global; should two share one, the earlier-made wins.
 * **realm** -- a division of a hunt, holding quizzes; the address's middle segment. Every hunt
@@ -61,7 +61,7 @@ the domain.
 
 ## Identity
 
-* **id** -- Jazz's own row id, whatever it wants it to be; fixed for life, never shown: not on
+* **id** -- Convex's own row id, `_id`, whatever it wants it to be; fixed for life, never shown: not on
   screen, not in the Export box, not in a quiz's history (`lib/exporting.ts`). An
   internal detail: where a label relationship is reasonable and equally powerful, refer by label
   instead, scoped where it must be (`quizlabel-questionlabel` as a selector id).

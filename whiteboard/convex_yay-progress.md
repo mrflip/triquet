@@ -12,10 +12,15 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   not yet merged. **The app runs on Convex alone.** On 2026-09-28: lint green; 1907 unit and
   convex tests green; 163 e2e specs green in about a minute (`pnpm test:e2e:agent`); `pnpm
   typecheck` fails only on the stale `.next-e2e/dev/types` (phase 3a fixes the cause).
-* **Phases 3a and 4 are next, on this branch**, per the plan's 2026-09-28 extension (*Where this
-  stands*): the deploy story, CI's drift check, the healthcheck, then the measurements, the
-  verdict and the sweep of Jazz's last traces. Phase 3b (the cloud) waits on the Coach's account
-  and blocks nothing. Phases 5 to 7 are the playtesting thread's PRs 4 to 6, on Convex.
+* **Phase 3a (the deploy story, CI's drift check, the healthcheck)**: built on
+  `20260928-convex_phase4` (`db7e137`), not yet merged.
+* **Phase 4 (the evaluation, the ergonomics pass, Jazz's last traces)**: built on
+  `20260928-convex_phase4b`, stacked on it, not yet merged. The verdict is written (keep Convex:
+  `notes/database-decisions.md`, *Verdict*; `notes/decisions/2026-09-convex.md`), pending the
+  Coach's word. On 2026-09-28: lint and typecheck green; 1902 unit and convex tests and 164 e2e
+  specs green.
+* **Next**: phase 5 (reviewings), a branch stacked on this one. Phase 3b (the cloud) waits on the
+  Coach's account and blocks nothing; when it lands, re-measure (*Measurements*).
 
 ## 2. Start here
 
@@ -28,11 +33,12 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 2. The e2e suite brings up its own (`scripts/convex_dev e2e --reset next dev`, from
    `playwright.config.ts`), emptied as it starts. `pnpm test:e2e:agent` uses the `e2e-agent` role
    (3003/3403).
-3. Phase 3a's work is in the plan; `notes/deploy.md` and `README.md` still describe Jazz and are
-   its to rewrite. `.github/workflows/ci.yml` already runs e2e against a local backend (with the
-   binary cached) and has no `migrations` job; the `_generated` drift check is still to build.
-4. Phase 4's checklist of Jazz's last traces is in the plan, from a grep run on 2026-09-28;
-   rerun the grep before calling the sweep done.
+3. `notes/decisions/2026-09-convex.md` is the shape of the data and the rules, in one place; read
+   it before the plan's phase 5.
+4. A schema change refuses a push to a backend holding rows of the old shape: `scripts/convex_reset
+   <role>` and push again (`scripts/convex_dev ... --reset` now does this itself).
+5. To measure against the production build: `pnpm build:agent`, then `pnpm start:agent` (3004,
+   the agents' backend). The phase 4 harness is described under *Measurements*.
 
 ## 3. Decisions taken
 
@@ -48,8 +54,8 @@ The plan's fifteen settled items (2026-09-27), and where each now lives:
 * No validation of rows read back; nullable, never optional; structured values are ordinary
   fields; `convex-helpers` in; reads follow Convex's and React's grain; the ask route stays;
   goodbye offline; identity is a browser key for the trial; the views receive a shallow hunt;
-  `convex/` at the root; this plan ends with the app as it is today: `notes/stack.md` (the
-  Convex entry under *Use*), in brief. Phase 4 moves them to `notes/decisions/2026-09-convex.md`.
+  `convex/` at the root; this plan ends with the app as it is today: now in
+  `notes/decisions/2026-09-convex.md`, which `notes/stack.md`'s Convex entry points at.
 
 Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
 
@@ -101,7 +107,26 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 
 Newest first.
 
-* **The export is asked for again whenever the screen changes**, not once. The Export box has no
+* **No optimistic updates** (phase 4). The plan named four candidates for where the wait is
+  felt; measured on a local backend, none is (*Measurements*). The cloud's round trip decides;
+  `move_question` goes first, through `Rank`'s pure functions. Recorded in the verdict.
+* **The Export box reads the whole hunt when asked** (*Prepare export*), and empties at the next
+  change on screen, anyone's included. The phase 2 deviation below asked again after every
+  change on every open screen; measured, that was the app's largest cost (half of what each
+  browser downloaded, nearly two fifths of database I/O), so the plan's alternative is built.
+* **The widgets table is a union** of the two kinds, derived by `zodOutputToConvex` from
+  `WidgetValidators.row`, now a discriminated union. `writeQuiz` replaces a widget whose label now
+  names the other kind, since a patch cannot unset the old kind's fields.
+* **`BottingT` is a row's fields**, `RecordedBottingT` those and `_creationTime`; a cell's
+  `SlotLatest` holds the rows the walk read. `latestBySlot`, `bottingFrom` and
+  `bottingFieldsOf` are gone (the "not done" entry below is done).
+* **`SyncLog` is gone** (the Coach, `ca2c63f`): Convex's client exposes nothing cheaply worth
+  logging.
+* **`pnpm start:agent`** (3004) serves the agents' production build, for measuring.
+* **`scripts/convex_dev --reset` empties and pushes again** when a schema change refuses the push.
+
+* **The export is asked for again whenever the screen changes**, not once. *Superseded in phase
+  4: asked for on request.* The Export box has no
   opening to hang "once" on (it is always on screen), and an export a step behind the author is
   a backup that silently misses their last edits. `useWholeHunt` asks `hunts.whole` with a one-shot
   query each time the shallow hunt or the open quiz is redelivered; never subscribed. Its cost is a
@@ -131,7 +156,7 @@ Newest first.
 * **`Hunt.expressionUsage`, `Hunt.realmFor` and `Realm.quizFor` are gone**: the expressions arrive
   counted, and `placeIn` (`use-hunt`) places an address in the shallow hunt with
   `Labelmaker.entityForLabel`.
-* **Not done: `BottingT` keeps `id` and `created_at`, and `latestBySlot` stays** (now used only by
+* **Not done (done in phase 4): `BottingT` keeps `id` and `created_at`, and `latestBySlot` stays** (now used only by
   `resultsFor`'s tests). With Jazz gone nothing needs either; dropping the minted `id` and
   building the tests' `latest` maps by hand is a small sweep, left for phase 4.
 
@@ -191,6 +216,30 @@ Newest first.
 * **Convex's backends use 34xx and 35xx**, not 32xx: Jazz's dev servers hold 32xx until phase 2.
 
 ## 5. Discoveries
+
+### Phase 4
+
+* **The backend's function log is the bill.** `convex logs --jsonl --success` gives every
+  execution's `usageStats` (database I/O read and written, documents read), its `returnBytes`,
+  and whether it was served from the cache. The stream repeats entries (the same `executionId`
+  two to four times): count each once.
+* **A cache hit costs no database I/O.** A second browser's rerun of `quizzes.open` after an edit
+  is served from the cache; the plan's appendix could only guess. Whether it is a billed call,
+  nothing official says.
+* **Database I/O binds, not calls**: about 46 KiB per edit on the sample-sized quiz, half of it
+  `hunts.perform` reading the whole open quiz for every action, half the one uncached rerun of
+  `quizzes.open`.
+* **On a large quiz the wait is the page's, not the network's.** At 60 questions a reorder shows
+  after about 200 ms against a 50 ms round trip; a CPU profile puts most of the rest in
+  `Expressed.forQuiz` (every expression widget for every question, in JSONata) re-run on each
+  redelivery from `Workbench`'s `useMemo`.
+* **A fresh tab takes three round trips to show its quiz**: the socket, `hunts.open`, then
+  `quizzes.open`, which waits for the labels to resolve to an id.
+* **`zodOutputToConvex` derives a union table** from a discriminated union, and `defineTable`
+  types it; `Doc<'widgets'>` narrows by `kind`.
+* **A schema push validates every document** and refuses the whole push for one that no longer
+  fits, before `testing.clearAll` could empty it: hence `--reset`'s retry.
+* **Convex's client runs under Playwright's fake clock** (`quiz-history.spec.ts`).
 
 ### Phase 2
 
@@ -336,6 +385,26 @@ All `convex` 1.46.0, `convex-helpers` 0.1.124, `convex-test` 0.0.60, local backe
 
 ## 6. Measurements
 
+**Phase 4** (2026-09-28): the numbers, and what they mean for the bill, are in
+`notes/database-decisions.md` (*Appendix*, *Measured*). In brief, on a local backend with a
+production build, a 24-question hunt and a second browser watching:
+
+| | Local | 80 ms network | 200 ms network | Local, 60 questions |
+|---|---|---|---|---|
+| Reorder, until shown (median ms) | 84 | 165 | 310 | 202 |
+| Lock, until shown | 70 | 152 | 284 | 174 |
+| Quiz on screen, fresh tab | 225 | 400 | 670 | 430 |
+| Database I/O per edit | 46 KiB | | | 110 KiB |
+| Function calls per edit (uncached) | 3.7 (2.2) | | | 3.7 (2.2) |
+
+How: a Playwright script (kept out of the repo) drove the app through the Import box and five
+kinds of edit, proxied the Convex websocket to log every frame and to delay each message for the
+simulated networks, and read the backend's function log (`convex logs --jsonl --success`) for
+the server's side. A quiz screen holds four live queries (`idents.current`, `hunts.open`,
+`quizzes.open`, `reviews.forQuiz`); the expression preview adds `useOtherQuiz`'s while it points
+at another quiz. None per row. Redo these against the cloud in phase 3b; ask the Coach for the
+script if it is wanted in the repo.
+
 Phase 0, on a local backend (`127.0.0.1:3401`), from Chromium driven by Playwright, through
 Convex's browser client (`ConvexClient`, which `useMutation` wraps; no React). 50 mutations,
 each inserting a question into a quiz whose question list the page subscribes to; three runs.
@@ -370,6 +439,8 @@ Worth a run on a quiet machine before merging.
   name the pages as they were before the `(synced)` route group and fail `pnpm typecheck` until
   a dev server in that directory regenerates them. Yours regenerate on your next `pnpm dev`.
 
+* **The verdict** (`notes/database-decisions.md`, *Verdict*, and `notes/decisions/2026-09-convex.md`)
+  is written for your word: keep Convex.
 * **Doppler**: `NEXT_PUBLIC_CONVEX_URL` is in `dev_claude` and `dev_e2e` (done, thank you);
   `scripts/convex_dev` sets it from the role anyway, so `dev` needs nothing new. Nothing reads
   these any more, and they can go: `JAZZ_DEV_PORT`, `JAZZ_DEV_DATA_DIR`, `JAZZ_REAL_DB`,
@@ -406,3 +477,13 @@ Phase 2 deleted the Jazz tests with their modules. Their successors, all green:
 | `tests/models/hunt.test.ts` (`Hunt.realmFor`, `Hunt.expressionUsage`) | `tests/state/use-hunt.test.ts` (`placeIn`); `tests/convex/writing/layout_actions.test.ts` (`expressionUsageOf`) |
 | `tests/models/realm.test.ts` (`Realm.quizFor`) | `tests/state/use-hunt.test.ts` (`placeIn`) |
 | `e2e/client-first.spec.ts` (the network off) | the same file: every host but the app's and its database's blocked, and asking blocked |
+
+Phase 4 deleted these, each with a successor, all green:
+
+| Test (deleted in phase 4) | Successor |
+| --- | --- |
+| `tests/models/botting.test.ts`, `latestBySlot` (five cases) | `tests/convex/reading.test.ts` (the walk: newest, newest answered, cells kept apart) and `tests/lib/rows.test.ts` (`slotLatestOf`) |
+| `tests/lib/rows.test.ts`, `bottingFrom` | `tests/models/botting.test.ts` (`resultsFor` reads `_creationTime` in whole milliseconds) |
+| `tests/convex/writing/quiz_writing.test.ts`, `bottingFieldsOf` | none needed: the insert is `BottingValidators.row` of the botting, covered by `writeQuiz`'s cases |
+| `tests/lib/rows.test.ts`, `widgetFrom` throws for a row lacking its kind's fields | none possible: the union table cannot hold one |
+| `tests/models/widget.test.ts`, "an expressing that also names a bot", "a botting that also names an expression" | the same file: the other kind's fields are dropped, and the table has no place for them |

@@ -49,7 +49,8 @@ How a change reaches production, and what a schema change means for a deployment
 `notes/deploy.md`.
 
 Coding agents use `pnpm dev:agent` (port 3001, build directory `.next-agent`, backend on 3401)
-and `pnpm build:agent` instead of `pnpm dev` and `pnpm build`, so they never collide with a dev
+and `pnpm build:agent` (served on 3004 by `pnpm start:agent`) instead of `pnpm dev` and
+`pnpm build`, so they never collide with a dev
 server you already have running. Next.js refuses to start a second dev server in the same
 directory. Each dev script runs under a Doppler config that gives it its own port and build
 directory: your default config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for

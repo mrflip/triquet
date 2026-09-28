@@ -71,15 +71,17 @@ Build every schema through a `Validator` block, or from the kit's aliases where 
 than the job needs. Import `zod` itself only for its types (`Z.input`, `Z.output`, `Z.ZodError`);
 the kit's `zod` key is the escape hatch for the rare thing it does not alias.
 
-### Where validation sits, with a local-first database
+### Where validation sits, with the database on the server
 
 The entrypoints that matter most are **between the UI and the app**: a field's new value being
-submitted, an import, a reply from a model. Validate there, with the same Zod schemas the
-columns are declared with. Never rely on the database alone to refuse bad data: a write refused
-by the runtime makes a lousy message and is invisible to a front-end developer. Add every check
-the tools make easy (Zod on `JZS.json()` columns, `JZS.enum()` for closed sets); what a column cannot
-carry, such as a length limit on `JZS.string()`, is an entrypoint check. Past the boundary, rows
-are clean.
+submitted, an import, a reply from a model. Validate there, with the same Zod schemas the tables
+are derived from. Then again at the server's door: every Convex function takes its arguments
+through our Zod schemas, and every row passes its row validator before it is written, so the
+mutation is a chokepoint no client can skip. Never rely on the database alone to refuse bad data:
+Convex's schema validation is the second net, and a write refused there makes a lousy message.
+What the derived table cannot carry (patterns, lengths, integers, a check across fields) is the
+row validator's; nested values and closed sets it carries. Past the boundary, rows are clean,
+and rows read back are trusted.
 
 ### The patch pattern
 

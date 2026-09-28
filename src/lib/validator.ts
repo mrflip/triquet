@@ -42,7 +42,7 @@ export const ValidatorKit = {
   formulaish: CK.formulaish,
   /** Human-readable name on one line, independent of any identity it might accompany */
   titleish:  CK.titleish,
-  /** Lowercase Crockford-base32 ULID, as this tool minted ids before it kept its quizzes in Jazz */
+  /** Lowercase Crockford-base32 ULID, as this tool minted ids before September 2026: old exports carry them */
   ulid:      CK.ulid,
   /** A pointer to a row of the table named: internal, never shown, and checked against that table by Convex */
   zid,
