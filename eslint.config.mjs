@@ -217,7 +217,7 @@ export default defineConfig([
   },
 
   // Convex routes a function by its file's path, and refuses a hyphen in one: its modules and
-  // their tests are snake_case (`convex/writing/quiz_actions.ts`).
+  // their tests are underbar_case (`convex/writing/quiz_actions.ts`).
   {
     name: 'triquet/convex-module-names',
     files: ['convex/**', 'tests/convex/**'],

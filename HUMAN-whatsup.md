@@ -129,7 +129,7 @@ in `whiteboard/convex_yay-progress.md`.
 
 Things you might trip over:
 
-* Convex refuses a hyphen in a module path, so `convex/**` and `tests/convex/**` are snake_case,
+* Convex refuses a hyphen in a module path, so `convex/**` and `tests/convex/**` are underbar_case,
   with an eslint block allowing it there.
 * The models are Convex-shaped already: every `<parent>_id` is a Convex id (UUIDs still pass, so
   Jazz works), and an identing names its browser. Two small Jazz-side bends make that fit:

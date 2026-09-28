@@ -408,7 +408,7 @@ export const COGKEY         = { msg: "a v4 guid or a conventionally-formatted em
 
 export const CAMEL          = { re: /^[A-Z][A-Za-z0-9]*$/,          msg: "should be an UpperFirstLetterCamelCased name" } as const
 export const LOCAMEL        = { re: /^[a-z][A-Za-z0-9]*$/,          msg: "should be a lowerFirstLetterCamelCased name" } as const
-export const SNAKE          = { re: /^[a-z][a-z0-9_]*$/,            msg: "should be a lower_underscore_case name" } as const
+export const SNAKE          = { re: /^[a-z][a-z0-9_]*$/,            msg: "should be a lower_underbar_case name" } as const
 export const CLASSNAME      = { re: /^[A-Z][A-Za-z0-9]*$/,          msg: "should be a CamelCased class name" } as const
 export const FIELDNAME      = { re: /^[a-z][A-Za-z0-9_]*$/,         msg: "should be a lowerfirst label" } as const
 export const VARNAME        = { re: /^[a-zA-Z][A-Za-z0-9_]*$/,      msg: "should be a label and start with a letter" } as const

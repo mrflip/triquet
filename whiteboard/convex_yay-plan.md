@@ -61,7 +61,7 @@ build it is Jazz's, and the phases here say what replaces it.
 * **Convex's generated code is committed** (`convex/_generated/`), marked `-diff` in
   `.gitattributes` as `pnpm-lock.yaml` is, and **a large regeneration goes in a commit of its
   own** so the reviewable diff stays readable.
-* **Field names stay `underscore_case`.** Convex allows it (alphanumerics and underscores; a name
+* **Field names stay `underbar_case`.** Convex allows it (alphanumerics and underscores; a name
   may not start with `_` or `$`), and only its own system fields are camelCase (`_id`,
   `_creationTime`). Convex's examples and the agent's training are camelCase; hold the line
   anyway, wholesale, no mixed names. Table names stay as they are.
@@ -82,7 +82,7 @@ build it is Jazz's, and the phases here say what replaces it.
 * Convex is the database. Turso stays out. Drizzle does not return. Jazz code does not survive;
   what we learned does (`notes/decisions/2026-09-jazz.md`, *Learned in the move*).
 * No migration path, no id preservation.
-* `underscore_case` field names, as above.
+* `underbar_case` field names, as above.
 * One schema drives the others where the framework lets it; where not, a mechanical check holds
   the copies together. See *Schema: one source* below.
 * Zod at form entry, import/export, and at reasonable chokepoints in the data flow, without
