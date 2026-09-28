@@ -37,7 +37,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
   const botting = obj({
     kind:          lit('botting'),
     label:         widgetLabel,
-    bot_label:  botLabel,
+    bot_label:     botLabel,
     textkind,
     description:   description.default(''),
   })
@@ -61,7 +61,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
 
   const bottingPatch = obj({
     label:        widgetLabel.optional(),
-    bot_label: oneof(BotLabelVals).optional(),
+    bot_label:    oneof(BotLabelVals).optional(),
     textkind:     oneof(TextkindVals).optional(),
     description:  description.optional(),
   })
@@ -130,7 +130,7 @@ export class Expressing implements ExpressingT {
 export class BottingWidget implements BottingWidgetT {
   declare kind:         'botting'
   declare label:        string
-  declare bot_label: BotLabel
+  declare bot_label:    BotLabel
   declare textkind:     Textkind
   declare description:  string
 

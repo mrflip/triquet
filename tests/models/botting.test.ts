@@ -6,7 +6,7 @@ import { mintId } from '../../src/lib/ids'
 
 const bottingOf = (overrides: Partial<RecordedBottingT>): RecordedBottingT => ({
   question_id:        'q1',
-  bot_label:       'dumdum',
+  bot_label:          'dumdum',
   textkind:           'clueing',
   asked_text:         'Who?',
   status:             'done',

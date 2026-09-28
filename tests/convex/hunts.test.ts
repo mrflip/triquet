@@ -26,9 +26,9 @@ function openHunt(locked = false): HuntT {
   return huntHolding([{ ...Quiz.blank('Quiz one'), locked }])
 }
 
-/** A hunt holding the quizzes titled `titles`, blank, the one at `locked_idx` locked */
-function huntTitled(titles: string[], locked_idx = -1): HuntT {
-  return huntHolding(titles.map((title, idx) => ({ ...Quiz.blank(title), locked: idx === locked_idx })))
+/** A hunt holding the quizzes titled `titles`, blank, the one at `lockedIdx` locked */
+function huntTitled(titles: string[], lockedIdx = -1): HuntT {
+  return huntHolding(titles.map((title, idx) => ({ ...Quiz.blank(title), locked: idx === lockedIdx })))
 }
 
 /** `hunt` with every quiz locked */
@@ -89,7 +89,7 @@ describe('hunts.perform', () => {
   const Deployment: { tt: Tester } = { tt: openTester() }
   beforeEach(() => { Deployment.tt = openTester() })
 
-  const seed = async (hunt: HuntT, open_idx = 0) => await seedHunt(Deployment.tt, hunt, open_idx)
+  const seed = async (hunt: HuntT, openIdx = 0) => await seedHunt(Deployment.tt, hunt, openIdx)
 
   describe('retitle_quiz', () => {
     it('renames the open quiz', async () => {

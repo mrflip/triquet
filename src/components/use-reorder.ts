@@ -79,11 +79,11 @@ export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove 
           setDragging(false)
           const onto = location.current.dropTargets[0]
           if (! onto) { return }
-          const over_idx = carriedIdx(onto.data, listkey)
-          if (over_idx === -1) { return }
+          const overIdx = carriedIdx(onto.data, listkey)
+          if (overIdx === -1) { return }
           move.current(itemkey, getReorderDestinationIndex({
             startIndex:          idx,
-            indexOfTarget:       over_idx,
+            indexOfTarget:       overIdx,
             closestEdgeOfTarget: extractClosestEdge(onto.data),
             axis:                'vertical',
           }))

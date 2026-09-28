@@ -19,7 +19,7 @@ export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, no
   const row = obj({
     question_id:        zid('questions')
       .describe('The question whose text was put to the bot.'),
-    bot_label:       oneof(BotLabelVals)
+    bot_label:          oneof(BotLabelVals)
       .describe('Which bot was asked.'),
     textkind:           oneof(TextkindVals)
       .describe('Which of the question\'s texts was put to the bot.'),
@@ -55,7 +55,7 @@ export type RecordedBottingT = BottingT & { _creationTime: number }
 
 /** One of a question's played cells: which bot, shown which of its texts, and the field it shows in */
 export type BotSlot = {
-  bot_label: BotLabel
+  bot_label:    BotLabel
   textkind:     Textkind
   field:        'guess' | 'clueing_ishes' | 'hint_ishes'
 }
