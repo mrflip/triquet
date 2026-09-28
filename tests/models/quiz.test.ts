@@ -49,6 +49,12 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ _id: quizId, questions: [question, { ...question }] })).to.throw(Z.ZodError)
   })
 
+  it('holds 999 questions, and refuses a thousandth', () => {
+    const questions = Array.from({ length: 1000 }, () => Question.blank())
+    expect(Quiz.fill({ _id: quizId, questions: questions.slice(0, 999) }).questions).to.have.lengthOf(999)
+    expect(() => Quiz.fill({ _id: quizId, questions })).to.throw(Z.ZodError)
+  })
+
   it('names the offending field when a chain dangles', () => {
     const question = Question.blank()
     const outcome = QuizValidators.quiz.safeParse({ _id: quizId, questions: [{ ...question, chains_to: mintId() }] })

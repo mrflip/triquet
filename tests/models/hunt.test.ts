@@ -29,6 +29,12 @@ describe('Hunt.fill', () => {
     expect(hunt.title).to.eq('Loud Heron')
   })
 
+  it('holds 99 realms, and refuses a hundredth', () => {
+    const realms = Array.from({ length: 100 }, (_unused, idx) => ({ _id: mintId(), label: `realm_${String(idx)}`, quizzes: [Quiz.blank()] }))
+    expect(Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms: realms.slice(0, 99) }).realms).to.have.lengthOf(99)
+    expect(() => Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms })).to.throw(Z.ZodError)
+  })
+
   const Refused: [object, string][] = [
     [homeHolding([]),                                                                                              'a realm holding no quiz'],
     [{ _id: mintId(), label: 'quiet_otter', realms: [] },                                                         'a hunt holding no realm'],

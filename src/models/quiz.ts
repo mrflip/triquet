@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
+import * as PA from '../lib/vv/patterns'
 import { AskValidators } from './ask'
 import { Question, QuestionValidators, type QuestionT } from './question'
 import { ColumnValidators, sourceOf, type ColumnSortkey, type ColumnT } from './column'
@@ -47,8 +48,8 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     forced_label:    forced_label.default(null),
     version:         version.default(DefaultVersion),
-    questions:       arr(QuestionValidators.question).default([])
-      .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left.'),
+    questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
+      .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
     widgets:         arr(WidgetValidators.widget).default([])
       .describe('What this quiz can show for every question besides the questions\' own fields: the bots put to it, and the expressions put to work. Their order is the order they are listed in.'),
     columns:         arr(ColumnValidators.column).default([])

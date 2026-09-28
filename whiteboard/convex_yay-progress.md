@@ -7,23 +7,24 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 * **Phase 0 (spike and decisions)**: built on `20260927-convex_spike`, not yet merged. Lint,
   typecheck and unit tests green (79 files, 1999 tests). e2e after the `_id` rename: 151 of
   152 at three workers, the one failure passing three times of three alone (see
-  *Measurements*). The app still runs on Jazz, untouched apart from the rename.
-* Phases 1 to 4: not started. **Phase 1 waits on the Coach's answer to the isolation question**
-  (*For the Coach*, first item), since the plan says to raise it before building it into scripts.
+  *Measurements*). The app still runs on Jazz, untouched apart from the rename. After the
+  Coach's answers: `scripts/convex_backend`, and the per-parent caps in `lib/vv/patterns.ts`.
+* **Phase 1 (the server side, beside Jazz) is next**, on a new branch. Phases 2 to 4 follow it.
 
 ## 2. Start here
 
-1. Read *For the Coach* below: if the isolation answer and the port scheme have been agreed,
-   they may have been written into `CLAUDE.md` already; if not, ask before scripting either.
-2. Start the agents' backend by hand as *Discoveries: isolation* shows (until a script does it),
-   and push with `./node_modules/.bin/convex dev --once --typecheck disable --env-file
-   data/convex-agent.env`. `convex/_generated/` regenerates only against a running backend.
+1. Start the agents' backend with `pnpm convex:backend agent` (it runs in the foreground; give
+   it a terminal or the background), then push with `./node_modules/.bin/convex dev --once
+   --typecheck disable --env-file data/convex-agent/cli.env`. `convex/_generated/` regenerates
+   only against a running backend.
+2. Read `convex/_generated/ai/guidelines.md` (Convex's rules, installed by the Coach) and then
+   *Rules overrides* below, which win where the two differ.
 3. `convex/schema.ts` and `convex/spike.ts` are the phase 0 spike: replace them whole in phase 1.
    `tests/convex/spike-bridge.test.ts` is the seed of the schema canary
    (`tests/convex/schema.test.ts` in the plan); `tests/convex/spike.test.ts` pins the error path.
-4. Read *Rules overrides* before writing a Convex function: Convex's guidelines (fetched from
-   `https://version.convex.dev/v1/guidelines`) say `v`, `returns` everywhere, tests inside
-   `convex/`, and a bounded `.take()` on every read; this project differs on each.
+4. The write actions of phase 1 must refuse past the caps (*Rules overrides*): the Jazz write
+   path checks a quiz's question count nowhere but `Quiz.fill`, so adding a thousandth question
+   through the grid is not refused today.
 
 ## 3. Decisions taken
 
@@ -42,6 +43,20 @@ The plan's fifteen settled items (2026-09-27), and where each now lives:
   `convex/` at the root; this plan ends with the app as it is today: `notes/stack.md` (the
   Convex entry under *Use*), in brief. Phase 4 moves them to `notes/decisions/2026-09-convex.md`.
 
+Settled after phase 0 (Coach, 2026-09-27):
+
+* **Isolation: a backend binary per role**, run by `scripts/convex_backend
+  <dev|agent|e2e|e2e-agent>` (`pnpm convex:backend`), on ports 34xx and 35xx, with its data,
+  instance secret and `cli.env` in `data/convex-<role>/`. The human's dev server uses it too.
+  Written into `CLAUDE.md`'s *Global resources*. Agents are moving into containers of their own;
+  a container still runs a dev server and an e2e suite side by side, so the script stays.
+* **Caps**, in `src/lib/vv/patterns.ts` (*Collection sizes*): 999 questions per quiz and 99 realms
+  per hunt, both also in the tree validators (`QuizValidators.quiz`, `HuntValidators.hunt`), and
+  99 hunts in the app, which no validator sees and phase 1's `new_hunt` and `hunts.list` apply.
+* **Convex's AI files** installed by the Coach: `convex/_generated/ai/guidelines.md`, a block in
+  `CLAUDE.md` and `AGENTS.md`, and the `convex-*` skills. `CLAUDE.md` says this project's rules
+  win where they differ.
+
 ### Rules overrides
 
 Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fetched
@@ -54,10 +69,12 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
   keeps the test tree apart from the source. `import.meta.glob('../../convex/**/*.*s')` gives
   convex-test its modules from there; it finds the root by the `_generated` path.
 * **A user identifier as an argument** (`browser_key`), for the trial only. Settled item 13.
-* **Unbounded reads: open.** The guidelines say never `.collect()`, always `.take(n)` or
-  paginate. A quiz's questions, widgets and columns are bounded only by the author. Phase 1
-  should pick a named maximum per child table (and refuse past it in the writing actions) or
-  record `.collect()` on an index scoped to one parent as an override. Raise with the Coach.
+* **Bounded reads, by our caps.** The guidelines say never `.collect()`, always `.take(n)`. A
+  read of a parent's children takes the cap from `lib/vv/patterns.ts`
+  (`.take(PA.QuestionsPerQuiz.max)`), and a write that would pass it is refused, so a read never
+  silently drops a row. Widgets and columns per quiz, expressions per hunt and reviews per quiz
+  have no cap yet: phase 1 adds one to *Collection sizes* for each (proposing the number in chat)
+  rather than reading them unbounded.
 
 ## 4. Deviations from the plan
 
@@ -112,25 +129,14 @@ All with `convex` 1.46.0, `convex-helpers` 0.1.124, `convex-test` 0.0.60, local 
 * **Candidate (b) does.** The CLI's own backend binary, one per role, each with its ports and
   data directory, addressed by the CLI's self-hosted variables. Verified with two at once: a row
   written to one never appears in the other. No account, nothing in the home directory but the
-  binary cache. The spike's commands, per role (`agent` is `xx=01`, `e2e` is `02`):
-
-  ```sh
-  BIN=~/.cache/convex/binaries/precompiled-2026-09-21-0cf49cb/convex-local-backend
-  SECRET=<a fixed 64-hex dev instance secret; the CLI's own legacy one serves>
-  KEY=$("$BIN" keygen admin-key --instance-name triquet-$role --instance-secret $SECRET)
-  "$BIN" --port 34$xx --site-proxy-port 35$xx --interface 127.0.0.1 \
-    --instance-name triquet-$role --instance-secret $SECRET --disable-beacon \
-    --local-storage data/convex-$role/storage data/convex-$role/backend.sqlite3
-  # data/convex-$role.env holds CONVEX_SELF_HOSTED_URL=http://127.0.0.1:34$xx and
-  # CONVEX_SELF_HOSTED_ADMIN_KEY=$KEY; every CLI command takes --env-file data/convex-$role.env
-  ```
-
-  The admin key is derived from the instance name and secret, so a script can mint it at start
-  and nothing needs to be stored. It grants admin over one backend bound to localhost. The
-  binary comes from `get-convex/convex-backend`'s GitHub releases (the CLI downloads it on first
-  use); CI can fetch the Linux asset for the same version, or run the backend's Docker image.
-  Stop a backend with `SIGTERM`. An admin key holds a `|`, so read the env file with
-  `--env-file`, never by sourcing it in a shell.
+  binary cache. `scripts/convex_backend` is what came of it: it downloads the pinned binary when
+  missing, mints a random instance secret once per role and keeps it in the role's data
+  directory, derives the admin key from it (`convex-local-backend keygen admin-key`), writes
+  `data/convex-<role>/cli.env` (`CONVEX_SELF_HOSTED_URL` and `CONVEX_SELF_HOSTED_ADMIN_KEY`), and
+  runs the backend bound to 127.0.0.1. The admin key grants admin over that one backend only.
+  CI can run the same script on Linux (it needs curl, unzip and openssl), or the backend's
+  Docker image. An admin key holds a `|`, so read `cli.env` with `--env-file`, never by sourcing
+  it in a shell.
 
 ### The bridge (question 2)
 
@@ -230,29 +236,19 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **The isolation answer, before anything is scripted.** Candidate (b), a backend binary per
-  role, is the one that works. Proposed:
-  - One script, `scripts/convex_backend <role>`, that downloads the pinned binary if absent,
-    mints the admin key, writes `data/convex-<role>.env`, and runs the backend in the
-    foreground; `dev:agent`, `test:e2e`, `test:e2e:agent` and the human's `dev` start it
-    beside Next (phase 2).
-  - Ports 34xx (backend) and 35xx (HTTP actions), with `xx` matching the web port: human
-    3400/3500, agent 3401/3501, e2e 3402/3502, e2e-agent 3403/3503. Data in
-    `data/convex-<role>/`.
-  - The human's own dev server uses the same script, rather than `npx convex dev`'s default
-    (port 3210, `.convex/local/default/`, a `.env.local`), so every role works the same way. Say
-    if you would rather keep the default for yourself.
-* **Doppler, once that is agreed** (agents cannot edit Doppler). For `dev` (yours), `dev_claude`
-  and `dev_e2e`: `CONVEX_PORT` (34xx), `CONVEX_SITE_PORT` (35xx), `CONVEX_DATA_DIR`
-  (`data/convex-<role>`), and `NEXT_PUBLIC_CONVEX_URL` (`http://127.0.0.1:34xx`). No admin key:
-  the script derives it. In phase 2 these retire: `JAZZ_DEV_PORT`, `JAZZ_DEV_DATA_DIR`,
-  `JAZZ_REAL_DB`, `JAZZ_ADMIN_SECRET`, `JAZZ_ADMIN_SNIPPET`, `NEXT_PUBLIC_JAZZ_SERVER_URL`,
-  `NEXT_PUBLIC_JAZZ_APP_ID`, `NEXT_PUBLIC_JAZZ_RUNTIME_VERSION`, `NEXT_PUBLIC_JAZZ_LOG_LEVEL`.
-* **Convex's AI files**: `npx convex ai-files install` adds a Convex section to `CLAUDE.md` and
-  `AGENTS.md`, agent skills, and `convex/_generated/ai/guidelines.md`. The agent was refused it.
-  Run it if you want it, or `npx convex ai-files disable` to silence the CLI's reminder.
-* **Unbounded reads** (*Rules overrides*): a named maximum per child table, or `.collect()` on a
-  parent-scoped index as a recorded override.
+* **Doppler, in phase 2** (agents cannot edit Doppler): `NEXT_PUBLIC_CONVEX_URL` for `dev`
+  (`http://127.0.0.1:3400`), `dev_claude` (`:3401`) and `dev_e2e` (`:3402`); the e2e-agent run
+  overrides it on the command line as it does its ports today. Nothing else: the script knows
+  each role's ports and mints its own keys. Retiring with Jazz: `JAZZ_DEV_PORT`,
+  `JAZZ_DEV_DATA_DIR`, `JAZZ_REAL_DB`, `JAZZ_ADMIN_SECRET`, `JAZZ_ADMIN_SNIPPET`,
+  `NEXT_PUBLIC_JAZZ_SERVER_URL`, `NEXT_PUBLIC_JAZZ_APP_ID`, `NEXT_PUBLIC_JAZZ_RUNTIME_VERSION`,
+  `NEXT_PUBLIC_JAZZ_LOG_LEVEL`.
+* **Containers need no Convex key each.** A local backend needs no account; each role's admin
+  key is minted from a secret made in its own data directory. Only phase 3's cloud deployments
+  have keys (production for the Coach, preview for Vercel), and agents never hold the
+  production one.
+* **Caps still to choose** (*Rules overrides*): widgets and columns per quiz, expressions per
+  hunt, reviews per quiz. Phase 1 proposes numbers.
 * **Before phase 3** (unchanged from the plan): a Convex team and project, the production and
   preview deploy keys, and Vercel's build command.
 
