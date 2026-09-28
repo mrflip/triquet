@@ -118,10 +118,10 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
   const incomingLabel = parsed.data.forced_label ?? parsed.data.label ?? null
   const seatIdx = seatFor(merge.questions, incomingLabel)
   const seated = seatIdx === -1 ? undefined : merge.questions[seatIdx]
-  const fresh = Question.fill({ id: mintId(), ...(incomingLabel !== null && { label: incomingLabel }) })
+  const fresh = Question.fill({ _id: mintId(), ...(incomingLabel !== null && { label: incomingLabel }) })
   const revised = { ...(seated ?? fresh), ...patchFrom(bag, parsed.data) }
 
-  if (typeof bag.id === 'string') { merge.idForForeignId.set(bag.id, revised.id) }
+  if (typeof bag.id === 'string') { merge.idForForeignId.set(bag.id, revised._id) }
 
   merge.questions = seated === undefined
     ? [...merge.questions, revised]
@@ -129,7 +129,7 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
 
   if (Object.hasOwn(bag, 'chains_to')) {
     merge.chainOrders.push({
-      question_id:   revised.id,
+      question_id:   revised._id,
       foreignTarget: typeof bag.chains_to === 'string' ? bag.chains_to : null,
     })
   }
@@ -192,7 +192,7 @@ function readWhole(quizzes: readonly ImportQuizT[], whole: 'hunt' | 'workspace',
 
 /** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: ImportQuizT, openQuiz: QuizT): string {
-  if (chosen.id !== undefined && chosen.id === openQuiz.id) { return 'matched this quiz by id' }
+  if (chosen.id !== undefined && chosen.id === openQuiz._id) { return 'matched this quiz by id' }
   if (labelOfPasted(chosen) === Labelmaker.effectiveLabelOf(openQuiz)) { return 'matched this quiz by label' }
   return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
 }
@@ -209,7 +209,7 @@ function labelOfPasted(quiz: ImportQuizT): string | null {
  */
 export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
   const label = Labelmaker.effectiveLabelOf(openQuiz)
-  return quizzes.find((quiz) => quiz.id !== undefined && quiz.id === openQuiz.id)
+  return quizzes.find((quiz) => quiz.id !== undefined && quiz.id === openQuiz._id)
     ?? quizzes.find((quiz) => labelOfPasted(quiz) === label)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
     ?? quizzes[0]
@@ -249,15 +249,15 @@ function remapChains(
   log: ImportLogEntry[],
 ): QuestionT[] {
   if (orders.length === 0) { return [...questions] }
-  const idForLabel = new Map(questions.map((question) => [Labelmaker.effectiveLabelOf(question), question.id]))
+  const idForLabel = new Map(questions.map((question) => [Labelmaker.effectiveLabelOf(question), question._id]))
 
   return questions.map((question) => {
-    const order = orders.find((each) => each.question_id === question.id)
+    const order = orders.find((each) => each.question_id === question._id)
     if (! order) { return question }
     if (order.foreignTarget === null) { return { ...question, chains_to: null } }
 
     const localId = idForForeignId.get(order.foreignTarget) ?? idForLabel.get(order.foreignTarget)
-    if (localId === undefined || localId === question.id) {
+    if (localId === undefined || localId === question._id) {
       noteChainLoss(log, Labelmaker.effectiveLabelOf(question))
       return { ...question, chains_to: null }
     }

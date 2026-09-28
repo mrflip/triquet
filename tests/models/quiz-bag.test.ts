@@ -9,7 +9,7 @@ const ishes = { status: 'done' as const, items: [{ text: '300', value: 300, kind
 
 describe('the bags formulas are actually given', () => {
   const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film', hint_ishes: ishes }
-  const question = { ...Question.blank(), qnum: '1', chains_to: target.id, clueing_ishes: ishes, guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1, last_err: null } }
+  const question = { ...Question.blank(), qnum: '1', chains_to: target._id, clueing_ishes: ishes, guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1, last_err: null } }
   const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', last_sortkey: 'column:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
 
   it('all satisfy the schema the prompt shows, so the schema is never a description of something else', () => {
@@ -18,7 +18,7 @@ describe('the bags formulas are actually given', () => {
   })
 
   it('name the failing field when one does not', () => {
-    const bag = present(Expressed.bagsFor(quiz).get(question.id))
+    const bag = present(Expressed.bagsFor(quiz).get(question._id))
     const outcome = QuizBagValidators.quizBag.safeParse({ ...bag, qn_label: 'Not A Label' })
     expect(outcome.success).to.eq(false)
     expect(outcome.error?.issues[0]?.path).to.deep.eq(['qn_label'])

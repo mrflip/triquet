@@ -82,21 +82,21 @@ export function useAsking(dispatch: (action: HuntAction) => void): AskingHandle 
   const ask = useCallback((question: QuestionT, askkind: Askkind) => {
     const text = askableTextOf(question, askkind)
     if (text === '') { return }
-    void hold([askCellkey(question.id, askkind)], async () => {
+    void hold([askCellkey(question._id, askkind)], async () => {
       if (askkind === 'guess') {
         const reply = await askModel({ job: 'guess', clueing: text })
         const guess = guessFrom(reply)
         dispatch(guess
-          ? { kind: 'set_guess', question_id: question.id, guess }
-          : { kind: 'fail_guess', question_id: question.id, err: errFor(reply, 'guess') })
+          ? { kind: 'set_guess', question_id: question._id, guess }
+          : { kind: 'fail_guess', question_id: question._id, err: errFor(reply, 'guess') })
         return
       }
       const textkind: Textkind = askkind
       const reply = await askModel({ job: 'ishes', textkind, text })
       const ishes = ishesFrom(reply)
       dispatch(ishes
-        ? { kind: 'set_ishes', question_id: question.id, textkind, ishes }
-        : { kind: 'fail_ishes', question_id: question.id, textkind, err: errFor(reply, 'ishes') })
+        ? { kind: 'set_ishes', question_id: question._id, textkind, ishes }
+        : { kind: 'fail_ishes', question_id: question._id, textkind, err: errFor(reply, 'ishes') })
     })
   }, [dispatch, hold])
 

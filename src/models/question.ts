@@ -36,7 +36,7 @@ export const QuestionValidators = Validator(({ obj, str, textish, noteish, title
     .describe('The answer, as it will actually be read out.')
 
   const question = obj({
-    id:            treeid,
+    _id:           treeid,
     qnum:          qnum.default(''),
     clueing:       clueing.default(''),
     hint:          hint.default(''),
@@ -97,7 +97,7 @@ export type QuestionPatch = Z.output<typeof QuestionValidators.questionPatch>
 
 /** One question in a quiz: its clueing, its own BUT NOT hint, and everything hung off them */
 export class Question implements QuestionT {
-  declare id:            string
+  declare _id:            string
   declare qnum:          string
   declare clueing:       string
   declare hint:          string
@@ -127,7 +127,7 @@ export class Question implements QuestionT {
    * @param dna - At minimum an id; everything else is optional.
    * @returns A complete question.
    *
-   * @example Question.fill({ id: mintId(), clueing: 'Who?' })
+   * @example Question.fill({ _id: mintId(), clueing: 'Who?' })
    */
   static fill(dna: QuestionDNA): QuestionT {
     const question = QuestionValidators.question(dna)
@@ -142,6 +142,6 @@ export class Question implements QuestionT {
    * @example Question.blank().clueing  // => ''
    */
   static blank(): QuestionT {
-    return this.fill({ id: mintId() })
+    return this.fill({ _id: mintId() })
   }
 }

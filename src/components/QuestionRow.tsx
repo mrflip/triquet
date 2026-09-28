@@ -75,13 +75,13 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
   const grippable = gripShown && ! batching && ! locked
-  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question.id, idx, count, disabled: ! grippable, onMove })
+  const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question._id, idx, count, disabled: ! grippable, onMove })
   const questionName = question.title || 'this question'
 
   const heightPx = Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
   const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
-  const chainTarget = questions.find((other) => other.id === question.chains_to) ?? null
+  const chainTarget = questions.find((other) => other._id === question.chains_to) ?? null
 
   const reextractFor = (expression_label: string) => {
     if (locked) { return }
@@ -104,7 +104,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     if (source.kind === 'expressing') {
       return (
         <ExpressedReadout
-          reading={Expressed.readingOf(expressed, source.widget.label, question.id)}
+          reading={Expressed.readingOf(expressed, source.widget.label, question._id)}
           wide={spec.widthPx >= WideReadoutPx}
           heightPx={heightPx}
         />

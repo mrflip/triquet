@@ -134,8 +134,8 @@ const opened = new Set<string>()
  */
 export function openHistories(hunt: HuntT): void {
   for (const { quiz, place } of placedQuizzes(hunt)) {
-    if (opened.has(quiz.id)) { continue }
-    opened.add(quiz.id)
+    if (opened.has(quiz._id)) { continue }
+    opened.add(quiz._id)
     const open = async () => {
       try {
         await enqueue(async (fs) => await Quizgit.commitFirst(fs, quiz, hunt.expressions, place))
@@ -163,12 +163,12 @@ export function openHistories(hunt: HuntT): void {
  * @param after - The hunt as it now stands.
  */
 export function mirrorHunt(before: HuntT, after: HuntT): void {
-  const wasById = new Map(placedQuizzes(before).map((placed) => [placed.quiz.id, placed]))
+  const wasById = new Map(placedQuizzes(before).map((placed) => [placed.quiz._id, placed]))
   for (const { quiz, place } of placedQuizzes(after)) {
-    const was = wasById.get(quiz.id) ?? null
+    const was = wasById.get(quiz._id) ?? null
     if (quiz === was?.quiz && before.expressions === after.expressions && place.hunt === was.place.hunt && place.realm === was.place.realm) { continue }
     scheduler.note(was ? { quiz: was.quiz, expressions: before.expressions, place: was.place } : null, { quiz, expressions: after.expressions, place })
-    if (! was) { void scheduler.flush(quiz.id) }
+    if (! was) { void scheduler.flush(quiz._id) }
   }
 }
 
@@ -200,7 +200,7 @@ if (typeof document !== 'undefined') {
  */
 export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
   await writesLanded()
-  await scheduler.flush(quiz.id)
+  await scheduler.flush(quiz._id)
   return await enqueue(async (fs) => await Quizgit.milestoneQuiz(fs, quiz))
 }
 
@@ -221,10 +221,10 @@ export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
  */
 export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, apply: () => void): Promise<string | null> {
   await writesLanded()
-  await scheduler.flush(quiz.id)
+  await scheduler.flush(quiz._id)
   apply()
   await writesLanded()
-  await scheduler.flush(quiz.id)
+  await scheduler.flush(quiz._id)
   return await enqueue(async (fs) => await Quizgit.markChange(fs, quiz, markkind))
 }
 
@@ -239,7 +239,7 @@ export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, appl
  */
 export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
   await writesLanded()
-  await scheduler.flush(quiz.id)
+  await scheduler.flush(quiz._id)
   return await enqueue(async (fs) => await Quizgit.zipQuizRepo(fs, quiz))
 }
 

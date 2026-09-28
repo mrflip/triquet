@@ -102,21 +102,21 @@ describe('moveQuestion', () => {
   it('drops the dragged question at its new seat', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const dragged = present(questions[2])
-    const moved = Rank.moveQuestion(questions, dragged.id, 0)
+    const moved = Rank.moveQuestion(questions, dragged._id, 0)
     expect(answers(moved)).to.deep.eq(['c', 'a', 'b'])
   })
 
   it('moves a question down the list', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const dragged = present(questions[0])
-    const moved = Rank.moveQuestion(questions, dragged.id, 2)
+    const moved = Rank.moveQuestion(questions, dragged._id, 2)
     expect(answers(moved)).to.deep.eq(['b', 'c', 'a'])
   })
 
   it('clamps a drop past the end to the end', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'])
     const dragged = present(questions[0])
-    const moved = Rank.moveQuestion(questions, dragged.id, 99)
+    const moved = Rank.moveQuestion(questions, dragged._id, 99)
     expect(answers(moved)).to.deep.eq(['b', 'a'])
   })
 
@@ -130,5 +130,5 @@ describe('moveQuestion', () => {
 /** Ranks in the order the questions were given, for compact comparison */
 function ranks(questions: QuestionT[]): (number | null)[] {
   const bag = Rank.ranksOf(questions)
-  return questions.map((question) => bag.get(question.id) ?? null)
+  return questions.map((question) => bag.get(question._id) ?? null)
 }

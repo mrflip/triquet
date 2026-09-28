@@ -9,7 +9,7 @@ import { present } from '../support/present'
  */
 function questionsOf(...triples: [string, string, string | null][]): QuestionT[] {
   const bare = triples.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
-  const idForAnswer = new Map(bare.map((question) => [question.title, question.id]))
+  const idForAnswer = new Map(bare.map((question) => [question.title, question._id]))
   return bare.map((question, idx) => ({
     ...question,
     chains_to: idForAnswer.get(present(triples[idx])[2] ?? '') ?? null,
@@ -41,7 +41,7 @@ describe('chainSnippet', () => {
 describe('clearDanglingChains', () => {
   it('leaves a sound chain alone', () => {
     const questions = questionsOf(['1', 'a', 'b'], ['2', 'b', null])
-    expect(Chain.clearDanglingChains(questions)[0]?.chains_to).to.eq(present(questions[1]).id)
+    expect(Chain.clearDanglingChains(questions)[0]?.chains_to).to.eq(present(questions[1])._id)
   })
 
   it('clears a chain pointing at a question that is not here', () => {
@@ -52,7 +52,7 @@ describe('clearDanglingChains', () => {
 
   it('clears a question chained to itself', () => {
     const question = present(questionsOf(['1', 'a', null])[0])
-    expect(Chain.clearDanglingChains([{ ...question, chains_to: question.id }])[0]?.chains_to).to.eq(null)
+    expect(Chain.clearDanglingChains([{ ...question, chains_to: question._id }])[0]?.chains_to).to.eq(null)
   })
 
   it('leaves an unchained question unchained', () => {

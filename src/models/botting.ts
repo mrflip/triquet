@@ -119,10 +119,10 @@ export function latestBySlot(bottings: readonly BottingT[]): Map<string, SlotLat
  * @returns The `guess`, `clueing_ishes` and `hint_ishes` fields for that question.
  */
 export function resultsFor(
-  question: Pick<QuestionT, 'id' | 'clueing' | 'hint'>,
+  question: Pick<QuestionT, '_id' | 'clueing' | 'hint'>,
   latest: ReadonlyMap<string, SlotLatest>,
 ): Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
-  const historyOf = (slot: BotSlot) => latest.get(slotkeyOf({ question_id: question.id, ...slot }))
+  const historyOf = (slot: BotSlot) => latest.get(slotkeyOf({ question_id: question._id, ...slot }))
   return {
     guess:         guessFrom(historyOf(BotSlots[0])),
     clueing_ishes: ishesFrom(historyOf(BotSlots[1]), question.clueing),
@@ -150,7 +150,7 @@ export function unrecordedBottings(
   return BotSlots.flatMap((slot) => {
     const result = question[slot.field]
     if (result === null) { return [] }
-    const recorded = recordedAt.get(slotkeyOf({ question_id: question.id, ...slot })) ?? 0
+    const recorded = recordedAt.get(slotkeyOf({ question_id: question._id, ...slot })) ?? 0
     const err = result.last_err
     return [
       ...(result.status === 'done' && result.updated_at > recorded ? [doneFrom(question, slot, result, mint())] : []),
@@ -163,7 +163,7 @@ export function unrecordedBottings(
 function blankBotting(question: QuestionT, slot: BotSlot, id: string, created_at: number): BottingT {
   return {
     id,
-    question_id:        question.id,
+    question_id:        question._id,
     bot_label:       slot.bot_label,
     textkind:           slot.textkind,
     asked_text:         question[slot.textkind].trim(),

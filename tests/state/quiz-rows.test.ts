@@ -35,11 +35,11 @@ async function questionsOf(db: Db, quiz_id: string): Promise<QuizRows['questions
 function sansIds(hunt: HuntT) {
   return {
     ...hunt,
-    id:     '',
+    _id:    '',
     realms: hunt.realms.map((realm) => ({
       ...realm,
-      id:      '',
-      quizzes: realm.quizzes.map((quiz) => ({ ...quiz, id: '', questions: quiz.questions.map((question) => ({ ...question, id: '' })) })),
+      _id:     '',
+      quizzes: realm.quizzes.map((quiz) => ({ ...quiz, _id: '', questions: quiz.questions.map((question) => ({ ...question, _id: '' })) })),
     })),
   }
 }
@@ -75,11 +75,11 @@ describe('reading rows', () => {
 
     it('keeps the realms in their order, each with its own quizzes', async () => {
       const hunt = Hunt.fill({
-        id:     mintId(),
+        _id:    mintId(),
         label:  'two_realms',
         realms: [
-          { id: mintId(), label: 'home', quizzes: [Quiz.blank('At home')] },
-          { id: mintId(), label: 'away', quizzes: [Quiz.blank('Away one'), Quiz.blank('Away two')] },
+          { _id: mintId(), label: 'home', quizzes: [Quiz.blank('At home')] },
+          { _id: mintId(), label: 'away', quizzes: [Quiz.blank('Away one'), Quiz.blank('Away two')] },
         ],
       })
       const { db, hunt_id } = await holding(testApp, hunt)
@@ -234,7 +234,7 @@ describe('reading rows', () => {
     it('names each question by its row\'s id', async () => {
       const { db, quiz_id } = await holding(testApp, threeQuestions())
       const rows = await rowsOf(db, quiz_id)
-      expect(quizFrom(rows).questions.map((question) => question.id)).to.deep.eq(rows.questions.map((row) => row.id))
+      expect(quizFrom(rows).questions.map((question) => question._id)).to.deep.eq(rows.questions.map((row) => row.id))
     })
 
     it('reads a chain held as a label as the id of the question answering to it', async () => {

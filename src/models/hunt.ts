@@ -16,7 +16,7 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
 
   const hunt = obj({
-    id:           treeid,
+    _id:          treeid,
     label:        huntLabel,
     forced_label: forced_label.default(null),
     title:        title.default(''),
@@ -79,7 +79,7 @@ function unheldExpressionIssues(quiz: QuizT, labelsHeld: ReadonlySet<string>, pa
 
 /** Everything one hunt holds: its realms, their quizzes, and its expressions */
 export class Hunt implements HuntT {
-  declare id:           string
+  declare _id:           string
   declare label:        string
   declare forced_label: string | null
   declare title:        string
@@ -116,9 +116,9 @@ export class Hunt implements HuntT {
   static blank(label: string = Labelmaker.localBlankLabel(new Set(), mintId())): HuntT {
     const quiz = { ...Quiz.blank('', label), ...defaultLayoutFor(SeedExpressions) }
     return this.fill({
-      id:          mintId(),
+      _id:         mintId(),
       label,
-      realms:      [{ id: mintId(), label: HomeRealmLabel, quizzes: [quiz] }],
+      realms:      [{ _id: mintId(), label: HomeRealmLabel, quizzes: [quiz] }],
       expressions: [...SeedExpressions],
     })
   }

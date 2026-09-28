@@ -17,12 +17,12 @@ import type { QuizT } from '../models/quiz'
  */
 
 /** A question as a smith is handed it: no id, and its chain by the label of the question it points at */
-export type ExportedQuestion = Omit<QuestionT, 'id' | 'chains_to'> & {
+export type ExportedQuestion = Omit<QuestionT, '_id' | 'chains_to'> & {
   chains_to: string | null
 }
 
 /** A quiz as a smith is handed it */
-export type ExportedQuiz = Omit<QuizT, 'id' | 'questions'> & {
+export type ExportedQuiz = Omit<QuizT, '_id' | 'questions'> & {
   questions: ExportedQuestion[]
 }
 
@@ -39,11 +39,11 @@ export type ExportedHunt = Pick<HuntT, 'label' | 'forced_label' | 'title'> & {
  * @example quizExported(quiz).questions[0]?.chains_to  // => 'nantes'
  */
 export function quizExported(quiz: QuizT): ExportedQuiz {
-  const labelForId = new Map(quiz.questions.map((question) => [question.id, Labelmaker.effectiveLabelOf(question)]))
+  const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   return {
-    ..._.omit(quiz, ['id', 'questions']),
+    ..._.omit(quiz, ['_id', 'questions']),
     questions: quiz.questions.map((question) => ({
-      ..._.omit(question, ['id', 'chains_to']),
+      ..._.omit(question, ['_id', 'chains_to']),
       chains_to: question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
     })),
   }

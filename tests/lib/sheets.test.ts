@@ -105,7 +105,7 @@ describe('sheetsExport', () => {
 
   it('names the chained-to question by label, and carries its hint as the BUT NOT column', () => {
     const target = { ...Question.blank(), qnum: '2', forced_label: 'the_film', hint: 'BUT NOT the film' }
-    const question = { ...Question.blank(), qnum: '1', hint: 'BUT NOT my own hint', chains_to: target.id }
+    const question = { ...Question.blank(), qnum: '1', hint: 'BUT NOT my own hint', chains_to: target._id }
     const table = exported([question, target])
     expect(cellOf(table, 'chains_to', 0)).to.eq('the_film')
     expect(cellOf(table, 'butnot', 0)).to.eq('BUT NOT the film')

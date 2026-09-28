@@ -36,7 +36,7 @@ export function useIdent(): IdentHandle {
     const newest = identings.data.toSorted((aa, bb) => madeAt(aa) - madeAt(bb)).at(-1)
     if (! newest) { return { ident: null, loaded: true } }
     const ident = idents.data.find((row) => row.id === newest.ident_id)
-    return ident ? { ident: { id: ident.id, label: ident.label, title: ident.title }, loaded: true } : { ident: null, loaded: false }
+    return ident ? { ident: { _id: ident.id, label: ident.label, title: ident.title }, loaded: true } : { ident: null, loaded: false }
   }, [identings.data, idents.data])
 }
 

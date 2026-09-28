@@ -41,7 +41,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     .describe('What the last "Recalculate all ishes" run cost, kept per quiz. Never cleared by, and never clears, an individual cell\'s own token figure.')
 
   const quiz = obj({
-    id:              treeid,
+    _id:             treeid,
     title:           titleish.default('')
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
@@ -99,12 +99,12 @@ function repeatIssues<TT>(items: readonly TT[], listkey: string, keyOf: (item: T
  * questions are, a column showing a widget that is not there.
  */
 function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgets' | 'columns'>): Issue[] {
-  const questionIds = new Set(quiz.questions.map((question) => question.id))
+  const questionIds = new Set(quiz.questions.map((question) => question._id))
   const widgetLabels = new Set(quiz.widgets.map((widget) => widget.label))
   const chainIssues = quiz.questions.flatMap((question, idx): Issue[] => {
     if (! question.chains_to) { return [] }
     const path = ['questions', idx, 'chains_to']
-    if (question.chains_to === question.id) { return [{ input: question.chains_to, path, message: 'A question cannot chain to itself' }] }
+    if (question.chains_to === question._id) { return [{ input: question.chains_to, path, message: 'A question cannot chain to itself' }] }
     return questionIds.has(question.chains_to) ? [] : [{ input: question.chains_to, path, message: 'Chain target is not a question in this quiz' }]
   })
   const reservedIssues = quiz.widgets.flatMap((widget, idx): Issue[] => (
@@ -117,7 +117,7 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgets' | 'columns'>)
       : []
   })
   return [
-    ...repeatIssues(quiz.questions, 'questions', (question) => question.id, 'id', 'Two questions in one quiz share an id'),
+    ...repeatIssues(quiz.questions, 'questions', (question) => question._id, '_id', 'Two questions in one quiz share an id'),
     ...repeatIssues(quiz.widgets, 'widgets', (widget) => widget.label, 'label', 'Two widgets in one quiz share a label'),
     ...repeatIssues(quiz.columns, 'columns', (column) => column.label, 'label', 'Two columns in one quiz share a label'),
     ...reservedIssues,
@@ -132,7 +132,7 @@ export type QuizT         = Z.output<typeof QuizValidators.quiz>
 
 /** One trivia quiz: a name, an ordered list of questions, and how it came to be in that order */
 export class Quiz implements QuizT {
-  declare id:              string
+  declare _id:              string
   declare title:           string
   declare label:           string
   declare forced_label:    string | null
@@ -160,7 +160,7 @@ export class Quiz implements QuizT {
    * @returns A complete quiz.
    * @throws When two questions share an id, or a chain dangles or points at itself, two widgets or two columns share a label, or a column shows a widget that is not there.
    *
-   * @example Quiz.fill({ id: mintId(), title: 'Quiz one' })
+   * @example Quiz.fill({ _id: mintId(), title: 'Quiz one' })
    */
   static fill(dna: QuizDNA): QuizT {
     const quiz = QuizValidators.quiz(dna)
@@ -179,7 +179,7 @@ export class Quiz implements QuizT {
    */
   static blank(title = '', label?: string): QuizT {
     return this.fill({
-      id:        mintId(),
+      _id:       mintId(),
       title,
       questions: Array.from({ length: BlankQuestionQty }, () => Question.blank()),
       ...(label !== undefined && { label }),
