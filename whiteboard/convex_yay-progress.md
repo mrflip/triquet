@@ -29,9 +29,9 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   and 170 e2e specs green (`pnpm test:e2e:agent`, about a minute). The hunts-and-idents handoff is
   rewritten for phase 7.
 * **Next**: phase 7 (authorization), a branch stacked on phase 6's, after the Coach answers its
-  design question (the plan's phase 7, and *For the Coach* below). Phase 3b (the cloud): the
-  Coach reports the app deployed to Vercel; when the cloud's round trip can be measured,
-  re-measure (*Measurements*).
+  design question (the plan's phase 7, and *For the Coach* below). Phase 3b (the cloud): production
+  is up at `triquet.vercel.app`, and the cloud is measured (*Measurements*, 2026-09-28). A
+  reorder takes 233 ms there, so the optimistic `move_question` is called for.
 
 ## 2. Start here
 
@@ -553,13 +553,36 @@ After the order moved onto the quiz and each question became a query (same sessi
 By action, locally, with the reruns each causes: a text edit 3 KiB (was 46), an add 25 (45), the
 lock 24 (34), a sort 51 (80), a move 45 (45).
 
-How: a Playwright script (kept out of the repo) drove the app through the Import box and five
+How: a Playwright script (kept out of the repo; `scripts/measure-latency.ts` now does the same)
+drove the app through the Import box and five
 kinds of edit, proxied the Convex websocket to log every frame and to delay each message for the
 simulated networks, and read the backend's function log (`convex logs --jsonl --success`) for
 the server's side. A quiz screen holds four live queries (`idents.current`, `hunts.open`,
 `quizzes.open`, `reviews.forQuiz`); the expression preview adds `useOtherQuiz`'s while it points
-at another quiz. None per row. Redo these against the cloud in phase 3b; ask the Coach for the
-script if it is wanted in the repo.
+at another quiz. None per row. Redone against the cloud (below).
+
+**Phase 3b, the cloud** (2026-09-28): `triquet.vercel.app` against the agents' production
+build on a local backend, `scripts/measure-latency.ts` for both, two runs each; the full tables
+are in `notes/database-decisions.md` (*Measured in the cloud*), and a summary in
+`notes/20260928-cloud_measurements-a.md`. Median waits, local then cloud:
+
+| | Local | Cloud |
+|---|---|---|
+| Reorder, until shown | 86 | 233 |
+| Four quick presses, after the last | 171 | 420 |
+| Lock, until shown | 74 | 188 |
+| Add a question, until shown | 93 | 232 |
+| A text commit, until saved | 58 | 149 |
+| Sort by a column | 149 | 401 |
+| Quiz on screen, fresh tab | 232 | 588 |
+| Mutation round trip at the socket, one-row edit | 23 to 31 | 87 to 98 |
+| Downloaded per edit, each browser | 9.2 KiB | 9.5 KiB |
+
+A warm request to the deployment takes 28 to 45 ms from here (Cloudflare's Boston edge), so this
+is close to a best case. The cloud's database I/O and function calls were not visible from this
+side: agents hold no production key. The runs left four hunts (`condemned_chipmunk`,
+`distant_wallaby`, `comprehensive_vole`, `impossible_fish`) and eight `measure_*` idents in
+production, which the Coach is clearing.
 
 Phase 0, on a local backend (`127.0.0.1:3401`), from Chromium driven by Playwright, through
 Convex's browser client (`ConvexClient`, which `useMutation` wraps; no React). 50 mutations,

@@ -162,8 +162,8 @@ tax. Listed for completeness, not favoured.
 ## Verdict (2026-09-28)
 
 **Keep Convex.** The app has run on it since phase 2 of `whiteboard/convex_yay-plan.md`; every
-test's intent carried over; nothing needed a heroic workaround. Measured on a local backend, the
-cloud's numbers to follow (*Appendix*, *Measured*).
+test's intent carried over; nothing needed a heroic workaround. Measured on a local backend and then
+in the cloud (*Appendix*, *Measured*, *Measured in the cloud*).
 
 **Re-scored from experience.** Every column held, bar the one it started weakest on:
 
@@ -203,7 +203,8 @@ cloud's numbers to follow (*Appendix*, *Measured*).
   git history, `npx convex export`, and a self-hostable backend.
 * *Writes landing in microseconds*: a change now shows one round trip after it is made, 70 to
   90 ms on a local backend and 150 to 175 ms at a simulated 80 ms network. Not felt, on the
-  local numbers; the cloud's decide it.
+  local numbers. In the cloud, 150 to 230 ms for a one-row edit and 400 for a sort: a reorder
+  is felt, and wants an optimistic update (recommendation 3).
 
 **What was gained.** A server-side chokepoint that validates every write and will enforce
 authorization (the playtesting thread's phase 7); global facts, so a label's uniqueness is
@@ -226,7 +227,8 @@ is a query of its own, so a text edit costs about 3 KiB and the session's mix ab
 2. Carry on with the playtesting thread (phases 5 to 7 of the plan), then the identity plan.
 3. When the cloud lands (phase 3b), re-measure; add an optimistic `move_question` first if a
    reorder passes about 150 ms, reusing `Rank`'s pure functions so its effect is not spelled
-   twice.
+   twice. *Measured*: in the cloud a reorder takes 233 ms, so it is called for (*Measured in the
+   cloud*).
 4. ~~Cheaper reads, when bandwidth matters~~: done the same day. Each action reads what it
    needs, and each question is its own query.
 5. Memoize the grid's formulas by question: on a large quiz the recompute on every redelivery,
@@ -383,3 +385,50 @@ At a steady edit every fifteen seconds of mostly text, that is a few MiB of I/O 
 than eleven. A move still reads every question (for their Q#s); a new question, and a fresh tab,
 take one more round trip, since a question's query is asked for once the quiz names it. A quiz
 screen now holds a query per question as well as the four above.
+
+### Measured in the cloud (2026-09-28)
+
+The production deployment (`triquet.vercel.app`), driven by `scripts/measure-latency.ts` from a
+container on the Coach's machine, whose requests reach Convex through Cloudflare's Boston edge:
+the sample's largest quiz brought in through the Import box (25 rows, 33 by the end), a second
+browser watching, 56 edits of six kinds a run, two runs. The same script against the agents'
+local backend and production build gives the local column, and lands within a few ms of the
+table above, so the two tables compare directly. A request to the deployment over a warm
+connection takes 28 to 45 ms, so this is close to the best case: an author farther from the
+deployment pays the extra distance on every edit.
+
+| Wait the author sees (median; p90, ms) | Local | Cloud |
+|---|---|---|
+| Reorder (arrow key) | 86; 115 | 233; 287 |
+| Four quick presses, after the last | 171; 188 | 420; 451 |
+| Lock or unlock | 74; 84 | 188; 210 |
+| Add a question | 93; 102 | 232; 275 |
+| A text commit, until saved | 58; 66 | 149; 160 |
+| Sort by a column (rewrites every place) | 149; 171 | 401; 442 |
+| The quiz on screen, fresh tab | 232; 248 | 588; 720 |
+
+The watcher sees each change within 10 ms of the author, both locally and in the cloud.
+
+| Mutation round trip at the socket (median ms) | Local | Cloud |
+|---|---|---|
+| A one-row edit (lock, add, text, reorder) | 23 to 31 | 87 to 98 |
+| A sort | 76 | 281 |
+| Each of four quick presses | 87 | 245 |
+
+Where a cloud wait goes, for a reorder: about 35 ms of network, about 60 ms for the server to run
+and commit the mutation, then about 135 ms until the redelivered queries are on screen (57
+locally). A sort rewrites every place and commits more slowly in the cloud than locally. Four
+presses queue behind one another, so the last waits for the three before it. A fresh tab's four
+round trips in sequence (the socket, `hunts.open`, `quizzes.open`, then each question's
+`questions.open`), at about 90 ms each, account for its extra 350 ms.
+
+Bandwidth does not move: each browser downloads the same 9 KiB per edit in both columns (about 4
+redelivered queries per edit, for this mix, which leans on moves), and a fresh tab 29 KiB. This
+side cannot see database I/O or function calls in the cloud: agents hold no production key,
+so those are for the Convex dashboard's usage page.
+
+**What it means.** The reorder passes the 150 ms line that recommendation 3 set, at 233 ms, and
+four quick presses come to over 400 ms: an optimistic `move_question` is now called for. A sort,
+at 400 ms, is the next candidate; it could reuse the same `Rank` functions. The lock and an added
+question sit near 200 ms, a pause but a short one. A text commit needs nothing, since the author's
+text is on screen as they type it.

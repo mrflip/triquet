@@ -239,67 +239,6 @@ export default defineConfig([
     },
   },
 
-  // == [3b. Disabled safety checks] == every one of these switched off a
-  // check for genuinely unsafe code, so every one is left commented rather
-  // than carried forward. Uncomment individually, with a reason, if a real
-  // case argues for it.
-  //
-  // STYLE.md currently lists no-non-null-assertion and ban-ts-comment as
-  // deliberately not enforced, which contradicts leaving them on. That
-  // conflict is the Coach's to settle; the config takes the safe side.
-  {
-    name: 'triquet/relic-disabled-safety-checks',
-    files: SourceFiles,
-    rules: {
-      // 'no-useless-escape':                                'off',
-      // '@typescript-eslint/no-unsafe-declaration-merging': 'off',
-      // '@typescript-eslint/only-throw-error':              'off', // relic: no-throw-literal
-      // We want this in tests, where chai-style assertions (`expect(val).to.be.true`) are bare, but not in production code.
-      // '@typescript-eslint/no-unused-expressions':         'off',
-    },
-  },
-
-  // == [3c. Redundant] == commented out, not deleted, so the diff shows them.
-  // The `@typescript-eslint/*` entries were duplicates of core rules that
-  // typescript-eslint has since dropped -- naming one now fails the config
-  // load outright. The jest and airbnb-react entries only ever existed to
-  // quiet `plugin:jest/all` and `airbnb`, neither of which we extend.
-  {
-    name: 'triquet/relic-redundant',
-    files: SourceFiles,
-    rules: {
-      // '@typescript-eslint/camelcase':                   'off',
-      // '@typescript-eslint/comma-dangle':                ['warn', 'always-multiline'],
-      // '@typescript-eslint/indent':                      ['warn', 2, { SwitchCase: 0 }],
-      // '@typescript-eslint/key-spacing':                 'off',
-      // '@typescript-eslint/lines-between-class-members': 'off',
-      // '@typescript-eslint/no-await-in-loop':            'off',
-      // '@typescript-eslint/no-continue':                 'off',
-      // '@typescript-eslint/no-multi-spaces':             'off',
-      // '@typescript-eslint/no-restricted-syntax':        'off',
-      // '@typescript-eslint/no-underscore-dangle':        'off',
-      // '@typescript-eslint/no-useless-escape':           'off',
-      // '@typescript-eslint/no-useless-rename':           'off',
-      // '@typescript-eslint/object-curly-newline':        'off',
-      // '@typescript-eslint/object-property-newline':     'off',
-      // '@typescript-eslint/padded-blocks':               'off',
-      // '@typescript-eslint/quotes':                      'off',
-      // '@typescript-eslint/semi':                        ['warn', 'never'],
-    },
-  },
-
-  // Relic settings this project doesn't carry forward at all, kept here as
-  // a record of what was dropped rather than repaired:
-  //   react-native/*, file-progress, progress, chai-expect, chai-friendly
-  //     -- plugins with no role here
-  //   react/sort-comp          -- orders class components; we write functions
-  //   jsx-a11y/accessible-emoji, react/jsx-indent, react/jsx-filename-extension
-  //     -- deprecated or, in the last case, unable to run on ESLint 10
-  //   import-x/extensions      -- pulled; extensionless is the grain of
-  //                               Next.js and the ecosystem (see STYLE.md)
-  //   react/function-component-definition
-  //     -- removed by Coach review; worth asking about before re-adding
-
   // This file and any other loose script sit outside the TS project, so the
   // type-aware rules above cannot run on them. Last, so it wins.
   {
