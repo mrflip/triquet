@@ -95,7 +95,7 @@ CI's e2e job took 32 minutes, and passed. Nothing in the specs waits on purpose:
 serial blocks, and one spec at a time locally takes a median 2.5s, none over 7.1s. The cost is
 137 specs, each a fresh browser that loads the dev bundle and opens a new Jazz account, run one
 at a time on a runner that reported two or three cores (Playwright said "1 worker" at its
-default of half). The repo is public, so `ubuntu-latest` should be GitHub's 4-core box, and
+default of half). The repo is public, so `ubuntu-26.04` should be GitHub's 4-core box, and
 personal plans can't have larger runners anyway; with `workers: '100%'` on CI, the log's
 "Running N tests using N workers" line now says how many cores it got.
 
