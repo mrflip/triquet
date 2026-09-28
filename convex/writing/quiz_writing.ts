@@ -89,7 +89,7 @@ export async function insertBottings(db: Writer, bottings: readonly BottingT[]):
 export async function deleteQuestion(db: Writer, question_id: Id<'questions'>): Promise<void> {
   const bottings = db.query('bottings').withIndex('by_question_id_and_bot_label_and_textkind', (cvx) => cvx.eq('question_id', question_id))
   for await (const botting of bottings) { await db.delete('bottings', botting._id) }
-  const reviewings = db.query('reviewings').withIndex('by_question_id', (qq) => qq.eq('question_id', question_id))
+  const reviewings = db.query('reviewings').withIndex('by_question_id', (cvx) => cvx.eq('question_id', question_id))
   for await (const reviewing of reviewings) { await db.delete('reviewings', reviewing._id) }
   await db.delete('questions', question_id)
 }
