@@ -20,8 +20,13 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   Coach's word. Then, on the Coach's word, a quiz holds its questions' order and each question
   is a query of its own (*Deviations*). On 2026-09-28: lint and typecheck green; 1914 unit and
   convex tests and 164 e2e specs green.
-* **Next**: phase 5 (reviewings), a branch stacked on this one. Phase 3b (the cloud) waits on the
-  Coach's account and blocks nothing; when it lands, re-measure (*Measurements*).
+* **Phase 5 (reviewings, hunts-and-idents PR 4)**: built on `20260928-convex_phase5`, stacked on
+  phase 4's, not yet merged. On 2026-09-28: lint and typecheck green; 1966 unit and convex tests
+  and 165 e2e specs green (`pnpm test:e2e:agent`, about a minute). The hunts-and-idents handoff is
+  rewritten for phase 6.
+* **Next**: phase 6 (huntings), a branch stacked on phase 5's; confirm the `HuntingsPerHunt` cap
+  (99 proposed) with the Coach first. Phase 3b (the cloud): the Coach reports the app deployed to
+  Vercel; when the cloud's round trip can be measured, re-measure (*Measurements*).
 
 ## 2. Start here
 
@@ -107,6 +112,28 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 ## 4. Deviations from the plan
 
 Newest first.
+
+* **Phase 5: a quiz's deletion does not sweep each review's reviewings.** The plan asked for it;
+  every reviewing names a question of its review's quiz (`setReviewing` and `peekAnswer` check
+  `questionOf`), and each question's deletion already takes its reviewings (`by_question_id`), so
+  the sweep could only find nothing, at an index range per review in a mutation that already
+  spends two per question.
+* **Phase 5: `peek_answer` leaves the review's phase alone.** The thread says the first write to
+  a reviewing moves a review to `draft`; the plan names it for `set_reviewing` only. Seeing an
+  answer writes nothing of the reviewer's own, so an `empty` review stays empty.
+* **Phase 5: `NumberField`** (`cells/fields.tsx`, beside `QnumField`, whose pattern it follows)
+  for get rate and minutes: an optional non-negative number, committed as a number or null,
+  tidied into the number it means on exit. It is not a third height component: the row's height
+  is still Comments' (`GrowingField`), and Guesses is stretched to it (`StretchField`).
+* **Phase 5: `Panel` takes `wide`**, one rule in `workbench.module.css` (`.panelWide`, spanning the
+  panels' grid): the verdicts table does not fit a 320-pixel column, and `ReviewsPanel` is wide
+  once any review is shared.
+* **Phase 5: `replace_open_quiz` keeps a question by its id**, not its label as the plan's phase 5
+  text says; either way its reviewings survive, and a question the import drops takes its own.
+* **`testing.clearAll` no longer schedules its own continuation** (a fix, found in phase 5). It
+  deletes a batch of each table and says how many; `scripts/convex_reset` runs it until it says
+  none. Scheduled and looped both, two runs deleted the same rows at once, and the e2e-agent
+  backend's reset failed on an OCC conflict once a table held 500 rows.
 
 * **A quiz holds its questions' order, and each question is a query of its own** (the Coach,
   2026-09-28). `quizzes.row_ordering` lists the questions by `_id`; questions lost `position`,
@@ -237,6 +264,15 @@ Newest first.
 * **Convex's backends use 34xx and 35xx**, not 32xx: Jazz's dev servers hold 32xx until phase 2.
 
 ## 5. Discoveries
+
+### Phase 5
+
+* **A mutation that schedules itself and a script that loops over it race.** Two `clearAll`s at
+  once delete the same documents; Convex retries the loser and, still conflicting, fails it with
+  `OptimisticConcurrencyControlFailure`. One driver, not two (see *Deviations*).
+* **Nothing else surprised.** A table, two indexes, two actions and a joined read went in as the
+  plan wrote them; `_generated/` did not change (no new module), and the canary test asked for the
+  new table before anything else did.
 
 ### Phase 4
 
@@ -476,6 +512,17 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
+* **Phase 5, three behaviours to confirm** (built as the plan says; the review pass raised them):
+  - A reviewer who gives a get rate blind and then reveals the answer is marked `peeked` all the
+    same: the smith sees "saw the answer first" beside a rate given before it. Telling the two
+    apart would need `peeked` to say when (before or after the rate), which is a design change.
+  - A draft review's reviewings reach every browser on the quiz, the smith's included, and only
+    `sharedReviewsOf` keeps them off screen; as with `overall`, phase 7 moves the rule onto the
+    server.
+  - A flag toggle sends the opposite of what the screen shows, so two clicks inside one round
+    trip send the same value twice. The lock works the same way; both are candidates if
+    optimistic updates are taken up.
+
 * **Jazz's leftovers** are gone (the Coach removed `public/jazz/`, the `jazz` skill and the
   `data/jazz*/` directories, 2026-09-28), bar a few Doppler variables: `JAZZ_DEV_DATA_DIR` and
   `JAZZ_DEV_PORT` in `dev_claude` and `dev_e2e`, and `NEXT_PUBLIC_JAZZ_APP_ID` and
@@ -540,3 +587,9 @@ Phase 4 deleted these, each with a successor, all green:
 | `tests/convex/writing/quiz_writing.test.ts`, `bottingFieldsOf` | none needed: the insert is `BottingValidators.row` of the botting, covered by `writeQuiz`'s cases |
 | `tests/lib/rows.test.ts`, `widgetFrom` throws for a row lacking its kind's fields | none possible: the union table cannot hold one |
 | `tests/models/widget.test.ts`, "an expressing that also names a bot", "a botting that also names an expression" | the same file: the other kind's fields are dropped, and the table has no place for them |
+
+Phase 5 replaced one, with a successor, green:
+
+| Test (replaced in phase 5) | Successor |
+| --- | --- |
+| `tests/convex/testing.test.ts`, "hands what one run cannot delete to the next" | the same file, "deletes a batch of a table a run, leaving the rest for the next, and says none once empty" |
