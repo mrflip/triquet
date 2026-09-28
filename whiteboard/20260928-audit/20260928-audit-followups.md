@@ -1,9 +1,9 @@
 # Audit follow-ups
 
-What the Coach set aside from the audit of 2026-09-28 (`whiteboard/audit-2026-09-28.md`) to
+What the Coach set aside from the audit of 2026-09-28 (`20260928-audit.md`) to
 look at in a session of its own, each with where it is described. Nothing here is planned;
-each is a thread to open. The query-boundary items are in `whiteboard/query-boundaries-plan.md`
-and the view habits in `whiteboard/views-after-convex.md`; neither is repeated here.
+each is a thread to open. The query-boundary items are in `20260928-query-boundaries-plan.md`
+and the view habits in `20260928-views-after-convex.md`; neither is repeated here.
 
 ## To handle later
 
@@ -73,11 +73,11 @@ for every browser with the hunt open (about 10 KiB read each time; nothing is se
 result is unchanged).
 
 Two changes, each its own commit and each measured with the phase 4 harness, are planned in
-`whiteboard/query-boundaries-plan.md`: item 1 moves the usage counts to an
+`20260928-query-boundaries-plan.md`: item 1 moves the usage counts to an
 `expressions.forHunt` query function watched only by the modal, so `hunts.open` stops reading
 widgets; item 2 moves the reviews to the screen that shows them. A third, not planned, is a
 `quiz_state` row of its own for the fields the listing does not need
-(`whiteboard/views-after-convex.md`, item 7); it is a schema change and the progress document
+(`20260928-views-after-convex.md`, item 7); it is a schema change and the progress document
 records the Coach's choice to leave it. **Open:** whether items 1 and 2 go to an Opus session
 as planned, or into the audit branch.
 
@@ -89,7 +89,7 @@ as planned, or into the audit branch.
 * **Two validation libraries**, the one wanted not the one used. Audit §4 *Two kits* and §5
   `validator.ts`.
 * **Three registries of in-flight writes** (`Writing.count`, the `writing` state, the mirror's
-  `writing` set). `whiteboard/views-after-convex.md`, item 4. A thread of its own.
+  `writing` set). `20260928-views-after-convex.md`, item 4. A thread of its own.
 * **The commit scheduler keeps its own timer.** Tried on 2026-09-28: es-toolkit's `throttle`,
   and its lodash-shaped `_.throttle` and `_.debounce` with `maxWait`, reschedule the trailing
   call on every call inside the window, and only fire "once per window" when a *later* call
@@ -98,6 +98,13 @@ as planned, or into the audit branch.
   `setTimeout` in `src/state/commit-scheduler.ts` stays; record it under *Hand-rolled on
   purpose* in `notes/stack.md` if the Coach agrees. (The resize hook, a true debounce, now
   uses `_.debounce`.)
+* **`React.JSX.Element`, `React.ReactNode`, `React.KeyboardEvent` used as a global namespace**
+  in several components without importing `React`. Compiles under the automatic runtime's
+  types; `import type { ReactNode }` is the ecosystem's grain and what `app/layout.tsx` does.
+  Audit §1, *Framework practice*; raised twice, not yet answered.
+* **`reviews.forQuiz` hands every review, drafts included, to every browser**, and the smith's
+  panel filters to the shared ones on the client. Known, and marked for the permissions phase;
+  here so it is on a list. Audit §1.
 * **Raw elements left inside the grid's cells**: the chain picker's `<select>`
   (`cells/chain.tsx`) and the error badge's `<button>` (`cells/ErrBadge.tsx`). Under the bespoke
   grid decision; not changed on 2026-09-28 when the chrome's were.
@@ -109,7 +116,7 @@ as planned, or into the audit branch.
 * `src/lib/importing.ts`: one pass now, no ids; the three payload shapes remain.
 * `src/components/QuestionRow.tsx` and `cells/fields.tsx`: row-height negotiation through
   layout effects and a resize token. Inherent to the approved grid.
-* `src/state/use-hunt.ts`: four concerns in one hook. `whiteboard/views-after-convex.md`,
+* `src/state/use-hunt.ts`: four concerns in one hook. `20260928-views-after-convex.md`,
   items 3 to 5.
 * The git mirror as a subsystem: `quizgit.ts`, `quiz-mirror.ts`, `commit-scheduler.ts`,
   `changes.ts`, `exposure.ts` and half of `exporting.ts`.
@@ -118,4 +125,4 @@ as planned, or into the audit branch.
 * `src/lib/validator.ts`: the callable wrapper and its unwrapping are two thirds of the file.
 * `src/lib/strings.ts` and `src/lib/vv/reporting.ts`: an eight-case sentence joiner serving
   one error map.
-* `hunts.open` as a query: `whiteboard/query-boundaries-plan.md`, item 1.
+* `hunts.open` as a query: `20260928-query-boundaries-plan.md`, item 1.

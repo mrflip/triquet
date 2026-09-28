@@ -1,13 +1,13 @@
 # The views after Convex
 
-Findings from the audit of 2026-09-28 (`whiteboard/audit-2026-09-28.md`, section 1): places in
+Findings from the audit of 2026-09-28 (`20260928-audit.md`, section 1): places in
 `src/state/` and `src/components/` where a habit from the local-first days is still standing.
 Under Jazz a write was a local mutation that synced later, so writing often, writing from the
 screen, and hearing a change the same instant were all free. Under Convex each write is a
 round trip and a transaction, and a change is heard one round trip after it lands. Nothing here
 is broken; each is a cost or a complication that no longer buys anything.
 
-Not a plan yet. Items 1 and 2 are small and are in `whiteboard/query-boundaries-plan.md` (as
+Nothing here is done yet (end of the second audit pass, 2026-09-28). Items 1 and 2 are small and are in `20260928-query-boundaries-plan.md` (as
 its item 3) or could be; 3 to 6 want a conversation about how much of the mirror's promptness
 we need.
 
@@ -15,7 +15,7 @@ we need.
 
 `QuizHeader.tsx` retitles on every keystroke (and again on blur). One mutation per character,
 each rerunning the hunt's watch for every open browser. Fix: blur only, as every other field.
-(Also `query-boundaries-plan.md`, item 3.)
+(Also `20260928-query-boundaries-plan.md`, item 3.)
 
 ## 2. Three ways to say "not here yet"
 

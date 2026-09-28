@@ -1,12 +1,16 @@
 # Query boundaries: the fixes
 
-A plan for an agent, from the audit of 2026-09-28 (`whiteboard/audit-2026-09-28.md`, section 2).
+A plan for an agent, from the audit of 2026-09-28 (`20260928-audit.md`, section 2).
 The rules are in `notes/queries_hooks_and_subscriptions.md`; read it first. Each item below is
 one commit on its own, with its own tests, and each one that moves a boundary is measured
 before and after with the phase 4 harness (`whiteboard/convex_yay-progress.md`, *Measurements*:
 database I/O per edit, bytes per browser per edit, a second browser watching).
 
-Branch: `pnpm run newb query_boundaries`, off `main` once `20260928-audit_pass1` has merged.
+Branch: `pnpm run newb query_boundaries`, off `main` once `20260928-audit_pass2` has merged
+(`audit_pass1` merged as PR 21). Nothing here is done yet; the Coach has not said whether it
+goes to an Opus session or the audit branch. Phase 5 (reviewings) landed meanwhile: item 2's
+`ReviewsPanel` now also shows a table of verdicts once a review is shared, so `useReviews`
+carries the reviewings too, and the e2e reviews spec has grown.
 
 ## 1. Expression usage out of `hunts.open`
 
