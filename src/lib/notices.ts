@@ -38,6 +38,7 @@ export const AppNotices = {
   reviewShared:         'Shared with the smiths.',
   reviewNotShared:      'Not shared with the smiths yet.',
   noReviewsShared:      'No reviews have been shared yet.',
+  answerPeeked:         'Saw the answer first',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',
   copyFailed:           "Couldn't reach the clipboard — nothing was copied.",

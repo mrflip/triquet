@@ -174,3 +174,13 @@ export async function reviewsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Doc
 export async function reviewFor(db: Reader, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>): Promise<Doc<'reviews'> | null> {
   return await db.query('reviews').withIndex('by_quiz_id_and_ident_id', (qq) => qq.eq('quiz_id', quiz_id).eq('ident_id', ident_id)).first()
 }
+
+/** A review's reviewings: at most one per question of its quiz, which the quiz's cap bounds */
+export async function reviewingsOf(db: Reader, review_id: Id<'reviews'>): Promise<Doc<'reviewings'>[]> {
+  return await db.query('reviewings').withIndex('by_review_id_and_question_id', (qq) => qq.eq('review_id', review_id)).take(PA.QuestionsPerQuiz.max)
+}
+
+/** The reviewing `review_id` has of `question_id`; null until the reviewer has written to it */
+export async function reviewingFor(db: Reader, review_id: Id<'reviews'>, question_id: Id<'questions'>): Promise<Doc<'reviewings'> | null> {
+  return await db.query('reviewings').withIndex('by_review_id_and_question_id', (qq) => qq.eq('review_id', review_id).eq('question_id', question_id)).first()
+}

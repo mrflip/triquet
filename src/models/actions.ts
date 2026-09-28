@@ -9,6 +9,7 @@ import { IdentValidators } from './ident'
 import { IshValidators } from './ish'
 import { QuestionValidators } from './question'
 import { QuizValidators } from './quiz'
+import { ReviewingValidators } from './reviewing'
 import { WidgetValidators } from './widget'
 
 /** The actions that revise a quiz's widgets and columns, or the hunt's expressions */
@@ -81,6 +82,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('open_review'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_overall'),         quiz_id: zid('quizzes'), overall: str }),
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),
+    obj({ kind: lit('set_reviewing'),       quiz_id: zid('quizzes'), question_id: zid('questions'), patch: ReviewingValidators.reviewingPatch }),
+    obj({ kind: lit('peek_answer'),         quiz_id: zid('quizzes'), question_id: zid('questions') }),
   ])
     .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, and to its hunt\'s expressions.')
 

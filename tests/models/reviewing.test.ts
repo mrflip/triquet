@@ -1,0 +1,79 @@
+import { describe, expect, it } from 'vitest'
+import * as Z from 'zod'
+import { Reviewing, ReviewingFlags, ReviewingValidators } from '../../src/models/reviewing'
+
+const Ids = { review_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa' } as const
+
+const Blank = {
+  ...Ids, get_rate: null, guesses: '', comments: '', minutes: null,
+  keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false,
+} as const
+
+describe('ReviewingValidators.row', () => {
+  it('defaults every verdict to unsaid, and the answer to unseen', () => {
+    expect(ReviewingValidators.row(Ids)).to.deep.eq(Blank)
+  })
+
+  const Taken: [object, string][] = [
+    [{ get_rate: 0 },                       'a get rate of none at all'],
+    [{ get_rate: 100 },                     'a get rate of certain'],
+    [{ minutes: 0 },                        'no minutes spent'],
+    [{ minutes: 2.5 },                      'a fraction of a minute'],
+    [{ comments: '  Two lines,\nkept.  ' }, 'comments as typed, untrimmed'],
+  ]
+  for (const [overrides, describes] of Taken) {
+    it(`takes ${describes}`, () => {
+      expect(ReviewingValidators.row({ ...Blank, ...overrides })).to.deep.eq({ ...Blank, ...overrides })
+    })
+  }
+
+  const Refused: [object, string][] = [
+    [{ get_rate: 101 },          'a get rate past certain'],
+    [{ get_rate: -1 },           'a negative get rate'],
+    [{ get_rate: 50.5 },         'a fractional get rate'],
+    [{ get_rate: '50' },         'a get rate as text'],
+    [{ minutes: -1 },            'negative minutes'],
+    [{ minutes: Infinity },      'endless minutes'],
+    [{ keep_it: 'yes' },         'a flag that is not a boolean'],
+    [{ review_id: 'nope' },      'a review that is not a row id'],
+    [{ question_id: undefined }, 'no question'],
+  ]
+  for (const [overrides, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => ReviewingValidators.row({ ...Blank, ...overrides })).to.throw(Z.ZodError)
+    })
+  }
+})
+
+describe('ReviewingValidators.reviewingPatch', () => {
+  it('carries only the fields it was given: no defaults', () => {
+    expect(ReviewingValidators.reviewingPatch({ get_rate: 40 })).to.deep.eq({ get_rate: 40 })
+    expect(ReviewingValidators.reviewingPatch({})).to.deep.eq({})
+  })
+
+  it('carries a null, to clear a get rate or minutes', () => {
+    expect(ReviewingValidators.reviewingPatch({ get_rate: null, minutes: null })).to.deep.eq({ get_rate: null, minutes: null })
+  })
+
+  it('holds its fields to the row\'s bounds', () => {
+    expect(() => ReviewingValidators.reviewingPatch({ get_rate: 101 })).to.throw(Z.ZodError)
+    expect(() => ReviewingValidators.reviewingPatch({ minutes: -1 })).to.throw(Z.ZodError)
+  })
+
+  it('never carries the ids or peeked: those are not the reviewer\'s to revise', () => {
+    expect(ReviewingValidators.reviewingPatch({ ...Ids, peeked: true, keep_it: true } as never)).to.deep.eq({ keep_it: true })
+  })
+})
+
+describe('Reviewing.blank', () => {
+  it('is a reviewing with nothing said', () => {
+    expect(Reviewing.blank(Ids.review_id, Ids.question_id)).to.deep.eq(Blank)
+  })
+})
+
+describe('ReviewingFlags', () => {
+  it('are the flags of a reviewing a reviewer raises: every boolean but peeked', () => {
+    const booleans = Object.keys(Blank).filter((fieldname) => typeof Blank[fieldname as keyof typeof Blank] === 'boolean' && fieldname !== 'peeked')
+    expect(ReviewingFlags.map(({ flag }) => flag)).to.deep.eq(booleans)
+  })
+})

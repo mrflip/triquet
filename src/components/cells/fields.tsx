@@ -108,3 +108,45 @@ export function QnumField({ committed, onCommit, locked, label }: Readonly<Field
     />
   )
 }
+
+export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
+  committed:  number | null
+  /** Told the number typed, or null when the box was emptied */
+  onCommit:   (num: number | null) => void
+  /** Whether a fraction may be typed, as `2.5` */
+  fractional: boolean
+  /** The most that may be typed */
+  max?:       number
+}
+
+/**
+ * A count or a percentage: free text holding an optional non-negative number, centred, with the
+ * spinner arrows suppressed. Keystrokes that would make it anything else, or more than `max`, are
+ * not taken; an empty box commits null.
+ */
+export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, max }: Readonly<NumberFieldProps>) {
+  // What was typed is tidied on exit into the number it means, as the box will show it once
+  // committed: `2.` on the way to `2.5` becomes `2`, and `2.50` becomes `2.5`.
+  const { draft, onChange, onBlur } = useDraft(
+    committed === null ? '' : String(committed),
+    (typed) => { onCommit(typed === '' ? null : Number(typed)) },
+    (typed) => (typed === '' ? '' : String(Number(typed))),
+  )
+  const shaped = fractional ? /^(\d+(\.\d*)?)?$/ : /^\d*$/
+  const onlyNumberish = (next: string) => {
+    const num = Number(next)
+    if (shaped.test(next) && Number.isFinite(num) && (max === undefined || num <= max)) { onChange(next) }
+  }
+  return (
+    <input
+      className={clsx(styles.field, styles.fieldQnum)}
+      inputMode={fractional ? 'decimal' : 'numeric'}
+      aria-label={label}
+      placeholder={placeholder}
+      readOnly={locked}
+      value={draft}
+      onChange={(event) => { onlyNumberish(event.target.value) }}
+      onBlur={onBlur}
+    />
+  )
+}

@@ -12,6 +12,7 @@ import { QuestionValidators } from '../../src/models/question'
 import { QuizValidators } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
+import { ReviewingValidators } from '../../src/models/reviewing'
 import { WidgetValidators } from '../../src/models/widget'
 import { openTester, type Tester } from '../support/convex'
 
@@ -35,6 +36,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
   quizzes:     QuizValidators.row,
   realms:      RealmValidators.row,
   reviews:     ReviewValidators.row,
+  reviewings:  ReviewingValidators.row,
   widgets:     WidgetValidators.row,
 }
 
@@ -74,6 +76,8 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const question_id = await insert('questions', question)
     const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip' })
     const ident_id = await insert('idents', ident)
+    const review = ReviewValidators.row({ quiz_id, ident_id, overall: '', phase: 'empty' })
+    const review_id = await insert('reviews', review)
     return {
       hunts:       hunt,
       realms:      realm,
@@ -84,7 +88,10 @@ async function samplesIn(tt: Tester): Promise<Samples> {
       expressions: ExpressionValidators.row({ hunt_id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: '', position: 0 }),
       widgets:     WidgetValidators.row({ quiz_id, label: 'dumdum', kind: 'botting', bot_label: 'dumdum', textkind: 'clueing', description: '', position: 0 }),
       columns:     ColumnValidators.row({ quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 200, position: 0 }),
-      reviews:     ReviewValidators.row({ quiz_id, ident_id, overall: '', phase: 'empty' }),
+      reviews:     review,
+      reviewings:  ReviewingValidators.row({
+        review_id, question_id, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', minutes: 2.5, keep_it: true, needs_fact_check: false, elimination_candidate: false, peeked: true,
+      }),
       bottings:    BottingValidators.row({
         question_id, bot_label: 'numnum', textkind: 'clueing', asked_text: 'Who?', status: 'error', reply_text: null, items: [],
         message: 'It failed', response: { error: { kind: 'overloaded', retry: [1, 2] } }, truncated: false, model_tier_applied: null, approx_tokens: null,
@@ -105,6 +112,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   quizzes:     { locked: 'yes' },
   realms:      { hunt_id: 'nowhere' },
   reviews:     { phase: 'finished' },
+  reviewings:  { minutes: 'a few' },
   widgets:     { kind: 'gadget' },
 }
 

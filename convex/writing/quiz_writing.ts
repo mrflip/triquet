@@ -12,6 +12,7 @@ import { QuestionValidators, type QuestionT } from '../../src/models/question'
 import { QuizValidators, type QuizT } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
+import { ReviewingValidators } from '../../src/models/reviewing'
 import { WidgetValidators, type BottingPatch, type ExpressingPatch, type WidgetT } from '../../src/models/widget'
 import { reviewsOf } from '../reading'
 
@@ -72,15 +73,23 @@ export async function updateReview(db: Writer, held: Doc<'reviews'>, patch: Part
   if (! _.isEmpty(changed)) { await db.patch('reviews', held._id, changed) }
 }
 
+/** Revise a reviewing's row */
+export async function updateReviewing(db: Writer, held: Doc<'reviewings'>, patch: Partial<Z.output<typeof ReviewingValidators.row>>): Promise<void> {
+  const changed = changedFields(held, ReviewingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  if (! _.isEmpty(changed)) { await db.patch('reviewings', held._id, changed) }
+}
+
 /** Record each botting of `bottings` as a row of its own */
 export async function insertBottings(db: Writer, bottings: readonly BottingT[]): Promise<void> {
   for (const botting of bottings) { await db.insert('bottings', BottingValidators.row(botting)) }
 }
 
-/** Delete a question and every botting it was ever asked */
+/** Delete a question, every botting it was ever asked, and every reviewer's verdict on it */
 export async function deleteQuestion(db: Writer, question_id: Id<'questions'>): Promise<void> {
   const bottings = db.query('bottings').withIndex('by_question_id_and_bot_label_and_textkind', (qq) => qq.eq('question_id', question_id))
   for await (const botting of bottings) { await db.delete('bottings', botting._id) }
+  const reviewings = db.query('reviewings').withIndex('by_question_id', (qq) => qq.eq('question_id', question_id))
+  for await (const reviewing of reviewings) { await db.delete('reviewings', reviewing._id) }
   await db.delete('questions', question_id)
 }
 
@@ -201,8 +210,8 @@ async function writeColumns(db: Writer, quiz_id: Id<'quizzes'>, columns: QuizT['
 }
 
 /**
- * Delete a quiz and everything that hangs from it: its questions and their bottings, its widgets
- * and columns, and its reviews.
+ * Delete a quiz and everything that hangs from it: its questions with their bottings and
+ * reviewings, its widgets and columns, and its reviews.
  *
  * @param db - The mutation's database.
  * @param held - The quiz's rows.

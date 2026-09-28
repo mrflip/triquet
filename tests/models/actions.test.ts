@@ -45,6 +45,8 @@ const Actions: HuntActionDNA[] = [
   { kind: 'open_review', quiz_id },
   { kind: 'set_overall', quiz_id, overall: 'Went well.' },
   { kind: 'set_review_phase', quiz_id, phase: 'shared' },
+  { kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 40, minutes: 2.5, keep_it: true } },
+  { kind: 'peek_answer', quiz_id, question_id },
 ]
 
 describe('ActionValidators.huntAction', () => {
@@ -59,6 +61,7 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'move_question', question_id: 'nobody', onto_idx: 0 },         'a question that is not a row id'],
     [{ kind: 'move_widget', label: 'dumdum', onto_idx: -1 },                'a place before the first'],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
+    [{ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 101 } }, 'a get rate past certain'],
     [{ kind: 'replace_open_quiz', quiz: { ...Quiz.blank(), locked: 'no' } }, 'a quiz that is not one'],
   ]
   for (const [dna, describes] of Refused) {

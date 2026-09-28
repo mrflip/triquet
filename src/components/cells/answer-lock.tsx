@@ -1,23 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Stack, Typography } from '@mui/material'
 
 export type AnswerLockProps = {
   /** The full answer, hidden until the reviewer chooses to see it */
-  answer: string
+  answer:    string
+  /** Told the first time the answer is revealed, and not again however often it is hidden and shown */
+  onReveal?: () => void
 }
 
 /**
  * The answer, behind a lock a reviewer opens on purpose: confirming once reveals it for this row
  * and this session, and a small lock beside it hides it again without asking. Neither state is
- * stored.
+ * stored; `onReveal` hears of the first reveal, for whoever wants to keep it.
  *
  * @param answer - What to reveal.
+ * @param onReveal - Told of the first reveal.
  */
-export function AnswerLock({ answer }: Readonly<AnswerLockProps>) {
+export function AnswerLock({ answer, onReveal }: Readonly<AnswerLockProps>) {
   const [revealed, setRevealed] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const told = useRef(false)
 
   if (revealed) {
     return (
@@ -26,6 +30,14 @@ export function AnswerLock({ answer }: Readonly<AnswerLockProps>) {
         <IconButton size="small" aria-label="Hide answer" onClick={() => { setRevealed(false) }}>🔓</IconButton>
       </Stack>
     )
+  }
+
+  const reveal = () => {
+    setRevealed(true)
+    setConfirming(false)
+    if (told.current) { return }
+    told.current = true
+    onReveal?.()
   }
   return (
     <>
@@ -37,15 +49,7 @@ export function AnswerLock({ answer }: Readonly<AnswerLockProps>) {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setConfirming(false) }}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              setRevealed(true)
-              setConfirming(false)
-            }}
-          >
-            Reveal
-          </Button>
+          <Button variant="contained" onClick={reveal}>Reveal</Button>
         </DialogActions>
       </Dialog>
     </>

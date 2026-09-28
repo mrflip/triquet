@@ -76,8 +76,14 @@ export type CountedExpressionT = ExpressionT & { usage: number }
 /** A hunt as a quiz's screen holds it: its listing, and its expressions with their usage */
 export type ShallowHuntT = HuntListingT & { expressions: readonly CountedExpressionT[] }
 
-/** A review, with the label and title of the ident who wrote it; null for an ident no longer there */
-export type ReviewedT = Doc<'reviews'> & { reviewer: Pick<Doc<'idents'>, 'label' | 'title'> | null }
+/**
+ * A review, with the label and title of the ident who wrote it (null for an ident no longer
+ * there), and its verdict on each question the reviewer has written to.
+ */
+export type ReviewedT = Doc<'reviews'> & {
+  reviewer:   Pick<Doc<'idents'>, 'label' | 'title'> | null
+  reviewings: Doc<'reviewings'>[]
+}
 
 /**
  * What one cell's history comes to: its newest answer, and the newest failure when that is

@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
@@ -11,6 +12,7 @@ import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayoutFor } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
+import type { HuntActionDNA } from '../../src/models/actions'
 import { present } from '../support/present'
 import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, type Seen, type Tester } from '../support/convex'
 
@@ -85,11 +87,34 @@ async function reviewsIn(tt: Tester, quiz_id: string) {
   return await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id as Id<'quizzes'>))
 }
 
+/** Every reviewing the rows hold, oldest first, as what was said about which question */
+async function reviewingsIn(tt: Tester) {
+  const rows = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
+  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id']))
+}
+
+/** A reviewing with nothing said, and the answer not seen */
+const Unsaid = { get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false } as const
+
 describe('hunts.perform', () => {
   const Deployment: { tt: Tester } = { tt: openTester() }
   beforeEach(() => { Deployment.tt = openTester() })
 
   const seed = async (hunt: HuntT, open_idx = 0) => await seedHunt(Deployment.tt, hunt, open_idx)
+
+  /**
+   * `hunt` seeded, its open quiz's review opened by alice, its first two questions' ids, and how
+   * to act as alice.
+   */
+  const reviewed = async (hunt: HuntT = huntOf(['1', 'a'], ['2', 'b'])) => {
+    const seeded = await seed(hunt)
+    const { browser_key } = await identified(seeded.tt, 'alice_reviews')
+    const quiz = openOf(await seeded.read())
+    const [first, second] = quiz.questions.map((question) => question._id as Id<'questions'>)
+    const asAlice = async (action: HuntActionDNA) => { await seeded.act(action, browser_key) }
+    await asAlice({ kind: 'open_review', quiz_id: quiz._id })
+    return { ...seeded, asAlice, browser_key, quiz_id: quiz._id, first: present(first), second: present(second) }
+  }
 
   describe('retitle_quiz', () => {
     it('renames the open quiz', async () => {
@@ -332,6 +357,14 @@ describe('hunts.perform', () => {
       await act({ kind: 'delete_questions', question_ids: [present(first)._id] })
       const bottings = await tt.run(async (ctx) => await ctx.db.query('bottings').collect())
       expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second)._id])
+    })
+
+    it('takes each deleted question\'s reviewings with it, and leaves the others\' alone', async () => {
+      const { tt, act, asAlice, quiz_id, first, second } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { get_rate: 20 } })
+      await act({ kind: 'delete_questions', question_ids: [first] })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: second, get_rate: 20 }])
     })
 
     it('clears a chain to a deleted question, so a later question answering to its label does not inherit it', async () => {
@@ -659,6 +692,14 @@ describe('hunts.perform', () => {
       expect(bottings).to.have.length(0)
     })
 
+    it('takes the quiz\'s reviews and their reviewings with it', async () => {
+      const { tt, act, asAlice, quiz_id, first } = await reviewed(huntTitled(['one', 'two']))
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
+      await act({ kind: 'delete_quiz', quiz_id })
+      const [reviews, reviewings] = await tt.run(async (ctx) => [await ctx.db.query('reviews').collect(), await ctx.db.query('reviewings').collect()])
+      expect([reviews, reviewings]).to.deep.eq([[], []])
+    })
+
     it('refuses to delete the realm\'s last quiz', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const ante = await read()
@@ -815,6 +856,144 @@ describe('hunts.perform', () => {
     })
   })
 
+  describe('set_reviewing', () => {
+    it('makes the reviewing the first time, holding only what the patch says', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40 }])
+    })
+
+    it('revises it after, leaving alone what a patch leaves out', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40, guesses: 'Hamlet?' } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { comments: 'Fair.', keep_it: true } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', keep_it: true }])
+    })
+
+    it('clears a get rate or minutes given null', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40, minutes: 2.5 } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: null, minutes: null } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first }])
+    })
+
+    it('keeps one reviewing per question', async () => {
+      const { tt, asAlice, quiz_id, first, second } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { minutes: 3 } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { minutes: 1 } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { minutes: 4 } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: second, minutes: 4 }, { ...Unsaid, question_id: first, minutes: 1 }])
+    })
+
+    it('keeps each reviewer\'s verdicts apart', async () => {
+      const { tt, asAlice, act, quiz_id, first } = await reviewed()
+      const bob = await identified(tt, 'bob_reviews')
+      await act({ kind: 'open_review', quiz_id }, bob.browser_key)
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
+      await act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 90 } }, bob.browser_key)
+      const reviewings = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
+      const reviews = await reviewsIn(tt, quiz_id)
+      const rateBy = new Map(reviewings.map((reviewing) => [reviews.find((review) => review._id === reviewing.review_id)?.ident_id, reviewing.get_rate]))
+      expect([rateBy.get(reviews[0]?.ident_id), rateBy.get(reviews[1]?.ident_id)]).to.deep.eq([10, 90])
+    })
+
+    it('moves an empty review to draft', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true } })
+      const [review] = await reviewsIn(tt, quiz_id)
+      expect(review?.phase).to.eq('draft')
+    })
+
+    it('leaves a shared review shared', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_review_phase', quiz_id, phase: 'shared' })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true } })
+      const [review] = await reviewsIn(tt, quiz_id)
+      expect(review?.phase).to.eq('shared')
+    })
+
+    it('works on a locked quiz, since reviewing one is the point', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed(openHunt(true))
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { needs_fact_check: true } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, needs_fact_check: true }])
+    })
+
+    it('refuses when the review has not been opened, writing nothing', async () => {
+      const { act, read, tt } = await seed(huntOf(['1', 'a']))
+      const { browser_key } = await identified(tt, 'bob_reviews')
+      const seen = await read()
+      const [quiz_id, question_id] = [openOf(seen)._id, firstOf(seen)._id]
+      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 40 } }, browser_key), 'reviewNotOpened')
+      expect(await reviewingsIn(tt)).to.deep.eq([])
+    })
+
+    it('refuses a question that is not the quiz\'s, writing nothing', async () => {
+      const { tt, asAlice, quiz_id } = await reviewed()
+      const elsewhere = await seed(huntOf(['1', 'z']))
+      const question_id = firstOf(await elsewhere.read())._id
+      await expectRefusal(asAlice({ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 40 } }), 'questionGone')
+      expect(await reviewingsIn(tt)).to.deep.eq([])
+      const [review] = await reviewsIn(tt, quiz_id)
+      expect(review?.phase).to.eq('empty')
+    })
+
+    it('refuses a get rate past certain at the door, writing nothing', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await expect(asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 101 } })).rejects.toThrow()
+      expect(await reviewingsIn(tt)).to.deep.eq([])
+    })
+
+    it('refuses a browser that has not said who it is', async () => {
+      const { tt, act, quiz_id, first } = await reviewed()
+      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }), 'notIdentified')
+      expect(await reviewingsIn(tt)).to.deep.eq([])
+    })
+  })
+
+  describe('peek_answer', () => {
+    it('records that the answer was seen, making the reviewing if need be, and leaves the review\'s phase alone', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, peeked: true }])
+      const [review] = await reviewsIn(tt, quiz_id)
+      expect(review?.phase).to.eq('empty')
+    })
+
+    it('marks a reviewing already made, keeping what it says', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } })
+      await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40, peeked: true }])
+    })
+
+    it('sets it once: a verdict after keeps it, and peeking again changes nothing', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 90 } })
+      const ante = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
+      await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
+      expect(await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())).to.deep.eq(ante)
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 90, peeked: true }])
+    })
+
+    it('refuses when the review has not been opened, writing nothing', async () => {
+      const { act, read, tt } = await seed(huntOf(['1', 'a']))
+      const { browser_key } = await identified(tt, 'bob_reviews')
+      const seen = await read()
+      const [quiz_id, question_id] = [openOf(seen)._id, firstOf(seen)._id]
+      await expectRefusal(act({ kind: 'peek_answer', quiz_id, question_id }, browser_key), 'reviewNotOpened')
+      expect(await reviewingsIn(tt)).to.deep.eq([])
+    })
+
+    it('refuses a question that is not the quiz\'s', async () => {
+      const { tt, asAlice, quiz_id } = await reviewed()
+      const elsewhere = await seed(huntOf(['1', 'z']))
+      const question_id = firstOf(await elsewhere.read())._id
+      await expectRefusal(asAlice({ kind: 'peek_answer', quiz_id, question_id }), 'questionGone')
+      expect(await reviewingsIn(tt)).to.deep.eq([])
+    })
+  })
+
   describe('replace_open_quiz', () => {
     it('takes a merged quiz whole: fields revised, questions matched by id, new ones added, missing ones gone', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
@@ -825,6 +1004,15 @@ describe('hunts.perform', () => {
       const after = openOf(await read())
       expect([after.title, ...after.questions.map((question) => [question.title, question.clueing])]).to.deep.eq(['Merged', ['a', 'Imported'], ['fresh', '']])
       expect(after.questions[0]?._id).to.eq(present(first)._id)
+    })
+
+    it('keeps the reviewings of the questions it keeps, and takes those of the questions it drops', async () => {
+      const { tt, act, asAlice, read, quiz_id, first, second } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { get_rate: 20 } })
+      const quiz = openOf(await read())
+      await act({ kind: 'replace_open_quiz', quiz: { ...quiz, questions: quiz.questions.filter((question) => question._id !== second) } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 10 }])
     })
 
     it('records the replies a merged quiz brings, once', async () => {
