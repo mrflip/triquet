@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  bottingFrom, expressionFrom, huntFrom, huntListingOf, huntTitleOf, quizFrom, realmTitleOf, recordedAtOf, reviewBy, shallowHuntOf, slotLatestOf, widgetFrom,
+  expressionFrom, huntFrom, huntListingOf, huntTitleOf, quizFrom, realmTitleOf, recordedAtOf, reviewBy, shallowHuntOf, slotLatestOf, widgetFrom,
   type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import { Quiz } from '../../src/models/quiz'
@@ -38,16 +38,8 @@ const ExpressionRow: Doc<'expressions'> = {
 }
 const Rows: HuntRows = { hunt: HuntRow, realms: [{ realm: RealmRow, quizzes: [QuizRow] }], expressions: [ExpressionRow] }
 
-describe('bottingFrom', () => {
-  it('is the row as the tree reads it: its id, and when it was asked in whole milliseconds', () => {
-    const tree = bottingFrom(botting('done', 1_727_470_000_000.625, 'one'))
-    expect([tree.id, tree.created_at]).to.deep.eq([idOf('bottings', 'b1727470000000.625'), 1_727_470_000_000])
-    expect(tree).to.not.have.any.keys('_id', '_creationTime')
-  })
-})
-
 describe('slotLatestOf', () => {
-  it('is the newest answer, and a failure newer than it', () => {
+  it('is the newest answer, and a failure newer than it, each the row as read', () => {
     const latest = slotLatestOf({ newest: botting('error', 3, 'failed'), done: botting('done', 2, 'answered') })
     expect([latest.done?.items[0]?.text, latest.failed?.status]).to.deep.eq(['answered', 'error'])
   })
@@ -91,13 +83,11 @@ describe('quizFrom', () => {
 describe('widgetFrom', () => {
   const row = { _id: idOf('widgets', 'w1'), _creationTime: 0, quiz_id, label: 'shouted', description: '', position: 0 }
 
-  it('is a widget of the row\'s kind, with only that kind\'s fields', () => {
-    expect(widgetFrom({ ...row, kind: 'expressing', expression_label: 'shout', bot_label: null, textkind: null }))
+  it('is a widget of the row\'s kind, without its place', () => {
+    expect(widgetFrom({ ...row, kind: 'expressing', expression_label: 'shout' }))
       .to.deep.eq({ kind: 'expressing', label: 'shouted', description: '', expression_label: 'shout' })
-  })
-
-  it('throws for a row lacking its kind\'s fields', () => {
-    expect(() => widgetFrom({ ...row, kind: 'botting', expression_label: null, bot_label: null, textkind: null })).to.throw(/lacks the fields/)
+    expect(widgetFrom({ ...row, kind: 'botting', bot_label: 'numnum', textkind: 'hint' }))
+      .to.deep.eq({ kind: 'botting', label: 'shouted', description: '', bot_label: 'numnum', textkind: 'hint' })
   })
 })
 

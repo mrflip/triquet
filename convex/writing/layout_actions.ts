@@ -7,7 +7,7 @@ import { ExpressionValidators, keyOf, type ExpressionPatch, type ExpressionT } f
 import { QuestionWidgetLabel, WidgetValidators, type BottingPatch, type ExpressingPatch, type WidgetT } from '../../src/models/widget'
 import type { LayoutActionT, OpenQuizT } from '../../src/models/actions'
 import { expressionUsageOf, expressionsOf, realmsOf } from '../reading'
-import { repositioned, updateColumn, updateExpression, updateQuiz, updateWidget, widgetFieldsOf, type Writer } from './quiz_writing'
+import { repositioned, updateColumn, updateExpression, updateQuiz, updateWidget, type Writer } from './quiz_writing'
 import { reviseOpenQuiz } from './quiz_actions'
 
 /** A widget's patch as an action carries it: the fields of either kind, checked against the widget it revises */
@@ -55,7 +55,7 @@ export async function addWidget(db: Writer, open: OpenQuizT, widget: WidgetT): P
   await reviseOpenQuiz(db, open, async (rows) => {
     if (labelTaken(rows, widget.label)) { refuse('labelTaken') }
     if (rows.widgets.length >= PA.WidgetsPerQuiz.max) { refuse('widgetsFull') }
-    await db.insert('widgets', WidgetValidators.row({ ...widgetFieldsOf(widget), quiz_id: rows.quiz._id, position: rows.widgets.length }))
+    await db.insert('widgets', WidgetValidators.row({ ...widget, quiz_id: rows.quiz._id, position: rows.widgets.length }))
   })
 }
 

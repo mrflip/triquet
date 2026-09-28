@@ -6,10 +6,6 @@ import { BotLabelVals, type BotLabel } from './bot-label'
 import { BotSlots, type BotSlot } from './botting'
 import type { ExpressionT } from './expression'
 
-/** What a widget is: a calculation put to work, or a bot put to the quiz */
-export const WidgetkindVals = ['expressing', 'botting'] as const
-export type Widgetkind = typeof WidgetkindVals[number]
-
 /** Whether the tool puts `bot_label` the question's `textkind` text */
 function isBotSlot(bot_label: BotLabel, textkind: Textkind): boolean {
   return BotSlots.some((slot) => slot.bot_label === bot_label && slot.textkind === textkind)
@@ -71,36 +67,14 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
   })
     .describe('The fields of one botting widget being revised. A key absent means "leave whatever is already there".')
 
-  const row = obj({
-    quiz_id:          zid('quizzes')
+  const rowFields = {
+    quiz_id:  zid('quizzes')
       .describe('The quiz this widget belongs to.'),
-    label:            widgetLabel,
-    kind:             oneof(WidgetkindVals)
-      .describe('What the widget is: an expression put to work, or a bot put to the quiz.'),
-    expression_label: label.nullable()
-      .describe('Which of the hunt\'s expressions an expressing widget works; null for a botting widget.'),
-    bot_label:     botLabel.nullable(),
-    textkind:         textkind.nullable(),
-    description,
-    position:         uint
+    position: uint
       .describe('The widget\'s place among its quiz\'s widgets, counting from zero.'),
-  })
-    .check((context) => {
-      const { kind, expression_label, bot_label, textkind: kindShown } = context.value
-      const flag = (fieldkey: string, message: string) => { context.issues.push({ code: 'custom', input: context.value, path: [fieldkey], message }) }
-      if (kind === 'expressing') {
-        if (expression_label === null) { flag('expression_label', 'An expressing widget names the expression it works') }
-        if (bot_label !== null || kindShown !== null) { flag('bot_label', 'An expressing widget puts no bot to the quiz') }
-        return
-      }
-      if (expression_label !== null) { flag('expression_label', 'A botting widget works no expression') }
-      if (bot_label === null || kindShown === null) {
-        flag('bot_label', 'A botting widget names its bot and the text that bot is shown')
-      } else if (! isBotSlot(bot_label, kindShown)) {
-        flag('textkind', `${bot_label} is not put a ${kindShown} in this tool`)
-      }
-    })
-    .describe('One widget as the database holds it: the fields of both kinds, with those the other kind uses left null.')
+  }
+  const row = discrim('kind', [expressing.extend(rowFields), botting.extend(rowFields)])
+    .describe('One widget as the database holds it: the fields of its own kind, and its place in its quiz.')
 
   return { widgetLabel, expressing, botting, widget, expressingPatch, bottingPatch, row }
 })

@@ -1,7 +1,7 @@
 import _ from 'es-toolkit/compat'
 import { defineSchema, defineTable } from 'convex/server'
 import { v as CVX, type VAny } from 'convex/values'
-import { zodOutputToConvexFields } from 'convex-helpers/server/zod4'
+import { zodOutputToConvex, zodOutputToConvexFields } from 'convex-helpers/server/zod4'
 import type { LastErrT } from '../src/models/ask'
 import { BottingValidators } from '../src/models/botting'
 import { ColumnValidators } from '../src/models/column'
@@ -16,7 +16,8 @@ import { ReviewValidators } from '../src/models/review'
 import { WidgetValidators } from '../src/models/widget'
 
 // Every table's fields are its row validator's, through the bridge, which keeps each field's
-// shape, nullability and closed sets. What the bridge cannot carry (patterns, lengths, integers,
+// shape, nullability and closed sets; a widget, whose row is a union of its two kinds, is a union
+// table. What the bridge cannot carry (patterns, lengths, integers,
 // and checks across fields) stays the row validator's, which every write passes first.
 //
 // One field is written by hand: a botting's `response`, any JSON at all, whose recursive type the
@@ -29,7 +30,7 @@ const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
 const expressionFields  = zodOutputToConvexFields(ExpressionValidators.row.shape)
 const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
-const widgetFields      = zodOutputToConvexFields(WidgetValidators.row.shape)
+const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
 const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
 const bottingFields     = {
