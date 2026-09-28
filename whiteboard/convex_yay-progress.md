@@ -28,10 +28,14 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   phase 5's, not yet merged. On 2026-09-28: lint and typecheck green; 2005 unit and convex tests
   and 170 e2e specs green (`pnpm test:e2e:agent`, about a minute). The hunts-and-idents handoff is
   rewritten for phase 7.
-* **Next**: phase 7 (authorization), a branch stacked on phase 6's, after the Coach answers its
-  design question (the plan's phase 7, and *For the Coach* below). Phase 3b (the cloud): production
-  is up at `triquet.vercel.app`, and the cloud is measured (*Measurements*, 2026-09-28). A
-  reorder takes 233 ms there, so the optimistic `move_question` is called for.
+* **Phase 7 (authorization, hunts-and-idents PR 6)**: built on `20260928-convex_phase7`, rebased
+  onto `main` after the audit (phases 0 to 6 merged). On 2026-09-28: lint and typecheck green;
+  2037 unit and convex tests and 170 e2e specs green (`pnpm test:e2e:agent`, about a minute).
+  **Wide open is over**: the server enforces what phase 6 showed.
+* **Next**: the identity plan (the plan's *Identity, later*), which the Coach issues. Phase 3b
+  (the cloud): production is up at `triquet.vercel.app`, and the cloud is measured
+  (*Measurements*, 2026-09-28). A reorder takes 233 ms there, so the optimistic `move_question`
+  is called for (held off through phase 7 on the Coach's word).
 
 ## 2. Start here
 
@@ -120,6 +124,15 @@ Settled in phase 6 (the Coach's word on caps, applied as warranted; confirm):
   widget cap multiplies by the quiz cap) and `RealmsPerHunt` (every hunt has one realm). The
   model and function tests read the caps rather than pinning 99.
 
+Settled for phase 7 (Coach, 2026-09-28):
+
+* **A query that may not answer answers what the caller may see**, and the page says why at the
+  address asked for, which does not change: *"You are not yet a member of this hunt. Ask
+  [smiths] to please add you…"*. `hunts.open` answers `{ why: 'notOnHunt', smiths }` for that,
+  `{ why: 'noSuchHunt' }` for no hunt, and `{ why: null, hunt }` otherwise; the queries below it
+  answer null, as for a row not there. (The plan's proposal, with the smiths added.)
+* **Optimistic writes wait** unless they cost code or failing tests. None did in phase 7.
+
 ### Rules overrides
 
 Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fetched
@@ -145,6 +158,46 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 ## 4. Deviations from the plan
 
 Newest first.
+
+* **Phase 7: `questions` and `reviews` rows carry their hunt's `hunt_id`.** The plan did not
+  foresee a query per question (phase 4's change). Authorizing `questions.open` through its quiz
+  reads the quiz row, and every reorder, add or sort writes that row, so every question's query
+  would rerun on each (about 60 reruns for a 60-question quiz, where today there are none). With
+  the hunt on the row, the check reads the caller's hunting only, which rarely changes. The same
+  for `reviews.forQuiz`, which checks each review by its own `hunt_id` and reads no quiz. Both
+  are written where the rows are made (`Question.blankRow` takes the question's place, as
+  `insertQuiz` and the test seeder take the quiz's; `addQuestion`, `importQuestions`,
+  `openReview`), and the tree drops `hunt_id` as it drops `quiz_id`. Alternative: read the chain
+  (quiz, then realm) and accept the reruns.
+* **Phase 7: `hunts.perform` holds `open` to the hunt it authorizes on** (`mayPerform`). The
+  plan's `mayChangeHunt(open.hunt_id)` alone would have let a smith of one hunt name another
+  hunt's quiz in `open` (or in `set_lock`, `delete_quiz` or a review action's `quiz_id`) and
+  change it. The place's realm must be the hunt's and its quiz the realm's, and a quiz an action
+  names must be the hunt's; a browser that says otherwise is refused `notPermitted`. A row that
+  is gone passes and is the action's to refuse, as before; a quiz whose realm is gone does not
+  (the second reader's catch: nothing deletes a realm today, but a quiz left without one would
+  otherwise be placeable under any hunt). `delete_quiz` of another hunt's quiz
+  is now `notPermitted` rather than `notInRealm` (which stays, for a second realm of the hunt).
+* **Phase 7: a reviewer reads others' shared reviews too.** The plan's `mayReadReview` said
+  "shared and a smith of its hunt"; the thread says "shared and the hunt is mine", which is what
+  is built (the phase 5 word that hiding reviews is a convenience, not enforcement, points the
+  same way). The review screen shows only one's own anyway.
+* **Phase 7: `sharedReviewsOf` stays**, for the smiths' panel only. The plan deleted it once
+  `reviews.forQuiz` returned only what the caller may read, but a smith who opens a review of
+  their own is sent it in draft, and the panel would list it as shared. The server says who may
+  read a review; the panel says which of those are shared.
+* **Phase 7: `notIdentified` comes before `notPermitted`.** Every hunt action now needs an ident
+  (a smith is someone), so `perform` resolves it first and refuses a browser that has not said
+  who it is, as before; `writing/perform` takes a known actor, and `actor()` is gone.
+* **Phase 7: the rules take an ident, not a browser key** (`roleOn(db, hunt_id, ident_id)` and
+  the four the plan named, plus `mayPerform`). The identity plan changes `identFor` and no rule.
+* **Phase 7: `Finding` gains `refused`**, and `useHunt` returns the hunt's `smiths` (from the
+  refusal for a stranger, from the members for a reviewer asking for `act=smith`, whose notice
+  names them too). `NotOnHunt`'s sentences are `notOnHuntNotice` and `notASmithNotice` in
+  `lib/notices.ts`; its title is *Not yet on this hunt*.
+* **Phase 7: `wholeHuntOf(db, hunt_id)`** (`reading.ts`) is `hunts.whole` past its check; the
+  test support reads a hunt back through it, so a test's `read` is not itself an authorization
+  case.
 
 * **Phase 6: `ownHunting`, not `notSelfRemovable`**, and it covers a change of one's own role as
   well as removing oneself; asking for the role one already has is a no-op. The thread barred
@@ -190,6 +243,8 @@ Newest first.
   once any review is shared.
 * **Phase 5: `replace_open_quiz` keeps a question by its id**, not its label as the plan's phase 5
   text says; either way its reviewings survive, and a question the import drops takes its own.
+  *Superseded by the audit (2026-09-28): the action is gone; `import_questions` matches by label,
+  as the plan's phase 5 wanted, and deletes nothing.*
 * **`testing.clearAll` no longer schedules its own continuation** (a fix, found in phase 5). It
   deletes a batch of each table and says how many; `scripts/convex_reset` runs it until it says
   none. Scheduled and looped both, two runs deleted the same rows at once, and the e2e-agent
@@ -223,8 +278,9 @@ Newest first.
   change on every open screen; measured, that was the app's largest cost (half of what each
   browser downloaded, nearly two fifths of database I/O), so the plan's alternative is built.
 * **The widgets table is a union** of the two kinds, derived by `zodOutputToConvex` from
-  `WidgetValidators.row`, now a discriminated union. `writeQuiz` replaces a widget whose label now
-  names the other kind, since a patch cannot unset the old kind's fields.
+  `WidgetValidators.row`, now a discriminated union. `writeQuiz` replaced a widget whose label now
+  named the other kind, since a patch cannot unset the old kind's fields (*no longer a path: the
+  audit removed `writeQuiz`, 2026-09-28*).
 * **`BottingT` is a row's fields**, `RecordedBottingT` those and `_creationTime`; a cell's
   `SlotLatest` holds the rows the walk read. `latestBySlot`, `bottingFrom` and
   `bottingFieldsOf` are gone (the "not done" entry below is done).
@@ -281,8 +337,8 @@ Newest first.
 * **`BottingT` keeps `id` and `created_at`.** The Jazz projections still build it; phase 2
   renames it with them. `lib/rows.ts`'s `bottingFrom` maps a row onto it, with `created_at` the
   row's `_creationTime` floored: Convex's `_creationTime` carries a fraction, and the tree's
-  timestamps are whole milliseconds (a fractional one fails `timestamp` when a tree comes back
-  through `replace_open_quiz`). `latestBySlot` is left to the Jazz side; `slotLatestOf` builds a
+  timestamps are whole milliseconds (a fractional one failed `timestamp` when a tree came back
+  through `replace_open_quiz`, since removed). `latestBySlot` is left to the Jazz side; `slotLatestOf` builds a
   cell's latest from the two rows the walk found.
 * **The models are Convex-shaped already, and the Jazz side bends to them.** The kit's `zid`
   takes a Convex id or a UUID, so Jazz's rows still pass; Jazz's identing insert leaves the
@@ -295,7 +351,8 @@ Newest first.
   `scripts/convex_backend` does not set it yet (phase 2, with `scripts/convex_reset`).
 * **The tree's `_id` rename stops at the tree** (phase 0). `QuizT`, `QuestionT`, `RealmT`, `HuntT` and
   `IdentT` carry `_id`. Jazz rows still carry `id`, so `quizFrom`, `huntFrom` and `useIdent`
-  translate at that one seam until phase 2 removes Jazz. The import file format keeps its `id`
+  translate at that one seam until phase 2 removes Jazz. (*Since the audit, 2026-09-28: no ULIDs,
+  and an import carries no ids.*) The import file format keeps its `id`
   key (old exports carry it); `importing.ts` maps it as before. `treeid` takes a Convex id since
   phase 1; `BottingT` waits for phase 2 (above).
 * **No CI drift check for `_generated/`.** `convex codegen` needs a running deployment (see
@@ -324,6 +381,15 @@ Newest first.
 * **Convex's backends use 34xx and 35xx**, not 32xx: Jazz's dev servers hold 32xx until phase 2.
 
 ## 5. Discoveries
+
+### Phase 7
+
+* **The rules cost a read or three per query.** `identFor` (an identing and its ident) and the
+  caller's hunting, in every query that answers someone; `quizzes.open` reads the quiz's realm as
+  well. All rarely written, so they add to a query's first run and to nothing after. Not measured.
+* **Nothing about Convex surprised.** No new module, so `_generated/` did not change; the schema's
+  two new fields rode the derivation from the row validators, and the local backends were
+  emptied by the e2e run's `--reset`.
 
 ### Phase 6
 
@@ -606,9 +672,11 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **Phase 7's design question** (the plan's phase 7): a query that may not answer. Proposed: it
-  answers `null` with a small discriminant (`notOnHunt` or `noSuchHunt`), as phase 6's
-  `NotOnHunt` view already words it client-side.
+* **Phase 7, to confirm**: `hunt_id` on questions and reviews; the place check in `perform`; a
+  reviewer reading others' shared reviews; `sharedReviewsOf` kept for the panel (all under
+  *Deviations*). The notice's wording, for your eye: *You are not yet a member of this hunt. Ask
+  Flip (flip_kromer) to please add you: they can put your ident, "ada_lovelace", on the hunt from
+  the Members panel beneath any of its quizzes, and this page opens for you as soon as they do.*
 * **Phase 6, to confirm**: the caps (*Decisions taken*); nobody changes their own hunting, role
   included (*Deviations*); a new hunt's label retried in the browser rather than minted on the
   server (*Deviations*).
@@ -619,8 +687,8 @@ Worth a run on a quiet machine before merging.
 * **Phase 5, one behaviour to confirm** (built as the plan says; the review pass raised it):
   - A flag toggle sends the opposite of what the screen shows, so two clicks inside one round
     trip send the same value twice. The lock works the same way; both are candidates if
-    optimistic updates are taken up. (Held off in phase 6 on the Coach's word: nothing in it ran
-    into this.)
+    optimistic updates are taken up. (Held off in phases 6 and 7 on the Coach's word: nothing in
+    either ran into this.)
 
 * **Jazz's leftovers** are gone (the Coach removed `public/jazz/`, the `jazz` skill and the
   `data/jazz*/` directories, 2026-09-28), bar a few Doppler variables: `JAZZ_DEV_DATA_DIR` and
@@ -683,7 +751,7 @@ Phase 4 deleted these, each with a successor, all green:
 | --- | --- |
 | `tests/models/botting.test.ts`, `latestBySlot` (five cases) | `tests/convex/reading.test.ts` (the walk: newest, newest answered, cells kept apart) and `tests/lib/rows.test.ts` (`slotLatestOf`) |
 | `tests/lib/rows.test.ts`, `bottingFrom` | `tests/models/botting.test.ts` (`resultsFor` reads `_creationTime` in whole milliseconds) |
-| `tests/convex/writing/quiz_writing.test.ts`, `bottingFieldsOf` | none needed: the insert is `BottingValidators.row` of the botting, covered by `writeQuiz`'s cases |
+| `tests/convex/writing/quiz_writing.test.ts`, `bottingFieldsOf` | none needed: the insert is `BottingValidators.row` of the botting, covered by `writeQuiz`'s cases (since removed with the tree write path; bottings are recorded by `record_botting`) |
 | `tests/lib/rows.test.ts`, `widgetFrom` throws for a row lacking its kind's fields | none possible: the union table cannot hold one |
 | `tests/models/widget.test.ts`, "an expressing that also names a bot", "a botting that also names an expression" | the same file: the other kind's fields are dropped, and the table has no place for them |
 
@@ -703,3 +771,13 @@ green:
 | `e2e/routing.spec.ts`, "lets the friend's edits reach the author, for the trial" | "lets a friend made a smith make edits that reach the author" |
 | `e2e/routing.spec.ts`, "shows the friend the author's hunt among the hunts" | "lists the author's hunt among the friend's once they are on it, with their role" |
 | `e2e/reviews.spec.ts`, a reviewer deep-linked to `act=review` | put on the hunt as a reviewer, arriving with no `act` and landing on the review |
+
+Phase 7 changed these, by design (the server now enforces membership), each with a successor,
+green:
+
+| Test (changed in phase 7) | Successor |
+| --- | --- |
+| `tests/convex/authorize.test.ts`, "lets every browser change every hunt, for the trial" and "let another browser read every row of a hunt, and change and delete its rows" | the same file, *the rules* (a smith, a reviewer and a stranger, each rule each way), *hunts.perform, authorized* (refusals, forged places) and *mayPerform* |
+| `tests/convex/hunts.test.ts`, "says the role on it of whoever is looking, and null for someone not on it" and "is null for a label no hunt answers to" | the same file, "says the role on it of whoever is looking", "shows someone not on it only that they are not, and its smiths", "says so for a label no hunt answers to" |
+| `tests/convex/hunts.test.ts`, `delete_quiz` "refuses a quiz of another realm" (seeded in another hunt) | "refuses a quiz of another hunt, as not the actor's to change" (`notPermitted`) and "refuses a quiz of another realm of the hunt" (`notInRealm`) |
+| `e2e/routing.spec.ts`, the stranger's and the reviewer's notices | the same tests, reading the new wording and naming the author as the smith to ask, the address unchanged |

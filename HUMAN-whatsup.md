@@ -2,6 +2,7 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+<<<<<<< HEAD
 ## 2026-09-28: The cloud, measured
 
 Production (`triquet.vercel.app`) against the local backend, the same script for both, with a
@@ -19,6 +20,36 @@ Two things for you:
   eight `measure_*` idents. There is no hunt deletion, so they stay until you clear them.
 
 The script is `scripts/measure-latency.ts`, and the summary `notes/20260928-cloud_measurements-a.md`.
+=======
+## 2026-09-28: Convex phase 7, authorization
+
+Branch `20260928-convex_phase7`, rebased onto `main` after the audit. Green: lint, typecheck,
+2037 unit and convex tests, 170 e2e specs.
+
+The server enforces membership now. Smiths read and change their hunt. Reviewers read it and
+write their own reviews. Anyone else gets, at the address they asked for, *"You are not yet a
+member of this hunt. Ask Flip (flip_kromer) to please add you: they can put your ident,
+"ada_lovelace", on the hunt from the Members panel beneath any of its quizzes, and this page
+opens for you as soon as they do."* The page opens for them live once a smith adds them. A
+reviewer who asks for `act=smith` gets the same kind of notice, naming the smiths who could
+promote them. Every rule is in `convex/authorize.ts`, keyed on the ident rather than the browser
+key, so the identity plan changes one function (`identFor`).
+
+For your word (details in the progress document, *Deviations*):
+
+* **`hunt_id` on questions and reviews.** Without it, authorizing each question's query means
+  reading its quiz row. Every reorder writes that row, so every question's query would rerun on
+  every reorder.
+* **A hole the plan left, closed**: `perform` trusted the `{ hunt, realm, quiz }` the browser
+  sends. Checking the role on the hunt alone would let a smith of one hunt edit, lock or delete
+  another hunt's quiz by naming it. The place is now held to the hunt it is authorized on.
+* **Reviewers can read each other's shared reviews**, as the thread says ("shared, and the hunt
+  is mine"). The plan said smiths only.
+* **The smiths' panel still filters to shared reviews**: a smith's own draft review reaches their
+  browser, and would otherwise be listed as shared.
+
+Optimistic writes: still held off; nothing in this phase ran into them.
+>>>>>>> 5479606 (docs: phase 7's progress, the Coach's entry, and the handoff for the identity plan)
 
 ## 2026-09-28: Convex phase 6, huntings
 

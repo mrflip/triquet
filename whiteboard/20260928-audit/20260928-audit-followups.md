@@ -104,7 +104,9 @@ as planned, or into the audit branch.
   Audit §1, *Framework practice*; raised twice, not yet answered.
 * **`reviews.forQuiz` hands every review, drafts included, to every browser**, and the smith's
   panel filters to the shared ones on the client. Known, and marked for the permissions phase;
-  here so it is on a list. Audit §1.
+  here so it is on a list. Audit §1. *Done in phase 7: the server sends a review only to its
+  writer, or once shared to those on the hunt; the panel still filters to shared, since a
+  smith's own draft reaches their browser.*
 * **Raw elements left inside the grid's cells**: the chain picker's `<select>`
   (`cells/chain.tsx`) and the error badge's `<button>` (`cells/ErrBadge.tsx`). Under the bespoke
   grid decision; not changed on 2026-09-28 when the chrome's were.
