@@ -42,17 +42,17 @@ export async function huntsOf(db: Reader): Promise<Doc<'hunts'>[]> {
 
 /** A hunt's huntings, in the order they were made */
 export async function huntingsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Doc<'huntings'>[]> {
-  return await db.query('huntings').withIndex('by_hunt_id', (qq) => qq.eq('hunt_id', hunt_id)).take(PA.HuntingsPerHunt.max)
+  return await db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.HuntingsPerHunt.max)
 }
 
 /** An ident's huntings, one per hunt it is on at most, which the app's cap on hunts bounds */
 export async function huntingsFor(db: Reader, ident_id: Id<'idents'>): Promise<Doc<'huntings'>[]> {
-  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (qq) => qq.eq('ident_id', ident_id)).take(PA.HuntsInApp.max)
+  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (cvx) => cvx.eq('ident_id', ident_id)).take(PA.HuntsInApp.max)
 }
 
 /** The hunting `ident_id` has on `hunt_id`, and so its role there; null when it is not on the hunt */
 export async function huntingFor(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>): Promise<Doc<'huntings'> | null> {
-  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (qq) => qq.eq('ident_id', ident_id).eq('hunt_id', hunt_id)).first()
+  return await db.query('huntings').withIndex('by_ident_id_and_hunt_id', (cvx) => cvx.eq('ident_id', ident_id).eq('hunt_id', hunt_id)).first()
 }
 
 /** A hunt's huntings, in the order they were made, each with the label and title of its ident */
