@@ -25,6 +25,18 @@ export type QuizRows = {
   slots:     ReadonlyMap<string, SlotRows>
 }
 
+/**
+ * A question as its own query reads it: its row, and the newest reply in each of its cells. Its
+ * chain is still the label the row holds: only the quiz knows which sibling answers to it.
+ */
+export type SeenQuestionT = Doc<'questions'> & Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'>
+
+/** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgets and columns */
+export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
+
+/** One quiz's own row, and its widgets' and columns' in their committed order: what its layout needs */
+export type LayoutRows = Pick<QuizRows, 'quiz' | 'widgets' | 'columns'>
+
 /** One realm's row, and its quizzes' rows in the order they were made */
 export type RealmRows = {
   realm:   Doc<'realms'>
@@ -86,11 +98,67 @@ export function recordedAtOf(slots: ReadonlyMap<string, SlotRows>): Map<string, 
 }
 
 /**
- * The quiz its rows make up, as the tree the rest of the tool reads: each question showing the
- * newest reply from each of its bots, and its chain naming the question it points at.
+ * A question as its own query reads it, from its row and its cells' histories.
+ *
+ * @param row - The question's row.
+ * @param slots - Its cells' histories, by `slotkeyOf`; any others there are passed over.
+ * @returns The row, with the newest reply in each cell.
+ *
+ * @example seenQuestionOf(row, slots).guess?.status  // => 'done'
+ */
+export function seenQuestionOf(row: Doc<'questions'>, slots: ReadonlyMap<string, SlotRows>): SeenQuestionT {
+  return seenWith(row, latestOf(slots))
+}
+
+/** Each cell's history as the grid reads it, by `slotkeyOf` */
+function latestOf(slots: ReadonlyMap<string, SlotRows>): Map<string, SlotLatest> {
+  return new Map([...slots].map(([slotkey, slot]) => [slotkey, slotLatestOf(slot)]))
+}
+
+/** A question's row with the newest reply in each of its cells, from every cell's history */
+function seenWith(row: Doc<'questions'>, latest: ReadonlyMap<string, SlotLatest>): SeenQuestionT {
+  return { ...row, ...resultsFor(row, latest) }
+}
+
+/**
+ * A quiz without its questions, from its own row and its widgets' and columns' rows in order.
+ *
+ * @example frameOf(quiz, widgets, columns).row_ordering.length
+ */
+export function frameOf(quiz: Doc<'quizzes'>, widgets: readonly Doc<'widgets'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
+  return {
+    ..._.omit(quiz, ['_creationTime', 'realm_id']),
+    widgets: widgets.map((row) => widgetFrom(row)),
+    columns: columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
+  }
+}
+
+/**
+ * The quiz a frame and its questions make up, as the tree the rest of the tool reads: the
+ * questions in the order given, each chain naming the question it points at.
  *
  * The tree's ids are the rows' ids. A chain is held as a label, and here names the sibling that
- * answers to it; a chain to a label no sibling answers to reads as no chain.
+ * answers to it; a chain to a label no sibling answers to, or to the question itself, reads as no
+ * chain.
+ *
+ * @param frame - The quiz without its questions.
+ * @param seen - Its questions, in its order.
+ * @returns The quiz.
+ *
+ * @example quizFromSeen(frame, seen).questions.length
+ */
+export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]): QuizT {
+  const idForLabel = new Map(seen.map((question) => [Labelmaker.effectiveLabelOf(question), question._id]))
+  const questions = seen.map((row): QuestionT => {
+    const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
+    return { ..._.omit(row, ['_creationTime', 'quiz_id']), chains_to: target === row._id ? null : target }
+  })
+  return { ..._.omit(frame, ['row_ordering']), questions }
+}
+
+/**
+ * The quiz its rows make up, as `quizFromSeen` assembles it: each question showing the newest
+ * reply from each of its bots.
  *
  * @param rows - One quiz's rows.
  * @returns The quiz.
@@ -98,19 +166,25 @@ export function recordedAtOf(slots: ReadonlyMap<string, SlotRows>): Map<string, 
  * @example quizFrom(rows).questions.length
  */
 export function quizFrom(rows: QuizRows): QuizT {
-  const latest = new Map([...rows.slots].map(([slotkey, slot]) => [slotkey, slotLatestOf(slot)]))
-  const idForLabel = new Map(rows.questions.map((question) => [Labelmaker.effectiveLabelOf(question), question._id]))
-  const questions = rows.questions.map((row): QuestionT => {
-    const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
-    const question = { ..._.omit(row, ['_creationTime', 'quiz_id', 'position']), chains_to: target === row._id ? null : target }
-    return { ...question, ...resultsFor(question, latest) }
-  })
-  return {
-    ..._.omit(rows.quiz, ['_creationTime', 'realm_id']),
-    questions,
-    widgets: rows.widgets.map((row) => widgetFrom(row)),
-    columns: rows.columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
-  }
+  const latest = latestOf(rows.slots)
+  return quizFromSeen(frameOf(rows.quiz, rows.widgets, rows.columns), rows.questions.map((row) => seenWith(row, latest)))
+}
+
+/**
+ * The quiz a frame and its questions' readings come to, once every question it orders has been
+ * read: undefined while one is still on its way. A question read as gone (deleted a moment ago)
+ * is left out.
+ *
+ * @param frame - The quiz without its questions.
+ * @param seenFor - Each question's reading, by row id: undefined while on its way, null when gone.
+ * @returns The quiz, or undefined.
+ *
+ * @example assembledQuiz(frame, (question_id) => byId[question_id])?.questions.length
+ */
+export function assembledQuiz(frame: QuizFrameT, seenFor: (question_id: Id<'questions'>) => SeenQuestionT | null | undefined): QuizT | undefined {
+  const seen = frame.row_ordering.map((question_id) => seenFor(question_id))
+  if (seen.includes(undefined)) { return undefined }
+  return quizFromSeen(frame, seen.filter((question) => question !== null && question !== undefined))
 }
 
 /** An expression, from its row */

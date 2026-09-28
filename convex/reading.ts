@@ -2,10 +2,11 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import * as PA from '../src/lib/vv/patterns'
 import { BotSlots, slotkeyOf, type BotSlot } from '../src/models/botting'
-import type { HuntRows, QuizRows, RealmRows, SlotRows } from '../src/lib/rows'
+import type { HuntRows, LayoutRows, QuizRows, RealmRows, SlotRows } from '../src/lib/rows'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
-// that kind of child, which the writes refuse to pass: a read never silently drops a row.
+// that kind of child, which the writes refuse to pass: a read never silently drops a row. A
+// quiz's questions are read by id, in the order the quiz holds them, which the same cap bounds.
 
 /** What a query or a mutation reads through */
 export type Reader = QueryCtx['db']
@@ -118,6 +119,37 @@ export async function slotsOf(db: Reader, questions: readonly Doc<'questions'>[]
   }))
 }
 
+/** A quiz's questions, in the quiz's order, each read by its id */
+export async function questionsOf(db: Reader, quiz: Doc<'quizzes'>): Promise<Doc<'questions'>[]> {
+  const questions = await Promise.all(quiz.row_ordering.map(async (question_id) => await db.get('questions', question_id)))
+  return questions.filter((question) => question !== null)
+}
+
+/**
+ * The question `question_id` of the quiz `quiz_id`: null when there is no such question, or it
+ * is another quiz's.
+ */
+export async function questionOf(db: Reader, quiz_id: Id<'quizzes'>, question_id: Id<'questions'>): Promise<Doc<'questions'> | null> {
+  const question = await db.get('questions', question_id)
+  return question?.quiz_id === quiz_id ? question : null
+}
+
+/**
+ * One quiz's own row, and its widgets and columns in their committed order: everything a quiz
+ * holds but its questions.
+ *
+ * @returns The rows, or null when there is no such quiz.
+ */
+export async function layoutRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<LayoutRows | null> {
+  const quiz = await db.get('quizzes', quiz_id)
+  if (! quiz) { return null }
+  const [widgets, columns] = await Promise.all([
+    widgetsOf(db, quiz_id),
+    db.query('columns').withIndex('by_quiz_id_and_position', (qq) => qq.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
+  ])
+  return { quiz, widgets, columns }
+}
+
 /**
  * One quiz's rows: its own, its questions, widgets and columns in their committed order, and
  * each played cell's history.
@@ -127,14 +159,10 @@ export async function slotsOf(db: Reader, questions: readonly Doc<'questions'>[]
  * @example (await quizRowsOf(db, quiz_id))?.questions.length
  */
 export async function quizRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<QuizRows | null> {
-  const quiz = await db.get('quizzes', quiz_id)
-  if (! quiz) { return null }
-  const [questions, widgets, columns] = await Promise.all([
-    db.query('questions').withIndex('by_quiz_id_and_position', (qq) => qq.eq('quiz_id', quiz_id)).take(PA.QuestionsPerQuiz.max),
-    widgetsOf(db, quiz_id),
-    db.query('columns').withIndex('by_quiz_id_and_position', (qq) => qq.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
-  ])
-  return { quiz, questions, widgets, columns, slots: await slotsOf(db, questions) }
+  const layout = await layoutRowsOf(db, quiz_id)
+  if (! layout) { return null }
+  const questions = await questionsOf(db, layout.quiz)
+  return { ...layout, questions, slots: await slotsOf(db, questions) }
 }
 
 /** A quiz's reviews, oldest first: the order two reviews by one ident are settled by */

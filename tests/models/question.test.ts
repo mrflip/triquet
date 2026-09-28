@@ -170,7 +170,7 @@ describe('QuestionValidators, field by field', () => {
 
 describe('QuestionValidators.row', () => {
   const Row = {
-    quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', position: 0, label: 'hamlet', forced_label: null, title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
+    quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', forced_label: null, title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
     hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '',
   }
 
@@ -180,8 +180,6 @@ describe('QuestionValidators.row', () => {
 
   const Refused: [object, string][] = [
     [{ quiz_id: 'hamlet' },                  'a quiz that is not a row id'],
-    [{ position: -1 },                       'a place before the first'],
-    [{ position: 1.5 },                      'a place between two'],
     [{ chains_to: '01j0000000000000000000000a' }, 'a chain naming a question by id rather than by label'],
     [{ qnum: 'three' },                      'a question number that is not a number'],
   ]

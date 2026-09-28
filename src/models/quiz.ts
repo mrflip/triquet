@@ -74,6 +74,8 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
     bulk_ishes_last: bulkIshesRun,
+    row_ordering:    arr(zid('questions')).max(PA.QuestionsPerQuiz.max)
+      .describe('The quiz\'s questions in their committed order, by row id: the order is the quiz\'s, not the questions\'. Every question of the quiz is here once.'),
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgets and columns in rows of their own.')
 

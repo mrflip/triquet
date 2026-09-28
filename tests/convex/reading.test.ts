@@ -89,7 +89,8 @@ describe('quizRowsOf', () => {
     const { tt, quiz_id } = await holding(huntHolding([quiz]))
     const rows = await rowsOf(tt, quiz_id)
     expect(rows.quiz.title).to.eq('Princes')
-    expect(rows.questions.map((row) => [row.title, row.position])).to.deep.eq([['b', 0], ['a', 1], ['c', 2]])
+    expect(rows.questions.map((row) => row.title)).to.deep.eq(['b', 'a', 'c'])
+    expect(rows.questions.map((row) => row._id)).to.deep.eq(rows.quiz.row_ordering)
     expect([rows.widgets, rows.columns, rows.slots]).to.deep.eq([[], [], {}])
   })
 

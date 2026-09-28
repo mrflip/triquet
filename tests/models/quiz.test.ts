@@ -164,6 +164,7 @@ describe('Quiz.blank', () => {
 describe('QuizValidators.row', () => {
   const Row = {
     realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null,
+    row_ordering: ['j97d0qbj35dar1v8edndzckvsx8f828f'],
   }
 
   it('takes a quiz as the database holds it, sort memory and batch cost included', () => {
@@ -179,6 +180,8 @@ describe('QuizValidators.row', () => {
     [{ last_sortkey: 'column:Clueing' },     'a sort memory naming a column that is not a label'],
     [{ last_sortkey: 'clueing' },            'a sort memory that is neither a column nor the chain order'],
     [{ locked: 'no' },                       'a lock that is not a yes or no'],
+    [{ row_ordering: ['princes'] },          'an order naming something that is not a row id'],
+    [{ row_ordering: Array.from({ length: 1000 }, () => 'j97d0qbj35dar1v8edndzckvsx8f828f') }, 'an order of more questions than a quiz may hold'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {

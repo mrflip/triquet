@@ -42,7 +42,9 @@ const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 /**
  * The app's tables. Children are read through their parent's index, in their committed order
  * where they have one (`position`), else in the order they were made; Convex appends
- * `_creationTime` to every index, so the earliest of two rows sharing a label comes first.
+ * `_creationTime` to every index, so the earliest of two rows sharing a label comes first. A
+ * quiz's questions are the exception: the quiz holds their order (`row_ordering`), and each is
+ * read by its id.
  */
 export default defineSchema({
   /** A persona in the app, named by a label a person types to become it */
@@ -62,7 +64,7 @@ export default defineSchema({
   /** One column of a quiz's grid, apart from the widgets they show */
   columns:     defineTable(columnFields).index('by_quiz_id_and_position', ['quiz_id', 'position']),
   /** One question: only what the author writes. What bots replied lives in `bottings`. */
-  questions:   defineTable(questionFields).index('by_quiz_id_and_position', ['quiz_id', 'position']),
+  questions:   defineTable(questionFields).index('by_quiz_id', ['quiz_id']),
   /** One time a bot was put one of a question's texts, and what came back. Never revised. */
   bottings:    defineTable(bottingFields).index('by_question_id_and_bot_label_and_textkind', ['question_id', 'bot_label', 'textkind']),
   /** One ident's review of one quiz. Hidden from the smiths until shared. */
