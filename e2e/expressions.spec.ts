@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, dragOnto, expect, manageDialog, openManage, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
+import { cellOf, closeManage, dragOnto, expect, grid, manageDialog, openManage, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
 
 /** Put an expressing widget working the existing expression `expression_label` on the open quiz, with the column it brings, and close the gear's dialog */
 async function addColumn(page: Page, expression_label: string) {
@@ -35,14 +35,14 @@ async function applyExpression(page: Page, label: string) {
 
 /** Type a full answer into the first row */
 async function answerFirstRow(page: Page, full_answer: string) {
-  await page.locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill(full_answer)
+  await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill(full_answer)
   await page.getByLabel('Quiz name').click()
 }
 
 test('a fresh quiz shows its computed columns between Q# and Alt Text', async ({ page }) => {
   await expect(page.getByRole('columnheader', { name: 'Alt Text' })).toBeVisible()
   await expect.poll(async () => {
-    const headers = await page.getByRole('columnheader').allTextContents()
+    const headers = await grid(page).getByRole('columnheader').allTextContents()
     const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim())
     return titles.slice(titles.indexOf('Q#') + 1, titles.indexOf('Alt Text'))
   }).toEqual([
@@ -94,7 +94,7 @@ test('nothing is applied until Apply', async ({ page }) => {
 
 test('the preview shows what the draft formula comes to for a real question, as it is typed', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
-  await page.locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('Hello')
+  await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('Hello')
   await page.getByLabel('Quiz name').click()
   await openExpression(page, 'answer_reversed')
   const preview = page.getByRole('status', { name: 'Preview result' })
@@ -108,7 +108,7 @@ test('the preview shows what the draft formula comes to for a real question, as 
 test('the preview starts on the lowest Q# and can be pointed at any question of any quiz', async ({ page }) => {
   for (const [idx, [qnum, answer]] of ([['3', 'three'], ['1', 'one'], ['2', 'two']] as const).entries()) {
     await page.getByRole('textbox', { name: 'Q#' }).nth(idx).fill(qnum)
-    await page.locator('tbody tr').nth(idx).getByRole('textbox', { name: 'Full Answer' }).fill(answer)
+    await grid(page).locator('tbody tr').nth(idx).getByRole('textbox', { name: 'Full Answer' }).fill(answer)
   }
   await page.getByLabel('Quiz name').click()
   await openExpression(page, 'answer_reversed')
@@ -259,7 +259,7 @@ test('removing a widget asks first, and takes the columns that showed it', async
 
 /** The grid's first `count` column titles, left to right, with the blank grip column dropped */
 async function headersShown(page: Page, count: number): Promise<string[]> {
-  const headers = await page.getByRole('columnheader').allTextContents()
+  const headers = await grid(page).getByRole('columnheader').allTextContents()
   const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim()).filter((title) => title !== '')
   return titles.slice(0, count)
 }
@@ -347,7 +347,7 @@ test('the input a formula reads is folded to one line each, and opens to a prett
 
 test('the prompt for a chatbot is copied with the formula, the schemas and a real input', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
+  await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
   await page.getByLabel('Quiz name').click()
   await openExpression(page, 'answer_reversed')
   await page.getByRole('button', { name: 'Copy a prompt for a chatbot' }).click()
@@ -375,11 +375,11 @@ test('a blank formula makes a prompt that asks for one', async ({ page, context 
 test('sorting by a computed column orders the questions by what it came to', async ({ page }) => {
   await addColumn(page, 'answer_letter_count')
   for (const [idx, answer] of ['ccc', 'a', 'bb'].entries()) {
-    await page.locator('tbody tr').nth(idx).getByRole('textbox', { name: 'Full Answer' }).fill(answer)
+    await grid(page).locator('tbody tr').nth(idx).getByRole('textbox', { name: 'Full Answer' }).fill(answer)
   }
   await page.getByLabel('Quiz name').click()
   await page.getByRole('button', { name: 'Answer Letter Count' }).click()
-  const answers = page.locator('tbody tr').getByRole('textbox', { name: 'Full Answer' })
+  const answers = grid(page).locator('tbody tr').getByRole('textbox', { name: 'Full Answer' })
   // The two blank rows have no letters, which is nought and sorts first.
   await expect.poll(() => valuesOf(answers)).toEqual(['', '', 'a', 'bb', 'ccc'])
   await waitUntilSaved(page)

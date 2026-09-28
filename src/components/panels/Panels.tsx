@@ -3,26 +3,43 @@
 import { Button } from '@mui/material'
 import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportPanel } from './ImportPanel'
+import { MembersPanel } from './MembersPanel'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { ReviewsPanel } from './ReviewsPanel'
 import * as Exporting from '../../lib/exporting'
+import * as Labelmaker from '../../lib/labelmaker'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { AppNotices } from '../../lib/notices'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { ExpressedForQuiz } from '../../lib/expressed'
-import type { ReviewedT, ShallowHuntT } from '../../lib/rows'
+import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
+import type { IdentT } from '../../models/ident'
 import type { QuizT } from '../../models/quiz'
+import type { HuntHandle } from '../../state/use-hunt'
 import { useWholeHunt } from '../../state/use-whole-hunt'
 import styles from '../workbench.module.css'
 
-/** The titled sections below the grid: what reviewers said, ways to get the work back out, and what was asked */
-export function Panels({ quiz, hunt, reviews, expressed, onMerged }: Readonly<{ quiz: QuizT, hunt: ShallowHuntT, reviews: readonly ReviewedT[], expressed: ExpressedForQuiz, onMerged: (quiz: QuizT) => void }>) {
+export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'> & {
+  quiz:      QuizT
+  hunt:      ShallowHuntT
+  realm:     ShallowRealmT
+  /** Who is looking */
+  ident:     IdentT
+  expressed: ExpressedForQuiz
+  onMerged:  (quiz: QuizT) => void
+}
+
+/** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and what was asked */
+export function Panels({ quiz, hunt, realm, ident, reviews, expressed, carryOut, saveNotice, onMerged }: Readonly<PanelsProps>) {
   const exporting = useWholeHunt(hunt, quiz)
+  const labels = { hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) }
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />
+
+      <MembersPanel members={hunt.members} self_id={ident._id} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 
       <Panel
         title="Copy for Sheets"

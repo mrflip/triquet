@@ -1,12 +1,12 @@
-import { expect, reloadOnceSaved, test } from './support'
+import { expect, grid, reloadOnceSaved, test } from './support'
 
 test('a fresh hunt\'s quiz opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Quiz name')).toBeVisible()
-  await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
+  await expect(grid(page).locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
 })
 
 test('every column is present from the start, so the layout never shifts later', async ({ page }) => {
-  await expect(page.getByRole('columnheader')).toHaveCount(22)
+  await expect(grid(page).getByRole('columnheader')).toHaveCount(22)
   await expect(page.getByRole('columnheader', { name: 'Clueing Full Sum' })).toBeVisible()
 })
 
@@ -33,7 +33,7 @@ test('the quiz name reaches the browser tab', async ({ page }) => {
 
 test('adding a question appends a blank one', async ({ page }) => {
   await page.getByRole('button', { name: '+ Add question' }).click()
-  await expect(page.locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(6)
+  await expect(grid(page).locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(6)
 })
 
 test('a long clueing sets the height of its hint box too', async ({ page }) => {

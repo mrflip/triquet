@@ -64,7 +64,7 @@ test('every prompt is shown verbatim, placeholders and all', async ({ page }) =>
 })
 
 test('every read-only box has a Copy button', async ({ page }) => {
-  await expect(page.getByRole('button', { name: 'Copy' })).toHaveCount(6)
+  await expect(page.getByRole('button', { name: 'Copy', exact: true })).toHaveCount(6)
 })
 
 test('Download Full History hands over the quiz\'s history as a zip', async ({ page }) => {

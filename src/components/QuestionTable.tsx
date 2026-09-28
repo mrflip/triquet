@@ -58,7 +58,7 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
 
   return (
     <div className={styles.scroller}>
-      <table className={styles.grid} style={{ width: `${String(gridWidthPx(specs))}px` }}>
+      <table className={styles.grid} aria-label="Questions" style={{ width: `${String(gridWidthPx(specs))}px` }}>
         <thead>
           <tr>
             <th scope="col" className={styles.head} style={{ width: `${String(GutterWidthPx)}px` }}>

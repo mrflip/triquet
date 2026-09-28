@@ -116,11 +116,13 @@ export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
 /** Reviews of one quiz, one per ident that opened one */
 export const ReviewsPerQuiz     = { min: 0, max: 999 } as const
 /** Quizzes in one realm; a realm is never without one */
-export const QuizzesPerRealm    = { min: 1, max: 99 } as const
+export const QuizzesPerRealm    = { min: 1, max: 999 } as const
 /** Realms in one hunt; every hunt has at least its home realm */
 export const RealmsPerHunt      = { min: 1, max: 99 } as const
 /** Expressions in one hunt */
-export const ExpressionsPerHunt = { min: 0, max: 99 } as const
+export const ExpressionsPerHunt = { min: 0, max: 999 } as const
+/** Idents on one hunt, one hunting each */
+export const HuntingsPerHunt    = { min: 0, max: 999 } as const
 /** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */
 export const HuntsInApp         = { min: 0, max: 999 } as const
 

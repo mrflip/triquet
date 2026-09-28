@@ -18,6 +18,7 @@ import type * as reading from "../reading.js";
 import type * as reviews from "../reviews.js";
 import type * as testing from "../testing.js";
 import type * as writing_account_actions from "../writing/account_actions.js";
+import type * as writing_hunting_actions from "../writing/hunting_actions.js";
 import type * as writing_layout_actions from "../writing/layout_actions.js";
 import type * as writing_perform from "../writing/perform.js";
 import type * as writing_quiz_actions from "../writing/quiz_actions.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   reviews: typeof reviews;
   testing: typeof testing;
   "writing/account_actions": typeof writing_account_actions;
+  "writing/hunting_actions": typeof writing_hunting_actions;
   "writing/layout_actions": typeof writing_layout_actions;
   "writing/perform": typeof writing_perform;
   "writing/quiz_actions": typeof writing_quiz_actions;

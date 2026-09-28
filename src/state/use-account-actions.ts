@@ -3,13 +3,16 @@
 import { useCallback, useState } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
-import { noticeOf } from '../lib/refusals'
+import { failurekindOf, noticeOf } from '../lib/refusals'
 import type { AccountActionDNA } from '../models/actions'
 import { useBrowserKey } from './browser-key'
 
+/** How an account action came out: kept, or not and why */
+export type AccountOutcome = { kept: true } | { kept: false, failurekind: string | null }
+
 export type AccountActionsHandle = {
-  /** Carry out `action`; resolves true once it is written, false when it could not be */
-  act:     (action: AccountActionDNA) => Promise<boolean>
+  /** Carry out `action`; resolves once it is written, or once it could not be, saying which and why */
+  act:     (action: AccountActionDNA) => Promise<AccountOutcome>
   /** Whether an action is being written */
   busy:    boolean
   /** Why the last action could not be carried out; null while all is well */
@@ -29,17 +32,17 @@ export function useAccountActions(): AccountActionsHandle {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const act = useCallback(async (action: AccountActionDNA): Promise<boolean> => {
-    if (browser_key === null) { return false }
+  const act = useCallback(async (action: AccountActionDNA): Promise<AccountOutcome> => {
+    if (browser_key === null) { return { kept: false, failurekind: null } }
     setBusy(true)
     try {
       await performAccount({ action, browser_key })
       setNotice(null)
-      return true
+      return { kept: true }
     } catch (err) {
       console.error('Account: an action could not be carried out', action, err)
       setNotice(noticeOf(err))
-      return false
+      return { kept: false, failurekind: failurekindOf(err) }
     } finally {
       setBusy(false)
     }

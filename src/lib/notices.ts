@@ -64,8 +64,10 @@ export const RefusalNotices = {
   expressionInUse:  'A widget still works this expression — remove the widget first.',
   lastQuiz:         "A realm's last quiz can't be deleted — make another one first.",
   notInRealm:       'That quiz belongs to another realm.',
-  notIdentified:    'Say who you are before reviewing.',
+  notIdentified:    'Say who you are first.',
   reviewNotOpened:  'Open your review of this quiz first.',
+  identUnknown:     identUnknownNotice('…'),
+  ownHunting:       "You can't take yourself off this hunt or change your own role — another smith can.",
   questionsFull:    `A quiz holds at most ${String(PA.QuestionsPerQuiz.max)} questions.`,
   widgetsFull:      `A quiz holds at most ${String(PA.WidgetsPerQuiz.max)} widgets.`,
   columnsFull:      `A quiz holds at most ${String(PA.ColumnsPerQuiz.max)} columns.`,
@@ -73,9 +75,20 @@ export const RefusalNotices = {
   quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
   expressionsFull:  `A hunt holds at most ${String(PA.ExpressionsPerHunt.max)} expressions.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
+  huntingsFull:     `A hunt holds at most ${String(PA.HuntingsPerHunt.max)} members.`,
 } as const
 
 export type Refusalkind = keyof typeof RefusalNotices
+
+/**
+ * Why a smith could not add `label` to a hunt: nobody has chosen that ident yet. The refusal
+ * `identUnknown` says it of the label refused.
+ *
+ * @example identUnknownNotice('flip_kromer')  // => 'No ident is labelled "flip_kromer". They need to visit the app and choose it first.'
+ */
+export function identUnknownNotice(label: string): string {
+  return `No ident is labelled "${label}". They need to visit the app and choose it first.`
+}
 
 /**
  * What a bot's cell reads when the server holds no credentials for the service behind it.

@@ -3,6 +3,7 @@ import * as Z from 'zod'
 import { HomeRealmLabel, Realm, RealmValidators } from '../../src/models/realm'
 import { Quiz } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
+import * as PA from '../../src/lib/vv/patterns'
 
 describe('Realm.fill', () => {
   it('is home unless it says otherwise, titled after its label', () => {
@@ -14,9 +15,9 @@ describe('Realm.fill', () => {
     expect(Realm.fill({ _id: mintId(), label: 'away', title: 'Far Away', quizzes: [Quiz.blank()] }).title).to.eq('Far Away')
   })
 
-  it('holds 99 quizzes, and refuses a hundredth', () => {
-    const quizzes = Array.from({ length: 100 }, () => Quiz.blank())
-    expect(Realm.fill({ _id: mintId(), quizzes: quizzes.slice(0, 99) }).quizzes).to.have.lengthOf(99)
+  it(`holds ${String(PA.QuizzesPerRealm.max)} quizzes, and refuses one more`, () => {
+    const quizzes = Array.from({ length: PA.QuizzesPerRealm.max + 1 }, () => Quiz.blank())
+    expect(Realm.fill({ _id: mintId(), quizzes: quizzes.slice(0, PA.QuizzesPerRealm.max) }).quizzes).to.have.lengthOf(PA.QuizzesPerRealm.max)
     expect(() => Realm.fill({ _id: mintId(), quizzes })).to.throw(Z.ZodError)
   })
 

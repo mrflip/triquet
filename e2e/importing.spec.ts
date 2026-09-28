@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, preparedExport, test, waitUntilSaved } from './support'
+import { expect, grid, preparedExport, test, waitUntilSaved } from './support'
 
 /** Paste `payload` into the Import box and run it */
 async function runImport(page: Page, payload: unknown) {
@@ -9,7 +9,7 @@ async function runImport(page: Page, payload: unknown) {
 
 /** The value of the field `name` in the row at `rowIdx` */
 function fieldAt(page: Page, name: string, rowIdx: number) {
-  return page.locator('tbody').getByRole('textbox', { name, exact: true }).nth(rowIdx)
+  return grid(page).locator('tbody').getByRole('textbox', { name, exact: true }).nth(rowIdx)
 }
 
 /** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Export box has the hunt */
@@ -46,8 +46,8 @@ test('a label nothing here holds is appended, and a chain is remapped', async ({
     { id: 'theirs-1', label: await labelAt(page, 0), chains_to: 'theirs-2' },
     { id: 'theirs-2', label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },
   ])
-  await expect(page.locator('tbody tr')).toHaveCount(6)
-  await expect(page.locator('tbody tr').first().locator('td[data-colname="BUT NOT"] > div'))
+  await expect(grid(page).locator('tbody tr')).toHaveCount(6)
+  await expect(grid(page).locator('tbody tr').first().locator('td[data-colname="BUT NOT"] > div'))
     .toHaveText('BUT NOT the edict')
 })
 
@@ -82,7 +82,7 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
 
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Which region?')
   await expect(fieldAt(page, 'Clueing', 1)).toHaveValue('Another one')
-  await expect(page.locator('tbody tr')).toHaveCount(5)
+  await expect(grid(page).locator('tbody tr')).toHaveCount(5)
 })
 
 test('importing is refused while the quiz is locked', async ({ page }) => {

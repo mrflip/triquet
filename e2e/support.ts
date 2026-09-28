@@ -21,7 +21,7 @@ export const test = base.extend<{ startAt: string | null }>({
       await startHunt(page)
     } else if (startAt !== null) {
       await page.goto(startAt)
-      await expect(page.getByRole('table')).toBeVisible()
+      await expect(grid(page)).toBeVisible()
     }
     await use(page)
   },
@@ -43,9 +43,14 @@ export async function otherVisitor(browser: Browser): Promise<Page> {
   return await context.newPage()
 }
 
+/** The grid of questions: the quiz on screen */
+export function grid(page: Page): Locator {
+  return page.getByRole('table', { name: 'Questions' })
+}
+
 /** The row at `rowIdx` of the grid, counting from the top */
 export function rowAt(page: Page, rowIdx: number): Locator {
-  return page.locator('tbody').getByRole('row').nth(rowIdx)
+  return grid(page).locator('tbody').getByRole('row').nth(rowIdx)
 }
 
 /** The cell of column `colname` in the row at `rowIdx`; the column's label is its own name */
@@ -135,7 +140,7 @@ export const NewHuntUrl = /\/h\/([a-z0-9_]+)\/home\/\1\?act=smith$/
 export async function newHunt(page: Page): Promise<void> {
   await page.getByRole('button', { name: '+ New hunt' }).click()
   await expect(page).toHaveURL(NewHuntUrl)
-  await expect(page.getByRole('table')).toBeVisible()
+  await expect(grid(page)).toBeVisible()
 }
 
 /**
@@ -148,6 +153,24 @@ export async function startHunt(page: Page): Promise<string> {
   const label = await assumeIdent(page)
   await newHunt(page)
   return label
+}
+
+/**
+ * As a smith with the hunt's quiz on screen, put the ident labelled `label` on the hunt as
+ * `role`, through the members panel, and wait until the panel lists them.
+ */
+export async function addMember(page: Page, label: string, role: 'Smith' | 'Reviewer'): Promise<void> {
+  const members = page.getByRole('region', { name: 'Members' })
+  await members.getByLabel('Ident label').fill(label)
+  await members.getByRole('combobox', { name: 'Role' }).click()
+  await page.getByRole('option', { name: role }).click()
+  await members.getByRole('button', { name: 'Add' }).click()
+  await expect(members.getByRole('row').filter({ hasText: label })).toContainText(role)
+}
+
+/** The address `page` is at, naming no presentation: the page picks by the visitor's role */
+export function quizPathOf(page: Page): string {
+  return new URL(page.url()).pathname
 }
 
 /**

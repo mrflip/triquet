@@ -43,7 +43,7 @@ describe('the hunt tables, open to every browser for the trial', () => {
     await act({ kind: 'delete_questions', question_ids: [present(first)._id] }, stranger)
     const quiz = openOf(await read())
     expect([quiz.title, quiz.questions.map((question) => question._id)]).to.deep.eq(['Kings', [present(second)._id, ...quiz.questions.slice(1).map((question) => question._id)]])
-    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter' })).to.not.eq(null)
+    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: stranger })).to.deep.include({ role: null })
   })
 })
 

@@ -7,7 +7,8 @@ import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import { HomeRealmLabel } from '../models/realm'
-import type { HuntListingT } from '../lib/rows'
+import type { ListedHuntT } from '../lib/rows'
+import { HuntRoleTitles } from '../models/hunting'
 import { useAccountActions } from '../state/use-account-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
@@ -16,9 +17,13 @@ import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
 
+/** How many fresh labels a new hunt tries before giving up, each already taken by a hunt not listed here */
+const NewHuntAttemptsMax = 3
+
 /**
- * The hunts there are, each with its quizzes to open, and a way to make another. For the trial
- * every hunt is open to everyone, so every hunt is listed.
+ * The hunts this visitor is on, each with their role there and its quizzes to open, and a way to
+ * make another, which they are then the smith of. A quiz opens in the presentation their role is
+ * shown.
  *
  * A visitor who has not said who they are is sent to say so first, and brought back.
  */
@@ -38,10 +43,17 @@ export function HuntsList() {
 
   const onNew = async () => {
     // The label is settled here rather than in the action, because the address this is about
-    // to go to has to name it.
-    const label = Labelmaker.freshLabelFor(hunts)
-    const done = await act({ kind: 'new_hunt', label })
-    if (done) { router.push(Routes.quizPath({ hunt: label, realm: HomeRealmLabel, quiz: label }, 'smith')) }
+    // to go to has to name it. Only this visitor's own hunts are listed, so a hunt of someone
+    // else's may already answer to it: then another is tried.
+    for (let attempt = 0; attempt < NewHuntAttemptsMax; attempt += 1) {
+      const label = Labelmaker.freshLabelFor(hunts)
+      const outcome = await act({ kind: 'new_hunt', label })
+      if (outcome.kept) {
+        router.push(Routes.quizPath({ hunt: label, realm: HomeRealmLabel, quiz: label }, 'smith'))
+        return
+      }
+      if (outcome.failurekind !== 'labelTaken') { return }
+    }
   }
 
   return (
@@ -50,7 +62,7 @@ export function HuntsList() {
         <Typography>You are <b>{ident.title}</b> ({ident.label}).</Typography>
         <Link component={NextLink} href={Routes.switchIdentPath()}>Be someone else</Link>
       </Stack>
-      <Panel title="Hunts" blurb="Every hunt there is, and the quizzes in each. Open a quiz to work on it.">
+      <Panel title="Hunts" blurb="The hunts you are on, and the quizzes in each. Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on someone else's hunt, ask one of its smiths to add you by your ident label.">
         <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>
         {notice !== null && <p className={styles.microcopy} role="alert">{notice}</p>}
         {hunts.length === 0 && <p className={styles.microcopy}>{AppNotices.noHunts}</p>}
@@ -62,13 +74,13 @@ export function HuntsList() {
   )
 }
 
-/** One hunt: its title and label, and a link to each of its quizzes */
-function HuntEntry({ hunt }: Readonly<{ hunt: HuntListingT }>) {
+/** One hunt: its title and label, the visitor's role on it, and a link to each of its quizzes */
+function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
   const huntLabel = Labelmaker.effectiveLabelOf(hunt)
   return (
     <li>
       <Typography component="h3" sx={{ fontWeight: 600 }}>
-        {hunt.title} <span className={styles.microcopy}>{huntLabel}</span>
+        {hunt.title} <span className={styles.microcopy}>{huntLabel} · {HuntRoleTitles[hunt.role]}</span>
       </Typography>
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (

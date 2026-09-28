@@ -18,7 +18,7 @@ export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid
     label:   realmLabel.default(HomeRealmLabel),
     title:   title.default(''),
     quizzes: arr(QuizValidators.quiz).min(PA.QuizzesPerRealm.min).max(PA.QuizzesPerRealm.max)
-      .describe('The realm\'s quizzes, in the order they were made, at most 99. Never empty: deleting its last quiz is refused rather than leaving an address that leads nowhere.'),
+      .describe(`The realm's quizzes, in the order they were made, at most ${String(PA.QuizzesPerRealm.max)}. Never empty: deleting its last quiz is refused rather than leaving an address that leads nowhere.`),
   })
     .describe('A division of a hunt, holding quizzes. Its quizzes\' labels are unique within it, so a quiz is addressed by hunt, realm and quiz.')
 

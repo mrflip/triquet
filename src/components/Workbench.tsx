@@ -21,6 +21,7 @@ import * as Expressed from '../lib/expressed'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
+import type { IdentT } from '../models/ident'
 import type { QuizT } from '../models/quiz'
 import type { HuntHandle } from '../state/use-hunt'
 import styles from './workbench.module.css'
@@ -32,6 +33,8 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
   realm: ShallowRealmT
   /** The quiz the address names: the one on screen */
   quiz:  QuizT
+  /** Who is working on it */
+  ident: IdentT
 }
 
 /**
@@ -41,7 +44,7 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
  * by navigating, and every editing action lands on the quiz the address names.
  */
-export function Workbench({ hunt, realm, quiz, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
   const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
@@ -195,8 +198,12 @@ export function Workbench({ hunt, realm, quiz, reviews, dispatch, carryOut, unsa
       <Panels
         quiz={quiz}
         hunt={hunt}
+        realm={realm}
+        ident={ident}
         reviews={reviews}
         expressed={expressed}
+        carryOut={carryOut}
+        saveNotice={saveNotice}
         onMerged={(merged) => {
           void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })
         }}

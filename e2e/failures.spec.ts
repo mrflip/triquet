@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, reloadOnceSaved, stubAsk, test } from './support'
+import { expect, grid, reloadOnceSaved, stubAsk, test } from './support'
 
 const RateLimited = 'Too many requests right now — try again shortly.'
 
@@ -69,5 +69,5 @@ test('a failed combined run is shown by its button and touches no cell', async (
   await expect(page.getByText(/Couldn't recalculate: .* Nothing was changed\./)).toBeVisible()
   // The one badge there is belongs to the toolbar, not to any of the cells.
   await expect(badges).toHaveCount(1)
-  await expect(page.locator('tbody').getByRole('button', { name: /The last ask failed/ })).toHaveCount(0)
+  await expect(grid(page).locator('tbody').getByRole('button', { name: /The last ask failed/ })).toHaveCount(0)
 })

@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { dragOnto, expect, fillRows, reloadOnceSaved, stepBy, test, valuesOf } from './support'
+import { dragOnto, expect, fillRows, grid, reloadOnceSaved, stepBy, test, valuesOf } from './support'
 
 /** Fill the first `pairs.length` questions with a Q# and a title, clearing the rest */
 async function fillQuiz(page: Page, pairs: [string, string][]): Promise<void> {
@@ -100,5 +100,5 @@ test('the grips go once the quiz is out of Q# order, and batch mode stays on off
   await page.getByRole('button', { name: 'Title' }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeHidden()
   await expect(page.getByRole('button', { name: 'Batch select' })).toBeEnabled()
-  await expect(page.locator('tbody tr').first().locator('td')).toHaveCount(22)
+  await expect(grid(page).locator('tbody tr').first().locator('td')).toHaveCount(22)
 })
