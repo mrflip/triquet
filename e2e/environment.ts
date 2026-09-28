@@ -7,40 +7,52 @@
  */
 
 /** The variables that decide where the suite serves, builds and keeps its database, and what it talks to */
-const RelevantNames = /^(CI|PORT|DOPPLER_|NEXT_|JAZZ_|TRIQUET_|ANTHROPIC_)/
+const RelevantNames = /^(CI|PORT|DOPPLER_|NEXT_|CONVEX_|TRIQUET_|ANTHROPIC_)/
 
 /** Variables whose values are never shown, only whether they are set */
 const SensitiveNames = /secret|pw|pass|tok|key|auth/i
 
 /**
  * The suite's own settings, each with the values other sessions on this machine already hold:
- * a human's `pnpm dev` and an agent's `pnpm dev:agent`. `next.config.ts` falls back to the
- * human's when a variable is unset, so each must be given.
+ * a human's `pnpm dev` and an agent's `pnpm dev:agent`. Next falls back to the human's when a
+ * variable is unset, so each must be given.
  */
 const TakenBy: Record<string, readonly string[]> = {
-  PORT:              ['3000', '3001'],
-  JAZZ_DEV_PORT:     ['3200', '3201'],
-  JAZZ_DEV_DATA_DIR: ['data/jazz', 'data/jazz-agent'],
-  NEXT_DIST_DIR:     ['.next', '.next-agent', '.next-agent-build'],
+  PORT:                   ['3000', '3001'],
+  NEXT_PUBLIC_CONVEX_URL: ['http://127.0.0.1:3400', 'http://127.0.0.1:3401'],
+  NEXT_DIST_DIR:          ['.next', '.next-agent', '.next-agent-build'],
 }
 
-/** The variables that hold a port */
-const PortNames = ['PORT', 'JAZZ_DEV_PORT'] as const
+/**
+ * The Convex backends the suite may run against, by role (`CONVEX_ROLE`, `e2e` when unset): each
+ * a local backend of its own (`scripts/convex_backend`), which the suite empties as it starts.
+ */
+export const BackendUrlFor = {
+  "e2e":       'http://127.0.0.1:3402',
+  "e2e-agent": 'http://127.0.0.1:3403',
+} as const
+
+export type E2eRole = keyof typeof BackendUrlFor
+
+/** The role whose backend the suite runs against: `CONVEX_ROLE`, or `e2e` */
+export function roleOf(env: Env): string {
+  return env.CONVEX_ROLE ?? 'e2e'
+}
 
 type Env = Readonly<Record<string, string | undefined>>
 
 /**
  * Everything wrong with `env` as a place to run the e2e suite, one sentence each.
  *
- * Outside CI it must be Doppler's `dev_e2e` config. Anywhere, the web server, its build
- * directory and its Jazz server need ports and directories no other session uses, and Jazz
- * must be the local one.
+ * Outside CI it must be Doppler's `dev_e2e` config. Anywhere, the web server and its build
+ * directory need a port and directory no other session uses, and the database must be the
+ * role's own local Convex backend, which the suite empties.
  *
  * @param env - The environment to judge, ordinarily `process.env`.
  * @returns The complaints, empty when the suite may run.
  *
- * @example complaintsAbout({ CI: 'true', PORT: '3002', JAZZ_DEV_PORT: '3202', JAZZ_DEV_DATA_DIR: 'data/jazz-e2e', NEXT_DIST_DIR: '.next-e2e' })  // => []
- * @example complaintsAbout({ CI: 'true', PORT: '3002', JAZZ_DEV_PORT: '3200', JAZZ_DEV_DATA_DIR: 'data/jazz-e2e', NEXT_DIST_DIR: '.next-e2e' })  // => ['JAZZ_DEV_PORT=3200 is already another session\'s']
+ * @example complaintsAbout({ CI: 'true', PORT: '3002', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3402', NEXT_DIST_DIR: '.next-e2e' })  // => []
+ * @example complaintsAbout({ CI: 'true', PORT: '3000', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3402', NEXT_DIST_DIR: '.next-e2e' })  // => ['PORT=3000 is already another session\'s']
  */
 export function complaintsAbout(env: Env): string[] {
   const settingComplaints = Object.entries(TakenBy).flatMap(([envname, taken]) => {
@@ -49,17 +61,22 @@ export function complaintsAbout(env: Env): string[] {
     if (taken.includes(val)) { return [`${envname}=${val} is already another session's`] }
     return []
   })
-  const portComplaints = PortNames.flatMap((envname) => {
-    const val = env[envname]
-    return (val && ! isPort(val)) ? [`${envname}=${val} is not a port`] : []
-  })
   return [
     ...((! env.CI && env.DOPPLER_CONFIG !== 'dev_e2e') ? ['Run the e2e suite with `pnpm test:e2e`, under Doppler\'s dev_e2e config'] : []),
     ...settingComplaints,
-    ...portComplaints,
-    ...((env.PORT && env.PORT === env.JAZZ_DEV_PORT) ? [`PORT and JAZZ_DEV_PORT are both ${env.PORT}`] : []),
-    ...((env.JAZZ_REAL_DB === 'true') ? ['JAZZ_REAL_DB=true would send every spec\'s writes to a real Jazz database'] : []),
+    ...((env.PORT && ! isPort(env.PORT)) ? [`PORT=${env.PORT} is not a port`] : []),
+    ...backendComplaints(env),
   ]
+}
+
+/** What is wrong with the database `env` would run the suite against */
+function backendComplaints(env: Env): string[] {
+  const role = roleOf(env)
+  if (! Object.hasOwn(BackendUrlFor, role)) { return [`CONVEX_ROLE=${role} is not one of ${Object.keys(BackendUrlFor).join(', ')}`] }
+  const url = BackendUrlFor[role as E2eRole]
+  const given = env.NEXT_PUBLIC_CONVEX_URL
+  if (! given || TakenBy.NEXT_PUBLIC_CONVEX_URL?.includes(given)) { return [] }
+  return given === url ? [] : [`NEXT_PUBLIC_CONVEX_URL=${given} is not the ${role} backend, ${url}: the suite empties the database it runs against`]
 }
 
 /**
@@ -69,7 +86,7 @@ export function complaintsAbout(env: Env): string[] {
  * @param env - The environment to list, ordinarily `process.env`.
  * @returns Variable name to what may be shown of its value.
  *
- * @example listing({ PORT: '3002', JAZZ_ADMIN_SECRET: 'hunter2', HOME: '/root' })  // => { PORT: '3002', JAZZ_ADMIN_SECRET: '(set, not shown)', JAZZ_DEV_PORT: '(unset)', ... }
+ * @example listing({ PORT: '3002', CONVEX_DEPLOY_KEY: 'hunter2', HOME: '/root' })  // => { PORT: '3002', CONVEX_DEPLOY_KEY: '(set, not shown)', NEXT_DIST_DIR: '(unset)', ... }
  */
 export function listing(env: Env): Record<string, string> {
   const names = new Set([...Object.keys(TakenBy), ...Object.keys(env).filter((envname) => RelevantNames.test(envname))])

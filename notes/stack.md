@@ -51,30 +51,13 @@ don't trust a recalled version number, including one recalled by an agent.
   - Zod is **patched** (`patches/zod@4.6.5.patch`): issues carry the refused input by default.
     Deliberate; `notes/guidelines.md` says what follows from it. A Zod bump re-cuts the patch.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
-* **Jazz v2** (`jazz-tools`, pinned to its 2.0.0 alpha) as the database: local-first, a copy in
-  each browser, synced through a Jazz server. **On trial, and a deliberate exception** to the
-  test above: it is alpha and newer than the agent's cutoff. Work from the installed source and
-  the `jazz` skill, never from memory. See `notes/decisions/2026-09-jazz.md`; whether it stays
-  is the open question in `notes/database-decisions.md`.
-  - Rows, not a tree: actions write rows, views subscribe to rows. The relational shape lives in
-    `src/db/schema.ts` in Jazz's own DSL (tables are not authored in Zod); only a column holding
-    a structured value takes a Zod schema, through `JZS.json()` (or `jsonText`, while a nullable
-    JSON column cannot hold a value). Row ids are Jazz's and internal; refer by label. Field names
-    stay `underscore_case`. Read one table per query; write through `perform`.
-  - **Its browser runtime is served from `public/jazz/<version>/`, not from the bundle** (Sept
-    2026). Jazz names the SharedWorker that holds a browser's database after the worker script's
-    URL, and a bundled worker's URL changes with every deploy. The new deploy's worker then
-    cannot open the database the old one still holds, and the page stalls with nothing in its
-    console. `next.config.ts` copies the worker and WASM out of the package at every dev start and
-    build (`src/db/publish-runtime-assets.ts`), under a version that is the package's own plus a
-    digest of the files, and hands the page Jazz's `runtimeSources` (`baseUrl`, `wasmVersion`), so
-    the URL changes only when Jazz's bytes do. A Jazz upgrade still starts a second worker once;
-    the "couldn't open" notices say what to do then. A bug is filed upstream: when Jazz fixes it,
-    drop the copy and the `runtimeSources`. The copy is gitignored.
+* **Jazz v2** was the database from September 2026 until Convex replaced it (phase 2 of
+  `whiteboard/convex_yay-plan.md`); `jazz-tools` is uninstalled. What it taught is in
+  `notes/decisions/2026-09-jazz.md`, and its verdict against Convex lands in
+  `notes/database-decisions.md` in phase 4.
   - **Turso is not coming back**; libSQL and Drizzle went with it (Sept 2026). Drizzle returns
     only through `notes/database-decisions.md`.
-  - **Outgoing**: Convex replaces it (below). Jazz runs the app until that plan's phase 2.
-* **Convex** (`convex`, pinned exact) as the database, **moving in** (Sept 2026), by the plan in
+* **Convex** (`convex`, pinned exact) as the database, **running the app** since phase 2 of the plan in
   `whiteboard/convex_yay-plan.md`; its progress, and what the spike found, are in
   `whiteboard/convex_yay-progress.md`. Work from the installed source and Convex's current
   guidelines, not recall. Settled with a Coach on 2026-09-27; the reasoning moves to
@@ -172,9 +155,6 @@ Settled; reach for these before writing the equivalent.
 ### Testing
 
 * **Vitest** with chai-style assertions. See `notes/testing.md`.
-* **`jazz-tools/testing`** (`startLocalJazzServer`, `createPolicyTestApp`) for anything that
-  touches rows or policies; `createPolicyTestApp` by default. Model the real topology when sync
-  or permissions are the behaviour under test. Outgoing, with Jazz.
 * **convex-test** (with **@edge-runtime/vm**) for Convex functions: Vitest's `convex` project
   runs `tests/convex/**` under the edge runtime, everything else under node.
 * **Playwright** for end-to-end, especially the handful of flows where a break is

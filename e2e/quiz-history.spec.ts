@@ -43,6 +43,8 @@ test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
   await openManage(page)
   await page.getByLabel('Label', { exact: true }).fill('princes')
   await page.getByRole('button', { name: 'Apply' }).click()
+  // The address follows the relabel once it has landed.
+  await expect(page).toHaveURL(/\/princes\?/)
 
   await openManage(page)
   const downloading = page.waitForEvent('download')
@@ -104,11 +106,13 @@ test('an edit is committed on its own once the wait is up, and not before', asyn
 
   // The page's clock is taken over, so the wait is stepped through rather than waited out: held
   // still from before the edit, moved to a hair short of the two seconds the suite runs with,
-  // then across them. Jazz keeps its own time in its worker, which this leaves alone.
+  // then across them.
   await page.clock.install()
   await page.clock.pauseAt(Date.now() + 1000)
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
+  // The wait starts when the edit lands and is noted for the history, which the tab's title shows.
+  await expect(page).toHaveTitle(/^Danish princes/)
 
   await page.clock.runFor(1900)
   // A deliberate one-shot: with the clock held short of the wait, "not yet" is the whole claim.

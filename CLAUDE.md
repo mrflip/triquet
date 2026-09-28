@@ -15,15 +15,16 @@ store, edit and refine the question text, and also to assess questions for fairn
 Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
 a validator needs no migration path for anyone's quizzes.
 
-**Storage is Jazz v2**, a local-first database, taken as a trial so we can learn from potential
-users before choosing infrastructure. Jazz is an alpha, newer than your training: use the `jazz`
-skill and the installed `jazz-tools` source, never recall. Rows, not a tree: actions write rows
-(through `perform`), views subscribe to rows. Row ids are Jazz's and internal; refer by label.
-Validate between the UI and the app, not by the database alone. Read flat: one query per table,
-never several `include`s (alpha.56 can hang on them). Turso is out for good. See `notes/decisions/2026-09-jazz.md`; how the move went is in `whiteboard/jazz-migration.md`. Whether Jazz stays is open: `notes/database-decisions.md` holds what we want from storage and the candidates scored against it.
+**Storage is Convex**, replacing Jazz in September 2026; the move is also an evaluation, whose
+verdict lands in `notes/database-decisions.md`. The plan and its handoff are
+`whiteboard/convex_yay-plan.md` and `whiteboard/convex_yay-progress.md` (read the progress
+document's *Rules overrides* before touching `convex/`). Rows, not a tree: a view dispatches an
+action, the `hunts.perform` mutation writes the rows it comes to, and views subscribe to query
+functions that assemble what a screen shows. Row ids are Convex's `_id` and internal; refer by
+label. Zod validates every function's arguments and every row written, never rows read back.
+Turso is out for good.
 
-**The app is client-first**: static hosting plus stateless functions, working with the network
-off except for asking. The ask route is the one named server function. Never add a second
+**The app is client-first**: static hosting plus stateless functions, and the database. The ask route is the one named server function. Never add a second
 without a Coach. See `notes/decisions/2026-09-client-first.md`.
 
 Project instructions, loaded at the start of every session. Keep this file short and true:
@@ -82,46 +83,40 @@ The top three values while writing code are **empathy, safety and readability**.
 Never touch a resource a human may already be using. Next.js allows one dev server and one build
 per directory, so as an agent **use `pnpm dev:agent` (port 3001) and `pnpm build:agent`**, never
 `pnpm dev` / `pnpm build`, and run e2e only as `pnpm test:e2e` (port 3002). Doppler supplies each
-its ports and directories (`dev_claude`, `dev_e2e`). Jazz runs locally inside the dev server
-(agents: port 3201, `data/jazz-agent/`; e2e: 3202, `data/jazz-e2e/`) unless `JAZZ_REAL_DB=true`;
-never the human's 3200 or `data/jazz/`. Housekeeping on the agents'
-Jazz Cloud app (`scripts/jazz_deploy`, `scripts/jazz_healthcheck`) runs under `dev_aijanitor`,
-never `dev_janitor`. Convex, moving in beside Jazz, runs one local backend per role from
-`scripts/convex_backend <dev|agent|e2e|e2e-agent>` (`pnpm convex:backend agent`): port `34xx`,
-HTTP actions on `35xx`, data and the CLI's `cli.env` in `data/convex-<role>/`; never the human's
-`dev`. Never kill a process that doesn't belong to `agent` or `e2e`.
+its ports and directories (`dev_claude`, `dev_e2e`). Each role has a local Convex backend of its
+own (`scripts/convex_backend <dev|agent|e2e|e2e-agent>`): port `34xx`, HTTP actions on `35xx`,
+data and the CLI's `cli.env` in `data/convex-<role>/`. `scripts/convex_dev <role>` starts it
+when it is not running, pushes `convex/` to it and runs a command beside it; `pnpm dev:agent` and
+the e2e suite go through it, and `scripts/convex_reset <role>` empties one. Never the human's
+`dev` (3400). Never kill a process that doesn't belong to `agent` or `e2e`.
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
-A bespoke port is fine: follow the pattern, `30xx` for the web server and `32xx` for its Jazz
-server, with a matching `data/jazz-<name>/` and `.next-<name>` (`pnpm test:e2e:agent` is the
-worked example: 3003/3203, for when a human's own run holds 3002). Agents will get containers of
+A bespoke port is fine: follow the pattern, `30xx` for the web server and `34xx` for its Convex
+backend, with a matching `data/convex-<name>/` and `.next-<name>` (`pnpm test:e2e:agent` is the
+worked example: 3003/3403, for when a human's own run holds 3002). Agents will get containers of
 their own in time; until then, share by convention.
 
 Start a new line of work on its own branch with `pnpm run newb <label>`, which makes
-`YYYYMMDD-<label>` from where you stand. Use it freely. At every commit-able milestone, run
-`./scripts/doppledo dev_claude ./scripts/jazz_migration` (see `notes/deploy.md`). If it writes a
-migration for a change you don't recognize as your own, or writes nothing when you expected your
-schema change to need one, stop and raise it with the Coach rather than committing around it.
+`YYYYMMDD-<label>` from where you stand. Use it freely. A change under `convex/` regenerates
+`convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and
+commit what it writes, a large regeneration in a commit of its own. There are no migrations: a
+schema push refuses documents that no longer fit, and a local backend is emptied and pushed again.
 
 ## Architecture
 
 Where code lives. Imports run down this list, never up: a lower layer knows nothing of the ones
-above it. (`lib` and `models` are peers, and lean on each other freely. `db` sits above both:
-`db/schema.ts` takes value validators from `models`, and nothing in `models` imports from `db`.
-Row types come from `db`.)
+above it. (`lib` and `models` are peers, and lean on each other freely. `convex/_generated/` is
+beneath everything: any layer may import its types, `api` and `Doc` among them.)
 
 * `src/app/` -- Next.js App Router: pages, the theme and palette, and the route handlers under
   `api/`. Pages are thin; they hand off to a component.
 * `src/components/` -- TSX views. `Workbench` is the whole tool; `cells/` are the grid's cell
   editors and readouts; `panels/` sit below the grid. Hooks that only serve a view (`use-draft`,
   `use-reorder`) live beside it.
-* `src/state/` -- everything between a view and the data: the action vocabulary (`actions.ts`),
-  `perform` and the row-writing actions it dispatches to, reading rows and projecting them into
-  the quiz tree (`quiz-rows.ts`), writing a tree back (`quiz-writing.ts`), the held-rows, ident and
-  hunt hooks, the asking and bots hooks, and the quiz history mirror with its commit scheduler.
-* `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, row types, and the
-  app handle), `permissions.ts` (the only place authorization is written), and the client setup.
-* `convex/` -- the Convex server, moving in beside Jazz (the app still runs on Jazz):
+* `src/state/` -- the browser's side of the data: the hooks that subscribe to the server's queries
+  and call its mutations (`use-hunt`, `use-ident`, `use-hunts-list`, `use-account-actions`), the
+  browser key, the asking and bots hooks, and the quiz history mirror with its commit scheduler.
+* `convex/` -- the server, and the whole of it:
   `schema.ts` (derived from the row validators), one file per noun of public functions,
   `reading.ts` (indexed reads), `writing/` (the actions a mutation carries out), `authorize.ts`
   (the only place authorization is written). Module names are snake_case: Convex refuses a
@@ -164,10 +159,10 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     raise first (**Discuss**), and kept by hand (**Hand-rolled on purpose**). Consult it when
     adding a package, and to get a sense of how we like to set the shiny<>dependable slider.
   - `notes/decisions/` -- the longer reasoning behind a stack choice, one file per decision.
-  - `notes/database-decisions.md` -- the open question of whether Jazz stays: what we want from
-    storage and hosting, and each candidate scored against it.
-  - `notes/deploy.md` -- how a change reaches production; when a schema change needs a migration
-    and a Jazz deploy. Agents never deploy to production.
+  - `notes/database-decisions.md` -- what we want from storage and hosting, and each candidate
+    scored against it; Convex's verdict lands here.
+  - `notes/deploy.md` -- how a change reaches production (still Jazz's: phase 3 of the Convex
+    move rewrites it). Agents never deploy to production.
   - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
   - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any

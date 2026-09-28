@@ -8,23 +8,22 @@ import { WidgetsEditor } from './WidgetsEditor'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
-import type { HuntAction } from '../state/actions'
-import type { HuntT } from '../models/hunt'
+import type { HuntActionDNA } from '../models/actions'
+import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import type { RealmT } from '../models/realm'
 import styles from './workbench.module.css'
 
 export type QuizManageModalProps = {
   open:      boolean
   onClose:   () => void
-  hunt:      HuntT
-  realm:     RealmT
+  hunt:      ShallowHuntT
+  realm:     ShallowRealmT
   quiz:      QuizT
-  dispatch:  (action: HuntAction) => void
+  dispatch:  (action: HuntActionDNA) => void
   /** Told the quiz's new label once it has one, so the address can follow it there */
   onRelabelled: (label: string) => void
   /** Go to another quiz of the realm */
-  onOpen:    (quiz: QuizT) => void
+  onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the hunt's expressions for editing */
   onEditExpressions: () => void
 }

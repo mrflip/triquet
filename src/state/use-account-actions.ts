@@ -1,16 +1,15 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import type { Db } from 'jazz-tools'
-import { useDb } from 'jazz-tools/react'
-import { AppNotices } from '../lib/notices'
-import { performAccount } from './account-actions'
-import { loadDirectory } from './quiz-rows'
-import type { AccountAction } from './actions'
+import { useMutation } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { noticeOf } from '../lib/refusals'
+import type { AccountActionDNA } from '../models/actions'
+import { useBrowserKey } from './browser-key'
 
 export type AccountActionsHandle = {
   /** Carry out `action`; resolves true once it is written, false when it could not be */
-  act:     (action: AccountAction) => Promise<boolean>
+  act:     (action: AccountActionDNA) => Promise<boolean>
   /** Whether an action is being written */
   busy:    boolean
   /** Why the last action could not be carried out; null while all is well */
@@ -22,27 +21,29 @@ export type AccountActionsHandle = {
  * one at a time, with a sentence rather than a code when one fails.
  *
  * Unlike a change to a quiz, the caller waits on these: each is followed by a navigation that
- * needs what it wrote.
+ * needs what it wrote, and it resolves only once the screen's own reads have it.
  */
 export function useAccountActions(): AccountActionsHandle {
-  const db: Db = useDb()
+  const browser_key = useBrowserKey()
+  const performAccount = useMutation(api.idents.performAccount)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const act = useCallback(async (action: AccountAction): Promise<boolean> => {
+  const act = useCallback(async (action: AccountActionDNA): Promise<boolean> => {
+    if (browser_key === null) { return false }
     setBusy(true)
     try {
-      await performAccount(db, await loadDirectory(db), action)
+      await performAccount({ action, browser_key })
       setNotice(null)
       return true
     } catch (err) {
       console.error('Account: an action could not be carried out', action, err)
-      setNotice(AppNotices.changeFailed)
+      setNotice(noticeOf(err))
       return false
     } finally {
       setBusy(false)
     }
-  }, [db])
+  }, [browser_key, performAccount])
 
   return { act, busy, notice }
 }

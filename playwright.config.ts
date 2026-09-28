@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 import * as Environment from './e2e/environment'
 
 // Locally the suite runs under Doppler's `dev_e2e` config (`pnpm test:e2e`), which gives it a port,
-// build directory and Jazz server of its own; anywhere else it could land on someone's dev server.
+// build directory and Convex backend of its own; anywhere else it could land on someone's dev server.
 // Checked here because nothing later runs before the web server starts.
 const complaints = Environment.complaintsAbout(process.env)
 if (complaints.length > 0) {
@@ -10,6 +10,7 @@ if (complaints.length > 0) {
 }
 
 const port = process.env.PORT ?? '3002'
+const role = Environment.roleOf(process.env)
 
 /**
  * End-to-end, kept to a thin layer: the handful of flows where a break is invisible to unit
@@ -26,13 +27,12 @@ export default defineConfig({
   // One retry on CI, so a failure there comes with a trace; a spec that passes only on its retry
   // is reported as flaky rather than hidden.
   retries:     process.env.CI ? 1 : 0,
-  // One spec at a time on CI: a runner's few slow cores already carry the dev server, Jazz and the
+  // One spec at a time on CI: a runner's few slow cores already carry the dev server, Convex and the
   // browser, and a second worker there times specs out. CI goes wide by sharding instead. Locally,
   // half the cores and no retry, so specs that collide over the one server they share fail here,
   // the only place they run side by side.
   workers:     process.env.CI ? 1 : '50%',
-  // A fresh page opens its Jazz database before it shows anything, most of a second in dev,
-  // and a route's first visit also waits for it to compile.
+  // A route's first visit waits for it to compile, and a fresh page for its first reads.
   expect:      { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
@@ -43,8 +43,10 @@ export default defineConfig({
     { name: 'environment', testMatch: /\.setup\.ts$/, use: { ...devices['Desktop Chrome'] } },
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['environment'] },
   ],
+  // The dev server, beside the role's own Convex backend with the functions pushed to it and every
+  // row of the last run cleared away (`scripts/convex_dev`).
   webServer: {
-    command:             'pnpm exec next dev',
+    command:             `scripts/convex_dev ${role} --reset next dev`,
     url:                 `http://localhost:${port}`,
     reuseExistingServer: ! process.env.CI,
     env:                 {
@@ -54,6 +56,6 @@ export default defineConfig({
       // it also means nothing here can ever spend real model usage, whatever the environment holds.
       ANTHROPIC_API_KEY:                           'sk-ant-not-a-real-key',
     },
-    timeout:             120_000,
+    timeout:             180_000,
   },
 })

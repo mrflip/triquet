@@ -37,18 +37,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
 
-  migrations:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm migrations:check
-
   test:
     runs-on: ubuntu-latest
     steps:
@@ -63,6 +51,9 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    # Baked into the page at build, never connected to: any URL will do.
+    env:
+      NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -84,11 +75,11 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6]
     # A bound for when something hangs: GitHub's own is six hours.
     timeout-minutes: 20
-    # What Doppler's dev_e2e config gives a local run; e2e/environment.setup.ts checks them.
+    # What Doppler's dev_e2e config gives a local run; e2e/environment.setup.ts checks them. The
+    # web server Playwright starts brings up a local Convex backend of its own (scripts/convex_dev).
     env:
       PORT: 3002
-      JAZZ_DEV_PORT: 3202
-      JAZZ_DEV_DATA_DIR: data/jazz-e2e
+      NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402
       NEXT_DIST_DIR: .next-e2e
     steps:
       - uses: actions/checkout@v7
@@ -98,6 +89,11 @@ jobs:
           node-version-file: .tool-versions
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The Convex backend binary scripts/convex_backend pins, kept between runs.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/convex/binaries
+          key: convex-backend-${{ runner.os }}-${{ hashFiles('scripts/convex_backend') }}
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
       # The html report holds each failure's trace, screenshot and log; `pnpm exec playwright

@@ -9,19 +9,21 @@ import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
 import { Panel } from './panels/Panel'
 import type { RepoSummary } from '../lib/quizgit'
-import type { HuntT } from '../models/hunt'
-import type { QuizT } from '../models/quiz'
+import type { ShallowHuntT } from '../lib/rows'
 import styles from './workbench.module.css'
 
 export type QuizNotFoundProps = {
   /** What the address asked for */
   labels: Routes.QuizLabels
   /** The hunt the address names, when there is one; null when there is no such hunt */
-  hunt:   HuntT | null
+  hunt:   ShallowHuntT | null
 }
 
+/** A quiz of `hunt`, as its realm lists it */
+type QuizRow = ShallowHuntT['realms'][number]['quizzes'][number]
+
 /** Where `quiz` of `hunt` lives, worked on */
-function addressOf(hunt: HuntT, quiz: QuizT): string {
+function addressOf(hunt: ShallowHuntT, quiz: QuizRow): string {
   const realm = hunt.realms.find((each) => each.quizzes.includes(quiz)) ?? hunt.realms[0]
   return Routes.quizPath({ hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm?.label ?? '', quiz: Labelmaker.effectiveLabelOf(quiz) })
 }
@@ -55,7 +57,7 @@ export function QuizNotFound({ labels, hunt }: Readonly<QuizNotFoundProps>) {
 }
 
 /** The history repositories this browser holds, whether or not their quizzes are still here */
-function RepoList({ hunt }: Readonly<{ hunt: HuntT | null }>) {
+function RepoList({ hunt }: Readonly<{ hunt: ShallowHuntT | null }>) {
   const [repos, setRepos] = useState<RepoSummary[] | null>(null)
 
   useEffect(() => {

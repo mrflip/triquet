@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  bottingFrom, expressionFrom, huntFrom, huntListingOf, huntTitleOf, quizFrom, realmTitleOf, recordedAtOf, shallowHuntOf, slotLatestOf, widgetFrom,
+  bottingFrom, expressionFrom, huntFrom, huntListingOf, huntTitleOf, quizFrom, realmTitleOf, recordedAtOf, reviewBy, shallowHuntOf, slotLatestOf, widgetFrom,
   type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import { Quiz } from '../../src/models/quiz'
@@ -137,5 +137,24 @@ describe('huntFrom', () => {
     const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgets: [], columns: [], slots: new Map() })
     const hunt = huntFrom(Rows, new Map([[quiz_id, quiz]]))
     expect([hunt.title, hunt.realms[0]?.quizzes[0]?.title, hunt.expressions.map((expression) => expression.label)]).to.deep.eq(['Quiet Otter', 'Princes', ['shout']])
+  })
+})
+
+describe('reviewBy', () => {
+  const ident_id = idOf('idents', 'i1')
+  const ReviewRow: Doc<'reviews'> = { _id: idOf('reviews', 'v1'), _creationTime: 3, quiz_id, ident_id, overall: '', phase: 'draft' }
+  const Other = { ...ReviewRow, _id: idOf('reviews', 'v2'), ident_id: idOf('idents', 'i2') }
+  const Later = { ...ReviewRow, _id: idOf('reviews', 'v3'), _creationTime: 4, overall: 'Twice.' }
+
+  it('finds the review an ident wrote among a quiz\'s reviews', () => {
+    expect(reviewBy([Other, ReviewRow], ident_id)?._id).to.eq(ReviewRow._id)
+  })
+
+  it('takes the earliest, should an ident have written two', () => {
+    expect(reviewBy([ReviewRow, Later], ident_id)?.overall).to.eq('')
+  })
+
+  it('is null for an ident who has written none, or a quiz with no reviews', () => {
+    expect([reviewBy([Other], ident_id), reviewBy([], ident_id)]).to.deep.eq([null, null])
   })
 })
