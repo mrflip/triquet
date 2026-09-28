@@ -118,14 +118,6 @@ export function slotLatestOf(slot: SlotRows): SlotLatest {
 }
 
 /**
- * When each cell's newest botting was made, by `slotkeyOf`: what a reply the tree holds must be
- * newer than to be recorded.
- */
-export function recordedAtOf(slots: ReadonlyMap<string, SlotRows>): Map<string, number> {
-  return new Map([...slots].map(([slotkey, slot]) => [slotkey, slot.newest._creationTime]))
-}
-
-/**
  * A question as its own query reads it, from its row and its cells' histories.
  *
  * @param row - The question's row.

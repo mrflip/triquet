@@ -6,13 +6,13 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
 import { identForLabel, realmsOf } from '../../convex/reading'
-import { writeHunt } from '../../convex/writing/quiz_writing'
 import { mintId } from '../../src/lib/ids'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import type { ExpressionT } from '../../src/models/expression'
 import type { HuntActionDNA, OpenQuizT } from '../../src/models/actions'
 import type { QuizT } from '../../src/models/quiz'
 import { present } from './present'
+import { seedHuntRows } from './seed'
 
 const modules = import.meta.glob('../../convex/**/*.*s')
 
@@ -74,7 +74,7 @@ export async function wholeHunt(tt: Tester, hunt_id: Id<'hunts'>): Promise<HuntT
  * @example const { act, read } = await seedHunt(openTester(), Hunt.blank())
  */
 export async function seedHunt(tt: Tester, hunt: HuntT, openIdx = 0): Promise<Seeded> {
-  const hunt_id = await tt.run(async (ctx) => await writeHunt(ctx.db, hunt))
+  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   const realm = present(home, 'the seeded realm')
   const open = { hunt_id, realm_id: realm.realm._id, quiz_id: present(realm.quizzes[openIdx], 'the quiz to open')._id }

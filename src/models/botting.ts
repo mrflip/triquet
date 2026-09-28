@@ -1,8 +1,8 @@
 import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { AskValidators, ModelTierVals, askError, type LastErrT } from './ask'
-import type { GuessDoneT, GuessT } from './guess'
-import { IshValidators, IshesPerTextMax, type IshesDoneT, type IshesT, type IshItemT } from './ish'
+import type { GuessT } from './guess'
+import { IshValidators, IshesPerTextMax, type IshesT, type IshItemT } from './ish'
 import { BotLabelVals, type BotLabel } from './bot-label'
 import type { QuestionT } from './question'
 import { TextkindVals, type Textkind } from '../lib/ask/contract'
@@ -121,66 +121,6 @@ export function resultsFor(
     clueing_ishes: ishesFrom(historyOf(BotSlots[1]), question.clueing),
     hint_ishes:    ishesFrom(historyOf(BotSlots[2]), question.hint),
   }
-}
-
-/**
- * The bottings a question is holding that are newer than anything already recorded.
- *
- * A cell whose result, or whose failure, is no newer than what was recorded yields nothing, so
- * offering the same question twice records nothing the second time; an empty cell yields
- * nothing either. A result and a failure riding on it are recorded as two bottings.
- *
- * @param question - The question as the author now has it.
- * @param recordedAt - When each cell's newest recorded botting was made, by `slotkeyOf`; a cell absent has none.
- * @returns The new bottings, one per result and one per failure.
- */
-export function unrecordedBottings(question: QuestionT, recordedAt: ReadonlyMap<string, number>): BottingT[] {
-  return BotSlots.flatMap((slot) => {
-    const result = question[slot.field]
-    if (result === null) { return [] }
-    const recorded = recordedAt.get(slotkeyOf({ question_id: question._id, ...slot })) ?? 0
-    const err = result.last_err
-    return [
-      ...(result.status === 'done' && result.updated_at > recorded ? [doneFrom(question, slot, result)] : []),
-      ...(err && err.at > recorded ? [failedFrom(question, slot, err)] : []),
-    ]
-  })
-}
-
-/** A row with nothing filled in yet, for `slot` of `question` */
-function blankBotting(question: QuestionT, slot: BotSlot): BottingT {
-  return {
-    question_id:        question._id,
-    bot_label:       slot.bot_label,
-    textkind:           slot.textkind,
-    asked_text:         question[slot.textkind].trim(),
-    status:             'done',
-    reply_text:         null,
-    items:              [],
-    message:            null,
-    response:           null,
-    truncated:          false,
-    model_tier_applied: null,
-    approx_tokens:      null,
-  }
-}
-
-/** A successful result found in one of `question`'s cells, as a botting */
-function doneFrom(question: QuestionT, slot: BotSlot, result: GuessDoneT | IshesDoneT): BottingT {
-  const botting: BottingT = {
-    ...blankBotting(question, slot),
-    truncated:          result.truncated,
-    model_tier_applied: result.model_tier_applied ?? null,
-    approx_tokens:      result.approx_tokens ?? null,
-  }
-  if ('text' in result) { return { ...botting, reply_text: result.text } }
-  // A result already marked stale was asked about some earlier text, which is no longer known.
-  return { ...botting, items: result.items, asked_text: result.stale ? null : botting.asked_text }
-}
-
-/** A failed ask, as a botting */
-function failedFrom(question: QuestionT, slot: BotSlot, err: LastErrT): BottingT {
-  return { ...blankBotting(question, slot), status: 'error', message: err.message, response: err.response }
 }
 
 /** When a botting was asked, in whole epoch milliseconds, as the tree's timestamps are */

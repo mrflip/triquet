@@ -204,8 +204,8 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         expressed={expressed}
         carryOut={carryOut}
         saveNotice={saveNotice}
-        onMerged={(merged) => {
-          void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'replace_open_quiz', quiz: merged }) })
+        onImport={(questions) => {
+          void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'import_questions', questions }) })
         }}
       />
     </main>

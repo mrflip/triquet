@@ -50,8 +50,8 @@ describe('quizExported', () => {
     const quiz = chainedQuiz()
     const unchained = { ...quiz, questions: quiz.questions.map((question) => ({ ...question, chains_to: null })) }
     const outcome = Importing.importInto(unchained, JSON.stringify(Exporting.quizExported(quiz)))
-    const [leon, nantes] = present(outcome.quiz).questions
-    expect(leon?.chains_to).to.eq(nantes?._id)
+    const leon = present(outcome.questions).find((question) => question.label === 'leon')
+    expect(leon?.patch.chains_to).to.eq('nantes')
     expect(outcome.log.flatMap((entry) => entry.issues)).to.deep.eq([])
   })
 })

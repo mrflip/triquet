@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import { realmsOf, quizRowsOf } from '../../convex/reading'
-import { writeHunt } from '../../convex/writing/quiz_writing'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { present } from '../support/present'
 import { huntHolding, openTester } from '../support/convex'
+import { seedHuntRows } from '../support/seed'
 
 /** A fresh deployment holding one quiz of two questions, `aa` chained to `bb`, and the first question's id */
 async function holding() {
   const tt = openTester()
   const questions = [{ ...Question.blank(), label: 'aa', clueing: 'Who?' }, { ...Question.blank(), label: 'bb' }]
-  const hunt_id = await tt.run(async (ctx) => await writeHunt(ctx.db, huntHolding([{ ...Quiz.blank(), questions }])))
+  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, huntHolding([{ ...Quiz.blank(), questions }])))
   const question_id = await tt.run(async (ctx) => {
     const [home] = await realmsOf(ctx.db, hunt_id)
     const quiz_id = present(present(home).quizzes[0])._id

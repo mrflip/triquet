@@ -1,10 +1,7 @@
 import type * as Z from 'zod'
-import * as Chain from './chain'
-import * as Rank from './rank'
 import { mintId } from './ids'
 import * as Labelmaker from './labelmaker'
-import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportQuizT } from '../models/import'
-import { Question, type QuestionT } from '../models/question'
+import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportQuizT, type ImportedQuestionT } from '../models/import'
 import type { QuizT } from '../models/quiz'
 
 /** One thing wrong with one incoming question */
@@ -26,86 +23,72 @@ export type ImportLogEntry = {
 
 export type ImportOutcome = {
   /** True when everything validated; false when anything was skipped or nothing could be read */
-  ok:      boolean
+  ok:        boolean
   /** The one-line result shown next to the button */
-  summary: string
+  summary:   string
   /** A line per question, and a nested line per validation issue */
-  log:     ImportLogEntry[]
-  /** The revised quiz, or null when nothing could be read and the box should keep its text */
-  quiz:    QuizT | null
+  log:       ImportLogEntry[]
+  /** What to send, one entry per label; null when nothing could be read and the box should keep its text */
+  questions: ImportedQuestionT[] | null
 }
 
 /**
- * `pasted` merged into `quiz`.
+ * `pasted` read against `quiz`, as the questions to send.
  *
  * Questions are matched to existing ones **by label**: the label in force, meaning the forced
  * label where a question has one. A label is the one name that survives both the author
- * rewriting a question's title and a round trip through another tool, and ids minted in another
- * browser are meaningless here.
+ * rewriting a question's title and a round trip through another tool.
  *
- * Nothing is ever deleted by an import. A label with no match becomes a new question appended to
- * the quiz under that label; so does a question with no label at all, under a fresh one. A
- * question that fails validation is skipped entirely rather than half-merged, and named in the log.
+ * Nothing is ever deleted by an import. A label no question here holds becomes a new question
+ * appended to the quiz under that label; so does a question with no label at all, under a fresh
+ * one. A question that fails validation is skipped entirely rather than half-merged, and named
+ * in the log. The server folds the result in (`import_questions`) and renumbers Q# by rank.
  *
  * @param quiz - The quiz on screen.
  * @param pasted - Whatever is in the Import box.
- * @returns The revised quiz, a one-line summary, and a line per question.
+ * @returns The questions to send, a one-line summary, and a line per pasted question.
  *
  * @example importInto(quiz, '[{"label":"quiet_otter","clueing":"Which region?"}]')
  */
 export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
   const payload = readPayload(pasted, quiz)
-  if (! payload.ok) { return { ok: false, summary: payload.summary, log: [], quiz: null } }
+  if (! payload.ok) { return { ok: false, summary: payload.summary, log: [], questions: null } }
 
   const incoming = payload.quiz.questions
   if (incoming.length === 0) {
-    return { ok: false, summary: `${payload.reading} It holds no questions, so nothing was changed.`, log: [], quiz: null }
+    return { ok: false, summary: `${payload.reading} It holds no questions, so nothing was changed.`, log: [], questions: null }
   }
 
-  const merge: MergeState = {
-    questions:       [...quiz.questions],
-    log:             [],
-    idForForeignId:  new Map(),
-    // Two passes: fields first, so every question a chain might point at exists before chains
-    // are resolved, whether it was merged into an existing question or freshly appended.
-    chainOrders:        [],
-  }
-
-  for (const [ii, raw] of incoming.entries()) { mergeOneQuestion(merge, raw, ii + 1) }
-
-  // Two cleanups over the whole quiz, not just the questions the import touched.
-  const questions = Rank.renumberByRank(Chain.clearDanglingChains(
-    remapChains(merge.questions, merge.chainOrders, merge.idForForeignId, merge.log),
-  ))
+  const held = new Set(quiz.questions.map((question) => Labelmaker.effectiveLabelOf(question)))
+  const merge: MergeState = { patches: new Map(), log: [] }
+  for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, raw, ii + 1) }
 
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
   const skipped = tallied('skipped')
 
   return {
-    ok:      skipped === 0,
-    summary: `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped — see log below. Renumbered Q# by rank.`,
-    log:     merge.log,
-    quiz:    { ...quiz, questions },
+    ok:        skipped === 0,
+    summary:   `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped — see log below. Renumbered Q# by rank.`,
+    log:       merge.log,
+    questions: chainsResolved(merge, held),
   }
 }
 
-/** What the merge is building up as it walks the pasted questions */
+/** What the read is building up as it walks the pasted questions */
 type MergeState = {
-  questions:          QuestionT[]
-  log:                ImportLogEntry[]
-  /** The question here that each pasted question's own id came to stand for, so its chains can be re-pointed */
-  idForForeignId: Map<string, string>
-  chainOrders:    { question_id: string, foreignTarget: string | null }[]
+  /** What each label's question comes to, in the order the labels were first met */
+  patches: Map<string, ImportPatchT>
+  log:     ImportLogEntry[]
 }
 
 /**
- * One incoming question folded in: merged onto the question holding its label, or
- * appended when nothing here holds it.
+ * One incoming question read: its patch folded onto the label it names, or a fresh label when
+ * it names none.
  *
  * A question that fails validation is skipped *entirely* rather than half-merged, and named in
- * the log by position and title. One bad question never blocks the rest of the import.
+ * the log by position and label. One bad question never blocks the rest of the import.
  */
-function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
+function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, raw: unknown, position: number) {
   const bag = (raw ?? {}) as Record<string, unknown>
   const parsed = ImportValidators.importQuestion.safeParse(raw)
 
@@ -115,25 +98,10 @@ function mergeOneQuestion(merge: MergeState, raw: unknown, position: number) {
     return
   }
 
-  const incomingLabel = parsed.data.forced_label ?? parsed.data.label ?? null
-  const seatIdx = seatFor(merge.questions, incomingLabel)
-  const seated = seatIdx === -1 ? undefined : merge.questions[seatIdx]
-  const fresh = Question.fill({ _id: mintId(), ...(incomingLabel !== null && { label: incomingLabel }) })
-  const revised = { ...(seated ?? fresh), ...patchFrom(bag, parsed.data) }
-
-  if (typeof bag.id === 'string') { merge.idForForeignId.set(bag.id, revised._id) }
-
-  merge.questions = seated === undefined
-    ? [...merge.questions, revised]
-    : merge.questions.map((question, idx) => (idx === seatIdx ? revised : question))
-
-  if (Object.hasOwn(bag, 'chains_to')) {
-    merge.chainOrders.push({
-      question_id:   revised._id,
-      foreignTarget: typeof bag.chains_to === 'string' ? bag.chains_to : null,
-    })
-  }
-  merge.log.push({ position, label: Labelmaker.effectiveLabelOf(revised), outcome: seated === undefined ? 'added' : 'merged', issues: [] })
+  const label = parsed.data.forced_label ?? parsed.data.label ?? Labelmaker.localBlankLabel(new Set([...held, ...merge.patches.keys()]), mintId())
+  const outcome = held.has(label) || merge.patches.has(label) ? 'merged' : 'added'
+  merge.patches.set(label, { ...merge.patches.get(label), ...patchFrom(bag, parsed.data) })
+  merge.log.push({ position, label, outcome, issues: [] })
 }
 
 type PayloadReading =
@@ -143,10 +111,8 @@ type PayloadReading =
 /**
  * The pasted text read as whichever of the three accepted shapes it is.
  *
- * Given a whole hunt, or a whole workspace exported before there were hunts, it takes the quiz
- * matching the open one by label, failing that by name, failing that the first one -- and says
- * which reading it took, so the author is never guessing. (A backup made before exports dropped
- * their ids is matched by id first.)
+ * Given a whole hunt, it takes the quiz matching the open one by label, failing that by name,
+ * failing that the first one -- and says which reading it took, so the author is never guessing.
  */
 function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   let raw: unknown
@@ -158,12 +124,14 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
 
   const hunt = ImportValidators.importHunt.safeParse(raw)
   if (hunt.success) {
-    return readWhole(hunt.data.realms.flatMap((realm) => realm.quizzes), 'hunt', openQuiz)
-  }
-
-  const workspace = ImportValidators.importWorkspace.safeParse(raw)
-  if (workspace.success) {
-    return readWhole(workspace.data.quizzes, 'workspace', openQuiz)
+    const quizzes = hunt.data.realms.flatMap((realm) => realm.quizzes)
+    const chosen = quizFromExport(quizzes, openQuiz)
+    if (! chosen) { return { ok: false, summary: 'That hunt holds no quizzes, so nothing was changed.' } }
+    return {
+      ok:      true,
+      quiz:    chosen,
+      reading: `Read as a whole hunt of ${String(quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
+    }
   }
 
   const quiz = ImportValidators.importQuiz.safeParse(raw)
@@ -179,20 +147,8 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   return { ok: false, summary: "That isn't a shape this tool recognises, so nothing was changed. Your text is still here." }
 }
 
-/** The quiz of a whole export matching the open one, and how it was picked, for the log */
-function readWhole(quizzes: readonly ImportQuizT[], whole: 'hunt' | 'workspace', openQuiz: QuizT): PayloadReading {
-  const chosen = quizFromExport(quizzes, openQuiz)
-  if (! chosen) { return { ok: false, summary: `That ${whole} holds no quizzes, so nothing was changed.` } }
-  return {
-    ok:      true,
-    quiz:    chosen,
-    reading: `Read as a whole ${whole} of ${String(quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
-  }
-}
-
 /** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: ImportQuizT, openQuiz: QuizT): string {
-  if (chosen.id !== undefined && chosen.id === openQuiz._id) { return 'matched this quiz by id' }
   if (labelOfPasted(chosen) === Labelmaker.effectiveLabelOf(openQuiz)) { return 'matched this quiz by label' }
   return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
 }
@@ -203,14 +159,12 @@ function labelOfPasted(quiz: ImportQuizT): string | null {
 }
 
 /**
- * An export's quiz chosen against the one on screen: by id where the export carries ids (a
- * backup from before exports dropped them), then by label, then by name, failing all that the
+ * An export's quiz chosen against the one on screen: by label, then by name, failing both the
  * first.
  */
 export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
   const label = Labelmaker.effectiveLabelOf(openQuiz)
-  return quizzes.find((quiz) => quiz.id !== undefined && quiz.id === openQuiz._id)
-    ?? quizzes.find((quiz) => labelOfPasted(quiz) === label)
+  return quizzes.find((quiz) => labelOfPasted(quiz) === label)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
     ?? quizzes[0]
 }
@@ -223,45 +177,27 @@ export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT)
  * cannot be expressed with schema defaults. The schema's job here is to validate and scrub; the
  * merge rules are the merge's own.
  */
-function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>): Record<string, unknown> {
+function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>): ImportPatchT {
   const patch: Record<string, unknown> = {}
   for (const fieldname of ImportableFieldnames) {
     if (! Object.hasOwn(bag, fieldname)) { continue }
     patch[fieldname] = bag[fieldname] === null ? ClearedValueFor[fieldname] : clean[fieldname]
   }
-  // Chains are remapped in a second pass, never copied: a pasted chain names its target by label,
-  // or by an id from wherever it came from, and either has to be found among the questions here.
-  delete patch.chains_to
-  return patch
+  return ImportValidators.importPatch(patch)
 }
 
 /**
- * Chains re-pointed onto the questions here. A pasted chain names its target by label, the label
- * in force of a question here once the import has merged or appended it; or, in a backup from
- * before exports dropped their ids, by the pasted question's own id, which leads to the question
- * that pasted question was merged into or appended as. Anything unresolvable is left unset and
- * logged.
+ * The questions to send, each chain checked: a pasted chain names its target by label, which
+ * must be the label in force of a question here or of one the same import adds. A chain to
+ * anything else, or to the question itself, is left unset and logged.
  */
-function remapChains(
-  questions: readonly QuestionT[],
-  orders: readonly { question_id: string, foreignTarget: string | null }[],
-  idForForeignId: ReadonlyMap<string, string>,
-  log: ImportLogEntry[],
-): QuestionT[] {
-  if (orders.length === 0) { return [...questions] }
-  const idForLabel = new Map(questions.map((question) => [Labelmaker.effectiveLabelOf(question), question._id]))
-
-  return questions.map((question) => {
-    const order = orders.find((each) => each.question_id === question._id)
-    if (! order) { return question }
-    if (order.foreignTarget === null) { return { ...question, chains_to: null } }
-
-    const localId = idForForeignId.get(order.foreignTarget) ?? idForLabel.get(order.foreignTarget)
-    if (localId === undefined || localId === question._id) {
-      noteChainLoss(log, Labelmaker.effectiveLabelOf(question))
-      return { ...question, chains_to: null }
-    }
-    return { ...question, chains_to: localId }
+function chainsResolved(merge: MergeState, held: ReadonlySet<string>): ImportedQuestionT[] {
+  const known = new Set([...held, ...merge.patches.keys()])
+  return [...merge.patches].map(([label, patch]) => {
+    const target = patch.chains_to
+    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch } }
+    noteChainLoss(merge.log, label)
+    return { label, patch: { ...patch, chains_to: null } }
   })
 }
 
@@ -273,17 +209,6 @@ function noteChainLoss(log: ImportLogEntry[], label: string) {
     message:   'Chain target could not be resolved to a question in this quiz; left unset',
     code:      'chain_unresolved',
   })
-}
-
-/**
- * Which existing question an incoming one belongs to, or -1 to append it.
- *
- * A question with no label has no key at all, so it is appended rather than merged onto
- * whichever question it happens to sit next to.
- */
-function seatFor(questions: readonly QuestionT[], incomingLabel: string | null): number {
-  if (incomingLabel === null) { return -1 }
-  return questions.findIndex((question) => Labelmaker.effectiveLabelOf(question) === incomingLabel)
 }
 
 /** Every validation issue, with the field path, what was wrong, and the code */

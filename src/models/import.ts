@@ -1,40 +1,28 @@
-import * as Z from 'zod'
+import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
-import { GuessValidators } from './guess'
-import { IshValidators } from './ish'
+import * as PA from '../lib/vv/patterns'
 import { QuestionValidators } from './question'
 
-export const ImportValidators = Validator(({ obj, arr, str, titleish, label, union, zod }) => {
-  // What an export names things by. The Export box hands out labels only, but a backup made
-  // before it did carries ids, which are accepted as-is provided they are non-empty: an id
-  // minted in another browser means nothing here anyway -- it is only ever used to resolve that
-  // file's own chains, and to pick out a quiz. A chain may name its target either way.
-  const foreignId = str.min(1)
-
+export const ImportValidators = Validator(({ obj, arr, titleish, label, union, zod }) => {
   const importQuestion = obj({
-    id:            foreignId.optional(),
     label:         label.optional(),
     forced_label:  label.nullable().optional(),
     qnum:          QuestionValidators.qnum.nullable().optional(),
     clueing:       QuestionValidators.clueing.nullable().optional(),
     hint:          QuestionValidators.hint.nullable().optional(),
     title:         QuestionValidators.title.nullable().optional(),
-    chains_to:     foreignId.nullable().optional(),
-    guess:         GuessValidators.guess.optional(),
-    clueing_ishes: IshValidators.ishes.optional(),
-    hint_ishes:    IshValidators.ishes.optional(),
+    chains_to:     label.nullable().optional(),
     alt_text:      QuestionValidators.alt_text.nullable().optional(),
     notes:         QuestionValidators.notes.nullable().optional(),
     full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
-    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly.')
+    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a bot replied is among them, since replies are recorded by asking, never pasted.')
 
   // The shape is read loosely first and each question validated on its own afterwards, so one
   // bad question is skipped and logged rather than blocking the whole import.
   const looseQuestions = arr(zod.unknown()).default([])
 
   const importQuiz = obj({
-    id:           foreignId.optional(),
     label:        label.optional(),
     forced_label: label.nullable().optional(),
     title:        titleish.nullable().optional(),
@@ -48,29 +36,46 @@ export const ImportValidators = Validator(({ obj, arr, str, titleish, label, uni
   })
     .describe('A whole hunt, as the Export box hands it over: its quizzes are read realm by realm, and everything else about it is ignored.')
 
-  const importWorkspace = obj({
-    quizzes:        arr(importQuiz).min(1),
-    active_quiz_id: foreignId.optional(),
+  const importPayload = union([importHunt, importQuiz, looseQuestions])
+    .describe('What the Import box accepts: a whole exported hunt, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box hands them, or a fragment they trimmed by hand, without first having to reshape it.')
+
+  const importPatch = obj({
+    qnum:        QuestionValidators.qnum.optional(),
+    clueing:     QuestionValidators.clueing.optional(),
+    hint:        QuestionValidators.hint.optional(),
+    title:       QuestionValidators.title.optional(),
+    chains_to:   label.nullable().optional(),
+    alt_text:    QuestionValidators.alt_text.optional(),
+    notes:       QuestionValidators.notes.optional(),
+    full_answer: QuestionValidators.full_answer.optional(),
   })
-    .describe('A whole workspace, as the Export box handed it over before quizzes lived in hunts. Still accepted, so an old backup can be brought back.')
+    .describe('What an import changes on one question, once read: the author\'s fields, each optional, as `edit_question` takes them, except that a chain names the label of the question it points at, or null for none.')
 
-  const importPayload = union([importHunt, importWorkspace, importQuiz, looseQuestions])
-    .describe('What the Import box accepts: a whole exported hunt, a whole workspace exported before hunts, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box ever handed them, or a fragment they trimmed by hand, without first having to reshape it.')
+  const importedQuestion = obj({ label, patch: importPatch })
+    .describe('One question as the Import panel sends it: which question, by the label in force, and what to change. A label no question of the quiz answers to adds one under it.')
 
-  return { importQuestion, importQuiz, importHunt, importWorkspace, importPayload }
+  const importedQuestions = arr(importedQuestion).max(PA.QuestionsPerQuiz.max).readonly()
+    .check((context) => {
+      const labels = context.value.map((question) => question.label)
+      for (const [idx, seen] of labels.entries()) {
+        if (labels.indexOf(seen) < idx) { context.issues.push({ code: 'custom', input: seen, path: [idx, 'label'], message: 'Two imported questions share a label' }) }
+      }
+    })
+    .describe('Everything one import changes, one entry per label.')
+
+  return { importQuestion, importQuiz, importHunt, importPayload, importPatch, importedQuestion, importedQuestions }
 })
 
-export type ImportQuestionDNA = Z.input<typeof ImportValidators.importQuestion>
-export type ImportQuestionT   = Z.output<typeof ImportValidators.importQuestion>
-export type ImportQuizT       = Z.output<typeof ImportValidators.importQuiz>
-export type ImportHuntT       = Z.output<typeof ImportValidators.importHunt>
-export type ImportWorkspaceT  = Z.output<typeof ImportValidators.importWorkspace>
-export type ImportPayloadT    = Z.output<typeof ImportValidators.importPayload>
+export type ImportQuestionT    = Z.output<typeof ImportValidators.importQuestion>
+export type ImportQuizT        = Z.output<typeof ImportValidators.importQuiz>
+export type ImportHuntT        = Z.output<typeof ImportValidators.importHunt>
+export type ImportPayloadT     = Z.output<typeof ImportValidators.importPayload>
+export type ImportPatchT       = Z.output<typeof ImportValidators.importPatch>
+export type ImportedQuestionT  = Z.output<typeof ImportValidators.importedQuestion>
 
-/** Fields an import may revise; the id is not among them, and neither is anything derived */
+/** Fields an import may revise; the label is not among them, and neither is anything derived */
 export const ImportableFieldnames = [
-  'qnum', 'clueing', 'hint', 'title', 'chains_to',
-  'guess', 'clueing_ishes', 'hint_ishes', 'alt_text', 'notes', 'full_answer',
+  'qnum', 'clueing', 'hint', 'title', 'chains_to', 'alt_text', 'notes', 'full_answer',
 ] as const
 export type ImportableFieldname = typeof ImportableFieldnames[number]
 
@@ -81,9 +86,6 @@ export const ClearedValueFor: Record<ImportableFieldname, string | null> = {
   hint:          '',
   title:         '',
   chains_to:     null,
-  guess:         null,
-  clueing_ishes: null,
-  hint_ishes:    null,
   alt_text:      '',
   notes:         '',
   full_answer:   '',

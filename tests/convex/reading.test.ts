@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
 import { huntForLabel, huntRowsOf, identFor, quizRowsOf, realmsOf, reviewFor } from '../../convex/reading'
-import { writeHunt } from '../../convex/writing/quiz_writing'
 import { SeedExpressions } from '../../src/models/expression'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
@@ -9,10 +8,11 @@ import { Quiz } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import { present } from '../support/present'
 import { huntHolding, identified, openTester, type Tester } from '../support/convex'
+import { seedHuntRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
 async function holding(hunt: HuntT, tt: Tester = openTester()): Promise<{ tt: Tester, hunt_id: Id<'hunts'>, quiz_id: Id<'quizzes'> }> {
-  const hunt_id = await tt.run(async (ctx) => await writeHunt(ctx.db, hunt))
+  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   return { tt, hunt_id, quiz_id: present(present(home).quizzes[0])._id }
 }

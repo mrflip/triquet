@@ -3,17 +3,17 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { quizRowsOf, realmsOf } from '../../convex/reading'
 import { quizFromSeen } from '../../src/lib/rows'
-import { writeHunt } from '../../convex/writing/quiz_writing'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { present } from '../support/present'
 import { huntHolding, openTester, type Tester } from '../support/convex'
+import { seedHuntRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, its first quiz's id, and its questions' ids in order */
 async function holding(hunt: HuntT): Promise<{ tt: Tester, quiz_id: Id<'quizzes'>, question_ids: Id<'questions'>[] }> {
   const tt = openTester()
-  const hunt_id = await tt.run(async (ctx) => await writeHunt(ctx.db, hunt))
+  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   const quiz_id = present(present(home).quizzes[0])._id
   const question_ids = await tt.run(async (ctx) => present(await quizRowsOf(ctx.db, quiz_id)).questions.map((row) => row._id))

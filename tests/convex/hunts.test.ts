@@ -355,9 +355,9 @@ describe('hunts.perform', () => {
       await expectOrderHolds()
       await act({ kind: 'delete_questions', question_ids: [firstOf(await read())._id] })
       await expectOrderHolds()
-      await act({ kind: 'replace_open_quiz', quiz: { ...openOf(await read()), questions: [...openOf(await read()).questions.slice(1), Question.blank()] } })
+      await act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {} }] })
       await expectOrderHolds()
-      expect(titlesOf(await read())).to.have.length(3)
+      expect(titlesOf(await read())).to.have.length(4)
     })
   })
 
@@ -1024,41 +1024,46 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('replace_open_quiz', () => {
-    it('takes a merged quiz whole: fields revised, questions matched by id, new ones added, missing ones gone', async () => {
+  describe('import_questions', () => {
+    it('revises the question answering to each label, adds one under a label none answers to, and deletes nothing', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
-      const quiz = openOf(await read())
-      const [first] = quiz.questions
-      const merged = { ...quiz, title: 'Merged', questions: [{ ...present(first), clueing: 'Imported' }, { ...Question.blank(), title: 'fresh' }] }
-      await act({ kind: 'replace_open_quiz', quiz: merged })
+      const first = firstOf(await read())
+      await act({ kind: 'import_questions', questions: [{ label: first.label, patch: { clueing: 'Imported' } }, { label: 'fresh_one', patch: { title: 'fresh' } }] })
       const after = openOf(await read())
-      expect([after.title, ...after.questions.map((question) => [question.title, question.clueing])]).to.deep.eq(['Merged', ['a', 'Imported'], ['fresh', '']])
-      expect(after.questions[0]?._id).to.eq(present(first)._id)
+      expect(after.questions.map((question) => [question.title, question.clueing])).to.deep.eq([['a', 'Imported'], ['b', ''], ['fresh', '']])
+      expect(after.questions[0]?._id).to.eq(first._id)
     })
 
-    it('keeps the reviewings of the questions it keeps, and takes those of the questions it drops', async () => {
-      const { tt, act, asAlice, read, quiz_id, first, second } = await reviewed()
-      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
-      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { get_rate: 20 } })
-      const quiz = openOf(await read())
-      await act({ kind: 'replace_open_quiz', quiz: { ...quiz, questions: quiz.questions.filter((question) => question._id !== second) } })
-      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 10 }])
-    })
-
-    it('records the replies a merged quiz brings, once', async () => {
+    it('titles a question it adds from its label, unless the paste says otherwise', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      const quiz = openOf(await read())
-      const guess = { status: 'done' as const, text: 'Leon', truncated: false, updated_at: Date.now(), last_err: null }
-      const merged = { ...quiz, questions: quiz.questions.map((question) => ({ ...question, guess })) }
-      await act({ kind: 'replace_open_quiz', quiz: merged })
-      await act({ kind: 'replace_open_quiz', quiz: openOf(await read()) })
-      expect(firstOf(await read()).guess).to.deep.include({ text: 'Leon' })
+      await act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {} }] })
+      expect(titlesOf(await read())).to.deep.eq(['a', 'Fresh One'])
+    })
+
+    it('writes a chain by label, to a question of the quiz or one the same import adds, and none to anything else', async () => {
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const [aa, bb] = openOf(await read()).questions
+      await act({ kind: 'import_questions', questions: [
+        { label: present(aa).label, patch: { chains_to: 'fresh_one' } },
+        { label: present(bb).label, patch: { chains_to: 'nobody' } },
+        { label: 'fresh_one', patch: { chains_to: present(aa).label } },
+      ] })
+      const after = openOf(await read()).questions
+      expect(after.map((question) => question.chains_to)).to.deep.eq([after[2]?._id, null, after[0]?._id])
+    })
+
+    it('renumbers Q# by rank afterwards, moving nothing', async () => {
+      const { act, read } = await seed(huntOf(['4', 'a'], ['3.3', 'b'], ['1', 'c']))
+      const first = firstOf(await read())
+      await act({ kind: 'import_questions', questions: [{ label: first.label, patch: { notes: 'touched' } }] })
+      expect(qnumsOf(await read())).to.deep.eq(['3', '2', '1'])
+      expect(titlesOf(await read())).to.deep.eq(['a', 'b', 'c'])
     })
 
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
-      await expectRefusal(act({ kind: 'replace_open_quiz', quiz: { ...openOf(ante), title: 'Merged' } }), 'quizLocked')
+      await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {} }] }), 'quizLocked')
       expect(await read()).to.deep.eq(ante)
     })
   })
@@ -1102,6 +1107,12 @@ describe('hunts.perform, at the caps', () => {
   it('refuses a question more than a quiz may hold', async () => {
     const { act, read } = await crowded('questions', 999 - BlankQuestionQty)
     await expectRefusal(act({ kind: 'add_question' }), 'questionsFull')
+    expect(openOf(await read()).questions).to.have.lengthOf(999)
+  })
+
+  it('refuses an import that would leave a quiz holding more questions than it may', async () => {
+    const { act, read } = await crowded('questions', 999 - BlankQuestionQty)
+    await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'one_more', patch: {} }] }), 'questionsFull')
     expect(openOf(await read()).questions).to.have.lengthOf(999)
   })
 

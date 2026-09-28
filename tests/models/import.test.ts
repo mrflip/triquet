@@ -9,23 +9,23 @@ describe('ImportValidators.importQuestion', () => {
     expect('title' in question).to.eq(false)
   })
 
-  it('takes an id from anywhere, since it only resolves the file\'s own chains', () => {
-    expect(ImportValidators.importQuestion({ id: 'q-7', chains_to: 'q-8' })).to.deep.eq({ id: 'q-7', chains_to: 'q-8' })
+  it('names a chain by the label of the question it points at', () => {
+    expect(ImportValidators.importQuestion({ chains_to: 'nantes' })).to.deep.eq({ chains_to: 'nantes' })
   })
 
-  it('rejects a blank id, which could name nothing', () => {
-    expect(() => ImportValidators.importQuestion({ id: '' })).to.throw(Z.ZodError)
+  it('rejects a chain that is not a label', () => {
+    expect(() => ImportValidators.importQuestion({ chains_to: 'Not A Label' })).to.throw(Z.ZodError)
   })
 
-  it('drops keys it does not know', () => {
-    expect(ImportValidators.importQuestion({ clueing: 'Who?', difficulty: 9 } as never)).to.deep.eq({ clueing: 'Who?' })
+  it('drops keys it does not know, what a bot replied among them', () => {
+    const guess = { status: 'done', text: 'Leon', truncated: false, updated_at: 1, last_err: null }
+    expect(ImportValidators.importQuestion({ clueing: 'Who?', difficulty: 9, guess } as never)).to.deep.eq({ clueing: 'Who?' })
   })
 })
 
 describe('ImportValidators.importPayload', () => {
   const PayloadCases = [
     [{ realms: [{ quizzes: [{ title: 'One', questions: [{ clueing: 'Who?' }] }] }] }, 'a whole hunt'],
-    [{ quizzes: [{ title: 'One', questions: [{ clueing: 'Who?' }] }] }, 'a whole workspace from before hunts'],
     [{ title: 'One', questions: [{ clueing: 'Who?' }] },                'a single quiz'],
     [[{ clueing: 'Who?' }],                                             'a bare list of questions'],
   ] as const
@@ -45,9 +45,16 @@ describe('ImportValidators.importPayload', () => {
     expect(() => ImportValidators.importHunt({ realms: [] })).to.throw(Z.ZodError)
     expect(() => ImportValidators.importHunt({ realms: [{ quizzes: [] }] })).to.throw(Z.ZodError)
   })
+})
 
-  it('rejects a workspace holding no quizzes', () => {
-    expect(() => ImportValidators.importWorkspace({ quizzes: [] })).to.throw(Z.ZodError)
+describe('ImportValidators.importedQuestions', () => {
+  it('takes one entry per label, each with what to change', () => {
+    const sent = [{ label: 'leon', patch: { clueing: 'Who?', chains_to: 'nantes' } }, { label: 'nantes', patch: {} }]
+    expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent)
+  })
+
+  it('refuses two entries naming one label', () => {
+    expect(() => ImportValidators.importedQuestions([{ label: 'leon', patch: {} }, { label: 'leon', patch: {} }])).to.throw(Z.ZodError)
   })
 })
 

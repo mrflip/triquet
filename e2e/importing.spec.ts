@@ -41,10 +41,10 @@ test('an explicit null clears the field', async ({ page }) => {
   await expect(fieldAt(page, 'Notes', 0)).toHaveValue('')
 })
 
-test('a label nothing here holds is appended, and a chain is remapped', async ({ page }) => {
+test('a label nothing here holds is appended, and a chain names its target by label', async ({ page }) => {
   await runImport(page, [
-    { id: 'theirs-1', label: await labelAt(page, 0), chains_to: 'theirs-2' },
-    { id: 'theirs-2', label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },
+    { label: await labelAt(page, 0), chains_to: 'nantes_one' },
+    { label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },
   ])
   await expect(grid(page).locator('tbody tr')).toHaveCount(6)
   await expect(grid(page).locator('tbody tr').first().locator('td[data-colname="BUT NOT"] > div'))

@@ -32,7 +32,7 @@ the domain.
   hunt's maker is its first smith, and nobody changes their own hunting: another smith does.
   The hunts list shows one's own hunts; an address naming no `act` is shown as one's role asks.
 * **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
-  and addresses said which was open. Import still reads an old workspace export, questions only.
+  and addresses said which was open. Nothing reads one now.
 
 ## The things an author makes
 

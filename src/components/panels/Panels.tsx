@@ -16,6 +16,7 @@ import { PromptTemplates } from '../../lib/ask/prompts'
 import type { ExpressedForQuiz } from '../../lib/expressed'
 import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
 import type { IdentT } from '../../models/ident'
+import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { HuntHandle } from '../../state/use-hunt'
 import { useWholeHunt } from '../../state/use-whole-hunt'
@@ -28,11 +29,12 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   /** Who is looking */
   ident:     IdentT
   expressed: ExpressedForQuiz
-  onMerged:  (quiz: QuizT) => void
+  /** Fold what the Import panel read into the quiz: one entry per label */
+  onImport:  (questions: readonly ImportedQuestionT[]) => void
 }
 
 /** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and what was asked */
-export function Panels({ quiz, hunt, realm, ident, reviews, expressed, carryOut, saveNotice, onMerged }: Readonly<PanelsProps>) {
+export function Panels({ quiz, hunt, realm, ident, reviews, expressed, carryOut, saveNotice, onImport }: Readonly<PanelsProps>) {
   const exporting = useWholeHunt(hunt, quiz)
   const labels = { hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) }
   return (
@@ -60,7 +62,7 @@ export function Panels({ quiz, hunt, realm, ident, reviews, expressed, carryOut,
         <FullHistoryDownload quiz={quiz} />
       </Panel>
 
-      <ImportPanel quiz={quiz} locked={quiz.locked} onMerged={onMerged} />
+      <ImportPanel quiz={quiz} locked={quiz.locked} onImport={onImport} />
 
       <Panel
         title="Prompts used"
