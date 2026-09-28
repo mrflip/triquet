@@ -21,6 +21,32 @@ another checkout's server held 3002, `pnpm test:e2e` quietly tested that checkou
 wrote its throwaway hunts into that server's database. `pnpm test:e2e:agent` sidesteps it. Should
 `reuseExistingServer` check that the server is this checkout's?
 
+## 2026-09-27: Convex phase 1, the server side: two questions for you
+
+Branch `20260927-convex_server`, stacked on the spike branch. The whole server is in `convex/`:
+schema derived from the row validators, the queries the views will subscribe to, `hunts.perform`
+and `idents.performAccount`, all tested under convex-test (a port of every Jazz action test, case
+for case, plus the queries and the caps). The app still runs on Jazz; phase 2 switches the
+browser. Your plan edit (the caps) rode in with the first commit. Details and every deviation are
+in `whiteboard/convex_yay-progress.md`.
+
+1. **Quizzes per realm: 99?** Every child is read with a bound now, and a realm's quizzes had
+   none. I used 99, like the others. Say if you want another number.
+2. **Should a refusal say so?** A locked quiz, a taken label, a cap reached: each writes nothing
+   and tells the author nothing, as under Jazz. Phase 2 could answer each with a notice. Which,
+   if any?
+
+Things you might trip over:
+
+* Convex refuses a hyphen in a module path, so `convex/**` and `tests/convex/**` are snake_case,
+  with an eslint block allowing it there.
+* The models are Convex-shaped already: every `<parent>_id` is a Convex id (UUIDs still pass, so
+  Jazz works), and an identing names its browser. Two small Jazz-side bends make that fit:
+  the identing insert and the coherence test.
+* The plan's botting index would have spent six index ranges per question, past Convex's 4096 per
+  function for a big quiz. One walk per cell spends three.
+* The Jazz migration check ran clean: the Jazz schema did not change.
+
 ## 2026-09-27: Convex phase 0, the spike: three things for you
 
 Branch `20260927-convex_spike`. Convex is installed beside Jazz, the app still runs on Jazz,

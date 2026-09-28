@@ -121,6 +121,12 @@ Row types come from `db`.)
   hunt hooks, the asking and bots hooks, and the quiz history mirror with its commit scheduler.
 * `src/db/` -- the Jazz layer, isomorphic: `schema.ts` (tables, relations, row types, and the
   app handle), `permissions.ts` (the only place authorization is written), and the client setup.
+* `convex/` -- the Convex server, moving in beside Jazz (the app still runs on Jazz):
+  `schema.ts` (derived from the row validators), one file per noun of public functions,
+  `reading.ts` (indexed reads), `writing/` (the actions a mutation carries out), `authorize.ts`
+  (the only place authorization is written). Module names are snake_case: Convex refuses a
+  hyphen. It may import from `src/lib` and `src/models`, nothing else in `src/`; `src/lib/rows.ts`
+  holds the projections from rows to tree.
 * `src/models/` -- one file per domain noun: its `Validator` block, its DNA/Real types, and a
   class of statics (`fill`, `blank`, `exposed`). Nothing here is instantiated.
 * `src/lib/` -- facilities: pure functions around one concern each, imported as a namespace

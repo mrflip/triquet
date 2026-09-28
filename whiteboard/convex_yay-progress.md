@@ -4,27 +4,31 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
 
 ## 1. Status
 
-* **Phase 0 (spike and decisions)**: built on `20260927-convex_spike`, not yet merged. Lint,
-  typecheck and unit tests green (79 files, 1999 tests). e2e after the `_id` rename: 151 of
-  152 at three workers, the one failure passing three times of three alone (see
-  *Measurements*). The app still runs on Jazz, untouched apart from the rename. After the
-  Coach's answers: `scripts/convex_backend`, and the per-parent caps in `lib/vv/patterns.ts`.
-* **Phase 1 (the server side, beside Jazz) is next**, on a new branch. Phases 2 to 4 follow it.
+* **Phase 0 (spike and decisions)**: built on `20260927-convex_spike`, not yet merged.
+* **Phase 1 (the server side, beside Jazz)**: built on `20260927-convex_server`, stacked on the
+  spike branch, not yet merged. Lint, typecheck and the unit and convex suites green (89 files,
+  2274 tests). e2e not run: nothing the browser touches changed, bar the models (below). The app
+  still runs on Jazz.
+* **Phase 2 (the browser switch, and Jazz out) is next**, on a new branch.
 
 ## 2. Start here
 
-1. Start the agents' backend with `pnpm convex:backend agent` (it runs in the foreground; give
-   it a terminal or the background), then push with `./node_modules/.bin/convex dev --once
-   --typecheck disable --env-file data/convex-agent/cli.env`. `convex/_generated/` regenerates
-   only against a running backend.
-2. Read `convex/_generated/ai/guidelines.md` (Convex's rules, installed by the Coach) and then
-   *Rules overrides* below, which win where the two differ.
-3. `convex/schema.ts` and `convex/spike.ts` are the phase 0 spike: replace them whole in phase 1.
-   `tests/convex/spike-bridge.test.ts` is the seed of the schema canary
-   (`tests/convex/schema.test.ts` in the plan); `tests/convex/spike.test.ts` pins the error path.
-4. The write actions of phase 1 must refuse past the caps (*Rules overrides*): the Jazz write
-   path checks a quiz's question count nowhere but `Quiz.fill`, so adding a thousandth question
-   through the grid is not refused today.
+1. Start the agents' backend with `pnpm convex:backend agent` (foreground; give it a terminal or
+   the background), then push with `./node_modules/.bin/convex dev --once --typecheck disable
+   --env-file data/convex-agent/cli.env`. `convex/_generated/` regenerates only against a running
+   backend. Convex refuses a hyphen in a module path: `convex/**` is snake_case.
+2. Read `convex/_generated/ai/guidelines.md`, then *Rules overrides* below.
+3. The server's surface, for the hooks: `api.hunts.list`, `api.hunts.open({ hunt_label })` (the
+   shallow hunt, `ShallowHuntT` in `src/lib/rows.ts`), `api.hunts.whole({ hunt_id })` (the export;
+   named `whole` because `export` is a keyword), `api.quizzes.open({ quiz_id })`,
+   `api.reviews.forQuiz({ quiz_id })` (each review with its `reviewer`), `api.idents.current({
+   browser_key })`, and the mutations `api.hunts.perform({ open, action, browser_key })` and
+   `api.idents.performAccount({ action, browser_key })`.
+4. The views already say every action in a shape `hunts.perform` takes
+   (`tests/models/actions.test.ts` holds `state/actions.ts`'s `HuntAction` to it at compile
+   time). Phase 2 points the imports at `src/models/actions.ts` and deletes `state/actions.ts`.
+5. *Deleted tests and their successors* below lists which Jazz tests phase 2 deletes, and what
+   already replaces each.
 
 ## 3. Decisions taken
 
@@ -43,16 +47,19 @@ The plan's fifteen settled items (2026-09-27), and where each now lives:
   `convex/` at the root; this plan ends with the app as it is today: `notes/stack.md` (the
   Convex entry under *Use*), in brief. Phase 4 moves them to `notes/decisions/2026-09-convex.md`.
 
-Settled after phase 0 (Coach, 2026-09-27):
+Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
 
 * **Isolation: a backend binary per role**, run by `scripts/convex_backend
   <dev|agent|e2e|e2e-agent>` (`pnpm convex:backend`), on ports 34xx and 35xx, with its data,
   instance secret and `cli.env` in `data/convex-<role>/`. The human's dev server uses it too.
   Written into `CLAUDE.md`'s *Global resources*. Agents are moving into containers of their own;
   a container still runs a dev server and an e2e suite side by side, so the script stays.
-* **Caps**, in `src/lib/vv/patterns.ts` (*Collection sizes*): 999 questions per quiz and 99 realms
-  per hunt, both also in the tree validators (`QuizValidators.quiz`, `HuntValidators.hunt`), and
-  99 hunts in the app, which no validator sees and phase 1's `new_hunt` and `hunts.list` apply.
+* **Caps**, in `src/lib/vv/patterns.ts` (*Collection sizes*): 999 questions and 999 reviews per
+  quiz; 99 widgets and 99 columns per quiz; 99 realms and 99 expressions per hunt; 99 hunts in the
+  app (plan, settled item 16). The tree validators apply those a tree holds. **99 quizzes per
+  realm is mine, not yet agreed**: a realm's quizzes are read with a bound like every other
+  child, and nothing had set one. Every write that would pass a cap is refused, silently, as
+  other refusals are.
 * **Convex's AI files** installed by the Coach: `convex/_generated/ai/guidelines.md`, a block in
   `CLAUDE.md` and `AGENTS.md`, and the `convex-*` skills. `CLAUDE.md` says this project's rules
   win where they differ.
@@ -72,27 +79,60 @@ Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fe
 * **Bounded reads, by our caps.** The guidelines say never `.collect()`, always `.take(n)`. A
   read of a parent's children takes the cap from `lib/vv/patterns.ts`
   (`.take(PA.QuestionsPerQuiz.max)`), and a write that would pass it is refused, so a read never
-  silently drops a row. Widgets and columns per quiz, expressions per hunt and reviews per quiz
-  have no cap yet: phase 1 adds one to *Collection sizes* for each (proposing the number in chat)
-  rather than reading them unbounded.
+  silently drops a row. Two reads are not capped: a botting cell's history, walked newest first
+  and stopped at the first answer (so it reads one row, plus one per failure since), and a
+  question's bottings when it is deleted, iterated with `for await` as the guidelines ask.
+* **Module names are snake_case** under `convex/` and `tests/convex/`: Convex refuses a hyphen
+  in a module path, which `unicorn/filename-case` otherwise demands. An eslint block
+  (`triquet/convex-module-names`) allows it there only.
 
 ## 4. Deviations from the plan
 
 Newest first.
 
-* **The tree's `_id` rename stops at the tree.** `QuizT`, `QuestionT`, `RealmT`, `HuntT` and
+* **Refusals from inside a handler still say nothing.** The phase 0 proposal (a
+  `ConvexError({ failurekind })` for a locked quiz or a taken label) is not built: the Jazz
+  actions refused silently, the tests say so, and whether an author needs a notice for any of
+  them is a phase 2 question, asked with the views in hand. What does reach the caller today:
+  a refused argument, as `ConvexError` data `{ ZodError: [...] }`; a wrong-typed id or an unknown
+  action, as Convex's plain `ArgumentValidationError`; a row validator refusing inside a handler
+  (a widget patch wrong for its kind), as a plain error, which production shows only as "Server
+  Error". The last wants a decision in phase 2.
+* **`reviews.forQuiz` joins each review's reviewer; there is no `idents.all`.** The views used
+  every ident only to title a review's author, and every ident is an unbounded read.
+* **Indexes order children by position.** `by_hunt_id_and_position`, `by_quiz_id_and_position`
+  in place of the plan's `by_hunt_id` and `by_quiz_id`, so a read comes back in committed order
+  with no sort. Hunts also get `by_forced_label`, so a hunt is found by the label in force;
+  reviews also get `by_quiz_id_and_ident_id`.
+* **One index walk per botting cell, not two `.first()`s.** The plan's
+  `by_question_id_and_bot_label_and_textkind_and_status` would spend two index ranges per cell,
+  six per question: 5994 for a full quiz, past Convex's 4096 per function. The walk spends one
+  per cell (2997 for a full quiz) on `by_question_id_and_bot_label_and_textkind`.
+* **`BottingT` keeps `id` and `created_at`.** The Jazz projections still build it; phase 2
+  renames it with them. `lib/rows.ts`'s `bottingFrom` maps a row onto it, with `created_at` the
+  row's `_creationTime` floored: Convex's `_creationTime` carries a fraction, and the tree's
+  timestamps are whole milliseconds (a fractional one fails `timestamp` when a tree comes back
+  through `replace_open_quiz`). `latestBySlot` is left to the Jazz side; `slotLatestOf` builds a
+  cell's latest from the two rows the walk found.
+* **The models are Convex-shaped already, and the Jazz side bends to them.** The kit's `zid`
+  takes a Convex id or a UUID, so Jazz's rows still pass; Jazz's identing insert leaves the
+  browser key out (`state/account-actions.ts`, one line); `tests/db/coherence.test.ts` reads a
+  `zid` as a Jazz row id and widens ids in its type check. `rowid` is gone from the kit.
+* **The action vocabulary lives twice until phase 2**: `src/models/actions.ts` (the Zod union the
+  server parses) and `src/state/actions.ts` (the TypeScript union Jazz and the views use), held
+  together by a compile-time check. `HuntActionDNA` is what a view sends.
+* **`testing.clearAll` reads `TRIQUET_CLEARABLE`**, declared in `convex/convex.config.ts`;
+  `scripts/convex_backend` does not set it yet (phase 2, with `scripts/convex_reset`).
+* **The tree's `_id` rename stops at the tree** (phase 0). `QuizT`, `QuestionT`, `RealmT`, `HuntT` and
   `IdentT` carry `_id`. Jazz rows still carry `id`, so `quizFrom`, `huntFrom` and `useIdent`
   translate at that one seam until phase 2 removes Jazz. The import file format keeps its `id`
-  key (old exports carry it); `importing.ts` maps it as before. `treeid` is not widened yet: no
-  Convex id reaches a tree until phase 1. `BottingT` (a row type with `id` and `created_at`) is
-  left for phase 1, where `_creationTime` replaces `created_at`.
+  key (old exports carry it); `importing.ts` maps it as before. `treeid` takes a Convex id since
+  phase 1; `BottingT` waits for phase 2 (above).
 * **No CI drift check for `_generated/`.** `convex codegen` needs a running deployment (see
   *Discoveries*), so the check needs a backend in CI, which is the isolation question's answer.
   Build it with that, in phase 2 or 3.
-* **`npx convex ai-files install` was not run.** The auto-mode classifier refused it as
-  self-modification: it writes `CLAUDE.md`, `AGENTS.md` and agent skills. The guidelines it
-  would have installed were read from the endpoint it fetches them from instead. The Coach may
-  run it, or decide the repo does without (see *For the Coach*).
+* **`npx convex ai-files install` was run by the Coach**, not the phase 0 agent, whose auto-mode
+  classifier refused it as self-modification.
 * **`zodOutputToConvexFields`, not `zodToConvexFields`**, derives a table. The input-side
   mapping turns a `.default()` into an optional field (`reviews.overall` and `reviews.phase`
   today); the output side keeps every field required, which is what a stored row is.
@@ -117,6 +157,32 @@ Newest first.
 
 All with `convex` 1.46.0, `convex-helpers` 0.1.124, `convex-test` 0.0.60, local backend
 `precompiled-2026-09-21-0cf49cb`.
+
+### Phase 1
+
+* **Convex refuses a hyphen in a module path** (`writing/layout-actions.js is not a valid path`),
+  at push time only: convex-test loads such a module happily.
+* **The bridge's types cannot follow a recursive Zod type.** `defineTable` over the botting row
+  fails with "Type instantiation is excessively deep" at `response` (`zod.json()`), though the
+  run-time conversion is fine. That one field is written by hand (`CVX.any()`, typed as the Zod
+  output), and `tests/convex/schema.test.ts` holds it. The same wall stands in front of
+  `zodToConvex(ActionValidators.huntAction)` in a test's types; `zCustomMutation` itself is fine.
+* **`zid` survives `.describe()` and `.refine()`** in the bridge: the kit's `zid` refines Convex's
+  to a row id's shape and is still an id of its table to Convex.
+* **A Zod object in the args is strict at Convex's door.** Convex validates the args with the
+  validator derived from the Zod before Zod runs, and a Convex object refuses a field it does not
+  name, where Zod would strip it. A view must send exactly the action's fields.
+* **convex-test's `_creationTime` is fractional** (`Date.now()`, plus 0.001 for each insert in
+  the same millisecond), so two inserts never tie and tests need no pauses. Its ids are digits
+  and the table's name (`0000000000000000000010002quizzes`); the local backend's are 32 lowercase
+  base32 characters. `patterns.ts`'s `Convexid` takes both.
+* **`tt.run` must hand back a Convex value**: a `Map` inside the result is refused.
+* **`env` in `_generated/server` is `process.env`**, so `vi.stubEnv` sets it under convex-test.
+* **`api` is a proxy at run time**: listing the public functions means loading the modules and
+  keeping the exports with `isPublic` (`tests/convex/authorize.test.ts`).
+* **The limits that bite are per function**: 4096 index ranges, 32,000 documents read, 16,000
+  written. The caps multiply past them only at the extremes (99 realms of 99 quizzes, each read
+  for its widgets by `hunts.open`), which the trial will not reach; worth knowing for phase 4.
 
 ### Isolation (phase 0 question 1)
 
@@ -247,11 +313,30 @@ Worth a run on a quiet machine before merging.
   key is minted from a secret made in its own data directory. Only phase 3's cloud deployments
   have keys (production for the Coach, preview for Vercel), and agents never hold the
   production one.
-* **Caps still to choose** (*Rules overrides*): widgets and columns per quiz, expressions per
-  hunt, reviews per quiz. Phase 1 proposes numbers.
+* **Quizzes per realm, 99?** Proposed in phase 1, not yet agreed (*Decisions taken*).
+* **Should a refusal say so?** A locked quiz, a taken label, a cap reached: each writes nothing
+  and tells the author nothing, as under Jazz. Phase 2 can answer with a notice through
+  `ConvexError`; say if you want that, and for which.
 * **Before phase 3** (unchanged from the plan): a Convex team and project, the production and
   preview deploy keys, and Vercel's build command.
 
 ## 8. Deleted tests and their successors
 
-None yet. Phase 0 added `tests/convex/spike-bridge.test.ts` and `tests/convex/spike.test.ts`.
+Phase 0 added `tests/convex/spike-bridge.test.ts` and `tests/convex/spike.test.ts`; phase 1
+deleted both with the spike, and `tests/convex/schema.test.ts` (the canary) and
+`tests/convex/hunts.test.ts` (the refusal in our words) cover what they held.
+
+The Jazz tests stay until phase 2 deletes their modules. Their successors, already green:
+
+| Jazz test (phase 2 deletes) | Successor |
+| --- | --- |
+| `tests/state/perform.test.ts` | `tests/convex/hunts.test.ts` (`hunts.perform`), case for case |
+| `tests/state/layout-actions.test.ts` | `tests/convex/writing/layout_actions.test.ts` |
+| `tests/state/quiz-writing.test.ts` | `tests/convex/writing/quiz_writing.test.ts`; `transact`'s cases become "a mutation keeps nothing when it throws" |
+| `tests/state/quiz-rows.test.ts` | `tests/convex/reading.test.ts`, `quizzes.test.ts`, `hunts.test.ts` (`list`, `open`, `whole`), `tests/lib/rows.test.ts`; `idsKey`, `askedAt` and the "not arrived yet" cases pinned Jazz and have none |
+| `tests/state/account-actions.test.ts` | `tests/convex/idents.test.ts` |
+| `tests/state/lookup.test.ts` | `tests/convex/idents.test.ts` ("finds an ident this browser never made"): a query has already asked the server |
+| `tests/db/permissions.test.ts` | `tests/convex/authorize.test.ts` |
+| `tests/db/coherence.test.ts` | `tests/convex/schema.test.ts` |
+| `tests/db/schema.test.ts` | none: its canaries pinned alpha.56's bugs |
+| `tests/db/json-text.test.ts`, `sync-settings`, `runtime-assets`, `publish-runtime-assets` | none: their modules go |

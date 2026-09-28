@@ -1,0 +1,102 @@
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import * as Z from 'zod'
+import { zodToConvex } from 'convex-helpers/server/zod4'
+import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
+import type { AccountAction, HuntAction } from '../../src/state/actions'
+import { Quiz } from '../../src/models/quiz'
+
+const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
+const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
+
+/** One of each action, as a view would say it */
+const Actions: HuntActionDNA[] = [
+  { kind: 'add_widget', widget: { kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' } },
+  { kind: 'edit_widget', label: 'dumdum', patch: { description: 'The quick one' } },
+  { kind: 'delete_widget', label: 'dumdum' },
+  { kind: 'move_widget', label: 'dumdum', onto_idx: 2 },
+  { kind: 'add_column', column: { label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 } },
+  { kind: 'add_column', column: { label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 }, onto_idx: 0 },
+  { kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },
+  { kind: 'delete_column', label: 'qnum' },
+  { kind: 'move_column', label: 'qnum', onto_idx: 1 },
+  { kind: 'add_expression', expression: { label: 'shout', formula: '$uppercase(qn.title)' } },
+  { kind: 'edit_expression', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },
+  { kind: 'delete_expression', label: 'shout' },
+  { kind: 'retitle_quiz', title: 'Princes' },
+  { kind: 'relabel_quiz', label: 'princes' },
+  { kind: 'reversion_quiz', version: 'playtest' },
+  { kind: 'edit_question', question_id, patch: { clueing: 'Who?', chains_to: null } },
+  { kind: 'add_question' },
+  { kind: 'delete_questions', question_ids: [question_id] },
+  { kind: 'sort_questions', sortkey: 'column:qnum', descending: false },
+  { kind: 'renumber_qnums' },
+  { kind: 'move_question', question_id, onto_idx: 0 },
+  { kind: 'set_chain', question_id, chains_to: null },
+  { kind: 'sort_by_chain_order', descending: true },
+  { kind: 'set_guess', question_id, guess: { status: 'done', text: 'Leon', updated_at: 5 } },
+  { kind: 'set_ishes', question_id, textkind: 'hint', ishes: null },
+  { kind: 'fail_guess', question_id, err: { message: 'Overloaded', response: { status: 529 }, at: 5 } },
+  { kind: 'fail_ishes', question_id, textkind: 'clueing', err: { message: 'Overloaded', response: null, at: 5 } },
+  { kind: 'apply_bulk_ishes', landings: [{ question_id, textkind: 'clueing', ishes: null, err: null }], run: null },
+  { kind: 'new_quiz' },
+  { kind: 'new_quiz', label: 'kings' },
+  { kind: 'delete_quiz', quiz_id },
+  { kind: 'set_lock', quiz_id, locked: true },
+  { kind: 'replace_open_quiz', quiz: Quiz.blank('Merged') },
+  { kind: 'open_review', quiz_id },
+  { kind: 'set_overall', quiz_id, overall: 'Went well.' },
+  { kind: 'set_review_phase', quiz_id, phase: 'shared' },
+]
+
+describe('ActionValidators.huntAction', () => {
+  it('takes every action a view can say, each of its own kind', () => {
+    expect(Actions.map((action) => ActionValidators.huntAction(action).kind)).to.deep.eq(Actions.map((action) => action.kind))
+  })
+
+  const Refused: [unknown, string][] = [
+    [{ kind: 'burn_it_all' },                                               'an action it does not know'],
+    [{ kind: 'retitle_quiz' },                                              'an action missing what it carries'],
+    [{ kind: 'relabel_quiz', label: 'Not A Label' },                        'a label that is not one'],
+    [{ kind: 'move_question', question_id: 'nobody', onto_idx: 0 },         'a question that is not a row id'],
+    [{ kind: 'move_widget', label: 'dumdum', onto_idx: -1 },                'a place before the first'],
+    [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
+    [{ kind: 'replace_open_quiz', quiz: { ...Quiz.blank(), locked: 'no' } }, 'a quiz that is not one'],
+  ]
+  for (const [dna, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => ActionValidators.huntAction(dna as never)).to.throw(Z.ZodError)
+    })
+  }
+
+  it('keeps both kinds\' fields in a widget\'s patch, for the widget\'s own kind to judge', () => {
+    const action = ActionValidators.huntAction({ kind: 'edit_widget', label: 'dumdum', patch: { bot_label: 'numnum', expression_label: 'shout' } })
+    expect(action).to.deep.include({ patch: { bot_label: 'numnum', expression_label: 'shout' } })
+  })
+
+  it('crosses to Convex as a validator of its own', () => {
+    expect(zodToConvex(ActionValidators.huntAction as Z.ZodType).kind).to.eq('union')
+  })
+
+  it('takes whatever a view already says, so the views need not change to send it', () => {
+    expectTypeOf<HuntAction>().toExtend<HuntActionDNA>()
+  })
+})
+
+describe('ActionValidators.accountAction', () => {
+  it('takes becoming an ident and making a hunt', () => {
+    const actions: AccountActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'new_hunt', label: 'quiet_otter' }]
+    expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
+    expectTypeOf<AccountAction>().toExtend<Z.input<typeof ActionValidators.accountAction>>()
+  })
+
+  it('refuses an ident label too short to be one', () => {
+    expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip', title: '' })).to.throw(Z.ZodError)
+  })
+})
+
+describe('isLayoutAction', () => {
+  it('picks out exactly the actions on widgets, columns and expressions', () => {
+    const layout = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLayoutAction(action)).map((action) => action.kind)
+    expect([...new Set(layout)]).to.deep.eq([...LayoutActionKindVals])
+  })
+})
