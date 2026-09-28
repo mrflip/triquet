@@ -11,13 +11,15 @@ A reviewer now gives a verdict on each question under the answer lock: get rate 
 guesses, comments, minutes, and three toggles (👍 keep it, 🔍 needs fact check, ✂️ elimination
 candidate). Each saves as it is committed, and revealing the answer records `peeked`. Once the
 review is shared, your Reviews panel shows a table of those verdicts in rank order, the get rate
-marked 🔓 when they saw the answer first. The panel spans the full width once it has a table.
+marked 🔓 when they saw the answer. The panel spans the full width once it has a table.
 
-Three behaviours for your word, each built as the plan says (details in the progress document,
+On your word, the get rate is the reviewer's own estimate and `peeked` says only that they
+looked, not when: the model's description, the panel's mark ("Saw the answer"), the vocabulary
+and the lock's dialog (now "The smiths will see that you looked.") no longer imply an order.
+
+Two behaviours for your word, each built as the plan says (details in the progress document,
 *For the Coach*):
 
-* **A get rate given blind, then the answer revealed, still shows as peeked.** Telling "rated,
-  then peeked" from "peeked, then rated" would need a design change.
 * **Draft verdicts reach the smith's browser**, hidden only by the client-side filter, as the
   overall note already is. Phase 7 moves that onto the server.
 * **Two quick clicks on a toggle send the same value twice**, as the lock does. No optimistic

@@ -5,7 +5,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
   // Each field is named once, without its default, and then defaulted in the row and made
   // optional in the patch: see the patch pattern in `notes/guidelines.md`.
   const get_rate = uint.max(100).nullable()
-    .describe('How likely the reviewer thinks they would have been to get it, as a percentage; null when they have not said.')
+    .describe('The reviewer\'s own estimate of how likely they would have been to get it, as a percentage; null when they have not said.')
   const guesses = noteish
     .describe('What the reviewer guessed on the way to an answer, freeform.')
   const comments = textish
@@ -19,7 +19,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
   const elimination_candidate = bool
     .describe('The reviewer would cut this question, were one to go.')
   const peeked = bool
-    .describe('Whether the reviewer has revealed the answer: set the first time they do and never cleared, so a smith can tell a blind get rate from a seen one.')
+    .describe('Whether the reviewer has revealed the answer: set the first time they do, and never cleared.')
 
   const row = obj({
     review_id:             zid('reviews')

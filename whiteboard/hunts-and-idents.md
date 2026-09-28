@@ -359,8 +359,8 @@ reviews  { quiz_id: uuid, ident_id: uuid, overall: string, phase: enum(empty, dr
 
 The answer (`full_answer`) is present in every row but hidden behind a lock: an `IconButton`
 showing 🔒 (an emoji in a `Typography`/`span`, not an icon font). Clicking it opens a MUI
-`Dialog` asking to confirm ("Reveal the answer? Your get rate for this question will then be a
-guess at what you'd have done."). Confirming shows the answer with a small 🔓 `IconButton`
+`Dialog` asking to confirm ("Reveal the answer? The smiths will see that you looked.", reworded
+from a line about the get rate on the Coach's word, 2026-09-28). Confirming shows the answer with a small 🔓 `IconButton`
 beside it that hides it again without asking. Unlock state is per row and per session; it is
 not stored, except that PR 4 records `peeked` on the reviewing when the answer is first revealed.
 
@@ -387,8 +387,8 @@ reviewings { review_id: uuid, question_id: uuid,
 `guesses` is `noteish` (what they guessed, freeform); `comments` is `textish` (long prose, the
 one field that may grow the row); `minutes` is a non-negative number or null, decimals allowed
 (approximate minutes spent); the three flags are booleans, false by default; `peeked` is set
-true the first time the answer is revealed and never cleared, so a smith can tell a blind get
-rate from a seen one. One reviewing per (review, question): upsert. Migration.
+true the first time the answer is revealed and never cleared. *(Coach, 2026-09-28: it says only
+that they looked, not whether before or after the get rate, which is the reviewer's own estimate.)* One reviewing per (review, question): upsert. Migration.
 
 ### Actions
 

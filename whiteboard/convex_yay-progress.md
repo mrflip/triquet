@@ -87,6 +87,13 @@ Settled after phase 0 (Coach, 2026-09-27), and at the start of phase 1:
   `CLAUDE.md` and `AGENTS.md`, and the `convex-*` skills. `CLAUDE.md` says this project's rules
   win where they differ.
 
+Settled in phase 5 (Coach, 2026-09-28):
+
+* **The get rate is the reviewer's own estimate, and `peeked` says only that they looked**, not
+  whether before or after they gave a rate. Nothing orders the two, and no wording implies it:
+  the lock's dialog says the smiths will see that you looked, and the panel's mark reads "Saw the
+  answer".
+
 ### Rules overrides
 
 Where this project departs from Convex's own guidelines (targeting `^1.44.0`, fetched
@@ -512,10 +519,7 @@ Worth a run on a quiet machine before merging.
 
 ## 7. For the Coach
 
-* **Phase 5, three behaviours to confirm** (built as the plan says; the review pass raised them):
-  - A reviewer who gives a get rate blind and then reveals the answer is marked `peeked` all the
-    same: the smith sees "saw the answer first" beside a rate given before it. Telling the two
-    apart would need `peeked` to say when (before or after the rate), which is a design change.
+* **Phase 5, two behaviours to confirm** (built as the plan says; the review pass raised them):
   - A draft review's reviewings reach every browser on the quiz, the smith's included, and only
     `sharedReviewsOf` keeps them off screen; as with `overall`, phase 7 moves the rule onto the
     server.

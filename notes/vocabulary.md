@@ -134,8 +134,10 @@ that way; the model bots were called players until September 2026.
 * **reviewing** -- one review's verdict on one question: get rate, guesses, comments, minutes,
   three flags (`keep_it`, `needs_fact_check`, `elimination_candidate`), and whether the reviewer
   **peeked**. One per (review, question), made the first time the reviewer writes to it.
-* **get rate** -- how likely a reviewer thinks they would have been to get a question, 0 to 100.
-* **peeked** -- the reviewer revealed the answer; set the first time, never cleared.
+* **get rate** -- a reviewer's own estimate of how likely they would have been to get a question,
+  0 to 100. Theirs to give however they like; nothing asks when or how they arrived at it.
+* **peeked** -- the reviewer revealed the answer; set the first time, never cleared. It says that
+  they looked, not when.
 * **the lock** -- the answer, hidden behind a confirmation until a reviewer chooses to see it.
   Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`.
 

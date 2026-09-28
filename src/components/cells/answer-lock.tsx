@@ -45,7 +45,7 @@ export function AnswerLock({ answer, onReveal }: Readonly<AnswerLockProps>) {
       <Dialog open={confirming} onClose={() => { setConfirming(false) }} aria-labelledby="reveal-answer-title">
         <DialogTitle id="reveal-answer-title">Reveal the answer?</DialogTitle>
         <DialogContent>
-          <DialogContentText>Your get rate for this question will then be a guess at what you’d have done.</DialogContentText>
+          <DialogContentText>The smiths will see that you looked.</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setConfirming(false) }}>Cancel</Button>

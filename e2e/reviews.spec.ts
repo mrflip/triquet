@@ -106,7 +106,7 @@ test.describe('a review', () => {
 
     const verdict = page.getByRole('table', { name: 'Verdicts by question' }).getByRole('row', { name: /Danish prince/ })
     await expect(verdict).toContainText('40%')
-    await expect(verdict.getByRole('img', { name: 'Saw the answer first' })).toBeVisible()
+    await expect(verdict.getByRole('img', { name: 'Saw the answer' })).toBeVisible()
     await expect(verdict.getByRole('img', { name: 'Keep it' })).toBeVisible()
     await expect(verdict).toContainText('2.5')
     await expect(verdict).toContainText('line 11 of a long comment')
