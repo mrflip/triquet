@@ -185,13 +185,13 @@ describe('importInto', () => {
     it('resolves a chain named by label onto the question here holding that label', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
       const after = importedInto(quiz, [{ label: 'leon', chains_to: 'nantes' }])
-      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes').id)
+      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes')._id)
     })
 
     it('resolves a chain named by label onto a question the same import appended', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const after = importedInto(quiz, [{ label: 'leon', chains_to: 'nantes' }, { label: 'nantes' }])
-      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes').id)
+      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes')._id)
     })
 
     it('remaps a chain through an older backup\'s own ids', () => {
@@ -200,7 +200,7 @@ describe('importInto', () => {
         { id: 'theirs-1', label: 'leon', chains_to: 'theirs-2' },
         { id: 'theirs-2', label: 'nantes' },
       ])
-      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes').id)
+      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes')._id)
     })
 
     it('leaves a chain it cannot resolve unset, and says so in the log', () => {
@@ -213,7 +213,7 @@ describe('importInto', () => {
     it('clears a chain set explicitly to null', () => {
       const base = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
       const [leon, nantes] = base.questions
-      const quiz = { ...base, questions: [{ ...present(leon), chains_to: present(nantes).id }, present(nantes)] }
+      const quiz = { ...base, questions: [{ ...present(leon), chains_to: present(nantes)._id }, present(nantes)] }
       const after = importedInto(quiz, [{ label: 'leon', chains_to: null }])
       expect(findByLabel(after, 'leon').chains_to).to.eq(null)
     })
@@ -231,7 +231,7 @@ describe('importInto', () => {
         { id: 'theirs-1', label: 'leon', chains_to: 'theirs-2' },
         { id: 'theirs-2', label: 'nantes' },
       ])
-      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes').id)
+      expect(findByLabel(after, 'leon').chains_to).to.eq(findByLabel(after, 'nantes')._id)
     })
   })
 

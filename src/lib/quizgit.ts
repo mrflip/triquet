@@ -59,8 +59,8 @@ export function expressionsPathFor(place: QuizPlace): string {
 }
 
 /** Where `quiz`'s repository sits. Keyed by id, so renaming a quiz never orphans its history. */
-export function repopathFor(quiz: Readonly<Pick<QuizT, 'id'>>): string {
-  return `${RepoRoot}/${quiz.id}`
+export function repopathFor(quiz: Readonly<Pick<QuizT, '_id'>>): string {
+  return `${RepoRoot}/${quiz._id}`
 }
 
 /**

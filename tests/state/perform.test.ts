@@ -136,7 +136,7 @@ describe('perform', () => {
     it('rewrites only the named question, and only the named fields', async () => {
       const { act, read } = await seed(openHunt())
       const target = present(openOf(await read()).questions[1])
-      await act({ kind: 'edit_question', question_id: target.id, patch: { clueing: 'Which région?' } })
+      await act({ kind: 'edit_question', question_id: target._id, patch: { clueing: 'Which région?' } })
       const after = openOf(await read())
       expect([after.questions[1]?.clueing, after.questions[1]?.hint, after.questions[0]?.clueing]).to.deep.eq(['Which région?', '', ''])
     })
@@ -151,27 +151,27 @@ describe('perform', () => {
     it('ignores fields the patch does not mention', async () => {
       const { act, read } = await seed(openHunt())
       const ante = await read()
-      await act({ kind: 'edit_question', question_id: firstOf(ante).id, patch: {} })
+      await act({ kind: 'edit_question', question_id: firstOf(ante)._id, patch: {} })
       expect(await read()).to.deep.eq(ante)
     })
 
     it('refuses text the model rejects rather than storing it', async () => {
       const { act, read } = await seed(openHunt())
-      const { id } = firstOf(await read())
+      const { _id: id } = firstOf(await read())
       await expect(act({ kind: 'edit_question', question_id: id, patch: { title: 'x'.repeat(201) } })).rejects.toThrow(Z.ZodError)
     })
 
     it('chains to another question, held by that question\'s label', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'edit_question', question_id: present(first).id, patch: { chains_to: present(second).id } })
-      expect(firstOf(await read()).chains_to).to.eq(present(second).id)
+      await act({ kind: 'edit_question', question_id: present(first)._id, patch: { chains_to: present(second)._id } })
+      expect(firstOf(await read()).chains_to).to.eq(present(second)._id)
     })
 
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
-      await act({ kind: 'edit_question', question_id: firstOf(ante).id, patch: { clueing: 'x' } })
+      await act({ kind: 'edit_question', question_id: firstOf(ante)._id, patch: { clueing: 'x' } })
       expect(await read()).to.deep.eq(ante)
     })
   })
@@ -198,7 +198,7 @@ describe('perform', () => {
     it('sorts by what an expressing works out, with the expressions the hunt holds', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const [first, second, third] = openOf(await read()).questions
-      const clueings: [string, string][] = [[present(first).id, 'one two three'], [present(second).id, 'one'], [present(third).id, 'one two']]
+      const clueings: [string, string][] = [[present(first)._id, 'one two three'], [present(second)._id, 'one'], [present(third)._id, 'one two']]
       for (const [question_id, clueing] of clueings) { await act({ kind: 'edit_question', question_id, patch: { clueing } }) }
       await act({ kind: 'add_widget', widget: { kind: 'expressing', label: 'words', expression_label: 'clueing_word_count' } })
       await act({ kind: 'add_column', column: { label: 'words', title: 'Words', source: 'words', width_px: 60 } })
@@ -240,7 +240,7 @@ describe('perform', () => {
     it('moves the question and renumbers everything by its new position', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const dragged = present(openOf(await read()).questions[2])
-      await act({ kind: 'move_question', question_id: dragged.id, onto_idx: 0 })
+      await act({ kind: 'move_question', question_id: dragged._id, onto_idx: 0 })
       const after = await read()
       expect(titlesOf(after)).to.deep.eq(['c', 'a', 'b'])
       expect(qnumsOf(after)).to.deep.eq(['1', '2', '3'])
@@ -249,13 +249,13 @@ describe('perform', () => {
     it('adopts a question that had no Q# into the sequence', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['', 'b']))
       const dragged = present(openOf(await read()).questions[1])
-      await act({ kind: 'move_question', question_id: dragged.id, onto_idx: 0 })
+      await act({ kind: 'move_question', question_id: dragged._id, onto_idx: 0 })
       expect(qnumsOf(await read())).to.deep.eq(['1', '2'])
     })
 
     it('leaves the quiz in Q# order, which is the only order a drag is offered in', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
-      await act({ kind: 'move_question', question_id: firstOf(await read()).id, onto_idx: 1 })
+      await act({ kind: 'move_question', question_id: firstOf(await read())._id, onto_idx: 1 })
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
     })
   })
@@ -264,7 +264,7 @@ describe('perform', () => {
     it('deletes the named questions, and the rest close ranks keeping their Q#s', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
       const [, second, , fourth] = openOf(await read()).questions
-      await act({ kind: 'delete_questions', question_ids: [present(second).id, present(fourth).id] })
+      await act({ kind: 'delete_questions', question_ids: [present(second)._id, present(fourth)._id] })
       const after = await read()
       expect(titlesOf(after)).to.deep.eq(['a', 'c'])
       expect(qnumsOf(after)).to.deep.eq(['1', '3'])
@@ -273,18 +273,18 @@ describe('perform', () => {
     it('takes each deleted question\'s replies with it, and leaves the others\' alone', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'set_ishes', question_id: present(first).id, textkind: 'clueing', ishes: found(1) })
-      await act({ kind: 'set_ishes', question_id: present(second).id, textkind: 'clueing', ishes: found(2) })
-      await act({ kind: 'delete_questions', question_ids: [present(first).id] })
-      const bottings = await db.all(app.bottings.where({ question_id: { in: [present(first).id, present(second).id] } }), LocalFirst)
-      expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second).id])
+      await act({ kind: 'set_ishes', question_id: present(first)._id, textkind: 'clueing', ishes: found(1) })
+      await act({ kind: 'set_ishes', question_id: present(second)._id, textkind: 'clueing', ishes: found(2) })
+      await act({ kind: 'delete_questions', question_ids: [present(first)._id] })
+      const bottings = await db.all(app.bottings.where({ question_id: { in: [present(first)._id, present(second)._id] } }), LocalFirst)
+      expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second)._id])
     })
 
     it('clears a chain to a deleted question, so a later question answering to its label does not inherit it', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
-      await act({ kind: 'delete_questions', question_ids: [present(second).id] })
+      await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
+      await act({ kind: 'delete_questions', question_ids: [present(second)._id] })
       expect(firstOf(await read()).chains_to).to.eq(null)
     })
 
@@ -296,13 +296,13 @@ describe('perform', () => {
 
     it('can empty the quiz', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
-      await act({ kind: 'delete_questions', question_ids: openOf(await read()).questions.map((question) => question.id) })
+      await act({ kind: 'delete_questions', question_ids: openOf(await read()).questions.map((question) => question._id) })
       expect(titlesOf(await read())).to.deep.eq([])
     })
 
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(openHunt(true))
-      await act({ kind: 'delete_questions', question_ids: [firstOf(await read()).id] })
+      await act({ kind: 'delete_questions', question_ids: [firstOf(await read())._id] })
       expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
     })
   })
@@ -311,24 +311,24 @@ describe('perform', () => {
     it('chains one question to another, which the quiz then shows', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
-      expect(firstOf(await read()).chains_to).to.eq(present(second).id)
+      await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
+      expect(firstOf(await read()).chains_to).to.eq(present(second)._id)
     })
 
     it('unchains with null', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(second).id })
-      await act({ kind: 'set_chain', question_id: present(first).id, chains_to: null })
+      await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
+      await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: null })
       expect(firstOf(await read()).chains_to).to.eq(null)
     })
 
     it('clears a chain to itself, or to no question of the quiz, rather than keeping it', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const first = firstOf(await read())
-      await act({ kind: 'set_chain', question_id: first.id, chains_to: first.id })
+      await act({ kind: 'set_chain', question_id: first._id, chains_to: first._id })
       expect(firstOf(await read()).chains_to).to.eq(null)
-      await act({ kind: 'set_chain', question_id: first.id, chains_to: 'nowhere' })
+      await act({ kind: 'set_chain', question_id: first._id, chains_to: 'nowhere' })
       expect(firstOf(await read()).chains_to).to.eq(null)
     })
   })
@@ -337,7 +337,7 @@ describe('perform', () => {
     it('walks the chains from the lowest Q#, and remembers doing so', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const [first, , third] = openOf(await read()).questions
-      await act({ kind: 'set_chain', question_id: present(first).id, chains_to: present(third).id })
+      await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(third)._id })
       await act({ kind: 'sort_by_chain_order', descending: false })
       const after = await read()
       expect(titlesOf(after)).to.deep.eq(['a', 'c', 'b'])
@@ -349,7 +349,7 @@ describe('perform', () => {
     it('stores an extraction against the text it came from', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({
-        kind: 'set_ishes', question_id: firstOf(await read()).id, textkind: 'hint',
+        kind: 'set_ishes', question_id: firstOf(await read())._id, textkind: 'hint',
         ishes: { status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], truncated: false, stale: false, updated_at: 1, last_err: null },
       })
       const question = firstOf(await read())
@@ -360,7 +360,7 @@ describe('perform', () => {
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       await act({
-        kind: 'set_ishes', question_id: firstOf(await read()).id, textkind: 'clueing',
+        kind: 'set_ishes', question_id: firstOf(await read())._id, textkind: 'clueing',
         ishes: { status: 'done', items: [], truncated: false, stale: false, updated_at: 1, last_err: null },
       })
       expect(firstOf(await read()).clueing_ishes).to.eq(null)
@@ -376,7 +376,7 @@ describe('perform', () => {
     /** A question already holding a guess and a clueing extraction */
     const withHeld = async () => {
       const seeded = await seed(huntOf(['1', 'a']))
-      const { id } = firstOf(await seeded.read())
+      const { _id: id } = firstOf(await seeded.read())
       await seeded.act({ kind: 'set_guess', question_id: id, guess: held })
       await seeded.act({ kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: ishesHeld })
       return { ...seeded, id }
@@ -401,7 +401,7 @@ describe('perform', () => {
 
     it('becomes the cell\'s only content when it never had a value', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      await act({ kind: 'fail_guess', question_id: firstOf(await read()).id, err })
+      await act({ kind: 'fail_guess', question_id: firstOf(await read())._id, err })
       const { guess } = firstOf(await read())
       expect(guess).to.deep.include({ status: 'error', message: err.message })
       expect(failureOf(guess)).to.deep.eq({ message: err.message, response: err.response })
@@ -434,7 +434,7 @@ describe('perform', () => {
 
     it('is refused while the quiz is locked', async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
-      await act({ kind: 'fail_guess', question_id: firstOf(await read()).id, err })
+      await act({ kind: 'fail_guess', question_id: firstOf(await read())._id, err })
       expect(firstOf(await read()).guess).to.eq(null)
     })
 
@@ -458,8 +458,8 @@ describe('perform', () => {
       await act({
         kind: 'apply_bulk_ishes', run,
         landings: [
-          { question_id: present(first).id, textkind: 'clueing', ishes: found(1), err: null },
-          { question_id: present(second).id, textkind: 'hint', ishes: found(2), err: null },
+          { question_id: present(first)._id, textkind: 'clueing', ishes: found(1), err: null },
+          { question_id: present(second)._id, textkind: 'hint', ishes: found(2), err: null },
         ],
       })
       const after = openOf(await read())
@@ -474,7 +474,7 @@ describe('perform', () => {
     /** A question with an extraction for each text named */
     const extractedFrom = async (...textkinds: ('clueing' | 'hint')[]) => {
       const seeded = await seed(huntOf(['1', 'a']))
-      const { id } = firstOf(await seeded.read())
+      const { _id: id } = firstOf(await seeded.read())
       for (const textkind of textkinds) { await seeded.act({ kind: 'set_ishes', question_id: id, textkind, ishes: extracted }) }
       return { ...seeded, id }
     }
@@ -487,7 +487,7 @@ describe('perform', () => {
 
     it('leaves the extraction visible rather than throwing it away', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      const { id } = firstOf(await read())
+      const { _id: id } = firstOf(await read())
       await act({ kind: 'set_ishes', question_id: id, textkind: 'clueing', ishes: { ...extracted, items: [{ text: '300', value: 300, kind: 'numeral' }] } })
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
       const { clueing_ishes } = firstOf(await read())
@@ -588,7 +588,7 @@ describe('perform', () => {
   describe('delete_quiz', () => {
     it('removes the quiz and everything it held', async () => {
       const { db, act, read } = await seed(huntTitled(['one', 'two', 'three']), 1)
-      const doomed = quizNamed(await read(), 'two').id
+      const doomed = quizNamed(await read(), 'two')._id
       await act({ kind: 'delete_quiz', quiz_id: doomed })
       const after = await read()
       expect(after.quizzes.map((quiz) => quiz.title)).to.deep.eq(['one', 'three'])
@@ -598,13 +598,13 @@ describe('perform', () => {
     it('refuses to delete the realm\'s last quiz', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const ante = await read()
-      await act({ kind: 'delete_quiz', quiz_id: openOf(ante).id })
+      await act({ kind: 'delete_quiz', quiz_id: openOf(ante)._id })
       expect(await read()).to.deep.eq(ante)
     })
 
     it('leaves the open quiz alone when some other quiz goes', async () => {
       const { act, read } = await seed(huntTitled(['one', 'two']), 0)
-      await act({ kind: 'delete_quiz', quiz_id: quizNamed(await read(), 'two').id })
+      await act({ kind: 'delete_quiz', quiz_id: quizNamed(await read(), 'two')._id })
       expect(openOf(await read()).title).to.eq('one')
     })
 
@@ -612,7 +612,7 @@ describe('perform', () => {
       const mine = await seed(huntTitled(['one', 'two']), 0)
       const theirs = await seed(huntTitled(['three', 'four']), 0)
       const ante = await theirs.read()
-      await mine.act({ kind: 'delete_quiz', quiz_id: quizNamed(ante, 'four').id })
+      await mine.act({ kind: 'delete_quiz', quiz_id: quizNamed(ante, 'four')._id })
       expect(await theirs.read()).to.deep.eq(ante)
     })
   })
@@ -620,13 +620,13 @@ describe('perform', () => {
   describe('set_lock', () => {
     it('freezes a quiz', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      await act({ kind: 'set_lock', quiz_id: openOf(await read()).id, locked: true })
+      await act({ kind: 'set_lock', quiz_id: openOf(await read())._id, locked: true })
       expect(openOf(await read()).locked).to.eq(true)
     })
 
     it('unfreezes one, from inside the lock', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
-      const quiz_id = openOf(await read()).id
+      const quiz_id = openOf(await read())._id
       await act({ kind: 'set_lock', quiz_id, locked: true })
       await act({ kind: 'set_lock', quiz_id, locked: false })
       expect(openOf(await read()).locked).to.eq(false)
@@ -635,8 +635,8 @@ describe('perform', () => {
     it('leaves the quiz exactly as it was', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const ante = await read()
-      await act({ kind: 'set_lock', quiz_id: openOf(ante).id, locked: true })
-      await act({ kind: 'set_lock', quiz_id: openOf(ante).id, locked: false })
+      await act({ kind: 'set_lock', quiz_id: openOf(ante)._id, locked: true })
+      await act({ kind: 'set_lock', quiz_id: openOf(ante)._id, locked: false })
       expect(openOf(await read()).questions).to.deep.eq(openOf(ante).questions)
     })
   })
@@ -645,7 +645,7 @@ describe('perform', () => {
     it('opens an empty review for the acting ident', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      await act({ kind: 'open_review', quiz_id: openOf(await read())._id }, ident_id)
       const reviews = await db.all(app.reviews.where({ ident_id }), LocalFirst)
       expect(reviews.map((review) => [review.overall, review.phase])).to.deep.eq([['', 'empty']])
     })
@@ -653,14 +653,14 @@ describe('perform', () => {
     it('is idempotent: opening it again writes nothing new', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
-      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      await act({ kind: 'open_review', quiz_id: openOf(await read())._id }, ident_id)
+      await act({ kind: 'open_review', quiz_id: openOf(await read())._id }, ident_id)
       expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.have.length(1)
     })
 
     it('gives each ident its own review of the same quiz', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
-      const quiz_id = openOf(await read()).id
+      const quiz_id = openOf(await read())._id
       const [aliceId, bobId] = [mintId(), mintId()]
       await act({ kind: 'open_review', quiz_id }, aliceId)
       await act({ kind: 'open_review', quiz_id }, bobId)
@@ -671,7 +671,7 @@ describe('perform', () => {
     it('works on a locked quiz, since reviewing one is the point', async () => {
       const { act, read, db } = await seed(openHunt(true))
       const ident_id = mintId()
-      await act({ kind: 'open_review', quiz_id: openOf(await read()).id }, ident_id)
+      await act({ kind: 'open_review', quiz_id: openOf(await read())._id }, ident_id)
       expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.have.length(1)
     })
   })
@@ -680,7 +680,7 @@ describe('perform', () => {
     it('writes the note and moves an empty review to draft', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      const quiz_id = openOf(await read()).id
+      const quiz_id = openOf(await read())._id
       await act({ kind: 'open_review', quiz_id }, ident_id)
       await act({ kind: 'set_overall', quiz_id, overall: 'Went well.' }, ident_id)
       const [review] = await db.all(app.reviews.where({ ident_id }), LocalFirst)
@@ -690,7 +690,7 @@ describe('perform', () => {
     it('leaves a shared review shared', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      const quiz_id = openOf(await read()).id
+      const quiz_id = openOf(await read())._id
       await act({ kind: 'open_review', quiz_id }, ident_id)
       await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, ident_id)
       await act({ kind: 'set_overall', quiz_id, overall: 'One more thought.' }, ident_id)
@@ -701,7 +701,7 @@ describe('perform', () => {
     it('writes nothing when the review has not been opened', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      await act({ kind: 'set_overall', quiz_id: openOf(await read()).id, overall: 'Too soon.' }, ident_id)
+      await act({ kind: 'set_overall', quiz_id: openOf(await read())._id, overall: 'Too soon.' }, ident_id)
       expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.deep.eq([])
     })
   })
@@ -710,7 +710,7 @@ describe('perform', () => {
     it('moves a review between draft and shared, both ways', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      const quiz_id = openOf(await read()).id
+      const quiz_id = openOf(await read())._id
       await act({ kind: 'open_review', quiz_id }, ident_id)
       await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, ident_id)
       const [shared] = await db.all(app.reviews.where({ ident_id }), LocalFirst)
@@ -723,7 +723,7 @@ describe('perform', () => {
     it('writes nothing when the review has not been opened', async () => {
       const { act, read, db } = await seed(huntOf(['1', 'a']))
       const ident_id = mintId()
-      await act({ kind: 'set_review_phase', quiz_id: openOf(await read()).id, phase: 'shared' }, ident_id)
+      await act({ kind: 'set_review_phase', quiz_id: openOf(await read())._id, phase: 'shared' }, ident_id)
       expect(await db.all(app.reviews.where({ ident_id }), LocalFirst)).to.deep.eq([])
     })
   })
@@ -737,7 +737,7 @@ describe('perform', () => {
       await act({ kind: 'replace_open_quiz', quiz: merged })
       const after = openOf(await read())
       expect([after.title, ...after.questions.map((question) => [question.title, question.clueing])]).to.deep.eq(['Merged', ['a', 'Imported'], ['fresh', '']])
-      expect(after.questions[0]?.id).to.eq(present(first).id)
+      expect(after.questions[0]?._id).to.eq(present(first)._id)
     })
 
     it('records the replies a merged quiz brings, once', async () => {

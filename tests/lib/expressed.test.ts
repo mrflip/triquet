@@ -28,7 +28,7 @@ function standardQuiz(questions: QuestionT[]): QuizT {
 
 /** What the standard column `label` came to for `question`, in a quiz of `questions` */
 function sumOf(questions: QuestionT[], question: QuestionT, label: string): Expressed.Expressed {
-  return Expressed.readingOf(Expressed.forQuiz(standardQuiz(questions), SeedExpressions), label, question.id)
+  return Expressed.readingOf(Expressed.forQuiz(standardQuiz(questions), SeedExpressions), label, question._id)
 }
 
 const valued = (val: number, stale = false): Expressed.Expressed => ({ status: 'value', val, stale })
@@ -84,14 +84,14 @@ describe('the standard sum columns', () => {
 
   it('borrow the chained-to question\'s hint for the BUT NOT columns', () => {
     const target = { ...Question.blank(), qnum: '2', hint_ishes: extracted([numeral('1994', 1994), wordish('twelve', 12)]) }
-    const question = { ...Question.blank(), qnum: '1', chains_to: target.id }
+    const question = { ...Question.blank(), qnum: '1', chains_to: target._id }
     expect(sumOf([question, target], question, 'butnot_full')).to.deep.eq(valued(2006))
     expect(sumOf([question, target], question, 'butnot_numeral')).to.deep.eq(valued(1994))
   })
 
   it('read this question\'s own hint separately from the one it borrows', () => {
     const target = { ...Question.blank(), qnum: '2', hint_ishes: extracted([numeral('1994', 1994)]) }
-    const question = { ...Question.blank(), qnum: '1', chains_to: target.id, hint_ishes: extracted([numeral('7', 7)]) }
+    const question = { ...Question.blank(), qnum: '1', chains_to: target._id, hint_ishes: extracted([numeral('7', 7)]) }
     expect(sumOf([question, target], question, 'hint_full')).to.deep.eq(valued(7))
     expect(sumOf([question, target], question, 'hint_numeral')).to.deep.eq(valued(7))
     expect(sumOf([question, target], question, 'butnot_full')).to.deep.eq(valued(1994))
@@ -104,13 +104,13 @@ describe('the standard sum columns', () => {
 
   it('leave the BUT NOT columns empty when the chained-to question has no extraction', () => {
     const target = { ...Question.blank(), qnum: '2' }
-    const question = { ...Question.blank(), qnum: '1', chains_to: target.id }
+    const question = { ...Question.blank(), qnum: '1', chains_to: target._id }
     expect(sumOf([question, target], question, 'butnot_full')).to.deep.eq(Nothing)
   })
 
   it('add the clueing and the borrowed hint for the widest reading', () => {
     const target = { ...Question.blank(), qnum: '2', hint_ishes: extracted([numeral('1994', 1994)]) }
-    const question = { ...Question.blank(), qnum: '1', chains_to: target.id, clueing_ishes: extracted([numeral('6', 6)]) }
+    const question = { ...Question.blank(), qnum: '1', chains_to: target._id, clueing_ishes: extracted([numeral('6', 6)]) }
     expect(sumOf([question, target], question, 'clueing_plus_butnot_full')).to.deep.eq(valued(2000))
   })
 
@@ -121,7 +121,7 @@ describe('the standard sum columns', () => {
 
   it('follow a chain by the label in force, so an author\'s override still finds its target', () => {
     const target = { ...Question.blank(), qnum: '2', forced_label: 'the_film', hint_ishes: extracted([numeral('1994', 1994)]) }
-    const question = { ...Question.blank(), qnum: '1', chains_to: target.id }
+    const question = { ...Question.blank(), qnum: '1', chains_to: target._id }
     expect(sumOf([question, target], question, 'butnot_full')).to.deep.eq(valued(1994))
   })
 
@@ -133,13 +133,13 @@ describe('the standard sum columns', () => {
 
     it('passes staleness on to a question borrowing a stale hint', () => {
       const target = { ...Question.blank(), qnum: '2', hint_ishes: extracted([numeral('1994', 1994)], true) }
-      const question = { ...Question.blank(), qnum: '1', chains_to: target.id }
+      const question = { ...Question.blank(), qnum: '1', chains_to: target._id }
       expect(sumOf([question, target], question, 'butnot_full')).to.deep.eq(valued(1994, true))
     })
 
     it('marks a combined sum stale when either half is', () => {
       const target = { ...Question.blank(), qnum: '2', hint_ishes: extracted([numeral('1994', 1994)], true) }
-      const question = { ...Question.blank(), qnum: '1', chains_to: target.id, clueing_ishes: extracted([numeral('6', 6)]) }
+      const question = { ...Question.blank(), qnum: '1', chains_to: target._id, clueing_ishes: extracted([numeral('6', 6)]) }
       expect(sumOf([question, target], question, 'clueing_plus_butnot_full')).to.deep.eq(valued(2000, true))
     })
   })
@@ -149,7 +149,7 @@ describe('the standard text columns', () => {
   const textQuiz = (patch: Partial<QuestionT>, label: string): Expressed.Expressed => {
     const question = { ...Question.blank(), ...patch }
     const quiz = { ...Quiz.blank('Words'), questions: [question], widgets: [Expressing.fill({ kind: 'expressing', label, expression_label: label })] }
-    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), label, question.id)
+    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), label, question._id)
   }
 
   const Cases: [string, Partial<QuestionT>, Expressed.Expressed, string][] = [
@@ -181,9 +181,9 @@ function columnQuiz(formula: string, questions: QuestionT[] = [loneQuestion({})]
 describe('clueing_with_butnot', () => {
   const foldedFor = (clueing: string, hint: string | null): Expressed.Expressed => {
     const target = { ...Question.blank(), qnum: '2', hint: hint ?? '' }
-    const question = { ...Question.blank(), qnum: '1', clueing, chains_to: hint === null ? null : target.id }
+    const question = { ...Question.blank(), qnum: '1', clueing, chains_to: hint === null ? null : target._id }
     const quiz = { ...Quiz.blank('Fold'), questions: [question, target], widgets: [Expressing.fill({ kind: 'expressing', label: 'folded', expression_label: 'clueing_with_butnot' })] }
-    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), 'folded', question.id)
+    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), 'folded', question._id)
   }
   const said = (val: string): Expressed.Expressed => ({ status: 'value', val, stale: false })
 
@@ -207,7 +207,7 @@ describe('clueing_with_butnot', () => {
 describe('forQuiz', () => {
   const readingFor = (formula: string): Expressed.Expressed => {
     const { quiz, expressions } = columnQuiz(formula)
-    return Expressed.readingOf(Expressed.forQuiz(quiz, expressions), 'col', present(quiz.questions[0]).id)
+    return Expressed.readingOf(Expressed.forQuiz(quiz, expressions), 'col', present(quiz.questions[0])._id)
   }
 
   const Cases: [string, Expressed.Expressed, string][] = [
@@ -242,14 +242,14 @@ describe('forQuiz', () => {
       ],
     }
     const expressed = Expressed.forQuiz(quiz, [Expression.fill({ label: 'broken', formula: '$sum(' }), Expression.fill({ label: 'steady', formula: '3' })])
-    expect(Expressed.readingOf(expressed, 'bad', aa.id).status).to.eq('error')
-    expect(Expressed.readingOf(expressed, 'fine', aa.id)).to.deep.eq(valued(3))
-    expect(Expressed.readingOf(expressed, 'fine', bb.id)).to.deep.eq(valued(3))
+    expect(Expressed.readingOf(expressed, 'bad', aa._id).status).to.eq('error')
+    expect(Expressed.readingOf(expressed, 'fine', aa._id)).to.deep.eq(valued(3))
+    expect(Expressed.readingOf(expressed, 'fine', bb._id)).to.deep.eq(valued(3))
   })
 
   it('reports an expression that has been deleted as an error, naming it', () => {
     const { quiz } = columnQuiz('1')
-    const reading = Expressed.readingOf(Expressed.forQuiz(quiz, []), 'col', present(quiz.questions[0]).id)
+    const reading = Expressed.readingOf(Expressed.forQuiz(quiz, []), 'col', present(quiz.questions[0])._id)
     expect(reading).to.deep.eq({ status: 'error', message: 'There is no expression called "custom" any more' })
   })
 
@@ -259,7 +259,7 @@ describe('forQuiz', () => {
     const beganAt = Date.now()
     const expressed = Expressed.forQuiz(quiz, expressions)
     expect(Date.now() - beganAt).to.be.lessThan(1500)
-    const readings = questions.map((question) => Expressed.readingOf(expressed, 'col', question.id))
+    const readings = questions.map((question) => Expressed.readingOf(expressed, 'col', question._id))
     expect(new Set(readings.map((reading) => reading.status))).to.deep.eq(new Set(['error']))
   })
 
@@ -277,13 +277,13 @@ describe('forQuiz', () => {
 
 describe('bagsFor', () => {
   const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film' }
-  const question = { ...Question.blank(), qnum: '1', title: 'The book', chains_to: target.id }
+  const question = { ...Question.blank(), qnum: '1', title: 'The book', chains_to: target._id }
   const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', questions: [question, target] }
   const bags = Expressed.bagsFor(quiz)
-  const bag = present(bags.get(question.id))
+  const bag = present(bags.get(question._id))
 
   it('gives each question its own bag, in the quiz\'s order', () => {
-    expect(bags.keys().toArray()).to.deep.eq([question.id, target.id])
+    expect(bags.keys().toArray()).to.deep.eq([question._id, target._id])
   })
 
   it('holds the question being worked out as `qn`, the very object also found in `qns`', () => {
@@ -315,7 +315,7 @@ describe('bagsFor', () => {
   })
 
   it('names an unchained question\'s chain as null', () => {
-    expect(present(bags.get(target.id)).qn.chains_to).to.eq(null)
+    expect(present(bags.get(target._id)).qn.chains_to).to.eq(null)
   })
 })
 
@@ -343,7 +343,7 @@ describe('what a bag exposes', () => {
     hint_ishes: { status: 'error' as const, message: 'Too many requests.', updated_at: 5, last_err: { message: 'Too many requests.', response: { ok: false }, at: 5 } },
   }
   const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', locked: true, questions: [answered] }
-  const { qn, quiz: quizBag } = present(Expressed.bagsFor(quiz).get(answered.id))
+  const { qn, quiz: quizBag } = present(Expressed.bagsFor(quiz).get(answered._id))
 
   it('gives a question only its exposed fields, with the label in force and the rank', () => {
     expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'clueing_ishes', 'guess', 'hint_ishes', 'rank'].toSorted(byText))

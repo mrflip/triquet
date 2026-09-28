@@ -9,7 +9,7 @@ import { present } from '../support/present'
 
 /** A hunt of one realm, `home`, holding `quizzes` */
 function homeHolding(quizzes: QuizDNA[], extra: object = {}) {
-  return { id: mintId(), label: 'quiet_otter', realms: [{ id: mintId(), label: 'home', quizzes }], ...extra }
+  return { _id: mintId(), label: 'quiet_otter', realms: [{ _id: mintId(), label: 'home', quizzes }], ...extra }
 }
 
 describe('Hunt.fill', () => {
@@ -31,9 +31,9 @@ describe('Hunt.fill', () => {
 
   const Refused: [object, string][] = [
     [homeHolding([]),                                                                                              'a realm holding no quiz'],
-    [{ id: mintId(), label: 'quiet_otter', realms: [] },                                                         'a hunt holding no realm'],
-    [{ id: mintId(), label: 'Quiet Otter', realms: [{ id: mintId(), quizzes: [Quiz.blank()] }] },                 'a label that is not one'],
-    [{ id: mintId(), label: 'quiet_otter', realms: [{ id: mintId(), quizzes: [Quiz.blank()] }, { id: mintId(), quizzes: [Quiz.blank()] }] }, 'two realms sharing a label'],
+    [{ _id: mintId(), label: 'quiet_otter', realms: [] },                                                         'a hunt holding no realm'],
+    [{ _id: mintId(), label: 'Quiet Otter', realms: [{ _id: mintId(), quizzes: [Quiz.blank()] }] },                 'a label that is not one'],
+    [{ _id: mintId(), label: 'quiet_otter', realms: [{ _id: mintId(), quizzes: [Quiz.blank()] }, { _id: mintId(), quizzes: [Quiz.blank()] }] }, 'two realms sharing a label'],
     [homeHolding([Quiz.blank('', 'princes'), Quiz.blank('', 'princes')]),                                         'two quizzes of a realm sharing a label'],
   ]
   for (const [dna, describes] of Refused) {
@@ -44,9 +44,9 @@ describe('Hunt.fill', () => {
 
   it('lets two realms each hold a quiz of one label', () => {
     const hunt = Hunt.fill({
-      id:     mintId(),
+      _id:    mintId(),
       label:  'quiet_otter',
-      realms: [{ id: mintId(), label: 'home', quizzes: [Quiz.blank('', 'princes')] }, { id: mintId(), label: 'away', quizzes: [Quiz.blank('', 'princes')] }],
+      realms: [{ _id: mintId(), label: 'home', quizzes: [Quiz.blank('', 'princes')] }, { _id: mintId(), label: 'away', quizzes: [Quiz.blank('', 'princes')] }],
     })
     expect(Hunt.quizzesOf(hunt).map((quiz) => quiz.label)).to.deep.eq(['princes', 'princes'])
   })
@@ -108,7 +108,7 @@ describe('Hunt.expressionUsage', () => {
   it('counts the widgets, across every quiz of every realm, that work an expression', () => {
     const blank = Hunt.blank()
     const [first] = Hunt.quizzesOf(blank)
-    const hunt = Hunt.fill({ ...blank, realms: [...blank.realms, { id: mintId(), label: 'away', quizzes: [{ ...present(first), id: mintId() }] }] })
+    const hunt = Hunt.fill({ ...blank, realms: [...blank.realms, { _id: mintId(), label: 'away', quizzes: [{ ...present(first), _id: mintId() }] }] })
     expect([Hunt.expressionUsage(hunt, 'clueing_full'), Hunt.expressionUsage(hunt, 'answer_reversed')]).to.deep.eq([2, 0])
   })
 })

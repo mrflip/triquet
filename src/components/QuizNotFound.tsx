@@ -42,7 +42,7 @@ export function QuizNotFound({ labels, hunt }: Readonly<QuizNotFoundProps>) {
         <Panel title={`Quizzes of ${hunt.title}`} blurb="Every quiz this hunt holds.">
           <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
             {hunt.realms.flatMap((realm) => realm.quizzes).map((quiz) => (
-              <Button key={quiz.id} size="small" variant="outlined" component={NextLink} href={addressOf(hunt, quiz)}>
+              <Button key={quiz._id} size="small" variant="outlined" component={NextLink} href={addressOf(hunt, quiz)}>
                 {quiz.locked ? '🔒 ' : ''}{quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
               </Button>
             ))}
@@ -68,7 +68,7 @@ function RepoList({ hunt }: Readonly<{ hunt: HuntT | null }>) {
     return () => { current = false }
   }, [])
 
-  const kept = (repo: RepoSummary) => hunt?.realms.flatMap((realm) => realm.quizzes).find((quiz) => quiz.id === repo.id)
+  const kept = (repo: RepoSummary) => hunt?.realms.flatMap((realm) => realm.quizzes).find((quiz) => quiz._id === repo.id)
   return (
     <Panel title="History repositories" blurb="Each quiz's history is kept in a git repository in this browser. A deleted quiz leaves its repository behind.">
       {repos === null && <p className={styles.microcopy}>Looking&hellip;</p>}

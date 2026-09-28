@@ -45,7 +45,7 @@ export function bulkTargetsOf(questions: readonly QuestionT[]): BulkTarget[] {
     { textkind: 'hint' as const,    text: question.hint.trim() },
   ])
     .filter((slot) => slot.text !== '')
-    .map((slot) => ({ key: bulkKeyFor(question.id, slot.textkind), question_id: question.id, ...slot })))
+    .map((slot) => ({ key: bulkKeyFor(question._id, slot.textkind), question_id: question._id, ...slot })))
 }
 
 /**

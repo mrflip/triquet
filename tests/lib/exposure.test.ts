@@ -69,7 +69,7 @@ describe('tableOf', () => {
 
   it('names a chain by the target\'s label, and a label by the one in force', () => {
     const target = { ...Question.blank(), forced_label: 'the_film' }
-    const question = { ...Question.blank(), forced_label: 'the_book', chains_to: target.id }
+    const question = { ...Question.blank(), forced_label: 'the_book', chains_to: target._id }
     const { header, rows } = tableOf(quizOf([question, target]))
     const chain = header.indexOf('question.chains_to')
     const label = header.indexOf('question.label')

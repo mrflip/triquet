@@ -31,7 +31,7 @@ export const OrderFieldkey = 'order'
 export const SubjectMax = 72
 
 /** Fields whose movement is never worth recording: identity, and the questions handled apart */
-const UninterestingFieldkeys = new Set(['id', 'questions'])
+const UninterestingFieldkeys = new Set(['_id', 'questions'])
 
 export type Change = {
   /** `quiz` for the quiz's own fields, otherwise the question's label as it now stands */
@@ -137,16 +137,16 @@ function fieldChanges(scope: string, before: object, after: object): Change[] {
 
 /** Which questions arrived, left, or had a field moved, each filed under its current label */
 function questionChanges(before: QuizT, after: QuizT): Change[] {
-  const wasById = new Map(before.questions.map((question) => [question.id, question]))
-  const nowById = new Map(after.questions.map((question) => [question.id, question]))
+  const wasById = new Map(before.questions.map((question) => [question._id, question]))
+  const nowById = new Map(after.questions.map((question) => [question._id, question]))
 
   const gone = before.questions
-    .filter((question) => ! nowById.has(question.id))
+    .filter((question) => ! nowById.has(question._id))
     .map((question): Change => ({ scope: Labelmaker.effectiveLabelOf(question), fieldkey: null, changekind: 'dropped' }))
 
   const here = after.questions.flatMap((question): Change[] => {
     const scope = Labelmaker.effectiveLabelOf(question)
-    const was = wasById.get(question.id)
+    const was = wasById.get(question._id)
     if (! was) { return [{ scope, fieldkey: null, changekind: 'added' }] }
     return fieldChanges(scope, was, question)
   })
@@ -156,10 +156,10 @@ function questionChanges(before: QuizT, after: QuizT): Change[] {
 
 /** Whether the questions the two readings share are in a different sequence */
 function orderChanges(before: QuizT, after: QuizT): Change[] {
-  const nowIds = new Set(after.questions.map((question) => question.id))
-  const wasIds = new Set(before.questions.map((question) => question.id))
-  const wasOrder = before.questions.map((question) => question.id).filter((id) => nowIds.has(id))
-  const nowOrder = after.questions.map((question) => question.id).filter((id) => wasIds.has(id))
+  const nowIds = new Set(after.questions.map((question) => question._id))
+  const wasIds = new Set(before.questions.map((question) => question._id))
+  const wasOrder = before.questions.map((question) => question._id).filter((id) => nowIds.has(id))
+  const nowOrder = after.questions.map((question) => question._id).filter((id) => wasIds.has(id))
   return _.isEqual(wasOrder, nowOrder) ? [] : [{ scope: QuizScope, fieldkey: OrderFieldkey, changekind: 'reordered' }]
 }
 

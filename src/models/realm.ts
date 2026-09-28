@@ -13,7 +13,7 @@ export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, row
     .describe('What the realm is called on screen; a blank one displays as its label titleized.')
 
   const realm = obj({
-    id:      treeid,
+    _id:     treeid,
     label:   realmLabel.default(HomeRealmLabel),
     title:   title.default(''),
     quizzes: arr(QuizValidators.quiz).min(1)
@@ -39,7 +39,7 @@ export type RealmT   = Z.output<typeof RealmValidators.realm>
 
 /** A division of a hunt, holding quizzes */
 export class Realm implements RealmT {
-  declare id:      string
+  declare _id:      string
   declare label:   string
   declare title:   string
   declare quizzes: QuizT[]

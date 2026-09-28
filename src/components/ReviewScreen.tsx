@@ -37,13 +37,13 @@ const ButnotHeightPx = 240
  */
 export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNotice }: Readonly<ReviewScreenProps>) {
   useEffect(() => {
-    dispatch({ kind: 'open_review', quiz_id: quiz.id })
-  }, [dispatch, quiz.id, ident.id])
+    dispatch({ kind: 'open_review', quiz_id: quiz._id })
+  }, [dispatch, quiz._id, ident._id])
 
-  const own = reviewRowFor(reviews, ident.id) ?? null
+  const own = reviewRowFor(reviews, ident._id) ?? null
   const questions = useMemo(() => Rank.inRankOrder(quiz.questions), [quiz.questions])
   const { draft, onChange, onBlur } = useDraft(own?.overall ?? '', (overall) => {
-    dispatch({ kind: 'set_overall', quiz_id: quiz.id, overall })
+    dispatch({ kind: 'set_overall', quiz_id: quiz._id, overall })
   })
   const phase = own?.phase ?? 'empty'
 
@@ -55,9 +55,9 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
         <Stack spacing={2} sx={{ my: 3 }}>
           {questions.map((question) => (
             <ReviewQuestionRow
-              key={question.id}
+              key={question._id}
               question={question}
-              chainTarget={questions.find((other) => other.id === question.chains_to) ?? null}
+              chainTarget={questions.find((other) => other._id === question.chains_to) ?? null}
             />
           ))}
         </Stack>
@@ -75,13 +75,13 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
           <Button
             variant="contained"
             disabled={phase === 'shared'}
-            onClick={() => { dispatch({ kind: 'set_review_phase', quiz_id: quiz.id, phase: 'shared' }) }}
+            onClick={() => { dispatch({ kind: 'set_review_phase', quiz_id: quiz._id, phase: 'shared' }) }}
           >
             Share with the smiths
           </Button>
           <Button
             disabled={phase !== 'shared'}
-            onClick={() => { dispatch({ kind: 'set_review_phase', quiz_id: quiz.id, phase: 'draft' }) }}
+            onClick={() => { dispatch({ kind: 'set_review_phase', quiz_id: quiz._id, phase: 'draft' }) }}
           >
             Withdraw
           </Button>

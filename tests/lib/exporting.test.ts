@@ -9,7 +9,7 @@ import { present } from '../support/present'
 /** A quiz whose first question, `leon`, chains to its second, `nantes`, held under a forced label */
 function chainedQuiz(): QuizT {
   const nantes = { ...Question.blank(), label: 'nantes_gen', forced_label: 'nantes', title: 'Nantes' }
-  const leon = { ...Question.blank(), label: 'leon', title: 'Leon', chains_to: nantes.id }
+  const leon = { ...Question.blank(), label: 'leon', title: 'Leon', chains_to: nantes._id }
   return { ...Quiz.blank('Princes', 'princes'), questions: [leon, nantes] }
 }
 
@@ -51,7 +51,7 @@ describe('quizExported', () => {
     const unchained = { ...quiz, questions: quiz.questions.map((question) => ({ ...question, chains_to: null })) }
     const outcome = Importing.importInto(unchained, JSON.stringify(Exporting.quizExported(quiz)))
     const [leon, nantes] = present(outcome.quiz).questions
-    expect(leon?.chains_to).to.eq(nantes?.id)
+    expect(leon?.chains_to).to.eq(nantes?._id)
     expect(outcome.log.flatMap((entry) => entry.issues)).to.deep.eq([])
   })
 })

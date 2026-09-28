@@ -291,10 +291,12 @@ export function quizFrom(rows: QuizRows): QuizT {
   const idForLabel = new Map(rows.questions.map((question) => [Labelmaker.effectiveLabelOf(question), question.id]))
   const questions = rows.questions.map((row): QuestionT => {
     const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
-    return { ..._.omit(row, ['quiz_id', 'position']), chains_to: target === row.id ? null : target, ...resultsFor(row, latest) }
+    const question = { ..._.omit(row, ['id', 'quiz_id', 'position']), _id: row.id, chains_to: target === row.id ? null : target }
+    return { ...question, ...resultsFor(question, latest) }
   })
   return {
-    ..._.omit(rows.quiz, ['realm_id']),
+    ..._.omit(rows.quiz, ['id', 'realm_id']),
+    _id:     rows.quiz.id,
     questions,
     widgets: rows.widgets.map((row) => widgetFrom(row)),
     columns: rows.columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
@@ -316,7 +318,7 @@ export function huntFrom(held: HeldRows, hunt_id: string): HuntT | null {
   const rows = huntRowsOf(held, hunt_id)
   if (! rows || rows.realms.length === 0) { return null }
   const realms = rows.realms.map((realm): RealmT => ({
-    id:      realm.id,
+    _id:     realm.id,
     label:   realm.label,
     title:   realm.title === '' ? Labelmaker.titleize(realm.label) : realm.title,
     quizzes: rows.quizzes.filter((quiz) => quiz.realm_id === realm.id).map((quiz) => quizRowsOf(held, quiz.id)).filter((each) => each !== null).map((each) => quizFrom(each)),
@@ -324,7 +326,7 @@ export function huntFrom(held: HeldRows, hunt_id: string): HuntT | null {
   if (realms.some((realm) => realm.quizzes.length === 0)) { return null }
   const { id, label, forced_label, title } = rows.hunt
   return {
-    id,
+    _id:         id,
     label,
     forced_label,
     title:       title === '' ? Labelmaker.titleize(Labelmaker.effectiveLabelOf(rows.hunt)) : title,

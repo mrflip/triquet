@@ -44,7 +44,7 @@ export async function openTestApp(): Promise<PolicyTestApp> {
  * @example huntHolding([Quiz.blank('Quiz one')])
  */
 export function huntHolding(quizzes: readonly QuizT[], expressions: readonly ExpressionT[] = []): HuntT {
-  return Hunt.fill({ id: mintId(), label: `hunt_${mintId().slice(-8)}`, realms: [{ id: mintId(), label: 'home', quizzes: [...quizzes] }], expressions: [...expressions] })
+  return Hunt.fill({ _id: mintId(), label: `hunt_${mintId().slice(-8)}`, realms: [{ _id: mintId(), label: 'home', quizzes: [...quizzes] }], expressions: [...expressions] })
 }
 
 /** A seeded hunt as a test reads it back: the hunt, its home realm's quizzes, its expressions, and which quiz the test has open */
@@ -86,7 +86,7 @@ export async function seedHunt(testApp: PolicyTestApp, hunt: HuntT, open_idx = 0
   const { value: hunt_id } = await db.transaction((tx) => writeHunt(tx, hunt))
   const loaded = present(await loadHunt(db, hunt_id), 'the seeded hunt')
   const realm = present(loaded.realms[0], 'the seeded realm')
-  const open = { hunt_id, realm_id: realm.id, quiz_id: present(realm.quizzes[open_idx], 'the quiz to open').id }
+  const open = { hunt_id, realm_id: realm._id, quiz_id: present(realm.quizzes[open_idx], 'the quiz to open')._id }
   const read = async (): Promise<Seen> => {
     const now = present(await loadHunt(db, hunt_id), 'the seeded hunt')
     return { hunt: now, quizzes: present(now.realms[0]).quizzes, expressions: now.expressions, open_quiz_id: open.quiz_id }
@@ -100,5 +100,5 @@ export async function seedHunt(testApp: PolicyTestApp, hunt: HuntT, open_idx = 0
 
 /** The quiz a seeded test has open, as `seen` has it */
 export function openOf(seen: Seen): QuizT {
-  return present(seen.quizzes.find((quiz) => quiz.id === seen.open_quiz_id), 'the open quiz')
+  return present(seen.quizzes.find((quiz) => quiz._id === seen.open_quiz_id), 'the open quiz')
 }

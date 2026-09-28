@@ -49,7 +49,7 @@ describe('sortQuestions', () => {
   it('settles ties by where the questions already sit', () => {
     const questions = questionsOf(['', 'same'], ['', 'SAME'], ['', 'same'])
     const sorted = Sortings.sortQuestions(questions, byAnswer, false)
-    expect(sorted.map((question) => question.id)).to.deep.eq(questions.map((question) => question.id))
+    expect(sorted.map((question) => question._id)).to.deep.eq(questions.map((question) => question._id))
   })
 
   it('sorts text case-insensitively', () => {
@@ -110,8 +110,8 @@ describe('sortValueFor', () => {
     const questions = questionsOf(['', 'aardvark'], ['', 'zebra'], ['', 'moose'])
     const [aardvark, zebra, moose] = questions.map((question) => present(question))
     const chained = [
-      { ...present(aardvark), chains_to: present(zebra).id },
-      { ...present(zebra), chains_to: present(moose).id },
+      { ...present(aardvark), chains_to: present(zebra)._id },
+      { ...present(zebra), chains_to: present(moose)._id },
       present(moose),
     ]
     const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('column:chains_to', quizOf(chained), NoneExpressed), false)
@@ -121,7 +121,7 @@ describe('sortValueFor', () => {
   it('reads an unchained question as having no value, so it sinks', () => {
     const questions = questionsOf(['', 'a'], ['', 'b'])
     const [first, second] = questions.map((question) => present(question))
-    const chained = [present(first), { ...present(second), chains_to: present(first).id }]
+    const chained = [present(first), { ...present(second), chains_to: present(first)._id }]
     const sorted = Sortings.sortQuestions(chained, Sortings.sortValueFor('column:chains_to', quizOf(chained), NoneExpressed), false)
     expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
@@ -130,9 +130,9 @@ describe('sortValueFor', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const [aa, bb, cc] = questions.map((question) => present(question))
     const expressed = new Map([['size', new Map<string, Expressed>([
-      [present(aa).id, { status: 'value', val: 30, stale: false }],
-      [present(bb).id, { status: 'value', val: 4, stale: false }],
-      [present(cc).id, { status: 'value', val: 200, stale: false }],
+      [present(aa)._id, { status: 'value', val: 30, stale: false }],
+      [present(bb)._id, { status: 'value', val: 4, stale: false }],
+      [present(cc)._id, { status: 'value', val: 200, stale: false }],
     ])]])
     const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:size', sizedQuiz(questions), expressed), false)
     expect(answers(sorted)).to.deep.eq(['b', 'a', 'c'])
@@ -142,9 +142,9 @@ describe('sortValueFor', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const [aa, bb, cc] = questions.map((question) => present(question))
     const expressed = new Map([['size', new Map<string, Expressed>([
-      [present(aa).id, { status: 'nothing' }],
-      [present(bb).id, { status: 'value', val: 4, stale: false }],
-      [present(cc).id, { status: 'error', message: 'nope' }],
+      [present(aa)._id, { status: 'nothing' }],
+      [present(bb)._id, { status: 'value', val: 4, stale: false }],
+      [present(cc)._id, { status: 'error', message: 'nope' }],
     ])]])
     for (const descending of [false, true]) {
       const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:size', sizedQuiz(questions), expressed), descending)

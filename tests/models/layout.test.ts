@@ -27,7 +27,7 @@ describe('defaultLayoutFor', () => {
   })
 
   it('is a quiz\'s widgets and columns that the quiz accepts, every column showing something the quiz has', () => {
-    expect(() => Quiz.fill({ id: Quiz.blank().id, ...layout })).to.not.throw()
+    expect(() => Quiz.fill({ _id: Quiz.blank()._id, ...layout })).to.not.throw()
   })
 
   it('leaves out a sum whose expression the workspace no longer has, widget and column together', () => {

@@ -21,6 +21,35 @@ another checkout's server held 3002, `pnpm test:e2e` quietly tested that checkou
 wrote its throwaway hunts into that server's database. `pnpm test:e2e:agent` sidesteps it. Should
 `reuseExistingServer` check that the server is this checkout's?
 
+## 2026-09-27: Convex phase 0, the spike: three things for you
+
+Branch `20260927-convex_spike`. Convex is installed beside Jazz, the app still runs on Jazz,
+and the plan's eight phase 0 questions have answers in `whiteboard/convex_yay-progress.md`.
+The short of it: the Zod bridge converts every row validator we have, our patched Zod and error
+map run inside Convex, and a mutation round trip on a local backend is about 30 ms. The tree
+types now carry `_id` (the Jazz rows keep `id` until phase 2).
+
+What I need from you before phase 1:
+
+1. **Isolation.** Convex's own local deployments are one per checkout: a second one, named by
+   its own env file, silently reuses the first one's data and port. What works is the backend
+   binary the CLI already downloads, one per role with its own ports and data directory. I'd
+   like to write `scripts/convex_backend <role>` for it, on ports 34xx and 35xx (Jazz holds 32xx
+   until phase 2), and use it for your dev server too. Yes, or another way?
+2. **Doppler**, once (1) is settled: four variables per dev config, listed in the progress
+   document's *For the Coach*.
+3. **`npx convex ai-files install`** was refused me, as self-modification: it writes into
+   `CLAUDE.md`, `AGENTS.md` and the agent skills. Run it yourself if you want Convex's rules file
+   in the repo; I worked from the same guidelines, fetched.
+
+The e2e suite was flaky here under a load average near 20: a different handful of Jazz-bound
+specs failed each full run, and every one passed alone. At three workers, 151 of 152 passed.
+Worth one run on a quiet machine before this merges.
+
+One config change you might trip over: `tsconfig.json` no longer maps `#inspect-env` to the
+node half of `inspectify`. Convex's bundler honoured that path and pulled `node:util` into its
+V8 runtime; `package.json`'s imports map already picks the right half everywhere.
+
 ## 2026-09-27: Exports and quiz histories carry no ids
 
 The Export box and each quiz's `.tq.json` in its history now name everything by label: no ids

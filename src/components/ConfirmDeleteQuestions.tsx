@@ -35,7 +35,7 @@ export function ConfirmDeleteQuestions({ doomed, onConfirm, onClose }: Readonly<
       <DialogContent>
         <List dense disablePadding>
           {doomed.slice(0, NamedQty).map((question) => (
-            <ListItem key={question.id} disableGutters>
+            <ListItem key={question._id} disableGutters>
               <ListItemText primary={question.title || question.label} secondary={question.qnum === '' ? null : `Q# ${question.qnum}`} />
             </ListItem>
           ))}

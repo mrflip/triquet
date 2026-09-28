@@ -77,10 +77,10 @@ export function createCommitScheduler(opts: Readonly<CommitSchedulerOpts>): Comm
 
   return {
     note(before, after) {
-      const waiting = pending.get(after.quiz.id)
+      const waiting = pending.get(after.quiz._id)
       if (waiting) { waiting.latest = after; return }
-      const timer = setTimeout(() => { void flush(after.quiz.id) }, commit_debounce_seconds * 1000)
-      pending.set(after.quiz.id, { baseline: before, latest: after, timer })
+      const timer = setTimeout(() => { void flush(after.quiz._id) }, commit_debounce_seconds * 1000)
+      pending.set(after.quiz._id, { baseline: before, latest: after, timer })
     },
     flush,
     async flushAll() {

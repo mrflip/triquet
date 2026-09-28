@@ -32,10 +32,10 @@ export function chainSnippet(text: string): string {
  * @returns A new array; questions with sound chains are returned unchanged.
  */
 export function clearDanglingChains(questions: readonly QuestionT[]): QuestionT[] {
-  const present = new Set(questions.map((question) => question.id))
+  const present = new Set(questions.map((question) => question._id))
   return questions.map((question) => {
     if (question.chains_to === null) { return question }
-    const sound = question.chains_to !== question.id && present.has(question.chains_to)
+    const sound = question.chains_to !== question._id && present.has(question.chains_to)
     return sound ? question : { ...question, chains_to: null }
   })
 }
@@ -55,7 +55,7 @@ export function clearDanglingChains(questions: readonly QuestionT[]): QuestionT[
  * @returns A new array holding every question exactly once.
  */
 export function chainOrder(questions: readonly QuestionT[], descending: boolean): QuestionT[] {
-  const questionForId = new Map(questions.map((question) => [question.id, question]))
+  const questionForId = new Map(questions.map((question) => [question._id, question]))
   // Rank order is what "lowest Q# first" means. Walking backward reverses the numbered
   // questions but leaves the unnumbered ones at the end, where they belong in either direction:
   // an absent Q# is not a high one.
@@ -70,15 +70,15 @@ export function chainOrder(questions: readonly QuestionT[], descending: boolean)
 
   const stepFrom = (question: QuestionT): QuestionT | null => {
     if (descending) {
-      return (chainedInto.get(question.id) ?? []).find((into) => ! placed.has(into.id)) ?? null
+      return (chainedInto.get(question._id) ?? []).find((into) => ! placed.has(into._id)) ?? null
     }
     return question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
   }
 
   for (const root of roots) {
     let curr: QuestionT | null = root
-    while (curr !== null && ! placed.has(curr.id)) {
-      placed.add(curr.id)
+    while (curr !== null && ! placed.has(curr._id)) {
+      placed.add(curr._id)
       order.push(curr)
       curr = stepFrom(curr)
     }

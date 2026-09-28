@@ -32,11 +32,11 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
         className={clsx(styles.field, styles.fieldData)}
         style={{ width: 'auto', minWidth: 220 }}
         aria-label="Open quiz"
-        value={openQuiz.id}
+        value={openQuiz._id}
         onChange={(event) => { onOpen(event.target.value) }}
       >
         {quizzes.map((quiz) => (
-          <option key={quiz.id} value={quiz.id}>
+          <option key={quiz._id} value={quiz._id}>
             {quiz.locked ? '🔒 ' : ''}{quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
           </option>
         ))}
@@ -52,7 +52,7 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
           <Button
             size="small" variant="contained" color="error"
             onClick={() => {
-              onDelete(openQuiz.id)
+              onDelete(openQuiz._id)
               setConfirming(false)
             }}
           >

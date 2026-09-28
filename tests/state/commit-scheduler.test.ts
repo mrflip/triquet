@@ -122,7 +122,7 @@ describe('createCommitScheduler, at 2 seconds', () => {
     const scheduler = schedulerOf(2, landed)
     const one = Quiz.blank('One')
     scheduler.note(one, titled(one, 'Two'))
-    await scheduler.flush(one.id)
+    await scheduler.flush(one._id)
     expect(landed).to.deep.eq([{ was: 'One', now: 'Two' }])
     await sec(60)
     expect(landed).to.have.lengthOf(1)
