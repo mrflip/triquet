@@ -20,7 +20,7 @@ export const BlankQuestionQty = 5
 /** The version every quiz starts on, and so the branch its history begins on */
 export const DefaultVersion = 'main'
 
-export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, rowid, treeid }) => {
+export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -65,7 +65,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     .describe('One trivia quiz. Chain integrity and column labels are checked here rather than on the question or the column, because each is only meaningful relative to its siblings.')
 
   const row = obj({
-    realm_id:        rowid
+    realm_id:        zid('realms')
       .describe('The realm this quiz belongs to.'),
     title:           titleish,
     label:           quizLabel,

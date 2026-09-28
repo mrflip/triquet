@@ -1,6 +1,8 @@
 import * as Z from 'zod'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { schema as JZS } from 'jazz-tools'
+import type { GenericId } from 'convex/values'
+import { zodOutputToConvex } from 'convex-helpers/server/zod4'
 import { app, schema } from '../../src/db/schema'
 import { isJsonText } from '../../src/db/json-text'
 import { plain } from '../../src/lib/validator'
@@ -18,12 +20,13 @@ import { ReviewValidators } from '../../src/models/review'
 
 // Each table is declared twice on purpose: the Jazz table in `db/schema.ts`, and the Zod row
 // validator in its model, which says what a column cannot. This walks every table and holds
-// the two to the same shape.
+// the two to the same shape. The row validators are Convex's now too: a pointer to a row is a
+// Convex id, and an identing names its browser, which Jazz has no column for.
 
 /** Every table, and the row validator its writes pass through */
 const RowValidators = {
   idents:      IdentValidators.row,
-  identings:   IdentingValidators.row,
+  identings:   IdentingValidators.row.omit({ browser_key: true }),
   hunts:       HuntValidators.row,
   realms:      RealmValidators.row,
   expressions: ExpressionValidators.row,
@@ -35,7 +38,7 @@ const RowValidators = {
   reviews:     ReviewValidators.row,
 } as const
 
-type JsonSchemaish = { type?: string | string[], anyOf?: JsonSchemaish[], oneOf?: JsonSchemaish[], enum?: unknown[], const?: unknown, format?: string }
+type JsonSchemaish = { type?: string | string[], anyOf?: JsonSchemaish[], oneOf?: JsonSchemaish[], enum?: unknown[], const?: unknown }
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
@@ -52,19 +55,20 @@ function basetypesOf(jsonSchema: JsonSchemaish): Set<string> {
   return new Set([...own, ...branches.flatMap((branch) => [...basetypesOf(branch)])])
 }
 
-/** Every string format a schema names, through its unions */
-function formatsOf(jsonSchema: JsonSchemaish): Set<string> {
-  const branches = [...(jsonSchema.anyOf ?? []), ...(jsonSchema.oneOf ?? [])]
-  const own = jsonSchema.format === undefined ? [] : [jsonSchema.format]
-  return new Set([...own, ...branches.flatMap((branch) => [...formatsOf(branch)])])
-}
-
 /** Every value a closed set allows, through its unions */
 function variantsOf(jsonSchema: JsonSchemaish): string[] {
   const branches = [...(jsonSchema.anyOf ?? []), ...(jsonSchema.oneOf ?? [])]
   const own = [...(jsonSchema.enum ?? []), ...(jsonSchema.const === undefined ? [] : [jsonSchema.const])]
   return [...own, ...branches.flatMap((branch) => variantsOf(branch))].filter((val): val is string => typeof val === 'string').toSorted(alphabetically)
 }
+
+/** Whether the bridge to Convex makes `field` an id of some table */
+function isPointer(field: Z.ZodType): boolean {
+  return zodOutputToConvex(field).kind === 'id'
+}
+
+/** A row's type with each Convex id widened to the string Jazz holds it as */
+type IdsAsStrings<RT> = { [KK in keyof RT]: RT[KK] extends GenericId<string> ? string : RT[KK] }
 
 /** What JSON type a Jazz column's values take */
 const BasetypeOfColumn: Record<string, string> = { Text: 'string', Uuid: 'string', Enum: 'string', Integer: 'integer', Double: 'number', Boolean: 'boolean' }
@@ -104,6 +108,10 @@ describe('every table and its row validator', () => {
             expect(columnType.type).to.eq('Text')
             expect([...basetypes].filter((basetype) => basetype !== 'null')).not.to.deep.eq(['string'])
           })
+        } else if (isPointer(field)) {
+          it(`give ${column.name} a row id in Jazz and a Convex id in the validator`, () => {
+            expect(columnType.type).to.eq('Uuid')
+          })
         } else {
           it(`give ${column.name} the same base type`, () => {
             const expected = BasetypeOfColumn[columnType.type]
@@ -118,7 +126,7 @@ describe('every table and its row validator', () => {
         }
 
         it(`agree whether ${column.name} points at a row`, () => {
-          expect(formatsOf(jsonSchema).has('uuid')).to.eq(column.references !== undefined)
+          expect(isPointer(field)).to.eq(column.references !== undefined)
         })
       }
     })
@@ -126,16 +134,16 @@ describe('every table and its row validator', () => {
 
   it('give every row the type Jazz reads back, apart from its id', () => {
     type RowOf<TT> = Omit<JZS.RowOf<TT>, 'id'>
-    expectTypeOf<Z.output<typeof IdentValidators.row>>().toEqualTypeOf<RowOf<typeof app.idents>>()
-    expectTypeOf<Z.output<typeof IdentingValidators.row>>().toEqualTypeOf<RowOf<typeof app.identings>>()
-    expectTypeOf<Z.output<typeof HuntValidators.row>>().toEqualTypeOf<RowOf<typeof app.hunts>>()
-    expectTypeOf<Z.output<typeof RealmValidators.row>>().toEqualTypeOf<RowOf<typeof app.realms>>()
-    expectTypeOf<Z.output<typeof ExpressionValidators.row>>().toEqualTypeOf<RowOf<typeof app.expressions>>()
-    expectTypeOf<Z.output<typeof QuizValidators.row>>().toEqualTypeOf<RowOf<typeof app.quizzes>>()
-    expectTypeOf<Z.output<typeof WidgetValidators.row>>().toEqualTypeOf<RowOf<typeof app.widgets>>()
-    expectTypeOf<Z.output<typeof ColumnValidators.row>>().toEqualTypeOf<RowOf<typeof app.columns>>()
-    expectTypeOf<Z.output<typeof QuestionValidators.row>>().toEqualTypeOf<RowOf<typeof app.questions>>()
-    expectTypeOf<Z.output<typeof BottingValidators.row>>().toEqualTypeOf<RowOf<typeof app.bottings>>()
-    expectTypeOf<Z.output<typeof ReviewValidators.row>>().toEqualTypeOf<RowOf<typeof app.reviews>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof IdentValidators.row>>>().toEqualTypeOf<RowOf<typeof app.idents>>()
+    expectTypeOf<IdsAsStrings<Omit<Z.output<typeof IdentingValidators.row>, 'browser_key'>>>().toEqualTypeOf<RowOf<typeof app.identings>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof HuntValidators.row>>>().toEqualTypeOf<RowOf<typeof app.hunts>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof RealmValidators.row>>>().toEqualTypeOf<RowOf<typeof app.realms>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof ExpressionValidators.row>>>().toEqualTypeOf<RowOf<typeof app.expressions>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof QuizValidators.row>>>().toEqualTypeOf<RowOf<typeof app.quizzes>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof WidgetValidators.row>>>().toEqualTypeOf<RowOf<typeof app.widgets>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof ColumnValidators.row>>>().toEqualTypeOf<RowOf<typeof app.columns>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof QuestionValidators.row>>>().toEqualTypeOf<RowOf<typeof app.questions>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof BottingValidators.row>>>().toEqualTypeOf<RowOf<typeof app.bottings>>()
+    expectTypeOf<IdsAsStrings<Z.output<typeof ReviewValidators.row>>>().toEqualTypeOf<RowOf<typeof app.reviews>>()
   })
 })

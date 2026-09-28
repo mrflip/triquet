@@ -1,9 +1,8 @@
 /**
  * Fresh identifier for a quiz or a question the tool holds but has not written yet.
  *
- * A random UUID, the same shape as the row ids Jazz mints, so an unwritten thing and a written
- * one are named alike. Writing it gives it a row id of Jazz's own; this one only has to be
- * unique until then.
+ * A random UUID. Writing the thing gives it a row id of the database's own; this one only has to
+ * be unique until then.
  *
  * @returns A lowercase UUID.
  *

@@ -29,7 +29,7 @@ export async function assumeIdent(db: Db, label: string, title: string): Promise
   const [found] = await lookUp(db, app.idents.where({ label: clean }).orderBy('$createdAt').limit(1))
   const ident_id = await transact(db, (tx) => {
     const id = found ? found.id : tx.insert(app.idents, Ident.fill(clean, title)).id
-    tx.insert(app.identings, IdentingValidators.row({ ident_id: id }))
+    tx.insert(app.identings, IdentingValidators.row.pick({ ident_id: true }).parse({ ident_id: id }))
     return id
   })
   if (ident_id === null) { throw new Error('Taking on an ident wrote nothing') }

@@ -3,9 +3,9 @@ import { mintId } from '../../src/lib/ids'
 import { ValidatorKit } from '../../src/lib/validator'
 
 describe('mintId', () => {
-  it('mints an id shaped like a row id, which the tree accepts', () => {
+  it('mints a UUID, which the tree accepts', () => {
     const id = mintId()
-    expect(ValidatorKit.rowid.safeParse(id).success).to.eq(true)
+    expect(ValidatorKit.uuid.safeParse(id).success).to.eq(true)
     expect(ValidatorKit.treeid.safeParse(id).success).to.eq(true)
   })
 

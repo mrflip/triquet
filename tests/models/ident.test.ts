@@ -48,8 +48,15 @@ describe('IdentValidators.identLabel', () => {
 })
 
 describe('IdentingValidators.row', () => {
-  it('names the ident taken on by its row id', () => {
-    expect(IdentingValidators.row({ ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9' }).ident_id).to.eq('01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9')
-    expect(() => IdentingValidators.row({ ident_id: 'flip_kromer' })).to.throw(Z.ZodError)
+  const browser_key = '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9'
+  const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
+
+  it('names the browser, and the ident it took on by its row id', () => {
+    expect(IdentingValidators.row({ browser_key, ident_id })).to.deep.eq({ browser_key, ident_id })
+  })
+
+  it('refuses a browser key that is not a UUID, or no browser key at all', () => {
+    expect(() => IdentingValidators.row({ browser_key: 'flip_kromer', ident_id })).to.throw(Z.ZodError)
+    expect(() => IdentingValidators.row({ ident_id } as never)).to.throw(Z.ZodError)
   })
 })

@@ -7,7 +7,7 @@ import { QuizValidators, type QuizT } from './quiz'
 /** The realm every hunt starts with, and for now the only one it has */
 export const HomeRealmLabel = 'home'
 
-export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, rowid, treeid }) => {
+export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid, treeid }) => {
   const realmLabel = label
     .describe('What the realm is called in an address, unique among its hunt\'s realms. Every hunt has `home`.')
   const title = titleish
@@ -23,7 +23,7 @@ export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, row
     .describe('A division of a hunt, holding quizzes. Its quizzes\' labels are unique within it, so a quiz is addressed by hunt, realm and quiz.')
 
   const row = obj({
-    hunt_id:  rowid
+    hunt_id:  zid('hunts')
       .describe('The hunt this realm belongs to.'),
     label:    realmLabel,
     title,
