@@ -2,6 +2,18 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-29: Fonts come from npm, not from Google at build time
+
+* **The flake.** `pnpm build` in CI failed now and then with `next/font/google queries have
+  exactly one entry`: `next/font/google` fetches every font file from Google during the build,
+  and when an answer comes back wrong, Turbopack's font loader throws. It happens to plenty of
+  other projects too, and the usual fix is the one I made: stop fetching.
+* **The fix.** The three typefaces now come from the Fontsource packages, through
+  `next/font/local` (`src/app/fonts.ts`): same weights, same CSS variables, latin only as before.
+  With the network blocked, the build now passes, and the old setup fails the way CI did.
+* **Added without asking**, per the Library-first rule: `@fontsource/zilla-slab`, `work-sans`,
+  `jetbrains-mono`. Listed in `notes/stack.md`.
+
 ## 2026-09-29: Playtest failures -- a first review never opened in production; failures now say so
 
 * **The bug.** Every review write from a first-time reviewer was refused `reviewNotOpened` (16 in
