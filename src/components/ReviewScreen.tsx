@@ -14,7 +14,8 @@ import { reviewBy, type ReviewedT } from '../lib/rows'
 import type { IdentT } from '../models/ident'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
-import { ReviewingFlags, type ReviewingPatch } from '../models/reviewing'
+import * as PA from '../lib/vv/patterns'
+import { Reviewing, ReviewingFlags, type PickFlag, type ReviewingPatch } from '../models/reviewing'
 import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
@@ -64,6 +65,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
               question={question}
               chainTarget={questions.find((other) => other._id === question.chains_to) ?? null}
               reviewing={reviewingFor.get(question._id) ?? null}
+              reviewings={own?.reviewings ?? []}
               dispatch={dispatch}
             />
           ))}
@@ -111,6 +113,8 @@ type ReviewQuestionRowProps = {
   chainTarget: QuestionT | null
   /** The reviewer's verdict on this question so far; null until they first write to it */
   reviewing:   Doc<'reviewings'> | null
+  /** The reviewer's verdicts on every question, which say whether a pick is still to be had */
+  reviewings:  readonly Doc<'reviewings'>[]
   dispatch:    (action: HuntActionDNA) => void
 }
 
@@ -135,19 +139,23 @@ const FlagSx = {
   gap:                           0.75,
   textTransform:                 'none',
   whiteSpace:                    'nowrap',
-  justifyContent:                { lg: 'flex-start' },
   '&.Mui-selected':              { bgcolor: 'primary.main', color: 'primary.contrastText', borderColor: 'primary.main' },
   '&.Mui-selected:hover':        { bgcolor: 'primary.dark' },
   '&:not(.Mui-selected) .face':  { filter: 'grayscale(1)', opacity: 0.5 },
 } as const
 
+/** The flags, in the order the row shows them: the two picks side by side, top first, then the fact check */
+const [TopFlag, FactFlag, MehFlag] = ReviewingFlags
+
 /**
  * One question: its number and clueing, the BUT NOT it chains to in full, read-only; then the
  * reviewer's verdict on it, each field saved as it is committed; then its answer, behind a lock.
  */
-function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, dispatch }: Readonly<ReviewQuestionRowProps>) {
+function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, reviewings, dispatch }: Readonly<ReviewQuestionRowProps>) {
   const commit = (patch: ReviewingPatch) => { dispatch({ kind: 'set_reviewing', quiz_id, question_id: question._id, patch }) }
   const peek = () => { dispatch({ kind: 'peek_answer', quiz_id, question_id: question._id }) }
+  const toggle = (flag: FlagToggleProps['flag'], raised: boolean) => { commit({ [flag]: raised }) }
+  const pickFull = (flag: PickFlag) => Reviewing.pickedElsewhere(reviewings, flag, question._id) >= PA.PicksPerReview.max
 
   return (
     <Paper variant="outlined" component="section" aria-label={question.title || AppNotices.untitledQuestion} sx={{ p: 2, ...RowAreasSx }}>
@@ -168,20 +176,47 @@ function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, dispatch
         <Box sx={{ width: { xs: '6.5em', lg: 'auto' } }}>
           <NumberField label="Minutes" committed={reviewing?.minutes ?? null} fractional locked={false} onCommit={(minutes) => { commit({ minutes }) }} />
         </Box>
-        {ReviewingFlags.map(({ flag, emoji, word, title }) => {
-          const raised = reviewing?.[flag] ?? false
-          return (
-            <ToggleButton key={flag} value={flag} size="small" selected={raised} title={title} sx={FlagSx} onChange={() => { commit({ [flag]: ! raised }) }}>
-              <Box component="span" className="face" aria-hidden sx={{ fontSize: '1.125rem', lineHeight: 1 }}>{emoji}</Box>
-              {word}
-            </ToggleButton>
-          )
-        })}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+          <FlagToggle {...TopFlag} raised={reviewing?.keep_it ?? false} full={pickFull('keep_it')} onToggle={toggle} />
+          <FlagToggle {...MehFlag} raised={reviewing?.elimination_candidate ?? false} full={pickFull('elimination_candidate')} faceAfter onToggle={toggle} />
+        </Box>
+        <FlagToggle {...FactFlag} raised={reviewing?.needs_fact_check ?? false} onToggle={toggle} />
       </Stack>
       <Box sx={{ gridArea: 'answer' }}>
         <AnswerLock answer={question.full_answer} seen={reviewing?.peeked ?? false} onReveal={reviewing?.peeked ? undefined : peek} />
       </Box>
     </Paper>
+  )
+}
+
+type FlagToggleProps = {
+  flag:       (typeof ReviewingFlags)[number]['flag']
+  emoji:      string
+  word:       string
+  title:      string
+  raised:     boolean
+  /** The review has all the picks of this kind it may: a lowered one can't be raised */
+  full?:      boolean
+  /** The face goes after the word rather than before it */
+  faceAfter?: boolean
+  onToggle:   (flag: FlagToggleProps['flag'], raised: boolean) => void
+}
+
+/** One flag as a toggle: its face and word, raised or lowered with a click */
+function FlagToggle({ flag, emoji, word, title, raised, full = false, faceAfter = false, onToggle }: Readonly<FlagToggleProps>) {
+  const face = <Box component="span" className="face" aria-hidden sx={{ fontSize: '1.125rem', lineHeight: 1 }}>{emoji}</Box>
+  return (
+    <ToggleButton
+      value={flag}
+      size="small"
+      selected={raised}
+      disabled={full && ! raised}
+      title={title}
+      sx={FlagSx}
+      onChange={() => { onToggle(flag, ! raised) }}
+    >
+      {faceAfter ? <>{word}{face}</> : <>{face}{word}</>}
+    </ToggleButton>
   )
 }
 

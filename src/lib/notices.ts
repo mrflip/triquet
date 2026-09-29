@@ -77,6 +77,8 @@ export const RefusalNotices = {
   widgetsFull:      `A quiz holds at most ${String(PA.WidgetsPerQuiz.max)} widgets.`,
   columnsFull:      `A quiz holds at most ${String(PA.ColumnsPerQuiz.max)} columns.`,
   reviewsFull:      `A quiz holds at most ${String(PA.ReviewsPerQuiz.max)} reviews.`,
+  topsFull:         `You already have a top ${String(PA.PicksPerReview.max)} — lower one of them first.`,
+  mehsFull:         `You already have a meh ${String(PA.PicksPerReview.max)} — lower one of them first.`,
   quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
   expressionsFull:  `A hunt holds at most ${String(PA.ExpressionsPerHunt.max)} expressions.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,

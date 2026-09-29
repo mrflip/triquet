@@ -1,3 +1,5 @@
+after those: in playtest grid mode, add a mode allowing questions to be reordered. adda a control like the batch-mode checkmarks at the top left , but this should be double arrows . when it's enabled, teh questions gain drag handles. Their Q#s numbers don't change. The ordering li
+
 You should be operating out of a sandbox whose container sets `$TQ_IS_SANDBOXED` to "true".
 
 We're evaluating Jazz as the database, and it's not going terribly but it's definitely not going well. I want to do a quick review of what I'd miss out on if we went with a more ~~(sane)~~ conventional architecture.

@@ -115,6 +115,9 @@ async function reviewingsIn(tt: Tester) {
   return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id']))
 }
 
+/** The ids of the open quiz's questions, in order */
+const questionIdsOf = (seen: Seen) => openOf(seen).questions.map((question) => question._id as Id<'questions'>)
+
 /** A reviewing with nothing said, and the answer not seen */
 const Unsaid = { get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false } as const
 
@@ -956,6 +959,70 @@ describe('hunts.perform', () => {
       const { tt, asAlice, quiz_id, first } = await reviewed(openHunt(true))
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { needs_fact_check: true } })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, needs_fact_check: true }])
+    })
+
+    it('lowers a meh when the question is picked top, and a top when it is picked meh', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { elimination_candidate: true } })
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, keep_it: true }])
+      await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { elimination_candidate: true } })
+      expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, elimination_candidate: true }])
+    })
+
+    const Picks = [
+      ['keep_it',               'topsFull', 'a fourth top pick'],
+      ['elimination_candidate', 'mehsFull', 'a fourth meh pick'],
+    ] as const
+    for (const [flag, failurekind, describes] of Picks) {
+      it(`refuses ${describes}, writing nothing`, async () => {
+        const hunt = huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd'])
+        const { tt, asAlice, quiz_id, read } = await reviewed(hunt)
+        const question_ids = questionIdsOf(await read())
+        for (const question_id of question_ids.slice(0, PA.PicksPerReview.max)) {
+          await asAlice({ kind: 'set_reviewing', quiz_id, question_id, patch: { [flag]: true } })
+        }
+        const [ante, last] = [await reviewingsIn(tt), present(question_ids.at(-1))]
+        await expectRefusal(asAlice({ kind: 'set_reviewing', quiz_id, question_id: last, patch: { [flag]: true } }), failurekind)
+        expect(await reviewingsIn(tt)).to.deep.eq(ante)
+      })
+
+      it(`takes ${describes} once another is lowered, and a re-raise of one already picked`, async () => {
+        const hunt = huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd'])
+        const { tt, asAlice, quiz_id, read } = await reviewed(hunt)
+        const question_ids = questionIdsOf(await read())
+        const [picked, last] = [question_ids.slice(0, PA.PicksPerReview.max), present(question_ids.at(-1))]
+        for (const question_id of picked) {
+          await asAlice({ kind: 'set_reviewing', quiz_id, question_id, patch: { [flag]: true } })
+        }
+        await asAlice({ kind: 'set_reviewing', quiz_id, question_id: present(picked[0]), patch: { [flag]: true } })
+        await asAlice({ kind: 'set_reviewing', quiz_id, question_id: present(picked[0]), patch: { [flag]: false } })
+        await asAlice({ kind: 'set_reviewing', quiz_id, question_id: last, patch: { [flag]: true } })
+        const reviewings = await reviewingsIn(tt)
+        const raised = reviewings.filter((reviewing) => reviewing[flag]).map((reviewing) => reviewing.question_id)
+        expect(raised).to.deep.eq([...picked.slice(1), last])
+      })
+    }
+
+    it('counts each reviewer\'s picks apart', async () => {
+      const hunt = huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd'])
+      const { tt, asAlice, act, quiz_id, read, join } = await reviewed(hunt)
+      const bob = await join('bob_reviews', 'reviewer')
+      await act({ kind: 'open_review', quiz_id }, bob.browser_key)
+      const question_ids = questionIdsOf(await read())
+      for (const question_id of question_ids.slice(0, PA.PicksPerReview.max)) {
+        await asAlice({ kind: 'set_reviewing', quiz_id, question_id, patch: { keep_it: true } })
+      }
+      await act({ kind: 'set_reviewing', quiz_id, question_id: present(question_ids.at(-1)), patch: { keep_it: true } }, bob.browser_key)
+      const reviewings = await reviewingsIn(tt)
+      expect(reviewings.filter((reviewing) => reviewing.keep_it)).to.have.lengthOf(PA.PicksPerReview.max + 1)
+    })
+
+    it('refuses a patch picking a question both ways', async () => {
+      const { tt, asAlice, quiz_id, first } = await reviewed()
+      const refusal = await refusalOf(asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true, elimination_candidate: true } }))
+      expect(refusal).to.be.instanceOf(ConvexError)
+      expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
     it('refuses when the review has not been opened, writing nothing', async () => {
