@@ -60,6 +60,11 @@ describe('ReviewingValidators.reviewingPatch', () => {
     expect(() => ReviewingValidators.reviewingPatch({ minutes: -1 })).to.throw(Z.ZodError)
   })
 
+  it("refuses a patch picking a question both top and meh", () => {
+    expect(() => ReviewingValidators.reviewingPatch({ keep_it: true, elimination_candidate: true })).to.throw(Z.ZodError)
+    expect(ReviewingValidators.reviewingPatch({ keep_it: true, elimination_candidate: false })).to.deep.eq({ keep_it: true, elimination_candidate: false })
+  })
+
   it('never carries the ids or peeked: those are not the reviewer\'s to revise', () => {
     expect(ReviewingValidators.reviewingPatch({ ...Ids, peeked: true, keep_it: true } as never)).to.deep.eq({ keep_it: true })
   })
@@ -71,7 +76,45 @@ describe('Reviewing.blank', () => {
   })
 })
 
+describe('Reviewing.unrivalled', () => {
+  const Cases: [object, object, string][] = [
+    [{ keep_it: true },                    { keep_it: true, elimination_candidate: false },  'a top pick lowers the meh'],
+    [{ elimination_candidate: true },      { elimination_candidate: true, keep_it: false },  'a meh pick lowers the top'],
+    [{ keep_it: false },                   { keep_it: false },                               'lowering a pick leaves its rival alone'],
+    [{ needs_fact_check: true },           { needs_fact_check: true },                       'a flag that is no pick leaves the picks alone'],
+    [{ guesses: 'Hamlet?' },               { guesses: 'Hamlet?' },                           'a patch without flags is unchanged'],
+  ]
+  for (const [patch, settled, describes] of Cases) {
+    it(describes, () => {
+      expect(Reviewing.unrivalled(patch)).to.deep.eq(settled)
+    })
+  }
+})
+
+describe('Reviewing.pickedElsewhere', () => {
+  const picks = [
+    { question_id: 'q1', keep_it: true,  elimination_candidate: false },
+    { question_id: 'q2', keep_it: true,  elimination_candidate: false },
+    { question_id: 'q3', keep_it: false, elimination_candidate: true },
+  ]
+  it('counts the questions picked that way', () => {
+    expect(Reviewing.pickedElsewhere(picks, 'keep_it', 'q9')).to.eq(2)
+    expect(Reviewing.pickedElsewhere(picks, 'elimination_candidate', 'q9')).to.eq(1)
+  })
+  it('leaves out the question about to be picked', () => {
+    expect(Reviewing.pickedElsewhere(picks, 'keep_it', 'q1')).to.eq(1)
+  })
+  it('counts nothing for a review that has said nothing', () => {
+    expect(Reviewing.pickedElsewhere([], 'keep_it', 'q1')).to.eq(0)
+  })
+})
+
 describe('ReviewingFlags', () => {
+  it('words the picks by how many a review may make', () => {
+    expect(ReviewingFlags.map(({ word }) => word)).to.deep.eq(['top 3', 'needs fact check', 'meh 3'])
+  })
+
+
   it('are the flags of a reviewing a reviewer raises: every boolean but peeked', () => {
     const booleans = Object.keys(Blank).filter((fieldname) => typeof Blank[fieldname as keyof typeof Blank] === 'boolean' && fieldname !== 'peeked')
     expect(ReviewingFlags.map(({ flag }) => flag)).to.deep.eq(booleans)

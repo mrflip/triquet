@@ -2,8 +2,8 @@ import type { Doc, Id } from '../_generated/dataModel'
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import { ReviewValidators, type ReviewPhase } from '../../src/models/review'
-import { Reviewing, ReviewingValidators, type ReviewingPatch } from '../../src/models/reviewing'
-import { questionOf, reviewFor, reviewingFor, reviewsOf } from '../reading'
+import { PickFlags, Reviewing, ReviewingValidators, type PickFlag, type ReviewingPatch } from '../../src/models/reviewing'
+import { questionOf, reviewFor, reviewingFor, reviewingsOf, reviewsOf } from '../reading'
 import { updateReview, updateReviewing, type Writer } from './quiz_writing'
 
 /**
@@ -47,9 +47,10 @@ export async function setReviewPhase(db: Writer, quiz_id: Id<'quizzes'>, ident_i
 
 /**
  * Revise `ident_id`'s verdict on one question of `quiz_id` by `patch`, making it the first time;
- * a field the patch leaves out is left as it was. An `empty` review moves to `draft`; a `shared`
- * one stays shared. Refused when the review has not been opened, or the question is not the
- * quiz's.
+ * a field the patch leaves out is left as it was. Picking a question top lowers its meh, and the
+ * other way about. An `empty` review moves to `draft`; a `shared` one stays shared. Refused when
+ * the review has not been opened, the question is not the quiz's, or the patch picks a question
+ * when the review already has as many picks of that kind as it may.
  *
  * @param db - The mutation's database.
  * @param quiz_id - Which quiz.
@@ -59,12 +60,27 @@ export async function setReviewPhase(db: Writer, quiz_id: Id<'quizzes'>, ident_i
  */
 export async function setReviewing(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>, question_id: Id<'questions'>, patch: ReviewingPatch): Promise<void> {
   const { review, held } = await reviewingPlaceOf(db, quiz_id, ident_id, question_id)
+  await refuseOverpicked(db, review._id, question_id, patch)
+  const settled = Reviewing.unrivalled(patch)
   if (held) {
-    await updateReviewing(db, held, patch)
+    await updateReviewing(db, held, settled)
   } else {
-    await db.insert('reviewings', ReviewingValidators.row({ ...Reviewing.blank(review._id, question_id), ...patch }))
+    await db.insert('reviewings', ReviewingValidators.row({ ...Reviewing.blank(review._id, question_id), ...settled }))
   }
   if (review.phase === 'empty') { await updateReview(db, review, { phase: 'draft' }) }
+}
+
+/** The refusal for a review picking one question too many of each kind */
+const OverpickedRefusals = { keep_it: 'topsFull', elimination_candidate: 'mehsFull' } as const satisfies Record<PickFlag, string>
+
+/** Refuse `patch` when it picks `question_id` a way the review already has its fill of */
+async function refuseOverpicked(db: Writer, review_id: Id<'reviews'>, question_id: Id<'questions'>, patch: ReviewingPatch): Promise<void> {
+  const raised = (Object.keys(PickFlags) as PickFlag[]).filter((flag) => patch[flag] === true)
+  if (raised.length === 0) { return }
+  const reviewings = await reviewingsOf(db, review_id)
+  for (const flag of raised) {
+    if (Reviewing.pickedElsewhere(reviewings, flag, question_id) >= PA.PicksPerReview.max) { refuse(OverpickedRefusals[flag]) }
+  }
 }
 
 /**

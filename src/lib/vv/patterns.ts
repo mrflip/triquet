@@ -113,6 +113,8 @@ export const WidgetsPerQuiz     = { min: 0, max: 99 } as const
 export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
 /** Reviews of one quiz, one per ident that opened one */
 export const ReviewsPerQuiz     = { min: 0, max: 999 } as const
+/** Questions one review picks as its top 3, and likewise as its meh 3 */
+export const PicksPerReview     = { min: 0, max: 3 } as const
 /** Quizzes in one realm; a realm is never without one */
 export const QuizzesPerRealm    = { min: 1, max: 999 } as const
 /** Realms in one hunt; every hunt has at least its home realm */
