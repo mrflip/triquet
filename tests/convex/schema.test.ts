@@ -74,11 +74,11 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const realm_id = await insert('realms', realm)
     const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: 'column:clueing', bulk_ishes_last: { approx_tokens: 9, text_count: 2, updated_at: 5 }, row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
-    const question = QuestionValidators.row({ quiz_id, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+    const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)
     const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip' })
     const ident_id = await insert('idents', ident)
-    const review = ReviewValidators.row({ quiz_id, ident_id, overall: '', phase: 'empty' })
+    const review = ReviewValidators.row({ hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     const review_id = await insert('reviews', review)
     return {
       hunts:       hunt,

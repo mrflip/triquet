@@ -5,7 +5,6 @@ import * as Quiz from './quiz_actions'
 import * as Review from './review_actions'
 import { isLayoutAction, type HuntActionT, type OpenQuizT } from '../../src/models/actions'
 import type { Writer } from './quiz_writing'
-import { refuse } from '../../src/lib/refusals'
 
 /**
  * Carry out what the author did, writing the rows it comes to, all in one transaction.
@@ -15,17 +14,18 @@ import { refuse } from '../../src/lib/refusals'
  * hunt), and reviews, are not -- a locked quiz is exactly what a finished draft sent out for
  * playtesting looks like.
  * A refused action writes nothing and throws a refusal saying why (`lib/refusals`). Each action
- * reads the rows it needs as they stand, inside the transaction.
+ * reads the rows it needs as they stand, inside the transaction. Whether the actor may take the
+ * action at all, and whether `open` is truly of its hunt, is `authorize`'s to settle first.
  *
  * @param db - The mutation's database.
  * @param open - The quiz on the author's screen, where an action on "the quiz" lands.
- * @param ident_id - Who is acting; only a review or hunting action reads it, and is refused without one.
+ * @param ident_id - Who is acting; only a review or hunting action reads it.
  * @param action - What the author did, validated.
  * @throws A refusal, or a Zod error when a row the action comes to is not valid; nothing is written.
  *
- * @example await perform(ctx.db, open, ident?._id ?? null, { kind: 'add_question' })
+ * @example await perform(ctx.db, open, ident._id, { kind: 'add_question' })
  */
-export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'> | null, action: HuntActionT): Promise<void> {
+export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'>, action: HuntActionT): Promise<void> {
   if (isLayoutAction(action)) {
     await Layout.performLayout(db, open, action)
     return
@@ -48,18 +48,12 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'new_quiz':            { await Quiz.newQuiz(db, open, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, open, action.quiz_id); return }
   case 'set_lock':            { await Quiz.setLock(db, action.quiz_id, action.locked); return }
-  case 'open_review':         { await Review.openReview(db, action.quiz_id, actor(ident_id)); return }
-  case 'set_overall':         { await Review.setOverall(db, action.quiz_id, actor(ident_id), action.overall); return }
-  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, actor(ident_id), action.phase); return }
-  case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, actor(ident_id), action.question_id, action.patch); return }
-  case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, actor(ident_id), action.question_id); return }
-  case 'add_hunting':         { await Hunting.addHunting(db, open.hunt_id, actor(ident_id), action.ident_label, action.role); return }
-  case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, actor(ident_id), action.ident_id) }
+  case 'open_review':         { await Review.openReview(db, open.hunt_id, action.quiz_id, ident_id); return }
+  case 'set_overall':         { await Review.setOverall(db, action.quiz_id, ident_id, action.overall); return }
+  case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, ident_id, action.phase); return }
+  case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, ident_id, action.question_id, action.patch); return }
+  case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, ident_id, action.question_id); return }
+  case 'add_hunting':         { await Hunting.addHunting(db, open.hunt_id, ident_id, action.ident_label, action.role); return }
+  case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, ident_id, action.ident_id) }
   }
-}
-
-/** Who is acting, refusing a browser that has not said */
-function actor(ident_id: Id<'idents'> | null): Id<'idents'> {
-  if (! ident_id) { refuse('notIdentified') }
-  return ident_id
 }

@@ -2,7 +2,9 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import * as PA from '../src/lib/vv/patterns'
 import { BotSlots, slotkeyOf, type BotSlot } from '../src/models/botting'
-import type { HuntRows, LayoutRows, MemberT, QuizRows, RealmRows, SlotRows } from '../src/lib/rows'
+import { huntFrom, quizFrom, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type SlotRows } from '../src/lib/rows'
+import type { HuntT } from '../src/models/hunt'
+import type { QuizT } from '../src/models/quiz'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
 // that kind of child, which the writes refuse to pass: a read never silently drops a row. A
@@ -71,6 +73,12 @@ export async function realmsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<RealmR
   return await Promise.all(realms.map(async (realm) => ({ realm, quizzes: await quizzesOf(db, realm._id) })))
 }
 
+/** The hunt `quiz` belongs to, through its realm; null when the realm is gone */
+export async function huntIdOf(db: Reader, quiz: Pick<Doc<'quizzes'>, 'realm_id'>): Promise<Id<'hunts'> | null> {
+  const realm = await db.get('realms', quiz.realm_id)
+  return realm?.hunt_id ?? null
+}
+
 /** A realm's quizzes' rows, in the order they were made */
 export async function quizzesOf(db: Reader, realm_id: Id<'realms'>): Promise<Doc<'quizzes'>[]> {
   return await db.query('quizzes').withIndex('by_realm_id', (cvx) => cvx.eq('realm_id', realm_id)).take(PA.QuizzesPerRealm.max)
@@ -91,6 +99,20 @@ export async function huntRowsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Hunt
   if (! hunt) { return null }
   const [realms, expressions] = await Promise.all([realmsOf(db, hunt_id), expressionsOf(db, hunt_id)])
   return { hunt, realms, expressions }
+}
+
+/**
+ * One hunt, every quiz whole, as its rows make it up: what the Export box emits.
+ *
+ * @returns The hunt, or null when there is no such hunt.
+ */
+export async function wholeHuntOf(db: Reader, hunt_id: Id<'hunts'>): Promise<HuntT | null> {
+  const rows = await huntRowsOf(db, hunt_id)
+  if (! rows) { return null }
+  const quizzes = rows.realms.flatMap((realm) => realm.quizzes)
+  const whole = await Promise.all(quizzes.map(async (quiz) => await quizRowsOf(db, quiz._id)))
+  const quizFor = new Map<string, QuizT>(whole.filter((each) => each !== null).map((each) => [each.quiz._id, quizFrom(each)]))
+  return huntFrom(rows, quizFor)
 }
 
 /** A quiz's widgets, in order */

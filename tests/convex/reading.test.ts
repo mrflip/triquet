@@ -144,19 +144,19 @@ describe('identFor', () => {
 
 describe('reviewFor', () => {
   it('finds the ident\'s review of a quiz, and nothing for an ident with none', async () => {
-    const { tt, quiz_id } = await holding(Hunt.blank())
+    const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
     const [alice, bob] = [await identified(tt, 'alice_reviews'), await identified(tt, 'bob_reviews')]
-    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { quiz_id, ident_id: alice.ident_id, overall: 'Mine', phase: 'draft' }) })
+    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id: alice.ident_id, overall: 'Mine', phase: 'draft' }) })
     const found = await tt.run(async (ctx) => [await reviewFor(ctx.db, quiz_id, alice.ident_id), await reviewFor(ctx.db, quiz_id, bob.ident_id)])
     expect(found.map((review) => review?.overall ?? null)).to.deep.eq(['Mine', null])
   })
 
   it('takes the earlier when two reviews answer to one ident', async () => {
-    const { tt, quiz_id } = await holding(Hunt.blank())
+    const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
-      await ctx.db.insert('reviews', { quiz_id, ident_id, overall: 'First', phase: 'empty' })
-      await ctx.db.insert('reviews', { quiz_id, ident_id, overall: 'Second', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: 'First', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: 'Second', phase: 'empty' })
     })
     const found = await tt.run(async (ctx) => await reviewFor(ctx.db, quiz_id, ident_id))
     expect(found?.overall).to.eq('First')

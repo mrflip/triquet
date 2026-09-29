@@ -7,22 +7,24 @@ import { questionOf, reviewFor, reviewingFor, reviewsOf } from '../reading'
 import { updateReview, updateReviewing, type Writer } from './quiz_writing'
 
 /**
- * Open `ident_id`'s review of `quiz_id`: the empty row the first time, nothing the times after.
+ * Open `ident_id`'s review of `quiz_id`, a quiz of `hunt_id`: the empty row the first time,
+ * nothing the times after.
  *
  * Unlike every other action on a quiz, a review is never refused for a locked quiz -- a lock is
  * what a finished draft sent out for playtesting looks like, so reviewing one is exactly the
  * point. A quiz gone, or holding as many reviews as a quiz may, refuses a new one.
  *
  * @param db - The mutation's database.
+ * @param hunt_id - The hunt the quiz belongs to.
  * @param quiz_id - Which quiz.
  * @param ident_id - Who is reviewing it.
  */
-export async function openReview(db: Writer, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>): Promise<void> {
+export async function openReview(db: Writer, hunt_id: Id<'hunts'>, quiz_id: Id<'quizzes'>, ident_id: Id<'idents'>): Promise<void> {
   const [quiz, held, reviews] = await Promise.all([db.get('quizzes', quiz_id), reviewFor(db, quiz_id, ident_id), reviewsOf(db, quiz_id)])
   if (! quiz) { refuse('quizGone') }
   if (held) { return }
   if (reviews.length >= PA.ReviewsPerQuiz.max) { refuse('reviewsFull') }
-  await db.insert('reviews', ReviewValidators.row({ quiz_id, ident_id, overall: '', phase: 'empty' }))
+  await db.insert('reviews', ReviewValidators.row({ hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' }))
 }
 
 /**

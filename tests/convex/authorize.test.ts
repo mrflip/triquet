@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import { mayChangeHunt } from '../../convex/authorize'
-import { identForLabel } from '../../convex/reading'
+import { mayChangeHunt, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
+import { identForLabel, reviewFor } from '../../convex/reading'
 import { Hunt } from '../../src/models/hunt'
 import { mintId } from '../../src/lib/ids'
 import { present } from '../support/present'
-import { identified, openOf, openTester, seedHunt } from '../support/convex'
+import { expectRefusal, identified, openOf, openTester, seedHunt } from '../support/convex'
 
 const modules = import.meta.glob('../../convex/**/*.ts')
 
@@ -25,25 +25,111 @@ async function publicFunctions(): Promise<string[]> {
   return found.flat().toSorted((aa, bb) => aa.localeCompare(bb))
 }
 
-describe('mayChangeHunt', () => {
-  it('lets every browser change every hunt, for the trial', async () => {
-    const { open } = await seedHunt(openTester(), Hunt.blank())
-    expect([mayChangeHunt(mintId(), open.hunt_id), mayChangeHunt(mintId(), open.hunt_id)]).to.deep.eq([true, true])
+/** One hunt with a smith, a reviewer and a stranger (an ident on no hunt), and a second hunt the smith alone is on */
+async function peopled() {
+  const tt = openTester()
+  const seeded = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_smiths' })
+  const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'alice_smiths' })
+  const bob = await seeded.join('bob_reviews', 'reviewer')
+  const carol = await identified(tt, 'carol_strays')
+  return { ...seeded, other, alice: seeded.smith, bob, carol }
+}
+
+describe("the rules", () => {
+  it("let a smith read and change the hunt, a reviewer read it and write reviews, and nobody else do either", async () => {
+    const { tt, open, alice, bob, carol } = await peopled()
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ ident_id }) => [
+      await roleOn(ctx.db, open.hunt_id, ident_id),
+      await mayReadHunt(ctx.db, open.hunt_id, ident_id),
+      await mayChangeHunt(ctx.db, open.hunt_id, ident_id),
+      await mayWriteReview(ctx.db, open.hunt_id, ident_id),
+    ])))
+    expect(verdicts).to.deep.eq([
+      ['smith',    true,  true,  true],
+      ['reviewer', true,  false, true],
+      [null,       false, false, false],
+    ])
+  })
+
+  it("let nobody at all read or change a hunt: a browser that has not said who it is", async () => {
+    const { tt, open } = await peopled()
+    const verdicts = await tt.run(async (ctx) => [await roleOn(ctx.db, open.hunt_id, null), await mayReadHunt(ctx.db, open.hunt_id, null), await mayChangeHunt(ctx.db, open.hunt_id, null)])
+    expect(verdicts).to.deep.eq([null, false, false])
+  })
+
+  it("let a reviewer read their own review whatever its phase, and anyone on the hunt read it once shared", async () => {
+    const { tt, open, act, alice, bob, carol } = await peopled()
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob.browser_key)
+    const readers = async () => await tt.run(async (ctx) => {
+      const review = present(await reviewFor(ctx.db, open.quiz_id, bob.ident_id))
+      return await Promise.all([bob, alice, carol].map(async ({ ident_id }) => await mayReadReview(ctx.db, review, ident_id)))
+    })
+    expect(await readers()).to.deep.eq([true, false, false])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob.browser_key)
+    expect(await readers()).to.deep.eq([true, true, false])
   })
 })
 
-describe('the hunt tables, open to every browser for the trial', () => {
-  it('let another browser read every row of a hunt, and change and delete its rows', async () => {
+describe("hunts.perform, authorized", () => {
+  it("lets a smith change the hunt, and refuses a reviewer and a stranger, writing nothing", async () => {
+    const { act, read, bob, carol } = await peopled()
+    await act({ kind: 'retitle_quiz', title: 'Princes' })
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, bob.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, carol.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'add_hunting', ident_label: 'carol_strays', role: 'smith' }, bob.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'smuggled', patch: {} }] }, bob.browser_key), 'notPermitted')
+    expect(openOf(await read()).title).to.eq('Princes')
+  })
+
+  it("lets a reviewer, or a smith, write their own review, and refuses a stranger", async () => {
+    const { act, open, bob, carol, alice } = await peopled()
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob.browser_key)
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, alice.browser_key)
+    await expectRefusal(act({ kind: 'open_review', quiz_id: open.quiz_id }, carol.browser_key), 'notPermitted')
+  })
+
+  it("refuses a browser that has not said who it is, before anything else", async () => {
+    const { act } = await peopled()
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, mintId()), 'notIdentified')
+  })
+
+  it("refuses a place whose realm or quiz is another hunt's, or an action naming a quiz of another hunt", async () => {
     const tt = openTester()
-    const { act, read } = await seedHunt(tt, Hunt.blank('quiet_otter'))
-    const [first, second] = openOf(await read()).questions
-    const [author, stranger] = [mintId(), mintId()]
-    await act({ kind: 'retitle_quiz', title: 'Princes' }, author)
-    await act({ kind: 'retitle_quiz', title: 'Kings' }, stranger)
-    await act({ kind: 'delete_questions', question_ids: [present(first)._id] }, stranger)
-    const quiz = openOf(await read())
-    expect([quiz.title, quiz.questions.map((question) => question._id)]).to.deep.eq(['Kings', [present(second)._id, ...quiz.questions.slice(1).map((question) => question._id)]])
-    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: stranger })).to.deep.include({ role: null })
+    const mine = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_smiths' })
+    const theirs = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'bob_smiths' })
+    const before = openOf(await theirs.read())
+    const forgeries = [{ ...mine.open, quiz_id: theirs.open.quiz_id }, { ...theirs.open, hunt_id: mine.open.hunt_id }]
+    for (const open of forgeries) {
+      await expectRefusal(tt.mutation(api.hunts.perform, { open, action: { kind: 'retitle_quiz', title: 'Mine now' }, browser_key: mine.smith.browser_key }), 'notPermitted')
+    }
+    await expectRefusal(mine.act({ kind: 'set_lock', quiz_id: theirs.open.quiz_id, locked: true }), 'notPermitted')
+    await expectRefusal(mine.act({ kind: 'open_review', quiz_id: theirs.open.quiz_id }), 'notPermitted')
+    expect(openOf(await theirs.read())).to.deep.eq(before)
+  })
+})
+
+describe("mayPerform", () => {
+  it("asks the rule of the hunt the place names, and holds the place to that hunt", async () => {
+    const { tt, open, other, alice, bob } = await peopled()
+    const retitle = { kind: 'retitle_quiz', title: 'Kings' } as const
+    const peek = { kind: 'open_review', quiz_id: open.quiz_id } as const
+    const verdicts = await tt.run(async (ctx) => [
+      await mayPerform(ctx.db, open, alice.ident_id, retitle),
+      await mayPerform(ctx.db, open, bob.ident_id, retitle),
+      await mayPerform(ctx.db, open, bob.ident_id, peek),
+      await mayPerform(ctx.db, { ...open, quiz_id: other.open.quiz_id }, alice.ident_id, retitle),
+      await mayPerform(ctx.db, { ...open, realm_id: other.open.realm_id }, alice.ident_id, retitle),
+    ])
+    expect(verdicts).to.deep.eq([true, false, true, false, false])
+  })
+
+  it("refuses a quiz whose realm is gone, since nothing then says whose it is", async () => {
+    const { tt, open, alice } = await peopled()
+    const verdict = await tt.run(async (ctx) => {
+      await ctx.db.delete('realms', open.realm_id)
+      return await mayPerform(ctx.db, open, alice.ident_id, { kind: 'retitle_quiz', title: 'Kings' })
+    })
+    expect(verdict).to.eq(false)
   })
 })
 

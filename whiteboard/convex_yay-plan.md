@@ -4,7 +4,10 @@ Status: plan, 2026-09-27, written for the implementing agent (Opus) and agreed i
 Coach (Flip). **Extended 2026-09-28**: phases 0 to 2 are built on `20260928-convex_phase4` (not
 yet merged) and the app runs on Convex alone; *Where this stands*, under *Phases*, says what is
 left of the move, and the hunts-and-playtesting thread (`whiteboard/hunts-and-idents.md`, PR 4
-onward), which paused for it, resumes here as phases 5 to 7.
+onward), which paused for it, resumes here as phases 5 to 7. **Changed 2026-09-28 (the audit)**:
+nothing writes a tree any more. An import sends patches by label (`import_questions`), and a blank
+quiz or hunt is inserted as rows. `writeQuiz`, `writeHunt`, `reviseOpenQuiz`, `replace_open_quiz`,
+the ULID arm of `treeid` and ids in an export are gone wherever this plan names them.
 
 **What we are doing.** Replacing Jazz v2 with [Convex](https://docs.convex.dev) as the database,
 keeping every model, every action, every view and every test's intent. The move is also an
@@ -203,8 +206,8 @@ as it comes due. As of 2026-09-28:
   Vercel's build command set to `npx convex deploy --cmd 'pnpm build' --cmd-url-env-var-name
   NEXT_PUBLIC_CONVEX_URL`. Then the first production deploy. Nothing in phases 3a to 7 waits on
   this: every agent phase runs on local backends.
-* **Phase 6**: the huntings cap. **Phase 7**: the answer to its one design question (a query
-  refused, or a query answering "not yours"), before it is built.
+* **Phase 6**: the huntings cap. **Phase 7**: its design question, answered 2026-09-28 (a query
+  answers "not yours", and the page names the smiths to ask at the same address); built.
 
 ## Architecture after the move
 

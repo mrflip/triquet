@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -26,7 +26,7 @@ jobs:
       - run: pnpm typecheck
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -38,7 +38,7 @@ jobs:
       - run: pnpm lint
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -50,7 +50,7 @@ jobs:
       - run: pnpm test
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Baked into the page at build, never connected to: any URL will do.
     env:
       NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402
@@ -68,7 +68,7 @@ jobs:
   # schema changed without it fails here. Codegen needs a running deployment, so the job pushes
   # to a local backend of its own (the binary cached as the e2e job caches it) and diffs.
   generated:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -88,7 +88,7 @@ jobs:
   # --shard=2/6` runs one shard's specs locally. Every shard runs to the end, so one failure
   # never hides another.
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:

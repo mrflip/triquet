@@ -4,6 +4,7 @@ import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import type { QuizRows } from '../../src/lib/rows'
+import type { OpenQuizT } from '../../src/models/actions'
 import { ColumnValidators } from '../../src/models/column'
 import { ExpressionValidators, SeedExpressions, type ExpressionT } from '../../src/models/expression'
 import { BottingValidators, type BottingT } from '../../src/models/botting'
@@ -19,6 +20,9 @@ import { reviewsOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
+
+/** Where a quiz belongs: its hunt, and the realm of it that holds the quiz */
+export type QuizPlace = Pick<OpenQuizT, 'hunt_id' | 'realm_id'>
 
 /** The fields of a document the database owns */
 const SystemFields = ['_id', '_creationTime'] as const
@@ -112,24 +116,24 @@ export async function insertLayout(db: Writer, quiz_id: Id<'quizzes'>, layout: L
 }
 
 /**
- * Insert a blank quiz into `realm_id`: its own row, `BlankQuestionQty` blank questions, and the
- * standard widgets and columns for `expressions`.
+ * Insert a blank quiz into the realm `place` names: its own row, `BlankQuestionQty` blank
+ * questions, and the standard widgets and columns for `expressions`.
  *
  * @param db - The mutation's database.
- * @param realm_id - The realm it belongs to.
+ * @param place - The hunt and realm it belongs to.
  * @param title - What to call it; blank means its label, titleized.
  * @param label - The label it starts under; one is generated when omitted.
  * @param expressions - The hunt's expressions, which the standard layout is drawn for.
  * @returns The quiz's row id.
  * @throws When a row is not valid; the mutation writes nothing.
  *
- * @example await insertQuiz(ctx.db, realm_id, '', 'quiet_otter', SeedExpressions)
+ * @example await insertQuiz(ctx.db, { hunt_id, realm_id }, '', 'quiet_otter', SeedExpressions)
  */
-export async function insertQuiz(db: Writer, realm_id: Id<'realms'>, title: string, label: string | undefined, expressions: readonly ExpressionT[]): Promise<Id<'quizzes'>> {
-  const quiz_id = await db.insert('quizzes', Quiz.blankRow(realm_id, title, label))
+export async function insertQuiz(db: Writer, place: QuizPlace, title: string, label: string | undefined, expressions: readonly ExpressionT[]): Promise<Id<'quizzes'>> {
+  const quiz_id = await db.insert('quizzes', Quiz.blankRow(place.realm_id, title, label))
   const row_ordering: Id<'questions'>[] = []
   for (let ii = 0; ii < BlankQuestionQty; ii += 1) {
-    row_ordering.push(await db.insert('questions', Question.blankRow(quiz_id)))
+    row_ordering.push(await db.insert('questions', Question.blankRow({ hunt_id: place.hunt_id, quiz_id })))
   }
   await db.patch('quizzes', quiz_id, { row_ordering })
   await insertLayout(db, quiz_id, defaultLayoutFor(expressions))
@@ -169,6 +173,6 @@ export async function insertHunt(db: Writer, label: string): Promise<Id<'hunts'>
     await db.insert('expressions', ExpressionValidators.row({ hunt_id, position, ...expression }))
   }
   const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position: 0, label: HomeRealmLabel, title: Labelmaker.titleize(HomeRealmLabel) }))
-  await insertQuiz(db, realm_id, '', label, SeedExpressions)
+  await insertQuiz(db, { hunt_id, realm_id }, '', label, SeedExpressions)
   return hunt_id
 }

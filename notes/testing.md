@@ -93,10 +93,11 @@ In particular, address:
 Everything under `convex/` is tested in `tests/convex/`, path for path, under `convex-test` in
 Vitest's `convex` project (the edge runtime). `tests/support/convex.ts` has `openTester()` (a
 fresh, empty deployment in this process: no test sees another's rows), `huntHolding`,
-`seedHunt(tt, hunt, open_idx)` (the hunt written, and `open`, `act` through `hunts.perform`, and
-`read` through `hunts.whole`), `openOf(seen)`, `wholeHunt` and
-`identified(tt, label)` (a fresh browser key that has taken on an ident; review actions need
-one). Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex
+`seedHunt(tt, hunt, { openIdx, smith })` (the hunt written with one smith on it; `open`, `act`
+through `hunts.perform` as that smith unless given another browser, `join(label, role)` to put
+another ident on it, and `read`, the hunt as its rows make it up), `openOf(seen)`, `wholeHunt`
+(read past authorization), `putOn` and `identified(tt, label)` (a fresh browser key that has
+taken on an ident, on no hunt: a stranger). Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex
 value (no `Map`). Ids in an action must be ids: a malformed one is refused at Convex's door, so a
 test of "an id of no question here" uses a real question of another hunt. `_creationTime` never
 ties under convex-test, so no test pauses between writes. Action tests seed a hunt tree as a
@@ -156,9 +157,8 @@ in a comment what the window is and why it is long enough.
 The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory and Convex backend, emptied as the suite starts); Playwright refuses to start locally
 otherwise. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
-fresh hunt, of which that ident is the smith. Specs share one database, and every hunt in it is
-open to any browser that names it, so find rows and pages by your own labels and titles, never
-by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
+fresh hunt, of which that ident is the smith. Specs share one database, and a hunt is shown only
+to those on it, so find rows and pages by your own labels and titles, never by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
 a smith puts them on the hunt through the members panel (`addMember`) before they can open it.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 

@@ -3,7 +3,7 @@ import { Validator } from '../lib/validator'
 
 export const IdentingValidators = Validator(({ obj, uuid, zid }) => {
   const browserKey = uuid
-    .describe('The key this browser minted for itself on its first visit and keeps: what it says it is, for the trial, until it has an account to say so. Not a secret, and nothing is authorized on it.')
+    .describe('The key this browser minted for itself on its first visit and keeps: what it says it is, for the trial, until it has an account to say so. Not a secret: it names the ident the browser took on last, whose places on hunts say what it may do, and anyone may take on any ident.')
 
   const row = obj({
     browser_key: browserKey,

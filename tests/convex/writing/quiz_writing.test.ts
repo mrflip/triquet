@@ -29,7 +29,7 @@ async function holding(hunt: HuntT) {
     const held = present(await quizRowsOf(ctx.db, quiz_id))
     return { quiz: held.quiz, questions: held.questions, widgets: held.widgets, columns: held.columns, slots: held.slots.values().toArray() }
   })
-  return { tt, hunt_id, realm_id, quiz_id, revise, rows }
+  return { tt, hunt_id, realm_id, place: { hunt_id, realm_id }, quiz_id, revise, rows }
 }
 
 /** A hunt of one quiz whose questions are titled `titles` */
@@ -113,10 +113,10 @@ describe('the update helpers', () => {
   })
 
   it('updateReview writes the fields that change, and leaves the rest', async () => {
-    const { tt, quiz_id } = await holding(titled('aa'))
+    const { tt, hunt_id, quiz_id } = await holding(titled('aa'))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
-      const review_id = await ctx.db.insert('reviews', { quiz_id, ident_id, overall: '', phase: 'empty' })
+      const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
       await updateReview(ctx.db, present(await ctx.db.get('reviews', review_id)), { overall: 'Went well.', phase: 'draft' })
     })
     const [after] = await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id))
@@ -126,20 +126,27 @@ describe('the update helpers', () => {
 
 describe('insertQuiz', () => {
   it('writes a blank quiz: its row, its blank questions in its order, and the standard layout for the expressions', async () => {
-    const { tt, realm_id } = await holding(titled('aa'))
-    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, realm_id, 'Kings', 'kings', SeedExpressions))
+    const { tt, place } = await holding(titled('aa'))
+    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, 'Kings', 'kings', SeedExpressions))
     const shape = await shapeOf(tt, quiz_id)
     expect(shape.counts).to.deep.eq([BlankQuestionQty, 11, 21])
     expect(shape.ordered).to.deep.eq(shape.questions)
     expect(shape.title).to.eq('Kings')
   })
 
+  it("writes each blank question as its hunt's", async () => {
+    const { tt, hunt_id, place } = await holding(titled('aa'))
+    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'kings', []))
+    const hunts = await tt.run(async (ctx) => present(await quizRowsOf(ctx.db, quiz_id)).questions.map((row) => row.hunt_id))
+    expect(hunts).to.deep.eq(Array.from({ length: BlankQuestionQty }, () => hunt_id))
+  })
+
   it('titles a quiz from its label when the title is blank, and mints a label when none is given', async () => {
-    const { tt, realm_id } = await holding(titled('aa'))
-    const named = await tt.run(async (ctx) => await insertQuiz(ctx.db, realm_id, '', 'princes', []))
+    const { tt, place } = await holding(titled('aa'))
+    const named = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'princes', []))
     const namedShape = await shapeOf(tt, named)
     expect(namedShape.title).to.eq('Princes')
-    const minted = await tt.run(async (ctx) => await insertQuiz(ctx.db, realm_id, '', undefined, []))
+    const minted = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', undefined, []))
     const quiz = await tt.run(async (ctx) => await ctx.db.get('quizzes', minted))
     const mintedShape = await shapeOf(tt, minted)
     expect(quiz?.label).to.match(/^[a-z][a-z0-9_]+$/)
@@ -151,7 +158,7 @@ describe('deleteQuiz', () => {
   it('deletes the quiz and every row that hangs from it', async () => {
     const blank = Hunt.blank()
     const quiz = { ...present(Hunt.quizzesOf(blank)[0]), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
-    const { tt, quiz_id, revise } = await holding(huntHolding([quiz], blank.expressions))
+    const { tt, hunt_id, quiz_id, revise } = await holding(huntHolding([quiz], blank.expressions))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const [question] = present(await quizRowsOf(ctx.db, quiz_id)).questions
@@ -159,7 +166,7 @@ describe('deleteQuiz', () => {
         question_id: present(question)._id, bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done', reply_text: 'Leon',
         items: [], message: null, response: null, truncated: false, model_tier_applied: 'quick', approx_tokens: null,
       })
-      await ctx.db.insert('reviews', { quiz_id, ident_id, overall: '', phase: 'empty' })
+      await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 11, 21, 1, 1])
     await revise(async (db, rows) => { await deleteQuiz(db, rows) })

@@ -1,4 +1,5 @@
 import * as PA from './vv/patterns'
+import type { SmithT } from './rows'
 
 /**
  * Every string the tool shows an author in place of a result, gathered in one place.
@@ -88,6 +89,46 @@ export type Refusalkind = keyof typeof RefusalNotices
  */
 export function identUnknownNotice(label: string): string {
   return `No ident is labelled "${label}". They need to visit the app and choose it first.`
+}
+
+/** Any of several names, as a sentence says them: "Flip, Ada, or Grace" */
+const EitherOf = new Intl.ListFormat('en', { type: 'disjunction' })
+
+/**
+ * `smiths` as a sentence names them, any one of them to be asked, each by title and label (by
+ * label alone when that is all there is); "a smith of this hunt" when none are known.
+ *
+ * @example smithsNamed([{ label: 'flip_kromer', title: 'Flip' }, { label: 'ada_lovelace', title: '' }])  // => 'Flip (flip_kromer) or ada_lovelace'
+ */
+function smithsNamed(smiths: readonly SmithT[]): string {
+  if (smiths.length === 0) { return 'a smith of this hunt' }
+  return EitherOf.format(smiths.map(({ label, title }) => (title && title !== label ? `${title} (${label})` : label)))
+}
+
+/**
+ * What someone not on a hunt is told when an address takes them into it: who could add them, and
+ * how.
+ *
+ * @param smiths - The hunt's smiths.
+ * @param label - The label of the ident they are now, which a smith would add.
+ *
+ * @example notOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. Ask Flip (flip_kromer) to please add you: …'
+ */
+export function notOnHuntNotice(smiths: readonly SmithT[], label: string): string {
+  return `You are not yet a member of this hunt. Ask ${smithsNamed(smiths)} to please add you: they can put your ident, “${label}”, on the hunt from the Members panel beneath any of its quizzes, and this page opens for you as soon as they do.`
+}
+
+/**
+ * What a reviewer is told when an address asks for the smiths' presentation of a quiz: who could
+ * make them a smith, and how.
+ *
+ * @param smiths - The hunt's smiths.
+ * @param label - The label of the reviewer's ident.
+ *
+ * @example notASmithNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are a reviewer on this hunt, not a smith. Ask Flip (flip_kromer) to make you one: …'
+ */
+export function notASmithNotice(smiths: readonly SmithT[], label: string): string {
+  return `You are a reviewer on this hunt, not a smith. Ask ${smithsNamed(smiths)} to make you one: they can change the role of your ident, “${label}”, in the Members panel beneath any of its quizzes.`
 }
 
 /**
