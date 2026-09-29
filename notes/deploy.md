@@ -24,17 +24,18 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
   (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route.
 * **Convex** keeps one production deployment and a preview deployment per open branch, each with
   its own database and its own environment variables. A deployment holds exactly one version of
-  the functions and one schema, whichever was pushed last. There is no permissions head and no
-  migration chain: authorization is code in `convex/authorize.ts` and ships with the functions.
+  the functions and one schema, whichever was pushed last. There is no permissions head:
+  authorization is code in `convex/authorize.ts` and ships with the functions.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   on every pull request and every push to `main`, and checks that `convex/_generated/` was
   committed as the functions regenerate it. Every job runs against a local backend or none; CI
   deploys nothing and holds no Convex key.
 * **Doppler** names who is acting where: `<stage>_<actor>`. `prd` holds production's settings,
   the ones Vercel builds production with, and syncs to Vercel's Production environment;
-  `prd_janitor` adds the production deploy key, and is the only config that can reach production
-  from a terminal (`./scripts/doppledo prd_janitor <command>`). The `dev_*` configs hold nothing
-  of Convex's but `NEXT_PUBLIC_CONVEX_URL`, which the local scripts set anyway.
+  `prd_janitor` (a Coach's) and `dev_aijanitor` (an agent's, when a Coach grants it) add the
+  production deploy key, and are the only configs that can reach production from a terminal
+  (`./scripts/doppledo prd_janitor <command>`). The other `dev_*` configs hold nothing of
+  Convex's but `NEXT_PUBLIC_CONVEX_URL`, which the local scripts set anyway.
 * **Local backends**, one per role, need no account at all: see *Working locally*.
 
 ## Does this change need anything of me?
@@ -48,13 +49,30 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
 
 **Schema pushes.** Convex checks every existing document against the schema being pushed, and
 refuses the whole push if one does not fit: the build fails, and the deployment keeps serving the
-previous version untouched. There are no migrations here, by decision (`notes/decisions/
-2026-09-convex.md`): nobody is using the app yet, so a deployment whose rows no longer fit is
-emptied and pushed again. For a local role that is `scripts/convex_reset <role>`. For a preview
-deployment it is nothing: each one starts empty. For production it is the Coach's call, made in
-the Convex dashboard (clear the tables, or make the change accept the old rows). The day there is
-data to keep, `@convex-dev/migrations` is the route (the `convex-migrate` skill knows it); until
-then, do not write one.
+previous version untouched. Production holds quizzes people are writing, so a change that its rows
+would not fit (a required field added, a field reshaped) ships as a migration, in two pull
+requests, through `@convex-dev/migrations` (`convex/migrations.ts`; the `convex-migrate` skill
+knows it):
+
+1. **Widen.** The schema accepts the old rows and the new: the field is optional in
+   `convex/schema.ts` (written by hand there, over the row validator, which stays strict so every
+   write gives it), and code that reads it copes with its absence. A backfill in
+   `convex/migrations.ts` writes it into the old rows, and joins `runAll`. `tests/convex/schema.test.ts`
+   lists the field under `Backfilling`.
+2. **Backfill.** Once the first is merged and deployed:
+   `./scripts/doppledo dev_aijanitor npx convex run migrations:runAll`, after the same with
+   `'{"fn": "migrations:<name>", "dryRun": true}'` to `migrations:run` to see what it would do.
+   `npx convex run --component migrations lib:getStatus` says how far each got.
+3. **Tighten.** The second pull request makes the field required again and drops the fallback.
+   Its push checks every row, so it lands only once the backfill is complete.
+
+Rehearse on a copy first: `npx convex export --path <zip>` from production (read-only; it also
+leaves a snapshot in the dashboard to restore from), `npx convex import --replace-all` into a
+local role, then the three steps against that role.
+
+A local role whose rows no longer fit is simply emptied (`scripts/convex_reset <role>`). A preview
+deployment is made fresh for a branch and kept across its pushes; delete it in the dashboard and
+the next push makes another.
 
 ## Working locally
 
@@ -103,9 +121,10 @@ there is something worth seeding with.
 
 * **Coaches** hold `prd_janitor`, deploy production (ordinarily by merging), and run the healthcheck
   against it.
-* **Agents** never deploy to production, never hold its key, and never run under a human's config.
+* **Agents** never cause a deploy to production or run using a human's config.
   Their world is the local roles. An agent that finds production needs something says so in
   `HUMAN-whatsup.md`.
+  - Agents may, when granted permission, use the `dev_aijanitor` role: it has significantly upgraded privileges and access to the production machines.
 
 ## Resetting
 

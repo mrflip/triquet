@@ -17,10 +17,10 @@ import { ReviewingValidators } from '../../src/models/reviewing'
 import { WidgetValidators } from '../../src/models/widget'
 import { openTester, type Tester } from '../support/convex'
 
-// Every table's fields are derived from its row validator, bar one written by hand. This holds
+// Every table's fields are derived from its row validator, bar a few written by hand. This holds
 // the two together: the same fields (kind by kind, for a table that is a union), every one
-// required, and a row the validator makes is one the table takes, while a row with a field of the
-// wrong type is refused.
+// required but those being backfilled, and a row the validator makes is one the table takes,
+// while a row with a field of the wrong type is refused.
 
 /** A row validator: one shape, or a union of shapes told apart by a field */
 type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
@@ -40,6 +40,12 @@ const RowValidators: Record<TableNames, RowValidator> = {
   reviews:     ReviewValidators.row,
   reviewings:  ReviewingValidators.row,
   widgets:     WidgetValidators.row,
+}
+
+/** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  questions: ['hunt_id'],
+  reviews:   ['hunt_id'],
 }
 
 /** For sorting names into a stable order to compare */
@@ -133,8 +139,8 @@ describe('every table and its row validator', () => {
         expect(namesOf(shapes)).to.deep.eq(namesOf(rowShapesOf(row)))
       })
 
-      it('require every field', () => {
-        expect(shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))).to.deep.eq([])
+      it('require every field, bar those being backfilled', () => {
+        expect(shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))).to.deep.eq(Backfilling[tablename] ?? [])
       })
 
       it('take a row the row validator makes', async () => {

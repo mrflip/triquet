@@ -16,7 +16,7 @@ function isPublicFunction(val: unknown): boolean {
 
 /** Every public function the deployment offers, as `module:name`, in order */
 async function publicFunctions(): Promise<string[]> {
-  const sources = Object.entries(modules).filter(([path]) => ! path.includes('/_generated/'))
+  const sources = Object.entries(modules).filter(([path]) => ! path.includes('/_generated/') && ! path.endsWith('/convex.config.ts'))
   const found = await Promise.all(sources.map(async ([path, load]) => {
     const exported = await load() as Record<string, unknown>
     const modulename = path.replace('../../convex/', '').replace(/\.ts$/, '')

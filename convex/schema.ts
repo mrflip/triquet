@@ -22,9 +22,11 @@ import { WidgetValidators } from '../src/models/widget'
 // table. What the bridge cannot carry (patterns, lengths, integers,
 // and checks across fields) stays the row validator's, which every write passes first.
 //
-// One field is written by hand: a botting's `response`, any JSON at all, whose recursive type the
-// bridge converts at run time but TypeScript cannot follow. `tests/convex/schema.test.ts` holds it
-// to the row validator.
+// Three fields are written by hand. A botting's `response` is any JSON at all, whose recursive
+// type the bridge converts at run time but TypeScript cannot follow; `tests/convex/schema.test.ts`
+// holds it to the row validator. A question's and a review's `hunt_id` are optional here though
+// every write gives one, so that rows written before they named their hunt still fit until
+// `migrations.ts` backfills them.
 
 const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
@@ -34,12 +36,12 @@ const expressionFields  = zodOutputToConvexFields(ExpressionValidators.row.shape
 const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
-const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
+const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), hunt_id: CVX.optional(CVX.id('hunts')) }
 const bottingFields     = {
   ...zodOutputToConvexFields(_.omit(BottingValidators.row.shape, ['response'])),
   response: CVX.any() as VAny<LastErrT['response'] | null>,
 }
-const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
+const reviewFields      = { ...zodOutputToConvexFields(ReviewValidators.row.shape), hunt_id: CVX.optional(CVX.id('hunts')) }
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
 

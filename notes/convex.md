@@ -24,8 +24,9 @@ Rows, not a tree. A view dispatches an action, the `hunts.perform` mutation writ
 comes to, and views subscribe to query functions that assemble what a screen shows
 (`notes/queries_hooks_and_subscriptions.md` has the words: query function, watch, fetch, facet,
 screen hook). Row ids are Convex's `_id` and internal: refer by label. Zod validates every
-function's arguments and every row written, never rows read back. Nobody is using the app yet,
-so a change to a row shape needs no migration: a local backend is emptied and pushed again.
+function's arguments and every row written, never rows read back. A change to a row shape that
+rows already written would not fit is a migration on production (`convex/migrations.ts`, and
+`notes/deploy.md` for the order of steps); a local backend is simply emptied and pushed again.
 
 ## Before the first Convex edit of a session
 

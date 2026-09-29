@@ -39,6 +39,29 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   testing note lists as the style; I used `.to.eq(true)` as other tests do. One of the two should
   change.
 
+## 2026-09-29: Production unstuck -- the first migration
+
+* **Why pushes failed.** `5aebebc` (authorization) made `hunt_id` required on questions and
+  reviews; production's 123 questions and 1 review predate it, so every push since was refused.
+  Nothing else in production failed the schema (checked table by table against a copy).
+* **Five hunts had nobody on them** (all but `eerie_takin`), so the authorization code would have
+  locked everyone out, with no smith left to add anyone. As agreed, the backfill makes `mrflip`
+  their smith; three look like leftovers of measurement runs (`condemned_chipmunk`,
+  `comprehensive_vole`, `impossible_fish`) and can be deleted from the app.
+* **Two pull requests.** This one widens (the field optional in the schema only, reads falling
+  back to the quiz's realm, an edit filling the field in) and adds `@convex-dev/migrations` with
+  three backfills. After it deploys, `./scripts/doppledo dev_aijanitor npx convex run
+  migrations:runAll`. The second makes the field required again; its push is the proof.
+* **Rehearsed** on a snapshot of production imported into the `agent` backend: 123, 1 and 5 rows
+  written, and the tightened schema then pushed clean. The export also left a snapshot in the
+  dashboard.
+* **The no-migrations guidance is gone** from `CLAUDE.md`, `notes/convex.md` and
+  `notes/deploy.md`, which now has the widen, backfill, tighten steps.
+* **An `eslint-disable-line`** for `unicorn/no-top-level-side-effects` on `app.use(migrations)` in
+  `convex/convex.config.ts`: a component is registered only that way.
+* **Still stale in `notes/deploy.md`:** *Not yet done* says production has never deployed, which
+  is no longer true; I left it for you to say what of Phase 3b is actually done.
+
 ## 2026-09-29: Doctoring -- rules files for Convex and views, skills pruned lightly
 
 * **Two notes now load themselves.** `notes/convex.md` (paths `convex/**`, `tests/convex/**`,

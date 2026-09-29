@@ -69,6 +69,10 @@ don't trust a recalled version number, including one recalled by an agent.
   Zod arguments (`zCustomQuery`, `zCustomMutation`). At 0.1.x its version number alone would make
   it *Discuss*; it is *Use* because it is the supported path, and what lets one schema drive the
   others.
+* **@convex-dev/migrations** (pinned exact), Convex's own component for backfilling a live
+  deployment's rows in batches, resumably, with a dry run: every migration goes through it
+  (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps). Added September 2026
+  for the first one production needed.
 * pnpm
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every

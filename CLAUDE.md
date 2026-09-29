@@ -12,8 +12,8 @@ We are building a lightweight tool for constructing trivia quizzes, which someti
 a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps
 store, edit and refine the question text, and also to assess questions for fairness and difficulty/
 
-Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
-a validator needs no migration path for anyone's quizzes.
+Production holds quizzes people are writing. A change to a row's shape that rows already written
+would not fit ships with a migration: `notes/deploy.md`, *Schema pushes*.
 
 **Storage is Convex**, since September 2026. Rows, not a tree; row ids are internal and things
 are referred to by label; Zod validates every function's arguments and every row written, never
@@ -82,7 +82,7 @@ when it is not running, pushes `convex/` to it and runs a command beside it; `sc
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
 
-A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. There are no migrations: a schema push refuses documents that no longer fit, and a local backend is emptied and pushed again.
+A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is emptied and pushed again, and production is migrated (`notes/deploy.md`).
 
 ## Architecture
 
