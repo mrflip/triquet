@@ -19,10 +19,10 @@ export const current = zQuery({
 })
 
 /**
- * Carry out what a visitor did before opening any quiz: take on an ident, or make a hunt. See
- * `writing/account_actions`.
+ * Carry out what a visitor did before opening any quiz: take on an ident, retitle it, or make a
+ * hunt. See `writing/account_actions`.
  *
- * @returns The ident taken on, or the hunt made.
+ * @returns The ident taken on or retitled, or the hunt made.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`), or `{ ZodError }` for an
  *   argument that is not valid; nothing is written.
  */

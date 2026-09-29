@@ -127,7 +127,7 @@ export function freshIdentLabel(): string {
  */
 export async function assumeIdent(page: Page, label = freshIdentLabel()): Promise<string> {
   await page.goto('/')
-  await page.getByLabel('Ident label').fill(label)
+  await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
   await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page).toHaveURL(/\/my\/hunts$/)
   return label

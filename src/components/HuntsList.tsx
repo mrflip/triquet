@@ -2,17 +2,19 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Link, Stack, Typography } from '@mui/material'
+import { Button, InputBase, Link, Stack, Typography } from '@mui/material'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import { HomeRealmLabel } from '../models/realm'
 import type { ListedHuntT } from '../lib/rows'
 import { HuntRoleTitles } from '../models/hunting'
-import { useAccountActions } from '../state/use-account-actions'
+import type { IdentT } from '../models/ident'
+import { useAccountActions, type AccountActionsHandle } from '../state/use-account-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
 import NextLink from './NextLink'
+import { useDraft } from './use-draft'
 import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
@@ -59,7 +61,9 @@ export function HuntsList() {
   return (
     <main className={styles.page}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
-        <Typography>You are <b>{ident.title}</b> ({ident.label}).</Typography>
+        <Typography>You are</Typography>
+        <IdentTitle ident={ident} act={act} />
+        <Typography>({ident.label}).</Typography>
         <Link component={NextLink} href={Routes.switchIdentPath()}>Be someone else</Link>
       </Stack>
       <Panel title="Hunts" blurb="The hunts you are on, and the quizzes in each. Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on someone else's hunt, ask one of its smiths to add you by your ident label.">
@@ -71,6 +75,30 @@ export function HuntsList() {
         </Stack>
       </Panel>
     </main>
+  )
+}
+
+/**
+ * What the visitor is called on screen, retitled in place: saved when it loses focus, and put
+ * back as it was when left blank.
+ */
+function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountActionsHandle['act'] }>) {
+  const { draft, onChange, onBlur } = useDraft(ident.title, (title) => { void act({ kind: 'retitle_ident', title }) }, (typed) => typed.trim() || ident.title)
+  return (
+    <InputBase
+      value={draft}
+      inputProps={{ 'aria-label': 'Your name', size: Math.max(draft.length, 4) }}
+      onChange={(event) => { onChange(event.target.value) }}
+      onBlur={onBlur}
+      sx={{
+        fontWeight:    700,
+        px:            0.5,
+        border:        '1px solid transparent',
+        borderRadius:  'var(--radius-input)',
+        '&:hover':       { borderColor: 'var(--border)' },
+        '&.Mui-focused': { borderColor: 'var(--accent)' },
+      }}
+    />
   )
 }
 

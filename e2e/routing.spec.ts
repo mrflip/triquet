@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import * as Labelmaker from '../src/lib/labelmaker'
 import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
@@ -17,7 +18,7 @@ function freshTitle(stem: string): string {
 test.describe('the front door', () => {
   test('asks a visitor who has not said who they are', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
   })
 
   test('sends a visitor who has said on to their hunts', async ({ page }) => {
@@ -29,46 +30,49 @@ test.describe('the front door', () => {
 
   test('refuses a label too short to be an ident\'s, saying why', async ({ page }) => {
     await page.goto('/')
-    await page.getByLabel('Ident label').fill('flip')
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill('flip')
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByText(/An ident label is 6 to 24/)).toBeVisible()
     await expect(page).toHaveURL((url) => url.pathname === '/')
   })
 
-  test('makes an ident of what was typed, titled as asked', async ({ page }) => {
+  test('makes an ident of what was typed, titled after its label', async ({ page }) => {
     const label = freshIdentLabel()
     await page.goto('/')
-    await page.getByLabel('Ident label').fill(label.replaceAll('_', ' ').toUpperCase())
-    await page.getByLabel('Title').fill('Flip the Tester')
+    await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label.replaceAll('_', ' ').toUpperCase())
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
-    await expect(page.getByText(`You are Flip the Tester (${label}).`)).toBeVisible()
+    await expect(page.getByText(`(${label})`)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue(Labelmaker.titleize(label))
   })
 
   test('lets a visitor become someone else', async ({ page }) => {
     await assumeIdent(page)
     await page.getByRole('link', { name: 'Be someone else' }).click()
     const other = freshIdentLabel()
-    await page.getByLabel('Ident label').fill(other)
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(${other})`)).toBeVisible()
   })
 
-  test('makes one who types an ident someone else made into that ident', async ({ page, browser }) => {
+  test('makes one who types an ident someone else made and retitled into that ident, under its new title', async ({ page, browser }) => {
     const label = freshIdentLabel()
     await page.goto('/')
-    await page.getByLabel('Ident label').fill(label)
-    await page.getByLabel('Title').fill('The First')
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
+    await page.getByRole('textbox', { name: 'Your name' }).fill('The First')
+    await page.getByRole('textbox', { name: 'Your name' }).blur()
+    await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('The First')
 
     const elsewhere = await otherVisitor(browser)
     await elsewhere.goto('/')
-    await elsewhere.getByLabel('Ident label').fill(label)
-    await elsewhere.getByLabel('Title').fill('The Second')
+    await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
     await elsewhere.getByRole('button', { name: 'Continue' }).click()
-    await expect(elsewhere.getByText(`You are The First (${label}).`)).toBeVisible()
+    await expect(elsewhere.getByRole('textbox', { name: 'Your name' })).toHaveValue('The First')
+    await expect(elsewhere.getByText(`(${label})`)).toBeVisible()
   })
 })
 
@@ -76,7 +80,7 @@ test.describe('the hunts', () => {
   test('are shown only to someone who has said who they are, who is brought back after', async ({ page }) => {
     await page.goto('/my/hunts')
     await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fhunts$/)
-    await page.getByLabel('Ident label').fill(freshIdentLabel())
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
   })
@@ -245,8 +249,8 @@ test.describe('a link handed to a friend', () => {
     const friend = await otherVisitor(browser)
     const label = freshIdentLabel()
     await friend.goto(link)
-    await expect(friend.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
-    await friend.getByLabel('Ident label').fill(label)
+    await expect(friend.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
+    await friend.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
     await friend.getByRole('button', { name: 'Continue' }).click()
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })

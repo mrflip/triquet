@@ -32,6 +32,22 @@ export async function assumeIdent(db: Writer, browser_key: string, label: string
 }
 
 /**
+ * Retitle the ident the browser `browser_key` is now: what it is called on screen, which it may
+ * change at any time. Its label, which others add it to hunts by, stays. A browser that has not
+ * said who it is is refused.
+ *
+ * @returns The ident's row id.
+ * @throws A refusal (`notIdentified`); nothing is written.
+ */
+export async function retitleIdent(db: Writer, browser_key: string, title: string): Promise<Id<'idents'>> {
+  const ident = await identFor(db, browser_key)
+  if (! ident) { refuse('notIdentified') }
+  const { title: filled } = Ident.fill({ label: ident.label, title })
+  if (filled !== ident.title) { await db.patch('idents', ident._id, { title: filled }) }
+  return ident._id
+}
+
+/**
  * Make a fresh hunt under `label`: one realm, `home`, holding one blank quiz of the same label,
  * with the ident the browser `browser_key` is now as its smith. A browser that has not said who
  * it is is refused, since a hunt nobody is on is a hunt nobody can open. A label some hunt
@@ -57,12 +73,13 @@ export async function newHunt(db: Writer, browser_key: string, label: string): P
  * @param db - The mutation's database.
  * @param browser_key - The visitor's browser.
  * @param action - What the visitor did.
- * @returns The id of the ident taken on or the hunt made.
+ * @returns The id of the ident taken on or retitled, or the hunt made.
  * @throws A refusal when the action cannot be carried out; nothing is written.
  */
 export async function performAccount(db: Writer, browser_key: string, action: AccountActionT): Promise<Id<'idents'> | Id<'hunts'>> {
   switch (action.kind) {
-  case 'assume_ident': { return await assumeIdent(db, browser_key, action.label, action.title) }
-  case 'new_hunt':     { return await newHunt(db, browser_key, action.label) }
+  case 'assume_ident':  { return await assumeIdent(db, browser_key, action.label, action.title) }
+  case 'retitle_ident': { return await retitleIdent(db, browser_key, action.title) }
+  case 'new_hunt':      { return await newHunt(db, browser_key, action.label) }
   }
 }

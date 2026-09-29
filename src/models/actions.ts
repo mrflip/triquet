@@ -79,10 +79,11 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, to its hunt\'s expressions, and to who is on the hunt.')
 
   const accountAction = discrim('kind', [
-    obj({ kind: lit('assume_ident'), label: IdentValidators.identLabel, title: str }),
-    obj({ kind: lit('new_hunt'),     label }),
+    obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: str }),
+    obj({ kind: lit('retitle_ident'), title: IdentValidators.title }),
+    obj({ kind: lit('new_hunt'),      label }),
   ])
-    .describe('What a visitor can do before any quiz is open: become an ident, and make a hunt.')
+    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, and make a hunt.')
 
   return { open, huntAction, accountAction }
 })

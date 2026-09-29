@@ -35,6 +35,7 @@ export const AppNotices = {
   noHunts:              'No hunts yet.',
   identLabelShape:      'An ident label is 6 to 24 lowercase letters, digits and single underscores, starting with a letter. Spaces become underscores.',
   identLabelNeeded:     'Type the label you go by.',
+  identGateTitle:       'Enter your username (6+ letters, a-z) to join',
   untitledQuiz:         'Untitled quiz',
   untitledQuestion:     'Untitled question',
   reviewShared:         'Shared with the smiths.',
