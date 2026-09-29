@@ -5,7 +5,7 @@ import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { present } from '../support/present'
 import { mintId } from '../../src/lib/ids'
-import { forgetHuntIds, huntHolding, identified, openTester, putOn } from '../support/convex'
+import { huntHolding, identified, openTester, putOn } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
 /**
@@ -49,14 +49,6 @@ describe('questions.open', () => {
     const { tt, question_id, browser_key } = await holding()
     await tt.run(async (ctx) => { await ctx.db.delete('questions', question_id) })
     expect(await tt.query(api.questions.open, { question_id, browser_key })).to.eq(null)
-  })
-
-  it("reads a question written before it named its hunt, by its quiz's hunt, for someone on that hunt only", async () => {
-    const { tt, question_id, browser_key } = await holding()
-    await forgetHuntIds(tt)
-    const stranger = await identified(tt, 'carol_strays')
-    expect(present(await tt.query(api.questions.open, { question_id, browser_key })).label).to.eq('aa')
-    expect(await tt.query(api.questions.open, { question_id, browser_key: stranger.browser_key })).to.eq(null)
   })
 
   it("reads null, as for one not there, for someone not on its hunt", async () => {

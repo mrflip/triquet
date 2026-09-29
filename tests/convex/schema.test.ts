@@ -43,10 +43,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {
-  questions: ['hunt_id'],
-  reviews:   ['hunt_id'],
-}
+const Backfilling: Partial<Record<TableNames, string[]>> = {}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)

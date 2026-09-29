@@ -79,18 +79,6 @@ export async function huntIdOf(db: Reader, quiz: Pick<Doc<'quizzes'>, 'realm_id'
   return realm?.hunt_id ?? null
 }
 
-/**
- * The hunt a question or review belongs to: the one it names, or for a row written before it
- * named one, its quiz's, through the quiz's realm. Null when that quiz or realm is gone.
- *
- * @example await huntIdOfRow(ctx.db, question)  // => question.hunt_id, or its quiz's realm's
- */
-export async function huntIdOfRow(db: Reader, row: Pick<Doc<'questions'> | Doc<'reviews'>, 'hunt_id' | 'quiz_id'>): Promise<Id<'hunts'> | null> {
-  if (row.hunt_id !== undefined) { return row.hunt_id }
-  const quiz = await db.get('quizzes', row.quiz_id)
-  return quiz && await huntIdOf(db, quiz)
-}
-
 /** A realm's quizzes' rows, in the order they were made */
 export async function quizzesOf(db: Reader, realm_id: Id<'realms'>): Promise<Doc<'quizzes'>[]> {
   return await db.query('quizzes').withIndex('by_realm_id', (cvx) => cvx.eq('realm_id', realm_id)).take(PA.QuizzesPerRealm.max)

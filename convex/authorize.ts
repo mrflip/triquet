@@ -1,7 +1,7 @@
 import type { Doc, Id } from './_generated/dataModel'
 import { isReviewAction, type HuntActionT, type OpenQuizT } from '../src/models/actions'
 import type { HuntRole } from '../src/models/hunting'
-import { huntingFor, huntIdOf, huntIdOfRow, reviewFor, type Reader } from './reading'
+import { huntingFor, huntIdOf, reviewFor, type Reader } from './reading'
 
 // The only place authorization is written. Who is asking is the ident a browser is now
 // (`identFor`), and an ident's hunting on a hunt says what it may do there: a smith reads and
@@ -57,8 +57,7 @@ export async function mayChangeHunt(db: Reader, hunt_id: Id<'hunts'>, ident_id: 
 export async function mayReadReview(db: Reader, review: Doc<'reviews'>, ident_id: Id<'idents'> | null): Promise<boolean> {
   if (review.ident_id === ident_id) { return true }
   if (ident_id === null || review.phase !== 'shared') { return false }
-  const hunt_id = await huntIdOfRow(db, review)
-  const role = hunt_id && await roleOn(db, hunt_id, ident_id)
+  const role = await roleOn(db, review.hunt_id, ident_id)
   if (role !== 'reviewer') { return role === 'smith' }
   const own = await reviewFor(db, review.quiz_id, ident_id)
   return own?.phase === 'shared'
