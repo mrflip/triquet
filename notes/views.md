@@ -1,0 +1,60 @@
+---
+paths:
+  - "src/components/**"
+  - "src/app/**"
+---
+
+# Views
+
+How a view is built here. This file loads itself when work touches `src/components/` or
+`src/app/`. The rule it serves is the Library-first non-negotiable in `CLAUDE.md`: hand-rolling
+is a decision, not a default, and the lookup order is a Material UI component or an existing
+dependency, then a new library (`notes/stack.md` says whether it is settled), then, after a Coach
+says yes in chat, our own code.
+
+## Composition
+
+Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks.
+Markdown is for documents and content, not UI. `Workbench` is the whole tool; `cells/` are the
+grid's cell editors and readouts; `panels/` sit below the grid. A hook that only serves a view
+(`use-draft`, `use-reorder`) lives beside it. Pages under `src/app/` are thin and hand off to a
+component.
+
+## Styling
+
+Style with MUI first: `sx`, the theme in `src/app/theme.ts`, and the components' own props.
+`workbench.module.css` is for layout MUI cannot express, and a new rule there needs a reason
+said in chat. A CSS-module rule that re-creates something `sx` or the theme can do is one of the
+tripwires below. Form controls in the chrome around the grid are MUI's (`Select native`,
+`InputBase`, `IconButton`, `TextField multiline`), which keeps them themed and keeps Playwright's
+`selectOption` and `getByLabel` working; the grid's own cells are the one place a raw element is
+the settled choice (below).
+
+## Tripwires that mean "stop and ask"
+
+* You are attaching native DOM event handlers beyond click and change.
+* You are writing a raw `<table>`, `<button>`, `<select>`, `<input>` or `<dialog>` where MUI has
+  one.
+* You are adding a CSS-module rule that re-creates something `sx` or the theme can do.
+* You are writing a small state machine for an interaction.
+* You are past about thirty lines on behaviour that is not specific to quizzes: drag and drop,
+  focus handling, keyboard navigation, popovers, form state, virtualization, date math, parsing.
+
+A decision recorded under *Hand-rolled on purpose* in `notes/stack.md` closes the tripwire for
+that code: the question grid's bespoke `<table>` and the batch-mode selection hook are there.
+Don't re-flag one without a new reason.
+
+The same goes in reverse: hand-rolled code that a library should own is said in chat rather than
+extended. Flag it once, briefly, and only when already touching that code; don't propose
+migrating code you aren't otherwise changing.
+
+## Skills to reach for
+
+The MUI skills under `.claude/skills/` load only when named. Name one at these moments.
+
+* **`sx`, `styled` or theme work of a kind this repo has not done yet** (a new variant, a
+  breakpoint scheme, a component override): `/material-ui-styling`.
+* **Touching `src/app/theme.ts` or the palette**: `/material-ui-theming`.
+* **Reaching for a component's less-travelled props** (slots, `slotProps`, a controlled form of
+  an input): check the installed MUI version in `package.json` first, and prefer the component's
+  own TypeScript types in `node_modules` over memory.

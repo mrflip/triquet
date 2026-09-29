@@ -89,3 +89,5 @@ notes/example-quiz.json
 .claude/worktrees/
 
 public/jazz
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

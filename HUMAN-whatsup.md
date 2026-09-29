@@ -2,7 +2,33 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
-<<<<<<< HEAD
+## 2026-09-29: Doctoring -- rules files for Convex and views, skills pruned lightly
+
+* **Two notes now load themselves.** `notes/convex.md` (paths `convex/**`, `tests/convex/**`,
+  `src/state/**`, `src/lib/rows.ts`) carries the row-shape paragraph, the pointer to Convex's
+  generated guidelines, the *Rules overrides* list moved out of the progress document, and the
+  moments to name a Convex skill. `notes/views.md` (`src/components/**`, `src/app/**`) carries the
+  Library-first tripwires, the styling rules and the MUI skill moments. Both are symlinked into
+  `.claude/rules/` like `testing.md`. `notes/testing.md` now also loads with `tests/support/**` and
+  `e2e/**`, and names `/vitest` and `/playwright-cli`.
+* **CLAUDE.md** points at them instead of carrying the text: 16.9k to 16.1k characters, about
+  200 tokens a session. Smaller than the 800 I estimated: the pointers cost some of it back.
+* **Why the skills went unused** (53 sessions, three machines, zero invocations): a skill loads
+  only when named, by you or by the agent judging the task matches its one-line description.
+  CLAUDE.md's direct file pointers pre-empted them, and the descriptions name no moment to fire.
+  The rules files above now name the moments.
+* **Skills removed**, per your triage: `convex-quickstart`, `convex-improve-convex-plugin`, and
+  `material-ui-review` (its body is a PR-review procedure for the MUI library's own repo). The
+  three you marked "probably don't need" (`convex-agent`, `-billing`, `-domains`) are still here.
+  The listing is about 1.9k est. tokens, still near the budget where entries get truncated.
+* **Not edited, copy provided.** `whiteboard/convex_yay-progress.md` belongs to the other thread;
+  the replacement for its *Rules overrides* section is in
+  `whiteboard/20260928-doctoring/convex_yay-progress--rules-overrides-replacement.md`.
+* **Heads-up: the three doctor tarballs (31 MB) are staged.** I left the index as I found it, but
+  they should probably not land in history.
+* **Heads-up: `notes/decisions/` does not exist**, though CLAUDE.md (and now `notes/convex.md`)
+  cite `notes/decisions/2026-09-convex.md` and `2026-09-client-first.md`.
+
 ## 2026-09-28: The cloud, measured
 
 Production (`triquet.vercel.app`) against the local backend, the same script for both, with a
@@ -20,7 +46,7 @@ Two things for you:
   eight `measure_*` idents. There is no hunt deletion, so they stay until you clear them.
 
 The script is `scripts/measure-latency.ts`, and the summary `notes/20260928-cloud_measurements-a.md`.
-=======
+
 ## 2026-09-28: Convex phase 7, authorization
 
 Branch `20260928-convex_phase7`, rebased onto `main` after the audit. Green: lint, typecheck,
@@ -49,7 +75,6 @@ For your word (details in the progress document, *Deviations*):
   browser, and would otherwise be listed as shared.
 
 Optimistic writes: still held off; nothing in this phase ran into them.
->>>>>>> 5479606 (docs: phase 7's progress, the Coach's entry, and the handoff for the identity plan)
 
 ## 2026-09-28: Convex phase 6, huntings
 
