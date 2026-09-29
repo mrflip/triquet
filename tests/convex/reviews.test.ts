@@ -33,7 +33,7 @@ describe('reviews.forQuiz', () => {
     expect(await tt.query(api.reviews.forQuiz, { quiz_id: theirs.open.quiz_id, browser_key })).to.have.lengthOf(1)
   })
 
-  it("reads one's own review whatever its phase, and another's only once it is shared", async () => {
+  it("reads one's own review whatever its phase; another's once shared, for a smith, or for a reviewer whose own is shared", async () => {
     const tt = openTester()
     const { act, open, join, smith } = await seedHunt(tt, Hunt.blank())
     const { quiz_id } = open
@@ -46,7 +46,13 @@ describe('reviews.forQuiz', () => {
     }
     expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key), await seenBy(smith.browser_key)]).to.deep.eq([['alice_reviews'], [], []])
     await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, alice.browser_key)
-    expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key), await seenBy(smith.browser_key)]).to.deep.eq([['alice_reviews'], ['alice_reviews'], ['alice_reviews']])
+    await act({ kind: 'open_review', quiz_id }, bob.browser_key)
+    expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key), await seenBy(smith.browser_key)]).to.deep.eq([['alice_reviews'], ['bob_reviews'], ['alice_reviews']])
+    await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, bob.browser_key)
+    const both = ['alice_reviews', 'bob_reviews']
+    expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key), await seenBy(smith.browser_key)]).to.deep.eq([both, both, both])
+    await act({ kind: 'set_review_phase', quiz_id, phase: 'draft' }, bob.browser_key)
+    expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key)]).to.deep.eq([['alice_reviews'], ['bob_reviews']])
   })
 
   it("reads nothing of a shared review for someone not on the hunt", async () => {
@@ -62,7 +68,7 @@ describe('reviews.forQuiz', () => {
 
   it('hands each review back with its own reviewings, and none for a review with nothing written', async () => {
     const tt = openTester()
-    const { act, open, read, join } = await seedHunt(tt, Hunt.blank())
+    const { act, open, read, join, smith } = await seedHunt(tt, Hunt.blank())
     const { quiz_id } = open
     const [first, second] = openOf(await read()).questions
     const [alice, bob] = [await join('alice_reviews', 'reviewer'), await join('bob_reviews', 'reviewer')]
@@ -70,8 +76,9 @@ describe('reviews.forQuiz', () => {
     await act({ kind: 'open_review', quiz_id }, bob.browser_key)
     await act({ kind: 'set_reviewing', quiz_id, question_id: present(first)._id, patch: { get_rate: 40 } }, alice.browser_key)
     await act({ kind: 'peek_answer', quiz_id, question_id: present(second)._id }, alice.browser_key)
+    await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, alice.browser_key)
     await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, bob.browser_key)
-    const reviews = await tt.query(api.reviews.forQuiz, { quiz_id, browser_key: alice.browser_key })
+    const reviews = await tt.query(api.reviews.forQuiz, { quiz_id, browser_key: smith.browser_key })
     // A review's reviewings come in no order a view relies on: it places each by its question.
     const verdicts = reviews.map((review) => [review.reviewer?.label, new Map(review.reviewings.map((reviewing) => [reviewing.question_id, [reviewing.get_rate, reviewing.peeked]]))])
     expect(verdicts).to.deep.eq([

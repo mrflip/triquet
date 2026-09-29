@@ -30,7 +30,7 @@ The handoff for `whiteboard/convex_yay-plan.md`. Newer than the plan wherever th
   rewritten for phase 7.
 * **Phase 7 (authorization, hunts-and-idents PR 6)**: built on `20260928-convex_phase7`, rebased
   onto `main` after the audit (phases 0 to 6 merged). On 2026-09-28: lint and typecheck green;
-  2037 unit and convex tests and 170 e2e specs green (`pnpm test:e2e:agent`, about a minute).
+  2037 unit and convex tests and 171 e2e specs green (`pnpm test:e2e:agent`, about a minute).
   **Wide open is over**: the server enforces what phase 6 showed.
 * **Next**: the identity plan (the plan's *Identity, later*), which the Coach issues. Phase 3b
   (the cloud): production is up at `triquet.vercel.app`, and the cloud is measured
@@ -178,10 +178,12 @@ Newest first.
   (the second reader's catch: nothing deletes a realm today, but a quiz left without one would
   otherwise be placeable under any hunt). `delete_quiz` of another hunt's quiz
   is now `notPermitted` rather than `notInRealm` (which stays, for a second realm of the hunt).
-* **Phase 7: a reviewer reads others' shared reviews too.** The plan's `mayReadReview` said
-  "shared and a smith of its hunt"; the thread says "shared and the hunt is mine", which is what
-  is built (the phase 5 word that hiding reviews is a convenience, not enforcement, points the
-  same way). The review screen shows only one's own anyway.
+* **Phase 7: a reviewer reads the others' shared reviews once their own is shared** (the Coach,
+  2026-09-29). The plan's `mayReadReview` said "shared and a smith of its hunt"; the thread said
+  "shared and the hunt is mine". Built: one's own always; another's once shared, by a smith of the
+  hunt, or by a reviewer whose own review of the quiz is shared (withdrawing hides them again).
+  The review screen shows them below the Share button, as *Other reviews*, once one's own is
+  shared, and says so until then.
 * **Phase 7: `sharedReviewsOf` stays**, for the smiths' panel only. The plan deleted it once
   `reviews.forQuiz` returned only what the caller may read, but a smith who opens a review of
   their own is sent it in draft, and the panel would list it as shared. The server says who may

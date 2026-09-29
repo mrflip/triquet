@@ -24,7 +24,7 @@ The script is `scripts/measure-latency.ts`, and the summary `notes/20260928-clou
 ## 2026-09-28: Convex phase 7, authorization
 
 Branch `20260928-convex_phase7`, rebased onto `main` after the audit. Green: lint, typecheck,
-2037 unit and convex tests, 170 e2e specs.
+2037 unit and convex tests, 171 e2e specs.
 
 The server enforces membership now. Smiths read and change their hunt. Reviewers read it and
 write their own reviews. Anyone else gets, at the address they asked for, *"You are not yet a
@@ -43,8 +43,8 @@ For your word (details in the progress document, *Deviations*):
 * **A hole the plan left, closed**: `perform` trusted the `{ hunt, realm, quiz }` the browser
   sends. Checking the role on the hunt alone would let a smith of one hunt edit, lock or delete
   another hunt's quiz by naming it. The place is now held to the hunt it is authorized on.
-* **Reviewers can read each other's shared reviews**, as the thread says ("shared, and the hunt
-  is mine"). The plan said smiths only.
+* **Reviewers see each other's shared reviews once their own is shared** (your call, 2026-09-29),
+  under *Other reviews* on the review screen; withdrawing hides them again.
 * **The smiths' panel still filters to shared reviews**: a smith's own draft review reaches their
   browser, and would otherwise be listed as shared.
 

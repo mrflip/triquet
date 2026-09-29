@@ -1,11 +1,12 @@
 import type { Doc, Id } from './_generated/dataModel'
 import { isReviewAction, type HuntActionT, type OpenQuizT } from '../src/models/actions'
 import type { HuntRole } from '../src/models/hunting'
-import { huntingFor, huntIdOf, type Reader } from './reading'
+import { huntingFor, huntIdOf, reviewFor, type Reader } from './reading'
 
 // The only place authorization is written. Who is asking is the ident a browser is now
 // (`identFor`), and an ident's hunting on a hunt says what it may do there: a smith reads and
-// changes everything of the hunt, a reviewer reads it and writes their own reviews, and anyone
+// changes everything of the hunt, a reviewer reads it and writes their own reviews (and reads the
+// others' shared ones once their own is shared), and anyone
 // else is shown nothing of it but who to ask. Anyone may still take on any ident, so this is as
 // strong as that: a rule here asks who the ident is, never how the browser came to be it.
 //
@@ -49,12 +50,17 @@ export async function mayChangeHunt(db: Reader, hunt_id: Id<'hunts'>, ident_id: 
 }
 
 /**
- * Whether `ident_id` may read `review`, with its verdicts: always their own, and anyone's once it
- * is shared, if they are on its hunt.
+ * Whether `ident_id` may read `review`, with its verdicts: always their own; another's only once
+ * it is shared, and then by a smith of its hunt, or by a reviewer there whose own review of the
+ * quiz is shared too, so no reviewer reads the others' before they have made up their own mind.
  */
 export async function mayReadReview(db: Reader, review: Doc<'reviews'>, ident_id: Id<'idents'> | null): Promise<boolean> {
   if (review.ident_id === ident_id) { return true }
-  return review.phase === 'shared' && await mayReadHunt(db, review.hunt_id, ident_id)
+  if (ident_id === null || review.phase !== 'shared') { return false }
+  const role = await roleOn(db, review.hunt_id, ident_id)
+  if (role !== 'reviewer') { return role === 'smith' }
+  const own = await reviewFor(db, review.quiz_id, ident_id)
+  return own?.phase === 'shared'
 }
 
 /**
