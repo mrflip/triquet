@@ -1,5 +1,16 @@
 # Git hygiene
 
+History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning are in `notes/git_hygiene.md`; read it before any rebase that touches more than one branch.
+
+- Never merge main into a branch, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
+- A branch must contain no merge commits; the `semi-linear` CI check rejects them.
+- Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`, and never force-push a branch another agent owns.
+- Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
+- Don't merge PRs. Coach merges.
+- Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
+- Before marking a PR ready: rebase onto origin/main, run the full test suite, push.
+
+
 ## The shape we keep
 
 History on `main` is **semi-linear**. Every PR branch is rebased onto the current tip of `main`, then lands as one `--no-ff` merge commit. The graph is a ladder:
