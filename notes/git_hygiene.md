@@ -12,7 +12,7 @@ your machine.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
 - Never merge a PR or enable auto-merge. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
-- A line of work is a thread: `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
+- A line of work is a thread: `newb` on a fresh `origin/main` (or the unmerged branch it needs), commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
 
 
 ## The shape we keep
@@ -52,13 +52,23 @@ open its PR without asking first.
 
 `pnpm newb <branchlabel>` branches `YYYYMMDD-<branchlabel>` from HEAD and carries the working tree
 along, uncommitted changes and all. Its upstream is set, so the first plain `git push` creates the
-remote branch.
+remote branch. Fetch first, and choose what HEAD is:
 
-- On `main`, or on a branch whose PR has merged, branch from `origin/main`: `git fetch origin &&
-  git switch --detach origin/main && pnpm newb <branchlabel>`, before the first edit.
-- On an unmerged branch, the new thread is stacked on it. Note that branch's PR number for the
-  description.
-- Carrying on with the current thread needs no new branch.
+- **`origin/main`**, by default: `git fetch origin && git switch --detach origin/main && pnpm newb
+  <branchlabel>`, before the first edit. This holds even when you stand on an unmerged branch,
+  unless the new thread needs its code.
+- **An unmerged branch**, only when the thread needs code that hasn't landed. The new thread is
+  stacked on it: its PR can't land first, and it moves whenever that branch moves. Note the
+  branch's PR number for the description. If a branch beneath it has merged since, rebase it onto
+  `origin/main` first. If another session owns it, tag where you stacked (*Stacks*).
+
+Don't stack for freshness alone, say on the newest green PR. It ties your PR's landing and review
+to theirs, and non-interacting work gains nothing from it. Conflicts with other open work get
+settled once, at the finishing rebase.
+
+A branch has landed when `git merge-base --is-ancestor <branch> origin/main` succeeds: merge
+commits keep SHAs. Carrying on with the current thread needs no new branch, though if a branch
+beneath it has landed since, rebase onto `origin/main` before going on.
 
 ### Milestones
 
@@ -161,6 +171,20 @@ A stack is a branch built on another unmerged branch: A <- B <- C.
   ```
 
 - Don't rebase the whole stack pre-emptively. Every merge moves `main`, so rebase **after** each merge, not before.
+
+### Stacking on a branch you don't own
+
+Another session's branch gets rewritten under you: rebased, amended in review. A plain rebase then
+replays its old commits as though they were yours, and they conflict with their new versions.
+Replay only your own, from a tag set when you stacked:
+
+```
+git tag base/<branch> origin/<their-branch>          # when starting the thread
+git rebase --onto <new-base> base/<branch>           # new base: origin/<their-branch>, or origin/main once it lands
+git tag -f base/<branch> <new-base>
+```
+
+Keep the tag local, and delete it once your PR merges.
 
 Two ways to land a stack:
 
