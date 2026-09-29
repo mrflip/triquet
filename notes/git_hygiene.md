@@ -2,11 +2,15 @@
 
 History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning follow the summary below.
 
-- Never merge main into a branch, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
-- A branch must contain no merge commits; the `semi-linear` CI check rejects them.
+These rules are about the history you push. Locally, use git however it helps: checkpoint commits,
+scratch branches, resets and replays to unwind a hairy change. Tidy the result before it leaves
+your machine.
+
+- Don't merge main into a branch you push, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
+- A pushed branch contains no merge commits; the `semi-linear` CI check rejects them.
 - Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`, and never force-push a branch another agent owns.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
-- Don't merge PRs. Coach merges.
+- Never merge a PR or enable auto-merge. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
 - A line of work is a thread: `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
 
@@ -41,7 +45,7 @@ Enforcement: the `semi-linear` CI check rejects any PR branch that contains a me
 
 ## A thread, start to finish
 
-A thread is one line of work: one branch, one PR. You may commit, push the thread's branch, and
+A thread is one line of work: one branch, one PR, and a session may hold several. You may commit, push the thread's branch, and
 open its PR without asking first.
 
 ### Starting
@@ -60,8 +64,8 @@ remote branch.
 
 Commit when the work reaches a place you could hand over: a set of related changes, with the app
 working again (typecheck, lint, and the tests near your change pass). A milestone is a return to
-working order, not a count of edits. Don't commit mid-refactor, and keep unrelated changes in
-separate commits. A large `convex/_generated/` regeneration goes in a commit of its own. For the
+working order, not a count of edits. What you push shouldn't stop mid-refactor (local checkpoints
+are fine, folded in before pushing), and unrelated changes are better in separate commits. A large `convex/_generated/` regeneration goes in a commit of its own. For the
 occasional deliberate commit with failing tests, see *Commits*.
 
 ### Finishing: the rebase
@@ -87,8 +91,13 @@ Stop and ask for anything that takes judgment:
 - Resolving would mean dropping a change from either side.
 - The suite fails after the rebase and the cause isn't obvious.
 
-To stop: `git rebase --abort` returns the branch to where it was. Then report the conflicting
-commits and files, and what each side meant.
+To stop, either:
+
+- finish the rebase with your best resolution, then report it and offer to rewind. `git reflog`
+  holds the tip from before the rebase (*Recovery*); or
+- on large problems, `git rebase --abort`, which returns the branch to where it was.
+
+Either way, report the conflicting commits and files, and what each side meant.
 
 ### Filing the PR
 
@@ -100,7 +109,9 @@ any later rebase. Then run `gh pr create --base main`.
   - What changed, in short paragraphs or bullets with **bold lead-ins**.
   - A **Tests:** line naming the suites run and their counts.
   - "Stacked on #N" or "Follows #N" where either applies.
-  - An *Open questions* list when minor questions remain.
+  - An *Open questions* list when minor questions remain. Put them in chat too, and in
+    `HUMAN-whatsup.md` or the thread's `/whiteboard` directory where CLAUDE.md asks for that.
+    A PR description is easy to miss.
 
 A *significant* question is one whose answer would change the code in the PR. Ask those in chat
 before filing, rather than filing and hoping.
@@ -154,7 +165,7 @@ Agents don't merge PRs. The only way into `main` is a merge commit on an up-to-d
 
 ## Commits
 
-Every commit survives into `main` individually.
+Every commit you push survives into `main` individually.
 It's highly desirable that each commit builds and passes tests, but it's more desirable that commits commemorate coherent related changes; it can situationally make sense to commit with failures (eg to isolate an extremely hairy ball of mechanical changes from the thoughtful work of dealing with the wreckage).
 
 ### Commit messages
