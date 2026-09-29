@@ -170,7 +170,7 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 
 History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch), or when your guidance on git is requested, or if performing operations on the github repo.
 
-Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and reset however helps, and tidy up before pushing.
+Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and replay however helps, and tidy up before pushing.
 
 1. **Start** a new line of work with `pnpm newb <branchlabel>`. It branches `YYYYMMDD-<branchlabel>`
    from where you stand, uncommitted changes and all. Continuing the current thread needs no new branch.
@@ -181,7 +181,7 @@ Work goes in **threads**: one line of work, one branch, one PR. (A session may i
    judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
 4. **Push, and file the PR** against `main` with `gh pr create` (a push borrows gh's login: see
    git_hygiene's *Filing the PR*), unless *significant* questions hang: then ask
-   in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the whiteboard and/or chat as described elsewhere. When stacked, write "stacked on #N".
+   in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the proper place (HUMAN-whatsup/whiteboard/chat) as usual. When stacked, write "stacked on #N".
    **Never merge a PR or enable auto-merge**.
 
 - Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`.

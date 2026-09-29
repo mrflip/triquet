@@ -3,7 +3,7 @@
 History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning follow the summary below.
 
 These rules are about the history you push. Locally, use git however it helps: checkpoint commits,
-scratch branches, resets and replays to unwind a hairy change. Tidy the result before it leaves
+scratch branches and replays to unwind a hairy change. Tidy the result before it leaves
 your machine.
 
 - Don't merge main into a branch you push, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
@@ -173,8 +173,7 @@ Agents don't merge PRs. The only way into `main` is a merge commit on an up-to-d
 
 ## Commits
 
-Every commit you push survives into `main` individually.
-It's highly desirable that each commit builds and passes tests, but it's more desirable that commits commemorate coherent related changes; it can situationally make sense to commit with failures (eg to isolate an extremely hairy ball of mechanical changes from the thoughtful work of dealing with the wreckage).
+Every commit in a PR survives into `main` individually, so it's highly desirable that each commit builds and passes tests. Unusual circumstances may warrant intermediate commits with failures (eg to isolate a large hairy ball of mechanical changes from the thoughtful aftermath repairs, or when debugging a CI problem).
 
 ### Commit messages
 
@@ -191,9 +190,11 @@ git branch -r --merged origin/main                     # remote branches safe to
 
 GitHub deletes head branches automatically on merge. `fetch.prune` removes the stale remote-tracking refs.
 
-## Recovery
+## Before discarding anything
 
-- **A rebase went wrong mid-way:** `git rebase --abort`.
-- **A rebase finished but the result is wrong:** `git reflog` shows where the branch was. `git reset --hard <that sha>` puts it back.
-- **Pushed something wrong to your own branch:** fix it locally, then `--force-with-lease` again.
-- **Anything touching `main` directly:** stop and ask Coach.
+Committed work survives almost anything: the reflog, or a tag, brings it back. Uncommitted work
+does not. Before a command that throws changes away (`reset --hard`, `restore`, `checkout -- .`,
+`clean`, `branch -D`), make everything it would discard reachable first: commit it, stash it, or
+put a branch on it. If you can't tell what it would discard, stop and ask.
+
+Anything that touches `main` directly: stop and ask Coach.
