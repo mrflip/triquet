@@ -42,7 +42,7 @@ test('Renumber Q# tidies the numbers without moving a question', async ({ page }
 
 test('a sort survives a reload, with its header still bold', async ({ page }) => {
   await fillQuiz(page, [['3', 'cherry'], ['1', 'apple'], ['2', 'banana']])
-  await page.getByRole('button', { name: 'Title' }).click()
+  await page.getByRole('button', { name: 'Title', exact: true }).click()
   await expect.poll(() => answersShown(page)).toEqual(['apple', 'banana', 'cherry', '', ''])
 
   await reloadOnceSaved(page)
@@ -55,8 +55,8 @@ test('a sort survives a reload, with its header still bold', async ({ page }) =>
 
 test('clicking the same header again reverses it', async ({ page }) => {
   await fillQuiz(page, [['3', 'cherry'], ['1', 'apple'], ['2', 'banana']])
-  await page.getByRole('button', { name: 'Title' }).click()
-  await page.getByRole('button', { name: 'Title' }).click()
+  await page.getByRole('button', { name: 'Title', exact: true }).click()
+  await page.getByRole('button', { name: 'Title', exact: true }).click()
   // Questions with no title sink to the bottom in both directions.
   await expect.poll(() => answersShown(page)).toEqual(['cherry', 'banana', 'apple', '', ''])
 })
@@ -97,7 +97,7 @@ test('a locked quiz refuses the arrow keys as it refuses a drag', async ({ page 
 
 test('the grips go once the quiz is out of Q# order, and batch mode stays on offer', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Title' }).click()
+  await page.getByRole('button', { name: 'Title', exact: true }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeHidden()
   await expect(page.getByRole('button', { name: 'Batch select' })).toBeEnabled()
   await expect(grid(page).locator('tbody tr').first().locator('td')).toHaveCount(22)
