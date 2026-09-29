@@ -48,6 +48,26 @@ test.describe('a review', () => {
     await expect(page.getByText('Played well, one clue felt loose.')).toBeVisible()
   })
 
+  test("shows a reviewer the other reviewers' shared reviews only once their own is shared", async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const first = await enterReview(page, browser)
+    await first.getByLabel('Overall').fill('The first reviewer liked it.')
+    await first.getByLabel('Overall').blur()
+    await first.getByRole('button', { name: 'Share with the smiths' }).click()
+    await expect(first.getByText('Shared with the smiths.')).toBeVisible()
+
+    const second = await enterReview(page, browser)
+    await expect(second.getByText('Share your review to see what the other reviewers have shared.')).toBeVisible()
+    await expect(second.getByText('The first reviewer liked it.')).toBeHidden()
+
+    await second.getByRole('button', { name: 'Share with the smiths' }).click()
+    const others = second.getByRole('region', { name: 'Other reviews' })
+    await expect(others).toContainText('The first reviewer liked it.')
+    await second.getByRole('button', { name: 'Withdraw' }).click()
+    await expect(second.getByText('The first reviewer liked it.')).toBeHidden()
+  })
+
   test('asks before revealing the answer, and hides it again without asking', async ({ page, browser }) => {
     await startHunt(page)
     await page.getByRole('textbox', { name: 'Full Answer', exact: true }).first().fill('Hamlet')

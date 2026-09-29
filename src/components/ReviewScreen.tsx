@@ -9,6 +9,7 @@ import { RowCapPx, RowFloorPx } from './QuestionRow'
 import { AnswerLock } from './cells/answer-lock'
 import { ButnotPreview } from './cells/chain'
 import { GrowingField, NumberField, StretchField } from './cells/fields'
+import { ReviewsPanel } from './panels/ReviewsPanel'
 import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
 import { reviewBy, type ReviewedT } from '../lib/rows'
@@ -22,7 +23,7 @@ import styles from './workbench.module.css'
 export type ReviewScreenProps = {
   quiz:       QuizT
   ident:      IdentT
-  /** Every ident's review of this quiz */
+  /** The reviews of this quiz this ident may read: its own, and the others' shared ones once its own is shared */
   reviews:    readonly ReviewedT[]
   dispatch:   (action: HuntActionDNA) => void
   unsaved:    boolean
@@ -38,7 +39,8 @@ const NumberFieldDropPx = '20px'
 /**
  * What a reviewer sees: the quiz's questions, read-only, each with its chained BUT NOT, its
  * answer behind a lock, and the reviewer's verdict on it; then an overall note, and a button to
- * share it all with the smiths.
+ * share it all with the smiths. Once theirs is shared, what the other reviewers have shared
+ * appears below it; until then, a line says so.
  *
  * A review of this quiz for this ident is opened the moment this screen is, so a reviewer who
  * never writes anything still has a row waiting once they type into the overall note.
@@ -56,6 +58,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
     dispatch({ kind: 'set_overall', quiz_id: quiz._id, overall })
   })
   const phase = own?.phase ?? 'empty'
+  const others = useMemo(() => reviews.filter((review) => review.ident_id !== ident._id), [reviews, ident._id])
 
   return (
     <main className={styles.page} data-unsaved={unsaved}>
@@ -101,6 +104,11 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
           </Button>
           <span className={styles.microcopy}>{phase === 'shared' ? AppNotices.reviewShared : AppNotices.reviewNotShared}</span>
         </Stack>
+        <Box sx={{ mt: 4 }}>
+          {phase === 'shared'
+            ? <ReviewsPanel questions={quiz.questions} reviews={others} title="Other reviews" blurb={AppNotices.othersReviewsBlurb} />
+            : <p className={styles.microcopy}>{AppNotices.othersReviewsHidden}</p>}
+        </Box>
       </Box>
     </main>
   )

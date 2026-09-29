@@ -39,6 +39,8 @@ export const AppNotices = {
   reviewShared:         'Shared with the smiths.',
   reviewNotShared:      'Not shared with the smiths yet.',
   noReviewsShared:      'No reviews have been shared yet.',
+  othersReviewsBlurb:   "What the other reviewers have shared about this quiz. They can read yours while it's shared, too.",
+  othersReviewsHidden:  "Share your review to see what the other reviewers have shared.",
   answerSeen:           'Seen before',
   copied:               'Copied',
   copyRefused:          'Selected — press Ctrl/Cmd+C',

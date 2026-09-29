@@ -8,9 +8,9 @@ import { identFor, reviewingsOf, reviewsOf } from './reading'
 const { zid } = ValidatorKit
 
 /**
- * The reviews of `quiz_id` that the ident the browser `browser_key` is now may read (their own,
- * and the shared ones of a hunt they are on), oldest first, each with who wrote it and its verdict
- * on each question.
+ * The reviews of `quiz_id` that the ident the browser `browser_key` is now may read (their own;
+ * the shared ones, for a smith of its hunt, or for a reviewer whose own is shared: see
+ * `mayReadReview`), oldest first, each with who wrote it and its verdict on each question.
  */
 export const forQuiz = zQuery({
   args:    { quiz_id: zid('quizzes'), browser_key: IdentingValidators.browserKey },

@@ -57,16 +57,22 @@ describe("the rules", () => {
     expect(verdicts).to.deep.eq([null, false, false])
   })
 
-  it("let a reviewer read their own review whatever its phase, and anyone on the hunt read it once shared", async () => {
-    const { tt, open, act, alice, bob, carol } = await peopled()
+  it("let a reviewer read their own review whatever its phase; once shared, a smith, and another reviewer only while theirs is shared too", async () => {
+    const { tt, open, act, join, alice, bob, carol } = await peopled()
+    const dave = await join('dave_reviews', 'reviewer')
     await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob.browser_key)
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, dave.browser_key)
     const readers = async () => await tt.run(async (ctx) => {
       const review = present(await reviewFor(ctx.db, open.quiz_id, bob.ident_id))
-      return await Promise.all([bob, alice, carol].map(async ({ ident_id }) => await mayReadReview(ctx.db, review, ident_id)))
+      return await Promise.all([bob, alice, dave, carol].map(async ({ ident_id }) => await mayReadReview(ctx.db, review, ident_id)))
     })
-    expect(await readers()).to.deep.eq([true, false, false])
+    expect(await readers()).to.deep.eq([true, false, false, false])
     await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob.browser_key)
-    expect(await readers()).to.deep.eq([true, true, false])
+    expect(await readers()).to.deep.eq([true, true, false, false])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, dave.browser_key)
+    expect(await readers()).to.deep.eq([true, true, true, false])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave.browser_key)
+    expect(await readers()).to.deep.eq([true, true, false, false])
   })
 })
 
