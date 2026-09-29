@@ -28,7 +28,7 @@ setup('opens the app, so no spec pays for compiling its pages', async ({ page })
   // spec should wait. Every spec passes through all three pages.
   setup.setTimeout(300_000)
   await page.goto('/')
-  await page.getByLabel('Ident label').fill(freshIdentLabel())
+  await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
   await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByRole('button', { name: '+ New hunt' })).toBeVisible({ timeout: 120_000 })
   await page.getByRole('button', { name: '+ New hunt' }).click()

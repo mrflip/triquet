@@ -100,15 +100,6 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
           }
           void make()
         }}
-        onDelete={(quiz_id) => {
-          // Worked out before the deletion, and matching the neighbour the action will settle
-          // on: afterwards this address names a quiz that is not there any more.
-          const idx = realm.quizzes.findIndex((each) => each._id === quiz_id)
-          const left = realm.quizzes.filter((each) => each._id !== quiz_id)
-          const neighbour = left[Math.min(idx, left.length - 1)]
-          dispatch({ kind: 'delete_quiz', quiz_id })
-          if (neighbour) { router.replace(pathFor(Labelmaker.effectiveLabelOf(neighbour))) }
-        }}
         onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz._id, locked }) }}
       />
       <QuizHeader
@@ -130,6 +121,26 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
           dispatch={dispatch}
           onOpen={goTo}
           onEditExpressions={() => { setEditingExpressions(true) }}
+          onRelabelHunt={(label) => {
+            // Followed once it has landed, and not at all when it was refused (the label taken):
+            // until then no hunt answers to the new address.
+            const relabel = async () => {
+              if (await carryOut({ kind: 'relabel_hunt', label })) { router.replace(Routes.quizPath({ hunt: label, realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) }, 'smith')) }
+            }
+            void relabel()
+          }}
+          onDeleteQuiz={() => {
+            // Worked out before the deletion, and matching the neighbour the action will settle
+            // on: afterwards this address names a quiz that is not there any more.
+            const idx = realm.quizzes.findIndex((each) => each._id === quiz._id)
+            const left = realm.quizzes.filter((each) => each._id !== quiz._id)
+            const neighbour = left[Math.min(idx, left.length - 1)]
+            dispatch({ kind: 'delete_quiz', quiz_id: quiz._id })
+            if (neighbour) { router.replace(pathFor(Labelmaker.effectiveLabelOf(neighbour))) }
+          }}
+          onDeleteHunt={() => {
+            void carryOut({ kind: 'delete_hunt' }).then((kept) => { if (kept) { router.replace(Routes.huntsPath()) } })
+          }}
         />
       )}
       {editingExpressions && (

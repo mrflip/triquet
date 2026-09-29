@@ -48,6 +48,12 @@ export async function updateExpression(db: Writer, held: Doc<'expressions'>, pat
   if (! _.isEmpty(changed)) { await db.patch('expressions', held._id, changed) }
 }
 
+/** Revise a hunt's own row */
+export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<Z.output<typeof HuntValidators.row>>): Promise<void> {
+  const changed = changedFields(held, HuntValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
+}
+
 /** Revise a quiz's own row */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
   const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))

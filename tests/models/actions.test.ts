@@ -85,13 +85,17 @@ describe('ActionValidators.huntAction', () => {
 })
 
 describe('ActionValidators.accountAction', () => {
-  it('takes becoming an ident and making a hunt', () => {
-    const actions: AccountActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'new_hunt', label: 'quiet_otter' }]
+  it('takes becoming an ident, retitling it, and making a hunt', () => {
+    const actions: AccountActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'retitle_ident', title: 'Flip' }, { kind: 'new_hunt', label: 'quiet_otter' }]
     expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
   })
 
   it('refuses an ident label too short to be one', () => {
     expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip', title: '' })).to.throw(Z.ZodError)
+  })
+
+  it('refuses retitling an ident to nothing', () => {
+    expect(() => ActionValidators.accountAction({ kind: 'retitle_ident', title: '' })).to.throw(Z.ZodError)
   })
 })
 

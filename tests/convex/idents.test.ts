@@ -13,6 +13,11 @@ async function assume(tt: Tester, browser_key: string, label: string, title = ''
   return await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title }, browser_key })
 }
 
+/** Retitle the ident the browser `browser_key` is now, through the public function */
+async function retitle(tt: Tester, browser_key: string, title: string) {
+  return await tt.mutation(api.idents.performAccount, { action: { kind: 'retitle_ident', title }, browser_key })
+}
+
 /** Make a hunt labelled `label` through the public function, as the browser `browser_key`, or as a fresh ident's browser */
 async function makeHunt(tt: Tester, label: string, browser_key?: string) {
   const maker = browser_key === undefined ? await identified(tt, `maker_${mintId().slice(-8)}`) : { browser_key }
@@ -84,6 +89,34 @@ describe('idents.current', () => {
     const phone = mintId()
     await assume(tt, phone, 'flip_kromer', 'Flip on a phone')
     expect(await tt.query(api.idents.current, { browser_key: phone })).to.deep.include({ title: 'Flip on a laptop' })
+  })
+})
+
+describe('idents.performAccount: retitle_ident', () => {
+  it('retitles the ident this browser is, keeping its label', async () => {
+    const tt = openTester()
+    const browser_key = mintId()
+    const ident_id = await assume(tt, browser_key, 'quiet_otter')
+    expect(await retitle(tt, browser_key, 'Otto')).to.eq(ident_id)
+    const idents = await allOf(tt, 'idents')
+    expect(idents.map((row) => [row.label, row.title])).to.deep.eq([['quiet_otter', 'Otto']])
+  })
+
+  it('is seen by every browser that is that ident', async () => {
+    const tt = openTester()
+    const [mine, theirs] = [mintId(), mintId()]
+    await assume(tt, mine, 'quiet_otter')
+    await assume(tt, theirs, 'quiet_otter')
+    await retitle(tt, theirs, 'Otto')
+    const ident = await tt.query(api.idents.current, { browser_key: mine })
+    expect(ident?.title).to.eq('Otto')
+  })
+
+  it('refuses a browser that has not said who it is, writing nothing', async () => {
+    const tt = openTester()
+    const pending = retitle(tt, mintId(), 'Otto')
+    expect(await refusedAs(pending)).to.eq('notIdentified')
+    expect(await allOf(tt, 'idents')).to.deep.eq([])
   })
 })
 

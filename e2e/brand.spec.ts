@@ -8,7 +8,7 @@ test.describe('the header', () => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()
-    await expect(page.getByRole('heading', { name: 'Who are you?' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
     await banner.getByRole('link', { name: 'About' }).click()
     await expect(page).toHaveTitle('About — Triquet')
   })
