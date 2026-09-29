@@ -1,14 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Box, Button, Paper, Stack, TextField, ToggleButton, Typography } from '@mui/material'
 import type { Doc } from '../../convex/_generated/dataModel'
 import { useDraft } from './use-draft'
-import { useSettledResize } from './use-settled-resize'
-import { RowCapPx, RowFloorPx } from './QuestionRow'
 import { AnswerLock } from './cells/answer-lock'
-import { ButnotPreview } from './cells/chain'
-import { GrowingField, NumberField, StretchField } from './cells/fields'
+import { ButnotFull } from './cells/chain'
+import { NumberField } from './cells/fields'
 import { ReviewsPanel } from './panels/ReviewsPanel'
 import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
@@ -30,15 +28,9 @@ export type ReviewScreenProps = {
   saveNotice: string | null
 }
 
-/** Tall enough to preview a BUT NOT without the review screen's roomier rows scrolling it */
-const ButnotHeightPx = 240
-
-/** How far a labelled number field sits down, so its box lines up with the captioned text boxes beside it */
-const NumberFieldDropPx = '20px'
-
 /**
- * What a reviewer sees: the quiz's questions, read-only, each with its chained BUT NOT, its
- * answer behind a lock, and the reviewer's verdict on it; then an overall note, and a button to
+ * What a reviewer sees: the quiz's questions, read-only, each with its chained BUT NOT, the
+ * reviewer's verdict on it, and its answer behind a lock; then an overall note, and a button to
  * share it all with the smiths. Once theirs is shared, what the other reviewers have shared
  * appears below it; until then, a line says so.
  *
@@ -53,7 +45,6 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
   const own = reviewBy(reviews, ident._id)
   const questions = useMemo(() => Rank.inRankOrder(quiz.questions), [quiz.questions])
   const reviewingFor = useMemo(() => new Map((own?.reviewings ?? []).map((reviewing) => [reviewing.question_id as string, reviewing])), [own])
-  const resizeToken = useSettledResize()
   const { draft, onChange, onBlur } = useDraft(own?.overall ?? '', (overall) => {
     dispatch({ kind: 'set_overall', quiz_id: quiz._id, overall })
   })
@@ -62,8 +53,8 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
 
   return (
     <main className={styles.page} data-unsaved={unsaved}>
-      <Box sx={{ maxWidth: 760, mx: 'auto' }}>
-        <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz}</Typography>
+      <Box sx={{ maxWidth: { xs: 760, lg: 1440 }, mx: 'auto' }}>
+        <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — PLAYTESTING</Typography>
         {saveNotice && <p className={styles.microcopy} role="status">{saveNotice}</p>}
         <Stack spacing={2} sx={{ my: 3 }}>
           {questions.map((question) => (
@@ -74,7 +65,6 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
               chainTarget={questions.find((other) => other._id === question.chains_to) ?? null}
               reviewing={reviewingFor.get(question._id) ?? null}
               dispatch={dispatch}
-              resizeToken={resizeToken}
             />
           ))}
         </Stack>
@@ -122,68 +112,93 @@ type ReviewQuestionRowProps = {
   /** The reviewer's verdict on this question so far; null until they first write to it */
   reviewing:   Doc<'reviewings'> | null
   dispatch:    (action: HuntActionDNA) => void
-  /** Re-measure when this changes: the window finished resizing */
-  resizeToken: number
 }
 
 /**
- * One question: its Q#, its clueing, the BUT NOT it chains to and its locked answer, read-only;
- * then the reviewer's verdict on it, each field saved as it is committed.
- *
- * The Comments box grows with its content and sets the height of the verdict's boxes, floored
- * and capped as the grid's rows are; Guesses is stretched to that height but has no say in it.
+ * Where each part of a question sits. Stacked, one above the next, with the numbers and flags
+ * sharing a line; given the room, the question beside the verdict as the smiths' grid has it,
+ * the numbers and flags in a column of their own. The answer comes last either way.
  */
-function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, dispatch, resizeToken }: Readonly<ReviewQuestionRowProps>) {
-  const [commentsNaturalPx, setCommentsNaturalPx] = useState(RowFloorPx)
-  const heightPx = Math.min(Math.max(commentsNaturalPx, RowFloorPx), RowCapPx)
+const RowAreasSx = {
+  display:             'grid',
+  gap:                 2,
+  alignItems:          'start',
+  gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 3fr) minmax(0, 2fr) minmax(0, 3fr) auto' },
+  gridTemplateAreas:   {
+    xs: '"question" "guesses" "comments" "marks" "answer"',
+    lg: '"question guesses comments marks" "answer answer answer answer"',
+  },
+} as const
+
+/** A flag raised is in full colour on the accent; lowered, its face is grey and faded, so the two can't be mistaken */
+const FlagSx = {
+  gap:                           0.75,
+  textTransform:                 'none',
+  whiteSpace:                    'nowrap',
+  justifyContent:                { lg: 'flex-start' },
+  '&.Mui-selected':              { bgcolor: 'primary.main', color: 'primary.contrastText', borderColor: 'primary.main' },
+  '&.Mui-selected:hover':        { bgcolor: 'primary.dark' },
+  '&:not(.Mui-selected) .face':  { filter: 'grayscale(1)', opacity: 0.5 },
+} as const
+
+/**
+ * One question: its number and clueing, the BUT NOT it chains to in full, read-only; then the
+ * reviewer's verdict on it, each field saved as it is committed; then its answer, behind a lock.
+ */
+function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, dispatch }: Readonly<ReviewQuestionRowProps>) {
   const commit = (patch: ReviewingPatch) => { dispatch({ kind: 'set_reviewing', quiz_id, question_id: question._id, patch }) }
   const peek = () => { dispatch({ kind: 'peek_answer', quiz_id, question_id: question._id }) }
 
   return (
-    <Paper variant="outlined" component="section" aria-label={question.title || AppNotices.untitledQuestion} sx={{ p: 2 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', mb: 1 }}>
-        <Typography variant="subtitle2" color="text.secondary">Q{question.qnum || '–'}</Typography>
-        <Typography variant="subtitle1">{question.title || AppNotices.untitledQuestion}</Typography>
+    <Paper variant="outlined" component="section" aria-label={question.title || AppNotices.untitledQuestion} sx={{ p: 2, ...RowAreasSx }}>
+      <Stack spacing={1} sx={{ gridArea: 'question' }}>
+        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{question.qnum === '' ? question.clueing : `${question.qnum}. ${question.clueing}`}</Typography>
+        <ButnotFull target={chainTarget} chained={question.chains_to !== null} />
       </Stack>
-      <Typography sx={{ whiteSpace: 'pre-wrap', mb: 1 }}>{question.clueing}</Typography>
-      <Box sx={{ mb: 1 }}>
-        <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={ButnotHeightPx} />
+      <Box sx={{ gridArea: 'guesses' }}>
+        <VerdictField label="Guesses" committed={reviewing?.guesses ?? ''} onCommit={(guesses) => { commit({ guesses }) }} />
       </Box>
-      <AnswerLock answer={question.full_answer} seen={reviewing?.peeked ?? false} onReveal={reviewing?.peeked ? undefined : peek} />
-      <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap', alignItems: 'flex-start', mt: 1 }}>
-        <Box sx={{ flex: '0 0 6.5em', mt: NumberFieldDropPx }}>
+      <Box sx={{ gridArea: 'comments' }}>
+        <VerdictField label="Comments" committed={reviewing?.comments ?? ''} onCommit={(comments) => { commit({ comments }) }} />
+      </Box>
+      <Stack direction={{ xs: 'row', lg: 'column' }} useFlexGap spacing={1} sx={{ gridArea: 'marks', flexWrap: 'wrap', alignItems: { xs: 'center', lg: 'stretch' } }}>
+        <Box sx={{ width: { xs: '6.5em', lg: 'auto' } }}>
           <NumberField label="Get rate %" committed={reviewing?.get_rate ?? null} fractional={false} max={100} locked={false} onCommit={(get_rate) => { commit({ get_rate }) }} />
         </Box>
-        <VerdictBox caption="Guesses" basis="1 1 10em">
-          <StretchField label="Guesses" committed={reviewing?.guesses ?? ''} locked={false} onCommit={(guesses) => { commit({ guesses }) }} heightPx={heightPx} />
-        </VerdictBox>
-        <VerdictBox caption="Comments" basis="2 1 14em">
-          <GrowingField label="Comments" committed={reviewing?.comments ?? ''} locked={false} onCommit={(comments) => { commit({ comments }) }} heightPx={heightPx} onNatural={setCommentsNaturalPx} resizeToken={resizeToken} />
-        </VerdictBox>
-        <Box sx={{ flex: '0 0 6.5em', mt: NumberFieldDropPx }}>
+        <Box sx={{ width: { xs: '6.5em', lg: 'auto' } }}>
           <NumberField label="Minutes" committed={reviewing?.minutes ?? null} fractional locked={false} onCommit={(minutes) => { commit({ minutes }) }} />
         </Box>
-        <Stack direction="row" spacing={0.5} sx={{ alignSelf: 'flex-end' }}>
-          {ReviewingFlags.map(({ flag, emoji, title }) => {
-            const raised = reviewing?.[flag] ?? false
-            return (
-              <ToggleButton key={flag} value={flag} size="small" selected={raised} aria-label={title} title={title} onChange={() => { commit({ [flag]: ! raised }) }}>
-                {emoji}
-              </ToggleButton>
-            )
-          })}
-        </Stack>
+        {ReviewingFlags.map(({ flag, emoji, word, title }) => {
+          const raised = reviewing?.[flag] ?? false
+          return (
+            <ToggleButton key={flag} value={flag} size="small" selected={raised} title={title} sx={FlagSx} onChange={() => { commit({ [flag]: ! raised }) }}>
+              <Box component="span" className="face" aria-hidden sx={{ fontSize: '1.125rem', lineHeight: 1 }}>{emoji}</Box>
+              {word}
+            </ToggleButton>
+          )
+        })}
       </Stack>
+      <Box sx={{ gridArea: 'answer' }}>
+        <AnswerLock answer={question.full_answer} seen={reviewing?.peeked ?? false} onReveal={reviewing?.peeked ? undefined : peek} />
+      </Box>
     </Paper>
   )
 }
 
-/** One field of a verdict, captioned, framed so it reads as a box to type in */
-function VerdictBox({ caption, basis, children }: Readonly<{ caption: string, basis: string, children: React.ReactNode }>) {
+/** Guesses or Comments: an outlined box two lines tall, growing with what is typed, saved when it loses focus */
+function VerdictField({ label, committed, onCommit }: Readonly<{ label: string, committed: string, onCommit: (draft: string) => void }>) {
+  const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   return (
-    <Box sx={{ flex: basis }}>
-      <Typography variant="caption" color="text.secondary" component="div">{caption}</Typography>
-      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>{children}</Box>
-    </Box>
+    <TextField
+      label={label}
+      multiline
+      minRows={2}
+      fullWidth
+      size="small"
+      value={draft}
+      onChange={(event) => { onChange(event.target.value) }}
+      onBlur={onBlur}
+      slotProps={{ inputLabel: { shrink: true } }}
+    />
   )
 }

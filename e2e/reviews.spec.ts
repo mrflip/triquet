@@ -31,8 +31,9 @@ test.describe('a review', () => {
     await waitUntilSaved(page)
 
     const reviewer = await enterReview(page, browser)
-    await expect(reviewer.getByRole('heading', { name: 'For review' })).toBeVisible()
+    await expect(reviewer.getByRole('heading', { name: 'For review — PLAYTESTING' })).toBeVisible()
     await expect(reviewer.getByText('Which prince was Danish?')).toBeVisible()
+    await expect(reviewer.getByText('Oops: no hint is attached').first()).toBeVisible()
 
     await reviewer.getByLabel('Overall').fill('Played well, one clue felt loose.')
     await reviewer.getByLabel('Overall').blur()
@@ -106,16 +107,13 @@ test.describe('a review', () => {
     const comments = row.getByRole('textbox', { name: 'Comments' })
     const wasHt = await guesses.evaluate((area) => area.clientHeight)
     await guesses.fill(manyLines('guess'))
+    await expect.poll(() => guesses.evaluate((area) => area.clientHeight)).toBeGreaterThan(wasHt)
     await row.getByRole('textbox', { name: 'Get rate' }).fill('40')
     await row.getByRole('textbox', { name: 'Minutes' }).fill('2.5')
-    await row.getByRole('button', { name: 'Keep it' }).click()
-    await expect(row.getByRole('button', { name: 'Keep it' })).toHaveAttribute('aria-pressed', 'true')
-    await waitUntilSaved(reviewer)
-    // Everything typed so far has landed and been drawn: long guesses have not grown the row.
-    expect(await guesses.evaluate((area) => area.clientHeight)).toBe(wasHt)
-
+    await expect(row.getByRole('button', { name: 'yay' })).toHaveAttribute('aria-pressed', 'false')
+    await row.getByRole('button', { name: 'yay' }).click()
+    await expect(row.getByRole('button', { name: 'yay' })).toHaveAttribute('aria-pressed', 'true')
     await comments.fill(manyLines('comment'))
-    await expect.poll(() => guesses.evaluate((area) => area.clientHeight)).toBeGreaterThan(wasHt)
     await comments.blur()
     await waitUntilSaved(reviewer)
 
