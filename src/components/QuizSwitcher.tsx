@@ -1,10 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import { Button, Select, Stack } from '@mui/material'
 import { AppNotices } from '../lib/notices'
 import type { QuizT } from '../models/quiz'
-import styles from './workbench.module.css'
 
 export type QuizSwitcherProps = {
   /** The quizzes of the open quiz's realm */
@@ -12,19 +10,17 @@ export type QuizSwitcherProps = {
   openQuiz:   QuizT
   onOpen:     (quiz_id: string) => void
   onNew:      () => void
-  onDelete:   (quiz_id: string) => void
   onSetLock:  (locked: boolean) => void
 }
 
 /**
- * Every quiz this browser holds, and what can be done to the set of them.
+ * Every quiz this browser holds, and what can be done to the set of them. Deleting one is the
+ * gear's, in its danger zone.
  *
- * None of these is blocked by a lock: switching away, making another quiz, deleting one and
- * unlocking all stay available, because locking a quiz must never be a trap.
+ * None of these is blocked by a lock: switching away, making another quiz and unlocking all stay
+ * available, because locking a quiz must never be a trap.
  */
-export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSetLock }: Readonly<QuizSwitcherProps>) {
-  const [confirming, setConfirming] = useState(false)
-  const isLast = quizzes.length <= 1
+export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onSetLock }: Readonly<QuizSwitcherProps>) {
 
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 1 }}>
@@ -44,32 +40,6 @@ export function QuizSwitcher({ quizzes, openQuiz, onOpen, onNew, onDelete, onSet
       </Select>
 
       <Button size="small" variant="outlined" onClick={onNew}>+ New quiz</Button>
-
-      {confirming ? (
-        <>
-          <span className={styles.microcopy}>
-            Delete &ldquo;{openQuiz.title === '' ? AppNotices.untitledQuiz : openQuiz.title}&rdquo;?
-          </span>
-          <Button
-            size="small" variant="contained" color="error"
-            onClick={() => {
-              onDelete(openQuiz._id)
-              setConfirming(false)
-            }}
-          >
-            Yes
-          </Button>
-          <Button size="small" variant="outlined" onClick={() => { setConfirming(false) }}>Cancel</Button>
-        </>
-      ) : (
-        <Button
-          size="small" variant="outlined" disabled={isLast}
-          title={isLast ? 'The last quiz cannot be deleted' : undefined}
-          onClick={() => { setConfirming(true) }}
-        >
-          Delete quiz
-        </Button>
-      )}
 
       <span style={{ flex: 1 }} />
 

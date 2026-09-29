@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
-import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -226,8 +226,8 @@ test.describe('an address naming a quiz that is not there', () => {
 
     await newQuiz(page)
     await openQuiz(page, 'Quiz one')
-    await page.getByRole('button', { name: 'Delete quiz' }).click()
-    await page.getByRole('button', { name: 'Yes' }).click()
+    await openManage(page)
+    await actDangerously(page, 'Delete this quiz', 'kept_history')
     await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
     await waitUntilSaved(page)
 

@@ -1,4 +1,5 @@
 import type { Id } from '../_generated/dataModel'
+import * as Hunt from './hunt_actions'
 import * as Hunting from './hunting_actions'
 import * as Layout from './layout_actions'
 import * as Quiz from './quiz_actions'
@@ -10,8 +11,8 @@ import type { Writer } from './quiz_writing'
  * Carry out what the author did, writing the rows it comes to, all in one transaction.
  *
  * Actions that revise the quiz on screen are refused outright while it is locked; actions about
- * its realm and hunt (making, deleting and locking quizzes, the expressions, and who is on the
- * hunt), and reviews, are not -- a locked quiz is exactly what a finished draft sent out for
+ * its realm and hunt (making, deleting and locking quizzes, the expressions, who is on the hunt,
+ * and relabelling or deleting the hunt), and reviews, are not -- a locked quiz is exactly what a finished draft sent out for
  * playtesting looks like.
  * A refused action writes nothing and throws a refusal saying why (`lib/refusals`). Each action
  * reads the rows it needs as they stand, inside the transaction. Whether the actor may take the
@@ -54,6 +55,8 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, ident_id, action.question_id, action.patch); return }
   case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, ident_id, action.question_id); return }
   case 'add_hunting':         { await Hunting.addHunting(db, open.hunt_id, ident_id, action.ident_label, action.role); return }
-  case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, ident_id, action.ident_id) }
+  case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, ident_id, action.ident_id); return }
+  case 'relabel_hunt':        { await Hunt.relabelHunt(db, open.hunt_id, action.label); return }
+  case 'delete_hunt':         { await Hunt.deleteHunt(db, open.hunt_id) }
   }
 }

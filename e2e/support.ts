@@ -97,6 +97,17 @@ export async function openManage(page: Page): Promise<void> {
   await expect(manageDialog(page)).toBeVisible()
 }
 
+/**
+ * Take the danger zone's act `actname` ("Delete this quiz") from the gear's dialog, which must be
+ * open, typing `label` to confirm it.
+ */
+export async function actDangerously(page: Page, actname: string, label: string): Promise<void> {
+  await manageDialog(page).getByRole('region', { name: 'Danger Zone' }).getByRole('button', { name: actname }).click()
+  const confirming = page.getByRole('dialog', { name: `${actname}?` })
+  await confirming.getByRole('textbox').fill(label)
+  await confirming.getByRole('button', { name: actname }).click()
+}
+
 /** Close the gear's dialog without applying anything */
 export async function closeManage(page: Page): Promise<void> {
   await manageDialog(page).getByRole('button', { name: 'Cancel' }).click()

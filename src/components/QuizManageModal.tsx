@@ -4,11 +4,13 @@ import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, Stack, TextField, Typography } from '@mui/material'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
+import { DangerZone } from './DangerZone'
 import { WidgetsEditor } from './WidgetsEditor'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import type { HuntActionDNA } from '../models/actions'
+import { HuntValidators } from '../models/hunt'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
 import styles from './workbench.module.css'
@@ -24,17 +26,36 @@ export type QuizManageModalProps = {
   onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the hunt's expressions for editing */
   onEditExpressions: () => void
+  /** Give the hunt a new label, which the address then follows */
+  onRelabelHunt: (label: string) => void
+  /** Delete this quiz, and go to a neighbour */
+  onDeleteQuiz:  () => void
+  /** Delete the whole hunt, and go back to the hunts list */
+  onDeleteHunt:  () => void
 }
 
 /**
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
- * and a quick way to open any other quiz in the realm by name (bottom).
+ * a quick way to open any other quiz in the realm by name, the hunt's label, and, fenced off at
+ * the foot, deleting the quiz or the whole hunt.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onOpen, onEditExpressions }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onOpen, onEditExpressions, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
   const [noted, setNoted] = useState<string | null>(null)
+  const huntLabel = Labelmaker.effectiveLabelOf(hunt)
+  const quizLabel = Labelmaker.effectiveLabelOf(quiz)
+  const [huntDraft, setHuntDraft] = useState(huntLabel)
+  const [huntIssue, setHuntIssue] = useState<string | null>(null)
+
+  const onRenameHunt = () => {
+    const cleaned = Labelmaker.normalize(huntDraft)
+    if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { setHuntIssue('Enter a label: letters, digits and single underscores, starting with a letter.'); return }
+    if (cleaned === huntLabel) { return }
+    onRelabelHunt(cleaned)
+    onClose()
+  }
 
   const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
@@ -111,6 +132,22 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
           </section>
 
           <section>
+            <Typography variant="h6" component="h3">Hunt</Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', mt: 1 }}>
+              <TextField
+                label="Hunt label"
+                value={huntDraft}
+                size="small"
+                error={huntIssue !== null}
+                helperText={huntIssue ?? 'Used in the web address of every quiz in this hunt; links to the old one stop working.'}
+                onChange={(event) => { setHuntDraft(event.target.value); setHuntIssue(null) }}
+                sx={{ flex: 1 }}
+              />
+              <Button variant="outlined" onClick={onRenameHunt} disabled={Labelmaker.normalize(huntDraft) === huntLabel}>Rename</Button>
+            </Stack>
+          </section>
+
+          <section>
             <Typography variant="h6" component="h3">All quizzes</Typography>
             <Stack spacing={0.5} sx={{ maxHeight: '60vh', overflowY: 'auto', mt: 1 }}>
               {realm.quizzes.map((other) => (
@@ -125,6 +162,24 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
               ))}
             </Stack>
           </section>
+
+          <DangerZone
+            acts={[
+              {
+                actname: 'Delete this quiz',
+                blurb:   `Deletes “${quiz.title || AppNotices.untitledQuiz}”: its questions, what the bots said of them, and every review of it.`,
+                confirm: quizLabel,
+                refusal: realm.quizzes.length <= 1 ? RefusalNotices.lastQuiz : null,
+                onAct:   () => { onDeleteQuiz(); onClose() },
+              },
+              {
+                actname: 'Delete this hunt',
+                blurb:   `Deletes “${hunt.title}” and everything in it: every quiz, its expressions, and everyone's place on it.`,
+                confirm: huntLabel,
+                onAct:   () => { onDeleteHunt(); onClose() },
+              },
+            ]}
+          />
         </Stack>
       </DialogContent>
       <DialogActions>

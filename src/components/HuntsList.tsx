@@ -93,6 +93,7 @@ function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountAction
       sx={{
         fontWeight:    700,
         px:            0.5,
+        '& input':     { fieldSizing: 'content', minWidth: '4ch' },
         border:        '1px solid transparent',
         borderRadius:  'var(--radius-input)',
         '&:hover':       { borderColor: 'var(--border)' },
