@@ -96,14 +96,19 @@ type Extracted<SC extends Z.ZodType> =
   | { ok: true, parsed: Z.output<SC>, raw: string, truncated: boolean }
   | { ok: false, failurekind: 'declined' | 'unreadable' }
 
-/** One structured extraction from `bot`, or the reason there was not one */
+/**
+ * One structured extraction from `bot`, or the reason there was not one.
+ *
+ * Streamed, then gathered: the SDK refuses to send an unstreamed ask with room for a long answer
+ * (a whole-quiz run's `max_tokens` is well past its line), and streaming costs nothing here.
+ */
 async function extract<SC extends Z.ZodType>(client: Anthropic, bot: BotT, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
-  const answer = await client.messages.parse({
+  const answer = await client.messages.stream({
     model: ModelForTier[bot.model_tier],
     max_tokens,
     messages:      [{ role: 'user', content: prompt }],
     output_config: { format: zodOutputFormat(format) },
-  })
+  }).finalMessage()
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
   // The model answered, but not in the shape the format asked for.
   const { parsed_output } = answer
