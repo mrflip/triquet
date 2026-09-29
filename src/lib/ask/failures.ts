@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { AskFailedT } from './contract'
 import type { AskFailurekind } from '../notices'
+import * as Approval from '../approval'
 
 /**
  * Why an ask failed, as a kind rather than as a sentence.
@@ -15,6 +16,7 @@ import type { AskFailurekind } from '../notices'
  * @example failurekindFor(new Anthropic.RateLimitError(...))  // => 'rateLimited'
  */
 export function failurekindFor(err: unknown): AskFailurekind {
+  if (err instanceof Approval.NotApprovedError) { return 'notPermitted' }
   if (err instanceof Anthropic.AuthenticationError) { return 'sessionExpired' }
   if (err instanceof Anthropic.PermissionDeniedError) { return 'accountOff' }
   if (err instanceof Anthropic.RateLimitError) { return 'rateLimited' }

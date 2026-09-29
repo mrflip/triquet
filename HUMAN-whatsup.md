@@ -2,6 +2,21 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-29: No test can call Anthropic; the ask route now needs ENABLE_ANTHROPIC_BOT=allow
+
+* **Before you deploy this: set `ENABLE_ANTHROPIC_BOT=allow`** in Doppler's `prd` (and in `dev`
+  if you want bots locally). Without it the ask route declines every ask, politely.
+* **Audit.** The ask route is the only code that reaches the SDK. No vitest test touches it except
+  the new `tests/app/api/ask/route.test.ts`, which stubs `fetch` and asserts it is never called.
+  Every e2e spec that asks stubs `/api/ask` in the browser; the dev server gets a fake key; and now
+  `ENABLE_ANTHROPIC_BOT=off` too, so an ask a future spec forgets to stub is declined before a
+  client is built. One gap remains: locally, Playwright reuses a server already on the e2e port,
+  and a server someone started by hand has whatever environment they gave it.
+* **Open question.** `/api/bots` still says a bot can play whenever a key is set, so on a server
+  with asking switched off, a cell looks playable and then says it is switched off when
+  double-clicked. Folding approval into the bot statuses would give the calmer notice up front,
+  but e2e would then need the switch on to show playable bots, which gives up the guard above. I
+  left it alone.
 ## 2026-09-29: Fonts come from npm, not from Google at build time
 
 * **The flake.** `pnpm build` in CI failed now and then with `next/font/google queries have

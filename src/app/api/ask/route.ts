@@ -4,6 +4,7 @@ import type * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
 import { bulkItemsBlock } from '../../../lib/ask/prompts'
 import { MaxTokensForJob, ModelForTier, BotForJob } from '../../../lib/ask/models'
+import * as Approval from '../../../lib/approval'
 import * as Credentials from '../../../lib/credentials'
 import { botFor, promptFor } from '../../../lib/ask/bots'
 import { approxTokensFor } from '../../../lib/ask/tokens'
@@ -35,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const bot = botFor(BotForJob[parsed.data.job])
+    Approval.need(null, { act: 'anthropic_bot' }, { job: parsed.data.job })
     if (! Credentials.has(bot.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
     const client = new Anthropic({ apiKey: Credentials.get(bot.servicelabel) })
     return replied(vetReply(await answerAsk(client, bot, parsed.data)))

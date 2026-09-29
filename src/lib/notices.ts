@@ -8,9 +8,14 @@ import type { SmithT } from './rows'
  * these are content, and they live together where they can be read as a set and revised as a set.
  */
 
+/** Why the server declined to carry out an act it keeps switched off unless told otherwise: one per `ApprovalAct` */
+export const ApprovalNotices = {
+  anthropic_bot: "Asking Claude is switched off on this server for now — everything else still works.",
+} as const
+
 /** Why an ask failed, in the author's language */
 export const AskFailureNotices = {
-  notPermitted:   "You haven't allowed this page to ask Claude.",
+  notPermitted:   ApprovalNotices.anthropic_bot,
   rateLimited:    'Too many requests right now — try again shortly.',
   declined:       'Claude declined to answer this one.',
   emptyAnswer:    'Got an empty answer — try again.',
