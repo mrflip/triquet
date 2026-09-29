@@ -59,7 +59,7 @@ test('with the network off the rest of the page still edits, sorts and saves', a
   await expect(guessCell(page, 0)).toContainText('A connection hiccup — try again.')
 
   await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
-  await page.getByRole('button', { name: 'Title' }).click()
+  await page.getByRole('button', { name: 'Title', exact: true }).click()
   await page.getByLabel('Quiz name').fill('Still working')
   await page.getByLabel('Quiz name').blur()
   await reloadOnceSaved(page)

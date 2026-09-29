@@ -69,6 +69,22 @@ test.describe('a review', () => {
     await expect(second.getByText('The first reviewer liked it.')).toBeHidden()
   })
 
+  test("opens a first review for a reviewer who arrives straight at the review's address", async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const reviewer = await otherVisitor(browser)
+    const label = await assumeIdent(reviewer)
+    await addMember(page, label, 'Reviewer')
+    await reviewer.goto(`${quizPathOf(page)}?act=review`)
+
+    await reviewer.getByLabel('Overall').fill('Arrived by a pasted link.')
+    await reviewer.getByLabel('Overall').blur()
+    await waitUntilSaved(reviewer)
+    await expect(reviewer.getByText('Open your review of this quiz first.')).toBeHidden()
+    await reviewer.reload()
+    await expect(reviewer.getByLabel('Overall')).toHaveValue('Arrived by a pasted link.')
+  })
+
   test('asks before revealing the answer, and hides it again without asking', async ({ page, browser }) => {
     await startHunt(page)
     await page.getByRole('textbox', { name: 'Full Answer', exact: true }).first().fill('Hamlet')

@@ -1,3 +1,4 @@
+import * as Postmortem from '../lib/postmortem'
 import { MirrorSettings } from '../models/mirror-settings'
 import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
@@ -62,8 +63,9 @@ export function createCommitScheduler(opts: Readonly<CommitSchedulerOpts>): Comm
   const run = async (waiting: Pending): Promise<void> => {
     try {
       await opts.commit(waiting.baseline, waiting.latest)
-    } catch {
+    } catch (err) {
       // A record that misses a commit is a smaller loss than an edit that fails; storage has the edit.
+      Postmortem.report('commit to the quiz history', err, { quiz_id: waiting.latest.quiz._id })
     }
   }
 

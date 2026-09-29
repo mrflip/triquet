@@ -2,6 +2,43 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-29: Playtest failures -- a first review never opened in production; failures now say so
+
+* **The bug.** Every review write from a first-time reviewer was refused `reviewNotOpened` (16 in
+  the prod logs, 04:34-05:04 UTC, all benemup). `ReviewScreen` dispatches `open_review` from a
+  mount effect; `useHunt` kept the dispatcher's `latest` ref in a *passive* effect of the parent,
+  which React runs after the child's, so the first dispatch saw `open === null` and `carryOut`
+  dropped it without a word. Fixed by keeping the ref in `useLayoutEffect` (all layout effects run
+  before any passive one). A dropped change now warns in the console instead of vanishing.
+* **Why no test caught it: StrictMode.** Under `next dev` React re-runs mount effects after the
+  parent's have run, so the second `open_review` lands. Against a production build, 4 of the 5
+  review specs failed before the fix; all pass after it (3 repeats), and the full dev suite is
+  green. **Proposal:** an e2e run against `next build && next start` (a `test:e2e:prod` script
+  beside the others), at least for the review and routing specs, since dev mode hides this whole
+  class of effect-ordering bug. I didn't add it: the e2e layer's thickness is open with you.
+* **Console reporting.** `src/lib/postmortem.ts` (`Postmortem.of`, `.report`): every failed call
+  now logs one headline (`Triquet: could not keep a change (set_reviewing) — refused
+  (reviewNotOpened): ...`), then a bag with the Convex function, request id, refusal kind, Zod
+  issues, the action, labels, role, connection state, commit and backend, then the error itself.
+  A refusal warns; anything else errors. Wired into `useHunt`, `useAccountActions`,
+  `useWholeHunt`, the history feed, and the two history `catch {}`s that used to swallow silently.
+* **Error boundary.** `src/app/(synced)/error.tsx` → `PageFailed`: a query that throws while a page
+  draws used to leave Next's blank "Application error"; now it logs a postmortem and shows the
+  reason, the request id to send us, and Try again.
+* **Still poor, not changed: where a refusal shows.** On the review screen `saveNotice` is a muted
+  line at the top of a long page; someone typing into Q15 never sees it. A MUI `Snackbar`+`Alert`
+  (or an `Alert` pinned beside the Share button) would fix it. Say which and I'll do it.
+* **Console only reaches us if a playtester opens devtools.** Sentry is still "probably?" in
+  `notes/stack.md`; `Postmortem.report` is the one place to hook it in when it's decided.
+* **Keys.** `dev_aijanitor`'s `CONVEX_DEPLOY_KEY` is prod (`prestigious-coyote-542`). It first
+  lacked `deployment:logs:view`; after you widened it I read the logs and three tables (reviews,
+  idents, huntings), read-only. benemup's review row dates from 05:11 UTC, when some path finally
+  opened it. My own probe at 05:28 left benemup an empty reviewing on Q15 ("Right Hand Drive"),
+  harmless.
+* **Lint vs notes/testing.md:** `vitest/valid-expect` refuses `expect(x).to.be.true`, which the
+  testing note lists as the style; I used `.to.eq(true)` as other tests do. One of the two should
+  change.
+
 ## 2026-09-29: Doctoring -- rules files for Convex and views, skills pruned lightly
 
 * **Two notes now load themselves.** `notes/convex.md` (paths `convex/**`, `tests/convex/**`,

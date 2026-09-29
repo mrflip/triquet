@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { useConvex } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+import * as Postmortem from '../lib/postmortem'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
@@ -51,7 +52,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
         const whole = browser_key === null ? null : await convex.query(api.hunts.whole, { hunt_id: hunt._id, browser_key })
         setOutcome({ hunt, openQuiz, whole })
       } catch (err) {
-        console.error('Export: the hunt could not be read', err)
+        Postmortem.report('read the whole hunt for the export', err, { hunt_id: hunt._id })
         setOutcome({ hunt, openQuiz, whole: null })
       } finally {
         setAsking(false)
