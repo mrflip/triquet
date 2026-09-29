@@ -121,9 +121,15 @@ test.describe('a review', () => {
 
     const guesses = row.getByRole('textbox', { name: 'Guesses' })
     const comments = row.getByRole('textbox', { name: 'Comments' })
-    const wasHt = await guesses.evaluate((area) => area.clientHeight)
+    // Given the room, the fields fill the height of their row, well past their two-line floor,
+    // and scroll past it rather than making the row taller
+    const lineHt = await row.getByRole('textbox', { name: 'Get rate' }).evaluate((input) => input.clientHeight)
+    await expect.poll(() => guesses.evaluate((area) => area.clientHeight)).toBeGreaterThan(3 * lineHt)
+    const rowHt = await row.evaluate((region) => region.clientHeight)
     await guesses.fill(manyLines('guess'))
-    await expect.poll(() => guesses.evaluate((area) => area.clientHeight)).toBeGreaterThan(wasHt)
+    await expect.poll(() => guesses.evaluate((area) => area.scrollHeight > area.clientHeight)).toBe(true)
+    // Not grown: the scroll above has established the text is in
+    expect(await row.evaluate((region) => region.clientHeight)).toBe(rowHt)
     await row.getByRole('textbox', { name: 'Get rate' }).fill('40')
     await row.getByRole('textbox', { name: 'Minutes' }).fill('2.5')
     await expect(row.getByRole('button', { name: 'top 3' })).toHaveAttribute('aria-pressed', 'false')
