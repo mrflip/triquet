@@ -127,11 +127,26 @@ const RowAreasSx = {
   display:             'grid',
   gap:                 2,
   alignItems:          'start',
-  gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 3fr) minmax(0, 2fr) minmax(0, 3fr) auto' },
+  gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 6fr) minmax(0, 3fr) minmax(0, 7fr) auto' },
   gridTemplateAreas:   {
     xs: '"question" "guesses" "comments" "marks" "answer"',
     lg: '"question guesses comments marks" "answer answer answer answer"',
   },
+} as const
+
+/**
+ * Given the room, Guesses and Comments fill the height their row already has and scroll past it,
+ * rather than making the row taller: each is lifted out of the flow, so the question and the marks
+ * alone set the row's height. The autosizing textarea sizes itself with an inline style, which only
+ * `!important` outranks; its hidden twin, which it measures with, is left alone. Stacked, each
+ * grows with what is typed.
+ */
+const FillRowSx = {
+  alignSelf:                       'stretch',
+  position:                        'relative',
+  '& .MuiTextField-root':          { position: { lg: 'absolute' }, inset: { lg: 0 } },
+  '& .MuiInputBase-root':          { height: { lg: '100%' }, alignItems: { lg: 'stretch' } },
+  '& textarea:not([aria-hidden])': { height: { lg: '100% !important' }, overflow: { lg: 'auto !important' } },
 } as const
 
 /** A flag raised is in full colour on the accent; lowered, its face is grey and faded, so the two can't be mistaken */
@@ -163,10 +178,10 @@ function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, reviewin
         <Typography sx={{ whiteSpace: 'pre-wrap' }}>{question.qnum === '' ? question.clueing : `${question.qnum}. ${question.clueing}`}</Typography>
         <ButnotFull target={chainTarget} chained={question.chains_to !== null} />
       </Stack>
-      <Box sx={{ gridArea: 'guesses' }}>
+      <Box sx={{ gridArea: 'guesses', ...FillRowSx }}>
         <VerdictField label="Guesses" committed={reviewing?.guesses ?? ''} onCommit={(guesses) => { commit({ guesses }) }} />
       </Box>
-      <Box sx={{ gridArea: 'comments' }}>
+      <Box sx={{ gridArea: 'comments', ...FillRowSx }}>
         <VerdictField label="Comments" committed={reviewing?.comments ?? ''} onCommit={(comments) => { commit({ comments }) }} />
       </Box>
       <Stack direction={{ xs: 'row', lg: 'column' }} useFlexGap spacing={1} sx={{ gridArea: 'marks', flexWrap: 'wrap', alignItems: { xs: 'center', lg: 'stretch' } }}>
@@ -220,7 +235,7 @@ function FlagToggle({ flag, emoji, word, title, raised, full = false, faceAfter 
   )
 }
 
-/** Guesses or Comments: an outlined box two lines tall, growing with what is typed, saved when it loses focus */
+/** Guesses or Comments: an outlined box at least two lines tall, saved when it loses focus */
 function VerdictField({ label, committed, onCommit }: Readonly<{ label: string, committed: string, onCommit: (draft: string) => void }>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   return (
