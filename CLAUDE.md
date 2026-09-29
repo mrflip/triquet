@@ -172,8 +172,9 @@ History on main is semi-linear. Read `notes/git_hygiene.md` before any complicat
 
 Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and replay however helps, and tidy up before pushing.
 
-1. **Start** a new line of work with `pnpm newb <branchlabel>`. It branches `YYYYMMDD-<branchlabel>`
-   from where you stand, uncommitted changes and all. Continuing the current thread needs no new branch.
+1. **Start** a new line of work on fresh ground: `git fetch origin`, stand on `origin/main` (or on the
+   unmerged branch whose code the thread needs), then `pnpm newb <branchlabel>`. It branches
+   `YYYYMMDD-<branchlabel>` from there, uncommitted changes and all. Continuing the current thread needs no new branch.
 2. **Commit at natural milestones**: a set of related changes, with the app working again (typecheck,
    lint and the tests near your change pass). Not mid-refactor, not on a timer. Separate commits are preferred.
 3. **Finish** with `git fetch origin && git rebase origin/main`, then the full suite: `pnpm typecheck
