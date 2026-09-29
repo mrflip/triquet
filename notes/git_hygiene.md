@@ -1,14 +1,18 @@
 # Git hygiene
 
-History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning are in `notes/git_hygiene.md`; read it before any rebase that touches more than one branch.
+History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning follow the summary below.
 
-- Never merge main into a branch, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
-- A branch must contain no merge commits; the `semi-linear` CI check rejects them.
+These rules are about the history you push. Locally, use git however it helps: checkpoint commits,
+scratch branches and replays to unwind a hairy change. Tidy the result before it leaves
+your machine.
+
+- Don't merge main into a branch you push, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
+- A pushed branch contains no merge commits; the `semi-linear` CI check rejects them.
 - Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`, and never force-push a branch another agent owns.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
-- Don't merge PRs. Coach merges.
+- Never merge a PR or enable auto-merge. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
-- Before marking a PR ready: rebase onto origin/main, run the full test suite, push.
+- A line of work is a thread: `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
 
 
 ## The shape we keep
@@ -38,6 +42,95 @@ Why this shape:
 - Merge commits keep the branch's SHAs. Stacked branches and anything that cites a SHA stay valid after a merge. Squash-merge and GitHub's rebase-merge rewrite every SHA, which forces a restack after each merge.
 
 Enforcement: the `semi-linear` CI check rejects any PR branch that contains a merge commit. The main ruleset requires branches to be up to date with `main` before merging and allows the "merge commit" method only.
+
+## A thread, start to finish
+
+A thread is one line of work: one branch, one PR, and a session may hold several. You may commit, push the thread's branch, and
+open its PR without asking first.
+
+### Starting
+
+`pnpm newb <branchlabel>` branches `YYYYMMDD-<branchlabel>` from HEAD and carries the working tree
+along, uncommitted changes and all. Its upstream is set, so the first plain `git push` creates the
+remote branch.
+
+- On `main`, or on a branch whose PR has merged, branch from `origin/main`: `git fetch origin &&
+  git switch --detach origin/main && pnpm newb <branchlabel>`, before the first edit.
+- On an unmerged branch, the new thread is stacked on it. Note that branch's PR number for the
+  description.
+- Carrying on with the current thread needs no new branch.
+
+### Milestones
+
+Commit when the work reaches a place you could hand over: a set of related changes, with the app
+working again (typecheck, lint, and the tests near your change pass). A milestone is a return to
+working order, not a count of edits. What you push shouldn't stop mid-refactor (local checkpoints
+are fine, folded in before pushing), and unrelated changes are better in separate commits. A large `convex/_generated/` regeneration goes in a commit of its own. For the
+occasional deliberate commit with failing tests, see *Commits*.
+
+### Finishing: the rebase
+
+```
+git fetch origin
+git rebase origin/main
+pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
+```
+
+Fix the straightforward conflicts yourself:
+
+- `pnpm-lock.yaml`: take main's version, then run `pnpm install`.
+- `convex/_generated/`: push to your backend again (`scripts/convex_dev agent`) and take what it writes.
+- Edits that sit side by side without contradicting each other.
+- Merges in docs or import lists.
+- Tests that main broke in plainly mechanical ways, such as a rename.
+
+Stop and ask for anything that takes judgment:
+
+- Both sides changed the same logic, or the schema.
+- Main changed something the thread depends on.
+- Resolving would mean dropping a change from either side.
+- The suite fails after the rebase and the cause isn't obvious.
+
+When a rebase turns hairy, tag the tip from before it, so there is a named place to rewind to.
+Mid-rebase, the branch still points at that tip. Keep the tag local:
+
+```
+git tag prerebase/<branch> <branch>          # mid-rebase; after it, use <branch>@{1}
+git range-diff prerebase/<branch>...HEAD     # afterwards: what the rebase changed, commit by commit
+```
+
+To stop, either:
+
+- finish the rebase with your best resolution, then report it and offer to rewind to the tag; or
+- on large problems, `git rebase --abort`, which returns the branch to where it was.
+
+Either way, report the conflicting commits and files, what each side meant, and the tag's name.
+Delete the tag once the PR merges.
+
+### Filing the PR
+
+Push: plain `git push` the first time, and `git push --force-with-lease --force-if-includes` after
+any later rebase. Then run `gh pr create --base main`.
+
+- **Title**: plain language, saying what changed.
+- **Body**: follow recent PRs (#35 is a good model):
+  - What changed, in short paragraphs or bullets with **bold lead-ins**.
+  - A **Tests:** line naming the suites run and their counts.
+  - "Stacked on #N" or "Follows #N" where either applies.
+  - An *Open questions* list when minor questions remain. Put them in chat too, and in
+    `HUMAN-whatsup.md` or the thread's `/whiteboard` directory where CLAUDE.md asks for that.
+    A PR description is easy to miss.
+
+A *significant* question is one whose answer would change the code in the PR. Ask those in chat
+before filing, rather than filing and hoping.
+
+`git fetch` over HTTPS works without credentials, and `gh` uses its own login. `git push` needs
+credentials, and in the container the configured helper (`gcm-core`) is missing. Borrow gh's
+login for the one push, without changing any config:
+
+```
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
+```
 
 ## Catching up with main
 
@@ -80,8 +173,7 @@ Agents don't merge PRs. The only way into `main` is a merge commit on an up-to-d
 
 ## Commits
 
-Every commit survives into `main` individually.
-It's highly desirable that each commit builds and passes tests, but it's more desirable that commits commemorate coherent related changes; it can situationally make sense to commit with failures (eg to isolate an extremely hairy ball of mechanical changes from the thoughtful work of dealing with the wreckage).
+Every commit in a PR survives into `main` individually, so it's highly desirable that each commit builds and passes tests. Unusual circumstances may warrant intermediate commits with failures (eg to isolate a large hairy ball of mechanical changes from the thoughtful aftermath repairs, or when debugging a CI problem).
 
 ### Commit messages
 
@@ -98,9 +190,11 @@ git branch -r --merged origin/main                     # remote branches safe to
 
 GitHub deletes head branches automatically on merge. `fetch.prune` removes the stale remote-tracking refs.
 
-## Recovery
+## Before discarding anything
 
-- **A rebase went wrong mid-way:** `git rebase --abort`.
-- **A rebase finished but the result is wrong:** `git reflog` shows where the branch was. `git reset --hard <that sha>` puts it back.
-- **Pushed something wrong to your own branch:** fix it locally, then `--force-with-lease` again.
-- **Anything touching `main` directly:** stop and ask Coach.
+Committed work survives almost anything: the reflog, or a tag, brings it back. Uncommitted work
+does not. Before a command that throws changes away (`reset --hard`, `restore`, `checkout -- .`,
+`clean`, `branch -D`), make everything it would discard reachable first: commit it, stash it, or
+put a branch on it. If you can't tell what it would discard, stop and ask.
+
+Anything that touches `main` directly: stop and ask Coach.
