@@ -4,16 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This repo is at early implementation: we've laid the foundation for a first-class, small-now,
-medium-sized maybe someday web app according to the guidelines found in /notes and otherwise
-referred to here.
+This repo is at early implementation: we've laid the foundation for a first-class, small-now, medium-sized maybe someday web app according to the guidelines found in /notes and otherwise referred to here.
 
-We are building a lightweight tool for constructing trivia quizzes, which sometimes can have "meta" puzzles --
-a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps
-store, edit and refine the question text, and also to assess questions for fairness and difficulty/
+We are building a lightweight tool for constructing trivia quizzes, which sometimes can have "meta" puzzles -- a second layer of puzzle that is revealed as the first solutions start coming in. This tool helps store, edit and refine the question text, and also to assess questions for fairness and difficulty/
 
-Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
-a validator needs no migration path for anyone's quizzes.
+Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or a validator needs no migration path for anyone's quizzes.
 
 **Storage is Convex**, since September 2026. Rows, not a tree; row ids are internal and things
 are referred to by label; Zod validates every function's arguments and every row written, never
@@ -21,10 +16,7 @@ rows read back. `notes/convex.md` holds the conventions and where this project d
 Convex's own guidelines, and loads itself when work touches `convex/` or the browser's side of it.
 
 **The app is client-first**: static hosting plus stateless functions, and the database. The ask route is the one named server function. Never add a second
-without a Coach. See `notes/decisions/2026-09-client-first.md`.
-
-Project instructions, loaded at the start of every session. Keep this file short and true:
-everything here costs context on every task, whether or not the task needs it.
+without a Coach. More in `notes/decisions/2026-09-client-first.md` if needed.
 
 ## Working Relationship
 
@@ -41,13 +33,9 @@ quietly route around it, and do not treat a convention you find inconvenient as 
 The top three values while writing code are **empathy, safety and readability**.
 
 * **Prefer the toolkit to the home brew** (see the Library-first rule under Non-Negotiables). If you are banging rocks together, we have probably misdirected you or we are solving the wrong problem. Say so.
-* **Maintainability and legibility beat performance** unless we have demonstrated that something
-  is slow. Cleverness is rarely called for -- but if it seems to be, propose it.
-* **Never treat secret keys or other sensitive data with imaginative code.** Use best practices
-  and established libraries, always.
-* **On new toolkits**: boring, agent-friendly, ergonomic, zero-ops, with a disciplined interface
-  (`notes/stack.md` spells the test out). Nothing still being proven, but we're happy to move with
-  the front of the crowd as soon as it's clear that will have the best long-term relevance.
+* **Maintainability and legibility beat performance** unless we have demonstrated that something is slow. Cleverness is rarely called for -- but if it seems to be, propose it.
+* **Never treat secret keys or other sensitive data with imaginative code.** Use best practices  and established libraries, always.
+* **On new toolkits**: boring, agent-friendly, ergonomic, zero-ops, with a disciplined interface (`notes/stack.md` spells the test out). Nothing still being proven, but we're happy to move with the front of the crowd as soon as it's clear that will have the best long-term relevance.
 
 ## Non-Negotiables
 
@@ -57,7 +45,8 @@ The top three values while writing code are **empathy, safety and readability**.
      An unlisted one that is widely used, solves the problem (and then some) without dragging in machinery, and ideally is recommended by the neighbouring library: install it, list it in `notes/stack.md`, and tell the Coach afterwards, rather than writing our own. The worked example is `react-number-format` for number fields, which MUI's own docs pair with `TextField`.
   3. Only then hand-roll -- and only after a Coach says yes in chat. Record the decision and its reason in `notes/stack.md` under *Hand-rolled on purpose*.
 
-  Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks. (Markdown is for documents and content, not UI.)
+  Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks.
+  To any extent reasonable, author documents and content in markdown rather than HTML.
   `notes/views.md` has the tripwires that mean "stop and ask", the styling rules, and the skills to reach for; it loads itself when work touches a view.
 * Every new piece of code gets a proportional doc block and test suite.
 * Validate at module entrypoints; write confident, paranoia-free code past that boundary.
@@ -147,8 +136,6 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.
 * `/notes/relics.md` -- consult **only** when explicitly told we will work in the relics lagoon.
-
-Markdown is preferred over HTML when both are valid choices. The UI is TSX with MUI components.
 
 ## Conventions At A Glance
 
