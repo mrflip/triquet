@@ -15,14 +15,10 @@ store, edit and refine the question text, and also to assess questions for fairn
 Nobody is using the app yet, so there is no existing data to preserve: a change to a data shape or
 a validator needs no migration path for anyone's quizzes.
 
-**Storage is Convex**, replacing Jazz in September 2026; the move was also an evaluation, whose
-verdict is in `notes/database-decisions.md` and whose decision is `notes/decisions/2026-09-convex.md`. The plan and its handoff are
-`whiteboard/convex_yay-plan.md` and `whiteboard/convex_yay-progress.md` (read the progress
-document's *Rules overrides* before touching `convex/`). Rows, not a tree: a view dispatches an
-action, the `hunts.perform` mutation writes the rows it comes to, and views subscribe to query
-functions that assemble what a screen shows. Row ids are Convex's `_id` and internal; refer by
-label. Zod validates every function's arguments and every row written, never rows read back.
-Turso is out for good.
+**Storage is Convex**, since September 2026. Rows, not a tree; row ids are internal and things
+are referred to by label; Zod validates every function's arguments and every row written, never
+rows read back. `notes/convex.md` holds the conventions and where this project departs from
+Convex's own guidelines, and loads itself when work touches `convex/` or the browser's side of it.
 
 **The app is client-first**: static hosting plus stateless functions, and the database. The ask route is the one named server function. Never add a second
 without a Coach. See `notes/decisions/2026-09-client-first.md`.
@@ -61,13 +57,8 @@ The top three values while writing code are **empathy, safety and readability**.
      An unlisted one that is widely used, solves the problem (and then some) without dragging in machinery, and ideally is recommended by the neighbouring library: install it, list it in `notes/stack.md`, and tell the Coach afterwards, rather than writing our own. The worked example is `react-number-format` for number fields, which MUI's own docs pair with `TextField`.
   3. Only then hand-roll -- and only after a Coach says yes in chat. Record the decision and its reason in `notes/stack.md` under *Hand-rolled on purpose*.
 
-  Tripwires that mean "stop and ask": you are attaching native DOM event handlers beyond click/change; you are writing a raw `<table>`, `<button>` or `<dialog>` where MUI has one; you are adding a CSS-module rule that re-creates something `sx` or the theme can do; you are writing a small state machine for an interaction; you are past ~30 lines on behavior that is not specific to quizzes.
-
   Views are TSX composed from MUI components; raw HTML elements are for semantics MUI lacks. (Markdown is for documents and content, not UI.)
-
-  A decision recorded under *Hand-rolled on purpose* closes the tripwire for that code: don't re-flag it without a new reason.
-
-  The same goes in reverse: if you find hand-rolled code that a library should own, say so in chat rather than extending it. Flag it once, briefly, and only when you are already touching that code -- don't propose migrating code you aren't otherwise changing.
+  `notes/views.md` has the tripwires that mean "stop and ask", the styling rules, and the skills to reach for; it loads itself when work touches a view.
 * Every new piece of code gets a proportional doc block and test suite.
 * Validate at module entrypoints; write confident, paranoia-free code past that boundary.
 * Progress notes, development caveats and open questions go in `HUMAN-whatsup.md` or `/whiteboard` --
@@ -170,7 +161,11 @@ Unless marked *(auto-loads)*, these are not loaded for you. Read them when the w
     scored against it; Convex's verdict lands here.
   - `notes/deploy.md` -- how a change reaches production, and what a schema change means for a
     deployment. Agents never deploy to production.
-  - `notes/testing.md` *(auto-loads with any test file)* -- test conventions.
+  - `notes/testing.md` *(auto-loads with any test file, `tests/support/` and `e2e/`)* -- test conventions.
+  - `notes/convex.md` *(auto-loads with `convex/`, `tests/convex/`, `src/state/`)* -- how we use
+    Convex, where we depart from its guidelines, and which Convex skill to name when.
+  - `notes/views.md` *(auto-loads with `src/components/` and `src/app/`)* -- how a view is built:
+    MUI first, the tripwires, and which MUI skill to name when.
   - `notes/prior-work/` -- retrospectives and old prompts. Unreliable narrators: history, not spec.
 * `/eslint.config.mjs` -- mechanically enforced style, and the best source of truth for any
   formatting question. Where it and a prose document disagree, it is a bug -- flag it.
@@ -182,8 +177,7 @@ To any extent reasonable, author documents and content in markdown rather than H
 
 Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 
-* Semicolonless. Two-space indents, no tabs. Single quotes by default; `"` only when a key must
-  be quoted.
+* Semicolonless. Two-space indents, no tabs. Single quotes by default; STYLE.md has the exceptions.
 * Always brace blocks, even single-statement ones: `if (nope) { return }`
 * Opening brace at end of line; cuddle `} else if (...) {` and `} catch (err) {`.
 * No single-letter names. `ii` / `jj` / `kk` are the only sanctioned short ones.
@@ -198,7 +192,7 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 * `const` by default; `let` only where the value is genuinely reassigned. Never `var`. Functional style is
   strongly preferred.
 * Parenthesize and space every negation: `if (! approved) { ... }`
-* Style with MUI (`sx`, the theme, and its components) first. `workbench.module.css` is for layout MUI cannot express; new rules there need a reason.
+* Style with MUI (`sx`, the theme, and its components) first; `notes/views.md` has the rules.
 
 ## Git
 
@@ -226,6 +220,5 @@ Convex agent skills for common tasks can be installed by running
 
 <!-- convex-ai-end -->
 
-Where Convex's guidelines and this project's rules differ (`CVX`, not `v`; no `returns` on a query
-that hands back documents; tests in `tests/convex/`; the per-table caps in `lib/vv/patterns.ts`),
-this project wins: see *Rules overrides* in `whiteboard/convex_yay-progress.md`.
+Where Convex's guidelines and this project's rules differ, this project wins: `notes/convex.md`
+lists every departure.

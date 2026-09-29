@@ -5,6 +5,8 @@ paths:
   - "**/*.spec.ts"
   - "**/*.spec.tsx"
   - "**/__tests__/**/*.{ts,tsx}"
+  - "tests/support/**"
+  - "e2e/**"
 ---
 
 # Testing Conventions
@@ -21,8 +23,11 @@ Two runners, and the assertion style follows the runner:
   `await expect(locator).toHaveValue(...)`. Playwright's `expect` has no chai interface, and a
   locator assertion retries until it holds, which is the reason to use one.
 
-A skill or reference that shows `toBe`/`toEqual` (the Vitest docs do) is an API reference, not
-a style guide. This file wins. Style rules from `STYLE.md` apply in test files too --
+Two skills under `.claude/skills/` are references for the runners, loaded only when named:
+`/vitest` when a specific Vitest API is wanted (fake timers, `test.extend` fixtures, snapshots,
+concurrency), and `/playwright-cli` when driving a browser by hand or reaching for a Playwright
+API past the locators and assertions below. A skill or reference that shows `toBe`/`toEqual`
+(the Vitest docs do) is an API reference, not a style guide. This file wins. Style rules from `STYLE.md` apply in test files too --
 semicolonless, braced blocks, no single-letter names, and `"` around an `it` or `describe`
 title, which so often holds an apostrophe (STYLE.md, *Strings*).
 
