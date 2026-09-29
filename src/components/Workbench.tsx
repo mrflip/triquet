@@ -121,6 +121,7 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
           dispatch={dispatch}
           onOpen={goTo}
           onEditExpressions={() => { setEditingExpressions(true) }}
+          onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}
           onRelabelHunt={(label) => {
             // Followed once it has landed, and not at all when it was refused (the label taken):
             // until then no hunt answers to the new address.

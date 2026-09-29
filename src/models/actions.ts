@@ -75,6 +75,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('peek_answer'),         quiz_id: zid('quizzes'), question_id: zid('questions') }),
     obj({ kind: lit('add_hunting'),         ident_label: IdentValidators.identLabel, role: HuntingValidators.role }),
     obj({ kind: lit('remove_hunting'),      ident_id: zid('idents') }),
+    obj({ kind: lit('retitle_hunt'),        title: titleish }),
     obj({ kind: lit('relabel_hunt'),        label }),
     obj({ kind: lit('delete_hunt') }),
   ])

@@ -13,6 +13,12 @@ function huntOfTwo() {
   return huntHolding([{ ...Quiz.blank('Quiz one'), questions }, Quiz.blank('Quiz two')], SeedExpressions)
 }
 
+/** A hunt down to its last quiz, holding two questions, with the seed expressions */
+function huntOfOne() {
+  const questions = ['a', 'b'].map((title) => ({ ...Question.blank(), title }))
+  return huntHolding([{ ...Quiz.blank('Quiz one'), questions }], SeedExpressions)
+}
+
 /** The label `hunt_id` answers to, read back the way an address is: whichever hunt the label finds */
 async function answersTo(tt: Tester, label: string): Promise<Id<'hunts'> | null> {
   const hunt = await tt.run(async (ctx) => await huntForLabel(ctx.db, label))
@@ -30,6 +36,22 @@ async function rowCounts(tt: Tester) {
     return Object.fromEntries(counts)
   })
 }
+
+describe('hunts.perform: retitle_hunt', () => {
+  it('changes what the hunt is called, and leaves the label, and so the address, alone', async () => {
+    const { tt, act, open } = await seedHunt(openTester(), huntOfTwo())
+    const ante = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
+    await act({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
+    const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
+    expect([hunt.title, hunt.label, hunt.forced_label]).to.deep.eq(['The Autumn Hunt', ante.label, ante.forced_label])
+  })
+
+  it('refuses a reviewer, as not theirs to change', async () => {
+    const { act, join } = await seedHunt(openTester(), huntOfTwo())
+    const reviewer = await join('bob_reviews', 'reviewer')
+    await expectRefusal(act({ kind: 'retitle_hunt', title: 'The Autumn Hunt' }, reviewer.browser_key), 'notPermitted')
+  })
+})
 
 describe('hunts.perform: relabel_hunt', () => {
   it('makes the hunt answer to the new label, and no longer to the old', async () => {
@@ -71,11 +93,11 @@ describe('hunts.perform: relabel_hunt', () => {
 })
 
 describe('hunts.perform: delete_hunt', () => {
-  it('takes every row the hunt holds with it, and leaves another hunt, and the idents, alone', async () => {
+  it('takes every row the hunt and its last quiz hold with it, and leaves another hunt, and the idents, alone', async () => {
     const tt = openTester()
     const spared = await seedHunt(tt, huntOfTwo(), { smith: 'spared_smith' })
     const ante = await rowCounts(tt)
-    const doomed = await seedHunt(tt, huntOfTwo())
+    const doomed = await seedHunt(tt, huntOfOne())
     const question_id = present(openOf(await doomed.read()).questions[0])._id as Id<'questions'>
     const reviewer = await doomed.join('bob_reviews', 'reviewer')
     await doomed.act({ kind: 'open_review', quiz_id: doomed.open.quiz_id }, reviewer.browser_key)
@@ -93,8 +115,16 @@ describe('hunts.perform: delete_hunt', () => {
     expect(quizzes.map((quiz) => quiz.title)).to.deep.eq(['Quiz one', 'Quiz two'])
   })
 
+  it('refuses while the hunt holds another quiz, deleting nothing', async () => {
+    const tt = openTester()
+    const { act } = await seedHunt(tt, huntOfTwo())
+    const ante = await rowCounts(tt)
+    await expectRefusal(act({ kind: 'delete_hunt' }), 'huntNotEmptied')
+    expect(await rowCounts(tt)).to.deep.eq(ante)
+  })
+
   it('refuses a reviewer, deleting nothing', async () => {
-    const { tt, act, join, open } = await seedHunt(openTester(), huntOfTwo())
+    const { tt, act, join, open } = await seedHunt(openTester(), huntOfOne())
     const reviewer = await join('bob_reviews', 'reviewer')
     await expectRefusal(act({ kind: 'delete_hunt' }, reviewer.browser_key), 'notPermitted')
     const realms = await tt.run(async (ctx) => await realmsOf(ctx.db, open.hunt_id))
