@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { actDangerously, expect, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { actDangerously, closeManage, expect, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 /** The label the open quiz answers to, as the gear's dialog has it; the dialog must be open */
 async function quizLabelOf(page: Page): Promise<string> {
@@ -53,30 +53,46 @@ test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring 
   await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['Quiz one'])
 })
 
-test('the last remaining quiz cannot be deleted', async ({ page }) => {
+test('a hunt goes only with its last quiz', async ({ page }) => {
   await openManage(page)
   const zone = manageDialog(page).getByRole('region', { name: 'Danger Zone' })
-  await expect(zone.getByRole('button', { name: 'Delete this quiz' })).toBeDisabled()
-  await expect(zone).toContainText("A realm's last quiz can't be deleted")
+  await expect(zone.getByRole('button')).toHaveText(['Delete this quiz and its hunt'])
+  await closeManage(page)
+
+  await newQuiz(page)
+  await openManage(page)
+  await expect(zone.getByRole('button')).toHaveText(['Delete this quiz'])
+})
+
+test('a smith renames the hunt, and the address stays as it is', async ({ page }) => {
+  await waitUntilSaved(page)
+  const address = page.url()
+  await openManage(page)
+  await manageDialog(page).getByRole('textbox', { name: 'Hunt name' }).fill('The Autumn Hunt')
+  await manageDialog(page).getByRole('button', { name: 'Rename' }).click()
+  await waitUntilSaved(page)
+  await openManage(page)
+  await expect(manageDialog(page).getByRole('textbox', { name: 'Hunt name' })).toHaveValue('The Autumn Hunt')
+  expect(page.url()).toBe(address)
 })
 
 test('a smith relabels the hunt, and the address follows', async ({ page }) => {
   await waitUntilSaved(page)
   await openManage(page)
   await manageDialog(page).getByRole('textbox', { name: 'Hunt label' }).fill('Renamed Hunt')
-  await manageDialog(page).getByRole('button', { name: 'Rename' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Relabel' }).click()
   await expect(page).toHaveURL(/^[^?]*\/renamed_hunt\//)
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which region?')
 })
 
-test('a smith deletes the hunt, typing its label, and is taken to their hunts, without it', async ({ page }) => {
+test('a smith deletes the last quiz and its hunt, typing the hunt\'s label, and is taken to their hunts, without it', async ({ page }) => {
   await waitUntilSaved(page)
   await openManage(page)
   const huntLabel = manageDialog(page).getByRole('textbox', { name: 'Hunt label' })
   await expect(huntLabel).not.toHaveValue('')
   // Read once the field has settled above; it does not change while the dialog is open.
   const label = await huntLabel.inputValue()
-  await actDangerously(page, 'Delete this hunt', label)
+  await actDangerously(page, 'Delete this quiz and its hunt', label)
   await expect(page).toHaveURL(/\/my\/hunts$/)
   await expect(page.getByText(label)).toHaveCount(0)
 })
