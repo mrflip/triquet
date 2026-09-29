@@ -52,6 +52,7 @@ export const AppNotices = {
   nothingToMilestone:   'No history here yet — make an edit first.',
   noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
   noRepositories:       'No history has been kept in this browser yet.',
+  deletingHunt:         'To delete a hunt, please delete its quizzes.',
 } as const
 
 /** Why the server refused a change, in the author's language: one per `failurekind` */
@@ -69,7 +70,7 @@ export const RefusalNotices = {
   sourceUnshowable: "That column would show a widget this quiz doesn't have.",
   expressionInUse:  'A widget still works this expression — remove the widget first.',
   lastQuiz:         "A realm's last quiz can't be deleted on its own — it goes with its hunt.",
-  huntNotEmptied:   'A hunt goes only with its last quiz — delete its other quizzes first.',
+  huntNotEmptied:   AppNotices.deletingHunt,
   notInRealm:       'That quiz belongs to another realm.',
   notIdentified:    'Say who you are first.',
   reviewNotOpened:  'Open your review of this quiz first.',

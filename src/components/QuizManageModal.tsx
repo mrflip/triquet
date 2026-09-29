@@ -187,6 +187,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
                 <Button variant="outlined" onClick={onRelabelHuntClick} disabled={Labelmaker.normalize(huntLabelDraft) === huntLabel}>Relabel</Button>
               </Stack>
             </Stack>
+            <p className={styles.microcopy}>{AppNotices.deletingHunt}</p>
           </section>
 
           <section>
