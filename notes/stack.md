@@ -104,6 +104,11 @@ Settled; reach for these before writing the equivalent.
   no negatives, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
   it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
+* **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
+  typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
+  `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed
+  the CI build now and then (Turbopack's "next/font/google queries have exactly one entry"). MUI's
+  own install docs load Roboto the same way. Added Sept 2026 without asking first.
 
 ### Formulas
 
