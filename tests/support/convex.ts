@@ -92,6 +92,20 @@ export async function putOn(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'iden
 }
 
 /**
+ * Strip `hunt_id` from every question and review in `tt`, as rows written before they named
+ * their hunt, which `convex/migrations.ts` backfills.
+ *
+ * @example await forgetHuntIds(tt)
+ */
+export async function forgetHuntIds(tt: Tester): Promise<void> {
+  await tt.run(async (ctx) => {
+    const [questions, reviews] = await Promise.all([ctx.db.query('questions').collect(), ctx.db.query('reviews').collect()])
+    for (const question of questions) { await ctx.db.patch('questions', question._id, { hunt_id: undefined }) }
+    for (const review of reviews) { await ctx.db.patch('reviews', review._id, { hunt_id: undefined }) }
+  })
+}
+
+/**
  * `hunt`, written into rows in `tt`, with one smith on it (the ident labelled `opts.smith`,
  * `seed_smith` by default) and the quiz at `opts.openIdx` of its first realm open.
  *

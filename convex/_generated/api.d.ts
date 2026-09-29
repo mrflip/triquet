@@ -12,6 +12,7 @@ import type * as authorize from "../authorize.js";
 import type * as functions from "../functions.js";
 import type * as hunts from "../hunts.js";
 import type * as idents from "../idents.js";
+import type * as migrations from "../migrations.js";
 import type * as questions from "../questions.js";
 import type * as quizzes from "../quizzes.js";
 import type * as reading from "../reading.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   functions: typeof functions;
   hunts: typeof hunts;
   idents: typeof idents;
+  migrations: typeof migrations;
   questions: typeof questions;
   quizzes: typeof quizzes;
   reading: typeof reading;
@@ -76,4 +78,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};

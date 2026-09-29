@@ -16,7 +16,8 @@ import { HomeRealmLabel, RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
 import { WidgetValidators, type BottingPatch, type ExpressingPatch } from '../../src/models/widget'
-import { reviewsOf } from '../reading'
+import { refuse } from '../../src/lib/refusals'
+import { huntIdOfRow, reviewsOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
@@ -54,9 +55,10 @@ export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partia
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 
-/** Revise a question's row */
+/** Revise a question's row, giving it its hunt's id if it was written before it named one */
 export async function updateQuestion(db: Writer, held: Doc<'questions'>, patch: Partial<Z.output<typeof QuestionValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuestionValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const hunt_id = await huntIdOfRow(db, held) ?? refuse('realmGone')
+  const changed = changedFields(held, QuestionValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('questions', held._id, changed) }
 }
 
@@ -72,9 +74,10 @@ export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: Part
   if (! _.isEmpty(changed)) { await db.patch('columns', held._id, changed) }
 }
 
-/** Revise a review's row */
+/** Revise a review's row, giving it its hunt's id if it was written before it named one */
 export async function updateReview(db: Writer, held: Doc<'reviews'>, patch: Partial<Z.output<typeof ReviewValidators.row>>): Promise<void> {
-  const changed = changedFields(held, ReviewValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const hunt_id = await huntIdOfRow(db, held) ?? refuse('realmGone')
+  const changed = changedFields(held, ReviewValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('reviews', held._id, changed) }
 }
 

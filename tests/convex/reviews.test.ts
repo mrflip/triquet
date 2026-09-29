@@ -3,7 +3,7 @@ import { api } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
 import { mintId } from '../../src/lib/ids'
 import { present } from '../support/present'
-import { identified, openOf, openTester, seedHunt } from '../support/convex'
+import { forgetHuntIds, identified, openOf, openTester, seedHunt } from '../support/convex'
 
 describe('reviews.forQuiz', () => {
   it('reads a quiz\'s reviews oldest first, each with who wrote it', async () => {
@@ -53,6 +53,17 @@ describe('reviews.forQuiz', () => {
     expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key), await seenBy(smith.browser_key)]).to.deep.eq([both, both, both])
     await act({ kind: 'set_review_phase', quiz_id, phase: 'draft' }, bob.browser_key)
     expect([await seenBy(alice.browser_key), await seenBy(bob.browser_key)]).to.deep.eq([['alice_reviews'], ['bob_reviews']])
+  })
+
+  it("reads a shared review written before it named its hunt, for a smith of its quiz's hunt", async () => {
+    const tt = openTester()
+    const { act, open, join, smith } = await seedHunt(tt, Hunt.blank())
+    const alice = await join('alice_reviews', 'reviewer')
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, alice.browser_key)
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, alice.browser_key)
+    await forgetHuntIds(tt)
+    const reviews = await tt.query(api.reviews.forQuiz, { quiz_id: open.quiz_id, browser_key: smith.browser_key })
+    expect(reviews.map((review) => review.reviewer?.label)).to.deep.eq(['alice_reviews'])
   })
 
   it("reads nothing of a shared review for someone not on the hunt", async () => {
