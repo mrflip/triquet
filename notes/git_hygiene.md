@@ -91,13 +91,21 @@ Stop and ask for anything that takes judgment:
 - Resolving would mean dropping a change from either side.
 - The suite fails after the rebase and the cause isn't obvious.
 
+When a rebase turns hairy, tag the tip from before it, so there is a named place to rewind to.
+Mid-rebase, the branch still points at that tip. Keep the tag local:
+
+```
+git tag prerebase/<branch> <branch>          # mid-rebase; after it, use <branch>@{1}
+git range-diff prerebase/<branch>...HEAD     # afterwards: what the rebase changed, commit by commit
+```
+
 To stop, either:
 
-- finish the rebase with your best resolution, then report it and offer to rewind. `git reflog`
-  holds the tip from before the rebase (*Recovery*); or
+- finish the rebase with your best resolution, then report it and offer to rewind to the tag; or
 - on large problems, `git rebase --abort`, which returns the branch to where it was.
 
-Either way, report the conflicting commits and files, and what each side meant.
+Either way, report the conflicting commits and files, what each side meant, and the tag's name.
+Delete the tag once the PR merges.
 
 ### Filing the PR
 
