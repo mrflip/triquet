@@ -1,6 +1,6 @@
 # Git hygiene
 
-History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning are in `notes/git_hygiene.md`; read it before any rebase that touches more than one branch.
+History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning follow the summary below.
 
 - Never merge main into a branch, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
 - A branch must contain no merge commits; the `semi-linear` CI check rejects them.
@@ -8,7 +8,7 @@ History on main is semi-linear: each PR branch is rebased onto current main and 
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
 - Don't merge PRs. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
-- Before marking a PR ready: rebase onto origin/main, run the full test suite, push.
+- A line of work is a thread: `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
 
 
 ## The shape we keep
@@ -38,6 +38,80 @@ Why this shape:
 - Merge commits keep the branch's SHAs. Stacked branches and anything that cites a SHA stay valid after a merge. Squash-merge and GitHub's rebase-merge rewrite every SHA, which forces a restack after each merge.
 
 Enforcement: the `semi-linear` CI check rejects any PR branch that contains a merge commit. The main ruleset requires branches to be up to date with `main` before merging and allows the "merge commit" method only.
+
+## A thread, start to finish
+
+A thread is one line of work: one branch, one PR. You may commit, push the thread's branch, and
+open its PR without asking first.
+
+### Starting
+
+`pnpm newb <branchlabel>` branches `YYYYMMDD-<branchlabel>` from HEAD and carries the working tree
+along, uncommitted changes and all. Its upstream is set, so the first plain `git push` creates the
+remote branch.
+
+- On `main`, or on a branch whose PR has merged, branch from `origin/main`: `git fetch origin &&
+  git switch --detach origin/main && pnpm newb <branchlabel>`, before the first edit.
+- On an unmerged branch, the new thread is stacked on it. Note that branch's PR number for the
+  description.
+- Carrying on with the current thread needs no new branch.
+
+### Milestones
+
+Commit when the work reaches a place you could hand over: a set of related changes, with the app
+working again (typecheck, lint, and the tests near your change pass). A milestone is a return to
+working order, not a count of edits. Don't commit mid-refactor, and keep unrelated changes in
+separate commits. A large `convex/_generated/` regeneration goes in a commit of its own. For the
+occasional deliberate commit with failing tests, see *Commits*.
+
+### Finishing: the rebase
+
+```
+git fetch origin
+git rebase origin/main
+pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
+```
+
+Fix the straightforward conflicts yourself:
+
+- `pnpm-lock.yaml`: take main's version, then run `pnpm install`.
+- `convex/_generated/`: push to your backend again (`scripts/convex_dev agent`) and take what it writes.
+- Edits that sit side by side without contradicting each other.
+- Merges in docs or import lists.
+- Tests that main broke in plainly mechanical ways, such as a rename.
+
+Stop and ask for anything that takes judgment:
+
+- Both sides changed the same logic, or the schema.
+- Main changed something the thread depends on.
+- Resolving would mean dropping a change from either side.
+- The suite fails after the rebase and the cause isn't obvious.
+
+To stop: `git rebase --abort` returns the branch to where it was. Then report the conflicting
+commits and files, and what each side meant.
+
+### Filing the PR
+
+Push: plain `git push` the first time, and `git push --force-with-lease --force-if-includes` after
+any later rebase. Then run `gh pr create --base main`.
+
+- **Title**: plain language, saying what changed.
+- **Body**: follow recent PRs (#35 is a good model):
+  - What changed, in short paragraphs or bullets with **bold lead-ins**.
+  - A **Tests:** line naming the suites run and their counts.
+  - "Stacked on #N" or "Follows #N" where either applies.
+  - An *Open questions* list when minor questions remain.
+
+A *significant* question is one whose answer would change the code in the PR. Ask those in chat
+before filing, rather than filing and hoping.
+
+`git fetch` over HTTPS works without credentials, and `gh` uses its own login. `git push` needs
+credentials, and in the container the configured helper (`gcm-core`) is missing. Borrow gh's
+login for the one push, without changing any config:
+
+```
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
+```
 
 ## Catching up with main
 

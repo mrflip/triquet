@@ -168,10 +168,25 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 
 ## Git
 
-History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch), or when your guidance on git is requested, or if performing operations on the github repo.
-- Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`
-- Start a new line of work with `pnpm run newb <branchlabel>`, which branches `YYYYMMDD-<branchlabel>` on the current working tree, stacked on main. However: open PRs against `main`, even when stacked; write "stacked on #N" in the description.
-- Before pushing, and when at a milestone: rebase onto origin/main and run the full test suite.
+History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch), or when your guidance on git is requested, or if performing operations on the github repo. Its *A thread, start to finish* details each step below.
+
+Work goes in **threads**: one line of work, one branch, one PR. Within a thread you have standing
+permission to commit, push its branch, and open its PR without asking.
+
+1. **Start** a new line of work with `pnpm newb <branchlabel>`. It branches `YYYYMMDD-<branchlabel>`
+   from where you stand, uncommitted changes and all. Continuing the current thread needs no new branch.
+2. **Commit at natural milestones**: a set of related changes, with the app working again (typecheck,
+   lint and the tests near your change pass). Not mid-refactor, not on a timer, and unrelated
+   changes go in separate commits.
+3. **Finish** with `git fetch origin && git rebase origin/main`, then the full suite: `pnpm typecheck
+   && pnpm lint && pnpm test && pnpm test:e2e`. Repair what is straightforward; if a conflict needs a
+   judgment about which behaviour wins, `git rebase --abort` and ask.
+4. **Push, and file the PR** against `main` with `gh pr create` (a push borrows gh's login: see
+   git_hygiene's *Filing the PR*), unless *significant* questions hang: then ask
+   in chat first. Smaller open questions go in the description. When stacked, write "stacked on #N".
+   Never merge.
+
+- Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`.
 
 <!-- convex-ai-start -->
 This project uses [Convex](https://convex.dev) as its backend.
