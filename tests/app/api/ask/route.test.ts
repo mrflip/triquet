@@ -54,6 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   fetched.mockReset()
 })
 
@@ -86,4 +87,23 @@ describe('POST /api/ask', () => {
     expect(sentBody()).to.include({ stream: true, max_tokens: MaxTokensForJob.bulk_ishes })
   })
 
+  it("answers a failure with its kind, and logs what the SDK threw on the server", async () => {
+    vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-not-a-real-key')
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => null)
+    // A status the SDK does not retry, so the test waits on no backoff.
+    fetched.mockResolvedValue(Response.json({ type: 'error', error: { type: 'permission_error', message: 'nope' } }, { status: 403 }))
+    const answer = await POST(askBulk())
+    const reply = await answer.json() as { failurekind: string }
+    expect(reply.failurekind).to.eq('accountOff')
+    expect(logged).toHaveBeenCalledOnce()
+    expect(logged.mock.calls[0]?.[0]).to.match(/^Triquet: could not answer a bulk_ishes ask — Error: 403 .*permission_error/)
+  })
+
+  it("logs nothing when asking is only switched off", async () => {
+    vi.stubEnv('ENABLE_ANTHROPIC_BOT', undefined)
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => null)
+    await POST(askBulk())
+    expect(logged).not.toHaveBeenCalled()
+  })
 })

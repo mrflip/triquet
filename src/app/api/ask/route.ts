@@ -6,6 +6,7 @@ import { bulkItemsBlock } from '../../../lib/ask/prompts'
 import { MaxTokensForJob, ModelForTier, BotForJob } from '../../../lib/ask/models'
 import * as Approval from '../../../lib/approval'
 import * as Credentials from '../../../lib/credentials'
+import * as Postmortem from '../../../lib/postmortem'
 import { botFor, promptFor } from '../../../lib/ask/bots'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failureReplyFor } from '../../../lib/ask/failures'
@@ -28,7 +29,8 @@ const BulkGroupsFormat = obj({ groups: arr(BulkGroupFormat) })
  *
  * The key never leaves the server, so asking has to go through here; everything else in the
  * tool works with the network off. A failure is answered with a kind, never a stack trace and
- * never a bare status code, so the browser always has an author-shaped sentence to show.
+ * never a bare status code, so the browser always has an author-shaped sentence to show; the
+ * stack goes to the server's log instead, unless the failure is only asking being switched off.
  */
 export async function POST(request: Request): Promise<Response> {
   const parsed = AskContract.askRequest.safeParse(await request.json())
@@ -41,7 +43,9 @@ export async function POST(request: Request): Promise<Response> {
     const client = new Anthropic({ apiKey: Credentials.get(bot.servicelabel) })
     return replied(vetReply(await answerAsk(client, bot, parsed.data)))
   } catch (err) {
-    return replied(failureReplyFor(err))
+    const failed = failureReplyFor(err)
+    if (failed.failurekind !== 'notPermitted') { Postmortem.report(`answer a ${parsed.data.job} ask`, err, { failurekind: failed.failurekind }) }
+    return replied(failed)
   }
 }
 
@@ -112,7 +116,10 @@ async function extract<SC extends Z.ZodType>(client: Anthropic, bot: BotT, promp
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
   // The model answered, but not in the shape the format asked for.
   const { parsed_output } = answer
-  if (! parsed_output) { return { ok: false, failurekind: 'unreadable' } }
+  if (! parsed_output) {
+    console.warn('Triquet: a model answer did not fit the format asked for', { stop_reason: answer.stop_reason, text: textOf(answer.content).slice(0, 600) })
+    return { ok: false, failurekind: 'unreadable' }
+  }
   return { ok: true, parsed: parsed_output, raw: textOf(answer.content), truncated: answer.stop_reason === 'max_tokens' }
 }
 
