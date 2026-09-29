@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Button, Dialog, DialogActions, DialogTitle, IconButton, Stack, Typography } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogTitle, IconButton, Stack, Typography } from '@mui/material'
 import { AppNotices } from '../../lib/notices'
 
 export type AnswerLockProps = {
@@ -13,11 +13,15 @@ export type AnswerLockProps = {
   onReveal?: () => void
 }
 
+/** The padding around the lock, the same in either state, so the lock stays put as the answer comes and goes */
+const LockSx = { p: 0.5, minWidth: 0 } as const
+
 /**
  * The answer, behind a lock a reviewer opens on purpose: confirming once reveals it for this row
- * and this session, and a small lock beside it hides it again without asking, so the question can
- * be handed to someone else. Neither state is stored; `onReveal` hears of the first reveal, for
- * whoever wants to keep it, and a lock the reviewer has opened before says so.
+ * and this session, and the lock beside it hides it again without asking, so the question can
+ * be handed to someone else. The lock sits first and the answer to its right, so it stays put
+ * either way. Neither state is stored; `onReveal` hears of the first reveal, for whoever wants
+ * to keep it, and a lock the reviewer has opened before says so.
  *
  * @param answer - What to reveal.
  * @param seen - Whether it has been revealed before.
@@ -31,8 +35,8 @@ export function AnswerLock({ answer, seen = false, onReveal }: Readonly<AnswerLo
   if (revealed) {
     return (
       <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{answer}</Typography>
-        <IconButton size="small" aria-label="Hide answer" onClick={() => { setRevealed(false) }}>🔓</IconButton>
+        <IconButton size="small" aria-label="Hide answer" sx={LockSx} onClick={() => { setRevealed(false) }}><LockGlyph glyph="🔓" /></IconButton>
+        <Typography sx={{ whiteSpace: 'pre-wrap', pt: 0.5 }}>{answer}</Typography>
       </Stack>
     )
   }
@@ -45,8 +49,14 @@ export function AnswerLock({ answer, seen = false, onReveal }: Readonly<AnswerLo
     onReveal?.()
   }
   return (
-    <>
-      <IconButton size="small" aria-label="Reveal answer" onClick={() => { setConfirming(true) }}>🔒</IconButton>
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+      <Button
+        color="inherit"
+        onClick={() => { setConfirming(true) }}
+        sx={{ ...LockSx, gap: 1, textTransform: 'none', fontWeight: 'normal', color: 'text.secondary' }}
+      >
+        <LockGlyph glyph="🔒" />{AppNotices.answerLocked}
+      </Button>
       {seen && <Typography component="span" variant="caption" color="text.secondary">{AppNotices.answerSeen}</Typography>}
       <Dialog open={confirming} onClose={() => { setConfirming(false) }} aria-labelledby="reveal-answer-title">
         <DialogTitle id="reveal-answer-title">Reveal the answer?</DialogTitle>
@@ -55,6 +65,11 @@ export function AnswerLock({ answer, seen = false, onReveal }: Readonly<AnswerLo
           <Button variant="contained" onClick={reveal}>Reveal</Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Stack>
   )
+}
+
+/** The lock itself, drawn the same size inside either of the buttons that carry it */
+function LockGlyph({ glyph }: Readonly<{ glyph: string }>) {
+  return <Box component="span" aria-hidden sx={{ display: 'inline-flex', alignItems: 'center', height: 24, fontSize: '1.125rem' }}>{glyph}</Box>
 }

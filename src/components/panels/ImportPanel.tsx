@@ -51,6 +51,7 @@ export function ImportPanel({ quiz, locked, onImport }: Readonly<ImportPanelProp
       <TextField
         multiline
         minRows={6}
+        maxRows={16}
         fullWidth
         size="small"
         placeholder="Paste exported JSON here"

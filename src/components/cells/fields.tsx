@@ -145,5 +145,6 @@ export function NumberField({ committed, onCommit, locked, placeholder, label, f
   if (bare) {
     return <NumericFormat {...numeric} className={clsx(styles.field, styles.fieldQnum)} inputMode={inputMode} aria-label={label} readOnly={locked} />
   }
-  return <NumericFormat {...numeric} customInput={TextField} label={label} size="small" fullWidth slotProps={{ htmlInput: { inputMode, readOnly: locked } }} />
+  // The label stays up in the outline, so an empty box reads as a box and not as a prompt inside one.
+  return <NumericFormat {...numeric} customInput={TextField} label={label} size="small" fullWidth slotProps={{ htmlInput: { inputMode, readOnly: locked }, inputLabel: { shrink: true } }} />
 }

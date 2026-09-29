@@ -57,12 +57,12 @@ export type ReviewingDNA   = Z.input<typeof ReviewingValidators.row>
 export type ReviewingRowT  = Z.output<typeof ReviewingValidators.row>
 export type ReviewingPatch = Z.output<typeof ReviewingValidators.reviewingPatch>
 
-/** The flags a reviewer may raise on a question, each with the emoji it shows as and what it means */
+/** The flags a reviewer may raise on a question, each with the face it shows as, the word beside it, and what it means */
 export const ReviewingFlags = [
-  { flag: 'keep_it',               emoji: '👍', title: 'Keep it' },
-  { flag: 'needs_fact_check',      emoji: '🔍', title: 'Needs fact check' },
-  { flag: 'elimination_candidate', emoji: '✂️', title: 'Elimination candidate' },
-] as const satisfies readonly { flag: keyof ReviewingPatch, emoji: string, title: string }[]
+  { flag: 'keep_it',               emoji: '😍', word: 'yay',              title: 'Keep it' },
+  { flag: 'needs_fact_check',      emoji: '🤨', word: 'needs fact check', title: 'Needs fact check' },
+  { flag: 'elimination_candidate', emoji: '😐', word: 'meh',              title: 'Elimination candidate' },
+] as const satisfies readonly { flag: keyof ReviewingPatch, emoji: string, word: string, title: string }[]
 
 /** One review's verdict on one question: a get rate, guesses, comments, minutes and three flags */
 export class Reviewing implements ReviewingRowT {

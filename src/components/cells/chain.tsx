@@ -1,5 +1,6 @@
 'use client'
 
+import { Box, Typography } from '@mui/material'
 import clsx from 'clsx'
 import * as Chain from '../../lib/chain'
 import { CellNotices } from '../../lib/notices'
@@ -55,6 +56,21 @@ export function ButnotPreview({ target, chained, heightPx }: Readonly<ButnotPrev
     >
       {notice ?? Chain.chainSnippet(target?.hint ?? '')}
     </div>
+  )
+}
+
+/**
+ * The BUT NOT in full, under a heading that names it: the review screen's reading, where a
+ * question is read top to bottom and there is room for all of the chained-to hint. Its reader
+ * cannot pick a chain, so an unchained question says only that no hint is attached.
+ */
+export function ButnotFull({ target, chained }: Readonly<Omit<ButnotPreviewProps, 'heightPx'>>) {
+  const notice = chained ? butnotNoticeFor(target, chained) : CellNotices.butnotNoChainRead
+  return (
+    <Box>
+      <Typography variant="overline" component="div" color="text.secondary">BUT NOT</Typography>
+      <Typography sx={{ whiteSpace: 'pre-wrap', color: notice === null ? undefined : 'text.secondary' }}>{notice ?? target?.hint}</Typography>
+    </Box>
   )
 }
 
