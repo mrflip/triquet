@@ -200,6 +200,18 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 * Parenthesize and space every negation: `if (! approved) { ... }`
 * Style with MUI (`sx`, the theme, and its components) first. `workbench.module.css` is for layout MUI cannot express; new rules there need a reason.
 
+## Git
+
+History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning are in `notes/git_hygiene.md`; read it before any rebase that touches more than one branch.
+
+- Never merge main into a branch, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
+- A branch must contain no merge commits; the `semi-linear` CI check rejects them.
+- Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`, and never force-push a branch another agent owns.
+- Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
+- Don't merge PRs. Philip merges.
+- Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
+- Before marking a PR ready: rebase onto origin/main, run the full test suite, push.
+
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.
