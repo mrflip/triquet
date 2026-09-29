@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+import * as Postmortem from '../lib/postmortem'
 import { failurekindOf, noticeOf } from '../lib/refusals'
 import type { AccountActionDNA } from '../models/actions'
 import { useBrowserKey } from './browser-key'
@@ -40,7 +41,7 @@ export function useAccountActions(): AccountActionsHandle {
       setNotice(null)
       return { kept: true }
     } catch (err) {
-      console.error('Account: an action could not be carried out', action, err)
+      Postmortem.report(`carry out an account action (${action.kind})`, err, { action })
       setNotice(noticeOf(err))
       return { kept: false, failurekind: failurekindOf(err) }
     } finally {

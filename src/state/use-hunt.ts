@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import _ from 'es-toolkit/compat'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from '../lib/labelmaker'
+import * as Postmortem from '../lib/postmortem'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
 import { assembledQuiz, smithsOf, type CountedExpressionT, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
@@ -163,7 +164,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
         last.counted = hunt.expressions
       } catch (err) {
         // A record that misses a reading is a smaller loss than a page that fails.
-        console.error('Hunt: the quiz history missed a reading', err)
+        Postmortem.report('note a reading of the quiz for its history', err, { hunt: hunt_label, quiz_id })
       }
     }
     // A watch for each question the frame orders, and none for one it no longer does.
@@ -235,13 +236,19 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   }, [found.quiz?.title])
 
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
+  // Kept in a layout effect: every layout effect in the tree runs before any passive one, so a
+  // screen that dispatches as it mounts (the review, opening itself) finds the quiz it is on.
   const open: OpenQuizT | null = hunt && found.realm && placing.quizRow ? { hunt_id: hunt._id, realm_id: found.realm._id, quiz_id: placing.quizRow._id } : null
-  const latest = useRef({ open, browser_key })
-  useEffect(() => { latest.current = { open, browser_key } })
+  const latest = useRef({ open, browser_key, labels, role: hunt?.role ?? null })
+  useLayoutEffect(() => { latest.current = { open, browser_key, labels, role: hunt?.role ?? null } })
+  const convex = useConvex()
 
   const carryOut = useCallback(async (action: HuntActionDNA): Promise<boolean> => {
-    const { open: there, browser_key: key } = latest.current
-    if (there === null || key === null) { return false }
+    const { open: there, browser_key: key, labels: place, role: acting } = latest.current
+    if (there === null || key === null) {
+      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role: acting, identified: key !== null })
+      return false
+    }
     const write = async (): Promise<boolean> => {
       setWriting((was) => was + 1)
       holdThePage(true)
@@ -252,7 +259,8 @@ export function useHunt(labels: QuizLabels): HuntHandle {
         setSaveNotice(null)
         return true
       } catch (err) {
-        console.error('Hunt: a change could not be kept', action, err)
+        const { isWebSocketConnected, connectionRetries, inflightMutations } = convex.connectionState()
+        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, role: acting, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
         setSaveNotice(noticeOf(err))
         return false
       } finally {
@@ -263,7 +271,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
     const work = write()
     trackWrite(work)
     return await work
-  }, [perform])
+  }, [perform, convex])
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 

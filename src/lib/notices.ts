@@ -29,6 +29,7 @@ export type AskFailurekind = keyof typeof AskFailureNotices
 export const AppNotices = {
   nothingToRecalculate: 'No questions or hints have any text yet — nothing to recalculate.',
   changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
+  pageFailed:           "This page couldn't be shown. Trying again often works; if it doesn't, send us what it says below.",
   opening:              'Opening…',
   openingHunts:         'Opening your hunts…',
   noHunts:              'No hunts yet.',

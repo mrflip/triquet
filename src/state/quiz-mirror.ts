@@ -4,6 +4,7 @@ import LightningFS from '@isomorphic-git/lightning-fs'
 import * as Changes from '../lib/changes'
 import * as Downloading from '../lib/downloading'
 import * as Labelmaker from '../lib/labelmaker'
+import * as Postmortem from '../lib/postmortem'
 import * as Quizgit from '../lib/quizgit'
 import { createCommitScheduler, type MirrorSnapshot } from './commit-scheduler'
 import { MirrorSettings } from '../models/mirror-settings'
@@ -128,8 +129,9 @@ function openHistory(latest: MirrorSnapshot): void {
   const open = async () => {
     try {
       await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions, latest.place))
-    } catch {
+    } catch (err) {
       // A record that misses a commit is a smaller loss than an edit that fails.
+      Postmortem.report('start the quiz history', err, { quiz_id: latest.quiz._id })
     }
   }
   void open()
