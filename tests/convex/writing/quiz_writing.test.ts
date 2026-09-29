@@ -10,7 +10,7 @@ import { Hunt, type HuntT } from '../../../src/models/hunt'
 import { Question } from '../../../src/models/question'
 import { BlankQuestionQty, Quiz } from '../../../src/models/quiz'
 import { present } from '../../support/present'
-import { forgetHuntIds, huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
+import { huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
 import { seedHuntRows } from '../../support/seed'
 
 /** A fresh deployment holding `hunt`, and ways to read back its first quiz */
@@ -110,27 +110,6 @@ describe('the update helpers', () => {
     await expect(revise(async (db, held) => { await updateQuiz(db, held.quiz, { title: 'x'.repeat(83) }) })).rejects.toThrow(/is too long/)
     const { quiz } = await rows()
     expect(quiz.title).to.eq('Princes')
-  })
-
-  it('give a question or review written before it named its hunt its quiz\'s hunt, as they write', async () => {
-    const { tt, hunt_id, quiz_id, revise, rows } = await holding(titled('aa'))
-    const { ident_id } = await identified(tt, 'alice_reviews')
-    await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' }) })
-    await forgetHuntIds(tt)
-    await revise(async (db, held) => {
-      const [review] = await reviewsOf(db, quiz_id)
-      await updateQuestion(db, present(held.questions[0]), { clueing: 'Who?' })
-      await updateReview(db, present(review), { phase: 'draft' })
-    })
-    const [[review], { questions }] = [await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id)), await rows()]
-    expect([questions[0]?.hunt_id, review?.hunt_id]).to.deep.eq([hunt_id, hunt_id])
-  })
-
-  it('refuse to revise such a question once its quiz\'s realm is gone', async () => {
-    const { tt, realm_id, revise } = await holding(titled('aa'))
-    await forgetHuntIds(tt)
-    await tt.run(async (ctx) => { await ctx.db.delete('realms', realm_id) })
-    await expect(revise(async (db, held) => { await updateQuestion(db, present(held.questions[0]), { clueing: 'Who?' }) })).rejects.toThrow(/no longer part of this hunt/)
   })
 
   it('updateReview writes the fields that change, and leaves the rest', async () => {

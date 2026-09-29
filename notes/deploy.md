@@ -57,14 +57,15 @@ knows it):
 1. **Widen.** The schema accepts the old rows and the new: the field is optional in
    `convex/schema.ts` (written by hand there, over the row validator, which stays strict so every
    write gives it), and code that reads it copes with its absence. A backfill in
-   `convex/migrations.ts` writes it into the old rows, and joins `runAll`. `tests/convex/schema.test.ts`
-   lists the field under `Backfilling`.
+   `convex/migrations.ts` writes it into the old rows (a `runAll` runner lists them when there are
+   several). `tests/convex/schema.test.ts` lists the field under `Backfilling`.
 2. **Backfill.** Once the first is merged and deployed:
-   `./scripts/doppledo dev_aijanitor npx convex run migrations:runAll`, after the same with
-   `'{"fn": "migrations:<name>", "dryRun": true}'` to `migrations:run` to see what it would do.
+   `./scripts/doppledo dev_aijanitor npx convex run migrations:run '{"fn": "migrations:<name>"}'`,
+   after the same with `"dryRun": true` to see what it would do.
    `npx convex run --component migrations lib:getStatus` says how far each got.
-3. **Tighten.** The second pull request makes the field required again and drops the fallback.
-   Its push checks every row, so it lands only once the backfill is complete.
+3. **Tighten.** The second pull request makes the field required again, drops the fallback and
+   the backfill, and empties `Backfilling`. Its push checks every row, so it lands only once the
+   backfill is complete.
 
 Rehearse on a copy first: `npx convex export --path <zip>` from production (read-only; it also
 leaves a snapshot in the dashboard to restore from), `npx convex import --replace-all` into a
@@ -121,9 +122,7 @@ there is something worth seeding with.
 
 * **Coaches** hold `prd_janitor`, deploy production (ordinarily by merging), and run the healthcheck
   against it.
-* **Agents** never cause a deploy to production or run using a human's config.
-  Their world is the local roles. An agent that finds production needs something says so in
-  `HUMAN-whatsup.md`.
+* **Agents** never cause a deploy to production or run using a human's config.  Their world is the local roles. An agent that finds production needs something says so in `HUMAN-whatsup.md`.
   - Agents may, when granted permission, use the `dev_aijanitor` role: it has significantly upgraded privileges and access to the production machines.
 
 ## Resetting
@@ -135,9 +134,3 @@ there is something worth seeding with.
 * **A cloud deployment:** clear its tables in the Convex dashboard, or delete a preview
   deployment and let the next push make another.
 
-## Not yet done
-
-Phase 3b of `whiteboard/convex_yay-plan.md`, which needs the Coach: the Convex team and project,
-the production deploy key into `prd_janitor` and Doppler's `prd`, the preview key into `stg`,
-Vercel's build command, and the first production deploy. Until then the app serves from local
-backends only, and this document describes the arrangement as designed rather than as run.

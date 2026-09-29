@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
-import { huntForLabel, huntIdOfRow, huntRowsOf, identFor, quizRowsOf, realmsOf, reviewFor } from '../../convex/reading'
+import { huntForLabel, huntRowsOf, identFor, quizRowsOf, realmsOf, reviewFor } from '../../convex/reading'
 import { SeedExpressions } from '../../src/models/expression'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import { present } from '../support/present'
-import { forgetHuntIds, huntHolding, identified, openTester, type Tester } from '../support/convex'
+import { huntHolding, identified, openTester, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
@@ -130,32 +130,6 @@ describe('quizRowsOf', () => {
     })
     const { slots } = await rowsOf(tt, quiz_id)
     expect(Object.keys(slots)).to.have.members([`${question_id}:numnum:clueing`, `${question_id}:numnum:hint`, `${question_id}:dumdum:clueing`])
-  })
-})
-
-/** A fresh deployment holding one question, as its row stands, with its `hunt_id` stripped when `old` */
-async function questionOf(old: boolean) {
-  const { tt, hunt_id, quiz_id } = await holding(huntHolding([{ ...Quiz.blank(), questions: [Question.blank()] }]))
-  if (old) { await forgetHuntIds(tt) }
-  const { questions } = await rowsOf(tt, quiz_id)
-  return { tt, hunt_id, quiz_id, question: present(questions[0]) }
-}
-
-describe('huntIdOfRow', () => {
-  it('is the hunt a row names', async () => {
-    const { tt, hunt_id, question } = await questionOf(false)
-    expect(await tt.run(async (ctx) => await huntIdOfRow(ctx.db, question))).to.eq(hunt_id)
-  })
-
-  it('is its quiz\'s hunt, through the realm, for a row written before it named one', async () => {
-    const { tt, hunt_id, question } = await questionOf(true)
-    expect(await tt.run(async (ctx) => await huntIdOfRow(ctx.db, question))).to.eq(hunt_id)
-  })
-
-  it('is null for such a row whose quiz or realm is gone', async () => {
-    const { tt, quiz_id, question } = await questionOf(true)
-    await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
-    expect(await tt.run(async (ctx) => await huntIdOfRow(ctx.db, question))).to.eq(null)
   })
 })
 
