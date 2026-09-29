@@ -6,14 +6,12 @@ import { ClosableTitle } from './ClosableTitle'
 
 export type DangerousAct = {
   /** What the act is, on its button and its row: "Delete this quiz" */
-  actname:  string
+  actname: string
   /** What happens, and what is lost */
-  blurb:    string
+  blurb:   string
   /** What must be typed to confirm it: the label of what is lost */
-  confirm:  string
-  /** When the act cannot be taken, why; the button is then disabled and this said instead of the blurb */
-  refusal?: string | null
-  onAct:    () => void
+  confirm: string
+  onAct:   () => void
 }
 
 /**
@@ -32,10 +30,10 @@ export function DangerZone({ acts }: Readonly<{ acts: readonly DangerousAct[] }>
             <Stack key={act.actname} direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2, alignItems: { sm: 'center' } }}>
               <Box sx={{ flex: 1 }}>
                 <Typography sx={{ fontWeight: 600 }}>{act.actname}</Typography>
-                <Typography variant="body2" color="text.secondary">{act.refusal ?? act.blurb}</Typography>
+                <Typography variant="body2" color="text.secondary">{act.blurb}</Typography>
               </Box>
               <Button
-                variant="outlined" color="error" disabled={Boolean(act.refusal)} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                variant="outlined" color="error" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                 onClick={() => { setConfirming(act) }}
               >
                 {act.actname}

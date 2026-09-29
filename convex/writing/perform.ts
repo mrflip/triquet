@@ -56,6 +56,7 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, ident_id, action.question_id); return }
   case 'add_hunting':         { await Hunting.addHunting(db, open.hunt_id, ident_id, action.ident_label, action.role); return }
   case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, ident_id, action.ident_id); return }
+  case 'retitle_hunt':        { await Hunt.retitleHunt(db, open.hunt_id, action.title); return }
   case 'relabel_hunt':        { await Hunt.relabelHunt(db, open.hunt_id, action.label); return }
   case 'delete_hunt':         { await Hunt.deleteHunt(db, open.hunt_id) }
   }

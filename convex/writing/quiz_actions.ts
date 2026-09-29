@@ -278,9 +278,10 @@ export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Prom
 }
 
 /**
- * Delete a quiz of the open quiz's realm and all it holds. The realm's last quiz cannot go: an
- * empty realm would leave its address leading nowhere, and the author with no way back. A quiz
- * already gone is gone; one of another realm is refused.
+ * Delete a quiz of the open quiz's realm and all it holds. The realm's last quiz cannot go on
+ * its own: an empty realm would leave its address leading nowhere, and the author with no way
+ * back. It goes only with its hunt (`deleteHunt`). A quiz already gone is gone; one of another
+ * realm is refused.
  *
  * @throws A refusal (`notInRealm`, `lastQuiz`); nothing is written.
  */

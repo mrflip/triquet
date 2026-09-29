@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { Box, Button, Paper, Stack, TextField, ToggleButton, Typography } from '@mui/material'
+import { Box, Button, Paper, Stack, TextField, ToggleButton, Typography, useMediaQuery } from '@mui/material'
 import type { Doc } from '../../convex/_generated/dataModel'
 import { useDraft } from './use-draft'
 import { AnswerLock } from './cells/answer-lock'
@@ -137,16 +137,15 @@ const RowAreasSx = {
 /**
  * Given the room, Guesses and Comments fill the height their row already has and scroll past it,
  * rather than making the row taller: each is lifted out of the flow, so the question and the marks
- * alone set the row's height. The autosizing textarea sizes itself with an inline style, which only
- * `!important` outranks; its hidden twin, which it measures with, is left alone. Stacked, each
- * grows with what is typed.
+ * alone set the row's height. `VerdictField` is a plain textarea there, so it takes the height it
+ * is given. Stacked, each grows with what is typed.
  */
 const FillRowSx = {
-  alignSelf:                       'stretch',
-  position:                        'relative',
-  '& .MuiTextField-root':          { position: { lg: 'absolute' }, inset: { lg: 0 } },
-  '& .MuiInputBase-root':          { height: { lg: '100%' }, alignItems: { lg: 'stretch' } },
-  '& textarea:not([aria-hidden])': { height: { lg: '100% !important' }, overflow: { lg: 'auto !important' } },
+  alignSelf:              'stretch',
+  position:               'relative',
+  '& .MuiTextField-root': { position: { lg: 'absolute' }, inset: { lg: 0 } },
+  '& .MuiInputBase-root': { height: { lg: '100%' }, alignItems: { lg: 'stretch' } },
+  '& textarea':           { height: { lg: '100%' }, overflow: { lg: 'auto' } },
 } as const
 
 /** A flag raised is in full colour on the accent; lowered, its face is grey and faded, so the two can't be mistaken */
@@ -235,9 +234,14 @@ function FlagToggle({ flag, emoji, word, title, raised, full = false, faceAfter 
   )
 }
 
-/** Guesses or Comments: an outlined box at least two lines tall, saved when it loses focus */
+/**
+ * Guesses or Comments: an outlined box, saved when it loses focus. Stacked, it is at least two
+ * lines tall and grows with its text. Side by side, it is a plain textarea, which `FillRowSx`
+ * stretches to the row's height: MUI's growing one sets its own height, which the row can't override.
+ */
 function VerdictField({ label, committed, onCommit }: Readonly<{ label: string, committed: string, onCommit: (draft: string) => void }>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
+  const sideBySide = useMediaQuery((theme) => theme.breakpoints.up('lg'))
   return (
     <TextField
       label={label}
@@ -248,7 +252,7 @@ function VerdictField({ label, committed, onCommit }: Readonly<{ label: string, 
       value={draft}
       onChange={(event) => { onChange(event.target.value) }}
       onBlur={onBlur}
-      slotProps={{ inputLabel: { shrink: true } }}
+      slotProps={{ inputLabel: { shrink: true }, input: sideBySide ? { inputComponent: 'textarea' } : {} }}
     />
   )
 }
