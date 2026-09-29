@@ -41,9 +41,8 @@ export function useBots(): BotsHandle {
   }, [])
 
   const unavailableNotice = useCallback((askkind: Askkind): string | null => {
-    const botlabel = BotForAskkind[askkind]
-    const status = statuses.find((held) => (held.label === botlabel))
-    return (status && (! status.credentialed)) ? botUnavailableNotice(status.title, status.servicelabel) : null
+    const status = statuses.find((held) => held.label === BotForAskkind[askkind])
+    return status && ! status.credentialed ? botUnavailableNotice(status.title, status.servicelabel) : null
   }, [statuses])
 
   return { unavailableNotice }

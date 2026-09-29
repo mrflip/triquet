@@ -55,9 +55,6 @@ export default defineConfig({
       // A stand-in key, so the bots read as able to play and the specs stub what they ask;
       // it also means nothing here can ever spend real model usage, whatever the environment holds.
       ANTHROPIC_API_KEY:                           'sk-ant-not-a-real-key',
-      // And the ask route stays switched off, so an ask no spec stubbed is declined before any
-      // request leaves the machine, whatever Doppler's config says.
-      ENABLE_ANTHROPIC_BOT:                        'off',
     },
     timeout:             180_000,
   },

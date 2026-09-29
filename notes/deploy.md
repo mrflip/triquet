@@ -21,9 +21,7 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
   deployment's URL, which the build bakes into the pages. A production key deploys to production;
   a preview key makes (or reuses) a preview deployment named for the branch. Without a key the
   build fails before it starts; without the URL, the page says so instead of opening
-  (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route, beside
-  `ENABLE_ANTHROPIC_BOT=allow`, which switches the route on (`lib/approval`): unset, or anything
-  but `allow`, and every ask is declined politely before a model is called.
+  (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route.
 * **Convex** keeps one production deployment and a preview deployment per open branch, each with
   its own database and its own environment variables. A deployment holds exactly one version of
   the functions and one schema, whichever was pushed last. There is no permissions head:
@@ -110,26 +108,6 @@ anything.
 `convex/_generated/` is committed. A push regenerates it; commit what it writes, a large
 regeneration in a commit of its own. CI's `generated` job pushes to a backend of its own and fails
 on any difference.
-
-### Asking a real bot while debugging
-
-The ask route declines every ask unless `ENABLE_ANTHROPIC_BOT` is exactly `allow`
-(`src/lib/approval.ts`), and it spends real model usage when it is. To switch it on for one
-session without touching a Doppler config, set it *inside* `doppledo`, with `env`, so it lands
-after Doppler has filled the environment:
-
-```sh
-# an agent's dev server (what `pnpm dev:agent` runs, switched on)
-./scripts/doppledo dev_claude env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev agent --watch next dev
-# a person's, under their own config
-./scripts/doppledo dev_<you> env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev dev --watch next dev
-```
-
-Setting it in front instead (`ENABLE_ANTHROPIC_BOT=allow pnpm dev:agent`) does not work
-whenever the config holds the variable: `doppler run` gives its own values precedence over the
-environment it was started in. The config must hold `ANTHROPIC_API_KEY` too, or the bots read as
-unable to play. The e2e suite always runs with the switch off (`playwright.config.ts`), whatever
-you set; its specs stub the route instead.
 
 ## Previews
 
