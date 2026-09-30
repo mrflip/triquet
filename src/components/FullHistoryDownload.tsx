@@ -10,9 +10,9 @@ import type { QuizT } from '../models/quiz'
 import styles from './workbench.module.css'
 
 /**
- * The Export panel's way to take a quiz's whole history with you: a download of it as a git
- * repository, and beside it a quiet pointer to what one does with such a thing, which opens as a
- * dialog rather than sending the author away from their work.
+ * A way to take a quiz's whole history with you, on both the Raw Export and Full History tabs: a
+ * download of it as a git repository, and beside it a quiet pointer to what one does with such a
+ * thing, which opens as a dialog rather than sending the author away from their work.
  *
  * @param quiz - The quiz whose history is downloaded.
  */
