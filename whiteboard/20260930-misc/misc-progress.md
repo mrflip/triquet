@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1, 2 and 3 done; thread 4 underway.
+**Status:** threads 1, 2 and 3 done; thread 4 underway; thread 5 queued.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -11,6 +11,12 @@ their sections newest first, below the status table.
 | 2 | Hard-to-miss alert for major problems | complete | `20260930-failure_snackbar` | #60 |
 | 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
 | 4 | Formulas see the smith's note, hunt and realm | pending | | |
+| 5 | Uniformly chai: `.to.be.true`, lint that allows it | pending | | |
+
+*Orchestrator:* the Coach overruled thread 1's recommendation: the house style is chai's
+property form (`.to.be.true`, `.null`...). Thread 5 swaps the lint rule and sweeps the tests.
+Until it lands, `.to.eq(true)` still passes lint -- thread 4 writes it that way and thread 5
+converts it.
 
 *Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. A thread that adds e2e
 specs runs them under both servers: `pnpm test:e2e:agent` (dev, 3003) and `pnpm
