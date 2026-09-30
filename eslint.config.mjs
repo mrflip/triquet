@@ -11,9 +11,46 @@ import importX                         from 'eslint-plugin-import-x'
 import stylistic                       from '@stylistic/eslint-plugin'
 import vitest                          from '@vitest/eslint-plugin'
 import playwright                      from 'eslint-plugin-playwright'
+import chaiExpect                      from 'eslint-plugin-chai-expect'
+import chaiFriendly                    from 'eslint-plugin-chai-friendly'
 
 /** Everything we lint; matches the glob eslint-config-next registers its plugins for. */
 const SourceFiles = ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}']
+
+/**
+ * Every assertion method `expect` carries in `tests/`, read from vitest's chai registry
+ * (`chai.Assertion.prototype`), not from memory: chai's methods and its chainable methods,
+ * vitest's chai-style spy methods, and the few Jest matchers notes/testing.md allows or the
+ * tests use. Left uncalled at the end of a chain, any one of them asserts nothing.
+ */
+const ChaiMethods = [
+  // chai's chainable methods: a property mid-chain, a method at its end
+  'a', 'an', 'contain', 'contains', 'include', 'includes', 'length', 'lengthOf',
+  // chai's methods
+  'above', 'approximately', 'below', 'by', 'change', 'changes', 'closeTo', 'containSubset',
+  'decrease', 'decreases', 'eq', 'eql', 'eqls', 'equal', 'equals', 'greaterThan',
+  'greaterThanOrEqual', 'gt', 'gte', 'haveOwnProperty', 'haveOwnPropertyDescriptor', 'increase',
+  'increases', 'instanceOf', 'instanceof', 'key', 'keys', 'least', 'lessThan', 'lessThanOrEqual',
+  'lt', 'lte', 'match', 'matches', 'members', 'most', 'oneOf', 'ownProperty',
+  'ownPropertyDescriptor', 'property', 'respondTo', 'respondsTo', 'satisfies', 'satisfy', 'string',
+  'Throw', 'throw', 'throws', 'within',
+  // vitest's chai-style spy methods, and its snapshot
+  'callCount', 'calledAfter', 'calledBefore', 'calledOnceWith', 'calledWith', 'lastCalledWith',
+  'lastReturnedWith', 'matchSnapshot', 'nthCalledWith', 'nthReturnedWith', 'returned',
+  'returnedTimes', 'returnedWith',
+  // Jest's, where notes/testing.md allows them or the tests use them
+  'toHaveBeenCalled', 'toHaveBeenCalledOnce', 'toHaveBeenCalledWith', 'toMatchSnapshot', 'toThrow',
+]
+
+/**
+ * chai's terminating properties past the plugin's own (`ok`, `true`, `false`, `null`, `undefined`,
+ * `exist`, `empty`, `arguments`), from the same registry: each asserts on being read, so a call
+ * after it is a mistake.
+ */
+const ChaiTerminators = [
+  'callable', 'called', 'calledOnce', 'calledThrice', 'calledTwice', 'exists', 'extensible',
+  'finite', 'frozen', 'iterable', 'NaN', 'numeric', 'sealed',
+]
 
 export default defineConfig([
   globalIgnores([
@@ -270,8 +307,29 @@ export default defineConfig([
       // notes/testing.md mandates bulk example lists, whose `it(blurb, ...)` title is a
       // variable by construction.
       'vitest/valid-title': 'off',
-      // Chai-style assertions are bare expressions by design.
-      '@typescript-eslint/no-unused-expressions': 'off',
+    },
+  },
+
+  // chai's property assertions (`to.be.true`, `.null`, `.empty`) are the house style
+  // (notes/testing.md), and vitest/valid-expect reports every one as a matcher left uncalled,
+  // with no option to allow them. So it is off, and eslint-plugin-chai-expect stands guard in
+  // its place: a bare `expect(x)` (missing-assertion), a method left uncalled
+  // (no-uncalled-method, which knows only the methods named in ChaiMethods), and a property
+  // called as a method. chai-friendly's no-unused-expressions lets an expect chain stand as a
+  // statement, and still reports any other expression that does nothing.
+  {
+    name: 'triquet/tests-chai',
+    files: ['tests/**/*.{ts,tsx}'],
+    plugins: { 'chai-expect': chaiExpect, 'chai-friendly': chaiFriendly },
+    rules: {
+      'vitest/valid-expect':                       'off',
+      'chai-expect/missing-assertion':             'error',
+      'chai-expect/no-uncalled-method':            ['error', { methods: ChaiMethods }],
+      'chai-expect/terminating-properties':        ['error', { properties: ChaiTerminators }],
+      'chai-expect/no-inner-compare':              'error',
+      'chai-expect/no-inner-literal':              'error',
+      '@typescript-eslint/no-unused-expressions':  'off',
+      'chai-friendly/no-unused-expressions':       'error',
     },
   },
 
