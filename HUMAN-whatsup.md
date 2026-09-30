@@ -2,6 +2,20 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: CI's e2e now runs against the optimized build (#65)
+
+* **As you asked**: the e2e job's six shards run `next build`, then `next start`, in place of the
+  dev server. It's one env line, `TRIQUET_E2E_SERVER: built`. There's still no CI role of its own
+  (port 3002, backend 3402, `.next-e2e`, as before) and no second matrix axis.
+* **It costs nothing.** Each shard builds for itself, about 30s on a runner, and the specs then
+  run faster than on the dev server, so the Playwright step came out a little quicker (every shard
+  under 2 minutes, where the last dev run had five over 2). All 208 runs passed, none flaky.
+  Building once and sharing it between the shards isn't worth doing for now.
+* **Your call: the local finishing suite** (`pnpm test:e2e` in git_hygiene) still runs the dev
+  server. You didn't ask to change it. As it stands a PR is tested in dev mode locally and built
+  mode on CI, which covers both. Should it switch to the build, or add `pnpm test:e2e:built`
+  beside it?
+
 ## 2026-09-30: Sprint foldable_ui paused before thread 4
 
 * **Where it stands.** Threads 1-3 are done, each a PR stacked on the one before, none merged:

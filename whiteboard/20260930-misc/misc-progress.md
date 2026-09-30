@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1 to 5 done; thread 6 underway.
+**Status:** threads 1 to 6 done.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -12,7 +12,7 @@ their sections newest first, below the status table.
 | 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
 | 4 | Formulas see the smith's note, hunt and realm | complete | `20260930-formula_exposure` | #63 |
 | 5 | Uniformly chai: `.to.be.true`, lint that allows it | complete | `20260930-chai_property_style` | #64 |
-| 6 | CI runs the built suite in place of the dev suite | pending | | |
+| 6 | CI runs the built suite in place of the dev suite | complete | `20260930-ci_built_e2e` | #65 |
 
 *Orchestrator:* the Coach overruled thread 1's recommendation: the house style is chai's
 property form (`.to.be.true`, `.null`...). Thread 5 swaps the lint rule and sweeps the tests.
@@ -22,6 +22,51 @@ converts it.
 *Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. A thread that adds e2e
 specs runs them under both servers: `pnpm test:e2e:agent` (dev, 3003) and `pnpm
 test:e2e:built` (the optimized build, 3005). Neither is the shared `pnpm test:e2e` port.
+
+## Thread 6: CI runs the built suite in place of the dev suite (2026-09-30)
+
+Branch `20260930-ci_built_e2e`, PR #65, stacked on #64. Suites: typecheck and lint clean, unit
+2269/2269, e2e 193/193 under `pnpm test:e2e` (the finishing suite, dev). The CI mode passed locally
+too: 193/193 on the `e2e` role at a quiet port. **CI on #65 is green**: all six shards passed
+against the build (208 runs, the setup included, none flaky or retried).
+
+* **Built**: `TRIQUET_E2E_SERVER: built` in the `e2e` job's env (`.github/workflows/ci.yml`),
+  replacing the dev run. The port, backend and build directory are still the `e2e` role's.
+  The comments above the job and its env are rewritten. Two comments in `playwright.config.ts` and
+  the warm-up comment in `e2e/environment.setup.ts` no longer assume a dev server. A new case in
+  `tests/e2e/environment.test.ts` pins that CI's env with `built` draws no complaint. Docs:
+  `notes/testing.md` (the built run's paragraph says CI uses it, on the `e2e` role),
+  `notes/stack.md` and `notes/deploy.md` (what CI runs e2e against).
+* **Decisions taken**:
+  - **Nothing to loosen.** Thread 3 kept the mode (`TRIQUET_E2E_SERVER`) and the role
+    (`CONVEX_ROLE`) apart. Only the `test:e2e:built` script sets them together, so the `e2e`
+    role takes `built` as it is. No code in `e2e/environment.ts` changed.
+  - **No build-once artifact.** Measured on CI: the build takes about 30s per shard (backend
+    empty at 20:03:42, first spec at 20:04:14 on shard 1), and the warm-up visit drops from 4.9s
+    to 1.6s. The Playwright step per shard went from 1:27-2:36 (dev, #64's run) to 1:34-1:53
+    (built): 10:19 in all against 12:54. The build pays for itself, so sharing one isn't worth the
+    workflow machinery yet.
+  - **No `test:e2e:ci` script.** To run what CI runs, locally:
+    `scripts/doppledo dev_e2e env PORT=<quiet port> TRIQUET_E2E_SERVER=built pnpm exec playwright test`.
+    With `CI=true` and the job's env alone (plus `PLAYWRIGHT_BROWSERS_PATH` in this container),
+    it runs one worker with a retry, exactly as a shard does.
+* **Discoveries**:
+  - **Two shards took 6 and 9 minutes**, all of it in `playwright install --with-deps chromium`
+    (apt), 4 and 6.5 minutes against about 20s on the others. It's the runner, not this change, and
+    it's worth watching: the job's `timeout-minutes: 20` leaves room, but an apt stall could eat it.
+    Caching the browser (`~/.cache/ms-playwright`, keyed on Playwright's version) would take most of
+    that step off the table. Not done: not asked.
+  - Playwright's `webServer` drops the server's stdout, so `next build`'s own output isn't in the
+    CI log. Only Convex's lines (stderr) show. Set `stdout: 'pipe'` if you ever need the build's
+    route table in a failed run.
+  - The first push needs git_hygiene's borrowed-credential form, since the branch had no upstream
+    (`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u`).
+* **For the Coach**:
+  - **The local finishing suite** (git_hygiene's `pnpm test:e2e`) is unchanged: dev mode, as
+    asked. Now a PR sees dev mode locally and the build on CI. Should the finishing line switch to
+    `pnpm test:e2e:built`, or run both? Running both adds about a minute locally.
+  - Thread 3's CLAUDE.md note still stands: *Global resources* lists the roles without
+    `e2e-built`.
 
 ## Thread 5: Uniformly chai: the property style, with lint that allows it (2026-09-30)
 
