@@ -5,6 +5,7 @@ import { TextField } from '@mui/material'
 import clsx from 'clsx'
 import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
 import { useDraft } from '../use-draft'
+import { MarkdownFace, veiledIf } from './markdown'
 import styles from '../workbench.module.css'
 
 export type FieldProps = {
@@ -26,52 +27,69 @@ export type GrowingFieldProps = FieldProps & {
 
 /**
  * Clueing or Hint: a borderless box that grows with its content and reports how tall it wants
- * to be, so the row can give both boxes the taller of the two.
+ * to be, so the row can give both boxes the taller of the two. Until it is typed into it shows
+ * its markdown rendered, and asks for room enough for whichever of the two is taller, so the row
+ * keeps its height as the box is entered and left.
  */
 export function GrowingField({ committed, onCommit, locked, placeholder, label, heightPx, onNatural, resizeToken }: Readonly<GrowingFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   const areaRef = useRef<HTMLTextAreaElement>(null)
+  const faceRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const area = areaRef.current
     if (! area) { return }
     area.style.height = 'auto'
-    const naturalPx = area.scrollHeight
+    const naturalPx = Math.max(area.scrollHeight, faceRef.current?.scrollHeight ?? 0)
     area.style.height = `${String(heightPx)}px`
     onNatural(naturalPx)
   }, [draft, heightPx, onNatural, resizeToken])
 
   return (
-    <textarea
-      ref={areaRef}
-      className={styles.field}
-      aria-label={label}
-      placeholder={placeholder}
-      readOnly={locked}
-      value={draft}
-      onChange={(event) => { onChange(event.target.value) }}
-      onBlur={onBlur}
-    />
+    <div className={styles.veil}>
+      <textarea
+        ref={areaRef}
+        className={clsx(styles.field, veiledIf(draft))}
+        aria-label={label}
+        placeholder={placeholder}
+        readOnly={locked}
+        value={draft}
+        onChange={(event) => { onChange(event.target.value) }}
+        onBlur={onBlur}
+      />
+      <MarkdownFace text={draft} faceRef={faceRef} />
+    </div>
   )
+}
+
+export type StretchFieldProps = FieldProps & {
+  heightPx: number
+  /** Always shown as typed, never rendered: Alt Text is read aloud as written */
+  plain?:   boolean
 }
 
 /**
  * A notes column: stretched to the height the row already settled on, for comfortable typing,
- * but never allowed to decide that height. Long notes must not stretch the row.
+ * but never allowed to decide that height. Long notes must not stretch the row. Until it is
+ * typed into it shows its markdown rendered, unless it is `plain`.
  */
-export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx }: Readonly<FieldProps & { heightPx: number }>) {
+export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false }: Readonly<StretchFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
+  const faceText = plain ? '' : draft
   return (
-    <textarea
-      className={styles.field}
-      style={{ height: `${String(heightPx)}px` }}
-      aria-label={label}
-      placeholder={placeholder}
-      readOnly={locked}
-      value={draft}
-      onChange={(event) => { onChange(event.target.value) }}
-      onBlur={onBlur}
-    />
+    <div className={styles.veil}>
+      <textarea
+        className={clsx(styles.field, veiledIf(faceText))}
+        style={{ height: `${String(heightPx)}px` }}
+        aria-label={label}
+        placeholder={placeholder}
+        readOnly={locked}
+        value={draft}
+        onChange={(event) => { onChange(event.target.value) }}
+        onBlur={onBlur}
+      />
+      <MarkdownFace text={faceText} />
+    </div>
   )
 }
 

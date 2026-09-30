@@ -1,4 +1,4 @@
-import { expect, grid, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { cellOf, expect, faceOf, grid, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 test('a fresh hunt\'s quiz opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Quiz name')).toBeVisible()
@@ -54,6 +54,36 @@ test('a long clueing sets the height of its hint box too', async ({ page }) => {
   const wasHt = await hint.evaluate((node) => node.clientHeight)
   await clueing.fill(Array.from({ length: 12 }, (_ignored, lineIdx) => `line ${String(lineIdx)} of a long clueing`).join('\n'))
   await expect.poll(() => hint.evaluate((node) => node.clientHeight)).toBeGreaterThan(wasHt)
+})
+
+test('a clueing shows its markdown rendered until it is clicked into, and then as typed', async ({ page }) => {
+  const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
+  const face = faceOf(cellOf(page, 0, 'Clueing'))
+  await clueing.fill('Which **region**\ngave its name to *Leon*?')
+  await page.getByLabel('Quiz name').click()
+  await expect(face.locator('strong')).toHaveText('region')
+  await expect(face.locator('em')).toHaveText('Leon')
+
+  await cellOf(page, 0, 'Clueing').click()
+  await expect(clueing).toBeFocused()
+  await expect(face).toBeHidden()
+  await expect(clueing).toHaveValue('Which **region**\ngave its name to *Leon*?')
+})
+
+test('a clueing taller than the row can grow scrolls its rendered face, and a click on the face goes to the box', async ({ page }) => {
+  const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
+  const face = faceOf(cellOf(page, 0, 'Clueing'))
+  await clueing.fill(Array.from({ length: 40 }, (_ignored, lineIdx) => `line **${String(lineIdx)}** of a long clueing`).join('\n'))
+  await page.getByLabel('Quiz name').click()
+  await expect(face.locator('strong').first()).toHaveText('0')
+
+  await face.hover()
+  await page.mouse.wheel(0, 300)
+  await expect.poll(() => face.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+
+  await face.click()
+  await expect(clueing).toBeFocused()
+  await expect(face).toBeHidden()
 })
 
 test('the page never scrolls sideways, however wide the grid is', async ({ page }) => {

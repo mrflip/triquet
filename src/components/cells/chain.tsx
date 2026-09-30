@@ -2,6 +2,7 @@
 
 import { Box, Typography } from '@mui/material'
 import clsx from 'clsx'
+import { MarkdownText } from './markdown'
 import * as Chain from '../../lib/chain'
 import { CellNotices } from '../../lib/notices'
 import type { QuestionT } from '../../models/question'
@@ -60,7 +61,7 @@ export function ButnotPreview({ target, chained, heightPx }: Readonly<ButnotPrev
 }
 
 /**
- * The BUT NOT in full, under a heading that names it: the review screen's reading, where a
+ * The BUT NOT in full, rendered from its markdown, under a heading that names it: the review screen's reading, where a
  * question is read top to bottom and there is room for all of the chained-to hint. Its reader
  * cannot pick a chain, so an unchained question says only that no hint is attached.
  */
@@ -69,7 +70,9 @@ export function ButnotFull({ target, chained }: Readonly<Omit<ButnotPreviewProps
   return (
     <Box>
       <Typography variant="overline" component="div" color="text.secondary">BUT NOT</Typography>
-      <Typography sx={{ whiteSpace: 'pre-wrap', color: notice === null ? undefined : 'text.secondary' }}>{notice ?? target?.hint}</Typography>
+      {notice === null
+        ? <Typography component="div" className={styles.prose}><MarkdownText text={target?.hint ?? ''} /></Typography>
+        : <Typography color="text.secondary">{notice}</Typography>}
     </Box>
   )
 }

@@ -4,6 +4,7 @@ import { Box, IconButton, InputBase, TextField } from '@mui/material'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import clsx from 'clsx'
 import { useDraft } from './use-draft'
+import { MarkdownFace, veiledIf } from './cells/markdown'
 import { AppNotices } from '../lib/notices'
 import styles from './workbench.module.css'
 
@@ -24,7 +25,7 @@ export type QuizHeaderProps = {
  * The quiz's name, as wide as what it says and growing as it is typed into; the gear that opens
  * the rest of the quiz's settings; the two pills that only appear when they have something to
  * say; and, filling the rest of the row, the smith's note, which grows to several paragraphs
- * before it scrolls.
+ * before it scrolls, and shows its markdown rendered until it is typed into.
  */
 export function QuizHeader({ title, smithsNote, locked, saveNotice, onRetitle, onSmithsNote, onManage }: Readonly<QuizHeaderProps>) {
   // The quiz name is the one field that updates live rather than on blur.
@@ -77,7 +78,7 @@ export function QuizHeader({ title, smithsNote, locked, saveNotice, onRetitle, o
         placeholder={AppNotices.smithsNoteBlank}
         onChange={(event) => { note.onChange(event.target.value) }}
         onBlur={note.onBlur}
-        slotProps={{ input: { readOnly: locked } }}
+        slotProps={{ input: { readOnly: locked, endAdornment: <MarkdownFace inInput text={note.draft} /> }, htmlInput: { className: veiledIf(note.draft) } }}
         sx={{ flex: '1 1 320px', minWidth: 'min(320px, 100%)', mt: 0.75 }}
       />
     </Box>
