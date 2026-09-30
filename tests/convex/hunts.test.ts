@@ -412,7 +412,7 @@ describe('hunts.perform', () => {
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
       await act({ kind: 'delete_questions', question_ids: [present(second)._id] })
-      expect(firstOf(await read()).chains_to).to.eq(null)
+      expect(firstOf(await read()).chains_to).to.be.null
     })
 
     it('passes over an id that names no question of the quiz', async () => {
@@ -450,17 +450,17 @@ describe('hunts.perform', () => {
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: null })
-      expect(firstOf(await read()).chains_to).to.eq(null)
+      expect(firstOf(await read()).chains_to).to.be.null
     })
 
     it('clears a chain to itself, or to no question of the quiz, rather than keeping it', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const first = firstOf(await read())
       await act({ kind: 'set_chain', question_id: first._id, chains_to: first._id })
-      expect(firstOf(await read()).chains_to).to.eq(null)
+      expect(firstOf(await read()).chains_to).to.be.null
       const elsewhere = await seed(huntOf(['1', 'z']))
       await act({ kind: 'set_chain', question_id: first._id, chains_to: firstOf(await elsewhere.read())._id })
-      expect(firstOf(await read()).chains_to).to.eq(null)
+      expect(firstOf(await read()).chains_to).to.be.null
     })
   })
 
@@ -483,7 +483,7 @@ describe('hunts.perform', () => {
       await act({ kind: 'record_botting', botting: found(id, 1994, 'hint') })
       const question = firstOf(await read())
       expect(question.hint_ishes).to.deep.include({ status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], stale: false })
-      expect(question.clueing_ishes).to.eq(null)
+      expect(question.clueing_ishes).to.be.null
     })
 
     it('stores a guess, with what it cost', async () => {
@@ -497,14 +497,14 @@ describe('hunts.perform', () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
       await act({ kind: 'record_botting', botting: { ...found(id, 1), asked_text: 'An earlier clueing' } })
-      expect(staleOf(await firstClueingIshes(read))).to.eq(true)
+      expect(staleOf(await firstClueingIshes(read))).to.be.true
     })
 
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       const asked = firstOf(await read())
       await expectRefusal(act({ kind: 'record_botting', botting: found(asked._id, 1) }), 'quizLocked')
-      expect(firstOf(await read()).clueing_ishes).to.eq(null)
+      expect(firstOf(await read()).clueing_ishes).to.be.null
     })
 
     it('refuses a question of another quiz', async () => {
@@ -581,7 +581,7 @@ describe('hunts.perform', () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       const asked = firstOf(await read())
       await expectRefusal(act({ kind: 'record_botting', botting: failed(asked._id, 'dumdum', 'clueing', err) }), 'quizLocked')
-      expect(firstOf(await read()).guess).to.eq(null)
+      expect(firstOf(await read()).guess).to.be.null
     })
 
     it('is what a combined run leaves on a text it left out, beside the value that cell had', async () => {
@@ -623,7 +623,7 @@ describe('hunts.perform', () => {
     it('marks the clueing extraction stale when the clueing is edited', async () => {
       const { act, read, id } = await extractedFrom('clueing')
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
-      expect(staleOf(await firstClueingIshes(read))).to.eq(true)
+      expect(staleOf(await firstClueingIshes(read))).to.be.true
     })
 
     it('leaves the extraction visible rather than throwing it away', async () => {
@@ -645,20 +645,20 @@ describe('hunts.perform', () => {
     it('leaves an extraction alone when the edit did not change the text', async () => {
       const { act, read, id } = await extractedFrom('clueing')
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: '' } })
-      expect(staleOf(await firstClueingIshes(read))).to.eq(false)
+      expect(staleOf(await firstClueingIshes(read))).to.be.false
     })
 
     it('leaves an extraction alone when some other field is edited', async () => {
       const { act, read, id } = await extractedFrom('clueing')
       await act({ kind: 'edit_question', question_id: id, patch: { notes: 'later' } })
-      expect(staleOf(await firstClueingIshes(read))).to.eq(false)
+      expect(staleOf(await firstClueingIshes(read))).to.be.false
     })
 
     it('comes back fresh when the text is edited back to what was asked', async () => {
       const { act, read, id } = await extractedFrom('clueing')
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: '' } })
-      expect(staleOf(await firstClueingIshes(read))).to.eq(false)
+      expect(staleOf(await firstClueingIshes(read))).to.be.false
     })
   })
 
@@ -776,7 +776,7 @@ describe('hunts.perform', () => {
         return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
-      expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.eq(null)
+      expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.be.null
     })
   })
 
@@ -784,7 +784,7 @@ describe('hunts.perform', () => {
     it('freezes a quiz', async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'set_lock', quiz_id: openOf(await read())._id, locked: true })
-      expect(openOf(await read()).locked).to.eq(true)
+      expect(openOf(await read()).locked).to.be.true
     })
 
     it('unfreezes one, from inside the lock', async () => {
@@ -792,7 +792,7 @@ describe('hunts.perform', () => {
       const quiz_id = openOf(await read())._id
       await act({ kind: 'set_lock', quiz_id, locked: true })
       await act({ kind: 'set_lock', quiz_id, locked: false })
-      expect(openOf(await read()).locked).to.eq(false)
+      expect(openOf(await read()).locked).to.be.false
     })
 
     it('leaves the quiz exactly as it was', async () => {
@@ -1421,7 +1421,7 @@ describe('hunts.whole', () => {
   it('is null for a hunt that is not there', async () => {
     const { tt, open, smith } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', open.hunt_id) })
-    expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: smith.browser_key })).to.eq(null)
+    expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: smith.browser_key })).to.be.null
   })
 
   it("is read whole by anyone on the hunt, and is null, as for one not there, for anyone else", async () => {
@@ -1431,6 +1431,6 @@ describe('hunts.whole', () => {
     const carol = await identified(tt, 'carol_strays')
     const read = await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: bob.browser_key })
     expect(read?.label).to.eq('quiet_otter')
-    expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: carol.browser_key })).to.eq(null)
+    expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: carol.browser_key })).to.be.null
   })
 })

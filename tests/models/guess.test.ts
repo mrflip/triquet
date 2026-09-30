@@ -4,7 +4,7 @@ import { GuessValidators } from '../../src/models/guess'
 
 describe('GuessValidators.guess', () => {
   it('reads null as never asked', () => {
-    expect(GuessValidators.guess(null)).to.eq(null)
+    expect(GuessValidators.guess(null)).to.be.null
   })
 
   it('keeps the model wording verbatim, untrimmed', () => {

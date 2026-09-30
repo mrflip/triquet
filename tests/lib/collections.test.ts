@@ -44,74 +44,74 @@ describe('predicates', () => {
   }
 
   it('an empty buffer is void, a filled one is not', () => {
-    expect(CX.isVoid(new Uint8Array(0))).to.eq(true)
-    expect(CX.isVoid(new Uint8Array(2))).to.eq(false)
-    expect(CX.isVoid(new ArrayBuffer(0))).to.eq(true)
+    expect(CX.isVoid(new Uint8Array(0))).to.be.true
+    expect(CX.isVoid(new Uint8Array(2))).to.be.false
+    expect(CX.isVoid(new ArrayBuffer(0))).to.be.true
   })
 })
 
 describe('arrayish', () => {
   it('is true for the things that spread as collections', () => {
-    expect(CX.arrayish([])).to.eq(true)
-    expect(CX.arrayish([1, 2])).to.eq(true)
-    expect(CX.arrayish(new Set([1]))).to.eq(true)
-    expect(CX.arrayish(new Map())).to.eq(true)
-    expect(CX.arrayish(new Uint8Array(2))).to.eq(true)
+    expect(CX.arrayish([])).to.be.true
+    expect(CX.arrayish([1, 2])).to.be.true
+    expect(CX.arrayish(new Set([1]))).to.be.true
+    expect(CX.arrayish(new Map())).to.be.true
+    expect(CX.arrayish(new Uint8Array(2))).to.be.true
   })
   it('is false for a string, whose spread gives characters rather than entries', () => {
-    expect(CX.arrayish('abc')).to.eq(false)
-    expect(CX.arrayish('')).to.eq(false)
+    expect(CX.arrayish('abc')).to.be.false
+    expect(CX.arrayish('')).to.be.false
   })
   it('is false for a bag, and for things that are not collections at all', () => {
-    expect(CX.arrayish({ aa: 1 })).to.eq(false)
-    expect(CX.arrayish(null)).to.eq(false)
-    expect(CX.arrayish(undefined)).to.eq(false)
-    expect(CX.arrayish(42)).to.eq(false)
-    expect(CX.arrayish(new Date())).to.eq(false)
+    expect(CX.arrayish({ aa: 1 })).to.be.false
+    expect(CX.arrayish(null)).to.be.false
+    expect(CX.arrayish(undefined)).to.be.false
+    expect(CX.arrayish(42)).to.be.false
+    expect(CX.arrayish(new Date())).to.be.false
   })
 })
 
 describe('baggish', () => {
   it('is true for a plain bag and a Map', () => {
-    expect(CX.baggish({})).to.eq(true)
-    expect(CX.baggish({ aa: 1 })).to.eq(true)
-    expect(CX.baggish(new Map())).to.eq(true)
-    expect(CX.baggish(Object.create(null))).to.eq(true)
+    expect(CX.baggish({})).to.be.true
+    expect(CX.baggish({ aa: 1 })).to.be.true
+    expect(CX.baggish(new Map())).to.be.true
+    expect(CX.baggish(Object.create(null))).to.be.true
   })
   it('is false for the decoys that merely look keyed', () => {
-    expect(CX.baggish(new Date())).to.eq(false)
-    expect(CX.baggish(/re/)).to.eq(false)
-    expect(CX.baggish(new Error('x'))).to.eq(false)
-    expect(CX.baggish(new Lightbulb())).to.eq(false)
-    expect(CX.baggish(() => 1)).to.eq(false)
-    expect(CX.baggish('aa')).to.eq(false)
+    expect(CX.baggish(new Date())).to.be.false
+    expect(CX.baggish(/re/)).to.be.false
+    expect(CX.baggish(new Error('x'))).to.be.false
+    expect(CX.baggish(new Lightbulb())).to.be.false
+    expect(CX.baggish(() => 1)).to.be.false
+    expect(CX.baggish('aa')).to.be.false
   })
   it('is false for arrays and Sets, which are collections but not bags', () => {
-    expect(CX.baggish([])).to.eq(false)
-    expect(CX.baggish(new Set())).to.eq(false)
+    expect(CX.baggish([])).to.be.false
+    expect(CX.baggish(new Set())).to.be.false
   })
   it('is false for nil', () => {
-    expect(CX.baggish(null)).to.eq(false)
-    expect(CX.baggish(undefined)).to.eq(false)
+    expect(CX.baggish(null)).to.be.false
+    expect(CX.baggish(undefined)).to.be.false
   })
 })
 
 describe('isAnyIterable', () => {
   it('is true for sync iterables', () => {
-    expect(CX.isAnyIterable([1])).to.eq(true)
-    expect(CX.isAnyIterable(new Set())).to.eq(true)
+    expect(CX.isAnyIterable([1])).to.be.true
+    expect(CX.isAnyIterable(new Set())).to.be.true
   })
   it('is true for a string, unlike arrayish', () => {
-    expect(CX.isAnyIterable('abc')).to.eq(true)
-    expect(CX.arrayish('abc')).to.eq(false)
+    expect(CX.isAnyIterable('abc')).to.be.true
+    expect(CX.arrayish('abc')).to.be.false
   })
   it('is true for an async iterable', () => {
     const streamish = { [Symbol.asyncIterator]: () => ({ next: () => Promise.resolve({ value: 1, done: true }) }) }
-    expect(CX.isAnyIterable(streamish)).to.eq(true)
+    expect(CX.isAnyIterable(streamish)).to.be.true
   })
   it('is false for a bag and for nil', () => {
-    expect(CX.isAnyIterable({ aa: 1 })).to.eq(false)
-    expect(CX.isAnyIterable(null)).to.eq(false)
+    expect(CX.isAnyIterable({ aa: 1 })).to.be.false
+    expect(CX.isAnyIterable(null)).to.be.false
   })
 })
 
@@ -228,13 +228,13 @@ describe('non-empty arrays', () => {
 
   describe('isArrNZ', () => {
     it('is true for an array with entries', () => {
-      expect(CX.isArrNZ(['aa'])).to.eq(true)
-      expect(CX.isArrNZ([0])).to.eq(true)
+      expect(CX.isArrNZ(['aa'])).to.be.true
+      expect(CX.isArrNZ([0])).to.be.true
     })
     it('is false for an empty array and for nil', () => {
-      expect(CX.isArrNZ([])).to.eq(false)
-      expect(CX.isArrNZ(null)).to.eq(false)
-      expect(CX.isArrNZ(undefined)).to.eq(false)
+      expect(CX.isArrNZ([])).to.be.false
+      expect(CX.isArrNZ(null)).to.be.false
+      expect(CX.isArrNZ(undefined)).to.be.false
     })
   })
 

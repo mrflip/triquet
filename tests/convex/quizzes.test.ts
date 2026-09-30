@@ -95,7 +95,7 @@ describe('a quiz as the browser assembles it from quizzes.open and questions.ope
     const freshQuiz = await opened(reading, quiz_id)
     const fresh = present(freshQuiz.questions[0]).clueing_ishes
     expect(fresh).to.deep.include({ status: 'done', items: [{ text: 'newer', value: 1, kind: 'numeral' }], stale: false })
-    expect(Number.isSafeInteger(fresh?.updated_at)).to.eq(true)
+    expect(Number.isSafeInteger(fresh?.updated_at)).to.be.true
     await tt.run(async (ctx) => { await ctx.db.patch('questions', present(question_id), { clueing: 'Reworded' }) })
     const editedQuiz = await opened(reading, quiz_id)
     expect(present(editedQuiz.questions[0]).clueing_ishes).to.deep.include({ stale: true })
@@ -115,12 +115,12 @@ describe('quizzes.open', () => {
   it('reads null for a quiz that is not there', async () => {
     const { tt, browser_key, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
-    expect(await tt.query(api.quizzes.open, { quiz_id, browser_key })).to.eq(null)
+    expect(await tt.query(api.quizzes.open, { quiz_id, browser_key })).to.be.null
   })
 
   it("reads null, as for one not there, for someone not on its hunt", async () => {
     const { tt, quiz_id } = await holding(Hunt.blank())
     const stranger = await identified(tt, 'carol_strays')
-    expect(await tt.query(api.quizzes.open, { quiz_id, browser_key: stranger.browser_key })).to.eq(null)
+    expect(await tt.query(api.quizzes.open, { quiz_id, browser_key: stranger.browser_key })).to.be.null
   })
 })

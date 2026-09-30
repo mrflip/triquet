@@ -81,7 +81,7 @@ describe('idents.current', () => {
   it('is null for a browser that has never said who it is', async () => {
     const tt = openTester()
     await assume(tt, mintId(), 'flip_kromer')
-    expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.eq(null)
+    expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.be.null
   })
 
   it('finds an ident this browser never made, since the server holds every one', async () => {
@@ -219,6 +219,6 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     await makeHunt(tt, 'taken_label')
     expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
     const hunt = await held()
-    expect(hunt.forced_label).to.eq(null)
+    expect(hunt.forced_label).to.be.null
   })
 })

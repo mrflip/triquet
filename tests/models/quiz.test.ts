@@ -70,7 +70,7 @@ describe('Quiz.fill', () => {
   it('names the offending field when a chain dangles', () => {
     const question = Question.blank()
     const outcome = QuizValidators.quiz.safeParse({ _id: quiz_id, questions: [{ ...question, chains_to: mintId() }] })
-    expect(outcome.success).to.eq(false)
+    expect(outcome.success).to.be.false
     expect(outcome.error?.issues[0]?.path).to.deep.eq(['questions', 0, 'chains_to'])
   })
 

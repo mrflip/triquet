@@ -47,16 +47,16 @@ describe('clearDanglingChains', () => {
   it('clears a chain pointing at a question that is not here', () => {
     const questions = questionsOf(['1', 'a', null], ['2', 'b', null])
     const orphaned = [{ ...present(questions[0]), chains_to: 'someone-elses-id' }]
-    expect(Chain.clearDanglingChains(orphaned)[0]?.chains_to).to.eq(null)
+    expect(Chain.clearDanglingChains(orphaned)[0]?.chains_to).to.be.null
   })
 
   it('clears a question chained to itself', () => {
     const question = present(questionsOf(['1', 'a', null])[0])
-    expect(Chain.clearDanglingChains([{ ...question, chains_to: question._id }])[0]?.chains_to).to.eq(null)
+    expect(Chain.clearDanglingChains([{ ...question, chains_to: question._id }])[0]?.chains_to).to.be.null
   })
 
   it('leaves an unchained question unchained', () => {
-    expect(Chain.clearDanglingChains(questionsOf(['1', 'a', null]))[0]?.chains_to).to.eq(null)
+    expect(Chain.clearDanglingChains(questionsOf(['1', 'a', null]))[0]?.chains_to).to.be.null
   })
 
   it('reads an empty quiz without complaint', () => {

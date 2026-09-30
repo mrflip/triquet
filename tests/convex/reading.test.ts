@@ -52,7 +52,7 @@ describe('huntForLabel', () => {
 
   it('finds nothing for a label no hunt answers to', async () => {
     const { tt } = await holding(Hunt.blank('quiet_otter'))
-    expect(await tt.run(async (ctx) => await huntForLabel(ctx.db, 'loud_heron'))).to.eq(null)
+    expect(await tt.run(async (ctx) => await huntForLabel(ctx.db, 'loud_heron'))).to.be.null
   })
 })
 
@@ -79,7 +79,7 @@ describe('huntRowsOf', () => {
   it('reads null for a hunt that is not there', async () => {
     const { tt, hunt_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', hunt_id) })
-    expect(await tt.run(async (ctx) => await huntRowsOf(ctx.db, hunt_id))).to.eq(null)
+    expect(await tt.run(async (ctx) => await huntRowsOf(ctx.db, hunt_id))).to.be.null
   })
 })
 
@@ -97,7 +97,7 @@ describe('quizRowsOf', () => {
   it('reads null for a quiz that is not there', async () => {
     const { tt, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
-    expect(await tt.run(async (ctx) => await quizRowsOf(ctx.db, quiz_id))).to.eq(null)
+    expect(await tt.run(async (ctx) => await quizRowsOf(ctx.db, quiz_id))).to.be.null
   })
 
   it('reads each cell\'s newest botting, and the newest that answered', async () => {

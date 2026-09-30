@@ -132,7 +132,7 @@ describe('delete_widget', () => {
     const { act, read } = await seed()
     await act({ kind: 'sort_questions', sortkey: 'column:hint_full', descending: false })
     await act({ kind: 'delete_widget', label: 'hint_full' })
-    expect(quizOf(await read()).last_sortkey).to.eq(null)
+    expect(quizOf(await read()).last_sortkey).to.be.null
   })
 
   it('keeps a sort memory that named some other column', async () => {
@@ -261,7 +261,7 @@ describe('delete_column', () => {
     const { act, read } = await seed()
     await act({ kind: 'sort_questions', sortkey: 'column:hint_full', descending: false })
     await act({ kind: 'delete_column', label: 'hint_full' })
-    expect(quizOf(await read()).last_sortkey).to.eq(null)
+    expect(quizOf(await read()).last_sortkey).to.be.null
   })
 
   it('can remove a fixed column too, since it is a column like any other', async () => {

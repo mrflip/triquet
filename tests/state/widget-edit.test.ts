@@ -62,8 +62,8 @@ describe('planExpressingEdit, editing a widget', () => {
   })
 
   it('refuses an empty formula, and a description too long', () => {
-    expect(planExpressingEdit({ ...untouched(), expression: { ...heldExpression, formula: '' } }, hunt, quiz).ok).to.eq(false)
-    expect(planExpressingEdit({ ...untouched(), description: 'x'.repeat(3601) }, hunt, quiz).ok).to.eq(false)
+    expect(planExpressingEdit({ ...untouched(), expression: { ...heldExpression, formula: '' } }, hunt, quiz).ok).to.be.false
+    expect(planExpressingEdit({ ...untouched(), description: 'x'.repeat(3601) }, hunt, quiz).ok).to.be.false
   })
 })
 
@@ -111,7 +111,7 @@ describe('planExpressingEdit, making a new widget', () => {
   for (const [patch, issue, describes] of Refused) {
     it(`refuses ${describes}`, () => {
       const plan = planExpressingEdit(fresh(patch), hunt, quiz)
-      expect(plan.ok).to.eq(false)
+      expect(plan.ok).to.be.false
       expect(plan.ok ? '' : plan.issue).to.match(issue)
     })
   }
@@ -160,7 +160,7 @@ describe('planBottingEdit', () => {
   })
 
   it('refuses a label a sibling has, or no label', () => {
-    expect(planBottingEdit(botting({ label: 'numnum_hint' }), quiz).ok).to.eq(false)
+    expect(planBottingEdit(botting({ label: 'numnum_hint' }), quiz).ok).to.be.false
     expect(planBottingEdit(botting({ label: '' }), quiz)).to.deep.include({ ok: false, labelIssue: 'Give the widget a label.' })
   })
 

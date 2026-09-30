@@ -24,7 +24,7 @@ describe('Formulas.evaluate', () => {
 
   it('reports a formula that does not parse as a syntax failure, saying where', () => {
     const outcome = Formulas.evaluate('$sum(', {})
-    expect(outcome.ok).to.eq(false)
+    expect(outcome.ok).to.be.false
     if (outcome.ok) { return }
     expect(outcome.failkind).to.eq('syntax')
     expect(outcome.message).to.match(/at \d+/)
@@ -32,7 +32,7 @@ describe('Formulas.evaluate', () => {
 
   it('reports a formula that errors as it runs as a runtime failure', () => {
     const outcome = Formulas.evaluate('"a" + 1', {})
-    expect(outcome.ok).to.eq(false)
+    expect(outcome.ok).to.be.false
     if (outcome.ok) { return }
     expect(outcome.failkind).to.eq('runtime')
   })
@@ -40,7 +40,7 @@ describe('Formulas.evaluate', () => {
   it('stops a formula that would never end, and says so', () => {
     const beganAt = Date.now()
     const outcome = Formulas.evaluate('( $spin := function() { $spin() }; $spin() )', {})
-    expect(outcome.ok).to.eq(false)
+    expect(outcome.ok).to.be.false
     if (outcome.ok) { return }
     expect(outcome.failkind).to.eq('timeout')
     expect(Date.now() - beganAt).to.be.lessThan(2000)
@@ -48,7 +48,7 @@ describe('Formulas.evaluate', () => {
 
   it('stops a formula that recurses without end past the depth it allows', () => {
     const outcome = Formulas.evaluate('( $dive := function($nn) { 1 + $dive($nn + 1) }; $dive(0) )', {})
-    expect(outcome.ok).to.eq(false)
+    expect(outcome.ok).to.be.false
     if (outcome.ok) { return }
     expect(outcome.failkind).to.be.oneOf(['timeout', 'runtime'])
   })
@@ -68,11 +68,11 @@ describe('Formulas.evaluate', () => {
 
 describe('Formulas.check', () => {
   it('is null for a formula that parses', () => {
-    expect(Formulas.check('$sum(qn.clueing_ishes.items.value)')).to.eq(null)
+    expect(Formulas.check('$sum(qn.clueing_ishes.items.value)')).to.be.null
   })
 
   it('is null for a formula that would fail at runtime, because parsing is all it judges', () => {
-    expect(Formulas.check('"a" + 1')).to.eq(null)
+    expect(Formulas.check('"a" + 1')).to.be.null
   })
 
   it('names the trouble with a formula that does not parse', () => {
@@ -82,6 +82,6 @@ describe('Formulas.check', () => {
   it('remembers formulas without growing forever', () => {
     const formulas = Array.from({ length: 500 }, (_val, kk) => `${String(kk)} + 1`)
     expect(formulas.map((formula) => Formulas.check(formula))).to.deep.eq(formulas.map(() => null))
-    expect(Formulas.check('1 + 1')).to.eq(null)
+    expect(Formulas.check('1 + 1')).to.be.null
   })
 })

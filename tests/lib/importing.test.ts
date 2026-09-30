@@ -209,13 +209,13 @@ describe('importInto', () => {
       ]))
       expect(labelsOf(present(outcome.questions))).to.deep.eq(['nantes'])
       expect(outcome.summary).to.include('1 merged, 0 added, 1 skipped')
-      expect(outcome.ok).to.eq(false)
+      expect(outcome.ok).to.be.false
     })
 
     it('drops unknown keys silently rather than treating them as an error', () => {
       const quiz = quizOf(['1', 'leon', 'a'])
       const outcome = Importing.importInto(quiz, JSON.stringify([{ label: 'leon', bookkeepingFromElsewhere: 42 }]))
-      expect(outcome.ok).to.eq(true)
+      expect(outcome.ok).to.be.true
       expect(patchFor(present(outcome.questions), 'leon')).to.deep.eq({})
     })
   })
@@ -223,19 +223,19 @@ describe('importInto', () => {
   describe('failure', () => {
     it('changes nothing on unparseable JSON, and says the text is still there', () => {
       const outcome = Importing.importInto(quizOf(['1', 'leon', 'a']), '{"quizzes":[')
-      expect(outcome.questions).to.eq(null)
+      expect(outcome.questions).to.be.null
       expect(outcome.summary).to.include('still here')
     })
 
     it('changes nothing on a shape it does not recognise', () => {
       const outcome = Importing.importInto(quizOf(['1', 'leon', 'a']), '"just a string"')
-      expect(outcome.questions).to.eq(null)
-      expect(outcome.ok).to.eq(false)
+      expect(outcome.questions).to.be.null
+      expect(outcome.ok).to.be.false
     })
 
     it('changes nothing when the paste holds no questions', () => {
       const outcome = Importing.importInto(quizOf(['1', 'leon', 'a']), '[]')
-      expect(outcome.questions).to.eq(null)
+      expect(outcome.questions).to.be.null
       expect(outcome.summary).to.include('nothing was changed')
     })
   })

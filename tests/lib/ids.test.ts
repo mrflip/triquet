@@ -5,8 +5,8 @@ import { ValidatorKit } from '../../src/lib/validator'
 describe('mintId', () => {
   it('mints a UUID, which the tree accepts', () => {
     const id = mintId()
-    expect(ValidatorKit.uuid.safeParse(id).success).to.eq(true)
-    expect(ValidatorKit.treeid.safeParse(id).success).to.eq(true)
+    expect(ValidatorKit.uuid.safeParse(id).success).to.be.true
+    expect(ValidatorKit.treeid.safeParse(id).success).to.be.true
   })
 
   it('mints a distinct id every call', () => {

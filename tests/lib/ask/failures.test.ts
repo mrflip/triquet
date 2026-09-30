@@ -43,6 +43,6 @@ describe('failureReplyFor', () => {
   it('cuts a long message to what a reply may carry, so the reply still validates', () => {
     const reply = failureReplyFor(new Error('x'.repeat(5000)))
     expect(reply.detail?.message).to.have.length(600)
-    expect(AskContract.askReply.safeParse(reply).success).to.eq(true)
+    expect(AskContract.askReply.safeParse(reply).success).to.be.true
   })
 })

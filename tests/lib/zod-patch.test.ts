@@ -33,13 +33,13 @@ describe('zod patch: issues carry their input by default', () => {
   })
 
   it('union and record branches carry it', () => {
-    expect(Z.union([Z.string(), Z.number()]).safeParse(true).error?.issues[0]).property('input').to.eq(true)
+    expect(Z.union([Z.string(), Z.number()]).safeParse(true).error?.issues[0]).property('input').to.be.true
     expect(Z.record(Z.string(), Z.number()).safeParse({ kk: 'nope' }).error?.issues[0]).property('input').to.eq('nope')
   })
 
   it('the escape hatch survives: reportInput false still withholds it', () => {
     const res = Z.string().min(3).safeParse('x', { reportInput: false })
-    expect('input' in (res.error?.issues[0] ?? {})).to.eq(false)
+    expect('input' in (res.error?.issues[0] ?? {})).to.be.false
   })
 
   // Not fixed by the patch, and worth pinning so nobody assumes otherwise: zod reports a
@@ -50,6 +50,6 @@ describe('zod patch: issues carry their input by default', () => {
     const missing = shape.safeParse({}).error?.issues[0]
     const undef   = shape.safeParse({ aa: undefined }).error?.issues[0]
     expect(missing).to.eql(undef)
-    expect(missing).property('input').to.eq(undefined)
+    expect(missing).property('input').to.be.undefined
   })
 })
