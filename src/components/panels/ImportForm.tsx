@@ -3,14 +3,13 @@
 import { useState } from 'react'
 import { Button, TextField } from '@mui/material'
 import clsx from 'clsx'
-import { Panel } from './Panel'
 import * as Importing from '../../lib/importing'
 import type { ImportLogEntry } from '../../lib/importing'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import styles from '../workbench.module.css'
 
-export type ImportPanelProps = {
+export type ImportFormProps = {
   quiz:     QuizT
   locked:   boolean
   /** Fold what was read into the quiz: one entry per label */
@@ -18,7 +17,7 @@ export type ImportPanelProps = {
 }
 
 /**
- * The counterpart to Export: bring a quiz's questions back from a backup, or fold a
+ * The Import tab, the counterpart to Raw Export: bring a quiz's questions back from a backup, or fold a
  * collaborator's edits into your own copy. What the bots replied is not pasted back: it is
  * recorded by asking.
  *
@@ -26,7 +25,7 @@ export type ImportPanelProps = {
  * with a line per question and a nested line per validation issue. The same detail goes to the
  * browser console for anyone who wants to dig.
  */
-export function ImportPanel({ quiz, locked, onImport }: Readonly<ImportPanelProps>) {
+export function ImportForm({ quiz, locked, onImport }: Readonly<ImportFormProps>) {
   const [pasted, setPasted] = useState('')
   const [summary, setSummary] = useState<{ text: string, ok: boolean } | null>(null)
   const [log, setLog] = useState<ImportLogEntry[]>([])
@@ -44,10 +43,7 @@ export function ImportPanel({ quiz, locked, onImport }: Readonly<ImportPanelProp
   }
 
   return (
-    <Panel
-      title="Import"
-      blurb="Paste back anything Export ever gave you, a single quiz, or a bare list of questions. Questions are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted."
-    >
+    <>
       <TextField
         multiline
         minRows={6}
@@ -82,6 +78,6 @@ export function ImportPanel({ quiz, locked, onImport }: Readonly<ImportPanelProp
           ))}
         </div>
       )}
-    </Panel>
+    </>
   )
 }
