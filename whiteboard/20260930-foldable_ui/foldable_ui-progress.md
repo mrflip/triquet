@@ -8,13 +8,72 @@ Workers add their sections below the table, newest first.
 | Thread | Label | Status |
 |---|---|---|
 | 1 | Investigate fold machinery | complete (docs-only PR) |
-| 2 | A reusable fold affordance (+ the editable note's fold, pulled forward) | underway |
+| 2 | A reusable fold affordance (+ the editable note's fold, pulled forward) | complete (PR #56) |
 | 3 | Fold the smith's note on the playtesting screen | pending |
 | 4 | Fold the question grid | pending; needs the Coach's yes on the hand-rolled fold-set hook |
 
 *Orchestrator (after thread 1):* the Coach ruled the playtesting screen's note folds too (overrides
 thread 1's lean). Thread 2 takes the editable note's fold as its first consumer; thread 3 keeps the
 playtesting screen. See the plan's revised glosses.
+
+## Thread 2: A reusable fold affordance (2026-09-30)
+
+Branch `20260930-fold_button`, PR #56, stacked on #55. Suites: typecheck, lint, unit (96 files,
+2225 tests), e2e (185), all green.
+
+* **Built**:
+  * `src/components/FoldButton.tsx`: **`FoldButton`**, MUI's `IconButton` showing `ArrowRight`
+    folded and `ArrowDropDown` open (swapped, not rotated), with `aria-expanded`, an optional
+    `aria-controls` (`controls`), and a fixed `aria-label` (`label`). Controlled: `open` and
+    `onOpenChange(open)`, no state of its own. `size="small"` (the default) is the grid corner's
+    `size="small" sx={{ p: 0.25 }}` with a small icon, 24px; `size="medium"` is an ordinary
+    `IconButton`, 40px, as tall as a small `TextField`. Every other `IconButton` prop passes
+    through (so a `Tooltip` can wrap it); `sx` does not.
+  * Same file: **`openOnEntry(onOpen)`**, an `onFocus` handler that opens a fold when focus lands
+    in a `textarea` or a non-checkbox, non-radio `input`. Written for thread 4's `<tr onFocus>` as
+    well as the note: React's focus events bubble, and the filter keeps the batch checkbox, the
+    grip, the ask buttons and the chain `<select>` from opening a row.
+  * **Pulled forward from thread 3: the editable smith's note folds** (`QuizHeader.tsx`). The
+    triangle sits outside the field, before it, top-aligned (`size="medium"`). `maxRows={open ?
+    SmithsNoteMaxRows : 1}`; `onFocus={openOnEntry(...)}`, so a click on the rendered face or a
+    tab into the note opens it; while folded the face gets `overflowY: hidden`. The note's
+    `TextField` now takes an `id` from `useId()`, which the triangle's `aria-controls` names.
+  * `Workbench.tsx`: `QuizHeader` is keyed by `quiz._id`, so switching quizzes starts the header
+    afresh (note folded, drafts its own).
+  * e2e: a new spec in `e2e/quizzes.spec.ts` (starts folded, typing opens it and it stays open
+    after blur, the triangle folds it to the same one-line height and clips the face, reopens,
+    and after a reload a click on the face opens and focuses it). `holderOf(field)` in
+    `e2e/support.ts`: the element a text box sits in, for finding its face.
+* **Decisions taken**:
+  * **The note starts folded**, and nothing folds it but its triangle. "You're either editing it
+    and want it to stay open, or it's boring and closed": editing opens it, and it stays open
+    until folded by hand, as thread 4's rows will. A blank or one-line note looks the same
+    either way, so the triangle is always shown rather than appearing and disappearing.
+  * **The label is fixed**: "Show the smith's note in full", with `aria-expanded` saying whether it
+    is; not "Smith's note", which would give the button and the textbox one name.
+  * **Reset per quiz by `key`**, not the `scopekey` pattern: `QuizHeader` is a component, and
+    React's own way to reset a component's state when its subject changes is a key. `useChecklist`
+    needs `scopekey` only because it is a hook in `Workbench`.
+  * **No hook.** The note needs one `useState`; thread 4's fold set is its own.
+  * Fold state is plain React state: not Convex, not `localStorage`.
+* **Deviations**: none from `fold-machinery.md`. `onFocus` on the note arguably trips `notes/views.md`'s
+  "DOM handlers beyond click and change" tripwire; it is what the plan asked for and is reported.
+* **Discoveries**:
+  * Folded, the note is 40px, top-aligned beside the 58px title box, and reads as one row with it
+    (checked by screenshot, desktop and 400px wide; below 640px the triangle and note wrap under
+    the title together).
+  * `onToggle` is a DOM prop on `IconButton` (the popover `toggle` event), so the callback is
+    `onOpenChange`, React Aria's and Radix's name for it.
+  * A `Tooltip` around `FoldButton` works because props pass through; thread 4's corner may want
+    one to match the batch button's.
+* **For thread 3** (the playtesting screen's note): `FoldButton` serves a region that isn't a
+  field: give the region an `id` and pass it as `controls`. It is read-only, so no `openOnEntry`.
+* **For thread 4**: `<FoldButton open={anyOpen} onOpenChange={...} label=... controls={tbodyId} />`
+  in the corner at the default size; `onFocus={openOnEntry(() => { unfold(question._id) })}` on the
+  row's `<tr>`.
+* **For the Coach**: the triangle glyph is small, at the note's medium size as at the grid's
+  small one (`ArrowRight` draws 5 by 10 in a 24 box). Worth a look at PR #56 before thread 4
+  copies it; `ChevronRight`/`ExpandMore` are larger if wanted.
 
 ## Thread 1: Investigate fold machinery (2026-09-30)
 
