@@ -31,8 +31,8 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
   the functions and one schema, whichever was pushed last. There is no permissions head:
   authorization is code in `convex/authorize.ts` and ships with the functions.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
-  on every pull request and every push to `main`, and checks that `convex/_generated/` was
-  committed as the functions regenerate it. Every job runs against a local backend or none; CI
+  (against the optimized build) on every pull request and every push to `main`, and checks that
+  `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
   deploys nothing and holds no Convex key.
 * **Doppler** names who is acting where: `<stage>_<actor>`. `prd` holds production's settings,
   the ones Vercel builds production with, and syncs to Vercel's Production environment;
