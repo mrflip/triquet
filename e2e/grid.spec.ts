@@ -1,4 +1,10 @@
-import { cellOf, expect, faceOf, grid, reloadOnceSaved, test, waitUntilSaved } from './support'
+import type { Locator, Page } from '@playwright/test'
+import { cellOf, expect, faceOf, foldedRows, grid, reloadOnceSaved, rowAt, test, waitUntilSaved } from './support'
+
+/** The triangle in the grid's corner, which folds every row or unfolds them all */
+function foldAll(page: Page): Locator {
+  return grid(page).getByRole('button', { name: 'Show questions in full' })
+}
 
 test('a fresh hunt\'s quiz opens with blank questions rather than a void', async ({ page }) => {
   await expect(page.getByLabel('Quiz name')).toBeVisible()
@@ -84,6 +90,57 @@ test('a clueing taller than the row can grow scrolls its rendered face, and a cl
   await face.click()
   await expect(clueing).toBeFocused()
   await expect(face).toBeHidden()
+})
+
+test('the grid opens folded, and entering a text box opens its row alone, which stays open', async ({ page }) => {
+  const hint = cellOf(page, 0, 'Hint').getByRole('textbox')
+  await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'false')
+  await expect(foldedRows(page)).toHaveCount(5)
+  await expect(hint).toHaveCSS('height', '28px')
+
+  await cellOf(page, 0, 'Clueing').getByRole('textbox').fill('Which region?')
+  await expect(rowAt(page, 0)).not.toHaveAttribute('data-folded')
+  await expect(hint).not.toHaveCSS('height', '28px')
+  await expect(foldedRows(page)).toHaveCount(4)
+  await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'true')
+
+  // Leaving the row, and the edit landing, leave it open: only the corner folds it.
+  await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
+  await expect(rowAt(page, 0)).not.toHaveAttribute('data-folded')
+})
+
+test('the corner folds every row while any is open, and unfolds them all when none is', async ({ page }) => {
+  await cellOf(page, 2, 'Title').getByRole('textbox').click()
+  await expect(foldedRows(page)).toHaveCount(4)
+  await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'true')
+
+  await foldAll(page).click()
+  await expect(foldedRows(page)).toHaveCount(5)
+  await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'false')
+
+  await foldAll(page).click()
+  await expect(foldedRows(page)).toHaveCount(0)
+  await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'true')
+
+  await foldAll(page).click()
+  await expect(foldedRows(page)).toHaveCount(5)
+})
+
+test('a question added to a folded grid is open', async ({ page }) => {
+  await page.getByRole('button', { name: '+ Add question' }).click()
+  await expect(grid(page).locator('tbody').getByRole('row')).toHaveCount(6)
+  await expect(rowAt(page, 5)).not.toHaveAttribute('data-folded')
+  await expect(foldedRows(page)).toHaveCount(5)
+  await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'true')
+})
+
+test('as cards, below 640px, every question shows in full, and folds again when wide', async ({ page }) => {
+  await expect(foldedRows(page)).toHaveCount(5)
+  await page.setViewportSize({ width: 400, height: 900 })
+  await expect(foldedRows(page)).toHaveCount(0)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect(foldedRows(page)).toHaveCount(5)
 })
 
 test('the page never scrolls sideways, however wide the grid is', async ({ page }) => {
