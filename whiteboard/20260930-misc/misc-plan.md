@@ -1,7 +1,7 @@
 # Sprint misc: miscellaneous tasks
 
 Date: 2026-09-30. Issued by the Coach (Flip). Mode: **normal**. Review level: **medium**.
-**Status:** thread 1 underway.
+**Status:** thread 1 done (PR #58); thread 2 underway.
 
 The Coach issued three threads at once, sent a fourth soon after, and will send more as the sprint runs. Each new
 thread is added below, in the order it arrives.
@@ -99,6 +99,15 @@ hold up under both dev and production servers: no reliance on StrictMode's doubl
 
 > In HUMANS-whatsup there are questions about running test:e2e against the server in
 > production mode. We decide yes; has that landed?
+
+**The Coach, since** (2026-09-30): *"by production I don't mean 'using the real live keys'
+> or 'production deploy environment' -- I just mean 'the mode where react and node et al don't
+> slow down slightly alter and instrument the code paths'"*. So: the optimized build
+(`next build` then `next start`, `NODE_ENV=production`, no StrictMode double effects, no dev
+instrumentation), against the same e2e backend, Doppler config and stand-in keys as today.
+Nothing here touches the production deployment or its keys. Name the script for the mode, not
+the environment (`test:e2e:built` or similar, rather than `:prod`), so nobody reads it as
+"against production".
 
 **Gloss.** It has not. `playwright.config.ts`'s `webServer` runs `scripts/convex_dev <role>
 --reset next dev`, and `package.json` has no production e2e script. The proposal is in

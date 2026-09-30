@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** thread 1 underway.
+**Status:** thread 1 done; thread 2 underway.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -11,6 +11,10 @@ their sections newest first, below the status table.
 | 2 | Hard-to-miss alert for major problems | pending | | |
 | 3 | e2e against a production build | pending | | |
 | 4 | Formulas see the smith's note, hunt and realm | pending | | |
+
+*Orchestrator:* thread 3's "production" means the optimized build mode only (`next build`
+/ `next start`), never live keys or the production deployment -- the Coach's clarification is
+in the plan, under thread 3.
 
 ## Thread 1: Chai in vitest (2026-09-30)
 
@@ -36,6 +40,7 @@ Branch `20260930-chai_in_vitest`, PR #58, stacked on #54. Suites: typecheck and 
     lint-clean.
   - Our `vitest/expect-expect` override omits `assert`, so a test asserting only with
     `assert.*` would be reported as having none. Nobody does that today.
+* *Review:* skipped -- the thread's diff is documents only.
 * **For the Coach**:
   - Recommended: keep `vitest/valid-expect` and change `notes/testing.md` line 17 from
     `to.be.true` to `to.eq(true)`, adding one sentence (the exact text is in the report).
