@@ -316,7 +316,7 @@ describe('bagsFor', () => {
   })
 
   it('names an unchained question\'s chain as null', () => {
-    expect(present(bags.get(target._id)).qn.chains_to).to.eq(null)
+    expect(present(bags.get(target._id)).qn.chains_to).to.be.null
   })
 })
 

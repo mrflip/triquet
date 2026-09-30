@@ -6,7 +6,7 @@ describe('paletteCss', () => {
   const css = paletteCss()
 
   it('opens with the root rule', () => {
-    expect(css.startsWith(':root {')).to.eq(true)
+    expect(css.startsWith(':root {')).to.be.true
   })
 
   it('declares every brand colour once, outside any theme', () => {

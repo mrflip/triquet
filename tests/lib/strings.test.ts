@@ -50,11 +50,11 @@ describe('someManyAndLast', () => {
     expect(result.body).to.eql(['aa', 'bb', 'cc'])
     expect(result.tail).to.eql([])
     expect(result.postsize).to.eq(3)
-    expect(result.ellipsize).to.eq(false)
+    expect(result.ellipsize).to.be.false
   })
   it('splits off the tail and raises the flag when entries were cut', () => {
     const result = SS.someManyAndLast(['aa', 'bb', 'cc', 'dd'], { max: 3 })
-    expect(result.ellipsize).to.eq(true)
+    expect(result.ellipsize).to.be.true
     expect(result.tail).to.eql(['dd'])
     expect(result.some).to.eql(['aa', 'bb', 'dd'])
   })
@@ -62,7 +62,7 @@ describe('someManyAndLast', () => {
     const result = SS.someManyAndLast([])
     expect(result.some).to.eql([])
     expect(result.postsize).to.eq(0)
-    expect(result.ellipsize).to.eq(false)
+    expect(result.ellipsize).to.be.false
   })
 })
 

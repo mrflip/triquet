@@ -68,7 +68,7 @@ describe('Routes.thenFrom', () => {
   ] as const
   for (const [raw, story] of Refused) {
     it(`refuses ${story}`, () => {
-      expect(Routes.thenFrom(raw)).to.eq(null)
+      expect(Routes.thenFrom(raw)).to.be.null
     })
   }
 })

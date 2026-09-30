@@ -64,7 +64,7 @@ describe('bulkBottingsFor', () => {
     const questions = questionsOf(['Which region?', ''])
     const question = present(questions[0])
     const bottings = Bulk.bulkBottingsFor(Bulk.bulkTargetsOf(questions), replied([{ key: Bulk.bulkKeyFor(question._id, 'clueing'), items: oneSpan }]))
-    expect(present(bottings[0]).approx_tokens).to.eq(null)
+    expect(present(bottings[0]).approx_tokens).to.be.null
   })
 
   it('gives a text the run left out a failure to carry, and no spans to replace what it had', () => {

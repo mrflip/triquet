@@ -25,7 +25,7 @@ describe('resolve', () => {
   })
 
   it('finds nothing for a widget the quiz does not have', () => {
-    expect(resolve('nowhere', widgets)).to.eq(null)
+    expect(resolve('nowhere', widgets)).to.be.null
   })
 })
 
@@ -55,7 +55,7 @@ describe('specFor', () => {
   })
 
   it('is nothing for a column showing a widget the quiz does not have', () => {
-    expect(specFor(columnOf('nowhere'), widgets)).to.eq(null)
+    expect(specFor(columnOf('nowhere'), widgets)).to.be.null
   })
 
   it('names the column in an export by its label', () => {
@@ -91,6 +91,6 @@ describe('qnumSortkeyOf', () => {
   })
 
   it('is null for a quiz that shows no Q#', () => {
-    expect(qnumSortkeyOf({ columns: [columnOf('question.title')] })).to.eq(null)
+    expect(qnumSortkeyOf({ columns: [columnOf('question.title')] })).to.be.null
   })
 })

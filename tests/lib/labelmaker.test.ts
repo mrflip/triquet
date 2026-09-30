@@ -51,7 +51,7 @@ describe('normalize', () => {
   })
 
   it('always returns a valid label, even from adversarial input', () => {
-    expect(ValidatorKit.label.safeParse(Labelmaker.normalize('🎲🎲🎲')).success).to.eq(true)
+    expect(ValidatorKit.label.safeParse(Labelmaker.normalize('🎲🎲🎲')).success).to.be.true
   })
 })
 
@@ -64,7 +64,7 @@ describe('localBlankLabel', () => {
     const taken = new Set<string>()
     for (let ii = 0; ii < 20; ii += 1) {
       const label = Labelmaker.localBlankLabel(taken, 'fallback')
-      expect(taken.has(label)).to.eq(false)
+      expect(taken.has(label)).to.be.false
       taken.add(label)
     }
   })
@@ -80,7 +80,7 @@ describe('localBlankLabel', () => {
     const alwaysTaken = { has: () => true } as unknown as ReadonlySet<string>
     const label = Labelmaker.localBlankLabel(alwaysTaken, '01k5f9n3ktq7wzc8x2r4m0vaeh')
     expect(label).to.eq('z01k5f9n3ktq7wzc8x2r4m0vaeh')
-    expect(ValidatorKit.label.safeParse(label).success).to.eq(true)
+    expect(ValidatorKit.label.safeParse(label).success).to.be.true
   })
 })
 
@@ -97,7 +97,7 @@ describe('appendFallback', () => {
   it('cuts a long label short so the whole still fits', () => {
     const appended = Labelmaker.appendFallback('x'.repeat(40), 'abc123')
     expect(appended).to.eq(`${'x'.repeat(33)}_abc123`)
-    expect(ValidatorKit.label.safeParse(appended).success).to.eq(true)
+    expect(ValidatorKit.label.safeParse(appended).success).to.be.true
   })
 
   it('mints a different id on each call', () => {
@@ -148,7 +148,7 @@ describe('entityForLabel', () => {
   })
 
   it('reads no match as undefined', () => {
-    expect(Labelmaker.entityForLabel(entities, 'nobody')).to.eq(undefined)
+    expect(Labelmaker.entityForLabel(entities, 'nobody')).to.be.undefined
   })
 })
 
@@ -160,7 +160,7 @@ describe('freshLabelFor', () => {
   it('never gives back a label a sibling already answers to', () => {
     const siblings = Array.from({ length: 40 }, () => ({ label: Labelmaker.freshLabelFor([]), forced_label: null }))
     const taken = new Set(siblings.map((each) => Labelmaker.effectiveLabelOf(each)))
-    expect(taken.has(Labelmaker.freshLabelFor(siblings))).to.eq(false)
+    expect(taken.has(Labelmaker.freshLabelFor(siblings))).to.be.false
   })
 
   it('counts an overriding label as taken, not just the generated one', () => {

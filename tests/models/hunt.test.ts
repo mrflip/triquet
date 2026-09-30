@@ -99,7 +99,7 @@ describe('Hunt.fill with expressions', () => {
 
   it('refuses a widget naming an expression the hunt does not hold, saying which widget', () => {
     const outcome = HuntValidators.hunt.safeParse(homeHolding([{ ...quiz, widgets: [widget] }]))
-    expect(outcome.success).to.eq(false)
+    expect(outcome.success).to.be.false
     expect(outcome.error?.issues[0]?.path).to.deep.eq(['realms', 0, 'quizzes', 0, 'widgets', 0, 'expression_label'])
   })
 

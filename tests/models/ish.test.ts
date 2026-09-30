@@ -35,7 +35,7 @@ describe('IshValidators.ishItem', () => {
 
 describe('IshValidators.ishes', () => {
   it('reads null as never asked', () => {
-    expect(IshValidators.ishes(null)).to.eq(null)
+    expect(IshValidators.ishes(null)).to.be.null
   })
 
   it('defaults the bookkeeping flags on a done result', () => {
@@ -46,7 +46,7 @@ describe('IshValidators.ishes', () => {
 
   it('treats an empty item list as a real answer, distinct from null', () => {
     const ishes = IshValidators.ishes({ status: 'done', items: [], updated_at: 1 })
-    expect(ishes).to.not.eq(null)
+    expect(ishes).to.not.be.null
     expect(ishes?.status === 'done' && ishes.items).to.deep.eq([])
   })
 

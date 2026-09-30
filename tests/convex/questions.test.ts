@@ -48,13 +48,13 @@ describe('questions.open', () => {
   it('reads null for a question that is not there', async () => {
     const { tt, question_id, browser_key } = await holding()
     await tt.run(async (ctx) => { await ctx.db.delete('questions', question_id) })
-    expect(await tt.query(api.questions.open, { question_id, browser_key })).to.eq(null)
+    expect(await tt.query(api.questions.open, { question_id, browser_key })).to.be.null
   })
 
   it("reads null, as for one not there, for someone not on its hunt", async () => {
     const { tt, question_id } = await holding()
     const stranger = await identified(tt, 'carol_strays')
-    expect(await tt.query(api.questions.open, { question_id, browser_key: stranger.browser_key })).to.eq(null)
-    expect(await tt.query(api.questions.open, { question_id, browser_key: mintId() })).to.eq(null)
+    expect(await tt.query(api.questions.open, { question_id, browser_key: stranger.browser_key })).to.be.null
+    expect(await tt.query(api.questions.open, { question_id, browser_key: mintId() })).to.be.null
   })
 })

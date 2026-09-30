@@ -128,9 +128,9 @@ describe('vacancy', () => {
     expect(RR.vacancy(NaN)).to.eq('an invalid number')
   })
   it('says nothing about a value that is actually there', () => {
-    expect(RR.vacancy(0)).to.eq(null)
-    expect(RR.vacancy(false)).to.eq(null)
-    expect(RR.vacancy([])).to.eq(null)
+    expect(RR.vacancy(0)).to.be.null
+    expect(RR.vacancy(false)).to.be.null
+    expect(RR.vacancy([])).to.be.null
   })
 })
 

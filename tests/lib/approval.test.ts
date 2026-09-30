@@ -44,9 +44,9 @@ describe('Approval.of', () => {
 
   it('decides the same for any ident, and whatever the request says', () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
-    expect(Approval.of(Mabel, { act: 'anthropic_bot' }, { job: 'guess' })).to.eq(true)
+    expect(Approval.of(Mabel, { act: 'anthropic_bot' }, { job: 'guess' })).to.be.true
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', undefined)
-    expect(Approval.of(Mabel, { act: 'anthropic_bot' }, { job: 'guess' })).to.eq(false)
+    expect(Approval.of(Mabel, { act: 'anthropic_bot' }, { job: 'guess' })).to.be.false
   })
 
   const Unknown: [unknown, string][] = [
@@ -76,7 +76,7 @@ describe('Approval.of', () => {
 
   it('takes an ident as the database hands it back, with fields the check does not look at', () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
-    expect(Approval.of({ ...Mabel, _creationTime: 1_759_000_000_000 } as IdentT, { act: 'anthropic_bot' })).to.eq(true)
+    expect(Approval.of({ ...Mabel, _creationTime: 1_759_000_000_000 } as IdentT, { act: 'anthropic_bot' })).to.be.true
   })
 
   it('refuses to run in a browser', () => {

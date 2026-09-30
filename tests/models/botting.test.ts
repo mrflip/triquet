@@ -41,7 +41,7 @@ describe('resultsFor', () => {
     const latest = cellOf({ done: bottingOf({ bot_label: 'numnum', textkind: 'hint', asked_text: 'BUT NOT three', reply_text: null, items }), failed: null }, 'q1:numnum:hint')
     const results = resultsFor(question, latest)
     expect(results.hint_ishes).to.include({ status: 'done', stale: false })
-    expect(results.clueing_ishes).to.eq(null)
+    expect(results.clueing_ishes).to.be.null
   })
 
   it('marks ishes stale once the text they were asked about has been edited', () => {
