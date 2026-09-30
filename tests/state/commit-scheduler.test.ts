@@ -16,8 +16,6 @@ function recordInto(landed: Landed[]) {
 }
 
 /** A scheduler that records what it commits, with `seconds` as its wait */
-/** Where every quiz in these tests sits */
-
 function schedulerOf(seconds: number, landed: Landed[], commit?: (was: MirrorSnapshot | null, now: MirrorSnapshot) => Promise<unknown>) {
   const scheduler = createCommitScheduler({
     seconds,
