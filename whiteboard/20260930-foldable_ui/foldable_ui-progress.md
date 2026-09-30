@@ -10,11 +10,62 @@ Workers add their sections below the table, newest first.
 | 1 | Investigate fold machinery | complete (docs-only PR) |
 | 2 | A reusable fold affordance (+ the editable note's fold, pulled forward) | complete (PR #56) |
 | 3 | Fold the smith's note on the playtesting screen | complete (PR #57) |
-| 4 | Fold the question grid | underway (hand-rolled fold-set hook approved) |
+| 4 | Fold the question grid | complete (PR #59) |
 
 *Orchestrator (after thread 1):* the Coach ruled the playtesting screen's note folds too (overrides
 thread 1's lean). Thread 2 takes the editable note's fold as its first consumer; thread 3 keeps the
 playtesting screen. See the plan's revised glosses.
+
+## Thread 4: Fold the question grid (2026-09-30)
+
+Branch `20260930-fold_grid`, PR #59, stacked on #57. Suites: typecheck, lint, unit (97 files,
+2244 tests), e2e (190, run as `pnpm test:e2e:agent`), all green, after rebasing onto main (#54).
+
+* **Built**:
+  * `src/components/use-folds.ts`: **`useFolds(itemkeys)`**, a `ReadonlySet` of folded ids in
+    React state, started as every item there at mount; `anyOpen`, `isFolded`, `unfold`,
+    `setAllOpen`. Pure parts exported and tested (`tests/components/use-folds.test.ts`):
+    `unfoldIn` hands back the same set when the item is already open, so focusing an open row
+    re-renders nothing; `anyOpenIn` asks only about items still in the list.
+  * `QuestionTable.tsx`: the hook, `FoldButton` (default small size, label "Show questions in
+    full", `aria-controls` the `<tbody>`'s `useId`) in a `Tooltip` above the batch button in the
+    corner's `Stack`; each row gets `folded` and `onUnfold`. Below 640px (`useMediaQuery`, the
+    same query as the CSS module's card layout) every row is passed `folded={false}`.
+  * `QuestionRow.tsx`: `FoldedRowPx = 28`; folded, `heightPx` is that instead of the measured
+    height; the `<tr>` carries `rowFolded`, `data-folded` (for e2e), and
+    `onFocus={openOnEntry(onUnfold)}` while folded.
+  * `workbench.module.css`: `.rowFolded .face, .rowFolded .scrolls, .rowFolded .field
+    { overflow: hidden }`.
+  * `Workbench.tsx`: `QuestionTable` keyed `grid-${quiz._id}`.
+  * e2e: four specs in `grid.spec.ts`; `foldedRows(page)` in `support.ts`.
+  * `notes/stack.md`, *Hand-rolled on purpose*: an entry for the fold set beside `useChecklist`'s;
+    `notes/views.md` names it among the closed tripwires.
+* **Decisions taken**:
+  * **The hook lives in `QuestionTable`, reset by `key`**, not `useChecklist`'s `scopekey`: the
+    fold set is the table's alone (nothing else reads it), and thread 2 reset `QuizHeader` the
+    same way. The key is `grid-${quiz._id}` because `QuizHeader`, a sibling, is keyed by the bare
+    id, and React wants sibling keys unique (the first try logged duplicate-key warnings).
+  * **The triangle stacks directly above the batch button**, at the bottom of the tall corner,
+    rather than at the very top of the cell: the corner's controls stay together, bottom-aligned
+    with the column titles, and in a quiz whose header is short (no turned titles) the stack
+    still fits, where a triangle pinned to the top would sit on the batch button. Checked by
+    screenshot.
+  * **The glyph is unchanged.** In the corner the `ArrowRight` matches the batch icon's weight
+    and reads as a triangle; `FoldButton` is as thread 2 left it.
+  * Tooltip: "Fold every question to one line" while any is open, "Show every question in full"
+    when none is, as the batch button's tooltip changes with its state. The accessible name stays
+    fixed.
+* **Deviations**: none from `fold-machinery.md` or the orchestrator's note.
+* **Discoveries**:
+  * Every existing e2e spec passed with the grid starting folded, unchanged: they focus a box
+    before reading or typing, which opens its row.
+  * A locked quiz's rows still open on focus (a read-only box still takes focus), which is how a
+    locked quiz is read in full. The corner works on a locked quiz too.
+  * Rebasing onto main (#54 merged) moved `20260930-fold_machinery`, `-fold_button`,
+    `-fold_playtest_note` and `-foldable_ui_start` locally; none of those was pushed from here.
+    `prerebase/20260930-fold_grid` tags the tip from before.
+* **For the Coach**: the triangle glyph and the fold-all behaviour are worth a look on PR #59.
+  Fold state is not kept across a reload.
 
 ## Thread 3: Fold the smith's note on the playtesting screen (2026-09-30)
 
