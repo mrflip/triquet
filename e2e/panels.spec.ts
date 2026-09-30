@@ -94,10 +94,17 @@ test('LL Export holds the quiz in the league\'s format, one record per question'
   await expect(page.getByRole('textbox', { name: 'LL Export' })).toHaveValue(/\|Which \[b\]region\[\/b\]\? \[br\] Of ¦ Spain\|\|\$\$/)
 })
 
+test('LL Export also holds the smith\'s note, translated the same way, in a box of its own', async ({ page }) => {
+  await page.getByRole('textbox', { name: 'Smith\'s note', exact: true }).fill('Theme: *princes*.\n\nMeta: $$ | initials.')
+  await page.getByLabel('Quiz name').click()
+  const section = await showTab(page, 'LL Export')
+  await expect(section.getByRole('textbox', { name: 'LL Smith\'s note' })).toHaveValue('Theme: [i]princes[/i]. [br]  [br] Meta: $[i][/i]$ ¦ initials.')
+})
+
 test('every read-only export box has a Copy button', async ({ page }) => {
-  for (const tabname of ['Spreadsheet', 'Raw Export', 'LL Export']) {
+  for (const [tabname, boxCount] of [['Spreadsheet', 1], ['Raw Export', 1], ['LL Export', 2]] as const) {
     const section = await showTab(page, tabname)
-    await expect(section.getByRole('button', { name: 'Copy', exact: true })).toHaveCount(1)
+    await expect(section.getByRole('button', { name: 'Copy', exact: true })).toHaveCount(boxCount)
   }
 })
 
