@@ -211,7 +211,7 @@ export async function waitUntilSaved(page: Page): Promise<void> {
 export async function preparedExport(page: Page): Promise<string> {
   await waitUntilSaved(page)
   await page.getByRole('button', { name: 'Prepare export' }).click()
-  const exportBox = page.getByRole('textbox', { name: 'Export' })
+  const exportBox = page.getByRole('textbox', { name: 'Export', exact: true })
   await expect(exportBox).not.toHaveValue('')
   return await exportBox.inputValue()
 }

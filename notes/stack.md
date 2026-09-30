@@ -104,6 +104,11 @@ Settled; reach for these before writing the equivalent.
   no negatives, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
   it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
+* **mdast-util-from-markdown**, the markdown parser under remark (and so already here through
+  `@next/mdx`), for reading where markdown puts bold and italics: `lib/ll-export.ts` writes them as
+  BBCode by the parsed nodes' offsets and leaves every other character as typed. Parse only; it
+  renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
+  asking first.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
   typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed
