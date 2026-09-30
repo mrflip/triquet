@@ -51,7 +51,8 @@ How a change reaches production, and what a schema change means for a deployment
 Coding agents use `pnpm dev:agent` (port 3001, build directory `.next-agent`, backend on 3401)
 and `pnpm build:agent` (served on 3004 by `pnpm start:agent`) instead of `pnpm dev` and
 `pnpm build`, so they never collide with a dev
-server you already have running. Next.js refuses to start a second dev server in the same
+server you already have running. `pnpm dev:agent:botkey` is `dev:agent` with asking Claude
+switched on (`notes/deploy.md`, *Asking a real bot while debugging*). Next.js refuses to start a second dev server in the same
 directory. Each dev script runs under a Doppler config that gives it its own port and build
 directory: your default config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for
 `pnpm test:e2e`. The e2e suite always runs the app with a stand-in API key and a backend of its

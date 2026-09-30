@@ -115,12 +115,12 @@ on any difference.
 
 The ask route declines every ask unless `ENABLE_ANTHROPIC_BOT` is exactly `allow`
 (`src/lib/approval.ts`), and it spends real model usage when it is. To switch it on for one
-session without touching a Doppler config, set it *inside* `doppledo`, with `env`, so it lands
-after Doppler has filled the environment:
+session without touching a Doppler config, set it *inside* `doppledo`, so it lands after Doppler
+has filled the environment:
 
 ```sh
-# an agent's dev server (what `pnpm dev:agent` runs, switched on)
-./scripts/doppledo dev_claude env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev agent --watch next dev
+# an agent's dev server, switched on: dev:agent, plus ENABLE_ANTHROPIC_BOT=allow
+pnpm dev:agent:botkey
 # a person's, under their own config
 ./scripts/doppledo dev_<you> env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev dev --watch next dev
 ```

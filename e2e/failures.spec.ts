@@ -31,7 +31,7 @@ test('hovering the badge gives the reason, and clicking it shows the response as
   await stubAsk(page, failure)
   await guessCell(page).dblclick()
   const badge = page.getByRole('button', { name: /The last ask failed/ })
-  await expect(badge).toHaveAttribute('title', RateLimited)
+  await expect(badge).toHaveAttribute('title', `${RateLimited} Click for the response as it came back.`)
   await badge.click()
   const shown = page.getByRole('dialog', { name: 'The last ask failed' })
   await expect(shown.getByLabel('The response')).toContainText('"failurekind": "rateLimited"')

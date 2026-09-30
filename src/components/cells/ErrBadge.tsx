@@ -25,7 +25,7 @@ export function ErrBadge({ err, inline = false }: Readonly<ErrBadgeProps>) {
       <button
         type="button"
         className={clsx(styles.errBadge, inline && styles.errBadgeInline)}
-        title={err.message}
+        title={`${err.message} Click for the response as it came back.`}
         aria-label={`The last ask failed: ${err.message} Show the response.`}
         onClick={() => { setOpen(true) }}
       >
