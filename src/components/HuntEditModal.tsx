@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, Stack, TextField } from '@mui/material'
-import WarningRoundedIcon from '@mui/icons-material/WarningRounded'
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import type { ListedHuntT } from '../lib/rows'
@@ -93,11 +93,11 @@ export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
   )
 }
 
-/** Beneath the label: a relabel moves the address of every quiz in the hunt */
+/** Beneath the label: a relabel moves the address of every quiz in the hunt. The icon and colour are MUI's own for a warning, as its Alert shows one. */
 function RelabelWarning() {
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-      <WarningRoundedIcon color="warning" fontSize="small" aria-hidden />
+      <ReportProblemOutlinedIcon color="warning" fontSize="small" aria-hidden />
       {AppNotices.huntRelabelMoves}
     </Box>
   )
