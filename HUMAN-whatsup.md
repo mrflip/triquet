@@ -179,8 +179,9 @@ Agents: add at the top of the document, add a level two header;  Put the date be
 * **What stops it.** Each preview build now sets its preview to expire 36 hours after that build,
   and closing a PR deletes its preview (`scripts/convex-previews.ts`, a new workflow). Needs
   `CONVEX_PREVIEW_PRUNER_KEY`, a preview deploy key, in GitHub Actions.
-* **Open.** Is Vercel's Build Command `pnpm build:vercel`? `notes/deploy.md` quoted an
-  `npx convex deploy ...` line instead, and the expiry step only runs from `build:vercel`.
+* **Keys.** `CONVEX_PREVIEW_PRUNER_KEY` is a preview deploy key: it lists, re-expires and
+  deletes previews and cannot see production (all checked with the janitor's). Keep the team key
+  and the production key out of CI. Vercel's Build Command is `pnpm build:vercel` (confirmed).
 
 ## 2026-09-30: Sprint foldable_ui paused before thread 4
 
