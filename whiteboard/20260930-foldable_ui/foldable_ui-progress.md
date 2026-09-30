@@ -9,12 +9,51 @@ Workers add their sections below the table, newest first.
 |---|---|---|
 | 1 | Investigate fold machinery | complete (docs-only PR) |
 | 2 | A reusable fold affordance (+ the editable note's fold, pulled forward) | complete (PR #56) |
-| 3 | Fold the smith's note on the playtesting screen | underway |
+| 3 | Fold the smith's note on the playtesting screen | complete (PR #57) |
 | 4 | Fold the question grid | pending; needs the Coach's yes on the hand-rolled fold-set hook |
 
 *Orchestrator (after thread 1):* the Coach ruled the playtesting screen's note folds too (overrides
 thread 1's lean). Thread 2 takes the editable note's fold as its first consumer; thread 3 keeps the
 playtesting screen. See the plan's revised glosses.
+
+## Thread 3: Fold the smith's note on the playtesting screen (2026-09-30)
+
+Branch `20260930-fold_playtest_note`, PR #57, stacked on #56. Suites: typecheck, lint, unit (96
+files, 2225 tests), e2e (185, run as `pnpm test:e2e:agent`), all green.
+
+* **Built**:
+  * `src/components/ReviewScreen.tsx`: **`SmithsNoteReading`**, the reviewer's reading of the
+    note pulled out of `ReviewScreen` into its own small component, with a `FoldButton`
+    (`size="medium"`, the same label as the editable note's, "Show the smith's note in full")
+    before the "Smith's note" heading, its `controls` naming the note's paragraph (`useId`).
+    Folded, the paragraph is `Typography noWrap`; open, `whiteSpace: 'pre-wrap'` as before.
+    Rendered with `key={quiz._id}`, so another quiz starts folded. `ReviewScreen`'s doc block no
+    longer says "in full".
+  * `e2e/reviews.spec.ts`: the "paragraphs and all" spec now walks the fold: starts folded
+    (`aria-expanded="false"`, `text-overflow: ellipsis`, one line-height tall, the paragraphs
+    run together), the triangle unfolds it to the full text, and folds it back to one line.
+* **Decisions taken**:
+  * **Starts folded**, as the editable note does, and as the plan leaned ("boring and closed").
+    The ellipsis says there is more. Only the triangle folds or unfolds it (read-only: no
+    `openOnEntry`).
+  * **`noWrap`, not `Collapse` or a line clamp.** `noWrap` is MUI's own one-line clamp, one prop.
+    It runs the paragraphs together, so the folded line previews as much of the note as fits,
+    and always ellipsises when anything is cut. `Collapse` with `collapsedSize` would animate
+    (the editable note doesn't) and needs a line height picked by hand; a CSS
+    `-webkit-line-clamp` would show only the first paragraph, and is styling we'd write.
+  * The triangle hangs a little into the Paper's padding (`ml: -1.5`), so the glyph sits near the
+    text's left edge. Checked by screenshot, desktop and 400px wide.
+* **Discoveries**:
+  * The playtesting screen shows the note as **plain text** (`pre-wrap`), not rendered markdown
+    as the workbench's face does. Left as it was. If it is ever rendered as markdown, `noWrap`
+    stops fitting (block children), and `Collapse` with `collapsedSize` becomes the right tool.
+  * `ReviewScreen` isn't keyed by quiz in `QuizRoute`, so view state inside it survives moving
+    between quizzes; hence the key on the note.
+  * Pushing needs gh's credentials (`notes/git_hygiene.md`, *Filing the PR*): plain `git push`
+    fails in the container.
+* **For the Coach**: a reviewer may need the note to play (a theme, instructions). If starting
+  folded hides too much from them, starting it open is a one-word change
+  (`useState(false)` in `SmithsNoteReading`).
 
 ## Thread 2: A reusable fold affordance (2026-09-30)
 
