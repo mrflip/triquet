@@ -5,7 +5,9 @@ import _ from 'es-toolkit/compat'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
+import * as Alarms from '../lib/alarms'
 import * as Labelmaker from '../lib/labelmaker'
+import { AppNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
@@ -15,6 +17,7 @@ import type { HuntActionDNA, OpenQuizT } from '../models/actions'
 import type { HuntRole } from '../models/hunting'
 import type { QuizT } from '../models/quiz'
 import type { MirrorSnapshot } from './commit-scheduler'
+import { useRaiseAlarm } from './alarms'
 import { useBrowserKey } from './browser-key'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
@@ -44,15 +47,20 @@ export type HuntHandle = {
   unsaved:    boolean
   /** Why the last change could not be kept; null while all is well */
   saveNotice: string | null
-  /** Carry out what the author did, on the quiz on screen */
+  /** Carry out what the author did, on the quiz on screen; a change not kept raises an alarm */
   dispatch:   (action: HuntActionDNA) => void
   /** As `dispatch`, for a caller that goes on once the change has been written: whether it was kept */
-  carryOut:   (action: HuntActionDNA) => Promise<boolean>
+  carryOut:   (action: HuntActionDNA, options?: CarryOutOptions) => Promise<boolean>
   /**
    * The label the open quiz answers to now, when that is no longer the one the address names
    * (it was relabelled, here or elsewhere): the address should follow it. Null otherwise.
    */
   movedTo:    string | null
+}
+
+export type CarryOutOptions = {
+  /** The caller says why a change was not kept itself, beside the field it came from (`saveNotice`): raise no alarm for it */
+  quietly?: boolean
 }
 
 /** A quiz's row, as its realm lists it */
@@ -199,7 +207,8 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
  *
  * There is no save button and no save queue: a change goes to the server as soon as it is
  * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
- * first. A change the server refuses writes nothing, and says why in `saveNotice`. Every reading
+ * first. A change the server refuses writes nothing, and says why in `saveNotice` and in an alarm
+ * (`useRaiseAlarm`), which the author sees wherever they are on the page. Every reading
  * of the open quiz, whoever changed it, goes into its history.
  *
  * @param labels - The hunt, realm and quiz the address names.
@@ -208,6 +217,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
 export function useHunt(labels: QuizLabels): HuntHandle {
   const browser_key = useBrowserKey()
   const perform = useMutation(api.hunts.perform)
+  const raise = useRaiseAlarm()
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
   const [writing, setWriting] = useState(0)
 
@@ -243,10 +253,11 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   useLayoutEffect(() => { latest.current = { open, browser_key, labels, role: hunt?.role ?? null } })
   const convex = useConvex()
 
-  const carryOut = useCallback(async (action: HuntActionDNA): Promise<boolean> => {
+  const carryOut = useCallback(async (action: HuntActionDNA, { quietly = false }: CarryOutOptions = {}): Promise<boolean> => {
     const { open: there, browser_key: key, labels: place, role: acting } = latest.current
     if (there === null || key === null) {
       console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role: acting, identified: key !== null })
+      if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: AppNotices.changeNotSent, request_id: null }) }
       return false
     }
     const write = async (): Promise<boolean> => {
@@ -262,6 +273,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
         const { isWebSocketConnected, connectionRetries, inflightMutations } = convex.connectionState()
         Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, role: acting, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
         setSaveNotice(noticeOf(err))
+        if (! quietly) { raise(Alarms.of(AppNotices.changeNotKept, err)) }
         return false
       } finally {
         setWriting((was) => was - 1)
@@ -271,7 +283,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
     const work = write()
     trackWrite(work)
     return await work
-  }, [perform, convex])
+  }, [perform, convex, raise])
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 

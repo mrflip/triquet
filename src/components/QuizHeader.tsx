@@ -15,7 +15,6 @@ export type QuizHeaderProps = {
   title:        string
   smithsNote:   string
   locked:       boolean
-  saveNotice:   string | null
   onRetitle:    (title: string) => void
   onSmithsNote: (smiths_note: string) => void
   onManage:     () => void
@@ -23,11 +22,10 @@ export type QuizHeaderProps = {
 
 /**
  * The quiz's name, as wide as what it says and growing as it is typed into; the gear that opens
- * the rest of the quiz's settings; the two pills that only appear when they have something to
- * say; and, filling the rest of the row, the smith's note, which grows to several paragraphs
+ * the rest of the quiz's settings; the Locked pill, when it is; and, filling the rest of the row, the smith's note, which grows to several paragraphs
  * before it scrolls, and shows its markdown rendered until it is typed into.
  */
-export function QuizHeader({ title, smithsNote, locked, saveNotice, onRetitle, onSmithsNote, onManage }: Readonly<QuizHeaderProps>) {
+export function QuizHeader({ title, smithsNote, locked, onRetitle, onSmithsNote, onManage }: Readonly<QuizHeaderProps>) {
   // The quiz name is the one field that updates live rather than on blur.
   const { draft, onChange, onBlur } = useDraft(title, onRetitle)
   const note = useDraft(smithsNote, onSmithsNote)
@@ -66,7 +64,6 @@ export function QuizHeader({ title, smithsNote, locked, saveNotice, onRetitle, o
           <SettingsOutlinedIcon sx={{ fontSize: 30 }} />
         </IconButton>
         {locked ? <span className={clsx(styles.pill, styles.pillWarn)}>Locked</span> : null}
-        {saveNotice ? <span className={clsx(styles.pill, styles.pillBad)} role="status">{saveNotice}</span> : null}
       </Box>
       <TextField
         label="Smith's note"

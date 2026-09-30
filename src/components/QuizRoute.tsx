@@ -57,7 +57,7 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   // On its way to the presentation the visitor's role is shown.
   if (act === null) { return <OpeningNotice notice={saveNotice} /> }
   if (act === 'review') {
-    return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} saveNotice={saveNotice} />
+    return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} />
   }
   return <Workbench hunt={hunt} realm={realm} quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} carryOut={carryOut} unsaved={unsaved} saveNotice={saveNotice} />
 }

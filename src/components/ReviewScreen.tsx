@@ -27,7 +27,6 @@ export type ReviewScreenProps = {
   reviews:    readonly ReviewedT[]
   dispatch:   (action: HuntActionDNA) => void
   unsaved:    boolean
-  saveNotice: string | null
 }
 
 /**
@@ -39,7 +38,7 @@ export type ReviewScreenProps = {
  * A review of this quiz for this ident is opened the moment this screen is, so a reviewer who
  * never writes anything still has a row waiting once they type into the overall note.
  */
-export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNotice }: Readonly<ReviewScreenProps>) {
+export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readonly<ReviewScreenProps>) {
   useEffect(() => {
     dispatch({ kind: 'open_review', quiz_id: quiz._id })
   }, [dispatch, quiz._id, ident._id])
@@ -57,7 +56,6 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
     <main className={styles.page} data-unsaved={unsaved}>
       <Box sx={{ maxWidth: { xs: 760, lg: 1440 }, mx: 'auto' }}>
         <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — PLAYTESTING</Typography>
-        {saveNotice && <p className={styles.microcopy} role="status">{saveNotice}</p>}
         {quiz.smiths_note === '' ? null : (
           <Paper variant="outlined" component="section" aria-label="Smith's note" sx={{ p: 2, mt: 2 }}>
             <Typography variant="overline" component="h2">Smith&apos;s note</Typography>
