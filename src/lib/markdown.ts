@@ -32,6 +32,7 @@ export const RenderOptions: Readonly<Pick<ReactMarkdownOptions, 'remarkPlugins' 
 
 /** The run of four-space indents a line opens with, one per quote level */
 const IndentsRE = /^(?: {4})+/
+const IndentsREMulti = new RegExp(IndentsRE, 'gm')
 
 /**
  * `text` with each four spaces a line opens with written as a quote marker instead, one level for
@@ -47,7 +48,7 @@ const IndentsRE = /^(?: {4})+/
  * @example indentsAsQuotes('prose\n   not')    // => 'prose\n   not'
  */
 export function indentsAsQuotes(text: string): string {
-  return text.replaceAll(new RegExp(IndentsRE, 'gm'), (run) => '> '.repeat(run.length / 4))
+  return text.replaceAll(IndentsREMulti, (run) => '> '.repeat(run.length / 4))
 }
 
 /** How many quote levels a line's indent makes */
