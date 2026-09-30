@@ -104,6 +104,9 @@ Settled; reach for these before writing the equivalent.
   no negatives, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
   it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
+* **tsx** for a shell script that needs app code: plain `node` runs a `.ts` file but cannot follow
+  the app's extensionless imports. `scripts/newb` runs `scripts/newb-label.ts` with it to reach
+  `Labelmaker.normalize`. Already here under vitest; made direct Sept 2026 without asking first.
 * **mdast-util-from-markdown**, the markdown parser under remark (and so already here through
   `@next/mdx`), for reading where markdown puts bold, italics and quote markers: `lib/ll-bbcode.ts`
   writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed. Parse only; it
