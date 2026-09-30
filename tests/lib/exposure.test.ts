@@ -7,10 +7,11 @@ import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Expressing } from '../../src/models/widget'
 import { present } from '../support/present'
+import { Here } from '../support/places'
 
 const layout = defaultLayoutFor(SeedExpressions)
 const quizOf = (questions = [Question.blank()]) => ({ ...Quiz.blank('Table'), ...layout, questions })
-const tableOf = (quiz = quizOf()) => Exposure.tableOf(quiz, Expressed.forQuiz(quiz, SeedExpressions))
+const tableOf = (quiz = quizOf()) => Exposure.tableOf(quiz, Expressed.forQuiz(quiz, SeedExpressions, Here))
 
 describe('exposedColumnsOf', () => {
   const headers = Exposure.exposedColumnsOf(layout).map((column) => column.header)

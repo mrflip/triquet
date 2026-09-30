@@ -2,7 +2,7 @@ import * as Postmortem from '../lib/postmortem'
 import { MirrorSettings } from '../models/mirror-settings'
 import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
-import type { QuizPlace } from '../lib/quizgit'
+import type { QuizPlace } from '../lib/expressed'
 
 /** What a repository holds: the quiz, the hunt's expressions that its widgets work, and where the quiz sits */
 export type MirrorSnapshot = {

@@ -112,6 +112,12 @@ describe('Hunt.fill with expressions', () => {
   })
 })
 
+describe('Hunt.exposed', () => {
+  it('is its label and its title, and neither its id, its realms nor its expressions', () => {
+    expect(Hunt.exposed).to.deep.eq(['label', 'title'])
+  })
+})
+
 describe('HuntValidators.row', () => {
   const Row = { label: 'quiet_otter', forced_label: null, title: 'Quiet Otter' }
 

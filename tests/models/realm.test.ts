@@ -26,6 +26,12 @@ describe('Realm.fill', () => {
   })
 })
 
+describe('Realm.exposed', () => {
+  it('is its label and its title, and neither its id nor its quizzes', () => {
+    expect(Realm.exposed).to.deep.eq(['label', 'title'])
+  })
+})
+
 describe('RealmValidators.row', () => {
   const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'home', title: 'Home', position: 0 }
 

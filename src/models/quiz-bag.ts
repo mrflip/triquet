@@ -1,8 +1,13 @@
 import * as Z from 'zod'
 import { Validator, plain } from '../lib/validator'
 import { IshValidators } from './ish'
+import { Hunt, HuntValidators } from './hunt'
 import { Question, QuestionValidators } from './question'
-import { Quiz } from './quiz'
+import { Quiz, QuizValidators } from './quiz'
+import { Realm, RealmValidators } from './realm'
+
+/** Fields named as a list in words: `label and title`, `label, smiths_note, and title` */
+const FieldList = new Intl.ListFormat('en', { type: 'conjunction' })
 
 export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, uint, textish, label, titleish, union }) => {
   const played = oneof(['done', 'error'])
@@ -16,7 +21,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
     .nullable()
     .describe('Every number-like span a bot found in one text, and whether that text has been edited since (`stale`); null when never asked. Nothing about cost, model, time or failure is shown.')
 
-  const exposedQuestion = QuestionValidators.question.pick(Object.fromEntries(Question.exposed.map((field) => [field, true])) as Record<typeof Question.exposed[number], true>)
+  const exposedQuestion = QuestionValidators.question.pick(maskOf(Question.exposed))
   const bagQuestion = exposedQuestion
     .extend({
       label:         label
@@ -31,11 +36,36 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
     })
     .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label.')
 
-  const exposedQuiz = obj({ label, title: titleish })
-  const bagQuiz = exposedQuiz
-    .describe(`The quiz itself: only ${Quiz.exposed.join(' and ')}.`)
+  const bagQuiz = QuizValidators.row.pick(maskOf(Quiz.exposed))
+    .extend({
+      label: label
+        .describe('The quiz\'s label, the one in force: the last part of its address.'),
+      title: titleish
+        .describe('What the author calls the quiz.'),
+    })
+    .describe(`The quiz itself: only ${listOf(Quiz.exposed)}.`)
+
+  const bagHunt = HuntValidators.row.pick(maskOf(Hunt.exposed))
+    .extend({
+      label: label
+        .describe('The hunt\'s label, the one in force: the first part of the quiz\'s address.'),
+      title: titleish
+        .describe('What the hunt is called on screen; never blank, since a hunt with no title of its own shows its label titleized.'),
+    })
+    .describe(`The hunt the quiz belongs to: only ${listOf(Hunt.exposed)}.`)
+
+  const bagRealm = RealmValidators.row.pick(maskOf(Realm.exposed))
+    .extend({
+      label: label
+        .describe('The realm\'s label: the middle part of the quiz\'s address. Every hunt has `home`.'),
+      title: titleish
+        .describe('What the realm is called on screen; never blank, since a realm with no title of its own shows its label titleized.'),
+    })
+    .describe(`The realm, within its hunt, that the quiz sits in: only ${listOf(Realm.exposed)}.`)
 
   const quizBag = obj({
+    hunt:       bagHunt,
+    realm:      bagRealm,
     quiz:       bagQuiz,
     qns:        arr(bagQuestion)
       .describe('Every question in the quiz, in the quiz\'s order.'),
@@ -59,8 +89,18 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
     .nullable()
     .describe('What a formula comes to for one question. Nothing at all (JSONata `undefined`), null, and an empty string all show as a muted dash, which means "nothing to say here", not zero.')
 
-  return { bagQuestion, bagQuiz, quizBag, formulaResult }
+  return { bagQuestion, bagHunt, bagRealm, bagQuiz, quizBag, formulaResult }
 })
+
+/** A Zod `pick` mask naming every field of `fields` */
+function maskOf<FT extends string>(fields: readonly FT[]): Record<FT, true> {
+  return Object.fromEntries(fields.map((field) => [field, true])) as Record<FT, true>
+}
+
+/** `fields` as a list in words */
+function listOf(fields: readonly string[]): string {
+  return FieldList.format(fields)
+}
 
 export type QuizBagT = Z.output<typeof QuizBagValidators.quizBag>
 

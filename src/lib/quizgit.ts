@@ -23,12 +23,6 @@ export const QuestionsExt = '.qq.tsv'
 /** The file-name extension of the whole-quiz JSON file */
 export const QuizJsonExt = '.tq.json'
 
-/** Where a quiz sits: its hunt's effective label, and its realm's label. The quiz's own label is on the quiz. */
-export type QuizPlace = {
-  hunt:  string
-  realm: string
-}
-
 /**
  * Where inside its repository `quiz`'s two files live: under its hunt and realm, by label, so
  * git can be asked about one realm or one hunt with a path, and a quiz's files move when
@@ -36,15 +30,15 @@ export type QuizPlace = {
  * for questions, `*.tq.json` for whole quizzes.
  *
  * @param quiz - Anything carrying a label.
- * @param place - The hunt and realm it sits in.
+ * @param place - The hunt and realm it sits in; only their labels count here.
  * @returns Repository-relative paths for the questions file and the whole-quiz file.
  *
- * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }, { hunt: 'deep_lake', realm: 'home' }).json
+ * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }, Expressed.placeOf(deepLake, home)).json
  *   // => 'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.tq.json'
  */
-export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: QuizPlace): { tsv: string, json: string } {
+export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: Expressed.QuizPlace): { tsv: string, json: string } {
   const label = Labelmaker.effectiveLabelOf(quiz)
-  const dir = `tq/hunt/${place.hunt}/realm/${place.realm}/quiz`
+  const dir = `tq/hunt/${place.hunt.label}/realm/${place.realm.label}/quiz`
   return { tsv: `${dir}/${label}${QuestionsExt}`, json: `${dir}/${label}${QuizJsonExt}` }
 }
 
@@ -52,10 +46,10 @@ export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: QuizPla
  * Where the hunt's expressions are kept in every repository of its quizzes: at the hunt's own
  * level, since they belong to it rather than to any one quiz.
  *
- * @example expressionsPathFor({ hunt: 'deep_lake', realm: 'home' })  // => 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
+ * @example expressionsPathFor(Expressed.placeOf(deepLake, home))  // => 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
  */
-export function expressionsPathFor(place: QuizPlace): string {
-  return `tq/hunt/${place.hunt}/${place.hunt}.tqexpressions.json`
+export function expressionsPathFor(place: Expressed.QuizPlace): string {
+  return `tq/hunt/${place.hunt.label}/${place.hunt.label}.tqexpressions.json`
 }
 
 /** Where `quiz`'s repository sits. Keyed by id, so renaming a quiz never orphans its history. */
@@ -146,10 +140,10 @@ export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
  *
  * @example quizFiles(quiz, expressions).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, the expressions path]
  */
-export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace): Map<string, string> {
+export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], place: Expressed.QuizPlace): Map<string, string> {
   const paths = quizPathsFor(quiz, place)
   return new Map([
-    [paths.tsv, questionsTsv(quiz, Expressed.forQuiz(quiz, expressions))],
+    [paths.tsv, questionsTsv(quiz, Expressed.forQuiz(quiz, expressions, place))],
     [paths.json, `${UU.jsonify(Exporting.quizExported(quiz), { pretty: true })}\n`],
     [expressionsPathFor(place), `${UU.jsonify(expressions, { pretty: true })}\n`],
   ])
@@ -189,9 +183,9 @@ function tagStampOf(at: Date): string {
  * @param place - The hunt and realm it sits in.
  * @returns The new commit's oid, or null when the quiz's branch already had commits.
  *
- * @example await commitFirst(fs, quiz, expressions, { hunt: 'deep_lake', realm: 'home' })
+ * @example await commitFirst(fs, quiz, expressions, Expressed.placeOf(hunt, realm))
  */
-export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace): Promise<string | null> {
+export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Expressed.QuizPlace): Promise<string | null> {
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
   if (await hasCommits(fs, dir)) { return null }
@@ -240,7 +234,7 @@ export function markTagFor(version: string, markkind: Markkind, at: Date): strin
  *
  * @example await commitQuiz(fs, quiz, expressions, place, quizChanges(before, quiz))
  */
-export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
+export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Expressed.QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
   const message = Changes.shorthandFor(changes)
   if (message === null) { return null }
 

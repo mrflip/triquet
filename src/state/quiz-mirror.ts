@@ -1,6 +1,7 @@
 'use client'
 
 import LightningFS from '@isomorphic-git/lightning-fs'
+import _ from 'es-toolkit/compat'
 import * as Changes from '../lib/changes'
 import * as Downloading from '../lib/downloading'
 import * as Labelmaker from '../lib/labelmaker'
@@ -156,7 +157,7 @@ export function mirrorQuiz(before: MirrorSnapshot | null, after: MirrorSnapshot)
     openHistory(after)
     return
   }
-  const moved = before.quiz !== after.quiz || before.expressions !== after.expressions || before.place.hunt !== after.place.hunt || before.place.realm !== after.place.realm
+  const moved = before.quiz !== after.quiz || before.expressions !== after.expressions || ! _.isEqual(before.place, after.place)
   if (moved) { scheduler.note(before, after) }
 }
 

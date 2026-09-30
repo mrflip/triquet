@@ -14,7 +14,7 @@ export const ExpressionValidators = Validator(({ obj, oneof, label, formulaish, 
   const expressionLabel = label
     .describe('What the expression is called, unique among its owner\'s. Quizzes refer to it by this label, so it is fixed once made.')
   const formula = formulaish
-    .describe('A JSONata formula. It reads the bag an expressing hands it -- `quiz`, `qns`, `qn`, `qn_label` and `quiz_label` -- and comes to one value per question. Kept exactly as typed, newlines and all, so a long formula can be laid out to be read.')
+    .describe('A JSONata formula. It reads the bag an expressing hands it -- `hunt`, `realm`, `quiz`, `qns`, `qn`, `qn_label` and `quiz_label` -- and comes to one value per question. Kept exactly as typed, newlines and all, so a long formula can be laid out to be read.')
   const description = noteish
     .describe('What the expression works out, for the author choosing between expressions.')
 
