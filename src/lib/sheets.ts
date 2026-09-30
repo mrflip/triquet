@@ -53,7 +53,7 @@ export function cellTextOf(source: Resolved, { question, target, expressed }: Re
  * @param expressed - What its computed columns came to, from `Expressed.forQuiz`.
  * @returns The header and one line per question, tab-separated; empty for a quiz with no questions.
  *
- * @example sheetsExport(quiz, Expressed.forQuiz(quiz, hunt.expressions)).split('\n')[0]  // => 'alt_text\tbutnot\t...'
+ * @example sheetsExport(quiz, Expressed.forQuiz(quiz, hunt.expressions, place)).split('\n')[0]  // => 'alt_text\tbutnot\t...'
  */
 export function sheetsExport(quiz: QuizT, expressed: Expressed.ExpressedForQuiz): string {
   if (quiz.questions.length === 0) { return '' }

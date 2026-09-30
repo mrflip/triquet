@@ -54,6 +54,13 @@ async function questionIn(db: Writer, quiz: Doc<'quizzes'>, question_id: string)
   return held
 }
 
+/** Where the open quiz sits, as its formulas are told: its hunt and realm, refusing as a gone quiz when either is */
+async function placeOfOpen(db: Writer, open: OpenQuizT): Promise<Expressed.QuizPlace> {
+  const [hunt, realm] = await Promise.all([db.get('hunts', open.hunt_id), db.get('realms', open.realm_id)])
+  if (! hunt || ! realm) { refuse('quizGone') }
+  return Expressed.placeOf(hunt, realm)
+}
+
 /** What a new order is worked out from: the quiz's own rows and questions, with its bots' replies only when asked for */
 type ReorderReads = { replies: boolean }
 
@@ -163,8 +170,9 @@ export async function deleteQuestions(db: Writer, open: OpenQuizT, question_ids:
 export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortkey, descending: boolean): Promise<void> {
   const rows = await expressionsOf(db, open.hunt_id)
   const expressions = rows.map((row) => expressionFrom(row))
+  const place = await placeOfOpen(db, open)
   await reorderOpenQuiz(db, open, { replies: true }, (quiz) => ({
-    questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, Expressed.forQuiz(quiz, expressions)), descending),
+    questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, Expressed.forQuiz(quiz, expressions, place)), descending),
     last_sortkey: sortkey,
   }))
 }

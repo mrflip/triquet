@@ -298,6 +298,16 @@ describe('sort_questions by a column that shows an expressing', () => {
     expect(after.questions.map((question) => question.full_answer)).to.deep.eq(['a', 'bb', 'ccc'])
     expect(after.last_sortkey).to.eq('column:letters')
   })
+
+  it('works the formula out with the hunt and the realm the quiz sits in, as the grid does', async () => {
+    const placed = { owner: 'tq' as const, label: 'placed', description: '', formula: 'qn.full_answer = hunt.title ? 0 : qn.full_answer = realm.title ? 1 : 2' }
+    const hunt = standardWith(['x', 'Home', 'Lakeside'].map((full_answer) => ({ ...Question.blank(), full_answer })))
+    const { act, read } = await seed({ ...hunt, title: 'Lakeside', expressions: [...hunt.expressions, placed] })
+    await act({ kind: 'add_widget', widget: { kind: 'expressing', label: 'placed', expression_label: 'placed' } })
+    await act({ kind: 'add_column', column: { label: 'placed', title: 'Placed', source: 'placed', width_px: 78 } })
+    await act({ kind: 'sort_questions', sortkey: 'column:placed', descending: false })
+    expect(quizOf(await read()).questions.map((question) => question.full_answer)).to.deep.eq(['Lakeside', 'Home', 'x'])
+  })
 })
 
 describe('add_expression', () => {

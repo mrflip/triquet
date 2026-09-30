@@ -155,12 +155,12 @@ export class Quiz implements QuizT {
   declare bulk_ishes_last: BulkIshesRunT
 
   /**
-   * The fields a quiz shows the outside world, alphabetically: its label (the one in force) and
-   * its title. Not the id; not the questions, widgets and columns, which are exposed on their
-   * own; not the smith's note, which is for the smiths rather than for formulas; and not the
-   * housekeeping -- version, lock, remembered sort, what a batch run cost.
+   * The fields a quiz shows the outside world, alphabetically: its label (the one in force), the
+   * smith's note, and its title. Not the id; not the questions, widgets and columns, which are
+   * exposed on their own; and not the housekeeping -- version, lock, remembered sort, what a
+   * batch run cost.
    */
-  static readonly exposed = ['label', 'title'] as const
+  static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
   /**
    * Validated quiz, with every omitted field defaulted and its chains checked. A blank title is

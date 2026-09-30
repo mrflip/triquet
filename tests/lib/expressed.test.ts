@@ -7,6 +7,7 @@ import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { IshItemT, IshesT } from '../../src/models/ish'
 import { present } from '../support/present'
+import { Here } from '../support/places'
 
 /** A finished extraction holding the spans given */
 function extracted(items: IshItemT[], stale = false): IshesT {
@@ -28,7 +29,7 @@ function standardQuiz(questions: QuestionT[]): QuizT {
 
 /** What the standard column `label` came to for `question`, in a quiz of `questions` */
 function sumOf(questions: QuestionT[], question: QuestionT, label: string): Expressed.Expressed {
-  return Expressed.readingOf(Expressed.forQuiz(standardQuiz(questions), SeedExpressions), label, question._id)
+  return Expressed.readingOf(Expressed.forQuiz(standardQuiz(questions), SeedExpressions, Here), label, question._id)
 }
 
 const valued = (val: number, stale = false): Expressed.Expressed => ({ status: 'value', val, stale })
@@ -149,7 +150,7 @@ describe('the standard text columns', () => {
   const textQuiz = (patch: Partial<QuestionT>, label: string): Expressed.Expressed => {
     const question = { ...Question.blank(), ...patch }
     const quiz = { ...Quiz.blank('Words'), questions: [question], widgets: [Expressing.fill({ kind: 'expressing', label, expression_label: label })] }
-    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), label, question._id)
+    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions, Here), label, question._id)
   }
 
   const Cases: [string, Partial<QuestionT>, Expressed.Expressed, string][] = [
@@ -183,7 +184,7 @@ describe('clueing_with_butnot', () => {
     const target = { ...Question.blank(), qnum: '2', hint: hint ?? '' }
     const question = { ...Question.blank(), qnum: '1', clueing, chains_to: hint === null ? null : target._id }
     const quiz = { ...Quiz.blank('Fold'), questions: [question, target], widgets: [Expressing.fill({ kind: 'expressing', label: 'folded', expression_label: 'clueing_with_butnot' })] }
-    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions), 'folded', question._id)
+    return Expressed.readingOf(Expressed.forQuiz(quiz, SeedExpressions, Here), 'folded', question._id)
   }
   const said = (val: string): Expressed.Expressed => ({ status: 'value', val, stale: false })
 
@@ -207,7 +208,7 @@ describe('clueing_with_butnot', () => {
 describe('forQuiz', () => {
   const readingFor = (formula: string): Expressed.Expressed => {
     const { quiz, expressions } = columnQuiz(formula)
-    return Expressed.readingOf(Expressed.forQuiz(quiz, expressions), 'col', present(quiz.questions[0])._id)
+    return Expressed.readingOf(Expressed.forQuiz(quiz, expressions, Here), 'col', present(quiz.questions[0])._id)
   }
 
   const Cases: [string, Expressed.Expressed, string][] = [
@@ -241,7 +242,7 @@ describe('forQuiz', () => {
         Expressing.fill({ kind: 'expressing', label: 'fine', expression_label: 'steady' }),
       ],
     }
-    const expressed = Expressed.forQuiz(quiz, [Expression.fill({ label: 'broken', formula: '$sum(' }), Expression.fill({ label: 'steady', formula: '3' })])
+    const expressed = Expressed.forQuiz(quiz, [Expression.fill({ label: 'broken', formula: '$sum(' }), Expression.fill({ label: 'steady', formula: '3' })], Here)
     expect(Expressed.readingOf(expressed, 'bad', aa._id).status).to.eq('error')
     expect(Expressed.readingOf(expressed, 'fine', aa._id)).to.deep.eq(valued(3))
     expect(Expressed.readingOf(expressed, 'fine', bb._id)).to.deep.eq(valued(3))
@@ -249,7 +250,7 @@ describe('forQuiz', () => {
 
   it('reports an expression that has been deleted as an error, naming it', () => {
     const { quiz } = columnQuiz('1')
-    const reading = Expressed.readingOf(Expressed.forQuiz(quiz, []), 'col', present(quiz.questions[0])._id)
+    const reading = Expressed.readingOf(Expressed.forQuiz(quiz, [], Here), 'col', present(quiz.questions[0])._id)
     expect(reading).to.deep.eq({ status: 'error', message: 'There is no expression called "custom" any more' })
   })
 
@@ -257,19 +258,19 @@ describe('forQuiz', () => {
     const questions = Array.from({ length: 30 }, () => loneQuestion({}))
     const { quiz, expressions } = columnQuiz('( $spin := function() { $spin() }; $spin() )', questions)
     const beganAt = Date.now()
-    const expressed = Expressed.forQuiz(quiz, expressions)
+    const expressed = Expressed.forQuiz(quiz, expressions, Here)
     expect(Date.now() - beganAt).to.be.lessThan(1500)
     const readings = questions.map((question) => Expressed.readingOf(expressed, 'col', question._id))
     expect(new Set(readings.map((reading) => reading.status))).to.deep.eq(new Set(['error']))
   })
 
   it('has no columns for a quiz that shows none', () => {
-    expect(Expressed.forQuiz(Quiz.blank(), SeedExpressions).size).to.eq(0)
+    expect(Expressed.forQuiz(Quiz.blank(), SeedExpressions, Here).size).to.eq(0)
   })
 
   it('reads nothing where the column or the question is not there', () => {
     const { quiz, expressions } = columnQuiz('1')
-    const expressed = Expressed.forQuiz(quiz, expressions)
+    const expressed = Expressed.forQuiz(quiz, expressions, Here)
     expect(Expressed.readingOf(expressed, 'absent', 'nobody')).to.deep.eq(Nothing)
     expect(Expressed.readingOf(expressed, 'col', 'nobody')).to.deep.eq(Nothing)
   })
@@ -279,7 +280,7 @@ describe('bagsFor', () => {
   const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film' }
   const question = { ...Question.blank(), qnum: '1', title: 'The book', chains_to: target._id }
   const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', questions: [question, target] }
-  const bags = Expressed.bagsFor(quiz)
+  const bags = Expressed.bagsFor(quiz, Here)
   const bag = present(bags.get(question._id))
 
   it('gives each question its own bag, in the quiz\'s order', () => {
@@ -310,7 +311,7 @@ describe('bagsFor', () => {
 
   it('gives each question its rank, and null to one with no Q#', () => {
     const unranked = { ...Question.blank(), qnum: '' }
-    const ranked = Expressed.bagsFor({ ...quiz, questions: [target, question, unranked] })
+    const ranked = Expressed.bagsFor({ ...quiz, questions: [target, question, unranked] }, Here)
     expect(ranked.values().map((each) => each.qn.rank).toArray()).to.deep.eq([2, 1, null])
   })
 
@@ -343,7 +344,7 @@ describe('what a bag exposes', () => {
     hint_ishes: { status: 'error' as const, message: 'Too many requests.', updated_at: 5, last_err: { message: 'Too many requests.', response: { ok: false }, at: 5 } },
   }
   const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', locked: true, questions: [answered] }
-  const { qn, quiz: quizBag } = present(Expressed.bagsFor(quiz).get(answered._id))
+  const { qn, quiz: quizBag } = present(Expressed.bagsFor(quiz, Here).get(answered._id))
 
   it('gives a question only its exposed fields, with the label in force and the rank', () => {
     expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'clueing_ishes', 'guess', 'hint_ishes', 'rank'].toSorted(byText))
@@ -362,11 +363,57 @@ describe('what a bag exposes', () => {
   })
 
   it('shows a question never asked as null', () => {
-    const bare = present(Expressed.bagsFor({ ...quiz, questions: [Question.blank()] }).values().next().value)
+    const bare = present(Expressed.bagsFor({ ...quiz, questions: [Question.blank()] }, Here).values().next().value)
     expect([bare.qn.guess, bare.qn.clueing_ishes]).to.deep.eq([null, null])
   })
 
-  it('gives the quiz only its label and title, not its lock, version, remembered sort or cost', () => {
-    expect(quizBag).to.deep.eq({ label: 'my_quiz', title: 'Bag' })
+  it("gives the quiz only its label, smith's note and title, not its lock, version, remembered sort or cost", () => {
+    expect(quizBag).to.deep.eq({ label: 'my_quiz', smiths_note: '', title: 'Bag' })
   })
+
+  it('gives the hunt and the realm only their labels and titles', () => {
+    const bag = present(Expressed.bagsFor(quiz, Here).get(answered._id))
+    expect([bag.hunt, bag.realm]).to.deep.eq([{ label: 'deep_lake', title: 'Deep Lake' }, { label: 'home', title: 'Home' }])
+  })
+})
+
+describe('placeOf', () => {
+  const Cases: [Parameters<typeof Expressed.placeOf>, Expressed.QuizPlace, string][] = [
+    [[{ label: 'deep_lake', forced_label: null,    title: '' },          { label: 'home',   title: '' }],
+      { hunt: { label: 'deep_lake', title: 'Deep Lake' },  realm: { label: 'home',   title: 'Home' } },          'blank titles read as the labels titleized'],
+    [[{ label: 'deep_lake', forced_label: 'tarn',  title: '' },          { label: 'home',   title: '' }],
+      { hunt: { label: 'tarn',      title: 'Tarn' },       realm: { label: 'home',   title: 'Home' } },          "the hunt's forced label is the one in force, and titles a blank title"],
+    [[{ label: 'deep_lake', forced_label: 'tarn',  title: 'Lakeside' },  { label: 'finals', title: 'The Finals' }],
+      { hunt: { label: 'tarn',      title: 'Lakeside' },   realm: { label: 'finals', title: 'The Finals' } },    'titles of their own are kept as they are'],
+  ]
+  for (const [[hunt, realm], expected, blurb] of Cases) {
+    it(blurb, () => {
+      expect(Expressed.placeOf(hunt, realm)).to.deep.eq(expected)
+    })
+  }
+
+  it('leaves out everything a hunt or realm holds besides its exposed fields', () => {
+    const hunt = { _id: 'hunt_id', label: 'deep_lake', forced_label: null, title: 'Deep Lake', realms: [], expressions: [] }
+    const realm = { _id: 'realm_id', label: 'home', title: 'Home', quizzes: [] }
+    expect(Expressed.placeOf(hunt, realm)).to.deep.eq({ hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' } })
+  })
+})
+
+describe('what a formula can read of where its quiz sits', () => {
+  const question = loneQuestion({ full_answer: 'Leon' })
+  const quiz = { ...Quiz.blank('Princes'), smiths_note: 'Meta: their initials.', questions: [question] }
+  const place = Expressed.placeOf({ label: 'deep_lake', forced_label: null, title: 'The Deep Lake Hunt' }, { label: 'finals', title: '' })
+  const bag = Expressed.bagsFor(quiz, place).get(question._id)
+  const Cases: [string, Expressed.Expressed, string][] = [
+    ["hunt.title",                          { status: 'value', val: 'The Deep Lake Hunt', stale: false },  "the hunt's title"],
+    ["hunt.label & '/' & realm.label",      { status: 'value', val: 'deep_lake/finals', stale: false },    "the hunt's and the realm's labels"],
+    ["realm.title",                         { status: 'value', val: 'Finals', stale: false },              "the realm's title, as shown"],
+    ["quiz.smiths_note",                    { status: 'value', val: 'Meta: their initials.', stale: false }, "the smith's note"],
+    ["hunt._id",                            { status: 'nothing' },                                         'no id'],
+  ]
+  for (const [formula, expected, blurb] of Cases) {
+    it(blurb, () => {
+      expect(Expressed.previewOf(formula, bag)).to.deep.eq(expected)
+    })
+  }
 })

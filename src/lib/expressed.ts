@@ -3,11 +3,14 @@ import * as Formulas from './formulas'
 import * as Labelmaker from './labelmaker'
 import * as Rank from './rank'
 import * as UU from './useful'
+import { huntTitleOf, realmTitleOf } from './rows'
 import { expressingsOf, type ExpressingT } from '../models/widget'
 import type { ExpressionT } from '../models/expression'
 import { exposeGuess, exposeIshes } from '../models/botting'
+import { Hunt, type HuntT } from '../models/hunt'
 import { Question, type QuestionT } from '../models/question'
 import { Quiz, type QuizT } from '../models/quiz'
+import { Realm, type RealmT } from '../models/realm'
 
 /** What a formula can come to and still be shown in a cell */
 export type ExpressedScalar = string | number | boolean
@@ -31,6 +34,16 @@ export type ExpressedForQuiz = ReadonlyMap<string, ReadonlyMap<string, Expressed
 export type ExpressedSortValue = string | number | null
 
 /**
+ * Where a quiz sits: its hunt and its realm, each as the outside world sees it -- the label in
+ * force and the title as shown. What a formula reads as `hunt` and `realm`, and where the quiz's
+ * history keeps its files.
+ */
+export type QuizPlace = {
+  hunt:  Pick<HuntT, typeof Hunt.exposed[number]>
+  realm: Pick<RealmT, typeof Realm.exposed[number]>
+}
+
+/**
  * The document a formula reads.
  *
  * Ids are stripped and everything is referred to by label: a question's `chains_to` is the
@@ -38,8 +51,8 @@ export type ExpressedSortValue = string | number | null
  * question also carries its `rank` -- its 1-based place once the quiz is put in Q# order, or
  * null when it has no Q#.
  */
-export type QuizBag = {
-  /** The quiz's own fields, without its questions and its expressings */
+export type QuizBag = QuizPlace & {
+  /** The quiz's own exposed fields, without its questions and its expressings */
   quiz:       Record<string, unknown>
   /** Every question in the quiz, in the quiz's order */
   qns:        Record<string, unknown>[]
@@ -66,13 +79,14 @@ const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
  *
  * @param quiz - The quiz whose columns are wanted.
  * @param expressions - The hunt's expressions, which the quiz's expressings name.
+ * @param place - The hunt and realm it sits in, from `placeOf`.
  * @returns For each expressing's label, each question's result by id.
  *
- * @example forQuiz(quiz, expressions).get('clueing_full')?.get(question._id)
+ * @example forQuiz(quiz, expressions, placeOf(hunt, realm)).get('clueing_full')?.get(question._id)
  */
-export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): ExpressedForQuiz {
+export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[], place: QuizPlace): ExpressedForQuiz {
   const formulaForLabel = new Map(expressions.map((expression) => [expression.label, expression.formula]))
-  const bags = bagsFor(quiz)
+  const bags = bagsFor(quiz, place)
   return new Map(expressingsOf(quiz.widgets).map((expressing) => [
     expressing.label,
     columnFor(expressing, formulaForLabel.get(expressing.expression_label) ?? null, bags),
@@ -86,7 +100,7 @@ export function forQuiz(quiz: QuizT, expressions: readonly ExpressionT[]): Expre
  * @param bag - The question's bag, from `bagsFor`; nothing is worked out without one.
  * @returns What a cell would show.
  *
- * @example previewOf('qn.title', bagsFor(quiz).get(question._id))
+ * @example previewOf('qn.title', bagsFor(quiz, place).get(question._id))
  */
 export function previewOf(formula: string, bag: QuizBag | undefined): Expressed {
   return bag ? reading(Formulas.evaluate(formula, bag)) : Nothing
@@ -116,18 +130,39 @@ export function sortValueOf(reading: Expressed): ExpressedSortValue {
 }
 
 /**
+ * Where a quiz sits, as its formulas and its history are told: the hunt's and the realm's
+ * exposed fields, each label the one in force and each title as shown, never blank.
+ *
+ * @param hunt - The quiz's hunt, as a row or a screen holds it.
+ * @param realm - The realm it sits in.
+ * @returns Its place.
+ *
+ * @example placeOf({ label: 'deep_lake', forced_label: null, title: '' }, { label: 'home', title: '' })
+ *   // => { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' } }
+ */
+export function placeOf(hunt: Pick<HuntT, 'label' | 'forced_label' | 'title'>, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
+  return {
+    hunt:  { ..._.pick(hunt, Hunt.exposed), label: Labelmaker.effectiveLabelOf(hunt), title: huntTitleOf(hunt) },
+    realm: { ..._.pick(realm, Realm.exposed), title: realmTitleOf(realm) },
+  }
+}
+
+/**
  * The bag a formula reads for each question of `quiz`.
  *
  * @param quiz - The quiz.
+ * @param place - The hunt and realm it sits in, from `placeOf`.
  * @returns One bag per question, by the question's id, in the quiz's order.
  */
-export function bagsFor(quiz: QuizT): ReadonlyMap<string, QuizBag> {
+export function bagsFor(quiz: QuizT, place: QuizPlace): ReadonlyMap<string, QuizBag> {
   const ranks = Rank.ranksOf(quiz.questions)
   const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   const qns = quiz.questions.map((question) => stripped(question, ranks.get(question._id) ?? null, labelForId))
   const quiz_label = Labelmaker.effectiveLabelOf(quiz)
   const quizBag = { ..._.pick(quiz, Quiz.exposed), label: quiz_label }
   return new Map(quiz.questions.map((question, idx) => [question._id, {
+    hunt:     place.hunt,
+    realm:    place.realm,
     quiz:     quizBag,
     qns,
     qn:       qns[idx] ?? {},
