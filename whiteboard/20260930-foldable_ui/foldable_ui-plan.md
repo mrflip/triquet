@@ -1,7 +1,7 @@
 # Foldable UI: a fold triangle for the smith's note and the question grid
 
 Sprint plan, 2026-09-30. Mode: **normal** (not YOLO). Issued by the Coach (Flip).
-**Status: paused before thread 4** (threads 1-3 complete: PRs #55, #56, #57). Waiting on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*); thread 4's branch is not yet cut.
+**Status: thread 4 underway** (threads 1-3 complete: PRs #55, #56, #57). The Coach approved the hand-rolled fold-set hook.
 
 Four threads, stacked in order: an investigation, a reusable fold affordance, then its two uses:
 the smith's note and the question grid. `foldable_ui-progress.md`, beside this file, is newer than
@@ -152,9 +152,8 @@ starting closed.
 
 ## For the Coach
 
-* **Before thread 4:** may the fold-set hook (a `Set` of folded question ids, reset per quiz,
-  ~35 lines, like `useChecklist`) be hand-rolled rather than taken from `@react-stately/disclosure`?
-  Asked in chat 2026-09-30; the sprint pauses before thread 4 without an answer.
+* *Answered:* the fold-set hook is hand-rolled, like `useChecklist`: small hand-roll now, a library
+  if either grows to need more (Coach, chat, 2026-09-30).
 * *Answered:* the playtesting screen's note folds too (Coach, chat, 2026-09-30).
 * Minor, from thread 2: opening a fold on focus needs an `onFocus` handler, which `notes/views.md`
   lists as a tripwire ("DOM handlers beyond click and change"). Taken as within the Coach's ask
