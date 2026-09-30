@@ -6,7 +6,8 @@ import { ImportForm } from './ImportForm'
 import { ReadonlyBox } from './ReadonlyBox'
 import { TabbedPanel } from './TabbedPanel'
 import * as Exporting from '../../lib/exporting'
-import * as LLExport from '../../lib/ll-export'
+import * as LLBBCode from '../../lib/ll-bbcode'
+import * as LLSmithExport from '../../lib/ll-smith-export'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { AppNotices } from '../../lib/notices'
@@ -28,7 +29,7 @@ export type ExportImportPanelProps = {
 /**
  * Every way to take the work somewhere else, and the one way to bring it back, as tabs of one
  * panel: a spreadsheet paste, the raw JSON of the whole hunt, Import, the quiz's full history,
- * and the league's own import format, with the smith's note translated into it.
+ * and the league's own import format, with the smith's note in the league's BBCode.
  */
 export function ExportImportPanel({ quiz, hunt, expressed, onImport }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
@@ -67,9 +68,9 @@ export function ExportImportPanel({ quiz, hunt, expressed, onImport }: Readonly<
       blurb:   'The league\'s own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦.',
       content: (
         <>
-          <ReadonlyBox label="LL Export" text={LLExport.llExport(quiz)} rows={6} dense />
-          <p className={styles.microcopy}>The smith&apos;s note, translated the same way.</p>
-          <ReadonlyBox label="LL Smith's note" text={LLExport.fieldTextOf(quiz.smiths_note)} rows={3} dense />
+          <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz)} rows={6} dense />
+          <p className={styles.microcopy}>The smith&apos;s note, with its bold, italics and line breaks written the same way.</p>
+          <ReadonlyBox label="LL Smith's note" text={LLBBCode.translate(quiz.smiths_note)} rows={3} dense />
         </>
       ),
     },
