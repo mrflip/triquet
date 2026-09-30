@@ -6,13 +6,13 @@ These rules are about the history you push. Locally, use git however it helps: c
 scratch branches and replays to unwind a hairy change. Tidy the result before it leaves
 your machine.
 
-- Don't merge main into a branch you push, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase origin/main`.
+- Don't merge main into a branch you push, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase --update-refs origin/main`.
 - A pushed branch contains no merge commits; the `semi-linear` CI check rejects them.
 - Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`, and never force-push a branch another agent owns.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
 - Never merge a PR or enable auto-merge. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
-- A line of work is a thread: `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
+- A line of work is a thread: a tidy of the stack onto origin/main, `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
 
 
 ## The shape we keep
@@ -50,15 +50,32 @@ open its PR without asking first.
 
 ### Starting
 
+On a clean tree, before the first edit:
+
+```
+git fetch origin
+git rebase --update-refs origin/main
+pnpm newb <branchlabel>
+```
+
+The rebase tidies the stack you stand on (see *Stacks*): every unmerged branch beneath HEAD,
+whoever made it, replayed onto `origin/main` in its current order, each branch pointer moving with
+its commits. Branches that have merged drop out, because merge commits keep SHAs. Standing on `main`
+or on a merged branch, it fast-forwards you to `origin/main`. Either way you end up on fresh ground.
+
+This is a local tidy. Origin's copies of the branches beneath you now differ from yours, which is
+fine: push only the branches you own. Should a lower branch have been rewritten on origin in the
+meantime, its commits conflict on replay; that is a stop-and-ask, not a repair.
+
+- If the rebase refuses to start (uncommitted changes) or conflicts, `git rebase --abort`, run
+  `newb` where you stand, and tell the Coach what you found.
+- If you stand on an unmerged branch, the new thread is stacked on it. Note that branch's PR number
+  for the description.
+- Carrying on with the current thread needs no new branch.
+
 `pnpm newb <branchlabel>` branches `YYYYMMDD-<branchlabel>` from HEAD and carries the working tree
 along, uncommitted changes and all. Its upstream is set, so the first plain `git push` creates the
 remote branch.
-
-- On `main`, or on a branch whose PR has merged, branch from `origin/main`: `git fetch origin &&
-  git switch --detach origin/main && pnpm newb <branchlabel>`, before the first edit.
-- On an unmerged branch, the new thread is stacked on it. Note that branch's PR number for the
-  description.
-- Carrying on with the current thread needs no new branch.
 
 ### Milestones
 
@@ -72,7 +89,7 @@ occasional deliberate commit with failing tests, see *Commits*.
 
 ```
 git fetch origin
-git rebase origin/main
+git rebase --update-refs origin/main
 pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 ```
 
@@ -136,7 +153,7 @@ git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
 
 ```
 git fetch origin
-git rebase origin/main
+git rebase --update-refs origin/main
 git push --force-with-lease --force-if-includes
 ```
 
@@ -149,18 +166,24 @@ If you did merge main in by accident, `git rebase origin/main` fixes it. A plain
 
 ## Stacks
 
-A stack is a branch built on another unmerged branch: A <- B <- C.
+A stack is a branch built on another unmerged branch: A <- B <- C. *Your stack* is every unmerged
+branch beneath where you stand, whoever made it, in the order it currently stands.
 
 - Open every PR in a stack against `main`. Upper PRs will show the lower PRs' commits in their diff until those lower PRs land, and that's fine.
-- `rebase.updateRefs` is on, so rebasing the top branch moves every branch pointer inside the stack with it:
+- Always rebase from the **top**, with `--update-refs`: every branch pointer inside the stack moves
+  with its commits. Rebasing a lower branch alone strands the ones above it on the old commits, and
+  a later rebase of the top replays those stale copies: a cactus.
 
   ```
   git switch C
-  git rebase origin/main          # moves B's pointer too
-  git push --force-with-lease --force-if-includes origin B C
+  git rebase --update-refs origin/main          # moves A's and B's pointers too
+  git push --force-with-lease --force-if-includes origin C   # and B, if B is yours
   ```
 
-- Don't rebase the whole stack pre-emptively. Every merge moves `main`, so rebase **after** each merge, not before.
+- To add to a lower branch, commit there, then `git switch C && git rebase --update-refs B`.
+- A branch checked out in another worktree is skipped by `--update-refs` and stays where it was.
+- Rebase when `main` has moved under you: at a thread's start and finish, or after a merge beneath
+  you. Not on a timer.
 
 Two ways to land a stack:
 
