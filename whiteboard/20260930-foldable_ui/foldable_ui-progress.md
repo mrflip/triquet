@@ -9,7 +9,7 @@ Workers add their sections below the table, newest first.
 |---|---|---|
 | 1 | Investigate fold machinery | complete (docs-only PR) |
 | 2 | A reusable fold affordance (+ the editable note's fold, pulled forward) | complete (PR #56) |
-| 3 | Fold the smith's note on the playtesting screen | pending |
+| 3 | Fold the smith's note on the playtesting screen | underway |
 | 4 | Fold the question grid | pending; needs the Coach's yes on the hand-rolled fold-set hook |
 
 *Orchestrator (after thread 1):* the Coach ruled the playtesting screen's note folds too (overrides
