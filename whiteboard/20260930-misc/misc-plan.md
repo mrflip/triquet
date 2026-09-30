@@ -1,7 +1,7 @@
 # Sprint misc: miscellaneous tasks
 
 Date: 2026-09-30. Issued by the Coach (Flip). Mode: **normal**. Review level: **medium**.
-**Status:** threads 1 (#58), 2 (#60) and 3 (#61) done; thread 4 underway, thread 5 queued. #54 and #57 merged mid-sprint.
+**Status:** threads 1-4 done (#58 and #60 merged; #61, #63 open); thread 5 underway, thread 6 queued.
 
 The Coach issued three threads at once, sent a fourth soon after, and will send more as the sprint runs. Each new
 thread is added below, in the order it arrives.
@@ -194,6 +194,32 @@ point.
   the property style.
 
 **Look-ahead.** This runs last, so its sweep covers thread 4's tests as well.
+
+### 6. CI runs the built suite in place of the dev suite
+
+> I would like the ci tests to run test:e2e:built replacing test:e2e, so we don't need a
+> different ci role.
+
+**Gloss.** The Coach's answer to thread 3's CI question: **replace**, not a second matrix
+axis. The `e2e` job in `.github/workflows/ci.yml` runs `pnpm exec playwright test
+--shard=N/6` with `PORT: 3002`, `NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402` and
+`NEXT_DIST_DIR: .next-e2e`, the `e2e` role's resources. "No different CI role" means CI
+keeps that role and those ports and switches only the server mode. Most likely that's
+`TRIQUET_E2E_SERVER: built` in the job's env, as thread 3 proposed. Check that
+`playwright.config.ts` and `e2e/environment.ts` accept the `built` mode on the `e2e` role
+(thread 3 paired `built` with `e2e-built`), and loosen that pairing if CI needs it.
+
+* Each of the six shards builds for itself. That adds a `next build` (about 10s locally, more
+  on a runner) per shard. Building once and sharing `.next-e2e` as an artifact is an
+  optimization. Measure first, and propose it rather than build it unless it's trivial.
+* The local finishing suite (git_hygiene's `pnpm test:e2e`) is **not** asked to change.
+  Say so in *For the Coach*, and ask whether it should follow.
+* CI can't be run from the container. Prove the workflow change as far as you can locally:
+  run the same command with the same env against the `e2e` role, on a quiet port if 3002 is
+  busy. Then push, and watch the PR's checks (`gh pr checks`) until the e2e shards finish.
+* Update the comment above the job, and `notes/testing.md`'s paragraph on the built run.
+
+**Look-ahead.** Independent of thread 5. It stacks after it all the same.
 
 ## For the Coach
 
