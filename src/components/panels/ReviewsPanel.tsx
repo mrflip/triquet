@@ -3,6 +3,7 @@
 import { Divider, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { Panel } from './Panel'
+import { MarkdownText } from '../cells/markdown'
 import { AppNotices } from '../../lib/notices'
 import * as Rank from '../../lib/rank'
 import type { ReviewedT } from '../../lib/rows'
@@ -27,7 +28,8 @@ const SmithsBlurb = 'What reviewers have made of this quiz. Nothing appears here
 
 /**
  * What reviewers have shared about the open quiz, read-only: one block per reviewer, with their
- * overall note and a table of their verdict on each question they wrote about, in rank order.
+ * overall note and a table of their verdict on each question they wrote about, in rank order,
+ * their words rendered from markdown.
  * The smiths see it below the grid; a reviewer sees the others' below their own, once theirs is
  * shared.
  */
@@ -44,7 +46,7 @@ export function ReviewsPanel({ reviews, questions, title = 'Reviews', blurb = Sm
           {shared.map((review) => (
             <section key={review._id} aria-label={`Review by ${review.reviewer?.title ?? 'a reviewer'}`}>
               <Typography variant="subtitle2">{review.reviewer?.title ?? 'A reviewer'}</Typography>
-              <Typography sx={{ whiteSpace: 'pre-wrap' }}>{review.overall}</Typography>
+              <Typography component="div" className={styles.prose}><MarkdownText text={review.overall} /></Typography>
               <ReviewingsTable reviewings={review.reviewings} ranked={ranked} />
             </section>
           ))}
@@ -87,8 +89,8 @@ function ReviewingsTable({ reviewings, ranked }: Readonly<{ reviewings: readonly
                   <span key={flag} role="img" aria-label={title} title={title}>{emoji}</span>
                 ))}
               </TableCell>
-              <TableCell sx={{ whiteSpace: 'pre-wrap' }}>{reviewing.guesses}</TableCell>
-              <TableCell sx={{ whiteSpace: 'pre-wrap' }}>{reviewing.comments}</TableCell>
+              <TableCell className={styles.prose}><MarkdownText text={reviewing.guesses} /></TableCell>
+              <TableCell className={styles.prose}><MarkdownText text={reviewing.comments} /></TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -2,6 +2,27 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: Text fields show their markdown rendered until typed into
+
+* **Took the rich-text Discuss item's display half** on your request: react-markdown with
+  remark-breaks and rehype-sanitize, the allowlist in `src/lib/markdown.ts`. Editing is still the
+  plain box. **Left out remark-gfm**, which the note named: its strikethrough takes a single `~`
+  (`~50 years`). The note's "render on the server" line contradicted client-first, so it's gone.
+* **How**: the textarea never leaves the page. The rendered "face" sits over it with
+  `pointer-events: none`, and pure CSS lifts it on `:focus-within`, so clicking, tabbing, screen
+  readers and every existing e2e `fill`/`toHaveValue` are untouched. No state, no new handlers.
+  The grid's row height takes the taller of raw and rendered text, so a row doesn't jump on focus.
+* **Which fields**: Clueing, Hint, Notes, Full Answer, the smith's note; on the review screen
+  Guesses, Comments, Overall, and the read-only clueing, BUT NOT, answer and shared reviews.
+  **Alt Text stays plain** (it's read aloud as written); Title and Q# are one-liners. The grid's
+  BUT NOT preview is still a raw snippet, since truncation can cut a marker in half.
+* **The screen renders more than the league does**: lists, headings and links show here, but the
+  LL export only translates bold, italics, quotes and line breaks. A clue like `1984. Who...` now
+  renders as a numbered list. Worth a look if smiths get surprised.
+* **Past the grid's height cap** (480px) the face clips rather than scrolls; click in to read the rest.
+* **A local `pnpm lint` trips on `public/jazz/`** (gitignored, left from the Jazz trial): eslint
+  doesn't read `.gitignore`. CI never sees it; deleting the directory fixes it locally.
+
 ## 2026-09-30: Sprints -- /sprint orchestrator and thread-worker agents (#47)
 
 * **A sprint** is now a defined thing: an ordered series of threads issued at once, run back to

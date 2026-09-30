@@ -2,7 +2,9 @@
 
 import { useRef, useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogTitle, IconButton, Stack, Typography } from '@mui/material'
+import { MarkdownText } from './markdown'
 import { AppNotices } from '../../lib/notices'
+import styles from '../workbench.module.css'
 
 export type AnswerLockProps = {
   /** The full answer, hidden until the reviewer chooses to see it */
@@ -17,7 +19,7 @@ export type AnswerLockProps = {
 const LockSx = { p: 0.5, minWidth: 0 } as const
 
 /**
- * The answer, behind a lock a reviewer opens on purpose: confirming once reveals it for this row
+ * The answer, behind a lock a reviewer opens on purpose: confirming once reveals it, rendered from its markdown, for this row
  * and this session, and the lock beside it hides it again without asking, so the question can
  * be handed to someone else. The lock sits first and the answer to its right, so it stays put
  * either way. Neither state is stored; `onReveal` hears of the first reveal, for whoever wants
@@ -36,7 +38,7 @@ export function AnswerLock({ answer, seen = false, onReveal }: Readonly<AnswerLo
     return (
       <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
         <IconButton size="small" aria-label="Hide answer" sx={LockSx} onClick={() => { setRevealed(false) }}><LockGlyph glyph="🔓" /></IconButton>
-        <Typography sx={{ whiteSpace: 'pre-wrap', pt: 0.5 }}>{answer}</Typography>
+        <Typography component="div" className={styles.prose} sx={{ pt: 0.5, minWidth: 0 }}><MarkdownText text={answer} /></Typography>
       </Stack>
     )
   }

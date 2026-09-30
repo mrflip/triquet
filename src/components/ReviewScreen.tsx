@@ -7,6 +7,7 @@ import { useDraft } from './use-draft'
 import { AnswerLock } from './cells/answer-lock'
 import { ButnotFull } from './cells/chain'
 import { NumberField } from './cells/fields'
+import { MarkdownFace, MarkdownText, veiledIf } from './cells/markdown'
 import { ReviewsPanel } from './panels/ReviewsPanel'
 import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
@@ -84,6 +85,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
           value={draft}
           onChange={(event) => { onChange(event.target.value) }}
           onBlur={onBlur}
+          slotProps={{ input: { endAdornment: <MarkdownFace inInput text={draft} /> }, htmlInput: { className: veiledIf(draft) } }}
           sx={{ mb: 2 }}
         />
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
@@ -168,7 +170,7 @@ const FlagSx = {
 const [TopFlag, FactFlag, MehFlag] = ReviewingFlags
 
 /**
- * One question: its number and clueing, the BUT NOT it chains to in full, read-only; then the
+ * One question: its number and clueing, rendered from markdown, the BUT NOT it chains to in full, read-only; then the
  * reviewer's verdict on it, each field saved as it is committed; then its answer, behind a lock.
  */
 function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, reviewings, dispatch }: Readonly<ReviewQuestionRowProps>) {
@@ -180,7 +182,10 @@ function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, reviewin
   return (
     <Paper variant="outlined" component="section" aria-label={question.title || AppNotices.untitledQuestion} sx={{ p: 2, ...RowAreasSx }}>
       <Stack spacing={1} sx={{ gridArea: 'question' }}>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{question.qnum === '' ? question.clueing : `${question.qnum}. ${question.clueing}`}</Typography>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          {question.qnum === '' ? null : <Typography>{question.qnum}.</Typography>}
+          <Typography component="div" className={styles.prose} sx={{ minWidth: 0 }}><MarkdownText text={question.clueing} /></Typography>
+        </Box>
         <ButnotFull target={chainTarget} chained={question.chains_to !== null} />
       </Stack>
       <Box sx={{ gridArea: 'guesses', ...FillRowSx }}>
@@ -241,7 +246,8 @@ function FlagToggle({ flag, emoji, word, title, raised, full = false, faceAfter 
 }
 
 /**
- * Guesses or Comments: an outlined box, saved when it loses focus. Stacked, it is at least two
+ * Guesses or Comments: an outlined box, saved when it loses focus, showing its markdown rendered
+ * until it is typed into. Stacked, it is at least two
  * lines tall and grows with its text. Side by side, it is a plain textarea, which `FillRowSx`
  * stretches to the row's height: MUI's growing one sets its own height, which the row can't override.
  */
@@ -258,7 +264,11 @@ function VerdictField({ label, committed, onCommit }: Readonly<{ label: string, 
       value={draft}
       onChange={(event) => { onChange(event.target.value) }}
       onBlur={onBlur}
-      slotProps={{ inputLabel: { shrink: true }, input: sideBySide ? { inputComponent: 'textarea' } : {} }}
+      slotProps={{
+        inputLabel: { shrink: true },
+        input:      { ...(sideBySide && { inputComponent: 'textarea' }), endAdornment: <MarkdownFace inInput text={draft} /> },
+        htmlInput:  { className: veiledIf(draft) },
+      }}
     />
   )
 }

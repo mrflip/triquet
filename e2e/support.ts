@@ -58,6 +58,11 @@ export function cellOf(page: Page, rowIdx: number, colname: string): Locator {
   return rowAt(page, rowIdx).locator(`td[data-colname="${colname}"]`)
 }
 
+/** The rendered face drawn over a text box within `within`, while the box is not being typed into */
+export function faceOf(within: Locator): Locator {
+  return within.locator('[data-face]')
+}
+
 /**
  * The values of every field `fields` resolves to, top to bottom, at this instant.
  *

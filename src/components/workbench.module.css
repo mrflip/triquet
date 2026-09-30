@@ -129,6 +129,101 @@
   margin:     0;
 }
 
+/* == Faces: a field's markdown, drawn over it until it is typed into ==
+   Plain CSS rather than state: the face lifts on focus within its box, so tabbing, clicking and
+   a test's `fill` all reach the box beneath unchanged. Shared by the grid, which styles without
+   Emotion, and the MUI fields around it, so every field renders alike. */
+
+.veil {
+  position: relative;
+}
+
+.veiled:not(:focus) {
+  color:    transparent;
+  overflow: hidden;
+}
+
+/* The face comes and goes at once, so the text beneath must too: a fade would show both at once.
+   `textarea` outranks the page-wide `.transitions *` rule, whichever stylesheet loads last. */
+textarea.veiled {
+  transition-property: background-color, border-color;
+}
+
+.face {
+  position:       absolute;
+  top:            0;
+  left:           0;
+  right:          0;
+  max-height:     100%;
+  overflow:       hidden;
+  /* The grid box's own padding, and its border */
+  padding:        5px 6px;
+  pointer-events: none;
+  overflow-wrap:  anywhere;
+}
+
+.faceInInput {
+  padding: inherit;
+}
+
+:focus-within > .face {
+  visibility: hidden;
+}
+
+/* == Prose: rendered markdown, spaced for a cell rather than a page == */
+
+.prose > * + * {
+  margin-top: 0.5em;
+}
+
+.prose p,
+.prose ul,
+.prose ol,
+.prose pre,
+.prose blockquote,
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  margin-bottom: 0;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5em;
+}
+
+.prose blockquote {
+  margin-left:  0;
+  margin-right: 0;
+  padding-left: 0.75em;
+  border-left:  3px solid var(--border);
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-size:   inherit;
+  font-weight: 700;
+}
+
+.prose code {
+  font-family: var(--font-data);
+  font-size:   0.92em;
+}
+
+.prose pre {
+  white-space: pre-wrap;
+}
+
+.prose a {
+  color: var(--accent);
+}
+
+.prose hr {
+  border:     0;
+  border-top: 1px solid var(--border);
+}
+
 /* == Numbers == */
 
 .sum {

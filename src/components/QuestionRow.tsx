@@ -137,7 +137,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       return <QnumField label="Q#" committed={question.qnum} locked={locked} onCommit={(qnum) => { commit({ qnum }) }} />
     }
     case 'alt_text': {
-      return <StretchField label="Alt Text" committed={question.alt_text} locked={locked} onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx} />
+      return <StretchField label="Alt Text" plain committed={question.alt_text} locked={locked} onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx} />
     }
     case 'notes': {
       return <StretchField label="Notes" committed={question.notes} locked={locked} onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx} />
