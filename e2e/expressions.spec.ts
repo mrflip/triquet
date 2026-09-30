@@ -345,6 +345,18 @@ test('the input a formula reads is folded to one line each, and opens to a prett
   await expect(editor.getByLabel(/^Input: qns/)).toBeVisible()
 })
 
+test("a formula reads the smith's note, and the hunt and realm the quiz sits in", async ({ page }) => {
+  await page.getByRole('textbox', { name: 'Smith\'s note', exact: true }).fill('Meta: their initials.')
+  await page.getByLabel('Quiz name').click()
+  await waitUntilSaved(page)
+  await openExpression(page, 'answer_reversed')
+  const editor = page.getByRole('dialog', { name: 'Expression: answer_reversed' })
+  for (const name of ['hunt', 'realm']) { await expect(editor.getByText(name, { exact: true })).toBeVisible() }
+  // A new hunt's quiz shares the hunt's label, so the two labels match.
+  await setFormula(page, "quiz.smiths_note & ' | ' & realm.title & ' | ' & $string(hunt.label = quiz_label)")
+  await expect(page.getByRole('status', { name: 'Preview result' })).toContainText('Meta: their initials. | Home | true')
+})
+
 test('the prompt for a chatbot is copied with the formula, the schemas and a real input', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')

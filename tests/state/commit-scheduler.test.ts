@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCommitScheduler, type MirrorSnapshot } from '../../src/state/commit-scheduler'
 import { Quiz, type QuizT } from '../../src/models/quiz'
+import { Here } from '../support/places'
 
 /** What each commit was handed, in order: the quiz's title as it stood, and as it had become */
 type Landed = { was: string | null, now: string }
@@ -16,7 +17,6 @@ function recordInto(landed: Landed[]) {
 
 /** A scheduler that records what it commits, with `seconds` as its wait */
 /** Where every quiz in these tests sits */
-const Here = { hunt: 'deep_lake', realm: 'home' }
 
 function schedulerOf(seconds: number, landed: Landed[], commit?: (was: MirrorSnapshot | null, now: MirrorSnapshot) => Promise<unknown>) {
   const scheduler = createCommitScheduler({

@@ -122,8 +122,8 @@ describe('Quiz.fill', () => {
     expect(() => Quiz.fill({ _id: quiz_id, widgets: [Widget], columns: [{ ...Col, source: 'zed' }] })).to.not.throw()
   })
 
-  it('exposes its label and its title, and none of its housekeeping', () => {
-    expect(Quiz.exposed).to.deep.eq(['label', 'title'])
+  it("exposes its label, the smith's note and its title, and none of its housekeeping", () => {
+    expect(Quiz.exposed).to.deep.eq(['label', 'smiths_note', 'title'])
   })
 
   it('remembers what the last batch run cost', () => {

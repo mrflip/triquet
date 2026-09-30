@@ -52,7 +52,8 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
   const quiz: QuizT | null = picked ? other : openQuiz
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
   const question = ranked.find((held) => held._id === question_id) ?? ranked[0]
-  const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz ? Expressed.bagsFor(quiz) : new Map()), [quiz])
+  const realm = quiz && hunt.realms.find((held) => held.quizzes.some((row) => row._id === quiz._id))
+  const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz && realm ? Expressed.bagsFor(quiz, Expressed.placeOf(hunt, realm)) : new Map()), [quiz, hunt, realm])
   const bag = question ? bags.get(question._id) : undefined
 
   const syntaxIssue = draft.formula === '' ? null : Formulas.check(draft.formula)
@@ -101,6 +102,8 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
       {bag && (
         <div>
           <div className={styles.microcopy}>The input the formula reads for this question</div>
+          <JsonFold label="hunt" val={bag.hunt} />
+          <JsonFold label="realm" val={bag.realm} />
           <JsonFold label="quiz" val={bag.quiz} />
           <JsonFold label={`qns (${String(bag.qns.length)})`} val={bag.qns} />
           <JsonFold label="qn" val={bag.qn} />
