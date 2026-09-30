@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1, 2 and 3 done.
+**Status:** threads 1, 2 and 3 done; thread 4 underway.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -12,13 +12,9 @@ their sections newest first, below the status table.
 | 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
 | 4 | Formulas see the smith's note, hunt and realm | pending | | |
 
-*Orchestrator:* thread 3's "production" means the optimized build mode only (`next build`
-/ `next start`), never live keys or the production deployment -- the Coach's clarification is
-in the plan, under thread 3.
-
-*Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. Thread 3: the spec that
-must hold under the built server is `e2e/alarms.spec.ts` (it makes a real refusal), and the
-built run needs a role and port of its own -- thread 2 ran on `e2e-agent` (3003).
+*Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. A thread that adds e2e
+specs runs them under both servers: `pnpm test:e2e:agent` (dev, 3003) and `pnpm
+test:e2e:built` (the optimized build, 3005). Neither is the shared `pnpm test:e2e` port.
 
 ## Thread 3: e2e against the optimized build (2026-09-30)
 
@@ -55,6 +51,10 @@ Branch `20260930-e2e_built`, PR #61, stacked on #60. Suites: typecheck and lint 
     `ps -eo pid,args | grep next-server` finds such a server.
   - **Thread 4:** a spec must pass under both servers. Run `pnpm test:e2e:built` beside
     `test:e2e:agent` if a thread adds specs.
+* *Review:* **clean**, nothing fixed. Left, minor: the built command is `sh -c "next build &&
+  next start"`, so `next start` is a grandchild that `convex_dev`'s EXIT trap doesn't reach;
+  Playwright kills the whole process group, so nothing is orphaned. `&& exec next start` would
+  harden it (on #61).
 * **For the Coach**:
   - **Should the finishing suite and CI run it?** A proposal, not a decision:
     - Locally, add `pnpm test:e2e:built` to git_hygiene's finishing line. Dev mode catches
