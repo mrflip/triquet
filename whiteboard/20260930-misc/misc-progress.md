@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1 and 2 done.
+**Status:** threads 1 and 2 done; thread 3 underway.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -15,6 +15,10 @@ their sections newest first, below the status table.
 *Orchestrator:* thread 3's "production" means the optimized build mode only (`next build`
 / `next start`), never live keys or the production deployment -- the Coach's clarification is
 in the plan, under thread 3.
+
+*Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. Thread 3: the spec that
+must hold under the built server is `e2e/alarms.spec.ts` (it makes a real refusal), and the
+built run needs a role and port of its own -- thread 2 ran on `e2e-agent` (3003).
 
 ## Thread 2: A hard-to-miss alert for major problems (2026-09-30)
 
@@ -62,6 +66,10 @@ unit 2237/2237, e2e 187/187 (run on the `e2e-agent` role, `pnpm test:e2e:agent`)
     dialog is seen but not announced.
   - `--update-refs` also rebased the local `20260930-chai_in_vitest` onto the merged #54. I did
     not push it.
+* *Review:* **fixed**, one kept (58a1cdb): a quiet `carryOut` on a quiz not yet open set no
+  `saveNotice`, so AddMember showed nothing or a stale notice; it now sets `changeNotSent`.
+  Left, minor: that same sentence now also shows in `QuizRoute`'s *Opening…* placeholder beside
+  the alarm -- kept as more accurate; a one-line change if the Coach wants it bare.
 * **For the Coach**: placement (bottom centre), Escape not dismissing, and the alarm outliving a
   later success are each one-line changes if you'd rather otherwise. They are also in
   HUMAN-whatsup and on #60.
