@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { actDangerously, closeManage, expect, grid, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { actDangerously, closeManage, expect, faceOf, grid, holderOf, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 /** The label the open quiz answers to, as the gear's dialog has it; the dialog must be open */
 async function quizLabelOf(page: Page): Promise<string> {
@@ -157,6 +157,43 @@ test('the smith\'s note grows by paragraphs, pushing the grid down, then scrolls
   await page.getByLabel('Quiz name').click()
   await reloadOnceSaved(page)
   await expect(note).toHaveValue(/^line 0 of a long note\n.*line 39 of a long note$/s)
+})
+
+test('the smith\'s note starts folded to its first line, and unfolds by its triangle or by clicking into it, but folds only by its triangle', async ({ page }) => {
+  const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })
+  const fold = page.getByRole('button', { name: 'Show the smith\'s note in full' })
+  const noteHt = async () => await note.evaluate((area) => area.clientHeight)
+  const face = faceOf(holderOf(note))
+  const faceOverflow = async () => await face.evaluate((div) => getComputedStyle(div).overflowY)
+
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect(fold).toHaveAttribute('aria-controls', await note.getAttribute('id') ?? 'no id')
+  const foldedHt = await noteHt()
+  // Typing into it unfolds it, and it stays unfolded once the author moves on
+  await note.fill('Theme: princes.\n\nMeta: their initials, in chain order.\n\nTODO: fact-check Q7.')
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await page.getByLabel('Quiz name').click()
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await expect.poll(noteHt).toBeGreaterThan(foldedHt)
+  await expect.poll(faceOverflow).toBe('auto')
+
+  // Folded by its triangle: one line again, its rendered face clipped rather than scrolling
+  await fold.click()
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect.poll(noteHt).toBe(foldedHt)
+  await expect.poll(faceOverflow).toBe('hidden')
+  await fold.click()
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await expect.poll(noteHt).toBeGreaterThan(foldedHt)
+
+  // A fresh visit starts folded, and a click on the rendered note unfolds it to be typed into
+  await reloadOnceSaved(page)
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect.poll(noteHt).toBe(foldedHt)
+  await face.click()
+  await expect(note).toBeFocused()
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await expect.poll(noteHt).toBeGreaterThan(foldedHt)
 })
 
 test('a locked quiz\'s smith\'s note is readable but not editable', async ({ page }) => {

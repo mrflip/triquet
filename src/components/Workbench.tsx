@@ -102,7 +102,9 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         }}
         onSetLock={(locked) => { dispatch({ kind: 'set_lock', quiz_id: quiz._id, locked }) }}
       />
+      {/* Keyed by the quiz, so another quiz's header starts afresh: its note folded, its drafts its own. */}
       <QuizHeader
+        key={quiz._id}
         title={quiz.title}
         smithsNote={quiz.smiths_note}
         locked={quiz.locked}
