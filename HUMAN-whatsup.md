@@ -2,6 +2,18 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: `.to.be.true` -- vitest supports it, the lint rule refuses it
+
+* **Answers the *Lint vs notes/testing.md* bullet** under *Playtest failures*. Vitest 5 runs
+  chai's property assertions (`to.be.true`, `.null`, `.empty`) correctly. Only
+  `vitest/valid-expect` refuses them, and it has no option to allow them. No package fixes
+  this. The full survey is `whiteboard/20260930-misc/chai-in-vitest.md`.
+* **Your call**: I recommend keeping the rule and changing `notes/testing.md` line 17 to say
+  `to.eq(true)`. The check that refuses `.to.be.true` is the same one that catches
+  `expect(x).to.eq` with no call, which otherwise passes silently. The tests already use
+  `.to.eq(true)` 166 times. Optionally, file an upstream issue on
+  `vitest-dev/eslint-plugin-vitest` asking the rule to learn chai's terminating properties.
+
 ## 2026-09-30: Sprints review themselves -- a thread-reviewer after every thread
 
 * **A `thread-reviewer` agent** (`.claude/agents/thread-reviewer.md`) now follows each
