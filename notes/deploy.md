@@ -108,9 +108,9 @@ Then stop the dev server, return to your branch, and start it again: the push la
 
 ## Working locally
 
-Each role (`dev` for a person, `agent`, `e2e`, `e2e-agent`) has a Convex backend of its own:
-Convex's open-source binary, run by `scripts/convex_backend <role>` on port `34xx` (HTTP actions on
-`35xx`), with its database, file storage, instance secret and the CLI's `cli.env` in
+Each role (`dev` for a person, `agent`, `e2e`, `e2e-agent`, `e2e-built`) has a Convex backend of
+its own: Convex's open-source binary, run by `scripts/convex_backend <role>` on port `34xx` (HTTP
+actions on `35xx`), with its database, file storage, instance secret and the CLI's `cli.env` in
 `data/convex-<role>/`. Nothing of it leaves the machine, and it needs no Convex account.
 
 `scripts/convex_dev <role> [--reset] [--watch] <command>` is how anything runs against one: it
