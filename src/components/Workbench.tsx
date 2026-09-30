@@ -168,7 +168,10 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
           }}
         />
       )}
+      {/* Keyed by the quiz, so another quiz's grid starts afresh, folded; told apart from the
+          header's key, which is the quiz's too, because keys among siblings must differ. */}
       <QuestionTable
+        key={`grid-${quiz._id}`}
         questions={quiz.questions}
         specs={specs}
         expressed={expressed}
