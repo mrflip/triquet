@@ -20,7 +20,7 @@ export const BlankQuestionQty = 5
 /** The version every quiz starts on, and so the branch its history begins on */
 export const DefaultVersion = 'main'
 
-export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, label, bool, uint, timestamp, zid, treeid }) => {
+export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, noteish, label, bool, uint, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -32,6 +32,9 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
 
   const version = label
     .describe('Which line of work the quiz is currently on, and the name of the git branch its history is committed to. Shares the `label` shape, which is a strict subset of what git accepts in a ref, so a version an author can type is always a branch git will take.')
+
+  const smiths_note = noteish
+    .describe('What the smiths want to say about the quiz as a whole: its theme, its meta, what is left to do. Several paragraphs if need be; kept trimmed.')
 
   const bulkIshesRun = obj({
     approx_tokens: AskValidators.approxTokens,
@@ -47,6 +50,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     forced_label:    forced_label.default(null),
+    smiths_note:     smiths_note.default(''),
     version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
@@ -70,6 +74,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     title:           titleish,
     label:           quizLabel,
     forced_label,
+    smiths_note,
     version,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
@@ -79,7 +84,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgets and columns in rows of their own.')
 
-  return { sortkey, bulkIshesRun, quiz, row }
+  return { sortkey, smiths_note, bulkIshesRun, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */
@@ -140,6 +145,7 @@ export class Quiz implements QuizT {
   declare title:           string
   declare label:           string
   declare forced_label:    string | null
+  declare smiths_note:     string
   declare version:         string
   declare questions:       QuestionT[]
   declare widgets:         WidgetT[]
@@ -151,7 +157,8 @@ export class Quiz implements QuizT {
   /**
    * The fields a quiz shows the outside world, alphabetically: its label (the one in force) and
    * its title. Not the id; not the questions, widgets and columns, which are exposed on their
-   * own; and not the housekeeping -- version, lock, remembered sort, what a batch run cost.
+   * own; not the smith's note, which is for the smiths rather than for formulas; and not the
+   * housekeeping -- version, lock, remembered sort, what a batch run cost.
    */
   static readonly exposed = ['label', 'title'] as const
 
@@ -203,7 +210,7 @@ export class Quiz implements QuizT {
    */
   static blankRow(realm_id: QuizRowT['realm_id'], title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
-      realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, forced_label: null, version: DefaultVersion,
+      realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, forced_label: null, smiths_note: '', version: DefaultVersion,
       locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [],
     })
   }

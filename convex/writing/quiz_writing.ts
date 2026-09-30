@@ -54,9 +54,9 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
-/** Revise a quiz's own row */
+/** Revise a quiz's own row, giving it an empty smith's note if it was written before it had one */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, QuizValidators.row({ smiths_note: '', ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 

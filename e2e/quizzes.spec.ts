@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { actDangerously, closeManage, expect, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { actDangerously, closeManage, expect, grid, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 /** The label the open quiz answers to, as the gear's dialog has it; the dialog must be open */
 async function quizLabelOf(page: Page): Promise<string> {
@@ -139,4 +139,31 @@ test('unlocking finds the quiz exactly as it was', async ({ page }) => {
 test('the switcher marks a locked quiz', async ({ page }) => {
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['🔒 Quiz one'])
+})
+
+test('the smith\'s note grows by paragraphs, pushing the grid down, then scrolls, and survives a reload', async ({ page }) => {
+  const note = page.getByRole('textbox', { name: 'Smith\'s note' })
+  // Where the grid starts on the page, wherever the page is scrolled to
+  const gridTop = async () => await grid(page).evaluate((table) => table.getBoundingClientRect().top + window.scrollY)
+  const emptyTop = await gridTop()
+  await note.fill('Theme: princes.\n\nMeta: their initials, in chain order.\n\nTODO: fact-check Q7.')
+  await expect.poll(gridTop).toBeGreaterThan(emptyTop)
+  // Still growing: every line of three short paragraphs fits without a scrollbar
+  await expect.poll(() => note.evaluate((area) => area.scrollHeight > area.clientHeight)).toBe(false)
+  const grownTop = await gridTop()
+  await note.fill(Array.from({ length: 40 }, (_ignored, lineIdx) => `line ${String(lineIdx)} of a long note`).join('\n'))
+  await expect.poll(() => note.evaluate((area) => area.scrollHeight > area.clientHeight)).toBe(true)
+  expect(await gridTop()).toBeGreaterThan(grownTop)
+  await page.getByLabel('Quiz name').click()
+  await reloadOnceSaved(page)
+  await expect(note).toHaveValue(/^line 0 of a long note\n.*line 39 of a long note$/s)
+})
+
+test('a locked quiz\'s smith\'s note is readable but not editable', async ({ page }) => {
+  const note = page.getByRole('textbox', { name: 'Smith\'s note' })
+  await note.fill('Theme: princes.')
+  await page.getByLabel('Quiz name').click()
+  await page.getByRole('button', { name: 'Lock quiz' }).click()
+  await expect(note).toHaveAttribute('readonly', '')
+  await expect(note).toHaveValue('Theme: princes.')
 })

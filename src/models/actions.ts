@@ -54,6 +54,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('retitle_quiz'),        title: titleish }),
     obj({ kind: lit('relabel_quiz'),        label }),
     obj({ kind: lit('reversion_quiz'),      version: label }),
+    obj({ kind: lit('set_smiths_note'),     smiths_note: QuizValidators.smiths_note }),
     obj({ kind: lit('edit_question'),       question_id: zid('questions'), patch: QuestionValidators.questionPatch }),
     obj({ kind: lit('add_question') }),
     obj({ kind: lit('delete_questions'),    question_ids }),

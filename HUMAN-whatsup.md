@@ -2,6 +2,21 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: A smith's note beside the quiz's name, and the migration it needs
+
+* **Before merging the tightening PR, run the backfill on production.** The first PR widens:
+  production's quizzes have no `smiths_note`, and the schema lets them lack it until
+  `./scripts/doppledo dev_aijanitor npx convex run migrations:run '{"fn": "migrations:backfillSmithsNotes"}'`
+  (after the same with `"dryRun": true`) has filled it in. The tightening PR (a draft, stacked on
+  top) makes it required again, and its push is refused if any quiz is still without one.
+* **Not rehearsed on a production snapshot**: that needs `dev_aijanitor`, which I wasn't given.
+  convex-test covers the widened schema taking a quiz without a note, the backfill (and running
+  it twice), and an edit filling the field in.
+* **Formulas don't see the note**: `Quiz.exposed` is still `label` and `title`. It does travel
+  in Raw Export and the quiz's history (`quiz ~smiths_note` in a commit subject), as every quiz
+  field does.
+* **Height**: MUI's `maxRows` (14) does the growing and the scrolling; nothing hand-rolled.
+
 ## 2026-09-30: LL Export, and the export/import and prompts panels as tabs (#41, #42, #43)
 
 * **LL Export** follows the sheet's formula: `rank|body|full answer|notes$$` per question. The alt

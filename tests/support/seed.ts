@@ -23,8 +23,8 @@ import { RealmValidators } from '../../src/models/realm'
  * @example await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank('Princes'))
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
-  const { title, label, forced_label, version, locked, last_sortkey, bulk_ishes_last } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, forced_label, version, locked, last_sortkey, bulk_ishes_last, row_ordering: [] }))
+  const { title, label, forced_label, smiths_note, version, locked, last_sortkey, bulk_ishes_last } = quiz
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, forced_label, smiths_note, version, locked, last_sortkey, bulk_ishes_last, row_ordering: [] }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {

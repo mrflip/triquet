@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
@@ -25,7 +26,7 @@ function botting(status: 'done' | 'error', at: number, text: string): Doc<'botti
 
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes', forced_label: null,
-  version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [question_id],
+  smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [question_id],
 }
 const QuestionRow: Doc<'questions'> = {
   _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', forced_label: null, title: 'Leon', qnum: '1',
@@ -64,6 +65,11 @@ describe('quizFrom', () => {
 
   it('makes a quiz the quiz validator takes whole', () => {
     expect(Quiz.fill(quizFrom(rows)).questions).to.have.lengthOf(1)
+  })
+
+  it('carries the smith\'s note, and gives a quiz written before it had one an empty note', () => {
+    const unnoted = { ...rows, quiz: _.omit(QuizRow, ['smiths_note']) }
+    expect([quizFrom(rows).smiths_note, quizFrom(unnoted).smiths_note]).to.deep.eq(['Theme: princes.', ''])
   })
 
   it('shows a cell\'s newest answer, with the failure since riding on it, in whole milliseconds', () => {

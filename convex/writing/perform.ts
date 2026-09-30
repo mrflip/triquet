@@ -35,6 +35,7 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'retitle_quiz':        { await Quiz.retitleQuiz(db, open, action.title); return }
   case 'relabel_quiz':        { await Quiz.relabelQuiz(db, open, action.label); return }
   case 'reversion_quiz':      { await Quiz.reversionQuiz(db, open, action.version); return }
+  case 'set_smiths_note':     { await Quiz.setSmithsNote(db, open, action.smiths_note); return }
   case 'edit_question':       { await Quiz.editQuestion(db, open, action.question_id, action.patch); return }
   case 'add_question':        { await Quiz.addQuestion(db, open); return }
   case 'delete_questions':    { await Quiz.deleteQuestions(db, open, action.question_ids); return }

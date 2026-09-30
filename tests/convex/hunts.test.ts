@@ -186,6 +186,30 @@ describe('hunts.perform', () => {
     })
   })
 
+  describe('set_smiths_note', () => {
+    it('rewrites the open quiz\'s smith\'s note, trimmed, keeping its paragraphs', async () => {
+      const { act, read } = await seed(openHunt())
+      await act({ kind: 'set_smiths_note', smiths_note: '  Theme: princes.\n\nMeta: their initials.\n' })
+      expect(openOf(await read()).smiths_note).to.eq('Theme: princes.\n\nMeta: their initials.')
+    })
+
+    it('gives a quiz written before it had a note the one set, when any edit reaches it', async () => {
+      const { tt, act, open, read } = await seed(openHunt())
+      await tt.run(async (ctx) => { await ctx.db.patch('quizzes', open.quiz_id, { smiths_note: undefined }) })
+      expect(openOf(await read()).smiths_note).to.eq('')
+      await act({ kind: 'retitle_quiz', title: 'Quiz two' })
+      const row = await tt.run(async (ctx) => await ctx.db.get('quizzes', open.quiz_id))
+      expect(row?.smiths_note).to.eq('')
+    })
+
+    it('refuses while the quiz is locked', async () => {
+      const { act, read } = await seed(openHunt(true))
+      const ante = await read()
+      await expectRefusal(act({ kind: 'set_smiths_note', smiths_note: 'Theme: kings.' }), 'quizLocked')
+      expect(await read()).to.deep.eq(ante)
+    })
+  })
+
   describe('add_question', () => {
     it('appends a blank question to the end', async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
@@ -758,7 +782,7 @@ describe('hunts.perform', () => {
       const { act, tt, open } = await seed(huntTitled(['one', 'two']), 0)
       const elsewhere = await tt.run(async (ctx) => {
         const realm_id = await ctx.db.insert('realms', { hunt_id: open.hunt_id, label: 'away', title: '', position: 1 })
-        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
+        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
       expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.eq(null)
@@ -1227,7 +1251,7 @@ describe('hunts.perform, at the caps', () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, forced_label: null, version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')
