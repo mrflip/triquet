@@ -8,9 +8,13 @@ Workers add their sections below the table, newest first.
 | Thread | Label | Status |
 |---|---|---|
 | 1 | Investigate fold machinery | complete (docs-only PR) |
-| 2 | A reusable fold affordance | pending |
-| 3 | Fold the smith's note | pending |
-| 4 | Fold the question grid | pending |
+| 2 | A reusable fold affordance (+ the editable note's fold, pulled forward) | underway |
+| 3 | Fold the smith's note on the playtesting screen | pending |
+| 4 | Fold the question grid | pending; needs the Coach's yes on the hand-rolled fold-set hook |
+
+*Orchestrator (after thread 1):* the Coach ruled the playtesting screen's note folds too (overrides
+thread 1's lean). Thread 2 takes the editable note's fold as its first consumer; thread 3 keeps the
+playtesting screen. See the plan's revised glosses.
 
 ## Thread 1: Investigate fold machinery (2026-09-30)
 
