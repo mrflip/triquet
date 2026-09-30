@@ -71,11 +71,20 @@ test('a refused clipboard falls back to selecting the text, never to silence', a
   expect(selected).toBeGreaterThan(0)
 })
 
-test('every prompt is shown verbatim, placeholders and all', async ({ page }) => {
-  await expect(page.getByRole('textbox', { name: 'Prompt: Quick-model guess' })).toHaveValue(/\{\{clueing\}\}/)
-  await expect(page.getByRole('textbox', { name: 'Prompt: Hint ishes' })).toHaveValue(/\{\{hint\}\}/)
-  await expect(page.getByRole('textbox', { name: 'Prompt: Batched ishes (Recalculate all)' })).toHaveValue(/\{\{items\}\}/)
-  await expect(page.getByRole('textbox', { name: 'Prompt: Clueing ishes' })).toHaveValue(/fast|number-like/)
+test('every prompt is shown verbatim, placeholders and all, each on a tab of its own', async ({ page }) => {
+  const tabs = page.getByRole('tablist', { name: 'Prompts used' }).getByRole('tab')
+  await expect(tabs).toHaveText(['Quick-model guess', 'Clueing ishes', 'Hint ishes', 'Batched ishes (Recalculate all)'])
+  const shown: [string, RegExp][] = [
+    ['Quick-model guess',               /\{\{clueing\}\}/],
+    ['Clueing ishes',                   /fast|number-like/],
+    ['Hint ishes',                      /\{\{hint\}\}/],
+    ['Batched ishes (Recalculate all)', /\{\{items\}\}/],
+  ]
+  for (const [tabname, placeholder] of shown) {
+    const section = await showTab(page, tabname)
+    await expect(section.getByRole('textbox', { name: `Prompt: ${tabname}` })).toHaveValue(placeholder)
+    await expect(section.getByRole('button', { name: 'Copy', exact: true })).toBeVisible()
+  }
 })
 
 test('LL Export holds the quiz in the league\'s format, one record per question', async ({ page }) => {
