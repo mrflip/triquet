@@ -39,7 +39,7 @@ the domain.
 * **quiz** -- an ordered list of questions, plus the widgets and columns that say what else the
   grid shows. Each question's `position` *is* the display order; sorting and dragging rewrite it.
 * **smith's note** (`smiths_note`) -- what the smiths say about a quiz as a whole: its theme, its
-  meta, what is left to do. Beside the quiz's name; for the smiths, so formulas do not see it.
+  meta, what is left to do. Beside the quiz's name, and a formula reads it as `quiz.smiths_note`.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`. Everything else a quiz shows
   is a widget.
@@ -97,8 +97,9 @@ the domain.
   an *expression* is the recipe, an *expressing* is it being worked here.
 * **expressed** -- what an expressing came to for one question: a value, `nothing` (a muted
   dash; never zero), or an error. Computed on render, stored nowhere.
-* **bag** (the quiz bag) -- the document a formula reads: `quiz`, `qns`, `qn`, `qn_label`,
-  `quiz_label`. No ids; everything by label.
+* **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `quiz`, `qns`, `qn`,
+  `qn_label`, `quiz_label`. No ids; everything by label. `hunt` and `realm` are where the quiz
+  sits, its **place** (`Expressed.placeOf`), which the quiz's history also files it under.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
   JSON Schema and the git table are all built from these lists, so hiding a field is one edit.
 
