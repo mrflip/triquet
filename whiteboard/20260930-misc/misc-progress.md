@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1 to 6 done.
+**Status:** done -- threads 1 to 6 complete and reviewed. #58 and #60 merged; #61 <- #63 <- #64 <- #65 open, stacked.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -61,6 +61,9 @@ against the build (208 runs, the setup included, none flaky or retried).
     route table in a failed run.
   - The first push needs git_hygiene's borrowed-credential form, since the branch had no upstream
     (`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u`).
+* *Review:* **clean**, nothing fixed, nothing left. Confirmed CI's env draws no complaint, that
+  the `webServer` is never reused on CI and its 480s timeout covers each shard's build, and
+  that `NEXT_DIST_DIR` governs both the build and the start. All 12 checks on #65 green.
 * **For the Coach**:
   - **The local finishing suite** (git_hygiene's `pnpm test:e2e`) is unchanged: dev mode, as
     asked. Now a PR sees dev mode locally and the build on CI. Should the finishing line switch to
