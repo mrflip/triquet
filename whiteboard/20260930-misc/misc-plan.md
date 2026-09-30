@@ -1,7 +1,7 @@
 # Sprint misc: miscellaneous tasks
 
 Date: 2026-09-30. Issued by the Coach (Flip). Mode: **normal**. Review level: **medium**.
-**Status:** thread 1 done (PR #58); thread 2 underway.
+**Status:** threads 1 (#58) and 2 (#60) done; thread 3 underway. #54 merged mid-sprint.
 
 The Coach issued three threads at once, sent a fourth soon after, and will send more as the sprint runs. Each new
 thread is added below, in the order it arrives.
@@ -164,4 +164,4 @@ of them. It stacks after thread 3 all the same.
 * The sprint machinery (thread-reviewer and the rest) was uncommitted in the tree when the
   sprint began. The orchestrator committed it as its own `docs:` commit beneath thread 1.
   Move it to its own branch if you'd rather it not ride on thread 1's PR.
-* The sprint is stacked on #54 (Edit hunt), which is open.
+* The sprint was stacked on #54 (Edit hunt), which merged mid-sprint.
