@@ -53,6 +53,11 @@ export function rowAt(page: Page, rowIdx: number): Locator {
   return grid(page).locator('tbody').getByRole('row').nth(rowIdx)
 }
 
+/** The grid's rows folded to one line */
+export function foldedRows(page: Page): Locator {
+  return grid(page).locator('tbody tr[data-folded]')
+}
+
 /** The cell of column `colname` in the row at `rowIdx`; the column's label is its own name */
 export function cellOf(page: Page, rowIdx: number, colname: string): Locator {
   return rowAt(page, rowIdx).locator(`td[data-colname="${colname}"]`)

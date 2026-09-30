@@ -1,10 +1,13 @@
 'use client'
 
-import { Checkbox, IconButton, Stack, Tooltip } from '@mui/material'
+import { useId } from 'react'
+import { Checkbox, IconButton, Stack, Tooltip, useMediaQuery } from '@mui/material'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import clsx from 'clsx'
 import { GutterWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
+import { FoldButton } from './FoldButton'
 import { QuestionRow } from './QuestionRow'
+import { useFolds } from './use-folds'
 import { useSettledResize } from './use-settled-resize'
 import type { ExpressedForQuiz } from '../lib/expressed'
 import type { Askkind } from '../state/use-asking'
@@ -51,10 +54,23 @@ export type QuestionTableProps = {
   onMove:       (question_id: string, onto_idx: number) => void
 }
 
-/** The grid: one row per question, scrolling sideways inside its own container */
+/** Where the grid becomes one card per question, as `workbench.module.css` restructures it */
+const CardLayoutQuery = '(max-width:640px)'
+
+/**
+ * The grid: one row per question, scrolling sideways inside its own container.
+ *
+ * Its top-left corner folds every row to one line, or unfolds them all when none is open; entering
+ * a text box opens that row alone. The questions there when it opens start folded, and one added
+ * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
+ * below 640px, every question shows in full: the corner is not there to unfold them.
+ */
 export function QuestionTable({ questions, specs, expressed, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const checkedCount = questions.filter((question) => isChecked(question._id)).length
+  const folds = useFolds(questions.map((question) => question._id))
+  const carded = useMediaQuery(CardLayoutQuery)
+  const bodyId = useId()
 
   return (
     <div className={styles.scroller}>
@@ -63,6 +79,9 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
           <tr>
             <th scope="col" className={styles.head} style={{ width: `${String(GutterWidthPx)}px` }}>
               <Stack sx={{ alignItems: 'center' }}>
+                <Tooltip title={folds.anyOpen ? 'Fold every question to one line' : 'Show every question in full'}>
+                  <FoldButton open={folds.anyOpen} onOpenChange={folds.setAllOpen} label="Show questions in full" controls={bodyId} />
+                </Tooltip>
                 {/* The span lets the tooltip hear the pointer while the button is disabled. */}
                 <Tooltip title={batching ? 'Done selecting' : 'Select questions to delete'}>
                   <span>
@@ -112,7 +131,7 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
             })}
           </tr>
         </thead>
-        <tbody>
+        <tbody id={bodyId}>
           {questions.map((question, idx) => (
             <QuestionRow
               key={question._id}
@@ -124,6 +143,8 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
               onCheck={(on) => { onCheck(question._id, on) }}
               onDelete={() => { onDelete(question._id) }}
               resizeToken={resizeToken}
+              folded={! carded && folds.isFolded(question._id)}
+              onUnfold={() => { folds.unfold(question._id) }}
               idx={idx}
               count={questions.length}
               onMove={onMove}
