@@ -203,7 +203,7 @@ describe('the expressions file', () => {
     const written = Quizgit.quizFiles(quizOf([]), expressions, Here).get(HereExpressions) ?? ''
     expect(JSON.parse(written)).to.deep.eq(structuredClone(expressions))
     expect(written).to.include('\n    "description": "Loud."')
-    expect(written.endsWith('\n')).to.eq(true)
+    expect(written.endsWith('\n')).to.be.true
   })
 
   it('lives at the hunt\'s own level, named for the hunt, in every quiz\'s repository', () => {
@@ -237,7 +237,7 @@ describe('quizFiles', () => {
     expect(written.split('\n').length).to.be.greaterThan(20)
     expect(written).to.include('\n  "title": ')
     expect(written).to.not.include('"id"')
-    expect(written.endsWith('\n')).to.eq(true)
+    expect(written.endsWith('\n')).to.be.true
   })
 
   it('sorts its keys, so the same quiz is the same bytes however the object was built', () => {
@@ -266,7 +266,8 @@ describe('milestoneTagFor', () => {
   it('sorts as text in the order the moments happened', () => {
     const earlier = Quizgit.milestoneTagFor('main', new Date('2026-09-18T09:00:00Z'))
     const later = Quizgit.milestoneTagFor('main', new Date('2026-09-18T10:00:00Z'))
-    expect(earlier < later).to.eq(true)
+    expect(earlier).to.not.eq(later)
+    expect(_.sortBy([later, earlier])).to.deep.eq([earlier, later])
   })
 })
 
@@ -281,7 +282,7 @@ describe('commitFirst', () => {
   it('does nothing where the history is already under way, so asking twice leaves one commit', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await Quizgit.commitFirst(suite.fs, quiz, [], Here)
-    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here)).to.eq(null)
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here)).to.be.null
     expect(gitSays(quiz, 'rev-list', '--count', 'HEAD')).to.eq('1')
   })
 
@@ -290,7 +291,7 @@ describe('commitFirst', () => {
     const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?' }] }
     await commitFresh(before)
     await commitStep(before, after)
-    expect(await Quizgit.commitFirst(suite.fs, after, [], Here)).to.eq(null)
+    expect(await Quizgit.commitFirst(suite.fs, after, [], Here)).to.be.null
     expect(gitSays(after, 'rev-list', '--count', 'HEAD')).to.eq('2')
   })
 })
@@ -308,14 +309,15 @@ describe('markTagFor', () => {
   it('sorts as text in the order the moments happened', () => {
     const earlier = Quizgit.markTagFor('main', 'delete', new Date('2026-09-18T09:00:00Z'))
     const later = Quizgit.markTagFor('main', 'delete', new Date('2026-09-18T10:00:00Z'))
-    expect(earlier < later).to.eq(true)
+    expect(earlier).to.not.eq(later)
+    expect(_.sortBy([later, earlier])).to.deep.eq([earlier, later])
   })
 })
 
 describe('commitQuiz', () => {
   it('commits nothing at all when nothing changed', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    expect(await commitStep(quiz, quiz)).to.eq(null)
+    expect(await commitStep(quiz, quiz)).to.be.null
   })
 
   it('writes a repository the real git can read', async () => {
@@ -450,7 +452,7 @@ describe('markChange', () => {
 
   it('says there was nothing to tag where the quiz has no history yet', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    expect(await Quizgit.markChange(suite.fs, quiz, 'import')).to.eq(null)
+    expect(await Quizgit.markChange(suite.fs, quiz, 'import')).to.be.null
   })
 })
 
@@ -485,7 +487,7 @@ describe('zipQuizRepo', () => {
 
     const entries = unzipSync(await Quizgit.zipQuizRepo(suite.fs, after))
     expect(Object.keys(entries)).to.include(`ours/${OursTsv}`)
-    expect(Object.keys(entries).some((filepath) => filepath.startsWith('ours/.git/'))).to.eq(true)
+    expect(Object.keys(entries).some((filepath) => filepath.startsWith('ours/.git/'))).to.be.true
   })
 })
 
