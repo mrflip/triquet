@@ -49,7 +49,7 @@ test.describe('a review', () => {
     await expect(page.getByText('Played well, one clue felt loose.')).toBeVisible()
   })
 
-  test("shows the reviewer the smith's note, paragraphs and all, and nothing where there is none", async ({ page, browser }) => {
+  test("shows the reviewer the smith's note folded to a line, unfolding by its triangle to paragraphs and all, and nothing where there is none", async ({ page, browser }) => {
     await startHunt(page)
     const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })
     await note.fill('Theme: princes.\n\nMeta: their initials.')
@@ -58,7 +58,25 @@ test.describe('a review', () => {
 
     const reviewer = await enterReview(page, browser)
     const shown = reviewer.getByRole('region', { name: 'Smith\'s note' })
-    await expect(shown).toContainText('Theme: princes.\n\nMeta: their initials.', { useInnerText: true })
+    const fold = shown.getByRole('button', { name: 'Show the smith\'s note in full' })
+    const body = reviewer.locator(`[id="${await fold.getAttribute('aria-controls') ?? 'no id'}"]`)
+    const bodyHt = async () => await body.evaluate((para) => para.clientHeight)
+    const oneLine = async () => await body.evaluate((para) => Number(getComputedStyle(para).lineHeight.replace(/px$/, '')))
+
+    // Folded to start with: one line, the paragraphs run together and cut short with an ellipsis
+    await expect(fold).toHaveAttribute('aria-expanded', 'false')
+    await expect(body).toHaveCSS('text-overflow', 'ellipsis')
+    await expect.poll(bodyHt).toBe(Math.round(await oneLine()))
+    await expect(body).toContainText('Theme: princes. Meta: their initials.', { useInnerText: true })
+
+    // Unfolded by its triangle, the whole note; folded by it again, one line
+    await fold.click()
+    await expect(fold).toHaveAttribute('aria-expanded', 'true')
+    await expect(body).toContainText('Theme: princes.\n\nMeta: their initials.', { useInnerText: true })
+    await expect.poll(bodyHt).toBeGreaterThan(2 * await oneLine())
+    await fold.click()
+    await expect(fold).toHaveAttribute('aria-expanded', 'false')
+    await expect.poll(bodyHt).toBe(Math.round(await oneLine()))
 
     await note.fill('')
     await page.getByLabel('Quiz name').click()
