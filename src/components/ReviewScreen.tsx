@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { Box, Button, Paper, Stack, TextField, ToggleButton, Typography, useMediaQuery } from '@mui/material'
 import type { Doc } from '../../convex/_generated/dataModel'
 import { useDraft } from './use-draft'
+import { FoldButton } from './FoldButton'
 import { AnswerLock } from './cells/answer-lock'
 import { ButnotFull } from './cells/chain'
 import { NumberField } from './cells/fields'
@@ -31,7 +32,7 @@ export type ReviewScreenProps = {
 }
 
 /**
- * What a reviewer sees: the smith's note, in full, when there is one; the quiz's questions,
+ * What a reviewer sees: the smith's note, folded to its first line, when there is one; the quiz's questions,
  * read-only, each with its chained BUT NOT, the reviewer's verdict on it, and its answer behind a
  * lock; then an overall note, and a button to share it all with the smiths. Once theirs is shared, what the other reviewers have shared
  * appears below it; until then, a line says so.
@@ -58,12 +59,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
       <Box sx={{ maxWidth: { xs: 760, lg: 1440 }, mx: 'auto' }}>
         <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — PLAYTESTING</Typography>
         {saveNotice && <p className={styles.microcopy} role="status">{saveNotice}</p>}
-        {quiz.smiths_note === '' ? null : (
-          <Paper variant="outlined" component="section" aria-label="Smith's note" sx={{ p: 2, mt: 2 }}>
-            <Typography variant="overline" component="h2">Smith&apos;s note</Typography>
-            <Typography sx={{ whiteSpace: 'pre-wrap' }}>{quiz.smiths_note}</Typography>
-          </Paper>
-        )}
+        {quiz.smiths_note === '' ? null : <SmithsNoteReading key={quiz._id} note={quiz.smiths_note} />}
         <Stack spacing={2} sx={{ my: 3 }}>
           {questions.map((question) => (
             <ReviewQuestionRow
@@ -111,6 +107,25 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
         </Box>
       </Box>
     </main>
+  )
+}
+
+/**
+ * The smith's note as a reviewer reads it, under a heading with its fold triangle. It starts
+ * folded to one line, its paragraphs run together and cut off with an ellipsis; unfolded, it is
+ * the whole note, paragraphs and all. Only the triangle folds or unfolds it.
+ */
+function SmithsNoteReading({ note }: Readonly<{ note: string }>) {
+  const noteId = useId()
+  const [open, setOpen] = useState(false)
+  return (
+    <Paper variant="outlined" component="section" aria-label="Smith's note" sx={{ p: 2, mt: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', ml: -1.5 }}>
+        <FoldButton size="medium" open={open} onOpenChange={setOpen} label="Show the smith's note in full" controls={noteId} />
+        <Typography variant="overline" component="h2">Smith&apos;s note</Typography>
+      </Box>
+      <Typography id={noteId} noWrap={! open} sx={open ? { whiteSpace: 'pre-wrap' } : undefined}>{note}</Typography>
+    </Paper>
   )
 }
 
