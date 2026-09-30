@@ -5,10 +5,10 @@ import { Box, Tab, Tabs } from '@mui/material'
 import { Panel } from './Panel'
 import styles from '../workbench.module.css'
 
-/** One tab of a tabbed panel: its name on the tab, the microcopy that opens it, and what it holds */
+/** One tab of a tabbed panel: its name on the tab, the microcopy that opens it if any, and what it holds */
 export type PanelTab = {
   label:   string
-  blurb:   string
+  blurb?:  string
   content: ReactNode
 }
 
@@ -44,7 +44,7 @@ export function TabbedPanel({ title, blurb, tabs }: Readonly<TabbedPanelProps>) 
       </Tabs>
       {tabs.map((tab, ii) => (
         <Box key={tab.label} role="tabpanel" hidden={ii !== shownIdx} id={sectionId(ii)} aria-labelledby={tabId(ii)} sx={{ pt: 1 }}>
-          <p className={styles.microcopy}>{tab.blurb}</p>
+          {tab.blurb === undefined ? null : <p className={styles.microcopy}>{tab.blurb}</p>}
           {tab.content}
         </Box>
       ))}

@@ -2,9 +2,9 @@
 
 import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
-import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { ReviewsPanel } from './ReviewsPanel'
+import { TabbedPanel } from './TabbedPanel'
 import * as Labelmaker from '../../lib/labelmaker'
 import { PromptTemplates } from '../../lib/ask/prompts'
 import type { ExpressedForQuiz } from '../../lib/expressed'
@@ -37,17 +37,14 @@ export function Panels({ quiz, hunt, realm, ident, reviews, expressed, carryOut,
 
       <ExportImportPanel quiz={quiz} hunt={hunt} expressed={expressed} onImport={onImport} />
 
-      <Panel
+      <TabbedPanel
         title="Prompts used"
         blurb="Exactly what is sent when you ask, placeholders and all. You are spending your own model usage on these and reading the answers as evidence about your own questions, so here they are."
-      >
-        {PromptTemplates.map((template) => (
-          <div key={template.title}>
-            <p className={styles.microcopy}><b>{template.title}</b></p>
-            <ReadonlyBox label={`Prompt: ${template.title}`} text={template.body} rows={7} />
-          </div>
-        ))}
-      </Panel>
+        tabs={PromptTemplates.map((template) => ({
+          label:   template.title,
+          content: <ReadonlyBox label={`Prompt: ${template.title}`} text={template.body} rows={14} />,
+        }))}
+      />
     </div>
   )
 }

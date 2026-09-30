@@ -54,7 +54,7 @@ ${IshRules}
 
 Reply with only a JSON array with one entry per item above, in the same order, each shaped {"key": string (copied exactly from its [key] tag), "items": [{"text": string, "value": number, "kind": "numeral" | "wordish"}]}. No other text.`
 
-/** Every template, in the order the Prompts used panel shows them */
+/** Every template, in the order the Prompts used panel shows them, one to a tab */
 export const PromptTemplates = [
   { title: 'Quick-model guess',                 body: QuickGuessPrompt },
   { title: 'Clueing ishes',                     body: ClueingIshesPrompt },
