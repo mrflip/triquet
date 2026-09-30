@@ -2,6 +2,19 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: LL Export, and the export/import and prompts panels as tabs (#41, #42, #43)
+
+* **LL Export** follows the sheet's formula: `rank|body|full answer|notes$$` per question. The alt
+  text is left out, as the formula skips that column. A question with no Q# is exported last with
+  a blank number, as Renumber leaves it.
+* **Blank questions** (no Q#, no text) export as `|||$$`; the league's side filters them out.
+* **Markdown** is read by `mdast-util-from-markdown` (already in the tree through `@next/mdx`, now
+  a direct dependency, listed in `notes/stack.md`). A line indented four spaces is read as a quote
+  (`^    ` → `> `) rather than a code block, so its emphasis converts, and every quote marker is
+  written back out as four spaces: `>  foo` and `     foo` both export as five spaces and `foo`.
+* **TabbedPanel** (MUI Tabs) keeps hidden tabs mounted, so a prepared Raw Export or a half-pasted
+  Import survives a look at another tab. The e2e specs bring a tab forward with `showTab`.
+
 ## 2026-09-29: No test can call Anthropic; the ask route now needs ENABLE_ANTHROPIC_BOT=allow
 
 * **Before you deploy this: set `ENABLE_ANTHROPIC_BOT=allow`** in Doppler's `prd` (and in `dev`
