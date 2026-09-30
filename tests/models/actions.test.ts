@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
+import type { Id } from '../../convex/_generated/dataModel'
 import { ActionValidators, isLayoutAction, isReviewAction, LayoutActionKindVals, ReviewActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
@@ -89,6 +90,16 @@ describe('ActionValidators.accountAction', () => {
   it('takes becoming an ident, retitling it, and making a hunt', () => {
     const actions: AccountActionT[] = [{ kind: 'assume_ident', label: 'flip_kromer', title: '' }, { kind: 'retitle_ident', title: 'Flip' }, { kind: 'new_hunt', label: 'quiet_otter' }]
     expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
+  })
+
+  it('takes retitling and relabelling a hunt, named by its id', () => {
+    const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
+    const actions: AccountActionT[] = [{ kind: 'retitle_hunt', hunt_id, title: 'The Autumn Hunt' }, { kind: 'relabel_hunt', hunt_id, label: 'autumn_hunt' }]
+    expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
+  })
+
+  it('refuses relabelling a hunt to something that is not a label', () => {
+    expect(() => ActionValidators.accountAction({ kind: 'relabel_hunt', hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f82aa', label: 'Autumn Hunt' })).to.throw(Z.ZodError)
   })
 
   it('refuses an ident label too short to be one', () => {

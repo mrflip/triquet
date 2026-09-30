@@ -86,8 +86,10 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: str }),
     obj({ kind: lit('retitle_ident'), title: IdentValidators.title }),
     obj({ kind: lit('new_hunt'),      label }),
+    obj({ kind: lit('retitle_hunt'),  hunt_id: zid('hunts'), title: titleish }),
+    obj({ kind: lit('relabel_hunt'),  hunt_id: zid('hunts'), label }),
   ])
-    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, and make a hunt.')
+    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle or relabel one they smith.')
 
   return { open, huntAction, accountAction }
 })

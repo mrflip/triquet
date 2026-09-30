@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import { mayChangeHunt, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
+import { mayActOnAccount, mayChangeHunt, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
 import { identForLabel, reviewFor } from '../../convex/reading'
 import { Hunt } from '../../src/models/hunt'
 import { mintId } from '../../src/lib/ids'
@@ -73,6 +73,30 @@ describe("the rules", () => {
     expect(await readers()).to.deep.eq([true, true, true, false])
     await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave.browser_key)
     expect(await readers()).to.deep.eq([true, true, false, false])
+  })
+})
+
+describe("mayActOnAccount", () => {
+  it("lets only a smith retitle or relabel a hunt, and anyone take the actions that name none", async () => {
+    const { tt, open, alice, bob, carol } = await peopled()
+    const actions = [
+      { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' },
+      { kind: 'relabel_hunt', hunt_id: open.hunt_id, label: 'mine_now' },
+      { kind: 'new_hunt',     label: 'loud_heron' },
+    ] as const
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ ident_id }) => (
+      await Promise.all(actions.map(async (action) => await mayActOnAccount(ctx.db, ident_id, action)))
+    ))))
+    expect(verdicts).to.deep.eq([
+      [true,  true,  true],
+      [false, false, true],
+      [false, false, true],
+    ])
+  })
+
+  it("lets nobody retitle a hunt from a browser that has not said who it is", async () => {
+    const { tt, open } = await peopled()
+    expect(await tt.run(async (ctx) => await mayActOnAccount(ctx.db, null, { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' }))).to.eq(false)
   })
 })
 

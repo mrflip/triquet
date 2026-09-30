@@ -1,9 +1,10 @@
 import { ValidatorKit } from '../src/lib/validator'
-import { refusingInvalid } from '../src/lib/refusals'
+import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
 import { IdentingValidators } from '../src/models/identing'
 import type { IdentT } from '../src/models/ident'
 import { zMutation, zQuery } from './functions'
+import { mayActOnAccount } from './authorize'
 import { identFor } from './reading'
 import { performAccount as performAccountAction } from './writing/account_actions'
 
@@ -19,15 +20,20 @@ export const current = zQuery({
 })
 
 /**
- * Carry out what a visitor did before opening any quiz: take on an ident, retitle it, or make a
- * hunt. See `writing/account_actions`.
+ * Carry out what a visitor did before opening any quiz: take on an ident, retitle it, make a
+ * hunt, or retitle or relabel a hunt they smith (`authorize`). See `writing/account_actions`.
  *
- * @returns The ident taken on or retitled, or the hunt made.
- * @throws A `ConvexError` whose data is a refusal (`lib/refusals`), or `{ ZodError }` for an
- *   argument that is not valid; nothing is written.
+ * @returns The ident taken on or retitled, or the hunt made or changed.
+ * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notIdentified` for a hunt
+ *   named by a browser that has not said who it is, `notPermitted` for one its ident may not
+ *   change), or `{ ZodError }` for an argument that is not valid; nothing is written.
  */
 export const performAccount = zMutation({
   args:    { action: ActionValidators.accountAction, browser_key: IdentingValidators.browserKey },
   returns: zod.union([zid('idents'), zid('hunts')]),
-  handler: async (ctx, { action, browser_key }) => await refusingInvalid(async () => await performAccountAction(ctx.db, browser_key, action)),
+  handler: async (ctx, { action, browser_key }) => await refusingInvalid(async () => {
+    const ident = await identFor(ctx.db, browser_key)
+    if (! await mayActOnAccount(ctx.db, ident?._id ?? null, action)) { refuse(ident ? 'notPermitted' : 'notIdentified') }
+    return await performAccountAction(ctx.db, browser_key, action)
+  }),
 })
