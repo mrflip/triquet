@@ -1,7 +1,7 @@
 # Sprint misc: miscellaneous tasks
 
 Date: 2026-09-30. Issued by the Coach (Flip). Mode: **normal**. Review level: **medium**.
-**Status:** threads 1 (#58), 2 (#60) and 3 (#61) done; thread 4 underway. #54 merged mid-sprint.
+**Status:** threads 1 (#58), 2 (#60) and 3 (#61) done; thread 4 underway, thread 5 queued. #54 and #57 merged mid-sprint.
 
 The Coach issued three threads at once, sent a fourth soon after, and will send more as the sprint runs. Each new
 thread is added below, in the order it arrives.
@@ -158,6 +158,42 @@ quiz's name*, notes that formulas don't see the note yet.
 
 **Look-ahead.** Nothing in threads 1 to 3 touches formulas, so this thread is independent
 of them. It stacks after thread 3 all the same.
+
+### 5. Uniformly chai: the property style, with lint that allows it
+
+> I prefer the .to.be.true style, so let's be uniformly chai -- replace.to.eq(true) (and null,
+> undefined, false) with the .to.be.xxx form in the codebase. Does valid-expect take an
+> exception? Research lightly what people do -- maybe there's an eslint plugin for the vitest
+> chai helpers?
+
+**Gloss.** The Coach decided against thread 1's recommendation. The research is done:
+`vitest/valid-expect` has no exception option (only `alwaysAwait`, `asyncMatchers`, `minArgs`,
+`maxArgs`), there's no vitest-specific plugin, and chai users turn to two general plugins.
+`whiteboard/20260930-misc/chai-in-vitest.md` is the background, its option 2 the starting
+point.
+
+* **Lint, block `triquet/tests` in `eslint.config.mjs`.** Turn `vitest/valid-expect` off.
+  Add `eslint-plugin-chai-expect`: `missing-assertion`, `terminating-properties`,
+  `no-inner-compare`, `no-inner-literal`, and `no-uncalled-method` with the method names we
+  use (`eq`, `equal`, `eql`, `include`, `match`, `lengthOf`, `property`, `oneOf`, `callCount`,
+  `calledWith`, `throw`...). Derive the list from the tests, not from memory. Add
+  `eslint-plugin-chai-friendly`, whose `no-unused-expressions` replaces the blanket `off` we
+  have now. Check both against flat config and ESLint's current major before settling. List
+  both in `notes/stack.md` (Library-first: widely used, lint-only, doesn't leave vitest).
+  **Prove the guards**: a throwaway test where `expect(x).to.eq` is left uncalled and a bare
+  `expect(x)` must both fail lint, then delete it. Record whatever the new setup no longer
+  catches.
+* **The sweep.** `.to.eq(true)` → `.to.be.true`, and the same for `false`, `null` and
+  `undefined`, everywhere in `tests/` and `e2e/` (thread 1 counted 166). Don't touch
+  `.to.eq(x)` for any other value. The rest of thread 1's table (`lengthOf(0)` → `.empty`,
+  `callCount(n)` → `.called`, jest-style spy matchers) is **not** asked for: leave it, and
+  list it as a question in *For the Coach*. A codemod or `sed` is fine if the diff is
+  reviewed and the suites pass.
+* **Documents.** `notes/testing.md` line 17 keeps `to.be.true` and gains a sentence on the
+  lint setup. Correct `chai-in-vitest.md`'s recommendation with a line saying the Coach chose
+  the property style.
+
+**Look-ahead.** This runs last, so its sweep covers thread 4's tests as well.
 
 ## For the Coach
 
