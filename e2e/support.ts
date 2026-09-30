@@ -63,6 +63,11 @@ export function faceOf(within: Locator): Locator {
   return within.locator('[data-face]')
 }
 
+/** The element a text box sits in, which holds whatever is drawn over it: its rendered face, for one */
+export function holderOf(field: Locator): Locator {
+  return field.locator('..')
+}
+
 /**
  * The values of every field `fields` resolves to, top to bottom, at this instant.
  *

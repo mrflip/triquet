@@ -1,9 +1,11 @@
 'use client'
 
+import { useId, useState } from 'react'
 import { Box, IconButton, InputBase, TextField } from '@mui/material'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import clsx from 'clsx'
 import { useDraft } from './use-draft'
+import { FoldButton, openOnEntry } from './FoldButton'
 import { MarkdownFace, veiledIf } from './cells/markdown'
 import { AppNotices } from '../lib/notices'
 import styles from './workbench.module.css'
@@ -24,13 +26,19 @@ export type QuizHeaderProps = {
 /**
  * The quiz's name, as wide as what it says and growing as it is typed into; the gear that opens
  * the rest of the quiz's settings; the two pills that only appear when they have something to
- * say; and, filling the rest of the row, the smith's note, which grows to several paragraphs
- * before it scrolls, and shows its markdown rendered until it is typed into.
+ * say; and, filling the rest of the row, the smith's note, which shows its markdown rendered
+ * until it is typed into.
+ *
+ * The note starts folded to its first line, beside the name. Its triangle unfolds it, and so
+ * does clicking or tabbing into it; unfolded, it grows to several paragraphs before it scrolls,
+ * and stays unfolded until its triangle folds it again.
  */
 export function QuizHeader({ title, smithsNote, locked, saveNotice, onRetitle, onSmithsNote, onManage }: Readonly<QuizHeaderProps>) {
   // The quiz name is the one field that updates live rather than on blur.
   const { draft, onChange, onBlur } = useDraft(title, onRetitle)
   const note = useDraft(smithsNote, onSmithsNote)
+  const noteId = useId()
+  const [noteOpen, setNoteOpen] = useState(false)
 
   return (
     <Box component="header" sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mt: 0.5, mb: 2 }}>
@@ -68,19 +76,25 @@ export function QuizHeader({ title, smithsNote, locked, saveNotice, onRetitle, o
         {locked ? <span className={clsx(styles.pill, styles.pillWarn)}>Locked</span> : null}
         {saveNotice ? <span className={clsx(styles.pill, styles.pillBad)} role="status">{saveNotice}</span> : null}
       </Box>
-      <TextField
-        label="Smith's note"
-        multiline
-        minRows={1}
-        maxRows={SmithsNoteMaxRows}
-        size="small"
-        value={note.draft}
-        placeholder={AppNotices.smithsNoteBlank}
-        onChange={(event) => { note.onChange(event.target.value) }}
-        onBlur={note.onBlur}
-        slotProps={{ input: { readOnly: locked, endAdornment: <MarkdownFace inInput text={note.draft} /> }, htmlInput: { className: veiledIf(note.draft) } }}
-        sx={{ flex: '1 1 320px', minWidth: 'min(320px, 100%)', mt: 0.75 }}
-      />
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', flex: '1 1 320px', minWidth: 'min(320px, 100%)', mt: 0.75 }}>
+        <FoldButton size="medium" open={noteOpen} onOpenChange={setNoteOpen} label="Show the smith's note in full" controls={noteId} />
+        <TextField
+          id={noteId}
+          label="Smith's note"
+          multiline
+          minRows={1}
+          maxRows={noteOpen ? SmithsNoteMaxRows : 1}
+          size="small"
+          value={note.draft}
+          placeholder={AppNotices.smithsNoteBlank}
+          onChange={(event) => { note.onChange(event.target.value) }}
+          onFocus={openOnEntry(() => { setNoteOpen(true) })}
+          onBlur={note.onBlur}
+          slotProps={{ input: { readOnly: locked, endAdornment: <MarkdownFace inInput text={note.draft} /> }, htmlInput: { className: veiledIf(note.draft) } }}
+          // Folded, the rendered face still stands as tall as the whole note, and would scroll.
+          sx={{ flex: 1, ...(! noteOpen && { '& [data-face]': { overflowY: 'hidden' } }) }}
+        />
+      </Box>
     </Box>
   )
 }
