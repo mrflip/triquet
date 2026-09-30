@@ -193,15 +193,6 @@ describe('hunts.perform', () => {
       expect(openOf(await read()).smiths_note).to.eq('Theme: princes.\n\nMeta: their initials.')
     })
 
-    it('gives a quiz written before it had a note the one set, when any edit reaches it', async () => {
-      const { tt, act, open, read } = await seed(openHunt())
-      await tt.run(async (ctx) => { await ctx.db.patch('quizzes', open.quiz_id, { smiths_note: undefined }) })
-      expect(openOf(await read()).smiths_note).to.eq('')
-      await act({ kind: 'retitle_quiz', title: 'Quiz two' })
-      const row = await tt.run(async (ctx) => await ctx.db.get('quizzes', open.quiz_id))
-      expect(row?.smiths_note).to.eq('')
-    })
-
     it('refuses while the quiz is locked', async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
