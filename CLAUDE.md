@@ -172,11 +172,15 @@ History on main is semi-linear. Read `notes/git_hygiene.md` before any complicat
 
 Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and replay however helps, and tidy up before pushing.
 
-1. **Start** a new line of work with `pnpm newb <branchlabel>`. It branches `YYYYMMDD-<branchlabel>`
-   from where you stand, uncommitted changes and all. Continuing the current thread needs no new branch.
+1. **Start** a new line of work by tidying the stack you stand on: `git fetch origin && git rebase
+   --update-refs origin/main`. That replays every unmerged branch beneath you (yours or not) onto main,
+   in order; merged ones drop out. Then `pnpm newb <branchlabel>`, which branches `YYYYMMDD-<branchlabel>`
+   from where you stand. Push only branches you own. If the rebase refuses (uncommitted changes) or
+   conflicts, abort it, `newb` where you stand, and tell the Coach. Continuing the current thread needs
+   no new branch.
 2. **Commit at natural milestones**: a set of related changes, with the app working again (typecheck,
    lint and the tests near your change pass). Not mid-refactor, not on a timer. Separate commits are preferred.
-3. **Finish** with `git fetch origin && git rebase origin/main`, then the full suite: `pnpm typecheck
+3. **Finish** with `git fetch origin && git rebase --update-refs origin/main`, then the full suite: `pnpm typecheck
    && pnpm lint && pnpm test && pnpm test:e2e`. Repair what is straightforward; if a conflict needs a
    judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
 4. **Push, and file the PR** against `main` with `gh pr create` (a push borrows gh's login: see
