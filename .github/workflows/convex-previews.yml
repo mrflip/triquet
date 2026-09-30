@@ -1,0 +1,36 @@
+name: Convex previews
+
+# A pull request's Convex preview deployment (made by its Vercel build, named for its branch) is
+# deleted when the pull request closes, merged or not. Left alone it would linger until it
+# expires, counting against the team's deployment limit all the while. Run by hand to delete the
+# preview of a branch that never had a pull request.
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: The branch whose preview deployment to delete
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  prune:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .tool-versions
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The branch goes in by the environment, never spliced into the command: a branch name is
+      # whatever its pusher typed. The key is a preview deploy key, which reaches only previews.
+      - run: node scripts/convex-previews.ts prune "$BRANCH"
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref || inputs.branch }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_PRUNER_KEY }}
