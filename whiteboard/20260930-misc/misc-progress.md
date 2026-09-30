@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1 to 5 done; thread 6 queued.
+**Status:** threads 1 to 5 done; thread 6 underway.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -81,6 +81,12 @@ Branch `20260930-chai_property_style`, PR #64, stacked on #63. Suites: typecheck
     has two guards, and thread 1's table was wrong to say only `valid-expect` catches them.
     Keep chai-expect all the same: sonar's list is its own, and chai-expect's is ours to extend.
   - `no-inner-literal` refuses `expect(null)` and similar literal subjects. None in the tests.
+* *Review:* **clean**, nothing fixed. The reviewer re-derived all 164 swept lines mechanically
+  and matched them exactly (57 false, 54 null, 43 true, 10 undefined, 2 `.not.be.null`); no
+  `.not` flipped, nothing under `.deep` touched. It confirmed from chai-expect's source that
+  `ChaiMethods` and `ChaiTerminators` add to the plugin's defaults. Left, minor, already
+  recorded: an uncalled method off the list, a chain stopped mid-sentence (`expect(x).to.be`),
+  and a property after `resolves`/`rejects` all go unflagged.
 * **For the Coach**:
   - **Two installs, Library-first**: `eslint-plugin-chai-expect` and `eslint-plugin-chai-friendly`,
     dev-only and lint-only, listed in `notes/stack.md`.

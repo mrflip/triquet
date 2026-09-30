@@ -1,7 +1,7 @@
 # Sprint misc: miscellaneous tasks
 
 Date: 2026-09-30. Issued by the Coach (Flip). Mode: **normal**. Review level: **medium**.
-**Status:** threads 1-4 done (#58 and #60 merged; #61, #63 open); thread 5 underway, thread 6 queued.
+**Status:** threads 1-5 done (#58 and #60 merged; #61, #63, #64 open); thread 6 underway.
 
 The Coach issued three threads at once, sent a fourth soon after, and will send more as the sprint runs. Each new
 thread is added below, in the order it arrives.
