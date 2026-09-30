@@ -3,18 +3,68 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** thread 1 done; thread 2 underway.
+**Status:** threads 1 and 2 done.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
 | 1 | Chai in vitest: what's missing | complete | `20260930-chai_in_vitest` | #58 |
-| 2 | Hard-to-miss alert for major problems | pending | | |
+| 2 | Hard-to-miss alert for major problems | complete | `20260930-failure_snackbar` | #60 |
 | 3 | e2e against a production build | pending | | |
 | 4 | Formulas see the smith's note, hunt and realm | pending | | |
 
 *Orchestrator:* thread 3's "production" means the optimized build mode only (`next build`
 / `next start`), never live keys or the production deployment -- the Coach's clarification is
 in the plan, under thread 3.
+
+## Thread 2: A hard-to-miss alert for major problems (2026-09-30)
+
+Branch `20260930-failure_snackbar`, PR #60, stacked on #58. Suites: typecheck and lint clean,
+unit 2237/2237, e2e 187/187 (run on the `e2e-agent` role, `pnpm test:e2e:agent`).
+
+* **Built**: an **alarm**, the app's one surface for a failure the author has to see.
+  - `src/lib/alarms.ts`: `AlarmT` (headline, notice, request_id) and `Alarms.of(headline, err)`.
+  - `src/state/alarms.tsx`: `AlarmsProvider`, `useRaiseAlarm()` (the seam) and `useAlarm()`.
+    These are the codebase's first React contexts. There are two of them, so a hook that only
+    raises doesn't re-render when an alarm comes or goes.
+  - `src/components/AlarmSnackbar.tsx`: MUI `Snackbar` plus a filled error `Alert`, fixed at the
+    bottom centre. It is dismissed only by its close button.
+  - `Providers` (`src/app/providers.tsx`) mounts both around every page.
+  - Fed by `useHunt`: every refused change, plus a change not sent because the quiz wasn't open
+    yet. That case used to be a console warning only.
+  - `carryOut(action, { quietly: true })` opts out; AddMember uses it.
+  - Failed `AccountOutcome`s carry an `alarm`, which `HuntsList` raises (new hunt, retitle ident).
+  - Removed: `ReviewScreen`'s status line and `QuizHeader`'s red pill (`saveNotice` props gone),
+    and `HuntsList`'s inline notice.
+  - Docs: *alarm* is in `notes/vocabulary.md`, and `notes/views.md` has a paragraph on where a
+    failure is said.
+* **Decisions taken**:
+  - **Snackbar, not an Alert pinned beside Share**: the Snackbar is on every screen, not just
+    the review screen.
+  - **No notistack, no queue**: one alarm at a time, the latest replacing what's showing. The
+    latest is about what the author just did. notistack is still unlisted in `notes/stack.md`.
+  - **Dismissal**: no clickaway, no Escape, no timer. A later success doesn't take it down
+    either, since the lost change is still lost.
+  - **Inline vs alarm**: a page-level notice was replaced. A notice beside the field it is
+    about stays: AddMember, the Edit hunt dialog and the ident gate.
+  - `saveNotice` stays in `HuntHandle` for the members panel and `OpeningNotice`.
+* **Discoveries**:
+  - **No e2e spec asserted on `saveNotice`.** `failures.spec.ts`'s sentence is the recalculate
+    notice (`runNotice`), a different path I left alone. `failures.spec.ts:63` passed in this run.
+  - **Next's route announcer is a `role="alert"`** on every page. Find an alarm by its text
+    (`getByRole('alert').filter({ hasText: AppNotices.changeNotKept })`), never by bare role.
+  - **A reliable way to make the server refuse a save in e2e**: hold a draft in a field, lock
+    the quiz from a second tab of the same context (`page.context().newPage()`, the same
+    smith), wait for *Locked*, then blur. `useDraft` commits on blur even once the field is
+    read-only. See `e2e/alarms.spec.ts`.
+  - After that refusal, the field still shows the refused text until reload. Arguably the draft
+    should revert; not touched.
+  - An MUI modal marks the rest of the page `aria-hidden`, so an alarm raised under an open
+    dialog is seen but not announced.
+  - `--update-refs` also rebased the local `20260930-chai_in_vitest` onto the merged #54. I did
+    not push it.
+* **For the Coach**: placement (bottom centre), Escape not dismissing, and the alarm outliving a
+  later success are each one-line changes if you'd rather otherwise. They are also in
+  HUMAN-whatsup and on #60.
 
 ## Thread 1: Chai in vitest (2026-09-30)
 
