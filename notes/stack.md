@@ -216,6 +216,14 @@ agrees to another.
   React Aria**. Those behaviours are what react-aria's `useTable`/`useGridList` exist for, and
   hand-rolling them would be exactly what the Library-first rule forbids. That shift would
   reopen the bespoke-grid decision above, so it is a conversation with a Coach, not a refactor.
+* **The grid's folded rows are a small hook too, for the same reason.** Approved by a Coach
+  Sept 2026. `useFolds` (`src/components/use-folds.ts`) holds a set of folded question ids beside
+  the table, which forgets it when the quiz changes. The corner's triangle follows MUI X's
+  expand-all convention: anything open, it folds every row; nothing open, it unfolds them all.
+  `@react-stately/disclosure`'s `useDisclosureGroupState` would own only the set, has no
+  expand-all, and brings `react-stately` with it. The line above holds here too: if folding
+  grows keyboard control of its own, or wants the folds kept across a reload, weigh a library
+  before extending the hook.
 
 ## Later, i.e when we get there
 

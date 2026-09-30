@@ -2,7 +2,70 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
-## 2026-09-30: Sprint foldable_ui paused before thread 4
+## 2026-09-30: Sprint foldable_ui done: fold triangles on the smith's note and the grid
+
+* **The sprint in a paragraph.** A fold triangle (`FoldButton`, MUI's `IconButton` swapping
+  `ArrowRight`/`ArrowDropDown`, `aria-expanded`) now folds the smith's note beside the quiz name,
+  the note on the playtesting screen, and the question grid. No new package: thread 1 found MUI's
+  own pieces enough. Fold state is plain React state, never in Convex, reset per quiz. The grid
+  starts folded (a folded row is 58px), focusing a text box opens its row, new questions arrive
+  open, and the corner triangle follows MUI X's fold-all rule: anything open, fold all; nothing
+  open, unfold all. Your tri-state contract's clicks all behave as you wrote them; only the
+  "mixed" face is gone, as your note allowed. Below 640px every row stays open.
+* **PRs, in stack order** (land the top, #59, to take them all as a unit, or one at a time):
+  #55 fold machinery findings (docs only) · #56 `FoldButton` and the editable note, stacked on
+  #55 · #57 the playtesting note, stacked on #56 · #59 the grid, stacked on #57. All green
+  (e2e 190). The stack was rebased onto main after #54 landed; every lower commit replayed
+  unchanged, and the orchestrator force-pushed the three lower branches with a lease to match.
+* **Decisions you made in chat:** the playtesting note folds too; the grid's fold-set hook
+  (`useFolds`) is a small hand-roll like `useChecklist`, recorded in `notes/stack.md`.
+* **Open, minor:**
+  - The triangle glyph: flagged as small; thread 4 judged it the same weight as the batch icon in
+    the corner. A bigger one is a one-line change in `FoldButton`.
+  - Opening on focus uses `onFocus` (on the note and on each grid `<tr>`), one of `notes/views.md`'s
+    tripwires; taken as within your ask. Thread 4 listed `useFolds` among views.md's closed tripwires.
+  - Fold state does not survive a reload.
+  - The playtesting note starts folded; starting it open is one word (`SmithsNoteReading`).
+  - Local tag `prerebase/20260930-fold_grid` marks thread 4's pre-rebase tip; delete it once #59 lands.
+
+## 2026-09-30: `.to.be.true` -- vitest supports it, the lint rule refuses it
+
+* **Answers the *Lint vs notes/testing.md* bullet** under *Playtest failures*. Vitest 5 runs
+  chai's property assertions (`to.be.true`, `.null`, `.empty`) correctly. Only
+  `vitest/valid-expect` refuses them, and it has no option to allow them. No package fixes
+  this. The full survey is `whiteboard/20260930-misc/chai-in-vitest.md`.
+* **Your call**: I recommend keeping the rule and changing `notes/testing.md` line 17 to say
+  `to.eq(true)`. The check that refuses `.to.be.true` is the same one that catches
+  `expect(x).to.eq` with no call, which otherwise passes silently. The tests already use
+  `.to.eq(true)` 166 times. Optionally, file an upstream issue on
+  `vitest-dev/eslint-plugin-vitest` asking the rule to learn chai's terminating properties.
+
+## 2026-09-30: Sprints review themselves -- a thread-reviewer after every thread
+
+* **A `thread-reviewer` agent** (`.claude/agents/thread-reviewer.md`) now follows each
+  `complete` worker in a sprint. It stands on the worker's branch and runs
+  `/code-review <level> --fix <beneath>...HEAD` -- the thread's own commits, since the PR's
+  diff against main would re-review every thread beneath it -- then reads each fix `--fix`
+  left in the tree, keeps only what it can explain in a sentence and that stays within what
+  the thread built, proves the suites, and appends `fix:` commits to the same branch and PR
+  with a summary comment on the PR. It never rebases, amends, force-pushes, edits the sprint's
+  documents, or acts on a finding that would change the thread's design: those come back
+  `flagged`.
+* **The orchestrator** (`/sprint`) spawns it foreground between the worker and its own
+  document commit, relays both reports verbatim, records a `*Review:*` line under the
+  thread's progress section, and treats `flagged` like a blocking question: in YOLO it may
+  resume the worker once and re-review the new commits; otherwise it pauses. The plan
+  header records the review level; the Coach sets it at invocation (`medium` by default,
+  `none` to skip). `pre-thread` now reports the branch it stood on, since the range needs it.
+* **Argument order matters**: the built-in skill wants `/code-review medium --fix <target>`,
+  level first, and reuses whatever level was typed last when none is given -- so the reviewer
+  always spells it out. `--fix` leaves its edits uncommitted, which is what lets the reviewer
+  judge them one by one.
+* **Not done**: no sprint has run with this yet. The first one will tell us whether `medium`
+  is the right default (it favours fewer, high-confidence findings) and whether the e2e rule
+  (run unless every kept fix sits in `src/lib`, `src/models` or `tests/`) is too eager.
+
+## 2026-09-30: Sprint foldable_ui paused before thread 4 (resumed and finished: see above)
 
 * **Where it stands.** Threads 1-3 are done, each a PR stacked on the one before, none merged:
   #55 (fold machinery findings, docs only), #56 (`FoldButton`; the editable smith's note folds,

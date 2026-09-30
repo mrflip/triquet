@@ -5,6 +5,7 @@ import { Checkbox, IconButton } from '@mui/material'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import clsx from 'clsx'
 import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
+import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { ExpressedReadout } from './cells/readouts'
 import * as Expressed from '../lib/expressed'
@@ -30,6 +31,9 @@ const WideReadoutPx = 150
 /** Shortest a row may be, so an empty quiz still reads as a grid */
 export const RowFloorPx = 56
 
+/** The height a folded row gives every cell: one line of the grid's own box */
+export const FoldedRowPx = 28
+
 export type QuestionRowProps = {
   question:    QuestionT
   /** Every question in the quiz, for the columns that read across them */
@@ -42,6 +46,10 @@ export type QuestionRowProps = {
   /** Asks to delete this question; the asking-first is the caller's */
   onDelete:    () => void
   resizeToken: number
+  /** Whether the row is folded, each of its boxes one line high until a text box in it is entered */
+  folded:      boolean
+  /** Opens the row, as the author clicks or tabs into one of its text boxes */
+  onUnfold:    () => void
   /** Where this question sits in the grid, and how many there are, so its grip can move it */
   idx:         number
   count:       number
@@ -69,8 +77,11 @@ export type QuestionRowProps = {
  * The Clueing and Hint boxes grow with their own content and the taller of the two sets the
  * height for both, capped; the notes columns are stretched to that same height but never get a
  * say in it, and the ishes columns are capped at it and scroll.
+ *
+ * Folded, every box is one line high and clips what it holds, and the boxes go on measuring
+ * themselves, so the row opens straight to the height it would have had.
  */
-export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
@@ -78,7 +89,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const { rowRef, handleRef, dragging, landing, onHandleKeyDown, onHandleBlur } = useReorderable({ listkey: QuestionListkey, itemkey: question._id, idx, count, disabled: ! grippable, onMove })
   const questionName = question.title || 'this question'
 
-  const heightPx = Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
+  const heightPx = folded ? FoldedRowPx : Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
   const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
   const chainTarget = questions.find((other) => other._id === question.chains_to) ?? null
@@ -188,7 +199,10 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
         dragging && styles.rowDragging,
         landing === 'top' && styles.rowDropAbove,
         landing === 'bottom' && styles.rowDropBelow,
+        folded && styles.rowFolded,
       )}
+      data-folded={folded || undefined}
+      onFocus={folded ? openOnEntry(onUnfold) : undefined}
     >
       <td className={styles.cell} style={{ width: `${String(GutterWidthPx)}px` }}>
         <div className={styles.gutter}>

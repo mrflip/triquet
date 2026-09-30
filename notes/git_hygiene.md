@@ -156,14 +156,17 @@ A **sprint** is an ordered series of threads issued at once and run back to back
 Coach at the wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a
 plan to `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs each thread in turn: a
 `pre-thread` agent does *Starting* (the tidy and the `newb`, repairing only the
-straightforward conflicts), and a fresh `thread-worker` agent owns the branch from there --
-build, the finishing rebase, push, PR -- each thread stacked on the one before, none merged
-until the Coach returns. The running handoff is `<sprint>-progress.md` beside the plan: every
-worker reads both before touching code and appends its section on finishing, and it is newer
-than the plan wherever they disagree. The orchestrator's procedure and its stop-or-continue
-rules are `.claude/skills/sprint/SKILL.md`; the workers' are `.claude/agents/pre-thread.md`
-and `.claude/agents/thread-worker.md`. Everything in this document binds a sprint's agents as
-it binds any other: a sprint changes who is watching, not what is allowed.
+straightforward conflicts), a fresh `thread-worker` agent owns the branch from there --
+build, the finishing rebase, push, PR -- and a `thread-reviewer` agent then runs `/code-review`
+over the thread's own commits, keeping the fixes it can stand behind as `fix:` commits appended
+to the same branch and PR, never rewriting the worker's. Each thread is stacked on the one
+before, none merged until the Coach returns. The running handoff is `<sprint>-progress.md`
+beside the plan: every worker reads both before touching code and appends its section on
+finishing, and it is newer than the plan wherever they disagree. The orchestrator's procedure
+and its stop-or-continue rules are `.claude/skills/sprint/SKILL.md`; the agents' are
+`.claude/agents/pre-thread.md`, `.claude/agents/thread-worker.md` and
+`.claude/agents/thread-reviewer.md`. Everything in this document binds a sprint's agents as it
+binds any other: a sprint changes who is watching, not what is allowed.
 
 ## Catching up with main
 

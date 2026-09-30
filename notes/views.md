@@ -41,8 +41,8 @@ the settled choice (below).
   focus handling, keyboard navigation, popovers, form state, virtualization, date math, parsing.
 
 A decision recorded under *Hand-rolled on purpose* in `notes/stack.md` closes the tripwire for
-that code: the question grid's bespoke `<table>` and the batch-mode selection hook are there.
-Don't re-flag one without a new reason.
+that code: the question grid's bespoke `<table>`, its batch-mode selection hook and its fold set
+are there. Don't re-flag one without a new reason.
 
 The same goes in reverse: hand-rolled code that a library should own is said in chat rather than
 extended. Flag it once, briefly, and only when already touching that code; don't propose
