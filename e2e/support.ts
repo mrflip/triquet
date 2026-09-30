@@ -201,7 +201,19 @@ export async function waitUntilSaved(page: Page): Promise<void> {
 }
 
 /**
- * Ask the Export box for the hunt once every change on screen has landed, and read what it holds.
+ * Bring the panel tab named `tabname` to the front: a hidden tab's contents cannot be found.
+ *
+ * @returns The tab's section, now showing.
+ */
+export async function showTab(page: Page, tabname: string): Promise<Locator> {
+  await page.getByRole('tab', { name: tabname, exact: true }).click()
+  const section = page.getByRole('tabpanel', { name: tabname, exact: true })
+  await expect(section).toBeVisible()
+  return section
+}
+
+/**
+ * Ask the Raw Export box for the hunt once every change on screen has landed, and read what it holds.
  *
  * The box reads the hunt only when asked, and empties again at the next change on screen, so an
  * export read before an edit has landed would be withdrawn by it.
@@ -210,8 +222,9 @@ export async function waitUntilSaved(page: Page): Promise<void> {
  */
 export async function preparedExport(page: Page): Promise<string> {
   await waitUntilSaved(page)
-  await page.getByRole('button', { name: 'Prepare export' }).click()
-  const exportBox = page.getByRole('textbox', { name: 'Export' })
+  const section = await showTab(page, 'Raw Export')
+  await section.getByRole('button', { name: 'Prepare export' }).click()
+  const exportBox = section.getByRole('textbox', { name: 'Raw Export' })
   await expect(exportBox).not.toHaveValue('')
   return await exportBox.inputValue()
 }

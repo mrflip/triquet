@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { type Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
-import { expect, openManage, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { expect, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 test('a quiz starts on the main version, and the author can move it to another', async ({ page }) => {
   await openManage(page)
@@ -162,6 +162,7 @@ test('an import is committed on either side, and tagged', async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
+  await showTab(page, 'Import')
   await page.getByRole('textbox', { name: 'Import' }).fill('[{"label":"hamlet","clueing":"Imported"}]')
   await page.getByRole('button', { name: 'Import', exact: true }).click()
   await expect(page.getByText(/1 added/)).toBeVisible()

@@ -1,9 +1,21 @@
 import type { Page } from '@playwright/test'
-import { expect, grid, preparedExport, test, waitUntilSaved } from './support'
+import { expect, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
+
+/** The Import box, its tab brought to the front */
+async function importBox(page: Page) {
+  const section = await showTab(page, 'Import')
+  return section.getByRole('textbox', { name: 'Import' })
+}
+
+/** Type `text` into the Import box, its tab brought to the front */
+async function fillImport(page: Page, text: string) {
+  const box = await importBox(page)
+  await box.fill(text)
+}
 
 /** Paste `payload` into the Import box and run it */
 async function runImport(page: Page, payload: unknown) {
-  await page.getByRole('textbox', { name: 'Import' }).fill(JSON.stringify(payload))
+  await fillImport(page, JSON.stringify(payload))
   await page.getByRole('button', { name: 'Import', exact: true }).click()
 }
 
@@ -12,7 +24,7 @@ function fieldAt(page: Page, name: string, rowIdx: number) {
   return grid(page).locator('tbody').getByRole('textbox', { name, exact: true }).nth(rowIdx)
 }
 
-/** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Export box has the hunt */
+/** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Raw Export box has the hunt */
 async function labelAt(page: Page, rowIdx: number): Promise<string> {
   const exported = JSON.parse(await preparedExport(page)) as {
     realms: { quizzes: { title: string, questions: { label: string }[] }[] }[]
@@ -63,11 +75,11 @@ test('a question that fails validation is skipped whole, and logged with the fie
 
 test('a run that merged something clears the box; one that failed keeps the text', async ({ page }) => {
   await runImport(page, [{ label: await labelAt(page, 0), clueing: 'Reworded' }])
-  await expect(page.getByRole('textbox', { name: 'Import' })).toHaveValue('')
+  await expect(await importBox(page)).toHaveValue('')
 
-  await page.getByRole('textbox', { name: 'Import' }).fill('{"quizzes":[')
+  await fillImport(page, '{"quizzes":[')
   await page.getByRole('button', { name: 'Import', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'Import' })).toHaveValue('{"quizzes":[')
+  await expect(await importBox(page)).toHaveValue('{"quizzes":[')
   await expect(page.getByText(/still here/)).toBeVisible()
 })
 
@@ -77,7 +89,7 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
   await page.getByLabel('Quiz name').click()
 
   const exported = await preparedExport(page)
-  await page.getByRole('textbox', { name: 'Import' }).fill(exported)
+  await fillImport(page, exported)
   await page.getByRole('button', { name: 'Import', exact: true }).click()
 
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Which region?')
@@ -86,7 +98,7 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
 })
 
 test('importing is refused while the quiz is locked', async ({ page }) => {
-  await page.getByRole('textbox', { name: 'Import' }).fill('[{"label":"anyone","clueing":"Sneaked in"}]')
+  await fillImport(page, '[{"label":"anyone","clueing":"Sneaked in"}]')
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled()
 })
