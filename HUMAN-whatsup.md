@@ -6,14 +6,21 @@ Agents: add at the top of the document, add a level two header;  Put the date be
 
 * **A sprint** is now a defined thing: an ordered series of threads issued at once, run back to
   back by agents (`notes/git_hygiene.md`, *Sprints*). The `/sprint` skill orchestrates from the
-  main session (subagents can't sub-spawn, and top-level means you can interject mid-sprint);
-  `.claude/agents/thread-worker.md` is the full-capability worker, one fresh one per thread,
-  in series, stacked branches, one PR each, nothing merged.
+  main session: a skill loads inline, so it costs no delegation depth and you can interject
+  mid-sprint. Subagents sub-spawn freely: `.claude/settings.json` (new) sets
+  `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=5` (the harness default is 3; it reads the setting at
+  session start). `.claude/agents/thread-worker.md` is the full-capability worker, one
+  fresh one per thread, in series, stacked branches, one PR each, nothing merged. A
+  `pre-thread` agent (sonnet) does each thread's *Starting* -- the tidy and the `newb`,
+  straightforward conflicts repaired, judgment ones bailed -- keeping rebase churn out of
+  the orchestrator's and workers' context.
 * **Documents**: plan in `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md` (with look-ahead across
   threads), running handoff in `<sprint>-progress.md`, modelled on the convex_yay pair. A
-  worker's "chat" is its final report; the orchestrator relays a condensed feed to real chat
-  and owns every pause/continue call. YOLO is written down as "more reluctant to pause", never
-  "more willing to gamble".
+  worker's "chat" is its final report; the orchestrator relays it to real chat whole and owns
+  every pause/continue call. It also mirrors the sprint into a Claude Doc -- a Plan tab, a
+  Progress tab, and a tab per thread's report -- so you can watch from any device; the
+  whiteboard files stay the source of truth. YOLO is written down as "more reluctant to
+  pause", never "more willing to gamble".
 * **Open questions** (also on #47): should the orchestrator run `/code-review` on each thread's
   PR before continuing, as the convex_yay plan did per phase? And should a paused sprint
   schedule a check-in, or just wait for you?
