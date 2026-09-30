@@ -28,7 +28,7 @@ export type ExportImportPanelProps = {
 /**
  * Every way to take the work somewhere else, and the one way to bring it back, as tabs of one
  * panel: a spreadsheet paste, the raw JSON of the whole hunt, Import, the quiz's full history,
- * and the league's own import format.
+ * and the league's own import format, with the smith's note translated into it.
  */
 export function ExportImportPanel({ quiz, hunt, expressed, onImport }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
@@ -65,7 +65,13 @@ export function ExportImportPanel({ quiz, hunt, expressed, onImport }: Readonly<
     {
       label:   'LL Export',
       blurb:   'The league\'s own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦.',
-      content: <ReadonlyBox label="LL Export" text={LLExport.llExport(quiz)} rows={6} dense />,
+      content: (
+        <>
+          <ReadonlyBox label="LL Export" text={LLExport.llExport(quiz)} rows={6} dense />
+          <p className={styles.microcopy}>The smith&apos;s note, translated the same way.</p>
+          <ReadonlyBox label="LL Smith's note" text={LLExport.fieldTextOf(quiz.smiths_note)} rows={3} dense />
+        </>
+      ),
     },
   ]
   return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs} />
