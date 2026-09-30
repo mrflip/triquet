@@ -142,7 +142,7 @@ test('the switcher marks a locked quiz', async ({ page }) => {
 })
 
 test('the smith\'s note grows by paragraphs, pushing the grid down, then scrolls, and survives a reload', async ({ page }) => {
-  const note = page.getByRole('textbox', { name: 'Smith\'s note' })
+  const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })
   // Where the grid starts on the page, wherever the page is scrolled to
   const gridTop = async () => await grid(page).evaluate((table) => table.getBoundingClientRect().top + window.scrollY)
   const emptyTop = await gridTop()
@@ -160,7 +160,7 @@ test('the smith\'s note grows by paragraphs, pushing the grid down, then scrolls
 })
 
 test('a locked quiz\'s smith\'s note is readable but not editable', async ({ page }) => {
-  const note = page.getByRole('textbox', { name: 'Smith\'s note' })
+  const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })
   await note.fill('Theme: princes.')
   await page.getByLabel('Quiz name').click()
   await page.getByRole('button', { name: 'Lock quiz' }).click()
