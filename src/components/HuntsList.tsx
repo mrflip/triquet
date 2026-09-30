@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, InputBase, Link, Stack, Typography } from '@mui/material'
+import { Button, IconButton, InputBase, Link, Stack, Typography } from '@mui/material'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
@@ -13,6 +14,7 @@ import type { IdentT } from '../models/ident'
 import { useAccountActions, type AccountActionsHandle } from '../state/use-account-actions'
 import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
+import { HuntEditModal } from './HuntEditModal'
 import NextLink from './NextLink'
 import { useDraft } from './use-draft'
 import { Panel } from './panels/Panel'
@@ -103,21 +105,33 @@ function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountAction
   )
 }
 
-/** One hunt: its title and label, the visitor's role on it, and a link to each of its quizzes */
+/**
+ * One hunt: its title, the visitor's role on it, a gear to edit it for its smiths, and a link to
+ * each of its quizzes, which sit beside the title while there is room and wrap beneath it when not.
+ */
 function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
+  const [editing, setEditing] = useState(false)
   const huntLabel = Labelmaker.effectiveLabelOf(hunt)
   return (
-    <li>
-      <Typography component="h3" sx={{ fontWeight: 600 }}>
-        {hunt.title} <span className={styles.microcopy}>{huntLabel} · {HuntRoleTitles[hunt.role]}</span>
-      </Typography>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+    <Stack component="li" direction="row" useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', columnGap: 2 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Typography component="h3" sx={{ fontWeight: 600 }}>{hunt.title}</Typography>
+        <span className={styles.microcopy}>{HuntRoleTitles[hunt.role]}</span>
+        {hunt.role === 'smith' && (
+          <IconButton size="small" aria-label={`Edit hunt ${hunt.title}`} onClick={() => { setEditing(true) }}>
+            <SettingsOutlinedIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Stack>
+      <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', columnGap: 1 }}>
+        <Typography component="span">Quizzes:</Typography>
         {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (
           <Link key={quiz._id} component={NextLink} href={Routes.quizPath({ hunt: huntLabel, realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) })}>
             {quiz.locked ? '🔒 ' : ''}{quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
           </Link>
         )))}
       </Stack>
-    </li>
+      {editing && <HuntEditModal hunt={hunt} onClose={() => { setEditing(false) }} />}
+    </Stack>
   )
 }
