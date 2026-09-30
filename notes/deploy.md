@@ -69,15 +69,42 @@ knows it):
    `npx convex run --component migrations lib:getStatus` says how far each got.
 3. **Tighten.** The second pull request makes the field required again, drops the fallback and
    the backfill, and empties `Backfilling`. Its push checks every row, so it lands only once the
-   backfill is complete.
+   backfill is complete. It also adds the migration to the ledger below, since the backfill it
+   drops is still needed by any backend that has not run it.
 
 Rehearse on a copy first: `npx convex export --path <zip>` from production (read-only; it also
 leaves a snapshot in the dashboard to restore from), `npx convex import --replace-all` into a
 local role, then the three steps against that role.
 
-A local role whose rows no longer fit is simply emptied (`scripts/convex_reset <role>`). A preview
-deployment is made fresh for a branch and kept across its pushes; delete it in the dashboard and
-the next push makes another.
+A local role whose rows no longer fit is simply emptied (`scripts/convex_reset <role>`), unless
+its rows are worth keeping: then catch it up (below). A preview deployment is made fresh for a
+branch and kept across its pushes; delete it in the dashboard and the next push makes another.
+
+**The migration ledger.** Every backfill ever written, oldest first, with the commit on `main`
+that added it. Any commit from that one up to the tightening one still holds it.
+
+| Commit | What its backfill writes | Run |
+| --- | --- | --- |
+| `b648bc6` | `hunt_id` on questions and reviews; a smith (`CaretakerLabel`) on each hunt nobody is on | `migrations:runAll` |
+| `ed009a7` | `smiths_note` on quizzes, empty | `migrations:run '{"fn": "migrations:backfillSmithsNotes"}'` |
+
+**Catching up a backend that missed a backfill.** Main cannot do it: its schema push checks every
+row before any of its functions arrive, so it is refused before a backfill could run, and main no
+longer has the backfill anyway. The refusal names the table and the field, which the ledger
+matches to a commit. A backend stuck there holds no row newer than that commit's schema, so it
+goes back and comes forward again. For each migration it missed, oldest first:
+
+1. Stop the role's dev server, whose `--watch` would push each checkout as it goes by, and check
+   out the ledger's commit: `git switch --detach <commit>`.
+2. Start the role's dev server again (`pnpm dev`, `pnpm dev:agent`). It pushes that commit's
+   schema, which accepts the old rows, and keeps the backend up while the backfill runs.
+3. In a second terminal, start the ledger's `Run` through `scripts/convex_dev`, prefixed as the
+   role's `pnpm` script prefixes it (`doppler run --` for `dev`, `scripts/doppledo dev_claude` for
+   `agent`), eg `doppler run -- scripts/convex_dev dev npx convex run migrations:runAll`. The
+   runner does the first hundred rows at once and schedules the rest; `npx convex run --component
+   migrations lib:getStatus`, run the same way, says when it is done.
+
+Then stop the dev server, return to your branch, and start it again: the push lands.
 
 ## Working locally
 
