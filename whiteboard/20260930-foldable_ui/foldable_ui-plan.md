@@ -1,0 +1,176 @@
+# Foldable UI: a fold triangle for the smith's note and the question grid
+
+Sprint plan, 2026-09-30. Mode: **normal** (not YOLO). Issued by the Coach (Flip).
+**Status: thread 4 underway** (threads 1-3 complete: PRs #55, #56, #57). The Coach approved the hand-rolled fold-set hook.
+
+Four threads, stacked in order: an investigation, a reusable fold affordance, then its two uses:
+the smith's note and the question grid. `foldable_ui-progress.md`, beside this file, is newer than
+this plan wherever the two disagree.
+
+## Read first
+
+Beyond CLAUDE.md and its auto-loads (`notes/views.md`, `notes/stack.md`, `notes/testing.md`):
+
+* `STYLE.md` and `notes/vocabulary.md`, before naming anything (the fold, its states, its hook).
+* `src/components/use-checklist.ts` -- batch mode, the precedent the Coach points to: view state
+  in a hook beside the view, never in the database, reset when the quiz changes (`scopekey`).
+* `src/components/QuestionTable.tsx` (the grid's top-left header cell holds the batch-select
+  button) and `src/components/QuestionRow.tsx` (a row's height is measured from its Clueing and
+  Hint boxes, clamped between `RowFloorPx` and `RowCapPx`, and imposed on every cell as `heightPx`).
+* `src/components/QuizHeader.tsx` -- the smith's note, a multiline MUI `TextField` beside the
+  quiz title; and `src/components/ReviewScreen.tsx`, which shows the note read-only on the
+  playtesting screen.
+* `notes/stack.md`, *Hand-rolled on purpose*: the grid is a bespoke `<table>` on purpose. Nothing in
+  this sprint reopens that.
+
+## Ground rules
+
+`notes/git_hygiene.md` (*A thread, start to finish*, *Sprints*) and
+`.claude/agents/thread-worker.md` govern. Particular to this sprint:
+
+* **Fold state is view state.** Open/closed never reaches Convex, as batch mode doesn't. Whether it
+  survives a reload (per-browser `localStorage`) is the worker's call to propose, not to assume;
+  the default is plain React state.
+* **Library first, emphatically.** The Coach said it twice: prefer a library or MUI's own
+  machinery and less code, even at the cost of the tri-state behaviour thread 4 describes. Thread
+  1's findings decide what threads 2 to 4 build on.
+* **No state-machine library.** The Coach ruled it out; the question is UI/UX machinery.
+* **Accessibility is part of the affordance**: a fold control is a button with `aria-expanded`
+  (and `aria-controls` where it names one region). ARIA has no "mixed" for `aria-expanded`;
+  thread 4's third state is visual unless the chosen machinery says otherwise.
+
+## Threads
+
+### 1. Investigate fold machinery
+
+> look over the plan. investigate what libraries or existing framework capabilities might offer
+> the "folding triangle" feature, and whether they're worth it. We don't need a state machine
+> library, the question is what UI / UX level machinery would mean we write less and better code.
+
+*Orchestrator:* **done, PR #55.** Verdict in `fold-machinery.md`: MUI's own pieces, no new package; fold-all follows MUI X's two-state convention (binding on thread 4). Glosses below are revised to match.
+
+*Gloss.* No product code. A findings file, `whiteboard/20260930-foldable_ui/fold-machinery.md`,
+and a docs-only PR. Candidates the orchestrator can already see, to weigh and not to presume:
+
+* MUI's own: `Collapse` (its `collapsedSize` prop folds to a partial height -- possibly exactly
+  thread 3's "the height of the title box"), `Accordion`/`AccordionSummary` (the canonical MUI
+  disclosure, likely too heavy for a grid row), `IconButton` with `ArrowRight`/`ArrowDropDown` or a
+  rotated `ChevronRight` (what MUI's own docs and MUI X's tree view use), `TextField`'s
+  `minRows`/`maxRows` (folding a multiline field may be no more than `maxRows={1}`).
+* MUI X `SimpleTreeView` / DataGrid row-detail panels: expand/collapse machinery, likely a poor
+  fit for a bespoke table and cells that are live editors; say why or why not.
+* The platform: `<details>`/`<summary>` (native disclosure, keyboard and ARIA for free; how it
+  composes with MUI and a table), CSS `interpolate-size` / `field-sizing`, `::details-content`.
+* Headless libraries (Radix Collapsible, React Aria's `Disclosure`/`DisclosureGroup`, Headless
+  UI `Disclosure`) -- judged by `notes/stack.md`'s test, and against adding a second component
+  vocabulary beside MUI.
+* Whether any of them offers a tri-state (open / closed / mixed) "fold all" control, or a
+  convention for one (tree views' expand-all, IDE code folding, VS Code's collapse-all).
+
+**Look-ahead.** The findings must answer, for each of threads 2 to 4: what to use, how much code
+it leaves us, and what it costs. Thread 4's Coach note ("if there is some sort of library for this
+do NOT take my UX advice") makes this thread's verdict on tri-state binding: if the recommended
+machinery has a convention for fold-all, say what it is, so thread 4 can follow it. End with a
+recommendation, and name anything that is a *Discuss* in `notes/stack.md` or unlisted (a
+significant question: blocks thread 2 until the Coach answers).
+
+### 2. A reusable fold affordance
+
+> Add reuseable capability for the standard right-pointing-triangle "fold open/closed"
+> affordance. To any extent there's framework support or a library for this please use it
+> (orchestrator: look ahead to the other usage when deciding). An open/closed state should not be
+> in the database, it's more like the batch mode thing..
+
+*Gloss.* Built on thread 1's recommendation. Likely a small component in `src/components/` (the
+triangle button: right-pointing when closed, down when open, `aria-expanded`, a label) and, if
+it earns its keep, a hook beside it for the open/closed state, shaped like `use-checklist`.
+Tests per `notes/testing.md`.
+
+*Orchestrator (after thread 1):* build `FoldButton` per `fold-machinery.md` (MUI `IconButton`, `ArrowRight`/`ArrowDropDown` swapped, `aria-expanded`, compact size), and **pull forward the editable smith's note's fold** (`QuizHeader.tsx`: `maxRows={open ? SmithsNoteMaxRows : 1}`, focus opens it, `overflowY: hidden` on the face while folded) as its first consumer, so the button is tested by e2e -- the repo has no component-test harness. No "mixed" face is needed: thread 4 follows the two-state convention.
+
+**Look-ahead.** Two consumers, designed for together:
+
+* Thread 3: one boolean, one region (the smith's note).
+* Thread 4: a *set* of open rows plus a quiz-wide toggle, and possibly a third, "mixed", visual
+  state on the triangle itself. The affordance should be able to show that state if thread 1
+  finds no library convention that rules it out; the set-of-open-rows logic probably belongs to
+  thread 4, not here, unless it falls out naturally (then declare it pulled forward).
+* The grid's triangle lives in a header cell 30-odd px wide beside the batch-select button, so
+  the affordance must come in a compact size that matches `IconButton size="small" sx={{ p: 0.25 }}`.
+
+### 3. Fold the smith's note
+
+> The smith's note will be multi-line by nature: so you're either editing it and want it to stay
+> open, or it's boring and closed. Make it so I can fold them closed: they will assum the height
+> of the title box when closed
+
+*Orchestrator (after thread 2):* ~~the editable note's fold~~ -- done in thread 2 (PR #56): `FoldButton` in `QuizHeader.tsx`, starts folded, focus opens it via `openOnEntry`. Use the thread 2 section of the progress document for how to wire the read-only note (an `id` on the region, `controls`, no `openOnEntry`).
+
+*Orchestrator (after thread 1):* the editable note moves to thread 2. **The Coach has ruled (chat, 2026-09-30): the read-only note on the playtesting screen (`ReviewScreen.tsx`) folds too.** That, and updating the e2e spec that checks it shows "in full" (and any doc comment saying so), is this thread's remaining work. For the reader rather than the author, "boring and closed" suggests it starts folded; the worker decides and records.
+
+*Gloss (as planned, before thread 1).* `QuizHeader.tsx`: a triangle beside (or inside the label of) the smith's note; closed,
+the note is one title-row high. Open questions for the worker to settle by judgment and record:
+the starting state (closed seems to match "boring and closed", but a blank note is one line
+either way), whether focusing a closed note opens it (probably yes, as thread 4's rows do), and
+whether the playtesting screen's read-only note (`ReviewScreen.tsx`) folds too -- "fold *them*"
+may mean every place the note shows. Keep e2e specs that type into the note working.
+
+**Look-ahead.** Thread 4 reuses thread 2's affordance and whatever "focus opens it" mechanism
+this thread settles on; do it the same way in both.
+
+### 4. Fold the question grid
+
+> Also add a folding triangle in the very top left of the quiz (claiming some of the empty space
+> of the  batch-mode control -- it should not cause the quiz grid to shift).
+> When the folding triangle is folded "closed", all the elements in the grid go to a single line.
+> Clicking in a text field element expands that element to regular height, with the other
+> elements in the row following suit. Don't implement anything that would automatically fold them
+> closed again. The contract is 1. If I toggle the fold-triangle when "open" or "mixed", everything
+> is closed and the triangle is "closed". If I click to edit a field, that row becomes open and
+> the fold-triangle is "mixed". If I toggle the fold-triangle when it is "closed", everything
+> opens and it is open. The quiz starts closed. New rows are open. The quiz does not become open
+> by opening all the elements.
+> NOTE: if there is some sort of library for this do NOT take my UX advice: follow its conventions
+> and capabilities. I would prefer to use a library and have minimal code, even if that means no
+> tri-state behavior.
+
+*Orchestrator (after threads 1-3):* **follow `fold-machinery.md`'s thread 4 section.**
+
+* Fold-all is MUI X's two-state convention: anything open → fold all; nothing open → unfold all.
+  State is only the set of folded rows; no "mixed" face; the triangle icons are kept. This replaces
+  the Coach's tri-state contract, as the Coach's note allows; every click in it comes out the same.
+* Reuse thread 2's `FoldButton` (small size, the corner's `sx={{ p: 0.25 }}`) and `openOnEntry` on
+  the row's `<tr>`. The Coach may still ask for a larger glyph after seeing #56.
+* A folded row is ~58px, not 28 (Title's label metaline, askable cells' 44px min-height). Every row
+  stays open below 640px, where the corner does not exist.
+* **The fold-set hook is hand-rolled, approved by the Coach** (chat, 2026-09-30), on
+  `useChecklist`'s reasoning: small hand-roll now, a library if either grows to need more. Record
+  it in `notes/stack.md`, *Hand-rolled on purpose*, beside or folded into the `useChecklist` entry.
+
+*Gloss (as planned, before thread 1).* Two pieces:
+
+* **The corner.** `QuestionTable.tsx`'s top-left `<th>` stacks the batch-select button (and, in
+  batch mode, the select-all checkbox). The triangle joins that stack without widening the
+  gutter (`GutterWidthPx`) or changing the header's height enough to move the grid.
+* **The rows.** A closed row imposes a single line: plausibly just `heightPx` clamped to the
+  floor instead of the measured height in `QuestionRow.tsx`, so every cell follows at once. Focus
+  in any text field opens its row. New rows (added after load) start open; the quiz starts
+  closed. State per the contract above -- a quiz-wide mode plus a set of open rows, reset when the
+  quiz changes, as `use-checklist` does -- unless thread 1 found machinery with its own
+  conventions, which then win.
+
+Watch the mobile card layout (below 640px): folding probably doesn't apply there, or applies
+differently; say which. e2e specs that read or type into cells must still pass with the grid
+starting closed.
+
+## For the Coach
+
+* *Answered:* the fold-set hook is hand-rolled, like `useChecklist`: small hand-roll now, a library
+  if either grows to need more (Coach, chat, 2026-09-30).
+* *Answered:* the playtesting screen's note folds too (Coach, chat, 2026-09-30).
+* Minor, from thread 2: opening a fold on focus needs an `onFocus` handler, which `notes/views.md`
+  lists as a tripwire ("DOM handlers beyond click and change"). Taken as within the Coach's ask
+  ("clicking in a text field element expands that element"); thread 4's row `onFocus` is the same.
+  And the triangle glyph is small at both sizes: a look at PR #56 before thread 4 copies it.
+* Minor, from thread 1: fold state does not survive a reload (plain React state); the
+  `ArrowRight` glyph is small at the grid's compact size.
