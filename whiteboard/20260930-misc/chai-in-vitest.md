@@ -5,6 +5,11 @@ vitest 5.0.1 (5.0.2 is latest), chai 6.2.2 (bundled by vitest; latest), @vitest/
 1.6.27 (latest). Every claim below was proved with a throwaway test file, run under vitest,
 eslint and tsc, and then deleted.
 
+> **Since** (2026-09-30): the Coach chose the property style, option 2 below. Thread 5 turned
+> `vitest/valid-expect` off in `tests/`, added `eslint-plugin-chai-expect` and
+> `eslint-plugin-chai-friendly`, and swept `.to.eq(true)` and its kin to `.to.be.true`. The
+> recommendation and the "meanwhile" below are history.
+
 ## Short answer
 
 **Vitest lacks nothing here. The lint rule is what refuses it.** `expect(x).to.be.true` passes
