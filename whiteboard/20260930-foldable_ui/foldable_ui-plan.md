@@ -1,7 +1,7 @@
 # Foldable UI: a fold triangle for the smith's note and the question grid
 
 Sprint plan, 2026-09-30. Mode: **normal** (not YOLO). Issued by the Coach (Flip).
-**Status: planned.**
+**Status: thread 1 complete (PR #55); thread 2 underway.** Thread 4 waits on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*).
 
 Four threads, stacked in order: an investigation, a reusable fold affordance, then its two uses:
 the smith's note and the question grid. `foldable_ui-progress.md`, beside this file, is newer than
@@ -47,6 +47,8 @@ Beyond CLAUDE.md and its auto-loads (`notes/views.md`, `notes/stack.md`, `notes/
 > the "folding triangle" feature, and whether they're worth it. We don't need a state machine
 > library, the question is what UI / UX level machinery would mean we write less and better code.
 
+*Orchestrator:* **done, PR #55.** Verdict in `fold-machinery.md`: MUI's own pieces, no new package; fold-all follows MUI X's two-state convention (binding on thread 4). Glosses below are revised to match.
+
 *Gloss.* No product code. A findings file, `whiteboard/20260930-foldable_ui/fold-machinery.md`,
 and a docs-only PR. Candidates the orchestrator can already see, to weigh and not to presume:
 
@@ -84,6 +86,8 @@ triangle button: right-pointing when closed, down when open, `aria-expanded`, a 
 it earns its keep, a hook beside it for the open/closed state, shaped like `use-checklist`.
 Tests per `notes/testing.md`.
 
+*Orchestrator (after thread 1):* build `FoldButton` per `fold-machinery.md` (MUI `IconButton`, `ArrowRight`/`ArrowDropDown` swapped, `aria-expanded`, compact size), and **pull forward the editable smith's note's fold** (`QuizHeader.tsx`: `maxRows={open ? SmithsNoteMaxRows : 1}`, focus opens it, `overflowY: hidden` on the face while folded) as its first consumer, so the button is tested by e2e -- the repo has no component-test harness. No "mixed" face is needed: thread 4 follows the two-state convention.
+
 **Look-ahead.** Two consumers, designed for together:
 
 * Thread 3: one boolean, one region (the smith's note).
@@ -100,7 +104,9 @@ Tests per `notes/testing.md`.
 > open, or it's boring and closed. Make it so I can fold them closed: they will assum the height
 > of the title box when closed
 
-*Gloss.* `QuizHeader.tsx`: a triangle beside (or inside the label of) the smith's note; closed,
+*Orchestrator (after thread 1):* the editable note moves to thread 2. **The Coach has ruled (chat, 2026-09-30): the read-only note on the playtesting screen (`ReviewScreen.tsx`) folds too.** That, and updating the e2e spec that checks it shows "in full" (and any doc comment saying so), is this thread's remaining work. For the reader rather than the author, "boring and closed" suggests it starts folded; the worker decides and records.
+
+*Gloss (as planned, before thread 1).* `QuizHeader.tsx`: a triangle beside (or inside the label of) the smith's note; closed,
 the note is one title-row high. Open questions for the worker to settle by judgment and record:
 the starting state (closed seems to match "boring and closed", but a blank note is one line
 either way), whether focusing a closed note opens it (probably yes, as thread 4's rows do), and
@@ -144,7 +150,9 @@ starting closed.
 
 ## For the Coach
 
-* Nothing blocking at plan time. Thread 1 may surface a *Discuss*-listed or unlisted library;
-  if so the sprint pauses there for your word before thread 2 builds on it.
-* Thread 3's scope question (does the note on the playtesting screen fold too?) is left to the
-  worker's judgment, recorded in the progress document.
+* **Before thread 4:** may the fold-set hook (a `Set` of folded question ids, reset per quiz,
+  ~35 lines, like `useChecklist`) be hand-rolled rather than taken from `@react-stately/disclosure`?
+  Asked in chat 2026-09-30; the sprint pauses before thread 4 without an answer.
+* *Answered:* the playtesting screen's note folds too (Coach, chat, 2026-09-30).
+* Minor, from thread 1: fold state does not survive a reload (plain React state); the
+  `ArrowRight` glyph is small at the grid's compact size.
