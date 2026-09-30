@@ -6,7 +6,8 @@ import schema from './schema'
 // Backfills that bring a deployment's rows up to the schema, run through `@convex-dev/migrations`,
 // which batches them, records how far each got, and never runs a finished one twice. None is
 // pending: a migration is defined here beside a widened schema, and removed once the schema is
-// tightened after it (`notes/deploy.md`, *Schema pushes*).
+// tightened after it (`notes/deploy.md`, *Schema pushes*), whose ledger names the commit that
+// still holds each one.
 
 export const migrations = new Migrations(components.migrations, { internalMutation, schema })
 
