@@ -257,6 +257,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
     const { open: there, browser_key: key, labels: place, role: acting } = latest.current
     if (there === null || key === null) {
       console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role: acting, identified: key !== null })
+      setSaveNotice(AppNotices.changeNotSent)
       if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: AppNotices.changeNotSent, request_id: null }) }
       return false
     }
