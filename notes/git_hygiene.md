@@ -13,6 +13,7 @@ your machine.
 - Never merge a PR or enable auto-merge. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
 - A line of work is a thread: a tidy of the stack onto origin/main, `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
+- An ordered series of threads issued at once and run back to back by agents is a sprint. See *Sprints*.
 
 
 ## The shape we keep
@@ -148,6 +149,21 @@ login for the one push, without changing any config:
 ```
 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
 ```
+
+## Sprints
+
+A **sprint** is an ordered series of threads issued at once and run back to back without the
+Coach at the wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a
+plan to `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs each thread in turn: a
+`pre-thread` agent does *Starting* (the tidy and the `newb`, repairing only the
+straightforward conflicts), and a fresh `thread-worker` agent owns the branch from there --
+build, the finishing rebase, push, PR -- each thread stacked on the one before, none merged
+until the Coach returns. The running handoff is `<sprint>-progress.md` beside the plan: every
+worker reads both before touching code and appends its section on finishing, and it is newer
+than the plan wherever they disagree. The orchestrator's procedure and its stop-or-continue
+rules are `.claude/skills/sprint/SKILL.md`; the workers' are `.claude/agents/pre-thread.md`
+and `.claude/agents/thread-worker.md`. Everything in this document binds a sprint's agents as
+it binds any other: a sprint changes who is watching, not what is allowed.
 
 ## Catching up with main
 
