@@ -1,7 +1,7 @@
 # Foldable UI: a fold triangle for the smith's note and the question grid
 
 Sprint plan, 2026-09-30. Mode: **normal** (not YOLO). Issued by the Coach (Flip).
-**Status: paused before thread 4** (threads 1-3 complete: PRs #55, #56, #57). Waiting on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*); thread 4's branch is not yet cut. Thread 4 waits on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*).
+**Status: paused before thread 4** (threads 1-3 complete: PRs #55, #56, #57). Waiting on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*); thread 4's branch is not yet cut.
 
 Four threads, stacked in order: an investigation, a reusable fold affordance, then its two uses:
 the smith's note and the question grid. `foldable_ui-progress.md`, beside this file, is newer than
