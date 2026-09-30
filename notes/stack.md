@@ -105,7 +105,7 @@ Settled; reach for these before writing the equivalent.
   it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
 * **mdast-util-from-markdown**, the markdown parser under remark (and so already here through
-  `@next/mdx`), for reading where markdown puts bold, italics and quote markers: `lib/ll-export.ts`
+  `@next/mdx`), for reading where markdown puts bold, italics and quote markers: `lib/ll-bbcode.ts`
   writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed. Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
