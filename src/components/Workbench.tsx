@@ -108,7 +108,6 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         title={quiz.title}
         smithsNote={quiz.smiths_note}
         locked={quiz.locked}
-        saveNotice={saveNotice}
         onRetitle={(title) => { dispatch({ kind: 'retitle_quiz', title }) }}
         onSmithsNote={(smiths_note) => { dispatch({ kind: 'set_smiths_note', smiths_note }) }}
         onManage={() => { setManaging(true) }}

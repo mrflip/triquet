@@ -3,13 +3,18 @@
 import { useCallback, useState } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+import * as Alarms from '../lib/alarms'
+import { AppNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { failurekindOf, noticeOf } from '../lib/refusals'
 import type { AccountActionDNA } from '../models/actions'
 import { useBrowserKey } from './browser-key'
 
-/** How an account action came out: kept, or not and why */
-export type AccountOutcome = { kept: true } | { kept: false, failurekind: string | null }
+/**
+ * How an account action came out: kept, or not, why, and the alarm to raise for it, for a caller
+ * with nowhere beside the action to say so
+ */
+export type AccountOutcome = { kept: true } | { kept: false, failurekind: string | null, alarm: Alarms.AlarmT }
 
 export type AccountActionsHandle = {
   /** Carry out `action`; resolves once it is written, or once it could not be, saying which and why */
@@ -34,7 +39,7 @@ export function useAccountActions(): AccountActionsHandle {
   const [notice, setNotice] = useState<string | null>(null)
 
   const act = useCallback(async (action: AccountActionDNA): Promise<AccountOutcome> => {
-    if (browser_key === null) { return { kept: false, failurekind: null } }
+    if (browser_key === null) { return { kept: false, failurekind: null, alarm: { headline: AppNotices.changeNotKept, notice: AppNotices.changeFailed, request_id: null } } }
     setBusy(true)
     try {
       await performAccount({ action, browser_key })
@@ -43,7 +48,7 @@ export function useAccountActions(): AccountActionsHandle {
     } catch (err) {
       Postmortem.report(`carry out an account action (${action.kind})`, err, { action })
       setNotice(noticeOf(err))
-      return { kept: false, failurekind: failurekindOf(err) }
+      return { kept: false, failurekind: failurekindOf(err), alarm: Alarms.of(AppNotices.changeNotKept, err) }
     } finally {
       setBusy(false)
     }

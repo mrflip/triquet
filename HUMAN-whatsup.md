@@ -2,6 +2,22 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: A failed save raises an alarm you can't miss (#60)
+
+* **Answers the *Still poor* bullet** under *Playtest failures*. You get the Snackbar, not an
+  `Alert` beside Share. A refused or unsent change now raises an **alarm**: a filled red
+  `Alert` in a `Snackbar`, fixed at the bottom centre of the window. It stays until its close
+  button is pressed, and it sits over any dialog.
+* **The review screen's muted line and the quiz header's red pill are gone.** The alarm replaces
+  them. Refusals shown beside their field (adding a member, the Edit hunt dialog, the ident
+  gate) stay where they were and raise nothing.
+* **A seam for more**: `useRaiseAlarm()` from any hook or view. One alarm at a time, the latest
+  in front, so no notistack.
+* **Your calls, each a one-liner**:
+  - Placement: bottom centre.
+  - Escape doesn't dismiss the alarm; the grid's typists press it without looking.
+  - A later successful change doesn't clear the alarm for the one that was lost.
+
 ## 2026-09-30: Sprint foldable_ui done: fold triangles on the smith's note and the grid
 
 * **The sprint in a paragraph.** A fold triangle (`FoldButton`, MUI's `IconButton` swapping

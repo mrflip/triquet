@@ -20,6 +20,13 @@ grid's cell editors and readouts; `panels/` sit below the grid. A hook that only
 (`use-draft`, `use-reorder`) lives beside it. Pages under `src/app/` are thin and hand off to a
 component.
 
+A failure goes where the author will see it. One about a field (a label refused, a form's
+check) is said beside the field. One with nothing on screen beside it -- a change written
+behind the screen and not kept, a navigation that did not happen -- raises an **alarm**
+(`useRaiseAlarm`), which the page's one `Snackbar` shows at the foot of the window until it is
+dismissed. Raise one rather than adding a line of muted text a scrolled page hides, or a second
+Snackbar.
+
 ## Styling
 
 Style with MUI first: `sx`, the theme in `src/app/theme.ts`, and the components' own props.

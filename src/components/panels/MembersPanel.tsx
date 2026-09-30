@@ -81,7 +81,7 @@ function AddMember({ carryOut, saveNotice }: Readonly<Pick<HuntHandle, 'carryOut
     if (ident_label === '') { setIssue(AppNotices.identLabelNeeded); return }
     if (! IdentValidators.identLabel.safeParse(ident_label).success) { setIssue(AppNotices.identLabelShape); return }
     setIssue(null)
-    const kept = await carryOut({ kind: 'add_hunting', ident_label, role })
+    const kept = await carryOut({ kind: 'add_hunting', ident_label, role }, { quietly: true })
     setRefused(! kept)
     if (kept) { setLabelDraft('') }
   }
