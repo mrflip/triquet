@@ -12,6 +12,7 @@ their sections newest first, below the status table.
 | 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
 | 4 | Formulas see the smith's note, hunt and realm | complete | `20260930-formula_exposure` | #63 |
 | 5 | Uniformly chai: `.to.be.true`, lint that allows it | pending | | |
+| 6 | CI runs the built suite in place of the dev suite | pending | | |
 
 *Orchestrator:* the Coach overruled thread 1's recommendation: the house style is chai's
 property form (`.to.be.true`, `.null`...). Thread 5 swaps the lint rule and sweeps the tests.
@@ -80,6 +81,13 @@ Branch `20260930-formula_exposure`, PR #63, stacked on #61. Suites: typecheck an
     itself and no computed columns.
   - HUMAN-whatsup's entry *A smith's note beside the quiz's name* still says formulas don't see
     the note. That entry is now stale; I left it as written.
+* *Review:* **fixed**, one kept (99fb014): a doc comment stranded above the wrong function in
+  `tests/state/commit-scheduler.test.ts` when `Here` moved to `tests/support/places.ts`. Left,
+  minor: `ExpressionFields`' preview shows nothing while a just-made quiz is missing from
+  `hunt.realms`, and it recovers on its own.
+* *Orchestrator:* "already built" is almost certainly the orchestrator's first thread-4 spawn,
+  which the Coach interrupted: it had committed before the interrupt landed. #58 and #60 have
+  since merged. The orchestrator pushed the rebased `20260930-e2e_built` (#61) with a lease.
 * **For the Coach**: **which other elements deserve exposure?** A proposal only; none of these
   is built.
   1. **Review aggregates per question**: how many reviews, the mean get rate, how many flag *needs
