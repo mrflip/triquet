@@ -5,14 +5,14 @@
 #
 # The backend must be running (scripts/convex_backend <role>, or scripts/convex_dev).
 #
-# Usage: scripts/convex_reset <dev|agent|e2e|e2e-agent>
+# Usage: scripts/convex_reset <dev|agent|e2e|e2e-agent|e2e-built>
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 role="${1:-}"
 case "$role" in
-  dev | agent | e2e | e2e-agent) ;;
-  *) echo "Usage: scripts/convex_reset <dev|agent|e2e|e2e-agent>" >&2; exit 1 ;;
+  dev | agent | e2e | e2e-agent | e2e-built) ;;
+  *) echo "Usage: scripts/convex_reset <dev|agent|e2e|e2e-agent|e2e-built>" >&2; exit 1 ;;
 esac
 clienv="data/convex-${role}/cli.env"
 if [[ ! -s "$clienv" ]]; then

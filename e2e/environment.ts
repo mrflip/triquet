@@ -18,7 +18,7 @@ const SensitiveNames = /secret|pw|pass|tok|key|auth/i
  * variable is unset, so each must be given.
  */
 const TakenBy: Record<string, readonly string[]> = {
-  PORT:                   ['3000', '3001'],
+  PORT:                   ['3000', '3001', '3004'],
   NEXT_PUBLIC_CONVEX_URL: ['http://127.0.0.1:3400', 'http://127.0.0.1:3401'],
   NEXT_DIST_DIR:          ['.next', '.next-agent', '.next-agent-build'],
 }
@@ -30,6 +30,7 @@ const TakenBy: Record<string, readonly string[]> = {
 export const BackendUrlFor = {
   "e2e":       'http://127.0.0.1:3402',
   "e2e-agent": 'http://127.0.0.1:3403',
+  "e2e-built": 'http://127.0.0.1:3405',
 } as const
 
 export type E2eRole = keyof typeof BackendUrlFor
@@ -39,6 +40,25 @@ export function roleOf(env: Env): string {
   return env.CONVEX_ROLE ?? 'e2e'
 }
 
+/**
+ * How the suite serves the app (`TRIQUET_E2E_SERVER`, `dev` when unset), as the command
+ * `scripts/convex_dev` runs beside the role's backend. `dev` is Next's dev server, as a person
+ * works on the app. `built` is the optimized build, the mode the app is deployed in: React without
+ * StrictMode's doubled effects or the dev instrumentation, which hide a whole class of
+ * effect-ordering bugs. Either way the keys, backend and settings are the suite's own.
+ */
+export const ServerCommandFor = {
+  dev:   'next dev',
+  built: 'sh -c "next build && next start"',
+} as const
+
+export type E2eServer = keyof typeof ServerCommandFor
+
+/** How the suite serves the app: `TRIQUET_E2E_SERVER`, or `dev` */
+export function serverOf(env: Env): string {
+  return env.TRIQUET_E2E_SERVER ?? 'dev'
+}
+
 type Env = Readonly<Record<string, string | undefined>>
 
 /**
@@ -46,7 +66,8 @@ type Env = Readonly<Record<string, string | undefined>>
  *
  * Outside CI it must be Doppler's `dev_e2e` config. Anywhere, the web server and its build
  * directory need a port and directory no other session uses, and the database must be the
- * role's own local Convex backend, which the suite empties.
+ * role's own local Convex backend, which the suite empties. The server is one it knows how to
+ * start (`ServerCommandFor`).
  *
  * @param env - The environment to judge, ordinarily `process.env`.
  * @returns The complaints, empty when the suite may run.
@@ -66,6 +87,7 @@ export function complaintsAbout(env: Env): string[] {
     ...settingComplaints,
     ...((env.PORT && ! isPort(env.PORT)) ? [`PORT=${env.PORT} is not a port`] : []),
     ...backendComplaints(env),
+    ...serverComplaints(env),
   ]
 }
 
@@ -77,6 +99,13 @@ function backendComplaints(env: Env): string[] {
   const given = env.NEXT_PUBLIC_CONVEX_URL
   if (! given || TakenBy.NEXT_PUBLIC_CONVEX_URL?.includes(given)) { return [] }
   return given === url ? [] : [`NEXT_PUBLIC_CONVEX_URL=${given} is not the ${role} backend, ${url}: the suite empties the database it runs against`]
+}
+
+/** What is wrong with the way `env` would have the suite serve the app */
+function serverComplaints(env: Env): string[] {
+  const server = serverOf(env)
+  if (Object.hasOwn(ServerCommandFor, server)) { return [] }
+  return [`TRIQUET_E2E_SERVER=${server} is not one of ${Object.keys(ServerCommandFor).join(', ')}`]
 }
 
 /**
