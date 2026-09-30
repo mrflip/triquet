@@ -20,6 +20,10 @@ describe('Environment.complaintsAbout', () => {
     expect(Environment.complaintsAbout({ ...Local, PORT: '3005', CONVEX_ROLE: 'e2e-built', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3405', NEXT_DIST_DIR: '.next-e2e-built', TRIQUET_E2E_SERVER: 'built' })).to.deep.eq([])
   })
 
+  it('has nothing to say about the optimized build on the e2e role, as CI runs it', () => {
+    expect(Environment.complaintsAbout({ ...InCI, TRIQUET_E2E_SERVER: 'built' })).to.deep.eq([])
+  })
+
   const ComplaintCases: [Record<string, string | undefined>, string, string][] = [
     // where it runs:
     [{ ...Fit },                                    "Run the e2e suite with `pnpm test:e2e`, under Doppler's dev_e2e config", 'outside CI and outside Doppler'],

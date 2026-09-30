@@ -24,8 +24,9 @@ setup('finds its local Convex backend answering', async ({ request }) => {
 })
 
 setup('opens the app, so no spec pays for compiling its pages', async ({ page }) => {
-  // A first visit compiles each page, which on a small CI runner can take far longer than any
-  // spec should wait. Every spec passes through all three pages.
+  // Under the dev server a first visit compiles each page, which on a small runner can take far
+  // longer than any spec should wait; the optimized build (CI's) has them compiled already, and
+  // this is quick. Every spec passes through all three pages.
   setup.setTimeout(300_000)
   await page.goto('/')
   await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())

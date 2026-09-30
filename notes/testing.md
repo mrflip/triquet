@@ -174,7 +174,9 @@ place of the dev server, on the `e2e-built` role (port 3005): the mode the app i
 with none of React's dev-only doubled effects, which once hid a review that never opened. It
 means the build mode only: the keys, settings and backend are the suite's own, as ever. It builds
 afresh every run and refuses to start while anything holds its port, so an earlier build is never
-tested in its place. A spec must pass under both servers. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
+tested in its place. CI runs the suite against the build too, on the `e2e` role's port, backend
+and build directory, with `TRIQUET_E2E_SERVER=built` choosing the server: the mode travels apart
+from the role. A spec must pass under both servers. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
 fresh hunt, of which that ident is the smith. Specs share one database, and a hunt is shown only
 to those on it, so find rows and pages by your own labels and titles, never by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
 a smith puts them on the hunt through the members panel (`addMember`) before they can open it.

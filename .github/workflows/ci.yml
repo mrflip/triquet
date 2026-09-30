@@ -84,9 +84,11 @@ jobs:
       - run: scripts/convex_dev e2e true
       - run: git diff --exit-code --stat convex/_generated
 
-  # The suite split six ways, each shard on a runner and dev server of its own; `pnpm test:e2e
-  # --shard=2/6` runs one shard's specs locally. Every shard runs to the end, so one failure
-  # never hides another.
+  # The suite split six ways, each shard on a runner of its own, against the optimized build
+  # (`next build`, then `next start`) rather than the dev server: the mode the app is deployed in,
+  # and no page waits to compile on first visit. Each shard builds for itself. `pnpm
+  # test:e2e:built --shard=2/6` runs one shard's specs locally against the build. Every shard runs
+  # to the end, so one failure never hides another.
   e2e:
     runs-on: ubuntu-26.04
     strategy:
@@ -95,12 +97,15 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6]
     # A bound for when something hangs: GitHub's own is six hours.
     timeout-minutes: 20
-    # What Doppler's dev_e2e config gives a local run; e2e/environment.setup.ts checks them. The
-    # web server Playwright starts brings up a local Convex backend of its own (scripts/convex_dev).
+    # What Doppler's dev_e2e config gives a local run, the e2e role's port, backend and build
+    # directory; e2e/environment.setup.ts checks them. The web server Playwright starts brings up
+    # a local Convex backend of its own (scripts/convex_dev), and TRIQUET_E2E_SERVER has it serve
+    # the optimized build, which it makes first (e2e/environment.ts).
     env:
       PORT: 3002
       NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402
       NEXT_DIST_DIR: .next-e2e
+      TRIQUET_E2E_SERVER: built
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
