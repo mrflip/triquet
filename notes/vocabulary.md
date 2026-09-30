@@ -173,6 +173,11 @@ lines between them, and these are here so they are findable beside the rest.
   label, not a live sort.
 * **notice** -- a sentence shown to the author in place of a result. Failures reach the author
   as sentences, never codes; they live together in `lib/notices.ts`.
+* **alarm** -- a failure raised for the whole page: a headline, a notice, and the request to send
+  us when the server kept its reason to itself. One at a time, the latest in front, shown at the
+  foot of the window until dismissed. For a failure with nothing on screen beside it to say so,
+  such as a change not kept; a refusal about a field is said beside the field. Raised with
+  `useRaiseAlarm` (`src/state/alarms.tsx`), shown by `AlarmSnackbar`.
 * **mirror** -- the quiz's git history in the browser. A past-versions view and an exit door,
   not a source of truth. `.qq.tsv` is the diffable table; `.tq.json` is the whole quiz; both sit
   at `tq/hunt/<hunt>/realm/<realm>/quiz/`, and the hunt's expressions at
