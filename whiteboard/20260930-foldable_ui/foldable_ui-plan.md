@@ -1,7 +1,7 @@
 # Foldable UI: a fold triangle for the smith's note and the question grid
 
 Sprint plan, 2026-09-30. Mode: **normal** (not YOLO). Issued by the Coach (Flip).
-**Status: thread 1 complete (PR #55); thread 2 underway.** Thread 4 waits on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*).
+**Status: threads 1-2 complete (PRs #55, #56); thread 3 underway.** Thread 4 waits on the Coach's yes to a hand-rolled fold-set hook (see *For the Coach*).
 
 Four threads, stacked in order: an investigation, a reusable fold affordance, then its two uses:
 the smith's note and the question grid. `foldable_ui-progress.md`, beside this file, is newer than
@@ -104,6 +104,8 @@ Tests per `notes/testing.md`.
 > open, or it's boring and closed. Make it so I can fold them closed: they will assum the height
 > of the title box when closed
 
+*Orchestrator (after thread 2):* ~~the editable note's fold~~ -- done in thread 2 (PR #56): `FoldButton` in `QuizHeader.tsx`, starts folded, focus opens it via `openOnEntry`. Use the thread 2 section of the progress document for how to wire the read-only note (an `id` on the region, `controls`, no `openOnEntry`).
+
 *Orchestrator (after thread 1):* the editable note moves to thread 2. **The Coach has ruled (chat, 2026-09-30): the read-only note on the playtesting screen (`ReviewScreen.tsx`) folds too.** That, and updating the e2e spec that checks it shows "in full" (and any doc comment saying so), is this thread's remaining work. For the reader rather than the author, "boring and closed" suggests it starts folded; the worker decides and records.
 
 *Gloss (as planned, before thread 1).* `QuizHeader.tsx`: a triangle beside (or inside the label of) the smith's note; closed,
@@ -154,5 +156,9 @@ starting closed.
   ~35 lines, like `useChecklist`) be hand-rolled rather than taken from `@react-stately/disclosure`?
   Asked in chat 2026-09-30; the sprint pauses before thread 4 without an answer.
 * *Answered:* the playtesting screen's note folds too (Coach, chat, 2026-09-30).
+* Minor, from thread 2: opening a fold on focus needs an `onFocus` handler, which `notes/views.md`
+  lists as a tripwire ("DOM handlers beyond click and change"). Taken as within the Coach's ask
+  ("clicking in a text field element expands that element"); thread 4's row `onFocus` is the same.
+  And the triangle glyph is small at both sizes: a look at PR #56 before thread 4 copies it.
 * Minor, from thread 1: fold state does not survive a reload (plain React state); the
   `ArrowRight` glyph is small at the grid's compact size.
