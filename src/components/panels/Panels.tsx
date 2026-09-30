@@ -9,6 +9,7 @@ import { ReadonlyBox } from './ReadonlyBox'
 import { ReviewsPanel } from './ReviewsPanel'
 import * as Exporting from '../../lib/exporting'
 import * as Labelmaker from '../../lib/labelmaker'
+import * as LLExport from '../../lib/ll-export'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { AppNotices } from '../../lib/notices'
@@ -60,6 +61,13 @@ export function Panels({ quiz, hunt, realm, ident, reviews, expressed, carryOut,
         </div>
         <ReadonlyBox label="Export" text={exporting.whole ? UU.jsonify(Exporting.huntExported(exporting.whole)) : ''} rows={10} dense />
         <FullHistoryDownload quiz={quiz} />
+      </Panel>
+
+      <Panel
+        title="LL Export"
+        blurb="The league's own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦."
+      >
+        <ReadonlyBox label="LL Export" text={LLExport.llExport(quiz)} rows={6} dense />
       </Panel>
 
       <ImportPanel quiz={quiz} locked={quiz.locked} onImport={onImport} />
