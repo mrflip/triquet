@@ -14,7 +14,7 @@ export const QuickGuessPrompt = `You are answering a trivia question the way a f
 
 Question: {{clueing}}
 
-Reply with only your best short answer, one line, no explanation and no hedging.`
+Reply with your best short answer on one line, and brief explanation on the next.`
 
 const IshRules = `Rules:
 - A span written in digits ("300", "1990") is kind "numeral".
