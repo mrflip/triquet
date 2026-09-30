@@ -96,7 +96,7 @@ describe("mayActOnAccount", () => {
 
   it("lets nobody retitle a hunt from a browser that has not said who it is", async () => {
     const { tt, open } = await peopled()
-    expect(await tt.run(async (ctx) => await mayActOnAccount(ctx.db, null, { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' }))).to.eq(false)
+    expect(await tt.run(async (ctx) => await mayActOnAccount(ctx.db, null, { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' }))).to.be.false
   })
 })
 
@@ -159,7 +159,7 @@ describe("mayPerform", () => {
       await ctx.db.delete('realms', open.realm_id)
       return await mayPerform(ctx.db, open, alice.ident_id, { kind: 'retitle_quiz', title: 'Kings' })
     })
-    expect(verdict).to.eq(false)
+    expect(verdict).to.be.false
   })
 })
 
@@ -167,7 +167,7 @@ describe('identings, each browser\'s own', () => {
   it('are read only through the browser\'s own key: another browser learns nothing of them', async () => {
     const tt = openTester()
     await identified(tt, 'alice_reviews')
-    expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.eq(null)
+    expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.be.null
   })
 
   it('are listed by no function, nor are idents changed or removed by one', async () => {

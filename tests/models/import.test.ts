@@ -6,7 +6,7 @@ describe('ImportValidators.importQuestion', () => {
   it('tells absent, null and present apart: leave it, clear it, take this', () => {
     const question = ImportValidators.importQuestion({ clueing: 'Who?', hint: null })
     expect(question).to.deep.eq({ clueing: 'Who?', hint: null })
-    expect('title' in question).to.eq(false)
+    expect('title' in question).to.be.false
   })
 
   it('names a chain by the label of the question it points at', () => {

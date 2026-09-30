@@ -89,7 +89,7 @@ describe('CoreError', () => {
     })
     it('leaves no cause property at all when none was given', () => {
       const err = EE.FailedOp('could not save', { quizid: 'abc' })
-      expect(Object.prototype.hasOwnProperty.call(err, 'cause')).to.eq(false)
+      expect(Object.prototype.hasOwnProperty.call(err, 'cause')).to.be.false
     })
     it('does not disturb the story when there is nothing else in it', () => {
       const root = new Error('root')
@@ -127,7 +127,7 @@ describe('CoreError', () => {
       expect(JSON.stringify(err)).to.match(/safe/)
     })
     it('is read-only', () => {
-      expect(Object.getOwnPropertyDescriptor(err, 'backstory')).property('writable').to.eq(false)
+      expect(Object.getOwnPropertyDescriptor(err, 'backstory')).property('writable').to.be.false
     })
   })
 

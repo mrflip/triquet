@@ -12,7 +12,7 @@ describe('failureOf', () => {
   })
 
   it('is null for the answer that was wanted', () => {
-    expect(Errs.failureOf(guessReply, 'guess')).to.eq(null)
+    expect(Errs.failureOf(guessReply, 'guess')).to.be.null
   })
 
   it('reads a success for some other job as an answer this build could not read', () => {

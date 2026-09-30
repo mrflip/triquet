@@ -21,7 +21,7 @@ describe('the bags formulas are actually given', () => {
   it('name the failing field when one does not', () => {
     const bag = present(Expressed.bagsFor(quiz, Here).get(question._id))
     const outcome = QuizBagValidators.quizBag.safeParse({ ...bag, qn_label: 'Not A Label' })
-    expect(outcome.success).to.eq(false)
+    expect(outcome.success).to.be.false
     expect(outcome.error?.issues[0]?.path).to.deep.eq(['qn_label'])
   })
 })

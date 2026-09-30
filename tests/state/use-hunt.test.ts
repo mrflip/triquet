@@ -52,7 +52,7 @@ describe('placeIn', () => {
   })
 
   it('prefers a quiz that answers to the address over the one last shown there', () => {
-    expect(placeIn(Hunt, { realm: 'home', quiz: 'quiet_otter' }, kings).movedTo).to.eq(null)
+    expect(placeIn(Hunt, { realm: 'home', quiz: 'quiet_otter' }, kings).movedTo).to.be.null
   })
 
   it('finds nothing when the quiz last shown is gone too', () => {

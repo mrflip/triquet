@@ -25,7 +25,7 @@ describe('Postmortem.of', () => {
   it("says a refusal's reason, and which refusal it is", () => {
     const postmortem = Postmortem.of(refusal())
     expect(postmortem.summary).to.eq('refused (reviewNotOpened): Open your review of this quiz first.')
-    expect(postmortem.refused).to.eq(true)
+    expect(postmortem.refused).to.be.true
     expect(postmortem.failurekind).to.eq('reviewNotOpened')
   })
 
@@ -39,13 +39,13 @@ describe('Postmortem.of', () => {
   it("says where to look when the server keeps an error's reason to itself", () => {
     const postmortem = Postmortem.of(hiddenServerError())
     expect(postmortem.summary).to.eq('failed on the server, which keeps the reason to itself: find request 5c0f9a in the Convex logs')
-    expect(postmortem.hidden).to.eq(true)
-    expect(postmortem.refused).to.eq(false)
+    expect(postmortem.hidden).to.be.true
+    expect(postmortem.refused).to.be.false
   })
 
   it('says what the server said, when it said it, without hiding it', () => {
     const postmortem = Postmortem.of(new Error(convexMessage('Q', 'quizzes:open', 'Server Error\nUncaught Error: no such quiz\n    at handler')))
-    expect(postmortem.hidden).to.eq(false)
+    expect(postmortem.hidden).to.be.false
     expect(postmortem.fnkind).to.eq('query')
     expect(postmortem.summary).to.eq('Error: Server Error')
   })
@@ -70,7 +70,7 @@ describe('Postmortem.of', () => {
     const postmortem = Postmortem.of('just a string')
     expect(postmortem.summary).to.eq('just a string')
     expect(postmortem.flavor).to.eq('string')
-    expect(postmortem.fnpath).to.eq(null)
+    expect(postmortem.fnpath).to.be.null
     expect(Postmortem.of({ why: 'object' }).causes).to.deep.eq([])
   })
 
@@ -115,6 +115,6 @@ describe('Postmortem.report', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => null)
     const postmortem = Postmortem.report('read the whole hunt for the export', hiddenServerError())
     expect(error).toHaveBeenCalledOnce()
-    expect(postmortem.hidden).to.eq(true)
+    expect(postmortem.hidden).to.be.true
   })
 })

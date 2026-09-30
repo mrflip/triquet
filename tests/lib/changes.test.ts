@@ -120,7 +120,7 @@ describe('quizChanges, over the questions', () => {
 
 describe('shorthandFor', () => {
   it('says nothing at all when nothing changed, so nothing gets committed', () => {
-    expect(Changes.shorthandFor([])).to.eq(null)
+    expect(Changes.shorthandFor([])).to.be.null
   })
 
   it('is the one line when one entity moved', () => {
