@@ -12,10 +12,10 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
 
 ## The pieces
 
-* **Vercel** runs, on every push:
+* **Vercel** runs `pnpm build:vercel` on every push:
 
   ```
-  npx convex deploy --cmd 'pnpm build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
+  convex deploy --cmd 'node scripts/convex-previews.ts after-vercel-build && pnpm run build'
   ```
 
   `convex deploy` pushes `convex/` (schema, functions, indexes) to the deployment that
@@ -166,7 +166,25 @@ Vercel's Preview environment holds a preview deploy key (Doppler's `stg`, synced
 request's build makes a Convex preview deployment named for its branch, empty, with the functions
 and schema of that commit. It is where a reviewer clicks around. Convex deletes a preview
 deployment five days after it was made (fourteen on the paid plans, as of September 2026), and
-the next push makes a fresh one. Nothing seeds a preview: `--preview-run` can name a function to run after the push, once
+the next push makes a fresh one.
+
+Previews are kept few, because every one counts against the team's deployment limit (forty, which
+we hit on 2026-09-30):
+
+* **Each preview build shortens its preview's life to 36 hours** from that build
+  (`scripts/convex-previews.ts after-vercel-build`, inside the deploy's `--cmd`), so a branch
+  nobody pushes to lets go of its preview in a day and a half. Convex has no project-wide
+  setting for this: the lifetime is per deployment, set after it is made. A failure there warns
+  in the build log and leaves Convex's default; it never fails the build.
+* **Closing a pull request deletes its branch's preview**, merged or not
+  (`.github/workflows/convex-previews.yml`, with `CONVEX_PREVIEW_PRUNER_KEY`: a preview deploy
+  key of its own, synced from Doppler to GitHub Actions, which reaches the project's previews
+  and cannot see production). Run that
+  workflow by hand, naming a branch, for one that never had a pull request.
+* By hand: `./scripts/doppledo dev_aijanitor ./scripts/convex_preview node
+  scripts/convex-previews.ts <prune <branch> | expire <branch> [hours]>`.
+
+Nothing seeds a preview: `--preview-run` can name a function to run after the push, once
 there is something worth seeding with.
 
 ## Who may do what

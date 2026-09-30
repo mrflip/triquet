@@ -24,7 +24,7 @@
     "dev:agent:botkey": "scripts/doppledo dev_claude cross-env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev agent --watch next dev",
     "build": "next build",
     "build:agent": "scripts/doppledo dev_claude cross-env NEXT_DIST_DIR=.next-agent-build next build",
-    "build:vercel": "convex deploy --cmd 'pnpm run build'",
+    "build:vercel": "convex deploy --cmd 'node scripts/convex-previews.ts after-vercel-build && pnpm run build'",
     "start": "next start",
     "start:agent": "scripts/doppledo dev_claude cross-env NEXT_DIST_DIR=.next-agent-build PORT=3004 next start",
     "lint": "eslint .",

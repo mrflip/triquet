@@ -2,6 +2,18 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: Convex previews hit the deployment limit
+
+* **What filled it.** 40 = prod + `dev/flip` + 38 previews, one per branch Vercel built since
+  2026-09-28; none expire before 2026-10-03. #56–#58 have no preview: the limit refused them.
+  I deleted `20260929-failure_logging`'s (`nautical-gazelle-285`) at your ask; 37 remain.
+* **What stops it.** Each preview build now sets its preview to expire 36 hours after that build,
+  and closing a PR deletes its preview (`scripts/convex-previews.ts`, a new workflow). Needs
+  `CONVEX_PREVIEW_PRUNER_KEY`, a preview deploy key, in GitHub Actions.
+* **Keys.** `CONVEX_PREVIEW_PRUNER_KEY` is a preview deploy key: it lists, re-expires and
+  deletes previews and cannot see production (all checked with the janitor's). Keep the team key
+  and the production key out of CI. Vercel's Build Command is `pnpm build:vercel` (confirmed).
+
 ## 2026-09-30: A failed save raises an alarm you can't miss (#60)
 
 * **Answers the *Still poor* bullet** under *Playtest failures*. You get the Snackbar, not an
@@ -82,6 +94,18 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   (run unless every kept fix sits in `src/lib`, `src/models` or `tests/`) is too eager.
 
 ## 2026-09-30: Sprint foldable_ui paused before thread 4 (resumed and finished: see above)
+## 2026-09-30: Convex previews hit the deployment limit
+
+* **What filled it.** 40 = prod + `dev/flip` + 38 previews, one per branch Vercel built since
+  2026-09-28; none expire before 2026-10-03. #56–#58 have no preview: the limit refused them.
+  I deleted `20260929-failure_logging`'s (`nautical-gazelle-285`) at your ask; 37 remain.
+* **What stops it.** Each preview build now sets its preview to expire 36 hours after that build,
+  and closing a PR deletes its preview (`scripts/convex-previews.ts`, a new workflow). Needs
+  `CONVEX_PREVIEW_PRUNER_KEY`, a preview deploy key, in GitHub Actions.
+* **Open.** Is Vercel's Build Command `pnpm build:vercel`? `notes/deploy.md` quoted an
+  `npx convex deploy ...` line instead, and the expiry step only runs from `build:vercel`.
+
+## 2026-09-30: Sprint foldable_ui paused before thread 4
 
 * **Where it stands.** Threads 1-3 are done, each a PR stacked on the one before, none merged:
   #55 (fold machinery findings, docs only), #56 (`FoldButton`; the editable smith's note folds,
