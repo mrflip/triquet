@@ -1,4 +1,5 @@
 import { fromMarkdown } from 'mdast-util-from-markdown'
+import * as Markdown from './markdown'
 
 // The league's BBCode: the markup its site shows, apart from anything about its import format.
 
@@ -44,9 +45,8 @@ export function translate(text: string): string {
  * @example markdownToBbcode('     *verse*')      // => '     [i]verse[/i]'
  */
 export function markdownToBbcode(text: string): string {
-  // To markdown, four leading spaces open a code block, where nothing converts. Read them as a
-  // quote marker instead, which is written back out as the same four spaces.
-  const quoted = text.replaceAll(/^ {4}/gm, '> ')
+  // A quote marker, not a code block, where nothing would convert; written back out as the same four spaces.
+  const quoted = Markdown.indentsAsQuotes(text)
   const quoteSplices: Splice[] = []
   const tree = fromMarkdown(quoted, {
     mdastExtensions: [{

@@ -109,6 +109,14 @@ Settled; reach for these before writing the equivalent.
   writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed. Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
+* **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's
+  markdown: `src/lib/markdown.ts` holds the options and the one allowlist schema (widen it there,
+  never at a call site), and `components/cells/markdown.tsx` the views that use them. It renders
+  to React elements; never reach for `dangerouslySetInnerHTML` or `rehype-raw`, and HTML typed
+  into a field shows as the characters typed. Rendering happens in the browser, as all user data
+  does here. **Not `remark-gfm`**: its strikethrough takes a single `~`, and trivia is full of
+  `~50 years`. Added Sept 2026 at a Coach's request, settling the display half of the rich-text
+  question under Discuss.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
   typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed
@@ -240,15 +248,10 @@ it a decision rather than a default.
   (Clerk or WorkOS) whose JWTs Convex trusts. Client-side only; the "anonymous here, signed in
   there" collision designed, not discovered; `convex/authorize.ts` changes its first line and not
   its rules. See `notes/decisions/2026-09-convex.md`, *Identity*.
-* Rich-text editing: do we want markdown+preview, or a wysiwg? how do we keep safe?
-  - **TipTap**? **unified / remark / rehype** for the pipeline, via **react-markdown** for rendering.
-  - `remark-parse` → `remark-gfm` → `remark-rehype` → **`rehype-sanitize`** → render.
-  - react-markdown renders to React elements rather than `dangerouslySetInnerHTML`. Keep it that
-    way. If you find yourself reaching for raw HTML injection, stop and raise it.
-  - `rehype-sanitize` runs with an explicit allowlist schema, defined in one place and reviewed
-    when it changes. Never sanitize ad hoc at a call site.
-  - Render on the server wherever possible.
-  - **Shiki** for syntax highlighting in rendered code blocks, server-side.
+* Rich-text editing: markdown typed into a plain box, or a wysiwyg (**TipTap**)? Showing it is
+  settled (see **react-markdown** under *Use*); editing is still the plain box, which shows its
+  markdown rendered until it is typed into.
+  - **Shiki** for syntax highlighting in rendered code blocks, if code blocks ever matter.
 * **Sentry**, probably? Mind the Zod patch: a `ZodError` carries user text, so scrub before sending.
 
 ### Open with a Coach (Sept 2026)
