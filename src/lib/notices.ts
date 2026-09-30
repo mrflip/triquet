@@ -42,6 +42,7 @@ export const AppNotices = {
   identLabelNeeded:     'Type the label you go by.',
   identGateTitle:       'Enter your username (6+ letters, a-z) to join',
   untitledQuiz:         'Untitled quiz',
+  smithsNoteBlank:      'The theme, the meta, what is left to do…',
   untitledQuestion:     'Untitled question',
   reviewShared:         'Shared with the smiths.',
   reviewNotShared:      'Not shared with the smiths yet.',
