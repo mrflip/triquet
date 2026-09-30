@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Runs a command against Convex's preview deployments: CONVEX_DEPLOY_KEY is replaced by the
+# project's preview deploy key, CONVEX_PREVIEW_DEPLOY_KEY, which only a janitor config holds. The
+# deploy key a config carries names one deployment; the preview key is the one the convex CLI
+# needs to make or reach a preview (`convex deploy --preview-create <branch>`, say).
+#
+#   ./scripts/doppledo dev_aijanitor ./scripts/convex_preview ./node_modules/.bin/convex deploy --help
+#
+# Usage: scripts/convex_preview <command> [arguments...]
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: scripts/convex_preview <command> [arguments...]" >&2
+  exit 1
+fi
+if [[ -z ${CONVEX_PREVIEW_DEPLOY_KEY:-} ]]; then
+  echo "No CONVEX_PREVIEW_DEPLOY_KEY: run this under a janitor config (./scripts/doppledo dev_aijanitor ...)." >&2
+  exit 1
+fi
+
+# The key alone says where the CLI goes: a deployment the environment also names would contend with it.
+unset CONVEX_DEPLOYMENT
+export CONVEX_DEPLOY_KEY="$CONVEX_PREVIEW_DEPLOY_KEY"
+echo "Using the preview deploy key: $*" >&2
+exec "$@"
