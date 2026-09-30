@@ -170,7 +170,7 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 
 History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch), or when your guidance on git is requested, or if performing operations on the github repo.
 
-Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and replay however helps, and tidy up before pushing.
+Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) An ordered series of threads issued at once is a **sprint**, run by the `/sprint` orchestrator through `thread-worker` agents: `notes/git_hygiene.md`, *Sprints*. Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and replay however helps, and tidy up before pushing.
 
 1. **Start** a new line of work by tidying the stack you stand on: `git fetch origin && git rebase
    --update-refs origin/main`. That replays every unmerged branch beneath you (yours or not) onto main,
