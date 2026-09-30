@@ -4,16 +4,27 @@
 # The name follows the label rules: lowercase letters, digits and single underscores, starting
 # with a letter.
 #
+# `newb --from <words...>` makes the label from loose words instead -- a title, or another
+# branch's name: `newb --from 20260928-Fix the  Grid.` switches to 20260930-fix_the_grid. See
+# scripts/newb-label.ts for how.
+#
 # Its upstream is set to origin/<branch>, so a plain `git push` publishes it.
 #
 # Usage: pnpm run newb <branch_name>   (or ./scripts/newb <branch_name>)
+#        pnpm run newb --from <words...>
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: pnpm run newb <branch_name>, eg pnpm run newb migration_scripts" >&2
+usage="Usage: pnpm run newb <branch_name>, eg pnpm run newb migration_scripts; or pnpm run newb --from <words...>"
+if [[ "${1:-}" == "--from" ]]; then
+  shift
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  label="$("$root/node_modules/.bin/tsx" "$root/scripts/newb-label.ts" "$@")"
+elif [[ $# -eq 1 ]]; then
+  label="$1"
+else
+  echo "$usage" >&2
   exit 1
 fi
-label="$1"
 if [[ ! "$label" =~ ^[a-z](_?[a-z0-9])+$ ]]; then
   echo "\"$label\" is not a label: use lowercase letters, digits and single underscores, starting with a letter (eg 'migration_scripts')." >&2
   exit 1
