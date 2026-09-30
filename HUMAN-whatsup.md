@@ -2,6 +2,22 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: Sprint foldable_ui paused before thread 4
+
+* **Where it stands.** Threads 1-3 are done, each a PR stacked on the one before, none merged:
+  #55 (fold machinery findings, docs only), #56 (`FoldButton`; the editable smith's note folds,
+  starting folded), #57 (the playtesting screen's note folds too, as you asked). All green.
+  Branch `20260930-fold_playtest_note` is the top of the stack; thread 4's branch is not cut.
+* **Why paused.** Thread 4 (the grid's fold) needs a small hook holding the set of folded rows,
+  reset per quiz, like `useChecklist`: hand-rolled rather than `@react-stately/disclosure`. CLAUDE.md
+  wants your yes before a hand-roll. Say yes (or no) and the sprint resumes at thread 4.
+* **Your tri-state contract is replaced** by MUI X's fold-all convention, as your note allowed:
+  anything open, the triangle folds all; nothing open, it unfolds all. Every click you described
+  comes out the same; only the "mixed" face goes. `whiteboard/20260930-foldable_ui/fold-machinery.md`.
+* **Minor:** opening a fold on focus uses `onFocus`, one of `notes/views.md`'s tripwires, taken as
+  within your ask. The triangle glyph is small; worth a look at #56 before the grid copies it. Fold
+  state does not survive a reload. The playtesting note starts folded (one word to flip).
+
 ## 2026-09-30: Text fields show their markdown rendered until typed into
 
 * **Took the rich-text Discuss item's display half** on your request: react-markdown with
