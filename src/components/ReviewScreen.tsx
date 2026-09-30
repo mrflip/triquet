@@ -30,9 +30,9 @@ export type ReviewScreenProps = {
 }
 
 /**
- * What a reviewer sees: the quiz's questions, read-only, each with its chained BUT NOT, the
- * reviewer's verdict on it, and its answer behind a lock; then an overall note, and a button to
- * share it all with the smiths. Once theirs is shared, what the other reviewers have shared
+ * What a reviewer sees: the smith's note, in full, when there is one; the quiz's questions,
+ * read-only, each with its chained BUT NOT, the reviewer's verdict on it, and its answer behind a
+ * lock; then an overall note, and a button to share it all with the smiths. Once theirs is shared, what the other reviewers have shared
  * appears below it; until then, a line says so.
  *
  * A review of this quiz for this ident is opened the moment this screen is, so a reviewer who
@@ -57,6 +57,12 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved, saveNoti
       <Box sx={{ maxWidth: { xs: 760, lg: 1440 }, mx: 'auto' }}>
         <Typography variant="h4" component="h1" gutterBottom>{quiz.title || AppNotices.untitledQuiz} — PLAYTESTING</Typography>
         {saveNotice && <p className={styles.microcopy} role="status">{saveNotice}</p>}
+        {quiz.smiths_note === '' ? null : (
+          <Paper variant="outlined" component="section" aria-label="Smith's note" sx={{ p: 2, mt: 2 }}>
+            <Typography variant="overline" component="h2">Smith&apos;s note</Typography>
+            <Typography sx={{ whiteSpace: 'pre-wrap' }}>{quiz.smiths_note}</Typography>
+          </Paper>
+        )}
         <Stack spacing={2} sx={{ my: 3 }}>
           {questions.map((question) => (
             <ReviewQuestionRow

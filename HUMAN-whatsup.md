@@ -27,6 +27,14 @@ Agents: add at the top of the document, add a level two header;  Put the date be
 * **A flake for the record**: `e2e/expressions.spec.ts:108` (the preview pointing spec) failed
   once under the full suite and passed alone; this PR is markdown-only.
 
+## 2026-09-30: The smith's note on the playtesting screen and in LL BBCode (#48, #49)
+
+* **#46 still waits on the production backfill.** #44 is live, so its widened schema is too; run
+  `migrations:backfillSmithsNotes` there (dry run first) before marking #46 ready.
+* **Flaky e2e spec**, not from this work: `failures.spec.ts:63` (*a failed combined run is shown
+  by its button and touches no cell*) fails about half the time on `main` (3 of 6 with
+  `--repeat-each 6`): the "Couldn't recalculate" sentence never appears. I haven't dug into it.
+
 ## 2026-09-30: A smith's note beside the quiz's name, and the migration it needs
 
 * **Before merging the tightening PR, run the backfill on production.** The first PR widens:
