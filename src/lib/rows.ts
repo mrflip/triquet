@@ -153,14 +153,12 @@ function seenWith(row: Doc<'questions'>, latest: ReadonlyMap<string, SlotLatest>
 }
 
 /**
- * A quiz without its questions, from its own row and its widgets' and columns' rows in order. A
- * quiz written before it had a smith's note reads as having an empty one.
+ * A quiz without its questions, from its own row and its widgets' and columns' rows in order.
  *
  * @example frameOf(quiz, widgets, columns).row_ordering.length
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgets: readonly Doc<'widgets'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
-    smiths_note: '',
     ..._.omit(quiz, ['_creationTime', 'realm_id']),
     widgets: widgets.map((row) => widgetFrom(row)),
     columns: columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),

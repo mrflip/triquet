@@ -1,4 +1,3 @@
-import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
@@ -67,9 +66,8 @@ describe('quizFrom', () => {
     expect(Quiz.fill(quizFrom(rows)).questions).to.have.lengthOf(1)
   })
 
-  it('carries the smith\'s note, and gives a quiz written before it had one an empty note', () => {
-    const unnoted = { ...rows, quiz: _.omit(QuizRow, ['smiths_note']) }
-    expect([quizFrom(rows).smiths_note, quizFrom(unnoted).smiths_note]).to.deep.eq(['Theme: princes.', ''])
+  it('carries the smith\'s note', () => {
+    expect(quizFrom(rows).smiths_note).to.eq('Theme: princes.')
   })
 
   it('shows a cell\'s newest answer, with the failure since riding on it, in whole milliseconds', () => {
