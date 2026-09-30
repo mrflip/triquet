@@ -6,6 +6,8 @@ functions in `convex/`; Vercel's build command deploys those to the matching Con
 before it builds the app, so a deployment and the pages that talk to it always come from the same
 commit. Nothing is published by hand.
 
+If a task may touch on convex or vercel, load the appropriate skills
+
 Merge, and Vercel does the rest. The one thing that can stop a release is the schema (below).
 
 ## The pieces
