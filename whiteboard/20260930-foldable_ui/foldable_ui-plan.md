@@ -134,7 +134,20 @@ this thread settles on; do it the same way in both.
 > and capabilities. I would prefer to use a library and have minimal code, even if that means no
 > tri-state behavior.
 
-*Gloss.* Two pieces:
+*Orchestrator (after threads 1-3):* **follow `fold-machinery.md`'s thread 4 section.**
+
+* Fold-all is MUI X's two-state convention: anything open → fold all; nothing open → unfold all.
+  State is only the set of folded rows; no "mixed" face; the triangle icons are kept. This replaces
+  the Coach's tri-state contract, as the Coach's note allows; every click in it comes out the same.
+* Reuse thread 2's `FoldButton` (small size, the corner's `sx={{ p: 0.25 }}`) and `openOnEntry` on
+  the row's `<tr>`. The Coach may still ask for a larger glyph after seeing #56.
+* A folded row is ~58px, not 28 (Title's label metaline, askable cells' 44px min-height). Every row
+  stays open below 640px, where the corner does not exist.
+* **The fold-set hook is hand-rolled, approved by the Coach** (chat, 2026-09-30), on
+  `useChecklist`'s reasoning: small hand-roll now, a library if either grows to need more. Record
+  it in `notes/stack.md`, *Hand-rolled on purpose*, beside or folded into the `useChecklist` entry.
+
+*Gloss (as planned, before thread 1).* Two pieces:
 
 * **The corner.** `QuestionTable.tsx`'s top-left `<th>` stacks the batch-select button (and, in
   batch mode, the select-all checkbox). The triangle joins that stack without widening the
