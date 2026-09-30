@@ -15,7 +15,7 @@ const Dressing: Components = {
  * box, and `styles.prose` (or a face) spaces what is inside.
  */
 export function MarkdownText({ text }: Readonly<{ text: string }>) {
-  return <ReactMarkdown {...Markdown.RenderOptions} components={Dressing}>{Markdown.indentsAsQuotes(text)}</ReactMarkdown>
+  return <ReactMarkdown {...Markdown.RenderOptions} components={Dressing}>{Markdown.forScreen(text)}</ReactMarkdown>
 }
 
 /** Whether `text` gets a face drawn over its box: blank text leaves the box, and its placeholder, alone */
@@ -31,6 +31,16 @@ export function veiledIf(text: string): string | undefined {
   return faced(text) ? styles.veiled : undefined
 }
 
+/**
+ * Focuses the box a face is drawn over, the text box beside it in their shared parent (MUI's
+ * growing box keeps a hidden twin there for measuring, which is passed over), unless the click
+ * followed a link.
+ */
+function focusBox(event: React.MouseEvent<HTMLDivElement>) {
+  if (event.target instanceof Element && event.target.closest('a')) { return }
+  event.currentTarget.parentElement?.querySelector<HTMLElement>('textarea:not([aria-hidden]), input')?.focus()
+}
+
 export type MarkdownFaceProps = {
   /** What the box holds, as typed */
   text:     string
@@ -43,14 +53,14 @@ export type MarkdownFaceProps = {
 /**
  * A text box's rendered face: its markdown, drawn over the box while nobody is typing in it,
  * and lifted the moment anything in its positioned parent takes focus, so the author edits the
- * text as typed. It takes no clicks (they land on the box beneath) and is hidden from assistive
- * technology, which reads the box. The box itself wears `veiledIf(text)`, so its own text is
- * out of sight beneath the face.
+ * text as typed. It scrolls when it overflows its box; a click on it, other than on a link, is
+ * passed to the box. It is hidden from assistive technology, which reads the box. The box itself
+ * wears `veiledIf(text)`, so its own text is out of sight beneath the face.
  */
 export function MarkdownFace({ text, inInput = false, faceRef }: Readonly<MarkdownFaceProps>) {
   if (! faced(text)) { return null }
   return (
-    <div ref={faceRef} aria-hidden data-face className={clsx(styles.face, styles.prose, inInput && styles.faceInInput)}>
+    <div ref={faceRef} aria-hidden data-face onClick={focusBox} className={clsx(styles.face, styles.prose, inInput && styles.faceInInput)}>
       <MarkdownText text={text} />
     </div>
   )

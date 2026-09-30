@@ -30,18 +30,50 @@ export const RenderOptions: Readonly<Pick<ReactMarkdownOptions, 'remarkPlugins' 
   rehypePlugins:       [[rehypeSanitize, Allowlist]],
 }
 
+/** The run of four-space indents a line opens with, one per quote level */
+const IndentsRE = /^(?: {4})+/
+
 /**
- * `text` with each line that opens with four spaces opening with a quote marker instead. To
- * markdown, those spaces would start a code block; to an author they indent a line of verse,
- * which is a quote.
+ * `text` with each four spaces a line opens with written as a quote marker instead, one level for
+ * each. To markdown, those spaces would start a code block; to an author they indent a line of
+ * verse, which is a quote, and eight spaces indent it twice. Spaces short of another four are kept.
  *
  * @param text - Markdown-ish text.
- * @returns The same text, with the first four spaces of an indented line as `> `.
+ * @returns The same text, with each four leading spaces of a line as `> `.
  *
- * @example indentsAsQuotes('    *verse*')    // => '> *verse*'
- * @example indentsAsQuotes('      deeper')   // => '>   deeper'
- * @example indentsAsQuotes('prose\n   not')  // => 'prose\n   not'
+ * @example indentsAsQuotes('    *verse*')      // => '> *verse*'
+ * @example indentsAsQuotes('        deeper')   // => '> > deeper'
+ * @example indentsAsQuotes('      between')    // => '>   between'
+ * @example indentsAsQuotes('prose\n   not')    // => 'prose\n   not'
  */
 export function indentsAsQuotes(text: string): string {
-  return text.replaceAll(/^ {4}/gm, '> ')
+  return text.replaceAll(new RegExp(IndentsRE, 'gm'), (run) => '> '.repeat(run.length / 4))
+}
+
+/** How many quote levels a line's indent makes */
+function depthOf(line: string): number {
+  return (IndentsRE.exec(line)?.[0].length ?? 0) / 4
+}
+
+/**
+ * `text` as the screen parses it: indents as quotes, and every line quoted exactly as deep as it
+ * is indented. Markdown would carry a line on into the quote above it (`lazy continuation`), so
+ * where the indent steps back, a line quoted only as deep as the next one closes the deeper quote
+ * first. The LL export needs no such line: it writes each line's own indent, however markdown
+ * groups them.
+ *
+ * @param text - Markdown-ish text.
+ * @returns Markdown whose quotes follow the indents.
+ *
+ * @example forScreen('    verse\nWho?')          // => '> verse\n\nWho?'
+ * @example forScreen('        two\n    one')     // => '> > two\n>\n> one'
+ * @example forScreen('    one\n        two')     // => '> one\n> > two'
+ */
+export function forScreen(text: string): string {
+  const lines = text.split('\n')
+  return lines.flatMap((line, ii) => {
+    const depth = depthOf(line)
+    const steppedBack = ii > 0 && depth < depthOf(lines[ii - 1] ?? '') && line.trim() !== ''
+    return steppedBack ? ['> '.repeat(depth).trimEnd(), indentsAsQuotes(line)] : [indentsAsQuotes(line)]
+  }).join('\n')
 }

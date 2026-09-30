@@ -130,9 +130,9 @@
 }
 
 /* == Faces: a field's markdown, drawn over it until it is typed into ==
-   Plain CSS rather than state: the face lifts on focus within its box, so tabbing, clicking and
-   a test's `fill` all reach the box beneath unchanged. Shared by the grid, which styles without
-   Emotion, and the MUI fields around it, so every field renders alike. */
+   Plain CSS rather than state: the face lifts on focus within its box, so tabbing and a test's
+   `fill` reach the box beneath unchanged, and a click on the face is passed to it. Shared by the
+   grid, which styles without Emotion, and the MUI fields around it, so every field renders alike. */
 
 .veil {
   position: relative;
@@ -155,11 +155,16 @@ textarea.veiled {
   left:           0;
   right:          0;
   max-height:     100%;
-  overflow:       hidden;
+  overflow-y:     auto;
   /* The grid box's own padding, and its border */
   padding:        5px 6px;
-  pointer-events: none;
+  cursor:         text;
   overflow-wrap:  anywhere;
+}
+
+/* The face covers the box, so the box's hover border answers to the pair */
+.veil:hover > .field:not(:disabled) {
+  border-color: var(--border);
 }
 
 .faceInInput {

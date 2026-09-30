@@ -8,10 +8,17 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   remark-breaks and rehype-sanitize, the allowlist in `src/lib/markdown.ts`. Editing is still the
   plain box. **Left out remark-gfm**, which the note named: its strikethrough takes a single `~`
   (`~50 years`). The note's "render on the server" line contradicted client-first, so it's gone.
-* **How**: the textarea never leaves the page. The rendered "face" sits over it with
-  `pointer-events: none`, and pure CSS lifts it on `:focus-within`, so clicking, tabbing, screen
-  readers and every existing e2e `fill`/`toHaveValue` are untouched. No state, no new handlers.
-  The grid's row height takes the taller of raw and rendered text, so a row doesn't jump on focus.
+* **How**: the textarea never leaves the page. The rendered "face" sits over it, and pure CSS
+  lifts it on `:focus-within`, so tabbing, screen readers and every existing e2e
+  `fill`/`toHaveValue` are untouched. A click on the face is passed to the box (a link in it opens
+  instead); the caret lands where it last was, not where you clicked. Past the grid's 480px cap
+  the face scrolls. The grid's row height takes the taller of raw and rendered text, so a row
+  doesn't jump on focus.
+* **Four spaces is a quote level**, eight is two, on screen and in the LL export alike. The export
+  used to turn eight spaces into a quote holding a code block, where emphasis didn't convert.
+  On screen a line follows its own indent: markdown's lazy continuation would pull `Who wrote
+  it?` into the verse quote above it, so `Markdown.forScreen` closes the quote where the indent
+  steps back. A `>` typed by hand keeps markdown's usual behaviour.
 * **Which fields**: Clueing, Hint, Notes, Full Answer, the smith's note; on the review screen
   Guesses, Comments, Overall, and the read-only clueing, BUT NOT, answer and shared reviews.
   **Alt Text stays plain** (it's read aloud as written); Title and Q# are one-liners. The grid's
@@ -19,9 +26,6 @@ Agents: add at the top of the document, add a level two header;  Put the date be
 * **The screen renders more than the league does**: lists, headings and links show here, but the
   LL export only translates bold, italics, quotes and line breaks. A clue like `1984. Who...` now
   renders as a numbered list. Worth a look if smiths get surprised.
-* **Past the grid's height cap** (480px) the face clips rather than scrolls; click in to read the rest.
-* **A local `pnpm lint` trips on `public/jazz/`** (gitignored, left from the Jazz trial): eslint
-  doesn't read `.gitignore`. CI never sees it; deleting the directory fixes it locally.
 
 ## 2026-09-30: Sprints -- /sprint orchestrator and thread-worker agents (#47)
 
