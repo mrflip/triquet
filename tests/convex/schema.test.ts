@@ -43,7 +43,9 @@ const RowValidators: Record<TableNames, RowValidator> = {
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {}
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  quizzes: ['smiths_note'],
+}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
@@ -75,7 +77,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', forced_label: null, version: 'main', locked: false, last_sortkey: 'column:clueing', bulk_ishes_last: { approx_tokens: 9, text_count: 2, updated_at: 5 }, row_ordering: [] })
+    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', forced_label: null, smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: 'column:clueing', bulk_ishes_last: { approx_tokens: 9, text_count: 2, updated_at: 5 }, row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
     const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)

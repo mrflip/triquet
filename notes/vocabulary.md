@@ -38,6 +38,8 @@ the domain.
 
 * **quiz** -- an ordered list of questions, plus the widgets and columns that say what else the
   grid shows. Each question's `position` *is* the display order; sorting and dragging rewrite it.
+* **smith's note** (`smiths_note`) -- what the smiths say about a quiz as a whole: its theme, its
+  meta, what is left to do. Beside the quiz's name; for the smiths, so formulas do not see it.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`. Everything else a quiz shows
   is a widget.

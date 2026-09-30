@@ -103,6 +103,11 @@ export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string
   await updateQuiz(db, await openQuizRow(db, open), { version })
 }
 
+/** Rewrite the open quiz's smith's note. An empty note is kept as it is: the screen shows its placeholder. */
+export async function setSmithsNote(db: Writer, open: OpenQuizT, smiths_note: string): Promise<void> {
+  await updateQuiz(db, await openQuizRow(db, open), { smiths_note })
+}
+
 /**
  * Revise one question of the open quiz by a patch. A chain in the patch names the question it
  * points at; one that names no other question of the quiz is cleared. A question not in the

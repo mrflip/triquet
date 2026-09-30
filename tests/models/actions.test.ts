@@ -29,6 +29,7 @@ const Actions: HuntActionDNA[] = [
   { kind: 'retitle_quiz', title: 'Princes' },
   { kind: 'relabel_quiz', label: 'princes' },
   { kind: 'reversion_quiz', version: 'playtest' },
+  { kind: 'set_smiths_note', smiths_note: 'Theme: princes.\n\nMeta: their initials.' },
   { kind: 'edit_question', question_id, patch: { clueing: 'Who?', chains_to: null } },
   { kind: 'add_question' },
   { kind: 'delete_questions', question_ids: [question_id] },
