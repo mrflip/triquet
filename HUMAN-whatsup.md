@@ -2,6 +2,22 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: e2e against the optimized build has landed: `pnpm test:e2e:built` (#61)
+
+* **Answers *Why no test caught it: StrictMode*** under *Playtest failures*. `pnpm
+  test:e2e:built` runs the whole suite against `next build` then `next start`, instead of `next dev`. "Built"
+  means the build mode only. The keys are the same stand-ins, asking is switched off, and the
+  backend is local and emptied, as in the dev run. It uses the new `e2e-built` role: port 3005,
+  backend 3405, `.next-e2e-built`. All 187 specs pass under it in about a minute.
+* **The reuse trap is closed for this run**: a built server is never reused, so a run that finds
+  3005 taken refuses to start. That fired for real once, on a stray server of my own.
+* **Your call: should the finishing suite and CI run it?** My proposal:
+  - Locally, add it beside `pnpm test:e2e` in git_hygiene's finishing line. Dev mode catches
+    impure effects; the build catches what dev mode hides.
+  - On CI, it may suit the small runners better than the dev server, which compiles each page on
+    first visit. The switch is one env line (`TRIQUET_E2E_SERVER: built`) in the e2e job.
+* **CLAUDE.md's role list** (*Global resources*) wants `e2e-built`. I left CLAUDE.md to you.
+
 ## 2026-09-30: A failed save raises an alarm you can't miss (#60)
 
 * **Answers the *Still poor* bullet** under *Playtest failures*. You get the Snackbar, not an
