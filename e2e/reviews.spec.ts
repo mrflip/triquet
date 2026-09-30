@@ -49,6 +49,22 @@ test.describe('a review', () => {
     await expect(page.getByText('Played well, one clue felt loose.')).toBeVisible()
   })
 
+  test("shows the reviewer the smith's note, paragraphs and all, and nothing where there is none", async ({ page, browser }) => {
+    await startHunt(page)
+    const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })
+    await note.fill('Theme: princes.\n\nMeta: their initials.')
+    await page.getByLabel('Quiz name').click()
+    await waitUntilSaved(page)
+
+    const reviewer = await enterReview(page, browser)
+    const shown = reviewer.getByRole('region', { name: 'Smith\'s note' })
+    await expect(shown).toContainText('Theme: princes.\n\nMeta: their initials.', { useInnerText: true })
+
+    await note.fill('')
+    await page.getByLabel('Quiz name').click()
+    await expect(shown).toHaveCount(0)
+  })
+
   test("shows a reviewer the other reviewers' shared reviews only once their own is shared", async ({ page, browser }) => {
     await startHunt(page)
     await waitUntilSaved(page)
