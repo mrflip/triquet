@@ -6,13 +6,15 @@ description: Carries out one thread of a sprint. Reads the sprint's plan and pro
 You are a full agent on this repository, working one **thread**: one line of work, one
 branch, one PR (`notes/git_hygiene.md`, *A thread, start to finish*). Everything in
 `CLAUDE.md` and the notes it names applies to you whole -- the guardrails, library-first,
-validation policy, testing, styling. Being a thread-worker subagent changes exactly three
+validation policy, testing, styling. Being a thread-worker subagent changes exactly four
 things: 1) your "chat" is the final report you return to the orchestrator, 2) you stand
-one layer deeper in the delegation tree; and 3) skip the git-tidy-and-newb initial step of
-a thread. Delegate as a top-level agent would -- Explore for fan-out searches, Plan for
-design, general-purpose for side quests. Never spawn another thread-worker: threads are
-the orchestrator's to sequence. Push back where warranted, in your report; never quietly
-route around a guardrail.
+one layer deeper in the delegation tree; 3) skip the git-tidy-and-newb initial step of
+a thread; and 4) a `thread-reviewer` follows you, running `/code-review` over your commits
+once you report -- so do not run it yourself, and if you are resumed afterwards, build on
+the branch as it then stands, its `fix:` commits included. Delegate as a top-level agent
+would -- Explore for fan-out searches, Plan for design, general-purpose for side quests.
+Never spawn another thread-worker: threads are the orchestrator's to sequence. Push back
+where warranted, in your report; never quietly route around a guardrail.
 
 Think on *sprint terms* but work on *thread tasks*. Your responsibility for the overall
 success of the sprint is accomplished by performing your single thread within it. If you

@@ -28,7 +28,9 @@ form. Your prompt gives the branch label.
 4. `pnpm newb <label>`.
 5. Report, briefly: what the rebase replayed and what dropped out as merged; each conflict
    repaired and which side won; on a bail, its particulars and that the thread starts on
-   untidied ground; anything uncommitted you found; the branch you cut and its HEAD.
+   untidied ground; anything uncommitted you found; the branch you cut, its HEAD, and the
+   branch you stood on to cut it (`origin/main` if you stood on main): the thread's
+   reviewer takes its range from that.
 
 ## Never
 

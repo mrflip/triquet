@@ -2,6 +2,31 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: Sprints review themselves -- a thread-reviewer after every thread
+
+* **A `thread-reviewer` agent** (`.claude/agents/thread-reviewer.md`) now follows each
+  `complete` worker in a sprint. It stands on the worker's branch and runs
+  `/code-review <level> --fix <beneath>...HEAD` -- the thread's own commits, since the PR's
+  diff against main would re-review every thread beneath it -- then reads each fix `--fix`
+  left in the tree, keeps only what it can explain in a sentence and that stays within what
+  the thread built, proves the suites, and appends `fix:` commits to the same branch and PR
+  with a summary comment on the PR. It never rebases, amends, force-pushes, edits the sprint's
+  documents, or acts on a finding that would change the thread's design: those come back
+  `flagged`.
+* **The orchestrator** (`/sprint`) spawns it foreground between the worker and its own
+  document commit, relays both reports verbatim, records a `*Review:*` line under the
+  thread's progress section, and treats `flagged` like a blocking question: in YOLO it may
+  resume the worker once and re-review the new commits; otherwise it pauses. The plan
+  header records the review level; the Coach sets it at invocation (`medium` by default,
+  `none` to skip). `pre-thread` now reports the branch it stood on, since the range needs it.
+* **Argument order matters**: the built-in skill wants `/code-review medium --fix <target>`,
+  level first, and reuses whatever level was typed last when none is given -- so the reviewer
+  always spells it out. `--fix` leaves its edits uncommitted, which is what lets the reviewer
+  judge them one by one.
+* **Not done**: no sprint has run with this yet. The first one will tell us whether `medium`
+  is the right default (it favours fewer, high-confidence findings) and whether the e2e rule
+  (run unless every kept fix sits in `src/lib`, `src/models` or `tests/`) is too eager.
+
 ## 2026-09-30: Text fields show their markdown rendered until typed into
 
 * **Took the rich-text Discuss item's display half** on your request: react-markdown with
