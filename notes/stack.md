@@ -171,6 +171,11 @@ Settled; reach for these before writing the equivalent.
 ### Testing
 
 * **Vitest** with chai-style assertions. See `notes/testing.md`.
+* **`eslint-plugin-chai-expect`** and **`eslint-plugin-chai-friendly`** on `tests/**`, in place
+  of `vitest/valid-expect`, which refuses chai's property assertions (`to.be.true`) with no option
+  to allow them. chai-expect catches a bare `expect(x)` and a method left uncalled; chai-friendly's
+  `no-unused-expressions` lets an expect chain stand as a statement. Lint-only, so the runtime
+  stays vitest's. No vitest-specific plugin exists. Added Sept 2026.
 * **convex-test** (with **@edge-runtime/vm**) for Convex functions: Vitest's `convex` project
   runs `tests/convex/**` under the edge runtime, everything else under node.
 * **Playwright** for end-to-end, especially the handful of flows where a break is
