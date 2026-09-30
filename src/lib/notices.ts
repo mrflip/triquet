@@ -59,6 +59,9 @@ export const AppNotices = {
   noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
   noRepositories:       'No history has been kept in this browser yet.',
   deletingHunt:         'To delete a hunt, please delete its quizzes.',
+  huntTitleTooLong:     'That name is too long.',
+  huntLabelShape:       'Enter a label: letters, digits and single underscores, starting with a letter.',
+  huntRelabelMoves:     "Changing this label updates the URL. Old links won't find this page anymore.",
 } as const
 
 /** Why the server refused a change, in the author's language: one per `failurekind` */

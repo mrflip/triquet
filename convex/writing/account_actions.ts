@@ -6,6 +6,7 @@ import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
 import { huntForLabel, huntsOf, identFor, identForLabel } from '../reading'
+import { relabelHunt, retitleHunt } from './hunt_actions'
 import { insertHunt, type Writer } from './quiz_writing'
 
 /**
@@ -68,12 +69,13 @@ export async function newHunt(db: Writer, browser_key: string, label: string): P
 }
 
 /**
- * Carry out what a visitor did before opening any quiz, writing the rows it comes to.
+ * Carry out what a visitor did before opening any quiz, writing the rows it comes to. Whether
+ * they may retitle or relabel a hunt is asked before this (`authorize`).
  *
  * @param db - The mutation's database.
  * @param browser_key - The visitor's browser.
  * @param action - What the visitor did.
- * @returns The id of the ident taken on or retitled, or the hunt made.
+ * @returns The id of the ident taken on or retitled, or the hunt made or changed.
  * @throws A refusal when the action cannot be carried out; nothing is written.
  */
 export async function performAccount(db: Writer, browser_key: string, action: AccountActionT): Promise<Id<'idents'> | Id<'hunts'>> {
@@ -81,5 +83,7 @@ export async function performAccount(db: Writer, browser_key: string, action: Ac
   case 'assume_ident':  { return await assumeIdent(db, browser_key, action.label, action.title) }
   case 'retitle_ident': { return await retitleIdent(db, browser_key, action.title) }
   case 'new_hunt':      { return await newHunt(db, browser_key, action.label) }
+  case 'retitle_hunt':  { await retitleHunt(db, action.hunt_id, action.title); return action.hunt_id }
+  case 'relabel_hunt':  { await relabelHunt(db, action.hunt_id, action.label); return action.hunt_id }
   }
 }

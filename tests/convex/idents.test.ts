@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import { huntForLabel, identForLabel, realmsOf } from '../../convex/reading'
+import { Hunt } from '../../src/models/hunt'
 import { HomeRealmLabel } from '../../src/models/realm'
 import { BlankQuestionQty } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { identified, openTester, refusedAs, wholeHunt, type Tester } from '../support/convex'
+import { identified, openTester, refusedAs, seedHunt, wholeHunt, type Tester } from '../support/convex'
 
 /** Take on the ident labelled `label` as the browser `browser_key`, through the public function */
 async function assume(tt: Tester, browser_key: string, label: string, title = '') {
@@ -170,5 +171,54 @@ describe('idents.performAccount: new_hunt', () => {
     await makeHunt(tt, 'loud_heron')
     const realms = await tt.run(async (ctx) => await realmsOf(ctx.db, present(await huntForLabel(ctx.db, 'loud_heron'))._id))
     expect(realms.map(({ realm, quizzes }) => [realm.label, quizzes.length])).to.deep.eq([[HomeRealmLabel, 1]])
+  })
+})
+
+/** What a smith does to a hunt from the hunts list, less the hunt it names */
+type HuntEdit = { kind: 'retitle_hunt', title: string } | { kind: 'relabel_hunt', label: string }
+
+/** A hunt with its smith and a reviewer on it, as the hunts list would find it, and how to edit it from there */
+async function smithed() {
+  const tt = openTester()
+  const { open: { hunt_id }, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_smiths' })
+  const bob = await join('bob_reviews', 'reviewer')
+  const perform = async (edit: HuntEdit, browser_key = smith.browser_key) => await tt.mutation(api.idents.performAccount, { action: { ...edit, hunt_id }, browser_key })
+  const held = async () => present(await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id)))
+  return { tt, hunt_id, bob, perform, held }
+}
+
+describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
+  it("lets the hunt's smith retitle it and relabel it, with no quiz open", async () => {
+    const { hunt_id, perform, held } = await smithed()
+    expect(await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })).to.eq(hunt_id)
+    expect(await perform({ kind: 'relabel_hunt', label: 'autumn_hunt' })).to.eq(hunt_id)
+    const hunt = await held()
+    expect([hunt.title, hunt.forced_label]).to.deep.eq(['The Autumn Hunt', 'autumn_hunt'])
+  })
+
+  it('refuses a reviewer on the hunt, and a stranger, writing nothing', async () => {
+    const { tt, bob, perform, held } = await smithed()
+    const carol = await identified(tt, 'carol_strays')
+    const ante = await held()
+    const refusals = [
+      await refusedAs(perform({ kind: 'retitle_hunt', title: 'Mine now' }, bob.browser_key)),
+      await refusedAs(perform({ kind: 'relabel_hunt', label: 'mine_now' }, carol.browser_key)),
+    ]
+    expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
+    expect(await held()).to.deep.eq(ante)
+  })
+
+  it('refuses a browser that has not said who it is', async () => {
+    const { perform } = await smithed()
+    const pending = perform({ kind: 'retitle_hunt', title: 'Mine now' }, mintId())
+    expect(await refusedAs(pending)).to.eq('notIdentified')
+  })
+
+  it('refuses a label another hunt answers to, writing nothing', async () => {
+    const { tt, perform, held } = await smithed()
+    await makeHunt(tt, 'taken_label')
+    expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
+    const hunt = await held()
+    expect(hunt.forced_label).to.eq(null)
   })
 })

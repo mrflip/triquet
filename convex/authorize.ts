@@ -1,5 +1,5 @@
 import type { Doc, Id } from './_generated/dataModel'
-import { isReviewAction, type HuntActionT, type OpenQuizT } from '../src/models/actions'
+import { isReviewAction, type AccountActionT, type HuntActionT, type OpenQuizT } from '../src/models/actions'
 import type { HuntRole } from '../src/models/hunting'
 import { huntingFor, huntIdOf, reviewFor, type Reader } from './reading'
 
@@ -96,6 +96,21 @@ export async function mayPerform(db: Reader, open: OpenQuizT, ident_id: Id<'iden
     named === null || isQuizOfHunt(db, named, open.hunt_id),
   ])
   return verdicts.every(Boolean)
+}
+
+/**
+ * Whether `ident_id` may carry out the account action `action`: one that names a hunt as someone
+ * who may change it, anything else as anyone at all (it acts only on the ident the browser is).
+ *
+ * @param db - The mutation's database.
+ * @param ident_id - Who is acting; null for a browser that has not said who it is.
+ * @param action - What they did.
+ * @returns Whether they may.
+ *
+ * @example if (! await mayActOnAccount(ctx.db, ident?._id ?? null, action)) { refuse('notPermitted') }
+ */
+export async function mayActOnAccount(db: Reader, ident_id: Id<'idents'> | null, action: AccountActionT): Promise<boolean> {
+  return 'hunt_id' in action ? await mayChangeHunt(db, action.hunt_id, ident_id) : true
 }
 
 /**

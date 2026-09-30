@@ -71,7 +71,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
 
   const onRenameHunt = () => {
     const title = huntTitleDraft.trim()
-    if (! HuntValidators.row.shape.title.safeParse(title).success) { setHuntTitleIssue('That name is too long.'); return }
+    if (! HuntValidators.row.shape.title.safeParse(title).success) { setHuntTitleIssue(AppNotices.huntTitleTooLong); return }
     if (title === hunt.title) { return }
     onRetitleHunt(title)
     onClose()
@@ -79,7 +79,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
 
   const onRelabelHuntClick = () => {
     const cleaned = Labelmaker.normalize(huntLabelDraft)
-    if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { setHuntLabelIssue('Enter a label: letters, digits and single underscores, starting with a letter.'); return }
+    if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { setHuntLabelIssue(AppNotices.huntLabelShape); return }
     if (cleaned === huntLabel) { return }
     onRelabelHunt(cleaned)
     onClose()

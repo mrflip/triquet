@@ -104,6 +104,28 @@ test.describe('the hunts', () => {
     await expect(page).toHaveURL(`${path}?act=smith`)
     await expect(page.getByLabel('Quiz name')).toHaveValue(title)
   })
+
+  test('are retitled and relabelled by their smith from the gear beside each, and their quizzes follow the label', async ({ page }) => {
+    await startHunt(page)
+    const title = freshTitle('Relabelled quiz')
+    await page.getByLabel('Quiz name').fill(title)
+    await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
+    const huntTitle = freshTitle('Edited hunt')
+    const huntLabel = `edited_${crypto.randomUUID().replaceAll('-', '').slice(0, 8)}`
+    await loadAfresh(page, '/my/hunts')
+    await page.getByRole('button', { name: /^Edit hunt / }).click()
+    const dialog = page.getByRole('dialog', { name: 'Edit hunt' })
+    await expect(dialog.getByText("Changing this label updates the URL. Old links won't find this page anymore.")).toBeVisible()
+    await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(huntTitle)
+    await dialog.getByRole('textbox', { name: 'Label', exact: true }).fill(huntLabel)
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page.getByRole('heading', { name: huntTitle })).toBeVisible()
+    await page.getByRole('link', { name: title }).click()
+    await expect(page).toHaveURL(new RegExp(`/h/${huntLabel}/home/`))
+    await expect(page.getByLabel('Quiz name')).toHaveValue(title)
+  })
 })
 
 test.describe('an address naming a quiz', () => {
