@@ -12,6 +12,9 @@ export const RecordEnd = '$$'
 /** An empty italic run: shows as nothing, and keeps two dollar signs from touching */
 const DollarFence = '[i][/i]'
 
+/** What a quote marker is written as, and what an indented line starts with */
+const Indent = ' '.repeat(4)
+
 type MdRoot = ReturnType<typeof fromMarkdown>
 type MdNode = MdRoot | MdRoot['children'][number]
 
@@ -76,7 +79,7 @@ export function bodyOf(question: QuestionT, target: QuestionT | null): string {
 
 /**
  * One field's text, made safe for the format: markdown bold and italics become `[b]` and `[i]`,
- * a run of dollar signs is broken up so it never reads as a record's end, a pipe becomes a
+ * a quoted or indented line is indented by four spaces, a run of dollar signs is broken up so it never reads as a record's end, a pipe becomes a
  * broken bar (`¦`), and every line break becomes ` [br] `. BBCode already in the text is left
  * exactly as it is.
  *
@@ -87,7 +90,7 @@ export function bodyOf(question: QuestionT, target: QuestionT | null): string {
  * @example fieldTextOf('$$5 | $10')                 // => '$[i][/i]$5 ¦ $10'
  */
 export function fieldTextOf(text: string): string {
-  return emphasisToBbcode(text)
+  return markdownToBbcode(text)
     .split(/(?<=\$)(?=\$)/).join(DollarFence)
     // A broken bar stands in for a pipe, which the format keeps for separating fields.
     .replaceAll('|', '¦')
@@ -96,22 +99,38 @@ export function fieldTextOf(text: string): string {
 
 /**
  * `text` with its markdown emphasis written as BBCode: `**bold**` or `__bold__` as `[b]..[/b]`,
- * `*italic*` or `_italic_` as `[i]..[/i]`, nested however markdown nests them. Only the
- * emphasis markers change. What markdown does not read as emphasis (`4 * 5 * 6`, `snake_case`,
- * a code span, an escaped `\*`) and every other character are left as written.
+ * `*italic*` or `_italic_` as `[i]..[/i]`, nested however markdown nests them. A quoted line's
+ * `> ` is written as four spaces, and a line indented four spaces or more is read as quoted, so
+ * emphasis on it converts too and it keeps every space it had. What markdown does not read as
+ * emphasis (`4 * 5 * 6`, `snake_case`, a code span, an escaped `\*`) and every other character
+ * are left as written.
  *
  * @param text - Markdown-ish text.
- * @returns The same text, with its emphasis markers swapped for tags.
+ * @returns The same text, with its emphasis markers swapped for tags and its quote markers for spaces.
  *
- * @example emphasisToBbcode('***both***')        // => '[i][b]both[/b][/i]'
- * @example emphasisToBbcode('**bold _both_**')   // => '[b]bold [i]both[/i][/b]'
- * @example emphasisToBbcode('4 * 5 * 6')         // => '4 * 5 * 6'
+ * @example markdownToBbcode('***both***')        // => '[i][b]both[/b][/i]'
+ * @example markdownToBbcode('**bold _both_**')   // => '[b]bold [i]both[/i][/b]'
+ * @example markdownToBbcode('4 * 5 * 6')         // => '4 * 5 * 6'
+ * @example markdownToBbcode('>  *verse*')        // => '     [i]verse[/i]'
+ * @example markdownToBbcode('     *verse*')      // => '     [i]verse[/i]'
  */
-export function emphasisToBbcode(text: string): string {
-  const splices = splicesOf(fromMarkdown(text))
+export function markdownToBbcode(text: string): string {
+  // To markdown, four leading spaces open a code block, where nothing converts. Read them as a
+  // quote marker instead, which is written back out as the same four spaces.
+  const quoted = text.replaceAll(/^ {4}/gm, '> ')
+  const quoteSplices: Splice[] = []
+  const tree = fromMarkdown(quoted, {
+    mdastExtensions: [{
+      exit: {
+        // A quote's marker on each line: the `>` and the one space after it, if there is one
+        blockQuotePrefix: (token) => { quoteSplices.push({ beg: token.start.offset, end: token.end.offset, text: Indent }) },
+      },
+    }],
+  })
+  const splices = [...quoteSplices, ...splicesOf(tree)].toSorted((aa, bb) => aa.beg - bb.beg)
   // Each splice picks the text back up where the one before it left off.
-  const spliced = splices.map((splice, ii) => text.slice(splices[ii - 1]?.end ?? 0, splice.beg) + splice.text)
-  return spliced.join('') + text.slice(splices.at(-1)?.end ?? 0)
+  const spliced = splices.map((splice, ii) => quoted.slice(splices[ii - 1]?.end ?? 0, splice.beg) + splice.text)
+  return spliced.join('') + quoted.slice(splices.at(-1)?.end ?? 0)
 }
 
 /** Where each emphasis marker under `node` sits, in document order, and the tag it becomes */

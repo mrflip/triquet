@@ -6,7 +6,7 @@ import { Quiz, type QuizT } from '../../src/models/quiz'
 /** A question with the given fields and nothing else written */
 const qn = (fields: Partial<QuestionT>): QuestionT => ({ ...Question.blank(), ...fields })
 
-const EmphasisCases: [string, string, string][] = [
+const MarkdownCases: [string, string, string][] = [
   // regular usage:
   ["**bold**",                  "[b]bold[/b]",                        'double asterisks are bold'],
   ["__bold__",                  "[b]bold[/b]",                        'double underscores are bold too'],
@@ -29,9 +29,20 @@ const EmphasisCases: [string, string, string][] = [
   ["`*code*`",                  "`*code*`",                           'a code span is left as written'],
   [String.raw`\*not\*`,         String.raw`\*not\*`,                  'escaped asterisks are left as written, backslashes and all'],
   // the rest of the text survives verbatim:
-  ["> *verse*\n> **bold**",     "> [i]verse[/i]\n> [b]bold[/b]",      'emphasis inside a quoted block converts, and the quote marks stay'],
   ["[b]Already[/b] **new**",    "[b]Already[/b] [b]new[/b]",          'bbcode already in the text is left alone'],
   ["# Heading *it*",            "# Heading [i]it[/i]",                'a line that markdown reads as a heading keeps its hash'],
+  // quotes and indents:
+  ["> *verse*\n> **bold**",     "    [i]verse[/i]\n    [b]bold[/b]",  'a quote marker becomes four spaces, and emphasis inside converts'],
+  [">  foo",                    "     foo",                           'a space beyond the one the marker takes is kept'],
+  ["     foo",                  "     foo",                           'a line indented five spaces keeps all five'],
+  ["    **verse**",             "    [b]verse[/b]",                    'an indented line is not code: its emphasis converts'],
+  ["    one\n    two",          "    one\n    two",                   'every indented line keeps its indent'],
+  [">foo",                      "    foo",                             'a marker with no space after it is four spaces all the same'],
+  ["> > nested",                "        nested",                      'a quote within a quote is indented twice'],
+  ["> quoted\nlazy",            "    quoted\nlazy",                   'a line continuing the quote without a marker is left as typed'],
+  ["plain\n    indented",       "plain\n    indented",               'an indented line after a paragraph keeps its indent'],
+  ["  two spaces",              "  two spaces",                       'fewer than four leading spaces are left as typed'],
+  ["this > that",               "this > that",                        'a > partway along a line is not a quote'],
   // trivial cases:
   ["",                          "",                                   'empty text stays empty'],
   ["plain",                     "plain",                              'text without emphasis is untouched'],
@@ -39,10 +50,10 @@ const EmphasisCases: [string, string, string][] = [
   ["*Léon* **千**",              "[i]Léon[/i] [b]千[/b]",              'non-Latin text keeps its place around the tags'],
 ]
 
-describe('emphasisToBbcode', () => {
-  for (const [text, expected, blurb] of EmphasisCases) {
+describe('markdownToBbcode', () => {
+  for (const [text, expected, blurb] of MarkdownCases) {
     it(blurb, () => {
-      expect(LLExport.emphasisToBbcode(text)).to.eq(expected)
+      expect(LLExport.markdownToBbcode(text)).to.eq(expected)
     })
   }
 })
@@ -61,6 +72,7 @@ const FieldCases: [string, string, string][] = [
   ["||",                        "¦¦",                       'every pipe becomes one'],
   // together:
   ["**Who** wrote\n*Hamlet*?",  "[b]Who[/b] wrote [br] [i]Hamlet[/i]?", 'emphasis and line breaks convert together'],
+  ["    verse\n    more",       "    verse [br]     more",            'an indented line keeps its indent after the break'],
   ["**a\nb**",                  "[b]a [br] b[/b]",                    'emphasis spanning a line break converts before the break does'],
   ["[b]x[/b] [br] $5",          "[b]x[/b] [br] $5",                   'bbcode already in the text is left alone'],
   // trivial cases:
