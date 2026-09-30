@@ -16,11 +16,11 @@
 # the only write, and it is what pnpm dev would do anyway. Exits 1 when the deployment does not
 # answer or its functions differ.
 #
-# Usage: scripts/convex_healthcheck <dev|agent|e2e|e2e-agent> | --cloud [--via <role>]
+# Usage: scripts/convex_healthcheck <dev|agent|e2e|e2e-agent|e2e-built> | --cloud [--via <role>]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-usage="Usage: scripts/convex_healthcheck <dev|agent|e2e|e2e-agent> | --cloud [--via <role>]"
+usage="Usage: scripts/convex_healthcheck <dev|agent|e2e|e2e-agent|e2e-built> | --cloud [--via <role>]"
 convex=./node_modules/.bin/convex
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/triquet-healthcheck.XXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
@@ -61,7 +61,7 @@ answering() { curl --silent --fail --max-time 5 "$1/version" > /dev/null; }
 
 target="${1:-}"
 case "$target" in
-  dev | agent | e2e | e2e-agent)
+  dev | agent | e2e | e2e-agent | e2e-built)
     useLocal "$target"
     if ! answering "$CONVEX_SELF_HOSTED_URL"; then
       echo "The ${target} backend does not answer at ${CONVEX_SELF_HOSTED_URL}." >&2

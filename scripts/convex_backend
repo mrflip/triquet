@@ -5,7 +5,8 @@
 # data and port.)
 #
 # Each role has fixed ports, 34xx for the backend and 35xx for its HTTP actions, with xx the
-# role's web port's own (dev 3000, agent 3001, e2e 3002, e2e-agent 3003), and a directory of its
+# role's web port's own (dev 3000, agent 3001, e2e 3002, e2e-agent 3003, e2e-built 3005;
+# 3004 is `pnpm start:agent`'s, which has no backend of its own), and a directory of its
 # own, data/convex-<role>/, holding the database, its file storage, the instance secret minted
 # on the first start, and cli.env: the URL and admin key the Convex CLI needs to push to it.
 #
@@ -19,7 +20,7 @@
 # the role's backend port. Stop it with Ctrl-C or SIGTERM; the data stays. To start a role
 # empty, stop its backend and move its data directory away.
 #
-# Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent>
+# Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent|e2e-built>
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -31,8 +32,9 @@ case "$role" in
   agent)     xx=01 ;;
   e2e)       xx=02 ;;
   e2e-agent) xx=03 ;;
+  e2e-built) xx=05 ;;
   *)
-    echo "Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent>" >&2
+    echo "Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent|e2e-built>" >&2
     exit 1
     ;;
 esac

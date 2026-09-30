@@ -11,6 +11,7 @@ if (complaints.length > 0) {
 
 const port = process.env.PORT ?? '3002'
 const role = Environment.roleOf(process.env)
+const server = Environment.serverOf(process.env) as Environment.E2eServer
 
 /**
  * End-to-end, kept to a thin layer: the handful of flows where a break is invisible to unit
@@ -43,12 +44,17 @@ export default defineConfig({
     { name: 'environment', testMatch: /\.setup\.ts$/, use: { ...devices['Desktop Chrome'] } },
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['environment'] },
   ],
-  // The dev server, beside the role's own Convex backend with the functions pushed to it and every
-  // row of the last run cleared away (`scripts/convex_dev`).
+  // The dev server, or the optimized build (`pnpm test:e2e:built`), beside the role's own Convex
+  // backend with the functions pushed to it and every row of the last run cleared away
+  // (`scripts/convex_dev`). The build is made here, so it sees the settings below: a NEXT_PUBLIC_
+  // one is fixed into the pages as they are built.
   webServer: {
-    command:             `scripts/convex_dev ${role} --reset next dev`,
+    command:             `scripts/convex_dev ${role} --reset ${Environment.ServerCommandFor[server]}`,
     url:                 `http://localhost:${port}`,
-    reuseExistingServer: ! process.env.CI,
+    // Locally a dev server already on the port is used as it stands, since it follows the code
+    // as it changes. A built server never is: one left from an earlier build would be tested
+    // silently as it was, so a run finding the port taken refuses to start.
+    reuseExistingServer: server === 'dev' && ! process.env.CI,
     env:                 {
       PORT:                                        port,
       NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS: '2',
@@ -59,6 +65,7 @@ export default defineConfig({
       // request leaves the machine, whatever Doppler's config says.
       ENABLE_ANTHROPIC_BOT:                        'off',
     },
-    timeout:             180_000,
+    // The optimized build is made before the server can answer.
+    timeout:             server === 'built' ? 480_000 : 180_000,
   },
 })
