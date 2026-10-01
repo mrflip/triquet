@@ -143,6 +143,8 @@ export const QuestionsPerQuiz   = { min: 0, max: 999 } as const
 export const WidgetingsPerQuiz  = { min: 0, max: 99 } as const
 /** Widgets in the library */
 export const WidgetsInLibrary   = { min: 0, max: 999 } as const
+/** Widgetings of one widget a usage count reads, across every hunt; past this many it counts at least that */
+export const WidgetingsCounted  = { min: 0, max: 999 } as const
 /** Columns in one quiz */
 export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
 /** Reviews of one quiz, one per ident that opened one */

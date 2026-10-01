@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import { mayActOnAccount, mayChangeHunt, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
+import { mayActOnAccount, mayChangeHunt, mayCountUsage, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
 import { identForLabel, reviewFor } from '../../convex/reading'
 import { Hunt } from '../../src/models/hunt'
 import { mintId } from '../../src/lib/ids'
@@ -73,6 +73,14 @@ describe("the rules", () => {
     expect(await readers()).to.deep.eq([true, true, true, false])
     await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave.browser_key)
     expect(await readers()).to.deep.eq([true, true, false, false])
+  })
+})
+
+describe("mayCountUsage", () => {
+  it("lets a smith of any hunt count how far a widget is put to work, and nobody else", async () => {
+    const { tt, alice, bob, carol } = await peopled()
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice.ident_id, bob.ident_id, carol.ident_id, null].map(async (ident_id) => await mayCountUsage(ctx.db, ident_id))))
+    expect(verdicts).to.deep.eq([true, false, false, false])
   })
 })
 
@@ -177,7 +185,7 @@ describe("identings, each browser's own", () => {
       'questions:open',
       'quizzes:open',
       'reviews:forQuiz',
-      'widgets:library',
+      'widgets:library', 'widgets:usage',
     ])
   })
 })

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
-import { cellRowsOf, huntForLabel, huntRowsOf, identFor, isWorked, layoutRowsOf, libraryOf, quizRowsOf, realmsOf, reviewFor, widgetForLabel, widgetingsOf } from '../../convex/reading'
+import { cellRowsOf, huntForLabel, huntRowsOf, identFor, isWorked, layoutRowsOf, libraryOf, quizRowsOf, realmsOf, reviewFor, usageOf, widgetForLabel, widgetingsOf } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widgeting } from '../../src/models/widgeting'
 import { mintId } from '../../src/lib/ids'
+import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 import { huntHolding, identified, openTester, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
@@ -187,6 +188,43 @@ describe("the library", () => {
     await holding(huntHolding([{ ...Quiz.blank(), widgetings: [Widgeting.fill({ widget_label: 'dumdum', label: 'guess' })] }]), tt)
     const worked = await tt.run(async (ctx) => await Promise.all(['numnum_clueing', 'dumdum', 'numnum_hint'].map(async (label) => await isWorked(ctx.db, label))))
     expect(worked).to.deep.eq([true, true, false])
+  })
+})
+
+/** A quiz working the widget `widget_label` under each of `labels` */
+function working(widget_label: string, labels: readonly string[]): QuizT {
+  return { ...Quiz.blank(), widgetings: labels.map((label) => Widgeting.fill({ widget_label, label })) }
+}
+
+describe("usageOf", () => {
+  it("counts the widgetings working a widget, the quizzes they are in, and the hunts those are in", async () => {
+    const tt = openTester()
+    await holding(huntHolding([working('dumdum', ['guess', 'guess_again']), working('dumdum', ['guess'])]), tt)
+    await holding(huntHolding([working('dumdum', ['guess']), working('answer_reversed', ['backward'])]), tt)
+    const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))
+    expect(usage).to.deep.eq({ widgetings: 4, quizzes: 3, hunts: 2, at_least: false })
+  })
+
+  it("counts nothing for a widget nobody works, and for a label the library lacks", async () => {
+    const tt = openTester()
+    await holding(huntHolding([working('dumdum', ['guess'])]), tt)
+    const usages = await tt.run(async (ctx) => [await usageOf(ctx.db, 'numnum_hint'), await usageOf(ctx.db, 'no_such_widget')])
+    expect(usages).to.deep.eq([
+      { widgetings: 0, quizzes: 0, hunts: 0, at_least: false },
+      { widgetings: 0, quizzes: 0, hunts: 0, at_least: false },
+    ])
+  })
+
+  it("reads no further than it may, and says its counts are a floor past that", async () => {
+    const tt = openTester()
+    const { quiz_id } = await holding(huntHolding([Quiz.blank()]), tt)
+    await tt.run(async (ctx) => {
+      for (let ii = 0; ii <= PA.WidgetingsCounted.max; ii++) {
+        await ctx.db.insert('widgetings', { quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, position: ii })
+      }
+    })
+    const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))
+    expect(usage).to.deep.eq({ widgetings: PA.WidgetingsCounted.max, quizzes: 1, hunts: 1, at_least: true })
   })
 })
 

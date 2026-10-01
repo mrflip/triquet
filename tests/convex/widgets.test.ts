@@ -47,3 +47,34 @@ describe("widgets.library", () => {
     await expect(tt.query(api.widgets.library, { browser_key: 'my_laptop' })).rejects.toThrow(/uuid|UUID/)
   })
 })
+
+describe("widgets.usage", () => {
+  it("counts, for a smith, the widgetings working a widget across every hunt, the quizzes and the hunts", async () => {
+    const tt = openTester()
+    const { smith } = await seedHunt(tt, Hunt.blank())
+    await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'dave_smiths' })
+    // Each new hunt's quiz works the default widgetings, dumdum among them.
+    expect(await tt.query(api.widgets.usage, { browser_key: smith.browser_key, widget_label: 'dumdum' })).to.deep.eq({ widgetings: 2, quizzes: 2, hunts: 2, at_least: false })
+  })
+
+  it("counts nothing for a widget nobody works", async () => {
+    const tt = openTester()
+    const { smith } = await seedHunt(tt, Hunt.blank())
+    expect(await tt.query(api.widgets.usage, { browser_key: smith.browser_key, widget_label: 'answer_reversed' })).to.deep.eq({ widgetings: 0, quizzes: 0, hunts: 0, at_least: false })
+  })
+
+  it("is null for a reviewer, a stranger, and a browser that has not said who it is", async () => {
+    const tt = openTester()
+    const { join } = await seedHunt(tt, Hunt.blank())
+    const reviewer = await join('bob_reviews', 'reviewer')
+    const stranger = await identified(tt, 'carol_strays')
+    const usages = await Promise.all([reviewer.browser_key, stranger.browser_key, mintId()].map(async (browser_key) => await tt.query(api.widgets.usage, { browser_key, widget_label: 'dumdum' })))
+    expect(usages).to.deep.eq([null, null, null])
+  })
+
+  it("refuses a widget label that is not one", async () => {
+    const tt = openTester()
+    const { smith } = await seedHunt(tt, Hunt.blank())
+    await expect(tt.query(api.widgets.usage, { browser_key: smith.browser_key, widget_label: 'Not A Label!' })).rejects.toThrow()
+  })
+})

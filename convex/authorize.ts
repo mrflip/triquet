@@ -1,7 +1,7 @@
 import type { Doc, Id } from './_generated/dataModel'
 import { isReviewAction, type AccountActionT, type HuntActionT, type OpenQuizT } from '../src/models/actions'
 import type { HuntRole } from '../src/models/hunting'
-import { huntingFor, huntIdOf, reviewFor, type Reader } from './reading'
+import { huntingFor, huntingsFor, huntIdOf, reviewFor, type Reader } from './reading'
 
 // The only place authorization is written. Who is asking is the ident a browser is now
 // (`identFor`), and an ident's hunting on a hunt says what it may do there: a smith reads and
@@ -14,7 +14,9 @@ import { huntingFor, huntIdOf, reviewFor, type Reader } from './reading'
 // said who it is may read it (`mayReadLibrary`): it holds formulas and prompts, nothing of any
 // hunt. Changing it rides `hunts.perform` from a quiz on screen, like every layout action, and is
 // authorized as any non-review action is, as a smith of the open hunt: being a smith of the hunt
-// on screen is what "a smith of any hunt" comes to while the library is reached from a quiz.
+// on screen is what "a smith of any hunt" comes to while the library is reached from a quiz. How
+// far a widget is put to work reads widgetings of every hunt, so it is counted only, and only for
+// a smith of some hunt (`mayCountUsage`), who may change the widget.
 //
 // Two kinds of row are private by what the functions offer rather than by a rule. A browser's
 // identings are read only through its own key, so no browser sees which idents another has taken
@@ -44,6 +46,19 @@ export async function roleOn(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'ide
  */
 export function mayReadLibrary(ident_id: Id<'idents'> | null): boolean {
   return ident_id !== null
+}
+
+/**
+ * Whether `ident_id` may count how far a widget of the library is put to work, across every hunt:
+ * anyone who may change the library, which is any smith of any hunt. The count says how many, never
+ * which, so a hunt the ident is not on shows them nothing of itself.
+ *
+ * @example if (! await mayCountUsage(ctx.db, ident?._id ?? null)) { return null }
+ */
+export async function mayCountUsage(db: Reader, ident_id: Id<'idents'> | null): Promise<boolean> {
+  if (ident_id === null) { return false }
+  const huntings = await huntingsFor(db, ident_id)
+  return huntings.some((hunting) => hunting.role === 'smith')
 }
 
 /**

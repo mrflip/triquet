@@ -2,7 +2,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import { formularyFor } from '../src/lib/formulary/formularies'
 import * as PA from '../src/lib/vv/patterns'
-import { huntFrom, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows } from '../src/lib/rows'
+import { huntFrom, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
 
@@ -99,6 +99,24 @@ export async function widgetForLabel(db: Reader, label: string): Promise<Doc<'wi
 /** Whether any widgeting, in any quiz of any hunt, works the widget labelled `widget_label` */
 export async function isWorked(db: Reader, widget_label: string): Promise<boolean> {
   return (await db.query('widgetings').withIndex('by_widget_label', (cvx) => cvx.eq('widget_label', widget_label)).first()) !== null
+}
+
+/**
+ * How far the widget labelled `widget_label` is put to work: by how many widgetings, across how
+ * many quizzes, in how many hunts. Counts only. At most `WidgetingsCounted` widgetings are read;
+ * past that many, every count is a floor, and says so. A widget nobody works counts nothing.
+ *
+ * @example await usageOf(db, 'dumdum')  // => { widgetings: 3, quizzes: 2, hunts: 1, at_least: false }
+ */
+export async function usageOf(db: Reader, widget_label: string): Promise<WidgetUsageT> {
+  const read = await db.query('widgetings').withIndex('by_widget_label', (cvx) => cvx.eq('widget_label', widget_label)).take(PA.WidgetingsCounted.max + 1)
+  const counted = read.slice(0, PA.WidgetingsCounted.max)
+  const quiz_ids = [...new Set(counted.map((widgeting) => widgeting.quiz_id))]
+  const quizzes = await Promise.all(quiz_ids.map(async (quiz_id) => await db.get('quizzes', quiz_id)))
+  const realm_ids = [...new Set(quizzes.flatMap((quiz) => (quiz ? [quiz.realm_id] : [])))]
+  const realms = await Promise.all(realm_ids.map(async (realm_id) => await db.get('realms', realm_id)))
+  const hunt_ids = new Set(realms.flatMap((realm) => (realm ? [realm.hunt_id] : [])))
+  return { widgetings: counted.length, quizzes: quiz_ids.length, hunts: hunt_ids.size, at_least: read.length > counted.length }
 }
 
 /**
