@@ -154,6 +154,6 @@ test('the library is handed out on its own, and a pasted library is merged into 
   await section.getByRole('textbox', { name: 'Import library' }).fill(pasted)
   await section.getByRole('button', { name: 'Import library' }).click()
   await expect(section.getByRole('status')).toContainText('1 added, 0 revised, 0 unchanged, 1 skipped')
-  await expect(section.getByText(/numnum_hint — skipped: it is worked by jsonata here, and by aibot in the library/)).toBeVisible()
+  await expect(section.getByText(/numnum_hint — skipped: it is a jsonata widget here, and an aibot widget in the library/)).toBeVisible()
   await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(new RegExp(`"label":"${label}"`))
 })

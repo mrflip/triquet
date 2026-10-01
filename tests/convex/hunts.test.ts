@@ -6,6 +6,7 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { quizzesOf, reviewsOf } from '../../convex/reading'
 import * as PA from '../../src/lib/vv/patterns'
+import * as UU from '../../src/lib/useful'
 import { noticeOf } from '../../src/lib/refusals'
 import { RefusalNotices } from '../../src/lib/notices'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -68,6 +69,25 @@ function guessed(question_id: string, guess: string): WidgetedRecordingDNA {
 /** A failed ask of `question_id` by the widgeting `widgeting_label`: its message, and the reply as it came back */
 function failed(question_id: string, widgeting_label: string, err: { message: string, response: JsonT }): WidgetedRecordingDNA {
   return recorded(question_id, { widgeting_label, status: 'errored', value: null, message: err.message, result_meta: { response: err.response } })
+}
+
+/** The actions that put an entry widget of `entry_kind` into the library, labelled `label`, and to work in the open quiz under the same label */
+function entryActions(label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): HuntActionDNA[] {
+  return [
+    { kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } },
+    { kind: 'add_widgeting', widgeting: { widget_label: label, label } },
+  ]
+}
+
+/** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
+function entering(question_id: string, widgeting_label: string, value: string | number | null): HuntActionDNA {
+  return { kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }
+}
+
+/** Every value the widgeteds table holds, as JSON, in a stable order to compare */
+async function valuesIn(tt: Tester): Promise<string[]> {
+  const rows = await tt.run(async (ctx) => await ctx.db.query('widgeteds').collect())
+  return rows.map((row) => UU.jsonify(row.value)).toSorted((aa, bb) => aa.localeCompare(bb))
 }
 
 /** What the first question's `widgeting_label` cell stored, as the hunt now holds it: null when nothing */
@@ -133,6 +153,14 @@ describe("hunts.perform", () => {
     const { _id: id } = firstOf(await seeded.read())
     await seeded.act({ kind: 'record_widgeted', widgeted: guessed(id, 'Leon') })
     return { ...seeded, id }
+  }
+
+  /** A seeded hunt of two questions whose open quiz works the entry widgets `remark` (text) and `points` (a number), and its two questions' ids */
+  const withEntries = async () => {
+    const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
+    for (const action of [...entryActions('remark'), ...entryActions('points', 'number')]) { await seeded.act(action) }
+    const [first, second] = questionIdsOf(await seeded.read())
+    return { ...seeded, id: present(first), second: present(second) }
   }
 
   describe("retitle_quiz", () => {
@@ -534,6 +562,96 @@ describe("hunts.perform", () => {
       const err = await refusalOf(act({ kind: 'record_widgeted', widgeted: recorded(id, { message: 'But also no.' }) }))
       expect(ZodRefusal.parse(err instanceof ConvexError ? err.data : null).ZodError.map((issue) => issue.path)).to.deep.eq([['action', 'widgeted', 'message']])
       expect(await read()).to.deep.eq(ante)
+    })
+  })
+
+  describe("enter_widgeted", () => {
+
+    it("keeps what was typed as the cell's one row, trimmed as a note is", async () => {
+      const { act, read, id } = await withEntries()
+      await act(entering(id, 'remark', '  Ask Flip.  '))
+      const cell = present(cellOf(await read(), 'remark'))
+      expect(cell.newest).to.deep.include({ status: 'ok', value: 'Ask Flip.', message: null, result_meta: {} })
+      expect(cell.ok).to.deep.eq(cell.newest)
+    })
+
+    it("revises the one row in place when typed into again, rather than keeping a history", async () => {
+      const { act, read, tt, id } = await withEntries()
+      await act(entering(id, 'points', 3))
+      await act(entering(id, 'points', -1.5))
+      expect(cellOf(await read(), 'points')?.newest.value).to.eq(-1.5)
+      expect(await valuesIn(tt)).to.deep.eq(['-1.5'])
+    })
+
+    it("keeps one row a cell, apart from the question's other cells and the other questions'", async () => {
+      const { act, tt, id, second } = await withEntries()
+      await act(entering(id, 'remark', 'One.'))
+      await act(entering(id, 'points', 1))
+      await act(entering(second, 'remark', 'Two.'))
+      await act(entering(id, 'remark', 'Once more.'))
+      expect(await valuesIn(tt)).to.deep.eq(['"Once more."', '"Two."', '1'])
+    })
+
+    it("empties a cell, leaving no row, for nothing typed; and emptying an empty cell is nothing", async () => {
+      const { act, read, tt, id } = await withEntries()
+      await act(entering(id, 'remark', 'Ask Flip.'))
+      await act(entering(id, 'remark', null))
+      expect(cellOf(await read(), 'remark')).to.be.null
+      await act(entering(id, 'remark', null))
+      expect(await valuesIn(tt)).to.deep.eq([])
+    })
+
+    it("holds what was typed to the entry's kind", async () => {
+      const { act, read, id } = await withEntries()
+      const ante = await read()
+      await refusalOf(act(entering(id, 'points', 'three')))
+      await refusalOf(act(entering(id, 'remark', 3)))
+      const blank = ' '.repeat(3)
+      await refusalOf(act(entering(id, 'remark', blank)))
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses a widgeting whose widget is not an entry: a formula's, or a prompt's", async () => {
+      const { act, read, id } = await withEntries()
+      const ante = await read()
+      await expectRefusal(act(entering(id, 'clueing_full', 7)), 'notEntered')
+      await expectRefusal(act(entering(id, 'dumdum', 'Leon')), 'notEntered')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("is never recorded as an ask, so nothing can append to an entry's cell", async () => {
+      const { act, read, id } = await withEntries()
+      const ante = await read()
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: recorded(id, { widgeting_label: 'remark', value: 'Asked?' }) }), 'notStored')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses a widgeting the quiz does not have, and a question of another quiz", async () => {
+      const { act, read, id } = await withEntries()
+      const ante = await read()
+      await expectRefusal(act(entering(id, 'gone', 'x')), 'widgetingGone')
+      const elsewhere = await seed(huntOf(['1', 'z']))
+      const intruding = entering(firstOf(await elsewhere.read())._id, 'remark', 'x')
+      await expectRefusal(act(intruding), 'questionGone')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses while the quiz is locked", async () => {
+      const { act, read, id } = await withEntries()
+      await act({ kind: 'set_lock', quiz_id: openOf(await read())._id, locked: true })
+      await expectRefusal(act(entering(id, 'remark', 'Ask Flip.')), 'quizLocked')
+      expect(cellOf(await read(), 'remark')).to.be.null
+    })
+
+    it("goes with the question when it is deleted, and with the widgeting when that is removed", async () => {
+      const { act, tt, id, second } = await withEntries()
+      await act(entering(id, 'remark', 'One.'))
+      await act(entering(second, 'remark', 'Two.'))
+      await act(entering(second, 'points', 2))
+      await act({ kind: 'delete_questions', question_ids: [id] })
+      expect(await valuesIn(tt)).to.deep.eq(['"Two."', '2'])
+      await act({ kind: 'delete_widgeting', label: 'remark' })
+      expect(await valuesIn(tt)).to.deep.eq(['2'])
     })
   })
 
@@ -1053,6 +1171,34 @@ describe("hunts.perform", () => {
   })
 
   describe("import_questions", () => {
+    it("types what each question carries into its entry cells: into a question held and one added, and empties one for null", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      for (const action of entryActions('remark')) { await act(action) }
+      const [aa, bb] = openOf(await read()).questions
+      await act(entering(present(bb)._id, 'remark', 'Was here.'))
+      await act({ kind: 'import_questions', questions: [
+        { label: present(aa).label, patch: {}, entered: { remark: 'Imported.' } },
+        { label: present(bb).label, patch: {}, entered: { remark: null } },
+        { label: 'fresh_one', patch: {}, entered: { remark: 'Fresh.' } },
+      ] })
+      expect(openOf(await read()).questions.map((question) => question.stored.remark?.ok?.value ?? null)).to.deep.eq(['Imported.', null, 'Fresh.'])
+    })
+
+    it("passes over what it carries for a widgeting that is not an entry, or that the quiz does not have", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const first = firstOf(await read())
+      await act({ kind: 'import_questions', questions: [{ label: first.label, patch: { clueing: 'Imported' }, entered: { dumdum: 'Leon', nowhere: 'x' } }] })
+      expect(firstOf(await read())).to.deep.include({ clueing: 'Imported', stored: {} })
+    })
+
+    it("refuses, writing nothing, a value not of its entry's kind", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      for (const action of entryActions('points', 'number')) { await act(action) }
+      const ante = await read()
+      await refusalOf(act({ kind: 'import_questions', questions: [{ label: firstOf(ante).label, patch: { clueing: 'Imported' }, entered: { points: 'three' } }] }))
+      expect(await read()).to.deep.eq(ante)
+    })
+
     it("revises the question answering to each label, adds one under a label none answers to, and deletes nothing", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const first = firstOf(await read())

@@ -8,10 +8,12 @@ import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
 import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { WidgetedAskCell, WidgetedReadout } from './cells/readouts'
+import { EntryCell } from './cells/entry'
 import * as Runner from '../lib/formulary/runner'
 import { formularyFor } from '../lib/formulary/formularies'
 import type { QuestionField } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
+import type { EntryValueT } from '../models/widget'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { useReorderable } from './use-reorder'
 import type { QuestionPatch, QuestionT } from '../models/question'
@@ -67,6 +69,8 @@ export type QuestionRowProps = {
   /** Ask the widgeting labelled so about the chained-to question, for the BUT NOT Full Sum shortcut */
   onAskTarget: (widgeting_label: string) => void
   onEdit:      (patch: QuestionPatch) => void
+  /** Put what was typed into this question's cell of the entry widgeting labelled so; null empties it */
+  onEnter:     (widgeting_label: string, value: EntryValueT | null) => void
 }
 
 /**
@@ -74,13 +78,13 @@ export type QuestionRowProps = {
  * checkbox and trash can.
  *
  * The Clueing and Hint boxes grow with their own content and the taller of the two sets the
- * height for both, capped; the notes columns are stretched to that same height but never get a
- * say in it, and the widgetings' columns are capped at it and scroll.
+ * height for both, capped; the notes columns (and text entries) are stretched to that same height
+ * but never get a say in it, and the widgetings' columns are capped at it and scroll.
  *
  * Folded, every box is one line high and clips what it holds, and the boxes go on measuring
  * themselves, so the row opens straight to the height it would have had.
  */
-export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
@@ -150,11 +154,14 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What a widgeting came to: asked from the cell when its formulary is, else worked out and read-only */
+  /** What a widgeting came to: typed into for an entry, asked from the cell when its formulary is, else worked out and read-only */
   const widgetingBody = (widgeting: WidgetingT, spec: ColumnSpec): React.JSX.Element => {
     const { label } = widgeting
     const widgeted = Runner.widgetedOf(run, label, question._id)
     const widget = Runner.stepOf(run, label)?.widget ?? null
+    if (widget?.formulary === 'entry') {
+      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} />
+    }
     if (widget === null || formularyFor(widget).refresh !== 'click') {
       return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
     }
@@ -166,6 +173,11 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     )
   }
 
+  /** Whether a double-click on the column's cell may re-ask: a widgeting's, never an entry's, which is typed into */
+  const asksOnDoubleClick = (spec: ColumnSpec): boolean => (
+    spec.source.kind === 'widgeting' && Runner.stepOf(run, spec.source.widgeting.label)?.widget?.formulary !== 'entry'
+  )
+
   /** The cell for one column */
   const cell = (spec: ColumnSpec) => (
     <td
@@ -173,7 +185,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       className={styles.cell}
       style={{ width: `${String(spec.widthPx)}px` }}
       data-colname={spec.title}
-      onDoubleClick={spec.source.kind === 'widgeting' ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}
+      onDoubleClick={asksOnDoubleClick(spec) ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}
     >
       {bodyOf(spec)}
     </td>

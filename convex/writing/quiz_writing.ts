@@ -13,7 +13,8 @@ import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
 import { HomeRealmLabel, RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
-import { WidgetValidators, type WidgetPatch, type WidgetT } from '../../src/models/widget'
+import { refuse } from '../../src/lib/refusals'
+import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
 import { libraryOf, reviewsOf } from '../reading'
@@ -69,10 +70,17 @@ export async function updateQuestion(db: Writer, held: Doc<'questions'>, patch: 
   if (! _.isEmpty(changed)) { await db.patch('questions', held._id, changed) }
 }
 
-/** Revise a widget's row, keeping its formulary: the patch is held to its formulary's arm of the row */
+/**
+ * Revise a widget's row, keeping its formulary: the patch is held to its formulary's arm of the
+ * row. An entry keeps its kind too, since the values typed into its cells hang on it.
+ *
+ * @throws A refusal (`entryKindFixed`), or a Zod error when the patch does not fit the widget's formulary; nothing is written.
+ */
 export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: WidgetPatch & { position?: number }): Promise<void> {
   // Parsed from the merge whole: which arm of the row it is held to is the held row's formulary.
-  const changed = changedFields(held, WidgetValidators.row.parse({ ..._.omit(held, SystemFields), ...patch }))
+  const revised = WidgetValidators.row.parse({ ..._.omit(held, SystemFields), ...patch })
+  if (Widget.flavorOf(revised) !== Widget.flavorOf(held)) { refuse('entryKindFixed') }
+  const changed = changedFields(held, revised)
   if (! _.isEmpty(changed)) { await db.patch('widgets', held._id, changed) }
 }
 
@@ -104,6 +112,34 @@ export async function updateReviewing(db: Writer, held: Doc<'reviewings'>, patch
 export async function insertWidgeted(db: Writer, question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>, widgeted: WidgetedRecordT): Promise<void> {
   const { status, value, message, result_meta } = widgeted
   await db.insert('widgeteds', WidgetedValidators.row({ question_id, widgeting_id, status, value, message, result_meta }))
+}
+
+/**
+ * Put `value` in one entry cell, as its one row: the row it holds revised, or one made; an
+ * emptied cell (null) holds no row at all, and reads as `missing`. The cell's index makes it one
+ * read. Should a cell somehow hold two rows, the newest is revised, as the newest is what it shows.
+ *
+ * @param db - The mutation's database.
+ * @param question_id - The question the cell is in.
+ * @param widgeting_id - The entry widgeting whose cell it is.
+ * @param value - What was typed, already held to the widget's entry kind; null for nothing.
+ * @throws A Zod error when the row it comes to is not valid; nothing is written.
+ */
+export async function upsertWidgeted(db: Writer, question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>, value: EntryValueT | null): Promise<void> {
+  const held = await db.query('widgeteds')
+    .withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', question_id).eq('widgeting_id', widgeting_id))
+    .order('desc')
+    .first()
+  if (value === null) {
+    if (held) { await db.delete('widgeteds', held._id) }
+    return
+  }
+  const row = WidgetedValidators.row({ question_id, widgeting_id, status: 'ok', value, message: null, result_meta: {} })
+  if (held) {
+    await db.replace('widgeteds', held._id, row)
+  } else {
+    await db.insert('widgeteds', row)
+  }
 }
 
 /** Delete a question, everything its widgetings stored for it, and every reviewer's verdict on it */

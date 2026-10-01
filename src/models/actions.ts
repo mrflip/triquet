@@ -69,6 +69,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('set_chain'),           question_id: zid('questions'), chains_to: zid('questions').nullable() }),
     obj({ kind: lit('sort_by_chain_order'), descending: bool }),
     obj({ kind: lit('record_widgeted'),     widgeted: WidgetedValidators.record }),
+    obj({ kind: lit('enter_widgeted'),      entered: WidgetedValidators.entered }),
     obj({ kind: lit('new_quiz'),            label: label.optional() }),
     obj({ kind: lit('delete_quiz'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_lock'),            quiz_id: zid('quizzes'), locked: bool }),

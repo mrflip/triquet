@@ -1,6 +1,6 @@
 import * as Labelmaker from '../lib/labelmaker'
 import * as UU from '../lib/useful'
-import { AibotDefaultInput, WidgetValidators, type AibotWidgetT, type Formularykind, type JsonataWidgetT, type WidgetPatch, type WidgetT } from '../models/widget'
+import { AibotDefaultInput, Widget, WidgetValidators, type AibotWidgetT, type EntryWidgetT, type Formularykind, type JsonataWidgetT, type WidgetPatch, type WidgetT } from '../models/widget'
 import type { HuntActionDNA } from '../models/actions'
 
 /** The parts of a `jsonata` widget being written or revised: its formula */
@@ -9,8 +9,11 @@ export type JsonataDraft = Pick<JsonataWidgetT, 'label' | 'description' | 'formu
 /** The parts of an `aibot` widget being written or revised: its prompt, its input formula and its config */
 export type AibotDraft = Pick<AibotWidgetT, 'label' | 'description' | 'formula' | 'input_formula' | 'config'> & { formulary: 'aibot' }
 
+/** The parts of an `entry` widget being written or revised: what kind of value its cells take, fixed once it is made */
+export type EntryDraft = Pick<EntryWidgetT, 'label' | 'description' | 'config'> & { formulary: 'entry' }
+
 /** The parts of a widget of the library being written or revised */
-export type WidgetDraft = JsonataDraft | AibotDraft
+export type WidgetDraft = JsonataDraft | AibotDraft | EntryDraft
 
 /** What a new `jsonata` widget starts as: nothing yet */
 export const BlankJsonataDraft: JsonataDraft = { formulary: 'jsonata', label: '', description: '', formula: '' }
@@ -25,10 +28,14 @@ export const BlankAibotDraft: AibotDraft = {
   config:        { servicelabel: 'claude', model_tier: 'quick', max_tokens: 1024 },
 }
 
+/** What a new `entry` widget starts as: text, as a note is */
+export const BlankEntryDraft: EntryDraft = { formulary: 'entry', label: '', description: '', config: { entry_kind: 'text' } }
+
 /** What a new widget of each formulary starts as */
 const BlankDrafts: Readonly<Record<Formularykind, WidgetDraft>> = {
   jsonata: BlankJsonataDraft,
   aibot:   BlankAibotDraft,
+  entry:   BlankEntryDraft,
 }
 
 /** What applying an edit comes to: the actions to dispatch, or what to tell the author is wrong, and whether it is the label */
@@ -58,8 +65,11 @@ export function blankDraftOf(formulary: Formularykind, kept: Pick<WidgetDraft, '
  */
 export function draftOf(widget: WidgetT): WidgetDraft {
   const { label, description, formula } = widget
-  if (widget.formulary === 'jsonata') { return { formulary: 'jsonata', label, description, formula } }
-  return { formulary: 'aibot', label, description, formula, input_formula: widget.input_formula, config: widget.config }
+  switch (widget.formulary) {
+  case 'jsonata': { return { formulary: 'jsonata', label, description, formula } }
+  case 'aibot':   { return { formulary: 'aibot', label, description, formula, input_formula: widget.input_formula, config: widget.config } }
+  case 'entry':   { return { formulary: 'entry', label, description, config: widget.config } }
+  }
 }
 
 /**
@@ -83,7 +93,8 @@ export function planNewWidget(draft: WidgetDraft, library: readonly WidgetT[]): 
 
 /**
  * The actions that revising a widget of the library to `draft` comes to: one edit when anything
- * of it changed, none when nothing did; or the reason it cannot be.
+ * of it changed, none when nothing did; or the reason it cannot be. An entry's kind is fixed once
+ * it is made, so a draft changing it is refused.
  *
  * @param draft - The widget as revised; its label names the widget.
  * @param library - The library's widgets.
@@ -96,6 +107,7 @@ export function planWidgetEdit(draft: WidgetDraft, library: readonly WidgetT[]):
   if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That widget will not do.') }
   const patch = patchFor(checked.data)
   const held = library.find((other) => other.label === draft.label)
+  if (held && Widget.flavorOf(held) !== Widget.flavorOf(checked.data)) { return refused(`It is ${Widget.flavorOf(held)}, which is fixed once it is made.`) }
   if (held && Object.entries(patch).every(([key, val]) => UU.jsonify(held[key as keyof WidgetT]) === UU.jsonify(val))) { return { ok: true, actions: [] } }
   return { ok: true, actions: [{ kind: 'edit_widget', label: draft.label, patch }] }
 }
@@ -105,8 +117,12 @@ function refused(issue: string, labelIssue = false): Extract<WidgetPlan, { ok: f
   return { ok: false, issue, labelIssue: labelIssue ? issue : null }
 }
 
-/** What revising a widget to `widget` sets: its description and formula, and an `aibot` widget's input formula and config */
+/** What revising a widget to `widget` sets: its description and formula, and an `aibot` widget's input formula and config; an entry's description alone */
 function patchFor(widget: WidgetT): WidgetPatch {
   const shared = { formula: widget.formula, description: widget.description }
-  return widget.formulary === 'aibot' ? { ...shared, input_formula: widget.input_formula, config: widget.config } : shared
+  switch (widget.formulary) {
+  case 'jsonata': { return shared }
+  case 'aibot':   { return { ...shared, input_formula: widget.input_formula, config: widget.config } }
+  case 'entry':   { return { description: widget.description } }
+  }
 }

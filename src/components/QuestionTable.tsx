@@ -11,6 +11,7 @@ import { useFolds } from './use-folds'
 import { useSettledResize } from './use-settled-resize'
 import type { QuizRun } from '../lib/formulary/runner'
 import type { QuestionPatch, QuestionT } from '../models/question'
+import type { EntryValueT } from '../models/widget'
 import type { Sortkey } from '../models/quiz'
 import styles from './workbench.module.css'
 
@@ -51,6 +52,8 @@ export type QuestionTableProps = {
   /** Ask the widgeting labelled so about one question */
   onAsk:        (question_id: string, widgeting_label: string) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
+  /** Put what was typed into one question's cell of the entry widgeting labelled so; null empties it */
+  onEnter:      (question_id: string, widgeting_label: string, value: EntryValueT | null) => void
   /** Told which question moved, and the index it lands on once it has been lifted out */
   onMove:       (question_id: string, onto_idx: number) => void
 }
@@ -66,7 +69,7 @@ const CardLayoutQuery = '(max-width:640px)'
  * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
  * below 640px, every question shows in full: the corner is not there to unfold them.
  */
-export function QuestionTable({ questions, specs, run, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, run, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const checkedCount = questions.filter((question) => isChecked(question._id)).length
   const folds = useFolds(questions.map((question) => question._id))
@@ -159,6 +162,7 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
                 if (question.chains_to !== null) { onAsk(question.chains_to, widgeting_label) }
               }}
               onEdit={(patch) => { onEdit(question._id, patch) }}
+              onEnter={(widgeting_label, value) => { onEnter(question._id, widgeting_label, value) }}
             />
           ))}
         </tbody>

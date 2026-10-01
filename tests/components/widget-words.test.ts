@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { FormularyWords, usageLine } from '../../src/components/widget-words'
-import { FormularykindVals } from '../../src/models/widget'
+import { EntryKindWords, FormularyWords, usageLine } from '../../src/components/widget-words'
+import { EntryKindVals, FormularykindVals } from '../../src/models/widget'
 import type { WidgetUsageT } from '../../src/lib/rows'
 
 describe("usageLine", () => {
@@ -23,5 +23,11 @@ describe("usageLine", () => {
 describe("FormularyWords", () => {
   it("speaks of every formulary", () => {
     expect(Object.keys(FormularyWords)).to.have.members([...FormularykindVals])
+  })
+})
+
+describe("EntryKindWords", () => {
+  it("speaks of every kind of entry", () => {
+    expect(Object.keys(EntryKindWords)).to.have.members([...EntryKindVals])
   })
 })
