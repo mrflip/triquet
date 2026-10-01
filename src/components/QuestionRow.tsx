@@ -4,14 +4,12 @@ import { useCallback, useState } from 'react'
 import { Checkbox, IconButton } from '@mui/material'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import clsx from 'clsx'
-import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
+import { GutterWidthPx, type ColumnSpec, type Resolved } from '../lib/columns'
 import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
-import { ExpressedReadout } from './cells/readouts'
-import * as Expressed from '../lib/expressed'
+import { WidgetedReadout } from './cells/readouts'
+import * as Runner from '../lib/formulary/runner'
 import type { QuestionField } from '../models/column'
-import type { BotSlot } from '../models/botting'
-import { askableTextOf, type Askkind } from '../state/use-asking'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { GuessCell } from './cells/guess'
 import { ButnotIshesCell, IshesCell } from './cells/ishes'
@@ -58,15 +56,16 @@ export type QuestionRowProps = {
   onChain:     (chains_to: string | null) => void
   /** The quiz's columns, in the order they appear */
   specs:       ColumnSpec[]
-  /** What each computed column came to for each question of the quiz */
-  expressed:   Expressed.ExpressedForQuiz
-  /** Whether an ask for one of this question's cells is in flight */
-  asking:      (askkind: Askkind) => boolean
-  /** Why a kind of ask cannot be made at all, when it cannot; null when it can */
-  unavailableNotice: (askkind: Askkind) => string | null
-  onAsk:       (askkind: Askkind) => void
-  /** Re-extract the chained-to question's hint, for the BUT NOT Full Sum shortcut */
-  onAskTarget: (askkind: Askkind) => void
+  /** The quiz, run: what each widgeting came to for each question of the quiz */
+  run:         Runner.QuizRun
+  /** Whether an ask for this question's cell of the widgeting labelled so is in flight */
+  asking:      (widgeting_label: string) => boolean
+  /** Why the widgeting labelled so cannot be asked at all, when it cannot; null when it can */
+  unavailableNotice: (widgeting_label: string) => string | null
+  /** Ask the widgeting labelled so about this question */
+  onAsk:       (widgeting_label: string) => void
+  /** Ask the widgeting labelled so about the chained-to question, for the BUT NOT Full Sum shortcut */
+  onAskTarget: (widgeting_label: string) => void
   onEdit:      (patch: QuestionPatch) => void
 }
 
@@ -81,7 +80,7 @@ export type QuestionRowProps = {
  * Folded, every box is one line high and clips what it holds, and the boxes go on measuring
  * themselves, so the row opens straight to the height it would have had.
  */
-export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, expressed, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
@@ -94,14 +93,17 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
   const chainTarget = questions.find((other) => other._id === question.chains_to) ?? null
 
+  /** The label of the quiz's widgeting working the `aibot` widget `widget_label`, if it has one */
+  const labelWorking = (widget_label: string): string | null => (
+    run.steps.find((step) => step.widget?.formulary === 'aibot' && step.widget.label === widget_label)?.widgeting.label ?? null
+  )
   const reextractFor = (expression_label: string) => {
     if (locked) { return }
-    switch (expression_label) {
-    case 'clueing_full': { onAsk('clueing'); break }
-    case 'hint_full':    { onAsk('hint'); break }
-    case 'butnot_full':  { onAskTarget('hint'); break }
-    default:             { break }
-    }
+    const clueing = labelWorking('numnum_clueing')
+    const hint = labelWorking('numnum_hint')
+    if (expression_label === 'clueing_full' && clueing !== null) { onAsk(clueing) }
+    if (expression_label === 'hint_full' && hint !== null) { onAsk(hint) }
+    if (expression_label === 'butnot_full' && hint !== null) { onAskTarget(hint) }
   }
   /** What a column shows for this question */
   const bodyOf = (spec: ColumnSpec): React.JSX.Element => {
@@ -113,15 +115,17 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
         : <ButnotIshesCell ishes={chainTarget?.hint_ishes ?? null} chained={question.chains_to !== null} heightPx={heightPx} />
     }
     if (source.kind === 'expressing') {
+      const { label } = source.widget
       return (
-        <ExpressedReadout
-          reading={Expressed.readingOf(expressed, source.widget.label, question._id)}
+        <WidgetedReadout
+          widgeted={Runner.widgetedOf(run, label, question._id)}
+          stale={Runner.isStale(run, label, question._id)}
           wide={spec.widthPx >= WideReadoutPx}
           heightPx={heightPx}
         />
       )
     }
-    return playedBody(source.slot.field)
+    return playedBody(source)
   }
 
   /** One of the question's own fields, in the box it is edited in */
@@ -159,22 +163,24 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What one bot answered, in the cell that asks it again */
-  const playedBody = (field: BotSlot['field']): React.JSX.Element => {
+  /** What one bot answered, in the cell that asks it again: askable when its input comes to something */
+  const playedBody = (source: Extract<Resolved, { kind: 'botting' }>): React.JSX.Element => {
+    const { field } = source.slot
+    const { label } = source.widget
+    const askable = Runner.inputOf(run, label, question._id).status === 'ok'
     if (field === 'guess') {
       return (
         <GuessCell
-          guess={question.guess} asking={asking('guess')} askable={question.clueing.trim() !== ''}
-          locked={locked} notice={unavailableNotice('guess')} heightPx={heightPx} onAsk={() => { onAsk('guess') }}
+          guess={question.guess} asking={asking(label)} askable={askable}
+          locked={locked} notice={unavailableNotice(label)} heightPx={heightPx} onAsk={() => { onAsk(label) }}
         />
       )
     }
-    const askkind = field === 'clueing_ishes' ? 'clueing' : 'hint'
     return (
       <IshesCell
         ishes={question[field]} label={field === 'clueing_ishes' ? 'Clueing ishes' : 'Hint Ishes'}
-        asking={asking(askkind)} askable={askableTextOf(question, askkind) !== ''}
-        locked={locked} notice={unavailableNotice(askkind)} heightPx={heightPx} onAsk={() => { onAsk(askkind) }}
+        asking={asking(label)} askable={askable}
+        locked={locked} notice={unavailableNotice(label)} heightPx={heightPx} onAsk={() => { onAsk(label) }}
       />
     )
   }

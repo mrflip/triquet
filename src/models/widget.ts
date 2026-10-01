@@ -1,7 +1,9 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
+import { ServicelabelVals } from '../lib/credentials'
 import { TextkindVals, type Textkind } from '../lib/ask/contract'
+import { ModelTierVals } from './ask'
 import { BotLabelVals, type BotLabel } from './bot-label'
 import { BotSlots, isBotSlot, type BotSlot } from './botting'
 import type { ExpressionT } from './expression'
@@ -9,7 +11,26 @@ import type { ExpressionT } from './expression'
 /** The widget every quiz has without being told: the questions' own fields. No quiz may label one of its own this. */
 export const QuestionWidgetLabel = 'question'
 
+/** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, or a prompt put to a model */
+export const FormularykindVals = ['jsonata', 'aibot'] as const
+export type Formularykind = typeof FormularykindVals[number]
+
+/** Most room an `aibot` widget may give a model to answer in: twice what the number spotter takes */
+export const AibotTokensMax = 8000
+
 export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, discrim, uint, zid }) => {
+  const jsonataConfig = obj({}).strict()
+    .describe('A `jsonata` widget\'s settings: none.')
+  const aibotConfig = obj({
+    servicelabel: oneof(ServicelabelVals)
+      .describe('Which outside service the prompt is put to, and so whose credentials it needs.'),
+    model_tier:   oneof(ModelTierVals)
+      .describe('Which tier of model answers: `quick` for a hasty first instinct, `careful` for a thorough reading.'),
+    max_tokens:   uint.min(1).max(AibotTokensMax)
+      .describe('How much room the model is given to answer one question.'),
+  })
+    .describe('An `aibot` widget\'s settings: who answers, and how much room they have.')
+
   const widgetLabel = label
     .describe('What the widget is called within its quiz, unique there and never `question`, which is the questions\' own widget. Columns name the widgets they show by this label.')
   const description = noteish
@@ -71,8 +92,33 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, di
   const row = discrim('kind', [expressing.extend(rowFields), botting.extend(rowFields)])
     .describe('One widget as the database holds it: the fields of its own kind, and its place in its quiz.')
 
-  return { widgetLabel, expressing, botting, widget, expressingPatch, bottingPatch, row }
+  return { jsonataConfig, aibotConfig, widgetLabel, expressing, botting, widget, expressingPatch, bottingPatch, row }
 })
+
+export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>
+export type AibotConfigT   = Z.output<typeof WidgetValidators.aibotConfig>
+
+/** What every widget of the library has, whatever works it */
+type LibraryWidgetFields = {
+  label:         string
+  title:         string
+  description:   string
+  /** The JSONata expression, or the prompt template */
+  formula:       string
+  /** The JSONata expression that culls the bag to what the widget reads */
+  input_formula: string
+}
+
+/** A widget of the library worked by a JSONata formula */
+export type JsonataWidgetT = LibraryWidgetFields & { formulary: 'jsonata', config: JsonataConfigT }
+/** A widget of the library that puts a prompt to a model */
+export type AibotWidgetT   = LibraryWidgetFields & { formulary: 'aibot',   config: AibotConfigT }
+
+/**
+ * A reusable definition in the library: a formulary, a formula, an input formula and a config,
+ * under a label. It knows nothing of any quiz; a widgeting puts it to work in one.
+ */
+export type LibraryWidgetT = JsonataWidgetT | AibotWidgetT
 
 export type ExpressingDNA   = Z.input<typeof WidgetValidators.expressing>
 export type ExpressingT     = Z.output<typeof WidgetValidators.expressing>

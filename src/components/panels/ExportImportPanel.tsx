@@ -11,7 +11,7 @@ import * as LLSmithExport from '../../lib/ll-smith-export'
 import * as Sheets from '../../lib/sheets'
 import * as UU from '../../lib/useful'
 import { AppNotices } from '../../lib/notices'
-import type { ExpressedForQuiz } from '../../lib/expressed'
+import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
@@ -21,7 +21,8 @@ import styles from '../workbench.module.css'
 export type ExportImportPanelProps = {
   quiz:      QuizT
   hunt:      ShallowHuntT
-  expressed: ExpressedForQuiz
+  /** The quiz, run: what the sheet's worked-out columns show */
+  run:       QuizRun
   /** Fold what the Import tab read into the quiz: one entry per label */
   onImport:  (questions: readonly ImportedQuestionT[]) => void
 }
@@ -31,13 +32,13 @@ export type ExportImportPanelProps = {
  * panel: a spreadsheet paste, the raw JSON of the whole hunt, Import, the quiz's full history,
  * and the league's own import format, with the smith's note in the league's BBCode.
  */
-export function ExportImportPanel({ quiz, hunt, expressed, onImport }: Readonly<ExportImportPanelProps>) {
+export function ExportImportPanel({ quiz, hunt, run, onImport }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
   const tabs = [
     {
       label:   'Spreadsheet',
       blurb:   'Tab-separated: a header row, then one line per question, with every column the grid has, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet.',
-      content: <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, expressed)} />,
+      content: <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} />,
     },
     {
       label:   'Raw Export',

@@ -5,11 +5,12 @@ import { Hunt, HuntValidators } from './hunt'
 import { Question, QuestionValidators } from './question'
 import { Quiz, QuizValidators } from './quiz'
 import { Realm, RealmValidators } from './realm'
+import { WidgetedValidators } from './widgeted'
 
 /** Fields named as a list in words: `label and title`, `label, smiths_note, and title` */
 const FieldList = new Intl.ListFormat('en', { type: 'conjunction' })
 
-export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, uint, textish, label, titleish, union }) => {
+export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, uint, textish, label, titleish, union, rec, zod }) => {
   const played = oneof(['done', 'error'])
     .describe('Whether the bot answered: `done`, or `error` when asking failed and there was never an answer.')
 
@@ -34,7 +35,9 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
       clueing_ishes: ishes.describe('What the number spotter found in the clueing.'),
       hint_ishes:    ishes.describe('What the number spotter found in this question\'s own hint.'),
     })
-    .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label.')
+    .catchall(WidgetedValidators.widgeted
+      .describe('What a widgeting before this one in the run order came to for this question, under that widgeting\'s label: `qn.numnum_clueing.value.items`, say.'))
+    .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label; and the widgeted of every widgeting before the one being worked out, each under its label.')
 
   const bagQuiz = QuizValidators.row.pick(maskOf(Quiz.exposed))
     .extend({
@@ -75,6 +78,10 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
       .describe('The label of `qn`.'),
     quiz_label: label
       .describe('The label of the quiz.'),
+    params:          rec(label, zod.json())
+      .describe('What the widgeting being worked out hands its widget, by name. Empty unless it says otherwise.'),
+    widgeting_label: label
+      .describe('The label of the widgeting being worked out.'),
   })
     .describe('The document a formula reads: its top-level keys are what the formula can name directly, e.g. `qn.clueing`.')
 

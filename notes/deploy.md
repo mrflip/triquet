@@ -177,8 +177,9 @@ we hit on 2026-09-30):
   setting for this: the lifetime is per deployment, set after it is made. A failure there warns
   in the build log and leaves Convex's default; it never fails the build.
 * **Closing a pull request deletes its branch's preview**, merged or not
-  (`.github/workflows/convex-previews.yml`, with `CONVEX_PREVIEW_PRUNER_KEY`: a preview deploy
-  key, `notes/env_vars_tokens_and_keys.md`). Run that
+  (`.github/workflows/convex-previews.yml`), with `CONVEX_PREVIEW_PRUNER_KEY`: a preview deploy
+  key of its own, synced from Doppler to GitHub Actions, which reaches the project's previews
+  and cannot see production (`notes/env_vars_tokens_and_keys.md`). Run that
   workflow by hand, naming a branch, for one that never had a pull request.
 * By hand: `./scripts/doppledo dev_aijanitor ./scripts/convex_preview node
   scripts/convex-previews.ts <prune <branch> | expire <branch> [hours]>`.

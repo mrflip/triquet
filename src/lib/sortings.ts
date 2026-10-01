@@ -1,10 +1,12 @@
-import * as Expressed from './expressed'
 import * as Rank from './rank'
+import * as Runner from './formulary/runner'
+import * as UU from './useful'
 import { resolve, type Resolved } from './columns'
 import { columnLabelOf } from '../models/column'
 import type { QuizT, Sortkey } from '../models/quiz'
 import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
+import type { WidgetedT } from '../models/widgeted'
 
 /** What a column offers the sorter: a number, a string, or nothing at all */
 export type SortValue = string | number | null
@@ -53,19 +55,19 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
  *
  * @param sortkey - Which column was clicked.
  * @param quiz - The quiz's questions, columns and widgets.
- * @param expressed - The quiz's computed values, for a column that shows one.
+ * @param run - The quiz, run: what each widgeting came to, for a column that shows one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>, expressed: Expressed.ExpressedForQuiz): SortValueOf {
+export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>, run: Runner.QuizRun): SortValueOf {
   const label = columnLabelOf(sortkey)
   const column = quiz.columns.find((each) => each.label === label)
   const source = column ? resolve(column.source, quiz.widgets) : null
   if (! source) { return () => null }
-  return readerFor(source, quiz.questions, expressed)
+  return readerFor(source, quiz.questions, run)
 }
 
 /** How a thing a column shows reads one question */
-function readerFor(source: Resolved, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
+function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runner.QuizRun): SortValueOf {
   const questionForId = new Map(questions.map((question) => [question._id, question]))
   const targetOf = (question: QuestionT) => (question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null)
   switch (source.kind) {
@@ -83,9 +85,28 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], expressed:
     return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
   }
   case 'expressing': {
-    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, source.widget.label, question._id))
+    return (question) => sortValueOf(Runner.widgetedOf(run, source.widget.label, question._id))
   }
   }
+}
+
+/**
+ * What a sort reads from one widgeted: numbers and text as they are, a boolean as 0 or 1, any
+ * other value as its JSON, and nothing -- or a failure -- as nothing, which sinks to the bottom in
+ * either direction.
+ *
+ * @param widgeted - One cell's widgeted.
+ * @returns A value the sorter can compare, or null.
+ *
+ * @example sortValueOf({ status: 'ok', value: true, err: null })  // => 1
+ * @example sortValueOf({ status: 'missing', value: null, err: null })  // => null
+ */
+export function sortValueOf(widgeted: WidgetedT): SortValue {
+  if (widgeted.status !== 'ok') { return null }
+  const { value } = widgeted
+  if (typeof value === 'boolean') { return Number(value) }
+  if (typeof value === 'string' || typeof value === 'number') { return value }
+  return value === null ? null : UU.jsonify(value)
 }
 
 /**

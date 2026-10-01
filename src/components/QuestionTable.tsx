@@ -9,8 +9,7 @@ import { FoldButton } from './FoldButton'
 import { QuestionRow } from './QuestionRow'
 import { useFolds } from './use-folds'
 import { useSettledResize } from './use-settled-resize'
-import type { ExpressedForQuiz } from '../lib/expressed'
-import type { Askkind } from '../state/use-asking'
+import type { QuizRun } from '../lib/formulary/runner'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import type { Sortkey } from '../models/quiz'
 import styles from './workbench.module.css'
@@ -24,8 +23,8 @@ export type QuestionTableProps = {
   questions:    QuestionT[]
   /** The quiz's columns, in the order they appear */
   specs:        ColumnSpec[]
-  /** What each computed column came to for each question */
-  expressed:    ExpressedForQuiz
+  /** The quiz, run: what each widgeting came to for each question */
+  run:          QuizRun
   locked:       boolean
   /** Grips are offered only while the quiz is in Q# order */
   gripShown:    boolean
@@ -45,10 +44,12 @@ export type QuestionTableProps = {
   sortMark:     SortMark | null
   onSort:       (sortkey: Sortkey) => void
   onChain:      (question_id: string, chains_to: string | null) => void
-  asking:       (question_id: string, askkind: Askkind) => boolean
-  /** Why a kind of ask cannot be made at all, when it cannot; null when it can */
-  unavailableNotice: (askkind: Askkind) => string | null
-  onAsk:        (question: QuestionT, askkind: Askkind) => void
+  /** Whether an ask for one question's cell of one widgeting is in flight */
+  asking:       (question_id: string, widgeting_label: string) => boolean
+  /** Why the widgeting labelled so cannot be asked at all, when it cannot; null when it can */
+  unavailableNotice: (widgeting_label: string) => string | null
+  /** Ask the widgeting labelled so about one question */
+  onAsk:        (question_id: string, widgeting_label: string) => void
   onEdit:       (question_id: string, patch: QuestionPatch) => void
   /** Told which question moved, and the index it lands on once it has been lifted out */
   onMove:       (question_id: string, onto_idx: number) => void
@@ -65,7 +66,7 @@ const CardLayoutQuery = '(max-width:640px)'
  * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
  * below 640px, every question shows in full: the corner is not there to unfold them.
  */
-export function QuestionTable({ questions, specs, expressed, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, run, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
   const checkedCount = questions.filter((question) => isChecked(question._id)).length
   const folds = useFolds(questions.map((question) => question._id))
@@ -150,13 +151,12 @@ export function QuestionTable({ questions, specs, expressed, locked, gripShown, 
               onMove={onMove}
               onChain={(chains_to) => { onChain(question._id, chains_to) }}
               specs={specs}
-              expressed={expressed}
-              asking={(askkind) => asking(question._id, askkind)}
+              run={run}
+              asking={(widgeting_label) => asking(question._id, widgeting_label)}
               unavailableNotice={unavailableNotice}
-              onAsk={(askkind) => { onAsk(question, askkind) }}
-              onAskTarget={(askkind) => {
-                const target = questions.find((other) => other._id === question.chains_to)
-                if (target) { onAsk(target, askkind) }
+              onAsk={(widgeting_label) => { onAsk(question._id, widgeting_label) }}
+              onAskTarget={(widgeting_label) => {
+                if (question.chains_to !== null) { onAsk(question.chains_to, widgeting_label) }
               }}
               onEdit={(patch) => { onEdit(question._id, patch) }}
             />
