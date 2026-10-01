@@ -50,6 +50,7 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'set_chain':           { await Quiz.setChain(db, open, action.question_id, action.chains_to); return }
   case 'sort_by_chain_order': { await Quiz.sortByChainOrder(db, open, action.descending); return }
   case 'record_widgeted':     { await Quiz.recordWidgeted(db, open, action.widgeted); return }
+  case 'enter_widgeted':      { await Quiz.enterWidgeted(db, open, action.entered); return }
   case 'import_questions':    { await Quiz.importQuestions(db, open, action.questions); return }
   case 'new_quiz':            { await Quiz.newQuiz(db, open, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, open, action.quiz_id); return }

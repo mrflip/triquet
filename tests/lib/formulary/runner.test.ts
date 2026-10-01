@@ -308,6 +308,29 @@ describe('the stored widgetings', () => {
   })
 })
 
+describe('the typed widgetings', () => {
+  const typed = loneQuestion({ clueing: 'Who?', stored: { remark: answered('Ask Flip.') } })
+  const blank = loneQuestion({})
+  const quiz = { ...Quiz.blank('Typed'), questions: [typed, blank], widgetings: widgetingsOf(['remark', 'remarks'], ['shout', 'loud']) }
+  const library = [Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }), jsonataWidget('loud', "qn.remark.status = 'ok' ? $uppercase(qn.remark.value)")]
+  const run = runOf(quiz, library)
+
+  it('are projected from the one value typed, and missing where nothing was', () => {
+    expect(Runner.widgetedOf(run, 'remark', typed._id)).to.deep.eq(Widgeted.ok('Ask Flip.'))
+    expect(Runner.widgetedOf(run, 'remark', blank._id)).to.deep.eq(Widgeted.missing)
+  })
+
+  it('carry no inputs, since nothing is ever asked of them', () => {
+    expect(Runner.inputOf(run, 'remark', typed._id)).to.deep.eq({ status: 'missing' })
+    expect(run.inputs.has('remark')).to.be.false
+  })
+
+  it('reach the widgetings after them in the bag, as any widgeted does', () => {
+    expect(Runner.widgetedOf(run, 'shout', typed._id)).to.deep.eq(Widgeted.ok('ASK FLIP.'))
+    expect(Runner.widgetedOf(run, 'shout', blank._id)).to.deep.eq(Widgeted.missing)
+  })
+})
+
 describe('sourceOf', () => {
   const recorded = loneQuestion({ stored: { asked: answered('hi') } })
   const blank = loneQuestion({})

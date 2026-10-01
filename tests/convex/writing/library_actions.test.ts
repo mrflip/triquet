@@ -4,7 +4,7 @@ import * as PA from '../../../src/lib/vv/patterns'
 import type { HuntT } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
 import { SeedWidgets } from '../../../src/models/seeds'
-import { Widget, type WidgetT } from '../../../src/models/widget'
+import { Widget, type JsonataWidgetT, type WidgetT } from '../../../src/models/widget'
 import { Widgeting } from '../../../src/models/widgeting'
 import type { HuntActionDNA } from '../../../src/models/actions'
 import { present } from '../../support/present'
@@ -18,11 +18,18 @@ const seed = async (hunt: HuntT = bare(), tt: Tester = openTester()) => await se
 
 const labelsOf = (seen: Seen) => seen.library.map((widget) => widget.label)
 const widgetOf = (seen: Seen, label: string) => present(seen.library.find((widget) => widget.label === label), label)
+/** The library's formula labelled `label`, which a test revises as a formula */
+const formulaOf = (seen: Seen, label: string): JsonataWidgetT => {
+  const widget = widgetOf(seen, label)
+  if (widget.formulary !== 'jsonata') { throw new Error(`${label} is not a formula`) }
+  return widget
+}
 const SeedLabels = SeedWidgets.map((widget) => widget.label)
 
 const Shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
 const AskerConfig = { servicelabel: 'claude', model_tier: 'quick', max_tokens: 100 } as const
 const Asker = Widget.fill({ label: 'asker', formulary: 'aibot', formula: 'Who wrote {{clueing}}?', config: AskerConfig })
+const Remark = Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } })
 
 /** Each of `refusals` refused for its own reason, and whatever `seeded` holds unchanged by them */
 async function expectRefused(seeded: Seeded, ...refusals: [HuntActionDNA, string][]): Promise<void> {
@@ -135,6 +142,45 @@ describe("edit_widget", () => {
   })
 })
 
+describe("an entry widget", () => {
+  it("is added with no formula and no input formula, and its kind", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widget', widget: Remark })
+    expect(widgetOf(await read(), 'remark')).to.deep.eq(Remark)
+  })
+
+  it("has its description revised, and its kind left as it was", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widget', widget: Remark })
+    await act({ kind: 'edit_widget', label: 'remark', patch: { description: 'What the editor thinks.', config: { entry_kind: 'text' } } })
+    expect(widgetOf(await read(), 'remark')).to.deep.eq({ ...Remark, description: 'What the editor thinks.' })
+  })
+
+  it("refuses another kind, which the values typed hang on, and a formula", async () => {
+    const seeded = await seed()
+    await seeded.act({ kind: 'add_widget', widget: Remark })
+    await expectRefused(seeded, [{ kind: 'edit_widget', label: 'remark', patch: { config: { entry_kind: 'number' } } }, 'entryKindFixed'])
+    const refusals = await refusalsOf(seeded, { kind: 'edit_widget', label: 'remark', patch: { formula: 'qn.notes' } })
+    expect(refusals).to.deep.eq({ refused: [true], unchanged: true })
+  })
+
+  it("is passed over by an import naming it as another kind, rather than half-merged", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widget', widget: Remark })
+    await act({ kind: 'import_widgets', widgets: [{ ...Remark, description: 'Counted.', config: { entry_kind: 'number' } }, Shout] })
+    const after = await read()
+    expect(widgetOf(after, 'remark')).to.deep.eq(Remark)
+    expect(labelsOf(after).at(-1)).to.eq('shout')
+  })
+
+  it("is revised by an import naming it as the same kind", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widget', widget: Remark })
+    await act({ kind: 'import_widgets', widgets: [{ ...Remark, description: 'Revised.' }] })
+    expect(widgetOf(await read(), 'remark').description).to.eq('Revised.')
+  })
+})
+
 describe("move_widget", () => {
   it("reorders the library, and only it", async () => {
     const { act, read } = await seed(classicHunt())
@@ -205,7 +251,7 @@ describe("import_widgets", () => {
   it("adds a widget the library lacks at its end, and revises one it holds, removing none", async () => {
     const { act, read } = await seed()
     const ante = await read()
-    const revised: WidgetT = { ...widgetOf(ante, 'answer_reversed'), title: 'Backward', description: 'Reversed.', formula: '"x"', input_formula: 'qn' }
+    const revised: WidgetT = { ...formulaOf(ante, 'answer_reversed'), title: 'Backward', description: 'Reversed.', formula: '"x"', input_formula: 'qn' }
     await act({ kind: 'import_widgets', widgets: [Shout, revised] })
     const after = await read()
     expect(labelsOf(after)).to.deep.eq([...SeedLabels, 'shout'])
@@ -255,7 +301,7 @@ describe("import_widgets", () => {
     const seeded = await seed()
     const room = PA.WidgetsInLibrary.max - SeedWidgets.length
     const widgets = Array.from({ length: room + 1 }, (_unused, idx) => ({ ...Shout, label: `shout_${String(idx)}` }))
-    await expectRefused(seeded, [{ kind: 'import_widgets', widgets: [{ ...widgetOf(await seeded.read(), 'answer_reversed'), formula: '"x"' }, ...widgets] }, 'libraryFull'])
+    await expectRefused(seeded, [{ kind: 'import_widgets', widgets: [{ ...formulaOf(await seeded.read(), 'answer_reversed'), formula: '"x"' }, ...widgets] }, 'libraryFull'])
   })
 })
 

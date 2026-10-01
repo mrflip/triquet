@@ -5,6 +5,7 @@ import { Button, Dialog, DialogActions, DialogContent, MenuItem, Stack, TextFiel
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
 import { AibotFields } from './AibotFields'
+import { EntryFields } from './EntryFields'
 import { JsonataFields } from './JsonataFields'
 import { FormularyWords, usageLine } from './widget-words'
 import { useWidgetUsage } from '../state/use-widget-usage'
@@ -36,8 +37,8 @@ export type WidgetEditorProps = {
 
 /**
  * The widget editor: one widget of the library on its own, its fields following its formulary --
- * a formula, or a prompt with its input formula and config -- with a live preview against a real
- * question, and the button that copies a prompt asking a chatbot for help.
+ * a formula, or a prompt with its input formula and config, each with a live preview against a
+ * real question and the button that copies a prompt asking a chatbot for help; or an entry's kind.
  *
  * A new widget is written here, its formulary chosen first. An existing one says how far it is
  * put to work, in every hunt, and cannot be removed while anything works it. An edit here changes
@@ -153,5 +154,9 @@ type DraftFieldsProps = {
 /** The fields a draft's formulary has */
 function DraftFields({ hunt, library, quiz, draft, onChange, labelEditable, labelIssue, widgeting }: Readonly<DraftFieldsProps>) {
   const shared = { hunt, library, openQuiz: quiz, onChange, labelEditable, labelIssue, widgeting }
-  return draft.formulary === 'aibot' ? <AibotFields draft={draft} {...shared} /> : <JsonataFields draft={draft} {...shared} />
+  switch (draft.formulary) {
+  case 'jsonata': { return <JsonataFields draft={draft} {...shared} /> }
+  case 'aibot':   { return <AibotFields draft={draft} {...shared} /> }
+  case 'entry':   { return <EntryFields draft={draft} onChange={onChange} labelEditable={labelEditable} labelIssue={labelIssue} /> }
+  }
 }

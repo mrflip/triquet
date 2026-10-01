@@ -1,6 +1,6 @@
 import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
-import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit } from '../../../src/state/widget-edit'
+import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit, type JsonataDraft } from '../../../src/state/widget-edit'
 import { planWidgetingEdit } from '../../../src/state/widgeting-edit'
 import { Question } from '../../../src/models/question'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
@@ -403,7 +403,7 @@ describe("the editors' plans, carried out", () => {
     const ante = await read()
     const held = present(quizOf(ante).widgetings.find((widgeting) => widgeting.label === 'clueing_full'))
     const widget = present(ante.library.find((each) => each.label === 'clueing_full'))
-    const widgetPlan = planWidgetEdit({ ...draftOf(widget), description: 'Revised.', formula: '1' }, ante.library)
+    const widgetPlan = planWidgetEdit({ ...(draftOf(widget) as JsonataDraft), description: 'Revised.', formula: '1' }, ante.library)
     const widgetingPlan = planWidgetingEdit({ widgeting: held, label: held.label, description: 'Renamed?', widgetLabel: 'clueing_full' }, ante.library, quizOf(ante))
     if (! widgetPlan.ok || ! widgetingPlan.ok) { throw new Error('Expected both plans') }
     for (const action of [...widgetPlan.actions, ...widgetingPlan.actions]) { await act(action) }

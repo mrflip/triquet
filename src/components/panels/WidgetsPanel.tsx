@@ -6,8 +6,8 @@ import _ from 'es-toolkit/compat'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { CopyButton } from '../CopyButton'
-import { FormularyWords } from '../widget-words'
-import { formularyFor } from '../../lib/formulary/formularies'
+import { EntryKindWords, FormularyWords } from '../widget-words'
+import { Formularies } from '../../lib/formulary/formularies'
 import * as Runner from '../../lib/formulary/runner'
 import * as Rank from '../../lib/rank'
 import type { QuizT } from '../../models/quiz'
@@ -22,7 +22,8 @@ export type WidgetsPanelProps = {
 /**
  * The quiz's widgetings in run order, each folded to its label, the widget it works and how many
  * of its cells are ok, errored and missing; open, the widget's formula or prompt exactly as it
- * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help.
+ * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help --
+ * or, for an entry, what kind of value is typed into it.
  */
 export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
   // The advice is shown a real question: the lowest-numbered, as the widget editor's preview starts on.
@@ -75,7 +76,13 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
       </AccordionSummary>
       <AccordionDetails>
         {widgeting.description === '' ? null : <p className={styles.microcopy}>In this quiz: {widgeting.description}</p>}
-        {widget && (
+        {widget?.formulary === 'entry' && (
+          <>
+            {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
+            <p className={styles.microcopy}>Typed into its cells, one value per question. {EntryKindWords[widget.config.entry_kind]}.</p>
+          </>
+        )}
+        {widget && widget.formulary !== 'entry' && (
           <>
             {widget.description === '' ? null : <p className={styles.microcopy}>The widget: {widget.description}</p>}
             <div className={styles.microcopy}>{widget.formulary === 'aibot' ? 'The prompt, placeholders and all: each {{name}} is filled in from that key of the input' : 'The formula'}</div>
@@ -87,7 +94,7 @@ function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>)
               </>
             )}
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
-              <CopyButton textOf={() => formularyFor(widget).advice(widget, widgeting, sampleOf())}>Copy a prompt for a chatbot</CopyButton>
+              <CopyButton textOf={() => Formularies[widget.formulary].advice(widget, widgeting, sampleOf())}>Copy a prompt for a chatbot</CopyButton>
             </Stack>
           </>
         )}
