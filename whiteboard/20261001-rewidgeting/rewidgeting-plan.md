@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 5 underway.** Threads 1 (PR #67, docs only), 2 (PR #68), 3 (PR #69) and 4 (PR #70) done.
+**Status: thread 6 underway.** Threads 1 (PR #67, docs only), 2 (#68), 3 (#69), 4 (#70) and 5 (#71) done.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -373,6 +373,12 @@ and the seeds' marked form; struck above. Left: `JsonFold` for non-scalars (obje
 today), retiring what remains of `guess.tsx`/`ishes.tsx`, sorts and exports by `value` (the BUT NOT
 ishes column sorts as text now, and a stored `ok` of `null` writes "null" but sorts as absent).
 
+*Orchestrator:* **done, PR #71** (review: one `fix:` kept). One value body (`WidgetedValue`; lists and
+objects as compact JSON with a `FoldButton` beside the cell and `JsonText`, not `JsonFold`, since a
+`<details>` can't sit inside the cell's button); an `ok` null keeps its status but reads, writes and
+sorts as nothing; `Sortings.sortValueOf` (a list by length, a one-key object by what it holds, a
+many-key object unsorted). The decision note gained *How a value reads*.
+
 *Gloss.* `src/components/cells/` (a new single widgeted cell; `guess.tsx`, `ishes.tsx` and the
 butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`, the sortings,
 `exporting`, `sheets`. If thread 2 built the projection, this thread is views and deletions.
@@ -402,7 +408,9 @@ remain. A *Library* tab in Export / Import holds the library's own export and im
 `LibraryModal` open every widget with fields that follow the formulary (`AibotFields.tsx` beside
 `JsonataFields.tsx`); left: the usage line, the removal refusal in the UI, and choosing a formulary
 for a widget made from the library itself (new widgets are made only from a quiz's widgetings today).
-Also here (orchestrator's YOLO call 9): `{{{name}}}` and `{{&name}}` skip `renderPrompt`'s escape hook
+Thread 5's review: a quick double-click on a cell's fold button can reach the cell's double-click
+(re-ask) handler; guard it if the Widgets panel or editor makes an askable column that can come to a
+list or object. Also here (orchestrator's YOLO call 9): `{{{name}}}` and `{{&name}}` skip `renderPrompt`'s escape hook
 and fill a list or object in as `[object Object]`; refuse those tags in `templateIssue` with a
 sentence pointing at `{{name}}`, which renders everything as JSON anyway. Reset the `agent`
 backend before e2e if thread 5 has not.
@@ -498,6 +506,8 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
   your `dev` backend holds dumdum's old prompt until reset or edited; Opus 5's default thinking
   spends `max_tokens`, so a long pasted answer on the careful tier may come back `cutShort`. Older
   than the thread: a non-JSON request body makes the route answer 500.
+* Thread 5's: the sort rule for objects (a one-key object sorts as what it holds, so numnum's
+  `{ items }` sorts by span count; a many-key object does not sort), yours to overturn.
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 

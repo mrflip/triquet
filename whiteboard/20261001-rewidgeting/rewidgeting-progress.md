@@ -11,7 +11,7 @@ Workers add their sections below the table, newest first.
 | 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
 | 3 | The data model, as a clean break | complete: PR #69, stacked on #68 (reviewed: fixed) |
 | 4 | Pasted prompts | complete: PR #70, stacked on #69 (reviewed: fixed) |
-| 5 | Status | complete: PR #71, stacked on #70 |
+| 5 | Status | complete: PR #71, stacked on #70 (reviewed: fixed) |
 | 6 | Views | pending |
 | 7 | The basic set and the catalogue | pending |
 | 8 | Entry widgets | pending |
@@ -57,6 +57,12 @@ schema change, no `convex/_generated/` churn.
     every widgeted cell does. Fine for now; thread 6's panel or a later nicety may want more room.
 * **For the Coach**: the sort rule for objects (above), yours to overturn. No lint or type
   suppressions added.
+
+*Review:* fixed. Kept `0178aa8`: the formula preview read "Comes to " and nothing for a null result,
+since `textOf` now gives `''` for an `ok` null; it now says "nothing (a dash in the grid)". Left,
+minor: a quick double-click on a cell's fold button can reach the cell's double-click handler (a
+re-ask in askable columns); unreachable today because askable sum columns hold numbers, but live
+once an askable column can come to a list or object (threads 6, 8).
 
 ## Thread 4: Pasted prompts (2026-10-01)
 
