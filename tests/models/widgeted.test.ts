@@ -11,6 +11,30 @@ describe('Widgeted', () => {
     expect(Widgeted.missing).to.deep.eq({ status: 'missing', value: null, err: null })
   })
 
+  describe('isNothing', () => {
+    const Cases: [WidgetedT, boolean, string][] = [
+      [Widgeted.ok(null),              true,              'a null value is nothing'],
+      [Widgeted.ok(''),                true,              'empty text is nothing'],
+      [Widgeted.ok(0),                 false,             'nought is a value'],
+      [Widgeted.ok(false),             false,             'false is a value'],
+      [Widgeted.ok([]),                false,             'an empty list is a value'],
+      [Widgeted.missing,               true,              'a missing cell is nothing'],
+      [Widgeted.errored(Err),          true,              'a failure is nothing'],
+    ]
+    for (const [widgeted, expected, blurb] of Cases) {
+      it(blurb, () => {
+        expect(Widgeted.isNothing(widgeted)).to.eq(expected)
+      })
+    }
+  })
+
+  describe('isStructured', () => {
+    it('is a list or an object, and nothing else', () => {
+      const widgeteds = [Widgeted.ok([]), Widgeted.ok({ items: [] }), Widgeted.ok(null), Widgeted.ok('Leon'), Widgeted.ok(3), Widgeted.missing]
+      expect(widgeteds.map((widgeted) => Widgeted.isStructured(widgeted))).to.deep.eq([true, true, false, false, false, false])
+    })
+  })
+
   describe('textOf', () => {
     const Cases: [WidgetedT, string, string][] = [
       [Widgeted.ok(42),                "42",              'a number as itself'],
@@ -18,7 +42,7 @@ describe('Widgeted', () => {
       [Widgeted.ok(false),             "false",           'a boolean as itself'],
       [Widgeted.ok({ b: 1, a: 2 }),    '{"a":2,"b":1}',   'an object as its JSON, keys in order'],
       [Widgeted.ok([1, 'two']),        '[1,"two"]',       'a list as its JSON'],
-      [Widgeted.ok(null),              "null",            'a null value as its JSON'],
+      [Widgeted.ok(null),              "",                'nothing for a null value, as for no value'],
       [Widgeted.missing,               "",                'nothing for a missing cell'],
       [Widgeted.errored(Err),          "",                'nothing for a failure'],
     ]

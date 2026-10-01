@@ -115,6 +115,12 @@ describe('tableOf', () => {
     expect(present(rows[0]).filter((_cell, idx) => present(header[idx]).startsWith('dumdum.'))).to.deep.eq(['errored', ''])
   })
 
+  it('shows a stored null as ok, with an empty value: null is nothing to write', () => {
+    const question = { ...Question.blank(), stored: { dumdum: { newest: storedRow('ok', null), ok: storedRow('ok', null) } } }
+    const { header, rows } = tableOf(quizOf([question]))
+    expect([header.indexOf('dumdum.status'), header.indexOf('dumdum.value')].map((idx) => present(rows[0])[idx])).to.deep.eq(['ok', ''])
+  })
+
   it('shows a widgeting never asked as missing, with an empty value', () => {
     const { header, rows } = tableOf()
     expect([header.indexOf('dumdum.status'), header.indexOf('dumdum.value')].map((idx) => present(rows[0])[idx])).to.deep.eq(['missing', ''])

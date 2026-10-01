@@ -156,7 +156,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     const widgeted = Runner.widgetedOf(run, label, question._id)
     const widget = Runner.stepOf(run, label)?.widget ?? null
     if (widget === null || formularyFor(widget).refresh !== 'click') {
-      return <WidgetedReadout widgeted={widgeted} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
+      return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
     }
     return (
       <WidgetedAskCell

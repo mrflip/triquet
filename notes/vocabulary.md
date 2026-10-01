@@ -41,7 +41,8 @@ this section, lists the words they replace while code still holds them.
   widgeteds of the widgetings before it, so the order is the dependency order.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
-  no row, or an input or formula that came to nothing (shown as a muted dash; never zero).
+  no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An
+  `ok` of null is shown, written and sorted as nothing too, but keeps its status.
 * **err** -- a failure on a widgeted: on `errored` the failure itself, on `ok` a newer failure
   riding along on an older value, which it never replaces. Shown as one badge.
 * **refresh** -- how a formulary's widgeteds come to be: `live` (worked out on every render),

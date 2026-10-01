@@ -1,11 +1,10 @@
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
-import * as UU from './useful'
 import { resolve, type Resolved } from './columns'
 import { columnLabelOf } from '../models/column'
 import type { QuizT, Sortkey } from '../models/quiz'
 import type { QuestionT } from '../models/question'
-import type { WidgetedT } from '../models/widgeted'
+import type { JsonT, WidgetedT } from '../models/widgeted'
 
 /** What a column offers the sorter: a number, a string, or nothing at all */
 export type SortValue = string | number | null
@@ -86,22 +85,38 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runne
 }
 
 /**
- * What a sort reads from one widgeted: numbers and text as they are, a boolean as 0 or 1, any
- * other value as its JSON, and nothing -- or a failure -- as nothing, which sinks to the bottom in
- * either direction.
+ * What a sort reads from one widgeted's value: numbers and text as they are, a boolean as 0 or 1,
+ * a list by how many items it holds, and an object of one key as what that key holds -- the shape
+ * a prompt gives when it is asked for one thing, since a model's reply is always an object.
+ * Anything else has no single value to order by: null, empty text, an object of several keys, a
+ * failure or nothing at all sinks to the bottom in either direction.
  *
  * @param widgeted - One cell's widgeted.
  * @returns A value the sorter can compare, or null.
  *
  * @example sortValueOf({ status: 'ok', value: true, err: null })  // => 1
+ * @example sortValueOf({ status: 'ok', value: { items: [{}, {}] }, err: null })  // => 2
  * @example sortValueOf({ status: 'missing', value: null, err: null })  // => null
  */
 export function sortValueOf(widgeted: WidgetedT): SortValue {
   if (widgeted.status !== 'ok') { return null }
-  const { value } = widgeted
+  const value = orderedBy(widgeted.value)
   if (typeof value === 'boolean') { return Number(value) }
   if (typeof value === 'string' || typeof value === 'number') { return value }
-  return value === null ? null : UU.jsonify(value)
+  return null
+}
+
+/** What a value is ordered by before it is read as a number or text: an object of one key by what it holds, a list by its length, else itself */
+function orderedBy(value: JsonT): JsonT {
+  const members = membersOf(value)
+  return members?.length === 1 ? orderedBy(members[0] ?? null) : value
+}
+
+/** What a value is ordered through: an object's members, or a list's length, as one; null for a scalar */
+function membersOf(value: JsonT): JsonT[] | null {
+  if (value === null || typeof value !== 'object') { return null }
+  const members: JsonT[] = Array.isArray(value) ? [value.length] : Object.values(value)
+  return members
 }
 
 /** Whether a column has nothing to say about this question */
