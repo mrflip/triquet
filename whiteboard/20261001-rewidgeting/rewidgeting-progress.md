@@ -64,3 +64,6 @@ the rebase onto `origin/main`: typecheck and lint clean, `pnpm test` 2289 passed
   - Confirm the #66 reading.
   - `CLAUDE.md`, `notes/database-decisions.md` and `notes/vocabulary.md` still link decision
     records that are not in the tree.
+
+*Review:* none: docs only, per the sprint skill. *Orchestrator:* both deviations accepted and the
+plan's glosses revised to match; the note's *Settled here* list now outranks the plan's glosses.

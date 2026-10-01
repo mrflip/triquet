@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: planned.**
+**Status: thread 2 underway.** Thread 1 done (PR #67, docs only).
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -159,6 +159,10 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 > a brief, now an `aibot` widget. Docs only: no code, so no code review. Flag in the PR any place
 > where the design note had to decide something this plan left loose.
 
+*Orchestrator:* **done, PR #67.** Every loose end below is settled in the note's *Settled here*
+list; from here on the note wins over these glosses. Two refinements of plan calls: YOLO call 1
+(seeding by columns) widened, and imports keep pasted values per open PR #66.
+
 *Gloss.* Docs only: `notes/decisions/2026-10-widgets.md` (new directory) and
 `notes/vocabulary.md`. No review (no code). Read the code it describes before writing, so the
 note names real files.
@@ -213,6 +217,8 @@ sortings, `exporting`, `sheets`, and the bag in `quiz-bag.ts`.
 
 *Look-ahead*:
 
+* **Thread 1 named it**: `src/lib/formulary/{formularies,jsonata,aibot,runner}.ts`, `WidgetedT`
+  for the read, and each formulary runs over its *input*, not the bag. Follow the note.
 * **Name in the new words now.** The runner's types and functions say widget, widgeting,
   widgeted, so thread 3 swaps the runner's data source, not its vocabulary.
 * **Project the status here.** Thread 5 says the projection lives in the runner: newest `ok`
@@ -260,12 +266,15 @@ commits so each passes is worth effort; one PR for the schema change is the rule
 
 *Look-ahead*:
 
-* **Seed the per-quiz widgetings by what columns name, not by "has none".** Thread 7 makes a new
-  quiz start with no widgetings, and the seeding mutation is idempotent and will be re-run. So
-  for each quiz with no widgetings, create only the default widgetings that its columns'
-  `source` names (`dumdum`, `numnum_clueing`, `numnum_hint`, the sums): today's quizzes get
-  their layout back, and a lean quiz gets nothing. The default list lives in the seeds fixture,
-  not read from `layout.ts`, which thread 7 shrinks. *(Orchestrator's YOLO call, below.)*
+* **Seed the per-quiz widgetings by what columns name, not by "has none"** -- as the note
+  refines it: a quiz with no widgetings whose columns name *any* of the default set gets the
+  *whole* default set; a lean quiz gets nothing. The default list lives in `src/models/seeds.ts`,
+  not read from `layout.ts`, which thread 7 shrinks. The mutation also re-points the column whose
+  source is `question.butnot_ishes` to the new seeded `butnot_ishes` widget (thread 1's call).
+* **Open PR #66** (the Coach's, not in this stack: import carries the bots' replies, marked
+  stale) may land on main before this thread finishes. If it has, the finishing rebase brings it
+  in: its import of replies becomes the note's rule (a pasted `ok` value into an empty cell,
+  marked `result_meta.imported`), and its stale half is retired with the rest.
 * **Store the aibot values in the shape thread 4's route will return** (thread 1's call), so
   thread 4 changes the route and not the rows or the formulas.
 * **The seeds' `{ value, stale }` form has to go here**: its `stale` reads the ishes'
@@ -380,16 +389,25 @@ stay a question field this sprint, and say so.
 
 The orchestrator's calls, each a two-way door. Workers add theirs to their progress sections.
 
-1. *(Planning.)* Thread 3 seeds a quiz's widgetings from what its columns name, rather than
-   giving every quiz with no widgetings the whole old default set, so that the idempotent
-   mutation stays harmless once thread 7's lean quizzes exist. Existing quizzes get exactly
-   today's layout back either way.
+1. *(Planning; refined by thread 1.)* Thread 3 seeds a quiz's widgetings only when its columns
+   name some of the default set (then the whole set), rather than giving every quiz with no
+   widgetings the old defaults, so that the idempotent mutation stays harmless once thread 7's
+   lean quizzes exist.
 2. *(Planning.)* The seed formulas lose their `{ value, stale }` form in thread 3, not thread 5,
    since the ishes' staleness they read leaves with `bottings` there.
 3. *(Planning.)* The decision note uses a plain decision-record form, since none of the earlier
    decisions is visible outside `/aside/`.
+4. *(Thread 1, accepted.)* The rest of the note's *Settled here* list: notably `butnot_ishes` as a
+   seeded `jsonata` widget (its view retires), dumdum's value as `{ guess, explanation }`, numnum's
+   as `{ items }`, a third formulary fact `store`, and pub-widget edits under `mayChangeHunt`.
+5. *(Thread 1, accepted.)* Imports keep pasted values per open PR #66, into empty cells only.
 
 ## For the Coach
+
+* Thread 1's minor questions, answered by YOLO for now (above), yours to overturn: `butnot_ishes`
+  as a seeded widget; dumdum's `{ guess, explanation }`; the reading of #66.
+* PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
+  whichever lands second.
 
 * CLAUDE.md points at `notes/decisions/2026-09-client-first.md`, and `notes/database-decisions.md`
   at `decisions/2026-09-convex.md`; neither exists outside `/aside/` since `af677fb`. Thread 1
