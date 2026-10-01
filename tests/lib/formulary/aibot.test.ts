@@ -43,6 +43,10 @@ describe('AibotFormulary', () => {
     it('refuses an input that is not an object', () => {
       expect(AibotFormulary.input(widgetOf('dumdum', 'qn.clueing'), bag).status).to.eq('errored')
     })
+
+    it("refuses an input that is a function, which JSONata hands back as a marked object", () => {
+      expect(AibotFormulary.input(widgetOf('dumdum', 'function($x) { $x }'), bag).status).to.eq('errored')
+    })
   })
 
   describe('check', () => {
