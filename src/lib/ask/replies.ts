@@ -74,13 +74,19 @@ export function shapeIssue(val: JsonT, depth: number): string | null {
   if (val === null || typeof val !== 'object') { return null }
   if (depth >= PA.ReplyShape.depth) { return `it nests deeper than ${String(PA.ReplyShape.depth)} levels` }
   const entries = Array.isArray(val) ? val.map((item): [string, JsonT] => ['', item]) : Object.entries(val)
-  if (entries.length > PA.ReplyShape.items) { return `one level holds more than ${String(PA.ReplyShape.items)} items` }
+  const breadthIssue = Array.isArray(val) ? countIssue(entries.length, PA.ReplyShape.items, 'list', 'items') : countIssue(entries.length, PA.ReplyShape.keys, 'object', 'keys')
+  if (breadthIssue !== null) { return breadthIssue }
   for (const [key, item] of entries) {
     if (! Array.isArray(val) && ! keyFits(key)) { return `the key ${UU.jsonify(key)} ${PA.Replykey.msg}` }
     const issue = shapeIssue(item, depth + 1)
     if (issue !== null) { return issue }
   }
   return null
+}
+
+/** Why one list or object of `count` entries is too broad to keep, or null when it is not */
+function countIssue(count: number, max: number, holder: string, entrykind: string): string | null {
+  return count > max ? `one ${holder} holds more than ${String(max)} ${entrykind}` : null
 }
 
 /** Whether `key` is one the database keeps */

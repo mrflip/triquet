@@ -105,8 +105,12 @@ export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
 export const WidgetedJson = { max: 40_000, msg: 'is too large to keep' } as const satisfies Patternbag
 /** A key of a model's reply object, as the database will keep one: printable ASCII, not opening with `$` */
 export const Replykey     = { re: /^(?!\$)[\u{20}-\u{7E}]*$/u, max: 200, msg: 'is not a key the tool can keep' } as const satisfies Patternbag
-/** How deep a model's reply object may nest, and how many items or keys any one level of it may hold */
-export const ReplyShape   = { depth: 16, items: 2000 } as const
+/**
+ * How deep a model's reply object may nest, how many items one list of it may hold, and how many
+ * keys one object of it may hold. Kept as a widgeted's value, the reply sits one level down in a
+ * row the database nests at most 16 levels deep, with at most 1024 keys to an object.
+ */
+export const ReplyShape   = { depth: 15, items: 2000, keys: 1024 } as const
 /** What a widgeting hands its widget: a few settings */
 export const ParamsJson   = { max: 4000, msg: 'is too large to keep' } as const satisfies Patternbag
 

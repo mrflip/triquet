@@ -463,8 +463,10 @@ clean break makes renaming in place safe; any reader of an old action log should
     in is `cutShort`, a new failure kind whose sentence says to give the widget more tokens.
   - **The vetting** (`src/lib/ask/replies.ts`) clips every string to `Textish`'s 3600 characters
     and refuses, as `unreadable`, a control character in any string, a key the database would
-    refuse (`Replykey`: printable ASCII, not opening with `$`), nesting past 16 levels or a level
-    of more than 2000 items (`ReplyShape`), and a reply past `WidgetedJson`'s 40000 characters.
+    refuse (`Replykey`: printable ASCII, not opening with `$`), nesting past 15 levels, a list of
+    more than 2000 items or an object of more than 1024 keys (`ReplyShape`: the database nests a
+    row 16 levels deep at most, the value one of them), and a reply past `WidgetedJson`'s 40000
+    characters.
   - **The reply** is `{ ok: true, value, truncated, model_tier_applied, approx_tokens }`; the
     browser records `value` as the widgeted's, the rest as its `result_meta`.
 * **Two editors with two scopes** (thread 6): the widgeting editor from the quiz page, and the
