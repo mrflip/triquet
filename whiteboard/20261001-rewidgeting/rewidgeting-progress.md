@@ -10,11 +10,87 @@ Workers add their sections below the table, newest first.
 | 1 | Design note and vocabulary | complete: PR #67 (docs only, unreviewed) |
 | 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
 | 3 | The data model, as a clean break | complete: PR #69, stacked on #68 (reviewed: fixed) |
-| 4 | Pasted prompts | pending |
+| 4 | Pasted prompts | complete: PR #70, stacked on #69 |
 | 5 | Status | pending |
 | 6 | Views | pending |
 | 7 | The basic set and the catalogue | pending |
 | 8 | Entry widgets | pending |
+
+## Thread 4: Pasted prompts (2026-10-01)
+
+Branch `20261001-pasted_prompts`, PR #70, stacked on #69. Suites: typecheck and lint clean;
+`pnpm test` 2611 passed (103 files); `pnpm test:e2e:agent` 196 passed. `origin/main` had not
+moved, so the finishing rebase replayed nothing. No schema change, and no `convex/_generated/` churn.
+
+* **Built**:
+  - **The route's contract** (`src/lib/ask/contract.ts`, `src/app/api/ask/route.ts`). In:
+    `{ prompt, ...aibotConfig }`. Out: `{ ok, value, truncated, model_tier_applied, approx_tokens }`,
+    or a failure kind; `cutShort` is new (`lib/notices.ts`). The route streams the prompt to the
+    tier's model with a one-line system prompt asking for a single JSON object, and reads the text
+    (`answerOf`: a code fence is forgiven).
+  - **Vetting** (`src/lib/ask/replies.ts`: `vetReply`, `shapeIssue`). It clips strings, and
+    refuses control characters, Convex-unkeepable keys, depth, breadth and size. The bounds are in
+    `src/lib/vv/patterns.ts`: `Promptish` (16000), `Replykey`, `ReplyShape` (16 deep, 2000 a level).
+    `WidgetedJson` (40000) is unchanged.
+  - **Rendering** (`src/lib/ask/prompts.ts`: `renderPrompt`, `templateIssue`, `unfilledKeys`) with
+    mustache. `AibotFormulary.prompt` renders a widget for a bag. `AibotFormulary.input` hands on
+    plain JSON (`Formulas.plainJson`, `Formulas.isFunction`, which now also knows JSONata's
+    `_jsonata_lambda`).
+  - **Advice** (`src/lib/formulary/advice.ts`: `advicePrompt`, `AdviceSpec`). Each formulary
+    supplies its spec. `lib/formula-prompt.ts` is gone, and its test moved to `advice.test.ts`.
+  - **The editor**: `AibotFields.tsx`, and `PreviewPicker.tsx` with `use-preview-bag.ts` (shared
+    with `JsonataFields`). `LibraryModal` opens every widget, with fields that follow the
+    formulary. `WidgetingsEditor`'s `PromptDialog` mirrors `FormulaDialog`: *＋ New widget…*, then
+    `AibotFields`. In `widget-edit.ts`: `JsonataDraft | AibotDraft`, `BlankAibotDraft`,
+    `planWidgetEdit`, `draftOf`.
+  - **Gone**: `SeededAsks`, `guessValueOf`, `textOf`, `seededWidgetFor`, `lib/ask/errs.ts`,
+    `TextkindVals`, and the route's `IshItemsFormat`. Dumdum's seed prompt asks for
+    `{"guess", "explanation"}`.
+  - **Docs**: the decision note (route as built, advice, `forced_label` in the reserved pattern),
+    `notes/stack.md` (mustache), HUMAN-whatsup.
+* **Decisions taken**:
+  - **The browser renders; the route never sees a template.** The decision note's interface
+    table already said so. The route bounds the prompt it is sent.
+  - **`servicelabel` rides in the request** beside tier and room (the whole `aibotConfig`), so
+    the credentials check reads the widget's own service. In PR #70's open questions.
+  - **No structured output; JSON read from text.** An open object cannot be a structured-output
+    schema (`additionalProperties` must be false), and Opus 5 refuses a prefill.
+  - **`cutShort` is a new failure kind** rather than `unreadable`: it says what to do (more tokens).
+  - **A template that does not parse, or a prompt past its bound, is recorded as an errored
+    widgeted** (message only, `result_meta: {}`), asking nothing, so the cell says why. An input
+    that fails still records nothing, as before.
+  - **The widget editors do not refuse a broken template on Apply**, as the formula editor does
+    not refuse a broken formula: the field names it as typed, and the cell fails without asking.
+  - **A new prompt widget starts** on `{ 'clueing': qn.clueing }`, the quick tier and 1024 tokens
+    (`BlankAibotDraft`). The *+ New prompt…* dialog now opens on *＋ New widget…*, as the formula
+    dialog does, where it used to open on the library's first prompt.
+  - **`unfilledKeys`** reads only the template's top level. Keys inside a section are the
+    section's business.
+* **Pulled forward** (strike from thread 6): the library's gear opens prompts (`LibraryModal`'s
+  `aibot` arm), and the widget editor's fields follow the formulary. Thread 6 adds the usage line,
+  the removal refusal in the UI, and the formulary choice for a widget made from the library itself
+  (new widgets are still made only from a quiz's widgetings).
+* **Deviations**: none from the plan. One from the decision note's sketch: the advice prompt's
+  section on a widgeting's purpose is worded "in this quiz" for both formularies (aibot's said
+  "here").
+* **Discoveries**:
+  - **A new widgeting of a new widget got a number's column width** (78px), because the plan
+    looked its formulary up in a library that did not hold it yet. It is fixed (`widget-edit.ts`
+    reads the draft's formulary). It never showed before, because only formulas could be new.
+  - **Convex refuses some object keys** (`$`-led, non-ASCII, over 1024 characters) anywhere in a
+    value, `CVX.any()` columns included. A model's reply is vetted against that now. A `jsonata`
+    value is never stored, so it is unaffected.
+  - **Any backend seeded before this thread holds dumdum's old prompt** (seeding inserts only what
+    is absent). Its guesses come back `unreadable` until it is reset or the prompt is edited. The
+    e2e roles are emptied every run; `agent` and the Coach's `dev` are not. Also in HUMAN-whatsup.
+  - **Opus 5 thinks by default** (adaptive), and that thinking spends `max_tokens`. The careful
+    tier's 4000 tokens hold today's spans; a pasted prompt with a long answer on the careful tier
+    may come back `cutShort`. The route sets no `thinking` or `effort`, as before.
+* **For the Coach**:
+  - **Rate limiting has moved closer** (HUMAN-whatsup): the route relays any prompt while asking is on.
+  - **`mustache` installed** without asking first, as the plan proposed and the stack rule allows.
+  - **`servicelabel` in the request**: keep it, or have the route assume `claude`?
+  - **No lint or type suppressions added.**
 
 ## Thread 3: The data model, as a clean break (2026-10-01)
 

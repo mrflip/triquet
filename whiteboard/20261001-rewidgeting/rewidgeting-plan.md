@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 4 underway.** Threads 1 (PR #67, docs only), 2 (PR #68) and 3 (PR #69) done.
+**Status: thread 4 underway.** Threads 1 (PR #67, docs only), 2 (PR #68) and 3 (PR #69) done; thread 4's worker filed PR #70.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
