@@ -5,7 +5,8 @@ import * as UU from './useful'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportQuizT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
 import type { QuizT } from '../models/quiz'
-import { Widget, WidgetValidators, type WidgetT } from '../models/widget'
+import { EntryFormulary } from './formulary/entry'
+import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
 
 /** One thing wrong with one incoming question */
@@ -64,7 +65,11 @@ export type ImportOutcome = {
  * Widgetings merge by label too: one the quiz lacks is added when the library holds its widget,
  * and skipped and logged when it does not; one it holds has its description and params revised,
  * unless it works another widget, when it is skipped. None is removed. What a widgeting came to
- * is not carried: a worked-out value is worked out again, and a stored one is recorded by asking.
+ * is not carried -- a worked-out value is worked out again, and an asked one is recorded by
+ * asking -- except an entry's, which a person typed: under an entry widgeting's label, a value
+ * (bare, or as the export writes it, `{ status: 'ok', value }`) is typed into the question's cell,
+ * and nothing (null, or `{ status: 'missing' }`) empties it, as a question's own fields merge. A
+ * value not of the entry's kind fails its question, as a field would.
  *
  * @param quiz - The quiz on screen.
  * @param pasted - Whatever is in the Import box.
@@ -84,12 +89,13 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   }
 
   const held = new Set(quiz.questions.map((question) => Labelmaker.effectiveLabelOf(question)))
-  const merge: MergeState = { patches: new Map(), log: [] }
-  for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, raw, ii + 1) }
+  const widgetings = widgetingsMerged(quiz, payload.quiz.widgetings, library)
+  const merge: MergeState = { patches: new Map(), entered: new Map(), log: [] }
+  const entries = entryWidgetingsOf(quiz, widgetings.actions, library)
+  for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, entries, raw, ii + 1) }
 
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
   const skipped = tallied('skipped')
-  const widgetings = widgetingsMerged(quiz, payload.quiz.widgetings, library)
   const widgetingsSkipped = widgetings.log.filter((entry) => entry.outcome === 'skipped').length
 
   return {
@@ -148,7 +154,59 @@ function skippedAs(label: string, reason: string): { action: null, entry: Widget
 type MergeState = {
   /** What each label's question comes to, in the order the labels were first met */
   patches: Map<string, ImportPatchT>
+  /** What each label's question has typed into its entry cells, by the entry widgeting's label */
+  entered: Map<string, Record<string, EntryValueT | null>>
   log:     ImportLogEntry[]
+}
+
+/**
+ * The entry widgetings the quiz will hold once the import's widgeting actions are sent, by label,
+ * each with the library's widget it works: those it holds, and those the import adds.
+ */
+function entryWidgetingsOf(quiz: QuizT, actions: readonly HuntActionDNA[], library: readonly WidgetT[]): ReadonlyMap<string, EntryWidgetT> {
+  const added = actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
+  return new Map([...quiz.widgetings, ...added].flatMap(({ label, widget_label }) => {
+    const widget = widgetFor.get(widget_label)
+    return widget?.formulary === 'entry' ? [[label, widget] as const] : []
+  }))
+}
+
+/** What a pasted question types into its entry cells, read off the raw object: what each label carries, and what of it will not do */
+function enteredFrom(bag: Record<string, unknown>, entries: ReadonlyMap<string, EntryWidgetT>): { entered: Record<string, EntryValueT | null>, issues: ImportIssue[] } {
+  const entered: Record<string, EntryValueT | null> = {}
+  const issues: ImportIssue[] = []
+  for (const [label, widget] of entries) {
+    if (! Object.hasOwn(bag, label)) { continue }
+    const pasted = pastedEntryOf(bag[label])
+    if (! pasted.ok) { issues.push({ fieldpath: label, message: pasted.message, code: 'entry_unreadable' }); continue }
+    if (pasted.value === null) { entered[label] = null; continue }
+    const checked = EntryFormulary.valueOf(widget).safeParse(pasted.value)
+    if (checked.success) {
+      entered[label] = checked.data
+    } else {
+      issues.push(...issuesOf(checked.error).map((issue) => ({ ...issue, fieldpath: label })))
+    }
+  }
+  return { entered, issues }
+}
+
+/**
+ * One pasted entry cell, unwrapped: a value as the export writes it (`{ status: 'ok', value }`)
+ * or bare; nothing for null, an empty text, or `{ status: 'missing' }`; and anything else is not
+ * something a person could have typed.
+ */
+function pastedEntryOf(raw: unknown): { ok: true, value: unknown } | { ok: false, message: string } {
+  const value = typeof raw === 'object' && raw !== null && ! Array.isArray(raw) && 'status' in raw ? unwrapped(raw) : { ok: true as const, value: raw }
+  if (! value.ok) { return value }
+  return { ok: true, value: value.value === '' ? null : value.value }
+}
+
+/** An exported widgeted's value, or why it is not one an entry could hold */
+function unwrapped(exported: { status?: unknown, value?: unknown }): { ok: true, value: unknown } | { ok: false, message: string } {
+  if (exported.status === 'ok') { return { ok: true, value: exported.value ?? null } }
+  if (exported.status === 'missing') { return { ok: true, value: null } }
+  return { ok: false, message: `An entry is typed, so it cannot be "${String(exported.status)}"` }
 }
 
 /**
@@ -158,19 +216,21 @@ type MergeState = {
  * A question that fails validation is skipped *entirely* rather than half-merged, and named in
  * the log by position and label. One bad question never blocks the rest of the import.
  */
-function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, raw: unknown, position: number) {
+function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, entries: ReadonlyMap<string, EntryWidgetT>, raw: unknown, position: number) {
   const bag = (raw ?? {}) as Record<string, unknown>
   const parsed = ImportValidators.importQuestion.safeParse(raw)
+  const typed = enteredFrom(bag, entries)
 
-  if (! parsed.success) {
+  if (! parsed.success || typed.issues.length > 0) {
     const shownLabel = typeof bag.label === 'string' ? bag.label : ''
-    merge.log.push({ position, label: shownLabel, outcome: 'skipped', issues: issuesOf(parsed.error) })
+    merge.log.push({ position, label: shownLabel, outcome: 'skipped', issues: [...(parsed.success ? [] : issuesOf(parsed.error)), ...typed.issues] })
     return
   }
 
   const label = parsed.data.forced_label ?? parsed.data.label ?? Labelmaker.localBlankLabel(new Set([...held, ...merge.patches.keys()]), mintId())
   const outcome = held.has(label) || merge.patches.has(label) ? 'merged' : 'added'
   merge.patches.set(label, { ...merge.patches.get(label), ...patchFrom(bag, parsed.data) })
+  merge.entered.set(label, { ...merge.entered.get(label), ...typed.entered })
   merge.log.push({ position, label, outcome, issues: [] })
 }
 
@@ -264,10 +324,11 @@ function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>)
 function chainsResolved(merge: MergeState, held: ReadonlySet<string>): ImportedQuestionT[] {
   const known = new Set([...held, ...merge.patches.keys()])
   return [...merge.patches].map(([label, patch]) => {
+    const entered = merge.entered.get(label) ?? {}
     const target = patch.chains_to
-    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch } }
+    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch, entered } }
     noteChainLoss(merge.log, label)
-    return { label, patch: { ...patch, chains_to: null } }
+    return { label, patch: { ...patch, chains_to: null }, entered }
   })
 }
 
@@ -314,8 +375,9 @@ export type LibraryImportOutcome = {
  * `pasted` read as a library export, against the library as it stands: merged by label.
  *
  * A widget the library lacks is added; one it holds is revised (title, description, formula,
- * input formula, config); one whose formulary differs from the one held is skipped and logged
- * rather than half-merged, as is one that does not validate. Nothing is removed.
+ * input formula, config); one whose formulary differs from the one held (or an entry whose kind
+ * does) is skipped and logged rather than half-merged, as is one that does not validate. Nothing
+ * is removed.
  *
  * @param library - The library as it stands.
  * @param pasted - Whatever is in the library's Import box: `{ widgets: [...] }`, or a bare list of widgets.
@@ -341,7 +403,7 @@ export function libraryImported(library: readonly WidgetT[], pasted: string): Li
     const widget = parsed.data
     const held = heldFor.get(widget.label)
     if (! held) { return { widget, entry: { label: widget.label, outcome: 'added', reason: null } } }
-    if (held.formulary !== widget.formulary) { return { widget: null, entry: { label: widget.label, outcome: 'skipped', reason: `it is worked by ${widget.formulary} here, and by ${held.formulary} in the library` } } }
+    if (Widget.flavorOf(held) !== Widget.flavorOf(widget)) { return { widget: null, entry: { label: widget.label, outcome: 'skipped', reason: `it is ${Widget.flavorOf(widget)} here, and ${Widget.flavorOf(held)} in the library` } } }
     if (UU.jsonify(Widget.exported(held)) === UU.jsonify(Widget.exported(widget))) { return { widget: null, entry: { label: widget.label, outcome: 'kept', reason: null } } }
     return { widget, entry: { label: widget.label, outcome: 'revised', reason: null } }
   })

@@ -302,7 +302,7 @@ type Column = {
   inputs:    InputOutcome[] | null
 }
 
-/** One widgeting worked out, or projected, for every question */
+/** One widgeting worked out, or projected from what it stored (asked or typed), for every question */
 function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly QuestionT[], storedOf: RunSource['storedOf']): Column {
   const { widgeting, widget } = step
   if (widget === null) {
@@ -321,8 +321,9 @@ function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly Q
     }
     return { widgeteds, inputs: null }
   }
+  // A stored widgeting is projected from its rows; only one asked from the cell has inputs to say.
   return {
     widgeteds: questions.map((question) => widgetedFrom(storedOf(widgeting, question))),
-    inputs:    bags.map((bag) => formulary.input(widget, bag)),
+    inputs:    formulary.refresh === 'click' ? bags.map((bag) => formulary.input(widget, bag)) : null,
   }
 }

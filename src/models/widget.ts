@@ -5,9 +5,13 @@ import * as PA from '../lib/vv/patterns'
 import { ServicelabelVals } from '../lib/credentials'
 import { ModelTierVals } from './ask'
 
-/** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, or a prompt put to a model */
-export const FormularykindVals = ['jsonata', 'aibot'] as const
+/** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, a prompt put to a model, or a value a person types */
+export const FormularykindVals = ['jsonata', 'aibot', 'entry'] as const
 export type Formularykind = typeof FormularykindVals[number]
+
+/** What an `entry` widget's cells take: prose, a number, a label, or a one-line title */
+export const EntryKindVals = ['text', 'number', 'labelish', 'titleish'] as const
+export type EntryKind = typeof EntryKindVals[number]
 
 /** Who a widget belongs to: `pub`, the library every hunt sees, is the only scope there is so far */
 export const WidgetScopeVals = ['pub'] as const
@@ -22,7 +26,7 @@ export const JsonataDefaultInput = '$'
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
 export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint }) => {
+export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint, num }) => {
   const jsonataConfig = obj({}).strict()
     .describe('A `jsonata` widget\'s settings: none.')
   const aibotConfig = obj({
@@ -34,6 +38,21 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
       .describe('How much room the model is given to answer one question.'),
   })
     .describe('An `aibot` widget\'s settings: who answers, and how much room they have.')
+  const entryConfig = obj({
+    entry_kind: oneof(EntryKindVals)
+      .describe('What its cells take: `text` (prose, markdown welcome), `number`, `labelish` (a label, as `quiet_otter`) or `titleish` (one line). Fixed once made: the values typed hang on it.'),
+  }).strict()
+    .describe('An `entry` widget\'s settings: what kind of value is typed into its cells.')
+
+  // What an `entry` widget's cell holds, by its kind; an emptied cell holds no row at all.
+  const entryText = noteish.min(1)
+    .describe('Prose typed into an entry cell, trimmed; markdown welcome.')
+  const entryNumber = num
+    .describe('A number typed into an entry cell.')
+  const entryLabelish = label
+    .describe('A label typed into an entry cell: plain lowercase letters, numbers and single underscores.')
+  const entryTitleish = titleish.min(1)
+    .describe('One line typed into an entry cell, as a title is.')
 
   // Each field is named once, bare, and given a default in the widget and none in its row.
   const scope = oneof(WidgetScopeVals)
@@ -53,6 +72,14 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
 
   const jsonataFields = { formulary: lit('jsonata'), formula: jsonataFormula, config: jsonataConfig }
   const aibotFields = { formulary: lit('aibot'), formula: aibotFormula, config: aibotConfig }
+  const entryFields = {
+    formulary:     lit('entry'),
+    formula:       lit('')
+      .describe('Nothing: an entry\'s value is typed, not worked out.'),
+    input_formula: lit('')
+      .describe('Nothing: an entry reads nothing.'),
+    config:        entryConfig,
+  }
 
   const jsonataWidget = obj({
     scope:         scope.default('pub'),
@@ -73,8 +100,18 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
     input_formula: input_formula.default(AibotDefaultInput),
   })
     .describe('A widget that puts a prompt to a model, asked from the cell, and keeps every answer.')
+  const entryWidget = obj({
+    scope:         scope.default('pub'),
+    label:         widgetLabel,
+    title:         title.default(''),
+    description:   description.default(''),
+    ...entryFields,
+    formula:       entryFields.formula.default(''),
+    input_formula: entryFields.input_formula.default(''),
+  })
+    .describe('A widget whose cells a person types into, one value per question, kept as the one value.')
 
-  const widget = discrim('formulary', [jsonataWidget, aibotWidget])
+  const widget = discrim('formulary', [jsonataWidget, aibotWidget, entryWidget])
     .describe('A reusable definition in the library: a formulary, a formula, an input formula and a config, under a label. It knows nothing of any quiz; a widgeting puts it to work in one.')
 
   const widgetPatch = obj({
@@ -83,7 +120,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
     formula:       textish.min(1).optional()
       .describe('The formula or the prompt; held to the bound of the widget\'s own formulary once applied.'),
     input_formula: input_formula.optional(),
-    config:        union([jsonataConfig, aibotConfig]).optional()
+    config:        union([jsonataConfig, aibotConfig, entryConfig]).optional()
       .describe('The settings; held to the shape of the widget\'s own formulary once applied.'),
   })
     .describe('The fields of one widget being revised. A key absent means "leave whatever is already there". The scope, the label and the formulary are not among them: other things refer to a widget by the first two, and its config\'s shape hangs on the third.')
@@ -97,17 +134,18 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
     position:      uint
       .describe('The widget\'s place in the order the library lists them, counting from zero.'),
   }
-  const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields })])
+  const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
     .describe('One widget as the database holds it: its fields, and its place in the library.')
 
   const library = obj({ widgets: widget.array().max(PA.WidgetsInLibrary.max) })
     .describe('The library, as it is exported and imported on its own: every widget, in library order, without its place.')
 
-  return { jsonataConfig, aibotConfig, widgetLabel, widget, widgetPatch, row, library }
+  return { jsonataConfig, aibotConfig, entryConfig, entryText, entryNumber, entryLabelish, entryTitleish, widgetLabel, widget, widgetPatch, row, library }
 })
 
 export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>
 export type AibotConfigT   = Z.output<typeof WidgetValidators.aibotConfig>
+export type EntryConfigT   = Z.output<typeof WidgetValidators.entryConfig>
 export type WidgetDNA      = Z.input<typeof WidgetValidators.widget>
 /**
  * A reusable definition in the library: a formulary, a formula, an input formula and a config,
@@ -118,6 +156,18 @@ export type WidgetT        = Z.output<typeof WidgetValidators.widget>
 export type JsonataWidgetT = Extract<WidgetT, { formulary: 'jsonata' }>
 /** A widget of the library that puts a prompt to a model */
 export type AibotWidgetT   = Extract<WidgetT, { formulary: 'aibot' }>
+/** A widget of the library whose cells a person types into */
+export type EntryWidgetT   = Extract<WidgetT, { formulary: 'entry' }>
+/** What an `entry` widget's cell holds: text or a number */
+export type EntryValueT    = string | number
+
+/** The validator of what each kind of `entry` widget's cell holds */
+export const EntryValueFor: Readonly<Record<EntryKind, Z.ZodType<EntryValueT>>> = {
+  text:     WidgetValidators.entryText,
+  number:   WidgetValidators.entryNumber,
+  labelish: WidgetValidators.entryLabelish,
+  titleish: WidgetValidators.entryTitleish,
+}
 export type WidgetPatch    = Z.output<typeof WidgetValidators.widgetPatch>
 export type WidgetRowT     = Z.output<typeof WidgetValidators.row>
 export type LibraryDNA     = Z.input<typeof WidgetValidators.library>
@@ -128,16 +178,17 @@ export type LibraryT       = Z.output<typeof WidgetValidators.library>
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class, unicorn/no-static-only-class
 export class Widget {
   /**
-   * Validated widget, with its scope, title, description and input formula defaulted, and a
-   * `jsonata` widget's config too.
+   * Validated widget, with its scope, title, description and input formula defaulted, a
+   * `jsonata` widget's config too, and an entry's empty formula.
    *
-   * @param dna - At least a label, a formulary and a formula, and an `aibot` widget's config.
-   * @returns A complete widget.
+   * @param dna - At least a label and a formulary; a formula, but for an entry; and an `aibot` or `entry` widget's config.
+   * @returns A complete widget, of the formulary `dna` names.
    *
    * @example Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' }).input_formula  // => '$'
    */
-  static fill(dna: WidgetDNA): WidgetT {
-    return WidgetValidators.widget(dna)
+  static fill<DT extends WidgetDNA>(dna: DT): Extract<WidgetT, { formulary: DT['formulary'] }> {
+    // The union is discriminated by `formulary`, so the arm it parses to is the one `dna` names.
+    return WidgetValidators.widget(dna) as Extract<WidgetT, { formulary: DT['formulary'] }>
   }
 
   /**
@@ -169,6 +220,23 @@ export class Widget {
     switch (widget.formulary) {
     case 'jsonata': { return { ...shared, formulary: 'jsonata', formula: widget.formula, config: widget.config } }
     case 'aibot':   { return { ...shared, formulary: 'aibot', formula: widget.formula, config: widget.config } }
+    case 'entry':   { return { ...shared, formulary: 'entry', formula: '', input_formula: '', config: widget.config } }
     }
   }
+
+  /**
+   * What is fixed about a widget once it is made, said in words: its formulary, and an entry's
+   * kind, which the values typed hang on. A widget may be revised, or merged by an import, only
+   * into one that says the same.
+   *
+   * @example Widget.flavorOf({ formulary: 'entry', config: { entry_kind: 'number' } })  // => 'a number entry'
+   * @example Widget.flavorOf({ formulary: 'aibot', config: aibotConfig })               // => 'an aibot widget'
+   */
+  static flavorOf(widget: Pick<WidgetT, 'formulary' | 'config'>): string {
+    if ('entry_kind' in widget.config) { return `a ${EntryKindNames[widget.config.entry_kind]} entry` }
+    return widget.formulary === 'aibot' ? 'an aibot widget' : `a ${widget.formulary} widget`
+  }
 }
+
+/** How each kind of entry is named in a sentence */
+const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', labelish: 'label', titleish: 'title' }

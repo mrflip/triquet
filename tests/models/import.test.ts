@@ -48,9 +48,19 @@ describe('ImportValidators.importPayload', () => {
 })
 
 describe('ImportValidators.importedQuestions', () => {
-  it('takes one entry per label, each with what to change', () => {
+  it('takes one entry per label, each with what to change, and nothing typed unless it says', () => {
     const sent = [{ label: 'leon', patch: { clueing: 'Who?', chains_to: 'nantes' } }, { label: 'nantes', patch: {} }]
+    expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent.map((each) => ({ ...each, entered: {} })))
+  })
+
+  it('takes what to type into entry cells, by the entry widgeting\'s label, null for emptying one', () => {
+    const sent = [{ label: 'leon', patch: {}, entered: { remark: 'Ask Flip.', points: 3, mood: null } }]
     expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent)
+  })
+
+  it('refuses what no entry could hold, and a key that is not a label', () => {
+    expect(() => ImportValidators.importedQuestions([{ label: 'leon', patch: {}, entered: { remark: { nested: true } as never } }])).to.throw(Z.ZodError)
+    expect(() => ImportValidators.importedQuestions([{ label: 'leon', patch: {}, entered: { 'Not A Label': 'x' } }])).to.throw(Z.ZodError)
   })
 
   it('refuses two entries naming one label', () => {

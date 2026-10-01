@@ -211,6 +211,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
           if (step && bag && unavailableNotice(step.widget) === null) { ask(question_id, step, bag) }
         }}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
+        onEnter={(question_id, widgeting_label, value) => { dispatch({ kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }) }}
         onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx }) }}
       />
       <Toolbar
