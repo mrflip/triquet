@@ -9,7 +9,7 @@ Workers add their sections below the table, newest first.
 |---|---|---|
 | 1 | Design note and vocabulary | complete: PR #67 (docs only, unreviewed) |
 | 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
-| 3 | The data model, as a clean break | complete: PR #69, stacked on #68 |
+| 3 | The data model, as a clean break | complete: PR #69, stacked on #68 (reviewed: fixed) |
 | 4 | Pasted prompts | pending |
 | 5 | Status | pending |
 | 6 | Views | pending |
@@ -114,6 +114,15 @@ by 288 bytes (`api.d.ts`), small enough to ride in the `feat:` commit.
     left alone.
 * **Other files**: `losses.md` here (read before the deploy, or to know what a re-seeded quiz
   lacks).
+
+*Review:* fixed. Kept: `6a84563` (`allStoredOf` read an index range per question for every
+widgeting, `jsonata` included, overrunning Convex's per-transaction bound on a few hundred
+questions; now only formularies that `store`); `7a408ce` (`forced_label` reserved: the export's flat
+widgeteds could overwrite it and break re-import; the decision note doesn't list it yet);
+`7bf94ea` (the jsonata preview ignored the widget's own input formula). Left, minor: the stored
+read still overruns at roughly 999 questions by 5 `aibot` widgetings (needs a read by widgeting or
+paging); the ask route answers from the seeds fixture until thread 4; the BUT NOT ishes column shows
+raw JSON and sorts as text until thread 5.
 
 ## Thread 2: The formulary seam, no data change (2026-10-01)
 

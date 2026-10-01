@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 3 underway.** Threads 1 (PR #67, docs only) and 2 (PR #68) done.
+**Status: thread 4 underway.** Threads 1 (PR #67, docs only), 2 (PR #68) and 3 (PR #69) done.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -261,6 +261,13 @@ sortings, `exporting`, `sheets`, and the bag in `quiz-bag.ts`.
 > End with `losses.md` in the sprint directory: every table cleared, every row kind in it, what
 > re-creates each and what nothing does.
 
+*Orchestrator:* **done, PR #69** (review: three `fix:` commits kept). The worker was cut short by
+the harness once and resumed; its convex-test helper caught a duplicate-label import bug, fixed
+(first occurrence wins). Pulled forward and struck below: thread 4's service-reporting bots route;
+thread 5's single cell (minus `JsonFold`), stale marks and marked seeds; thread 6's renames
+(`WidgetingsEditor`, `LibraryModal`, `JsonataFields`) and the server's refusal to remove a worked
+widget. `losses.md` is in this directory.
+
 *Gloss.* The biggest thread. `src/models/{widget,widgeting,widgeted}.ts`, `convex/schema.ts`,
 `convex/reading.ts`, `convex/authorize.ts`, `convex/writing/*` and `hunts.perform`;
 `convex/_generated/` regenerated (its own commit); the seeds fixture and the seeding mutation;
@@ -310,8 +317,8 @@ commits so each passes is worth effort; one PR for the schema change is the rule
 
 > The ask route's new contract: a rendered prompt, a model tier and token room in; a JSON object
 > out, vetted as today (strings clipped, control characters refused, size bounded) before it is
-> kept. `Approval` and the credentialed-services check stay; `lib/bots/port.ts` reports services,
-> not bots. Template rendering with `mustache` (propose it per the library-first rule; HTML
+> kept. `Approval` and the credentialed-services check stay; ~~`lib/bots/port.ts` reports services,
+> not bots.~~ *(Done in thread 3.)* Template rendering with `mustache` (propose it per the library-first rule; HTML
 > escaping off) over the input formula's object; an input that comes to nothing is not asked.
 > The three seeded `aibot` widgets run through the new contract and the thread-3 mapping goes.
 > The advice prompt generalized from `lib/formula-prompt.ts` to every formulary, saying in words
@@ -324,6 +331,15 @@ generalized into every formulary's `advice`, `notes/stack.md` for `mustache`.
 
 *Look-ahead*:
 
+* **From thread 3**: the ask route still answers from the seeds fixture (`seededWidgetFor`), so
+  library edits to the seeded prompts don't reach the model: that mapping is what this thread
+  removes. Numnum's seeded prompts already ask for `{"items": [...]}`; dumdum's is today's, to
+  change here with the route -- in `src/models/seeds.ts`, which production has not yet seeded (the
+  Coach deploys the stack, so one seeding sees the final fixture). The editor to extend is
+  `LibraryModal.tsx` with `JsonataFields.tsx` beside it. The library is global and e2e specs share a
+  database: an e2e spec edits only widgets of its own (`freshWidgetLabel` in `e2e/support.ts`).
+  The review added `forced_label` to `ReservedWidgetingLabels`; add it to the decision note's
+  *reserved pattern* while you are in the note for advice.
 * **Build the aibot editor as the aibot arm of thread 6's widget editor**: one modal whose
   fields follow the formulary (start from `ExpressionsModal`/`ExpressionFields`; renaming it
   now is fine if it comes naturally, declared). Thread 6 then adds the jsonata arm, the usage
@@ -338,15 +354,19 @@ generalized into every formulary's `advice`, `notes/stack.md` for `mustache`.
 ### 5. Status
 
 > ~~`ok`, `errored`, `missing`, projected in one place (the runner) from the newest `ok` row and
-> any newer `errored` row.~~ *(Built in thread 2.)* One cell body for every widgeted: a scalar as text, anything else
-> through the existing `JsonFold`; one badge for `err`; `refresh: click` cells are askable,
-> others read-only. Sorts read `value`; the sheet and export write it. Retire the per-cell
-> special cases (`guess.tsx`, `ishes.tsx`, the butnot-ishes mirror as a special cell), the
-> ishes' stale mark and the seeds' marked form. Known regression to state in the PR: numnum's
+> any newer `errored` row.~~ *(Built in thread 2.)* ~~One cell body for every widgeted~~ *(thread 3)*: a scalar as text, anything else
+> through the existing `JsonFold`; ~~one badge for `err`; `refresh: click` cells are askable,
+> others read-only.~~ *(thread 3)* Sorts read `value`; the sheet and export write it. Retire the per-cell
+> special cases (`guess.tsx`, `ishes.tsx`, the butnot-ishes mirror as a special cell), ~~the
+> ishes' stale mark and the seeds' marked form.~~ *(thread 3)* Known regression to state in the PR: numnum's
 > list of spans shows as folded JSON rather than its current prose list; a nicer presentation
 > for a list of items is a later nicety, not this thread's.
 
-*Orchestrator:* the projection itself was built in thread 2 (`Runner.widgetedFrom`); struck below.
+*Orchestrator:* the projection was built in thread 2 (`Runner.widgetedFrom`), and thread 3 built the
+single cell (`WidgetedAskCell` beside `WidgetedReadout`, one `ErrBadge`) and removed the stale marks
+and the seeds' marked form; struck above. Left: `JsonFold` for non-scalars (objects show as JSON text
+today), retiring what remains of `guess.tsx`/`ishes.tsx`, sorts and exports by `value` (the BUT NOT
+ishes column sorts as text now, and a stored `ok` of `null` writes "null" but sorts as absent).
 
 *Gloss.* `src/components/cells/` (a new single widgeted cell; `guess.tsx`, `ishes.tsx` and the
 butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`, the sortings,
@@ -360,7 +380,7 @@ butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`,
 > Two editors with different scopes. The **widgeting editor**, from the quiz page: pick a widget
 > from the library (grouped by formulary), set the label, description and place in the run
 > order (the existing `SortableList`), and a "New widget..." door that opens the other editor.
-> The **widget editor**, from the library (today's `ExpressionsModal`, kept and renamed):
+> The **widget editor**, from the library (today's `ExpressionsModal`, ~~kept and renamed~~ *(renamed `LibraryModal` in thread 3)*):
 > formulary, formula, input formula, config, the live preview `ExpressionFields` has, the advice
 > button, a line saying "worked by N widgetings across M quizzes, in H hunts", and removal
 > refused while anything works it. The **Widgets panel** below the grid replaces *Prompts
@@ -368,7 +388,10 @@ butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`,
 > readable, its advice button, and counts of ok, errored and missing. MUI first, per
 > `notes/views.md`.
 
-*Orchestrator:* the panel's counts come from `Runner.statusCounts` (thread 2); only the view is left.
+*Orchestrator:* the panel's counts come from `Runner.statusCounts` (thread 2). Thread 3 renamed the
+editors (`WidgetingsEditor.tsx`, `LibraryModal.tsx`, `JsonataFields.tsx`), adapted minimally, and the
+server already refuses removing a worked widget; the editor's usage line and its refusal in the UI
+remain. A *Library* tab in Export / Import holds the library's own export and import.
 
 *Gloss.* `src/components/WidgetsEditor.tsx` becomes the widgeting editor; `ExpressionsModal`
 becomes the widget editor (thread 4 may have started it); `src/state/widget-edit.ts` splits
@@ -426,6 +449,11 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
 6. *(Thread 2 review, flagged.)* Dumdum's botting keeps its reply verbatim: the raw text rides in
    `result_meta.reply_text` and `Standins.bottingOf` prefers it. Adopted over rewording the
    validators' "verbatim" promise, so a partial landing of #68 loses nothing.
+7. *(Thread 3 helper's finding.)* An import naming one widget label twice merges it once, the first
+   occurrence winning, rather than refusing: imports merge by label.
+8. *(Thread 3, accepted.)* `insertQuiz` tops up the library with the default widgetings' widgets it
+   lacks (thread 7 drops it); `scripts/convex_dev --seed` seeds every local role; library actions
+   ignore quiz locks; pasted widgeted values wait for #66.
 
 ## For the Coach
 
@@ -435,6 +463,18 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
   of statics (`JsonataFormulary`, `AibotFormulary`, `Widgeted`), or an `allowStaticOnly` override
   for `src/lib/formulary/**`, your pick; and `CLAUDE.md` still names the deleted `Expressed` as an
   example namespace (`Runner` would do).
+* **Thread 3's deploy is a hand procedure**: `notes/deploy.md`, *Clearing the widget tables*, and
+  `losses.md` here. Land and deploy the stack together (at least through thread 4): the seeding
+  mutation inserts only what is absent, so production should be seeded once, from the final fixture.
+* Your `dev` backend refuses the new schema until reset (`--reset --seed`); `pnpm dev` now passes
+  `--seed`. Previews get only the twelve widgets a new quiz brings unless `build:vercel` adds
+  `--preview-run seeding:seedWidgets` (deploy config left alone).
+* Thread 3's open question: a paste holding widgetings but no questions changes nothing today
+  (its widgetings dropped too). Merge them?
+* A known limit (thread 3 review): the stored read takes one index range per question per storing
+  widgeting, so roughly 999 questions by 5 `aibot` widgetings passes Convex's per-transaction
+  bound. Fine at today's sizes; a read by widgeting or paging would lift it.
+* Thread 3's suppression: one more `no-extraneous-class`/`no-static-only-class` disable, on `Widget`.
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 
