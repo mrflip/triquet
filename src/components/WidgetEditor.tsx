@@ -30,6 +30,8 @@ export type WidgetEditorProps = {
   onClose:    () => void
   /** Told of a new widget once it has been sent to the library */
   onMade?:    (widget: WidgetT) => void
+  /** Told of a widget once its removal has been sent to the library */
+  onRemoved?: (widget_label: string) => void
 }
 
 /**
@@ -49,7 +51,7 @@ export function WidgetEditor({ widget, ...rest }: Readonly<WidgetEditorProps>) {
 type HeldWidgetEditorProps = Omit<WidgetEditorProps, 'widget'> & { widget: WidgetT }
 
 /** A widget the library holds, to revise or remove */
-function HeldWidgetEditor({ hunt, library, quiz, widget, widgeting = null, dispatch, onClose }: Readonly<HeldWidgetEditorProps>) {
+function HeldWidgetEditor({ hunt, library, quiz, widget, widgeting = null, dispatch, onClose, onRemoved }: Readonly<HeldWidgetEditorProps>) {
   const [draft, setDraft] = useState<WidgetDraft>(draftOf(widget))
   const [issue, setIssue] = useState<string | null>(null)
   const usage = useWidgetUsage(widget.label)
@@ -79,7 +81,7 @@ function HeldWidgetEditor({ hunt, library, quiz, widget, widgeting = null, dispa
           noun="widget"
           question="Remove this widget from the library for good?"
           refusal={usage && usage.widgetings > 0 ? 'It cannot be removed while a widgeting works it.' : null}
-          onConfirm={() => { dispatch({ kind: 'delete_widget', label: widget.label }); onClose() }}
+          onConfirm={() => { dispatch({ kind: 'delete_widget', label: widget.label }); onRemoved?.(widget.label); onClose() }}
         />
         <Stack direction="row" spacing={1}>
           <Button onClick={onClose}>Cancel</Button>
