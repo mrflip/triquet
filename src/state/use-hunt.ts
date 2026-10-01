@@ -6,7 +6,7 @@ import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Alarms from '../lib/alarms'
-import * as Expressed from '../lib/expressed'
+import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
@@ -167,7 +167,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
         const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
         if (! hunt || ! quiz || ! realm) { return }
         const expressions = last.snapshot && hunt.expressions === last.counted ? last.snapshot.expressions : uncounted(hunt.expressions)
-        const snapshot = { quiz, expressions, place: Expressed.placeOf(hunt, realm) }
+        const snapshot = { quiz, expressions, place: Runner.placeOf(hunt, realm) }
         mirrorQuiz(last.snapshot, snapshot)
         last.snapshot = snapshot
         last.counted = hunt.expressions

@@ -14,10 +14,11 @@ import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
 import * as QuizMirror from '../state/quiz-mirror'
-import { useAsking } from '../state/use-asking'
+import { useAsking, type AskedStep } from '../state/use-asking'
 import { useBots } from '../state/use-bots'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
-import * as Expressed from '../lib/expressed'
+import * as Runner from '../lib/formulary/runner'
+import * as Standins from '../lib/formulary/standins'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
@@ -57,8 +58,8 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
   const specs = useMemo(() => specsFor(quiz), [quiz])
-  const place = useMemo(() => Expressed.placeOf(hunt, realm), [hunt, realm])
-  const expressed = useMemo(() => Expressed.forQuiz(quiz, hunt.expressions, place), [quiz, hunt.expressions, place])
+  const place = useMemo(() => Runner.placeOf(hunt, realm), [hunt, realm])
+  const run = useMemo(() => Runner.runQuiz(Standins.sourceOf(quiz, hunt.expressions, place)), [quiz, hunt.expressions, place])
   const questionIds = useMemo(() => quiz.questions.map((question) => question._id), [quiz])
   const checklist = useChecklist(quiz._id, questionIds)
   // The questions the author has asked to delete, until they confirm or keep them.
@@ -70,6 +71,17 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
   /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
   const goTo = (target: Labelmaker.Labelled) => {
     router.push(pathFor(Labelmaker.effectiveLabelOf(target)))
+  }
+
+  /** The widgeting labelled `label` and its widget, when it is asked from the cell */
+  const askedStepOf = (label: string): AskedStep | null => {
+    const step = Runner.stepOf(run, label)
+    return step?.widget?.formulary === 'aibot' ? { widgeting: step.widgeting, widget: step.widget } : null
+  }
+  /** Why the widgeting labelled `label` cannot be asked, when it cannot */
+  const unavailableFor = (label: string): string | null => {
+    const step = askedStepOf(label)
+    return step ? unavailableNotice(step.widget) : null
   }
 
   const batching = checklist.checking && ! quiz.locked
@@ -174,7 +186,7 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         key={`grid-${quiz._id}`}
         questions={quiz.questions}
         specs={specs}
-        expressed={expressed}
+        run={run}
         locked={quiz.locked}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
         batching={batching}
@@ -188,8 +200,12 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         onSort={onSort}
         onChain={(question_id, chains_to) => { dispatch({ kind: 'set_chain', question_id, chains_to }) }}
         asking={asking}
-        unavailableNotice={unavailableNotice}
-        onAsk={(question, askkind) => { if (unavailableNotice(askkind) === null) { ask(question, askkind) } }}
+        unavailableNotice={unavailableFor}
+        onAsk={(question_id, label) => {
+          const step = askedStepOf(label)
+          const bag = step && Runner.bagsAt(run, step.widgeting).get(question_id)
+          if (step && bag && unavailableNotice(step.widget) === null) { ask(question_id, step, bag) }
+        }}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
         onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx }) }}
       />
@@ -205,7 +221,7 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         onDeleteChecked={() => { setDoomedIds(checklist.checked) }}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
-        onRecalculate={() => { recalculateAll(quiz.questions) }}
+        onRecalculate={() => { recalculateAll(quiz.questions, run.steps) }}
         onEditExpressions={() => { setEditingExpressions(true) }}
         onSortByChain={() => {
           const descending = ! chainDescending
@@ -220,7 +236,7 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         realm={realm}
         ident={ident}
         reviews={reviews}
-        expressed={expressed}
+        run={run}
         carryOut={carryOut}
         saveNotice={saveNotice}
         onImport={(questions) => {

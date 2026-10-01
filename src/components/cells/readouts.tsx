@@ -2,46 +2,55 @@
 
 import clsx from 'clsx'
 import { CellNotices } from '../../lib/notices'
-import type { Expressed } from '../../lib/expressed'
+import { Widgeted, type WidgetedT } from '../../models/widgeted'
 import styles from '../workbench.module.css'
 
+export type WidgetedReadoutProps = {
+  /** What the widgeting came to for this question */
+  widgeted: WidgetedT
+  /** Whether its formula marked the value out of date */
+  stale:    boolean
+  /** Whether the column has room to say why a formula failed */
+  wide:     boolean
+  /** The tallest the cell may be, which is the height of the row */
+  heightPx: number
+}
+
 /**
- * One computed cell: a number, some text, a muted dash for nothing, or a warning when the formula failed.
+ * One worked-out cell: a number, some text, a muted dash for nothing, or a warning when the formula failed.
  *
  * A number wraps only between thousands groups -- `3,000,000` may break after either comma and
  * never inside a group, and takes no extra width when it does not need to break at all. A value
- * worked out from something since edited is greyed and italic rather than dropped. The cell
- * scrolls inside the row: a computed column never makes its row taller.
- *
- * @param reading - What the expressing came to for this question.
- * @param wide - Whether the column has room to say why a formula failed.
- * @param heightPx - The tallest the cell may be, which is the height of the row.
+ * worked out from something since edited is greyed and italic rather than dropped. Any other
+ * value shows as its JSON. The cell scrolls inside the row: a worked-out column never makes its
+ * row taller.
  */
-export function ExpressedReadout({ reading, wide, heightPx }: Readonly<{ reading: Expressed, wide: boolean, heightPx: number }>) {
+export function WidgetedReadout({ widgeted, stale, wide, heightPx }: Readonly<WidgetedReadoutProps>) {
   return (
     <ReadonlyCell heightPx={heightPx}>
-      <div className={reading.status === 'value' && typeof reading.val === 'number' ? styles.sum : styles.expressedText}>
-        <ExpressedBody reading={reading} wide={wide} />
+      <div className={widgeted.status === 'ok' && typeof widgeted.value === 'number' ? styles.sum : styles.expressedText}>
+        <WidgetedBody widgeted={widgeted} stale={stale} wide={wide} />
       </div>
     </ReadonlyCell>
   )
 }
 
-/** The inside of a computed cell */
-function ExpressedBody({ reading, wide }: Readonly<{ reading: Expressed, wide: boolean }>) {
-  if (reading.status === 'nothing') { return <span className={styles.muted}>{CellNotices.nothingExpressed}</span> }
-  if (reading.status === 'error') {
+/** The inside of a worked-out cell */
+function WidgetedBody({ widgeted, stale, wide }: Readonly<Omit<WidgetedReadoutProps, 'heightPx'>>) {
+  if (widgeted.status === 'missing') { return <span className={styles.muted}>{CellNotices.nothingExpressed}</span> }
+  if (widgeted.status === 'errored') {
+    const { message } = widgeted.err
     return (
-      <span className={styles.muted} title={reading.message} role="img" aria-label={`The formula failed: ${reading.message}`}>
-        {CellNotices.expressedError}{wide ? ` ${reading.message}` : ''}
+      <span className={styles.muted} title={message} role="img" aria-label={`The formula failed: ${message}`}>
+        {CellNotices.expressedError}{wide ? ` ${message}` : ''}
       </span>
     )
   }
-  const stale = reading.stale ? styles.stale : undefined
-  if (typeof reading.val !== 'number') { return <span className={stale} data-stale={reading.stale || undefined}>{String(reading.val)}</span> }
-  const groups = reading.val.toLocaleString('en-US').split(',')
+  const staleClass = stale ? styles.stale : undefined
+  if (typeof widgeted.value !== 'number') { return <span className={staleClass} data-stale={stale || undefined}>{Widgeted.textOf(widgeted)}</span> }
+  const groups = widgeted.value.toLocaleString('en-US').split(',')
   return (
-    <span className={stale} data-stale={reading.stale || undefined}>
+    <span className={staleClass} data-stale={stale || undefined}>
       {groups.map((group, idx) => (
         <span key={`${group}-${String(idx)}`}>
           {idx > 0 ? ',' : ''}
