@@ -100,5 +100,6 @@ test('the grips go once the quiz is out of Q# order, and batch mode stays on off
   await page.getByRole('button', { name: 'Title', exact: true }).click()
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeHidden()
   await expect(page.getByRole('button', { name: 'Batch select' })).toBeEnabled()
-  await expect(grid(page).locator('tbody tr').first().locator('td')).toHaveCount(22)
+  // The gutter, then the five starter columns.
+  await expect(grid(page).locator('tbody tr').first().locator('td')).toHaveCount(6)
 })

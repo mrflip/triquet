@@ -1,10 +1,10 @@
-import * as Expressed from './expressed'
 import * as Rank from './rank'
+import * as Runner from './formulary/runner'
 import { resolve, type Resolved } from './columns'
 import { columnLabelOf } from '../models/column'
 import type { QuizT, Sortkey } from '../models/quiz'
-import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
+import type { JsonT, WidgetedT } from '../models/widgeted'
 
 /** What a column offers the sorter: a number, a string, or nothing at all */
 export type SortValue = string | number | null
@@ -52,20 +52,20 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
  * everything as absent and so leaves the order alone.
  *
  * @param sortkey - Which column was clicked.
- * @param quiz - The quiz's questions, columns and widgets.
- * @param expressed - The quiz's computed values, for a column that shows one.
+ * @param quiz - The quiz's questions, columns and widgetings.
+ * @param run - The quiz, run: what each widgeting came to, for a column that shows one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>, expressed: Expressed.ExpressedForQuiz): SortValueOf {
+export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings'>, run: Runner.QuizRun): SortValueOf {
   const label = columnLabelOf(sortkey)
   const column = quiz.columns.find((each) => each.label === label)
-  const source = column ? resolve(column.source, quiz.widgets) : null
+  const source = column ? resolve(column.source, quiz.widgetings) : null
   if (! source) { return () => null }
-  return readerFor(source, quiz.questions, expressed)
+  return readerFor(source, quiz.questions, run)
 }
 
 /** How a thing a column shows reads one question */
-function readerFor(source: Resolved, questions: readonly QuestionT[], expressed: Expressed.ExpressedForQuiz): SortValueOf {
+function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runner.QuizRun): SortValueOf {
   const questionForId = new Map(questions.map((question) => [question._id, question]))
   const targetOf = (question: QuestionT) => (question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null)
   switch (source.kind) {
@@ -76,26 +76,47 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], expressed:
     return () => null
   }
   case 'view': {
-    return source.view === 'butnot_ishes' ? (question) => ishCountOf(targetOf(question)?.hint_ishes ?? null) : () => null
+    return () => null
   }
-  case 'botting': {
-    const { field } = source.slot
-    return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
-  }
-  case 'expressing': {
-    return (question) => Expressed.sortValueOf(Expressed.readingOf(expressed, source.widget.label, question._id))
+  case 'widgeting': {
+    return (question) => sortValueOf(Runner.widgetedOf(run, source.widgeting.label, question._id))
   }
   }
 }
 
 /**
- * How many spans an extraction found, or null when it never ran.
+ * What a sort reads from one widgeted's value: numbers and text as they are, a boolean as 0 or 1,
+ * a list by how many items it holds, and an object of one key as what that key holds -- the shape
+ * a prompt gives when it is asked for one thing, since a model's reply is always an object.
+ * Anything else has no single value to order by: null, empty text, an object of several keys, a
+ * failure or nothing at all sinks to the bottom in either direction.
  *
- * A list column has no single value to order by, so it orders by how much it found. An empty
- * result is a real answer and sorts as nought; a cell nobody has asked about sinks.
+ * @param widgeted - One cell's widgeted.
+ * @returns A value the sorter can compare, or null.
+ *
+ * @example sortValueOf({ status: 'ok', value: true, err: null })  // => 1
+ * @example sortValueOf({ status: 'ok', value: { items: [{}, {}] }, err: null })  // => 2
+ * @example sortValueOf({ status: 'missing', value: null, err: null })  // => null
  */
-function ishCountOf(ishes: IshesT): number | null {
-  return ishes?.status === 'done' ? ishes.items.length : null
+export function sortValueOf(widgeted: WidgetedT): SortValue {
+  if (widgeted.status !== 'ok') { return null }
+  const value = orderedBy(widgeted.value)
+  if (typeof value === 'boolean') { return Number(value) }
+  if (typeof value === 'string' || typeof value === 'number') { return value }
+  return null
+}
+
+/** What a value is ordered by before it is read as a number or text: an object of one key by what it holds, a list by its length, else itself */
+function orderedBy(value: JsonT): JsonT {
+  const members = membersOf(value)
+  return members?.length === 1 ? orderedBy(members[0] ?? null) : value
+}
+
+/** What a value is ordered through: an object's members, or a list's length, as one; null for a scalar */
+function membersOf(value: JsonT): JsonT[] | null {
+  if (value === null || typeof value !== 'object') { return null }
+  const members: JsonT[] = Array.isArray(value) ? [value.length] : Object.values(value)
+  return members
 }
 
 /** Whether a column has nothing to say about this question */

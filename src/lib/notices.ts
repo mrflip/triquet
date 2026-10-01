@@ -20,19 +20,18 @@ export const AskFailureNotices = {
   declined:       'Claude declined to answer this one.',
   emptyAnswer:    'Got an empty answer — try again.',
   unreadable:     "Couldn't read that as structured data — try again.",
+  cutShort:       'The answer ran out of room before it finished — give the widget more tokens.',
   accountOff:     'Asking Claude is off for this account.',
   sessionExpired: 'Sign in again to keep asking Claude.',
   connection:     'A connection hiccup — try again.',
   unknown:        'Something went wrong asking the model.',
   unavailable:    "Asking Claude isn't available in this view.",
-  missingFromRun: "The combined response didn't include this one — try refreshing it on its own.",
 } as const
 
 export type AskFailurekind = keyof typeof AskFailureNotices
 
 /** Notices about the tool itself rather than about one cell */
 export const AppNotices = {
-  nothingToRecalculate: 'No questions or hints have any text yet — nothing to recalculate.',
   changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
   changeNotKept:        "Your change wasn't kept",
   changeNotSent:        "Couldn't send that change — the quiz isn't open here yet. Reload the page and try it again.",
@@ -74,12 +73,14 @@ export const RefusalNotices = {
   realmGone:        'That realm is no longer part of this hunt.',
   huntGone:         'That hunt is no longer here.',
   questionGone:     'That question is no longer in this quiz.',
-  widgetGone:       'That widget is no longer in this quiz.',
+  widgetGone:       'That widget is no longer in the library.',
+  widgetingGone:    'That widgeting is no longer in this quiz.',
   columnGone:       'That column is no longer in this quiz.',
-  expressionGone:   'That expression is no longer in this hunt.',
   labelTaken:       'That label is already taken here — choose another.',
-  sourceUnshowable: "That column would show a widget this quiz doesn't have.",
-  expressionInUse:  'A widget still works this expression — remove the widget first.',
+  sourceUnshowable: "That column would show a widgeting this quiz doesn't have.",
+  widgetInUse:      'A widgeting still works this widget — remove the widgeting first.',
+  formularyFixed:   "A widget's formulary is fixed once it is made — make a new widget instead.",
+  notStored:        'That widgeting works its values out on the spot; there is nothing to record.',
   lastQuiz:         "A realm's last quiz can't be deleted on its own — it goes with its hunt.",
   huntNotEmptied:   AppNotices.deletingHunt,
   notInRealm:       'That quiz belongs to another realm.',
@@ -88,13 +89,13 @@ export const RefusalNotices = {
   identUnknown:     identUnknownNotice('…'),
   ownHunting:       "You can't take yourself off this hunt or change your own role — another smith can.",
   questionsFull:    `A quiz holds at most ${String(PA.QuestionsPerQuiz.max)} questions.`,
-  widgetsFull:      `A quiz holds at most ${String(PA.WidgetsPerQuiz.max)} widgets.`,
+  widgetingsFull:   `A quiz holds at most ${String(PA.WidgetingsPerQuiz.max)} widgetings.`,
   columnsFull:      `A quiz holds at most ${String(PA.ColumnsPerQuiz.max)} columns.`,
   reviewsFull:      `A quiz holds at most ${String(PA.ReviewsPerQuiz.max)} reviews.`,
   topsFull:         `You already have a top ${String(PA.PicksPerReview.max)} — lower one of them first.`,
   mehsFull:         `You already have a meh ${String(PA.PicksPerReview.max)} — lower one of them first.`,
   quizzesFull:      `A realm holds at most ${String(PA.QuizzesPerRealm.max)} quizzes.`,
-  expressionsFull:  `A hunt holds at most ${String(PA.ExpressionsPerHunt.max)} expressions.`,
+  libraryFull:      `The library holds at most ${String(PA.WidgetsInLibrary.max)} widgets.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
   huntingsFull:     `A hunt holds at most ${String(PA.HuntingsPerHunt.max)} members.`,
 } as const
@@ -170,29 +171,13 @@ export const CellNotices = {
   askable:           'Double-click to ask',
   thinking:          'Thinking…',
   retry:             'Double-click to try again',
-  ishesNoneFound:    'None found',
   butnotNoChain:     'Pick a chain target',
   butnotNoChainRead: 'Oops: no hint is attached',
   butnotNoTarget:    'Target question not found',
   butnotNoHint:      'No hint entered yet',
-  butnotIshesUnasked: "Not computed yet — double-click that question's Hint Ishes",
   nothingExpressed:  '–',
   expressedError:    '⚠',
   chainUnset:        '— pick —',
   chainTargetUnnamed: '(no title yet)',
-  stale:             '· stale',
   truncated:         '· cut short',
 } as const
-
-/**
- * Notice for a whole batch run that failed, ending in the promise that nothing moved.
- *
- * @param message - Why it failed, already in the author's language.
- * @returns One sentence naming the cause and one reassuring the author.
- *
- * @example bulkRunFailedNotice('A connection hiccup — try again.')
- *   // => "Couldn't recalculate: A connection hiccup — try again. Nothing was changed."
- */
-export function bulkRunFailedNotice(message: string): string {
-  return `Couldn't recalculate: ${message} Nothing was changed.`
-}

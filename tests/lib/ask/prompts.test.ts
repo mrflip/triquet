@@ -1,67 +1,78 @@
 import { describe, expect, it } from 'vitest'
-import { BulkIshesPrompt, ClueingIshesPrompt, HintIshesPrompt, PromptTemplates, QuickGuessPrompt, bulkItemsBlock, renderPrompt } from '../../../src/lib/ask/prompts'
+import { renderPrompt, templateIssue, unfilledKeys } from '../../../src/lib/ask/prompts'
 
 describe('renderPrompt', () => {
-  it('fills a placeholder', () => {
-    expect(renderPrompt('Question: {{clueing}}', { clueing: 'Who?' })).to.eq('Question: Who?')
-  })
+  const Cases: [[string, Record<string, unknown>], string, string][] = [
+    // regular usage:
+    [["Question: {{clueing}}", { clueing: 'Who?' }],                      "Question: Who?",            'fills a placeholder'],
+    [["{{aa}} then {{aa}}", { aa: 'x' }],                                  "x then x",                  'fills every occurrence of a placeholder'],
+    [["Spans: {{items}}", { items: [1, 2] }],                              "Spans: [1,2]",              'fills a list in as its JSON'],
+    [["Item: {{item}}", { item: { text: 'three', value: 3 } }],            'Item: {"text":"three","value":3}', 'fills an object in as its JSON, keys sorted'],
+    [["{{nn}} and {{yes}}", { nn: 3, yes: true }],                          "3 and true",                'fills a number and a boolean in as written'],
+    [["{{#items}}[{{text}}]{{/items}}", { items: [{ text: 'a' }, { text: 'b' }] }], "[a][b]",           'repeats a section for each item of a list'],
+    [["{{^hint}}No hint.{{/hint}}", { hint: '' }],                          "No hint.",                  'shows an inverted section for a blank'],
+    [["Q: {{qn.hint}}", { qn: { hint: 'two' } }],                           "Q: two",                    'reads a dotted key'],
+    // nothing to fill in:
+    [["{{clueing}} {{hint}}", { clueing: 'Who?' }],                         "Who? ",                     'fills a key the input lacks with nothing'],
+    [["{{clueing}}", { clueing: null }],                                    "",                          'fills null with nothing'],
+    // the author's own text:
+    [["Q: {{clueing}}", { clueing: "Tom & Jerry's <b>\"best\"</b>" }],    "Q: Tom & Jerry's <b>\"best\"</b>", 'escapes nothing: the prompt is prose, not a page'],
+    [["Q: {{clueing}}", { clueing: 'Worth $& more' }],                      "Q: Worth $& more",          'keeps a dollar-ampersand literal'],
+    [["Q: {{clueing}}", { clueing: 'see {{hint}}' }],                       "Q: see {{hint}}",           'keeps text that merely looks like a placeholder alone'],
+  ]
+  for (const [[template, input], expected, describes] of Cases) {
+    it(describes, () => {
+      expect(renderPrompt(template, input)).to.eq(expected)
+    })
+  }
 
-  it('fills every occurrence of a placeholder', () => {
-    expect(renderPrompt('{{aa}} then {{aa}}', { aa: 'x' })).to.eq('x then x')
-  })
-
-  it('leaves a placeholder it was given nothing for alone', () => {
-    expect(renderPrompt('{{clueing}} {{hint}}', { clueing: 'Who?' })).to.eq('Who? {{hint}}')
-  })
-
-  it('keeps a dollar-ampersand in the author\'s own text literal', () => {
-    expect(renderPrompt('Q: {{clueing}}', { clueing: 'Worth $& more' })).to.eq('Q: Worth $& more')
-  })
-
-  it('keeps text that merely looks like a placeholder alone', () => {
-    expect(renderPrompt('Q: {{clueing}}', { clueing: 'see {{hint}}' })).to.eq('Q: see {{hint}}')
+  it('throws on a template that does not parse', () => {
+    expect(() => renderPrompt('{{#items}}', { items: [] })).to.throw(/Unclosed section/)
   })
 })
 
-describe('bulkItemsBlock', () => {
-  it('tags each text with its key, blank-line separated', () => {
-    expect(bulkItemsBlock([{ key: 'c:aa', text: 'Two things' }, { key: 'h:bb', text: 'Three more' }]))
-      .to.eq('[c:aa] Two things\n\n[h:bb] Three more')
+describe('templateIssue', () => {
+  it('is null for a template that parses', () => {
+    expect(templateIssue('Question: {{clueing}}')).to.be.null
   })
 
-  it('reads an empty list as an empty block', () => {
-    expect(bulkItemsBlock([])).to.eq('')
+  it('names an unclosed section', () => {
+    expect(templateIssue('{{#items}}{{text}}')).to.match(/^Unclosed section "items"/)
+  })
+
+  it('names an unclosed tag', () => {
+    expect(templateIssue('Question: {{clueing')).to.match(/^Unclosed tag/)
+  })
+
+  const RawTags: [string, RegExp, string][] = [
+    ["Question: {{{clueing}}}",                  /^\{\{\{clueing\}\}\} would fill a list or an object in as \[object Object\]: write \{\{clueing\}\}/, 'refuses a triple brace, pointing at the double'],
+    ["Question: {{&clueing}}",                   /^\{\{&clueing\}\} .*write \{\{clueing\}\}/,                                             'refuses an ampersand tag, pointing at the double brace'],
+    ["{{#items}}{{{text}}}{{/items}}",           /^\{\{\{text\}\}\} .*write \{\{text\}\}/,                                                'refuses one inside a section'],
+    ["{{clueing}} {{{hint}}} {{&qn.title}}",     /^\{\{\{hint\}\}\} /,                                                                   'names the first of several'],
+  ]
+  for (const [template, issue, describes] of RawTags) {
+    it(describes, () => {
+      expect(templateIssue(template)).to.match(issue)
+    })
+  }
+
+  it('says a template that does not parse is that, before anything else', () => {
+    expect(templateIssue('{{{clueing}}} {{#items}}')).to.match(/^Unclosed section/)
   })
 })
 
-describe('the templates', () => {
-  it('asks the quick model for a first-instinct read, not an expert one', () => {
-    expect(QuickGuessPrompt).to.include('fast, not-especially-careful player')
-    expect(QuickGuessPrompt).to.include('{{clueing}}')
-  })
-
-  it('names the two ish kinds and what separates them', () => {
-    for (const template of [ClueingIshesPrompt, HintIshesPrompt, BulkIshesPrompt]) {
-      expect(template).to.include('"numeral"')
-      expect(template).to.include('"wordish"')
-      expect(template).to.include('300 million')
-    }
-  })
-
-  it('rules out the two things a player would not count', () => {
-    for (const template of [ClueingIshesPrompt, HintIshesPrompt, BulkIshesPrompt]) {
-      expect(template).to.include('indefinite article')
-      expect(template).to.include('Roman numerals')
-    }
-  })
-
-  it('addresses the hint template to the hint', () => {
-    expect(HintIshesPrompt).to.include('Hint: {{hint}}')
-    expect(HintIshesPrompt).to.not.include('{{clueing}}')
-  })
-
-  it('shows every template in the Prompts used panel', () => {
-    expect(PromptTemplates.map((template) => template.body))
-      .to.deep.eq([QuickGuessPrompt, ClueingIshesPrompt, HintIshesPrompt, BulkIshesPrompt])
-  })
+describe('unfilledKeys', () => {
+  const Cases: [[string, Record<string, unknown>], string[], string][] = [
+    [["{{clueing}} {{hint}}", { clueing: 'Who?' }],                 ["hint"],       'a key the input lacks'],
+    [["{{hint}} {{{hint}}} {{#hint}}x{{/hint}}", {}],                ["hint"],       'each key once, however it is read'],
+    [["{{qn.hint}}", { qn: {} }],                                    [],             'a dotted key whose head the input holds'],
+    [["{{#items}}{{text}}{{/items}}", { items: [] }],                [],             'a key read inside a section, which is the section\'s business'],
+    [["{{.}} {{! a comment }}", {}],                                 [],             'the whole context and a comment, neither of them a key'],
+    [["{{#items}}", {}],                                             [],             'a template that does not parse, which reads nothing'],
+  ]
+  for (const [[template, input], expected, describes] of Cases) {
+    it(describes, () => {
+      expect(unfilledKeys(template, input)).to.deep.eq(expected)
+    })
+  }
 })

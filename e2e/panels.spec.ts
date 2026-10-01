@@ -1,4 +1,4 @@
-import { expect, preparedExport, showTab, test } from './support'
+import { addWidgeting, addWidgetings, expect, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the export and import tabs come in order, Spreadsheet first and showing', async ({ page }) => {
   const tabs = page.getByRole('tablist', { name: 'Export / Import' }).getByRole('tab')
-  await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Full History', 'LL Export'])
+  await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Library', 'Full History', 'LL Export'])
   await page.reload()
   await expect(page.getByRole('tab', { name: 'Spreadsheet' })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('textbox', { name: 'Copy for Sheets' })).toBeVisible()
@@ -71,20 +71,32 @@ test('a refused clipboard falls back to selecting the text, never to silence', a
   expect(selected).toBeGreaterThan(0)
 })
 
-test('every prompt is shown verbatim, placeholders and all, each on a tab of its own', async ({ page }) => {
-  const tabs = page.getByRole('tablist', { name: 'Prompts used' }).getByRole('tab')
-  await expect(tabs).toHaveText(['Quick-model guess', 'Clueing ishes', 'Hint ishes', 'Batched ishes (Recalculate all)'])
-  const shown: [string, RegExp][] = [
-    ['Quick-model guess',               /\{\{clueing\}\}/],
-    ['Clueing ishes',                   /fast|number-like/],
-    ['Hint ishes',                      /\{\{hint\}\}/],
-    ['Batched ishes (Recalculate all)', /\{\{items\}\}/],
-  ]
-  for (const [tabname, placeholder] of shown) {
-    const section = await showTab(page, tabname)
-    await expect(section.getByRole('textbox', { name: `Prompt: ${tabname}` })).toHaveValue(placeholder)
-    await expect(section.getByRole('button', { name: 'Copy', exact: true })).toBeVisible()
-  }
+test('the Widgets panel lists the quiz\'s widgetings in run order, each with its counts, and opens to its prompt verbatim', async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Widgets' })
+  // A fresh quiz starts lean, and the panel says how to put a widget to work.
+  await expect(panel).toContainText('This quiz puts no widgets to work yet')
+  await addWidgetings(page, ['dumdum', 'numnum_clueing', 'numnum_hint', 'butnot_ishes'])
+  const folds = panel.getByRole('button', { expanded: false })
+  await expect(folds.first()).toContainText('dumdum')
+  await expect(folds.nth(3)).toContainText('butnot_ishes')
+  // A fresh quiz's questions are blank: nothing asked, every formula's sum missing.
+  await expect(panel.getByRole('group', { name: 'Cells of dumdum' })).toHaveText(/0 ok\s*0 errored\s*\d+ missing/)
+  await panel.getByRole('button', { name: /^dumdum/ }).click()
+  await expect(panel.getByRole('textbox', { name: 'Prompt: dumdum' })).toHaveValue(/\{\{clueing\}\}/)
+  await expect(panel.getByRole('textbox', { name: 'Input formula: dumdum' })).toHaveValue(/qn\.clueing/)
+  await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toBeVisible()
+})
+
+test('a formula\'s counts follow what its cells come to', async ({ page }) => {
+  await addWidgeting(page, 'answer_reversed')
+  const panel = page.getByRole('region', { name: 'Widgets' })
+  const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
+  await expect(counts).toHaveText(/^0 ok\s*0 errored\s*\d+ missing$/)
+  await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
+  await page.getByLabel('Quiz name').click()
+  await expect(counts).toHaveText(/^1 ok\s*0 errored\s*\d+ missing$/)
+  await panel.getByRole('button', { name: /^answer_reversed/ }).click()
+  await expect(panel.getByRole('textbox', { name: 'Formula: answer_reversed' })).toHaveValue(/\$reverse/)
 })
 
 test('LL Export holds the quiz in the league\'s format, one record per question', async ({ page }) => {
@@ -128,4 +140,20 @@ test('the quiet note beside it explains, in a dialog, how to see the history', a
 
   await help.getByRole('button', { name: 'Close' }).click()
   await expect(help).toBeHidden()
+})
+
+test('the library is handed out on its own, and a pasted library is merged into it by label', async ({ page }) => {
+  const section = await showTab(page, 'Library')
+  await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"label":"numnum_hint"/)
+  // A label of this test's own: the library is every hunt's, and the specs share one database.
+  const label = freshWidgetLabel('pasted')
+  const pasted = JSON.stringify({ widgets: [
+    { label, formulary: 'jsonata', formula: '$uppercase(qn.title)' },
+    { label: 'numnum_hint', formulary: 'jsonata', formula: '1' },
+  ] })
+  await section.getByRole('textbox', { name: 'Import library' }).fill(pasted)
+  await section.getByRole('button', { name: 'Import library' }).click()
+  await expect(section.getByRole('status')).toContainText('1 added, 0 revised, 0 unchanged, 1 skipped')
+  await expect(section.getByText(/numnum_hint — skipped: it is worked by jsonata here, and by aibot in the library/)).toBeVisible()
+  await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(new RegExp(`"label":"${label}"`))
 })

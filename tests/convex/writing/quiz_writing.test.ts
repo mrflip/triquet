@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../../convex/_generated/dataModel'
-import { quizRowsOf, realmsOf, reviewsOf } from '../../../convex/reading'
+import { libraryOf, quizRowsOf, realmsOf, reviewsOf } from '../../../convex/reading'
 import {
-  changedFields, deleteQuiz, insertHunt, insertQuiz, repositioned, updateQuestion, updateQuiz, updateReview,
+  changedFields, deleteQuiz, deleteWidgeting, insertAbsentWidgets, insertHunt, insertQuiz, repositioned, updateQuestion, updateQuiz, updateReview, updateWidget,
 } from '../../../convex/writing/quiz_writing'
 import type { QuizRows } from '../../../src/lib/rows'
-import { SeedExpressions } from '../../../src/models/expression'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
+import { defaultLayout } from '../../../src/models/layout'
+import { DefaultWidgetings, SeedWidgets } from '../../../src/models/seeds'
+import { Widget } from '../../../src/models/widget'
 import { Question } from '../../../src/models/question'
 import { BlankQuestionQty, Quiz } from '../../../src/models/quiz'
+import { classicLayout } from '../../support/layouts'
 import { present } from '../../support/present'
 import { huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
 import { seedHuntRows } from '../../support/seed'
@@ -24,12 +27,17 @@ async function holding(hunt: HuntT) {
   const revise = async (write: (db: Parameters<Parameters<Tester['run']>[0]>[0]['db'], rows: QuizRows) => Promise<unknown>) => {
     await tt.run(async (ctx) => { await write(ctx.db, present(await quizRowsOf(ctx.db, quiz_id))) })
   }
-  /** The first quiz's rows, as plain values: its row, its questions, widgets and columns, and each cell's newest bottings */
+  /** The first quiz's rows, as plain values: its row, its questions, widgetings and columns */
   const rows = async () => await tt.run(async (ctx) => {
     const held = present(await quizRowsOf(ctx.db, quiz_id))
-    return { quiz: held.quiz, questions: held.questions, widgets: held.widgets, columns: held.columns, slots: held.slots.values().toArray() }
+    return { quiz: held.quiz, questions: held.questions, widgetings: held.widgetings, columns: held.columns }
   })
   return { tt, hunt_id, realm_id, place: { hunt_id, realm_id }, quiz_id, revise, rows }
+}
+
+/** The library's rows, in order */
+async function libraryIn(tt: Tester) {
+  return await tt.run(async (ctx) => await libraryOf(ctx.db))
 }
 
 /** A hunt of one quiz whose questions are titled `titles` */
@@ -41,26 +49,26 @@ function titled(...titles: string[]): HuntT {
 async function heldCounts(tt: Tester, quiz_id: Id<'quizzes'>): Promise<number[]> {
   return await tt.run(async (ctx) => {
     const quiz = await ctx.db.get('quizzes', quiz_id)
-    const byQuiz = async (tablename: 'widgets' | 'columns') => await ctx.db.query(tablename).withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).collect()
-    const [questions, widgets, columns] = await Promise.all([
-      ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).collect(), byQuiz('widgets'), byQuiz('columns'),
+    const byQuiz = async (tablename: 'widgetings' | 'columns') => await ctx.db.query(tablename).withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).collect()
+    const [questions, widgetings, columns] = await Promise.all([
+      ctx.db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id)).collect(), byQuiz('widgetings'), byQuiz('columns'),
     ])
-    const bottings = await ctx.db.query('bottings').collect()
+    const widgeteds = await ctx.db.query('widgeteds').collect()
     const reviews = await reviewsOf(ctx.db, quiz_id)
-    return [quiz ? 1 : 0, questions.length, widgets.length, columns.length, bottings.length, reviews.length]
+    return [quiz ? 1 : 0, questions.length, widgetings.length, columns.length, widgeteds.length, reviews.length]
   })
 }
 
-/** The quiz `quiz_id` as its rows make it up: how many questions, widgets and columns, and its questions' order */
+/** The quiz `quiz_id` as its rows make it up: how many questions, widgetings and columns, and its questions' order */
 async function shapeOf(tt: Tester, quiz_id: Id<'quizzes'>) {
   return await tt.run(async (ctx) => {
     const held = present(await quizRowsOf(ctx.db, quiz_id))
-    return { counts: [held.questions.length, held.widgets.length, held.columns.length], ordered: held.quiz.row_ordering, questions: held.questions.map((row) => row._id), title: held.quiz.title }
+    return { counts: [held.questions.length, held.widgetings.length, held.columns.length], ordered: held.quiz.row_ordering, questions: held.questions.map((row) => row._id), title: held.quiz.title }
   })
 }
 
-describe('changedFields', () => {
-  it('keeps only the fields that differ, comparing structured values by what they hold', () => {
+describe("changedFields", () => {
+  it("keeps only the fields that differ, comparing structured values by what they hold", () => {
     const held = { title: 'Princes', locked: false, run: { approx_tokens: 1 } }
     expect(changedFields(held, { title: 'Princes', locked: true, run: { approx_tokens: 1 } })).to.deep.eq({ locked: true })
     expect(changedFields(held, { run: { approx_tokens: 2 } })).to.deep.eq({ run: { approx_tokens: 2 } })
@@ -68,8 +76,8 @@ describe('changedFields', () => {
   })
 })
 
-describe('repositioned', () => {
-  it('hands over only the rows whose position is not their place in the list', async () => {
+describe("repositioned", () => {
+  it("hands over only the rows whose position is not their place in the list", async () => {
     const moved: [string, number][] = []
     await repositioned([{ label: 'cc', position: 2 }, { label: 'aa', position: 0 }, { label: 'bb', position: 1 }], (row, position) => {
       moved.push([row.label, position])
@@ -85,8 +93,8 @@ describe('repositioned', () => {
   })
 })
 
-describe('a mutation', () => {
-  it('keeps none of what it wrote when it throws', async () => {
+describe("a mutation", () => {
+  it("keeps none of what it wrote when it throws", async () => {
     const { tt, hunt_id, revise } = await holding(titled('aa'))
     const writing = revise(async (db, rows) => {
       await updateQuiz(db, rows.quiz, { title: 'Kings' })
@@ -97,22 +105,22 @@ describe('a mutation', () => {
   })
 })
 
-describe('the update helpers', () => {
-  it('write the fields that change', async () => {
+describe("the update helpers", () => {
+  it("write the fields that change", async () => {
     const { revise, rows } = await holding(titled('aa'))
     await revise(async (db, held) => { await updateQuestion(db, present(held.questions[0]), { clueing: 'Who?' }) })
     const { questions } = await rows()
     expect(questions[0]?.clueing).to.eq('Who?')
   })
 
-  it('hold the row as it would stand afterwards to its validator, and write nothing when it fails', async () => {
+  it("hold the row as it would stand afterwards to its validator, and write nothing when it fails", async () => {
     const { revise, rows } = await holding(titled('aa'))
     await expect(revise(async (db, held) => { await updateQuiz(db, held.quiz, { title: 'x'.repeat(83) }) })).rejects.toThrow(/is too long/)
     const { quiz } = await rows()
     expect(quiz.title).to.eq('Princes')
   })
 
-  it('updateReview writes the fields that change, and leaves the rest', async () => {
+  it("updateReview writes the fields that change, and leaves the rest", async () => {
     const { tt, hunt_id, quiz_id } = await holding(titled('aa'))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
@@ -124,66 +132,126 @@ describe('the update helpers', () => {
   })
 })
 
-describe('insertQuiz', () => {
-  it('writes a blank quiz: its row, its blank questions in its order, and the standard layout for the expressions', async () => {
+describe("insertQuiz", () => {
+  it("writes a blank quiz: its row, its blank questions in its order, and the starter columns with no widgetings", async () => {
     const { tt, place } = await holding(titled('aa'))
-    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, 'Kings', 'kings', SeedExpressions))
+    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, 'Kings', 'kings'))
     const shape = await shapeOf(tt, quiz_id)
-    expect(shape.counts).to.deep.eq([BlankQuestionQty, 11, 21])
+    expect(shape.counts).to.deep.eq([BlankQuestionQty, 0, defaultLayout().columns.length])
     expect(shape.ordered).to.deep.eq(shape.questions)
     expect(shape.title).to.eq('Kings')
   })
 
   it("writes each blank question as its hunt's", async () => {
     const { tt, hunt_id, place } = await holding(titled('aa'))
-    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'kings', []))
+    const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'kings'))
     const hunts = await tt.run(async (ctx) => present(await quizRowsOf(ctx.db, quiz_id)).questions.map((row) => row.hunt_id))
     expect(hunts).to.deep.eq(Array.from({ length: BlankQuestionQty }, () => hunt_id))
   })
 
-  it('titles a quiz from its label when the title is blank, and mints a label when none is given', async () => {
+  it("titles a quiz from its label when the title is blank, and mints a label when none is given", async () => {
     const { tt, place } = await holding(titled('aa'))
-    const named = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'princes', []))
+    const named = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'princes'))
     const namedShape = await shapeOf(tt, named)
     expect(namedShape.title).to.eq('Princes')
-    const minted = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', undefined, []))
+    const minted = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', undefined))
     const quiz = await tt.run(async (ctx) => await ctx.db.get('quizzes', minted))
     const mintedShape = await shapeOf(tt, minted)
     expect(quiz?.label).to.match(/^[a-z][a-z0-9_]+$/)
-    expect(mintedShape.counts).to.deep.eq([BlankQuestionQty, 3, 13])
+    expect(mintedShape.counts).to.deep.eq([BlankQuestionQty, 0, 5])
+  })
+
+  it("leaves the library as it is, even an empty one: it is seeded once, not by quizzes", async () => {
+    const { tt, place } = await holding(titled('aa'))
+    await tt.run(async (ctx) => {
+      const held = await libraryOf(ctx.db)
+      for (const row of held) { await ctx.db.delete('widgets', row._id) }
+    })
+    await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'kings'))
+    expect(await libraryIn(tt)).to.deep.eq([])
   })
 })
 
-describe('deleteQuiz', () => {
-  it('deletes the quiz and every row that hangs from it', async () => {
-    const blank = Hunt.blank()
-    const quiz = { ...present(Hunt.quizzesOf(blank)[0]), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
-    const { tt, hunt_id, quiz_id, revise } = await holding(huntHolding([quiz], blank.expressions))
+describe("deleteQuiz", () => {
+  it("deletes the quiz and every row that hangs from it", async () => {
+    const quiz = { ...Quiz.blank('', 'princes'), ...classicLayout(), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
+    const { tt, hunt_id, quiz_id, revise } = await holding(huntHolding([quiz]))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
-      const [question] = present(await quizRowsOf(ctx.db, quiz_id)).questions
-      await ctx.db.insert('bottings', {
-        question_id: present(question)._id, bot_label: 'dumdum', textkind: 'clueing', asked_text: 'Who?', status: 'done', reply_text: 'Leon',
-        items: [], message: null, response: null, truncated: false, model_tier_applied: 'quick', approx_tokens: null,
-      })
+      const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
+      await ctx.db.insert('widgeteds', { question_id: present(questions[0])._id, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
       await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     })
-    expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 11, 21, 1, 1])
+    expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 12, 21, 1, 1])
+    const library = await libraryIn(tt)
     await revise(async (db, rows) => { await deleteQuiz(db, rows) })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([0, 0, 0, 0, 0, 0])
+    expect(await libraryIn(tt)).to.deep.eq(library)
   })
 })
 
-describe('insertHunt', () => {
-  it('writes a fresh hunt: its row titled from its label, the seed expressions, a home realm, and one blank quiz under the hunt\'s label', async () => {
+describe("deleteWidgeting", () => {
+  it("deletes a widgeting and everything it stored, and leaves another widgeting's alone", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([{ ...Quiz.blank('', 'princes'), ...classicLayout() }]))
+    const ids = await tt.run(async (ctx) => {
+      const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
+      const [doomed, kept] = [present(widgetings[0]), present(widgetings[1])]
+      for (const widgeting of [doomed, kept]) {
+        await ctx.db.insert('widgeteds', { question_id: present(questions[0])._id, widgeting_id: widgeting._id, status: 'ok', value: 1, message: null, result_meta: {} })
+      }
+      await deleteWidgeting(ctx.db, doomed._id)
+      return { kept: kept._id }
+    })
+    const left = await tt.run(async (ctx) => await ctx.db.query('widgeteds').collect())
+    expect(left.map((row) => row.widgeting_id)).to.deep.eq([ids.kept])
+    const { counts } = await shapeOf(tt, quiz_id)
+    expect(counts[1]).to.eq(DefaultWidgetings.length - 1)
+  })
+})
+
+describe("insertAbsentWidgets", () => {
+  it("puts each widget the library lacks at its end, leaves those it holds as they are, and says which it added", async () => {
+    const { tt } = await holding(titled('aa'))
+    const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+    const changed = Widget.fill({ label: 'dumdum', formulary: 'jsonata', formula: '1' })
+    const added = await tt.run(async (ctx) => await insertAbsentWidgets(ctx.db, [changed, shout]))
+    const library = await tt.run(async (ctx) => await libraryOf(ctx.db))
+    expect(added).to.deep.eq(['shout'])
+    expect(library.map((row) => [row.label, row.formulary, row.position]).slice(-1)).to.deep.eq([['shout', 'jsonata', SeedWidgets.length]])
+    expect(library.find((row) => row.label === 'dumdum')?.formulary).to.eq('aibot')
+  })
+})
+
+describe("updateWidget", () => {
+  it("holds the patch to the widget's own formulary, writing nothing when it does not fit", async () => {
+    const { tt } = await holding(titled('aa'))
+    const revised = tt.run(async (ctx) => {
+      const library = await libraryOf(ctx.db)
+      const held = present(library.find((row) => row.label === 'clueing_full'))
+      await updateWidget(ctx.db, held, { config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } })
+    })
+    await expect(revised).rejects.toThrow()
+    const library = await libraryIn(tt)
+    expect(library.find((row) => row.label === 'clueing_full')?.config).to.deep.eq({})
+  })
+})
+
+describe("insertHunt", () => {
+  it("writes a fresh hunt: its row titled from its label, a home realm, and one blank quiz under the hunt's label, laid out as a new quiz is", async () => {
     const tt = openTester()
     const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron'))
     const back = await wholeHunt(tt, hunt_id)
     const [realm] = back.realms
     const [quiz] = present(realm).quizzes
-    expect([back.label, back.title, present(realm).label, present(realm).title, back.expressions.length])
-      .to.deep.eq(['loud_heron', 'Loud Heron', 'home', 'Home', SeedExpressions.length])
-    expect([present(quiz).label, present(quiz).title, present(quiz).questions.length, present(quiz).widgets.length, present(quiz).columns.length])
-      .to.deep.eq(['loud_heron', 'Loud Heron', BlankQuestionQty, 11, 21])
+    expect([back.label, back.title, present(realm).label, present(realm).title])
+      .to.deep.eq(['loud_heron', 'Loud Heron', 'home', 'Home'])
+    expect([present(quiz).label, present(quiz).title, present(quiz).questions.length, present(quiz).widgetings, present(quiz).columns])
+      .to.deep.eq(['loud_heron', 'Loud Heron', BlankQuestionQty, defaultLayout().widgetings, defaultLayout().columns])
+  })
+
+  it("seeds nothing: the library of a fresh deployment stays empty", async () => {
+    const tt = openTester()
+    await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron'))
+    expect(await libraryIn(tt)).to.deep.eq([])
   })
 })

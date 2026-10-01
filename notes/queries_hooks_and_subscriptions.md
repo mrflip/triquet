@@ -18,9 +18,9 @@ it means.
 * **fetch** -- calling a query function once and keeping the answer: `client.query`. For a
   large read the author asks for by hand (the Export box), or for a first paint.
 * **facet** -- the unit a watch covers: a set of rows that change together and are shown
-  together. A quiz's frame (its own fields, widgets and columns) is a facet; one question with
-  its bots' newest replies is a facet; a quiz's reviews are a facet. Facets are what a query
-  function is written for.
+  together. A quiz's frame (its own fields, widgetings and columns) is a facet; one question with
+  what its widgetings stored is a facet; a quiz's reviews are a facet; the library of widgets is
+  a facet. Facets are what a query function is written for.
 * **screen hook** -- the one hook that owns a screen's watches and hands the rest of the screen
   what it needs as props: `useHunt` for a quiz's screen, `useHuntsList` for the hunts page,
   `useIdent` for who the browser is. A screen hook may be built from smaller hooks (`useHunt`
@@ -29,9 +29,9 @@ it means.
 ## The shape of the app
 
 * The screen hook watches a few facets and stitches them together. A quiz's screen is one watch
-  on the hunt (which quizzes exist, and the hunt's expressions), one on the quiz's frame, one
-  per question the frame lists, and one on the reviews. `useQuiz` assembles frame and questions
-  into the quiz the rest of the tool reads.
+  on the hunt (which quizzes exist, and who is on it), one on the library (`widgets.library`),
+  one on the quiz's frame, one per question the frame lists, and one on the reviews. `useQuiz`
+  assembles frame and questions into the quiz the rest of the tool reads.
 * A change is one mutation, `hunts.perform`, which reads the truth inside its transaction and
   writes the rows it comes to. The server reruns every watched query function whose reads were
   touched and sends the ones whose result changed. Nothing in the browser guesses what a
@@ -50,13 +50,14 @@ reads change. Two tests:
   are the example: one author edits one question at a time, so each question is its own facet
   and an edit sends one question, not the quiz.
 * Merge facets whose rows always change together, or are always shown together. The frame is
-  the example: a quiz's fields, its widgets and its columns are edited from one dialog and
+  the example: a quiz's fields, its widgetings and its columns are edited from one dialog and
   drawn as one grid, so they travel as one.
 
 A facet that mixes churn rates is the thing to watch for: a query function that reads something
 slow-moving *and* something fast-moving reruns at the fast rate and resends the slow part every
 time. When a count or a summary is only shown in one dialog, give it a facet of its own and
-watch it from that dialog.
+watch it from that dialog. The widget editor's usage line is the example: `widgets.usage` counts
+widgetings across every hunt, and `useWidgetUsage` watches it only while that editor is open.
 
 **The server assembles.** A query function returns a screen shape, projected from rows in
 `lib/rows.ts`, never rows for the browser to join. The browser may stitch sibling facets whose
@@ -66,7 +67,9 @@ itself, and it never validates what it reads back.
 **One screen hook; components never watch.** A screen's watches live in one hook so they are
 opened, counted and closed in one place, and so a screen has one loading state rather than a
 dozen. A dynamic set of watches (one per question) is made with `useQueries` inside that hook,
-not with a `useQuery` in each row. This is the rule that keeps a grid predictable.
+not with a `useQuery` in each row. This is the rule that keeps a grid predictable. The one
+exception is the one above: a facet that only one dialog shows is watched by that dialog, through
+a hook of its own under `src/state/`, for as long as it is open.
 
 **"Per row" is fine, in its place.** A watch per question is right because a question is the
 unit an author changes, the count is bounded (a quiz holds at most 999), and the ids come from

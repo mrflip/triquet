@@ -1,6 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import { refuse } from '../../src/lib/refusals'
-import { expressionsOf, huntForLabel, huntingsOf, quizRowsOf, realmsOf } from '../reading'
+import { huntForLabel, huntingsOf, quizRowsOf, realmsOf } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
 
 /**
@@ -39,9 +39,9 @@ export async function relabelHunt(db: Writer, hunt_id: Id<'hunts'>, label: strin
 }
 
 /**
- * Delete `hunt_id` along with its last quiz, and everything they hold: the quiz's questions, what
- * bots replied, the reviews and their verdicts; its realms; its expressions; and everyone's place
- * on it. The idents themselves stay. A hunt is deleted only once it is down to one quiz, so that
+ * Delete `hunt_id` along with its last quiz, and everything they hold: the quiz's questions, its
+ * widgetings and what they stored, the reviews and their verdicts; its realms; and everyone's
+ * place on it. The library's widgets stay, being every hunt's. The idents themselves stay. A hunt is deleted only once it is down to one quiz, so that
  * no single act loses a hunt's worth of quizzes. A hunt already gone is nothing to do.
  *
  * @param db - The mutation's database.
@@ -51,7 +51,7 @@ export async function relabelHunt(db: Writer, hunt_id: Id<'hunts'>, label: strin
 export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void> {
   const held = await db.get('hunts', hunt_id)
   if (! held) { return }
-  const [realms, expressions, huntings] = await Promise.all([realmsOf(db, hunt_id), expressionsOf(db, hunt_id), huntingsOf(db, hunt_id)])
+  const [realms, huntings] = await Promise.all([realmsOf(db, hunt_id), huntingsOf(db, hunt_id)])
   if (realms.flatMap(({ quizzes }) => quizzes).length > 1) { refuse('huntNotEmptied') }
   for (const { realm, quizzes } of realms) {
     for (const quiz of quizzes) {
@@ -60,7 +60,6 @@ export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void
     }
     await db.delete('realms', realm._id)
   }
-  for (const expression of expressions) { await db.delete('expressions', expression._id) }
   for (const hunting of huntings) { await db.delete('huntings', hunting._id) }
   await db.delete('hunts', hunt_id)
 }

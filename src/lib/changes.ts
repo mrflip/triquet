@@ -1,8 +1,8 @@
 import _ from 'es-toolkit/compat'
 import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
-import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
+import type { WidgetT } from '../models/widget'
 
 /** What happened to one field, or to one whole entity, between two readings of a quiz */
 export const ChangekindVals = ['set', 'revised', 'cleared', 'added', 'dropped', 'reordered'] as const
@@ -21,7 +21,7 @@ export const ChangeSigils: Readonly<Record<Changekind, string>> = {
 /** What the quiz's own fields are filed under, where a question would carry its label */
 export const QuizScope = 'quiz'
 
-/** What the hunt's expressions are filed under, since they belong to no one quiz */
+/** What the library's widgets are filed under, since they belong to no one quiz */
 export const WidgetsScope = 'widgets'
 
 /** Where the question order is filed, so a pure reordering still says something */
@@ -70,20 +70,28 @@ export function quizChanges(before: QuizT | null, after: QuizT | null): Change[]
 }
 
 /**
- * Whether the hunt's expressions moved between two readings.
+ * Each widget the quiz works that moved between two readings of the library.
  *
- * Every quiz's repository keeps a copy of them, so a revised expression is a change to each --
- * even one that touched no quiz.
+ * Every quiz's repository keeps a copy of the widgets it works, so a revised prompt or formula is
+ * a change to each quiz working it -- even one whose own rows were not touched.
  *
- * @param before - The expressions as they stood, or null when the quiz is only now coming into being.
- * @param after - The expressions as they now stand.
- * @returns One change, `widgets ~expressions`, or none.
+ * @param before - The widgets the quiz worked as they stood, or null when the quiz is only now coming into being.
+ * @param after - The widgets the quiz works as they now stand.
+ * @returns One change per widget added, revised or dropped, as `widgets ~dumdum`.
  *
- * @example expressionChanges([], [expression])  // => [{ scope: 'widgets', fieldkey: 'expressions', changekind: 'revised' }]
+ * @example widgetChanges([], [dumdum])  // => [{ scope: 'widgets', fieldkey: 'dumdum', changekind: 'added' }]
  */
-export function expressionChanges(before: readonly ExpressionT[] | null, after: readonly ExpressionT[]): Change[] {
-  if (before === null || UU.jsonify(before) === UU.jsonify(after)) { return [] }
-  return [{ scope: WidgetsScope, fieldkey: 'expressions', changekind: 'revised' }]
+export function widgetChanges(before: readonly WidgetT[] | null, after: readonly WidgetT[]): Change[] {
+  if (before === null) { return [] }
+  const heldFor = new Map(before.map((widget) => [widget.label, widget]))
+  const nowFor = new Map(after.map((widget) => [widget.label, widget]))
+  const moved = after.flatMap((widget): Change[] => {
+    const held = heldFor.get(widget.label)
+    if (! held) { return [{ scope: WidgetsScope, fieldkey: widget.label, changekind: 'added' }] }
+    return UU.jsonify(held) === UU.jsonify(widget) ? [] : [{ scope: WidgetsScope, fieldkey: widget.label, changekind: 'revised' }]
+  })
+  const dropped = before.filter((widget) => ! nowFor.has(widget.label)).map((widget): Change => ({ scope: WidgetsScope, fieldkey: widget.label, changekind: 'dropped' }))
+  return [...moved, ...dropped]
 }
 
 /**

@@ -2,10 +2,7 @@ import _ from 'es-toolkit/compat'
 import { defineSchema, defineTable } from 'convex/server'
 import { v as CVX, type VAny } from 'convex/values'
 import { zodOutputToConvex, zodOutputToConvexFields } from 'convex-helpers/server/zod4'
-import type { LastErrT } from '../src/models/ask'
-import { BottingValidators } from '../src/models/botting'
 import { ColumnValidators } from '../src/models/column'
-import { ExpressionValidators } from '../src/models/expression'
 import { HuntValidators } from '../src/models/hunt'
 import { HuntingValidators } from '../src/models/hunting'
 import { IdentValidators } from '../src/models/ident'
@@ -16,29 +13,35 @@ import { RealmValidators } from '../src/models/realm'
 import { ReviewValidators } from '../src/models/review'
 import { ReviewingValidators } from '../src/models/reviewing'
 import { WidgetValidators } from '../src/models/widget'
+import { WidgetedValidators, type JsonT } from '../src/models/widgeted'
+import { WidgetingValidators } from '../src/models/widgeting'
 
 // Every table's fields are its row validator's, through the bridge, which keeps each field's
-// shape, nullability and closed sets; a widget, whose row is a union of its two kinds, is a union
-// table. What the bridge cannot carry (patterns, lengths, integers,
-// and checks across fields) stays the row validator's, which every write passes first.
+// shape, nullability and closed sets; a widget, whose row is a union of its formularies, is a
+// union table. What the bridge cannot carry (patterns, lengths, integers, and checks across
+// fields) stays the row validator's, which every write passes first.
 //
-// One field is written by hand: a botting's `response`, any JSON at all, whose recursive type the
-// bridge converts at run time but TypeScript cannot follow. `tests/convex/schema.test.ts` holds it
-// to the row validator.
+// Three fields are written by hand, each any JSON at all, whose recursive type the bridge converts
+// at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
+// `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 
 const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const expressionFields  = zodOutputToConvexFields(ExpressionValidators.row.shape)
 const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
+const widgetingFields   = {
+  ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),
+  params: CVX.any() as VAny<Record<string, JsonT>>,
+}
+const widgetedFields    = {
+  ...zodOutputToConvexFields(_.omit(WidgetedValidators.row.shape, ['value', 'result_meta'])),
+  value:       CVX.any() as VAny<JsonT | null>,
+  result_meta: CVX.any() as VAny<Record<string, JsonT>>,
+}
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
 const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
-const bottingFields     = {
-  ...zodOutputToConvexFields(_.omit(BottingValidators.row.shape, ['response'])),
-  response: CVX.any() as VAny<LastErrT['response'] | null>,
-}
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
@@ -59,18 +62,18 @@ export default defineSchema({
   hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_forced_label', ['forced_label']),
   /** A division of a hunt, holding quizzes, kept in the order its hunt lists them */
   realms:      defineTable(realmFields).index('by_hunt_id_and_position', ['hunt_id', 'position']),
-  /** A calculation the hunt's quizzes can show as a column, kept in the order the author lists them */
-  expressions: defineTable(expressionFields).index('by_hunt_id_and_position', ['hunt_id', 'position']),
+  /** A reusable definition in the library every hunt shares, kept in the order the library lists them */
+  widgets:     defineTable(widgetFields).index('by_scope_and_position', ['scope', 'position']).index('by_scope_and_label', ['scope', 'label']),
   /** One trivia quiz, in the order its realm's quizzes were made */
   quizzes:     defineTable(quizFields).index('by_realm_id', ['realm_id']),
-  /** Something a quiz can show for every question: an expression put to work, or a bot put to the quiz */
-  widgets:     defineTable(widgetFields).index('by_quiz_id_and_position', ['quiz_id', 'position']),
-  /** One column of a quiz's grid, apart from the widgets they show */
+  /** One widget put to work in one quiz, in its quiz's run order */
+  widgetings:  defineTable(widgetingFields).index('by_quiz_id_and_position', ['quiz_id', 'position']).index('by_widget_label', ['widget_label']),
+  /** One column of a quiz's grid, apart from the widgetings they show */
   columns:     defineTable(columnFields).index('by_quiz_id_and_position', ['quiz_id', 'position']),
-  /** One question: only what the author writes. What bots replied lives in `bottings`. */
+  /** One question: only what the author writes. What its widgetings stored lives in `widgeteds`. */
   questions:   defineTable(questionFields).index('by_quiz_id', ['quiz_id']),
-  /** One time a bot was put one of a question's texts, and what came back. Never revised. */
-  bottings:    defineTable(bottingFields).index('by_question_id_and_bot_label_and_textkind', ['question_id', 'bot_label', 'textkind']),
+  /** What one widgeting came to for one question, for a formulary that stores: appended, never revised */
+  widgeteds:   defineTable(widgetedFields).index('by_question_id_and_widgeting_id', ['question_id', 'widgeting_id']).index('by_widgeting_id', ['widgeting_id']),
   /** One ident's review of one quiz. Hidden from the smiths until shared. */
   reviews:     defineTable(reviewFields).index('by_quiz_id', ['quiz_id']).index('by_quiz_id_and_ident_id', ['quiz_id', 'ident_id']),
   /** One review's verdict on one question, made the first time the reviewer writes to it */

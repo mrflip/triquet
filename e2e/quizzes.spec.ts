@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { actDangerously, closeManage, expect, faceOf, grid, holderOf, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { actDangerously, addColumns, addWidgetings, closeManage, expect, faceOf, grid, holderOf, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 /** The label the open quiz answers to, as the gear's dialog has it; the dialog must be open */
 async function quizLabelOf(page: Page): Promise<string> {
@@ -99,6 +99,8 @@ test('a smith deletes the last quiz and its hunt, typing the hunt\'s label, and 
 })
 
 test('a locked quiz accepts no edits, but stays readable and copyable', async ({ page }) => {
+  await addWidgetings(page, ['dumdum'])
+  await addColumns(page, ['chains_to'])
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await expect(page.getByText('Locked', { exact: true })).toBeVisible()
 
@@ -108,8 +110,7 @@ test('a locked quiz accepts no edits, but stays readable and copyable', async ({
   await expect(clueing).toBeEnabled()
   await expect(page.getByRole('combobox', { name: 'Chains to' }).first()).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Renumber Q#' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Recalculate all ishes' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Ask Quick-model guess' }).first()).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Ask Dumdum' }).first()).toBeDisabled()
 
   // Exporting still works.
   await expect(page.getByRole('textbox', { name: 'Copy for Sheets' })).toHaveValue(/Which region\?/)
