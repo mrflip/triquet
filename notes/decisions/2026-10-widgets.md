@@ -116,8 +116,11 @@ export type Formulary = {
 * **`config`** is validated by the formulary in the sense that each formulary reports its schema;
   the schemas themselves live in `src/models/widget.ts` (`WidgetValidators.jsonataConfig`,
   `aibotConfig`), so the row validator is whole without importing the formularies.
-* **`advice`** generalizes `src/lib/formula-prompt.ts` to every formulary (thread 4): it says in
-  words what shape the author wants back, since no result schema exists this sprint.
+* **`advice`** generalizes `src/lib/formula-prompt.ts` to every formulary (thread 4): one
+  composition, `src/lib/formulary/advice.ts`, around what each formulary says (`AdviceSpec`: its
+  preamble, what its formula reads, what it should come to, its constraints). It says in words what
+  shape the author wants back, since no result schema exists this sprint: for a prompt, that the
+  prompt itself must name the object it wants.
 * **One lookup**, `src/lib/formulary/formularies.ts`, maps a widget's `formulary` to its class. The
   runner, `src/lib/formulary/runner.ts`, walks a quiz's widgetings in run order and yields, per
   widgeting label and per question, the widgeted as read (`WidgetedT`, below), as
@@ -239,6 +242,9 @@ cost of that is `notes/database-decisions.md`'s memoization item, not this sprin
 * a view a column can show of a question, `QuestionViewVals` in `src/models/column.ts`, which
   after thread 3 is `butnot` alone (*`butnot_ishes`*, below);
 * `question`, `QuestionWidgetLabel`, the questions' own fields in a column's source.
+* `forced_label`, the key a question carries in the hunt export and the import beside its own
+  fields (`src/models/hunt.ts`, `src/models/import.ts`): a widgeting under it would have its flat
+  widgeted overwrite it and break the re-import. Added by the rewidgeting sprint's thread-3 review.
 
 The set is derived from those lists in one place and never written out as a second list.
 `src/lib/vv/patterns.ts` imports nothing, on purpose, so it gains a builder beside `Label` that
@@ -291,9 +297,8 @@ it wants.
 * The items keep today's ish shape (`IshValidators.ishItem`: `text`, `value`, `kind` of `numeral`
   or `wordish`), and numnum's prompts change only their last line, from "a JSON array" to
   `{"items": [...]}`.
-* Dumdum's prompt today asks for an answer on one line and an explanation on the next; its value
-  keeps both. Thread 3's temporary mapping from today's `guess` job splits the old reply at its
-  first line break; thread 4's prompt asks for the object outright.
+* Dumdum's prompt asks for the object outright (thread 4); thread 3's temporary mapping, which
+  split the old one-line answer at its first line break, is gone.
 * The inputs trim, as the asked text is trimmed today, and come to nothing for a blank text, so a
   blank text is not asked about. A new `aibot` widget still starts from the Coach's
   `{ 'clueing': qn.clueing }`.
@@ -443,7 +448,25 @@ clean break makes renaming in place safe; any reader of an old action log should
 * **The ask route** stays the one server function. Its contract becomes a rendered prompt, a model
   tier and token room in, a vetted JSON object out (thread 4). A free-form relay is more abusable
   than three fixed jobs: `Approval` and the credentials check stay as strict, the prompt's size is
-  bounded as well as the reply's, and rate limiting moves closer.
+  bounded as well as the reply's, and rate limiting moves closer. As built:
+  - **The browser renders the prompt**, with mustache (`src/lib/ask/prompts.ts`), over the input
+    formula's object as plain JSON (a JSONata function is dropped, never called): HTML escaping is
+    off, and a value that is not a string fills in as its JSON. A template that does not parse, or
+    a prompt longer than `Promptish` (16000 characters), is recorded as a failure and asks nothing.
+  - **The request** (`AskContract.askRequest`) is `{ prompt, servicelabel, model_tier, max_tokens }`:
+    the prompt and the widget's config, each held to the same bounds as the widget's own. The
+    service names whose credential the check reads.
+  - **The route** puts the prompt to the tier's model, streamed, with one line of system prompt
+    asking for a single JSON object and nothing else. Structured outputs cannot hold an open
+    object, and the current models refuse a prefill, so the answer is read as text: a code fence
+    around it is forgiven; prose, a list or a scalar is `unreadable`; an answer the room ran out
+    in is `cutShort`, a new failure kind whose sentence says to give the widget more tokens.
+  - **The vetting** (`src/lib/ask/replies.ts`) clips every string to `Textish`'s 3600 characters
+    and refuses, as `unreadable`, a control character in any string, a key the database would
+    refuse (`Replykey`: printable ASCII, not opening with `$`), nesting past 16 levels or a level
+    of more than 2000 items (`ReplyShape`), and a reply past `WidgetedJson`'s 40000 characters.
+  - **The reply** is `{ ok: true, value, truncated, model_tier_applied, approx_tokens }`; the
+    browser records `value` as the widgeted's, the rest as its `result_meta`.
 * **Two editors with two scopes** (thread 6): the widgeting editor from the quiz page, and the
   widget editor from the library, so the author always knows which they are in.
 
