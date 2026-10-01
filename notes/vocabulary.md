@@ -158,7 +158,7 @@ words above.
   `qn_label`, `quiz_label`, and the running widgeting's `params` and `widgeting_label`. No ids;
   everything by label. It is **flat**: each earlier widgeting's widgeted sits at `qn.<label>`,
   beside the question's own fields, and likewise on every question of `qns`. `hunt` and `realm`
-  are where the quiz sits, its **place** (`Expressed.placeOf`), which the quiz's history also
+  are where the quiz sits, its **place** (`Runner.placeOf`), which the quiz's history also
   files it under.
 * **reserved** -- the labels no widgeting may take, so the flat bag never shadows a question's
   own field: every key a question has in the bag (its exposed fields, and `rank`), its views, and
