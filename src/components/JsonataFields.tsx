@@ -67,8 +67,10 @@ export function JsonataFields({ hunt, library, openQuiz, draft, onChange, labelE
 
   const syntaxIssue = draft.formula === '' ? null : Formulas.check(draft.formula)
   const lengthIssue = draft.formula.length > Formulas.FormulaMax ? `should be at most ${String(Formulas.FormulaMax)} characters` : null
+  // A widget the library holds is previewed over its own input; a new one over the default.
+  const input_formula = library.find((widget) => widget.label === draft.label)?.input_formula ?? JsonataDefaultInput
   const preview: LiveRun = bag
-    ? JsonataFormulary.run({ formula: draft.formula, input_formula: JsonataDefaultInput }, null, bag)
+    ? JsonataFormulary.run({ formula: draft.formula, input_formula }, null, bag)
     : { widgeted: Widgeted.missing, stops: false }
 
   return (
