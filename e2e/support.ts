@@ -146,6 +146,18 @@ export function freshIdentLabel(): string {
 }
 
 /**
+ * A label for a widget of the calling spec's own. The library is every hunt's, and every spec
+ * shares one database, so a spec that changes the library changes only widgets it made. Letters
+ * only after the stem, so the column a widgeting of it brings is titled word by word.
+ *
+ * @example freshWidgetLabel('spare')  // => 'spare_dkgbhfae', say
+ */
+export function freshWidgetLabel(stem: string): string {
+  const tail = crypto.randomUUID().replaceAll('-', '').slice(0, 8).replaceAll(/\d/g, (digit) => 'ghijklmnop'.charAt(Number(digit)))
+  return `${stem}_${tail}`
+}
+
+/**
  * Say who this browser is at the front door, and wait to be sent on to the hunts.
  *
  * @param label - The ident to become; a fresh one when omitted.

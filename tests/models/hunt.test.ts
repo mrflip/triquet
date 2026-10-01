@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Hunt, HuntValidators } from '../../src/models/hunt'
-import { Expression, SeedExpressions } from '../../src/models/expression'
-import { defaultLayoutFor } from '../../src/models/layout'
+import { defaultLayout } from '../../src/models/layout'
 import { Quiz, type QuizDNA } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
-import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 
 /** A hunt of one realm, `home`, holding `quizzes` */
@@ -34,14 +32,6 @@ describe('Hunt.fill', () => {
     const realms = Array.from({ length: 100 }, (_unused, idx) => ({ _id: mintId(), label: `realm_${String(idx)}`, quizzes: [Quiz.blank()] }))
     expect(Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms: realms.slice(0, 99) }).realms).to.have.lengthOf(99)
     expect(() => Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms })).to.throw(Z.ZodError)
-  })
-
-  it(`holds ${String(PA.ExpressionsPerHunt.max)} expressions, and refuses one more`, () => {
-    const expressions = Array.from({ length: PA.ExpressionsPerHunt.max + 1 }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
-    const most = homeHolding([Quiz.blank()], { expressions: expressions.slice(0, PA.ExpressionsPerHunt.max) })
-    const tooMany = homeHolding([Quiz.blank()], { expressions })
-    expect(Hunt.fill(most).expressions).to.have.lengthOf(PA.ExpressionsPerHunt.max)
-    expect(() => Hunt.fill(tooMany)).to.throw(Z.ZodError)
   })
 
   const Refused: [object, string][] = [
@@ -75,11 +65,15 @@ describe('Hunt.blank', () => {
     expect([hunt.label, hunt.title, present(realm).label, present(quiz).label, present(quiz).title]).to.deep.eq(['quiet_otter', 'Quiet Otter', 'home', 'quiet_otter', 'Quiet Otter'])
   })
 
-  it('starts with the standard expressions, its quiz showing the standard columns', () => {
+  it('starts its quiz with the default widgetings, showing the standard columns', () => {
     const hunt = Hunt.blank()
-    const layout = defaultLayoutFor(SeedExpressions)
-    expect(hunt.expressions).to.deep.eq([...SeedExpressions])
-    expect([Hunt.quizzesOf(hunt)[0]?.widgets, Hunt.quizzesOf(hunt)[0]?.columns]).to.deep.eq([layout.widgets, layout.columns])
+    const layout = defaultLayout()
+    expect([Hunt.quizzesOf(hunt)[0]?.widgetings, Hunt.quizzesOf(hunt)[0]?.columns]).to.deep.eq([layout.widgetings, layout.columns])
+  })
+
+  it('holds no widgets of its own, which are the library\'s', () => {
+    expect(Hunt.blank()).not.to.have.property('expressions')
+    expect(Hunt.blank()).not.to.have.property('widgets')
   })
 
   it('mints a label when it is given none', () => {
@@ -87,33 +81,21 @@ describe('Hunt.blank', () => {
   })
 })
 
-describe('Hunt.fill with expressions', () => {
-  const quiz = Quiz.blank('Quiz one')
-  const widget = { kind: 'expressing' as const, label: 'lettered', expression_label: 'answer_letter_count' }
-  const expression = Expression.fill({ label: 'answer_letter_count', formula: '$length(qn.full_answer)' })
+describe('Hunt.fill with widgetings', () => {
+  const quiz = { ...Quiz.blank('Quiz one'), widgetings: [{ widget_label: 'answer_letter_count', label: 'lettered' }] }
 
-  it('accepts a widget naming an expression the hunt holds', () => {
-    const hunt = Hunt.fill(homeHolding([{ ...quiz, widgets: [widget] }], { expressions: [expression] }))
-    expect(Hunt.quizzesOf(hunt)[0]?.widgets).to.have.length(1)
+  it("takes a quiz's widgetings whatever widgets they name, which the library rather than the hunt holds", () => {
+    const [filled] = Hunt.quizzesOf(Hunt.fill(homeHolding([quiz])))
+    expect(filled?.widgetings.map((widgeting) => widgeting.label)).to.deep.eq(['lettered'])
   })
 
-  it('refuses a widget naming an expression the hunt does not hold, saying which widget', () => {
-    const outcome = HuntValidators.hunt.safeParse(homeHolding([{ ...quiz, widgets: [widget] }]))
-    expect(outcome.success).to.be.false
-    expect(outcome.error?.issues[0]?.path).to.deep.eq(['realms', 0, 'quizzes', 0, 'widgets', 0, 'expression_label'])
-  })
-
-  it('refuses two expressions sharing an owner and a label', () => {
-    expect(() => Hunt.fill(homeHolding([quiz], { expressions: [expression, { ...expression, formula: '1' }] }))).to.throw(Z.ZodError)
-  })
-
-  it('defaults to holding no expressions', () => {
-    expect(Hunt.fill(homeHolding([quiz])).expressions).to.deep.eq([])
+  it("drops expressions, which a hunt no longer holds", () => {
+    expect(Hunt.fill(homeHolding([quiz], { expressions: [{ label: 'answer_letter_count', formula: '1' }] }))).not.to.have.property('expressions')
   })
 })
 
 describe('Hunt.exposed', () => {
-  it('is its label and its title, and neither its id, its realms nor its expressions', () => {
+  it('is its label and its title, and neither its id nor its realms', () => {
     expect(Hunt.exposed).to.deep.eq(['label', 'title'])
   })
 })

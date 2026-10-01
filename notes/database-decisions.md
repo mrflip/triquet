@@ -232,7 +232,14 @@ is a query of its own, so a text edit costs about 3 KiB and the session's mix ab
 4. ~~Cheaper reads, when bandwidth matters~~: done the same day. Each action reads what it
    needs, and each question is its own query.
 5. Memoize the grid's formulas by question: on a large quiz the recompute on every redelivery,
-   not the network, is most of the wait (about 70 ms of 200 at 60 questions).
+   not the network, is most of the wait (about 70 ms of 200 at 60 questions). Since October
+   2026 the work is `Runner.runQuiz` (`src/lib/formulary/runner.ts`), and its shape is W
+   widgetings by Q questions: each `jsonata` cell evaluates its input formula and then its
+   formula, each `aibot` cell its input formula, and each widgeting copies every question's bag
+   entry once to add its widgeted, so later widgetings see it. Run order makes a widgeting depend
+   on everything before it, so a cache keyed by question alone is not enough: the key is the
+   question's own fields plus whatever its input formula read, which is what the deferred
+   staleness digest (`notes/decisions/2026-10-widgets.md`) computes anyway.
 
 ## Where this leaned (2026-09-27)
 

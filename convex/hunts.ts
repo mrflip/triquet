@@ -7,7 +7,7 @@ import { IdentingValidators } from '../src/models/identing'
 import type { HuntT } from '../src/models/hunt'
 import { zMutation, zQuery } from './functions'
 import { mayPerform, mayReadHunt, roleOn } from './authorize'
-import { expressionUsageOf, huntForLabel, huntingsFor, huntRowsOf, identFor, membersOf, realmsOf, wholeHuntOf } from './reading'
+import { huntForLabel, huntingsFor, huntRowsOf, identFor, membersOf, realmsOf, wholeHuntOf } from './reading'
 import { perform as performAction } from './writing/perform'
 
 const { label, zid, zod } = ValidatorKit
@@ -31,8 +31,8 @@ export const list = zQuery({
 
 /**
  * The hunt answering to `hunt_label`, for the ident the browser `browser_key` is now. Someone on
- * it is shown it as a quiz's screen holds it: its realms with their quizzes' rows, its expressions
- * with how many widgets work each, who is on it, and their own role. Someone not on it is shown
+ * it is shown it as a quiz's screen holds it: its realms with their quizzes' rows, who is on it,
+ * and their own role. Someone not on it is shown
  * only that, and its smiths, who could add them. Says so when no hunt answers to the label.
  */
 export const open = zQuery({
@@ -44,7 +44,7 @@ export const open = zQuery({
     if (role === null) { return { why: 'notOnHunt', hunt: null, smiths: smithsOf(members) } }
     const rows = await huntRowsOf(ctx.db, hunt._id)
     if (! rows) { return { why: 'noSuchHunt', hunt: null } }
-    return { why: null, hunt: shallowHuntOf(rows, await expressionUsageOf(ctx.db, rows.realms), members, role) }
+    return { why: null, hunt: shallowHuntOf(rows, members, role) }
   },
 })
 

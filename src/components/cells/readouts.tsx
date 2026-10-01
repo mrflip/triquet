@@ -1,47 +1,114 @@
 'use client'
 
 import clsx from 'clsx'
+import { ErrBadge } from './ErrBadge'
 import { CellNotices } from '../../lib/notices'
-import type { Expressed } from '../../lib/expressed'
+import { Widgeted, type JsonT, type WidgetedT } from '../../models/widgeted'
 import styles from '../workbench.module.css'
 
+export type WidgetedReadoutProps = {
+  /** What the widgeting came to for this question */
+  widgeted: WidgetedT
+  /** Whether the column has room to say why a formula failed */
+  wide:     boolean
+  /** The tallest the cell may be, which is the height of the row */
+  heightPx: number
+}
+
 /**
- * One computed cell: a number, some text, a muted dash for nothing, or a warning when the formula failed.
+ * One worked-out cell: a number, some text, a muted dash for nothing, or a warning when the formula failed.
  *
  * A number wraps only between thousands groups -- `3,000,000` may break after either comma and
- * never inside a group, and takes no extra width when it does not need to break at all. A value
- * worked out from something since edited is greyed and italic rather than dropped. The cell
- * scrolls inside the row: a computed column never makes its row taller.
- *
- * @param reading - What the expressing came to for this question.
- * @param wide - Whether the column has room to say why a formula failed.
- * @param heightPx - The tallest the cell may be, which is the height of the row.
+ * never inside a group, and takes no extra width when it does not need to break at all. Any other
+ * value shows as its JSON. The cell scrolls inside the row: a worked-out column never makes its
+ * row taller.
  */
-export function ExpressedReadout({ reading, wide, heightPx }: Readonly<{ reading: Expressed, wide: boolean, heightPx: number }>) {
+export function WidgetedReadout({ widgeted, wide, heightPx }: Readonly<WidgetedReadoutProps>) {
   return (
     <ReadonlyCell heightPx={heightPx}>
-      <div className={reading.status === 'value' && typeof reading.val === 'number' ? styles.sum : styles.expressedText}>
-        <ExpressedBody reading={reading} wide={wide} />
+      <div className={widgeted.status === 'ok' && typeof widgeted.value === 'number' ? styles.sum : styles.expressedText}>
+        <WidgetedBody widgeted={widgeted} wide={wide} />
       </div>
     </ReadonlyCell>
   )
 }
 
-/** The inside of a computed cell */
-function ExpressedBody({ reading, wide }: Readonly<{ reading: Expressed, wide: boolean }>) {
-  if (reading.status === 'nothing') { return <span className={styles.muted}>{CellNotices.nothingExpressed}</span> }
-  if (reading.status === 'error') {
+export type WidgetedAskCellProps = {
+  /** What the widgeting came to for this question */
+  widgeted: WidgetedT
+  /** How its value was come by (`result_meta` of the row it came from); null when there is no value */
+  meta:     Readonly<Record<string, JsonT>> | null
+  /** What the cell is called, for "Ask ..." */
+  label:    string
+  /** Whether an ask for this cell is in flight; nothing stores a "thinking" state */
+  asking:   boolean
+  /** A question whose input comes to nothing is not asked about at all */
+  askable:  boolean
+  locked:   boolean
+  /** Why the widgeting cannot be asked, when it cannot; the cell says so instead of inviting an ask */
+  notice:   string | null
+  heightPx: number
+  onAsk:    () => void
+}
+
+/**
+ * A cell asked from: what a prompt came to and how (its tier, whether it was cut short, about how
+ * many tokens), or the invitation to ask, with a warning mark for a failure. Double-click, or
+ * Enter, to ask again.
+ */
+export function WidgetedAskCell({ widgeted, meta, label, asking, askable, locked, notice, heightPx, onAsk }: Readonly<WidgetedAskCellProps>) {
+  return (
+    <div className={styles.askWrap}>
+      <AskableCell label={label} locked={locked || ! askable || notice !== null} heightPx={heightPx} onAsk={onAsk}>
+        {asking ? <span className={styles.muted}>{CellNotices.thinking}</span> : <AskedBody widgeted={widgeted} meta={meta} notice={notice} />}
+      </AskableCell>
+      {widgeted.err ? <ErrBadge err={widgeted.err} /> : null}
+    </div>
+  )
+}
+
+/** The value, the failure, or the invitation -- whichever an asked cell is holding */
+function AskedBody({ widgeted, meta, notice }: Readonly<Pick<WidgetedAskCellProps, 'widgeted' | 'meta' | 'notice'>>) {
+  if (widgeted.status === 'missing') { return <span className={styles.muted}>{notice ?? CellNotices.askable}</span> }
+  if (widgeted.status === 'errored') {
     return (
-      <span className={styles.muted} title={reading.message} role="img" aria-label={`The formula failed: ${reading.message}`}>
-        {CellNotices.expressedError}{wide ? ` ${reading.message}` : ''}
+      <>
+        <div>{widgeted.err.message}</div>
+        <div className={styles.metaline}>{CellNotices.retry}</div>
+      </>
+    )
+  }
+  return (
+    <>
+      <div className={styles.expressedText}>{Widgeted.textOf(widgeted)}</div>
+      <div className={styles.metaline}>{metalineOf(meta ?? {})}</div>
+    </>
+  )
+}
+
+/** How a value was come by, in a few words: its tier, whether it was cut short, about how many tokens */
+function metalineOf(meta: Readonly<Record<string, JsonT>>): string {
+  const tier = typeof meta.model_tier_applied === 'string' ? meta.model_tier_applied : ''
+  const truncated = meta.truncated === true ? ` ${CellNotices.truncated}` : ''
+  const tokens = typeof meta.approx_tokens === 'number' ? ` · ~${String(meta.approx_tokens)} tok` : ''
+  return `${tier}${truncated}${tokens}`
+}
+
+/** The inside of a worked-out cell */
+function WidgetedBody({ widgeted, wide }: Readonly<Omit<WidgetedReadoutProps, 'heightPx'>>) {
+  if (widgeted.status === 'missing') { return <span className={styles.muted}>{CellNotices.nothingExpressed}</span> }
+  if (widgeted.status === 'errored') {
+    const { message } = widgeted.err
+    return (
+      <span className={styles.muted} title={message} role="img" aria-label={`The formula failed: ${message}`}>
+        {CellNotices.expressedError}{wide ? ` ${message}` : ''}
       </span>
     )
   }
-  const stale = reading.stale ? styles.stale : undefined
-  if (typeof reading.val !== 'number') { return <span className={stale} data-stale={reading.stale || undefined}>{String(reading.val)}</span> }
-  const groups = reading.val.toLocaleString('en-US').split(',')
+  if (typeof widgeted.value !== 'number') { return <span>{Widgeted.textOf(widgeted)}</span> }
+  const groups = widgeted.value.toLocaleString('en-US').split(',')
   return (
-    <span className={stale} data-stale={reading.stale || undefined}>
+    <span>
       {groups.map((group, idx) => (
         <span key={`${group}-${String(idx)}`}>
           {idx > 0 ? ',' : ''}

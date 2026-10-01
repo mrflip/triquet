@@ -5,10 +5,11 @@ import * as Z from 'zod'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
-import { identForLabel, realmsOf, wholeHuntOf } from '../../convex/reading'
+import { identForLabel, libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
 import { mintId } from '../../src/lib/ids'
+import { widgetFrom } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
-import type { ExpressionT } from '../../src/models/expression'
+import type { WidgetT } from '../../src/models/widget'
 import type { HuntActionDNA, OpenQuizT } from '../../src/models/actions'
 import type { HuntRole } from '../../src/models/hunting'
 import type { QuizT } from '../../src/models/quiz'
@@ -30,19 +31,19 @@ export function openTester(): Tester {
 }
 
 /**
- * A hunt whose one realm holds `quizzes`, in that order, with `expressions`; its label is minted.
+ * A hunt whose one realm holds `quizzes`, in that order; its label is minted.
  *
  * @example huntHolding([Quiz.blank('Quiz one')])
  */
-export function huntHolding(quizzes: readonly QuizT[], expressions: readonly ExpressionT[] = []): HuntT {
-  return Hunt.fill({ _id: mintId(), label: `hunt_${mintId().slice(-8)}`, realms: [{ _id: mintId(), label: 'home', quizzes: [...quizzes] }], expressions: [...expressions] })
+export function huntHolding(quizzes: readonly QuizT[]): HuntT {
+  return Hunt.fill({ _id: mintId(), label: `hunt_${mintId().slice(-8)}`, realms: [{ _id: mintId(), label: 'home', quizzes: [...quizzes] }] })
 }
 
-/** A seeded hunt as a test reads it back: the hunt, its home realm's quizzes, its expressions, and which quiz the test has open */
+/** A seeded hunt as a test reads it back: the hunt, its home realm's quizzes, the library, and which quiz the test has open */
 export type Seen = {
   hunt:         HuntT
   quizzes:      QuizT[]
-  expressions:  ExpressionT[]
+  library:      WidgetT[]
   open_quiz_id: string
 }
 
@@ -93,7 +94,8 @@ export async function putOn(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'iden
 
 /**
  * `hunt`, written into rows in `tt`, with one smith on it (the ident labelled `opts.smith`,
- * `seed_smith` by default) and the quiz at `opts.openIdx` of its first realm open.
+ * `seed_smith` by default) and the quiz at `opts.openIdx` of its first realm open. The library is
+ * given whichever seed widgets it lacks, so a fixture's widgetings of them work.
  *
  * @example const { act, read } = await seedHunt(openTester(), Hunt.blank())
  */
@@ -110,7 +112,9 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
   const smith = await join(smithlabel, 'smith')
   const read = async (): Promise<Seen> => {
     const now = await wholeHunt(tt, hunt_id)
-    return { hunt: now, quizzes: present(now.realms[0]).quizzes, expressions: now.expressions, open_quiz_id: open.quiz_id }
+    const rows = await tt.run(async (ctx) => await libraryOf(ctx.db))
+    const library = rows.map((row) => widgetFrom(row))
+    return { hunt: now, quizzes: present(now.realms[0]).quizzes, library, open_quiz_id: open.quiz_id }
   }
   const act = async (action: HuntActionDNA, browser_key: string = smith.browser_key) => {
     await tt.mutation(api.hunts.perform, { open, action, browser_key })
