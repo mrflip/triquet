@@ -3,6 +3,8 @@
 The running handoff for `rewidgeting-plan.md`, newer than the plan wherever they disagree.
 Workers add their sections below the table, newest first.
 
+**Sprint done, 2026-10-01**: eight threads, PRs #67 to #74 stacked in that order, none merged.
+
 ## Status
 
 | Thread | Label | Status |
@@ -14,7 +16,7 @@ Workers add their sections below the table, newest first.
 | 5 | Status | complete: PR #71, stacked on #70 (reviewed: fixed) |
 | 6 | Views | complete: PR #72, stacked on #71 (reviewed: fixed) |
 | 7 | The basic set and the catalogue | complete: PR #73, stacked on #72 (reviewed: clean) |
-| 8 | Entry widgets | complete: PR #74, stacked on #73 |
+| 8 | Entry widgets | complete: PR #74, stacked on #73 (reviewed: fixed) |
 
 ## Thread 8: Entry widgets (2026-10-01)
 
@@ -78,6 +80,14 @@ migration); no `convex/_generated/` churn.
   width; a seeded entry), and HUMAN-whatsup's *Moving hint, alt_text and notes into entries*
   (recommendation: `hint` stays core). No lint or type suppressions added; one `as` in
   `Widget.fill`.
+
+*Review:* fixed. Kept `2e80b19`: an import read entry values under a widgeting label even when the
+paste said the label works another widget, so a pasted aibot `{ status: 'ok', value }` overwrote what a
+person typed, and a pasted `errored` skipped the whole question; such labels now stay out of the
+entry map. The upsert, `enter_widgeted`'s kind check, `record_widgeted`'s append-only refusal,
+`entryKindFixed` and `enterImported` read sound. Left, minor: a very small or large number shows in
+exponent form in a number entry; typing only spaces into an empty text entry sends a no-op write and
+the spaces stay in the box.
 
 ## Thread 7: The basic set and the catalogue (2026-10-01)
 

@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 8 underway.** Threads 1 (PR #67, docs only), 2 (#68), 3 (#69), 4 (#70), 5 (#71), 6 (#72) and 7 (#73) done.
+**Status: done.** PRs #67 (docs only), #68, #69, #70, #71, #72, #73 and #74, stacked in that order; none merged.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -463,6 +463,13 @@ picker or a fixture.
 > or `notes` off the question row: that is a data move, and a later call. Record in
 > HUMAN-whatsup what moving them would take.
 
+*Orchestrator:* **done, PR #74** (review: one `fix:` kept). `src/lib/formulary/entry.ts` (`store:
+upsert`, `refresh` null, kind fixed once made), `cells/entry.tsx`, `enter_widgeted` and `upsertWidgeted`
+(one indexed read; replace, insert, or delete on null), `record_widgeted` now append-only,
+`EntryFields.tsx`. Entry values ride the hunt import now (YOLO decision 11). `notes` stays a question
+field; HUMAN-whatsup sets out what moving `hint`, `alt_text`, `notes` would take (recommends `hint`
+stays core).
+
 *Gloss.* The `entry` formulary, the upsert mutation, a cell built from the existing field
 editors (`src/components/cells/fields.tsx`, `use-draft`), the widget editor's `entry` arm, and
 `HUMAN-whatsup.md`.
@@ -503,6 +510,10 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
 9. *(Thread 4 review's minor finding.)* Thread 6 refuses the triple-brace and `&` mustache tags in
    `templateIssue` rather than writing a custom mustache writer: `{{name}}` already renders every
    value as JSON with escaping off, so nothing is lost.
+11. *(Thread 8, accepted.)* Entry values ride the hunt import now, merged as a question's own field
+    is (a value replaces, null empties), ahead of PR #66: what a person typed is theirs to take out
+    and bring back. `aibot` replies still wait on #66. An emptied entry cell deletes its row and reads
+    `missing`.
 10. *(Thread 7, accepted.)* The starter set's `label` is the question's label as the Title column
     already shows it, not a column of its own (which would need a read-only source and show it twice).
 
@@ -540,6 +551,10 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
   headed by its label titleized (*Butnot Ishes*) rather than the widget's title (*BUT NOT ishes*) --
   switch?; a new widgeting's column lands after Notes on a lean quiz. Older: a taken label gets a
   random suffix in the columns editor but `_2` in the widgeting editor.
+* Thread 8's: importing entry values ahead of #66 (decision 11); an emptied cell reads `missing`;
+  every entry column starts 170px wide; whether to seed a generic entry widget (none now, so the
+  picker's *Entries* group starts empty); moving `notes`/`alt_text` (not `hint`) into entries, per
+  HUMAN-whatsup.
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 
