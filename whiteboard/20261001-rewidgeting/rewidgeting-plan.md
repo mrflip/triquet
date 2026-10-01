@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 2 underway.** Thread 1 done (PR #67, docs only).
+**Status: thread 3 underway.** Threads 1 (PR #67, docs only) and 2 (PR #68) done.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -210,6 +210,12 @@ place the prompt left loose, so each goes in the PR's flag list:
 > order); the old `qn.guess`, `qn.clueing_ishes` and `qn.hint_ishes` stay as aliases until
 > thread 3 removes them. Tests mirror the new module. No schema change, no row change.
 
+*Orchestrator:* **done, PR #68** (reviewed twice: one `fix:` kept, one flagged finding fixed on
+resume). Pulled forward and struck from later threads: the status projection (`Runner.widgetedFrom`,
+thread 5), per-widgeting counts (`Runner.statusCounts`, thread 6), and from thread 3 the formulary
+kinds and config validators, `WidgetedT`, the bag's `params` and `widgeting_label`, the seeded
+`aibot` input formulas and value shapes.
+
 *Gloss.* New `src/lib/formulary/` (or thread 1's name) with `tests/lib/formulary/` mirroring
 it; reads `src/models/widget.ts` (today's union of expressings and bottings) as the stand-in
 for widgetings, and `bottings` rows for stored widgeteds. Touches the grid's cells, the
@@ -266,6 +272,18 @@ commits so each passes is worth effort; one PR for the schema change is the rule
 
 *Look-ahead*:
 
+* **From thread 2** (its progress section has the detail):
+  - Replace `Standins.sourceOf` with a `RunSource` built from the new tables; callers change only
+    that argument. `standins.ts` is the one file meant to go.
+  - `LibraryWidgetT` becomes `WidgetT` as `src/models/widget.ts` is redefined.
+  - Delete the `{ value, stale }` riders: `LiveRun.stale`, `QuizRun.stale`, `Runner.isStale`.
+  - **The bots' cells lose their source.** `GuessCell` and `IshesCell` read the question's reply
+    fields, which go here. Point them at `WidgetedT` (and `result_meta`), or pull thread 5's single
+    cell body forward (`WidgetedReadout` in `cells/readouts.tsx` already shows any `WidgetedT`);
+    the worker's call, declared.
+  - The hunt's JSON export (`exporting.ts`) and the git table's per-botting fields start reading
+    the runner once the reserved pattern exists.
+  - `result_meta.reply_text` holds dumdum's verbatim reply; store it as one more key.
 * **Seed the per-quiz widgetings by what columns name, not by "has none"** -- as the note
   refines it: a quiz with no widgetings whose columns name *any* of the default set gets the
   *whole* default set; a lean quiz gets nothing. The default list lives in `src/models/seeds.ts`,
@@ -319,8 +337,8 @@ generalized into every formulary's `advice`, `notes/stack.md` for `mustache`.
 
 ### 5. Status
 
-> `ok`, `errored`, `missing`, projected in one place (the runner) from the newest `ok` row and
-> any newer `errored` row. One cell body for every widgeted: a scalar as text, anything else
+> ~~`ok`, `errored`, `missing`, projected in one place (the runner) from the newest `ok` row and
+> any newer `errored` row.~~ *(Built in thread 2.)* One cell body for every widgeted: a scalar as text, anything else
 > through the existing `JsonFold`; one badge for `err`; `refresh: click` cells are askable,
 > others read-only. Sorts read `value`; the sheet and export write it. Retire the per-cell
 > special cases (`guess.tsx`, `ishes.tsx`, the butnot-ishes mirror as a special cell), the
@@ -328,12 +346,14 @@ generalized into every formulary's `advice`, `notes/stack.md` for `mustache`.
 > list of spans shows as folded JSON rather than its current prose list; a nicer presentation
 > for a list of items is a later nicety, not this thread's.
 
+*Orchestrator:* the projection itself was built in thread 2 (`Runner.widgetedFrom`); struck below.
+
 *Gloss.* `src/components/cells/` (a new single widgeted cell; `guess.tsx`, `ishes.tsx` and the
 butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`, the sortings,
 `exporting`, `sheets`. If thread 2 built the projection, this thread is views and deletions.
 
-*Look-ahead*: thread 6's Widgets panel counts ok, errored and missing per widgeting: expose
-those counts from the runner (or a pure helper beside it) here, so the panel only reads them.
+*Look-ahead*: thread 6's Widgets panel counts ok, errored and missing per widgeting;
+`Runner.statusCounts` (thread 2) already gives them.
 
 ### 6. Views
 
@@ -347,6 +367,8 @@ those counts from the runner (or a pure helper beside it) here, so the panel onl
 > used*: the quiz's widgetings in run order, each with its formulary, its formula or prompt
 > readable, its advice button, and counts of ok, errored and missing. MUI first, per
 > `notes/views.md`.
+
+*Orchestrator:* the panel's counts come from `Runner.statusCounts` (thread 2); only the view is left.
 
 *Gloss.* `src/components/WidgetsEditor.tsx` becomes the widgeting editor; `ExpressionsModal`
 becomes the widget editor (thread 4 may have started it); `src/state/widget-edit.ts` splits
@@ -401,11 +423,18 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
    seeded `jsonata` widget (its view retires), dumdum's value as `{ guess, explanation }`, numnum's
    as `{ items }`, a third formulary fact `store`, and pub-widget edits under `mayChangeHunt`.
 5. *(Thread 1, accepted.)* Imports keep pasted values per open PR #66, into empty cells only.
+6. *(Thread 2 review, flagged.)* Dumdum's botting keeps its reply verbatim: the raw text rides in
+   `result_meta.reply_text` and `Standins.bottingOf` prefers it. Adopted over rewording the
+   validators' "verbatim" promise, so a partial landing of #68 loses nothing.
 
 ## For the Coach
 
 * Thread 1's minor questions, answered by YOLO for now (above), yours to overturn: `butnot_ishes`
   as a seeded widget; dumdum's `{ guess, explanation }`; the reading of #66.
+* Thread 2's: three `eslint-disable-next-line @typescript-eslint/no-extraneous-class` on classes
+  of statics (`JsonataFormulary`, `AibotFormulary`, `Widgeted`), or an `allowStaticOnly` override
+  for `src/lib/formulary/**`, your pick; and `CLAUDE.md` still names the deleted `Expressed` as an
+  example namespace (`Runner` would do).
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 
