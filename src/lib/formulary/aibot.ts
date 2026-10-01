@@ -147,10 +147,13 @@ export function textOf(input: Record<string, unknown>, seeded: Pick<SeededAsk, '
   return typeof text === 'string' ? text : ''
 }
 
-/** An answer, as the widgeted to record: dumdum's as its guess and explanation, numnum's as its spans */
+/** An answer, as the widgeted to record: dumdum's as its guess and explanation (its reply verbatim in `result_meta`), numnum's as its spans */
 function answeredRecord(reply: GuessReplyT | IshesReplyT): WidgetedRecordT {
   const value: JsonT = reply.job === 'guess' ? guessValueOf(reply.text) : { items: reply.items }
-  const result_meta = { model_tier_applied: reply.model_tier_applied, approx_tokens: reply.approx_tokens, truncated: reply.truncated }
+  const result_meta = {
+    model_tier_applied: reply.model_tier_applied, approx_tokens: reply.approx_tokens, truncated: reply.truncated,
+    ...(reply.job === 'guess' && { reply_text: reply.text }),
+  }
   return { status: 'ok', value, message: null, result_meta }
 }
 

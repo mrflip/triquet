@@ -59,8 +59,12 @@ there was nothing to replay.
   - **A widgeting whose label matches a key a question already has in the bag** (its exposed
     fields, `rank`, the three aliases) is left out of the bag, never shadowing the question's own
     field. Thread 3's reserved pattern makes this unreachable.
-  - **Dumdum's reply** is split into `{ guess, explanation }`, each trimmed. Recording it as a
-    botting joins the two with one line break.
+  - **Dumdum's reply** is split into `{ guess, explanation }` for the bag, each trimmed. The
+    answered record also keeps the reply verbatim in `result_meta.reply_text`, and
+    `Standins.bottingOf` records that as the botting's `reply_text`, so the botting stays verbatim
+    as `models/botting.ts` promises (the reviewer's finding, fixed on the branch). Thread 3 may
+    store `result_meta.reply_text` as one more key of the free bag. Thread 4's JSON-object route
+    makes it moot.
   - **`useBots().unavailableNotice` takes a widget** and checks its `config.servicelabel`
     against the bots route's statuses. The notice text is unchanged.
 * **Deviations**:
