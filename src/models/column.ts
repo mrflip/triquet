@@ -1,5 +1,6 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
+import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
 /** What a column's source calls the questions' own fields: `question.title`. No widgeting may be labelled this. */
@@ -12,6 +13,19 @@ export type QuestionField = typeof QuestionFieldVals[number]
 /** Read-only things a column can show that are worked out from a question and the one it chains to */
 export const QuestionViewVals = ['butnot'] as const
 export type QuestionView = typeof QuestionViewVals[number]
+
+/** The header a column showing one of the question's own fields or views goes by unless retitled */
+export const QuestionSourceTitles: Readonly<Record<QuestionField | QuestionView, string>> = {
+  title:       'Title',
+  clueing:     'Clueing',
+  hint:        'Hint',
+  chains_to:   'Chains to',
+  qnum:        'Q#',
+  alt_text:    'Alt Text',
+  notes:       'Notes',
+  full_answer: 'Full Answer',
+  butnot:      'BUT NOT',
+}
 
 /** What a column shows: a question field, a view of a question, or what a widgeting came to */
 export type Source =
@@ -103,6 +117,32 @@ export function sourceOf(source: string): Source {
   const view = QuestionViewVals.find((each) => each === fieldname)
   if (view) { return { kind: 'view', view } }
   return { kind: 'field', field: QuestionFieldVals.find((each) => each === fieldname) ?? 'title' }
+}
+
+/**
+ * The label and title a new column showing `source` takes when the author gives neither: a
+ * question's field or view under its own name and usual header, a widgeting under its label,
+ * titleized.
+ *
+ * @param source - A validated column source.
+ * @returns The label and the title.
+ *
+ * @example namesFor('question.chains_to')  // => { label: 'chains_to', title: 'Chains to' }
+ * @example namesFor('clueing_full')        // => { label: 'clueing_full', title: 'Clueing Full' }
+ */
+export function namesFor(source: string): { label: string, title: string } {
+  const named = sourceOf(source)
+  switch (named.kind) {
+  case 'field': {
+    return { label: named.field, title: QuestionSourceTitles[named.field] }
+  }
+  case 'view': {
+    return { label: named.view, title: QuestionSourceTitles[named.view] }
+  }
+  case 'widgeting': {
+    return { label: named.label, title: Labelmaker.titleize(named.label) }
+  }
+  }
 }
 
 /** What a sort memory says when it was last put in the order of a column */

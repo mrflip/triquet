@@ -1,4 +1,4 @@
-import { Column, type ColumnT } from './column'
+import { Column, QuestionSourceTitles, QuestionWidgetLabel, type ColumnT, type QuestionField } from './column'
 import type { WidgetingT } from './widgeting'
 
 /** A quiz's widgetings and columns: what it works out, and how it lays that out */
@@ -7,10 +7,19 @@ export type Layout = {
   columns:    ColumnT[]
 }
 
+/** The question fields a new quiz shows, in order, and how wide each column starts */
+const StarterColumns: readonly (readonly [QuestionField, number])[] = [
+  ['title',       160],
+  ['qnum',         60],
+  ['clueing',     330],
+  ['full_answer', 220],
+  ['notes',       220],
+]
+
 /**
  * The widgetings and columns a new quiz starts with: none of the first, and a column for each
- * question field every quiz writes. The question's label rides under its title, in the Title
- * column, as it always has.
+ * question field every quiz writes, under the field's own label and usual header. The question's
+ * label rides under its title, in the Title column, as it always has.
  *
  * The rest is opt-in: the library's widgets through the widgeting editor, and the hint, the
  * chain and the alt text, which every question still holds, through the columns editor.
@@ -21,12 +30,6 @@ export type Layout = {
  * @example defaultLayout().widgetings  // => []
  */
 export function defaultLayout(): Layout {
-  const columns = [
-    ['title',       'Title',       'question.title',       160],
-    ['qnum',        'Q#',          'question.qnum',         60],
-    ['clueing',     'Clueing',     'question.clueing',     330],
-    ['full_answer', 'Full Answer', 'question.full_answer', 220],
-    ['notes',       'Notes',       'question.notes',       220],
-  ].map(([label, title, source, width_px]) => Column.fill({ label: String(label), title: String(title), source: String(source), width_px: Number(width_px) }))
+  const columns = StarterColumns.map(([field, width_px]) => Column.fill({ label: field, title: QuestionSourceTitles[field], source: `${QuestionWidgetLabel}.${field}`, width_px }))
   return { widgetings: [], columns }
 }
