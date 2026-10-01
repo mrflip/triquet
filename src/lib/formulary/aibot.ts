@@ -1,38 +1,30 @@
 import * as UU from '../useful'
-import * as Errs from '../ask/errs'
+import * as PA from '../vv/patterns'
+import * as Prompts from '../ask/prompts'
+import * as Formulas from '../formulas'
 import { askModel } from '../ask/port'
 import { AskFailureNotices } from '../notices'
 import { JsonataFormulary } from './jsonata'
-import { AibotDefaultInput, WidgetValidators, type WidgetT } from '../../models/widget'
-import type { AskFailedT, AskRequestDNA, GuessReplyT, IshesReplyT, Textkind } from '../ask/contract'
+import { advicePrompt, type AdviceSpec } from './advice'
+import { AibotDefaultInput, WidgetValidators, type AibotWidgetT, type WidgetT } from '../../models/widget'
+import type { AskDoneT, AskFailedT } from '../ask/contract'
 import type { JsonT, WidgetedRecordT } from '../../models/widgeted'
 import type { WidgetingT } from '../../models/widgeting'
 import type { AdviceSubject, AskedT, InputOutcome } from './formularies'
 import type { QuizBag } from './runner'
 
-/** Which of the ask route's fixed asks one seeded `aibot` widget is put as, until the route takes a rendered prompt */
-export type SeededAsk = {
-  job:      'guess' | 'ishes'
-  /** Which of the question's texts it is put, and so which key of its input holds it */
-  textkind: Textkind
-}
-
-/**
- * The three seeded `aibot` widgets, by label, and the fixed ask each is put as: a temporary
- * mapping, while the ask route still takes fixed asks rather than a rendered prompt. Any other
- * `aibot` widget cannot be asked yet.
- */
-export const SeededAsks: Readonly<Record<string, SeededAsk>> = {
-  dumdum:         { job: 'guess', textkind: 'clueing' },
-  numnum_clueing: { job: 'ishes', textkind: 'clueing' },
-  numnum_hint:    { job: 'ishes', textkind: 'hint' },
-}
+/** What a widget's prompt comes to for one question: the prompt to send, or why there is none */
+export type RenderedPrompt =
+  | { status: 'ok',      input: Record<string, JsonT>, prompt: string }
+  | { status: 'missing' }
+  /** `input` is what the prompt would have been rendered over: null when the input itself failed */
+  | { status: 'errored', message: string, input: Record<string, JsonT> | null }
 
 /**
  * The formulary of a prompt put to a model, asked from the cell and appended to its history:
  * what a bot was.
  *
- * Its input formula comes to the small object the prompt is filled in from; an input of
+ * Its input formula comes to the small object the prompt template is rendered over; an input of
  * nothing is not asked about. It is never run on render: the runner reads what was recorded.
  */
 // A class of statics with no instances, as every formulary is.
@@ -45,20 +37,22 @@ export class AibotFormulary {
   static readonly config = WidgetValidators.aibotConfig
 
   /**
-   * Whether the widget can be asked: a prompt, and an input formula that reads. Null when it
-   * can, else a sentence naming the problem.
+   * Whether the widget can be asked: a prompt that reads as a template, and an input formula
+   * that reads. Null when it can, else a sentence naming the problem.
    *
    * @example AibotFormulary.check({ formula: '', input_formula: '$', ... })  // => 'The prompt is empty'
    */
   static check(widget: Pick<WidgetT, 'formula' | 'input_formula'>): string | null {
     const inputIssue = JsonataFormulary.check({ formula: '$', input_formula: widget.input_formula })
     if (inputIssue !== null) { return inputIssue }
-    return widget.formula.trim() === '' ? 'The prompt is empty' : null
+    if (widget.formula.trim() === '') { return 'The prompt is empty' }
+    const templateIssue = Prompts.templateIssue(widget.formula)
+    return templateIssue === null ? null : `The prompt: ${templateIssue}`
   }
 
   /**
-   * What the prompt is filled in from for the question `bag` is for: its input formula worked
-   * out, which must come to an object, or to nothing.
+   * What the prompt is rendered over for the question `bag` is for: its input formula worked out,
+   * which must come to an object, or to nothing. The object is plain JSON.
    *
    * @param widget - Its input formula.
    * @param bag - The question's bag, as the widgeting sees it.
@@ -68,34 +62,53 @@ export class AibotFormulary {
    */
   static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
     const outcome = JsonataFormulary.input(widget, bag)
-    if (outcome.status !== 'ok' || isObject(outcome.input)) { return outcome }
-    return { status: 'errored', message: 'The input formula has to come to an object, for the prompt to be filled in from', stops: false }
+    if (outcome.status !== 'ok') { return outcome }
+    if (! isObject(outcome.input)) { return { status: 'errored', message: 'The input formula has to come to an object, for the prompt to be filled in from', stops: false } }
+    return { status: 'ok', input: Formulas.plainJson(outcome.input) as JsonT }
+  }
+
+  /**
+   * The prompt the widget puts to the model for the question `bag` is for: its template rendered
+   * over its input. Nothing, for an input of nothing; a failure, for an input or a template that
+   * fails, or a prompt too long to send.
+   *
+   * @param widget - Its prompt and its input formula.
+   * @param bag - The question's bag, as the widgeting sees it.
+   * @returns The prompt and what it was rendered over, or why there is none.
+   *
+   * @example AibotFormulary.prompt({ formula: 'Q: {{clueing}}', input_formula: "{ 'clueing': qn.clueing }" }, bag)  // => { status: 'ok', input: { clueing: 'Who?' }, prompt: 'Q: Who?' }
+   */
+  static prompt(widget: Pick<WidgetT, 'formula' | 'input_formula'>, bag: QuizBag): RenderedPrompt {
+    const outcome = this.input(widget, bag)
+    if (outcome.status === 'missing') { return outcome }
+    if (outcome.status === 'errored') { return { status: 'errored', message: outcome.message, input: null } }
+    const input = outcome.input as Record<string, JsonT>
+    const templateIssue = Prompts.templateIssue(widget.formula)
+    if (templateIssue !== null) { return { status: 'errored', message: `The prompt: ${templateIssue}`, input } }
+    const prompt = Prompts.renderPrompt(widget.formula, input)
+    if (prompt.length > PA.Promptish.max) {
+      return { status: 'errored', message: `The prompt comes to ${String(prompt.length)} characters, more than the ${String(PA.Promptish.max)} a prompt may run to`, input }
+    }
+    return { status: 'ok', input, prompt }
   }
 
   /**
    * Put the widget's prompt to the model for the question `bag` is for, and hand back what to
    * record. Never throws: a failure comes back as an `errored` widgeted to record.
    *
-   * The seeded widgets are put as the ask route's fixed asks (`SeededAsks`), with the text their
-   * input holds; the route fills in the prompt.
-   *
    * @param widget - The widget.
    * @param widgeting - The widgeting working it.
    * @param bag - The question's bag, as the widgeting sees it.
-   * @returns What it was put and what came of it; null when its input came to nothing, or failed, and so nothing was asked.
+   * @returns What it was put and what came of it; null when its input came to nothing, or failed, and so nothing was asked. A prompt that cannot be sent is recorded as a failure, asking nothing.
    *
-   * @example await AibotFormulary.run(dumdum, widgeting, bag)  // => { input: { clueing: 'Who?' }, widgeted: { status: 'ok', value: { guess: 'Leon', explanation: '' }, ... } }
+   * @example await AibotFormulary.run(dumdum, widgeting, bag)  // => { input: { clueing: 'Who?' }, widgeted: { status: 'ok', value: { guess: 'Leon', explanation: '...' }, ... } }
    */
-  static async run(widget: WidgetT, widgeting: WidgetingT, bag: QuizBag): Promise<AskedT | null> {
-    const outcome = this.input(widget, bag)
-    if (outcome.status !== 'ok') { return null }
-    const input = outcome.input as Record<string, unknown>
-    const seeded = SeededAsks[widget.label]
-    if (! seeded) { return { input, widgeted: failedRecord({ ok: false, failurekind: 'unavailable' }) } }
-    const reply = await askModel(requestFor(seeded, input))
-    const failed = Errs.failureOf(reply, seeded.job)
-    if (failed !== null || ! reply.ok) { return { input, widgeted: failedRecord(failed ?? { ok: false, failurekind: 'unreadable' }) } }
-    return { input, widgeted: answeredRecord(reply) }
+  static async run(widget: AibotWidgetT, widgeting: WidgetingT, bag: QuizBag): Promise<AskedT | null> {
+    const rendered = this.prompt(widget, bag)
+    if (rendered.status === 'missing' || (rendered.status === 'errored' && rendered.input === null)) { return null }
+    if (rendered.status === 'errored') { return { input: rendered.input ?? {}, widgeted: unaskedRecord(rendered.message) } }
+    const reply = await askModel({ prompt: rendered.prompt, ...widget.config })
+    return { input: rendered.input, widgeted: reply.ok ? answeredRecord(reply) : failedRecord(reply) }
   }
 
   /**
@@ -108,55 +121,14 @@ export class AibotFormulary {
    */
   static advice(widget: WidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
     const input = sample === null ? null : this.input(widget, sample)
-    return [
-      AdvicePreamble,
-      ['## What I am after', ...aboutLines(widget, widgeting)].join('\n'),
-      promptSection(widget.formula),
-      inputSection(widget.input_formula, input),
-      AdviceReply,
-    ].join('\n\n')
+    return advicePrompt(adviceSpec(widget.input_formula, input, widgeting), widget, widgeting)
   }
 }
 
-/**
- * Dumdum's reply as its value: the guess on the first line, the explanation after it, each
- * trimmed.
- *
- * @param text - The reply as it came back.
- *
- * @example guessValueOf('Leon\nThe lion of the name.')  // => { guess: 'Leon', explanation: 'The lion of the name.' }
- * @example guessValueOf('Leon')                       // => { guess: 'Leon', explanation: '' }
- */
-export function guessValueOf(text: string): { guess: string, explanation: string } {
-  const breakIdx = text.indexOf('\n')
-  if (breakIdx === -1) { return { guess: text.trim(), explanation: '' } }
-  return { guess: text.slice(0, breakIdx).trim(), explanation: text.slice(breakIdx + 1).trim() }
-}
-
-/** The fixed ask a seeded widget is put as, with the text its input holds */
-function requestFor(seeded: SeededAsk, input: Record<string, unknown>): AskRequestDNA {
-  const text = textOf(input, seeded)
-  return seeded.job === 'guess' ? { job: 'guess', clueing: text } : { job: 'ishes', textkind: seeded.textkind, text }
-}
-
-/**
- * The text an input holds for a seeded ask: the value under its textkind, or nothing.
- *
- * @example textOf({ clueing: 'Who?' }, SeededAsks.dumdum)  // => 'Who?'
- */
-export function textOf(input: Record<string, unknown>, seeded: Pick<SeededAsk, 'textkind'>): string {
-  const text = input[seeded.textkind]
-  return typeof text === 'string' ? text : ''
-}
-
-/** An answer, as the widgeted to record: dumdum's as its guess and explanation (its reply verbatim in `result_meta`), numnum's as its spans */
-function answeredRecord(reply: GuessReplyT | IshesReplyT): WidgetedRecordT {
-  const value: JsonT = reply.job === 'guess' ? guessValueOf(reply.text) : { items: reply.items }
-  const result_meta = {
-    model_tier_applied: reply.model_tier_applied, approx_tokens: reply.approx_tokens, truncated: reply.truncated,
-    ...(reply.job === 'guess' && { reply_text: reply.text }),
-  }
-  return { status: 'ok', value, message: null, result_meta }
+/** An answer, as the widgeted to record: the object the model answered with, and how it ran */
+function answeredRecord(reply: AskDoneT): WidgetedRecordT {
+  const result_meta = { model_tier_applied: reply.model_tier_applied, approx_tokens: reply.approx_tokens, truncated: reply.truncated }
+  return { status: 'ok', value: reply.value, message: null, result_meta }
 }
 
 /** A failed ask, as the widgeted to record: the author's sentence, and the reply as it came back */
@@ -164,42 +136,36 @@ function failedRecord(failed: AskFailedT): WidgetedRecordT {
   return { status: 'errored', value: null, message: AskFailureNotices[failed.failurekind], result_meta: { response: failed } }
 }
 
+/** A prompt that could not be sent, as the widgeted to record: why, in the author's words */
+function unaskedRecord(message: string): WidgetedRecordT {
+  return { status: 'errored', value: null, message, result_meta: {} }
+}
+
 /** Whether an input is an object a prompt can be filled in from */
 function isObject(val: unknown): boolean {
   return typeof val === 'object' && val !== null && ! Array.isArray(val)
 }
 
-const AdvicePreamble = `I use a small quiz-editing tool. In it, a column can be filled for every question of a quiz by putting a prompt to a language model, one question at a time. The prompt is a template: each \`{{name}}\` in it is replaced by that key of a small JSON object, its input, worked out for the question. The model is asked for a JSON object, which the tool keeps as the cell's value. I would like your help with the prompt for one such column.`
-
-const AdviceReply = `## How to reply
-Ask me anything you need to first. Once we have settled it, send the prompt alone: no code fence, no explanation before or after, so I can paste it straight into the prompt box. It should say in words what JSON object it wants back.`
-
-/** The widget and widgeting, in the author's own words, leaving out whatever is blank */
-function aboutLines(widget: WidgetT, widgeting: AdviceSubject | null): string[] {
-  const facts = [
-    ['The column\'s title',                widgeting?.title],
-    ['The widgeting\'s label',             widgeting?.label],
-    ['What the widgeting is for here',     widgeting?.description],
-    ['The widget\'s label',                widget.label],
-    ['What the widget works out',          widget.description],
-  ]
-    .map(([title, text]) => [title, (text ?? '').trim()])
-    .filter(([, text]) => text !== '')
-    .map(([title, text]) => `- ${String(title)}: ${String(text)}`)
-  return facts.length === 0 ? ['I have not written anything down about it yet; I will describe it as we go.'] : facts
-}
-
-/** The current prompt, offered neutrally, or the request for one */
-function promptSection(formula: string): string {
-  if (formula.trim() === '') { return ['## The prompt', 'There is no prompt yet. Please write one.'].join('\n') }
-  return ['## The prompt', 'Here is what we have now: a starting point, something half-done, or something to revise or replace.', '', '```', formula, '```'].join('\n')
-}
-
-/** What the prompt is filled in from, and one real input when there is one */
-function inputSection(input_formula: string, input: InputOutcome | null): string {
-  return [
-    '## What the prompt is filled in from',
-    `The input is worked out by this JSONata expression: \`${input_formula}\`.`,
-    ...(input?.status === 'ok' ? ['', 'For one real question it comes to:', '', '```json', UU.jsonify(input.input, { pretty: true }), '```'] : []),
-  ].join('\n')
+/** What a prompt's advice prompt says of prompts */
+function adviceSpec(input_formula: string, input: InputOutcome | null, widgeting: AdviceSubject | null): AdviceSpec {
+  const label = widgeting?.label ?? '<label>'
+  return {
+    preamble: 'I use a small quiz-editing tool. In it, a column can be filled for every question of a quiz by putting a prompt to a language model, one question at a time. The prompt is a mustache template, filled in for each question from a small JSON object, its input. The model is asked for a JSON object, which the tool keeps as the cell\'s value. I would like your help with the prompt for one such column.',
+    noun:     'prompt',
+    reads:    [
+      '## What the prompt is filled in from',
+      `The input is worked out by this JSONata expression: \`${input_formula}\`. Each \`{{name}}\` in the prompt is replaced by that key of the input: a string as it is, anything else as its JSON. \`{{#items}}...{{/items}}\` repeats its body for each item of a list, reading the item's own keys inside it.`,
+      ...(input?.status === 'ok' ? ['', 'For one real question it comes to:', '', '```json', UU.jsonify(input.input, { pretty: true }), '```'] : []),
+    ].join('\n'),
+    comesTo: [
+      '## What the answer should be',
+      'The tool asks the model for a single JSON object, and keeps whatever object comes back. Nothing checks its keys or their values, so the prompt itself has to say in words which object it wants: each key, and what it holds, as in `{"guess": string, "explanation": string}`, ideally at the end of the prompt.',
+      `A column worked out after this one reads the object as \`qn.${label}.value\`, so keys that are plain words read best.`,
+    ].join('\n'),
+    constraints: [
+      `At most ${String(PA.Textish.max)} characters of template, and at most ${String(PA.Promptish.max)} once filled in.`,
+      'Nothing in the template is HTML-escaped: `{{name}}` is enough.',
+      'A key the input lacks fills in as nothing, so name only what the input holds.',
+    ],
+  }
 }

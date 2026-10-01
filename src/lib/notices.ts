@@ -20,6 +20,7 @@ export const AskFailureNotices = {
   declined:       'Claude declined to answer this one.',
   emptyAnswer:    'Got an empty answer — try again.',
   unreadable:     "Couldn't read that as structured data — try again.",
+  cutShort:       'The answer ran out of room before it finished — give the widget more tokens.',
   accountOff:     'Asking Claude is off for this account.',
   sessionExpired: 'Sign in again to keep asking Claude.',
   connection:     'A connection hiccup — try again.',

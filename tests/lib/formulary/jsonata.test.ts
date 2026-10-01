@@ -107,5 +107,32 @@ describe('JsonataFormulary', () => {
       expect(text).to.include('$uppercase(qn.title)')
       expect(text).to.include('"full_answer": "Leon"')
     })
+
+    it('always carries the input schema and the output schema', () => {
+      const text = JsonataFormulary.advice({ label: '', description: '', formula: '' }, null, null)
+      expect(text).to.include('"qns"')
+      expect(text).to.include('$$.qn')
+      expect(text).to.include('"widgeting_label"')
+      expect(text).to.include('JSON Schema')
+      expect(text).to.include('## What the formula returns')
+      expect(text).to.include('There is no formula yet. Please write one.')
+    })
+
+    it('tells how to read a widgeted from an earlier column, and no longer how to mark a value stale', () => {
+      const text = JsonataFormulary.advice({ label: '', description: '', formula: '' }, null, null)
+      expect(text).to.include('`{ status, value, err }`')
+      expect(text).to.include('qn.numnum_clueing.value.items')
+      expect(text).to.not.include('stale')
+    })
+
+    it('shows no real input without a question', () => {
+      expect(JsonataFormulary.advice({ label: 'shout', description: '', formula: '1' }, null, null)).to.not.include('For example, `qn` for one real question')
+    })
+
+    it('states the length limit the tool enforces, and asks for the formula alone', () => {
+      const text = JsonataFormulary.advice({ label: 'shout', description: '', formula: '1' }, null, null)
+      expect(text).to.include('At most 999 characters')
+      expect(text).to.include('send the formula alone')
+    })
   })
 })

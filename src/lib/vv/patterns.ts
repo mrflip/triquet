@@ -93,6 +93,8 @@ export const Noteish  = { ...Textish } as const satisfies Patternbag
 export const Blobbish = { ...Textish, max: 800_800 } as const satisfies Patternbag
 /** A formula is prose a person types and reads back, so it takes what `Textish` takes and stops at a screenful */
 export const Formulaish = { ...Textish, max: 999 } as const satisfies Patternbag
+/** A prompt as it is put to a model: a template's screenful, filled in from a question's texts, and no more */
+export const Promptish = { ...Textish, max: 16_000 } as const satisfies Patternbag
 export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
 
 //
@@ -101,6 +103,10 @@ export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
 
 /** A widgeted's value, and the free bag of how it ran: room for a long list of spans, short of a document */
 export const WidgetedJson = { max: 40_000, msg: 'is too large to keep' } as const satisfies Patternbag
+/** A key of a model's reply object, as the database will keep one: printable ASCII, not opening with `$` */
+export const Replykey     = { re: /^(?!\$)[\u{20}-\u{7E}]*$/u, max: 200, msg: 'is not a key the tool can keep' } as const satisfies Patternbag
+/** How deep a model's reply object may nest, and how many items or keys any one level of it may hold */
+export const ReplyShape   = { depth: 16, items: 2000 } as const
 /** What a widgeting hands its widget: a few settings */
 export const ParamsJson   = { max: 4000, msg: 'is too large to keep' } as const satisfies Patternbag
 

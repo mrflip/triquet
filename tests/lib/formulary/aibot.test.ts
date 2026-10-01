@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AibotFormulary, SeededAsks, guessValueOf, textOf } from '../../../src/lib/formulary/aibot'
+import { AibotFormulary } from '../../../src/lib/formulary/aibot'
 import * as Runner from '../../../src/lib/formulary/runner'
 import { askModel } from '../../../src/lib/ask/port'
 import { Question } from '../../../src/models/question'
@@ -50,26 +50,48 @@ describe('AibotFormulary', () => {
       expect(AibotFormulary.check(widgetOf('dumdum'))).to.be.null
       expect(AibotFormulary.check({ ...widgetOf('dumdum'), formula: '  ' })).to.eq('The prompt is empty')
       expect(AibotFormulary.check(widgetOf('dumdum', '{'))).to.match(/^The input formula: /)
+      expect(AibotFormulary.check({ ...widgetOf('dumdum'), formula: 'Q: {{clueing' })).to.match(/^The prompt: Unclosed tag/)
+    })
+  })
+
+  describe('prompt', () => {
+    it('is the template rendered over the input', () => {
+      expect(AibotFormulary.prompt(widgetOf('dumdum'), bag)).to.deep.eq({ status: 'ok', input: { clueing: 'Who?' }, prompt: 'Question: Who?' })
+    })
+
+    it('is missing for an input of nothing', () => {
+      expect(AibotFormulary.prompt(widgetOf('dumdum', 'qn.nothing'), bag)).to.deep.eq({ status: 'missing' })
+    })
+
+    it('fails, with no input to show, for an input that fails', () => {
+      expect(AibotFormulary.prompt(widgetOf('dumdum', 'qn.clueing'), bag)).to.deep.include({ status: 'errored', input: null })
+    })
+
+    it('fails, with its input, for a template that does not parse', () => {
+      const rendered = AibotFormulary.prompt({ ...widgetOf('dumdum'), formula: '{{#clueing}}' }, bag)
+      expect(rendered).to.deep.include({ status: 'errored', input: { clueing: 'Who?' } })
+      expect(rendered.status === 'errored' && rendered.message).to.match(/^The prompt: Unclosed section/)
+    })
+
+    it('fails for a prompt longer than may be sent', () => {
+      const rendered = AibotFormulary.prompt({ ...widgetOf('dumdum', "{ 'clueing': $pad('', 16001, 'x') }") }, bag)
+      expect(rendered.status === 'errored' && rendered.message).to.eq('The prompt comes to 16011 characters, more than the 16000 a prompt may run to')
+    })
+
+    it('hands the template plain JSON, never a function to call', () => {
+      expect(AibotFormulary.prompt({ ...widgetOf('dumdum', "{ 'shout': function($x) { $uppercase($x) } }"), formula: '[{{shout}}]' }, bag)).to.deep.include({ status: 'ok', prompt: '[]' })
     })
   })
 
   describe('run', () => {
-    it("puts a seeded widget as the route's fixed ask, with its input's text, and records the answer", async () => {
-      vi.mocked(askModel).mockResolvedValue({ ok: true, job: 'guess', text: 'Leon\nThe lion.', truncated: false, model_tier_applied: 'quick', approx_tokens: 12 })
-      const asked = await AibotFormulary.run(widgetOf('dumdum'), widgeting, bag)
-      expect(vi.mocked(askModel).mock.calls).to.deep.eq([[{ job: 'guess', clueing: 'Who?' }]])
+    it('puts the rendered prompt to the route with the widget\'s config, and records the object answered', async () => {
+      vi.mocked(askModel).mockResolvedValue({ ok: true, value: { guess: 'Leon', explanation: 'The lion.' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 12 })
+      const asked = await AibotFormulary.run(widgetOf('anybody'), widgeting, bag)
+      expect(vi.mocked(askModel).mock.calls).to.deep.eq([[{ prompt: 'Question: Who?', servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }]])
       expect(asked).to.deep.eq({
         input:    { clueing: 'Who?' },
-        widgeted: { status: 'ok', value: { guess: 'Leon', explanation: 'The lion.' }, message: null, result_meta: { model_tier_applied: 'quick', approx_tokens: 12, truncated: false, reply_text: 'Leon\nThe lion.' } },
+        widgeted: { status: 'ok', value: { guess: 'Leon', explanation: 'The lion.' }, message: null, result_meta: { model_tier_applied: 'quick', approx_tokens: 12, truncated: false } },
       })
-    })
-
-    it("puts numnum's text as an ishes ask, and records its spans", async () => {
-      const items = [{ text: '3', value: 3, kind: 'numeral' as const }]
-      vi.mocked(askModel).mockResolvedValue({ ok: true, job: 'ishes', items, truncated: true, model_tier_applied: 'careful', approx_tokens: 40 })
-      const asked = await AibotFormulary.run(widgetOf('numnum_clueing'), { ...widgeting, label: 'numnum_clueing' }, bag)
-      expect(vi.mocked(askModel).mock.calls).to.deep.eq([[{ job: 'ishes', textkind: 'clueing', text: 'Who?' }]])
-      expect(asked?.widgeted.value).to.deep.eq({ items })
     })
 
     it('records a failure as an errored widgeted, with the author\'s sentence and the reply as it came', async () => {
@@ -78,21 +100,21 @@ describe('AibotFormulary', () => {
       expect(asked?.widgeted).to.deep.eq({ status: 'errored', value: null, message: 'Too many requests right now — try again shortly.', result_meta: { response: { ok: false, failurekind: 'rateLimited' } } })
     })
 
-    it('records an answer to another ask as unreadable', async () => {
-      vi.mocked(askModel).mockResolvedValue({ ok: true, job: 'ishes', items: [], truncated: false, model_tier_applied: 'careful', approx_tokens: 1 })
-      const asked = await AibotFormulary.run(widgetOf('dumdum'), widgeting, bag)
-      expect(asked?.widgeted.result_meta).to.deep.eq({ response: { ok: false, failurekind: 'unreadable' } })
-    })
-
     it('asks nothing for an input of nothing', async () => {
       const asked = await AibotFormulary.run(widgetOf('dumdum', 'qn.nothing'), widgeting, bag)
       expect(asked).to.be.null
       expect(vi.mocked(askModel).mock.calls).to.have.lengthOf(0)
     })
 
-    it('records a widget this build cannot ask as unavailable, asking nothing', async () => {
-      const asked = await AibotFormulary.run(widgetOf('somebody_else'), widgeting, bag)
-      expect(asked?.widgeted.status).to.eq('errored')
+    it('asks nothing for an input that fails', async () => {
+      expect(await AibotFormulary.run(widgetOf('dumdum', 'qn.clueing'), widgeting, bag)).to.be.null
+      expect(vi.mocked(askModel).mock.calls).to.have.lengthOf(0)
+    })
+
+    it('records a prompt that cannot be sent as a failure, asking nothing', async () => {
+      const asked = await AibotFormulary.run({ ...widgetOf('dumdum'), formula: '{{#clueing}}' }, widgeting, bag)
+      expect(asked?.widgeted).to.deep.include({ status: 'errored', value: null, result_meta: {} })
+      expect(asked?.widgeted.message).to.match(/^The prompt: Unclosed section/)
       expect(vi.mocked(askModel).mock.calls).to.have.lengthOf(0)
     })
   })
@@ -100,9 +122,16 @@ describe('AibotFormulary', () => {
   describe('advice', () => {
     it('asks for the prompt, showing what it is filled in from for a real question', () => {
       const text = AibotFormulary.advice(widgetOf('dumdum'), { label: 'dumdum', description: 'The hasty guess.' }, bag)
-      expect(text).to.include('- What the widgeting is for here: The hasty guess.')
+      expect(text).to.include('- What the widgeting is for in this quiz: The hasty guess.')
       expect(text).to.include('Question: {{clueing}}')
       expect(text).to.include('"clueing": "Who?"')
+    })
+
+    it('says in words that the prompt must name the object it wants, and where a later column reads it', () => {
+      const text = AibotFormulary.advice(widgetOf('dumdum'), { label: 'dumdum', description: '' }, null)
+      expect(text).to.include('the prompt itself has to say in words which object it wants')
+      expect(text).to.include('`qn.dumdum.value`')
+      expect(text).to.include('send the prompt alone')
     })
 
     it('asks for a prompt where there is none, and shows no input without a question', () => {
@@ -111,33 +140,5 @@ describe('AibotFormulary', () => {
       expect(text).to.include('I have not written anything down about it yet')
       expect(text).to.not.include('For one real question')
     })
-  })
-})
-
-describe('SeededAsks', () => {
-  it('puts the three seeded widgets as the fixed asks the bots answer', () => {
-    expect(Object.entries(SeededAsks).map(([label, seeded]) => `${label}:${seeded.job}:${seeded.textkind}`)).to.deep.eq(['dumdum:guess:clueing', 'numnum_clueing:ishes:clueing', 'numnum_hint:ishes:hint'])
-  })
-})
-
-describe('guessValueOf', () => {
-  const Cases: [string, { guess: string, explanation: string }, string][] = [
-    ["Leon\nThe lion of the name.",   { guess: 'Leon', explanation: 'The lion of the name.' },  'the guess, then the explanation'],
-    ["Leon",                          { guess: 'Leon', explanation: '' },                       'a guess with no explanation'],
-    [" Leon \r\n  Two\nlines \n",     { guess: 'Leon', explanation: 'Two\nlines' },             'each part trimmed, the explanation kept whole'],
-    ["",                              { guess: '', explanation: '' },                           'nothing at all'],
-  ]
-  for (const [text, expected, blurb] of Cases) {
-    it(blurb, () => {
-      expect(guessValueOf(text)).to.deep.eq(expected)
-    })
-  }
-})
-
-describe('textOf', () => {
-  it('is the text under the ask\'s textkind, or nothing', () => {
-    expect(textOf({ clueing: 'Who?' }, { textkind: 'clueing' })).to.eq('Who?')
-    expect(textOf({ clueing: 3 }, { textkind: 'clueing' })).to.eq('')
-    expect(textOf({}, { textkind: 'hint' })).to.eq('')
   })
 })

@@ -1,28 +1,25 @@
-import * as Z from 'zod'
+import type * as Z from 'zod'
+import * as UU from '../useful'
+import * as PA from '../vv/patterns'
 import { Validator } from '../validator'
-import { IshValidators } from '../../models/ish'
 import { AskValidators } from '../../models/ask'
+import { WidgetValidators } from '../../models/widget'
 import type { AskFailurekind } from '../notices'
-
-/** Which text an extraction is about; picks the prompt and the placeholder */
-export const TextkindVals = ['clueing', 'hint'] as const
-export type Textkind = typeof TextkindVals[number]
 
 /** Every reason an ask can fail, named so the browser can pick the author's sentence */
 export const AskFailurekindVals = [
-  'notPermitted', 'rateLimited', 'declined', 'emptyAnswer', 'unreadable',
+  'notPermitted', 'rateLimited', 'declined', 'emptyAnswer', 'unreadable', 'cutShort',
   'accountOff', 'sessionExpired', 'connection', 'unknown', 'unavailable',
 ] as const satisfies readonly AskFailurekind[]
 
-export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, bool, lit, discrim, union }) => {
-  const textkind    = oneof(TextkindVals)
+export const AskContract = Validator(({ obj, oneof, str, uint, bool, lit, union, rec, zod }) => {
   const failurekind = oneof(AskFailurekindVals)
-  const askable     = textish.min(1)
 
-  const guessAsk = obj({ job: lit('guess'), clueing: askable })
-  const ishesAsk = obj({ job: lit('ishes'), textkind, text: askable })
-  const askRequest = discrim('job', [guessAsk, ishesAsk])
-    .describe('What the browser is asking the model for. Validated on the way in, because this is the one place in the tool where data crosses a process boundary.')
+  const prompt = str.min(1).max(PA.Promptish.max).regex(PA.Promptish.re, PA.Promptish.msg)
+    .describe('The prompt as it is put to the model: a widget\'s template, already filled in by the browser from its input.')
+
+  const askRequest = obj({ prompt, ...WidgetValidators.aibotConfig.shape })
+    .describe('What the browser is asking the model: a rendered prompt, the service it goes to, the tier of model, and how much room it has to answer. Validated on the way in, because this is the one place in the tool where data crosses a process boundary.')
 
   const failureDetail = obj({
     name:    str.max(120).optional(),
@@ -33,35 +30,28 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
 
   const askFailed = obj({ ok: lit(false), failurekind, detail: failureDetail.optional() })
 
-  const guessDone = obj({
+  const answer = rec(str, zod.json())
+    .refine((val) => UU.jsonify(val).length <= PA.WidgetedJson.max, PA.WidgetedJson.msg)
+    .describe('The JSON object the model answered with, vetted on the server before it was sent: what the cell keeps as its value.')
+
+  const askDone = obj({
     ok:                 lit(true),
-    job:                lit('guess'),
-    text:               textish,
+    value:              answer,
     truncated:          bool,
     model_tier_applied: AskValidators.model_tier,
     approx_tokens:      uint,
   })
 
-  const ishesDone = obj({
-    ok:                 lit(true),
-    job:                lit('ishes'),
-    items:              arr(IshValidators.ishItem),
-    truncated:          bool,
-    model_tier_applied: AskValidators.model_tier,
-    approx_tokens:      uint,
-  })
-
-  const askReply = union([guessDone, ishesDone, askFailed])
+  const askReply = union([askDone, askFailed])
     .describe('What came back. A failure names a kind rather than carrying a sentence, so the wording stays in one place on the browser side.')
 
-  return { textkind, failurekind, askRequest, askReply, guessDone, ishesDone, askFailed }
+  return { failurekind, prompt, askRequest, askReply, askDone, askFailed }
 })
 
 export type AskRequestDNA = Z.input<typeof AskContract.askRequest>
 export type AskRequestT   = Z.output<typeof AskContract.askRequest>
 export type AskReplyT     = Z.output<typeof AskContract.askReply>
-export type GuessReplyT   = Z.output<typeof AskContract.guessDone>
-export type IshesReplyT   = Z.output<typeof AskContract.ishesDone>
+export type AskDoneT      = Z.output<typeof AskContract.askDone>
 export type AskFailedT    = Z.output<typeof AskContract.askFailed>
 
 /** Where the browser sends an ask */

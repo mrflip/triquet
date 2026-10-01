@@ -85,3 +85,42 @@ describe('Formulas.check', () => {
     expect(Formulas.check('1 + 1')).to.be.null
   })
 })
+
+/** What `formula` comes to, as `evaluate` hands it back */
+function evaluated(formula: string): unknown {
+  const outcome = Formulas.evaluate(formula, {})
+  if (! outcome.ok) { throw new Error(outcome.message) }
+  return outcome.val
+}
+
+describe('Formulas.isFunction', () => {
+  const Cases: [string, boolean, string][] = [
+    ["function($x) { $x }",     true,  'a lambda written in the formula'],
+    ["$sum",                     true,  'a built-in function'],
+    ["{ 'sum': 3 }",             false, 'an object'],
+    ["3",                        false, 'a number'],
+  ]
+  for (const [formula, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(Formulas.isFunction(evaluated(formula))).to.eq(expected)
+    })
+  }
+})
+
+describe('Formulas.plainJson', () => {
+  it('hands on an object with a prototype, keys in the order written', () => {
+    const plain = Formulas.plainJson(evaluated("{ 'zz': 1, 'aa': [1, 2] }"))
+    expect(plain).to.deep.eq({ zz: 1, aa: [1, 2] })
+    expect(Object.keys(plain as object)).to.deep.eq(['zz', 'aa'])
+    expect(Object.getPrototypeOf(plain)).to.eq(Object.prototype)
+  })
+
+  it('leaves out a function wherever it sits', () => {
+    expect(Formulas.plainJson({ name: 'x', shout: evaluated('function($x) { $x }'), list: [evaluated('$sum')] })).to.deep.eq({ name: 'x', list: [null] })
+  })
+
+  it('is undefined for a function, or for undefined', () => {
+    expect(Formulas.plainJson(evaluated('function($x) { $x }'))).to.be.undefined
+    expect(Formulas.plainJson(undefined)).to.be.undefined
+  })
+})
