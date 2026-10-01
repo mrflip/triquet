@@ -9,6 +9,9 @@ const Unreadable = { ok: false, failurekind: 'unreadable' }
 /** `val` wrapped in `levels` single-item lists */
 const nested = (levels: number): JsonT => (levels === 0 ? 1 : [nested(levels - 1)])
 
+/** An object of `count` keys */
+const manyKeys = (count: number): JsonT => Object.fromEntries(Array.from({ length: count }, (_, idx) => [`k${String(idx)}`, 0]))
+
 describe('clipText', () => {
   it('cuts to what a textish field holds', () => {
     expect(clipText('x'.repeat(5000)).length).to.eq(3600)
@@ -53,9 +56,12 @@ describe('shapeIssue', () => {
     [{ $set: 1 },                                               'the key "$set" is not a key the tool can keep', 'a key the database reserves'],
     [{ 'été': 1 },                                              'the key "été" is not a key the tool can keep',  'a key beyond printable ASCII'],
     [{ ['k'.repeat(201)]: 1 },                                  `the key "${'k'.repeat(201)}" is not a key the tool can keep`, 'a key too long'],
-    [{ deep: nested(15) },                                      null,                                        'nesting as deep as allowed'],
-    [{ deep: nested(16) },                                      'it nests deeper than 16 levels',            'nesting past reason'],
-    [{ many: Array.from({ length: 2001 }, () => 0) },           'one level holds more than 2000 items',      'a list longer than the database would keep'],
+    [{ deep: nested(14) },                                      null,                                        'nesting as deep as allowed'],
+    [{ deep: nested(15) },                                      'it nests deeper than 15 levels',            'nesting past what the database keeps in a row'],
+    [{ many: Array.from({ length: 2000 }, () => 0) },           null,                                        'a list as long as allowed'],
+    [{ many: Array.from({ length: 2001 }, () => 0) },           'one list holds more than 2000 items',       'a list longer than the database would keep'],
+    [manyKeys(1024),                                            null,                                        'an object with as many keys as allowed'],
+    [manyKeys(1025),                                            'one object holds more than 1024 keys',      'an object with more keys than the database keeps'],
   ]
   for (const [val, expected, describes] of Cases) {
     it(describes, () => {
