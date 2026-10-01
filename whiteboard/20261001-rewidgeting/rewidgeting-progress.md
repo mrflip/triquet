@@ -13,7 +13,7 @@ Workers add their sections below the table, newest first.
 | 4 | Pasted prompts | complete: PR #70, stacked on #69 (reviewed: fixed) |
 | 5 | Status | complete: PR #71, stacked on #70 (reviewed: fixed) |
 | 6 | Views | complete: PR #72, stacked on #71 (reviewed: fixed) |
-| 7 | The basic set and the catalogue | complete: PR #73, stacked on #72 |
+| 7 | The basic set and the catalogue | complete: PR #73, stacked on #72 (reviewed: clean) |
 | 8 | Entry widgets | pending |
 
 ## Thread 7: The basic set and the catalogue (2026-10-01)
@@ -66,6 +66,9 @@ where it took 3.7. `origin/main` had not moved. No schema change, no `convex/_ge
 * **For the Coach**: the `label` column reading, and the column-title question, both above. Your
   `dev` backend's quizzes keep their layouts; only new quizzes start lean. No lint or type
   suppressions added.
+
+*Review:* clean. Nothing to fix. Left, minor and older than the thread: a taken label gets a random
+suffix in the columns editor (`appendFallback`) but `_2` in the widgeting editor (`firstFree`).
 
 ## Thread 6: Views (2026-10-01)
 
