@@ -13,7 +13,7 @@ async function stubIshes(page: Page, items: unknown[]) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ ok: true, job: 'ishes', items, truncated: false, model_tier_applied: 'careful', approx_tokens: 120 }),
+      body: JSON.stringify({ ok: true, value: { items }, truncated: false, model_tier_applied: 'careful', approx_tokens: 120 }),
     })
   })
 }

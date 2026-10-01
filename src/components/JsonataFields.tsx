@@ -9,9 +9,8 @@ import { JsonataFormulary } from '../lib/formulary/jsonata'
 import * as Runner from '../lib/formulary/runner'
 import * as Rank from '../lib/rank'
 import { Widgeted } from '../models/widgeted'
-import type { LiveRun } from '../lib/formulary/formularies'
+import type { AdviceSubject, LiveRun } from '../lib/formulary/formularies'
 import { JsonataDefaultInput, type WidgetT } from '../models/widget'
-import type { PromptSubject } from '../lib/formula-prompt'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
 import type { WidgetDraft } from '../state/widget-edit'
@@ -32,7 +31,7 @@ export type JsonataFieldsProps = {
   /** What is wrong with the label being typed, when something is */
   labelIssue:    string | null
   /** The widgeting the widget is being written for, when there is one, for the prompt */
-  widgeting:     PromptSubject['widgeting']
+  widgeting:     AdviceSubject | null
 }
 
 /**

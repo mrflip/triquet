@@ -2,7 +2,7 @@ import type * as Z from 'zod'
 import { AibotFormulary } from './aibot'
 import { JsonataFormulary } from './jsonata'
 import type { QuizBag } from './runner'
-import type { Formularykind, WidgetT } from '../../models/widget'
+import type { AibotWidgetT, Formularykind, WidgetT } from '../../models/widget'
 import type { WidgetedRecordT, WidgetedT } from '../../models/widgeted'
 import type { WidgetingT } from '../../models/widgeting'
 
@@ -71,7 +71,7 @@ export type LiveFormulary = FormularyFacts & {
 export type AskedFormulary = FormularyFacts & {
   readonly refresh: 'click'
   readonly store:   'append'
-  run: (widget: WidgetT, widgeting: WidgetingT, bag: QuizBag) => Promise<AskedT | null>
+  run: (widget: AibotWidgetT, widgeting: WidgetingT, bag: QuizBag) => Promise<AskedT | null>
 }
 
 /** One generic runner behind a widget: code, never a row */

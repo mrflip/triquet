@@ -1,6 +1,7 @@
 import * as Formulas from '../formulas'
 import * as UU from '../useful'
-import { formulaPrompt } from '../formula-prompt'
+import { advicePrompt, type AdviceSpec } from './advice'
+import { inputSchema, outputSchema } from '../../models/quiz-bag'
 import { Widgeted, type JsonT, type WidgetedT } from '../../models/widgeted'
 import { JsonataDefaultInput, WidgetValidators, type WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
@@ -87,8 +88,49 @@ export class JsonataFormulary {
    * @returns Plain text, ready to copy.
    */
   static advice(widget: Pick<WidgetT, 'label' | 'description' | 'formula'>, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
-    return formulaPrompt({ widgeting, widget, sample: sample?.qn ?? null })
+    return advicePrompt(adviceSpec(sample?.qn ?? null), widget, widgeting)
   }
+}
+
+/** What a formula's advice prompt says of formulas, with one real question's `qn` when there is one */
+function adviceSpec(sample: Record<string, unknown> | null): AdviceSpec {
+  return {
+    preamble:    'I use a small quiz-editing tool. In it, a column can be computed for every question of a quiz by a formula written in JSONata (the JavaScript reference implementation, version 1.8 -- synchronous, no async). The formula is run once per question and comes to one value, which the tool shows in that column. I would like your help with the formula for one such column.',
+    noun:        'formula',
+    reads:       readsSection(sample),
+    comesTo:     comesToSection(),
+    constraints: [
+      `At most ${String(Formulas.FormulaMax)} characters. Newlines are welcome, for laying a formula out to be read.`,
+      'Inside a predicate such as `qns[label = ...]` the context is each item, so reach the question being worked out with `$$.qn`.',
+      "JSONata's `$round` rounds halves to even; use `$floor(x + 0.5)` if halves should go up.",
+      'Prefer plain, readable JSONata over cleverness.',
+    ],
+  }
+}
+
+/** What a formula reads: the bag's schema, and one real `qn` when there is one */
+function readsSection(sample: Record<string, unknown> | null): string {
+  return [
+    '## What the formula reads',
+    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn`; `quiz`, `realm` and `hunt` are the quiz itself and where it sits. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`: read its `value` only when its `status` is `ok`, as in `qn.numnum_clueing.value.items`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
+    '',
+    '```json',
+    UU.jsonify(inputSchema(), { pretty: true }),
+    '```',
+    ...(sample === null ? [] : ['', 'For example, `qn` for one real question is:', '', '```json', UU.jsonify(sample, { pretty: true }), '```']),
+  ].join('\n')
+}
+
+/** What a formula may come to */
+function comesToSection(): string {
+  return [
+    '## What the formula returns',
+    'One value per question, matching this JSON Schema. Returning nothing (JSONata `undefined`), `null` or an empty string means "nothing to say here" and is shown as a muted dash; that is different from zero.',
+    '',
+    '```json',
+    UU.jsonify(outputSchema(), { pretty: true }),
+    '```',
+  ].join('\n')
 }
 
 /** A failure worked out just now */
@@ -98,14 +140,8 @@ function failed(message: string): WidgetedT {
 
 /** What a formula's value shows in a cell */
 function reading(val: unknown): WidgetedT {
-  if (isFunction(val)) { return failed('The formula came to a function rather than a value') }
+  if (Formulas.isFunction(val)) { return failed('The formula came to a function rather than a value') }
   return valued(val)
-}
-
-/** Whether a formula came to a function: JSONata hands one back as a marked object, or as a plain function */
-function isFunction(val: unknown): boolean {
-  if (typeof val === 'function') { return true }
-  return typeof val === 'object' && val !== null && '_jsonata_function' in val
 }
 
 /** A value as a widgeted holds it: plain JSON, and nothing for nothing */

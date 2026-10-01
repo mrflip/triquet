@@ -17,7 +17,7 @@ const QuickGuessPrompt = `You are answering a trivia question the way a fast, no
 
 Question: {{clueing}}
 
-Reply with your best short answer on one line, and brief explanation on the next.`
+Reply with only a JSON object {"guess": string, "explanation": string}: your best short answer, and a brief explanation of it. No other text.`
 
 const IshRules = `Rules:
 - A span written in digits ("300", "1990") is kind "numeral".

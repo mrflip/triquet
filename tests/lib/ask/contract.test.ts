@@ -1,68 +1,54 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { AskContract } from '../../../src/lib/ask/contract'
+import { AskContract, type AskRequestDNA } from '../../../src/lib/ask/contract'
+
+const Dumdumish: AskRequestDNA = { prompt: 'Question: Which region?', servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }
 
 describe('AskContract.askRequest', () => {
-  it('accepts a guess ask', () => {
-    expect(AskContract.askRequest({ job: 'guess', clueing: 'Which region?' }).job).to.eq('guess')
+  it('accepts a rendered prompt with its service, tier and room', () => {
+    expect(AskContract.askRequest(Dumdumish)).to.deep.eq(Dumdumish)
   })
 
-  it('accepts an extraction ask for either text', () => {
-    expect(AskContract.askRequest({ job: 'ishes', textkind: 'hint', text: 'BUT NOT 1994' }).job).to.eq('ishes')
-  })
-
-  it('refuses an ask about no text at all, which would spend usage for nothing', () => {
-    expect(() => AskContract.askRequest({ job: 'guess', clueing: '' })).to.throw(Z.ZodError)
-  })
-
-  it('refuses a batched ask, a job it no longer offers', () => {
-    expect(() => AskContract.askRequest({ job: 'bulk_ishes', items: [{ key: 'c:aa', text: 'Two' }] } as never)).to.throw(Z.ZodError)
-  })
-
-  it('refuses an extraction from a text other than the clueing or the hint', () => {
-    expect(() => AskContract.askRequest({ job: 'ishes', textkind: 'answer', text: 'Two' } as never)).to.throw(Z.ZodError)
-  })
-
-  it('refuses a job it does not offer', () => {
-    expect(() => AskContract.askRequest({ job: 'translate', clueing: 'x' } as never)).to.throw(Z.ZodError)
-  })
-
-  it('refuses text longer than a question could plausibly be', () => {
-    expect(() => AskContract.askRequest({ job: 'guess', clueing: 'x'.repeat(10_001) })).to.throw(Z.ZodError)
-  })
+  const Refused: [unknown, string][] = [
+    [{ ...Dumdumish, prompt: '' },                         'an empty prompt, which would spend usage for nothing'],
+    [{ ...Dumdumish, prompt: 'x'.repeat(16_001) },         'a prompt longer than any template filled in from a question could be'],
+    [{ ...Dumdumish, prompt: 'Who\u{0}?' },                'a prompt carrying a control character'],
+    [{ ...Dumdumish, servicelabel: 'openai' },             'a service the server holds no credentials for'],
+    [{ ...Dumdumish, model_tier: 'enormous' },             'a tier it has no model for'],
+    [{ ...Dumdumish, max_tokens: 8001 },                   'more room than any widget may ask for'],
+    [{ ...Dumdumish, max_tokens: 0 },                      'no room at all'],
+    [{ job: 'guess', clueing: 'Which region?' },           "the fixed guess job it no longer takes"],
+  ]
+  for (const [ask, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => AskContract.askRequest(ask as never)).to.throw(Z.ZodError)
+    })
+  }
 })
 
 describe('AskContract.askReply', () => {
-  it('carries a guess with its tier and cost', () => {
-    const reply = AskContract.askReply({
-      ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84,
-    })
-    expect(reply).to.deep.include({ ok: true, text: 'Leon' })
+  it('carries the object answered with, its tier and its cost', () => {
+    const reply = AskContract.askReply({ ok: true, value: { guess: 'Leon' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+    expect(reply).to.deep.include({ ok: true, value: { guess: 'Leon' } })
   })
 
   it('carries a failure as a kind, so the wording stays in one place', () => {
-    expect(AskContract.askReply({ ok: false, failurekind: 'rateLimited' }))
-      .to.deep.eq({ ok: false, failurekind: 'rateLimited' })
+    expect(AskContract.askReply({ ok: false, failurekind: 'cutShort' })).to.deep.eq({ ok: false, failurekind: 'cutShort' })
   })
 
   it('refuses a failure kind with no sentence behind it', () => {
     expect(() => AskContract.askReply({ ok: false, failurekind: 'gremlins' } as never)).to.throw(Z.ZodError)
   })
 
-  it('refuses a text missing from a batched run, which no ask can now come back as', () => {
-    expect(() => AskContract.askReply({ ok: false, failurekind: 'missingFromRun' } as never)).to.throw(Z.ZodError)
+  it('refuses an answer that is a list rather than an object', () => {
+    expect(() => AskContract.askReply({ ok: true, value: [1, 2] as never, truncated: false, model_tier_applied: 'quick', approx_tokens: 1 })).to.throw(Z.ZodError)
   })
 
-  it('refuses a batched answer, a job it no longer offers', () => {
-    expect(() => AskContract.askReply({
-      ok: true, job: 'bulk_ishes', groups: [], truncated: false, model_tier_applied: 'careful', approx_tokens: 1, text_count: 0,
-    } as never)).to.throw(Z.ZodError)
+  it('refuses an answer too large to keep', () => {
+    expect(() => AskContract.askReply({ ok: true, value: { text: 'x'.repeat(40_001) }, truncated: false, model_tier_applied: 'quick', approx_tokens: 1 })).to.throw(Z.ZodError)
   })
 
-  it('refuses an extraction item the model mangled', () => {
-    expect(() => AskContract.askReply({
-      ok: true, job: 'ishes', items: [{ text: '', value: 1, kind: 'numeral' }],
-      truncated: false, model_tier_applied: 'careful', approx_tokens: 10,
-    })).to.throw(Z.ZodError)
+  it('refuses the old job-shaped answers', () => {
+    expect(() => AskContract.askReply({ ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 } as never)).to.throw(Z.ZodError)
   })
 })

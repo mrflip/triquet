@@ -3,7 +3,7 @@ import { expect, reloadOnceSaved, stubAsk, test } from './support'
 
 const RateLimited = 'Too many requests right now — try again shortly.'
 
-const guessReply = (text: string) => ({ ok: true, job: 'guess', text, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+const guessReply = (guess: string) => ({ ok: true, value: { guess, explanation: '' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
 const failure = { ok: false, failurekind: 'rateLimited', detail: { name: 'RateLimitError', status: 429, message: 'slow down' } }
 
 /** The Quick-model guess cell of the first row */
