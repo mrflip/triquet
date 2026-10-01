@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { closeManage, expect, fillRows, openManage, test, waitUntilSaved } from './support'
+import { addWidgeting, expect, fillRows, test, waitUntilSaved } from './support'
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
@@ -30,13 +30,7 @@ test('a header row of column labels in alphabetical order, then a line per quest
 })
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
-  await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
-  await editor.getByRole('combobox', { name: 'Widget' }).click()
-  await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await closeManage(page)
+  await addWidgeting(page, 'answer_reversed')
   await expect.poll(async () => {
     const text = await sheetsText(page)
     return text.split('\n', 1)[0]?.split('\t')

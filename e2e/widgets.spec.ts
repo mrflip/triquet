@@ -1,27 +1,25 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, dragOnto, expect, freshWidgetLabel, grid, manageDialog, openManage, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
+import { addWidgeting, cellOf, closeManage, dragOnto, expect, freshWidgetLabel, grid, manageDialog, newWidgetingDialog, openManage, pickWidget, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
 
-/** Put the library's formula `widget_label` to work in the open quiz, under `label`, with the column it brings, and close the gear's dialog */
-async function addWidgeting(page: Page, widget_label: string, label = '') {
-  await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
-  await editor.getByRole('combobox', { name: 'Widget' }).click()
-  await page.getByRole('option', { name: widget_label, exact: true }).click()
-  if (label !== '') { await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label) }
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await expect(editor).toHaveCount(0)
-  await closeManage(page)
+/** The widget editor writing a new widget, open over whichever dialog opened it */
+function newWidgetDialog(page: Page) {
+  return page.getByRole('dialog', { name: /^New widget(?!ing)/ })
 }
 
-/** Write a new formula into the library, labelled `widget_label`, and put it to work in the open quiz under `label`; close the gear's dialog */
+/**
+ * Write a new formula into the library, labelled `widget_label`, through the widgeting editor's
+ * door, and put it to work in the open quiz under `label`; close the gear's dialog
+ */
 async function addNewFormula(page: Page, widget_label: string, formula: string, label: string) {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  const editor = newWidgetingDialog(page)
   await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
-  await editor.getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
+  await editor.getByRole('button', { name: 'New widget…' }).click()
+  await newWidgetDialog(page).getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
   await setFormula(page, formula)
+  await newWidgetDialog(page).getByRole('button', { name: 'Apply' }).click()
+  await expect(newWidgetDialog(page)).toHaveCount(0)
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
   await closeManage(page)
@@ -155,13 +153,19 @@ test('a formula that would never end is stopped, and the page stays usable', asy
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Still typing')
 })
 
-test('a new formula is written into the library and put to work in the same editor', async ({ page }) => {
+test('a new widget is written through the widgeting editor\'s door, and put to work at once', async ({ page }) => {
   const widget_label = freshWidgetLabel('title_length')
   await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
-  await editor.getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  const editor = newWidgetingDialog(page)
+  // The widgeting editor writes no formula itself: that is the widget editor's.
+  await expect(editor.getByRole('textbox', { name: 'Formula', exact: true })).toHaveCount(0)
+  await editor.getByRole('button', { name: 'New widget…' }).click()
+  await newWidgetDialog(page).getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
   await setFormula(page, '$length(qn.title)')
+  await newWidgetDialog(page).getByRole('button', { name: 'Apply' }).click()
+  // Back in the widgeting editor, the new widget is the one picked.
+  await expect(editor.getByRole('combobox', { name: 'Widget' })).toHaveValue(/^Title Length/)
   await editor.getByRole('button', { name: 'Apply' }).click()
   // Blank, the widgeting's label is the new widget's.
   await expect(manageDialog(page).getByRole('group', { name: `Widgeting ${widget_label}` })).toBeVisible()
@@ -178,12 +182,11 @@ test('a new formula is written into the library and put to work in the same edit
 
 test('a new widgeting keeps its label and description, and brings a column titled after it', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  const editor = newWidgetingDialog(page)
+  await pickWidget(page, editor, 'answer_reversed')
   await editor.getByRole('textbox', { name: 'Widgeting label' }).fill('backward')
   await editor.getByRole('textbox', { name: 'Widgeting description' }).fill('For the palindrome round.')
-  await editor.getByRole('combobox', { name: 'Widget' }).click()
-  await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await closeManage(page)
   await expect(page.getByRole('columnheader', { name: 'Backward' })).toBeVisible()
@@ -195,11 +198,10 @@ test('a new widgeting keeps its label and description, and brings a column title
 
 test('a label the questions already answer to is refused for a widgeting, with a reason', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  const editor = newWidgetingDialog(page)
+  await pickWidget(page, editor, 'answer_reversed')
   await editor.getByRole('textbox', { name: 'Widgeting label' }).fill('title')
-  await editor.getByRole('combobox', { name: 'Widget' }).click()
-  await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toContainText('which the questions already use')
 })
@@ -220,13 +222,13 @@ test('a column can be added for anything the quiz can show, with its own title a
   await expect(page.getByRole('columnheader', { name: 'More notes' })).toBeVisible()
 })
 
-test('a widget a widgeting works is not removed, and the alarm says why', async ({ page }) => {
+test('a widget says how far it is put to work, in every hunt, and cannot be removed while anything works it', async ({ page }) => {
   await openWidget(page, 'clueing_full')
   const used = page.getByRole('dialog', { name: 'Widget: clueing_full' })
-  await used.getByRole('button', { name: 'Remove widget' }).click()
-  await used.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('alert').filter({ hasText: 'A widgeting still works this widget' })).toBeVisible()
-  await expect(page.getByRole('group', { name: 'Widget clueing_full' })).toBeVisible()
+  // Every spec's hunt works it, so the counts depend on what else has run: at least this hunt's.
+  await expect(used.getByRole('status', { name: 'Usage' })).toContainText(/Worked by \d+ widgetings? across \d+ quizz(es)?, in \d+ hunts?\./)
+  await expect(used).toContainText('It cannot be removed while a widgeting works it.')
+  await expect(used.getByRole('button', { name: 'Remove widget' })).toHaveCount(0)
 })
 
 test('a widget nobody works asks first, and is removed', async ({ page }) => {
@@ -241,6 +243,7 @@ test('a widget nobody works asks first, and is removed', async ({ page }) => {
 
   await openWidget(page, widget_label)
   const spare = page.getByRole('dialog', { name: `Widget: ${widget_label}` })
+  await expect(spare.getByRole('status', { name: 'Usage' })).toContainText('No widgeting works it, in any hunt.')
   await spare.getByRole('button', { name: 'Remove widget' }).click()
   await spare.getByRole('button', { name: 'Keep it' }).click()
   await spare.getByRole('button', { name: 'Cancel' }).click()
@@ -252,13 +255,40 @@ test('a widget nobody works asks first, and is removed', async ({ page }) => {
 })
 
 test('a widget label the library already has is refused with a reason', async ({ page }) => {
-  await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
+  await page.getByRole('button', { name: 'Widget library' }).click()
+  await page.getByRole('button', { name: '+ New widget…' }).click()
+  const editor = newWidgetDialog(page)
   await editor.getByRole('textbox', { name: 'Widget label' }).fill('clueing_full')
   await setFormula(page, '1')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toContainText('already has that label')
+})
+
+test('the widgeting editor picks from the whole library, grouped by formulary, and finds a widget by what is typed', async ({ page }) => {
+  await openManage(page)
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  const editor = newWidgetingDialog(page)
+  await editor.getByRole('combobox', { name: 'Widget' }).click()
+  const listbox = page.getByRole('listbox')
+  for (const group of ['Formulas', 'Prompts']) { await expect(listbox.getByText(group, { exact: true })).toBeVisible() }
+  await editor.getByRole('combobox', { name: 'Widget' }).fill('reversed')
+  await expect(listbox.getByRole('option')).toHaveCount(1)
+  await expect(listbox.getByRole('option')).toContainText('answer_reversed')
+})
+
+test('a widget written in the library itself chooses its formulary first', async ({ page }) => {
+  const widget_label = freshWidgetLabel('riddler')
+  await page.getByRole('button', { name: 'Widget library' }).click()
+  await page.getByRole('button', { name: '+ New widget…' }).click()
+  const editor = newWidgetDialog(page)
+  await editor.getByRole('combobox', { name: 'Formulary' }).click()
+  await page.getByRole('option', { name: /^A prompt/ }).click()
+  await editor.getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
+  await expect(editor.getByRole('textbox', { name: 'Input formula' })).toHaveValue("{ 'clueing': qn.clueing }")
+  await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill('Riddle me {{clueing}}. Reply as {"answer": string}.')
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await expect(editor).toHaveCount(0)
+  await expect(page.getByRole('group', { name: `Widget ${widget_label}` })).toContainText('prompt')
 })
 
 test('a column is retitled in place, and everything else is behind its gear', async ({ page }) => {
@@ -449,7 +479,8 @@ test('the prompt for a chatbot is copied with the formula, the schemas and a rea
 test('a blank formula makes a prompt that asks for one', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openManage(page)
-  await page.getByRole('button', { name: '+ New formula…' }).click()
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  await newWidgetingDialog(page).getByRole('button', { name: 'New widget…' }).click()
   await page.getByRole('button', { name: 'Copy a prompt for a chatbot' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Copied' })).toBeVisible()
   const copied = await page.evaluate(() => navigator.clipboard.readText())
@@ -474,7 +505,7 @@ test('a locked quiz keeps its columns fixed, but the library can still be read a
   await page.getByRole('button', { name: 'Lock quiz' }).click()
   await openManage(page)
   await expect(page.getByRole('button', { name: '+ New column…' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: '+ New formula…' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '+ New widgeting…' })).toBeDisabled()
   await closeManage(page)
   await openWidget(page, 'answer_reversed')
   await expect(page.getByRole('textbox', { name: 'Formula', exact: true })).toBeEditable()

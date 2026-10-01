@@ -1,6 +1,7 @@
 import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
-import { NewWidget, planWidgetingEdit } from '../../../src/state/widget-edit'
+import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit } from '../../../src/state/widget-edit'
+import { planWidgetingEdit } from '../../../src/state/widgeting-edit'
 import { Question } from '../../../src/models/question'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
 import type { HuntActionDNA } from '../../../src/models/actions'
@@ -379,17 +380,15 @@ describe("the widgetings and columns of a new quiz", () => {
   })
 })
 
-describe("a widgeting editor's plan, carried out", () => {
-  it("adds the new widget to the library, the widgeting that works it, and a column showing it just before Alt Text", async () => {
+describe("the editors' plans, carried out", () => {
+  it("adds a new widget to the library, then a widgeting working it before the library's watch has brought it back, and a column showing it just before Alt Text", async () => {
     const { act, read } = await seed()
     const ante = await read()
-    const edit = {
-      widgeting: null, label: '', description: '', widgetLabel: NewWidget,
-      widget:    { label: 'title_length', description: '', formula: '$length(qn.title)' },
-    }
-    const plan = planWidgetingEdit(edit, ante.library, quizOf(ante))
+    const made = planNewWidget({ ...BlankJsonataDraft, label: 'title_length', formula: '$length(qn.title)' }, ante.library)
+    if (! made.ok) { throw new Error(made.issue) }
+    const plan = planWidgetingEdit({ widgeting: null, label: '', description: '', widgetLabel: made.widget.label }, [...ante.library, made.widget], quizOf(ante))
     if (! plan.ok) { throw new Error(plan.issue) }
-    for (const action of plan.actions) { await act(action) }
+    for (const action of [...made.actions, ...plan.actions]) { await act(action) }
     const after = await read()
     expect(after.library.at(-1)?.label).to.eq('title_length')
     expect(widgetingsOf(after).at(-1)).to.eq('title_length')
@@ -397,16 +396,17 @@ describe("a widgeting editor's plan, carried out", () => {
     expect(columns[columns.indexOf('alt_text') - 1]).to.eq('title_length')
   })
 
-  it("revises only the widget on a locked quiz, which the lock does not hold", async () => {
+  it("revises a widget from a locked quiz, which the lock does not hold, and leaves its widgetings alone", async () => {
     const { act, read } = await seed(standard(true))
     const ante = await read()
     const held = present(quizOf(ante).widgetings.find((widgeting) => widgeting.label === 'clueing_full'))
-    const edit = { widgeting: held, label: held.label, description: 'Renamed?', widgetLabel: 'clueing_full', widget: { label: 'clueing_full', description: 'Revised.', formula: '1' } }
-    const plan = planWidgetingEdit(edit, ante.library, quizOf(ante))
-    if (! plan.ok) { throw new Error(plan.issue) }
-    for (const action of plan.actions) { await act(action) }
+    const widget = present(ante.library.find((each) => each.label === 'clueing_full'))
+    const widgetPlan = planWidgetEdit({ ...draftOf(widget), description: 'Revised.', formula: '1' }, ante.library)
+    const widgetingPlan = planWidgetingEdit({ widgeting: held, label: held.label, description: 'Renamed?', widgetLabel: 'clueing_full' }, ante.library, quizOf(ante))
+    if (! widgetPlan.ok || ! widgetingPlan.ok) { throw new Error('Expected both plans') }
+    for (const action of [...widgetPlan.actions, ...widgetingPlan.actions]) { await act(action) }
     const after = await read()
-    expect(after.library.find((widget) => widget.label === 'clueing_full')).to.deep.include({ formula: '1', description: 'Revised.' })
+    expect(after.library.find((each) => each.label === 'clueing_full')).to.deep.include({ formula: '1', description: 'Revised.' })
     expect(quizOf(after)).to.deep.eq(quizOf(ante))
   })
 })

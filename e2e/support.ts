@@ -129,6 +129,35 @@ export async function closeManage(page: Page): Promise<void> {
   await expect(page.getByRole('dialog')).toHaveCount(0)
 }
 
+/** The widgeting editor for a new widgeting, open over the gear's dialog */
+export function newWidgetingDialog(page: Page): Locator {
+  return page.getByRole('dialog', { name: 'New widgeting' })
+}
+
+/**
+ * Pick the library's widget labelled `widget_label` in the widgeting editor `editor`: typed into
+ * its picker, and chosen from what that finds by the label it shows.
+ */
+export async function pickWidget(page: Page, editor: Locator, widget_label: string): Promise<void> {
+  await editor.getByRole('combobox', { name: 'Widget' }).fill(widget_label)
+  await page.getByRole('option').filter({ has: page.getByText(widget_label, { exact: true }) }).click()
+}
+
+/**
+ * Put the library's widget `widget_label` to work in the open quiz, under `label` (blank takes the
+ * widget's), with the column it brings, and close the gear's dialog.
+ */
+export async function addWidgeting(page: Page, widget_label: string, label = ''): Promise<void> {
+  await openManage(page)
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  const editor = newWidgetingDialog(page)
+  await pickWidget(page, editor, widget_label)
+  if (label !== '') { await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label) }
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await expect(editor).toHaveCount(0)
+  await closeManage(page)
+}
+
 /**
  * Stand in for the ask route with `reply`, replacing any earlier stand-in, so no spec can ever
  * spend real model usage.
