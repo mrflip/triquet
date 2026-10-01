@@ -24,18 +24,16 @@ export function renderPrompt(template: string, input: Readonly<Record<string, un
 }
 
 /**
- * What is wrong with `template` as a mustache template, or null when it parses.
+ * What is wrong with `template` as a prompt template, or null when nothing is: a template that
+ * does not parse, or one that fills a key in raw (`{{{name}}}` or `{{&name}}`), which would fill a
+ * list or an object in as `[object Object]` where `{{name}}` fills it in as its JSON.
  *
  * @example templateIssue('{{#items}}{{text}}')  // => 'Unclosed section "items" at 18'
+ * @example templateIssue('Question: {{{clueing}}}')  // => '{{{clueing}}} would fill a list or an object in as [object Object]: write {{clueing}}, ...'
  * @example templateIssue('Question: {{clueing}}')  // => null
  */
 export function templateIssue(template: string): string | null {
-  try {
-    Mustache.parse(template)
-    return null
-  } catch (err) {
-    return err instanceof Error ? err.message : 'The prompt does not read as a template'
-  }
+  return parseIssue(template) ?? rawTagIssue(template)
 }
 
 /**
@@ -50,7 +48,7 @@ export function templateIssue(template: string): string | null {
  * @example unfilledKeys('{{qn.hint}}', { qn: {} })                   // => []
  */
 export function unfilledKeys(template: string, input: Readonly<Record<string, unknown>>): string[] {
-  if (templateIssue(template) !== null) { return [] }
+  if (parseIssue(template) !== null) { return [] }
   const keys = readKeys(Mustache.parse(template)).map((key) => key.split('.', 1)[0] ?? key)
   return [...new Set(keys)].filter((key) => key !== '' && ! Object.hasOwn(input, key))
 }
@@ -66,4 +64,31 @@ function readKeys(spans: TemplateSpans): string[] {
 /** What one value fills in as: a string as it is, anything else as its JSON */
 function fillingOf(val: unknown): string {
   return typeof val === 'string' ? val : UU.jsonify(val)
+}
+
+/** Why `template` does not parse as mustache, or null when it does */
+function parseIssue(template: string): string | null {
+  try {
+    Mustache.parse(template)
+    return null
+  } catch (err) {
+    return err instanceof Error ? err.message : 'The prompt does not read as a template'
+  }
+}
+
+/** The first tag of a template that parses which fills a key in raw, said with what to write instead; null when none does */
+function rawTagIssue(template: string): string | null {
+  const raw = rawSpansOf(Mustache.parse(template))[0]
+  if (raw === undefined) { return null }
+  const [, key, beg, end] = raw
+  return `${template.slice(beg, end)} would fill a list or an object in as [object Object]: write {{${key}}}, which fills in text as it is and anything else as its JSON`
+}
+
+/** Every span of a parsed template, its sections' included, that fills a key in raw */
+function rawSpansOf(spans: TemplateSpans): TemplateSpans {
+  return spans.flatMap((span) => {
+    if (span[0] === '&') { return [span] }
+    const inner = span[4]
+    return Array.isArray(inner) ? rawSpansOf(inner) : []
+  })
 }

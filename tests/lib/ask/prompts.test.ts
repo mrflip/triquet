@@ -43,6 +43,22 @@ describe('templateIssue', () => {
   it('names an unclosed tag', () => {
     expect(templateIssue('Question: {{clueing')).to.match(/^Unclosed tag/)
   })
+
+  const RawTags: [string, RegExp, string][] = [
+    ["Question: {{{clueing}}}",                  /^\{\{\{clueing\}\}\} would fill a list or an object in as \[object Object\]: write \{\{clueing\}\}/, 'refuses a triple brace, pointing at the double'],
+    ["Question: {{&clueing}}",                   /^\{\{&clueing\}\} .*write \{\{clueing\}\}/,                                             'refuses an ampersand tag, pointing at the double brace'],
+    ["{{#items}}{{{text}}}{{/items}}",           /^\{\{\{text\}\}\} .*write \{\{text\}\}/,                                                'refuses one inside a section'],
+    ["{{clueing}} {{{hint}}} {{&qn.title}}",     /^\{\{\{hint\}\}\} /,                                                                   'names the first of several'],
+  ]
+  for (const [template, issue, describes] of RawTags) {
+    it(describes, () => {
+      expect(templateIssue(template)).to.match(issue)
+    })
+  }
+
+  it('says a template that does not parse is that, before anything else', () => {
+    expect(templateIssue('{{{clueing}}} {{#items}}')).to.match(/^Unclosed section/)
+  })
 })
 
 describe('unfilledKeys', () => {
