@@ -9,7 +9,7 @@ Workers add their sections below the table, newest first.
 |---|---|---|
 | 1 | Design note and vocabulary | complete: PR #67 (docs only, unreviewed) |
 | 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
-| 3 | The data model, as a clean break | in progress: source, unit tests, e2e and docs done on `20261001-widget_tables` (local, unpushed); `tests/convex/` being repaired; no PR yet |
+| 3 | The data model, as a clean break | complete: PR #69, stacked on #68 |
 | 4 | Pasted prompts | pending |
 | 5 | Status | pending |
 | 6 | Views | pending |
@@ -18,7 +18,10 @@ Workers add their sections below the table, newest first.
 
 ## Thread 3: The data model, as a clean break (2026-10-01)
 
-Branch `20261001-widget_tables`, not yet pushed, no PR (stacked on #68 when filed). Suites: typecheck and lint clean outside `tests/convex/`; `pnpm test --project unit` 2164 passed; `pnpm test:e2e:agent` 189 passed. Unfinished: `tests/convex/` (being repaired by a helper when this was written), the finishing rebase, the full suite, push and PR. Commits are local `wip:` checkpoints to be reshaped into `feat:`/`docs:` commits (the `convex/_generated/api.d.ts` regeneration in its own) before pushing.
+Branch `20261001-widget_tables`, PR #69, stacked on #68. Suites: typecheck and lint clean;
+`pnpm test` 2555 passed (104 files: unit 2164, convex 391); `pnpm test:e2e:agent` 189 passed.
+`origin/main` had not moved, so the finishing rebase replayed nothing. `convex/_generated/` changed
+by 288 bytes (`api.d.ts`), small enough to ride in the `feat:` commit.
 
 * **Built**:
   - Tables (`convex/schema.ts`): `widgets` is now the global library (a union on `formulary`,
@@ -53,9 +56,64 @@ Branch `20261001-widget_tables`, not yet pushed, no PR (stacked on #68 when file
   - Docs: `notes/deploy.md` (*Clearing the widget tables*, and a ledger row), `losses.md` here,
     `notes/convex.md` and `notes/queries_hooks_and_subscriptions.md` brought up to date.
 
-* **Decisions taken**: `insertQuiz` gives the library whichever of its default widgetings' widgets it lacks (so a new quiz never works a missing widget; thread 7 drops this with the defaults). `scripts/convex_dev --seed` runs `seeding:seedWidgets`; the e2e server and the dev scripts pass it. Library actions are not refused by a quiz lock. Removing a widget is refused while any widgeting works it (pulled from thread 6, server side only). The seeded numnum prompts already ask for `{"items": [...]}` (the route's structured output already returns that); dumdum's prompt is today's, for thread 4 to change with the route. Renames pulled from thread 6: `WidgetsEditor`→`WidgetingsEditor`, `ExpressionsModal`→`LibraryModal`, `ExpressionFields`→`JsonataFields`. Thread 5's single cell pulled forward, minus `JsonFold` (values show as JSON text); the `{ value, stale }` form and stale marks gone (thread 5's, pulled forward). `bot-status` became `service-status` (thread 4's "port reports services", pulled forward).
-* **Deviations**: pasted widgeted values are not imported (PR #66 has not landed; the note's rule 13 waits on it). A paste with widgetings but no questions changes nothing.
-* **For the Coach**: the deploy procedure (`notes/deploy.md`, *Clearing the widget tables*) and `losses.md`; one `eslint-disable-next-line @typescript-eslint/no-extraneous-class, unicorn/no-static-only-class` on `Widget`; your `dev` backend needs `--reset --seed` (HUMAN-whatsup).
+* **Decisions taken**:
+  - **`insertQuiz` gives the library whichever of its default widgetings' widgets it lacks**, so a
+    new quiz never works a missing widget. Thread 7 drops this with the defaults.
+  - **`scripts/convex_dev --seed`** runs `seeding:seedWidgets` after the push (and any reset). The
+    e2e server and the three dev scripts pass it, so every local role's library is seeded as
+    production's will be. Thread 7, whose new quizzes start lean, already has its library on every
+    local role from this.
+  - **Library actions are not refused by a quiz lock**, as the hunt's expressions were not.
+  - **An import naming one label twice merges it once**, the first occurrence (`import_widgets`
+    and `insertAbsentWidgets`; the orchestrator's call on the convex helper's finding).
+  - **The asked cell's metaline** (tier, cut short, tokens) reads the stored row's `result_meta`
+    (`question.stored[label].ok.result_meta`); `WidgetedT` itself stays `{ status, value, err }`.
+  - **The seeded numnum prompts already ask for `{"items": [...]}`**: the route's structured output
+    returns that shape already. Dumdum's prompt is today's, for thread 4 to change with the route.
+* **Pulled forward** (strike from the later threads):
+  - From thread 4: `/api/bots` reports services (`src/models/service-status.ts`; `bot-status.ts` gone).
+  - From thread 5: one cell for every widgeted (`WidgetedAskCell` beside `WidgetedReadout`, one
+    `ErrBadge` on `WidgetedErrT`), minus `JsonFold`: an object shows as its JSON text. The seeds'
+    `{ value, stale }` form and every stale mark are gone. Left for thread 5: `JsonFold` for objects.
+  - From thread 6: the renames `WidgetsEditor`→`WidgetingsEditor`, `ExpressionsModal`→`LibraryModal`,
+    `ExpressionFields`→`JsonataFields`, each adapted minimally to the new model; removing a widget is
+    refused on the server while any widgeting works it (the editor does not count usage yet).
+* **Deviations**:
+  - **Pasted widgeted values are not imported**: PR #66 has not landed, and the note's rule 13
+    waits on it. `importInto`'s doc says so.
+  - **A paste with widgetings but no questions changes nothing** ("holds no questions"); its
+    widgetings are dropped too. Untested; a ruling would settle it.
+* **Discoveries**:
+  - **The library is global, and the e2e specs share one database**: a spec that edits a seeded
+    widget changes it for every spec running beside it. `e2e/widgets.spec.ts` (was
+    `expressions.spec.ts`) edits only widgets of its own (`freshWidgetLabel` in `e2e/support.ts`).
+    Threads 4, 6 and 8 should keep to that.
+  - **A fresh backend's library holds only what seeding or a new quiz gave it.** Without `--seed`,
+    a new quiz brings its twelve default widgets and nothing else: the five text seeds are missing.
+    Previews are in that state today (HUMAN-whatsup).
+  - **`record_widgeted` on a widgeting whose widget is gone is refused `notStored`**, not
+    `widgetGone` (unreachable today: a widget is not removed while worked).
+  - **A stored `ok` value of `null`** is written as the text "null" by the sheet and git table, but
+    sorts as absent. Thread 5's cell and sort work is the place to settle it.
+  - **Zod refusal notices are joined with `;; `** (`src/lib/refusals.ts`), which reads oddly in an
+    alarm; older than this thread.
+  - **`Quiz.blank()` carries no widgetings**, while `Hunt.blank()` adds `defaultLayout()`: a unit
+    fixture that wants the defaults spreads `defaultLayout()` itself.
+  - **Seeded production rows will not follow later fixture edits**: `seedWidgets` inserts only
+    what is absent. Thread 4, changing dumdum's prompt with the route, either lands before the
+    sprint's deploy (one seeding then) or revises a seed still holding its old text.
+* **For the Coach**:
+  - **The deploy is a hand procedure**: `notes/deploy.md`, *Clearing the widget tables*, and
+    `losses.md` beside this file for what it loses.
+  - **Your `dev` backend refuses the new schema** until it is reset (`--reset --seed`) or cleared
+    the same way; `pnpm dev` now passes `--seed`.
+  - **One lint suppression**: `eslint-disable-next-line @typescript-eslint/no-extraneous-class,
+    unicorn/no-static-only-class` on `Widget` (`src/models/widget.ts`), a class of statics over a
+    union, as `Widgeted` is.
+  - **Previews** would want `--preview-run seeding:seedWidgets` in `build:vercel`; deploy config
+    left alone.
+* **Other files**: `losses.md` here (read before the deploy, or to know what a re-seeded quiz
+  lacks).
 
 ## Thread 2: The formulary seam, no data change (2026-10-01)
 
