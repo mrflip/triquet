@@ -45,7 +45,9 @@
     ".next-e2e/types/**/*.ts",
     ".next-e2e/dev/types/**/*.ts",
     ".next-e2e-agent/types/**/*.ts",
-    ".next-e2e-agent/dev/types/**/*.ts"
+    ".next-e2e-agent/dev/types/**/*.ts",
+    ".next-e2e-built/types/**/*.ts",
+    ".next-e2e-built/dev/types/**/*.ts"
   ],
   "exclude": [
     ".next*/**/validator.ts",

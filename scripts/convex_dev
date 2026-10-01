@@ -12,12 +12,12 @@
 #   4. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
 #   5. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend.
 #
-# Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent> [--reset] [--watch] <command> [arguments...]
+# Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--watch] <command> [arguments...]
 #   eg   scripts/doppledo dev_claude scripts/convex_dev agent --watch next dev
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-usage="Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent> [--reset] [--watch] <command> [arguments...]"
+usage="Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--watch] <command> [arguments...]"
 role="${1:-}"
 # The backend's port for each role, as scripts/convex_backend has it.
 case "$role" in
@@ -25,6 +25,7 @@ case "$role" in
   agent)     port=3401 ;;
   e2e)       port=3402 ;;
   e2e-agent) port=3403 ;;
+  e2e-built) port=3405 ;;
   *) echo "$usage" >&2; exit 1 ;;
 esac
 shift

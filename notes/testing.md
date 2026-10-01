@@ -161,7 +161,13 @@ in a comment what the window is and why it is long enough.
 
 The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory and Convex backend, emptied as the suite starts); Playwright refuses to start locally
-otherwise. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
+otherwise. `pnpm test:e2e:agent` is the same on a port and backend of an agent's own.
+`pnpm test:e2e:built` runs it against the optimized build (`next build`, then `next start`) in
+place of the dev server, on the `e2e-built` role (port 3005): the mode the app is deployed in,
+with none of React's dev-only doubled effects, which once hid a review that never opened. It
+means the build mode only: the keys, settings and backend are the suite's own, as ever. It builds
+afresh every run and refuses to start while anything holds its port, so an earlier build is never
+tested in its place. A spec must pass under both servers. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
 fresh hunt, of which that ident is the smith. Specs share one database, and a hunt is shown only
 to those on it, so find rows and pages by your own labels and titles, never by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
 a smith puts them on the hunt through the members panel (`addMember`) before they can open it.

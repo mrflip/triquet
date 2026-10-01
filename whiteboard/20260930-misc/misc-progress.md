@@ -3,22 +3,69 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1 and 2 done; thread 3 underway.
+**Status:** threads 1, 2 and 3 done; thread 4 underway.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
 | 1 | Chai in vitest: what's missing | complete | `20260930-chai_in_vitest` | #58 |
 | 2 | Hard-to-miss alert for major problems | complete | `20260930-failure_snackbar` | #60 |
-| 3 | e2e against a production build | pending | | |
+| 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
 | 4 | Formulas see the smith's note, hunt and realm | pending | | |
 
-*Orchestrator:* thread 3's "production" means the optimized build mode only (`next build`
-/ `next start`), never live keys or the production deployment -- the Coach's clarification is
-in the plan, under thread 3.
+*Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. A thread that adds e2e
+specs runs them under both servers: `pnpm test:e2e:agent` (dev, 3003) and `pnpm
+test:e2e:built` (the optimized build, 3005). Neither is the shared `pnpm test:e2e` port.
 
-*Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. Thread 3: the spec that
-must hold under the built server is `e2e/alarms.spec.ts` (it makes a real refusal), and the
-built run needs a role and port of its own -- thread 2 ran on `e2e-agent` (3003).
+## Thread 3: e2e against the optimized build (2026-09-30)
+
+Branch `20260930-e2e_built`, PR #61, stacked on #60. Suites: typecheck and lint clean, unit
+2242/2242, e2e 187/187 under `pnpm test:e2e` (dev) and 187/187 under `pnpm test:e2e:built`.
+
+* **Built**: `pnpm test:e2e:built`, the whole e2e suite against `next build && next start`.
+  - A new Convex role, `e2e-built`: web 3005, backend 3405/3505, `data/convex-e2e-built/`, build
+    in `.next-e2e-built`. It is in `scripts/convex_backend`, `convex_dev`, `convex_reset`,
+    `convex_healthcheck`, and in `tsconfig.json`'s includes.
+  - `e2e/environment.ts`: `ServerCommandFor` (`dev` gives `next dev`, `built` gives
+    `sh -c "next build && next start"`), `serverOf(env)` (reads `TRIQUET_E2E_SERVER`, `dev` when
+    unset), a complaint for an unknown mode, and the `e2e-built` backend URL. Port 3004
+    (`start:agent`) is now among the ports the suite may not take.
+  - `playwright.config.ts`: the webServer command follows the mode. `reuseExistingServer` is
+    never on for `built`. The timeout is 480s for `built`.
+  - Docs: a paragraph in `notes/testing.md` (End to End), and the role in `notes/deploy.md`.
+* **Decisions taken**:
+  - **Mode by variable, not by role.** `TRIQUET_E2E_SERVER=built` chooses the server, and
+    `CONVEX_ROLE` chooses the backend. The script sets both.
+  - **Never reuse a built server.** This closes the trap for this run: a server found on the
+    port refuses the run. Each run builds, which took about 10s here.
+  - **The build happens inside Playwright's webServer**, under `scripts/convex_dev`, so the
+    `NEXT_PUBLIC_*` values it bakes in are the e2e run's.
+* **Discoveries**:
+  - **The whole suite already passes under the build.** No spec needed changing, and the review
+    fix from 2026-09-29 holds. A full run takes about 1 minute, against 1.6 minutes for the dev
+    run.
+  - **Only the pages are prerendered at build**: `/`, `/about`, `/my/hunts` and the icons.
+    `/api/ask` and `/api/bots` stay dynamic. Both guards read `process.env` per request, and a
+    built server started by hand declined an unstubbed ask ("switched off").
+  - **`lsof` can miss a listener in this container.** A `next-server` of mine outlived its
+    shell and held 3005 while `lsof` said nothing. The built run refused it, as designed.
+    `ps -eo pid,args | grep next-server` finds such a server.
+  - **Thread 4:** a spec must pass under both servers. Run `pnpm test:e2e:built` beside
+    `test:e2e:agent` if a thread adds specs.
+* *Review:* **clean**, nothing fixed. Left, minor: the built command is `sh -c "next build &&
+  next start"`, so `next start` is a grandchild that `convex_dev`'s EXIT trap doesn't reach;
+  Playwright kills the whole process group, so nothing is orphaned. `&& exec next start` would
+  harden it (on #61).
+* **For the Coach**:
+  - **Should the finishing suite and CI run it?** A proposal, not a decision:
+    - Locally, add `pnpm test:e2e:built` to git_hygiene's finishing line. Dev mode catches
+      impure effects; the build catches what dev mode hides.
+    - On CI, the built server may suit the small runners better than the dev server, which
+      compiles each page on first visit. Add `TRIQUET_E2E_SERVER: built` to the e2e job's env,
+      either replacing the dev run or as a second matrix axis.
+  - **CLAUDE.md** is stale in two places, which I left for you. *Global resources* lists roles
+    as `<dev|agent|e2e|e2e-agent>` (add `|e2e-built`), and it could name the run: "`pnpm
+    test:e2e:built` (the optimized build, port 3005)".
+  - **The dev run's reuse trap** (HUMAN-whatsup, 2026-09-27) is unchanged, and it is still yours.
 
 ## Thread 2: A hard-to-miss alert for major problems (2026-09-30)
 
