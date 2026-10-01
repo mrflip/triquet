@@ -6,8 +6,8 @@ import { ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../s
 const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 
 describe('ReservedWidgetingLabels', () => {
-  it("is every name a question already answers to: its exposed fields, its rank, its views, and the questions themselves", () => {
-    expect(ReservedWidgetingLabels).to.deep.eq([...Question.exposed, 'rank', 'butnot', 'question'])
+  it("is every name a question already answers to: its exposed fields, its label's override, its rank, its views, and the questions themselves", () => {
+    expect(ReservedWidgetingLabels).to.deep.eq([...Question.exposed, 'forced_label', 'rank', 'butnot', 'question'])
   })
 
   it("leaves butnot_ishes free, now that it is a widgeting rather than a view", () => {
