@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addWidgeting, cellOf, closeManage, dragOnto, expect, freshWidgetLabel, grid, manageDialog, newWidgetingDialog, openManage, pickWidget, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
+import { addColumns, addWidgeting, addWidgetings, cellOf, closeManage, dragOnto, expect, freshWidgetLabel, grid, manageDialog, newWidgetingDialog, openManage, pickWidget, reloadOnceSaved, stepBy, test, valuesOf, waitUntilSaved } from './support'
 
 /** The widget editor writing a new widget, open over whichever dialog opened it */
 function newWidgetDialog(page: Page) {
@@ -51,16 +51,11 @@ async function answerFirstRow(page: Page, full_answer: string) {
   await page.getByLabel('Quiz name').click()
 }
 
-test('a fresh quiz shows its computed columns between Q# and Alt Text', async ({ page }) => {
-  await expect(page.getByRole('columnheader', { name: 'Alt Text' })).toBeVisible()
-  await expect.poll(async () => {
-    const headers = await grid(page).getByRole('columnheader').allTextContents()
-    const titles = headers.map((title) => title.replaceAll(/\s+/g, ' ').trim())
-    return titles.slice(titles.indexOf('Q#') + 1, titles.indexOf('Alt Text'))
-  }).toEqual([
-    'Clueing + Rank', 'Clueing Full Sum', 'Clueing Numeral Sum', 'BUT NOT Full Sum',
-    'BUT NOT Numeral Sum', 'Hint Full Sum', 'Hint Numeral Sum', 'Clueing+BUT NOT Full',
-  ])
+test('a widgeting brings its column just before Alt Text, where the quiz shows one, and at the end where not', async ({ page }) => {
+  await addWidgetings(page, ['clueing_full'])
+  await addColumns(page, ['alt_text'])
+  await addWidgetings(page, ['hint_full'])
+  await expect.poll(() => headersShown(page, 8)).toEqual(['Title', 'Q#', 'Clueing', 'Full Answer', 'Notes', 'Clueing Full', 'Hint Full', 'Alt Text'])
 })
 
 test('a widgeting added from the gear works out its formula for every question', async ({ page }) => {
@@ -222,10 +217,23 @@ test('a column can be added for anything the quiz can show, with its own title a
   await expect(page.getByRole('columnheader', { name: 'More notes' })).toBeVisible()
 })
 
+test('a new column offers first what no column shows yet, and takes that field\'s own name: a lean quiz opts back into its hint', async ({ page }) => {
+  await openManage(page)
+  await page.getByRole('button', { name: '+ New column…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New column' })
+  await expect(editor.getByRole('combobox', { name: 'Shows' })).toHaveText(/^question\.hint/)
+  await expect(editor.getByRole('textbox', { name: 'Column title' })).toHaveAttribute('placeholder', 'Hint')
+  await editor.getByRole('button', { name: 'Apply' }).click()
+  await expect(manageDialog(page).getByRole('group', { name: 'Column Hint', exact: true })).toContainText('hint')
+  await closeManage(page)
+  await expect(page.getByRole('textbox', { name: 'Hint', exact: true })).toHaveCount(5)
+})
+
 test('a widget says how far it is put to work, in every hunt, and cannot be removed while anything works it', async ({ page }) => {
+  await addWidgeting(page, 'clueing_full')
   await openWidget(page, 'clueing_full')
   const used = page.getByRole('dialog', { name: 'Widget: clueing_full' })
-  // Every spec's hunt works it, so the counts depend on what else has run: at least this hunt's.
+  // Other specs' hunts may work it too, so the counts depend on what else has run: at least this hunt's.
   await expect(used.getByRole('status', { name: 'Usage' })).toContainText(/Worked by \d+ widgetings? across \d+ quizz(es)?, in \d+ hunts?\./)
   await expect(used).toContainText('It cannot be removed while a widgeting works it.')
   await expect(used.getByRole('button', { name: 'Remove widget' })).toHaveCount(0)
@@ -293,36 +301,38 @@ test('a widget written in the library itself chooses its formulary first', async
 
 test('a column is retitled in place, and everything else is behind its gear', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('group', { name: 'Column Hint Full Sum' }).getByRole('textbox', { name: 'Column title' }).fill('Hint total')
-  await page.getByRole('button', { name: 'Edit column Hint Numeral Sum' }).focus()
-  await expect(page.getByRole('group', { name: 'Column Hint total' })).toBeVisible()
-  await page.getByRole('button', { name: 'Edit column Hint total' }).click()
-  const editor = page.getByRole('dialog', { name: 'Column: Hint total' })
+  await page.getByRole('group', { name: 'Column Notes' }).getByRole('textbox', { name: 'Column title' }).fill('Remarks')
+  await page.getByRole('button', { name: 'Edit column Full Answer' }).focus()
+  await expect(page.getByRole('group', { name: 'Column Remarks' })).toBeVisible()
+  await page.getByRole('button', { name: 'Edit column Remarks' }).click()
+  const editor = page.getByRole('dialog', { name: 'Column: Remarks' })
   await editor.getByRole('spinbutton', { name: 'Width (px)' }).fill('200')
   await editor.getByRole('button', { name: 'Apply' }).click()
   await closeManage(page)
-  await expect(page.getByRole('columnheader', { name: 'Hint total' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'Remarks' })).toBeVisible()
 })
 
 test('removing a column asks first, and leaves the widgeting it showed', async ({ page }) => {
+  await addWidgeting(page, 'hint_numeral')
   await openManage(page)
-  await page.getByRole('button', { name: 'Edit column Hint Numeral Sum' }).click()
-  const editor = page.getByRole('dialog', { name: 'Column: Hint Numeral Sum' })
+  await page.getByRole('button', { name: 'Edit column Hint Numeral' }).click()
+  const editor = page.getByRole('dialog', { name: 'Column: Hint Numeral' })
   await editor.getByRole('button', { name: 'Remove column' }).click()
   await editor.getByRole('button', { name: 'Keep it' }).click()
   await editor.getByRole('button', { name: 'Cancel' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral Sum' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Edit column Hint Numeral Sum' }).click()
+  await page.getByRole('button', { name: 'Edit column Hint Numeral' }).click()
   await editor.getByRole('button', { name: 'Remove column' }).click()
   await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral Sum' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toHaveCount(0)
   await expect(page.getByRole('group', { name: 'Widgeting hint_numeral' })).toBeVisible()
   await closeManage(page)
-  await expect(page.getByRole('columnheader', { name: 'Hint Numeral Sum' })).toHaveCount(0)
+  await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })
 
 test('removing a widgeting asks first, and takes the columns that showed it', async ({ page }) => {
+  await addWidgeting(page, 'hint_numeral')
   await openManage(page)
   await page.getByRole('button', { name: 'Edit widgeting hint_numeral' }).click()
   const editor = page.getByRole('dialog', { name: 'Widgeting: hint_numeral' })
@@ -330,9 +340,9 @@ test('removing a widgeting asks first, and takes the columns that showed it', as
   await editor.getByRole('button', { name: 'Keep it' }).click()
   await editor.getByRole('button', { name: 'Remove widgeting' }).click()
   await editor.getByRole('button', { name: 'Yes, remove' }).click()
-  await expect(page.getByRole('group', { name: 'Column Hint Numeral Sum' })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Column Hint Numeral' })).toHaveCount(0)
   await closeManage(page)
-  await expect(page.getByRole('columnheader', { name: 'Hint Numeral Sum' })).toHaveCount(0)
+  await expect(page.getByRole('columnheader', { name: 'Hint Numeral' })).toHaveCount(0)
 })
 
 /** The grid's first `count` column titles, left to right, with the blank grip column dropped */
@@ -351,34 +361,35 @@ test('a column is dragged into a new place by its handle', async ({ page }) => {
   await openManage(page)
   await dragOnto(page, columnGrip(page, 'notes'), columnGrip(page, 'title'))
   await closeManage(page)
-  await expect.poll(() => headersShown(page, 3)).toEqual(['Notes', 'Title', 'Clueing'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Notes', 'Title', 'Q#'])
 })
 
-// A quiz starts with Title, Clueing and Hint as its first three columns. Dropping Title onto
+// A quiz starts with Title, Q# and Clueing as its first three columns. Dropping Title onto
 // the same row from the two directions has to put it on the two sides of that row: which half
 // of the row the pointer came to rest in is the whole of what the author is saying.
 test('a column dropped against the upper edge of a row lands above it', async ({ page }) => {
   await openManage(page)
-  await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'top')
+  await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'clueing'), 'top')
   await closeManage(page)
-  await expect.poll(() => headersShown(page, 3)).toEqual(['Clueing', 'Title', 'Hint'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Q#', 'Title', 'Clueing'])
 })
 
 test('a column dropped against the lower edge of the same row lands below it', async ({ page }) => {
   await openManage(page)
-  await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'hint'), 'bottom')
+  await dragOnto(page, columnGrip(page, 'title'), columnGrip(page, 'clueing'), 'bottom')
   await closeManage(page)
-  await expect.poll(() => headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Q#', 'Clueing', 'Title'])
 })
 
 test('a column is moved by the arrow keys once its handle has focus', async ({ page }) => {
   await openManage(page)
   await stepBy(columnGrip(page, 'title'), 2)
   await closeManage(page)
-  await expect.poll(() => headersShown(page, 3)).toEqual(['Clueing', 'Hint', 'Title'])
+  await expect.poll(() => headersShown(page, 3)).toEqual(['Q#', 'Clueing', 'Title'])
 })
 
 test('the widgetings are listed in run order, and can be dragged too', async ({ page }) => {
+  await addWidgetings(page, ['dumdum', 'hint_full'])
   await openManage(page)
   const list = manageDialog(page).getByRole('list', { name: 'Widgetings' })
   await dragOnto(page, list.getByRole('button', { name: 'Reorder hint_full' }), list.getByRole('button', { name: 'Reorder dumdum' }))
@@ -389,6 +400,7 @@ test('the widgetings are listed in run order, and can be dragged too', async ({ 
 })
 
 test('every dialog has a close button, and an editor is not dismissed by clicking behind it', async ({ page }) => {
+  await addWidgeting(page, 'hint_full')
   await openManage(page)
   await page.getByRole('button', { name: 'Edit widgeting hint_full' }).click()
   const editor = page.getByRole('dialog', { name: 'Widgeting: hint_full' })
@@ -401,8 +413,9 @@ test('every dialog has a close button, and an editor is not dismissed by clickin
 })
 
 test('a column row gives up its label, then what it shows, then its width, as the dialog narrows', async ({ page }) => {
+  await addWidgeting(page, 'hint_full')
   await openManage(page)
-  const row = page.getByRole('group', { name: 'Column Hint Full Sum' })
+  const row = page.getByRole('group', { name: 'Column Hint Full' })
   // The widget is labelled as the column is, so the picked source says it too: the label is the last.
   const label = row.getByText('hint_full', { exact: true }).last()
   const shows = row.getByRole('combobox', { name: 'Shows' })
@@ -422,8 +435,9 @@ test('a column row gives up its label, then what it shows, then its width, as th
 })
 
 test('what a column shows and its width are changed in place, and kept', async ({ page }) => {
+  await addWidgeting(page, 'hint_full')
   await openManage(page)
-  const row = page.getByRole('group', { name: 'Column Hint Full Sum' })
+  const row = page.getByRole('group', { name: 'Column Hint Full' })
   await row.getByRole('combobox', { name: 'Shows' }).click()
   await page.getByRole('option', { name: 'question.notes', exact: false }).first().click()
   await row.getByRole('textbox', { name: 'Width (px)' }).fill('250')
@@ -462,6 +476,7 @@ test("a formula reads the smith's note, and the hunt and realm the quiz sits in"
 
 test('the prompt for a chatbot is copied with the formula, the schemas and a real input', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await addWidgeting(page, 'numnum_clueing')
   await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
   await page.getByLabel('Quiz name').click()
   await openWidget(page, 'answer_reversed')

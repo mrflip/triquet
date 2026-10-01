@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, expect, fillRows, reloadOnceSaved, test, valuesOf, waitUntilSaved } from './support'
+import { addColumns, cellOf, expect, fillRows, reloadOnceSaved, test, valuesOf, waitUntilSaved } from './support'
 
 /** Fill the first questions with a Q#, a title and a hint */
 async function fillQuiz(page: Page, rows: [string, string, string][]) {
@@ -30,6 +30,7 @@ async function firstFourShown(page: Page): Promise<string[]> {
 }
 
 test.beforeEach(async ({ page }) => {
+  await addColumns(page, ['hint', 'chains_to', 'butnot'])
   await fillQuiz(page, [
     ['3', 'cherry', 'BUT NOT the fruit-flavoured one'],
     ['1', 'apple',  'BUT NOT the company from Cupertino, founded in 1976'],

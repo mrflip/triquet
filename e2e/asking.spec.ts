@@ -1,12 +1,13 @@
 import type { Page } from '@playwright/test'
-import { expect, reloadOnceSaved, stubAsk, test, valuesOf } from './support'
+import { addWidgetings, expect, reloadOnceSaved, stubAsk, test, valuesOf } from './support'
 
-/** The Quick-model guess cell of the row at `rowIdx` */
+/** The guess cell of the row at `rowIdx`: dumdum's column */
 function guessCell(page: Page, rowIdx: number) {
-  return page.getByRole('button', { name: 'Ask Quick-model guess' }).nth(rowIdx)
+  return page.getByRole('button', { name: 'Ask Dumdum' }).nth(rowIdx)
 }
 
 test.beforeEach(async ({ page }) => {
+  await addWidgetings(page, ['dumdum'])
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })
