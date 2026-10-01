@@ -12,9 +12,72 @@ Workers add their sections below the table, newest first.
 | 3 | The data model, as a clean break | complete: PR #69, stacked on #68 (reviewed: fixed) |
 | 4 | Pasted prompts | complete: PR #70, stacked on #69 (reviewed: fixed) |
 | 5 | Status | complete: PR #71, stacked on #70 (reviewed: fixed) |
-| 6 | Views | pending |
+| 6 | Views | complete: PR #72, stacked on #71 |
 | 7 | The basic set and the catalogue | pending |
 | 8 | Entry widgets | pending |
+
+## Thread 6: Views (2026-10-01)
+
+Branch `20261001-widget_views`, PR #72, stacked on #71. Suites: typecheck and lint clean; `pnpm test`
+2651 passed (105 files); `pnpm test:e2e:agent` 197 passed (plus 3 environment checks). `origin/main`
+had not moved. No schema change; `convex/_generated/` unchanged (a new function in an existing
+module does not touch `api.d.ts`).
+
+* **Built**:
+  - **The widgeting editor** (`src/components/WidgetingsEditor.tsx`, `WidgetingDialog`): picks a
+    widget (`WidgetPicker`, an MUI `Autocomplete` grouped by formulary, filtered on label, title and
+    description), sets label and description, no formula box. One *+ New widgeting…* button replaces
+    *+ New formula…* and *+ New prompt…*. Doors: *New widget…* (a new widgeting) opens the widget
+    editor over it and picks what it made (held in `made` until the library's watch brings it
+    back); *Edit the widget…* opens the widget it works. Planning is `src/state/widgeting-edit.ts`
+    (`planWidgetingEdit`, `NewColumnWidthPx`), split from `widget-edit.ts`.
+  - **The widget editor** (`src/components/WidgetEditor.tsx`, out of `LibraryModal.tsx`): a new
+    widget chooses its formulary (`blankDraftOf`, `planNewWidget`); a held one shows the usage line
+    (`role="status"`, named *Usage*) and swaps *Remove widget* for "It cannot be removed while a
+    widgeting works it." while the count is above nought. `LibraryModal` gained *+ New widget…*.
+    Words: `src/components/widget-words.ts` (`FormularyWords`, `usageLine`).
+  - **The usage count**: `widgets.usage` (`convex/widgets.ts`), `usageOf` (`convex/reading.ts`),
+    `mayCountUsage` (`convex/authorize.ts`: a smith of any hunt), `WidgetUsageT` (`src/lib/rows.ts`),
+    cap `WidgetingsCounted` (999, then "at least"), hook `src/state/use-widget-usage.ts`.
+  - **The Widgets panel** (`src/components/panels/WidgetsPanel.tsx`), in place of *Prompts used*:
+    MUI `Accordion`s in run order, summary = label, formulary noun and widget label, chips for ok /
+    errored / missing (`Runner.statusCounts`); details = descriptions, the formula or prompt in a
+    `ReadonlyBox`, a prompt's input formula, and the advice button (sample: the lowest-Q# question).
+  - **`templateIssue`** refuses `{{{name}}}` and `{{&name}}`, sections included, naming the first
+    and pointing at `{{name}}`; `unfilledKeys` still reads them (it checks parsing only).
+  - **e2e**: `addWidgeting`, `pickWidget`, `newWidgetingDialog` in `e2e/support.ts`.
+* **Decisions taken**:
+  - **The picker is an `Autocomplete`**, not a grouped `Select`: thread 7 makes it the catalogue,
+    and a catalogue wants finding by typing.
+  - **An *Edit the widget…* door** on an existing widgeting, beyond the plan's *New widget…*: the
+    widgeting dialog lost its widget fields, and this keeps a widget one click from the quiz.
+  - **Usage is counted for a smith of any hunt** (the decision note's "anyone who may edit the
+    widget"), null for anyone else. While the count is still arriving the remove button shows, and
+    the server's refusal is the backstop.
+  - **The panel's summary names the widget by label, not title**: an accordion summary's accessible
+    name is all its text, and the title collided with the grid's header buttons in e2e.
+  - **A locked quiz's widgeting plan is nothing**; its fields are disabled, the widget door is not.
+* **Pulled forward** (strike from thread 7): the picker is built as the catalogue: grouped,
+  searchable, and tested on a quiz with no widgetings (`widgeting-edit.test.ts`). Thread 7 needs only
+  to make new quizzes lean and point its fixtures and specs at `addWidgeting`.
+* **Deviations**:
+  - **The library's export and import stay on the Export panel's *Library* tab**; the note said
+    thread 6 *may* move them to the widget editor, which is one widget's, not the library's.
+  - **`notes/queries_hooks_and_subscriptions.md`** now says outright that a dialog-only facet is
+    watched by that dialog's own hook: "components never watch" read as forbidding what its own
+    rule about counts in one dialog asked for.
+* **Discoveries**:
+  - **A dialog's accessible name includes its Close button** ("New widget Close"), so `exact: true`
+    on a dialog name never matches, and *New widget* substring-matches *New widgeting*: the specs use
+    `/^New widget(?!ing)/`.
+  - **A screenshot of a nested MUI dialog mid-fade** looks like the two overlapping; wait out the
+    transition before judging.
+  - **Thread 5's double-click finding stays unreachable**: the `td`'s re-ask handler fires only for
+    `clueing_full`, `hint_full` and `butnot_full`, which come to numbers. Nothing here changes that;
+    left unguarded.
+  - **A widget's title cannot be edited in the UI** (only by library import). In the PR's questions.
+* **For the Coach**: the two open questions above (library import's door; a Title field). No lint
+  or type suppressions added.
 
 ## Thread 5: Status (2026-10-01)
 
