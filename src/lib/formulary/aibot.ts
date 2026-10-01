@@ -63,8 +63,9 @@ export class AibotFormulary {
   static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
     const outcome = JsonataFormulary.input(widget, bag)
     if (outcome.status !== 'ok') { return outcome }
-    if (! isObject(outcome.input)) { return { status: 'errored', message: 'The input formula has to come to an object, for the prompt to be filled in from', stops: false } }
-    return { status: 'ok', input: Formulas.plainJson(outcome.input) as JsonT }
+    const input = Formulas.plainJson(outcome.input)
+    if (! isObject(input)) { return { status: 'errored', message: 'The input formula has to come to an object, for the prompt to be filled in from', stops: false } }
+    return { status: 'ok', input: input as JsonT }
   }
 
   /**
