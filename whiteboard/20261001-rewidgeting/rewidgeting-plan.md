@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 4 underway.** Threads 1 (PR #67, docs only), 2 (PR #68) and 3 (PR #69) done; thread 4's worker filed PR #70.
+**Status: thread 5 underway.** Threads 1 (PR #67, docs only), 2 (PR #68), 3 (PR #69) and 4 (PR #70) done.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -325,6 +325,11 @@ commits so each passes is worth effort; one PR for the schema change is the rule
 > what shape the author wants back. The `aibot` widget editor: prompt, input formula, config,
 > with a live preview against a chosen question of the distilled object and the rendered prompt.
 
+*Orchestrator:* **done, PR #70** (review: two `fix:` commits kept). `mustache` installed and listed;
+dumdum's seed asks for `{"guess", "explanation"}` and the seeds' job mapping is gone. Pulled forward
+from thread 6: the library's gear opens prompts, and the widget editor's fields follow the formulary
+(`AibotFields.tsx`, `PreviewPicker.tsx`, `use-preview-bag.ts`).
+
 *Gloss.* `src/app/api/` ask route, `src/lib/ask/*` (contract, replies, prompts, models, tokens),
 `src/lib/bots/port.ts`, `src/models/ask.ts`, the aibot formulary, `src/lib/formula-prompt.ts`
 generalized into every formulary's `advice`, `notes/stack.md` for `mustache`.
@@ -373,7 +378,9 @@ butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`,
 `exporting`, `sheets`. If thread 2 built the projection, this thread is views and deletions.
 
 *Look-ahead*: thread 6's Widgets panel counts ok, errored and missing per widgeting;
-`Runner.statusCounts` (thread 2) already gives them.
+`Runner.statusCounts` (thread 2) already gives them. **Reset the `agent` backend first**
+(`scripts/convex_reset agent`, then seed through `scripts/convex_dev agent --seed`): it was seeded
+before thread 4 and holds dumdum's old prompt, so its guesses come back `unreadable`.
 
 ### 6. Views
 
@@ -381,8 +388,8 @@ butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`,
 > from the library (grouped by formulary), set the label, description and place in the run
 > order (the existing `SortableList`), and a "New widget..." door that opens the other editor.
 > The **widget editor**, from the library (today's `ExpressionsModal`, ~~kept and renamed~~ *(renamed `LibraryModal` in thread 3)*):
-> formulary, formula, input formula, config, the live preview `ExpressionFields` has, the advice
-> button, a line saying "worked by N widgetings across M quizzes, in H hunts", and removal
+> formulary, ~~formula, input formula, config, the live preview `ExpressionFields` has, the advice
+> button,~~ *(per formulary, thread 4)* a line saying "worked by N widgetings across M quizzes, in H hunts", and removal
 > refused while anything works it. The **Widgets panel** below the grid replaces *Prompts
 > used*: the quiz's widgetings in run order, each with its formulary, its formula or prompt
 > readable, its advice button, and counts of ok, errored and missing. MUI first, per
@@ -391,7 +398,14 @@ butnot-ishes special case retired; `ErrBadge.tsx` as the one badge), `JsonFold`,
 *Orchestrator:* the panel's counts come from `Runner.statusCounts` (thread 2). Thread 3 renamed the
 editors (`WidgetingsEditor.tsx`, `LibraryModal.tsx`, `JsonataFields.tsx`), adapted minimally, and the
 server already refuses removing a worked widget; the editor's usage line and its refusal in the UI
-remain. A *Library* tab in Export / Import holds the library's own export and import.
+remain. A *Library* tab in Export / Import holds the library's own export and import. Thread 4 made
+`LibraryModal` open every widget with fields that follow the formulary (`AibotFields.tsx` beside
+`JsonataFields.tsx`); left: the usage line, the removal refusal in the UI, and choosing a formulary
+for a widget made from the library itself (new widgets are made only from a quiz's widgetings today).
+Also here (orchestrator's YOLO call 9): `{{{name}}}` and `{{&name}}` skip `renderPrompt`'s escape hook
+and fill a list or object in as `[object Object]`; refuse those tags in `templateIssue` with a
+sentence pointing at `{{name}}`, which renders everything as JSON anyway. Reset the `agent`
+backend before e2e if thread 5 has not.
 
 *Gloss.* `src/components/WidgetsEditor.tsx` becomes the widgeting editor; `ExpressionsModal`
 becomes the widget editor (thread 4 may have started it); `src/state/widget-edit.ts` splits
@@ -454,6 +468,9 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
 8. *(Thread 3, accepted.)* `insertQuiz` tops up the library with the default widgetings' widgets it
    lacks (thread 7 drops it); `scripts/convex_dev --seed` seeds every local role; library actions
    ignore quiz locks; pasted widgeted values wait for #66.
+9. *(Thread 4 review's minor finding.)* Thread 6 refuses the triple-brace and `&` mustache tags in
+   `templateIssue` rather than writing a custom mustache writer: `{{name}}` already renders every
+   value as JSON with escaping off, so nothing is lost.
 
 ## For the Coach
 
@@ -475,6 +492,12 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
   widgeting, so roughly 999 questions by 5 `aibot` widgetings passes Convex's per-transaction
   bound. Fine at today's sizes; a read by widgeting or paging would lift it.
 * Thread 3's suppression: one more `no-extraneous-class`/`no-static-only-class` disable, on `Widget`.
+* Thread 4's: rate limiting has moved closer (the route relays any prompt while asking is on;
+  `convex-helpers`' limiter does not drop into a Next route handler); `servicelabel` rides in the
+  request so the credentials check reads the widget's own service -- keep it, or assume `claude`?;
+  your `dev` backend holds dumdum's old prompt until reset or edited; Opus 5's default thinking
+  spends `max_tokens`, so a long pasted answer on the careful tier may come back `cutShort`. Older
+  than the thread: a non-JSON request body makes the route answer 500.
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 
