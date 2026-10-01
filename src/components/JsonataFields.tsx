@@ -109,6 +109,6 @@ function PreviewResult({ preview }: Readonly<{ preview: LiveRun }>) {
 /** The preview, in words */
 function previewText({ widgeted }: LiveRun): React.ReactNode {
   if (widgeted.status === 'errored') { return <span className={styles.muted}>Fails: {widgeted.err.message}</span> }
-  if (widgeted.status === 'missing') { return <span className={styles.muted}>nothing (a dash in the grid)</span> }
+  if (Widgeted.isNothing(widgeted)) { return <span className={styles.muted}>nothing (a dash in the grid)</span> }
   return <code>{Widgeted.textOf(widgeted)}</code>
 }
