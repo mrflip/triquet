@@ -91,7 +91,7 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   const held = new Set(quiz.questions.map((question) => Labelmaker.effectiveLabelOf(question)))
   const widgetings = widgetingsMerged(quiz, payload.quiz.widgetings, library)
   const merge: MergeState = { patches: new Map(), entered: new Map(), log: [] }
-  const entries = entryWidgetingsOf(quiz, widgetings.actions, library)
+  const entries = entryWidgetingsOf(quiz, payload.quiz.widgetings, widgetings.actions, library)
   for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, entries, raw, ii + 1) }
 
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
@@ -161,13 +161,20 @@ type MergeState = {
 
 /**
  * The entry widgetings the quiz will hold once the import's widgeting actions are sent, by label,
- * each with the library's widget it works: those it holds, and those the import adds.
+ * each with the library's widget it works: those it holds, and those the import adds. One the paste
+ * says works another widget is left out: what its cells hold came from that widget, not this entry.
  */
-function entryWidgetingsOf(quiz: QuizT, actions: readonly HuntActionDNA[], library: readonly WidgetT[]): ReadonlyMap<string, EntryWidgetT> {
+function entryWidgetingsOf(quiz: QuizT, pasted: readonly unknown[], actions: readonly HuntActionDNA[], library: readonly WidgetT[]): ReadonlyMap<string, EntryWidgetT> {
   const added = actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting] : []))
+  const pastedWorking = new Map(pasted.flatMap((raw) => {
+    const parsed = WidgetingValidators.widgeting.safeParse(raw)
+    return parsed.success ? [[parsed.data.label, parsed.data.widget_label] as const] : []
+  }))
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
   return new Map([...quiz.widgetings, ...added].flatMap(({ label, widget_label }) => {
     const widget = widgetFor.get(widget_label)
+    const elsewhere = pastedWorking.get(label)
+    if (elsewhere !== undefined && elsewhere !== widget_label) { return [] }
     return widget?.formulary === 'entry' ? [[label, widget] as const] : []
   }))
 }
