@@ -105,6 +105,14 @@ there was nothing to replay.
   - **`CLAUDE.md` still names `Expressed`** as an example namespace under *Architecture*. The
     module is gone, and I left `CLAUDE.md` for you to edit.
 
+*Review:* flagged, then clean. First pass kept one fix, `3fa8c76` (a bulk run marked busy any
+widgeting whose label matched a seeded bot, a `jsonata` one included; now `aibot` only); flagged
+dumdum's botting no longer verbatim, fixed by the resumed worker in `d1ca704` on the orchestrator's
+direction. Left, minor: re-extracting from `clueing_full`/`hint_full`/`butnot_full` does nothing
+when no widgeting works the numnum widget (follows from keying asks by widgeting);
+`Standins.metaOf` does not rebuild `reply_text` from stored history (no effect today; moot after
+threads 3-4). Second pass over `d1ca704`: clean.
+
 ## Thread 1: Design note and vocabulary (2026-10-01)
 
 Branch `20261001-widgets_decision`, PR #67, carrying the two unmerged ground branches beneath it
