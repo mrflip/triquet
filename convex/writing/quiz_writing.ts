@@ -13,7 +13,6 @@ import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
 import { HomeRealmLabel, RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
-import { SeedWidgets } from '../../src/models/seeds'
 import { WidgetValidators, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
@@ -161,8 +160,8 @@ export async function insertLayout(db: Writer, quiz_id: Id<'quizzes'>, layout: L
 
 /**
  * Insert a blank quiz into the realm `place` names: its own row, `BlankQuestionQty` blank
- * questions, and the standard widgetings and columns. The library is given whichever of the
- * standard widgetings' widgets it lacks, so every widgeting works something.
+ * questions, and the starter columns (`defaultLayout`), with no widgetings. The library is
+ * left alone: it is every hunt's, seeded once.
  *
  * @param db - The mutation's database.
  * @param place - The hunt and realm it belongs to.
@@ -180,10 +179,7 @@ export async function insertQuiz(db: Writer, place: QuizPlace, title: string, la
     row_ordering.push(await db.insert('questions', Question.blankRow({ hunt_id: place.hunt_id, quiz_id })))
   }
   await db.patch('quizzes', quiz_id, { row_ordering })
-  const layout = defaultLayout()
-  const worked = new Set(layout.widgetings.map((widgeting) => widgeting.widget_label))
-  await insertAbsentWidgets(db, SeedWidgets.filter((widget) => worked.has(widget.label)))
-  await insertLayout(db, quiz_id, layout)
+  await insertLayout(db, quiz_id, defaultLayout())
   return quiz_id
 }
 
@@ -205,7 +201,7 @@ export async function deleteQuiz(db: Writer, held: QuizRows): Promise<void> {
 
 /**
  * Insert a fresh hunt under `label`: its own row, its home realm, and one blank quiz of the same
- * label there.
+ * label there. It seeds nothing: the library is every hunt's, and seeded once.
  *
  * @param db - The mutation's database.
  * @param label - The hunt's label, already validated.

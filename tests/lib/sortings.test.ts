@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Sortings from '../../src/lib/sortings'
 import { Column } from '../../src/models/column'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT, type Sortkey } from '../../src/models/quiz'
 import { Widgeted, type JsonT, type WidgetedHistoryT, type WidgetedT } from '../../src/models/widgeted'
@@ -82,7 +82,7 @@ function answered(value: JsonT): WidgetedHistoryT {
 }
 
 /** A quiz of `questions` with the standard widgetings and columns */
-const quizOf = (questions: QuestionT[]) => ({ questions, ...defaultLayout() })
+const quizOf = (questions: QuestionT[]) => ({ questions, ...classicLayout() })
 
 /** A quiz of `questions` with one column, `size`, showing a widgeting of that label */
 const sizedQuiz = (questions: QuestionT[]) => ({

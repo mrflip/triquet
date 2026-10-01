@@ -11,6 +11,7 @@ import { DefaultWidgetings, SeedWidgets } from '../../../src/models/seeds'
 import { Widget } from '../../../src/models/widget'
 import { Question } from '../../../src/models/question'
 import { BlankQuestionQty, Quiz } from '../../../src/models/quiz'
+import { classicLayout } from '../../support/layouts'
 import { present } from '../../support/present'
 import { huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
 import { seedHuntRows } from '../../support/seed'
@@ -132,11 +133,11 @@ describe("the update helpers", () => {
 })
 
 describe("insertQuiz", () => {
-  it("writes a blank quiz: its row, its blank questions in its order, and the default layout", async () => {
+  it("writes a blank quiz: its row, its blank questions in its order, and the starter columns with no widgetings", async () => {
     const { tt, place } = await holding(titled('aa'))
     const quiz_id = await tt.run(async (ctx) => await insertQuiz(ctx.db, place, 'Kings', 'kings'))
     const shape = await shapeOf(tt, quiz_id)
-    expect(shape.counts).to.deep.eq([BlankQuestionQty, DefaultWidgetings.length, defaultLayout().columns.length])
+    expect(shape.counts).to.deep.eq([BlankQuestionQty, 0, defaultLayout().columns.length])
     expect(shape.ordered).to.deep.eq(shape.questions)
     expect(shape.title).to.eq('Kings')
   })
@@ -157,25 +158,23 @@ describe("insertQuiz", () => {
     const quiz = await tt.run(async (ctx) => await ctx.db.get('quizzes', minted))
     const mintedShape = await shapeOf(tt, minted)
     expect(quiz?.label).to.match(/^[a-z][a-z0-9_]+$/)
-    expect(mintedShape.counts).to.deep.eq([BlankQuestionQty, 12, 21])
+    expect(mintedShape.counts).to.deep.eq([BlankQuestionQty, 0, 5])
   })
 
-  it("gives the library the default widgetings' widgets it lacks, and no other seed", async () => {
+  it("leaves the library as it is, even an empty one: it is seeded once, not by quizzes", async () => {
     const { tt, place } = await holding(titled('aa'))
     await tt.run(async (ctx) => {
       const held = await libraryOf(ctx.db)
       for (const row of held) { await ctx.db.delete('widgets', row._id) }
     })
     await tt.run(async (ctx) => await insertQuiz(ctx.db, place, '', 'kings'))
-    const library = await libraryIn(tt)
-    expect(library.map((row) => [row.label, row.position])).to.deep.eq(SeedWidgets.filter((widget) => DefaultWidgetings.some((widgeting) => widgeting.widget_label === widget.label)).map((widget, idx) => [widget.label, idx]))
+    expect(await libraryIn(tt)).to.deep.eq([])
   })
 })
 
 describe("deleteQuiz", () => {
   it("deletes the quiz and every row that hangs from it", async () => {
-    const blank = Hunt.blank()
-    const quiz = { ...present(Hunt.quizzesOf(blank)[0]), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
+    const quiz = { ...Quiz.blank('', 'princes'), ...classicLayout(), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
     const { tt, hunt_id, quiz_id, revise } = await holding(huntHolding([quiz]))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
@@ -193,7 +192,7 @@ describe("deleteQuiz", () => {
 
 describe("deleteWidgeting", () => {
   it("deletes a widgeting and everything it stored, and leaves another widgeting's alone", async () => {
-    const { tt, quiz_id } = await holding(Hunt.blank())
+    const { tt, quiz_id } = await holding(huntHolding([{ ...Quiz.blank('', 'princes'), ...classicLayout() }]))
     const ids = await tt.run(async (ctx) => {
       const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
       const [doomed, kept] = [present(widgetings[0]), present(widgetings[1])]
@@ -238,7 +237,7 @@ describe("updateWidget", () => {
 })
 
 describe("insertHunt", () => {
-  it("writes a fresh hunt: its row titled from its label, a home realm, and one blank quiz under the hunt's label, laid out by default", async () => {
+  it("writes a fresh hunt: its row titled from its label, a home realm, and one blank quiz under the hunt's label, laid out as a new quiz is", async () => {
     const tt = openTester()
     const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron'))
     const back = await wholeHunt(tt, hunt_id)
@@ -250,11 +249,9 @@ describe("insertHunt", () => {
       .to.deep.eq(['loud_heron', 'Loud Heron', BlankQuestionQty, defaultLayout().widgetings, defaultLayout().columns])
   })
 
-  it("seeds the library with no more than the default widgetings work", async () => {
+  it("seeds nothing: the library of a fresh deployment stays empty", async () => {
     const tt = openTester()
     await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron'))
-    const library = await libraryIn(tt)
-    expect(library.map((row) => row.label)).to.have.members(DefaultWidgetings.map((widgeting) => widgeting.widget_label))
-    expect(library).to.have.lengthOf(DefaultWidgetings.length)
+    expect(await libraryIn(tt)).to.deep.eq([])
   })
 })

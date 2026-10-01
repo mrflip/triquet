@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { GutterWidthPx, gridWidthPx, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
 import { Column } from '../../src/models/column'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 
-const layout = defaultLayout()
+const layout = classicLayout()
 const widgetings = [
   Widgeting.fill({ label: 'dumdum', widget_label: 'dumdum' }),
   Widgeting.fill({ label: 'numnum_hint', widget_label: 'numnum_hint' }),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { huntForLabel, realmsOf } from '../../../convex/reading'
 import type { Id } from '../../../convex/_generated/dataModel'
-import { defaultLayout } from '../../../src/models/layout'
+import { classicLayout } from '../../support/layouts'
 import { Question } from '../../../src/models/question'
 import { Quiz } from '../../../src/models/quiz'
 import { present } from '../../support/present'
@@ -10,13 +10,13 @@ import { expectRefusal, huntHolding, openOf, openTester, seedHunt, type Tester }
 /** A hunt of two quizzes, the first holding two questions, laid out with the default widgetings and columns */
 function huntOfTwo() {
   const questions = ['a', 'b'].map((title) => ({ ...Question.blank(), title }))
-  return huntHolding([{ ...Quiz.blank('Quiz one'), ...defaultLayout(), questions }, Quiz.blank('Quiz two')])
+  return huntHolding([{ ...Quiz.blank('Quiz one'), ...classicLayout(), questions }, Quiz.blank('Quiz two')])
 }
 
 /** A hunt down to its last quiz, holding two questions, laid out with the default widgetings and columns */
 function huntOfOne() {
   const questions = ['a', 'b'].map((title) => ({ ...Question.blank(), title }))
-  return huntHolding([{ ...Quiz.blank('Quiz one'), ...defaultLayout(), questions }])
+  return huntHolding([{ ...Quiz.blank('Quiz one'), ...classicLayout(), questions }])
 }
 
 /** The label `hunt_id` answers to, read back the way an address is: whichever hunt the label finds */

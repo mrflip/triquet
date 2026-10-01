@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import * as Sheets from '../../src/lib/sheets'
 import { Column } from '../../src/models/column'
-import { defaultLayout, type Layout } from '../../src/models/layout'
+import type { Layout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widgeted, type JsonT, type WidgetedHistoryT, type WidgetedT } from '../../src/models/widgeted'
@@ -19,7 +20,7 @@ function answered(value: JsonT): WidgetedHistoryT {
 }
 
 /** A quiz of `questions` showing the given widgetings and columns, exported with the seed widgets */
-function exported(questions: QuestionT[], layout: Layout = defaultLayout()): string[][] {
+function exported(questions: QuestionT[], layout: Layout = classicLayout()): string[][] {
   const quiz: QuizT = { ...Quiz.blank('Export'), questions, ...layout }
   const text = Sheets.sheetsExport(quiz, runOf(quiz))
   return text === '' ? [] : text.split('\n').map((line) => line.split('\t'))
@@ -89,12 +90,12 @@ describe('cellTextOf', () => {
 describe('sheetsExport', () => {
   it('opens with a header row naming every displayed column by its label, in alphabetical order', () => {
     const table = exported([Question.blank()])
-    const labels = defaultLayout().columns.map((column) => column.label)
+    const labels = classicLayout().columns.map((column) => column.label)
     expect(table[0]).to.deep.eq(labels.toSorted((aa, bb) => aa.localeCompare(bb)))
   })
 
   it('heads the standard layout with its question fields first', () => {
-    const quiz: QuizT = { ...Quiz.blank('Export'), ...defaultLayout(), questions: [Question.blank()] }
+    const quiz: QuizT = { ...Quiz.blank('Export'), ...classicLayout(), questions: [Question.blank()] }
     expect(Sheets.sheetsExport(quiz, runOf(quiz)).split('\n', 1)[0]).to.match(/^alt_text\tbutnot\t/)
   })
 
@@ -104,7 +105,7 @@ describe('sheetsExport', () => {
   })
 
   it('does not move when the columns are dragged about, only when one is added or removed', () => {
-    const quiz: QuizT = { ...Quiz.blank('Export'), ...defaultLayout(), questions: [Question.blank()] }
+    const quiz: QuizT = { ...Quiz.blank('Export'), ...classicLayout(), questions: [Question.blank()] }
     const shuffled = { ...quiz, columns: quiz.columns.toReversed() }
     const text = (held: QuizT) => Sheets.sheetsExport(held, runOf(held))
     expect(text(shuffled)).to.eq(text(quiz))

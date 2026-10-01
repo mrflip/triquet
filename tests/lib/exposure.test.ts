@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Exposure from '../../src/lib/exposure'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import type { StoredWidgetedT } from '../../src/models/widgeted'
@@ -8,7 +8,7 @@ import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runOf } from '../support/runs'
 
-const layout = defaultLayout()
+const layout = classicLayout()
 const quizOf = (questions = [Question.blank()]) => ({ ...Quiz.blank('Table'), ...layout, questions })
 const tableOf = (quiz = quizOf()) => Exposure.tableOf(quiz, runOf(quiz))
 

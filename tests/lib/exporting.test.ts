@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import * as Exporting from '../../src/lib/exporting'
 import * as Importing from '../../src/lib/importing'
 import { Hunt } from '../../src/models/hunt'
-import { defaultLayout } from '../../src/models/layout'
+import { classicHunt, classicLayout } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
@@ -30,7 +30,7 @@ function chainedQuiz(): QuizT {
     dumdum:         { newest: storedErrored('Overloaded'), ok: null },
   } as QuestionT['stored']
   const leon = { ...Question.blank(), label: 'leon', title: 'Leon', chains_to: nantes._id, stored }
-  return { ...Quiz.blank('Princes', 'princes'), ...defaultLayout(), questions: [leon, nantes] }
+  return { ...Quiz.blank('Princes', 'princes'), ...classicLayout(), questions: [leon, nantes] }
 }
 
 /** Every key naming an id (`id`, `_id`, or one ending `_id`) anywhere inside `val`, by its path */
@@ -155,7 +155,7 @@ describe('huntExported', () => {
   })
 
   it("runs each quiz over the library it is handed", () => {
-    const hunt = Hunt.blank('deep_lake')
+    const hunt = classicHunt('deep_lake')
     const [realm] = hunt.realms
     const quiz = present(realm?.quizzes[0])
     const leon = { ...Question.blank(), label: 'leon', stored: { numnum_clueing: { newest: storedOk(SpottedItems), ok: storedOk(SpottedItems) } } } as QuestionT

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Importing from '../../src/lib/importing'
 import * as Labelmaker from '../../src/lib/labelmaker'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { ImportedQuestionT } from '../../src/models/import'
@@ -29,7 +29,7 @@ const outcomesOf = (quiz: QuizT, pasted: unknown) => Importing.importInto(quiz, 
 
 /** A quiz of one question, `leon`, working the default widgetings */
 function widgetedQuiz(): QuizT {
-  return { ...quizOf(['1', 'leon', 'Which region?']), widgetings: [...defaultLayout().widgetings] }
+  return { ...quizOf(['1', 'leon', 'Which region?']), widgetings: [...classicLayout().widgetings] }
 }
 
 /** What importing a quiz of one question and `widgetings` into `quiz` comes to */

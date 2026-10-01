@@ -5,7 +5,7 @@ import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { present } from '../support/present'
 import { runOf } from '../support/runs'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import type { WidgetedHistoryT } from '../../src/models/widgeted'
 
 const IshesRow = { status: 'ok' as const, value: { items: [{ text: '300', value: 300, kind: 'numeral' }] }, message: null, result_meta: {}, _creationTime: 1 }
@@ -15,7 +15,7 @@ const GuessRow = { status: 'ok' as const, value: { guess: 'Leon', explanation: '
 describe('the bags formulas are actually given', () => {
   const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film', stored: { numnum_hint: Ishes } }
   const question = { ...Question.blank(), qnum: '1', chains_to: target._id, stored: { numnum_clueing: Ishes, dumdum: { newest: GuessRow, ok: GuessRow } } }
-  const quiz = { ...Quiz.blank('Bag'), ...defaultLayout(), forced_label: 'my_quiz', last_sortkey: 'column:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
+  const quiz = { ...Quiz.blank('Bag'), ...classicLayout(), forced_label: 'my_quiz', last_sortkey: 'column:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
   // As the last widgeting would see them: every other widgeting's widgeted on every question.
   const bags = Runner.bagsAt(runOf(quiz), { label: 'clueing_plus_butnot_full', params: {} })
 

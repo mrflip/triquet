@@ -1,7 +1,7 @@
 import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import * as PA from '../../../src/lib/vv/patterns'
-import { Hunt, type HuntT } from '../../../src/models/hunt'
+import type { HuntT } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
 import { SeedWidgets } from '../../../src/models/seeds'
 import { Widget, type WidgetT } from '../../../src/models/widget'
@@ -9,6 +9,7 @@ import { Widgeting } from '../../../src/models/widgeting'
 import type { HuntActionDNA } from '../../../src/models/actions'
 import { present } from '../../support/present'
 import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen, type Tester } from '../../support/convex'
+import { classicHunt } from '../../support/layouts'
 
 /** A hunt of one blank quiz, working no widget, locked when asked */
 const bare = (locked = false): HuntT => huntHolding([{ ...Quiz.blank('Quiz one'), locked }])
@@ -100,7 +101,7 @@ describe("edit_widget", () => {
   })
 
   it("changes what every quiz working it shows, the quiz itself left as it was", async () => {
-    const { act, read } = await seed(Hunt.blank())
+    const { act, read } = await seed(classicHunt())
     const ante = await read()
     await act({ kind: 'edit_widget', label: 'clueing_full', patch: { formula: '42' } })
     const after = await read()
@@ -136,7 +137,7 @@ describe("edit_widget", () => {
 
 describe("move_widget", () => {
   it("reorders the library, and only it", async () => {
-    const { act, read } = await seed(Hunt.blank())
+    const { act, read } = await seed(classicHunt())
     const ante = await read()
     await act({ kind: 'move_widget', label: 'answer_reversed', onto_idx: 0 })
     const after = await read()
@@ -169,7 +170,7 @@ describe("delete_widget", () => {
   })
 
   it("refuses to remove one a widgeting of the open quiz works, saying why", async () => {
-    await expectRefused(await seed(Hunt.blank()), [{ kind: 'delete_widget', label: 'clueing_full' }, 'widgetInUse'])
+    await expectRefused(await seed(classicHunt()), [{ kind: 'delete_widget', label: 'clueing_full' }, 'widgetInUse'])
   })
 
   it("refuses to remove one a widgeting works in a quiz of another hunt", async () => {
@@ -180,7 +181,7 @@ describe("delete_widget", () => {
   })
 
   it("removes it once no widgeting works it", async () => {
-    const { act, read } = await seed(Hunt.blank())
+    const { act, read } = await seed(classicHunt())
     await act({ kind: 'delete_widgeting', label: 'clueing_full' })
     await act({ kind: 'delete_widget', label: 'clueing_full' })
     expect(labelsOf(await read())).to.not.include('clueing_full')

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Runner from '../../../src/lib/formulary/runner'
 import { Widget, type WidgetT } from '../../../src/models/widget'
-import { defaultLayout } from '../../../src/models/layout'
+import { classicLayout } from '../../support/layouts'
 import { Question, type QuestionT } from '../../../src/models/question'
 import { Quiz, type QuizT } from '../../../src/models/quiz'
 import { SeedWidgets } from '../../../src/models/seeds'
@@ -53,7 +53,7 @@ function loneQuestion(patch: Partial<QuestionT>): QuestionT {
 
 /** A quiz of `questions` working the default widgetings: the three bots, the BUT NOT ishes and the eight sums */
 function standardQuiz(questions: QuestionT[]): QuizT {
-  return { ...Quiz.blank('Standard'), questions, ...defaultLayout() }
+  return { ...Quiz.blank('Standard'), questions, ...classicLayout() }
 }
 
 /** What the standard widgeting `label` came to for `question`, in a quiz of `questions` */

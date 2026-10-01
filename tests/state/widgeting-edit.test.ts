@@ -3,12 +3,13 @@ import { NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../s
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { SeedWidgets } from '../../src/models/seeds'
 import type { HuntActionDNA } from '../../src/models/actions'
 import { present } from '../support/present'
 
 const library = SeedWidgets
-const quiz: QuizT = { ...Quiz.blank(), ...defaultLayout() }
+const quiz: QuizT = { ...Quiz.blank(), ...classicLayout() }
 const lockedQuiz = (): QuizT => ({ ...quiz, locked: true })
 const altTextIdx = quiz.columns.findIndex((column) => column.source === 'question.alt_text')
 const heldWidgeting = present(quiz.widgetings.find((each) => each.label === 'hint_full'))
@@ -131,7 +132,7 @@ describe("planWidgetingEdit, making a new widgeting", () => {
   })
 
   it("works the same for a quiz that puts nothing to work yet", () => {
-    const lean = { ...quiz, widgetings: [], columns: [] }
+    const lean = { ...quiz, ...defaultLayout() }
     expect(actionsOf(ofHeld('dumdum'), lean)[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum', description: '', params: {} } })
   })
 

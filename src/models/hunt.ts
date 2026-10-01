@@ -92,7 +92,8 @@ export class Hunt implements HuntT {
 
   /**
    * A fresh hunt under `label`: one realm, `home`, holding one blank quiz that shares the hunt's
-   * label and so its title, laid out with the standard widgetings and columns.
+   * label and so its title, laid out as a new quiz is (`defaultLayout`): the starter columns, and
+   * no widgetings.
    *
    * @param label - The hunt's label; one is minted when omitted. A caller that has to put it in an address mints it first.
    * @returns A hunt ready to type into.

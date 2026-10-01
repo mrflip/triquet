@@ -65,10 +65,10 @@ describe('Hunt.blank', () => {
     expect([hunt.label, hunt.title, present(realm).label, present(quiz).label, present(quiz).title]).to.deep.eq(['quiet_otter', 'Quiet Otter', 'home', 'quiet_otter', 'Quiet Otter'])
   })
 
-  it('starts its quiz with the default widgetings, showing the standard columns', () => {
+  it('starts its quiz as a new quiz starts: the starter columns, and no widgetings', () => {
     const hunt = Hunt.blank()
     const layout = defaultLayout()
-    expect([Hunt.quizzesOf(hunt)[0]?.widgetings, Hunt.quizzesOf(hunt)[0]?.columns]).to.deep.eq([layout.widgetings, layout.columns])
+    expect([Hunt.quizzesOf(hunt)[0]?.widgetings, Hunt.quizzesOf(hunt)[0]?.columns]).to.deep.eq([[], layout.columns])
   })
 
   it('holds no widgets of its own, which are the library\'s', () => {

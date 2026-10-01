@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { layoutRowsOf, libraryOf } from '../../convex/reading'
+import { layoutRowsOf, libraryOf, realmsOf } from '../../convex/reading'
+import { insertHunt } from '../../convex/writing/quiz_writing'
+import { defaultLayout } from '../../src/models/layout'
 import { Quiz } from '../../src/models/quiz'
 import { DefaultWidgetings, SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
@@ -97,6 +99,16 @@ describe("seeding.seedWidgets", () => {
     const done = await seedWidgets(tt)
     expect(done.quizzes).to.deep.eq([])
     expect(await layoutOf(tt, present(lean))).to.deep.eq({ widgetings: [], sources: ['question.title', 'question.clueing', 'question.butnot'] })
+  })
+
+  it("leaves a quiz made new, laid out with the starter columns, alone", async () => {
+    const tt = openTester()
+    const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'quiet_otter'))
+    const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
+    const quiz_id = present(present(home).quizzes[0])._id
+    const done = await seedWidgets(tt)
+    expect(done.quizzes).to.deep.eq([])
+    expect(await layoutOf(tt, quiz_id)).to.deep.eq({ widgetings: [], sources: defaultLayout().columns.map((column) => column.source) })
   })
 
   it("leaves a quiz that already has widgetings alone, the old view's column and all", async () => {
