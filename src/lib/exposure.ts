@@ -1,23 +1,24 @@
-import * as Expressed from './expressed'
 import * as Labelmaker from './labelmaker'
-import * as UU from './useful'
-import { BottingWidget, QuestionWidgetLabel, type WidgetT } from '../models/widget'
+import * as Runner from './formulary/runner'
+import { QuestionWidgetLabel } from '../models/column'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import { Widgeted } from '../models/widgeted'
+import { Widgeting, type WidgetingT } from '../models/widgeting'
 
 /** What a cell of an exposed column is worked out from */
 type Context = {
   question:  QuestionT
   target:    QuestionT | null
-  expressed: Expressed.ExpressedForQuiz
+  run:       Runner.QuizRun
 }
 
-/** One field of one widget, shown to the outside world: a column of the table a quiz's git history keeps */
+/** One field of one widgeting, or of the questions themselves, shown to the outside world: a column of the table a quiz's git history keeps */
 export type ExposedColumn = {
-  /** The label of the widget the field belongs to: `question`, or one of the quiz's widgets */
-  widget:   string
+  /** Whose field it is: `question`, or one of the quiz's widgetings */
+  owner:    string
   field:    string
-  /** `widget.field` */
+  /** `owner.field` */
   header:   string
   textOf:   (context: Readonly<Context>) => string
 }
@@ -29,23 +30,22 @@ function byCode(aa: string, bb: string): number {
 }
 
 /**
- * The columns a quiz's table has: every exposed field of every widget, the questions' own
- * widget and the quiz's bottings and expressings alike, ordered alphabetically by widget label
- * and then by field label.
+ * The columns a quiz's table has: every exposed field of the questions themselves and of every
+ * widgeting, ordered alphabetically by whose it is and then by field label.
  *
  * The order depends on nothing the author arranges -- not the grid's columns or their order, not
- * the order of the widgets -- so a change to one cell changes one cell of the table, and a diff
- * of it shows only that.
+ * the run order -- so a change to one cell changes one cell of the table, and a diff of it shows
+ * only that.
  *
- * @param quiz - The quiz, for its widgets.
+ * @param quiz - The quiz, for its widgetings.
  * @returns One column per exposed field.
  *
- * @example exposedColumnsOf(quiz).map((column) => column.header)  // => ['clueing_full.value', ..., 'question.clueing', ...]
+ * @example exposedColumnsOf(quiz).map((column) => column.header)  // => ['clueing_full.status', 'clueing_full.value', ..., 'question.clueing', ...]
  */
-export function exposedColumnsOf(quiz: Pick<QuizT, 'widgets'>): ExposedColumn[] {
+export function exposedColumnsOf(quiz: Pick<QuizT, 'widgetings'>): ExposedColumn[] {
   const own = Question.exposed.map((field): ExposedColumn => column(QuestionWidgetLabel, field, (context) => questionText(field, context)))
-  const widgets = quiz.widgets.flatMap((widget) => widgetColumns(widget))
-  return [...own, ...widgets].toSorted((aa, bb) => byCode(aa.widget, bb.widget) || byCode(aa.field, bb.field))
+  const widgetings = quiz.widgetings.flatMap((widgeting) => widgetingColumns(widgeting))
+  return [...own, ...widgetings].toSorted((aa, bb) => byCode(aa.owner, bb.owner) || byCode(aa.field, bb.field))
 }
 
 /**
@@ -53,24 +53,24 @@ export function exposedColumnsOf(quiz: Pick<QuizT, 'widgets'>): ExposedColumn[] 
  * label, so that dragging questions about moves no line of it.
  *
  * @param quiz - The quiz.
- * @param expressed - What its expressing widgets came to.
+ * @param run - The quiz, run: what its widgetings came to.
  * @returns The header and the rows; the rows are empty for a quiz with no questions.
  */
-export function tableOf(quiz: Pick<QuizT, 'widgets' | 'questions'>, expressed: Expressed.ExpressedForQuiz): { header: string[], rows: string[][] } {
+export function tableOf(quiz: Pick<QuizT, 'widgetings' | 'questions'>, run: Runner.QuizRun): { header: string[], rows: string[][] } {
   const columns = exposedColumnsOf(quiz)
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
   const rows = quiz.questions
     .toSorted((aa, bb) => byCode(Labelmaker.effectiveLabelOf(aa), Labelmaker.effectiveLabelOf(bb)))
     .map((question) => {
       const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-      return columns.map((each) => each.textOf({ question, target, expressed }))
+      return columns.map((each) => each.textOf({ question, target, run }))
     })
   return { header: columns.map((each) => each.header), rows }
 }
 
-/** One exposed field, headed `widget.field` */
-function column(widget: string, field: string, textOf: ExposedColumn['textOf']): ExposedColumn {
-  return { widget, field, header: `${widget}.${field}`, textOf }
+/** One exposed field, headed `owner.field` */
+function column(owner: string, field: string, textOf: ExposedColumn['textOf']): ExposedColumn {
+  return { owner, field, header: `${owner}.${field}`, textOf }
 }
 
 /** A question's own field as text: its label the one in force, and its chain named by the target's label */
@@ -80,26 +80,11 @@ function questionText(field: typeof Question.exposed[number], { question, target
   return question[field]
 }
 
-/** The exposed columns of one widget */
-function widgetColumns(widget: WidgetT): ExposedColumn[] {
-  if (widget.kind === 'expressing') {
-    return [column(widget.label, 'value', ({ question, expressed }) => {
-      const reading = Expressed.readingOf(expressed, widget.label, question._id)
-      return reading.status === 'value' ? String(reading.val) : ''
-    })]
-  }
-  const { field } = BottingWidget.slotOf(widget)
-  return BottingWidget.exposed(widget).map((fieldname) => column(widget.label, fieldname, ({ question }) => playedText(question, field, fieldname)))
-}
-
-/** One exposed field of what a bot answered, as text; nothing when it was never asked */
-function playedText(question: QuestionT, field: 'guess' | 'clueing_ishes' | 'hint_ishes', fieldname: string): string {
-  const held = question[field]
-  if (held === null) { return '' }
-  if (fieldname === 'status') { return held.status }
-  if (held.status !== 'done') { return '' }
-  if (fieldname === 'text' && 'text' in held) { return held.text }
-  if (fieldname === 'items' && 'items' in held) { return UU.jsonify(held.items) }
-  if (fieldname === 'stale' && 'stale' in held) { return String(held.stale) }
-  return ''
+/** The exposed columns of one widgeting: its status, and its value as text */
+function widgetingColumns(widgeting: WidgetingT): ExposedColumn[] {
+  const { label } = widgeting
+  return Widgeting.exposed.map((field) => column(label, field, ({ question, run }) => {
+    const widgeted = Runner.widgetedOf(run, label, question._id)
+    return field === 'status' ? widgeted.status : Widgeted.textOf(widgeted)
+  }))
 }

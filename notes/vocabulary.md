@@ -7,7 +7,78 @@ the domain.
 
 ## Widgets
 
+Everything a quiz works out per question beyond the question's own fields. Settled in October
+2026 by `notes/decisions/2026-10-widgets.md`, which replaced five words (bot, botting twice,
+expression, expressing) with the three nouns below and a piece of code. *Retiring*, at the end of
+this section, lists the words they replace while code still holds them.
 
+* **formulary** -- the generic runner behind a widget: code, never a row. A class of statics in
+  `src/lib/formulary/`, each answering one interface (`check`, `input`, `run`, `advice`) and
+  reporting `defaultInput`, `refresh` and `store`. The formularies are `jsonata` (a JSONata
+  formula worked out on render), `aibot` (a prompt put to a model when the author asks) and
+  `entry` (a value a person types into the cell, with no formula, so no `run` and no `advice`). A
+  word that meant nothing before, so it collides with nothing.
+* **widget** -- a reusable definition: a formulary, a **formula**, an input formula and a config,
+  under a label. Global: every hunt sees the same widgets, the **library**, whose one **scope**
+  this sprint is `pub`. Outside the database a widget is named by its key, `pub/<label>`. It knows
+  nothing of any quiz. (Until October 2026 a widget was what is now a widgeting.)
+* **widgeting** -- one widget put to work in one quiz, under a label of its own (the widget's, by
+  default, growing `_2`, `_3` while taken), at a place in the quiz's **run order**. The noun is
+  deliberate, as *expressing* was: the widget is the recipe, the widgeting is it being worked here.
+  Removing a widgeting takes its columns.
+* **widgeted** -- what one widgeting came to for one question. Stored for the formularies that
+  store (`aibot` appends, `entry` upserts) and worked out on render for `jsonata`. Everyone reads
+  one as `{ status, value, err }`. Never called a "result".
+* **input formula** -- a widget's second JSONata expression, which culls the bag to what the widget
+  reads. `$`, the whole bag, by default for `jsonata`; for `aibot`, the small object the prompt
+  template is rendered over (`{ 'clueing': qn.clueing }`). An input that comes to nothing means "do
+  not run", and the cell stays `missing`.
+* **formula** -- what a widget does with its input: a JSONata expression for `jsonata`, a prompt
+  template with `{{placeholders}}` for `aibot`.
+* **config** -- a widget's formulary-specific settings: `servicelabel`, `model_tier` and
+  `max_tokens` for `aibot`; `entry_kind` for `entry`; nothing for `jsonata`.
+* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label) or
+  `titleish` (one line). Fixed once the widget is made, as its formulary is; together they are its
+  **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
+  no row and reads `missing`.
+* **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
+  widgeteds of the widgetings before it, so the order is the dependency order.
+* **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
+  value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
+  no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An
+  `ok` of null is shown, written and sorted as nothing too, but keeps its status.
+* **err** -- a failure on a widgeted: on `errored` the failure itself, on `ok` a newer failure
+  riding along on an older value, which it never replaces. Shown as one badge.
+* **refresh** -- how a formulary's widgeteds come to be: `live` (worked out on every render),
+  `click` (asked from the cell), or neither (typed).
+* **library** -- every widget there is. Its own export and import, apart from any hunt's.
+* **catalogue** -- the library as the widgeting editor's picker offers it.
+* **widgeting editor** -- the quiz's dialog for one widgeting: the widget it works, picked from the
+  catalogue, and its own label and description. It never edits the widget.
+* **widget editor** -- the library's dialog for one widget: its formulary (chosen once, when it is
+  written), formula, input formula and config, how far it is put to work, and its removal.
+
+### Retiring
+
+Words the October 2026 design replaces. Code still says them until the rewidgeting sprint's later
+threads remove what they name (`whiteboard/20261001-rewidgeting/`); new code and new copy use the
+words above.
+
+* **expression** -- what a `jsonata` widget was, held by a hunt (`owner` `tq` for the seeded ones).
+  Its `owner` became a widget's `scope`.
+* **expressing** -- what a widgeting of a `jsonata` widget was.
+* **expressed** -- what a widgeted of a `jsonata` widgeting was: a value, `nothing`, or an error.
+  Now `ok`, `missing` or `errored`.
+* **botting** -- as a widget, what a widgeting of an `aibot` widget was; as a row in `bottings`,
+  what a stored widgeted was. Its `done`/`error` status became `ok`/`errored`.
+* **slot** -- a (bot, textkind) pair and the question field that showed it (`BotSlots`). Gone with
+  the fields: replies sit under widgeting labels.
+* **stale** -- a result whose `asked_text` no longer matched the question's text, kept and marked.
+  Off until staleness returns, by digest (the decision's *Deferred*), as a different rule.
+* **last_err** -- a failed ask riding along on a cell. Now `err`.
+* **job** -- which of the ask route's three fixed asks a request was (`guess`, `ishes`,
+  `bulk_ishes`). The route now takes a rendered prompt.
+* **textkind** -- which of a question's texts a bot was shown. Now the input formula's business.
 
 ## Who and where
 
@@ -17,8 +88,9 @@ the domain.
 * **identing** -- one browser taking on one ident, named by the browser's key. The browser's
   newest identing is its current ident; that row, not browser storage, is what "logged in" means.
   (Later, a cred will be the thing an identing hangs off.)
-* **hunt** -- the unit of URL scope and of membership: holds realms and expressions, and
-  is exactly what Export emits. Its label is global; should two share one, the earlier-made wins.
+* **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
+  them, expressions), and is exactly what Export emits. It holds no widgets: the library is
+  global, and exports on its own. Its label is global; should two share one, the earlier-made wins.
 * **realm** -- a division of a hunt, holding quizzes; the address's middle segment. Every hunt
   starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
   scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.
@@ -36,13 +108,14 @@ the domain.
 
 ## The things an author makes
 
-* **quiz** -- an ordered list of questions, plus the widgets and columns that say what else the
-  grid shows. Each question's `position` *is* the display order; sorting and dragging rewrite it.
+* **quiz** -- an ordered list of questions, plus the widgetings and columns that say what else
+  the grid shows. Each question's `position` *is* the display order; sorting and dragging
+  rewrite it.
 * **smith's note** (`smiths_note`) -- what the smiths say about a quiz as a whole: its theme, its
   meta, what is left to do. Beside the quiz's name, and a formula reads it as `quiz.smiths_note`.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`. Everything else a quiz shows
-  is a widget.
+  is a widgeted.
 * **clueing** -- the question as it will be asked. Never "question text" and never "question":
   that word is the row. (The prompts still say "question" to the model, because a player would.)
   Never rewritten by the tool, not even trimmed.
@@ -82,54 +155,49 @@ the domain.
   one the outside world sees. `Labelmaker` is the facility for all of this.
 * **version** -- which line of work a quiz is on; also its git branch. A **milestone** is a tag.
 
-## Widgets and columns
+## Columns and the bag
 
-* **widget** -- something that has a value for every question. A quiz opts into its widgets; they
-  sit in one ordered list. Two kinds exist: expressing and botting. The questions' own fields
-  behave as a built-in widget labelled `question`, which no other widget may be labelled.
 * **column** -- what the grid shows: a `label`, a `title`, a `width_px` and a `source`. Kept apart
-  from widgets on purpose: a widget *has* a value, a column *shows* one. Removing a column keeps
-  its widget; removing a widget takes its columns.
-* **source** -- what a column shows: `question.<field>`, `question.<view>`, or a widget's label.
-* **expression** -- a reusable JSONata **formula** with a label and description, held by a
-  hunt (`owner` is `tq` for the seeded ones). Generic: it knows nothing of any quiz.
-* **expressing** -- a widget: one expression put to work in one quiz. The noun is deliberate --
-  an *expression* is the recipe, an *expressing* is it being worked here.
-* **expressed** -- what an expressing came to for one question: a value, `nothing` (a muted
-  dash; never zero), or an error. Computed on render, stored nowhere.
+  from widgetings on purpose: a widgeting *has* a value, a column *shows* one. Removing a column
+  keeps its widgeting; removing a widgeting takes its columns. Columns have a label space of their
+  own per quiz, and the TSV's headers are column labels.
+* **source** -- what a column shows: `question.<field>`, `question.<view>`, or a widgeting's
+  label. `question` names the questions' own fields here, and no widgeting may be labelled it.
 * **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `quiz`, `qns`, `qn`,
-  `qn_label`, `quiz_label`. No ids; everything by label. `hunt` and `realm` are where the quiz
-  sits, its **place** (`Expressed.placeOf`), which the quiz's history also files it under.
+  `qn_label`, `quiz_label`, and the running widgeting's `params` and `widgeting_label`. No ids;
+  everything by label. It is **flat**: each earlier widgeting's widgeted sits at `qn.<label>`,
+  beside the question's own fields, and likewise on every question of `qns`. `hunt` and `realm`
+  are where the quiz sits, its **place** (`Runner.placeOf`), which the quiz's history also
+  files it under.
+* **reserved** -- the labels no widgeting may take, so the flat bag never shadows a question's
+  own field: every key a question has in the bag (its exposed fields, and `rank`), its views, and
+  `question`. Derived from those lists in one place, never written out twice.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
-  JSON Schema and the git table are all built from these lists, so hiding a field is one edit.
+  JSON Schema and the git table are all built from these lists, so hiding a field is one edit. A
+  widgeting exposes `status` and `value`; never its `err` or how it ran.
 
 ## Bots
 
 *Player* means a human taking the quiz, and is kept for that. The prompts have always used it
 that way; the model bots were called players until September 2026.
 
-* **bot** -- something that can be put a question and reply; a model with a brief. Seeded:
-  **dumdum**, the hasty guesser, and **numnum**, the number spotter.
-* **botting** -- two things, related. As a *widget*, a connection from a quiz to a bot for one
-  textkind. As a *row* in `bottings`, one time a bot was put one text, append-only. Named
-  "botting" rather than "answering" to stay clear of `full_answer`; the reply is `reply_text`.
-* **ask** -- the act of putting a text to a bot, and the request that does it. An ask has a
-  **job** (`guess`, `ishes`, `bulk_ishes`).
-* **textkind** -- which of a question's texts a bot is shown: `clueing` or `hint`.
-* **slot** -- one played cell: a (bot, textkind) pair and the question field that shows it.
-  The newest botting per slot is what the grid projects.
-* **guess** -- dumdum's reply to a clueing. The ambiguity signal: a guess that differs from the
-  answer means a second reading the author could not see from inside.
+* **bot** -- something that can be put a question and reply; a model with a brief. The brief is
+  now a row: an `aibot` widget, its prompt the formula. Seeded as three: **dumdum**, the hasty
+  guesser, put the clueing; and **numnum**, the number spotter, as `numnum_clueing` and
+  `numnum_hint`. Their names live on as those widgets' labels and titles.
+* **ask** -- the act of putting a rendered prompt to a model through the ask route, and the
+  request that does it: what clicking an `aibot` cell does.
+* **guess** -- dumdum's reply to a clueing: its value's `guess`, beside an `explanation`. The
+  ambiguity signal: a guess that differs from the answer means a second reading the author could
+  not see from inside.
 * **ish**, **ishes** -- a number-like span numnum found in a text ("300 million", "third", "千"),
-  with the value a player would total for it. `kind` is `numeral` (digits) or `wordish`. The
-  **sums** over them are seeded expressions; they exist for quizzes whose meta is numeric.
-* **stale** -- derived, never discarded: a result whose `asked_text` is no longer the question's
-  text stays on screen, marked.
-* **last_err** -- a failed ask never replaces a value; it rides along on the cell until a success
-  clears it.
-* **model tier** -- `quick` or `careful`: a feature of the bot, not a cost dodge.
-* **servicelabel** -- which outside service serves a bot (`claude`), and so whose credentials
-  it needs. **unavailable** is a bot with none.
+  with the value a player would total for it. `kind` is `numeral` (digits) or `wordish`. A numnum
+  widget's value is `{ items }`, a list of them. The **sums** over them are seeded `jsonata`
+  widgets; they exist for quizzes whose meta is numeric.
+* **model tier** -- `quick` or `careful`: a feature of the widget, set in its config, not a cost
+  dodge.
+* **servicelabel** -- which outside service serves an `aibot` widget (`claude`), and so whose
+  credentials it needs. **unavailable** is a service with none.
 
 ## Playtesting
 
@@ -169,7 +237,7 @@ lines between them, and these are here so they are findable beside the rest.
 ## Around the edges
 
 * **locked** -- a quiz frozen against edits. Never a trap: switching, unlocking, exporting and
-  editing the hunt's expressions all stay available.
+  editing the widget library all stay available.
 * **sort memory** (`last_sortkey`) -- which column last committed the quiz to its order. A
   label, not a live sort.
 * **notice** -- a sentence shown to the author in place of a result. Failures reach the author
@@ -181,8 +249,9 @@ lines between them, and these are here so they are findable beside the rest.
   `useRaiseAlarm` (`src/state/alarms.tsx`), shown by `AlarmSnackbar`.
 * **mirror** -- the quiz's git history in the browser. A past-versions view and an exit door,
   not a source of truth. `.qq.tsv` is the diffable table; `.tq.json` is the whole quiz; both sit
-  at `tq/hunt/<hunt>/realm/<realm>/quiz/`, and the hunt's expressions at
-  `tq/hunt/<hunt>/<hunt>.tqexpressions.json`. The history follows the quiz: a relabel is a new
+  at `tq/hunt/<hunt>/realm/<realm>/quiz/`, and each widget the quiz works at
+  `tq/widget/pub/<label>.tqwidget.json` (until widgets replace them, the hunt's expressions at
+  `tq/hunt/<hunt>/<hunt>.tqexpressions.json`). The history follows the quiz: a relabel is a new
   label on the same thing, an edit new content for it.
 * **meta** -- the second-layer puzzle a quiz can hide. The reason widgets exist.
 * **Coach**, **agent** -- the humans and the AI on this project. See `CLAUDE.md`.

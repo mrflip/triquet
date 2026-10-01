@@ -1,0 +1,156 @@
+import { describe, expect, it } from 'vitest'
+import { NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../src/state/widgeting-edit'
+import { Quiz, type QuizT } from '../../src/models/quiz'
+import { Widget } from '../../src/models/widget'
+import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
+import { SeedWidgets } from '../../src/models/seeds'
+import type { HuntActionDNA } from '../../src/models/actions'
+import { present } from '../support/present'
+
+const library = SeedWidgets
+const quiz: QuizT = { ...Quiz.blank(), ...classicLayout() }
+const lockedQuiz = (): QuizT => ({ ...quiz, locked: true })
+const altTextIdx = quiz.columns.findIndex((column) => column.source === 'question.alt_text')
+const heldWidgeting = present(quiz.widgetings.find((each) => each.label === 'hint_full'))
+
+/** An edit of the standard Hint Full widgeting, as opened and untouched */
+function untouched(patch: Partial<WidgetingEdit> = {}): WidgetingEdit {
+  return { widgeting: heldWidgeting, label: heldWidgeting.label, description: heldWidgeting.description, widgetLabel: 'hint_full', ...patch }
+}
+
+/** A new widgeting of a widget the library holds */
+function ofHeld(widgetLabel: string, patch: Partial<WidgetingEdit> = {}): WidgetingEdit {
+  return { widgeting: null, label: '', description: '', widgetLabel, ...patch }
+}
+
+function actionsOf(edit: WidgetingEdit, target: QuizT = quiz, held = library): HuntActionDNA[] {
+  const plan = planWidgetingEdit(edit, held, target)
+  if (! plan.ok) { throw new Error(`Expected a plan, got: ${plan.issue}`) }
+  return plan.actions
+}
+
+describe("NewColumnWidthPx", () => {
+  it("gives a number its narrow column, and a model's answer and an entry a wide one", () => {
+    expect(NewColumnWidthPx).to.deep.eq({ jsonata: 78, aibot: 170, entry: 170 })
+  })
+})
+
+describe("planWidgetingEdit, editing a widgeting", () => {
+  it("comes to nothing when nothing was changed", () => {
+    expect(actionsOf(untouched())).to.deep.eq([])
+  })
+
+  it("revises only the widgeting fields that changed", () => {
+    expect(actionsOf(untouched({ description: 'Why.' }))).to.deep.eq([{ kind: 'edit_widgeting', label: 'hint_full', patch: { description: 'Why.' } }])
+  })
+
+  it("relabels a widgeting, which the reducer carries to its columns", () => {
+    expect(actionsOf(untouched({ label: 'Hint Total!' }))).to.deep.eq([{ kind: 'edit_widgeting', label: 'hint_full', patch: { label: 'hint_total' } }])
+  })
+
+  it("reads a cleared label as its widget's, which it already has", () => {
+    expect(actionsOf(untouched({ label: '' }))).to.deep.eq([])
+  })
+
+  it("still revises a widgeting whose widget the library no longer holds", () => {
+    const without = library.filter((widget) => widget.label !== 'hint_full')
+    expect(actionsOf(untouched({ description: 'Orphaned.' }), quiz, without)).to.deep.eq([{ kind: 'edit_widgeting', label: 'hint_full', patch: { description: 'Orphaned.' } }])
+  })
+
+  it("refuses a label a sibling widgeting already has, beside the label", () => {
+    expect(planWidgetingEdit(untouched({ label: 'clueing_full' }), library, quiz)).to.deep.eq({
+      ok: false, issue: 'Another widgeting in this quiz already has that label.', labelIssue: 'Another widgeting in this quiz already has that label.',
+    })
+  })
+
+  for (const label of ['question', 'title', 'rank', 'butnot', 'forced_label']) {
+    it(`refuses ${label}, which a question already answers to, beside the label`, () => {
+      const plan = planWidgetingEdit(untouched({ label }), library, quiz)
+      expect(plan.ok).to.be.false
+      expect(plan.ok ? null : plan.labelIssue).to.be.a('string')
+    })
+  }
+
+  it("refuses a description too long, and not beside the label", () => {
+    const plan = planWidgetingEdit(untouched({ description: 'x'.repeat(3601) }), library, quiz)
+    expect(plan).to.deep.include({ ok: false, labelIssue: null })
+  })
+})
+
+describe("planWidgetingEdit, making a new widgeting", () => {
+  it("adds the widgeting, then a column showing it just before Alt Text", () => {
+    expect(actionsOf(ofHeld('answer_reversed'))).to.deep.eq([
+      { kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'answer_reversed', description: '', params: {} } },
+      {
+        kind:     'add_column',
+        column:   { label: 'answer_reversed', title: 'Answer Reversed', source: 'answer_reversed', width_px: 78 },
+        onto_idx: altTextIdx,
+      },
+    ])
+  })
+
+  it("takes the widgeting label and description it is given", () => {
+    const actions = actionsOf(ofHeld('answer_reversed', { label: 'Backward', description: 'For the palindrome round.' }))
+    expect(actions[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'backward', description: 'For the palindrome round.', params: {} } })
+    expect(actions[1]?.kind === 'add_column' && [actions[1].column.label, actions[1].column.source]).to.deep.eq(['backward', 'backward'])
+  })
+
+  it("works a widget written a moment ago, which the caller hands it beside the library", () => {
+    const fresh = Widget.fill({ label: 'title_length', formulary: 'jsonata', formula: '$length(qn.title)' })
+    const actions = actionsOf(ofHeld('title_length'), quiz, [...library, fresh])
+    expect(actions.map((action) => action.kind)).to.deep.eq(['add_widgeting', 'add_column'])
+  })
+
+  it("suffixes the label of a second widgeting of one widget, so both can stand, and its column's too", () => {
+    const actions = actionsOf(ofHeld('hint_full'))
+    expect(actions[0]?.kind === 'add_widgeting' && actions[0].widgeting.label).to.eq('hint_full_2')
+    expect(actions[1]?.kind === 'add_column' && actions[1].column.label).to.eq('hint_full_2')
+  })
+
+  it("suffixes the label of a widgeting whose widget shares a question field's name", () => {
+    const withNotes = [...library, Widget.fill({ label: 'notes', formulary: 'jsonata', formula: '1' })]
+    const [added] = actionsOf(ofHeld('notes'), quiz, withNotes)
+    expect(added?.kind === 'add_widgeting' && added.widgeting.label).to.eq('notes_2')
+  })
+
+  it("suffixes a column's label that another column already has, though no widgeting does", () => {
+    const actions = actionsOf(ofHeld('answer_reversed', { label: 'guess_cell' }), { ...quiz, columns: [...quiz.columns, { ...present(quiz.columns[0]), label: 'guess_cell' }] })
+    expect(actions[1]?.kind === 'add_column' && [actions[1].column.label, actions[1].column.source]).to.deep.eq(['guess_cell_2', 'guess_cell'])
+  })
+
+  it("gives a model's answer a wide column", () => {
+    const actions = actionsOf(ofHeld('dumdum'))
+    expect(actions[1]?.kind === 'add_column' && actions[1].column.width_px).to.eq(NewColumnWidthPx.aibot)
+  })
+
+  it("puts its column at the end for a quiz that has no Alt Text column", () => {
+    const noAlt = { ...quiz, columns: quiz.columns.filter((column) => column.source !== 'question.alt_text') }
+    const column = actionsOf(ofHeld('answer_reversed'), noAlt).at(-1)
+    expect(column).to.deep.include({ kind: 'add_column' })
+    expect(column).to.not.have.property('onto_idx')
+  })
+
+  it("works the same for a quiz that puts nothing to work yet", () => {
+    const lean = { ...quiz, ...defaultLayout() }
+    expect(actionsOf(ofHeld('dumdum'), lean)[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum', description: '', params: {} } })
+  })
+
+  const Refused: [Partial<WidgetingEdit>, string, string | null, string][] = [
+    [{ widgetLabel: '' },              "Pick a widget for it to work.",                         null,                                                    'a widgeting of no widget at all'],
+    [{ widgetLabel: 'no_such_widget' }, "Pick a widget for it to work.",                         null,                                                    'a widgeting of a widget the library lacks'],
+    [{ label: 'clueing_full' },        "Another widgeting in this quiz already has that label.", "Another widgeting in this quiz already has that label.", 'a widgeting label a sibling has'],
+  ]
+  for (const [patch, issue, labelIssue, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(planWidgetingEdit(ofHeld('answer_reversed', patch), library, quiz)).to.deep.eq({ ok: false, issue, labelIssue })
+    })
+  }
+})
+
+describe("planWidgetingEdit, on a locked quiz", () => {
+  it("comes to nothing, whatever was touched", () => {
+    expect(actionsOf(untouched({ description: 'Ignored' }), lockedQuiz())).to.deep.eq([])
+    expect(actionsOf(ofHeld('answer_reversed'), lockedQuiz())).to.deep.eq([])
+  })
+})

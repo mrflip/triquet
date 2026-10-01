@@ -1,181 +1,242 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
-import { TextkindVals, type Textkind } from '../lib/ask/contract'
-import { BotLabelVals, type BotLabel } from './bot-label'
-import { BotSlots, isBotSlot, type BotSlot } from './botting'
-import type { ExpressionT } from './expression'
+import * as PA from '../lib/vv/patterns'
+import { ServicelabelVals } from '../lib/credentials'
+import { ModelTierVals } from './ask'
 
-/** The widget every quiz has without being told: the questions' own fields. No quiz may label one of its own this. */
-export const QuestionWidgetLabel = 'question'
+/** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, a prompt put to a model, or a value a person types */
+export const FormularykindVals = ['jsonata', 'aibot', 'entry'] as const
+export type Formularykind = typeof FormularykindVals[number]
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, noteish, discrim, uint, zid }) => {
+/** What an `entry` widget's cells take: prose, a number, a label, or a one-line title */
+export const EntryKindVals = ['text', 'number', 'labelish', 'titleish'] as const
+export type EntryKind = typeof EntryKindVals[number]
+
+/** Who a widget belongs to: `pub`, the library every hunt sees, is the only scope there is so far */
+export const WidgetScopeVals = ['pub'] as const
+export type WidgetScope = typeof WidgetScopeVals[number]
+
+/** Most room an `aibot` widget may give a model to answer in: twice what the number spotter takes */
+export const AibotTokensMax = 8000
+
+/** The input formula a new `jsonata` widget starts with: the whole bag */
+export const JsonataDefaultInput = '$'
+
+/** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
+export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
+
+export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint, num }) => {
+  const jsonataConfig = obj({}).strict()
+    .describe('A `jsonata` widget\'s settings: none.')
+  const aibotConfig = obj({
+    servicelabel: oneof(ServicelabelVals)
+      .describe('Which outside service the prompt is put to, and so whose credentials it needs.'),
+    model_tier:   oneof(ModelTierVals)
+      .describe('Which tier of model answers: `quick` for a hasty first instinct, `careful` for a thorough reading.'),
+    max_tokens:   uint.min(1).max(AibotTokensMax)
+      .describe('How much room the model is given to answer one question.'),
+  })
+    .describe('An `aibot` widget\'s settings: who answers, and how much room they have.')
+  const entryConfig = obj({
+    entry_kind: oneof(EntryKindVals)
+      .describe('What its cells take: `text` (prose, markdown welcome), `number`, `labelish` (a label, as `quiet_otter`) or `titleish` (one line). Fixed once made: the values typed hang on it.'),
+  }).strict()
+    .describe('An `entry` widget\'s settings: what kind of value is typed into its cells.')
+
+  // What an `entry` widget's cell holds, by its kind; an emptied cell holds no row at all.
+  const entryText = noteish.min(1)
+    .describe('Prose typed into an entry cell, trimmed; markdown welcome.')
+  const entryNumber = num
+    .describe('A number typed into an entry cell.')
+  const entryLabelish = label
+    .describe('A label typed into an entry cell: plain lowercase letters, numbers and single underscores.')
+  const entryTitleish = titleish.min(1)
+    .describe('One line typed into an entry cell, as a title is.')
+
+  // Each field is named once, bare, and given a default in the widget and none in its row.
+  const scope = oneof(WidgetScopeVals)
+    .describe('Who the widget belongs to. `pub` is the library every hunt sees, and the only scope there is so far. Fixed once made.')
   const widgetLabel = label
-    .describe('What the widget is called within its quiz, unique there and never `question`, which is the questions\' own widget. Columns name the widgets they show by this label.')
+    .describe('What the widget is called, unique within its scope. Widgetings and files name it by this, so it is fixed once made.')
+  const title = titleish
+    .describe('What the widget is called on screen; a blank one reads as its label, titleized.')
   const description = noteish
-    .describe('What this widget is for in this quiz, in the author\'s words.')
+    .describe('What the widget works out, for the author choosing one.')
+  const input_formula = formulaish
+    .describe('A JSONata expression that culls the bag to what the widget reads. An input that comes to nothing means "do not run".')
+  const jsonataFormula = formulaish
+    .describe('A JSONata formula, worked out over the widget\'s input for every question. Kept exactly as typed, newlines and all.')
+  const aibotFormula = textish.min(1)
+    .describe('A prompt template, each `{{name}}` in it filled in from that key of the widget\'s input. Kept exactly as typed.')
 
-  const expressing = obj({
-    kind:             lit('expressing'),
-    label:            widgetLabel,
-    expression_label: label
-      .describe('Which of the hunt\'s expressions works out this widget\'s value for every question.'),
-    description:      description.default(''),
-  })
-    .describe('One expression put to work in one quiz: for every question, the value its formula comes to.')
+  const jsonataFields = { formulary: lit('jsonata'), formula: jsonataFormula, config: jsonataConfig }
+  const aibotFields = { formulary: lit('aibot'), formula: aibotFormula, config: aibotConfig }
+  const entryFields = {
+    formulary:     lit('entry'),
+    formula:       lit('')
+      .describe('Nothing: an entry\'s value is typed, not worked out.'),
+    input_formula: lit('')
+      .describe('Nothing: an entry reads nothing.'),
+    config:        entryConfig,
+  }
 
-  const botLabel = oneof(BotLabelVals)
-    .describe('Which bot is put the quiz\'s questions.')
-  const textkind = oneof(TextkindVals)
-    .describe('Which of a question\'s texts the bot is shown.')
-
-  const botting = obj({
-    kind:          lit('botting'),
+  const jsonataWidget = obj({
+    scope:         scope.default('pub'),
     label:         widgetLabel,
-    bot_label:     botLabel,
-    textkind,
+    title:         title.default(''),
     description:   description.default(''),
+    ...jsonataFields,
+    input_formula: input_formula.default(JsonataDefaultInput),
+    config:        jsonataConfig.default({}),
   })
-    .check((context) => {
-      const { bot_label, textkind: kindShown } = context.value
-      if (! isBotSlot(bot_label, kindShown)) {
-        context.issues.push({ code: 'custom', input: kindShown, path: ['textkind'], message: `${bot_label} is not put a ${kindShown} in this tool` })
-      }
-    })
-    .describe('A connection from a quiz to a bot: what the bot answered for each question, shown for the text given. The answers are kept on the questions, so removing this only stops showing them.')
-
-  const widget = discrim('kind', [expressing, botting])
-    .describe('One of a quiz\'s widgets: something that has a value for every question, which a column can show. A quiz keeps them in a list, and the list is their order.')
-
-  const expressingPatch = obj({
-    label:            widgetLabel.optional(),
-    expression_label: label.optional(),
-    description:      description.optional(),
+    .describe('A widget worked out by a JSONata formula on every render, and stored nowhere.')
+  const aibotWidget = obj({
+    scope:         scope.default('pub'),
+    label:         widgetLabel,
+    title:         title.default(''),
+    description:   description.default(''),
+    ...aibotFields,
+    input_formula: input_formula.default(AibotDefaultInput),
   })
-    .describe('The fields of one expressing widget being revised. A key absent means "leave whatever is already there".')
-
-  const bottingPatch = obj({
-    label:        widgetLabel.optional(),
-    bot_label:    oneof(BotLabelVals).optional(),
-    textkind:     oneof(TextkindVals).optional(),
-    description:  description.optional(),
+    .describe('A widget that puts a prompt to a model, asked from the cell, and keeps every answer.')
+  const entryWidget = obj({
+    scope:         scope.default('pub'),
+    label:         widgetLabel,
+    title:         title.default(''),
+    description:   description.default(''),
+    ...entryFields,
+    formula:       entryFields.formula.default(''),
+    input_formula: entryFields.input_formula.default(''),
   })
-    .describe('The fields of one botting widget being revised. A key absent means "leave whatever is already there".')
+    .describe('A widget whose cells a person types into, one value per question, kept as the one value.')
+
+  const widget = discrim('formulary', [jsonataWidget, aibotWidget, entryWidget])
+    .describe('A reusable definition in the library: a formulary, a formula, an input formula and a config, under a label. It knows nothing of any quiz; a widgeting puts it to work in one.')
+
+  const widgetPatch = obj({
+    title:         title.optional(),
+    description:   description.optional(),
+    formula:       textish.min(1).optional()
+      .describe('The formula or the prompt; held to the bound of the widget\'s own formulary once applied.'),
+    input_formula: input_formula.optional(),
+    config:        union([jsonataConfig, aibotConfig, entryConfig]).optional()
+      .describe('The settings; held to the shape of the widget\'s own formulary once applied.'),
+  })
+    .describe('The fields of one widget being revised. A key absent means "leave whatever is already there". The scope, the label and the formulary are not among them: other things refer to a widget by the first two, and its config\'s shape hangs on the third.')
 
   const rowFields = {
-    quiz_id:  zid('quizzes')
-      .describe('The quiz this widget belongs to.'),
-    position: uint
-      .describe('The widget\'s place among its quiz\'s widgets, counting from zero.'),
+    scope,
+    label:         widgetLabel,
+    title,
+    description,
+    input_formula,
+    position:      uint
+      .describe('The widget\'s place in the order the library lists them, counting from zero.'),
   }
-  const row = discrim('kind', [expressing.extend(rowFields), botting.extend(rowFields)])
-    .describe('One widget as the database holds it: the fields of its own kind, and its place in its quiz.')
+  const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
+    .describe('One widget as the database holds it: its fields, and its place in the library.')
 
-  return { widgetLabel, expressing, botting, widget, expressingPatch, bottingPatch, row }
+  const library = obj({ widgets: widget.array().max(PA.WidgetsInLibrary.max) })
+    .describe('The library, as it is exported and imported on its own: every widget, in library order, without its place.')
+
+  return { jsonataConfig, aibotConfig, entryConfig, entryText, entryNumber, entryLabelish, entryTitleish, widgetLabel, widget, widgetPatch, row, library }
 })
 
-export type ExpressingDNA   = Z.input<typeof WidgetValidators.expressing>
-export type ExpressingT     = Z.output<typeof WidgetValidators.expressing>
-export type BottingWidgetDNA = Z.input<typeof WidgetValidators.botting>
-export type BottingWidgetT  = Z.output<typeof WidgetValidators.botting>
-export type WidgetDNA       = Z.input<typeof WidgetValidators.widget>
-export type WidgetT         = Z.output<typeof WidgetValidators.widget>
-export type ExpressingPatch = Z.output<typeof WidgetValidators.expressingPatch>
-export type BottingPatch    = Z.output<typeof WidgetValidators.bottingPatch>
+export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>
+export type AibotConfigT   = Z.output<typeof WidgetValidators.aibotConfig>
+export type EntryConfigT   = Z.output<typeof WidgetValidators.entryConfig>
+export type WidgetDNA      = Z.input<typeof WidgetValidators.widget>
+/**
+ * A reusable definition in the library: a formulary, a formula, an input formula and a config,
+ * under a label. It knows nothing of any quiz; a widgeting puts it to work in one.
+ */
+export type WidgetT        = Z.output<typeof WidgetValidators.widget>
+/** A widget of the library worked by a JSONata formula */
+export type JsonataWidgetT = Extract<WidgetT, { formulary: 'jsonata' }>
+/** A widget of the library that puts a prompt to a model */
+export type AibotWidgetT   = Extract<WidgetT, { formulary: 'aibot' }>
+/** A widget of the library whose cells a person types into */
+export type EntryWidgetT   = Extract<WidgetT, { formulary: 'entry' }>
+/** What an `entry` widget's cell holds: text or a number */
+export type EntryValueT    = string | number
 
-/** One expression put to work in one quiz */
-export class Expressing implements ExpressingT {
-  declare kind:             'expressing'
-  declare label:            string
-  declare expression_label: string
-  declare description:      string
+/** The validator of what each kind of `entry` widget's cell holds */
+export const EntryValueFor: Readonly<Record<EntryKind, Z.ZodType<EntryValueT>>> = {
+  text:     WidgetValidators.entryText,
+  number:   WidgetValidators.entryNumber,
+  labelish: WidgetValidators.entryLabelish,
+  titleish: WidgetValidators.entryTitleish,
+}
+export type WidgetPatch    = Z.output<typeof WidgetValidators.widgetPatch>
+export type WidgetRowT     = Z.output<typeof WidgetValidators.row>
+export type LibraryDNA     = Z.input<typeof WidgetValidators.library>
+export type LibraryT       = Z.output<typeof WidgetValidators.library>
 
-  /** The fields a widget of this kind shows the outside world: the value it comes to */
-  static readonly exposed = ['value'] as const
-
+/** A reusable definition in the library */
+// A class of statics, as a model is, with no instance fields to declare: a widget is a union.
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class, unicorn/no-static-only-class
+export class Widget {
   /**
-   * Validated expressing widget, with the description defaulted.
+   * Validated widget, with its scope, title, description and input formula defaulted, a
+   * `jsonata` widget's config too, and an entry's empty formula.
    *
-   * @param dna - A label and the expression it works.
-   * @returns A complete widget.
+   * @param dna - At least a label and a formulary; a formula, but for an entry; and an `aibot` or `entry` widget's config.
+   * @returns A complete widget, of the formulary `dna` names.
    *
-   * @example Expressing.fill({ kind: 'expressing', label: 'letters', expression_label: 'answer_letter_count' })
+   * @example Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' }).input_formula  // => '$'
    */
-  static fill(dna: ExpressingDNA): ExpressingT {
-    return WidgetValidators.expressing(dna)
+  static fill<DT extends WidgetDNA>(dna: DT): Extract<WidgetT, { formulary: DT['formulary'] }> {
+    // The union is discriminated by `formulary`, so the arm it parses to is the one `dna` names.
+    return WidgetValidators.widget(dna) as Extract<WidgetT, { formulary: DT['formulary'] }>
   }
 
   /**
-   * A widget working `expression`, labelled after it, under a label no sibling has.
-   * A label already taken gains a short random suffix.
+   * What names a widget outside the database: its scope and its label.
    *
-   * @param expression - What the widget works out.
-   * @param taken - The labels the quiz's other widgets already use.
-   * @returns A widget ready to add to the quiz.
-   *
-   * @example Expressing.forExpression(expression, new Set(['clueing_full']))
+   * @example Widget.keyOf({ scope: 'pub', label: 'dumdum' })  // => 'pub/dumdum'
    */
-  static forExpression(expression: Pick<ExpressionT, 'label'>, taken: ReadonlySet<string>): ExpressingT {
-    const label = taken.has(expression.label) ? Labelmaker.appendFallback(expression.label) : expression.label
-    return this.fill({ kind: 'expressing', label, expression_label: expression.label })
+  static keyOf(widget: Pick<WidgetT, 'scope' | 'label'>): string {
+    return `${widget.scope}/${widget.label}`
+  }
+
+  /**
+   * A widget's title as the screen shows it: a blank one reads as its label, titleized.
+   *
+   * @example Widget.titleOf({ label: 'clueing_full', title: '' })  // => 'Clueing Full'
+   */
+  static titleOf(widget: Pick<WidgetT, 'label' | 'title'>): string {
+    return widget.title === '' ? Labelmaker.titleize(widget.label) : widget.title
+  }
+
+  /**
+   * A widget as the library exports it: its fields, without its place.
+   *
+   * @example Widget.exported(row).label  // => 'dumdum'
+   */
+  static exported(widget: WidgetT | WidgetRowT): WidgetT {
+    const { scope, label, title, description, input_formula } = widget
+    const shared = { scope, label, title, description, input_formula }
+    switch (widget.formulary) {
+    case 'jsonata': { return { ...shared, formulary: 'jsonata', formula: widget.formula, config: widget.config } }
+    case 'aibot':   { return { ...shared, formulary: 'aibot', formula: widget.formula, config: widget.config } }
+    case 'entry':   { return { ...shared, formulary: 'entry', formula: '', input_formula: '', config: widget.config } }
+    }
+  }
+
+  /**
+   * What is fixed about a widget once it is made, said in words: its formulary, and an entry's
+   * kind, which the values typed hang on. A widget may be revised, or merged by an import, only
+   * into one that says the same.
+   *
+   * @example Widget.flavorOf({ formulary: 'entry', config: { entry_kind: 'number' } })  // => 'a number entry'
+   * @example Widget.flavorOf({ formulary: 'aibot', config: aibotConfig })               // => 'an aibot widget'
+   */
+  static flavorOf(widget: Pick<WidgetT, 'formulary' | 'config'>): string {
+    if ('entry_kind' in widget.config) { return `a ${EntryKindNames[widget.config.entry_kind]} entry` }
+    return widget.formulary === 'aibot' ? 'an aibot widget' : `a ${widget.formulary} widget`
   }
 }
 
-/** A connection from a quiz to a bot */
-export class BottingWidget implements BottingWidgetT {
-  declare kind:         'botting'
-  declare label:        string
-  declare bot_label:    BotLabel
-  declare textkind:     Textkind
-  declare description:  string
-
-  /**
-   * Validated botting widget, with the description defaulted.
-   *
-   * @param dna - A label, a bot, and which text the bot is shown.
-   * @returns A complete widget.
-   * @throws When the tool does not put that bot that text.
-   *
-   * @example BottingWidget.fill({ kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' })
-   */
-  static fill(dna: BottingWidgetDNA): BottingWidgetT {
-    return WidgetValidators.botting(dna)
-  }
-
-  /**
-   * The cell of a question this widget shows: which of its played fields holds the answer.
-   *
-   * @param widget - A botting widget.
-   * @returns The slot: `guess`, `clueing_ishes` or `hint_ishes`.
-   *
-   * @example BottingWidget.slotOf({ bot_label: 'numnum', textkind: 'hint' }).field  // => 'hint_ishes'
-   */
-  static slotOf(widget: Pick<BottingWidgetT, 'bot_label' | 'textkind'>): BotSlot {
-    const slot = BotSlots.find((each) => each.bot_label === widget.bot_label && each.textkind === widget.textkind)
-    if (! slot) { throw new Error(`${widget.bot_label} is not put a ${widget.textkind}`) }
-    return slot
-  }
-
-  /**
-   * The fields of a bot's answer the outside world sees: the answer itself, and whether it is
-   * out of date. Not what it cost, which model made it, when, or how it failed.
-   *
-   * @param widget - A botting widget.
-   * @returns Field names, alphabetical.
-   *
-   * @example BottingWidget.exposed({ bot_label: 'dumdum', textkind: 'clueing' })  // => ['status', 'text']
-   */
-  static exposed(widget: Pick<BottingWidgetT, 'bot_label' | 'textkind'>): readonly string[] {
-    return this.slotOf(widget).field === 'guess' ? ['status', 'text'] : ['items', 'stale', 'status']
-  }
-}
-
-/** The widgets of `widgets` that are expressings */
-export function expressingsOf(widgets: readonly WidgetT[]): ExpressingT[] {
-  return widgets.filter((widget): widget is ExpressingT => widget.kind === 'expressing')
-}
-
-/** The widgets of `widgets` that are bottings */
-export function bottingsOf(widgets: readonly WidgetT[]): BottingWidgetT[] {
-  return widgets.filter((widget): widget is BottingWidgetT => widget.kind === 'botting')
-}
+/** How each kind of entry is named in a sentence */
+const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', labelish: 'label', titleish: 'title' }

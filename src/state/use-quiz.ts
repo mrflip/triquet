@@ -32,7 +32,7 @@ function readingOf(reading: QuestionReading): SeenQuestionT | null | undefined {
 export function useQuiz(quiz_id: Id<'quizzes'> | null): QuizT | null | undefined {
   const browser_key = useBrowserKey()
   const frame = useQuery(api.quizzes.open, quiz_id === null || browser_key === null ? 'skip' : { quiz_id, browser_key })
-  // Keyed by the order's contents: a frame redelivered for a change to its widgets keeps its subscriptions.
+  // Keyed by the order's contents: a frame redelivered for a change to its widgetings keeps its subscriptions.
   const orderKey = frame?.row_ordering.join(' ') ?? ''
   const queries = useMemo(() => (browser_key === null ? {} : Object.fromEntries(orderKey.split(' ').filter(Boolean).map((question_id) => (
     [question_id, { query: api.questions.open, args: { question_id, browser_key } }]

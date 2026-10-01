@@ -2,18 +2,19 @@ import type { Id } from '../_generated/dataModel'
 import * as Hunt from './hunt_actions'
 import * as Hunting from './hunting_actions'
 import * as Layout from './layout_actions'
+import * as Library from './library_actions'
 import * as Quiz from './quiz_actions'
 import * as Review from './review_actions'
-import { isLayoutAction, type HuntActionT, type OpenQuizT } from '../../src/models/actions'
+import { isLayoutAction, isLibraryAction, type HuntActionT, type OpenQuizT } from '../../src/models/actions'
 import type { Writer } from './quiz_writing'
 
 /**
  * Carry out what the author did, writing the rows it comes to, all in one transaction.
  *
  * Actions that revise the quiz on screen are refused outright while it is locked; actions about
- * its realm and hunt (making, deleting and locking quizzes, the expressions, who is on the hunt,
- * and relabelling or deleting the hunt), and reviews, are not -- a locked quiz is exactly what a finished draft sent out for
- * playtesting looks like.
+ * its realm and hunt (making, deleting and locking quizzes, who is on the hunt, and relabelling or
+ * deleting the hunt), about the library, and reviews, are not -- a locked quiz is exactly what a
+ * finished draft sent out for playtesting looks like.
  * A refused action writes nothing and throws a refusal saying why (`lib/refusals`). Each action
  * reads the rows it needs as they stand, inside the transaction. Whether the actor may take the
  * action at all, and whether `open` is truly of its hunt, is `authorize`'s to settle first.
@@ -31,6 +32,10 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
     await Layout.performLayout(db, open, action)
     return
   }
+  if (isLibraryAction(action)) {
+    await Library.performLibrary(db, action)
+    return
+  }
   switch (action.kind) {
   case 'retitle_quiz':        { await Quiz.retitleQuiz(db, open, action.title); return }
   case 'relabel_quiz':        { await Quiz.relabelQuiz(db, open, action.label); return }
@@ -44,8 +49,8 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'move_question':       { await Quiz.moveQuestion(db, open, action.question_id, action.onto_idx); return }
   case 'set_chain':           { await Quiz.setChain(db, open, action.question_id, action.chains_to); return }
   case 'sort_by_chain_order': { await Quiz.sortByChainOrder(db, open, action.descending); return }
-  case 'record_botting':      { await Quiz.recordBotting(db, open, action.botting); return }
-  case 'apply_bulk_ishes':    { await Quiz.applyBulkIshes(db, open, action.bottings, action.run); return }
+  case 'record_widgeted':     { await Quiz.recordWidgeted(db, open, action.widgeted); return }
+  case 'enter_widgeted':      { await Quiz.enterWidgeted(db, open, action.entered); return }
   case 'import_questions':    { await Quiz.importQuestions(db, open, action.questions); return }
   case 'new_quiz':            { await Quiz.newQuiz(db, open, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, open, action.quiz_id); return }

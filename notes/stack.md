@@ -101,7 +101,7 @@ Settled; reach for these before writing the equivalent.
 * **react-number-format** (`NumericFormat`) for every box that takes a number: `NumberField` in
   `components/cells/fields.tsx`, as an MUI `TextField` (`customInput`) or, in the grid's cells,
   the grid's own borderless input. It owns what a number box needs (what may be typed, decimals,
-  no negatives, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
+  negatives only where asked for, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
   it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
 * **tsx** for a shell script that needs app code: plain `node` runs a `.ts` file but cannot follow
@@ -112,6 +112,12 @@ Settled; reach for these before writing the equivalent.
   writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed. Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
+* **mustache** (mustache.js, with `@types/mustache`) for an `aibot` widget's prompt template,
+  rendered over what its input formula came to: `{{name}}`, sections and inverted sections, and
+  nothing that runs code. HTML escaping is off (the prompt is prose for a model, never a page), and
+  a value that is not a string fills in as its JSON. `lib/ask/prompts.ts` is the only file that
+  imports it. Proposed by the rewidgeting sprint's plan and added Oct 2026 without asking first,
+  under the rule above.
 * **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's
   markdown: `src/lib/markdown.ts` holds the options and the one allowlist schema (widen it there,
   never at a call site), and `components/cells/markdown.tsx` the views that use them. It renders

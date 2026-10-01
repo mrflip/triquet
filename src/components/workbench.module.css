@@ -50,11 +50,6 @@
   text-orientation: mixed;
 }
 
-.headCentered {
-  text-align:  center;
-  white-space: normal;
-}
-
 .headSorted {
   color:       var(--ink);
   font-weight: 700;
@@ -321,7 +316,6 @@ textarea.veiled {
 }
 
 .muted  { color: var(--muted) }
-.stale  { color: var(--muted); font-style: italic }
 .metaline {
   font-family: var(--font-ui);
   font-size:   10px;

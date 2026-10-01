@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
-import { huntForLabel, huntRowsOf, identFor, quizRowsOf, realmsOf, reviewFor } from '../../convex/reading'
-import { SeedExpressions } from '../../src/models/expression'
+import { cellRowsOf, huntForLabel, huntRowsOf, identFor, isWorked, layoutRowsOf, libraryOf, quizRowsOf, realmsOf, reviewFor, usageOf, widgetForLabel, widgetingsOf } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
-import { Quiz } from '../../src/models/quiz'
+import { Quiz, type QuizT } from '../../src/models/quiz'
+import { SeedWidgets } from '../../src/models/seeds'
+import { Widgeting } from '../../src/models/widgeting'
 import { mintId } from '../../src/lib/ids'
+import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 import { huntHolding, identified, openTester, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
@@ -17,32 +19,41 @@ async function holding(hunt: HuntT, tt: Tester = openTester()): Promise<{ tt: Te
   return { tt, hunt_id, quiz_id: present(present(home).quizzes[0])._id }
 }
 
-/** One quiz's rows, as plain values, which must be there */
+/** One quiz's rows, as plain values, which must be there: what each question stored, by its id and then the widgeting's label */
 async function rowsOf(tt: Tester, quiz_id: Id<'quizzes'>) {
   return await tt.run(async (ctx) => {
     const rows = present(await quizRowsOf(ctx.db, quiz_id))
-    return { ...rows, slots: Object.fromEntries(rows.slots) }
+    return { ...rows, stored: Object.fromEntries([...rows.stored].map(([question_id, cells]) => [question_id, Object.fromEntries(cells)])) }
   })
 }
 
-/** A botting of a numnum reading of a question's clueing, as the row holds it */
-function numnum(question_id: Id<'questions'>, status: 'done' | 'error', reply: string) {
-  return {
-    question_id, bot_label: 'numnum' as const, textkind: 'clueing' as const, asked_text: '', status, reply_text: null,
-    items: status === 'done' ? [{ text: reply, value: 1, kind: 'numeral' as const }] : [], message: status === 'error' ? reply : null,
-    response: null, truncated: false, model_tier_applied: null, approx_tokens: null,
-  }
+/** A quiz of `qty` blank questions, working `labels` as widgetings of the widgets of the same label, in that order */
+function quizWorking(labels: readonly string[], qty = 1): QuizT {
+  return { ...Quiz.blank(), questions: Array.from({ length: qty }, () => Question.blank()), widgetings: labels.map((label) => Widgeting.fill({ widget_label: 'numnum_clueing', label })) }
 }
 
-describe('huntForLabel', () => {
-  it('finds a hunt by the label in force', async () => {
+/** A widgeted of a numnum reading as the row holds it: `ok` with one item of `text`, or `errored` saying `text` */
+function numnum(question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>, status: 'ok' | 'errored', text: string) {
+  return status === 'ok'
+    ? { question_id, widgeting_id, status, value: { items: [{ text, value: 1, kind: 'numeral' }] }, message: null, result_meta: {} }
+    : { question_id, widgeting_id, status, value: null, message: text, result_meta: {} }
+}
+
+/** What a stored cell's row says: its message when it failed, else its one item's text */
+function sayingOf(row: { value: unknown, message: string | null } | null): string | null {
+  if (! row) { return null }
+  return row.message ?? (row.value as { items: { text: string }[] }).items[0]?.text ?? null
+}
+
+describe("huntForLabel", () => {
+  it("finds a hunt by the label in force", async () => {
     const hunt = { ...Hunt.blank('minted_label'), forced_label: 'forced_label' }
     const { tt, hunt_id } = await holding(hunt)
     const found = await tt.run(async (ctx) => [await huntForLabel(ctx.db, 'forced_label'), await huntForLabel(ctx.db, 'minted_label')])
     expect(found.map((row) => row?._id ?? null)).to.deep.eq([hunt_id, null])
   })
 
-  it('takes the earlier of two hunts made with one label, whichever label each has in force', async () => {
+  it("takes the earlier of two hunts made with one label, whichever label each has in force", async () => {
     const first = await holding(Hunt.blank('twice_made'))
     await holding({ ...Hunt.blank('other_label'), forced_label: 'twice_made' }, first.tt)
     await holding(Hunt.blank('twice_made'), first.tt)
@@ -50,22 +61,21 @@ describe('huntForLabel', () => {
     expect(found?._id).to.eq(first.hunt_id)
   })
 
-  it('finds nothing for a label no hunt answers to', async () => {
+  it("finds nothing for a label no hunt answers to", async () => {
     const { tt } = await holding(Hunt.blank('quiet_otter'))
     expect(await tt.run(async (ctx) => await huntForLabel(ctx.db, 'loud_heron'))).to.be.null
   })
 })
 
-describe('huntRowsOf', () => {
-  it('reads the hunt\'s own row, its realms in order with their quizzes\' rows, and its expressions in order', async () => {
+describe("huntRowsOf", () => {
+  it("reads the hunt's own row, and its realms in order with their quizzes' rows", async () => {
     const hunt = Hunt.fill({
-      _id:         mintId(),
-      label:       'two_realms',
-      realms:      [
+      _id:    mintId(),
+      label:  'two_realms',
+      realms: [
         { _id: mintId(), label: 'home', quizzes: [Quiz.blank('At home')] },
         { _id: mintId(), label: 'away', quizzes: [Quiz.blank('Away one'), Quiz.blank('Away two')] },
       ],
-      expressions: [...SeedExpressions],
     })
     const { tt, hunt_id } = await holding(hunt)
     const rows = present(await tt.run(async (ctx) => await huntRowsOf(ctx.db, hunt_id)))
@@ -73,68 +83,153 @@ describe('huntRowsOf', () => {
       ['home', ['At home']],
       ['away', ['Away one', 'Away two']],
     ])
-    expect(rows.expressions.map((row) => row.label)).to.deep.eq(SeedExpressions.map((expression) => expression.label))
+    expect(rows).to.have.all.keys('hunt', 'realms')
   })
 
-  it('reads null for a hunt that is not there', async () => {
+  it("reads null for a hunt that is not there", async () => {
     const { tt, hunt_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', hunt_id) })
     expect(await tt.run(async (ctx) => await huntRowsOf(ctx.db, hunt_id))).to.be.null
   })
 })
 
-describe('quizRowsOf', () => {
-  it('reads every row of one quiz, each list in its committed order', async () => {
+describe("quizRowsOf", () => {
+  it("reads every row of one quiz, each list in its committed order", async () => {
     const quiz = { ...Quiz.blank('Princes'), questions: ['b', 'a', 'c'].map((title) => ({ ...Question.blank(), title })) }
     const { tt, quiz_id } = await holding(huntHolding([quiz]))
     const rows = await rowsOf(tt, quiz_id)
     expect(rows.quiz.title).to.eq('Princes')
     expect(rows.questions.map((row) => row.title)).to.deep.eq(['b', 'a', 'c'])
     expect(rows.questions.map((row) => row._id)).to.deep.eq(rows.quiz.row_ordering)
-    expect([rows.widgets, rows.columns, rows.slots]).to.deep.eq([[], [], {}])
+    expect([rows.widgetings, rows.columns]).to.deep.eq([[], []])
+    expect(rows.stored).to.deep.eq(Object.fromEntries(rows.quiz.row_ordering.map((question_id) => [question_id, {}])))
   })
 
-  it('reads null for a quiz that is not there', async () => {
+  it("reads null for a quiz that is not there", async () => {
     const { tt, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
     expect(await tt.run(async (ctx) => await quizRowsOf(ctx.db, quiz_id))).to.be.null
   })
 
-  it('reads each cell\'s newest botting, and the newest that answered', async () => {
-    const quiz = { ...Quiz.blank(), questions: [Question.blank(), Question.blank()] }
-    const { tt, quiz_id } = await holding(huntHolding([quiz]))
-    const { questions } = await rowsOf(tt, quiz_id)
+  it("reads each stored cell's newest row, and the newest ok one", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['numnum_clueing'], 2)]))
+    const { questions, widgetings } = await rowsOf(tt, quiz_id)
     const [first, second] = questions.map((row) => row._id)
+    const widgeting_id = present(widgetings[0])._id
     await tt.run(async (ctx) => {
-      for (const botting of [
-        numnum(present(first), 'done', 'oldest'), numnum(present(first), 'done', 'answered'), numnum(present(first), 'error', 'failed once'), numnum(present(first), 'error', 'failed twice'),
-        numnum(present(second), 'error', 'never answered'),
-      ]) { await ctx.db.insert('bottings', botting) }
+      for (const row of [
+        numnum(present(first), widgeting_id, 'ok', 'oldest'), numnum(present(first), widgeting_id, 'ok', 'answered'),
+        numnum(present(first), widgeting_id, 'errored', 'failed once'), numnum(present(first), widgeting_id, 'errored', 'failed twice'),
+        numnum(present(second), widgeting_id, 'errored', 'never answered'),
+      ]) { await ctx.db.insert('widgeteds', row) }
     })
-    const { slots } = await rowsOf(tt, quiz_id)
-    const cells = Object.values(slots).map((slot) => [slot.newest.message ?? slot.newest.items[0]?.text, slot.done?.items[0]?.text ?? null])
+    const { stored } = await rowsOf(tt, quiz_id)
+    const cells = Object.values(stored).map((cells) => present(cells.numnum_clueing)).map((cell) => [sayingOf(cell.newest), sayingOf(cell.ok)])
     expect(cells).to.have.deep.members([['failed twice', 'answered'], ['never answered', null]])
   })
 
-  it('keeps cells apart: another bot, or another text, is another cell', async () => {
-    const quiz = { ...Quiz.blank(), questions: [Question.blank()] }
-    const { tt, quiz_id } = await holding(huntHolding([quiz]))
-    const { questions } = await rowsOf(tt, quiz_id)
+  it("keeps cells apart: another widgeting of the same widget is another cell", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['numnum_clueing', 'numnum_again'])]))
+    const { questions, widgetings } = await rowsOf(tt, quiz_id)
     const question_id = present(questions[0])._id
     await tt.run(async (ctx) => {
-      for (const botting of [
-        numnum(question_id, 'done', 'clueing'),
-        { ...numnum(question_id, 'done', 'hint'), textkind: 'hint' as const },
-        { ...numnum(question_id, 'error', 'guess'), bot_label: 'dumdum' as const },
-      ]) { await ctx.db.insert('bottings', botting) }
+      await ctx.db.insert('widgeteds', numnum(question_id, present(widgetings[0])._id, 'ok', 'first'))
+      await ctx.db.insert('widgeteds', numnum(question_id, present(widgetings[1])._id, 'errored', 'second'))
     })
-    const { slots } = await rowsOf(tt, quiz_id)
-    expect(Object.keys(slots)).to.have.members([`${question_id}:numnum:clueing`, `${question_id}:numnum:hint`, `${question_id}:dumdum:clueing`])
+    const { stored } = await rowsOf(tt, quiz_id)
+    const cells = present(stored[question_id])
+    expect(Object.keys(cells)).to.have.members(['numnum_clueing', 'numnum_again'])
+    expect([sayingOf(present(cells.numnum_clueing).newest), sayingOf(present(cells.numnum_again).newest)]).to.deep.eq(['first', 'second'])
   })
 })
 
-describe('identFor', () => {
-  it('is the ident a browser took on last, and null for one that never has', async () => {
+describe("cellRowsOf", () => {
+  it("reads null for a cell with nothing recorded", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['numnum_clueing'])]))
+    const { questions, widgetings } = await rowsOf(tt, quiz_id)
+    expect(await tt.run(async (ctx) => await cellRowsOf(ctx.db, present(questions[0])._id, present(widgetings[0])._id))).to.be.null
+  })
+})
+
+describe("layoutRowsOf and widgetingsOf", () => {
+  it("read a quiz's widgetings in run order, and its columns, without its questions", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['cc', 'aa', 'bb'])]))
+    const layout = present(await tt.run(async (ctx) => await layoutRowsOf(ctx.db, quiz_id)))
+    expect(layout.widgetings.map((row) => [row.label, row.position])).to.deep.eq([['cc', 0], ['aa', 1], ['bb', 2]])
+    expect(layout).to.have.all.keys('quiz', 'widgetings', 'columns')
+    const widgetings = await tt.run(async (ctx) => await widgetingsOf(ctx.db, quiz_id))
+    expect(widgetings.map((row) => row.label)).to.deep.eq(['cc', 'aa', 'bb'])
+  })
+
+  it("reads null for a quiz that is not there", async () => {
+    const { tt, quiz_id } = await holding(Hunt.blank())
+    await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
+    expect(await tt.run(async (ctx) => await layoutRowsOf(ctx.db, quiz_id))).to.be.null
+  })
+})
+
+describe("the library", () => {
+  it("libraryOf reads every widget in the order the library lists them", async () => {
+    const { tt } = await holding(Hunt.blank())
+    const library = await tt.run(async (ctx) => await libraryOf(ctx.db))
+    expect(library.map((row) => row.label)).to.deep.eq(SeedWidgets.map((widget) => widget.label))
+    expect(library.map((row) => row.position)).to.deep.eq(SeedWidgets.map((_widget, idx) => idx))
+  })
+
+  it("widgetForLabel finds a widget by its label, and nothing for a label it lacks", async () => {
+    const { tt } = await holding(Hunt.blank())
+    const found = await tt.run(async (ctx) => [await widgetForLabel(ctx.db, 'numnum_hint'), await widgetForLabel(ctx.db, 'no_such_widget')])
+    expect(found.map((row) => row?.formulary ?? null)).to.deep.eq(['aibot', null])
+  })
+
+  it("isWorked says whether any widgeting of any quiz works a widget", async () => {
+    const tt = openTester()
+    await holding(huntHolding([quizWorking(['clueing_ishes'])]), tt)
+    await holding(huntHolding([{ ...Quiz.blank(), widgetings: [Widgeting.fill({ widget_label: 'dumdum', label: 'guess' })] }]), tt)
+    const worked = await tt.run(async (ctx) => await Promise.all(['numnum_clueing', 'dumdum', 'numnum_hint'].map(async (label) => await isWorked(ctx.db, label))))
+    expect(worked).to.deep.eq([true, true, false])
+  })
+})
+
+/** A quiz working the widget `widget_label` under each of `labels` */
+function working(widget_label: string, labels: readonly string[]): QuizT {
+  return { ...Quiz.blank(), widgetings: labels.map((label) => Widgeting.fill({ widget_label, label })) }
+}
+
+describe("usageOf", () => {
+  it("counts the widgetings working a widget, the quizzes they are in, and the hunts those are in", async () => {
+    const tt = openTester()
+    await holding(huntHolding([working('dumdum', ['guess', 'guess_again']), working('dumdum', ['guess'])]), tt)
+    await holding(huntHolding([working('dumdum', ['guess']), working('answer_reversed', ['backward'])]), tt)
+    const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))
+    expect(usage).to.deep.eq({ widgetings: 4, quizzes: 3, hunts: 2, at_least: false })
+  })
+
+  it("counts nothing for a widget nobody works, and for a label the library lacks", async () => {
+    const tt = openTester()
+    await holding(huntHolding([working('dumdum', ['guess'])]), tt)
+    const usages = await tt.run(async (ctx) => [await usageOf(ctx.db, 'numnum_hint'), await usageOf(ctx.db, 'no_such_widget')])
+    expect(usages).to.deep.eq([
+      { widgetings: 0, quizzes: 0, hunts: 0, at_least: false },
+      { widgetings: 0, quizzes: 0, hunts: 0, at_least: false },
+    ])
+  })
+
+  it("reads no further than it may, and says its counts are a floor past that", async () => {
+    const tt = openTester()
+    const { quiz_id } = await holding(huntHolding([Quiz.blank()]), tt)
+    await tt.run(async (ctx) => {
+      for (let ii = 0; ii <= PA.WidgetingsCounted.max; ii++) {
+        await ctx.db.insert('widgetings', { quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, position: ii })
+      }
+    })
+    const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))
+    expect(usage).to.deep.eq({ widgetings: PA.WidgetingsCounted.max, quizzes: 1, hunts: 1, at_least: true })
+  })
+})
+
+describe("identFor", () => {
+  it("is the ident a browser took on last, and null for one that never has", async () => {
     const tt = openTester()
     const { browser_key } = await identified(tt, 'flip_kromer')
     const found = await tt.run(async (ctx) => [await identFor(ctx.db, browser_key), await identFor(ctx.db, mintId())])
@@ -142,8 +237,8 @@ describe('identFor', () => {
   })
 })
 
-describe('reviewFor', () => {
-  it('finds the ident\'s review of a quiz, and nothing for an ident with none', async () => {
+describe("reviewFor", () => {
+  it("finds the ident's review of a quiz, and nothing for an ident with none", async () => {
     const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
     const [alice, bob] = [await identified(tt, 'alice_reviews'), await identified(tt, 'bob_reviews')]
     await tt.run(async (ctx) => { await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id: alice.ident_id, overall: 'Mine', phase: 'draft' }) })
@@ -151,7 +246,7 @@ describe('reviewFor', () => {
     expect(found.map((review) => review?.overall ?? null)).to.deep.eq(['Mine', null])
   })
 
-  it('takes the earlier when two reviews answer to one ident', async () => {
+  it("takes the earlier when two reviews answer to one ident", async () => {
     const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {

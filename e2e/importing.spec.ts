@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, expect, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -54,6 +54,7 @@ test('an explicit null clears the field', async ({ page }) => {
 })
 
 test('a label nothing here holds is appended, and a chain names its target by label', async ({ page }) => {
+  await addColumns(page, ['butnot'])
   await runImport(page, [
     { label: await labelAt(page, 0), chains_to: 'nantes_one' },
     { label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },

@@ -2,8 +2,9 @@ import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
 import { QuestionValidators } from './question'
+import { WidgetedValidators } from './widgeted'
 
-export const ImportValidators = Validator(({ obj, arr, titleish, label, union, zod }) => {
+export const ImportValidators = Validator(({ obj, arr, rec, titleish, label, union, zod }) => {
   const importQuestion = obj({
     label:         label.optional(),
     forced_label:  label.nullable().optional(),
@@ -16,7 +17,7 @@ export const ImportValidators = Validator(({ obj, arr, titleish, label, union, z
     notes:         QuestionValidators.notes.nullable().optional(),
     full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
-    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a bot replied is among them, since replies are recorded by asking, never pasted.')
+    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again and an asked one is recorded by asking. An entry widgeting\'s value, which a person typed, is read apart from these fields, under its label.')
 
   // The shape is read loosely first and each question validated on its own afterwards, so one
   // bad question is skipped and logged rather than blocking the whole import.
@@ -27,8 +28,10 @@ export const ImportValidators = Validator(({ obj, arr, titleish, label, union, z
     forced_label: label.nullable().optional(),
     title:        titleish.nullable().optional(),
     questions:    looseQuestions,
+    widgetings:   arr(zod.unknown()).default([])
+      .describe('The widgetings the pasted quiz works, read one by one, so one that will not do is skipped and logged.'),
   })
-    .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
+    .describe('One quiz as it arrives from an import. Its questions are merged, and its widgetings, each by label; a pasted quiz\'s own columns, lock state and sort memory are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
 
   const importRealm = obj({ quizzes: arr(importQuiz).min(1) })
   const importHunt = obj({
@@ -51,8 +54,13 @@ export const ImportValidators = Validator(({ obj, arr, titleish, label, union, z
   })
     .describe('What an import changes on one question, once read: the author\'s fields, each optional, as `edit_question` takes them, except that a chain names the label of the question it points at, or null for none.')
 
-  const importedQuestion = obj({ label, patch: importPatch })
-    .describe('One question as the Import panel sends it: which question, by the label in force, and what to change. A label no question of the quiz answers to adds one under it.')
+  const importedQuestion = obj({
+    label,
+    patch:   importPatch,
+    entered: rec(label, WidgetedValidators.enteredValue).default({})
+      .describe('What to type into the question\'s entry cells, by the entry widgeting\'s label: a value to take, or null to empty the cell. A label absent leaves its cell as it is.'),
+  })
+    .describe('One question as the Import panel sends it: which question, by the label in force, what to change, and what to type into its entry cells. A label no question of the quiz answers to adds one under it.')
 
   const importedQuestions = arr(importedQuestion).max(PA.QuestionsPerQuiz.max).readonly()
     .check((context) => {
@@ -72,6 +80,7 @@ export type ImportHuntT        = Z.output<typeof ImportValidators.importHunt>
 export type ImportPayloadT     = Z.output<typeof ImportValidators.importPayload>
 export type ImportPatchT       = Z.output<typeof ImportValidators.importPatch>
 export type ImportedQuestionT  = Z.output<typeof ImportValidators.importedQuestion>
+export type ImportedQuestionDNA = Z.input<typeof ImportValidators.importedQuestion>
 
 /** Fields an import may revise; the label is not among them, and neither is anything derived */
 export const ImportableFieldnames = [
