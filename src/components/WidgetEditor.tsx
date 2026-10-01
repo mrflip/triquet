@@ -123,7 +123,7 @@ function NewWidgetEditor({ hunt, library, quiz, widgeting = null, dispatch, onCl
         <Stack spacing={1.5} sx={{ mt: 1 }}>
           <TextField
             select size="small" label="Formulary" value={draft.formulary} sx={{ maxWidth: 520 }}
-            helperText="What kind of widget it is: how its formula is worked out. It cannot be changed afterward."
+            helperText="What kind of widget it is: how its values come to be. It cannot be changed afterward."
             onChange={(event) => { setDraft(blankDraftOf(event.target.value as Formularykind, draft)); setIssue(null) }}
           >
             {FormularykindVals.map((formulary) => <MenuItem key={formulary} value={formulary}>{FormularyWords[formulary].gist}</MenuItem>)}
