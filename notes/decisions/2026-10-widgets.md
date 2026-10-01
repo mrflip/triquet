@@ -46,8 +46,8 @@ Five things (bot, botting the widget, botting the row, expression, expressing) b
 and a piece of code.
 
 * A **formulary** is the generic runner behind a widget: code, never a row. This sprint has
-  `jsonata` (what an expression was) and `aibot` (what a bot was); `entry` arrives last (thread 8);
-  `script` and `api` are for later.
+  `jsonata` (what an expression was), `aibot` (what a bot was) and `entry` (a value a person types,
+  thread 8); `script` and `api` are for later.
 * A **widget** is a reusable definition: a formulary, a formula, an input formula and a config,
   under a label. Widgets are global to start: every hunt sees the same **library**, scope `pub`.
 * A **widgeting** is one widget put to work in one quiz, under a label of its own, at a place in
@@ -126,6 +126,37 @@ export type Formulary = {
   widgeting label and per question, the widgeted as read (`WidgetedT`, below), as
   `Expressed.forQuiz` does for expressings today.
 
+### Entries (thread 8, as built)
+
+An `entry` widget has no formula and reads nothing: its cells are typed into. So it answers less of
+the interface than the other two, and the type says so: `TypedFormulary` in `formularies.ts` has
+no `run` and no `advice` (there is no formula to help write), and in their place `valueOf(widget)`,
+the validator of what one cell may hold. `advice` moved from every formulary's facts to the two
+with a formula; `check` is always null and `input` always `missing`, so the runner gives an
+entry's column no inputs (only a `click` widgeting has any).
+
+* **`config.entry_kind`** is one of `text` (prose as a note is: `noteish`, markdown welcome),
+  `number` (any finite number, below nought and fractions included), `labelish` (the `label`
+  pattern) or `titleish` (one line, as a title). The validators are `EntryValueFor` in
+  `src/models/widget.ts`. **The kind is fixed once the widget is made**, as its formulary is,
+  since the values typed hang on it: `Widget.flavorOf` names what is fixed ("a number entry"),
+  `updateWidget` refuses a change of it (`entryKindFixed`), and a library import passes over an
+  entry named as another kind, as it does a widget of another formulary.
+* **The cell** (`src/components/cells/entry.tsx`) is the grid's own field editor for the kind, each
+  committing on blur: text is the notes box (`StretchField`), a number the Q# box (`NumberField`,
+  now with a `signed` prop), a label and a title the Title box (`PlainField`, now with a `tidy` and
+  a `maxLength`), a label tidied by `Labelmaker.normalize` as the box is left. It never asks: an
+  entry column carries no double-click re-ask handler.
+* **The write** is `enter_widgeted` (`WidgetedValidators.entered`: question by id, widgeting by
+  label, a text or a number, or null), carried out by `enterWidgeted` in `quiz_actions.ts` and
+  `upsertWidgeted` in `quiz_writing.ts`: one read of `by_question_id_and_widgeting_id`, newest
+  first; the row it finds is replaced, or one is inserted; **null, an emptied cell, deletes the
+  row**, so an emptied cell reads `missing`, never an `ok` of nothing. `record_widgeted` now takes
+  only a widgeting whose formulary appends, so nothing appends to an entry's cell.
+* **Reading** needs nothing new: `allStoredOf` reads every formulary that stores, the runner
+  projects the one row as any stored cell's history, and the value reaches later widgetings'
+  bags at `qn.<label>` as `{ status, value, err }`.
+
 ### The row shapes
 
 Four shapes: three tables, and the one form every reader takes a widgeted in. Each table's fields
@@ -142,10 +173,10 @@ union on `formulary`, like today's union `widgets` table, so each formulary's ar
 | `label` | `label` | Unique within its scope; fixed once made, since widgetings and files name it. |
 | `title` | `titleish`, default `''` | Blank reads as the label, titleized. |
 | `description` | `noteish`, default `''` | What the widget works out, for the author choosing one. |
-| `formulary` | `oneof(FormularykindVals)` | `jsonata`, `aibot` (and `entry` from thread 8). Fixed once made: the config's shape hangs on it. |
-| `formula` | `jsonata`: `formulaish` (999); `aibot`: textish, at most 3600 | The JSONata expression, or the prompt template. Kept exactly as typed. The seeded prompts are near 999 already, hence the larger bound. |
-| `input_formula` | `formulaish` | JSONata; defaults to the formulary's `defaultInput`. |
-| `config` | `jsonataConfig`: `obj({}).strict()`; `aibotConfig`: `{ servicelabel, model_tier, max_tokens }` | `servicelabel` from `ServicelabelVals` (`src/lib/credentials.ts`), `model_tier` from `ModelTierVals` (`src/models/ask.ts`), `max_tokens` a `uint`, 1 to 8000 (twice numnum's 4000; the route refuses more). |
+| `formulary` | `oneof(FormularykindVals)` | `jsonata`, `aibot`, `entry`. Fixed once made: the config's shape hangs on it. |
+| `formula` | `jsonata`: `formulaish` (999); `aibot`: textish, at most 3600; `entry`: `''` | The JSONata expression, or the prompt template. Kept exactly as typed. The seeded prompts are near 999 already, hence the larger bound. |
+| `input_formula` | `formulaish`; `entry`: `''` | JSONata; defaults to the formulary's `defaultInput`. |
+| `config` | `jsonataConfig`: `obj({}).strict()`; `aibotConfig`: `{ servicelabel, model_tier, max_tokens }`; `entryConfig`: `{ entry_kind }`, strict | `servicelabel` from `ServicelabelVals` (`src/lib/credentials.ts`), `model_tier` from `ModelTierVals` (`src/models/ask.ts`), `max_tokens` a `uint`, 1 to 8000 (twice numnum's 4000; the route refuses more); `entry_kind` from `EntryKindVals`, fixed once made (*Entries*). |
 | `position` | `uint` | The order the library lists them. |
 
 `WidgetValidators.widgetPatch` revises `title`, `description`, `formula`, `input_formula` and
@@ -364,6 +395,17 @@ asked yet" is not "the answer is nought".
   never imported. #66 marks a carried reply stale; with staleness off, the `imported` mark is what
   remains of that, for the digest to read when it comes (a carried row has no digest, so it would
   read as stale).
+* **An entry's value is imported now, and merges as a question's own field does** (thread 8,
+  departing from the bullet above, which waits on #66 for `aibot` alone). It is what a person
+  typed, so the export-and-import exit door must carry it, and it is no more a "real one" to be
+  buried than the paste is. Under an entry widgeting's label (one the quiz holds, or the same
+  import adds), a value -- bare, or as the export writes it, `{ status: 'ok', value }` -- is typed
+  into the cell, replacing what is there; null, an empty text or `{ status: 'missing' }` empties
+  it; the label absent leaves it alone. A value not of the entry's kind, or an `errored` reading,
+  fails its question as a bad field does. The browser reads it (`importInto`), the question carries
+  it as `entered` (`ImportValidators.importedQuestion`), and `importQuestions` upserts it once the
+  questions are in, passing over a label that names no entry widgeting of the quiz. No
+  `result_meta.imported` mark: a typed value is never stale.
 
 ### Who may do what
 
@@ -553,7 +595,9 @@ stale      = stored.digest !== digest
   between `string` and `object`, and no more.
 * **Scopes beyond `pub`**: hunt-owned and personal widgets, as values of `scope`.
 * **Moving `hint`, `alt_text` and `notes` off the question row** into `entry` widgeteds: a data move
-  the export, sheet, import and mirror would follow. `chains_to` stays core regardless.
+  the export, sheet, import and mirror would follow. `chains_to` stays core regardless. What it
+  would take is set out in `HUMAN-whatsup.md` (2026-10-01, *Moving hint, alt_text and notes into
+  entries*).
 * **`script` and `api` formularies.**
 
 ## Settled here
@@ -596,3 +640,7 @@ that builds on it lands.
 15. **Indexes and caps**: as listed under *Write policy and indexes*.
 16. **`notes` cannot be a widgeting's label** while it is a question field, so thread 8 keeps
     `notes` on the question.
+17. **Entries, as thread 8 built them** (*Entries*): the entry kind fixed once made; an emptied
+    cell deletes its row; `enter_widgeted` beside `record_widgeted` rather than one action
+    dispatching on `store`; `TypedFormulary` with `valueOf` and without `run` or `advice`; and an
+    entry's value imported and merged as a field, ahead of #66.

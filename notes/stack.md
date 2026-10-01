@@ -101,7 +101,7 @@ Settled; reach for these before writing the equivalent.
 * **react-number-format** (`NumericFormat`) for every box that takes a number: `NumberField` in
   `components/cells/fields.tsx`, as an MUI `TextField` (`customInput`) or, in the grid's cells,
   the grid's own borderless input. It owns what a number box needs (what may be typed, decimals,
-  no negatives, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
+  negatives only where asked for, a ceiling, an emptied box) with no dependencies of its own, and MUI's docs pair
   it with `TextField`. Added Sept 2026 without asking first, on purpose: see the rule above.
 * **cross-env** for the agent scripts.
 * **tsx** for a shell script that needs app code: plain `node` runs a `.ts` file but cannot follow
