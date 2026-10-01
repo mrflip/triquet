@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import * as Expressed from '../../src/lib/expressed'
 import * as Exposure from '../../src/lib/exposure'
 import { SeedExpressions } from '../../src/models/expression'
 import { defaultLayoutFor } from '../../src/models/layout'
@@ -7,11 +6,11 @@ import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Expressing } from '../../src/models/widget'
 import { present } from '../support/present'
-import { Here } from '../support/places'
+import { runOf } from '../support/runs'
 
 const layout = defaultLayoutFor(SeedExpressions)
 const quizOf = (questions = [Question.blank()]) => ({ ...Quiz.blank('Table'), ...layout, questions })
-const tableOf = (quiz = quizOf()) => Exposure.tableOf(quiz, Expressed.forQuiz(quiz, SeedExpressions, Here))
+const tableOf = (quiz = quizOf()) => Exposure.tableOf(quiz, runOf(quiz))
 
 describe('exposedColumnsOf', () => {
   const headers = Exposure.exposedColumnsOf(layout).map((column) => column.header)

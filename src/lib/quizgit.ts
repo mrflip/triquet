@@ -4,7 +4,8 @@ import _ from 'es-toolkit/compat'
 import Papa from 'papaparse'
 import * as Changes from './changes'
 import * as Exporting from './exporting'
-import * as Expressed from './expressed'
+import * as Runner from './formulary/runner'
+import * as Standins from './formulary/standins'
 import * as Exposure from './exposure'
 import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
@@ -33,10 +34,10 @@ export const QuizJsonExt = '.tq.json'
  * @param place - The hunt and realm it sits in; only their labels count here.
  * @returns Repository-relative paths for the questions file and the whole-quiz file.
  *
- * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }, Expressed.placeOf(deepLake, home)).json
+ * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }, Runner.placeOf(deepLake, home)).json
  *   // => 'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.tq.json'
  */
-export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: Expressed.QuizPlace): { tsv: string, json: string } {
+export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: Runner.QuizPlace): { tsv: string, json: string } {
   const label = Labelmaker.effectiveLabelOf(quiz)
   const dir = `tq/hunt/${place.hunt.label}/realm/${place.realm.label}/quiz`
   return { tsv: `${dir}/${label}${QuestionsExt}`, json: `${dir}/${label}${QuizJsonExt}` }
@@ -46,9 +47,9 @@ export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: Express
  * Where the hunt's expressions are kept in every repository of its quizzes: at the hunt's own
  * level, since they belong to it rather than to any one quiz.
  *
- * @example expressionsPathFor(Expressed.placeOf(deepLake, home))  // => 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
+ * @example expressionsPathFor(Runner.placeOf(deepLake, home))  // => 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
  */
-export function expressionsPathFor(place: Expressed.QuizPlace): string {
+export function expressionsPathFor(place: Runner.QuizPlace): string {
   return `tq/hunt/${place.hunt.label}/${place.hunt.label}.tqexpressions.json`
 }
 
@@ -108,13 +109,13 @@ export async function flushFs(fs: GitFs): Promise<void> {
  * Parse's, so a tab, a quote or a line break inside a field cannot break the row it sits in.
  *
  * @param quiz - The quiz as it now stands.
- * @param expressed - What its expressing widgets came to, from `Expressed.forQuiz`.
+ * @param run - The quiz, run (`Runner.runQuiz`): what its widgetings came to.
  * @returns The text, ending in a newline.
  *
- * @example questionsTsv(quiz, expressed).split('\n')[0]  // => 'clueing_full.value\t...\tquestion.alt_text\t...'
+ * @example questionsTsv(quiz, run).split('\n')[0]  // => 'clueing_full.value\t...\tquestion.alt_text\t...'
  */
-export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz): string {
-  const { header, rows } = Exposure.tableOf(quiz, expressed)
+export function questionsTsv(quiz: QuizT, run: Runner.QuizRun): string {
+  const { header, rows } = Exposure.tableOf(quiz, run)
   const text = Papa.unparse({ fields: header, data: rows }, { delimiter: '\t', newline: '\n' })
   return `${_.trimEnd(text, '\n')}\n`
 }
@@ -140,10 +141,11 @@ export function questionsTsv(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
  *
  * @example quizFiles(quiz, expressions).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, the expressions path]
  */
-export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], place: Expressed.QuizPlace): Map<string, string> {
+export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], place: Runner.QuizPlace): Map<string, string> {
   const paths = quizPathsFor(quiz, place)
+  const run = Runner.runQuiz(Standins.sourceOf(quiz, expressions, place))
   return new Map([
-    [paths.tsv, questionsTsv(quiz, Expressed.forQuiz(quiz, expressions, place))],
+    [paths.tsv, questionsTsv(quiz, run)],
     [paths.json, `${UU.jsonify(Exporting.quizExported(quiz), { pretty: true })}\n`],
     [expressionsPathFor(place), `${UU.jsonify(expressions, { pretty: true })}\n`],
   ])
@@ -183,9 +185,9 @@ function tagStampOf(at: Date): string {
  * @param place - The hunt and realm it sits in.
  * @returns The new commit's oid, or null when the quiz's branch already had commits.
  *
- * @example await commitFirst(fs, quiz, expressions, Expressed.placeOf(hunt, realm))
+ * @example await commitFirst(fs, quiz, expressions, Runner.placeOf(hunt, realm))
  */
-export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Expressed.QuizPlace): Promise<string | null> {
+export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Runner.QuizPlace): Promise<string | null> {
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
   if (await hasCommits(fs, dir)) { return null }
@@ -234,7 +236,7 @@ export function markTagFor(version: string, markkind: Markkind, at: Date): strin
  *
  * @example await commitQuiz(fs, quiz, expressions, place, quizChanges(before, quiz))
  */
-export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Expressed.QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
+export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Runner.QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
   const message = Changes.shorthandFor(changes)
   if (message === null) { return null }
 

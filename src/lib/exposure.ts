@@ -1,15 +1,16 @@
-import * as Expressed from './expressed'
 import * as Labelmaker from './labelmaker'
+import * as Runner from './formulary/runner'
 import * as UU from './useful'
 import { BottingWidget, QuestionWidgetLabel, type WidgetT } from '../models/widget'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import { Widgeted } from '../models/widgeted'
 
 /** What a cell of an exposed column is worked out from */
 type Context = {
   question:  QuestionT
   target:    QuestionT | null
-  expressed: Expressed.ExpressedForQuiz
+  run:       Runner.QuizRun
 }
 
 /** One field of one widget, shown to the outside world: a column of the table a quiz's git history keeps */
@@ -53,17 +54,17 @@ export function exposedColumnsOf(quiz: Pick<QuizT, 'widgets'>): ExposedColumn[] 
  * label, so that dragging questions about moves no line of it.
  *
  * @param quiz - The quiz.
- * @param expressed - What its expressing widgets came to.
+ * @param run - The quiz, run: what its widgetings came to.
  * @returns The header and the rows; the rows are empty for a quiz with no questions.
  */
-export function tableOf(quiz: Pick<QuizT, 'widgets' | 'questions'>, expressed: Expressed.ExpressedForQuiz): { header: string[], rows: string[][] } {
+export function tableOf(quiz: Pick<QuizT, 'widgets' | 'questions'>, run: Runner.QuizRun): { header: string[], rows: string[][] } {
   const columns = exposedColumnsOf(quiz)
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
   const rows = quiz.questions
     .toSorted((aa, bb) => byCode(Labelmaker.effectiveLabelOf(aa), Labelmaker.effectiveLabelOf(bb)))
     .map((question) => {
       const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-      return columns.map((each) => each.textOf({ question, target, expressed }))
+      return columns.map((each) => each.textOf({ question, target, run }))
     })
   return { header: columns.map((each) => each.header), rows }
 }
@@ -83,10 +84,7 @@ function questionText(field: typeof Question.exposed[number], { question, target
 /** The exposed columns of one widget */
 function widgetColumns(widget: WidgetT): ExposedColumn[] {
   if (widget.kind === 'expressing') {
-    return [column(widget.label, 'value', ({ question, expressed }) => {
-      const reading = Expressed.readingOf(expressed, widget.label, question._id)
-      return reading.status === 'value' ? String(reading.val) : ''
-    })]
+    return [column(widget.label, 'value', ({ question, run }) => Widgeted.textOf(Runner.widgetedOf(run, widget.label, question._id)))]
   }
   const { field } = BottingWidget.slotOf(widget)
   return BottingWidget.exposed(widget).map((fieldname) => column(widget.label, fieldname, ({ question }) => playedText(question, field, fieldname)))

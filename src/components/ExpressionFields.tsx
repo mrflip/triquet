@@ -4,10 +4,13 @@ import { useMemo, useState } from 'react'
 import { MenuItem, Stack, TextField } from '@mui/material'
 import { CopyButton } from './CopyButton'
 import { JsonFold } from './JsonFold'
-import * as Expressed from '../lib/expressed'
 import * as Formulas from '../lib/formulas'
-import { formulaPrompt } from '../lib/formula-prompt'
+import { JsonataFormulary } from '../lib/formulary/jsonata'
+import * as Runner from '../lib/formulary/runner'
+import * as Standins from '../lib/formulary/standins'
 import * as Rank from '../lib/rank'
+import { Widgeted } from '../models/widgeted'
+import type { LiveRun } from '../lib/formulary/formularies'
 import { ExpressionValidators, type ExpressionT } from '../models/expression'
 import type { PromptSubject } from '../lib/formula-prompt'
 import type { ShallowHuntT } from '../lib/rows'
@@ -53,12 +56,21 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
   const question = ranked.find((held) => held._id === question_id) ?? ranked[0]
   const realm = quiz && hunt.realms.find((held) => held.quizzes.some((row) => row._id === quiz._id))
-  const bags = useMemo((): ReadonlyMap<string, Expressed.QuizBag> => (quiz && realm ? Expressed.bagsFor(quiz, Expressed.placeOf(hunt, realm)) : new Map()), [quiz, hunt, realm])
+  // The bag the expression's widgeting reads: with the widgeteds of those before it, or of every
+  // widgeting, for one not yet put to work.
+  const label = expressing?.label ?? ''
+  const bags = useMemo((): ReadonlyMap<string, Runner.QuizBag> => {
+    if (! quiz || ! realm) { return new Map() }
+    const run = Runner.runQuiz(Standins.sourceOf(quiz, hunt.expressions, Runner.placeOf(hunt, realm)))
+    return Runner.bagsAt(run, { label, params: {} })
+  }, [quiz, hunt, realm, label])
   const bag = question ? bags.get(question._id) : undefined
 
   const syntaxIssue = draft.formula === '' ? null : Formulas.check(draft.formula)
   const lengthIssue = ExpressionValidators.expressionPatch.safeParse({ formula: draft.formula }).error?.issues[0]?.message ?? null
-  const preview = Expressed.previewOf(draft.formula, bag)
+  const preview: LiveRun = bag
+    ? JsonataFormulary.run({ formula: draft.formula, input_formula: JsonataFormulary.defaultInput }, null, bag)
+    : { widgeted: Widgeted.missing, stale: false, stops: false }
 
   return (
     <Stack spacing={1.5}>
@@ -110,7 +122,7 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
         </div>
       )}
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        <CopyButton textOf={() => formulaPrompt({ expressing, expression: draft, sample: bag?.qn ?? null })}>
+        <CopyButton textOf={() => JsonataFormulary.advice(draft, expressing, bag ?? null)}>
           Copy a prompt for a chatbot
         </CopyButton>
       </Stack>
@@ -119,7 +131,7 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
 }
 
 /** What the draft formula comes to for the question chosen */
-function PreviewResult({ preview }: Readonly<{ preview: Expressed.Expressed }>) {
+function PreviewResult({ preview }: Readonly<{ preview: LiveRun }>) {
   return (
     <div className={styles.previewResult} role="status" aria-label="Preview result">
       <span className={styles.microcopy}>Comes to </span>
@@ -129,8 +141,8 @@ function PreviewResult({ preview }: Readonly<{ preview: Expressed.Expressed }>) 
 }
 
 /** The preview, in words */
-function previewText(preview: Expressed.Expressed): React.ReactNode {
-  if (preview.status === 'error') { return <span className={styles.muted}>Fails: {preview.message}</span> }
-  if (preview.status === 'nothing') { return <span className={styles.muted}>nothing (a dash in the grid)</span> }
-  return <code>{String(preview.val)}{preview.stale ? ' (stale)' : ''}</code>
+function previewText({ widgeted, stale }: LiveRun): React.ReactNode {
+  if (widgeted.status === 'errored') { return <span className={styles.muted}>Fails: {widgeted.err.message}</span> }
+  if (widgeted.status === 'missing') { return <span className={styles.muted}>nothing (a dash in the grid)</span> }
+  return <code>{Widgeted.textOf(widgeted)}{stale ? ' (stale)' : ''}</code>
 }

@@ -1,9 +1,10 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../_generated/dataModel'
 import * as Chain from '../../src/lib/chain'
-import * as Expressed from '../../src/lib/expressed'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import * as Rank from '../../src/lib/rank'
+import * as Runner from '../../src/lib/formulary/runner'
+import * as Standins from '../../src/lib/formulary/standins'
 import * as Sortings from '../../src/lib/sortings'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
@@ -55,10 +56,10 @@ async function questionIn(db: Writer, quiz: Doc<'quizzes'>, question_id: string)
 }
 
 /** Where the open quiz sits, as its formulas are told: its hunt and realm, refusing as a gone quiz when either is */
-async function placeOfOpen(db: Writer, open: OpenQuizT): Promise<Expressed.QuizPlace> {
+async function placeOfOpen(db: Writer, open: OpenQuizT): Promise<Runner.QuizPlace> {
   const [hunt, realm] = await Promise.all([db.get('hunts', open.hunt_id), db.get('realms', open.realm_id)])
   if (! hunt || ! realm) { refuse('quizGone') }
-  return Expressed.placeOf(hunt, realm)
+  return Runner.placeOf(hunt, realm)
 }
 
 /** What a new order is worked out from: the quiz's own rows and questions, with its bots' replies only when asked for */
@@ -171,10 +172,10 @@ export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortke
   const rows = await expressionsOf(db, open.hunt_id)
   const expressions = rows.map((row) => expressionFrom(row))
   const place = await placeOfOpen(db, open)
-  await reorderOpenQuiz(db, open, { replies: true }, (quiz) => ({
-    questions:    Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, Expressed.forQuiz(quiz, expressions, place)), descending),
-    last_sortkey: sortkey,
-  }))
+  await reorderOpenQuiz(db, open, { replies: true }, (quiz) => {
+    const run = Runner.runQuiz(Standins.sourceOf(quiz, expressions, place))
+    return { questions: Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, run), descending), last_sortkey: sortkey }
+  })
 }
 
 /**

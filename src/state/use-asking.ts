@@ -2,28 +2,33 @@
 
 import { useCallback, useState } from 'react'
 import { askModel } from '../lib/ask/port'
-import * as Bottings from '../lib/ask/bottings'
 import * as Bulk from '../lib/ask/bulk'
 import * as Errs from '../lib/ask/errs'
-import { BotForJob } from '../lib/ask/models'
+import { AibotFormulary, SeededAsks } from '../lib/formulary/aibot'
+import * as Standins from '../lib/formulary/standins'
 import { AppNotices } from '../lib/notices'
-import type { AskFailedT, AskReplyT, Textkind } from '../lib/ask/contract'
+import type { AskFailedT, AskReplyT } from '../lib/ask/contract'
 import type { Askjob } from '../lib/ask/errs'
+import type { QuizBag, RunStep } from '../lib/formulary/runner'
 import type { LastErrT } from '../models/ask'
 import type { QuestionT } from '../models/question'
 import type { HuntActionDNA } from '../models/actions'
+import type { AibotWidgetT } from '../models/widget'
+import type { WidgetingT } from '../models/widgeting'
 
-/** Which of a question's askable cells an ask is for */
-export const AskkindVals = ['guess', 'clueing', 'hint'] as const
-export type Askkind = typeof AskkindVals[number]
+/** A widgeting asked from the cell, and the `aibot` widget it works */
+export type AskedStep = {
+  widgeting: WidgetingT
+  widget:    AibotWidgetT
+}
 
 export type AskingHandle = {
-  /** Whether an ask for this cell is in flight */
-  asking: (question_id: string, askkind: Askkind) => boolean
-  /** Start an ask; a cell with nothing to ask about is not asked about at all */
-  ask:    (question: QuestionT, askkind: Askkind) => void
-  /** Recalculate every clueing and hint in the quiz in one combined request */
-  recalculateAll: (questions: readonly QuestionT[]) => void
+  /** Whether an ask for this widgeting's cell of this question is in flight */
+  asking: (question_id: string, widgeting_label: string) => boolean
+  /** Start an ask, from the question's bag; a cell with nothing to ask about is not asked about at all */
+  ask:    (question_id: string, step: AskedStep, bag: QuizBag) => void
+  /** Recalculate every clueing and hint in the quiz in one combined request, holding busy the cells of `steps` it fills */
+  recalculateAll: (questions: readonly QuestionT[], steps: readonly RunStep[]) => void
   /** Whether a combined run is in flight; the toolbar button disables while it is */
   running:        boolean
   /** The one-off line the toolbar shows when there was nothing to run */
@@ -32,15 +37,9 @@ export type AskingHandle = {
   runFailure:     LastErrT | null
 }
 
-/** The text an ask is about, or '' when there is nothing to ask about */
-export function askableTextOf(question: QuestionT, askkind: Askkind): string {
-  if (askkind === 'hint') { return question.hint.trim() }
-  return question.clueing.trim()
-}
-
 /** Which cell an ask belongs to, for the in-flight set */
-export function askCellkey(question_id: string, askkind: Askkind): string {
-  return `${question_id}:${askkind}`
+function askCellkey(question_id: string, widgeting_label: string): string {
+  return `${question_id}:${widgeting_label}`
 }
 
 /**
@@ -79,21 +78,16 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
     }
   }, [release])
 
-  const ask = useCallback((question: QuestionT, askkind: Askkind) => {
-    const text = askableTextOf(question, askkind)
-    if (text === '') { return }
-    void hold([askCellkey(question._id, askkind)], async () => {
-      const job = askkind === 'guess' ? 'guess' : 'ishes'
-      const textkind: Textkind = askkind === 'guess' ? 'clueing' : askkind
-      const cell = { question_id: question._id, bot_label: BotForJob[job], textkind, asked_text: text }
-      const reply = await askModel(job === 'guess' ? { job, clueing: text } : { job, textkind, text })
-      const failed = Errs.failureOf(reply, job)
-      const botting = failed === null && reply.ok && reply.job !== 'bulk_ishes' ? Bottings.bottingFor(cell, reply) : Bottings.failedBottingFor(cell, failed ?? Unreadable)
-      dispatch({ kind: 'record_botting', botting })
+  const ask = useCallback((question_id: string, { widgeting, widget }: AskedStep, bag: QuizBag) => {
+    if (AibotFormulary.input(widget, bag).status !== 'ok') { return }
+    void hold([askCellkey(question_id, widgeting.label)], async () => {
+      const asked = await AibotFormulary.run(widget, widgeting, bag)
+      if (asked === null) { return }
+      dispatch({ kind: 'record_botting', botting: Standins.bottingOf(widget, question_id, asked) })
     })
   }, [dispatch, hold])
 
-  const recalculateAll = useCallback((questions: readonly QuestionT[]) => {
+  const recalculateAll = useCallback((questions: readonly QuestionT[], steps: readonly RunStep[]) => {
     const targets = Bulk.bulkTargetsOf(questions)
     if (targets.length === 0) {
       setRunNotice(AppNotices.nothingToRecalculate)
@@ -102,7 +96,11 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
     setRunNotice(null)
     setRunFailure(null)
     setRunning(true)
-    const cellkeys = targets.map((target) => askCellkey(target.question_id, target.textkind))
+    // The run fills the number spotter's cells, whichever widgetings of the quiz show them.
+    const labelsFor = (textkind: string) => steps
+      .filter((step) => step.widget && SeededAsks[step.widget.label]?.job === 'ishes' && SeededAsks[step.widget.label]?.textkind === textkind)
+      .map((step) => step.widgeting.label)
+    const cellkeys = targets.flatMap((target) => labelsFor(target.textkind).map((label) => askCellkey(target.question_id, label)))
     void hold(cellkeys, async () => {
       const reply = await askModel({ job: 'bulk_ishes', items: targets.map(({ key, text }) => ({ key, text })) })
       if (! reply.ok || reply.job !== 'bulk_ishes') {
@@ -120,7 +118,7 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
   }, [dispatch, hold])
 
   return {
-    asking: useCallback((question_id, askkind) => inFlight.has(askCellkey(question_id, askkind)), [inFlight]),
+    asking: useCallback((question_id, widgeting_label) => inFlight.has(askCellkey(question_id, widgeting_label)), [inFlight]),
     ask,
     recalculateAll,
     running,
