@@ -103,9 +103,10 @@ export type SlotLatest = {
 /**
  * The results a question shows in its played cells, from each cell's history.
  *
- * A number-spotting result is stale when the text it was asked about is no longer the text the
- * question holds. A failure since the newest result rides along as its `last_err`; a cell that
- * has only ever failed shows the failure; a cell with no botting is null.
+ * A result is stale when the text it was asked about is no longer the text the question holds,
+ * or is not known (a reply carried in by an import). A failure since the newest result rides
+ * along as its `last_err`; a cell that has only ever failed shows the failure; a cell with no
+ * botting is null.
  *
  * @param question - The question's own fields, as stored.
  * @param latest - Each cell's history, by `slotkeyOf`.
@@ -117,7 +118,7 @@ export function resultsFor(
 ): Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'> {
   const historyOf = (slot: BotSlot) => latest.get(slotkeyOf({ question_id: question._id, ...slot }))
   return {
-    guess:         guessFrom(historyOf(BotSlots[0])),
+    guess:         guessFrom(historyOf(BotSlots[0]), question.clueing),
     clueing_ishes: ishesFrom(historyOf(BotSlots[1]), question.clueing),
     hint_ishes:    ishesFrom(historyOf(BotSlots[2]), question.hint),
   }
@@ -128,8 +129,8 @@ function askedAt(botting: RecordedBottingT): number {
   return Math.floor(botting._creationTime)
 }
 
-/** The guess a cell's history comes to */
-function guessFrom(history: SlotLatest | undefined): GuessT {
+/** The guess a cell's history comes to for `currentText` */
+function guessFrom(history: SlotLatest | undefined, currentText: string): GuessT {
   if (! history) { return null }
   const { done, failed } = history
   if (! done) { return failed ? askError(lastErrOf(failed)) : null }
@@ -137,6 +138,7 @@ function guessFrom(history: SlotLatest | undefined): GuessT {
     status:             'done',
     text:               done.reply_text ?? '',
     truncated:          done.truncated,
+    stale:              done.asked_text !== currentText.trim(),
     model_tier_applied: done.model_tier_applied ?? undefined,
     approx_tokens:      done.approx_tokens ?? undefined,
     updated_at:         askedAt(done),

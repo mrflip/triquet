@@ -33,7 +33,17 @@ describe('resultsFor', () => {
 
   it('shows a dumdum botting as the guess', () => {
     const { guess } = resultsFor(question, cellOf({ done: bottingOf({}), failed: null }))
-    expect(guess).to.deep.eq({ status: 'done', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84, updated_at: 1, last_err: null })
+    expect(guess).to.deep.eq({ status: 'done', text: 'Leon', truncated: false, stale: false, model_tier_applied: 'quick', approx_tokens: 84, updated_at: 1, last_err: null })
+  })
+
+  it('marks a guess stale once the clueing it was asked about has been edited', () => {
+    const { guess } = resultsFor(question, cellOf({ done: bottingOf({ asked_text: 'Who, once?' }), failed: null }))
+    expect(guess).to.include({ stale: true })
+  })
+
+  it('marks a guess stale when what it was asked about is not known', () => {
+    const { guess } = resultsFor(question, cellOf({ done: bottingOf({ asked_text: null }), failed: null }))
+    expect(guess).to.include({ stale: true })
   })
 
   it('shows a numnum botting as the ishes of the text it was asked about', () => {
