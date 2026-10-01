@@ -131,7 +131,8 @@ export function bottingOf(widget: Pick<AibotWidgetT, 'label'>, question_id: stri
   if (widgeted.status === 'errored') { return { ...blank, status: 'error', message: widgeted.message, response: meta.response ?? null } }
   const value = (widgeted.value ?? {}) as { guess?: string, explanation?: string, items?: IshItemT[] }
   if (seeded.job === 'ishes') { return { ...blank, items: value.items ?? [] } }
-  return { ...blank, reply_text: [value.guess ?? '', value.explanation ?? ''].filter((line) => line !== '').join('\n') }
+  const verbatim = typeof meta.reply_text === 'string' ? meta.reply_text : null
+  return { ...blank, reply_text: verbatim ?? [value.guess ?? '', value.explanation ?? ''].filter((line) => line !== '').join('\n') }
 }
 
 /** The `aibot` widget a botting's (bot, textkind) pair stands in for */

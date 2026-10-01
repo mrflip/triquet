@@ -60,7 +60,7 @@ describe('AibotFormulary', () => {
       expect(vi.mocked(askModel).mock.calls).to.deep.eq([[{ job: 'guess', clueing: 'Who?' }]])
       expect(asked).to.deep.eq({
         input:    { clueing: 'Who?' },
-        widgeted: { status: 'ok', value: { guess: 'Leon', explanation: 'The lion.' }, message: null, result_meta: { model_tier_applied: 'quick', approx_tokens: 12, truncated: false } },
+        widgeted: { status: 'ok', value: { guess: 'Leon', explanation: 'The lion.' }, message: null, result_meta: { model_tier_applied: 'quick', approx_tokens: 12, truncated: false, reply_text: 'Leon\nThe lion.' } },
       })
     })
 

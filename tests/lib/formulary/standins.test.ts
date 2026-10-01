@@ -67,6 +67,11 @@ describe('bottingOf', () => {
     })
   })
 
+  it("records dumdum's reply verbatim when the ask kept it", () => {
+    const asked = { input: { clueing: 'Who?' }, widgeted: { status: 'ok' as const, value: { guess: '', explanation: 'Leon' }, message: null, result_meta: { ...meta, reply_text: '\nLeon  ' } } }
+    expect(Standins.bottingOf(dumdum, 'question_1', asked).reply_text).to.eq('\nLeon  ')
+  })
+
   it("records numnum's answer as its spans", () => {
     const items = [{ text: '3', value: 3, kind: 'numeral' }]
     const asked = { input: { hint: 'Three' }, widgeted: { status: 'ok' as const, value: { items }, message: null, result_meta: {} } }
