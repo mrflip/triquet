@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, IconButton, Stack } from '@mui/material'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
+import { AibotFields } from './AibotFields'
 import { JsonataFields } from './JsonataFields'
-import { WidgetValidators, Widget, type JsonataWidgetT, type WidgetT } from '../models/widget'
+import { Widget, type WidgetT } from '../models/widget'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
 import type { HuntActionDNA } from '../models/actions'
-import type { WidgetDraft } from '../state/widget-edit'
+import { draftOf, planWidgetEdit, type WidgetDraft } from '../state/widget-edit'
 import styles from './workbench.module.css'
 
 export type LibraryModalProps = {
@@ -23,16 +24,16 @@ export type LibraryModalProps = {
 }
 
 /**
- * The library -- the widgets every hunt's quizzes can put to work -- listed, each with what works
- * it and, for a formula, a gear that opens it for editing and removing.
+ * The library -- the widgets every hunt's quizzes can put to work -- listed, each with a gear that
+ * opens it for editing and removing.
  *
- * New formulas are written from a quiz's widgetings, where they can be tried against real
- * questions and put to work at once; this list is for revisiting and tidying them. An edit here
- * changes every quiz that works the widget, in every hunt.
+ * New formulas and prompts are written from a quiz's widgetings, where they can be tried against
+ * real questions and put to work at once; this list is for revisiting and tidying them. An edit
+ * here changes every quiz that works the widget, in every hunt.
  */
 export function LibraryModal({ onClose, hunt, library, quiz, dispatch }: Readonly<LibraryModalProps>) {
   const [editing, setEditing] = useState<string | null>(null)
-  const edited = library.find((widget): widget is JsonataWidgetT => widget.formulary === 'jsonata' && widget.label === editing)
+  const edited = library.find((widget) => widget.label === editing)
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="md" aria-labelledby="library-title">
@@ -41,7 +42,7 @@ export function LibraryModal({ onClose, hunt, library, quiz, dispatch }: Readonl
         <p className={styles.microcopy}>
           Every hunt shares these. A formula is a <a href="https://docs.jsonata.org" target="_blank" rel="noreferrer">JSONata</a> expression
           worked out for every question; a prompt is put to a model when you ask from the cell. To write a new
-          formula, add a widgeting to a quiz and choose &ldquo;New widget&rdquo;.
+          one, add a widgeting to a quiz and choose &ldquo;New widget&rdquo;.
         </p>
         <Stack spacing={1}>
           {library.map((widget) => (
@@ -50,9 +51,7 @@ export function LibraryModal({ onClose, hunt, library, quiz, dispatch }: Readonl
                 <strong>{widget.label}</strong> <span className={styles.microcopy}>{widget.formulary === 'jsonata' ? 'formula' : 'prompt'}</span>
                 <div className={styles.microcopy}>{widget.description}</div>
               </div>
-              {widget.formulary === 'jsonata' && (
-                <IconButton size="small" aria-label={`Edit widget ${widget.label}`} onClick={() => { setEditing(widget.label) }}>⚙</IconButton>
-              )}
+              <IconButton size="small" aria-label={`Edit widget ${widget.label}`} onClick={() => { setEditing(widget.label) }}>⚙</IconButton>
             </Stack>
           ))}
         </Stack>
@@ -77,41 +76,36 @@ type WidgetEditorProps = {
   hunt:     ShallowHuntT
   library:  readonly WidgetT[]
   quiz:     QuizT
-  widget:   JsonataWidgetT
+  widget:   WidgetT
   dispatch: (action: HuntActionDNA) => void
   onClose:  () => void
 }
 
 /**
- * One formula on its own: formula and description to revise with a live preview, and a removal
- * that asks first. The server refuses a removal while any widgeting, in any hunt, works it.
+ * One widget on its own, its fields following its formulary -- a formula and its description, or
+ * a prompt with its input formula and config -- to revise with a live preview, and a removal that
+ * asks first. The server refuses a removal while any widgeting, in any hunt, works it.
  */
 function WidgetEditor({ hunt, library, quiz, widget, dispatch, onClose }: Readonly<WidgetEditorProps>) {
-  const [draft, setDraft] = useState<WidgetDraft>({ label: widget.label, description: widget.description, formula: widget.formula })
+  const [draft, setDraft] = useState<WidgetDraft>(draftOf(widget))
   const [issue, setIssue] = useState<string | null>(null)
 
   const onApply = () => {
-    const checked = WidgetValidators.widget.safeParse({ ...widget, ...draft })
-    if (! checked.success) { setIssue(checked.error.issues[0]?.message ?? 'That will not do.'); return }
-    dispatch({ kind: 'edit_widget', label: widget.label, patch: { formula: draft.formula, description: draft.description } })
+    const plan = planWidgetEdit(draft, library)
+    if (! plan.ok) { setIssue(plan.issue); return }
+    for (const action of plan.actions) { dispatch(action) }
     onClose()
   }
+  const revise = (patch: Partial<WidgetDraft>) => { setDraft((was) => ({ ...was, ...patch }) as WidgetDraft); setIssue(null) }
 
   return (
     <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="md" aria-labelledby="widget-editor-title">
       <ClosableTitle id="widget-editor-title" onClose={onClose}>Widget: {widget.label}</ClosableTitle>
       <DialogContent>
         <Stack spacing={1} sx={{ mt: 1 }}>
-          <JsonataFields
-            hunt={hunt}
-            library={library}
-            openQuiz={quiz}
-            draft={draft}
-            onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null) }}
-            labelEditable={false}
-            labelIssue={null}
-            widgeting={null}
-          />
+          {draft.formulary === 'aibot'
+            ? <AibotFields hunt={hunt} library={library} openQuiz={quiz} draft={draft} onChange={revise} labelEditable={false} labelIssue={null} widgeting={null} />
+            : <JsonataFields hunt={hunt} library={library} openQuiz={quiz} draft={draft} onChange={revise} labelEditable={false} labelIssue={null} widgeting={null} />}
           {issue !== null && <p className={styles.microcopy} role="alert">{issue}</p>}
         </Stack>
       </DialogContent>

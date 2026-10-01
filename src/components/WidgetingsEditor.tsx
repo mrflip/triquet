@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Box, Button, Dialog, DialogActions, DialogContent, Divider, IconButton, MenuItem, Stack, TextField } from '@mui/material'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
+import { AibotFields } from './AibotFields'
 import { JsonataFields } from './JsonataFields'
 import { SortableList } from './SortableList'
-import { NewWidget, planWidgetingEdit, type WidgetDraft, type WidgetPlan } from '../state/widget-edit'
+import { BlankAibotDraft, NewWidget, draftOf, planWidgetingEdit, type AibotDraft, type JsonataDraft, type WidgetPlan } from '../state/widget-edit'
 import { Widget, type AibotWidgetT, type JsonataWidgetT, type WidgetT } from '../models/widget'
 import type { WidgetingT } from '../models/widgeting'
 import type { QuizT } from '../models/quiz'
@@ -65,7 +66,7 @@ export function WidgetingsEditor({ hunt, quiz, library, dispatch, onEditLibrary 
         <FormulaDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} dispatch={dispatch} onClose={close} />
       )}
       {(editing?.kind === 'new_prompt' || (edited && editedWidget?.formulary !== 'jsonata')) && (
-        <PromptDialog key={edited?.label ?? 'new'} quiz={quiz} library={library} widgeting={edited} dispatch={dispatch} onClose={close} />
+        <PromptDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} dispatch={dispatch} onClose={close} />
       )}
     </Stack>
   )
@@ -78,13 +79,18 @@ function widgetingNote(widgeting: WidgetingT, library: readonly WidgetT[]): stri
   return `${widget.formulary === 'jsonata' ? 'formula' : 'prompt'} ${widget.label}`
 }
 
-const BlankWidget: WidgetDraft = { label: '', description: '', formula: '' }
+const BlankWidget: JsonataDraft = { label: '', description: '', formula: '' }
 
 /** Runs `plan`, dispatching what it comes to; says what is wrong instead when it is refused */
 function carryOut(plan: WidgetPlan, dispatch: (action: HuntActionDNA) => void, refuse: (issue: string, labelIssue: string | null) => void, done: () => void) {
   if (! plan.ok) { refuse(plan.issue, plan.labelIssue); return }
   for (const action of plan.actions) { dispatch(action) }
   done()
+}
+
+/** How a dialog says what is wrong: the issue, and the label's issue beside the label */
+function refusing(setIssue: (issue: string | null) => void, setLabelIssue: (issue: string | null) => void) {
+  return (problem: string, forLabel: string | null) => { setIssue(problem); setLabelIssue(forLabel) }
 }
 
 type FormulaDialogProps = {
@@ -111,7 +117,7 @@ function FormulaDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: Re
   const [label, setLabel] = useState(widgeting?.label ?? '')
   const [description, setDescription] = useState(widgeting?.description ?? '')
   const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? NewWidget)
-  const [draft, setDraft] = useState<WidgetDraft>(held ?? BlankWidget)
+  const [draft, setDraft] = useState<JsonataDraft>(held ?? BlankWidget)
   const [issue, setIssue] = useState<string | null>(null)
   const [labelIssue, setLabelIssue] = useState<string | null>(null)
 
@@ -124,12 +130,7 @@ function FormulaDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: Re
   }
 
   const onApply = () => {
-    carryOut(
-      planWidgetingEdit({ widgeting, label, description, widgetLabel, widget: draft }, library, quiz),
-      dispatch,
-      (problem, forLabel) => { setIssue(problem); setLabelIssue(forLabel) },
-      onClose,
-    )
+    carryOut(planWidgetingEdit({ widgeting, label, description, widgetLabel, widget: draft }, library, quiz), dispatch, refusing(setIssue, setLabelIssue), onClose)
   }
 
   return (
@@ -183,6 +184,7 @@ function FormulaDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: Re
 }
 
 type PromptDialogProps = {
+  hunt:      ShallowHuntT
   quiz:      QuizT
   library:   readonly WidgetT[]
   /** The widgeting being edited, or null to make a new one */
@@ -191,31 +193,66 @@ type PromptDialogProps = {
   onClose:   () => void
 }
 
-/** One widgeting of a prompt: which of the library's prompts it puts to the quiz. Nothing is applied until Apply. */
-function PromptDialog({ quiz, library, widgeting, dispatch, onClose }: Readonly<PromptDialogProps>) {
+/**
+ * One widgeting of a prompt and the widget behind it, edited together: what a pasted prompt is
+ * written in.
+ *
+ * The widgeting's label and description sit above the prompt it works, which is written with its
+ * input formula and config, and previewed against any question in the hunt: what the input
+ * formula distils it to, and the prompt as it would be sent. Nothing is asked from here, and
+ * nothing is applied until Apply. A new widgeting can work a prompt of the library or a new one
+ * written on the spot, and brings a column to ask it from. Removing a widgeting asks first; its
+ * widget stays in the library.
+ */
+function PromptDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: Readonly<PromptDialogProps>) {
   const prompts = library.filter((widget): widget is AibotWidgetT => widget.formulary === 'aibot')
+  const held = prompts.find((widget) => widget.label === widgeting?.widget_label)
   const [label, setLabel] = useState(widgeting?.label ?? '')
-  const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? prompts[0]?.label ?? '')
   const [description, setDescription] = useState(widgeting?.description ?? '')
+  const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? NewWidget)
+  const [draft, setDraft] = useState<AibotDraft>(held ? aibotDraftOf(held) : BlankAibotDraft)
   const [issue, setIssue] = useState<string | null>(null)
+  const [labelIssue, setLabelIssue] = useState<string | null>(null)
+
+  const pickWidget = (picked: string) => {
+    const widget = prompts.find((each) => each.label === picked)
+    setWidgetLabel(picked)
+    setLabelIssue(null)
+    setDraft(widget ? aibotDraftOf(widget) : BlankAibotDraft)
+  }
 
   const onApply = () => {
-    carryOut(planWidgetingEdit({ widgeting, label, description, widgetLabel, widget: null }, library, quiz), dispatch, (problem) => { setIssue(problem) }, onClose)
+    carryOut(planWidgetingEdit({ widgeting, label, description, widgetLabel, widget: draft }, library, quiz), dispatch, refusing(setIssue, setLabelIssue), onClose)
   }
 
   return (
-    <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="sm" aria-labelledby="prompt-dialog-title">
+    <Dialog open onClose={ignoringBackdrop(onClose)} fullWidth maxWidth="md" aria-labelledby="prompt-dialog-title">
       <ClosableTitle id="prompt-dialog-title" onClose={onClose}>{widgeting ? `Widgeting: ${widgeting.label}` : 'New prompt widgeting'}</ClosableTitle>
       <DialogContent>
         <Stack spacing={1.5} sx={{ mt: 1 }}>
-          <TextField size="small" label="Widgeting label" value={label} disabled={quiz.locked} placeholder={widgetLabel}
-            helperText="Names it within this quiz; blank takes the widget's." onChange={(event) => { setLabel(event.target.value); setIssue(null) }} />
-          <TextField select size="small" label="Prompt" value={widgetLabel} disabled={quiz.locked || widgeting !== null}
-            onChange={(event) => { setWidgetLabel(event.target.value); setIssue(null) }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1.5 }}>
+            <TextField size="small" label="Widgeting label" value={label} disabled={quiz.locked} sx={{ flex: '1 1 220px' }} placeholder={widgetLabel}
+              helperText="Names it within this quiz; blank takes the widget's." onChange={(event) => { setLabel(event.target.value); setIssue(null) }} />
+            <TextField size="small" label="Widgeting description" value={description} disabled={quiz.locked} sx={{ flex: '2 1 280px' }}
+              helperText="What this widgeting is for in this quiz." onChange={(event) => { setDescription(event.target.value) }} />
+          </Stack>
+          <Divider />
+          <TextField select size="small" label="Widget" value={widgetLabel} disabled={quiz.locked || widgeting !== null} sx={{ maxWidth: 360 }}
+            onChange={(event) => { pickWidget(event.target.value) }}>
+            <MenuItem value={NewWidget}>＋ New widget…</MenuItem>
             {prompts.map((each) => <MenuItem key={each.label} value={each.label}>{Widget.titleOf(each)}</MenuItem>)}
           </TextField>
-          <TextField size="small" label="Widgeting description" value={description} disabled={quiz.locked}
-            onChange={(event) => { setDescription(event.target.value) }} />
+          <AibotFields
+            key={widgetLabel}
+            hunt={hunt}
+            library={library}
+            openQuiz={quiz}
+            draft={draft}
+            onChange={(patch) => { setDraft((was) => ({ ...was, ...patch })); setIssue(null); setLabelIssue(null) }}
+            labelEditable={widgetLabel === NewWidget}
+            labelIssue={labelIssue}
+            widgeting={{ label: label || widgetLabel, description }}
+          />
           {issue !== null && <p className={styles.microcopy} role="alert">{issue}</p>}
         </Stack>
       </DialogContent>
@@ -224,7 +261,7 @@ function PromptDialog({ quiz, library, widgeting, dispatch, onClose }: Readonly<
           ? (
             <ConfirmRemove
               noun="widgeting"
-              question="Remove this widgeting, the columns that show it, and every answer it kept?"
+              question="Remove this widgeting, the columns that show it, and every answer it kept? Its widget stays in the library."
               onConfirm={() => { dispatch({ kind: 'delete_widgeting', label: widgeting.label }); onClose() }}
             />
           )
@@ -236,4 +273,9 @@ function PromptDialog({ quiz, library, widgeting, dispatch, onClose }: Readonly<
       </DialogActions>
     </Dialog>
   )
+}
+
+/** An `aibot` widget of the library as a draft to revise */
+function aibotDraftOf(widget: AibotWidgetT): AibotDraft {
+  return draftOf(widget) as AibotDraft
 }

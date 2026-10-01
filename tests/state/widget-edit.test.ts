@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NewColumnWidthPx, NewWidget, planWidgetingEdit, type WidgetingEdit } from '../../src/state/widget-edit'
+import { BlankAibotDraft, NewColumnWidthPx, NewWidget, draftOf, planWidgetEdit, planWidgetingEdit, type AibotDraft, type JsonataDraft, type WidgetingEdit } from '../../src/state/widget-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { defaultLayout } from '../../src/models/layout'
@@ -20,7 +20,7 @@ function untouched(patch: Partial<WidgetingEdit> = {}): WidgetingEdit {
 }
 
 /** Its widget, opened for revision beside it */
-function heldDraft(patch: Partial<WidgetingEdit['widget']> = {}): NonNullable<WidgetingEdit['widget']> {
+function heldDraft(patch: Partial<JsonataDraft> = {}): JsonataDraft {
   return { label: heldWidget.label, description: heldWidget.description, formula: heldWidget.formula, ...patch }
 }
 
@@ -199,5 +199,57 @@ describe('planWidgetingEdit, on a locked quiz', () => {
 
   it('adds a new widget to the library, and no widgeting or column', () => {
     expect(actionsOf(fresh(), lockedQuiz()).map((action) => action.kind)).to.deep.eq(['add_widget'])
+  })
+})
+
+/** A new prompt, pasted in beside a new widgeting */
+const pasted: AibotDraft = { ...BlankAibotDraft, label: 'riddler', formula: 'Riddle: {{clueing}}. Reply as {"answer": string}.' }
+
+describe('planWidgetingEdit, with a prompt', () => {
+  it('adds a pasted prompt to the library, then a widgeting of it, then a wide column to ask it from', () => {
+    const actions = actionsOf({ widgeting: null, label: '', description: '', widgetLabel: NewWidget, widget: pasted })
+    expect(actions[0]).to.deep.eq({ kind: 'add_widget', widget: Widget.fill({ ...pasted }) })
+    expect(actions[1]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'riddler', label: 'riddler', description: '', params: {} } })
+    expect(actions[2]?.kind === 'add_column' && actions[2].column.width_px).to.eq(170)
+  })
+
+  it('revises a held prompt with its input formula and config as well as its text', () => {
+    const dumdum = present(library.find((each) => each.label === 'dumdum'))
+    const dumdumWidgeting = present(quiz.widgetings.find((each) => each.label === 'dumdum'))
+    const draft = { ...(draftOf(dumdum) as AibotDraft), config: { servicelabel: 'claude' as const, model_tier: 'careful' as const, max_tokens: 512 } }
+    const actions = actionsOf({ widgeting: dumdumWidgeting, label: 'dumdum', description: '', widgetLabel: 'dumdum', widget: draft })
+    expect(actions).to.deep.eq([{
+      kind: 'edit_widget', label: 'dumdum', patch: { formula: dumdum.formula, description: dumdum.description, input_formula: dumdum.input_formula, config: draft.config },
+    }])
+  })
+
+  it('refuses a prompt with no room to answer in', () => {
+    expect(issueOf({ widgeting: null, label: '', description: '', widgetLabel: NewWidget, widget: { ...pasted, config: { ...pasted.config, max_tokens: 0 } } })).to.not.eq('')
+  })
+})
+
+describe('planWidgetEdit', () => {
+  it('comes to nothing for a widget left as it was', () => {
+    expect(planWidgetEdit(draftOf(heldWidget), library)).to.deep.eq({ ok: true, actions: [] })
+  })
+
+  it('revises what changed, in one edit', () => {
+    expect(planWidgetEdit({ ...draftOf(heldWidget), formula: '1' }, library)).to.deep.eq({
+      ok: true, actions: [{ kind: 'edit_widget', label: 'hint_full', patch: { formula: '1', description: heldWidget.description } }],
+    })
+  })
+
+  it('refuses what the widget validator refuses', () => {
+    expect(planWidgetEdit({ ...draftOf(heldWidget), formula: '' }, library).ok).to.be.false
+  })
+})
+
+describe('draftOf', () => {
+  it("is a formula's label, description and formula", () => {
+    expect(draftOf(heldWidget)).to.deep.eq({ formulary: 'jsonata', label: 'hint_full', description: heldWidget.description, formula: heldWidget.formula })
+  })
+
+  it("is a prompt's, with its input formula and config", () => {
+    expect(draftOf(present(library[0]))).to.deep.include({ formulary: 'aibot', label: 'dumdum', input_formula: present(library[0]).input_formula })
   })
 })
