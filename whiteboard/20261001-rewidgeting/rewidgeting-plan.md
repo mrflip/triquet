@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 6 underway.** Threads 1 (PR #67, docs only), 2 (#68), 3 (#69), 4 (#70) and 5 (#71) done.
+**Status: thread 7 underway.** Threads 1 (PR #67, docs only), 2 (#68), 3 (#69), 4 (#70), 5 (#71) and 6 (#72) done.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -415,6 +415,13 @@ and fill a list or object in as `[object Object]`; refuse those tags in `templat
 sentence pointing at `{{name}}`, which renders everything as JSON anyway. Reset the `agent`
 backend before e2e if thread 5 has not.
 
+*Orchestrator:* **done, PR #72** (review: two `fix:` commits kept; `widgets.usage` holds to counts
+only). `WidgetingsEditor` (no formula box; an `Autocomplete` grouped by formulary; *New widget…* and
+*Edit the widget…* doors), `WidgetEditor.tsx` (formulary chosen first; the usage line; removal refused
+in words), `widgets.usage`, `panels/WidgetsPanel.tsx`, and YOLO call 9's raw-tag refusal. Pulled
+forward from thread 7: the picker is the catalogue, tested on a quiz with no widgetings, and
+`addWidgeting` in `e2e/support.ts`. The library's export and import stay on the Export panel.
+
 *Gloss.* `src/components/WidgetsEditor.tsx` becomes the widgeting editor; `ExpressionsModal`
 becomes the widget editor (thread 4 may have started it); `src/state/widget-edit.ts` splits
 along the two scopes; a new Widgets panel in `src/components/panels/` replaces *Prompts used*;
@@ -426,8 +433,13 @@ a query for the usage line (counts across hunts) in `convex/`, per
 > A new quiz starts with columns for `label`, `title`, `qnum`, `clueing`, `full_answer` and
 > `notes`, and no widgetings; `hint`, `chains_to` and `alt_text` stay on the question row with
 > their columns opt-in. A new hunt seeds nothing (the library is global and seeded once). The
-> widgeting editor's picker is the catalogue. `src/models/layout.ts`, `Hunt.blank`,
+> ~~widgeting editor's picker is the catalogue.~~ *(thread 6)* `src/models/layout.ts`, `Hunt.blank`,
 > `insertHunt` and the e2e fixtures follow.
+
+*Orchestrator:* the catalogue picker was built in thread 6; e2e specs add what they need with
+`addWidgeting` (`e2e/support.ts`). Thread 3's `insertQuiz` top-up of the library goes with the
+defaults. `DefaultWidgetings` in `src/models/seeds.ts` stays: the seeding mutation still gives
+today's quizzes their layout by what their columns name.
 
 *Gloss.* `src/models/layout.ts`, `Hunt.blank`, `insertHunt` (`convex/writing/`), the e2e
 fixtures and environment (`e2e/environment*.ts`, `e2e/support.ts`) and every spec that assumed
@@ -508,6 +520,8 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
   than the thread: a non-JSON request body makes the route answer 500.
 * Thread 5's: the sort rule for objects (a one-key object sorts as what it holds, so numnum's
   `{ items }` sorts by span count; a many-key object does not sort), yours to overturn.
+* Thread 6's: should the library's export and import move off the Export panel (left there)? And a
+  widget's title can't be edited in the UI, only by library import: add a Title field?
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 
