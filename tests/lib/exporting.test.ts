@@ -85,6 +85,13 @@ describe('quizExported', () => {
     expect(exportedOf(chainedQuiz()).questions[0]?.clueing_full).to.deep.eq({ status: 'ok', value: 312 })
   })
 
+  it("keeps a stored null as it is, where the sheet and the table write nothing", () => {
+    const quiz = chainedQuiz()
+    const leon = present(quiz.questions[0])
+    const exported = Exporting.quizExported(quiz, runHolding(quiz, { dumdum: { [leon._id]: Widgeted.ok(null) } }))
+    expect(exported.questions[0]?.dumdum).to.deep.eq({ status: 'ok', value: null })
+  })
+
   it("exposes only the status and the value: a failure's message stays behind", () => {
     const leon = present(exportedOf(chainedQuiz()).questions[0])
     expect(leon.dumdum).to.deep.eq({ status: 'errored', value: null })

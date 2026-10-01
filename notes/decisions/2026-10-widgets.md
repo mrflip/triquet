@@ -218,6 +218,22 @@ The projection lives in one place, the runner:
   questions, as now); a formula that comes to nothing (JSONata `undefined`, null or `''`) is
   `missing`, shown as the muted dash `nothing` is today; a function is `errored`.
 
+**How a value reads** (thread 5), everywhere a widgeted is shown, written or sorted:
+
+* **One cell body for every widgeted** (`src/components/cells/readouts.tsx`): a number grouped by
+  thousands, text or a boolean as itself, a list or an object as compact JSON with a fold beside
+  the cell that pretty-prints it (`JsonText` beside `JsonFold`; the fold sits outside the asked
+  cell's button, never inside it), and null or `''` as the muted dash.
+* **Null is nothing.** A stored `ok` whose value is null (only a stored formulary can hold one:
+  `jsonata`'s null is `missing`) keeps its status, but shows as the dash, is written as an empty
+  cell by the sheet and the git table (`Widgeted.textOf`), and sinks in a sort. The JSON export
+  keeps `{ status: 'ok', value: null }`.
+* **Sorts read the value** (`Sortings.sortValueOf`): a number or text as itself, a boolean as 0
+  or 1, a list by its length, an object of one key as what that key holds (a model's reply is
+  always an object, so `{ "items": [...] }` sorts by how many items, as the ishes did), and an
+  object of several keys not at all (it sinks, as the guess did). A column the author wants
+  ordered otherwise is one `jsonata` widgeting away.
+
 ### The bag: flat, in run order, with a reserved pattern
 
 **Flat.** A widgeting's widgeted sits at `qn.<label>`, beside the question's own fields, and under

@@ -66,7 +66,7 @@ describe('cellTextOf', () => {
     [Widgeted.ok(false),                                            "false",                      'a boolean is written as its word'],
     [Widgeted.ok({ guess: 'Leon', explanation: '' }),               '{"explanation":"","guess":"Leon"}', 'an object is written as its JSON, keys in order'],
     [Widgeted.ok([1, 2]),                                           "[1,2]",                      'a list is written as its JSON'],
-    [Widgeted.ok(null),                                             "null",                       'a null value is written as its JSON'],
+    [Widgeted.ok(null),                                             "",                           'a null value is written as nothing, as no value is'],
     [Widgeted.missing,                                              "",                           'nothing is written as nothing'],
     [Widgeted.errored({ message: 'no', at: 1, response: null }),    "",                           'a failure is written as nothing, not its message'],
   ]

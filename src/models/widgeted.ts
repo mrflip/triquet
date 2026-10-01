@@ -151,18 +151,41 @@ export class Widgeted {
   }
 
   /**
-   * A widgeted's value as text, as a cell, a sheet or a table holds it: a scalar as itself, any
-   * other value as its JSON, and nothing for a widgeted that is not `ok`.
+   * Whether a widgeted has nothing to show: it is not `ok`, or its value is null or empty text.
+   * Nothing shows as the muted dash, is written as an empty cell, and sinks in a sort; an `ok`
+   * of null keeps its status, and the JSON export keeps the null.
+   *
+   * @example Widgeted.isNothing(Widgeted.ok(null))  // => true
+   * @example Widgeted.isNothing(Widgeted.ok(0))     // => false
+   */
+  static isNothing(widgeted: WidgetedT): boolean {
+    return widgeted.status !== 'ok' || widgeted.value === null || widgeted.value === ''
+  }
+
+  /**
+   * Whether a widgeted's value is a list or an object: what a cell shows folded, as JSON.
+   *
+   * @example Widgeted.isStructured(Widgeted.ok({ items: [] }))  // => true
+   * @example Widgeted.isStructured(Widgeted.ok('Leon'))        // => false
+   */
+  static isStructured(widgeted: WidgetedT): boolean {
+    return widgeted.status === 'ok' && typeof widgeted.value === 'object' && widgeted.value !== null
+  }
+
+  /**
+   * A widgeted's value as text, as a cell, a sheet or a table holds it: a scalar as itself, a
+   * list or an object as its JSON, and nothing for null or for a widgeted that is not `ok`.
    *
    * @param widgeted - What one cell came to.
    * @returns The text; empty when there is no value.
    *
    * @example Widgeted.textOf(Widgeted.ok(42))            // => '42'
    * @example Widgeted.textOf(Widgeted.ok({ b: 1, a: 2 }))  // => '{"a":2,"b":1}'
+   * @example Widgeted.textOf(Widgeted.ok(null))          // => ''
    * @example Widgeted.textOf(Widgeted.missing)           // => ''
    */
   static textOf(widgeted: WidgetedT): string {
-    if (widgeted.status !== 'ok') { return '' }
+    if (widgeted.status !== 'ok' || widgeted.value === null) { return '' }
     const { value } = widgeted
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') { return String(value) }
     return UU.jsonify(value)

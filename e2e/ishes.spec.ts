@@ -40,6 +40,19 @@ test('extracting lists every span with its value and kind', async ({ page }) => 
   await expect(cell).toContainText('"value":300000000')
 })
 
+test('a list of spans folds open from beside its cell, pretty-printed', async ({ page }) => {
+  await stubIshes(page, ThreeSpans)
+  await page.getByRole('button', { name: 'Ask Clueing ishes' }).first().dblclick()
+  const cell = cellOf(page, 0, 'Clueing ishes')
+  const fold = cell.getByRole('button', { name: 'Pretty-print Clueing ishes' })
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await fold.click()
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await expect(cell).toContainText('"text": "#17-19"')
+  // Folding is not asking: the reply is the one already in hand.
+  await expect(cell).toContainText('~120 tok')
+})
+
 test('the sums follow from the extraction', async ({ page }) => {
   await stubIshes(page, ThreeSpans)
   await page.getByRole('button', { name: 'Ask Clueing ishes' }).first().dblclick()

@@ -104,16 +104,28 @@ describe('sortValueFor', () => {
     expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
 
-  it('reads a stored widgeting\'s column as what was recorded, an object by its JSON, sinking one never asked', () => {
+  it('reads a stored widgeting\'s column as what was recorded, a list of spans by how many, sinking one never asked', () => {
     const [aa, bb, cc] = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+    const span = { text: '30', value: 30, kind: 'numeral' }
+    const questions = [
+      { ...present(aa), stored: { numnum_clueing: answered({ items: [span, span] }) } },
+      present(bb),
+      { ...present(cc), stored: { numnum_clueing: answered({ items: [] }) } },
+    ]
+    const quiz = { ...Quiz.blank(), ...quizOf(questions) }
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:clueing_ishes', quiz, runOf(quiz)), false)
+    expect(answers(sorted)).to.deep.eq(['c', 'a', 'b'])
+  })
+
+  it('reads an object of several keys as having nothing to say, leaving the order alone', () => {
+    const [aa, bb] = questionsOf(['1', 'a'], ['2', 'b'])
     const questions = [
       { ...present(aa), stored: { dumdum: answered({ guess: 'Zurich', explanation: '' }) } },
-      present(bb),
-      { ...present(cc), stored: { dumdum: answered({ guess: 'Avignon', explanation: '' }) } },
+      { ...present(bb), stored: { dumdum: answered({ guess: 'Avignon', explanation: '' }) } },
     ]
     const quiz = { ...Quiz.blank(), ...quizOf(questions) }
     const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:guess', quiz, runOf(quiz)), false)
-    expect(answers(sorted)).to.deep.eq(['c', 'a', 'b'])
+    expect(answers(sorted)).to.deep.eq(['a', 'b'])
   })
 
   it('reads a sum worked out from a stored widgeting as its number', () => {
@@ -192,7 +204,12 @@ describe('sortValueOf', () => {
     [Widgeted.ok('abc'),             'abc',            'text sorts as itself'],
     [Widgeted.ok(true),              1,                'a boolean sorts as 1'],
     [Widgeted.ok(false),             0,                'a boolean sorts as 0'],
-    [Widgeted.ok({ b: 1, a: 2 }),    '{"a":2,"b":1}',  'any other value sorts as its JSON'],
+    [Widgeted.ok([1, 2, 3]),         3,                'a list sorts by how many items it holds'],
+    [Widgeted.ok([]),                0,                'an empty list is a real answer, and sorts as nought'],
+    [Widgeted.ok({ items: [{}, {}] }), 2,              'an object of one key sorts as what it holds'],
+    [Widgeted.ok({ guess: 'Leon' }), 'Leon',           'an object of one key holding text sorts as the text'],
+    [Widgeted.ok({ b: 1, a: 2 }),    null,             'an object of several keys has no one value to sort by'],
+    [Widgeted.ok({}),                null,             'an empty object has nothing to sort by'],
     [Widgeted.ok(null),              null,             'a null value has nothing to sort by'],
     [Widgeted.missing,               null,             'nothing has no value to sort by'],
     [Failed,                         null,             'a failure has no value to sort by'],
