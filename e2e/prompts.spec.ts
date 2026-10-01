@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { closeManage, expect, freshWidgetLabel, openManage, stubAsk, test } from './support'
+import { closeManage, expect, freshWidgetLabel, newWidgetingDialog, openManage, stubAsk, test } from './support'
 
 // Every widget here is the spec's own (`freshWidgetLabel`): the library is every hunt's, and the
 // specs share one database, so a seeded prompt is never edited.
@@ -9,25 +9,33 @@ const Riddle = 'Riddle me this: {{clueing}}\n\nReply with only a JSON object {"a
 /** What the model is said to have answered, standing in for it */
 const Answered = { ok: true, value: { answer: 'Leon' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 40 }
 
-/** The open prompt widgeting dialog */
+/** The widget editor writing the new prompt */
 function promptDialog(page: Page) {
-  return page.getByRole('dialog', { name: 'New prompt widgeting' })
+  return page.getByRole('dialog', { name: /^New widget(?!ing)/ })
 }
 
-/** Paste `prompt` in as a new widget labelled `widget_label`, put to work in the open quiz as `label`, without applying it */
+/**
+ * Paste `prompt` in as a new widget labelled `widget_label`, written through the door of a new
+ * widgeting labelled `label`, without applying either
+ */
 async function pastePrompt(page: Page, widget_label: string, label: string, prompt = Riddle) {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New prompt…' }).click()
+  await page.getByRole('button', { name: '+ New widgeting…' }).click()
+  await newWidgetingDialog(page).getByRole('textbox', { name: 'Widgeting label' }).fill(label)
+  await newWidgetingDialog(page).getByRole('button', { name: 'New widget…' }).click()
   const editor = promptDialog(page)
-  await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label)
+  await editor.getByRole('combobox', { name: 'Formulary' }).click()
+  await page.getByRole('option', { name: /^A prompt/ }).click()
   await editor.getByRole('textbox', { name: 'Widget label' }).fill(widget_label)
   await editor.getByRole('textbox', { name: 'Prompt', exact: true }).fill(prompt)
 }
 
-/** Apply the open prompt widgeting dialog, and close the gear's dialog behind it */
+/** Apply the new prompt, then the widgeting that works it, and close the gear's dialog behind them */
 async function applyPrompt(page: Page) {
   await promptDialog(page).getByRole('button', { name: 'Apply' }).click()
   await expect(promptDialog(page)).toHaveCount(0)
+  await newWidgetingDialog(page).getByRole('button', { name: 'Apply' }).click()
+  await expect(newWidgetingDialog(page)).toHaveCount(0)
   await closeManage(page)
 }
 

@@ -1,4 +1,4 @@
-import { expect, freshWidgetLabel, preparedExport, showTab, test } from './support'
+import { addWidgeting, expect, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -71,19 +71,29 @@ test('a refused clipboard falls back to selecting the text, never to silence', a
   expect(selected).toBeGreaterThan(0)
 })
 
-test('every prompt the quiz puts to a model is shown verbatim, placeholders and all, each on a tab of its own', async ({ page }) => {
-  const tabs = page.getByRole('tablist', { name: 'Prompts used' }).getByRole('tab')
-  await expect(tabs).toHaveText(['Dumdum', 'Numnum: clueing', 'Numnum: hint'])
-  const shown: [string, RegExp][] = [
-    ['Dumdum',          /\{\{clueing\}\}/],
-    ['Numnum: clueing', /number-like/],
-    ['Numnum: hint',    /\{\{hint\}\}/],
-  ]
-  for (const [tabname, placeholder] of shown) {
-    const section = await showTab(page, tabname)
-    await expect(section.getByRole('textbox', { name: `Prompt: ${tabname}` })).toHaveValue(placeholder)
-    await expect(section.getByRole('button', { name: 'Copy', exact: true })).toBeVisible()
-  }
+test('the Widgets panel lists the quiz\'s widgetings in run order, each with its counts, and opens to its prompt verbatim', async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Widgets' })
+  const folds = panel.getByRole('button', { expanded: false })
+  await expect(folds.first()).toContainText('dumdum')
+  await expect(folds.nth(3)).toContainText('butnot_ishes')
+  // A fresh quiz's questions are blank: nothing asked, every formula's sum missing.
+  await expect(panel.getByRole('group', { name: 'Cells of dumdum' })).toHaveText(/0 ok\s*0 errored\s*\d+ missing/)
+  await panel.getByRole('button', { name: /^dumdum/ }).click()
+  await expect(panel.getByRole('textbox', { name: 'Prompt: dumdum' })).toHaveValue(/\{\{clueing\}\}/)
+  await expect(panel.getByRole('textbox', { name: 'Input formula: dumdum' })).toHaveValue(/qn\.clueing/)
+  await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toBeVisible()
+})
+
+test('a formula\'s counts follow what its cells come to', async ({ page }) => {
+  await addWidgeting(page, 'answer_reversed')
+  const panel = page.getByRole('region', { name: 'Widgets' })
+  const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
+  await expect(counts).toHaveText(/^0 ok\s*0 errored\s*\d+ missing$/)
+  await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
+  await page.getByLabel('Quiz name').click()
+  await expect(counts).toHaveText(/^1 ok\s*0 errored\s*\d+ missing$/)
+  await panel.getByRole('button', { name: /^answer_reversed/ }).click()
+  await expect(panel.getByRole('textbox', { name: 'Formula: answer_reversed' })).toHaveValue(/\$reverse/)
 })
 
 test('LL Export holds the quiz in the league\'s format, one record per question', async ({ page }) => {
