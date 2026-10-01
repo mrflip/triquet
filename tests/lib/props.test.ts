@@ -141,10 +141,10 @@ describe('reading properties', () => {
       expect(PP.ownProp({ aa: 1 }, 'aa')?.value).to.eq(1)
     })
     it('gives undefined for one it does not have', () => {
-      expect(PP.ownProp({}, 'nope')).to.eq(undefined)
+      expect(PP.ownProp({}, 'nope')).to.be.undefined
     })
     it('gives undefined for an inherited one', () => {
-      expect(PP.ownProp(Object.create({ aa: 1 }) as object, 'aa')).to.eq(undefined)
+      expect(PP.ownProp(Object.create({ aa: 1 }) as object, 'aa')).to.be.undefined
     })
   })
 
@@ -153,10 +153,10 @@ describe('reading properties', () => {
       expect(PP.protoProp(Object.create({ protoA: 1 }) as object, 'protoA')?.value).to.eq(1)
     })
     it('gives undefined for one that is not there', () => {
-      expect(PP.protoProp({}, 'nope')).to.eq(undefined)
+      expect(PP.protoProp({}, 'nope')).to.be.undefined
     })
     it('does not fall over on a prototype-less object', () => {
-      expect(PP.protoProp(Object.create(null) as object, 'nope')).to.eq(undefined)
+      expect(PP.protoProp(Object.create(null) as object, 'nope')).to.be.undefined
     })
   })
 
@@ -165,7 +165,7 @@ describe('reading properties', () => {
       expect(PP.getProp({ aa: 1 }, 'aa')?.value).to.eq(1)
     })
     it('will not climb at all with the default depth', () => {
-      expect(PP.getProp(Object.create({ aa: 1 }) as object, 'aa')).to.eq(undefined)
+      expect(PP.getProp(Object.create({ aa: 1 }) as object, 'aa')).to.be.undefined
     })
     it('climbs one step when asked', () => {
       expect(PP.getProp(Object.create({ aa: 1 }) as object, 'aa', 1)?.value).to.eq(1)
@@ -174,11 +174,11 @@ describe('reading properties', () => {
       const grand  = { deep: 1 }
       const parent = Object.create(grand) as object
       const obj    = Object.create(parent) as object
-      expect(PP.getProp(obj, 'deep', 1)).to.eq(undefined)
+      expect(PP.getProp(obj, 'deep', 1)).to.be.undefined
       expect(PP.getProp(obj, 'deep', 2)?.value).to.eq(1)
     })
     it('gives undefined for a property nothing has', () => {
-      expect(PP.getProp({}, 'nope', 9)).to.eq(undefined)
+      expect(PP.getProp({}, 'nope', 9)).to.be.undefined
     })
     it('prefers the own property over an inherited one of the same name', () => {
       const obj = Object.create({ aa: 'inherited' }) as Record<string, unknown>

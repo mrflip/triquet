@@ -3,7 +3,7 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1 to 4 done; thread 5 queued.
+**Status:** threads 1 to 5 done; thread 6 underway.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
@@ -11,7 +11,7 @@ their sections newest first, below the status table.
 | 2 | Hard-to-miss alert for major problems | complete | `20260930-failure_snackbar` | #60 |
 | 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
 | 4 | Formulas see the smith's note, hunt and realm | complete | `20260930-formula_exposure` | #63 |
-| 5 | Uniformly chai: `.to.be.true`, lint that allows it | pending | | |
+| 5 | Uniformly chai: `.to.be.true`, lint that allows it | complete | `20260930-chai_property_style` | #64 |
 | 6 | CI runs the built suite in place of the dev suite | pending | | |
 
 *Orchestrator:* the Coach overruled thread 1's recommendation: the house style is chai's
@@ -22,6 +22,81 @@ converts it.
 *Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. A thread that adds e2e
 specs runs them under both servers: `pnpm test:e2e:agent` (dev, 3003) and `pnpm
 test:e2e:built` (the optimized build, 3005). Neither is the shared `pnpm test:e2e` port.
+
+## Thread 5: Uniformly chai: the property style, with lint that allows it (2026-09-30)
+
+Branch `20260930-chai_property_style`, PR #64, stacked on #63. Suites: typecheck and lint clean, unit 2268/2268, e2e 193/193 under `pnpm test:e2e` (the thread touches no e2e spec or app code).
+
+* **Built**:
+  - **Lint** (`eslint.config.mjs`, a new block `triquet/tests-chai` after `triquet/tests`):
+    `vitest/valid-expect` off; `eslint-plugin-chai-expect` 4.1.0 with all five rules
+    (`missing-assertion`, `no-uncalled-method`, `terminating-properties`, `no-inner-compare`,
+    `no-inner-literal`); `eslint-plugin-chai-friendly` 1.2.1's `no-unused-expressions` in place of
+    the blanket `@typescript-eslint/no-unused-expressions: off`. Both run on ESLint 10.10 under
+    flat config: chai-expect's peer range is `>=2 <=10.x`, chai-friendly's `>=3`, neither calls
+    an API ESLint 10 removed, and neither adds a peer warning (`pnpm peers check` shows only
+    the three it showed before).
+  - **The method list** (`ChaiMethods`) and the extra terminators (`ChaiTerminators`) were read
+    out of vitest's own `chai.Assertion.prototype` with a throwaway test (methods, chainable
+    methods via `__methods`, and getters), not written from memory. `ChaiMethods` is chai's
+    methods and chainable methods, vitest's chai-style spy methods, and the five Jest matchers
+    the tests use or testing.md allows. Every name the tests call is on it (surveyed by walking
+    the tests' ASTs: 27 distinct names).
+  - **The sweep**: 166 assertions in 45 test files, `.to.eq(true|false|null|undefined)` to
+    `.to.be.*` and `.to.not.eq(null)` to `.to.not.be.null`, by `sed`, diff reviewed. `e2e/` had
+    none (Playwright's `expect` has no chai interface). No match sat after `resolves`/`rejects`.
+  - **Docs**: `notes/testing.md` (the property form for the four literals, the lint behind it,
+    the list a new method joins, and why a property never follows `resolves`), `notes/stack.md`
+    (both plugins, under *Testing*), and a *Since* line atop `chai-in-vitest.md`.
+* **Guards proved** with a throwaway test, linted, typechecked and run, then deleted:
+  - `expect(x).to.eq`, `.to.deep.equal`, `.to.include`, `.to.be.a` left uncalled: caught by
+    `chai-expect/no-uncalled-method`.
+  - bare `expect(x)`: caught by `chai-expect/missing-assertion`.
+  - `.to.be.true()`: caught by `terminating-properties` and by tsc.
+  - `expect(x === 3).to.be.true`: caught by `no-inner-compare`.
+  - unawaited `expect(p).resolves.to.eq(3)`: still caught, by `no-floating-promises` and
+    `sonarjs/async-test-assertions`.
+  - a bare do-nothing expression (`value + 1`): caught by `chai-friendly/no-unused-expressions`,
+    which the old blanket `off` let through. A small gain.
+  - `expect()` with no argument: caught by tsc.
+* **What the new setup no longer catches**: an uncalled method that is **not** on `ChaiMethods`,
+  such as `expect(x).to.be.toSatisfy`. That means a Jest matcher (testing.md forbids most of
+  them anyway) or a chai method added by a plugin we do not have. `valid-expect` caught these;
+  now a new one must be added to the list.
+* **Decisions taken**:
+  - **Its own config block**, `triquet/tests-chai`, rather than more rules in `triquet/tests`,
+    so the valid-expect swap and its reasons read as one unit.
+  - **The whole registry, not just the tests' 27 names**, on `ChaiMethods`. The plan said to
+    derive from the tests; I derived from vitest's registry, which covers every name the tests
+    call and every other name they could reach for. That makes the "must remember to add it"
+    gap as small as it can be. The Jest matchers are left off, apart from the five in use.
+  - **Two tag-order tests in `tests/lib/quizgit.test.ts`** said `expect(earlier < later).to.eq(true)`,
+    which `no-inner-compare` now refuses. Its suggested `to.be.below` throws on strings, and
+    `.toSorted()` trips `sonarjs/no-alphabetical-sort`. They now assert
+    `expect(earlier).to.not.eq(later)` and `expect(_.sortBy([later, earlier])).to.deep.eq([earlier, later])`,
+    which is the test's own title, "sorts as text".
+* **Discoveries**:
+  - **`sonarjs/no-incomplete-assertions`** (from `sonarjs.configs.recommended`, on all along)
+    already reports an uncalled `.to.eq` and a bare `expect(x)`. So each of those two mistakes
+    has two guards, and thread 1's table was wrong to say only `valid-expect` catches them.
+    Keep chai-expect all the same: sonar's list is its own, and chai-expect's is ours to extend.
+  - `no-inner-literal` refuses `expect(null)` and similar literal subjects. None in the tests.
+* *Review:* **clean**, nothing fixed. The reviewer re-derived all 164 swept lines mechanically
+  and matched them exactly (57 false, 54 null, 43 true, 10 undefined, 2 `.not.be.null`); no
+  `.not` flipped, nothing under `.deep` touched. It confirmed from chai-expect's source that
+  `ChaiMethods` and `ChaiTerminators` add to the plugin's defaults. Left, minor, already
+  recorded: an uncalled method off the list, a chain stopped mid-sentence (`expect(x).to.be`),
+  and a property after `resolves`/`rejects` all go unflagged.
+* **For the Coach**:
+  - **Two installs, Library-first**: `eslint-plugin-chai-expect` and `eslint-plugin-chai-friendly`,
+    dev-only and lint-only, listed in `notes/stack.md`.
+  - **Not asked for, and left as they are** (thread 1's table): an empty collection (`.to.have.length(0)`,
+    `.to.deep.eq([])`, `.to.eql({})` and the like: about 84 lines) to `.to.be.empty`, which
+    is looser (it passes any empty array, string, object, Set or Map), `.to.have.callCount(n)` to
+    `.called`/`.calledOnce`, and the 10 Jest-style spy matchers (`toHaveBeenCalledOnce`,
+    `not.toHaveBeenCalled`, `toHaveBeenCalledWith`) to chai's `.calledOnce` /
+    `.not.called` / `.calledWith`. Should any of them follow the property style? Each is a
+    `sed` and a reviewed diff; lint allows them now.
 
 ## Thread 4: Formulas see the smith's note, the hunt and the realm (2026-09-30)
 

@@ -132,7 +132,7 @@ describe('QuestionValidators.questionPatch', () => {
 describe('Question.blank', () => {
   it('mints an id and leaves everything else empty', () => {
     const question = Question.blank()
-    expect(ValidatorKit.treeid.safeParse(question._id).success).to.eq(true)
+    expect(ValidatorKit.treeid.safeParse(question._id).success).to.be.true
     expect(question.clueing).to.eq('')
   })
 

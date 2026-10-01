@@ -46,11 +46,11 @@ describe('slotLatestOf', () => {
 
   it('carries no failure when the newest botting answered', () => {
     const answered = botting('done', 2, 'answered')
-    expect(slotLatestOf({ newest: answered, done: answered }).failed).to.eq(null)
+    expect(slotLatestOf({ newest: answered, done: answered }).failed).to.be.null
   })
 
   it('carries no answer for a cell that never had one', () => {
-    expect(slotLatestOf({ newest: botting('error', 3, 'failed'), done: null }).done).to.eq(null)
+    expect(slotLatestOf({ newest: botting('error', 3, 'failed'), done: null }).done).to.be.null
   })
 })
 
@@ -115,7 +115,7 @@ describe('assembledQuiz', () => {
   const seen = seenQuestionOf(QuestionRow, new Map())
 
   it('is undefined while a question the frame orders is still on its way', () => {
-    expect(assembledQuiz(frame, (id) => (id === question_id ? seen : undefined))).to.eq(undefined)
+    expect(assembledQuiz(frame, (id) => (id === question_id ? seen : undefined))).to.be.undefined
   })
 
   it('leaves out a question read as gone, and is the quiz once every question has been read', () => {

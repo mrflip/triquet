@@ -40,7 +40,7 @@ describe('Hunting.mayAct', () => {
 
   it('shows each role the presentation it is sent to', () => {
     for (const role of HuntRoleVals) {
-      expect(Hunting.mayAct(role, Hunting.actFor(role))).to.eq(true)
+      expect(Hunting.mayAct(role, Hunting.actFor(role))).to.be.true
     }
   })
 })

@@ -25,13 +25,13 @@ describe('Validator', () => {
   })
 
   it('keeps the schema surface reachable on the callable', () => {
-    expect(LightbulbValidators.lightbulb.safeParse({}).success).to.eq(false)
+    expect(LightbulbValidators.lightbulb.safeParse({}).success).to.be.false
     expect(LightbulbValidators.lightbulbTech.options).to.deep.eq([...LightbulbTechVals])
   })
 
   it('composes onward like any other schema', () => {
     const maybeBulb = LightbulbValidators.lightbulb.nullable()
-    expect(maybeBulb.parse(null)).to.eq(null)
+    expect(maybeBulb.parse(null)).to.be.null
   })
 
   it('narrows input and output types apart', () => {
@@ -96,7 +96,7 @@ describe('callable', () => {
   })
 
   it('reports instanceof as the wrapped schema does', () => {
-    expect(callable(Z.string()) instanceof Z.ZodString).to.eq(true)
+    expect(callable(Z.string()) instanceof Z.ZodString).to.be.true
   })
 })
 
