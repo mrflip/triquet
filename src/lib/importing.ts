@@ -1,7 +1,9 @@
 import type * as Z from 'zod'
+import _ from 'es-toolkit/compat'
 import { mintId } from './ids'
 import * as Labelmaker from './labelmaker'
-import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportQuizT, type ImportedQuestionT } from '../models/import'
+import { BotSlots, type BotSlot } from '../models/botting'
+import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportQuizT, type ImportedBottingT, type ImportedQuestionT } from '../models/import'
 import type { QuizT } from '../models/quiz'
 
 /** One thing wrong with one incoming question */
@@ -44,6 +46,10 @@ export type ImportOutcome = {
  * one. A question that fails validation is skipped entirely rather than half-merged, and named
  * in the log. The server folds the result in (`import_questions`) and renumbers Q# by rank.
  *
+ * What the bots replied comes along as each question's cached replies: the server keeps one only
+ * for a cell that holds no reply of its own, and it reads as stale, since what it was asked is
+ * not carried. A reply that will not read is left out and logged; its question still goes.
+ *
  * @param quiz - The quiz on screen.
  * @param pasted - Whatever is in the Import box.
  * @returns The questions to send, a one-line summary, and a line per pasted question.
@@ -60,24 +66,32 @@ export function importInto(quiz: QuizT, pasted: string): ImportOutcome {
   }
 
   const held = new Set(quiz.questions.map((question) => Labelmaker.effectiveLabelOf(question)))
-  const merge: MergeState = { patches: new Map(), log: [] }
+  const merge: MergeState = { patches: new Map(), replies: new Map(), log: [] }
   for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, raw, ii + 1) }
 
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
   const skipped = tallied('skipped')
+  const questions = chainsResolved(merge, held)
+  const replyCount = _.sumBy(questions, (question) => question.bottings.length)
+  const replied = replyCount === 0 ? '' : ` Carried ${String(replyCount)} bot reply(ies) to cells holding none, marked stale.`
 
   return {
     ok:        skipped === 0,
-    summary:   `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped — see log below. Renumbered Q# by rank.`,
+    summary:   `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped — see log below. Renumbered Q# by rank.${replied}`,
     log:       merge.log,
-    questions: chainsResolved(merge, held),
+    questions,
   }
 }
+
+/** A question's cached replies, by the field each shows in */
+type Replies = Partial<Record<BotSlot['field'], ImportedBottingT>>
 
 /** What the read is building up as it walks the pasted questions */
 type MergeState = {
   /** What each label's question comes to, in the order the labels were first met */
   patches: Map<string, ImportPatchT>
+  /** What the bots replied to each label's question, the later paste winning cell by cell */
+  replies: Map<string, Replies>
   log:     ImportLogEntry[]
 }
 
@@ -100,8 +114,49 @@ function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, raw: unkn
 
   const label = parsed.data.forced_label ?? parsed.data.label ?? Labelmaker.localBlankLabel(new Set([...held, ...merge.patches.keys()]), mintId())
   const outcome = held.has(label) || merge.patches.has(label) ? 'merged' : 'added'
+  const { replies, issues } = repliesFrom(bag)
   merge.patches.set(label, { ...merge.patches.get(label), ...patchFrom(bag, parsed.data) })
-  merge.log.push({ position, label, outcome, issues: [] })
+  merge.replies.set(label, { ...merge.replies.get(label), ...replies })
+  merge.log.push({ position, label, outcome, issues })
+}
+
+/**
+ * What the bots replied to one incoming question, as the bottings to carry in, and a line for
+ * each reply that would not read. A cell with nothing in it, or only a failure, carries nothing.
+ */
+function repliesFrom(bag: Record<string, unknown>): { replies: Replies, issues: ImportIssue[] } {
+  const carried = BotSlots.filter((slot) => carriesReply(bag[slot.field]))
+  const readings = carried.map((slot) => ({ slot, botting: bottingFrom(slot, bag[slot.field]) }))
+  return {
+    replies: Object.fromEntries(readings.flatMap(({ slot, botting }) => botting ? [[slot.field, botting]] : [])),
+    issues:  readings.filter(({ botting }) => ! botting).map(({ slot }) => ({
+      fieldpath: slot.field,
+      message:   'Bot reply could not be read; left out',
+      code:      'reply_unreadable',
+    })),
+  }
+}
+
+/** Whether a pasted cell holds something meant as a reply: not nothing, and not a failure */
+function carriesReply(raw: unknown): boolean {
+  if (_.isNil(raw)) { return false }
+  return ! (_.isPlainObject(raw) && (raw as Record<string, unknown>).status === 'error')
+}
+
+/** One pasted reply as the botting to carry into `slot`; null when it does not read */
+function bottingFrom(slot: BotSlot, raw: unknown): ImportedBottingT | null {
+  const cell = { bot_label: slot.bot_label, textkind: slot.textkind }
+  if (slot.field === 'guess') {
+    const guess = ImportValidators.importedGuess.safeParse(raw)
+    return guess.success ? ImportValidators.importedBotting({ ...cell, ...replyMetaOf(guess.data), reply_text: guess.data.text, items: [] }) : null
+  }
+  const ishes = ImportValidators.importedIshes.safeParse(raw)
+  return ishes.success ? ImportValidators.importedBotting({ ...cell, ...replyMetaOf(ishes.data), reply_text: null, items: ishes.data.items }) : null
+}
+
+/** What a botting says of how a pasted reply was made */
+function replyMetaOf(reply: { truncated: boolean, model_tier_applied?: ImportedBottingT['model_tier_applied'], approx_tokens?: number }) {
+  return { truncated: reply.truncated, model_tier_applied: reply.model_tier_applied ?? null, approx_tokens: reply.approx_tokens ?? null }
 }
 
 type PayloadReading =
@@ -194,10 +249,11 @@ function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>)
 function chainsResolved(merge: MergeState, held: ReadonlySet<string>): ImportedQuestionT[] {
   const known = new Set([...held, ...merge.patches.keys()])
   return [...merge.patches].map(([label, patch]) => {
+    const bottings = Object.values(merge.replies.get(label) ?? {})
     const target = patch.chains_to
-    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch } }
+    if (target === undefined || target === null || (target !== label && known.has(target))) { return { label, patch, bottings } }
     noteChainLoss(merge.log, label)
-    return { label, patch: { ...patch, chains_to: null } }
+    return { label, patch: { ...patch, chains_to: null }, bottings }
   })
 }
 

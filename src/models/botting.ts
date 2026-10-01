@@ -30,6 +30,14 @@ export function isBotSlot(bot_label: BotLabel, textkind: Textkind): boolean {
   return BotSlots.some((slot) => slot.bot_label === bot_label && slot.textkind === textkind)
 }
 
+/** A validator's check that a botting's bot and textkind make one of `BotSlots` */
+export function checkBotSlot(context: Z.core.ParsePayload<Pick<BotSlot, 'bot_label' | 'textkind'>>): void {
+  const { bot_label, textkind } = context.value
+  if (! isBotSlot(bot_label, textkind)) {
+    context.issues.push({ code: 'custom', input: textkind, path: ['textkind'], message: `${bot_label} is not put a ${textkind} in this tool` })
+  }
+}
+
 export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, noteish, zid }) => {
   const items = arr(IshValidators.ishItem).max(IshesPerTextMax)
     .describe('A numnum reply: every number-like span it found, in the order they appear in the text asked. Empty for any other botting.')
@@ -58,12 +66,7 @@ export const BottingValidators = Validator(({ obj, arr, oneof, bool, textish, no
       .describe('Which tier answered, when one did.'),
     approx_tokens:      AskValidators.approxTokens.nullable(),
   })
-    .check((context) => {
-      const { bot_label, textkind } = context.value
-      if (! isBotSlot(bot_label, textkind)) {
-        context.issues.push({ code: 'custom', input: textkind, path: ['textkind'], message: `${bot_label} is not put a ${textkind} in this tool` })
-      }
-    })
+    .check(checkBotSlot)
     .describe('One time a bot was put one of a question\'s texts, and what came back, as the database holds it. When it was asked is the row\'s own `_creationTime`. Also what a browser sends to have one recorded.')
 
   return { items, response, row }

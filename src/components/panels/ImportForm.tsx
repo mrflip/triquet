@@ -18,8 +18,8 @@ export type ImportFormProps = {
 
 /**
  * The Import tab, the counterpart to Raw Export: bring a quiz's questions back from a backup, or fold a
- * collaborator's edits into your own copy. What the bots replied is not pasted back: it is
- * recorded by asking.
+ * collaborator's edits into your own copy. What the bots replied comes along to fill cells
+ * holding no reply, marked stale until asked again.
  *
  * Results are reported twice -- a one-line summary next to the button, and a scrollable log
  * with a line per question and a nested line per validation issue. The same detail goes to the
