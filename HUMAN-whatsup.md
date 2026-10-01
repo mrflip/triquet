@@ -61,6 +61,16 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   server. You didn't ask to change it. As it stands a PR is tested in dev mode locally and built
   mode on CI, which covers both. Should it switch to the build, or add `pnpm test:e2e:built`
   beside it?
+## 2026-09-30: Convex previews hit the deployment limit
+
+* **What filled it.** 40 = prod + `dev/flip` + 38 previews, one per branch Vercel built since
+  2026-09-28; none expire before 2026-10-03. #56–#58 have no preview: the limit refused them.
+  I deleted `20260929-failure_logging`'s (`nautical-gazelle-285`) at your ask; 37 remain.
+* **What stops it.** Each preview build now sets its preview to expire 36 hours after that build,
+  and closing a PR deletes its preview (`scripts/convex-previews.ts`, a new workflow). Needs
+  `CONVEX_PREVIEW_PRUNER_KEY`, a preview deploy key, in GitHub Actions.
+* **Open.** Is Vercel's Build Command `pnpm build:vercel`? `notes/deploy.md` quoted an
+  `npx convex deploy ...` line instead, and the expiry step only runs from `build:vercel`.
 
 ## 2026-09-30: Sprint foldable_ui paused before thread 4
 
