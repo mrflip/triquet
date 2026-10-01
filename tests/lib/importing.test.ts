@@ -399,6 +399,12 @@ describe('importInto', () => {
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Fresh.' })
     })
 
+    it("passes over a value under an entry's label when the paste says that label works another widget", () => {
+      const outcome = read(enteredQuiz(), { questions: [{ label: 'leon', clueing: 'Reworded', remark: { status: 'errored', value: null } }], widgetings: [{ widget_label: 'dumdum', label: 'remark' }] })
+      expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq(['merged'])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({})
+    })
+
     it("folds two pasted questions naming one label into one, the later value winning", () => {
       const outcome = read(enteredQuiz(), [{ label: 'leon', remark: 'First.', points: 1 }, { label: 'leon', remark: 'Second.' }])
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Second.', points: 1 })
