@@ -9,13 +9,14 @@ import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import type { IshItemT } from '../../src/models/ish'
 import { present } from '../support/present'
+import { Here } from '../support/places'
 
 const numeral = (text: string, value: number): IshItemT => ({ text, value, kind: 'numeral' })
 
 /** A quiz of `questions` showing the given expressings, exported with the standard expressions */
 function exported(questions: QuestionT[], layout: Layout = defaultLayoutFor(SeedExpressions)): string[][] {
   const quiz: QuizT = { ...Quiz.blank('Export'), questions, ...layout }
-  const text = Sheets.sheetsExport(quiz, Expressed.forQuiz(quiz, SeedExpressions))
+  const text = Sheets.sheetsExport(quiz, Expressed.forQuiz(quiz, SeedExpressions, Here))
   return text === '' ? [] : text.split('\n').map((line) => line.split('\t'))
 }
 
@@ -62,7 +63,7 @@ describe('sheetsExport', () => {
   it('does not move when the columns are dragged about, only when one is added or removed', () => {
     const quiz: QuizT = { ...Quiz.blank('Export'), ...defaultLayoutFor(SeedExpressions), questions: [Question.blank()] }
     const shuffled = { ...quiz, columns: quiz.columns.toReversed() }
-    const text = (held: QuizT) => Sheets.sheetsExport(held, Expressed.forQuiz(held, SeedExpressions))
+    const text = (held: QuizT) => Sheets.sheetsExport(held, Expressed.forQuiz(held, SeedExpressions, Here))
     expect(text(shuffled)).to.eq(text(quiz))
   })
 

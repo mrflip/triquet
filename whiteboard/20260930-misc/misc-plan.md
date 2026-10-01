@@ -1,7 +1,7 @@
 # Sprint misc: miscellaneous tasks
 
 Date: 2026-09-30. Issued by the Coach (Flip). Mode: **normal**. Review level: **medium**.
-**Status:** threads 1 (#58), 2 (#60) and 3 (#61) done; thread 4 underway. #54 merged mid-sprint.
+**Status:** threads 1-4 done (#58 and #60 merged; #61, #63 open); thread 5 underway, thread 6 queued.
 
 The Coach issued three threads at once, sent a fourth soon after, and will send more as the sprint runs. Each new
 thread is added below, in the order it arrives.
@@ -158,6 +158,68 @@ quiz's name*, notes that formulas don't see the note yet.
 
 **Look-ahead.** Nothing in threads 1 to 3 touches formulas, so this thread is independent
 of them. It stacks after thread 3 all the same.
+
+### 5. Uniformly chai: the property style, with lint that allows it
+
+> I prefer the .to.be.true style, so let's be uniformly chai -- replace.to.eq(true) (and null,
+> undefined, false) with the .to.be.xxx form in the codebase. Does valid-expect take an
+> exception? Research lightly what people do -- maybe there's an eslint plugin for the vitest
+> chai helpers?
+
+**Gloss.** The Coach decided against thread 1's recommendation. The research is done:
+`vitest/valid-expect` has no exception option (only `alwaysAwait`, `asyncMatchers`, `minArgs`,
+`maxArgs`), there's no vitest-specific plugin, and chai users turn to two general plugins.
+`whiteboard/20260930-misc/chai-in-vitest.md` is the background, its option 2 the starting
+point.
+
+* **Lint, block `triquet/tests` in `eslint.config.mjs`.** Turn `vitest/valid-expect` off.
+  Add `eslint-plugin-chai-expect`: `missing-assertion`, `terminating-properties`,
+  `no-inner-compare`, `no-inner-literal`, and `no-uncalled-method` with the method names we
+  use (`eq`, `equal`, `eql`, `include`, `match`, `lengthOf`, `property`, `oneOf`, `callCount`,
+  `calledWith`, `throw`...). Derive the list from the tests, not from memory. Add
+  `eslint-plugin-chai-friendly`, whose `no-unused-expressions` replaces the blanket `off` we
+  have now. Check both against flat config and ESLint's current major before settling. List
+  both in `notes/stack.md` (Library-first: widely used, lint-only, doesn't leave vitest).
+  **Prove the guards**: a throwaway test where `expect(x).to.eq` is left uncalled and a bare
+  `expect(x)` must both fail lint, then delete it. Record whatever the new setup no longer
+  catches.
+* **The sweep.** `.to.eq(true)` → `.to.be.true`, and the same for `false`, `null` and
+  `undefined`, everywhere in `tests/` and `e2e/` (thread 1 counted 166). Don't touch
+  `.to.eq(x)` for any other value. The rest of thread 1's table (`lengthOf(0)` → `.empty`,
+  `callCount(n)` → `.called`, jest-style spy matchers) is **not** asked for: leave it, and
+  list it as a question in *For the Coach*. A codemod or `sed` is fine if the diff is
+  reviewed and the suites pass.
+* **Documents.** `notes/testing.md` line 17 keeps `to.be.true` and gains a sentence on the
+  lint setup. Correct `chai-in-vitest.md`'s recommendation with a line saying the Coach chose
+  the property style.
+
+**Look-ahead.** This runs last, so its sweep covers thread 4's tests as well.
+
+### 6. CI runs the built suite in place of the dev suite
+
+> I would like the ci tests to run test:e2e:built replacing test:e2e, so we don't need a
+> different ci role.
+
+**Gloss.** The Coach's answer to thread 3's CI question: **replace**, not a second matrix
+axis. The `e2e` job in `.github/workflows/ci.yml` runs `pnpm exec playwright test
+--shard=N/6` with `PORT: 3002`, `NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402` and
+`NEXT_DIST_DIR: .next-e2e`, the `e2e` role's resources. "No different CI role" means CI
+keeps that role and those ports and switches only the server mode. Most likely that's
+`TRIQUET_E2E_SERVER: built` in the job's env, as thread 3 proposed. Check that
+`playwright.config.ts` and `e2e/environment.ts` accept the `built` mode on the `e2e` role
+(thread 3 paired `built` with `e2e-built`), and loosen that pairing if CI needs it.
+
+* Each of the six shards builds for itself. That adds a `next build` (about 10s locally, more
+  on a runner) per shard. Building once and sharing `.next-e2e` as an artifact is an
+  optimization. Measure first, and propose it rather than build it unless it's trivial.
+* The local finishing suite (git_hygiene's `pnpm test:e2e`) is **not** asked to change.
+  Say so in *For the Coach*, and ask whether it should follow.
+* CI can't be run from the container. Prove the workflow change as far as you can locally:
+  run the same command with the same env against the `e2e` role, on a quiet port if 3002 is
+  busy. Then push, and watch the PR's checks (`gh pr checks`) until the e2e shards finish.
+* Update the comment above the job, and `notes/testing.md`'s paragraph on the built run.
+
+**Look-ahead.** Independent of thread 5. It stacks after it all the same.
 
 ## For the Coach
 

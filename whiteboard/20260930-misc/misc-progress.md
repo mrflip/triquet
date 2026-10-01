@@ -3,18 +3,120 @@
 The running handoff. It is newer than `misc-plan.md` wherever the two disagree. Workers add
 their sections newest first, below the status table.
 
-**Status:** threads 1, 2 and 3 done; thread 4 underway.
+**Status:** threads 1 to 4 done; thread 5 queued.
 
 | # | Thread | Status | Branch | PR |
 |---|--------|--------|--------|----|
 | 1 | Chai in vitest: what's missing | complete | `20260930-chai_in_vitest` | #58 |
 | 2 | Hard-to-miss alert for major problems | complete | `20260930-failure_snackbar` | #60 |
 | 3 | e2e against a production build | complete | `20260930-e2e_built` | #61 |
-| 4 | Formulas see the smith's note, hunt and realm | pending | | |
+| 4 | Formulas see the smith's note, hunt and realm | complete | `20260930-formula_exposure` | #63 |
+| 5 | Uniformly chai: `.to.be.true`, lint that allows it | pending | | |
+| 6 | CI runs the built suite in place of the dev suite | pending | | |
+
+*Orchestrator:* the Coach overruled thread 1's recommendation: the house style is chai's
+property form (`.to.be.true`, `.null`...). Thread 5 swaps the lint rule and sweeps the tests.
+Until it lands, `.to.eq(true)` still passes lint -- thread 4 writes it that way and thread 5
+converts it.
 
 *Orchestrator:* #54 merged mid-sprint; the stack now rests on `main`. A thread that adds e2e
 specs runs them under both servers: `pnpm test:e2e:agent` (dev, 3003) and `pnpm
 test:e2e:built` (the optimized build, 3005). Neither is the shared `pnpm test:e2e` port.
+
+## Thread 4: Formulas see the smith's note, the hunt and the realm (2026-09-30)
+
+Branch `20260930-formula_exposure`, PR #63, stacked on #61. Suites: typecheck and lint clean, unit 2268/2268, e2e 193/193 under each of `pnpm test:e2e`, `pnpm test:e2e:agent` and `pnpm test:e2e:built`.
+
+* **Built**: a formula reads `quiz.smiths_note`, `hunt.label`, `hunt.title`, `realm.label` and
+  `realm.title`.
+  - `Quiz.exposed` gains `smiths_note`. `Hunt.exposed` and `Realm.exposed` are new, each
+    `['label', 'title']`.
+  - `Expressed.placeOf(hunt, realm)` makes a quiz's **place**, `Expressed.QuizPlace`: each label
+    the one in force, each title as shown (a blank one reads as its label titleized), no ids.
+    `forQuiz` and `bagsFor` take it. The callers are the grid (`Workbench`), the expression
+    editor's preview (`ExpressionFields`, which also folds out `hunt` and `realm` in *The input
+    the formula reads*), the server's sort (`quiz_actions.sortQuestions`, which now reads the
+    hunt and realm rows), and the quiz history.
+  - The history's old `Quizgit.QuizPlace` (two label strings) is gone. The mirror snapshot
+    carries the new place, and the paths are filed by its labels exactly as before.
+  - `quiz-bag.ts`: `bagQuiz`, `bagHunt` and `bagRealm` are picked from the models' row
+    validators by their `exposed` lists, as `bagQuestion` already was. So the JSON Schema
+    follows the lists, and hiding a field stays one edit.
+  - Docs: the formula's `.describe()` in `expression.ts`, the chatbot prompt's input section, and
+    `notes/vocabulary.md` (*smith's note*, *bag*, and the *place*).
+  - Tests: `placeOf`, the bag and its schema, formulas reading each new field (and not `_id`),
+    the server's sort by a column that reads the hunt, and one e2e spec
+    (`e2e/expressions.spec.ts`, *a formula reads the smith's note, and the hunt and realm the
+    quiz sits in*).
+* **Decisions taken**:
+  - **Where they sit in the bag**: `hunt` and `realm` are top-level keys beside `quiz`, and the
+    note is `quiz.smiths_note`, not a key of its own.
+  - **Titles as shown, never blank.** A hunt or realm with no title of its own gives its label
+    titleized, which is what the screen shows. The quiz's `title` is left as stored, as it was.
+  - **One place for formulas and the history.** A hunt retitle now counts as the quiz having
+    moved for its history (`_.isEqual` on the place). That is correct: a column reading
+    `hunt.title` changes the history's TSV.
+* **What a bot is now shown**: nothing new. The four templates in the *Prompts used* panel put
+  one question's clueing or hint to a bot and never see the bag. The one prompt that does
+  change is *Copy prompt for a chatbot* in the expression editor. Its JSON Schema now has
+  `hunt`, `realm` and `quiz.smiths_note`, with their descriptions, and one sentence names them.
+  Its sample is only `qn`, so the note's own text never goes into the prompt.
+* **Discoveries**:
+  - **I found this thread already built.** Two commits (the code, and the vocabulary) were on
+    the branch at 11:01 with no syndication, most likely from an earlier worker that stopped
+    before reporting. I reviewed them, took them as mine, and folded in one change:
+    `placeOfOpen` reads the hunt and the realm with `Promise.all`, as `authorize.ts` does.
+  - **The finishing rebase.** Main had moved: #59 (the grid folds) and the merge of #60. A
+    plain `git rebase --update-refs origin/main` replayed threads 1 and 2's commits. They were
+    already on main, but the pre-thread rebase over #57 had changed their patch-ids, so git did
+    not recognize them, and HUMAN-whatsup entries were duplicated. I aborted and ran
+    `git rebase --update-refs --onto origin/main aaf77a9` (thread 2's last commit) instead.
+    That replays only threads 3 and 4 and the orchestrator's commits. It moved
+    `20260930-e2e_built` locally (not pushed) and dropped the orchestrator's #57 conflict
+    repair from the stack, since main's own merge of #60 now stands in for it. Local tag
+    `prerebase/20260930-formula_exposure` marks the tip from before the rebase.
+  - **A formula that reads the note puts it into a column.** From there it reaches the sheets
+    export and the history's TSV. The note already travels in Raw Export and the history's
+    JSON, so nothing leaves that did not before. The review screen shows reviewers the note
+    itself and no computed columns.
+  - HUMAN-whatsup's entry *A smith's note beside the quiz's name* still says formulas don't see
+    the note. That entry is now stale; I left it as written.
+* *Review:* **fixed**, one kept (99fb014): a doc comment stranded above the wrong function in
+  `tests/state/commit-scheduler.test.ts` when `Here` moved to `tests/support/places.ts`. Left,
+  minor: `ExpressionFields`' preview shows nothing while a just-made quiz is missing from
+  `hunt.realms`, and it recovers on its own.
+* *Orchestrator:* "already built" is almost certainly the orchestrator's first thread-4 spawn,
+  which the Coach interrupted: it had committed before the interrupt landed. #58 and #60 have
+  since merged. The orchestrator pushed the rebased `20260930-e2e_built` (#61) with a lease.
+* **For the Coach**: **which other elements deserve exposure?** A proposal only; none of these
+  is built.
+  1. **Review aggregates per question**: how many reviews, the mean get rate, how many flag *needs
+     fact check*, *elimination candidate* or *keep it*, and the median minutes. The tool's second
+     job is judging fairness and difficulty. A column such as "hard: get rate under 30%" is
+     what expressions are for. The catch: which reviews a viewer may read depends on who they
+     are (`mayReadReview`). A column must count the same set for everyone, the shared reviews,
+     or two smiths see different values and the server's sort matches neither. Aggregates only:
+     never who reviewed, and never their comments or guesses.
+  2. **The other quizzes of the realm and the hunt**: their labels and titles, and their questions'
+     `label`, `qnum` and `full_answer`. Metas are why the tool exists. A hunt-level meta draws on
+     every quiz's answers, and today a formula sees only its own quiz. This is worth a thread of
+     its own: the bag grows with the hunt, the screen and the sort must read every quiz's
+     questions, and a column recomputes whenever any sibling quiz changes.
+  3. **The quiz's position in its realm** (its index among the realm's quizzes, and how many
+     there are). Cheap. It supports "Round 3 of 8" and ordering a meta's pieces, and it comes
+     free with item 2.
+  4. **The expressing's own label** (maybe). One expression could then serve several columns
+     that differ only by label, like a recipe with a parameter. Cheap. Whether that is wanted
+     is a design question.
+  5. **The quiz's `version`** (low). An export column could stamp the draft ("v3").
+
+  Not recommended:
+  - **The lock state**: it is housekeeping about editing, not content. The header already
+    shows it.
+  - **The hunt's members**: who is on a hunt says nothing about its questions, and exposing it
+    would put people's names into exports and histories.
+  - **Position or rank**: already exposed. `qn.rank` is the 1-based place in Q# order (null
+    without a Q#), and `qns` is in the quiz's order.
 
 ## Thread 3: e2e against the optimized build (2026-09-30)
 

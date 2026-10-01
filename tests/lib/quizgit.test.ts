@@ -13,6 +13,7 @@ import * as Quizgit from '../../src/lib/quizgit'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
+import { Here, placeAt } from '../support/places'
 
 /** `node:fs`'s own readFile, rooted under `root`, honouring the encoding isomorphic-git asks for */
 function readFileAt(root: string): Quizgit.GitFs['promises']['readFile'] {
@@ -101,8 +102,6 @@ afterEach(() => {
   rmSync(suite.root, { recursive: true, force: true })
 })
 
-/** Where every quiz in these tests sits */
-const Here: Quizgit.QuizPlace = { hunt: 'deep_lake', realm: 'home' }
 const HereExpressions = 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
 
 const OursDir = 'tq/hunt/deep_lake/realm/home/quiz'
@@ -128,7 +127,7 @@ describe('quizPathsFor', () => {
   })
 
   it('moves with the hunt and the realm', () => {
-    expect(Quizgit.quizPathsFor({ label: 'ours', forced_label: null }, { hunt: 'high_tarn', realm: 'finals' }).json).to.eq('tq/hunt/high_tarn/realm/finals/quiz/ours.tq.json')
+    expect(Quizgit.quizPathsFor({ label: 'ours', forced_label: null }, placeAt('high_tarn', 'finals')).json).to.eq('tq/hunt/high_tarn/realm/finals/quiz/ours.tq.json')
   })
 })
 

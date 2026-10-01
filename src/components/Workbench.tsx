@@ -57,7 +57,8 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
   const specs = useMemo(() => specsFor(quiz), [quiz])
-  const expressed = useMemo(() => Expressed.forQuiz(quiz, hunt.expressions), [quiz, hunt.expressions])
+  const place = useMemo(() => Expressed.placeOf(hunt, realm), [hunt, realm])
+  const expressed = useMemo(() => Expressed.forQuiz(quiz, hunt.expressions, place), [quiz, hunt.expressions, place])
   const questionIds = useMemo(() => quiz.questions.map((question) => question._id), [quiz])
   const checklist = useChecklist(quiz._id, questionIds)
   // The questions the author has asked to delete, until they confirm or keep them.
