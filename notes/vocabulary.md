@@ -15,9 +15,9 @@ this section, lists the words they replace while code still holds them.
 * **formulary** -- the generic runner behind a widget: code, never a row. A class of statics in
   `src/lib/formulary/`, each answering one interface (`check`, `input`, `run`, `advice`) and
   reporting `defaultInput`, `refresh` and `store`. The formularies are `jsonata` (a JSONata
-  formula worked out on render), `aibot` (a prompt put to a model when the author asks) and,
-  later, `entry` (a value a person types). A word that meant nothing before, so it collides with
-  nothing.
+  formula worked out on render), `aibot` (a prompt put to a model when the author asks) and
+  `entry` (a value a person types into the cell, with no formula, so no `run` and no `advice`). A
+  word that meant nothing before, so it collides with nothing.
 * **widget** -- a reusable definition: a formulary, a **formula**, an input formula and a config,
   under a label. Global: every hunt sees the same widgets, the **library**, whose one **scope**
   this sprint is `pub`. Outside the database a widget is named by its key, `pub/<label>`. It knows
@@ -36,7 +36,11 @@ this section, lists the words they replace while code still holds them.
 * **formula** -- what a widget does with its input: a JSONata expression for `jsonata`, a prompt
   template with `{{placeholders}}` for `aibot`.
 * **config** -- a widget's formulary-specific settings: `servicelabel`, `model_tier` and
-  `max_tokens` for `aibot`; nothing for `jsonata`.
+  `max_tokens` for `aibot`; `entry_kind` for `entry`; nothing for `jsonata`.
+* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label) or
+  `titleish` (one line). Fixed once the widget is made, as its formulary is; together they are its
+  **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
+  no row and reads `missing`.
 * **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
   widgeteds of the widgetings before it, so the order is the dependency order.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
