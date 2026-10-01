@@ -11,10 +11,52 @@ Workers add their sections below the table, newest first.
 | 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
 | 3 | The data model, as a clean break | complete: PR #69, stacked on #68 (reviewed: fixed) |
 | 4 | Pasted prompts | complete: PR #70, stacked on #69 (reviewed: fixed) |
-| 5 | Status | pending |
+| 5 | Status | complete: PR #71, stacked on #70 |
 | 6 | Views | pending |
 | 7 | The basic set and the catalogue | pending |
 | 8 | Entry widgets | pending |
+
+## Thread 5: Status (2026-10-01)
+
+Branch `20261001-widgeted_status`, PR #71, stacked on #70. Suites: typecheck and lint clean;
+`pnpm test` 2631 passed (103 files); `pnpm test:e2e:agent` 197 passed, after resetting and
+re-seeding the `agent` backend (`scripts/convex_dev agent --reset --seed true`; a bare
+`scripts/convex_reset agent` needs the backend already running). `origin/main` had not moved. No
+schema change, no `convex/_generated/` churn.
+
+* **Built**:
+  - **One value body** (`WidgetedValue` in `src/components/cells/readouts.tsx`), shared by
+    `WidgetedReadout` and `WidgetedAskCell`: a number grouped by thousands, text or a boolean as
+    itself, a list or an object as compact JSON (`JsonText`, new in `src/components/JsonFold.tsx`),
+    null or `''` as the muted dash. A list or an object gets a `FoldButton` beside the cell
+    (`Pretty-print <column title>`) that pretty-prints it. `WidgetedReadout` takes a `label` now.
+  - **Null is nothing**: `Widgeted.textOf` writes '' for an `ok` null (sheet, git table);
+    `Widgeted.isNothing` and `Widgeted.isStructured` are new. The export keeps the null.
+  - **Sorts by value** (`Sortings.sortValueOf`): a list by its length, an object of one key as what
+    it holds, an object of several keys not at all. The ishes columns sort by span count again.
+  - **Docs**: *How a value reads* in the decision note; the null rule in the vocabulary's status entry.
+* **Decisions taken**:
+  - **The fold sits beside the cell, not in it.** The asked cell is one `<button>`, and a
+    `<details>` inside it would be a control nested in a control (and its click is cancelled by the
+    button's). So the cell form is `JsonText` (compact or pretty) with the house `FoldButton` outside
+    the button, and the readout cell does the same, for one look. `JsonFold` itself (the editors'
+    labelled fold) is unchanged.
+  - **Closed, the JSON wraps** rather than ellipsizing to one line: a cell already scrolls inside
+    its row, so the closed fold shows everything, and opening it adds structure.
+  - **One rule for null**: shown, written and sorted as nothing, status kept, export lossless.
+  - **One-key objects sort as their member**, since a reply is always an object: `{ items }` sorts
+    by count, as the ishes did before the sprint; dumdum's two keys do not sort, as the guess did
+    not. In the PR's open questions.
+* **Deviations**: none. `guess.tsx`, `ishes.tsx` and the butnot-ishes special cell were already
+  gone (thread 3); nothing was left to retire.
+* **Discoveries**:
+  - **`sonarjs/function-return-type`** reads each return statement's printed type, ignoring the
+    declared one, so a recursive JSON walk returning `value.length` beside `value` is refused;
+    `orderedBy`/`membersOf` in `sortings.ts` are shaped around it.
+  - **Folded rows and short rows** (28px, 56px) clip a pretty-printed fold; the cell scrolls, as
+    every widgeted cell does. Fine for now; thread 6's panel or a later nicety may want more room.
+* **For the Coach**: the sort rule for objects (above), yours to overturn. No lint or type
+  suppressions added.
 
 ## Thread 4: Pasted prompts (2026-10-01)
 
