@@ -382,7 +382,8 @@ personal scopes will fix it.
   nothing of any hunt.
 * **Counting usage** ("worked by N widgetings across M quizzes, in H hunts", thread 6) reads
   widgetings across hunts the ident may not be on. It returns counts only, never a label or title
-  from such a hunt, and anyone who may edit the widget may see them.
+  from such a hunt, and anyone who may edit the widget may see them: as built, `widgets.usage`
+  answers a smith of any hunt (`mayCountUsage`) and is null for anyone else.
 * **Recording a widgeted** (`record_widgeted`, from `record_botting`) is authorized as recording a
   botting is now.
 
@@ -399,8 +400,9 @@ per (question, widgeting); `jsonata` stores nothing.
   (stopped at the first `ok`, as a botting cell's is), the `entry` upsert as one read, and deleting
   a question's widgeteds; and `by_widgeting_id`, for removing a widgeting's.
 * Caps in `src/lib/vv/patterns.ts`: `WidgetingsPerQuiz` (from `WidgetsPerQuiz`, 99),
-  `WidgetsInLibrary` (from `ExpressionsPerHunt`, 999), and a bound on the usage read
-  (thread 6). A cell's walk stays uncapped, as a botting cell's is (`notes/convex.md`).
+  `WidgetsInLibrary` (from `ExpressionsPerHunt`, 999), and `WidgetingsCounted` (999), the bound
+  on the usage read: no write refuses passing it, so past it the counts say "at least". A cell's
+  walk stays uncapped, as a botting cell's is (`notes/convex.md`).
 
 ### Seeds and the default widgetings
 
@@ -467,8 +469,10 @@ clean break makes renaming in place safe; any reader of an old action log should
   bounded as well as the reply's, and rate limiting moves closer. As built:
   - **The browser renders the prompt**, with mustache (`src/lib/ask/prompts.ts`), over the input
     formula's object as plain JSON (a JSONata function is dropped, never called): HTML escaping is
-    off, and a value that is not a string fills in as its JSON. A template that does not parse, or
-    a prompt longer than `Promptish` (16000 characters), is recorded as a failure and asks nothing.
+    off, and a value that is not a string fills in as its JSON. A template that does not parse, one
+    that fills a key in raw (`{{{name}}}` or `{{&name}}`, which would skip that and send a list as
+    `[object Object]`; thread 6), or a prompt longer than `Promptish` (16000 characters), is recorded
+    as a failure and asks nothing.
   - **The request** (`AskContract.askRequest`) is `{ prompt, servicelabel, model_tier, max_tokens }`:
     the prompt and the widget's config, each held to the same bounds as the widget's own. The
     service names whose credential the check reads.
@@ -486,7 +490,20 @@ clean break makes renaming in place safe; any reader of an old action log should
   - **The reply** is `{ ok: true, value, truncated, model_tier_applied, approx_tokens }`; the
     browser records `value` as the widgeted's, the rest as its `result_meta`.
 * **Two editors with two scopes** (thread 6): the widgeting editor from the quiz page, and the
-  widget editor from the library, so the author always knows which they are in.
+  widget editor from the library, so the author always knows which they are in. As built:
+  - **The widgeting editor** (`WidgetingsEditor.tsx`, `src/state/widgeting-edit.ts`) picks a widget
+    from the library, grouped by formulary and found by label, title or description (the
+    catalogue a lean quiz starts from), and sets the widgeting's label and description; its place
+    in the run order is the list's. It has no formula box. Its *New widget* door opens the widget
+    editor over it, and the widget written there is picked on return; an existing widgeting's door
+    opens the widget it works.
+  - **The widget editor** (`WidgetEditor.tsx`, `src/state/widget-edit.ts`), reached from the
+    library or through those doors, chooses a new widget's formulary first, says of an existing one
+    how far it is put to work, and shows no removal while anything works it (the server refuses
+    one regardless).
+  - **The Widgets panel** below the grid replaces *Prompts used*: every widgeting in run order,
+    folded to its counts of `ok`, `errored` and `missing`, opening to its formula or prompt verbatim
+    and the advice button.
 
 ## Deferred
 

@@ -49,6 +49,10 @@ this section, lists the words they replace while code still holds them.
   `click` (asked from the cell), or neither (typed).
 * **library** -- every widget there is. Its own export and import, apart from any hunt's.
 * **catalogue** -- the library as the widgeting editor's picker offers it.
+* **widgeting editor** -- the quiz's dialog for one widgeting: the widget it works, picked from the
+  catalogue, and its own label and description. It never edits the widget.
+* **widget editor** -- the library's dialog for one widget: its formulary (chosen once, when it is
+  written), formula, input formula and config, how far it is put to work, and its removal.
 
 ### Retiring
 

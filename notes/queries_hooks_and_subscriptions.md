@@ -56,7 +56,8 @@ reads change. Two tests:
 A facet that mixes churn rates is the thing to watch for: a query function that reads something
 slow-moving *and* something fast-moving reruns at the fast rate and resends the slow part every
 time. When a count or a summary is only shown in one dialog, give it a facet of its own and
-watch it from that dialog.
+watch it from that dialog. The widget editor's usage line is the example: `widgets.usage` counts
+widgetings across every hunt, and `useWidgetUsage` watches it only while that editor is open.
 
 **The server assembles.** A query function returns a screen shape, projected from rows in
 `lib/rows.ts`, never rows for the browser to join. The browser may stitch sibling facets whose
@@ -66,7 +67,9 @@ itself, and it never validates what it reads back.
 **One screen hook; components never watch.** A screen's watches live in one hook so they are
 opened, counted and closed in one place, and so a screen has one loading state rather than a
 dozen. A dynamic set of watches (one per question) is made with `useQueries` inside that hook,
-not with a `useQuery` in each row. This is the rule that keeps a grid predictable.
+not with a `useQuery` in each row. This is the rule that keeps a grid predictable. The one
+exception is the one above: a facet that only one dialog shows is watched by that dialog, through
+a hook of its own under `src/state/`, for as long as it is open.
 
 **"Per row" is fine, in its place.** A watch per question is right because a question is the
 unit an author changes, the count is bounded (a quiz holds at most 999), and the ids come from
