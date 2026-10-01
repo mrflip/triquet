@@ -510,12 +510,12 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
 9. *(Thread 4 review's minor finding.)* Thread 6 refuses the triple-brace and `&` mustache tags in
    `templateIssue` rather than writing a custom mustache writer: `{{name}}` already renders every
    value as JSON with escaping off, so nothing is lost.
+10. *(Thread 7, accepted.)* The starter set's `label` is the question's label as the Title column
+    already shows it, not a column of its own (which would need a read-only source and show it twice).
 11. *(Thread 8, accepted.)* Entry values ride the hunt import now, merged as a question's own field
     is (a value replaces, null empties), ahead of PR #66: what a person typed is theirs to take out
     and bring back. `aibot` replies still wait on #66. An emptied entry cell deletes its row and reads
     `missing`.
-10. *(Thread 7, accepted.)* The starter set's `label` is the question's label as the Title column
-    already shows it, not a column of its own (which would need a read-only source and show it twice).
 
 ## For the Coach
 
