@@ -159,10 +159,16 @@ widgetings: { quiz_id, widget_label, label, description, params, position }
 
 This is today's `widgets` table, renamed and with both arms collapsed into one shape.
 
-### Results
+### Widgeteds (first drafted as "results")
+
+**Ruled: the model is not called `result`.** It is a **widgeted**: what one widgeting came to
+for one question, as *expressed* is what an expressing came to today. The table is
+`widgeteds`. The field `result_meta` keeps its name. Below, and elsewhere in this preplan,
+"result" in prose means a widgeted, and `results` as a table means `widgeteds`; the sprint
+prompt uses the new word throughout.
 
 ```
-results: { question_id, widgeting_id, status, value, message, result_meta }
+widgeteds: { question_id, widgeting_id, status, value, message, result_meta }
 ```
 
 * Keyed by **widgeting**, not widget: a question belongs to one quiz, but the same widget could

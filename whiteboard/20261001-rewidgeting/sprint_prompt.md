@@ -1,10 +1,13 @@
 /sprint rewidgeting
 
-Mode: normal. Review level: medium. Issued by the Coach (Flip), 2026-10-01.
+Mode: YOLO. Review level: medium. Issued by the Coach (Flip), 2026-10-01.
 
 The design record is `whiteboard/20261001-rewidgeting/preplan.md`. Read it whole before planning;
 every call it lists as open has since been settled as its *Open calls* section says, and its
-narrative of how we got there is history, not instruction. This prompt is the instruction.
+narrative of how we got there is history for you, the orchestrator, and not instruction.
+Don't point thread workers to that file or away from it.
+
+This prompt is the instruction.
 
 ## Background
 
@@ -38,40 +41,59 @@ their own prompt and a new quiz starts lean. Three nouns replace five:
   exports and imports on its own, apart from any hunt.
 * A **widgeting** is one widget put to work in one quiz:
   `{ quiz_id, widget_label, label, description, params, position }`. `position` is the run
-  order: each widgeting's bag holds the results of those before it. `params` is validated and
+  order: each widgeting's bag holds the widgeteds of those before it. `params` is validated and
   unused this sprint, and reaches the bag. The label defaults to the widget's, growing `_2`,
   `_3` while taken: that generation is `Labelmaker`'s, as every label's is. Uniqueness among
   siblings, the reserved words and every other stricture are Zod's, in the row validators and
   the quiz's integrity check, as they are today; a typed label that is taken or reserved is
   refused by them.
-* A **result** is one widgeting's value for one question, stored for formularies that store
+* A **widgeted** is what one widgeting came to for one question (as *expressed* is for an
+  expressing today; the model cannot be called `result`), stored for formularies that store
   (`aibot` appends, as `bottings` does today; `entry` upserts) and computed on render for
   `jsonata`: `{ question_id, widgeting_id, status, value, message, result_meta }`. `status` is
-  `ok` or `errored`; a cell with no row is `missing`. `value` is JSON, untyped. `result_meta` is
-  a free bag (tier applied, approximate tokens, truncation, the raw failure response). Everyone
-  reads a result as `{ status, value, err }`, where `err` is a newer failure riding along on
+  `ok` or `errored`; a cell with no row is `missing`. `value` is JSON, untyped. `result_meta` (the field keeps
+  its name) is a free bag (tier applied, approximate tokens, truncation, the raw failure response). Everyone
+  reads a widgeted as `{ status, value, err }`, where `err` is a newer failure riding along on
   an `ok` value.
 
 The rules that follow from that, all settled:
 
-* **The bag is flat.** A widgeting's result sits at `qn.<label>` beside the question's own
+* **The question bag is flat.** A widgeting's widgeted sits at `qn.<label>` beside the question's own
   fields, and under each of `qns`. Widgeting labels may not match the question's exposed
   fields, its views (`butnot`, `butnot_ishes`), `rank`, or `question`; that pattern is derived
   from the `exposed` lists in one place beside the label pattern, never a second list, and
   enforced by the validators.
-* **Staleness is off this sprint.** The design is in the preplan (*Staleness: designed, and
-  off this sprint*) for the sprint that builds it. Here there is no `stale` on a result; the
-  ishes' `asked_text` comparison goes with `bottings`; the seeds' `{ value, stale }` form
-  becomes a bare value; the grid's greyed stale marks disappear. Accepted.
+* **Staleness is off this sprint.** Here there is no `stale` on a widgeted; the ishes'
+  `asked_text` comparison goes with `bottings`; the seeds' `{ value, stale }` form becomes a
+  bare value; the grid's greyed stale marks disappear. Accepted. The design it will have, for
+  thread 1 to record and for nobody to build yet:
+
+  ```
+  input_data = input_formula(bag)                    -- may carry `_dependencies`
+  digest     = hash(jsonify({ formula, config, input_data }))
+  input_data = input_data without `_dependencies`    -- what the template renders over
+  stale      = stored.digest !== digest
+  ```
+
+  Nothing is inferred from a formula: the input formula is the author's statement of what
+  the widget reads. Each widgeted publishes its `digest` forward in the bag, and a widget that
+  reads another's widgeted declares it by naming that digest in `_dependencies`, which is
+  folded into its own digest and stripped before the template renders. `stored` is the newest
+  `ok` row; with none, nothing is compared. The `digest` column arrives with that sprint.
 * **Bulk recalculation is off this sprint.** "Recalculate all", the batched prompt, the
   `bulk_ishes` job and `bulk_ishes_last` go. Note in HUMAN-whatsup at the end that the run was
   already slower than it should be, for the day bulk returns.
-* **No migration code.** `notes/deploy.md`'s widen/backfill/tighten is set aside for this
-  sprint by the Coach: no `@convex-dev/migrations` migration, no widened-then-tightened
-  schema, no `Backfilling` entries in the schema test, one PR for the schema change. The only
-  data-moving code is one idempotent seeding mutation. Production's three affected tables are
-  cleared by hand before the deploy (the preplan's *Migration* has the procedure for the
-  Coach); questions, quizzes, columns, hunts, realms, idents, huntings and reviews are untouched.
+* **Keep a lid on migration code.** Production holds one hunt of 27 questions. What a person
+  typed (questions, quizzes, hunts, reviews, idents) must survive; what the tool can make again
+  (seeded expressions, default layouts, the bots' replies) need not. A simple migration through
+  `notes/deploy.md`'s procedure, such as adding a field existing rows lack, is fine wherever
+  the work needs one. What to avoid is complex code that translates existing rows into the
+  new shapes: where carrying data across would take that, **drop the data instead and report
+  it**, in your thread's report, in `losses.md` in the sprint directory, and in the PR. The
+  Coach reviews what was dropped and what migration code was written, and will pull back
+  anything that grew. The expectation for thread 3 is that `expressions`, today's `widgets`
+  and `bottings` are not translated: their tables are cleared by hand at deploy, and one
+  idempotent seeding mutation re-creates the library and the default widgetings.
 * **Imports of every kind merge by label.**
 * **The ask route stays the one server function.** Its contract changes; nothing joins it.
 * **Everything else in CLAUDE.md holds**: library first (`mustache` for template rendering is
@@ -86,17 +108,17 @@ Write `notes/decisions/2026-10-widgets.md`: the three nouns and the formulary, t
 shapes and their validators' fields, the formulary interface, the flat bag and the reserved
 pattern, serialization paths, the status words, and staleness as designed and deferred, in
 the form the other decisions take. Update `notes/vocabulary.md`: add *formulary*, *widget*
-(redefined), *widgeting*, *result*, *input formula*; retire *expression*, *expressing*,
+(redefined), *widgeting*, *widgeted*, *input formula*; retire *expression*, *expressing*,
 *botting*, *slot*, *stale* and *last_err* or mark them as retiring; keep *bot* as a model with
 a brief, now an `aibot` widget. Docs only: no code, so no code review. Flag in the PR any place
-where the design note had to decide something the preplan left loose.
+where the design note had to decide something this plan left loose.
 
 ### 2. The formulary seam, no data change
 
 Build `src/lib/formulary/` (or the name the design note chose): the interface, the `jsonata`
 and `aibot` formularies wrapping today's `Formulas`, `Expressed`, `lib/ask/*` and the three
 hard-coded bots, and one runner that walks a quiz's widgets in position order and yields,
-per question, every widget's result as `{ status, value, err }` by label. The grid, the
+per question, every widget's widgeted as `{ status, value, err }` by label. The grid, the
 sorts, the exports and the sheet read through the runner. The bag gains `qn.<label>` for every
 widget, expressings included (an expression's value enters the bag for the first time, in run
 order); the old `qn.guess`, `qn.clueing_ishes` and `qn.hint_ishes` stay as aliases until
@@ -105,7 +127,7 @@ thread 3 removes them. Tests mirror the new module. No schema change, no row cha
 ### 3. The data model, as a clean break
 
 The three tables: `widgets` (from `expressions`, widened and global), `widgetings` (from
-today's `widgets`, one shape), `results` (from `bottings`), each from its row validator in
+today's `widgets`, one shape), `widgeteds` (from `bottings`), each from its row validator in
 `src/models/`, with `convex/schema.ts`, `reading.ts`, `authorize.ts` and the `hunts.perform`
 actions for adding, editing, moving and removing widgets and widgetings. The seeding mutation:
 the thirteen seed expressions as `jsonata` widgets and the three prompts as `aibot` widgets
@@ -118,9 +140,13 @@ bag's new paths, with the seed formulas rewritten to them and the three question
 temporary mapping from the three seeded widget labels to today's three ask jobs until thread
 4 replaces the route. The reserved-label pattern. The library's own export and import; the
 hunt's export, sheet, mirror (`widget/pub/<label>`) and import following `exposed`. Bulk
-recalculation removed. One PR. A ledger row in `notes/deploy.md` saying what is cleared and
-why, and the Coach's deploy procedure beside it. End with `losses.md` in the sprint directory:
-every table cleared, every row kind in it, what re-creates each and what nothing does.
+recalculation removed. Existing rows follow the rule on migration code above: the three old
+tables are expected to be cleared and re-seeded, not translated. Write the Coach's deploy
+procedure into `notes/deploy.md` with a ledger row saying what is cleared and why: export the
+hunt; clear the three old tables in the Convex dashboard (a push is refused while a table
+absent from the schema holds documents); deploy; run the seeding mutation; re-ask the bots.
+End with `losses.md` in the sprint directory: every table cleared, every row kind in it, what
+re-creates each and what nothing does.
 
 ### 4. Pasted prompts
 
@@ -137,7 +163,7 @@ with a live preview against a chosen question of the distilled object and the re
 ### 5. Status
 
 `ok`, `errored`, `missing`, projected in one place (the runner) from the newest `ok` row and
-any newer `errored` row. One cell body for every result: a scalar as text, anything else
+any newer `errored` row. One cell body for every widgeted: a scalar as text, anything else
 through the existing `JsonFold`; one badge for `err`; `refresh: click` cells are askable,
 others read-only. Sorts read `value`; the sheet and export write it. Retire the per-cell
 special cases (`guess.tsx`, `ishes.tsx`, the butnot-ishes mirror as a special cell), the
@@ -170,7 +196,7 @@ widgeting editor's picker is the catalogue. `src/models/layout.ts`, `Hunt.blank`
 
 The `entry` formulary: `config.entry_kind` one of `text`, `number`, `labelish`, `titleish`;
 no formula, no input, `refresh` neither; its cell is the existing field editors committing on
-blur to a results row that is **upserted**, one per (question, widgeting), rather than
+blur to a `widgeteds` row that is **upserted**, one per (question, widgeting), rather than
 appended. A default `notes` entry widgeting may replace the starter set's `notes` column if
 that reads cleanly; otherwise `notes` stays a question field. Do not move `hint`, `alt_text`
 or `notes` off the question row: that is a data move, and a later call. Record in
