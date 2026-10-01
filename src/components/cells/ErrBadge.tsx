@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
 import clsx from 'clsx'
 import * as UU from '../../lib/useful'
-import type { LastErrT } from '../../models/ask'
+import type { WidgetedErrT } from '../../models/widgeted'
 import styles from '../workbench.module.css'
 
 export type ErrBadgeProps = {
-  err:      LastErrT
+  err:      WidgetedErrT
   /** Sits in the flow of a line of text, rather than in the corner of a cell */
   inline?:  boolean
 }
@@ -36,7 +36,7 @@ export function ErrBadge({ err, inline = false }: Readonly<ErrBadgeProps>) {
           <DialogTitle id="err-title">The last ask failed</DialogTitle>
           <DialogContent>
             <p>{err.message}</p>
-            <p className={styles.microcopy}>{new Date(err.at).toLocaleString()}</p>
+            {err.at === null ? null : <p className={styles.microcopy}>{new Date(err.at).toLocaleString()}</p>}
             <pre className={styles.errJson} aria-label="The response">{UU.jsonify(err.response, { pretty: true })}</pre>
           </DialogContent>
           <DialogActions><Button onClick={() => { setOpen(false) }}>Close</Button></DialogActions>

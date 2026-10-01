@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test'
-import { expect, grid, reloadOnceSaved, stubAsk, test } from './support'
+import { expect, reloadOnceSaved, stubAsk, test } from './support'
 
 const RateLimited = 'Too many requests right now — try again shortly.'
 
-const guessReply = (text: string) => ({ ok: true, job: 'guess', text, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+const guessReply = (guess: string) => ({ ok: true, value: { guess, explanation: '' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
 const failure = { ok: false, failurekind: 'rateLimited', detail: { name: 'RateLimitError', status: 429, message: 'slow down' } }
 
 /** The Quick-model guess cell of the first row */
@@ -58,16 +58,4 @@ test('a cell that has only ever failed shows the sentence, and is badged too', a
   await guessCell(page).dblclick()
   await expect(guessCell(page)).toContainText(RateLimited)
   await expect(page.getByRole('button', { name: /The last ask failed/ })).toHaveCount(1)
-})
-
-test('a failed combined run is shown by its button and touches no cell', async ({ page }) => {
-  await page.getByRole('textbox', { name: 'Hint', exact: true }).first().fill('BUT NOT the film')
-  await page.getByLabel('Quiz name').click()
-  await stubAsk(page, failure)
-  await page.getByRole('button', { name: 'Recalculate all ishes' }).click()
-  const badges = page.getByRole('button', { name: /The last ask failed/ })
-  await expect(page.getByText(/Couldn't recalculate: .* Nothing was changed\./)).toBeVisible()
-  // The one badge there is belongs to the toolbar, not to any of the cells.
-  await expect(badges).toHaveCount(1)
-  await expect(grid(page).locator('tbody').getByRole('button', { name: /The last ask failed/ })).toHaveCount(0)
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Box } from '@mui/material'
 import * as UU from '../lib/useful'
 import styles from './workbench.module.css'
 
@@ -27,4 +28,23 @@ export function JsonFold({ label, val }: Readonly<JsonFoldProps>) {
       {open && <pre className={styles.foldBody} aria-label={`Input: ${label}`}>{UU.jsonify(val, { pretty: true })}</pre>}
     </details>
   )
+}
+
+export type JsonTextProps = {
+  val:  unknown
+  /** Whether it is shown pretty-printed, rather than as compact JSON */
+  open: boolean
+}
+
+/**
+ * A JSON value in a box that already scrolls, such as a grid cell: compact JSON, wrapping, while
+ * folded, and pretty-printed while open. The fold's control is the caller's `FoldButton`, kept
+ * outside any button the text sits in, so a fold never nests inside another control.
+ *
+ * @param val - The JSON-serialisable value.
+ * @param open - Whether it is pretty-printed.
+ */
+export function JsonText({ val, open }: Readonly<JsonTextProps>) {
+  if (! open) { return <span>{UU.jsonify(val)}</span> }
+  return <Box component="pre" sx={{ m: 0, font: 'inherit', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{UU.jsonify(val, { pretty: true })}</Box>
 }

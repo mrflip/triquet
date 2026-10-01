@@ -1,93 +1,69 @@
-/**
- * The four prompt templates, verbatim.
- *
- * These are content, not implementation. The author is spending their own model usage on these
- * asks and reading the answers as evidence about their own questions, so they are entitled to
- * see exactly what was sent -- the Prompts used panel shows these strings unchanged, with their
- * placeholders visible.
- *
- * The placeholder is `{{clueing}}`, because that is what the field is called here; the prose
- * still says "question" to the model, which is the word a player would use.
- */
+import Mustache, { type TemplateSpans } from 'mustache'
+import * as UU from '../useful'
 
-export const QuickGuessPrompt = `You are answering a trivia question the way a fast, not-especially-careful player would — a literal, first-instinct read, not a careful expert analysis.
-
-Question: {{clueing}}
-
-Reply with your best short answer on one line, and brief explanation on the next.`
-
-const IshRules = `Rules:
-- A span written in digits ("300", "1990") is kind "numeral".
-- A span that reads as a number in words counts too: spelled-out numbers ("one", "twenty-three"), ordinals ("third"), and magnitude phrases ("300 million", "a dozen", "千", "douzaine") — kind "wordish". Give a magnitude phrase as one item with its full numeric value ("300 million" is one item worth 300000000), not split into pieces.
-- Do not include the indefinite article "a"/"an" on its own, and do not include Roman numerals ("IV", "LIV").`
-
-export const ClueingIshesPrompt = `A trivia question sometimes hides a second, numeric puzzle: adding together every number-like element in its text.
-
-List every text span in the question below that a reasonable person might read as a number, in the order it appears.
-
-Question: {{clueing}}
-
-${IshRules}
-- If nothing in the question reads as a number, return an empty array.
-
-Reply with only a JSON array of objects {"text": string, "value": number, "kind": "numeral" | "wordish"}, no other text.`
-
-export const HintIshesPrompt = `A puzzle hint can hide a numeric puzzle of its own: adding together every number-like element in its text.
-
-List every text span in the hint below that a reasonable person might read as a number, in the order it appears.
-
-Hint: {{hint}}
-
-${IshRules}
-- If nothing in the hint reads as a number, return an empty array.
-
-Reply with only a JSON array of objects {"text": string, "value": number, "kind": "numeral" | "wordish"}, no other text.`
-
-export const BulkIshesPrompt = `Below are several trivia questions and hints, each tagged with a [key]. Some hide a second, numeric puzzle: adding together every number-like element in their text.
-
-For each one, list every text span in it that a reasonable person might read as a number, in the order it appears.
-
-{{items}}
-
-${IshRules}
-- If nothing in an item's text reads as a number, give it an empty array.
-
-Reply with only a JSON array with one entry per item above, in the same order, each shaped {"key": string (copied exactly from its [key] tag), "items": [{"text": string, "value": number, "kind": "numeral" | "wordish"}]}. No other text.`
-
-/** Every template, in the order the Prompts used panel shows them, one to a tab */
-export const PromptTemplates = [
-  { title: 'Quick-model guess',                 body: QuickGuessPrompt },
-  { title: 'Clueing ishes',                     body: ClueingIshesPrompt },
-  { title: 'Hint ishes',                        body: HintIshesPrompt },
-  { title: 'Batched ishes (Recalculate all)',   body: BulkIshesPrompt },
-] as const
+/** The kinds of template span that read a key of the input: `{{name}}`, `{{{name}}}`, `{{#name}}`, `{{^name}}` */
+const ReadingSpans: ReadonlySet<string> = new Set(['name', '&', '#', '^'])
 
 /**
- * `template` with each `{{placeholder}}` replaced by what `fills` holds for it.
+ * `template`, a mustache prompt template, rendered over `input`.
  *
- * @param template - One of the templates above.
- * @param fills - Placeholder name to text, without the braces.
+ * Nothing is HTML-escaped: the prompt is prose for a model, never a page. A string fills in as
+ * it is; any other value fills in as its JSON, so `{{items}}` over a list of spans reads as the
+ * list rather than as `[object Object]`. A key the input lacks fills in as nothing.
+ *
+ * @param template - A prompt template, as an `aibot` widget's formula holds it.
+ * @param input - What the widget's input formula came to.
  * @returns The prompt as it will be sent.
+ * @throws When the template does not parse (an unclosed section, say); `templateIssue` names it first.
  *
  * @example renderPrompt('Question: {{clueing}}', { clueing: 'Who?' })  // => 'Question: Who?'
+ * @example renderPrompt('Spans: {{items}}', { items: [1, 2] })        // => 'Spans: [1,2]'
  */
-export function renderPrompt(template: string, fills: Record<string, string>): string {
-  let text = template
-  for (const [fillname, filling] of Object.entries(fills)) {
-    // A function replacement, so a `$&` in an author's own clueing stays literal.
-    text = text.replaceAll(`{{${fillname}}}`, () => filling)
-  }
-  return text
+export function renderPrompt(template: string, input: Readonly<Record<string, unknown>>): string {
+  return Mustache.render(template, input, {}, { escape: fillingOf })
 }
 
 /**
- * The `{{items}}` block of the batched prompt: each text as `[key] text`, blank-line separated.
+ * What is wrong with `template` as a mustache template, or null when it parses.
  *
- * @param items - The texts to extract from, each already carrying its key.
- * @returns One block ready to drop into the batched template.
- *
- * @example bulkItemsBlock([{ key: 'c:abc', text: 'Two things' }])  // => '[c:abc] Two things'
+ * @example templateIssue('{{#items}}{{text}}')  // => 'Unclosed section "items" at 18'
+ * @example templateIssue('Question: {{clueing}}')  // => null
  */
-export function bulkItemsBlock(items: readonly { key: string, text: string }[]): string {
-  return items.map((item) => `[${item.key}] ${item.text}`).join('\n\n')
+export function templateIssue(template: string): string | null {
+  try {
+    Mustache.parse(template)
+    return null
+  } catch (err) {
+    return err instanceof Error ? err.message : 'The prompt does not read as a template'
+  }
+}
+
+/**
+ * The keys of the input a template reads at its top level and `input` does not hold: each fills
+ * in as nothing. A key read only inside a section is the section's business, and is left out.
+ *
+ * @param template - A prompt template; one that does not parse reads nothing.
+ * @param input - What the template is rendered over.
+ * @returns The keys, in the order the template first reads them.
+ *
+ * @example unfilledKeys('{{clueing}} {{hint}}', { clueing: 'Who?' })  // => ['hint']
+ * @example unfilledKeys('{{qn.hint}}', { qn: {} })                   // => []
+ */
+export function unfilledKeys(template: string, input: Readonly<Record<string, unknown>>): string[] {
+  if (templateIssue(template) !== null) { return [] }
+  const keys = readKeys(Mustache.parse(template)).map((key) => key.split('.', 1)[0] ?? key)
+  return [...new Set(keys)].filter((key) => key !== '' && ! Object.hasOwn(input, key))
+}
+
+/** The keys the top level of a parsed template reads, `.` (the whole context) aside */
+function readKeys(spans: TemplateSpans): string[] {
+  return spans
+    .filter(([spankind]) => ReadingSpans.has(spankind))
+    .map(([, key]) => key)
+    .filter((key) => key !== '.')
+}
+
+/** What one value fills in as: a string as it is, anything else as its JSON */
+function fillingOf(val: unknown): string {
+  return typeof val === 'string' ? val : UU.jsonify(val)
 }

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, expressionFrom, frameOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, slotLatestOf, smithsOf, widgetFrom,
-  type HuntRows, type QuizRows,
+  assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
+  type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
+import * as Runner from '../../src/lib/formulary/runner'
 import { Quiz } from '../../src/models/quiz'
+import { Widgeted } from '../../src/models/widgeted'
+import { runOf } from '../support/runs'
 
 /** A row id for `table`, as the database would hand one back */
 function idOf<TN extends TableNames>(_table: TN, tail: string): Id<TN> {
@@ -13,19 +16,26 @@ function idOf<TN extends TableNames>(_table: TN, tail: string): Id<TN> {
 
 const quiz_id = idOf('quizzes', 'q1')
 const question_id = idOf('questions', 'qn1')
+const widgeting_id = idOf('widgetings', 'wg1')
 
-/** A numnum botting of the first question's clueing, made at `at` */
-function botting(status: 'done' | 'error', at: number, text: string): Doc<'bottings'> {
+/** A widgeted row of the first question's `dumdum` cell, recorded at `at`: an answer, or a failure saying `text` */
+function widgetedRow(status: 'ok' | 'errored', at: number, text: string): Doc<'widgeteds'> {
   return {
-    _id: idOf('bottings', `b${String(at)}`), _creationTime: at, question_id, bot_label: 'numnum', textkind: 'clueing', asked_text: 'Who?', status,
-    reply_text: null, items: status === 'done' ? [{ text, value: 1, kind: 'numeral' }] : [], message: status === 'error' ? text : null,
-    response: null, truncated: false, model_tier_applied: null, approx_tokens: null,
+    _id: idOf('widgeteds', `d${String(at).replace('.', '')}`), _creationTime: at, question_id, widgeting_id, status,
+    value: status === 'ok' ? { guess: text, explanation: '' } : null, message: status === 'errored' ? text : null,
+    result_meta: status === 'ok' ? { approx_tokens: 12 } : { response: { ok: false } },
   }
 }
 
+/** A cell whose newest row failed after an older one answered */
+const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), ok: widgetedRow('ok', 5.5, 'answered') }
+
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes', forced_label: null,
-  smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [question_id],
+  smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: null, row_ordering: [question_id],
+}
+const WidgetingRow: Doc<'widgetings'> = {
+  _id: widgeting_id, _creationTime: 1, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
 }
 const QuestionRow: Doc<'questions'> = {
   _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', forced_label: null, title: 'Leon', qnum: '1',
@@ -33,29 +43,33 @@ const QuestionRow: Doc<'questions'> = {
 }
 const HuntRow: Doc<'hunts'> = { _id: idOf('hunts', 'h1'), _creationTime: 0, label: 'quiet_otter', forced_label: null, title: '' }
 const RealmRow: Doc<'realms'> = { _id: idOf('realms', 'r1'), _creationTime: 0, hunt_id: HuntRow._id, label: 'home', title: '', position: 0 }
-const ExpressionRow: Doc<'expressions'> = {
-  _id: idOf('expressions', 'e1'), _creationTime: 0, hunt_id: HuntRow._id, owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: '', position: 0,
-}
-const Rows: HuntRows = { hunt: HuntRow, realms: [{ realm: RealmRow, quizzes: [QuizRow] }], expressions: [ExpressionRow] }
+const Rows: HuntRows = { hunt: HuntRow, realms: [{ realm: RealmRow, quizzes: [QuizRow] }] }
 
-describe('slotLatestOf', () => {
-  it('is the newest answer, and a failure newer than it, each the row as read', () => {
-    const latest = slotLatestOf({ newest: botting('error', 3, 'failed'), done: botting('done', 2, 'answered') })
-    expect([latest.done?.items[0]?.text, latest.failed?.status]).to.deep.eq(['answered', 'error'])
+describe('historyOf', () => {
+  it('is the newest row and the newest ok row, each its own fields and when it was recorded, without its ids', () => {
+    expect(historyOf(FailedSince)).to.deep.eq({
+      newest: { status: 'errored', value: null, message: 'failed', result_meta: { response: { ok: false } }, _creationTime: 7.25 },
+      ok:     { status: 'ok', value: { guess: 'answered', explanation: '' }, message: null, result_meta: { approx_tokens: 12 }, _creationTime: 5.5 },
+    })
   })
 
-  it('carries no failure when the newest botting answered', () => {
-    const answered = botting('done', 2, 'answered')
-    expect(slotLatestOf({ newest: answered, done: answered }).failed).to.be.null
+  it('says the newest row errored when it did', () => {
+    expect(historyOf(FailedSince).newest.status).to.eq('errored')
   })
 
-  it('carries no answer for a cell that never had one', () => {
-    expect(slotLatestOf({ newest: botting('error', 3, 'failed'), done: null }).done).to.be.null
+  it('carries no ok row for a cell that never had one', () => {
+    expect(historyOf({ newest: widgetedRow('errored', 3, 'failed'), ok: null }).ok).to.be.null
+  })
+
+  it('is the one row twice when the newest answered', () => {
+    const answered = widgetedRow('ok', 2, 'answered')
+    const history = historyOf({ newest: answered, ok: answered })
+    expect(history.ok).to.deep.eq(history.newest)
   })
 })
 
 describe('quizFrom', () => {
-  const rows: QuizRows = { quiz: QuizRow, questions: [QuestionRow], widgets: [], columns: [], slots: new Map() }
+  const rows: QuizRows = { quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map() }
 
   it('is the quiz its rows make up, named by the quiz row\'s id', () => {
     const quiz = quizFrom(rows)
@@ -70,26 +84,44 @@ describe('quizFrom', () => {
     expect(quizFrom(rows).smiths_note).to.eq('Theme: princes.')
   })
 
-  it('shows a cell\'s newest answer, with the failure since riding on it, in whole milliseconds', () => {
-    const slots = new Map([[`${question_id}:numnum:clueing`, { newest: botting('error', 7.25, 'failed'), done: botting('done', 5.5, 'answered') }]])
-    const [question] = quizFrom({ ...rows, slots }).questions
-    expect(question?.clueing_ishes).to.deep.include({ status: 'done', updated_at: 5, last_err: { message: 'failed', response: null, at: 7 } })
+  it('carries the quiz\'s widgetings, each without its ids or place', () => {
+    expect(quizFrom(rows).widgetings).to.deep.eq([{ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' } }])
+  })
+
+  it('holds what each question stored, under the widgeting\'s label, by the question\'s id', () => {
+    const [question] = quizFrom({ ...rows, stored: new Map([[question_id, new Map([['dumdum', FailedSince]])]]) }).questions
+    expect(question?.stored).to.deep.eq({ dumdum: historyOf(FailedSince) })
+    expect(quizFrom(rows).questions[0]?.stored).to.deep.eq({})
+  })
+
+  it('shows a cell\'s newest answer once run, with the failure since riding on it, in whole milliseconds', () => {
+    const quiz = quizFrom({ ...rows, stored: new Map([[question_id, new Map([['dumdum', FailedSince]])]]) })
+    expect(Runner.widgetedOf(runOf(quiz), 'dumdum', question_id)).to.deep.eq(Widgeted.ok({ guess: 'answered', explanation: '' }, { message: 'failed', at: 7, response: { ok: false } }))
   })
 })
 
 describe('seenQuestionOf', () => {
-  it('is the question\'s row with the newest reply in each of its cells, its chain still the label it holds', () => {
-    const slots = new Map([[`${question_id}:numnum:clueing`, { newest: botting('done', 5, 'answered'), done: botting('done', 5, 'answered') }]])
-    const seen = seenQuestionOf({ ...QuestionRow, chains_to: 'lear' }, slots)
-    expect(seen).to.deep.include({ _id: question_id, chains_to: 'lear', guess: null, hint_ishes: null })
-    expect(seen.clueing_ishes).to.deep.include({ status: 'done', updated_at: 5 })
+  it('is the question\'s row with each stored cell\'s history under its widgeting\'s label, its chain still the label it holds', () => {
+    const seen = seenQuestionOf({ ...QuestionRow, chains_to: 'lear' }, new Map([['dumdum', FailedSince]]))
+    expect(seen).to.deep.include({ _id: question_id, chains_to: 'lear', clueing: 'Who?' })
+    expect(seen.stored).to.deep.eq({ dumdum: historyOf(FailedSince) })
+  })
+
+  it('reads the newest row\'s status where the doc block says', () => {
+    const answered = widgetedRow('ok', 5, 'answered')
+    expect(seenQuestionOf(QuestionRow, new Map([['dumdum', { newest: answered, ok: answered }]])).stored.dumdum?.newest.status).to.eq('ok')
+  })
+
+  it('stores nothing for a question with no stored cells', () => {
+    expect(seenQuestionOf(QuestionRow, new Map()).stored).to.deep.eq({})
   })
 })
 
 describe('frameOf', () => {
-  it('is the quiz without its questions: its fields and their order, its widgets and columns', () => {
-    const frame = frameOf(QuizRow, [], [])
+  it('is the quiz without its questions: its fields and their order, its widgetings and columns', () => {
+    const frame = frameOf(QuizRow, [WidgetingRow], [])
     expect(frame.row_ordering).to.deep.eq([question_id])
+    expect(frame.widgetings.map((widgeting) => widgeting.label)).to.deep.eq(['dumdum'])
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
   })
 })
@@ -124,19 +156,24 @@ describe('assembledQuiz', () => {
 })
 
 describe('widgetFrom', () => {
-  const row = { _id: idOf('widgets', 'w1'), _creationTime: 0, quiz_id, label: 'shouted', description: '', position: 0 }
+  const shared = { _id: idOf('widgets', 'w1'), _creationTime: 0, scope: 'pub' as const, label: 'shout', title: 'Shout', description: 'Loudly.', position: 4 }
+  const sharedFields = { scope: 'pub', label: 'shout', title: 'Shout', description: 'Loudly.' }
 
-  it('is a widget of the row\'s kind, without its place', () => {
-    expect(widgetFrom({ ...row, kind: 'expressing', expression_label: 'shout' }))
-      .to.deep.eq({ kind: 'expressing', label: 'shouted', description: '', expression_label: 'shout' })
-    expect(widgetFrom({ ...row, kind: 'botting', bot_label: 'numnum', textkind: 'hint' }))
-      .to.deep.eq({ kind: 'botting', label: 'shouted', description: '', bot_label: 'numnum', textkind: 'hint' })
+  it('is a jsonata widget, without its id or place', () => {
+    expect(widgetFrom({ ...shared, formulary: 'jsonata', formula: '$uppercase(qn.title)', input_formula: '$', config: {} }))
+      .to.deep.eq({ ...sharedFields, formulary: 'jsonata', formula: '$uppercase(qn.title)', input_formula: '$', config: {} })
+  })
+
+  it('is an aibot widget, its config whole, without its id or place', () => {
+    const config = { servicelabel: 'claude' as const, model_tier: 'quick' as const, max_tokens: 256 }
+    expect(widgetFrom({ ...shared, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': qn.clueing }", config }))
+      .to.deep.eq({ ...sharedFields, formulary: 'aibot', formula: 'Say {{clueing}}', input_formula: "{ 'clueing': qn.clueing }", config })
   })
 })
 
-describe('expressionFrom', () => {
-  it('is the expression, without its row\'s place or hunt', () => {
-    expect(expressionFrom(ExpressionRow)).to.deep.eq({ owner: 'tq', label: 'shout', formula: '$uppercase(qn.title)', description: '' })
+describe('widgetingFrom', () => {
+  it('is the widgeting, without its id, its quiz or its place', () => {
+    expect(widgetingFrom(WidgetingRow)).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' } })
   })
 })
 
@@ -163,15 +200,16 @@ describe('huntListingOf', () => {
 })
 
 describe('shallowHuntOf', () => {
-  it('counts each expression\'s widgets, nought for one no widget works', () => {
-    expect(shallowHuntOf(Rows, new Map([['shout', 1]]), [], 'smith').expressions[0]?.usage).to.eq(1)
-    expect(shallowHuntOf(Rows, new Map(), [], 'smith').expressions[0]?.usage).to.eq(0)
-  })
+  const members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
 
   it('carries who is on the hunt, and the role of whoever is looking', () => {
-    const members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
-    const hunt = shallowHuntOf(Rows, new Map(), members, 'reviewer')
+    const hunt = shallowHuntOf(Rows, members, 'reviewer')
     expect([hunt.members, hunt.role]).to.deep.eq([members, 'reviewer'])
+    expect(shallowHuntOf(Rows, members, 'smith').role).to.eq('smith')
+  })
+
+  it('is the hunt\'s listing, and nothing of a library or expressions', () => {
+    expect(shallowHuntOf(Rows, [], 'smith')).to.deep.eq({ ...huntListingOf(Rows), members: [], role: 'smith' })
   })
 })
 
@@ -188,9 +226,14 @@ describe("smithsOf", () => {
 
 describe('huntFrom', () => {
   it('is the whole hunt, each realm holding the quizzes it is handed whole', () => {
-    const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgets: [], columns: [], slots: new Map() })
+    const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map() })
     const hunt = huntFrom(Rows, new Map([[quiz_id, quiz]]))
-    expect([hunt.title, hunt.realms[0]?.quizzes[0]?.title, hunt.expressions.map((expression) => expression.label)]).to.deep.eq(['Quiet Otter', 'Princes', ['shout']])
+    expect([hunt.title, hunt.realms[0]?.quizzes[0]?.title, hunt.realms[0]?.quizzes[0]?.widgetings.length]).to.deep.eq(['Quiet Otter', 'Princes', 1])
+    expect(hunt).to.not.have.any.keys('expressions')
+  })
+
+  it('leaves out a quiz it is not handed', () => {
+    expect(huntFrom(Rows, new Map()).realms[0]?.quizzes).to.deep.eq([])
   })
 })
 

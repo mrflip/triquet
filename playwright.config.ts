@@ -50,7 +50,7 @@ export default defineConfig({
   // (`scripts/convex_dev`). The build is made here, so it sees the settings below: a NEXT_PUBLIC_
   // one is fixed into the pages as they are built.
   webServer: {
-    command:             `scripts/convex_dev ${role} --reset ${Environment.ServerCommandFor[server]}`,
+    command:             `scripts/convex_dev ${role} --reset --seed ${Environment.ServerCommandFor[server]}`,
     url:                 `http://localhost:${port}`,
     // Locally a dev server already on the port is used as it stands, since it follows the code
     // as it changes. A built server never is: one left from an earlier build would be tested
