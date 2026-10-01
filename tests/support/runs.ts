@@ -1,18 +1,18 @@
 import * as Runner from '../../src/lib/formulary/runner'
-import * as Standins from '../../src/lib/formulary/standins'
-import { SeedExpressions, type ExpressionT } from '../../src/models/expression'
 import { Quiz, type QuizT } from '../../src/models/quiz'
+import { SeedWidgets } from '../../src/models/seeds'
+import type { WidgetT } from '../../src/models/widget'
 import type { WidgetedT } from '../../src/models/widgeted'
 import { Here } from './places'
 
 /**
- * `quiz` run as the screen runs it: its widgets standing in for widgetings, working `expressions`
- * (the seeds, unless told otherwise), sitting `Here` unless told otherwise.
+ * `quiz` run as the screen runs it: its widgetings working `library` (the seeds, unless told
+ * otherwise), sitting `Here` unless told otherwise.
  *
  * @example widgetedOf(runOf(quiz), 'clueing_full', question._id)
  */
-export function runOf(quiz: QuizT, expressions: readonly ExpressionT[] = SeedExpressions, place: Runner.QuizPlace = Here): Runner.QuizRun {
-  return Runner.runQuiz(Standins.sourceOf(quiz, expressions, place))
+export function runOf(quiz: QuizT, library: readonly WidgetT[] = SeedWidgets, place: Runner.QuizPlace = Here): Runner.QuizRun {
+  return Runner.runQuiz(Runner.sourceOf(quiz, library, place))
 }
 
 /**

@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { AskValidators, askError } from '../../src/models/ask'
-
-const LastErr = { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1_700_000_000_000 }
+import { AskValidators } from '../../src/models/ask'
 
 describe('AskValidators.model_tier', () => {
   it('defaults to quick, the tier the app reaches for first', () => {
@@ -14,18 +12,14 @@ describe('AskValidators.model_tier', () => {
   })
 })
 
-describe('AskValidators.lastErr', () => {
-  it('keeps the response as whatever JSON came back', () => {
-    expect(AskValidators.lastErr(LastErr).response).to.deep.eq({ ok: false })
+describe('AskValidators.approxTokens', () => {
+  it('takes a whole count, nought included', () => {
+    expect(AskValidators.approxTokens(0)).to.eq(0)
+    expect(AskValidators.approxTokens(412)).to.eq(412)
   })
 
-  it('rejects a failure with no sentence to show the author', () => {
-    expect(() => AskValidators.lastErr({ ...LastErr, message: '' })).to.throw(Z.ZodError)
-  })
-})
-
-describe('askError', () => {
-  it('is an error cell carrying the failure, stamped when the failure was', () => {
-    expect(askError(LastErr)).to.deep.eq({ status: 'error', message: LastErr.message, updated_at: LastErr.at, last_err: LastErr })
+  it('rejects a fraction or a negative count', () => {
+    expect(() => AskValidators.approxTokens(2.5)).to.throw(Z.ZodError)
+    expect(() => AskValidators.approxTokens(-1)).to.throw(Z.ZodError)
   })
 })

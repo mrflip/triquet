@@ -68,15 +68,15 @@ export async function enqueue<TT>(work: (fs: Quizgit.GitFs) => Promise<TT>): Pro
 /** Record `latest` in its repository, describing what moved since `baseline`; nothing, if nothing did. With no baseline, open the history if it has none. */
 async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapshot): Promise<void> {
   if (! baseline) {
-    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions, latest.place))
+    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.library, latest.place))
     return
   }
   const changes = [
     ...Changes.quizChanges(baseline.quiz, latest.quiz),
-    ...Changes.expressionChanges(baseline.expressions, latest.expressions),
+    ...Changes.widgetChanges(Quizgit.worked(baseline.quiz, baseline.library), Quizgit.worked(latest.quiz, latest.library)),
   ]
   if (changes.length === 0) { return }
-  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.expressions, latest.place, changes))
+  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.library, latest.place, changes))
 }
 
 /**
@@ -129,7 +129,7 @@ function openHistory(latest: MirrorSnapshot): void {
   opened.add(latest.quiz._id)
   const open = async () => {
     try {
-      await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.expressions, latest.place))
+      await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.library, latest.place))
     } catch (err) {
       // A record that misses a commit is a smaller loss than an edit that fails.
       Postmortem.report('start the quiz history', err, { quiz_id: latest.quiz._id })
@@ -150,14 +150,14 @@ function openHistory(latest: MirrorSnapshot): void {
  * @param before - The quiz as last read, or null for the first reading.
  * @param after - The quiz as it now stands.
  *
- * @example mirrorQuiz(null, { quiz, expressions, place })  // opens the quiz's history
+ * @example mirrorQuiz(null, { quiz, library, place })  // opens the quiz's history
  */
 export function mirrorQuiz(before: MirrorSnapshot | null, after: MirrorSnapshot): void {
   if (before?.quiz._id !== after.quiz._id) {
     openHistory(after)
     return
   }
-  const moved = before.quiz !== after.quiz || before.expressions !== after.expressions || ! _.isEqual(before.place, after.place)
+  const moved = before.quiz !== after.quiz || before.library !== after.library || ! _.isEqual(before.place, after.place)
   if (moved) { scheduler.note(before, after) }
 }
 

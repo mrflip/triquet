@@ -163,26 +163,27 @@ describe("mayPerform", () => {
   })
 })
 
-describe('identings, each browser\'s own', () => {
-  it('are read only through the browser\'s own key: another browser learns nothing of them', async () => {
+describe("identings, each browser's own", () => {
+  it("are read only through the browser's own key: another browser learns nothing of them", async () => {
     const tt = openTester()
     await identified(tt, 'alice_reviews')
     expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.be.null
   })
 
-  it('are listed by no function, nor are idents changed or removed by one', async () => {
+  it("are listed by no function, nor are idents changed or removed by one", async () => {
     expect(await publicFunctions()).to.deep.eq([
       'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:whole',
       'idents:current', 'idents:performAccount',
       'questions:open',
       'quizzes:open',
       'reviews:forQuiz',
+      'widgets:library',
     ])
   })
 })
 
-describe('idents', () => {
-  it('are made by anyone, and are never changed by taking one on again', async () => {
+describe("idents", () => {
+  it("are made by anyone, and are never changed by taking one on again", async () => {
     const tt = openTester()
     await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Flip' }, browser_key: mintId() })
     await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' }, browser_key: mintId() })

@@ -1,6 +1,7 @@
 import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as UU from '../lib/useful'
+import * as PA from '../lib/vv/patterns'
 
 /** Any JSON value: what a widgeted's `value` may be */
 export type JsonT = Z.core.util.JSONType
@@ -9,7 +10,25 @@ export type JsonT = Z.core.util.JSONType
 export const WidgetedStatusVals = ['ok', 'errored', 'missing'] as const
 export type WidgetedStatus = typeof WidgetedStatusVals[number]
 
-export const WidgetedValidators = Validator(({ obj, lit, str, zod, timestamp, discrim }) => {
+/** The two a stored widgeted can be in: `missing` is never stored, it is the absence of a row */
+export const StoredStatusVals = ['ok', 'errored'] as const
+export type StoredStatus = typeof StoredStatusVals[number]
+
+/** Whether `val`'s JSON text fits within `bound` */
+function fitsIn(val: unknown, bound: { max: number }): boolean {
+  return UU.jsonify(val).length <= bound.max
+}
+
+/** Whatever a stored widgeted carries that its status does not allow: a message on `ok`, a value on `errored`, or an `errored` one that does not say why */
+function storedIssues(stored: { status: StoredStatus, value: unknown, message: string | null }): { input: unknown, path: string[], message: string }[] {
+  return [
+    ...(stored.status === 'ok' && stored.message !== null ? [{ input: stored.message, path: ['message'], message: 'An `ok` widgeted carries no failure message' }] : []),
+    ...(stored.status === 'errored' && stored.value !== null ? [{ input: stored.value, path: ['value'], message: 'An `errored` widgeted carries no value' }] : []),
+    ...(stored.status === 'errored' && stored.message === null ? [{ input: stored.message, path: ['message'], message: 'An `errored` widgeted says why' }] : []),
+  ]
+}
+
+export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, oneof, label, noteish, timestamp, discrim, zid }) => {
   const err = obj({
     message:  str
       .describe('Why it failed, in the author\'s words.'),
@@ -30,7 +49,52 @@ export const WidgetedValidators = Validator(({ obj, lit, str, zod, timestamp, di
   ])
     .describe('What one widgeting came to for one question: `ok` with a `value`, `errored` with only a failure, or `missing`. Read `value` only when `status` is `ok`.')
 
-  return { err, widgeted }
+  const status = oneof(StoredStatusVals)
+    .describe('What was stored: `ok` with a value, or `errored` with only a failure. `missing` is never stored.')
+  const value = zod.json().nullable()
+    .refine((val) => fitsIn(val, PA.WidgetedJson), PA.WidgetedJson.msg)
+    .describe('What it came to: any JSON, untyped; null when `errored`.')
+  const message = noteish.nullable()
+    .describe('Why it errored, in the author\'s words; null when `ok`.')
+  const result_meta = rec(str, zod.json())
+    .refine((val) => fitsIn(val, PA.WidgetedJson), PA.WidgetedJson.msg)
+    .describe('A free bag of how it ran: the tier applied, the approximate tokens, whether it was cut short, and on a failure the raw `response`. Nothing reads it but the views that show it.')
+
+  const storedFields = { status, value, message, result_meta }
+
+  const row = obj({
+    question_id:  zid('questions')
+      .describe('The question it is for.'),
+    widgeting_id: zid('widgetings')
+      .describe('The widgeting it is what of: keyed by widgeting, not widget, since one widget can be worked twice in a quiz.'),
+    ...storedFields,
+  })
+    .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
+    .describe('What one widgeting came to for one question, as the database holds it. When it was recorded is the row\'s own `_creationTime`. Only a formulary that stores keeps one: `aibot` appends, history kept.')
+
+  const record = obj({
+    question_id:     zid('questions')
+      .describe('The question it is for, by its row id.'),
+    widgeting_label: label
+      .describe('The widgeting of the open quiz it is for, by its label.'),
+    status,
+    value:           value.default(null),
+    message:         message.default(null),
+    result_meta:     result_meta.default({}),
+  })
+    .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
+    .describe('One widgeted as a browser sends it to be recorded: the question by id, the widgeting by label, and what it came to.')
+
+  const stored = obj({ ...storedFields, _creationTime: num.nonnegative() })
+    .describe('One stored widgeted as the runner reads it: a row\'s own fields, and when it was recorded, in epoch milliseconds with a fraction.')
+  const history = obj({
+    newest: stored,
+    ok:     stored.nullable()
+      .describe('The newest `ok` row: `newest` itself when it is one, null when no row ever was.'),
+  })
+    .describe('One cell\'s stored history, as far as its widgeted needs it: the newest row, and the newest `ok` one.')
+
+  return { err, widgeted, row, record, stored, history }
 })
 
 /** A failure on a widgeted: on `errored` the failure itself, on `ok` a newer one riding along */
@@ -40,25 +104,21 @@ export type WidgetedErrT = Z.output<typeof WidgetedValidators.err>
 export type WidgetedT = Z.output<typeof WidgetedValidators.widgeted>
 
 /** One stored widgeted as the runner reads it: a row's fields, before they are projected */
-export type StoredWidgetedT = {
-  status:        'ok' | 'errored'
-  value:         JsonT | null
-  message:       string | null
-  /** A free bag of how it ran; on a failure, `response` is the failure as it came back */
-  result_meta:   Record<string, JsonT>
-  /** When it was recorded, in epoch milliseconds (with a fraction) */
-  _creationTime: number
-}
+export type StoredWidgetedT = Z.output<typeof WidgetedValidators.stored>
 
 /** What one widgeted is to be recorded as: a stored widgeted, before the database stamps it */
 export type WidgetedRecordT = Omit<StoredWidgetedT, '_creationTime'>
 
 /** One cell's stored history, as far as its widgeted needs it: the newest row, and the newest `ok` one */
-export type WidgetedHistoryT = {
-  newest: StoredWidgetedT
-  /** The newest `ok` row: `newest` itself when it is one, null when no row ever was */
-  ok:     StoredWidgetedT | null
-}
+export type WidgetedHistoryT = Z.output<typeof WidgetedValidators.history>
+
+/** One widgeted as the database holds it */
+export type WidgetedRowT = Z.output<typeof WidgetedValidators.row>
+
+/** One widgeted as a browser sends it to be recorded: the question by id, the widgeting by label */
+export type WidgetedRecordingDNA = Z.input<typeof WidgetedValidators.record>
+/** One widgeted as a browser sends it to be recorded, validated */
+export type WidgetedRecordingT   = Z.output<typeof WidgetedValidators.record>
 
 /** What one widgeting came to for one question: a value, a failure, or nothing */
 // A class of statics, as a model is, with no instance fields to declare: a widgeted is a union.

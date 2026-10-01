@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import * as Sortings from '../../src/lib/sortings'
 import { Column } from '../../src/models/column'
-import { defaultLayoutFor } from '../../src/models/layout'
-import { SeedExpressions } from '../../src/models/expression'
-import { Expressing } from '../../src/models/widget'
+import { defaultLayout } from '../../src/models/layout'
 import { Question, type QuestionT } from '../../src/models/question'
-import type { QuizT, Sortkey } from '../../src/models/quiz'
-import { Widgeted, type WidgetedT } from '../../src/models/widgeted'
-import { runHolding } from '../support/runs'
+import { Quiz, type QuizT, type Sortkey } from '../../src/models/quiz'
+import { Widgeted, type JsonT, type WidgetedHistoryT, type WidgetedT } from '../../src/models/widgeted'
+import { Widgeting } from '../../src/models/widgeting'
+import { runHolding, runOf } from '../support/runs'
 import { present } from '../support/present'
 
 /** A quiz built from `qnum, title` pairs, in the order given */
@@ -15,9 +14,8 @@ function questionsOf(...pairs: [string, string][]): QuestionT[] {
   return pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
 }
 
-
 /** How a column reads a question, in a quiz whose widgetings came to nothing */
-const readerFor = (sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>) => Sortings.sortValueFor(sortkey, quiz, runHolding(quiz, {}))
+const readerFor = (sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings'>) => Sortings.sortValueFor(sortkey, quiz, runHolding(quiz, {}))
 
 const answers = (questions: QuestionT[]) => questions.map((question) => question.title)
 
@@ -77,16 +75,19 @@ describe('sortQuestions', () => {
   })
 })
 
-/** A finished extraction that found `count` spans */
-const found = (count: number) => ({ status: 'done' as const, items: Array.from({ length: count }, () => ({ text: '1', value: 1, kind: 'numeral' as const })), truncated: false, stale: false, updated_at: 1, last_err: null })
+/** A cell whose newest row, and newest `ok` row, both hold `value` */
+function answered(value: JsonT): WidgetedHistoryT {
+  const row = { status: 'ok' as const, value, message: null, result_meta: {}, _creationTime: 1000 }
+  return { newest: row, ok: row }
+}
 
-/** A quiz of `questions` with the standard widgets and columns */
-const quizOf = (questions: QuestionT[]) => ({ questions, ...defaultLayoutFor(SeedExpressions) })
+/** A quiz of `questions` with the standard widgetings and columns */
+const quizOf = (questions: QuestionT[]) => ({ questions, ...defaultLayout() })
 
-/** A quiz of `questions` with one column, `size`, showing an expressing widget of that label */
+/** A quiz of `questions` with one column, `size`, showing a widgeting of that label */
 const sizedQuiz = (questions: QuestionT[]) => ({
   questions,
-  widgets: [Expressing.fill({ kind: 'expressing', label: 'size', expression_label: 'size' })],
+  widgetings: [Widgeting.fill({ label: 'size', widget_label: 'size' })],
   columns: [Column.fill({ label: 'size', title: 'Size', source: 'size', width_px: 78 })],
 })
 
@@ -97,10 +98,32 @@ describe('sortValueFor', () => {
     expect(answers(sorted)).to.deep.eq(['a', 'b'])
   })
 
-  it('reads a bot\'s extraction column as how many spans it found', () => {
+  it('reads a view of the question -- the chained hint -- as having nothing to say', () => {
+    const questions = questionsOf(['2', 'b'], ['1', 'a'])
+    const sorted = Sortings.sortQuestions(questions, readerFor('column:butnot', quizOf(questions)), false)
+    expect(answers(sorted)).to.deep.eq(['b', 'a'])
+  })
+
+  it('reads a stored widgeting\'s column as what was recorded, an object by its JSON, sinking one never asked', () => {
+    const [aa, bb, cc] = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
+    const questions = [
+      { ...present(aa), stored: { dumdum: answered({ guess: 'Zurich', explanation: '' }) } },
+      present(bb),
+      { ...present(cc), stored: { dumdum: answered({ guess: 'Avignon', explanation: '' }) } },
+    ]
+    const quiz = { ...Quiz.blank(), ...quizOf(questions) }
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:guess', quiz, runOf(quiz)), false)
+    expect(answers(sorted)).to.deep.eq(['c', 'a', 'b'])
+  })
+
+  it('reads a sum worked out from a stored widgeting as its number', () => {
     const [aa, bb] = questionsOf(['1', 'a'], ['2', 'b'])
-    const questions = [{ ...present(aa), clueing_ishes: found(3) }, { ...present(bb), clueing_ishes: found(1) }]
-    const sorted = Sortings.sortQuestions(questions, readerFor('column:clueing_ishes', quizOf(questions)), false)
+    const questions = [
+      { ...present(aa), stored: { numnum_clueing: answered({ items: [{ text: '30', value: 30, kind: 'numeral' }] }) } },
+      { ...present(bb), stored: { numnum_clueing: answered({ items: [{ text: '4', value: 4, kind: 'numeral' }] }) } },
+    ]
+    const quiz = { ...Quiz.blank(), ...quizOf(questions) }
+    const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:clueing_full', quiz, runOf(quiz)), false)
     expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
 
@@ -130,7 +153,7 @@ describe('sortValueFor', () => {
     expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
 
-  it('reads a computed column as what it came to for each question', () => {
+  it('reads a widgeting column as what it came to for each question', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const [aa, bb, cc] = questions.map((question) => present(question))
     const run = runHolding(sizedQuiz(questions), { size: { [present(aa)._id]: Widgeted.ok(30), [present(bb)._id]: Widgeted.ok(4), [present(cc)._id]: Widgeted.ok(200) } })
@@ -138,7 +161,7 @@ describe('sortValueFor', () => {
     expect(answers(sorted)).to.deep.eq(['b', 'a', 'c'])
   })
 
-  it('sinks a question a computed column has nothing for, or failed on, in either direction', () => {
+  it('sinks a question a widgeting column has nothing for, or failed on, in either direction', () => {
     const questions = questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c'])
     const [aa, bb, cc] = questions.map((question) => present(question))
     const run = runHolding(sizedQuiz(questions), { size: { [present(aa)._id]: Widgeted.missing, [present(bb)._id]: Widgeted.ok(4), [present(cc)._id]: Widgeted.errored({ message: 'nope', at: null, response: null }) } })
@@ -146,6 +169,13 @@ describe('sortValueFor', () => {
       const sorted = Sortings.sortQuestions(questions, Sortings.sortValueFor('column:size', sizedQuiz(questions), run), descending)
       expect(answers(sorted)[0]).to.eq('b')
     }
+  })
+
+  it('reads a column showing a widgeting the quiz does not have as having nothing to say', () => {
+    const questions = questionsOf(['1', 'b'], ['2', 'a'])
+    const quiz = { ...sizedQuiz(questions), widgetings: [] }
+    const sorted = Sortings.sortQuestions(questions, readerFor('column:size', quiz), false)
+    expect(answers(sorted)).to.deep.eq(['b', 'a'])
   })
 
   it('reads a column the quiz does not have as having nothing to say, leaving the order alone', () => {

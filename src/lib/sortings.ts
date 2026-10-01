@@ -4,7 +4,6 @@ import * as UU from './useful'
 import { resolve, type Resolved } from './columns'
 import { columnLabelOf } from '../models/column'
 import type { QuizT, Sortkey } from '../models/quiz'
-import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 import type { WidgetedT } from '../models/widgeted'
 
@@ -54,14 +53,14 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
  * everything as absent and so leaves the order alone.
  *
  * @param sortkey - Which column was clicked.
- * @param quiz - The quiz's questions, columns and widgets.
+ * @param quiz - The quiz's questions, columns and widgetings.
  * @param run - The quiz, run: what each widgeting came to, for a column that shows one.
  * @returns A reader for that column.
  */
-export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgets'>, run: Runner.QuizRun): SortValueOf {
+export function sortValueFor(sortkey: Sortkey, quiz: Pick<QuizT, 'questions' | 'columns' | 'widgetings'>, run: Runner.QuizRun): SortValueOf {
   const label = columnLabelOf(sortkey)
   const column = quiz.columns.find((each) => each.label === label)
-  const source = column ? resolve(column.source, quiz.widgets) : null
+  const source = column ? resolve(column.source, quiz.widgetings) : null
   if (! source) { return () => null }
   return readerFor(source, quiz.questions, run)
 }
@@ -78,14 +77,10 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runne
     return () => null
   }
   case 'view': {
-    return source.view === 'butnot_ishes' ? (question) => ishCountOf(targetOf(question)?.hint_ishes ?? null) : () => null
+    return () => null
   }
-  case 'botting': {
-    const { field } = source.slot
-    return field === 'guess' ? () => null : (question) => ishCountOf(question[field])
-  }
-  case 'expressing': {
-    return (question) => sortValueOf(Runner.widgetedOf(run, source.widget.label, question._id))
+  case 'widgeting': {
+    return (question) => sortValueOf(Runner.widgetedOf(run, source.widgeting.label, question._id))
   }
   }
 }
@@ -107,16 +102,6 @@ export function sortValueOf(widgeted: WidgetedT): SortValue {
   if (typeof value === 'boolean') { return Number(value) }
   if (typeof value === 'string' || typeof value === 'number') { return value }
   return value === null ? null : UU.jsonify(value)
-}
-
-/**
- * How many spans an extraction found, or null when it never ran.
- *
- * A list column has no single value to order by, so it orders by how much it found. An empty
- * result is a real answer and sorts as nought; a cell nobody has asked about sinks.
- */
-function ishCountOf(ishes: IshesT): number | null {
-  return ishes?.status === 'done' ? ishes.items.length : null
 }
 
 /** Whether a column has nothing to say about this question */

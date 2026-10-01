@@ -29,11 +29,9 @@ describe('vetReply', () => {
     expect(text).to.have.length(3600)
   })
 
-  it('clips each span of an extraction, and each span of a batch', () => {
+  it('clips each span of an extraction', () => {
     const vetted = vetReply(ishesReply('three'.repeat(1000)))
     expect(vetted.ok && vetted.job === 'ishes' && vetted.items[0]?.text.length).to.eq(3600)
-    const batch = vetReply({ ok: true, job: 'bulk_ishes', groups: [{ key: 'c:q1', items: [{ text: 'x'.repeat(4000), value: 1, kind: 'numeral' }] }], truncated: false, model_tier_applied: 'careful', approx_tokens: 1, text_count: 1 })
-    expect(batch.ok && batch.job === 'bulk_ishes' && batch.groups[0]?.items[0]?.text.length).to.eq(3600)
   })
 
   const Refused: [AskReplyT, string][] = [

@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import _ from 'es-toolkit/compat'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -12,11 +11,12 @@ import { AppNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
-import { assembledQuiz, smithsOf, type CountedExpressionT, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
+import { assembledQuiz, smithsOf, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
 import type { HuntActionDNA, OpenQuizT } from '../models/actions'
 import type { HuntRole } from '../models/hunting'
 import type { QuizT } from '../models/quiz'
+import type { WidgetT } from '../models/widget'
 import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
 import { useBrowserKey } from './browser-key'
@@ -38,6 +38,8 @@ export type HuntHandle = {
   realm:      ShallowRealmT | null
   /** The quiz the labels name, whole; null when the realm has no such quiz, or it has not arrived */
   quiz:       QuizT | null
+  /** The library: every widget a quiz can put to work; empty until it has arrived */
+  library:    readonly WidgetT[]
   /** The quiz's reviews this browser's ident may read (its own, and the shared ones), oldest first; empty until the quiz is found */
   reviews:    readonly ReviewedT[]
   /** What this browser's ident does on the hunt; null when it is not on it, or the hunt has not arrived */
@@ -101,13 +103,13 @@ export function placeIn(hunt: ShallowHuntT | null | undefined, labels: Pick<Quiz
 
 /**
  * Where finding the quiz stands: refused when the server says the visitor is not on its hunt;
- * else, once its place in the hunt is known, found once the quiz and its reviews have arrived,
- * missing when the quiz is not there after all (deleted a moment ago).
+ * else, once its place in the hunt is known, found once the quiz, its reviews and the library have
+ * arrived, missing when the quiz is not there after all (deleted a moment ago).
  */
-function findingOf(opening: HuntOpeningT | undefined, placing: Placing, quiz: QuizT | null | undefined, reviews: readonly ReviewedT[] | undefined): Finding {
+function findingOf(opening: HuntOpeningT | undefined, placing: Placing, quiz: QuizT | null | undefined, reviews: readonly ReviewedT[] | undefined, library: readonly WidgetT[] | undefined): Finding {
   if (opening?.why === 'notOnHunt') { return 'refused' }
   if (placing.finding !== 'placed') { return placing.finding }
-  if (quiz === undefined || reviews === undefined) { return 'waiting' }
+  if (quiz === undefined || reviews === undefined || library === undefined) { return 'waiting' }
   return quiz ? 'found' : 'missing'
 }
 
@@ -116,6 +118,9 @@ function smithsFor(opening: HuntOpeningT | undefined): readonly SmithT[] {
   if (opening?.why === 'notOnHunt') { return opening.smiths }
   return smithsOf(opening?.hunt?.members ?? [])
 }
+
+/** The library before it has arrived: one list, so a render that has none hands on the same one */
+const NoWidgets: readonly WidgetT[] = []
 
 /** How many changes this page is writing */
 const Writing = { count: 0 }
@@ -136,11 +141,6 @@ function holdThePage(holding: boolean): void {
   if (! holding && Writing.count === 0) { removeEventListener('beforeunload', askBeforeLeaving) }
 }
 
-/** An expression as a quiz's history holds it: without the usage count the screen shows beside it */
-function uncounted(expressions: readonly CountedExpressionT[]): MirrorSnapshot['expressions'] {
-  return expressions.map((expression) => _.omit(expression, ['usage']))
-}
-
 /** A watch on one question of the open quiz, and how to stop listening to it */
 type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: () => void }
 
@@ -148,8 +148,8 @@ type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: ()
  * Feed the open quiz's history from every reading of it, whoever made the change. Read through
  * watches rather than renders: the client tells a watch of a change before the change's own
  * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
- * The quiz is its frame and a watch per question it orders, followed as the order changes; a
- * reading with a question still on its way is not noted.
+ * The quiz is its frame and a watch per question it orders, followed as the order changes, with
+ * the library its widgetings work; a reading with a question still on its way is not noted.
  */
 function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id: Id<'quizzes'> | null): void {
   const convex = useConvex()
@@ -157,20 +157,20 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
     if (quiz_id === null || browser_key === null) { return }
     const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label, browser_key })
     const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id, browser_key })
+    const libraryWatch = convex.watchQuery(api.widgets.library, { browser_key })
     const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
-    const last: { snapshot: MirrorSnapshot | null, counted: readonly CountedExpressionT[] | null } = { snapshot: null, counted: null }
+    const last: { snapshot: MirrorSnapshot | null } = { snapshot: null }
     const note = () => {
       try {
         const hunt = huntWatch.localQueryResult()?.hunt
         const frame = frameWatch.localQueryResult()
+        const library = libraryWatch.localQueryResult()
         const quiz = frame && assembledQuiz(frame, (question_id) => questionWatches.get(question_id)?.reading())
         const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
-        if (! hunt || ! quiz || ! realm) { return }
-        const expressions = last.snapshot && hunt.expressions === last.counted ? last.snapshot.expressions : uncounted(hunt.expressions)
-        const snapshot = { quiz, expressions, place: Runner.placeOf(hunt, realm) }
+        if (! hunt || ! quiz || ! realm || ! library) { return }
+        const snapshot = { quiz, library, place: Runner.placeOf(hunt, realm) }
         mirrorQuiz(last.snapshot, snapshot)
         last.snapshot = snapshot
-        last.counted = hunt.expressions
       } catch (err) {
         // A record that misses a reading is a smaller loss than a page that fails.
         Postmortem.report('note a reading of the quiz for its history', err, { hunt: hunt_label, quiz_id })
@@ -190,7 +190,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
         questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
       }
     }
-    const stops = [huntWatch.onUpdate(note), frameWatch.onUpdate(() => { follow(); note() })]
+    const stops = [huntWatch.onUpdate(note), libraryWatch.onUpdate(note), frameWatch.onUpdate(() => { follow(); note() })]
     follow()
     note()
     return () => {
@@ -233,9 +233,10 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const quiz_id = placing.quizRow?._id ?? null
   const quizSeen = useQuiz(quiz_id)
   const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null || browser_key === null ? 'skip' : { quiz_id, browser_key })
+  const library = useQuery(api.widgets.library, browser_key === null ? 'skip' : { browser_key })
   useHistoryFeed(labels.hunt, browser_key, askable ? quiz_id : null)
 
-  const finding = findingOf(opening, placing, quizSeen, reviewsSeen)
+  const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
 
   // Kept as React keeps state derived from a render: set during the render, which React redoes.
@@ -289,5 +290,5 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 
-  return { finding, hunt, ...found, role: hunt?.role ?? null, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
+  return { finding, hunt, ...found, library: library ?? NoWidgets, role: hunt?.role ?? null, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
 }

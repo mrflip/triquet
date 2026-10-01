@@ -1,15 +1,8 @@
 import { Column, type ColumnT } from './column'
-import { Expressing, BottingWidget, type ExpressingT, type WidgetT } from './widget'
-import type { ExpressionT } from './expression'
+import { DefaultWidgetings } from './seeds'
+import type { WidgetingT } from './widgeting'
 
-/** The bots every quiz starts with a widget for, in the order the grid has always shown them */
-const DefaultBottings = [
-  { kind: 'botting', label: 'dumdum',         bot_label: 'dumdum', textkind: 'clueing' },
-  { kind: 'botting', label: 'numnum_clueing', bot_label: 'numnum', textkind: 'clueing' },
-  { kind: 'botting', label: 'numnum_hint',    bot_label: 'numnum', textkind: 'hint' },
-] as const
-
-/** The eight sum columns, which are also the labels of the expressions and widgets behind them */
+/** The eight sum columns, which are also the labels of the widgetings behind them */
 const DefaultSums = [
   ['clueing_plus_rank',        'Clueing + Rank'],
   ['clueing_full',             'Clueing Full Sum'],
@@ -21,32 +14,24 @@ const DefaultSums = [
   ['clueing_plus_butnot_full', 'Clueing+BUT NOT Full'],
 ] as const
 
-/** A quiz's widgets and columns: what it can show, and how it lays that out */
+/** A quiz's widgetings and columns: what it works out, and how it lays that out */
 export type Layout = {
-  widgets: WidgetT[]
-  columns: ColumnT[]
+  widgetings: WidgetingT[]
+  columns:    ColumnT[]
 }
 
 /**
- * The widgets and columns a new quiz starts with.
+ * The widgetings and columns a new quiz starts with.
  *
- * Widgets: a botting for each bot-and-text the tool knows, then a widget for each of the
- * eight sums whose expression `expressions` still holds. Columns: the questions' own fields, the
- * sums between Q# and Alt Text, then the notes and the bots' answers -- the grid this tool has
- * always had.
+ * Widgetings: the default set (`DefaultWidgetings`), the three bots first. Columns: the
+ * questions' own fields, the sums between Q# and Alt Text, then the notes and what the bots
+ * found -- the grid this tool has always had.
  *
- * @param expressions - The hunt's expressions.
- * @returns The widgets and columns, in order.
+ * @returns The widgetings and columns, in order.
  *
- * @example defaultLayoutFor(SeedExpressions).columns.length  // => 21
+ * @example defaultLayout().columns.length  // => 21
  */
-export function defaultLayoutFor(expressions: readonly ExpressionT[]): Layout {
-  const held = new Set(expressions.map((expression) => expression.label))
-  const sums = DefaultSums.filter(([label]) => held.has(label))
-  const widgets: WidgetT[] = [
-    ...DefaultBottings.map((dna) => BottingWidget.fill(dna)),
-    ...sums.map(([label]): ExpressingT => Expressing.fill({ kind: 'expressing', label, expression_label: label })),
-  ]
+export function defaultLayout(): Layout {
   const columns = [
     ['title',       'Title',          'question.title',        100],
     ['clueing',     'Clueing',        'question.clueing',      330],
@@ -54,14 +39,14 @@ export function defaultLayoutFor(expressions: readonly ExpressionT[]): Layout {
     ['chains_to',   'Chains to',      'question.chains_to',    120],
     ['butnot',      'BUT NOT',        'question.butnot',       180],
     ['qnum',        'Q#',             'question.qnum',          60],
-    ...sums.map(([label, title]) => [label, title, label, 78] as const),
+    ...DefaultSums.map(([label, title]) => [label, title, label, 78] as const),
     ['alt_text',    'Alt Text',       'question.alt_text',     220],
     ['notes',       'Notes',          'question.notes',        220],
     ['full_answer', 'Full Answer',    'question.full_answer',  220],
     ['clueing_ishes', 'Clueing ishes', 'numnum_clueing',       170],
-    ['butnot_ishes',  'BUT NOT ishes', 'question.butnot_ishes', 170],
+    ['butnot_ishes',  'BUT NOT ishes', 'butnot_ishes',         170],
     ['hint_ishes',    'Hint Ishes',    'numnum_hint',           170],
     ['guess',         'Quick-model guess', 'dumdum',            160],
   ].map(([label, title, source, width_px]) => Column.fill({ label: String(label), title: String(title), source: String(source), width_px: Number(width_px) }))
-  return { widgets, columns }
+  return { widgetings: [...DefaultWidgetings], columns }
 }

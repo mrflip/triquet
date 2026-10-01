@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { Id } from '../../convex/_generated/dataModel'
-import { Question, QuestionValidators, type QuestionDNA } from '../../src/models/question'
+import { Question, QuestionValidators, RankField, type QuestionDNA } from '../../src/models/question'
 import { mintId } from '../../src/lib/ids'
 import { ValidatorKit } from '../../src/lib/validator'
 import * as Labelmaker from '../../src/lib/labelmaker'
@@ -37,12 +37,10 @@ describe('Question.fill', () => {
       hint:          '',
       forced_label:  null,
       chains_to:     null,
-      guess:         null,
-      clueing_ishes: null,
-      hint_ishes:    null,
       alt_text:      '',
       notes:         '',
       full_answer:   '',
+      stored:        {},
     })
     expect(question.label).to.match(/^[a-z]+_[a-z]+$/)
   })
@@ -77,19 +75,25 @@ describe('Question.fill', () => {
     expect(() => Question.fill({ _id: anId, title: 'x'.repeat(201) })).to.throw(Z.ZodError)
   })
 
-  it('accepts a done guess and a done extraction', () => {
-    const question = Question.fill({
-      _id:           anId,
-      guess:         { status: 'done', text: 'Leon', updated_at: 1 },
-      clueing_ishes: { status: 'done', items: [{ text: '千', value: 1000, kind: 'wordish' }], updated_at: 1 },
-    })
-    expect(question.guess?.status).to.eq('done')
-    expect(question.clueing_ishes).to.deep.include({ status: 'done', truncated: false, stale: false })
+  it("defaults to nothing stored by any widgeting", () => {
+    expect(Question.fill({ _id: anId }).stored).to.deep.eq({})
   })
 
-  it('accepts an error in place of a result', () => {
-    const question = Question.fill({ _id: anId, guess: { status: 'error', message: 'A connection hiccup — try again.', updated_at: 1, last_err: { message: 'A connection hiccup — try again.', response: { ok: false }, at: 1 } } })
-    expect(question.guess?.status).to.eq('error')
+  it("holds what each widgeting stored, by its label: the newest row and the newest ok one", () => {
+    const answered = { status: 'ok' as const, value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {}, _creationTime: 1 }
+    const failed = { status: 'errored' as const, value: null, message: 'A connection hiccup — try again.', result_meta: { response: { ok: false } }, _creationTime: 2 }
+    const question = Question.fill({ _id: anId, stored: { dumdum: { newest: failed, ok: answered } } })
+    expect(question.stored.dumdum).to.deep.eq({ newest: failed, ok: answered })
+  })
+
+  it("refuses what was stored under something that is not a label", () => {
+    const answered = { status: 'ok' as const, value: 1, message: null, result_meta: {}, _creationTime: 1 }
+    expect(() => Question.fill({ _id: anId, stored: { 'Dum Dum': { newest: answered, ok: answered } } })).to.throw(Z.ZodError)
+  })
+
+  it("drops the old bot fields, which are widgetings' widgeteds now", () => {
+    const question = Question.fill({ _id: anId, guess: { status: 'done', text: 'Leon', updated_at: 1 } } as never)
+    expect(question).to.not.have.property('guess')
   })
 
   describe('qnum', () => {
@@ -201,5 +205,21 @@ describe("Question.blankRow", () => {
 
   it("takes a fresh label when none is given", () => {
     expect(Question.blankRow(place).label).to.match(/^[a-z][a-z0-9_]+$/)
+  })
+})
+
+describe('Question.exposed and RankField', () => {
+  it("is every field a formula may read, alphabetically, and never what its widgetings stored", () => {
+    expect(Question.exposed).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'])
+    expect(Question.exposed).not.to.include('stored')
+  })
+
+  it("names the rank the bag adds beside them, which is not a field of the question", () => {
+    expect(RankField).to.eq('rank')
+    expect(Question.exposed).not.to.include(RankField)
+  })
+
+  it("leaves what its widgetings stored out of a patch, which never revises it", () => {
+    expect(QuestionValidators.questionPatch({ stored: {} } as never)).to.deep.eq({})
   })
 })

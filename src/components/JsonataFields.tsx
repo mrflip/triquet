@@ -7,44 +7,43 @@ import { JsonFold } from './JsonFold'
 import * as Formulas from '../lib/formulas'
 import { JsonataFormulary } from '../lib/formulary/jsonata'
 import * as Runner from '../lib/formulary/runner'
-import * as Standins from '../lib/formulary/standins'
 import * as Rank from '../lib/rank'
 import { Widgeted } from '../models/widgeted'
 import type { LiveRun } from '../lib/formulary/formularies'
-import { ExpressionValidators, type ExpressionT } from '../models/expression'
+import { JsonataDefaultInput, type WidgetT } from '../models/widget'
 import type { PromptSubject } from '../lib/formula-prompt'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
+import type { WidgetDraft } from '../state/widget-edit'
 import { useOtherQuiz } from '../state/use-other-quiz'
 import styles from './workbench.module.css'
 
-/** The parts of an expression being edited */
-export type ExpressionDraft = Pick<ExpressionT, 'label' | 'description' | 'formula'>
-
-export type ExpressionFieldsProps = {
+export type JsonataFieldsProps = {
   /** The hunt, whose every quiz the preview can be pointed at */
   hunt:          ShallowHuntT
+  /** The library, whose widgets the quizzes' widgetings work */
+  library:       readonly WidgetT[]
   /** The quiz on screen, whose questions the preview starts on */
   openQuiz:      QuizT
-  draft:         ExpressionDraft
-  onChange:      (patch: Partial<ExpressionDraft>) => void
-  /** A new expression is named here; an existing one is not renamed */
+  draft:         WidgetDraft
+  onChange:      (patch: Partial<WidgetDraft>) => void
+  /** A new widget is named here; an existing one is not renamed */
   labelEditable: boolean
   /** What is wrong with the label being typed, when something is */
   labelIssue:    string | null
-  /** The column the expression is being written for, when there is one, for the prompt */
-  expressing:    PromptSubject['expressing']
+  /** The widgeting the widget is being written for, when there is one, for the prompt */
+  widgeting:     PromptSubject['widgeting']
 }
 
 /**
- * An expression's label, description and formula, with a live preview against a real question
- * and a button that copies a prompt asking a chatbot for the formula.
+ * A `jsonata` widget's label, description and formula, with a live preview against a real
+ * question and a button that copies a prompt asking a chatbot for the formula.
  *
  * The preview is worked out from the draft as it is typed, so a mistake is named, and a fix is
  * seen, before anything is applied. Any quiz of the hunt and any of its questions can be
  * picked; it starts on the lowest-numbered question of the open quiz.
  */
-export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditable, labelIssue, expressing }: Readonly<ExpressionFieldsProps>) {
+export function JsonataFields({ hunt, library, openQuiz, draft, onChange, labelEditable, labelIssue, widgeting }: Readonly<JsonataFieldsProps>) {
   const [quiz_id, setQuizId] = useState<string>(openQuiz._id)
   const [question_id, setQuestionId] = useState<string | null>(null)
 
@@ -56,36 +55,36 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
   const question = ranked.find((held) => held._id === question_id) ?? ranked[0]
   const realm = quiz && hunt.realms.find((held) => held.quizzes.some((row) => row._id === quiz._id))
-  // The bag the expression's widgeting reads: with the widgeteds of those before it, or of every
+  // The bag the widget's widgeting reads: with the widgeteds of those before it, or of every
   // widgeting, for one not yet put to work.
-  const label = expressing?.label ?? ''
+  const label = widgeting?.label ?? ''
   const bags = useMemo((): ReadonlyMap<string, Runner.QuizBag> => {
     if (! quiz || ! realm) { return new Map() }
-    const run = Runner.runQuiz(Standins.sourceOf(quiz, hunt.expressions, Runner.placeOf(hunt, realm)))
+    const run = Runner.runQuiz(Runner.sourceOf(quiz, library, Runner.placeOf(hunt, realm)))
     return Runner.bagsAt(run, { label, params: {} })
-  }, [quiz, hunt, realm, label])
+  }, [quiz, hunt, library, realm, label])
   const bag = question ? bags.get(question._id) : undefined
 
   const syntaxIssue = draft.formula === '' ? null : Formulas.check(draft.formula)
-  const lengthIssue = ExpressionValidators.expressionPatch.safeParse({ formula: draft.formula }).error?.issues[0]?.message ?? null
+  const lengthIssue = draft.formula.length > Formulas.FormulaMax ? `should be at most ${String(Formulas.FormulaMax)} characters` : null
   const preview: LiveRun = bag
-    ? JsonataFormulary.run({ formula: draft.formula, input_formula: JsonataFormulary.defaultInput }, null, bag)
-    : { widgeted: Widgeted.missing, stale: false, stops: false }
+    ? JsonataFormulary.run({ formula: draft.formula, input_formula: JsonataDefaultInput }, null, bag)
+    : { widgeted: Widgeted.missing, stops: false }
 
   return (
     <Stack spacing={1.5}>
       {labelEditable
         ? (
           <TextField
-            size="small" label="Expression label" value={draft.label} sx={{ maxWidth: 320 }}
-            error={labelIssue !== null} helperText={labelIssue ?? 'What the expression is called, for choosing it again. It cannot be changed afterward.'}
+            size="small" label="Widget label" value={draft.label} sx={{ maxWidth: 320 }}
+            error={labelIssue !== null} helperText={labelIssue ?? 'What the widget is called in the library, for choosing it again. It cannot be changed afterward.'}
             onChange={(event) => { onChange({ label: event.target.value }) }}
           />
         )
-        : <div><strong>{draft.label}</strong> <span className={styles.microcopy}>expression</span></div>}
+        : <div><strong>{draft.label}</strong> <span className={styles.microcopy}>widget</span></div>}
       <TextField
-        size="small" label="Expression description" value={draft.description}
-        helperText="What it works out, for whoever is choosing between expressions."
+        size="small" label="Widget description" value={draft.description}
+        helperText="What it works out, for whoever is choosing between widgets."
         onChange={(event) => { onChange({ description: event.target.value }) }}
       />
       <TextField
@@ -122,7 +121,7 @@ export function ExpressionFields({ hunt, openQuiz, draft, onChange, labelEditabl
         </div>
       )}
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        <CopyButton textOf={() => JsonataFormulary.advice(draft, expressing, bag ?? null)}>
+        <CopyButton textOf={() => JsonataFormulary.advice(draft, widgeting, bag ?? null)}>
           Copy a prompt for a chatbot
         </CopyButton>
       </Stack>
@@ -141,8 +140,8 @@ function PreviewResult({ preview }: Readonly<{ preview: LiveRun }>) {
 }
 
 /** The preview, in words */
-function previewText({ widgeted, stale }: LiveRun): React.ReactNode {
+function previewText({ widgeted }: LiveRun): React.ReactNode {
   if (widgeted.status === 'errored') { return <span className={styles.muted}>Fails: {widgeted.err.message}</span> }
   if (widgeted.status === 'missing') { return <span className={styles.muted}>nothing (a dash in the grid)</span> }
-  return <code>{Widgeted.textOf(widgeted)}{stale ? ' (stale)' : ''}</code>
+  return <code>{Widgeted.textOf(widgeted)}</code>
 }

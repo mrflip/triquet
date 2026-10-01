@@ -167,10 +167,9 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
   )
 }
 
-/** Extra class for a header that is rotated, or centred and allowed to wrap */
+/** Extra class for a header that is rotated */
 function headClassOf(headkind: Headkind): string | undefined {
-  if (headkind === 'vertical') { return styles.headVertical }
-  return headkind === 'centered' ? styles.headCentered : undefined
+  return headkind === 'vertical' ? styles.headVertical : undefined
 }
 
 /** The arrow marking the column sorted in this session -- not the one the quiz remembers */

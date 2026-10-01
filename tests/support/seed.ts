@@ -1,21 +1,21 @@
 import type { Id } from '../../convex/_generated/dataModel'
-import { insertLayout, type QuizPlace, type Writer } from '../../convex/writing/quiz_writing'
+import { insertAbsentWidgets, insertLayout, type QuizPlace, type Writer } from '../../convex/writing/quiz_writing'
 import * as Labelmaker from '../../src/lib/labelmaker'
-import { ExpressionValidators } from '../../src/models/expression'
 import { HuntValidators, type HuntT } from '../../src/models/hunt'
 import { QuestionValidators } from '../../src/models/question'
 import { QuizValidators, type QuizT } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
+import { SeedWidgets } from '../../src/models/seeds'
 
 // A test builds its fixture as a tree, which is the shape a test reads back (`hunts.whole`)
 // and compares; these write one into rows. A fixture's ids are its own: the rows get the
 // database's, and a chain is written as the label of the question it names, as the rows hold
-// it. What a question's cells show is not written; a test records a reply through
-// `record_botting`.
+// it. What a question's widgetings stored is not written; a test records it through
+// `record_widgeted`.
 
 /**
  * `quiz`, a fixture, written into rows in the realm `place` names: its own row, its questions in
- * the order given, and its widgets and columns in the order given.
+ * the order given, and its widgetings and columns in the order given.
  *
  * @returns The quiz's row id.
  * @throws When a row is not valid; the mutation writes nothing.
@@ -23,8 +23,8 @@ import { RealmValidators } from '../../src/models/realm'
  * @example await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank('Princes'))
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
-  const { title, label, forced_label, smiths_note, version, locked, last_sortkey, bulk_ishes_last } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, forced_label, smiths_note, version, locked, last_sortkey, bulk_ishes_last, row_ordering: [] }))
+  const { title, label, forced_label, smiths_note, version, locked, last_sortkey } = quiz
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, forced_label, smiths_note, version, locked, last_sortkey, row_ordering: [] }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
@@ -51,8 +51,8 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
 }
 
 /**
- * `hunt`, a fixture, written into rows: its own row, its expressions in order, its realms in
- * order, and each realm's quizzes as `seedQuizRows` writes them.
+ * `hunt`, a fixture, written into rows: its own row, its realms in order, and each realm's
+ * quizzes as `seedQuizRows` writes them; and the library given whichever seed widgets it lacks.
  *
  * @returns The hunt's row id.
  * @throws When a row is not valid; the mutation writes nothing.
@@ -61,9 +61,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
  */
 export async function seedHuntRows(db: Writer, hunt: HuntT): Promise<Id<'hunts'>> {
   const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, forced_label: hunt.forced_label, title: hunt.title }))
-  for (const [position, expression] of hunt.expressions.entries()) {
-    await db.insert('expressions', ExpressionValidators.row({ hunt_id, position, ...expression }))
-  }
+  await insertAbsentWidgets(db, SeedWidgets)
   for (const [position, realm] of hunt.realms.entries()) {
     const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title }))
     for (const quiz of realm.quizzes) { await seedQuizRows(db, { hunt_id, realm_id }, quiz) }

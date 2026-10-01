@@ -3,13 +3,12 @@ import * as Labelmaker from '../labelmaker'
 import * as Rank from '../rank'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { formularyFor, type InputOutcome } from './formularies'
-import { exposeGuess, exposeIshes } from '../../models/botting'
 import { Hunt, type HuntT } from '../../models/hunt'
-import { Question, type QuestionT } from '../../models/question'
+import { Question, RankField, type QuestionT } from '../../models/question'
 import { Quiz, type QuizT } from '../../models/quiz'
 import { Realm, type RealmT } from '../../models/realm'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedErrT, type WidgetedHistoryT, type WidgetedStatus, type WidgetedT } from '../../models/widgeted'
-import type { LibraryWidgetT } from '../../models/widget'
+import type { WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 
 /**
@@ -48,7 +47,7 @@ export type QuizBag = QuizPlace & {
 /** One widgeting in the run order, and the widget it works: null when the library holds none by its `widget_label` */
 export type RunStep = {
   widgeting: WidgetingT
-  widget:    LibraryWidgetT | null
+  widget:    WidgetT | null
 }
 
 /** What a quiz is run from: its questions, where it sits, its widgetings in run order, and its stored widgeteds */
@@ -70,8 +69,6 @@ export type QuizRun = {
   widgeteds: ByWidgeting<WidgetedT>
   /** For each widgeting asked from the cell, what each question's ask would be put */
   inputs:    ByWidgeting<InputOutcome>
-  /** The cells whose formula marked its value stale, by `cellkeyOf` (the `{ value, stale }` form, retiring) */
-  stale:     ReadonlySet<string>
   /** The questions as each widgeting's bag holds them, by its label */
   qnsAt:     ReadonlyMap<string, readonly Record<string, unknown>[]>
   /** The questions as they stand once every widgeting has run */
@@ -110,7 +107,6 @@ export function runQuiz(source: RunSource): QuizRun {
   const frame = frameOf(quiz, source.place)
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
   const inputs = new Map<string, ReadonlyMap<string, InputOutcome>>()
-  const stale = new Set<string>()
   const qnsAt = new Map<string, readonly Record<string, unknown>[]>()
   let qns = baseQns(quiz)
   for (const step of source.steps) {
@@ -120,10 +116,30 @@ export function runQuiz(source: RunSource): QuizRun {
     const column = columnOf(step, bags, quiz.questions, source.storedOf)
     widgeteds.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.widgeteds[idx] ?? Widgeted.missing])))
     if (column.inputs) { inputs.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.inputs?.[idx] ?? { status: 'missing' }]))) }
-    for (const idx of column.stale) { stale.add(cellkeyOf(label, frame.question_ids[idx] ?? '')) }
     qns = withWidgeteds(qns, label, column.widgeteds)
   }
-  return { steps: source.steps, widgeteds, inputs, stale, qnsAt, qnsAfter: qns, frame }
+  return { steps: source.steps, widgeteds, inputs, qnsAt, qnsAfter: qns, frame }
+}
+
+/**
+ * What a quiz is run from, read from what the browser holds: its widgetings in run order, each
+ * with the library's widget by its `widget_label`, and what each question stored for them.
+ *
+ * @param quiz - The quiz, each question carrying what its stored widgetings recorded.
+ * @param library - The library's widgets.
+ * @param place - Where the quiz sits.
+ * @returns The source for `runQuiz`.
+ *
+ * @example runQuiz(sourceOf(quiz, library, place))
+ */
+export function sourceOf(quiz: QuizT, library: readonly WidgetT[], place: QuizPlace): RunSource {
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
+  return {
+    quiz,
+    place,
+    steps:    quiz.widgetings.map((widgeting) => ({ widgeting, widget: widgetFor.get(widgeting.widget_label) ?? null })),
+    storedOf: (widgeting, question) => question.stored[widgeting.label] ?? null,
+  }
 }
 
 /**
@@ -143,14 +159,6 @@ export function widgetedOf(run: QuizRun, label: string, question_id: string): Wi
  */
 export function inputOf(run: QuizRun, label: string, question_id: string): InputOutcome {
   return run.inputs.get(label)?.get(question_id) ?? { status: 'missing' }
-}
-
-/**
- * Whether one cell's formula marked its value as out of date. Retiring with the `{ value,
- * stale }` form.
- */
-export function isStale(run: QuizRun, label: string, question_id: string): boolean {
-  return run.stale.has(cellkeyOf(label, question_id))
 }
 
 /**
@@ -225,11 +233,6 @@ export function placeOf(hunt: Pick<HuntT, 'label' | 'forced_label' | 'title'>, r
   }
 }
 
-/** One cell, as one string */
-function cellkeyOf(label: string, question_id: string): string {
-  return `${label}:${question_id}`
-}
-
 /** A stored failure, as the `err` its cell carries */
 function errOf(row: StoredWidgetedT): WidgetedErrT {
   return { message: row.message ?? '', at: Math.floor(row._creationTime), response: row.result_meta.response ?? null }
@@ -271,38 +274,32 @@ function emptyBag(frame: BagFrame, widgeting: Pick<WidgetingT, 'label' | 'params
 
 /**
  * Every question as a formula sees it before any widgeting has run: only its exposed fields, its
- * label the one in force and its chain named by label, its rank added, and what the bots answered
- * under the fields they have always had (`guess`, `clueing_ishes`, `hint_ishes`, retiring).
+ * label the one in force and its chain named by label, and its rank added.
  */
 function baseQns(quiz: QuizT): Record<string, unknown>[] {
   const ranks = Rank.ranksOf(quiz.questions)
   const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
   return quiz.questions.map((question) => ({
     ..._.pick(question, Question.exposed),
-    label:         labelForId.get(question._id) ?? question.label,
-    chains_to:     question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
-    rank:          ranks.get(question._id) ?? null,
-    guess:         exposeGuess(question.guess),
-    clueing_ishes: exposeIshes(question.clueing_ishes),
-    hint_ishes:    exposeIshes(question.hint_ishes),
+    label:       labelForId.get(question._id) ?? question.label,
+    chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
+    [RankField]: ranks.get(question._id) ?? null,
   }))
 }
 
 /**
  * `qns` with each question's widgeted for one widgeting added under its label: new objects, so
- * the bags already handed out keep the questions as they were. A label that would shadow one of
- * a question's own keys is left out of the bag, so a formula never reads the wrong thing under a
- * question's own name.
+ * the bags already handed out keep the questions as they were. No widgeting's label is one a
+ * question already answers to (`ReservedWidgetingLabels`), so nothing is shadowed.
  */
 function withWidgeteds(qns: readonly Record<string, unknown>[], label: string, widgeteds: readonly WidgetedT[]): Record<string, unknown>[] {
-  return qns.map((qn, idx) => (Object.hasOwn(qn, label) ? qn : { ...qn, [label]: widgeteds[idx] ?? Widgeted.missing }))
+  return qns.map((qn, idx) => ({ ...qn, [label]: widgeteds[idx] ?? Widgeted.missing }))
 }
 
-/** One widgeting's cells, in the quiz's order: their widgeteds, the inputs of a widgeting asked from the cell, and which are marked stale */
+/** One widgeting's cells, in the quiz's order: their widgeteds, and the inputs of a widgeting asked from the cell */
 type Column = {
   widgeteds: WidgetedT[]
   inputs:    InputOutcome[] | null
-  stale:     number[]
 }
 
 /** One widgeting worked out, or projected, for every question */
@@ -310,25 +307,22 @@ function columnOf(step: RunStep, bags: readonly QuizBag[], questions: readonly Q
   const { widgeting, widget } = step
   if (widget === null) {
     const gone = Widgeted.errored({ message: GoneMessage(widgeting.widget_label), at: null, response: null })
-    return { widgeteds: bags.map(() => gone), inputs: null, stale: [] }
+    return { widgeteds: bags.map(() => gone), inputs: null }
   }
   const formulary = formularyFor(widget)
   if (formulary.refresh === 'live') {
     const widgeteds: WidgetedT[] = []
-    const stale: number[] = []
     let stopped: WidgetedT | null = null
-    for (const [idx, bag] of bags.entries()) {
+    for (const bag of bags) {
       if (stopped !== null) { widgeteds.push(stopped); continue }
       const ran = formulary.run(widget, widgeting, bag)
       widgeteds.push(ran.widgeted)
-      if (ran.stale) { stale.push(idx) }
       if (ran.stops) { stopped = ran.widgeted }
     }
-    return { widgeteds, inputs: null, stale }
+    return { widgeteds, inputs: null }
   }
   return {
     widgeteds: questions.map((question) => widgetedFrom(storedOf(widgeting, question))),
     inputs:    bags.map((bag) => formulary.input(widget, bag)),
-    stale:     [],
   }
 }

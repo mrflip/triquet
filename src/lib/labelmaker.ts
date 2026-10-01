@@ -44,6 +44,26 @@ export function appendFallback(str: string, fallback: string = mintId().slice(-F
   return `${str.slice(0, PA.Label.max - 1 - fallback.length)}_${fallback}`
 }
 
+/**
+ * `label` itself when it is free, else the first of `label_2`, `label_3`, ... that is: the stem
+ * cut short where needed so the whole still fits in a label.
+ *
+ * @param label - The label wanted.
+ * @param taken - Labels already spoken for, the reserved ones among them.
+ * @returns A label absent from `taken`.
+ *
+ * @example firstFree('dumdum', new Set())                       // => 'dumdum'
+ * @example firstFree('dumdum', new Set(['dumdum', 'dumdum_2']))  // => 'dumdum_3'
+ */
+export function firstFree(label: string, taken: ReadonlySet<string>): string {
+  if (! taken.has(label)) { return label }
+  for (let nth = 2; ; nth += 1) {
+    const suffix = `_${String(nth)}`
+    const candidate = `${_.trimEnd(label.slice(0, PA.Label.max - suffix.length), '_')}${suffix}`
+    if (! taken.has(candidate)) { return candidate }
+  }
+}
+
 export type NormalizeOpts = {
   /** Cuts the cleaned body to this many characters before the letter/length repairs run; never past what a label may hold */
   maxlen?: number

@@ -1,21 +1,23 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
-import { QuestionWidgetLabel } from './widget'
+
+/** What a column's source calls the questions' own fields: `question.title`. No widgeting may be labelled this. */
+export const QuestionWidgetLabel = 'question'
 
 /** The question fields a column can show and edit */
 export const QuestionFieldVals = ['title', 'clueing', 'hint', 'chains_to', 'qnum', 'alt_text', 'notes', 'full_answer'] as const
 export type QuestionField = typeof QuestionFieldVals[number]
 
 /** Read-only things a column can show that are worked out from a question and the one it chains to */
-export const QuestionViewVals = ['butnot', 'butnot_ishes'] as const
+export const QuestionViewVals = ['butnot'] as const
 export type QuestionView = typeof QuestionViewVals[number]
 
-/** What a column shows: a question field, a view of a question, or a widget's value */
+/** What a column shows: a question field, a view of a question, or what a widgeting came to */
 export type Source =
   | { kind: 'field', field: QuestionField }
   | { kind: 'view', view: QuestionView }
-  | { kind: 'widget', label: string }
+  | { kind: 'widgeting', label: string }
 
 /** The smallest and largest a column may be, in pixels */
 export const WidthPxMin = 30
@@ -27,9 +29,9 @@ const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${PA.Label.re.source.rep
 export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uint, zid }) => {
   const columnLabel = label
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
-  const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, or the label of a widget')
-    .refine((val) => val !== QuestionWidgetLabel, 'the questions\' own widget has no value of its own; name one of its fields')
-    .describe('What the column shows: `question.title` and the like for a question\'s own field, `question.butnot` for a view of it, or a widget\'s label for that widget\'s value.')
+  const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, or the label of a widgeting')
+    .refine((val) => val !== QuestionWidgetLabel, 'the questions have no value of their own; name one of their fields')
+    .describe('What the column shows: `question.title` and the like for a question\'s own field, `question.butnot` for a view of it, or a widgeting\'s label for what it came to.')
 
   const column = obj({
     label:    columnLabel,
@@ -39,7 +41,7 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     width_px: int.min(WidthPxMin).max(WidthPxMax)
       .describe('How wide the column is. The grid\'s layout is fixed, so nothing a cell holds can widen it.'),
   })
-    .describe('One column of a quiz\'s grid. A quiz keeps its columns in a list, which is the order they appear in, apart from its widgets: a column only says what to show, and where.')
+    .describe('One column of a quiz\'s grid. A quiz keeps its columns in a list, which is the order they appear in, apart from its widgetings: a column only says what to show, and where.')
 
   const columnPatch = obj({
     label:    columnLabel.optional(),
@@ -89,14 +91,14 @@ export class Column implements ColumnT {
  * What a source string names.
  *
  * @param source - A validated column source.
- * @returns A question field, a view of a question, or a widget by label.
+ * @returns A question field, a view of a question, or a widgeting by label.
  *
  * @example sourceOf('question.clueing')  // => { kind: 'field', field: 'clueing' }
- * @example sourceOf('dumdum')             // => { kind: 'widget', label: 'dumdum' }
+ * @example sourceOf('dumdum')             // => { kind: 'widgeting', label: 'dumdum' }
  */
 export function sourceOf(source: string): Source {
   const prefix = `${QuestionWidgetLabel}.`
-  if (! source.startsWith(prefix)) { return { kind: 'widget', label: source } }
+  if (! source.startsWith(prefix)) { return { kind: 'widgeting', label: source } }
   const fieldname = source.slice(prefix.length)
   const view = QuestionViewVals.find((each) => each === fieldname)
   if (view) { return { kind: 'view', view } }

@@ -31,12 +31,11 @@ describe('JsonataFormulary', () => {
       ["1 = 1",                                    Widgeted.ok(true),                                 'a boolean is a value'],
       ["[1, 2, 3]",                                Widgeted.ok([1, 2, 3]),                            'a list is a value, as plain JSON'],
       ["{ 'b': 2, 'a': [1] }",                     Widgeted.ok({ a: [1], b: 2 }),                     'an object is a value, as plain JSON'],
-      ["{ 'value': 5, 'stale': true }",            Widgeted.ok(5),                                    'a value in the marked form is its value'],
+      ["{ 'value': 5, 'stale': true }",            Widgeted.ok({ stale: true, value: 5 }),            'an object shaped like the old stale mark is only an object'],
       ["nothing.at.all",                           Widgeted.missing,                                  'a path that leads nowhere is missing'],
       ["''",                                       Widgeted.missing,                                  'an empty string is missing'],
       ["null",                                     Widgeted.missing,                                  'null is missing'],
       ["$exists(nothing) ? 1",                     Widgeted.missing,                                  'a condition with no else is missing'],
-      ["{ 'value': nothing, 'stale': true }",      Widgeted.missing,                                  'a stale mark with no value behind it is missing'],
       ["$sum",                                     failed('The formula came to a function rather than a value'), 'a function is not a value'],
       // what the bag holds:
       ["hunt.title",                               Widgeted.ok('The Deep Lake Hunt'),                 "the hunt's title"],
@@ -52,10 +51,8 @@ describe('JsonataFormulary', () => {
       })
     }
 
-    it('says when a value was marked stale, and only then', () => {
-      expect(runOn("{ 'value': 5, 'stale': true }").stale).to.be.true
-      expect(runOn("{ 'value': 5 }").stale).to.be.false
-      expect(runOn('5').stale).to.be.false
+    it('carries no stale mark of its own, only the widgeted and whether to stop', () => {
+      expect(runOn("{ 'value': 5, 'stale': true }")).to.have.all.keys('stops', 'widgeted')
     })
 
     it('runs the formula over its input, not over the bag', () => {
@@ -105,7 +102,8 @@ describe('JsonataFormulary', () => {
     it('asks for the formula, telling of the widget, the widgeting and a real question', () => {
       const text = JsonataFormulary.advice({ label: 'shout', description: 'Loudly.', formula: '$uppercase(qn.title)' }, { label: 'loud', description: 'For the meta.', title: 'Loud' }, bag)
       expect(text).to.include('- The column\'s title: Loud')
-      expect(text).to.include('- What the expression works out: Loudly.')
+      expect(text).to.include('- What the widgeting is for in this quiz: For the meta.')
+      expect(text).to.include('- What the widget works out: Loudly.')
       expect(text).to.include('$uppercase(qn.title)')
       expect(text).to.include('"full_answer": "Leon"')
     })
