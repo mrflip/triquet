@@ -1,4 +1,6 @@
 import { test as base, expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
+import * as Labelmaker from '../src/lib/labelmaker'
+import { QuestionSourceTitles, type QuestionField, type QuestionView } from '../src/models/column'
 
 /** Where the fixture's page begins by default: a fresh ident's fresh hunt, open on its quiz */
 export const FreshHunt = 'fresh hunt'
@@ -149,12 +151,49 @@ export async function pickWidget(page: Page, editor: Locator, widget_label: stri
  */
 export async function addWidgeting(page: Page, widget_label: string, label = ''): Promise<void> {
   await openManage(page)
+  await widgetingAdded(page, widget_label, label)
+  await closeManage(page)
+}
+
+/**
+ * Put each of the library's widgets `widget_labels` to work in the open quiz, in the order given,
+ * each under its own label with the column it brings, headed after it (`clueing_full` brings
+ * *Clueing Full*), and close the gear's dialog. A new quiz starts lean: a spec about the bots or
+ * the sums adds what it is about, the widgets a widget reads before it.
+ */
+export async function addWidgetings(page: Page, widget_labels: readonly string[]): Promise<void> {
+  await openManage(page)
+  for (const widget_label of widget_labels) { await widgetingAdded(page, widget_label) }
+  await closeManage(page)
+}
+
+/** Through the gear's dialog, which must be open: a new widgeting of `widget_label`, under `label` or the widget's own */
+async function widgetingAdded(page: Page, widget_label: string, label = ''): Promise<void> {
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
   const editor = newWidgetingDialog(page)
   await pickWidget(page, editor, widget_label)
   if (label !== '') { await editor.getByRole('textbox', { name: 'Widgeting label' }).fill(label) }
   await editor.getByRole('button', { name: 'Apply' }).click()
   await expect(editor).toHaveCount(0)
+  await expect(manageDialog(page).getByRole('group', { name: `Column ${Labelmaker.titleize(label || widget_label)}`, exact: true })).toBeVisible()
+}
+
+/**
+ * Show each of the question's own `fields` (and views) in a column of its own at the grid's end,
+ * through the columns editor, and close the gear's dialog: the way a lean quiz opts into its hint
+ * (*Hint*), its chain (*Chains to*), the chained-to hint (*BUT NOT*) and its alt text (*Alt Text*).
+ */
+export async function addColumns(page: Page, fields: readonly (QuestionField | QuestionView)[]): Promise<void> {
+  await openManage(page)
+  for (const field of fields) {
+    await page.getByRole('button', { name: '+ New column…' }).click()
+    const editor = page.getByRole('dialog', { name: /^New column/ })
+    await editor.getByRole('combobox', { name: 'Shows' }).click()
+    await page.getByRole('option', { name: new RegExp(String.raw`^question\.${field} `) }).click()
+    await editor.getByRole('button', { name: 'Apply' }).click()
+    await expect(editor).toHaveCount(0)
+    await expect(manageDialog(page).getByRole('group', { name: `Column ${QuestionSourceTitles[field]}`, exact: true })).toBeVisible()
+  }
   await closeManage(page)
 }
 

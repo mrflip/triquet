@@ -22,8 +22,7 @@ test('a header row of column labels in alphabetical order, then a line per quest
   const lines = text.split('\n')
   const header = lines[0]?.split('\t') ?? []
   expect(header).toEqual(header.toSorted((aa, bb) => aa.localeCompare(bb)))
-  expect(header).toContain('clueing_full')
-  expect(header).toContain('guess')
+  expect(header).toEqual(['clueing', 'full_answer', 'notes', 'qnum', 'title'])
   const clueingCol = header.indexOf('clueing')
   expect(lines.slice(1, 4).map((line) => line.split('\t')[clueingCol])).toEqual(['first', 'second', 'third'])
   expect(new Set(lines.map((line) => line.split('\t').length))).toEqual(new Set([header.length]))

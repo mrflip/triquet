@@ -1,4 +1,4 @@
-import { expect, reloadOnceSaved, startHunt, test } from './support'
+import { addWidgetings, expect, reloadOnceSaved, startHunt, test } from './support'
 
 // The client-first rule (notes/decisions/2026-09-client-first.md) as a test: with nothing reachable
 // but the page itself and its database -- no bots route, no other host -- the app still opens,
@@ -26,10 +26,11 @@ test('with every host but the app\'s and its database\'s blocked, and the bots r
 test('asking is the one server function, and with it blocked the cell says so and nothing else stops', async ({ page }) => {
   await page.route('**/api/ask', (route) => route.abort())
   await startHunt(page)
+  await addWidgetings(page, ['dumdum'])
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which prince was Danish?')
   await page.getByLabel('Quiz name').click()
 
-  const guess = page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
+  const guess = page.getByRole('button', { name: 'Ask Dumdum' }).first()
   await guess.dblclick()
   await expect(guess).toContainText('A connection hiccup — try again.')
   await page.getByLabel('Quiz name').fill('Still editing')

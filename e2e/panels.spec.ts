@@ -1,4 +1,4 @@
-import { addWidgeting, expect, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
+import { addWidgeting, addWidgetings, expect, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -73,6 +73,9 @@ test('a refused clipboard falls back to selecting the text, never to silence', a
 
 test('the Widgets panel lists the quiz\'s widgetings in run order, each with its counts, and opens to its prompt verbatim', async ({ page }) => {
   const panel = page.getByRole('region', { name: 'Widgets' })
+  // A fresh quiz starts lean, and the panel says how to put a widget to work.
+  await expect(panel).toContainText('This quiz puts no widgets to work yet')
+  await addWidgetings(page, ['dumdum', 'numnum_clueing', 'numnum_hint', 'butnot_ishes'])
   const folds = panel.getByRole('button', { expanded: false })
   await expect(folds.first()).toContainText('dumdum')
   await expect(folds.nth(3)).toContainText('butnot_ishes')

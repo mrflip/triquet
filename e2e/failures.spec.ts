@@ -1,15 +1,16 @@
 import type { Page } from '@playwright/test'
-import { expect, reloadOnceSaved, stubAsk, test } from './support'
+import { addWidgetings, expect, reloadOnceSaved, stubAsk, test } from './support'
 
 const RateLimited = 'Too many requests right now — try again shortly.'
 
 const guessReply = (guess: string) => ({ ok: true, value: { guess, explanation: '' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
 const failure = { ok: false, failurekind: 'rateLimited', detail: { name: 'RateLimitError', status: 429, message: 'slow down' } }
 
-/** The Quick-model guess cell of the first row */
-const guessCell = (page: Page) => page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
+/** The guess cell of the first row: dumdum's column */
+const guessCell = (page: Page) => page.getByRole('button', { name: 'Ask Dumdum' }).first()
 
 test.beforeEach(async ({ page }) => {
+  await addWidgetings(page, ['dumdum'])
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })

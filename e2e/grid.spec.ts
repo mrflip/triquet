@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { cellOf, expect, faceOf, foldedRows, grid, reloadOnceSaved, rowAt, test, waitUntilSaved } from './support'
+import { addColumns, cellOf, expect, faceOf, foldedRows, grid, reloadOnceSaved, rowAt, test, waitUntilSaved } from './support'
 
 /** The triangle in the grid's corner, which folds every row or unfolds them all */
 function foldAll(page: Page): Locator {
@@ -11,9 +11,12 @@ test('a fresh hunt\'s quiz opens with blank questions rather than a void', async
   await expect(grid(page).locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true })).toHaveCount(5)
 })
 
-test('every column is present from the start, so the layout never shifts later', async ({ page }) => {
-  await expect(grid(page).getByRole('columnheader')).toHaveCount(22)
-  await expect(page.getByRole('columnheader', { name: 'Clueing Full Sum' })).toBeVisible()
+test('a fresh quiz starts lean: its title, Q#, clueing, full answer and notes, and nothing worked out', async ({ page }) => {
+  // The gutter's header, then the five starter columns.
+  await expect(grid(page).getByRole('columnheader')).toHaveCount(6)
+  for (const colname of ['Title', 'Q#', 'Clueing', 'Full Answer', 'Notes']) {
+    await expect(grid(page).getByRole('columnheader', { name: colname, exact: true })).toBeVisible()
+  }
 })
 
 test('what you type survives a reload', async ({ page }) => {
@@ -54,6 +57,7 @@ test('adding a question appends a blank one', async ({ page }) => {
 })
 
 test('a long clueing sets the height of its hint box too', async ({ page }) => {
+  await addColumns(page, ['hint'])
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   const hint = page.getByRole('textbox', { name: 'Hint' }).first()
   await expect(hint).toBeVisible()
@@ -93,6 +97,7 @@ test('a clueing taller than the row can grow scrolls its rendered face, and a cl
 })
 
 test('the grid opens folded, and entering a text box opens its row alone, which stays open', async ({ page }) => {
+  await addColumns(page, ['hint'])
   const hint = cellOf(page, 0, 'Hint').getByRole('textbox')
   await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'false')
   await expect(foldedRows(page)).toHaveCount(5)
