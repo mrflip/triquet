@@ -51,18 +51,18 @@ export function check(formula: string): string | null {
  * cell rather than freezing the page.
  *
  * @param formula - JSONata source.
- * @param bag - The JSON document the formula reads; its top-level keys are what the formula sees.
+ * @param input - The JSON document the formula reads: an object's top-level keys are what the formula names directly.
  * @returns The value it came to (undefined when it found nothing), or why it failed.
  *
  * @example evaluate('a + 1', { a: 2 })  // => { ok: true, val: 3 }
  * @example evaluate('nope.nada', {})    // => { ok: true, val: undefined }
  */
-export function evaluate(formula: string, bag: Readonly<Record<string, unknown>>): FormulaOutcome {
+export function evaluate(formula: string, input: unknown): FormulaOutcome {
   const compiled = compile(formula)
   if ('message' in compiled) { return { ok: false, failkind: 'syntax', message: compiled.message } }
   boxed(compiled.expression)
   try {
-    return { ok: true, val: compiled.expression.evaluate(bag) }
+    return { ok: true, val: compiled.expression.evaluate(input) }
   } catch (err) {
     return failureFrom(err)
   }

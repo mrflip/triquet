@@ -80,7 +80,7 @@ function formulaSection(formula: string): string {
 function inputSection(sample: PromptSubject['sample']): string {
   return [
     '## What the formula reads',
-    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn`; `quiz`, `realm` and `hunt` are the quiz itself and where it sits. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
+    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn`; `quiz`, `realm` and `hunt` are the quiz itself and where it sits. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`: read its `value` only when its `status` is `ok`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
     '',
     '```json',
     UU.jsonify(inputSchema(), { pretty: true }),
