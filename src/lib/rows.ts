@@ -53,6 +53,17 @@ export type HuntRows = {
   realms: readonly RealmRows[]
 }
 
+/**
+ * How far a widget of the library is put to work, as its editor says it: counts only, never which
+ * hunt or quiz. `at_least` says the widgetings were more than a count reads, so each count is a floor.
+ */
+export type WidgetUsageT = {
+  widgetings: number
+  quizzes:    number
+  hunts:      number
+  at_least:   boolean
+}
+
 /** A quiz's row as a realm lists it: everything but its questions' order, which only the quiz's own screen reads */
 export type ListedQuizT = Omit<Doc<'quizzes'>, 'row_ordering'>
 
