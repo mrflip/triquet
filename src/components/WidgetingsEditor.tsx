@@ -177,6 +177,10 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: 
           dispatch={dispatch}
           onClose={() => { setWidgetEditing(null) }}
           onMade={(fresh) => { setMade(fresh); setWidgetLabel(fresh.label); setIssue(null) }}
+          onRemoved={(gone) => {
+            if (made?.label === gone) { setMade(null) }
+            if (widgeting === null && widgetLabel === gone) { setWidgetLabel('') }
+          }}
         />
       )}
     </>
