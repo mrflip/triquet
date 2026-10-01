@@ -80,13 +80,46 @@ A local role whose rows no longer fit is simply emptied (`scripts/convex_reset <
 its rows are worth keeping: then catch it up (below). A preview deployment is made fresh for a
 branch and kept across its pushes; delete it in the dashboard and the next push makes another.
 
-**The migration ledger.** Every backfill ever written, oldest first, with the commit on `main`
-that added it. Any commit from that one up to the tightening one still holds it.
+**The migration ledger.** Every backfill ever written, and every table cleared by hand rather
+than migrated, oldest first, with the commit on `main` that needed it. Any commit from a backfill's
+up to the tightening one still holds the backfill; a clearing has no code to hold, only the steps
+below the table.
 
 | Commit | What its backfill writes | Run |
 | --- | --- | --- |
 | `b648bc6` | `hunt_id` on questions and reviews; a smith (`CaretakerLabel`) on each hunt nobody is on | `migrations:runAll` |
 | `ed009a7` | `smiths_note` on quizzes, empty | `migrations:run '{"fn": "migrations:backfillSmithsNotes"}'` |
+| the rewidgeting merge (thread 3, `20261001-widget_tables`) | No backfill. Cleared by hand: `expressions`, `widgets` and `bottings`, and `bulk_ishes_last` off each quiz, which no schema since holds. Re-created by seeding: the library and each laid-out quiz's default widgetings. Not re-created: the bots' replies, and any expression or widget a person wrote (*Clearing the widget tables*, below; `whiteboard/20261001-rewidgeting/losses.md`) | `seeding:seedWidgets` |
+
+**Clearing the widget tables (rewidgeting).** The merge that brought in `widgets`, `widgetings`
+and `widgeteds` translates no rows: the three tables they replace are cleared, and one idempotent
+mutation seeds what the tool can make again. What is lost, and what comes back, is
+`whiteboard/20261001-rewidgeting/losses.md`. A Coach's steps, in order, done in one sitting:
+
+1. **Export the hunt.** On each quiz's screen, Raw Export → *Prepare export*, and keep the JSON
+   somewhere safe; it holds every question as typed. For a whole snapshot as well,
+   `./scripts/doppledo prd_janitor npx convex export --path <zip>` (read-only; it also leaves a
+   snapshot in the dashboard to restore from).
+2. **Clear the old tables in the Convex dashboard** (production's data view): delete every
+   document of `expressions`, `widgets` and `bottings`, and on each `quizzes` document delete the
+   field `bulk_ishes_last`. A push is refused while a table absent from the new schema holds
+   documents, or a document holds a field it no longer names, so the deploy cannot land until
+   this is done; a missed one names itself in the build log, and the deployment keeps serving
+   the old version meanwhile. Between this step and the next the old app is still serving: its
+   bots' cells read empty, and a quiz edit that rewrites the quiz row is refused (the old code
+   wants the field just removed), so go straight on.
+3. **Deploy**: merge, and Vercel's build pushes the new schema and functions.
+4. **Seed**: `./scripts/doppledo prd_janitor npx convex run seeding:seedWidgets`. It answers with
+   the widgets it added (seventeen, the first time) and each quiz it gave the default widgetings,
+   as `hunt/realm/quiz`; a second run adds nothing. A quiz whose columns name none of the default
+   set is left with none, and its widgetings are added by hand from its gear.
+5. **Re-ask the bots.** Every bot's cell reads *Double-click to ask*; there is no Recalculate all
+   any more, so each cell is asked on its own, and the sums follow.
+
+A local backend needs none of this: `scripts/convex_dev <role> --reset --seed <command>` empties
+it, pushes, and seeds it (the dev scripts pass `--seed` on every start). One whose rows are worth
+keeping is exported first as in step 1 and its questions pasted back through Import once it has
+been reset.
 
 **Catching up a backend that missed a backfill.** Main cannot do it: its schema push checks every
 row before any of its functions arrive, so it is refused before a backfill could run, and main no

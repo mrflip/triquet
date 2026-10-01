@@ -9,12 +9,53 @@ Workers add their sections below the table, newest first.
 |---|---|---|
 | 1 | Design note and vocabulary | complete: PR #67 (docs only, unreviewed) |
 | 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
-| 3 | The data model, as a clean break | pending |
+| 3 | The data model, as a clean break | in progress: source, unit tests, e2e and docs done on `20261001-widget_tables` (local, unpushed); `tests/convex/` being repaired; no PR yet |
 | 4 | Pasted prompts | pending |
 | 5 | Status | pending |
 | 6 | Views | pending |
 | 7 | The basic set and the catalogue | pending |
 | 8 | Entry widgets | pending |
+
+## Thread 3: The data model, as a clean break (2026-10-01)
+
+Branch `20261001-widget_tables`, not yet pushed, no PR (stacked on #68 when filed). Suites: typecheck and lint clean outside `tests/convex/`; `pnpm test --project unit` 2164 passed; `pnpm test:e2e:agent` 189 passed. Unfinished: `tests/convex/` (being repaired by a helper when this was written), the finishing rebase, the full suite, push and PR. Commits are local `wip:` checkpoints to be reshaped into `feat:`/`docs:` commits (the `convex/_generated/api.d.ts` regeneration in its own) before pushing.
+
+* **Built**:
+  - Tables (`convex/schema.ts`): `widgets` is now the global library (a union on `formulary`,
+    indexes `by_scope_and_position`, `by_scope_and_label`); `widgetings` (`by_quiz_id_and_position`,
+    `by_widget_label`); `widgeteds` (`by_question_id_and_widgeting_id`, which serves the
+    newest-first cell walk and will serve thread 8's upsert as one read, and `by_widgeting_id`).
+    `expressions` and `bottings` gone; `quizzes.bulk_ishes_last` gone.
+  - Models: `src/models/widget.ts` redefined (`WidgetT`, `JsonataWidgetT`, `AibotWidgetT`,
+    `WidgetRowT`, `WidgetPatch`, `Widget.fill/keyOf/titleOf/exported`, `JsonataDefaultInput`,
+    `AibotDefaultInput`, the `library` export shape); `src/models/widgeting.ts` (validators, the
+    reserved pattern `ReservedWidgetingLabels`, `Widgeting.forWidget` with `_2`, `_3`);
+    `src/models/widgeted.ts` gains the row, the browser's `record`, and the stored-history
+    validators; `src/models/seeds.ts` (`SeedWidgets` 17, `DefaultWidgetings` 12);
+    `src/models/service-status.ts`; `QuestionT.stored`, `RankField`; `QuestionWidgetLabel` moved to
+    `column.ts`, `QuestionViewVals` is `['butnot']`. Gone: `bot`, `bot-label`, `bot-status`,
+    `botting`, `expression`, `guess` models; `ish.ts` keeps the item shapes only.
+  - Convex: `reading.ts` (`libraryOf`, `widgetForLabel`, `isWorked`, `widgetingsOf`, `cellRowsOf`,
+    `storedOf`, `allStoredOf`); `convex/widgets.ts` (`widgets.library`, any ident);
+    `convex/seeding.ts` (`seedWidgets`); `convex/writing/library_actions.ts` (add, edit, move,
+    delete refused while worked, import by label); widgeting actions in `layout_actions.ts`;
+    `record_widgeted` in `quiz_actions.ts`; `authorize.ts`'s header and `mayReadLibrary`.
+  - Browser: `useHunt` watches the library (and the history feed does); `Runner.sourceOf` from the
+    new rows replaces `Standins` (gone); asks record `record_widgeted`; one asked cell
+    (`WidgetedAskCell`) and one read-only cell for every widgeting; the widgetings editor
+    (`WidgetingsEditor.tsx`), the library modal (`LibraryModal.tsx`), `JsonataFields.tsx`; a
+    *Library* tab in Export / Import for the library's own export and import.
+  - Serialization: the hunt export's flat `{ status, value }` per widgeting; the sheet and git
+    table by `exposed` (`<label>.status`, `<label>.value`); the mirror's
+    `tq/widget/pub/<label>.tqwidget.json`; import merges widgetings by label.
+  - Bulk removed: `src/lib/ask/bulk.ts`, the button, `apply_bulk_ishes`, the `bulk_ishes` job,
+    `e2e/recalculate.spec.ts`.
+  - Docs: `notes/deploy.md` (*Clearing the widget tables*, and a ledger row), `losses.md` here,
+    `notes/convex.md` and `notes/queries_hooks_and_subscriptions.md` brought up to date.
+
+* **Decisions taken**: `insertQuiz` gives the library whichever of its default widgetings' widgets it lacks (so a new quiz never works a missing widget; thread 7 drops this with the defaults). `scripts/convex_dev --seed` runs `seeding:seedWidgets`; the e2e server and the dev scripts pass it. Library actions are not refused by a quiz lock. Removing a widget is refused while any widgeting works it (pulled from thread 6, server side only). The seeded numnum prompts already ask for `{"items": [...]}` (the route's structured output already returns that); dumdum's prompt is today's, for thread 4 to change with the route. Renames pulled from thread 6: `WidgetsEditor`→`WidgetingsEditor`, `ExpressionsModal`→`LibraryModal`, `ExpressionFields`→`JsonataFields`. Thread 5's single cell pulled forward, minus `JsonFold` (values show as JSON text); the `{ value, stale }` form and stale marks gone (thread 5's, pulled forward). `bot-status` became `service-status` (thread 4's "port reports services", pulled forward).
+* **Deviations**: pasted widgeted values are not imported (PR #66 has not landed; the note's rule 13 waits on it). A paste with widgetings but no questions changes nothing.
+* **For the Coach**: the deploy procedure (`notes/deploy.md`, *Clearing the widget tables*) and `losses.md`; one `eslint-disable-next-line @typescript-eslint/no-extraneous-class, unicorn/no-static-only-class` on `Widget`; your `dev` backend needs `--reset --seed` (HUMAN-whatsup).
 
 ## Thread 2: The formulary seam, no data change (2026-10-01)
 
