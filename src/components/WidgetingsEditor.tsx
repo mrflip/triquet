@@ -170,7 +170,7 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: 
       {widgetEditing !== null && (
         <WidgetEditor
           hunt={hunt}
-          library={library}
+          library={known}
           quiz={quiz}
           widget={widgetEditing === 'held' ? widget : null}
           widgeting={{ label: label || widgetLabel, description }}
