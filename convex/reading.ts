@@ -1,5 +1,6 @@
 import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
+import { formularyFor } from '../src/lib/formulary/formularies'
 import * as PA from '../src/lib/vv/patterns'
 import { huntFrom, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows } from '../src/lib/rows'
 import type { HuntT } from '../src/models/hunt'
@@ -193,12 +194,17 @@ export async function layoutRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<
 }
 
 /**
- * What each of `questions` stored for each of `widgetings`, by the question's id.
+ * What each of `questions` stored for each of `widgetings`, by the question's id. Only the
+ * widgetings whose formulary stores are read (never a `jsonata` one): one index range per
+ * question each, which a whole quiz must keep within a transaction's bound.
  *
  * @example (await allStoredOf(db, questions, widgetings)).get(question._id)?.get('dumdum')?.ok?.value
  */
 export async function allStoredOf(db: Reader, questions: readonly Doc<'questions'>[], widgetings: readonly Doc<'widgetings'>[]): Promise<Map<string, StoredRows>> {
-  const stored = await Promise.all(questions.map(async (question) => await storedOf(db, question._id, widgetings)))
+  const library = await libraryOf(db)
+  const storing = new Set(library.filter((widget) => formularyFor(widget).store !== null).map((widget) => widget.label))
+  const stores = widgetings.filter((widgeting) => storing.has(widgeting.widget_label))
+  const stored = await Promise.all(questions.map(async (question) => await storedOf(db, question._id, stores)))
   return new Map(questions.map((question, idx) => [question._id, stored[idx] ?? new Map()]))
 }
 
