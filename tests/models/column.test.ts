@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Column, ColumnValidators, columnLabelOf, sortkeyOf, sourceOf } from '../../src/models/column'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionSourceTitles, QuestionViewVals, columnLabelOf, namesFor, sortkeyOf, sourceOf } from '../../src/models/column'
 
 const base = { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 }
 
@@ -54,6 +54,28 @@ describe('sourceOf', () => {
     expect(sourceOf('question.butnot')).to.deep.eq({ kind: 'view', view: 'butnot' })
     expect(sourceOf('dumdum')).to.deep.eq({ kind: 'widgeting', label: 'dumdum' })
     expect(sourceOf('butnot_ishes')).to.deep.eq({ kind: 'widgeting', label: 'butnot_ishes' })
+  })
+})
+
+describe('namesFor', () => {
+  const NamesCases: [string, { label: string, title: string }, string][] = [
+    // the doc examples:
+    ["question.chains_to", { label: "chains_to",    title: "Chains to" },    'a question field, under its own name and usual header'],
+    ["clueing_full",       { label: "clueing_full", title: "Clueing Full" }, 'a widgeting, under its label titleized'],
+    // the rest:
+    ["question.hint",      { label: "hint",         title: "Hint" },         'the hint, opted into on a lean quiz'],
+    ["question.alt_text",  { label: "alt_text",     title: "Alt Text" },     'the alt text, its header as the grid always had it'],
+    ["question.butnot",    { label: "butnot",       title: "BUT NOT" },      'the view of the chained-to hint, in capitals as always'],
+  ]
+  for (const [source, expected, describes] of NamesCases) {
+    it(`names ${describes}`, () => {
+      expect(namesFor(source)).to.deep.eq(expected)
+    })
+  }
+
+  it("titles every question field and view", () => {
+    expect(Object.keys(QuestionSourceTitles)).to.have.members([...QuestionFieldVals, ...QuestionViewVals])
+    expect(Object.keys(QuestionSourceTitles)).to.have.lengthOf(QuestionFieldVals.length + QuestionViewVals.length)
   })
 })
 

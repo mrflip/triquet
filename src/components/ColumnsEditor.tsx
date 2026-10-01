@@ -7,7 +7,7 @@ import { ConfirmRemove } from './ConfirmRemove'
 import { SortableList } from './SortableList'
 import { useDraft } from './use-draft'
 import * as Labelmaker from '../lib/labelmaker'
-import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, type ColumnT } from '../models/column'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, namesFor, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
@@ -104,17 +104,22 @@ function ColumnDialog({ quiz, column, dispatch, onClose }: Readonly<ColumnDialog
   ]
   const [title, setTitle] = useState(column?.title ?? '')
   const [label, setLabel] = useState(column?.label ?? '')
-  const [source, setSource] = useState(column?.source ?? sources[0]?.value ?? 'question.notes')
+  /** What a new column offers to show first: the first thing no column shows yet */
+  const unshown = sources.find((each) => quiz.columns.every((other) => other.source !== each.value)) ?? sources[0]
+  const [source, setSource] = useState(column?.source ?? unshown?.value ?? 'question.notes')
   const [widthPx, setWidthPx] = useState(String(column?.width_px ?? NewColumnWidthPx))
   const [issue, setIssue] = useState<string | null>(null)
+  const named = namesFor(source)
+  const typed = Labelmaker.normalize(label)
+  /** The header it takes when the title is left blank: what it shows, or the label typed */
+  const untitled = typed === '' ? named.title : Labelmaker.titleize(typed)
 
   const onApply = () => {
     const siblings = new Set(quiz.columns.filter((other) => other.label !== column?.label).map((other) => other.label))
-    const typed = Labelmaker.normalize(label)
-    const chosen = typed === '' ? Labelmaker.normalize(source.replace('.', '_')) : typed
+    const chosen = typed === '' ? named.label : typed
     const finalLabel = typed === '' && siblings.has(chosen) ? Labelmaker.appendFallback(chosen) : chosen
     if (siblings.has(finalLabel)) { setIssue('Another column in this quiz already has that label.'); return }
-    const fields = { label: finalLabel, title: title.trim() === '' ? Labelmaker.titleize(finalLabel) : title.trim(), source, width_px: Number(widthPx) }
+    const fields = { label: finalLabel, title: title.trim() === '' ? untitled : title.trim(), source, width_px: Number(widthPx) }
     const checked = ColumnValidators.column.safeParse(fields)
     if (! checked.success) { setIssue(checked.error.issues[0]?.message ?? 'That column will not do.'); return }
     if (column === null) {
@@ -131,8 +136,8 @@ function ColumnDialog({ quiz, column, dispatch, onClose }: Readonly<ColumnDialog
       <ClosableTitle id="column-dialog-title" onClose={onClose}>{column ? `Column: ${column.title || column.label}` : 'New column'}</ClosableTitle>
       <DialogContent>
         <Stack spacing={1.5} sx={{ mt: 1 }}>
-          <TextField size="small" label="Column title" value={title} helperText="The header the grid shows." onChange={(event) => { setTitle(event.target.value); setIssue(null) }} />
-          <TextField size="small" label="Column label" value={label} placeholder={source} helperText="Names it in exports and in the quiz's sort memory; blank takes one from what it shows."
+          <TextField size="small" label="Column title" value={title} placeholder={untitled} helperText="The header the grid shows." onChange={(event) => { setTitle(event.target.value); setIssue(null) }} />
+          <TextField size="small" label="Column label" value={label} placeholder={named.label} helperText="Names it in exports and in the quiz's sort memory; blank takes one from what it shows."
             onChange={(event) => { setLabel(event.target.value); setIssue(null) }} />
           <TextField select size="small" label="Shows" value={source} onChange={(event) => { setSource(event.target.value); setIssue(null) }}>
             {sources.map((each) => <MenuItem key={each.value} value={each.value}>{`${each.value} — ${each.group}`}</MenuItem>)}
