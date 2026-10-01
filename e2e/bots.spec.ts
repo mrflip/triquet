@@ -1,17 +1,12 @@
 import { type Page } from '@playwright/test'
 import { cellOf, expect, startHunt, test } from './support'
 
-/** Stand in for the server saying no bot has credentials, without touching its real environment */
+/** Stand in for the server saying no service has credentials, without touching its real environment */
 async function stubNoCredentials(page: Page) {
   await page.route('**/api/bots', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
-      body:        JSON.stringify({
-        bots: [
-          { label: 'dumdum', title: 'Dumdum', servicelabel: 'claude', credentialed: false },
-          { label: 'numnum', title: 'Numnum', servicelabel: 'claude', credentialed: false },
-        ],
-      }),
+      body:        JSON.stringify({ services: [{ servicelabel: 'claude', credentialed: false }] }),
     })
   })
 }
@@ -51,10 +46,10 @@ test.describe('with no credentials for the bots\' service', () => {
     await expect(cell).toBeDisabled()
   })
 
-  test('so does the other bot, in each of its cells', async ({ page }) => {
-    for (const name of ['Ask Clueing ishes', 'Ask Hint Ishes']) {
+  test('so does every other prompt put to that service, each in its own words', async ({ page }) => {
+    for (const [name, title] of [['Ask Clueing ishes', 'Numnum: clueing'], ['Ask Hint Ishes', 'Numnum: hint']] as const) {
       const cell = page.getByRole('button', { name }).first()
-      await expect(cell).toHaveText("Numnum can't play yet — no Claude credentials are set up for this app.")
+      await expect(cell).toHaveText(`${title} can't play yet — no Claude credentials are set up for this app.`)
       await expect(cell).toBeDisabled()
     }
   })

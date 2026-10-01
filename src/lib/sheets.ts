@@ -1,41 +1,36 @@
-import * as Expressed from './expressed'
 import * as Labelmaker from './labelmaker'
 import * as Rank from './rank'
+import * as Runner from './formulary/runner'
 import { specsFor, type Resolved } from './columns'
-import type { GuessT } from '../models/guess'
-import type { IshesT } from '../models/ish'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import { Widgeted } from '../models/widgeted'
 
 /** What one cell says as text, given the question's own chain target */
 type CellContext = {
   question:  QuestionT
   target:    QuestionT | null
-  expressed: Expressed.ExpressedForQuiz
+  run:       Runner.QuizRun
 }
 
 /**
  * What a column shows, as the text a spreadsheet cell holds.
  *
  * @param source - What the column shows.
- * @param context - The question, the one it chains to, and the quiz's computed values.
+ * @param context - The question, the one it chains to, and the quiz's run.
  * @returns The cell's text; empty when there is nothing to say.
  */
-export function cellTextOf(source: Resolved, { question, target, expressed }: Readonly<CellContext>): string {
+export function cellTextOf(source: Resolved, { question, target, run }: Readonly<CellContext>): string {
   switch (source.kind) {
   case 'field': {
     if (source.field === 'chains_to') { return target ? Labelmaker.effectiveLabelOf(target) : '' }
     return question[source.field]
   }
   case 'view': {
-    return source.view === 'butnot' ? target?.hint ?? '' : spansOf(target?.hint_ishes ?? null)
+    return target?.hint ?? ''
   }
-  case 'botting': {
-    return source.slot.field === 'guess' ? guessTextOf(question.guess) : spansOf(question[source.slot.field])
-  }
-  case 'expressing': {
-    const reading = Expressed.readingOf(expressed, source.widget.label, question._id)
-    return reading.status === 'value' ? String(reading.val) : ''
+  case 'widgeting': {
+    return Widgeted.textOf(Runner.widgetedOf(run, source.widgeting.label, question._id))
   }
   }
 }
@@ -50,12 +45,12 @@ export function cellTextOf(source: Resolved, { question, target, expressed }: Re
  * order**, whatever the grid is currently sorted or dragged into.
  *
  * @param quiz - The quiz.
- * @param expressed - What its computed columns came to, from `Expressed.forQuiz`.
+ * @param run - The quiz, run (`Runner.runQuiz`): what its widgetings came to.
  * @returns The header and one line per question, tab-separated; empty for a quiz with no questions.
  *
- * @example sheetsExport(quiz, Expressed.forQuiz(quiz, hunt.expressions, place)).split('\n')[0]  // => 'alt_text\tbutnot\t...'
+ * @example sheetsExport(quiz, Runner.runQuiz(Runner.sourceOf(quiz, library, place))).split('\n')[0]  // => 'alt_text\tbutnot\t...'
  */
-export function sheetsExport(quiz: QuizT, expressed: Expressed.ExpressedForQuiz): string {
+export function sheetsExport(quiz: QuizT, run: Runner.QuizRun): string {
   if (quiz.questions.length === 0) { return '' }
   const specs = specsFor(quiz).toSorted((aa, bb) => aa.header.localeCompare(bb.header))
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
@@ -63,7 +58,7 @@ export function sheetsExport(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
   const header = specs.map((spec) => spec.header)
   const rows = Rank.inRankOrder(quiz.questions).map((question) => {
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-    return specs.map((spec) => cellTextOf(spec.source, { question, target, expressed }))
+    return specs.map((spec) => cellTextOf(spec.source, { question, target, run }))
   })
   return [header, ...rows].map((fields) => fields.map((field) => pasteSafe(field)).join('\t')).join('\n')
 }
@@ -82,15 +77,4 @@ export function sheetsExport(quiz: QuizT, expressed: Expressed.ExpressedForQuiz)
  */
 export function pasteSafe(text: string): string {
   return text.replaceAll(/\r\n|\r|\n/g, '<br/>').replaceAll('\t', ' ')
-}
-
-/** An extraction's spans, verbatim, joined with a slash; nothing when it never succeeded */
-function spansOf(ishes: IshesT): string {
-  if (ishes?.status !== 'done') { return '' }
-  return ishes.items.map((item) => item.text).join('/')
-}
-
-/** A guess's text, or nothing when it never succeeded */
-function guessTextOf(guess: GuessT): string {
-  return guess?.status === 'done' ? guess.text : ''
 }

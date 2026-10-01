@@ -33,39 +33,27 @@ describe('IshValidators.ishItem', () => {
   }
 })
 
-describe('IshValidators.ishes', () => {
-  it('reads null as never asked', () => {
-    expect(IshValidators.ishes(null)).to.be.null
+describe('IshValidators.ishItemReply', () => {
+  it("takes a span the kept item would refuse, so the answer arrives to be judged", () => {
+    const long = { text: 'x'.repeat(3601), value: 1, kind: 'numeral' }
+    expect(IshValidators.ishItemReply.safeParse(long).success).to.be.true
+    expect(IshValidators.ishItem.safeParse(long).success).to.be.false
   })
 
-  it('defaults the bookkeeping flags on a done result', () => {
-    expect(IshValidators.ishes({ status: 'done', updated_at: 1 })).to.deep.eq({
-      status: 'done', items: [], truncated: false, stale: false, updated_at: 1, model_tier_applied: 'quick', last_err: null,
+  it("takes a span carrying a control character, which a kept item refuses", () => {
+    const odd = { text: '3\u{7}', value: 3, kind: 'numeral' }
+    expect(IshValidators.ishItemReply.safeParse(odd).success).to.be.true
+    expect(IshValidators.ishItem.safeParse(odd).success).to.be.false
+  })
+
+  const Refused: [unknown, string][] = [
+    [{ text: '',    value: 1,     kind: 'numeral' },  'an empty span'],
+    [{ text: '300', value: '300', kind: 'numeral' },  'a value that is still a string'],
+    [{ text: '300', value: 300,   kind: 'digits'  },  'a kind outside the two we recognize'],
+  ]
+  for (const [dna, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => IshValidators.ishItemReply(dna as never)).to.throw(Z.ZodError)
     })
-  })
-
-  it('treats an empty item list as a real answer, distinct from null', () => {
-    const ishes = IshValidators.ishes({ status: 'done', items: [], updated_at: 1 })
-    expect(ishes).to.not.be.null
-    expect(ishes?.status === 'done' && ishes.items).to.deep.eq([])
-  })
-
-  it('carries an error in place of a result', () => {
-    const err = { message: 'Too many requests right now — try again shortly.', response: { ok: false, failurekind: 'rateLimited' }, at: 1 }
-    expect(IshValidators.ishes({ status: 'error', message: err.message, updated_at: 1, last_err: err }))
-      .to.deep.eq({ status: 'error', message: err.message, updated_at: 1, last_err: err })
-  })
-
-  it('rejects a status that is neither done nor error', () => {
-    expect(() => IshValidators.ishes({ status: 'thinking', updated_at: 1 } as never)).to.throw(Z.ZodError)
-  })
-
-  it('rejects a timestamp of zero, which is never a real ask time', () => {
-    expect(() => IshValidators.ishes({ status: 'done', updated_at: 0 })).to.throw(Z.ZodError)
-  })
-
-  it('refuses a list longer than the per-text cap', () => {
-    const items = Array.from({ length: 201 }, () => ({ text: '1', value: 1, kind: 'numeral' as const }))
-    expect(() => IshValidators.ishes({ status: 'done', items, updated_at: 1 })).to.throw(Z.ZodError)
-  })
+  }
 })

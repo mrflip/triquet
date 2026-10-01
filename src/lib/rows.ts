@@ -1,42 +1,45 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from './labelmaker'
-import { resultsFor, type SlotLatest } from '../models/botting'
-import type { ExpressionT } from '../models/expression'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
 import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
+import type { WidgetedHistoryT } from '../models/widgeted'
+import type { WidgetingT } from '../models/widgeting'
 
-/** A botting's history in one cell of a question, as far as the cell needs it */
-export type SlotRows = {
-  /** The newest botting in the cell, whatever became of it */
-  newest: Doc<'bottings'>
-  /** The newest botting that answered: `newest` itself when it did, null when none ever has */
-  done:   Doc<'bottings'> | null
+/** One cell's stored history, as far as the cell needs it: rows of `widgeteds` */
+export type CellRows = {
+  /** The newest row in the cell, whatever became of it */
+  newest: Doc<'widgeteds'>
+  /** The newest `ok` row: `newest` itself when it is one, null when none ever was */
+  ok:     Doc<'widgeteds'> | null
 }
 
-/** One quiz's rows: its own, its children's in their committed order, and each played cell's history by `slotkeyOf` */
+/** Each stored widgeting's history for one question, by the widgeting's label; one with nothing recorded is absent */
+export type StoredRows = ReadonlyMap<string, CellRows>
+
+/** One quiz's rows: its own, its children's in their committed order, and what each question stored, by its id */
 export type QuizRows = {
-  quiz:      Doc<'quizzes'>
-  questions: readonly Doc<'questions'>[]
-  widgets:   readonly Doc<'widgets'>[]
-  columns:   readonly Doc<'columns'>[]
-  slots:     ReadonlyMap<string, SlotRows>
+  quiz:       Doc<'quizzes'>
+  questions:  readonly Doc<'questions'>[]
+  widgetings: readonly Doc<'widgetings'>[]
+  columns:    readonly Doc<'columns'>[]
+  stored:     ReadonlyMap<string, StoredRows>
 }
 
 /**
- * A question as its own query reads it: its row, and the newest reply in each of its cells. Its
+ * A question as its own query reads it: its row, and what its stored widgetings recorded. Its
  * chain is still the label the row holds: only the quiz knows which sibling answers to it.
  */
-export type SeenQuestionT = Doc<'questions'> & Pick<QuestionT, 'guess' | 'clueing_ishes' | 'hint_ishes'>
+export type SeenQuestionT = Doc<'questions'> & Pick<QuestionT, 'stored'>
 
-/** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgets and columns */
+/** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgetings and columns */
 export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
 
-/** One quiz's own row, and its widgets' and columns' in their committed order: what its layout needs */
-export type LayoutRows = Pick<QuizRows, 'quiz' | 'widgets' | 'columns'>
+/** One quiz's own row, and its widgetings' and columns' in their committed order: what its layout needs */
+export type LayoutRows = Pick<QuizRows, 'quiz' | 'widgetings' | 'columns'>
 
 /** One realm's row, and its quizzes' rows in the order they were made */
 export type RealmRows = {
@@ -44,11 +47,21 @@ export type RealmRows = {
   quizzes: readonly Doc<'quizzes'>[]
 }
 
-/** One hunt's own rows: the hunt's, its realms' in order with their quizzes', and its expressions in order */
+/** One hunt's own rows: the hunt's, and its realms' in order with their quizzes' */
 export type HuntRows = {
-  hunt:        Doc<'hunts'>
-  realms:      readonly RealmRows[]
-  expressions: readonly Doc<'expressions'>[]
+  hunt:   Doc<'hunts'>
+  realms: readonly RealmRows[]
+}
+
+/**
+ * How far a widget of the library is put to work, as its editor says it: counts only, never which
+ * hunt or quiz. `at_least` says the widgetings were more than a count reads, so each count is a floor.
+ */
+export type WidgetUsageT = {
+  widgetings: number
+  quizzes:    number
+  hunts:      number
+  at_least:   boolean
 }
 
 /** A quiz's row as a realm lists it: everything but its questions' order, which only the quiz's own screen reads */
@@ -74,9 +87,6 @@ export type HuntListingT = {
 /** A hunt as its hunts list shows one ident: its listing, and the ident's role on it */
 export type ListedHuntT = HuntListingT & { role: HuntRole }
 
-/** An expression, and how many widgets across the hunt work it: one is only deletable at zero */
-export type CountedExpressionT = ExpressionT & { usage: number }
-
 /** One ident on a hunt, as the members panel shows it: who, and in what role */
 export type MemberT = {
   ident_id: Id<'idents'>
@@ -88,14 +98,10 @@ export type MemberT = {
 /** A smith of a hunt, as someone not on it is told who to ask */
 export type SmithT = Pick<MemberT, 'label' | 'title'>
 
-/**
- * A hunt as a quiz's screen holds it: its listing, its expressions with their usage, who is on
- * it, and the role on it of whoever is looking.
- */
+/** A hunt as a quiz's screen holds it: its listing, who is on it, and the role on it of whoever is looking */
 export type ShallowHuntT = HuntListingT & {
-  expressions: readonly CountedExpressionT[]
-  members:     readonly MemberT[]
-  role:        HuntRole
+  members: readonly MemberT[]
+  role:    HuntRole
 }
 
 /**
@@ -117,51 +123,43 @@ export type ReviewedT = Doc<'reviews'> & {
 }
 
 /**
- * What one cell's history comes to: its newest answer, and the newest failure when that is
- * newer still.
+ * A cell's history as the tree holds it: the rows' own fields, without the ids.
  *
- * @example slotLatestOf({ newest: failedRow, done: answeredRow }).failed?.status  // => 'error'
+ * @example historyOf({ newest: failedRow, ok: answeredRow }).newest.status  // => 'errored'
  */
-export function slotLatestOf(slot: SlotRows): SlotLatest {
-  return {
-    done:   slot.done,
-    failed: slot.newest.status === 'error' ? slot.newest : null,
-  }
+export function historyOf(cell: CellRows): WidgetedHistoryT {
+  return { newest: storedFrom(cell.newest), ok: cell.ok && storedFrom(cell.ok) }
+}
+
+/** One stored widgeted, from its row */
+function storedFrom(row: Doc<'widgeteds'>): WidgetedHistoryT['newest'] {
+  const { status, value, message, result_meta, _creationTime } = row
+  return { status, value, message, result_meta, _creationTime }
 }
 
 /**
- * A question as its own query reads it, from its row and its cells' histories.
+ * A question as its own query reads it, from its row and what it stored.
  *
  * @param row - The question's row.
- * @param slots - Its cells' histories, by `slotkeyOf`; any others there are passed over.
- * @returns The row, with the newest reply in each cell.
+ * @param stored - Each stored widgeting's history for it, by the widgeting's label.
+ * @returns The row, with what it stored.
  *
- * @example seenQuestionOf(row, slots).guess?.status  // => 'done'
+ * @example seenQuestionOf(row, stored).stored.dumdum?.newest.status  // => 'ok'
  */
-export function seenQuestionOf(row: Doc<'questions'>, slots: ReadonlyMap<string, SlotRows>): SeenQuestionT {
-  return seenWith(row, latestOf(slots))
-}
-
-/** Each cell's history as the grid reads it, by `slotkeyOf` */
-function latestOf(slots: ReadonlyMap<string, SlotRows>): Map<string, SlotLatest> {
-  return new Map([...slots].map(([slotkey, slot]) => [slotkey, slotLatestOf(slot)]))
-}
-
-/** A question's row with the newest reply in each of its cells, from every cell's history */
-function seenWith(row: Doc<'questions'>, latest: ReadonlyMap<string, SlotLatest>): SeenQuestionT {
-  return { ...row, ...resultsFor(row, latest) }
+export function seenQuestionOf(row: Doc<'questions'>, stored: StoredRows): SeenQuestionT {
+  return { ...row, stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
 }
 
 /**
- * A quiz without its questions, from its own row and its widgets' and columns' rows in order.
+ * A quiz without its questions, from its own row and its widgetings' and columns' rows in order.
  *
- * @example frameOf(quiz, widgets, columns).row_ordering.length
+ * @example frameOf(quiz, widgetings, columns).row_ordering.length
  */
-export function frameOf(quiz: Doc<'quizzes'>, widgets: readonly Doc<'widgets'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
+export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
     ..._.omit(quiz, ['_creationTime', 'realm_id']),
-    widgets: widgets.map((row) => widgetFrom(row)),
-    columns: columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
+    widgetings: widgetings.map((row) => widgetingFrom(row)),
+    columns:    columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
   }
 }
 
@@ -189,8 +187,8 @@ export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]):
 }
 
 /**
- * The quiz its rows make up, as `quizFromSeen` assembles it: each question showing the newest
- * reply from each of its bots.
+ * The quiz its rows make up, as `quizFromSeen` assembles it: each question carrying what its
+ * stored widgetings recorded.
  *
  * @param rows - One quiz's rows.
  * @returns The quiz.
@@ -198,8 +196,8 @@ export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]):
  * @example quizFrom(rows).questions.length
  */
 export function quizFrom(rows: QuizRows): QuizT {
-  const latest = latestOf(rows.slots)
-  return quizFromSeen(frameOf(rows.quiz, rows.widgets, rows.columns), rows.questions.map((row) => seenWith(row, latest)))
+  const seen = rows.questions.map((row) => seenQuestionOf(row, rows.stored.get(row._id) ?? new Map()))
+  return quizFromSeen(frameOf(rows.quiz, rows.widgetings, rows.columns), seen)
 }
 
 /**
@@ -219,16 +217,20 @@ export function assembledQuiz(frame: QuizFrameT, seenFor: (question_id: Id<'ques
   return quizFromSeen(frame, seen.filter((question) => question !== null && question !== undefined))
 }
 
-/** An expression, from its row */
-export function expressionFrom(row: Doc<'expressions'>): ExpressionT {
-  return { owner: row.owner, label: row.label, formula: row.formula, description: row.description }
+/** A widget of the library, from its row: its fields, without its place */
+export function widgetFrom(row: Doc<'widgets'>): WidgetT {
+  const { scope, label, title, description, input_formula } = row
+  const shared = { scope, label, title, description, input_formula }
+  switch (row.formulary) {
+  case 'jsonata': { return { ...shared, formulary: 'jsonata', formula: row.formula, config: row.config } }
+  case 'aibot':   { return { ...shared, formulary: 'aibot', formula: row.formula, config: row.config } }
+  }
 }
 
-/** A widget, from its row: the fields of its own kind, without its place */
-export function widgetFrom(row: Doc<'widgets'>): WidgetT {
-  const { label, description } = row
-  if (row.kind === 'expressing') { return { kind: row.kind, label, description, expression_label: row.expression_label } }
-  return { kind: row.kind, label, description, bot_label: row.bot_label, textkind: row.textkind }
+/** A widgeting, from its row: its fields, without its quiz or its place */
+export function widgetingFrom(row: Doc<'widgetings'>): WidgetingT {
+  const { widget_label, label, description, params } = row
+  return { widget_label, label, description, params }
 }
 
 /** A hunt's title as the screen shows it: a blank one reads as the label in force, titleized */
@@ -264,24 +266,18 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
 }
 
 /**
- * A hunt as a quiz's screen holds it: its listing, its expressions in order, each with how many
- * widgets across the hunt work it, who is on it, and the role of whoever is looking.
+ * A hunt as a quiz's screen holds it: its listing, who is on it, and the role of whoever is
+ * looking.
  *
  * @param rows - The hunt's own rows.
- * @param usage - How many widgets work each expression, by label; one absent works in none.
  * @param members - Who is on the hunt.
  * @param role - The looker's role on it.
  * @returns The shallow hunt.
  *
- * @example shallowHuntOf(rows, new Map([['clueing_full', 1]]), members, 'smith').expressions[0].usage  // => 1
+ * @example shallowHuntOf(rows, members, 'smith').role  // => 'smith'
  */
-export function shallowHuntOf(rows: HuntRows, usage: ReadonlyMap<string, number>, members: readonly MemberT[], role: HuntRole): ShallowHuntT {
-  return {
-    ...huntListingOf(rows),
-    expressions: rows.expressions.map((row) => ({ ...expressionFrom(row), usage: usage.get(row.label) ?? 0 })),
-    members,
-    role,
-  }
+export function shallowHuntOf(rows: HuntRows, members: readonly MemberT[], role: HuntRole): ShallowHuntT {
+  return { ...huntListingOf(rows), members, role }
 }
 
 /**
@@ -309,14 +305,13 @@ export function huntFrom(rows: HuntRows, quizFor: ReadonlyMap<string, QuizT>): H
     _id,
     label,
     forced_label,
-    title:       huntTitleOf(rows.hunt),
-    realms:      rows.realms.map(({ realm, quizzes }) => ({
+    title:  huntTitleOf(rows.hunt),
+    realms: rows.realms.map(({ realm, quizzes }) => ({
       _id:     realm._id,
       label:   realm.label,
       title:   realmTitleOf(realm),
       quizzes: quizzes.map((quiz) => quizFor.get(quiz._id)).filter((quiz) => quiz !== undefined),
     })),
-    expressions: rows.expressions.map((row) => expressionFrom(row)),
   }
 }
 

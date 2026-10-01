@@ -35,7 +35,7 @@ const Compiled = new Map<string, Compilation>()
  * @param formula - JSONata source.
  * @returns A sentence, or null for a formula that can be run.
  *
- * @example check('$sum(qn.clueing_ishes.items.value)')  // => null
+ * @example check('$sum(qn.numnum_clueing.value.items.value)')  // => null
  * @example check('$sum(')  // => a sentence naming the problem
  */
 export function check(formula: string): string | null {
@@ -51,18 +51,18 @@ export function check(formula: string): string | null {
  * cell rather than freezing the page.
  *
  * @param formula - JSONata source.
- * @param bag - The JSON document the formula reads; its top-level keys are what the formula sees.
+ * @param input - The JSON document the formula reads: an object's top-level keys are what the formula names directly.
  * @returns The value it came to (undefined when it found nothing), or why it failed.
  *
  * @example evaluate('a + 1', { a: 2 })  // => { ok: true, val: 3 }
  * @example evaluate('nope.nada', {})    // => { ok: true, val: undefined }
  */
-export function evaluate(formula: string, bag: Readonly<Record<string, unknown>>): FormulaOutcome {
+export function evaluate(formula: string, input: unknown): FormulaOutcome {
   const compiled = compile(formula)
   if ('message' in compiled) { return { ok: false, failkind: 'syntax', message: compiled.message } }
   boxed(compiled.expression)
   try {
-    return { ok: true, val: compiled.expression.evaluate(bag) }
+    return { ok: true, val: compiled.expression.evaluate(input) }
   } catch (err) {
     return failureFrom(err)
   }
@@ -110,4 +110,30 @@ function describe(err: unknown): string {
   const failure = (typeof err === 'object' && err !== null ? err : {}) as JsonataFailure
   if (typeof failure.message !== 'string') { return 'The formula could not be read' }
   return failure.position === undefined ? failure.message : `${failure.message} (at ${String(failure.position)})`
+}
+
+/**
+ * What a formula came to, as plain JSON: JSONata's objects have no prototype, its lists carry
+ * markers of their own, and a function -- plain, or JSONata's marked lambda -- is no value at all,
+ * so it is left out wherever it sits (and is `undefined` at the top).
+ *
+ * @param val - What `evaluate` handed back.
+ * @returns The same value, as JSON would carry it.
+ *
+ * @example plainJson({ name: 'x', shout: evaluated('function($x) { $x }') })  // => { name: 'x' }
+ */
+export function plainJson(val: unknown): unknown {
+  if (isFunction(val)) { return undefined }
+  const text = JSON.stringify(val, (_key, held: unknown) => (isFunction(held) ? undefined : held)) as string | undefined
+  return text === undefined ? undefined : JSON.parse(text) as unknown
+}
+
+/**
+ * Whether a formula came to a function: JSONata hands one back as a marked object, or as a plain function.
+ *
+ * @example isFunction(evaluated('function($x) { $x }'))  // => true
+ */
+export function isFunction(val: unknown): boolean {
+  if (typeof val === 'function') { return true }
+  return typeof val === 'object' && val !== null && ('_jsonata_function' in val || '_jsonata_lambda' in val)
 }

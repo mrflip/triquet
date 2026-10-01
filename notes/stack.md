@@ -112,6 +112,12 @@ Settled; reach for these before writing the equivalent.
   writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed. Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
+* **mustache** (mustache.js, with `@types/mustache`) for an `aibot` widget's prompt template,
+  rendered over what its input formula came to: `{{name}}`, sections and inverted sections, and
+  nothing that runs code. HTML escaping is off (the prompt is prose for a model, never a page), and
+  a value that is not a string fills in as its JSON. `lib/ask/prompts.ts` is the only file that
+  imports it. Proposed by the rewidgeting sprint's plan and added Oct 2026 without asking first,
+  under the rule above.
 * **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's
   markdown: `src/lib/markdown.ts` holds the options and the one allowlist schema (widen it there,
   never at a call site), and `components/cells/markdown.tsx` the views that use them. It renders

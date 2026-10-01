@@ -16,15 +16,25 @@ test('a never-asked cell invites the author to ask', async ({ page }) => {
 })
 
 test('double-clicking asks, and the answer lands with its tier and cost', async ({ page }) => {
-  await stubAsk(page, { ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+  await stubAsk(page, { ok: true, value: { guess: 'Leon', explanation: 'The lion.' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('Leon')
   await expect(guessCell(page, 0)).toContainText('~84 tok')
   await expect(guessCell(page, 0)).toContainText('quick')
 })
 
+test("the cell's prompt goes to the route filled in, with its widget's service, tier and room", async ({ page }) => {
+  await stubAsk(page, { ok: true, value: { guess: 'Leon', explanation: 'The lion.' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+  const sent = page.waitForRequest('**/api/ask')
+  await guessCell(page, 0).dblclick()
+  const request = await sent
+  const body = request.postDataJSON() as { prompt: string, servicelabel: string, model_tier: string, max_tokens: number }
+  expect(body.prompt).toContain('Question: Which region gave its name to Leon?')
+  expect(body).toMatchObject({ servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 })
+})
+
 test('the keyboard asks too', async ({ page }) => {
-  await stubAsk(page, { ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+  await stubAsk(page, { ok: true, value: { guess: 'Leon', explanation: 'The lion.' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
   // Focusing, unlike a click, does not wait for the cell to take asks: it does once the clueing lands.
   await expect(guessCell(page, 0)).toBeEnabled()
   await guessCell(page, 0).focus()
@@ -46,7 +56,7 @@ test('a question with no text is not asked about at all', async ({ page }) => {
 })
 
 test('an answer survives a reload', async ({ page }) => {
-  await stubAsk(page, { ok: true, job: 'guess', text: 'Leon', truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
+  await stubAsk(page, { ok: true, value: { guess: 'Leon', explanation: 'The lion.' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('Leon')
   await reloadOnceSaved(page)

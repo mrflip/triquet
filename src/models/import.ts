@@ -16,7 +16,7 @@ export const ImportValidators = Validator(({ obj, arr, titleish, label, union, z
     notes:         QuestionValidators.notes.nullable().optional(),
     full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
-    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a bot replied is among them, since replies are recorded by asking, never pasted.')
+    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label (or the forced label, where there is one) is the key a question is matched on, and is never itself revised. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again and a stored one is recorded by asking.')
 
   // The shape is read loosely first and each question validated on its own afterwards, so one
   // bad question is skipped and logged rather than blocking the whole import.
@@ -27,8 +27,10 @@ export const ImportValidators = Validator(({ obj, arr, titleish, label, union, z
     forced_label: label.nullable().optional(),
     title:        titleish.nullable().optional(),
     questions:    looseQuestions,
+    widgetings:   arr(zod.unknown()).default([])
+      .describe('The widgetings the pasted quiz works, read one by one, so one that will not do is skipped and logged.'),
   })
-    .describe('One quiz as it arrives from an import. Only the questions are merged; a pasted quiz\'s own lock state, sort memory and batch-run record are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
+    .describe('One quiz as it arrives from an import. Its questions are merged, and its widgetings, each by label; a pasted quiz\'s own columns, lock state and sort memory are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
 
   const importRealm = obj({ quizzes: arr(importQuiz).min(1) })
   const importHunt = obj({
