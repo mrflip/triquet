@@ -1,26 +1,15 @@
 import * as Z from 'zod'
 import { Validator, plain } from '../lib/validator'
-import { IshValidators } from './ish'
 import { Hunt, HuntValidators } from './hunt'
-import { Question, QuestionValidators } from './question'
+import { Question, QuestionValidators, RankField } from './question'
 import { Quiz, QuizValidators } from './quiz'
 import { Realm, RealmValidators } from './realm'
+import { WidgetedValidators } from './widgeted'
 
 /** Fields named as a list in words: `label and title`, `label, smiths_note, and title` */
 const FieldList = new Intl.ListFormat('en', { type: 'conjunction' })
 
-export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, uint, textish, label, titleish, union }) => {
-  const played = oneof(['done', 'error'])
-    .describe('Whether the bot answered: `done`, or `error` when asking failed and there was never an answer.')
-
-  const guess = obj({ status: played, text: textish.optional() })
-    .nullable()
-    .describe('What a fast, not-especially-careful reader answered for the question\'s clueing; null when never asked. Nothing about cost, model, time or failure is shown.')
-
-  const ishes = obj({ status: played, items: arr(IshValidators.ishItem).optional(), stale: bool.optional() })
-    .nullable()
-    .describe('Every number-like span a bot found in one text, and whether that text has been edited since (`stale`); null when never asked. Nothing about cost, model, time or failure is shown.')
-
+export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, label, titleish, union, rec, zod }) => {
   const exposedQuestion = QuestionValidators.question.pick(maskOf(Question.exposed))
   const bagQuestion = exposedQuestion
     .extend({
@@ -28,13 +17,12 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
         .describe('The question\'s label, the one in force: what `chains_to` in another question refers to.'),
       chains_to:     label.nullable()
         .describe('The label of the question this one chains to, or null. Look it up with `qns[label = $$.qn.chains_to]`.'),
-      rank:          uint.min(1).nullable()
+      [RankField]:   uint.min(1).nullable()
         .describe('This question\'s 1-based place once the quiz is put in Q# order (ties broken by title); null when it has no Q#.'),
-      guess,
-      clueing_ishes: ishes.describe('What the number spotter found in the clueing.'),
-      hint_ishes:    ishes.describe('What the number spotter found in this question\'s own hint.'),
     })
-    .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label.')
+    .catchall(WidgetedValidators.widgeted
+      .describe('What a widgeting before this one in the run order came to for this question, under that widgeting\'s label: `qn.numnum_clueing.value.items`, say.'))
+    .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label; and the widgeted of every widgeting before the one being worked out, each under its label.')
 
   const bagQuiz = QuizValidators.row.pick(maskOf(Quiz.exposed))
     .extend({
@@ -75,19 +63,16 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, oneof, u
       .describe('The label of `qn`.'),
     quiz_label: label
       .describe('The label of the quiz.'),
+    params:          rec(label, zod.json())
+      .describe('What the widgeting being worked out hands its widget, by name. Empty unless it says otherwise.'),
+    widgeting_label: label
+      .describe('The label of the widgeting being worked out.'),
   })
     .describe('The document a formula reads: its top-level keys are what the formula can name directly, e.g. `qn.clueing`.')
 
-  const shown = union([str, num, bool])
-    .describe('What a cell shows. (A list or an object would be shown as its JSON text, which is rarely what is wanted, so it is not part of the intended output.)')
-  const formulaResult = union([
-    shown,
-    obj({ value: shown.nullable().optional(), stale: bool.optional() })
-      .strict()
-      .describe('A value with a mark for whether it is out of date: `stale: true` greys it. Any other keys are not accepted.'),
-  ])
+  const formulaResult = union([str, num, bool])
     .nullable()
-    .describe('What a formula comes to for one question. Nothing at all (JSONata `undefined`), null, and an empty string all show as a muted dash, which means "nothing to say here", not zero.')
+    .describe('What a formula comes to for one question, as a cell shows it. Nothing at all (JSONata `undefined`), null, and an empty string all show as a muted dash, which means "nothing to say here", not zero. (A list or an object is shown as its JSON text, which is rarely what is wanted in a column, so it is not part of the intended output.)')
 
   return { bagQuestion, bagHunt, bagRealm, bagQuiz, quizBag, formulaResult }
 })

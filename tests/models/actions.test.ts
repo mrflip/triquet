@@ -2,31 +2,36 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import type { Id } from '../../convex/_generated/dataModel'
-import { ActionValidators, isLayoutAction, isReviewAction, LayoutActionKindVals, ReviewActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
+import { ActionValidators, isLayoutAction, isLibraryAction, isReviewAction, LayoutActionKindVals, LibraryActionKindVals, ReviewActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
 
-/** Dumdum's reply to a question's clueing, as a botting */
-const Botted = {
-  question_id, bot_label: 'dumdum' as const, textkind: 'clueing' as const, asked_text: 'Who?', status: 'done' as const,
-  reply_text: 'Leon', items: [], message: null, response: null, truncated: false, model_tier_applied: 'quick' as const, approx_tokens: 12,
+/** Dumdum's answer to a question, as a widgeted to record */
+const Answered = {
+  question_id, widgeting_label: 'dumdum', status: 'ok' as const,
+  value: { guess: 'Leon', explanation: 'The name says so.' }, result_meta: { model_tier_applied: 'quick', approx_tokens: 12 },
 }
+
+/** A widget of the library */
+const Shout = { label: 'shout', formulary: 'jsonata' as const, formula: '$uppercase(qn.title)' }
 
 /** One of each action, as a view would say it */
 const Actions: HuntActionDNA[] = [
-  { kind: 'add_widget', widget: { kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' } },
-  { kind: 'edit_widget', label: 'dumdum', patch: { description: 'The quick one' } },
-  { kind: 'delete_widget', label: 'dumdum' },
-  { kind: 'move_widget', label: 'dumdum', onto_idx: 2 },
+  { kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } },
+  { kind: 'edit_widgeting', label: 'dumdum', patch: { description: 'The quick one' } },
+  { kind: 'delete_widgeting', label: 'dumdum' },
+  { kind: 'move_widgeting', label: 'dumdum', onto_idx: 2 },
   { kind: 'add_column', column: { label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 } },
   { kind: 'add_column', column: { label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 }, onto_idx: 0 },
   { kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },
   { kind: 'delete_column', label: 'qnum' },
   { kind: 'move_column', label: 'qnum', onto_idx: 1 },
-  { kind: 'add_expression', expression: { label: 'shout', formula: '$uppercase(qn.title)' } },
-  { kind: 'edit_expression', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },
-  { kind: 'delete_expression', label: 'shout' },
+  { kind: 'add_widget', widget: Shout },
+  { kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },
+  { kind: 'delete_widget', label: 'shout' },
+  { kind: 'move_widget', label: 'shout', onto_idx: 2 },
+  { kind: 'import_widgets', widgets: [Shout, { label: 'ask_it', formulary: 'aibot', formula: '{{clueing}}?', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 64 } }] },
   { kind: 'retitle_quiz', title: 'Princes' },
   { kind: 'relabel_quiz', label: 'princes' },
   { kind: 'reversion_quiz', version: 'playtest' },
@@ -39,9 +44,8 @@ const Actions: HuntActionDNA[] = [
   { kind: 'move_question', question_id, onto_idx: 0 },
   { kind: 'set_chain', question_id, chains_to: null },
   { kind: 'sort_by_chain_order', descending: true },
-  { kind: 'record_botting', botting: Botted },
-  { kind: 'record_botting', botting: { ...Botted, status: 'error', reply_text: null, message: 'Overloaded', response: { status: 529 }, model_tier_applied: null, approx_tokens: null } },
-  { kind: 'apply_bulk_ishes', bottings: [{ ...Botted, bot_label: 'numnum', reply_text: null, items: [{ text: '1994', value: 1994, kind: 'numeral' }] }], run: null },
+  { kind: 'record_widgeted', widgeted: Answered },
+  { kind: 'record_widgeted', widgeted: { ...Answered, status: 'errored', value: null, message: 'Overloaded', result_meta: { response: { status: 529 } } } },
   { kind: 'new_quiz' },
   { kind: 'new_quiz', label: 'kings' },
   { kind: 'delete_quiz', quiz_id },
@@ -65,7 +69,10 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'relabel_quiz', label: 'Not A Label' },                        'a label that is not one'],
     [{ kind: 'move_question', question_id: 'nobody', onto_idx: 0 },         'a question that is not a row id'],
     [{ kind: 'move_widget', label: 'dumdum', onto_idx: -1 },                'a place before the first'],
-    [{ kind: 'record_botting', botting: { ...Botted, textkind: 'hint' } },  'a botting of a bot that is not put that text'],
+    [{ kind: 'record_widgeted', widgeted: { ...Answered, message: 'No.' } }, 'an ok widgeted carrying a failure'],
+    [{ kind: 'record_widgeted', widgeted: { ...Answered, status: 'missing' } }, 'a missing widgeted, which is never recorded'],
+    [{ kind: 'add_widgeting', widgeting: { widget_label: 'notes', label: 'notes' } }, 'a widgeting under a label the questions already use'],
+    [{ kind: 'add_widget', widget: { ...Shout, formulary: 'entry' } },      'a widget of a formulary there is not yet'],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
     [{ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 101 } }, 'a get rate past certain'],
     [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }, { label: 'leon', patch: {} }] }, 'an import naming one label twice'],
@@ -76,9 +83,15 @@ describe('ActionValidators.huntAction', () => {
     })
   }
 
-  it('keeps both kinds\' fields in a widget\'s patch, for the widget\'s own kind to judge', () => {
-    const action = ActionValidators.huntAction({ kind: 'edit_widget', label: 'dumdum', patch: { bot_label: 'numnum', expression_label: 'shout' } })
-    expect(action).to.deep.include({ patch: { bot_label: 'numnum', expression_label: 'shout' } })
+  it("takes either formulary's settings in a widget's patch, for the widget's own formulary to judge", () => {
+    const action = ActionValidators.huntAction({ kind: 'edit_widget', label: 'dumdum', patch: { config: { servicelabel: 'claude', model_tier: 'careful', max_tokens: 500 } } })
+    expect(action).to.deep.include({ patch: { config: { servicelabel: 'claude', model_tier: 'careful', max_tokens: 500 } } })
+    expect(ActionValidators.huntAction({ kind: 'edit_widget', label: 'shout', patch: { config: {} } })).to.deep.include({ patch: { config: {} } })
+  })
+
+  it("defaults a recorded widgeted's message and result_meta", () => {
+    const action = ActionValidators.huntAction({ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 3 } })
+    expect(action).to.deep.include({ widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 3, message: null, result_meta: {} } })
   })
 
   it('crosses to Convex as a validator of its own', () => {
@@ -112,9 +125,16 @@ describe('ActionValidators.accountAction', () => {
 })
 
 describe('isLayoutAction', () => {
-  it('picks out exactly the actions on widgets, columns and expressions', () => {
+  it("picks out exactly the actions on a quiz's widgetings and columns", () => {
     const layout = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLayoutAction(action)).map((action) => action.kind)
     expect([...new Set(layout)]).to.deep.eq([...LayoutActionKindVals])
+  })
+})
+
+describe('isLibraryAction', () => {
+  it("picks out exactly the actions on the library's widgets", () => {
+    const library = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLibraryAction(action)).map((action) => action.kind)
+    expect([...new Set(library)]).to.deep.eq([...LibraryActionKindVals])
   })
 })
 

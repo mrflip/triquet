@@ -31,9 +31,9 @@ test('a header row of column labels in alphabetical order, then a line per quest
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
   await openManage(page)
-  await page.getByRole('button', { name: '+ New expressing…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New expressing' })
-  await editor.getByRole('combobox', { name: 'Expression' }).click()
+  await page.getByRole('button', { name: '+ New formula…' }).click()
+  const editor = page.getByRole('dialog', { name: 'New formula widgeting' })
+  await editor.getByRole('combobox', { name: 'Widget' }).click()
   await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
   await editor.getByRole('button', { name: 'Apply' }).click()
   await closeManage(page)

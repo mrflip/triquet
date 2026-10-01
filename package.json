@@ -19,9 +19,9 @@
     ]
   },
   "scripts": {
-    "dev": "doppler run -- scripts/convex_dev dev --watch next dev",
-    "dev:agent": "scripts/doppledo dev_claude scripts/convex_dev agent --watch next dev",
-    "dev:agent:botkey": "scripts/doppledo dev_claude cross-env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev agent --watch next dev",
+    "dev": "doppler run -- scripts/convex_dev dev --seed --watch next dev",
+    "dev:agent": "scripts/doppledo dev_claude scripts/convex_dev agent --seed --watch next dev",
+    "dev:agent:botkey": "scripts/doppledo dev_claude cross-env ENABLE_ANTHROPIC_BOT=allow scripts/convex_dev agent --seed --watch next dev",
     "build": "next build",
     "build:agent": "scripts/doppledo dev_claude cross-env NEXT_DIST_DIR=.next-agent-build next build",
     "build:vercel": "convex deploy --cmd 'node scripts/convex-previews.ts after-vercel-build && pnpm run build'",

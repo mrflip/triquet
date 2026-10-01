@@ -64,6 +64,19 @@ export const Locamel    = { re: /^[a-z][A-Za-z0-9]*$/,  msg: 'should be a lowerF
 export const Varname    = { re: /^[A-Za-z]\w*$/,        msg: 'should be a label and start with a letter' } as const satisfies Patternbag
 export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_underbar_cased name' } as const satisfies Patternbag
 
+/**
+ * A label that is none of `words`: what keeps a name from shadowing one already in use beside it.
+ * The words are labels, so none needs escaping.
+ *
+ * @param words - The labels refused.
+ * @returns The pattern, and the advice it gives.
+ *
+ * @example reservedOf(['rank', 'title']).re.test('rank')  // => false
+ */
+export function reservedOf(words: readonly string[]): Patternbag & { re: RegExp, msg: string } {
+  return { re: new RegExp(`^(?!(?:${words.join('|')})$)`), msg: `should not be any of ${words.join(', ')}, which the questions already use` }
+}
+
 /** A Convex document id: lowercase letters and digits, about 32 of them */
 export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
 
@@ -81,6 +94,15 @@ export const Blobbish = { ...Textish, max: 800_800 } as const satisfies Patternb
 /** A formula is prose a person types and reads back, so it takes what `Textish` takes and stops at a screenful */
 export const Formulaish = { ...Textish, max: 999 } as const satisfies Patternbag
 export const Titleish = { max: 82, ...Stringish } as const satisfies Patternbag
+
+//
+// == [JSON sizes] == how long a stored JSON value may run, counted as its JSON text
+//
+
+/** A widgeted's value, and the free bag of how it ran: room for a long list of spans, short of a document */
+export const WidgetedJson = { max: 40_000, msg: 'is too large to keep' } as const satisfies Patternbag
+/** What a widgeting hands its widget: a few settings */
+export const ParamsJson   = { max: 4000, msg: 'is too large to keep' } as const satisfies Patternbag
 
 //
 // == [Numeric bounds] ==
@@ -107,8 +129,10 @@ export const Ubux     = { min: -1e12, max: 1e12 } as const
 
 /** Questions in one quiz */
 export const QuestionsPerQuiz   = { min: 0, max: 999 } as const
-/** Widgets in one quiz */
-export const WidgetsPerQuiz     = { min: 0, max: 99 } as const
+/** Widgetings in one quiz: the widgets it puts to work */
+export const WidgetingsPerQuiz  = { min: 0, max: 99 } as const
+/** Widgets in the library */
+export const WidgetsInLibrary   = { min: 0, max: 999 } as const
 /** Columns in one quiz */
 export const ColumnsPerQuiz     = { min: 0, max: 99 } as const
 /** Reviews of one quiz, one per ident that opened one */
@@ -119,8 +143,6 @@ export const PicksPerReview     = { min: 0, max: 3 } as const
 export const QuizzesPerRealm    = { min: 1, max: 999 } as const
 /** Realms in one hunt; every hunt has at least its home realm */
 export const RealmsPerHunt      = { min: 1, max: 99 } as const
-/** Expressions in one hunt */
-export const ExpressionsPerHunt = { min: 0, max: 999 } as const
 /** Idents on one hunt, one hunting each */
 export const HuntingsPerHunt    = { min: 0, max: 999 } as const
 /** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */

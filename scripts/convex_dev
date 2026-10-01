@@ -9,15 +9,18 @@
 #      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for).
 #   3. With --reset, empties it (scripts/convex_reset). A push that a schema change refuses, for
 #      rows the new schema no longer fits, is then retried once the backend is empty.
-#   4. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
-#   5. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend.
+#   4. With --seed, seeds it (seeding:seedWidgets, which is safe to run again): the library's seed
+#      widgets, and the default widgetings for a quiz laid out before there were any. Production is
+#      seeded by hand the same way (notes/deploy.md).
+#   5. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
+#   6. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend.
 #
-# Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--watch] <command> [arguments...]
+# Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--seed] [--watch] <command> [arguments...]
 #   eg   scripts/doppledo dev_claude scripts/convex_dev agent --watch next dev
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-usage="Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--watch] <command> [arguments...]"
+usage="Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--seed] [--watch] <command> [arguments...]"
 role="${1:-}"
 # The backend's port for each role, as scripts/convex_backend has it.
 case "$role" in
@@ -30,10 +33,12 @@ case "$role" in
 esac
 shift
 reset=no
+seed=no
 watch=no
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --reset) reset=yes ;;
+    --seed)  seed=yes ;;
     --watch) watch=yes ;;
     *) echo "$usage" >&2; exit 1 ;;
   esac
@@ -91,6 +96,7 @@ if ! push; then
 fi
 "$convex" env set TRIQUET_CLEARABLE yes > /dev/null
 if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
+if [[ "$seed" == yes ]]; then "$convex" run seeding:seedWidgets > /dev/null; fi
 if [[ "$watch" == yes ]]; then
   "$convex" dev --typecheck disable --tail-logs disable &
   children+=("$!")

@@ -10,6 +10,12 @@ import { huntingFor, huntIdOf, reviewFor, type Reader } from './reading'
 // else is shown nothing of it but who to ask. Anyone may still take on any ident, so this is as
 // strong as that: a rule here asks who the ident is, never how the browser came to be it.
 //
+// The library of widgets belongs to no hunt: every hunt sees the same one. Any browser that has
+// said who it is may read it (`mayReadLibrary`): it holds formulas and prompts, nothing of any
+// hunt. Changing it rides `hunts.perform` from a quiz on screen, like every layout action, and is
+// authorized as any non-review action is, as a smith of the open hunt: being a smith of the hunt
+// on screen is what "a smith of any hunt" comes to while the library is reached from a quiz.
+//
 // Two kinds of row are private by what the functions offer rather than by a rule. A browser's
 // identings are read only through its own key, so no browser sees which idents another has taken
 // on. An ident may be made by anyone, but no function changes or removes one, so an ident
@@ -32,8 +38,17 @@ export async function roleOn(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'ide
 }
 
 /**
+ * Whether `ident_id` may read the library of widgets: anyone who has said who they are.
+ *
+ * @example if (! mayReadLibrary(ident?._id ?? null)) { return [] }
+ */
+export function mayReadLibrary(ident_id: Id<'idents'> | null): boolean {
+  return ident_id !== null
+}
+
+/**
  * Whether `ident_id` may read `hunt_id` and all it holds: its realms, quizzes and questions,
- * expressions and members. Anyone on it may, in either role.
+ * and members. Anyone on it may, in either role.
  *
  * @example if (! await mayReadHunt(ctx.db, row.hunt_id, ident?._id ?? null)) { return null }
  */
@@ -42,8 +57,8 @@ export async function mayReadHunt(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id
 }
 
 /**
- * Whether `ident_id` may change `hunt_id`: its quizzes, their questions and layout, its
- * expressions, and who is on it. Its smiths may.
+ * Whether `ident_id` may change `hunt_id`: its quizzes, their questions and layout, and who is on
+ * it; and, from one of its quizzes, the library. Its smiths may.
  */
 export async function mayChangeHunt(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'> | null): Promise<boolean> {
   return (await roleOn(db, hunt_id, ident_id)) === 'smith'

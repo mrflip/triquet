@@ -1,16 +1,16 @@
 import * as UU from './useful'
 import { FormulaMax } from './formulas'
 import { inputSchema, outputSchema } from '../models/quiz-bag'
-import type { ExpressingT } from '../models/widget'
-import type { ExpressionT } from '../models/expression'
+import type { WidgetT } from '../models/widget'
+import type { WidgetingT } from '../models/widgeting'
 
 /**
- * What a prompt is written about: a column and the expression behind it, either of which may be
+ * What a prompt is written about: a widgeting and the widget behind it, either of which may be
  * partly blank or absent, and optionally one real input to show.
  */
 export type PromptSubject = {
-  expressing: (Pick<ExpressingT, 'label' | 'description'> & { title?: string }) | null
-  expression: Pick<ExpressionT, 'label' | 'description' | 'formula'> | null
+  widgeting: (Pick<WidgetingT, 'label' | 'description'> & { title?: string }) | null
+  widget:    Pick<WidgetT, 'label' | 'description' | 'formula'> | null
   /** One real question's `qn`, as the formula would see it, to make the schema concrete */
   sample:     Record<string, unknown> | null
 }
@@ -19,21 +19,21 @@ export type PromptSubject = {
  * A prompt to give a chatbot so that it writes -- or revises -- a formula.
  *
  * Whatever is filled in is passed along and whatever is blank is left out, so the same prompt
- * serves a brand-new expression and a mature one. A formula that is present is offered neutrally,
+ * serves a brand-new widget and a mature one. A formula that is present is offered neutrally,
  * as what there is now, whether it is to be built on or replaced; one that is absent is asked for.
  * The input and output schemas are always included, and the reply is asked for as the formula
  * text alone, so that it pastes straight back into the formula box.
  *
- * @param subject - The column, the expression, and optionally a sample input.
+ * @param subject - The widgeting, the widget, and optionally a sample input.
  * @returns Plain text, ready to copy.
  *
- * @example formulaPrompt({ expressing: null, expression: null, sample: null })  // asks for a formula, having been told nothing
+ * @example formulaPrompt({ widgeting: null, widget: null, sample: null })  // asks for a formula, having been told nothing
  */
 export function formulaPrompt(subject: Readonly<PromptSubject>): string {
   return [
     Preamble,
     aboutSection(subject),
-    formulaSection(subject.expression?.formula ?? ''),
+    formulaSection(subject.widget?.formula ?? ''),
     inputSection(subject.sample),
     outputSection(),
     NotesSection,
@@ -43,14 +43,14 @@ export function formulaPrompt(subject: Readonly<PromptSubject>): string {
 
 const Preamble = `I use a small quiz-editing tool. In it, a column can be computed for every question of a quiz by a formula written in JSONata (the JavaScript reference implementation, version 1.8 -- synchronous, no async). The formula is run once per question and comes to one value, which the tool shows in that column. I would like your help with the formula for one such column.`
 
-/** The column and expression, in the author's own words, leaving out whatever is blank */
-function aboutSection({ expressing, expression }: Readonly<PromptSubject>): string {
+/** The widgeting and widget, in the author's own words, leaving out whatever is blank */
+function aboutSection({ widgeting, widget }: Readonly<PromptSubject>): string {
   const facts = [
-    fact('The column\'s title', expressing?.title),
-    fact('The widget\'s label', expressing?.label),
-    fact('What the widget is for in this quiz', expressing?.description),
-    fact('The expression\'s label', expression?.label),
-    fact('What the expression works out', expression?.description),
+    fact('The column\'s title', widgeting?.title),
+    fact('The widgeting\'s label', widgeting?.label),
+    fact('What the widgeting is for in this quiz', widgeting?.description),
+    fact('The widget\'s label', widget?.label),
+    fact('What the widget works out', widget?.description),
   ].filter((line) => line !== '')
   return ['## What I am after', ...(facts.length === 0 ? ['I have not written anything down about it yet; I will describe it as we go.'] : facts)].join('\n')
 }
@@ -80,7 +80,7 @@ function formulaSection(formula: string): string {
 function inputSection(sample: PromptSubject['sample']): string {
   return [
     '## What the formula reads',
-    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn`; `quiz`, `realm` and `hunt` are the quiz itself and where it sits. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
+    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn`; `quiz`, `realm` and `hunt` are the quiz itself and where it sits. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`: read its `value` only when its `status` is `ok`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
     '',
     '```json',
     UU.jsonify(inputSchema(), { pretty: true }),
@@ -100,7 +100,7 @@ function inputSection(sample: PromptSubject['sample']): string {
 function outputSection(): string {
   return [
     '## What the formula returns',
-    'One value per question, matching this JSON Schema. Returning nothing (JSONata `undefined`), `null` or an empty string means "nothing to say here" and is shown as a muted dash; that is different from zero. To grey a value that is out of date, return `{ "value": ..., "stale": true }`.',
+    'One value per question, matching this JSON Schema. Returning nothing (JSONata `undefined`), `null` or an empty string means "nothing to say here" and is shown as a muted dash; that is different from zero.',
     '',
     '```json',
     UU.jsonify(outputSchema(), { pretty: true }),

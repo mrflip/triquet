@@ -8,23 +8,21 @@ import { quizzesOf, reviewsOf } from '../../convex/reading'
 import * as PA from '../../src/lib/vv/patterns'
 import { noticeOf } from '../../src/lib/refusals'
 import { RefusalNotices } from '../../src/lib/notices'
-import { SeedExpressions } from '../../src/models/expression'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
-import { defaultLayoutFor } from '../../src/models/layout'
+import { defaultLayout } from '../../src/models/layout'
 import { Question } from '../../src/models/question'
 import type { HuntRole } from '../../src/models/hunting'
 import { mintId } from '../../src/lib/ids'
 import type { HuntActionDNA } from '../../src/models/actions'
-import type { BottingRowDNA } from '../../src/models/botting'
+import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import { present } from '../support/present'
 import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, type Seen, type Tester } from '../support/convex'
 
-/** A hunt holding one quiz built from `qnum, title` pairs, with the standard expressions and layout */
+/** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
   const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
-  const quiz = { ...Quiz.blank('Quiz one'), ...defaultLayoutFor(SeedExpressions), questions }
-  return huntHolding([quiz], SeedExpressions)
+  return huntHolding([{ ...Quiz.blank('Quiz one'), ...defaultLayout(), questions }])
 }
 
 /** A hunt holding one quiz of blank questions */
@@ -51,42 +49,29 @@ const firstOf   = (seen: Seen) => present(openOf(seen).questions[0])
 const quizNamed = (seen: Seen, title: string) => present(seen.quizzes.find((quiz) => quiz.title === title), title)
 const newestOf  = (seen: Seen) => present(seen.quizzes.at(-1), 'the newest quiz')
 
-/** What a cell shows of a failure: when it happened is the row's own time */
-function failureOf(cell: { last_err: unknown } | null) {
-  return cell && Z.object({ message: Z.string(), response: Z.json() }).nullable().parse(cell.last_err)
+/** What `question_id`'s `widgeting_label` cell came to, as a browser sends it to be recorded: numnum's reading of a clueing, finding nothing, unless overridden */
+function recorded(question_id: string, overrides: Partial<WidgetedRecordingDNA> = {}): WidgetedRecordingDNA {
+  return { question_id, widgeting_label: 'numnum_clueing', status: 'ok', value: { items: [] }, result_meta: { model_tier_applied: 'careful' }, ...overrides }
 }
 
-/** A botting of `question_id` as a browser sends one: numnum's extraction of a blank clueing, finding nothing, unless overridden */
-function botted(question_id: string, overrides: Partial<BottingRowDNA> = {}): BottingRowDNA {
-  return {
-    question_id, bot_label: 'numnum', textkind: 'clueing', asked_text: '', status: 'done', reply_text: null, items: [],
-    message: null, response: null, truncated: false, model_tier_applied: 'careful', approx_tokens: null, ...overrides,
-  }
+/** Numnum's reading of `question_id` for `widgeting_label`, which found `value` once */
+function found(question_id: string, value: number, widgeting_label = 'numnum_clueing'): WidgetedRecordingDNA {
+  return recorded(question_id, { widgeting_label, value: { items: [{ text: String(value), value, kind: 'numeral' }] } })
 }
 
-/** Numnum's extraction of `question_id`'s `textkind`, which found `value` once */
-function found(question_id: string, value: number, textkind: 'clueing' | 'hint' = 'clueing'): BottingRowDNA {
-  return botted(question_id, { textkind, items: [{ text: String(value), value, kind: 'numeral' }] })
+/** Dumdum's guess `guess` at `question_id`'s clueing */
+function guessed(question_id: string, guess: string): WidgetedRecordingDNA {
+  return recorded(question_id, { widgeting_label: 'dumdum', value: { guess, explanation: '' }, result_meta: { model_tier_applied: 'quick' } })
 }
 
-/** Dumdum's guess `text` at `question_id`'s clueing */
-function guessed(question_id: string, text: string): BottingRowDNA {
-  return botted(question_id, { bot_label: 'dumdum', reply_text: text, model_tier_applied: 'quick' })
+/** A failed ask of `question_id` by the widgeting `widgeting_label`: its message, and the reply as it came back */
+function failed(question_id: string, widgeting_label: string, err: { message: string, response: JsonT }): WidgetedRecordingDNA {
+  return recorded(question_id, { widgeting_label, status: 'errored', value: null, message: err.message, result_meta: { response: err.response } })
 }
 
-/** A failed ask of `question_id`'s `textkind` by `bot_label`: its message, and the reply as it came back */
-function failed(question_id: string, bot_label: 'dumdum' | 'numnum', textkind: 'clueing' | 'hint', err: { message: string, response: unknown }): BottingRowDNA {
-  return botted(question_id, { bot_label, textkind, status: 'error', message: err.message, response: err.response as BottingRowDNA['response'], model_tier_applied: null })
-}
-
-/** Whether an extraction is marked stale */
-function staleOf(ishes: { status: string, stale?: boolean } | null): boolean {
-  return ishes?.status === 'done' && ishes.stale === true
-}
-
-/** The first question's clueing extraction, as the hunt now holds it */
-async function firstClueingIshes(read: () => Promise<Seen>) {
-  return firstOf(await read()).clueing_ishes
+/** What the first question's `widgeting_label` cell stored, as the hunt now holds it: null when nothing */
+function cellOf(seen: Seen, widgeting_label: string) {
+  return firstOf(seen).stored[widgeting_label] ?? null
 }
 
 /** What a refusal of an argument carries: each Zod issue, in our words */
@@ -121,7 +106,7 @@ const questionIdsOf = (seen: Seen) => openOf(seen).questions.map((question) => q
 /** A reviewing with nothing said, and the answer not seen */
 const Unsaid = { get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false } as const
 
-describe('hunts.perform', () => {
+describe("hunts.perform", () => {
   const Deployment: { tt: Tester } = { tt: openTester() }
   beforeEach(() => { Deployment.tt = openTester() })
 
@@ -141,20 +126,28 @@ describe('hunts.perform', () => {
     return { ...seeded, asAlice, browser_key, quiz_id: quiz._id, first: present(first), second: present(second) }
   }
 
-  describe('retitle_quiz', () => {
-    it('renames the open quiz', async () => {
+  /** A seeded hunt whose first question already holds a guess, and that question's id */
+  const withHeld = async () => {
+    const seeded = await seed(huntOf(['1', 'a']))
+    const { _id: id } = firstOf(await seeded.read())
+    await seeded.act({ kind: 'record_widgeted', widgeted: guessed(id, 'Leon') })
+    return { ...seeded, id }
+  }
+
+  describe("retitle_quiz", () => {
+    it("renames the open quiz", async () => {
       const { act, read } = await seed(openHunt())
       await act({ kind: 'retitle_quiz', title: 'Quiz two' })
       expect(openOf(await read()).title).to.eq('Quiz two')
     })
 
-    it('accepts an empty title without rewriting it', async () => {
+    it("accepts an empty title without rewriting it", async () => {
       const { act, read } = await seed(openHunt())
       await act({ kind: 'retitle_quiz', title: '' })
       expect(openOf(await read()).title).to.eq('')
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await expectRefusal(act({ kind: 'retitle_quiz', title: 'Quiz two' }), 'quizLocked')
@@ -162,15 +155,15 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('relabel_quiz', () => {
-    it('overrides the generated label of the open quiz, and leaves the generated one alone', async () => {
+  describe("relabel_quiz", () => {
+    it("overrides the generated label of the open quiz, and leaves the generated one alone", async () => {
       const { act, read } = await seed(openHunt())
       const generated = openOf(await read()).label
       await act({ kind: 'relabel_quiz', label: 'leon' })
       expect([openOf(await read()).forced_label, openOf(await read()).label]).to.deep.eq(['leon', generated])
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await expectRefusal(act({ kind: 'relabel_quiz', label: 'leon' }), 'quizLocked')
@@ -178,22 +171,22 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('reversion_quiz', () => {
-    it('puts the open quiz on another version', async () => {
+  describe("reversion_quiz", () => {
+    it("puts the open quiz on another version", async () => {
       const { act, read } = await seed(openHunt())
       await act({ kind: 'reversion_quiz', version: 'playtest' })
       expect(openOf(await read()).version).to.eq('playtest')
     })
   })
 
-  describe('set_smiths_note', () => {
-    it('rewrites the open quiz\'s smith\'s note, trimmed, keeping its paragraphs', async () => {
+  describe("set_smiths_note", () => {
+    it("rewrites the open quiz's smith's note, trimmed, keeping its paragraphs", async () => {
       const { act, read } = await seed(openHunt())
       await act({ kind: 'set_smiths_note', smiths_note: '  Theme: princes.\n\nMeta: their initials.\n' })
       expect(openOf(await read()).smiths_note).to.eq('Theme: princes.\n\nMeta: their initials.')
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await expectRefusal(act({ kind: 'set_smiths_note', smiths_note: 'Theme: kings.' }), 'quizLocked')
@@ -201,8 +194,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('add_question', () => {
-    it('appends a blank question to the end', async () => {
+  describe("add_question", () => {
+    it("appends a blank question to the end", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'add_question' })
       const after = openOf(await read())
@@ -211,15 +204,15 @@ describe('hunts.perform', () => {
       expect(present(after.questions[2]).clueing).to.eq('')
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       await expectRefusal(act({ kind: 'add_question' }), 'quizLocked')
       expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
     })
   })
 
-  describe('edit_question', () => {
-    it('rewrites only the named question, and only the named fields', async () => {
+  describe("edit_question", () => {
+    it("rewrites only the named question, and only the named fields", async () => {
       const { act, read } = await seed(openHunt())
       const target = present(openOf(await read()).questions[1])
       await act({ kind: 'edit_question', question_id: target._id, patch: { clueing: 'Which région?' } })
@@ -227,7 +220,7 @@ describe('hunts.perform', () => {
       expect([after.questions[1]?.clueing, after.questions[1]?.hint, after.questions[0]?.clueing]).to.deep.eq(['Which région?', '', ''])
     })
 
-    it('refuses a question that is not in the quiz, leaving the quiz alone', async () => {
+    it("refuses a question that is not in the quiz, leaving the quiz alone", async () => {
       const { act, read } = await seed(openHunt())
       const elsewhere = await seed(openHunt())
       const ante = await read()
@@ -237,14 +230,14 @@ describe('hunts.perform', () => {
       expect(firstOf(await elsewhere.read()).clueing).to.eq('')
     })
 
-    it('ignores fields the patch does not mention', async () => {
+    it("ignores fields the patch does not mention", async () => {
       const { act, read } = await seed(openHunt())
       const ante = await read()
       await act({ kind: 'edit_question', question_id: firstOf(ante)._id, patch: {} })
       expect(await read()).to.deep.eq(ante)
     })
 
-    it('refuses text the model rejects rather than storing it, saying why in our words', async () => {
+    it("refuses text the model rejects rather than storing it, saying why in our words", async () => {
       const { act, read } = await seed(openHunt())
       const ante = await read()
       const err = await refusalOf(act({ kind: 'edit_question', question_id: firstOf(ante)._id, patch: { title: 'x'.repeat(201) } }))
@@ -254,14 +247,14 @@ describe('hunts.perform', () => {
       expect(await read()).to.deep.eq(ante)
     })
 
-    it('chains to another question, held by that question\'s label', async () => {
+    it("chains to another question, held by that question's label", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'edit_question', question_id: present(first)._id, patch: { chains_to: present(second)._id } })
       expect(firstOf(await read()).chains_to).to.eq(present(second)._id)
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await expectRefusal(act({ kind: 'edit_question', question_id: firstOf(ante)._id, patch: { clueing: 'x' } }), 'quizLocked')
@@ -269,45 +262,45 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('sort_questions', () => {
-    it('commits the new order into the quiz rather than draping it over the top', async () => {
+  describe("sort_questions", () => {
+    it("commits the new order into the quiz rather than draping it over the top", async () => {
       const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
       expect(titlesOf(await read())).to.deep.eq(['apple', 'banana', 'cherry'])
     })
 
-    it('remembers which column put the quiz in this order', async () => {
+    it("remembers which column put the quiz in this order", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'sort_questions', sortkey: 'column:qnum', descending: false })
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
     })
 
-    it('reverses when asked', async () => {
+    it("reverses when asked", async () => {
       const { act, read } = await seed(huntOf(['3', 'cherry'], ['1', 'apple'], ['2', 'banana']))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
       expect(titlesOf(await read())).to.deep.eq(['cherry', 'banana', 'apple'])
     })
 
-    it('sorts by what an expressing works out, with the expressions the hunt holds', async () => {
+    it("sorts by what a widgeting works out, with the widgets the library holds", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const [first, second, third] = openOf(await read()).questions
       const clueings: [string, string][] = [[present(first)._id, 'one two three'], [present(second)._id, 'one'], [present(third)._id, 'one two']]
       for (const [question_id, clueing] of clueings) { await act({ kind: 'edit_question', question_id, patch: { clueing } }) }
-      await act({ kind: 'add_widget', widget: { kind: 'expressing', label: 'words', expression_label: 'clueing_word_count' } })
+      await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_word_count', label: 'words' } })
       await act({ kind: 'add_column', column: { label: 'words', title: 'Words', source: 'words', width_px: 60 } })
       await act({ kind: 'sort_questions', sortkey: 'column:words', descending: false })
       expect(titlesOf(await read())).to.deep.eq(['b', 'c', 'a'])
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(lockedAll(huntOf(['3', 'cherry'], ['1', 'apple'])))
       await expectRefusal(act({ kind: 'sort_questions', sortkey: 'column:title', descending: false }), 'quizLocked')
       expect(titlesOf(await read())).to.deep.eq(['cherry', 'apple'])
     })
   })
 
-  describe('renumber_qnums', () => {
-    it('tidies the numbers with no question moving', async () => {
+  describe("renumber_qnums", () => {
+    it("tidies the numbers with no question moving", async () => {
       const { act, read } = await seed(huntOf(['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']))
       await act({ kind: 'renumber_qnums' })
       const after = await read()
@@ -315,22 +308,22 @@ describe('hunts.perform', () => {
       expect(titlesOf(after)).to.deep.eq(['d', 'c', 'f', 'a'])
     })
 
-    it('does not claim the quiz is now in Q# order, which would immediately re-sort it', async () => {
+    it("does not claim the quiz is now in Q# order, which would immediately re-sort it", async () => {
       const { act, read } = await seed(huntOf(['4', 'd'], ['1', 'a']))
       await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })
       await act({ kind: 'renumber_qnums' })
       expect(openOf(await read()).last_sortkey).to.eq('column:title')
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(lockedAll(huntOf(['4', 'd'])))
       await expectRefusal(act({ kind: 'renumber_qnums' }), 'quizLocked')
       expect(qnumsOf(await read())).to.deep.eq(['4'])
     })
   })
 
-  describe('move_question', () => {
-    it('moves the question and renumbers everything by its new position', async () => {
+  describe("move_question", () => {
+    it("moves the question and renumbers everything by its new position", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const dragged = present(openOf(await read()).questions[2])
       await act({ kind: 'move_question', question_id: dragged._id, onto_idx: 0 })
@@ -339,22 +332,22 @@ describe('hunts.perform', () => {
       expect(qnumsOf(after)).to.deep.eq(['1', '2', '3'])
     })
 
-    it('adopts a question that had no Q# into the sequence', async () => {
+    it("adopts a question that had no Q# into the sequence", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['', 'b']))
       const dragged = present(openOf(await read()).questions[1])
       await act({ kind: 'move_question', question_id: dragged._id, onto_idx: 0 })
       expect(qnumsOf(await read())).to.deep.eq(['1', '2'])
     })
 
-    it('leaves the quiz in Q# order, which is the only order a drag is offered in', async () => {
+    it("leaves the quiz in Q# order, which is the only order a drag is offered in", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'move_question', question_id: firstOf(await read())._id, onto_idx: 1 })
       expect(openOf(await read()).last_sortkey).to.eq('column:qnum')
     })
   })
 
-  describe('the quiz\'s order of its questions', () => {
-    it('names every question of the quiz exactly once, whatever adds, moves, sorts, deletes or replaces them', async () => {
+  describe("the quiz's order of its questions", () => {
+    it("names every question of the quiz exactly once, whatever adds, moves, sorts, deletes or replaces them", async () => {
       const { act, read, tt, open } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       /** The order and the quiz's questions found by their index are the same ids, none twice */
       const expectOrderHolds = async () => {
@@ -379,8 +372,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('delete_questions', () => {
-    it('deletes the named questions, and the rest close ranks keeping their Q#s', async () => {
+  describe("delete_questions", () => {
+    it("deletes the named questions, and the rest close ranks keeping their Q#s", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
       const [, second, , fourth] = openOf(await read()).questions
       await act({ kind: 'delete_questions', question_ids: [present(second)._id, present(fourth)._id] })
@@ -389,17 +382,17 @@ describe('hunts.perform', () => {
       expect(qnumsOf(after)).to.deep.eq(['1', '3'])
     })
 
-    it('takes each deleted question\'s replies with it, and leaves the others\' alone', async () => {
+    it("takes each deleted question's replies with it, and leaves the others' alone", async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
-      await act({ kind: 'record_botting', botting: found(present(first)._id, 1) })
-      await act({ kind: 'record_botting', botting: found(present(second)._id, 2) })
+      await act({ kind: 'record_widgeted', widgeted: found(present(first)._id, 1) })
+      await act({ kind: 'record_widgeted', widgeted: found(present(second)._id, 2) })
       await act({ kind: 'delete_questions', question_ids: [present(first)._id] })
-      const bottings = await tt.run(async (ctx) => await ctx.db.query('bottings').collect())
-      expect(bottings.map((botting) => botting.question_id)).to.deep.eq([present(second)._id])
+      const widgeteds = await tt.run(async (ctx) => await ctx.db.query('widgeteds').collect())
+      expect(widgeteds.map((widgeted) => widgeted.question_id)).to.deep.eq([present(second)._id])
     })
 
-    it('takes each deleted question\'s reviewings with it, and leaves the others\' alone', async () => {
+    it("takes each deleted question's reviewings with it, and leaves the others' alone", async () => {
       const { tt, act, asAlice, quiz_id, first, second } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { get_rate: 20 } })
@@ -407,7 +400,7 @@ describe('hunts.perform', () => {
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: second, get_rate: 20 }])
     })
 
-    it('clears a chain to a deleted question, so a later question answering to its label does not inherit it', async () => {
+    it("clears a chain to a deleted question, so a later question answering to its label does not inherit it", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
@@ -415,7 +408,7 @@ describe('hunts.perform', () => {
       expect(firstOf(await read()).chains_to).to.be.null
     })
 
-    it('passes over an id that names no question of the quiz', async () => {
+    it("passes over an id that names no question of the quiz", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const elsewhere = await seed(huntOf(['1', 'z']))
       await act({ kind: 'delete_questions', question_ids: [firstOf(await elsewhere.read())._id] })
@@ -423,13 +416,13 @@ describe('hunts.perform', () => {
       expect(titlesOf(await elsewhere.read())).to.deep.eq(['z'])
     })
 
-    it('can empty the quiz', async () => {
+    it("can empty the quiz", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'delete_questions', question_ids: openOf(await read()).questions.map((question) => question._id) })
       expect(titlesOf(await read())).to.deep.eq([])
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       const doomed = firstOf(await read())
       await expectRefusal(act({ kind: 'delete_questions', question_ids: [doomed._id] }), 'quizLocked')
@@ -437,15 +430,15 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('set_chain', () => {
-    it('chains one question to another, which the quiz then shows', async () => {
+  describe("set_chain", () => {
+    it("chains one question to another, which the quiz then shows", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
       expect(firstOf(await read()).chains_to).to.eq(present(second)._id)
     })
 
-    it('unchains with null', async () => {
+    it("unchains with null", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
@@ -453,7 +446,7 @@ describe('hunts.perform', () => {
       expect(firstOf(await read()).chains_to).to.be.null
     })
 
-    it('clears a chain to itself, or to no question of the quiz, rather than keeping it', async () => {
+    it("clears a chain to itself, or to no question of the quiz, rather than keeping it", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const first = firstOf(await read())
       await act({ kind: 'set_chain', question_id: first._id, chains_to: first._id })
@@ -464,8 +457,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('sort_by_chain_order', () => {
-    it('walks the chains from the lowest Q#, and remembers doing so', async () => {
+  describe("sort_by_chain_order", () => {
+    it("walks the chains from the lowest Q#, and remembers doing so", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
       const [first, , third] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(third)._id })
@@ -476,194 +469,130 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('record_botting', () => {
-    it('stores an extraction against the text it came from, in its own cell', async () => {
+  describe("record_widgeted", () => {
+    it("stores a value in its own cell: the newest row of that widgeting for that question", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
-      await act({ kind: 'record_botting', botting: found(id, 1994, 'hint') })
-      const question = firstOf(await read())
-      expect(question.hint_ishes).to.deep.include({ status: 'done', items: [{ text: '1994', value: 1994, kind: 'numeral' }], stale: false })
-      expect(question.clueing_ishes).to.be.null
+      await act({ kind: 'record_widgeted', widgeted: found(id, 1994, 'numnum_hint') })
+      const cell = present(cellOf(await read(), 'numnum_hint'))
+      expect(cell.newest).to.deep.include({ status: 'ok', value: { items: [{ text: '1994', value: 1994, kind: 'numeral' }] }, message: null })
+      expect(cell.ok).to.deep.eq(cell.newest)
+      expect(cellOf(await read(), 'numnum_clueing')).to.be.null
     })
 
-    it('stores a guess, with what it cost', async () => {
+    it("stores a guess, with how it ran", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
-      await act({ kind: 'record_botting', botting: { ...guessed(id, 'Leon'), approx_tokens: 12 } })
-      expect(firstOf(await read()).guess).to.deep.include({ status: 'done', text: 'Leon', model_tier_applied: 'quick', approx_tokens: 12 })
+      await act({ kind: 'record_widgeted', widgeted: { ...guessed(id, 'Leon'), result_meta: { model_tier_applied: 'quick', approx_tokens: 12 } } })
+      expect(cellOf(await read(), 'dumdum')?.newest).to.deep.include({ value: { guess: 'Leon', explanation: '' }, result_meta: { model_tier_applied: 'quick', approx_tokens: 12 } })
     })
 
-    it('marks an extraction stale when the text it was asked about is not the question\'s', async () => {
-      const { act, read } = await seed(huntOf(['1', 'a']))
+    it("keeps what came before as history, the newest on top", async () => {
+      const { act, read, tt } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
-      await act({ kind: 'record_botting', botting: { ...found(id, 1), asked_text: 'An earlier clueing' } })
-      expect(staleOf(await firstClueingIshes(read))).to.be.true
+      await act({ kind: 'record_widgeted', widgeted: guessed(id, 'Leon') })
+      await act({ kind: 'record_widgeted', widgeted: guessed(id, 'Lyon') })
+      expect(cellOf(await read(), 'dumdum')?.newest.value).to.deep.eq({ guess: 'Lyon', explanation: '' })
+      const widgeteds = await tt.run(async (ctx) => await ctx.db.query('widgeteds').collect())
+      expect(widgeteds).to.have.lengthOf(2)
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       const asked = firstOf(await read())
-      await expectRefusal(act({ kind: 'record_botting', botting: found(asked._id, 1) }), 'quizLocked')
-      expect(firstOf(await read()).clueing_ishes).to.be.null
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: found(asked._id, 1) }), 'quizLocked')
+      expect(firstOf(await read()).stored).to.deep.eq({})
     })
 
-    it('refuses a question of another quiz', async () => {
-      const { act, read } = await seed(huntTitled(['one', 'two']))
+    it("refuses a question of another quiz", async () => {
+      const { act, read } = await seed(huntHolding(['one', 'two'].map((title) => ({ ...Quiz.blank(title), ...defaultLayout() }))))
       const other = present(quizNamed(await read(), 'two').questions[0])
-      await expectRefusal(act({ kind: 'record_botting', botting: found(other._id, 1) }), 'questionGone')
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: found(other._id, 1) }), 'questionGone')
+    })
+
+    it("refuses a widgeting the quiz does not have", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const ante = await read()
+      const { _id: id } = firstOf(ante)
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: found(id, 1, 'numnum_gone') }), 'widgetingGone')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses a widgeting whose widget works its values out rather than storing them", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const ante = await read()
+      const { _id: id } = firstOf(ante)
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: recorded(id, { widgeting_label: 'clueing_full', value: 7 }) }), 'notStored')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses an ok widgeted that carries a failure message, at the door", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const ante = await read()
+      const { _id: id } = firstOf(ante)
+      const err = await refusalOf(act({ kind: 'record_widgeted', widgeted: recorded(id, { message: 'But also no.' }) }))
+      expect(ZodRefusal.parse(err instanceof ConvexError ? err.data : null).ZodError.map((issue) => issue.path)).to.deep.eq([['action', 'widgeted', 'message']])
+      expect(await read()).to.deep.eq(ante)
     })
   })
 
-  describe('a failed ask', () => {
+  describe("a failed ask", () => {
     const err = { message: 'A connection hiccup — try again.', response: { ok: false, failurekind: 'connection' } }
-    const items = [{ text: '300', value: 300, kind: 'numeral' as const }]
 
-    /** A question already holding a guess and a clueing extraction */
-    const withHeld = async () => {
-      const seeded = await seed(huntOf(['1', 'a']))
-      const { _id: id } = firstOf(await seeded.read())
-      await seeded.act({ kind: 'record_botting', botting: guessed(id, 'Leon') })
-      await seeded.act({ kind: 'record_botting', botting: botted(id, { items }) })
-      return { ...seeded, id }
-    }
 
-    it('leaves a guess as it was and rides along on it as its last_err', async () => {
+    it("leaves the value as it was, and rides along on it as the newer row", async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
-      const { guess } = firstOf(await read())
-      expect(guess).to.deep.include({ status: 'done', text: 'Leon', truncated: false })
-      expect(failureOf(guess)).to.deep.eq({ message: err.message, response: err.response })
+      await act({ kind: 'record_widgeted', widgeted: failed(id, 'dumdum', err) })
+      const cell = present(cellOf(await read(), 'dumdum'))
+      expect(cell.ok).to.deep.include({ status: 'ok', value: { guess: 'Leon', explanation: '' } })
+      expect(cell.newest).to.deep.include({ status: 'errored', value: null, message: err.message, result_meta: { response: err.response } })
     })
 
-    it('leaves an extraction\'s items and stale flag exactly as they were', async () => {
-      const { act, read, id } = await withHeld()
-      await act({ kind: 'record_botting', botting: failed(id, 'numnum', 'clueing', err) })
-      const { clueing_ishes } = firstOf(await read())
-      expect(clueing_ishes).to.deep.include({ status: 'done', items, stale: false })
-      expect(failureOf(clueing_ishes)).to.deep.eq({ message: err.message, response: err.response })
-    })
-
-    it('becomes the cell\'s only content when it never had a value', async () => {
+    it("becomes the cell's only content when it never had a value", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
-      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
-      const { guess } = firstOf(await read())
-      expect(guess).to.deep.include({ status: 'error', message: err.message })
-      expect(failureOf(guess)).to.deep.eq({ message: err.message, response: err.response })
+      await act({ kind: 'record_widgeted', widgeted: failed(id, 'dumdum', err) })
+      const cell = present(cellOf(await read(), 'dumdum'))
+      expect(cell.newest).to.deep.include({ status: 'errored', message: err.message })
+      expect(cell.ok).to.be.null
     })
 
-    it('is replaced by a newer failure, not stacked', async () => {
+    it("is replaced by a newer failure, not stacked", async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
-      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', { ...err, message: 'Still no connection.' }) })
-      const { guess } = firstOf(await read())
-      expect(guess).to.deep.include({ text: 'Leon' })
-      expect(failureOf(guess)?.message).to.eq('Still no connection.')
+      await act({ kind: 'record_widgeted', widgeted: failed(id, 'dumdum', err) })
+      await act({ kind: 'record_widgeted', widgeted: failed(id, 'dumdum', { ...err, message: 'Still no connection.' }) })
+      const cell = present(cellOf(await read(), 'dumdum'))
+      expect(cell.ok?.value).to.deep.eq({ guess: 'Leon', explanation: '' })
+      expect(cell.newest.message).to.eq('Still no connection.')
     })
 
-    it('is cleared by any success', async () => {
+    it("is cleared by any success", async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'record_botting', botting: failed(id, 'dumdum', 'clueing', err) })
-      await act({ kind: 'record_botting', botting: guessed(id, 'Lyon') })
-      expect(firstOf(await read()).guess).to.deep.include({ text: 'Lyon', last_err: null })
+      await act({ kind: 'record_widgeted', widgeted: failed(id, 'dumdum', err) })
+      await act({ kind: 'record_widgeted', widgeted: guessed(id, 'Lyon') })
+      const cell = present(cellOf(await read(), 'dumdum'))
+      expect(cell.newest).to.deep.include({ status: 'ok', value: { guess: 'Lyon', explanation: '' }, message: null })
+      expect(cell.ok).to.deep.eq(cell.newest)
     })
 
-    it('survives the text being edited, which only marks the extraction stale', async () => {
+    it("stays as it was when the text is edited", async () => {
       const { act, read, id } = await withHeld()
-      await act({ kind: 'record_botting', botting: failed(id, 'numnum', 'clueing', err) })
+      await act({ kind: 'record_widgeted', widgeted: failed(id, 'dumdum', err) })
+      const ante = cellOf(await read(), 'dumdum')
       await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
-      const { clueing_ishes } = firstOf(await read())
-      expect(clueing_ishes).to.deep.include({ stale: true })
-      expect(failureOf(clueing_ishes)?.message).to.eq(err.message)
+      expect(cellOf(await read(), 'dumdum')).to.deep.eq(ante)
     })
 
-    it('is refused while the quiz is locked', async () => {
+    it("is refused while the quiz is locked", async () => {
       const { act, read } = await seed(lockedAll(huntOf(['1', 'a'])))
       const asked = firstOf(await read())
-      await expectRefusal(act({ kind: 'record_botting', botting: failed(asked._id, 'dumdum', 'clueing', err) }), 'quizLocked')
-      expect(firstOf(await read()).guess).to.be.null
-    })
-
-    it('is what a combined run leaves on a text it left out, beside the value that cell had', async () => {
-      const { act, read, id } = await withHeld()
-      await act({
-        kind: 'apply_bulk_ishes', run: { approx_tokens: 1, text_count: 1, updated_at: 9 },
-        bottings: [failed(id, 'numnum', 'clueing', err)],
-      })
-      const { clueing_ishes } = firstOf(await read())
-      expect(clueing_ishes).to.deep.include({ status: 'done', items })
-      expect(failureOf(clueing_ishes)?.message).to.eq(err.message)
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: failed(asked._id, 'dumdum', err) }), 'quizLocked')
+      expect(cellOf(await read(), 'dumdum')).to.be.null
     })
   })
 
-  describe('apply_bulk_ishes', () => {
-    it('lands each text\'s extraction in its cell, and keeps what the run cost', async () => {
-      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
-      const [first, second] = openOf(await read()).questions
-      const run = { approx_tokens: 4200, text_count: 2, updated_at: 9 }
-      await act({
-        kind: 'apply_bulk_ishes', run,
-        bottings: [found(present(first)._id, 1), found(present(second)._id, 2, 'hint')],
-      })
-      const after = openOf(await read())
-      expect(after.questions.map((question) => [question.clueing_ishes?.status ?? null, question.hint_ishes?.status ?? null])).to.deep.eq([['done', null], [null, 'done']])
-      expect(after.bulk_ishes_last).to.deep.eq(run)
-    })
-  })
-
-  /** A question with an extraction for each text named */
-  const extractedFrom = async (...textkinds: ('clueing' | 'hint')[]) => {
-    const seeded = await seed(huntOf(['1', 'a']))
-    const { _id: id } = firstOf(await seeded.read())
-    for (const textkind of textkinds) { await seeded.act({ kind: 'record_botting', botting: botted(id, { textkind }) }) }
-    return { ...seeded, id }
-  }
-
-  describe('staleness', () => {
-    it('marks the clueing extraction stale when the clueing is edited', async () => {
-      const { act, read, id } = await extractedFrom('clueing')
-      await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
-      expect(staleOf(await firstClueingIshes(read))).to.be.true
-    })
-
-    it('leaves the extraction visible rather than throwing it away', async () => {
-      const { act, read } = await seed(huntOf(['1', 'a']))
-      const { _id: id } = firstOf(await read())
-      await act({ kind: 'record_botting', botting: found(id, 300) })
-      await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
-      const { clueing_ishes } = firstOf(await read())
-      expect(clueing_ishes?.status === 'done' && clueing_ishes.items).to.have.length(1)
-    })
-
-    it('marks only the hint extraction when only the hint is edited', async () => {
-      const { act, read, id } = await extractedFrom('clueing', 'hint')
-      await act({ kind: 'edit_question', question_id: id, patch: { hint: 'Rewritten' } })
-      const question = firstOf(await read())
-      expect([staleOf(question.hint_ishes), staleOf(question.clueing_ishes)]).to.deep.eq([true, false])
-    })
-
-    it('leaves an extraction alone when the edit did not change the text', async () => {
-      const { act, read, id } = await extractedFrom('clueing')
-      await act({ kind: 'edit_question', question_id: id, patch: { clueing: '' } })
-      expect(staleOf(await firstClueingIshes(read))).to.be.false
-    })
-
-    it('leaves an extraction alone when some other field is edited', async () => {
-      const { act, read, id } = await extractedFrom('clueing')
-      await act({ kind: 'edit_question', question_id: id, patch: { notes: 'later' } })
-      expect(staleOf(await firstClueingIshes(read))).to.be.false
-    })
-
-    it('comes back fresh when the text is edited back to what was asked', async () => {
-      const { act, read, id } = await extractedFrom('clueing')
-      await act({ kind: 'edit_question', question_id: id, patch: { clueing: 'Reworded' } })
-      await act({ kind: 'edit_question', question_id: id, patch: { clueing: '' } })
-      expect(staleOf(await firstClueingIshes(read))).to.be.false
-    })
-  })
-
-  describe('new_quiz', () => {
-    it('adds a quiz to the open quiz\'s realm, leaving the open quiz as it was', async () => {
+  describe("new_quiz", () => {
+    it("adds a quiz to the open quiz's realm, leaving the open quiz as it was", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const ante = await read()
       await act({ kind: 'new_quiz' })
@@ -672,44 +601,51 @@ describe('hunts.perform', () => {
       expect(openOf(after)).to.deep.eq(openOf(ante))
     })
 
-    it('starts the new quiz with the same blank questions a fresh hunt has', async () => {
+    it("starts the new quiz with the same blank questions a fresh hunt has", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz' })
       expect(newestOf(await read()).questions).to.have.length(BlankQuestionQty)
     })
 
-    it('works from a locked quiz', async () => {
+    it("works from a locked quiz", async () => {
       const { act, read } = await seed(huntTitled(['one'], 0))
       await act({ kind: 'new_quiz' })
       const { quizzes } = await read()
       expect(quizzes).to.have.length(2)
     })
 
-    it('starts the new quiz with the standard columns, for the expressions the hunt still has', async () => {
-      const whole = await seed(Hunt.blank())
-      await whole.act({ kind: 'new_quiz' })
-      expect([newestOf(await whole.read()).widgets.length, newestOf(await whole.read()).columns.length]).to.deep.eq([11, 21])
-      const blank = Hunt.blank()
-      const fewer = await seed({ ...blank, expressions: blank.expressions.filter((expression) => expression.label !== 'hint_full') })
-      await fewer.act({ kind: 'new_quiz' })
-      expect([newestOf(await fewer.read()).widgets.length, newestOf(await fewer.read()).columns.length]).to.deep.eq([10, 20])
+    it("starts the new quiz with the default widgetings and columns", async () => {
+      const { act, read } = await seed(openHunt())
+      await act({ kind: 'new_quiz' })
+      const { widgetings, columns } = defaultLayout()
+      const newest = newestOf(await read())
+      expect([newest.widgetings, newest.columns]).to.deep.eq([widgetings, columns])
     })
 
-    it('keeps the hunt\'s expressions', async () => {
+    it("gives the library whichever of the default widgetings' widgets it lacks, at its end", async () => {
+      const { act, read } = await seed(openHunt())
+      await act({ kind: 'delete_widget', label: 'hint_full' })
+      await act({ kind: 'delete_widget', label: 'dumdum' })
+      await act({ kind: 'new_quiz' })
+      const { library } = await read()
+      expect(library.map((widget) => widget.label).slice(-2)).to.deep.eq(['dumdum', 'hint_full'])
+    })
+
+    it("leaves the library's widgets as they were when it lacks none of them", async () => {
       const { act, read } = await seed(Hunt.blank())
       const ante = await read()
       await act({ kind: 'new_quiz' })
-      const { expressions } = await read()
-      expect(expressions).to.deep.eq(ante.expressions)
+      const { library } = await read()
+      expect(library).to.deep.eq(ante.library)
     })
 
-    it('starts the new quiz under the label it is given', async () => {
+    it("starts the new quiz under the label it is given", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz', label: 'princes' })
       expect(newestOf(await read()).label).to.eq('princes')
     })
 
-    it('refuses a label a quiz already answers to, rather than making a second quiz at one address', async () => {
+    it("refuses a label a quiz already answers to, rather than making a second quiz at one address", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz', label: 'princes' })
       const ante = await read()
@@ -717,7 +653,7 @@ describe('hunts.perform', () => {
       expect(await read()).to.deep.eq(ante)
     })
 
-    it('counts an overriding label as taken', async () => {
+    it("counts an overriding label as taken", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'relabel_quiz', label: 'leon' })
       const ante = await read()
@@ -726,21 +662,28 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('delete_quiz', () => {
-    it('removes the quiz and everything it held', async () => {
-      const { tt, act, read } = await seed(huntTitled(['one', 'two', 'three']), 1)
-      const doomed = quizNamed(await read(), 'two')._id
-      const asked = present(quizNamed(await read(), 'two').questions[0])
-      await act({ kind: 'record_botting', botting: guessed(asked._id, 'gone') })
+  describe("delete_quiz", () => {
+    it("removes the quiz and everything it held, and leaves the library alone", async () => {
+      const { tt, act, read } = await seed(huntHolding(['one', 'two', 'three'].map((title) => ({ ...Quiz.blank(title), ...defaultLayout() }))), 1)
+      const ante = await read()
+      const doomed = quizNamed(ante, 'two')._id
+      const asked = present(quizNamed(ante, 'two').questions[0])
+      await act({ kind: 'record_widgeted', widgeted: guessed(asked._id, 'gone') })
       await act({ kind: 'delete_quiz', quiz_id: doomed })
       const after = await read()
       expect(after.quizzes.map((quiz) => quiz.title)).to.deep.eq(['one', 'three'])
-      const [questions, bottings] = await tt.run(async (ctx) => [await ctx.db.query('questions').collect(), await ctx.db.query('bottings').collect()])
-      expect(questions.filter((question) => question.quiz_id === doomed)).to.have.length(0)
-      expect(bottings).to.have.length(0)
+      const ofDoomed = (rows: readonly { quiz_id: string }[]) => rows.filter((row) => row.quiz_id === doomed).length
+      const left = await tt.run(async (ctx) => {
+        const [questions, widgetings, columns, widgeteds] = await Promise.all([
+          ctx.db.query('questions').collect(), ctx.db.query('widgetings').collect(), ctx.db.query('columns').collect(), ctx.db.query('widgeteds').collect(),
+        ])
+        return { questions: ofDoomed(questions), widgetings: ofDoomed(widgetings), columns: ofDoomed(columns), widgeteds: widgeteds.length }
+      })
+      expect(left).to.deep.eq({ questions: 0, widgetings: 0, columns: 0, widgeteds: 0 })
+      expect(after.library).to.deep.eq(ante.library)
     })
 
-    it('takes the quiz\'s reviews and their reviewings with it', async () => {
+    it("takes the quiz's reviews and their reviewings with it", async () => {
       const { tt, act, asAlice, quiz_id, first } = await reviewed(huntTitled(['one', 'two']))
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
       await act({ kind: 'delete_quiz', quiz_id })
@@ -748,14 +691,14 @@ describe('hunts.perform', () => {
       expect([reviews, reviewings]).to.deep.eq([[], []])
     })
 
-    it('refuses to delete the realm\'s last quiz', async () => {
+    it("refuses to delete the realm's last quiz", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const ante = await read()
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: openOf(ante)._id }), 'lastQuiz')
       expect(await read()).to.deep.eq(ante)
     })
 
-    it('leaves the open quiz alone when some other quiz goes', async () => {
+    it("leaves the open quiz alone when some other quiz goes", async () => {
       const { act, read } = await seed(huntTitled(['one', 'two']), 0)
       await act({ kind: 'delete_quiz', quiz_id: quizNamed(await read(), 'two')._id })
       expect(openOf(await read()).title).to.eq('one')
@@ -773,21 +716,21 @@ describe('hunts.perform', () => {
       const { act, tt, open } = await seed(huntTitled(['one', 'two']), 0)
       const elsewhere = await tt.run(async (ctx) => {
         const realm_id = await ctx.db.insert('realms', { hunt_id: open.hunt_id, label: 'away', title: '', position: 1 })
-        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
+        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
       expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.be.null
     })
   })
 
-  describe('set_lock', () => {
-    it('freezes a quiz', async () => {
+  describe("set_lock", () => {
+    it("freezes a quiz", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'set_lock', quiz_id: openOf(await read())._id, locked: true })
       expect(openOf(await read()).locked).to.be.true
     })
 
-    it('unfreezes one, from inside the lock', async () => {
+    it("unfreezes one, from inside the lock", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       await act({ kind: 'set_lock', quiz_id, locked: true })
@@ -795,7 +738,7 @@ describe('hunts.perform', () => {
       expect(openOf(await read()).locked).to.be.false
     })
 
-    it('leaves the quiz exactly as it was', async () => {
+    it("leaves the quiz exactly as it was", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const ante = await read()
       await act({ kind: 'set_lock', quiz_id: openOf(ante)._id, locked: true })
@@ -804,8 +747,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('open_review', () => {
-    it('opens an empty review for the acting ident', async () => {
+  describe("open_review", () => {
+    it("opens an empty review for the acting ident", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key, ident_id } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -814,7 +757,7 @@ describe('hunts.perform', () => {
       expect(reviews.map((review) => [review.ident_id, review.overall, review.phase])).to.deep.eq([[ident_id, '', 'empty']])
     })
 
-    it('is idempotent: opening it again writes nothing new', async () => {
+    it("is idempotent: opening it again writes nothing new", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -823,7 +766,7 @@ describe('hunts.perform', () => {
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it('gives each ident its own review of the same quiz', async () => {
+    it("gives each ident its own review of the same quiz", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       const [alice, bob] = [await join('alice_reviews', 'reviewer'), await join('bob_reviews', 'reviewer')]
@@ -833,7 +776,7 @@ describe('hunts.perform', () => {
       expect(reviews.map((review) => review.ident_id)).to.deep.eq([alice.ident_id, bob.ident_id])
     })
 
-    it('works on a locked quiz, since reviewing one is the point', async () => {
+    it("works on a locked quiz, since reviewing one is the point", async () => {
       const { act, read, tt, join } = await seed(openHunt(true))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -841,14 +784,14 @@ describe('hunts.perform', () => {
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it('refuses a browser that has not said who it is, writing nothing', async () => {
+    it("refuses a browser that has not said who it is, writing nothing", async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       await expectRefusal(act({ kind: 'open_review', quiz_id }, mintId()), 'notIdentified')
       expect(await reviewsIn(tt, quiz_id)).to.deep.eq([])
     })
 
-    it('reviews as the ident the browser took on last', async () => {
+    it("reviews as the ident the browser took on last", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const bob = await join('bob_reviews', 'reviewer')
@@ -860,8 +803,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('set_overall', () => {
-    it('writes the note and moves an empty review to draft', async () => {
+  describe("set_overall", () => {
+    it("writes the note and moves an empty review to draft", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -871,7 +814,7 @@ describe('hunts.perform', () => {
       expect([review?.overall, review?.phase]).to.deep.eq(['Went well.', 'draft'])
     })
 
-    it('leaves a shared review shared', async () => {
+    it("leaves a shared review shared", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -882,7 +825,7 @@ describe('hunts.perform', () => {
       expect([review?.overall, review?.phase]).to.deep.eq(['One more thought.', 'shared'])
     })
 
-    it('refuses when the review has not been opened', async () => {
+    it("refuses when the review has not been opened", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -891,8 +834,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('set_review_phase', () => {
-    it('moves a review between draft and shared, both ways', async () => {
+  describe("set_review_phase", () => {
+    it("moves a review between draft and shared, both ways", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -905,7 +848,7 @@ describe('hunts.perform', () => {
       expect(withdrawn?.phase).to.eq('draft')
     })
 
-    it('refuses when the review has not been opened', async () => {
+    it("refuses when the review has not been opened", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
@@ -914,28 +857,28 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('set_reviewing', () => {
-    it('makes the reviewing the first time, holding only what the patch says', async () => {
+  describe("set_reviewing", () => {
+    it("makes the reviewing the first time, holding only what the patch says", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40 }])
     })
 
-    it('revises it after, leaving alone what a patch leaves out', async () => {
+    it("revises it after, leaving alone what a patch leaves out", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40, guesses: 'Hamlet?' } })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { comments: 'Fair.', keep_it: true } })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', keep_it: true }])
     })
 
-    it('clears a get rate or minutes given null', async () => {
+    it("clears a get rate or minutes given null", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40, minutes: 2.5 } })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: null, minutes: null } })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first }])
     })
 
-    it('keeps one reviewing per question', async () => {
+    it("keeps one reviewing per question", async () => {
       const { tt, asAlice, quiz_id, first, second } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { minutes: 3 } })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { minutes: 1 } })
@@ -943,7 +886,7 @@ describe('hunts.perform', () => {
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: second, minutes: 4 }, { ...Unsaid, question_id: first, minutes: 1 }])
     })
 
-    it('keeps each reviewer\'s verdicts apart', async () => {
+    it("keeps each reviewer's verdicts apart", async () => {
       const { tt, asAlice, act, quiz_id, first, join } = await reviewed()
       const bob = await join('bob_reviews', 'reviewer')
       await act({ kind: 'open_review', quiz_id }, bob.browser_key)
@@ -955,14 +898,14 @@ describe('hunts.perform', () => {
       expect([rateBy.get(reviews[0]?.ident_id), rateBy.get(reviews[1]?.ident_id)]).to.deep.eq([10, 90])
     })
 
-    it('moves an empty review to draft', async () => {
+    it("moves an empty review to draft", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true } })
       const [review] = await reviewsIn(tt, quiz_id)
       expect(review?.phase).to.eq('draft')
     })
 
-    it('leaves a shared review shared', async () => {
+    it("leaves a shared review shared", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_review_phase', quiz_id, phase: 'shared' })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true } })
@@ -970,13 +913,13 @@ describe('hunts.perform', () => {
       expect(review?.phase).to.eq('shared')
     })
 
-    it('works on a locked quiz, since reviewing one is the point', async () => {
+    it("works on a locked quiz, since reviewing one is the point", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed(openHunt(true))
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { needs_fact_check: true } })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, needs_fact_check: true }])
     })
 
-    it('lowers a meh when the question is picked top, and a top when it is picked meh', async () => {
+    it("lowers a meh when the question is picked top, and a top when it is picked meh", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { elimination_candidate: true } })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true } })
@@ -1019,7 +962,7 @@ describe('hunts.perform', () => {
       })
     }
 
-    it('counts each reviewer\'s picks apart', async () => {
+    it("counts each reviewer's picks apart", async () => {
       const hunt = huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd'])
       const { tt, asAlice, act, quiz_id, read, join } = await reviewed(hunt)
       const bob = await join('bob_reviews', 'reviewer')
@@ -1033,14 +976,14 @@ describe('hunts.perform', () => {
       expect(reviewings.filter((reviewing) => reviewing.keep_it)).to.have.lengthOf(PA.PicksPerReview.max + 1)
     })
 
-    it('refuses a patch picking a question both ways', async () => {
+    it("refuses a patch picking a question both ways", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       const refusal = await refusalOf(asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { keep_it: true, elimination_candidate: true } }))
       expect(refusal).to.be.instanceOf(ConvexError)
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it('refuses when the review has not been opened, writing nothing', async () => {
+    it("refuses when the review has not been opened, writing nothing", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('bob_reviews', 'reviewer')
       const seen = await read()
@@ -1049,7 +992,7 @@ describe('hunts.perform', () => {
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it('refuses a question that is not the quiz\'s, writing nothing', async () => {
+    it("refuses a question that is not the quiz's, writing nothing", async () => {
       const { tt, asAlice, quiz_id } = await reviewed()
       const elsewhere = await seed(huntOf(['1', 'z']))
       const question_id = firstOf(await elsewhere.read())._id
@@ -1059,21 +1002,21 @@ describe('hunts.perform', () => {
       expect(review?.phase).to.eq('empty')
     })
 
-    it('refuses a get rate past certain at the door, writing nothing', async () => {
+    it("refuses a get rate past certain at the door, writing nothing", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await expect(asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 101 } })).rejects.toThrow()
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it('refuses a browser that has not said who it is', async () => {
+    it("refuses a browser that has not said who it is", async () => {
       const { tt, act, quiz_id, first } = await reviewed()
       await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, mintId()), 'notIdentified')
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
   })
 
-  describe('peek_answer', () => {
-    it('records that the answer was seen, making the reviewing if need be, and leaves the review\'s phase alone', async () => {
+  describe("peek_answer", () => {
+    it("records that the answer was seen, making the reviewing if need be, and leaves the review's phase alone", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, peeked: true }])
@@ -1081,14 +1024,14 @@ describe('hunts.perform', () => {
       expect(review?.phase).to.eq('empty')
     })
 
-    it('marks a reviewing already made, keeping what it says', async () => {
+    it("marks a reviewing already made, keeping what it says", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } })
       await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40, peeked: true }])
     })
 
-    it('sets it once: a verdict after keeps it, and peeking again changes nothing', async () => {
+    it("sets it once: a verdict after keeps it, and peeking again changes nothing", async () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'peek_answer', quiz_id, question_id: first })
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 90 } })
@@ -1098,7 +1041,7 @@ describe('hunts.perform', () => {
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 90, peeked: true }])
     })
 
-    it('refuses when the review has not been opened, writing nothing', async () => {
+    it("refuses when the review has not been opened, writing nothing", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const { browser_key } = await join('bob_reviews', 'reviewer')
       const seen = await read()
@@ -1107,7 +1050,7 @@ describe('hunts.perform', () => {
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it('refuses a question that is not the quiz\'s', async () => {
+    it("refuses a question that is not the quiz's", async () => {
       const { tt, asAlice, quiz_id } = await reviewed()
       const elsewhere = await seed(huntOf(['1', 'z']))
       const question_id = firstOf(await elsewhere.read())._id
@@ -1116,8 +1059,8 @@ describe('hunts.perform', () => {
     })
   })
 
-  describe('import_questions', () => {
-    it('revises the question answering to each label, adds one under a label none answers to, and deletes nothing', async () => {
+  describe("import_questions", () => {
+    it("revises the question answering to each label, adds one under a label none answers to, and deletes nothing", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const first = firstOf(await read())
       await act({ kind: 'import_questions', questions: [{ label: first.label, patch: { clueing: 'Imported' } }, { label: 'fresh_one', patch: { title: 'fresh' } }] })
@@ -1133,13 +1076,13 @@ describe('hunts.perform', () => {
       expect(rows.map((row) => row.hunt_id)).to.deep.eq([open.hunt_id, open.hunt_id])
     })
 
-    it('titles a question it adds from its label, unless the paste says otherwise', async () => {
+    it("titles a question it adds from its label, unless the paste says otherwise", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {} }] })
       expect(titlesOf(await read())).to.deep.eq(['a', 'Fresh One'])
     })
 
-    it('writes a chain by label, to a question of the quiz or one the same import adds, and none to anything else', async () => {
+    it("writes a chain by label, to a question of the quiz or one the same import adds, and none to anything else", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [aa, bb] = openOf(await read()).questions
       await act({ kind: 'import_questions', questions: [
@@ -1151,7 +1094,7 @@ describe('hunts.perform', () => {
       expect(after.map((question) => question.chains_to)).to.deep.eq([after[2]?._id, null, after[0]?._id])
     })
 
-    it('renumbers Q# by rank afterwards, moving nothing', async () => {
+    it("renumbers Q# by rank afterwards, moving nothing", async () => {
       const { act, read } = await seed(huntOf(['4', 'a'], ['3.3', 'b'], ['1', 'c']))
       const first = firstOf(await read())
       await act({ kind: 'import_questions', questions: [{ label: first.label, patch: { notes: 'touched' } }] })
@@ -1159,7 +1102,7 @@ describe('hunts.perform', () => {
       expect(titlesOf(await read())).to.deep.eq(['a', 'b', 'c'])
     })
 
-    it('refuses while the quiz is locked', async () => {
+    it("refuses while the quiz is locked", async () => {
       const { act, read } = await seed(openHunt(true))
       const ante = await read()
       await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {} }] }), 'quizLocked')
@@ -1182,7 +1125,7 @@ function sansIds(tree: HuntT) {
 }
 
 /** A seeded hunt whose open quiz already holds `qty` more rows of `tablename`, inserted straight */
-async function crowded(tablename: 'questions' | 'widgets' | 'columns', qty: number) {
+async function crowded(tablename: 'questions' | 'widgetings' | 'columns', qty: number) {
   const seeded = await seedHunt(openTester(), huntHolding([Quiz.blank('Quiz one')]))
   const { quiz_id } = seeded.open
   const positions = Array.from({ length: qty }, (_unused, idx) => idx + BlankQuestionQty)
@@ -1192,8 +1135,8 @@ async function crowded(tablename: 'questions' | 'widgets' | 'columns', qty: numb
         const question_id = await ctx.db.insert('questions', { hunt_id: seeded.open.hunt_id, quiz_id, label: `q_${String(position)}`, forced_label: null, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
         const quiz = present(await ctx.db.get('quizzes', quiz_id))
         await ctx.db.patch('quizzes', quiz_id, { row_ordering: [...quiz.row_ordering, question_id] })
-      } else if (tablename === 'widgets') {
-        await ctx.db.insert('widgets', { quiz_id, position, label: `w_${String(position)}`, kind: 'expressing', expression_label: 'x', description: '' })
+      } else if (tablename === 'widgetings') {
+        await ctx.db.insert('widgetings', { quiz_id, position, widget_label: 'dumdum', label: `w_${String(position)}`, description: '', params: {} })
       } else {
         await ctx.db.insert('columns', { quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
       }
@@ -1202,47 +1145,53 @@ async function crowded(tablename: 'questions' | 'widgets' | 'columns', qty: numb
   return seeded
 }
 
-describe('hunts.perform, at the caps', () => {
-  it('refuses a question more than a quiz may hold', async () => {
+describe("hunts.perform, at the caps", () => {
+  it("refuses a question more than a quiz may hold", async () => {
     const { act, read } = await crowded('questions', 999 - BlankQuestionQty)
     await expectRefusal(act({ kind: 'add_question' }), 'questionsFull')
     expect(openOf(await read()).questions).to.have.lengthOf(999)
   })
 
-  it('refuses an import that would leave a quiz holding more questions than it may', async () => {
+  it("refuses an import that would leave a quiz holding more questions than it may", async () => {
     const { act, read } = await crowded('questions', 999 - BlankQuestionQty)
     await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'one_more', patch: {} }] }), 'questionsFull')
     expect(openOf(await read()).questions).to.have.lengthOf(999)
   })
 
-  it('refuses a widget more than a quiz may hold', async () => {
-    const { act, tt, open } = await crowded('widgets', 99)
-    await expectRefusal(act({ kind: 'add_widget', widget: { kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' } }), 'widgetsFull')
-    const widgets = await tt.run(async (ctx) => await ctx.db.query('widgets').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect())
-    expect(widgets).to.have.lengthOf(99)
+  it("refuses a widgeting more than a quiz may hold", async () => {
+    const { act, tt, open } = await crowded('widgetings', PA.WidgetingsPerQuiz.max)
+    await expectRefusal(act({ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } }), 'widgetingsFull')
+    const widgetings = await tt.run(async (ctx) => await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect())
+    expect(widgetings).to.have.lengthOf(PA.WidgetingsPerQuiz.max)
   })
 
-  it('refuses a column more than a quiz may hold', async () => {
+  it("refuses a column more than a quiz may hold", async () => {
     const { act, tt, open } = await crowded('columns', 99)
     await expectRefusal(act({ kind: 'add_column', column: { label: 'one_more', title: 'One more', source: 'question.qnum', width_px: 80 } }), 'columnsFull')
     const columns = await tt.run(async (ctx) => await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).collect())
     expect(columns).to.have.lengthOf(99)
   })
 
-  it('refuses an expression more than a hunt may hold', async () => {
-    const expressions = Array.from({ length: PA.ExpressionsPerHunt.max }, (_unused, idx) => ({ label: `expression_${String(idx)}`, formula: '1' }))
-    const { act, read } = await seedHunt(openTester(), huntHolding([Quiz.blank()], expressions.map((dna) => ({ ...dna, owner: 'tq' as const, description: '' }))))
-    await expectRefusal(act({ kind: 'add_expression', expression: { label: 'one_more', formula: '2' } }), 'expressionsFull')
-    const { expressions: after } = await read()
-    expect(after).to.have.lengthOf(PA.ExpressionsPerHunt.max)
+  it("refuses a widget more than the library may hold", async () => {
+    const { act, tt, read } = await seedHunt(openTester(), openHunt())
+    await tt.run(async (ctx) => {
+      const held = await ctx.db.query('widgets').collect()
+      const positions = Array.from({ length: PA.WidgetsInLibrary.max - held.length }, (_unused, idx) => idx + held.length)
+      for (const position of positions) {
+        await ctx.db.insert('widgets', { scope: 'pub', label: `widget_${String(position)}`, title: '', description: '', formulary: 'jsonata', formula: '1', input_formula: '$', config: {}, position })
+      }
+    })
+    await expectRefusal(act({ kind: 'add_widget', widget: { label: 'one_more', formulary: 'jsonata', formula: '2' } }), 'libraryFull')
+    const { library } = await read()
+    expect(library).to.have.lengthOf(PA.WidgetsInLibrary.max)
   })
 
-  it('refuses a quiz more than a realm may hold', async () => {
+  it("refuses a quiz more than a realm may hold", async () => {
     const { act, tt, open } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')
@@ -1250,7 +1199,7 @@ describe('hunts.perform, at the caps', () => {
     expect(quizzes).to.have.lengthOf(PA.QuizzesPerRealm.max)
   })
 
-  it('refuses a review more than a quiz may hold', async () => {
+  it("refuses a review more than a quiz may hold", async () => {
     const { act, tt, open, join } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => {
       const reviewers = Array.from({ length: 999 }, (_unused, idx) => `reviewer_${String(idx)}`)
@@ -1265,29 +1214,29 @@ describe('hunts.perform, at the caps', () => {
   })
 })
 
-describe('hunts.perform, refusing', () => {
-  it('reaches the caller as a refusal the browser reads as its sentence', async () => {
+describe("hunts.perform, refusing", () => {
+  it("reaches the caller as a refusal the browser reads as its sentence", async () => {
     const { act } = await seedHunt(openTester(), openHunt(true))
     const err = await refusalOf(act({ kind: 'add_question' }))
     expect(noticeOf(err)).to.eq(RefusalNotices.quizLocked)
   })
 
-  it('refuses a row its validator will not take, saying where and why', async () => {
+  it("refuses a row its validator will not take, saying where and why", async () => {
     const { act } = await seedHunt(openTester(), huntOf(['1', 'a']))
-    const err = await refusalOf(act({ kind: 'edit_widget', label: 'dumdum', patch: { textkind: 'hint' } }))
-    expect(noticeOf(err)).to.include('dumdum is not put a hint')
+    const err = await refusalOf(act({ kind: 'edit_widget', label: 'dumdum', patch: { config: {} } }))
+    expect(noticeOf(err)).to.include('config.model_tier «undefined» should be one of quick or careful')
   })
 })
 
-describe('hunts.perform, at the door', () => {
-  it('refuses a browser key that is not one, writing nothing', async () => {
+describe("hunts.perform, at the door", () => {
+  it("refuses a browser key that is not one, writing nothing", async () => {
     const { tt, open, read } = await seedHunt(openTester(), openHunt())
     const ante = await read()
     await expect(tt.mutation(api.hunts.perform, { open, action: { kind: 'add_question' }, browser_key: 'my_laptop' })).rejects.toThrow(/uuid|UUID/)
     expect(await read()).to.deep.eq(ante)
   })
 
-  it('refuses an action it does not know', async () => {
+  it("refuses an action it does not know", async () => {
     const { tt, open } = await seedHunt(openTester(), openHunt())
     const action = { kind: 'burn_it_all' } as never
     await expect(tt.mutation(api.hunts.perform, { open, action, browser_key: crypto.randomUUID() })).rejects.toThrow(/Validator error/)
@@ -1299,8 +1248,8 @@ async function joinHunt(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>
   await tt.run(async (ctx) => { await ctx.db.insert('huntings', { hunt_id, ident_id, role }) })
 }
 
-describe('hunts.list', () => {
-  it('lists the hunts one is on, titled, in the order they were made, with its realms\' quizzes in the order they were made', async () => {
+describe("hunts.list", () => {
+  it("lists the hunts one is on, titled, in the order they were made, with its realms' quizzes in the order they were made", async () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('First'), Quiz.blank('Second')]), label: 'quiet_otter', title: '' })
@@ -1314,7 +1263,7 @@ describe('hunts.list', () => {
     ])
   })
 
-  it('leaves out the hunts one is not on', async () => {
+  it("leaves out the hunts one is not on", async () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
     const bob = await identified(tt, 'bob_reviews')
@@ -1326,7 +1275,7 @@ describe('hunts.list', () => {
     expect(await tt.query(api.hunts.list, { browser_key: bob.browser_key })).to.deep.eq([])
   })
 
-  it('lists the hunts of the ident the browser took on last', async () => {
+  it("lists the hunts of the ident the browser took on last", async () => {
     const tt = openTester()
     const { browser_key } = await identified(tt, 'alice_smiths')
     const bob = await identified(tt, 'bob_reviews')
@@ -1337,7 +1286,7 @@ describe('hunts.list', () => {
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
   })
 
-  it('lists nothing for a browser that has not said who it is', async () => {
+  it("lists nothing for a browser that has not said who it is", async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'))
     expect(await tt.query(api.hunts.list, { browser_key: mintId() })).to.deep.eq([])
@@ -1350,26 +1299,17 @@ async function shown(tt: Tester, hunt_label: string, browser_key: string) {
   return present(opening.hunt)
 }
 
-describe('hunts.open', () => {
-  it('is the hunt answering to a label: its realms\' quizzes as rows, and its expressions with how many widgets work each', async () => {
+describe("hunts.open", () => {
+  it("is the hunt answering to a label: its realms' quizzes as rows, and nothing of the library", async () => {
     const tt = openTester()
     const { act, smith } = await seedHunt(tt, { ...Hunt.blank('quiet_otter'), title: '' })
     await act({ kind: 'new_quiz' })
     const hunt = await shown(tt, 'quiet_otter', smith.browser_key)
     expect([hunt.title, hunt.realms.map((realm) => [realm.title, realm.quizzes.length])]).to.deep.eq(['Quiet Otter', [['Home', 2]]])
-    expect(hunt.expressions.find((expression) => expression.label === 'clueing_full')?.usage).to.eq(2)
-    expect(hunt.expressions.map((expression) => expression.label)).to.deep.eq(SeedExpressions.map((expression) => expression.label))
+    expect(hunt).to.not.have.any.keys('expressions', 'library', 'widgets')
   })
 
-  it('counts nought for an expression no widget works', async () => {
-    const tt = openTester()
-    const { act, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
-    await act({ kind: 'add_expression', expression: { label: 'shout', formula: '$uppercase(qn.title)' } })
-    const hunt = await shown(tt, 'quiet_otter', smith.browser_key)
-    expect(hunt.expressions.at(-1)).to.deep.include({ label: 'shout', usage: 0 })
-  })
-
-  it('says who is on it, titled, in the order they were put on it', async () => {
+  it("says who is on it, titled, in the order they were put on it", async () => {
     const tt = openTester()
     const { open, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await identified(tt, 'bob_reviews')
@@ -1410,15 +1350,15 @@ describe('hunts.open', () => {
   })
 })
 
-describe('hunts.whole', () => {
-  it('reads back a hunt exactly as it was written, apart from its ids', async () => {
+describe("hunts.whole", () => {
+  it("reads back a hunt exactly as it was written, apart from its ids", async () => {
     const hunt = Hunt.blank()
     const { read } = await seedHunt(openTester(), hunt)
     const { hunt: back } = await read()
     expect(sansIds(back)).to.deep.eq(sansIds(hunt))
   })
 
-  it('is null for a hunt that is not there', async () => {
+  it("is null for a hunt that is not there", async () => {
     const { tt, open, smith } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', open.hunt_id) })
     expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: smith.browser_key })).to.be.null

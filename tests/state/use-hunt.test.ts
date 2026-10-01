@@ -7,12 +7,12 @@ import { placeIn } from '../../src/state/use-hunt'
 function quizRow(tail: string, label: string, forced_label: string | null = null): Doc<'quizzes'> {
   return {
     _id: `j97d0qbj35dar1v8edndzckvsx8f8${tail}` as Id<'quizzes'>, _creationTime: 1, realm_id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>,
-    title: '', label, forced_label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, bulk_ishes_last: null, row_ordering: [],
+    title: '', label, forced_label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [],
   }
 }
 
 const Hunt: ShallowHuntT = {
-  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', forced_label: null, title: 'Quiet Otter', expressions: [], members: [], role: 'smith',
+  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', forced_label: null, title: 'Quiet Otter', members: [], role: 'smith',
   realms: [{
     _id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>, label: 'home', title: 'Home',
     quizzes:    [quizRow('q01', 'quiet_otter'), quizRow('q02', 'princes', 'kings'), quizRow('q03', 'quiet_otter')],

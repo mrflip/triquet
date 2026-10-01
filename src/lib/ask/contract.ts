@@ -11,7 +11,7 @@ export type Textkind = typeof TextkindVals[number]
 /** Every reason an ask can fail, named so the browser can pick the author's sentence */
 export const AskFailurekindVals = [
   'notPermitted', 'rateLimited', 'declined', 'emptyAnswer', 'unreadable',
-  'accountOff', 'sessionExpired', 'connection', 'unknown', 'unavailable', 'missingFromRun',
+  'accountOff', 'sessionExpired', 'connection', 'unknown', 'unavailable',
 ] as const satisfies readonly AskFailurekind[]
 
 export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, bool, lit, discrim, union }) => {
@@ -21,9 +21,7 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
 
   const guessAsk = obj({ job: lit('guess'), clueing: askable })
   const ishesAsk = obj({ job: lit('ishes'), textkind, text: askable })
-  const bulkItem = obj({ key: str.min(1).max(80), text: askable })
-  const bulkAsk  = obj({ job: lit('bulk_ishes'), items: arr(bulkItem).min(1).max(400) })
-  const askRequest = discrim('job', [guessAsk, ishesAsk, bulkAsk])
+  const askRequest = discrim('job', [guessAsk, ishesAsk])
     .describe('What the browser is asking the model for. Validated on the way in, because this is the one place in the tool where data crosses a process boundary.')
 
   const failureDetail = obj({
@@ -53,21 +51,10 @@ export const AskContract = Validator(({ obj, arr, oneof, str, textish, uint, boo
     approx_tokens:      uint,
   })
 
-  const bulkGroup = obj({ key: str.min(1), items: arr(IshValidators.ishItem) })
-  const bulkDone = obj({
-    ok:                 lit(true),
-    job:                lit('bulk_ishes'),
-    groups:             arr(bulkGroup),
-    truncated:          bool,
-    model_tier_applied: AskValidators.model_tier,
-    approx_tokens:      uint,
-    text_count:         uint,
-  })
-
-  const askReply = union([guessDone, ishesDone, bulkDone, askFailed])
+  const askReply = union([guessDone, ishesDone, askFailed])
     .describe('What came back. A failure names a kind rather than carrying a sentence, so the wording stays in one place on the browser side.')
 
-  return { textkind, failurekind, askRequest, askReply, guessDone, ishesDone, bulkDone, askFailed }
+  return { textkind, failurekind, askRequest, askReply, guessDone, ishesDone, askFailed }
 })
 
 export type AskRequestDNA = Z.input<typeof AskContract.askRequest>
@@ -75,7 +62,6 @@ export type AskRequestT   = Z.output<typeof AskContract.askRequest>
 export type AskReplyT     = Z.output<typeof AskContract.askReply>
 export type GuessReplyT   = Z.output<typeof AskContract.guessDone>
 export type IshesReplyT   = Z.output<typeof AskContract.ishesDone>
-export type BulkReplyT    = Z.output<typeof AskContract.bulkDone>
 export type AskFailedT    = Z.output<typeof AskContract.askFailed>
 
 /** Where the browser sends an ask */

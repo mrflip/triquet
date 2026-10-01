@@ -1,17 +1,15 @@
 import { sortkeyOf, sourceOf, type ColumnT, type QuestionField, type QuestionView } from '../models/column'
-import { BottingWidget, type ExpressingT, type BottingWidgetT, type WidgetT } from '../models/widget'
-import type { BotSlot } from '../models/botting'
+import type { WidgetingT } from '../models/widgeting'
 import type { Sortkey } from '../models/quiz'
 
-/** How a column's header is drawn: along the row, rotated into it, or centred and wrapped */
-export type Headkind = 'plain' | 'vertical' | 'centered'
+/** How a column's header is drawn: along the row, or rotated into it */
+export type Headkind = 'plain' | 'vertical'
 
-/** What a column shows, found: the question's own field, a view of it, or the widget it names */
+/** What a column shows, found: the question's own field, a view of it, or the widgeting it names */
 export type Resolved =
   | { kind: 'field', field: QuestionField }
   | { kind: 'view', view: QuestionView }
-  | { kind: 'expressing', widget: ExpressingT }
-  | { kind: 'botting', widget: BottingWidgetT, slot: BotSlot }
+  | { kind: 'widgeting', widgeting: WidgetingT }
 
 /** One column as the grid draws it */
 export type ColumnSpec = {
@@ -32,46 +30,41 @@ export type ColumnSpec = {
 export const GutterWidthPx = 40
 
 /**
- * What `source` shows, given the widgets a quiz has.
+ * What `source` shows, given the widgetings a quiz has.
  *
  * @param source - A column's source string.
- * @param widgets - The quiz's widgets.
- * @returns The thing shown, or null when it names a widget the quiz does not have.
+ * @param widgetings - The quiz's widgetings.
+ * @returns The thing shown, or null when it names a widgeting the quiz does not have.
  *
  * @example resolve('question.clueing', [])  // => { kind: 'field', field: 'clueing' }
  */
-export function resolve(source: string, widgets: readonly WidgetT[]): Resolved | null {
+export function resolve(source: string, widgetings: readonly WidgetingT[]): Resolved | null {
   const named = sourceOf(source)
-  if (named.kind !== 'widget') { return named }
-  const widget = widgets.find((each) => each.label === named.label)
-  if (! widget) { return null }
-  if (widget.kind === 'expressing') { return { kind: 'expressing', widget } }
-  return { kind: 'botting', widget, slot: BottingWidget.slotOf(widget) }
+  if (named.kind !== 'widgeting') { return named }
+  const widgeting = widgetings.find((each) => each.label === named.label)
+  return widgeting ? { kind: 'widgeting', widgeting } : null
 }
 
-/** Whether ordering the quiz by this can mean something: a value each question has, or a count of what it found */
+/** Whether ordering the quiz by this can mean something: a value each question has */
 function sortable(source: Resolved): boolean {
   if (source.kind === 'field') { return ['title', 'chains_to', 'qnum'].includes(source.field) }
-  if (source.kind === 'view') { return source.view === 'butnot_ishes' }
-  return source.kind === 'expressing' || source.slot.field !== 'guess'
+  return source.kind === 'widgeting'
 }
 
-/** How a column's header is drawn: a number's rotated into it, a list's centred, prose's along the row */
+/** How a column's header is drawn: a narrow widgeting's rotated into it, everything else along the row */
 function headkindOf(source: Resolved, widthPx: number): Headkind {
-  if (source.kind === 'expressing') { return widthPx <= 100 ? 'vertical' : 'plain' }
-  const isList = source.kind === 'view' ? source.view === 'butnot_ishes' : source.kind === 'botting' && source.slot.field !== 'guess'
-  return isList ? 'centered' : 'plain'
+  return source.kind === 'widgeting' && widthPx <= 100 ? 'vertical' : 'plain'
 }
 
 /**
  * A column as the grid draws it.
  *
  * @param column - One of the quiz's columns.
- * @param widgets - The quiz's widgets, which the column may show.
- * @returns The spec, or null when the column shows a widget the quiz does not have.
+ * @param widgetings - The quiz's widgetings, which the column may show.
+ * @returns The spec, or null when the column shows a widgeting the quiz does not have.
  */
-export function specFor(column: ColumnT, widgets: readonly WidgetT[]): ColumnSpec | null {
-  const source = resolve(column.source, widgets)
+export function specFor(column: ColumnT, widgetings: readonly WidgetingT[]): ColumnSpec | null {
+  const source = resolve(column.source, widgetings)
   if (! source) { return null }
   return {
     colkey:   column.label,
@@ -87,14 +80,14 @@ export function specFor(column: ColumnT, widgets: readonly WidgetT[]): ColumnSpe
 /**
  * Every column of a quiz's grid, left to right, as the grid draws them.
  *
- * @param quiz - The quiz's columns and widgets.
+ * @param quiz - The quiz's columns and widgetings.
  * @returns One spec per column that shows something.
  *
  * @example specsFor(quiz).map((spec) => spec.title)
  */
-export function specsFor(quiz: { columns: readonly ColumnT[], widgets: readonly WidgetT[] }): ColumnSpec[] {
+export function specsFor(quiz: { columns: readonly ColumnT[], widgetings: readonly WidgetingT[] }): ColumnSpec[] {
   return quiz.columns.flatMap((column) => {
-    const spec = specFor(column, quiz.widgets)
+    const spec = specFor(column, quiz.widgetings)
     return spec ? [spec] : []
   })
 }

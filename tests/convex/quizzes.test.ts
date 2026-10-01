@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { quizRowsOf, realmsOf } from '../../convex/reading'
+import { quizRowsOf, realmsOf, widgetingsOf } from '../../convex/reading'
 import { quizFromSeen } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
+import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { huntHolding, identified, openTester, putOn, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
@@ -37,8 +38,8 @@ async function opened({ tt, browser_key }: Reading, quiz_id: Id<'quizzes'>) {
   return quizFromSeen(frame, seen)
 }
 
-describe('a quiz as the browser assembles it from quizzes.open and questions.open', () => {
-  it('reads back a quiz exactly as it was written, apart from its ids', async () => {
+describe("a quiz as the browser assembles it from quizzes.open and questions.open", () => {
+  it("reads back a quiz exactly as it was written, apart from its ids", async () => {
     const hunt = Hunt.blank()
     const { quiz_id, ...reading } = await holding(hunt)
     const written = present(Hunt.quizzesOf(hunt)[0])
@@ -47,13 +48,13 @@ describe('a quiz as the browser assembles it from quizzes.open and questions.ope
     expect(sansIds(back)).to.deep.eq(sansIds(written))
   })
 
-  it('names the quiz and each question by its row\'s id', async () => {
+  it("names the quiz and each question by its row's id", async () => {
     const { quiz_id, question_ids, ...reading } = await holding(threeQuestions())
     const quiz = await opened(reading, quiz_id)
     expect([quiz._id, ...quiz.questions.map((question) => question._id)]).to.deep.eq([quiz_id, ...question_ids])
   })
 
-  it('reads a chain held as a label as the id of the question answering to it, by the label in force', async () => {
+  it("reads a chain held as a label as the id of the question answering to it, by the label in force", async () => {
     const { quiz_id, question_ids, ...reading } = await holding(threeQuestions())
     const { tt } = reading
     const [first, second, third] = question_ids
@@ -66,7 +67,7 @@ describe('a quiz as the browser assembles it from quizzes.open and questions.ope
     expect(quiz.questions.map((question) => question.chains_to)).to.deep.eq([third, null, second])
   })
 
-  it('reads a chain to no question here, or to itself, as no chain', async () => {
+  it("reads a chain to no question here, or to itself, as no chain", async () => {
     const { quiz_id, question_ids, ...reading } = await holding(threeQuestions())
     const { tt } = reading
     const [first, second] = question_ids
@@ -78,41 +79,37 @@ describe('a quiz as the browser assembles it from quizzes.open and questions.ope
     expect(quiz.questions.map((question) => question.chains_to)).to.deep.eq([null, null, null])
   })
 
-  it('shows each cell\'s newest reply in whole milliseconds, stale once its text is edited', async () => {
-    const { quiz_id, question_ids, ...reading } = await holding(threeQuestions())
+  it("carries what each stored widgeting recorded onto its question: the newest row, and the newest ok one", async () => {
+    const widgetings = [Widgeting.fill({ widget_label: 'numnum_clueing', label: 'numnum_clueing' })]
+    const hunt = huntHolding([{ ...Quiz.blank(), widgetings, questions: ['aa', 'bb'].map((label) => ({ ...Question.blank(), label })) }])
+    const { quiz_id, question_ids, ...reading } = await holding(hunt)
     const { tt } = reading
     const [question_id] = question_ids
-    const ask = async (reply: string) => {
-      await tt.run(async (ctx) => {
-        await ctx.db.insert('bottings', {
-          question_id: present(question_id), bot_label: 'numnum', textkind: 'clueing', asked_text: '', status: 'done', reply_text: null,
-          items: [{ text: reply, value: 1, kind: 'numeral' }], message: null, response: null, truncated: false, model_tier_applied: null, approx_tokens: null,
-        })
-      })
-    }
-    await ask('older')
-    await ask('newer')
-    const freshQuiz = await opened(reading, quiz_id)
-    const fresh = present(freshQuiz.questions[0]).clueing_ishes
-    expect(fresh).to.deep.include({ status: 'done', items: [{ text: 'newer', value: 1, kind: 'numeral' }], stale: false })
-    expect(Number.isSafeInteger(fresh?.updated_at)).to.be.true
-    await tt.run(async (ctx) => { await ctx.db.patch('questions', present(question_id), { clueing: 'Reworded' }) })
-    const editedQuiz = await opened(reading, quiz_id)
-    expect(present(editedQuiz.questions[0]).clueing_ishes).to.deep.include({ stale: true })
+    await tt.run(async (ctx) => {
+      const [widgeting] = await widgetingsOf(ctx.db, quiz_id)
+      const widgeting_id = present(widgeting)._id
+      for (const text of ['older', 'newer']) {
+        await ctx.db.insert('widgeteds', { question_id: present(question_id), widgeting_id, status: 'ok', value: { items: [{ text, value: 1, kind: 'numeral' }] }, message: null, result_meta: {} })
+      }
+    })
+    const quiz = await opened(reading, quiz_id)
+    const [first, second] = quiz.questions.map((question) => question.stored)
+    expect(present(first?.numnum_clueing?.ok).value).to.deep.eq({ items: [{ text: 'newer', value: 1, kind: 'numeral' }] })
+    expect(first?.numnum_clueing?.newest).to.deep.eq(first?.numnum_clueing?.ok)
+    expect(second).to.deep.eq({})
   })
-
 })
 
-describe('quizzes.open', () => {
-  it('reads the quiz without its questions: its fields, its layout, and its questions\' order by id', async () => {
+describe("quizzes.open", () => {
+  it("reads the quiz without its questions: its fields, its layout, and its questions' order by id", async () => {
     const { tt, browser_key, quiz_id, question_ids } = await holding(threeQuestions())
     const frame = present(await tt.query(api.quizzes.open, { quiz_id, browser_key }))
     expect(frame.row_ordering).to.deep.eq(question_ids)
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
-    expect(frame).to.include.keys('widgets', 'columns')
+    expect(frame).to.include.keys('widgetings', 'columns')
   })
 
-  it('reads null for a quiz that is not there', async () => {
+  it("reads null for a quiz that is not there", async () => {
     const { tt, browser_key, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
     expect(await tt.query(api.quizzes.open, { quiz_id, browser_key })).to.be.null

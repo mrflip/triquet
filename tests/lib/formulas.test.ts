@@ -68,7 +68,7 @@ describe('Formulas.evaluate', () => {
 
 describe('Formulas.check', () => {
   it('is null for a formula that parses', () => {
-    expect(Formulas.check('$sum(qn.clueing_ishes.items.value)')).to.be.null
+    expect(Formulas.check('$sum(qn.numnum_clueing.value.items.value)')).to.be.null
   })
 
   it('is null for a formula that would fail at runtime, because parsing is all it judges', () => {
