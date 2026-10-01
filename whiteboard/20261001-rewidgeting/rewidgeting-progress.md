@@ -8,7 +8,7 @@ Workers add their sections below the table, newest first.
 | Thread | Label | Status |
 |---|---|---|
 | 1 | Design note and vocabulary | complete: PR #67 (docs only, unreviewed) |
-| 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (awaiting review) |
+| 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (reviewed: fixed, flagged, then clean) |
 | 3 | The data model, as a clean break | pending |
 | 4 | Pasted prompts | pending |
 | 5 | Status | pending |
