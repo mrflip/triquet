@@ -13,8 +13,59 @@ Workers add their sections below the table, newest first.
 | 4 | Pasted prompts | complete: PR #70, stacked on #69 (reviewed: fixed) |
 | 5 | Status | complete: PR #71, stacked on #70 (reviewed: fixed) |
 | 6 | Views | complete: PR #72, stacked on #71 (reviewed: fixed) |
-| 7 | The basic set and the catalogue | pending |
+| 7 | The basic set and the catalogue | complete: PR #73, stacked on #72 |
 | 8 | Entry widgets | pending |
+
+## Thread 7: The basic set and the catalogue (2026-10-01)
+
+Branch `20261001-basic_set`, PR #73, stacked on #72. Suites: typecheck and lint clean; `pnpm test`
+2661 passed (106 files); `pnpm test:e2e:agent` 198 passed (plus 3 environment checks), in 1.7 minutes
+where it took 3.7. `origin/main` had not moved. No schema change, no `convex/_generated/` churn.
+
+* **Built**:
+  - **The lean default** (`defaultLayout`, `src/models/layout.ts`): no widgetings, and columns
+    `title` (160px), `qnum`, `clueing`, `full_answer`, `notes`. `Hunt.blank` and `insertQuiz`
+    (`new_quiz`, `insertHunt`) follow it. `DefaultSums` left `layout.ts`.
+  - **`insertQuiz` no longer tops up the library** (thread 3's stopgap, YOLO call 8): a new hunt
+    seeds nothing. `insertAbsentWidgets` stays, for the seeding mutation.
+  - **Field columns named as the field** (`QuestionSourceTitles`, `namesFor` in
+    `src/models/column.ts`): the columns editor's new column for `question.hint` is `hint`, headed
+    *Hint* (it was `question_hint`, *Question Hint*), and the dialog offers first whatever no
+    column shows yet. The title and label boxes show the defaults as placeholders.
+  - **The tests' fixture**: `classicLayout()` and `classicHunt()` in `tests/support/layouts.ts`
+    (tested in `tests/support/layouts.test.ts`) hold the old 21 columns and the twelve
+    `DefaultWidgetings`. The tests of the bots, the sums, the exports and the library's use stand
+    on it; tests about a new quiz use `defaultLayout`.
+  - **e2e**: `addWidgetings(page, labels)` and `addColumns(page, fields)` in `e2e/support.ts`. Specs
+    add what they read. A new spec opts a lean quiz into its hint (`widgets.spec.ts`).
+  - **Seeding test**: a quiz made by `insertHunt` today is left alone by `seedWidgets`.
+* **Decisions taken**:
+  - **No `label` column.** The Coach's starter list is `Question.exposed` minus the three opt-ins;
+    the label has always ridden under the title in the Title column, and a column of its own would
+    need a new read-only source and show it twice. In the PR's open questions.
+  - **Column order follows the Coach's list**: Title, Q#, Clueing, Full Answer, Notes. Title widened
+    to 160px.
+  - **Opt-in is the columns editor**, made pleasant rather than a new door: pick, Apply.
+  - **The classic layout is a test fixture, not app code**: nothing in `src/` or `convex/` needs it
+    (the seeding mutation inserts `DefaultWidgetings` with no columns).
+  - **e2e uses the editors, not the backend**, to set a quiz up: the `hunts.perform` open place
+    wants row ids a spec never sees. Column names in specs are what the editors make (*Dumdum*,
+    *Numnum Clueing*, *Clueing Full*, *Butnot Ishes*).
+* **Pulled forward**: none. The catalogue picker was thread 6's.
+* **Deviations**: none from the plan.
+* **Discoveries**:
+  - **A new widgeting's column lands at the end on a lean quiz** (after Notes), since
+    `planWidgetingEdit` places it before Alt Text only when Alt Text is shown. Fine; in the PR.
+  - **A widgeting's column is headed after its label, titleized**, not the widget's title, so the
+    seeded ones read *Butnot Ishes* and *Clueing Full*. In the PR's open questions.
+  - **`getByRole('group', { name: 'Column Hint' })` also matches *Column Hint Full***: the support
+    helpers match exactly.
+* **For thread 8**: `notes` stays a question column (the reserved pattern forbids a widgeting
+  labelled `notes`). An `entry` widgeting's column arrives through the same picker and
+  `addWidgetings`; `classicLayout` is there for any test that wants the old grid.
+* **For the Coach**: the `label` column reading, and the column-title question, both above. Your
+  `dev` backend's quizzes keep their layouts; only new quizzes start lean. No lint or type
+  suppressions added.
 
 ## Thread 6: Views (2026-10-01)
 
