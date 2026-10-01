@@ -98,7 +98,7 @@ export function useAsking(dispatch: (action: HuntActionDNA) => void): AskingHand
     setRunning(true)
     // The run fills the number spotter's cells, whichever widgetings of the quiz show them.
     const labelsFor = (textkind: string) => steps
-      .filter((step) => step.widget && SeededAsks[step.widget.label]?.job === 'ishes' && SeededAsks[step.widget.label]?.textkind === textkind)
+      .filter((step) => step.widget?.formulary === 'aibot' && SeededAsks[step.widget.label]?.job === 'ishes' && SeededAsks[step.widget.label]?.textkind === textkind)
       .map((step) => step.widgeting.label)
     const cellkeys = targets.flatMap((target) => labelsFor(target.textkind).map((label) => askCellkey(target.question_id, label)))
     void hold(cellkeys, async () => {
