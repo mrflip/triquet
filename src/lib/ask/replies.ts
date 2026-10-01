@@ -41,9 +41,6 @@ function clipReply(reply: AskReplyT): AskReplyT {
   case 'ishes': {
     return { ...reply, items: clipItems(reply.items) }
   }
-  case 'bulk_ishes': {
-    return { ...reply, groups: reply.groups.map((group) => ({ ...group, items: clipItems(group.items) })) }
-  }
   }
 }
 

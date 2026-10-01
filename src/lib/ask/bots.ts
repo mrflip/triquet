@@ -1,54 +1,35 @@
 import * as Credentials from '../credentials'
-import { renderPrompt } from './prompts'
-import { SeedBots, type BotLabel, type BotT, type Promptkind } from '../../models/bot'
-import type { BotStatusT } from '../../models/bot-status'
+import { SeededAsks } from '../formulary/aibot'
+import { SeedWidgets } from '../../models/seeds'
+import type { AskRequestT } from './contract'
+import type { AibotWidgetT } from '../../models/widget'
+import type { ServiceStatusT } from '../../models/service-status'
 
 /**
- * One bot, as this build briefs it.
+ * The seeded `aibot` widget a fixed ask is put as, from the seeds fixture: its prompt, its tier
+ * and its room. Temporary, while the ask route takes fixed asks rather than a rendered prompt.
  *
- * @param label - Which bot.
- * @returns The bot.
+ * @param ask - The ask, by job and the text it is put.
+ * @returns The widget whose prompt answers it.
  *
- * @example botFor('dumdum').model_tier  // => 'quick'
+ * @example seededWidgetFor({ job: 'ishes', textkind: 'hint', text: 'Two' }).label  // => 'numnum_hint'
  */
-export function botFor(label: BotLabel): BotT {
-  const bot = SeedBots.find((each) => each.label === label)
-  if (! bot) { throw new Error(`No bot "${label}"`) }
-  return bot
+export function seededWidgetFor(ask: AskRequestT): AibotWidgetT {
+  const textkind = ask.job === 'guess' ? 'clueing' : ask.textkind
+  const label = Object.keys(SeededAsks).find((each) => SeededAsks[each]?.job === ask.job && SeededAsks[each].textkind === textkind)
+  const widget = SeedWidgets.find((each): each is AibotWidgetT => each.formulary === 'aibot' && each.label === label)
+  if (! widget) { throw new Error(`No seeded widget answers the ${ask.job} job for the ${textkind}`) }
+  return widget
 }
 
 /**
- * The prompt `bot` is given for one kind of text, filled in.
+ * Every outside service, and whether the server can put a prompt to it: only whether a
+ * credential exists for it, never what it is.
  *
- * @param bot - Who is being asked.
- * @param promptkind - What they are being shown.
- * @param fills - Placeholder name to text, without the braces.
- * @returns The prompt as it will be sent.
- * @throws When the bot is never asked about that kind of text.
+ * @returns One status per service, in label order.
  *
- * @example promptFor(botFor('dumdum'), 'clueing', { clueing: 'Who?' })
+ * @example serviceStatuses().map((status) => status.credentialed)  // => [true], with a key set
  */
-export function promptFor(bot: BotT, promptkind: Promptkind, fills: Record<string, string>): string {
-  const template = bot.prompts[promptkind]
-  if (template === undefined) { throw new Error(`Bot "${bot.label}" has no ${promptkind} prompt`) }
-  return renderPrompt(template, fills)
-}
-
-/**
- * Every bot, and whether the server can let it play: only whether a credential exists for
- * its service, never what it is.
- *
- * @returns One status per bot, in label order.
- *
- * @example botStatuses().map((status) => status.credentialed)  // => [true, true], with a key set
- */
-export function botStatuses(): BotStatusT[] {
-  return SeedBots
-    .toSorted((aa, bb) => aa.label.localeCompare(bb.label))
-    .map((bot) => ({
-      label:        bot.label,
-      title:        bot.title,
-      servicelabel: bot.servicelabel,
-      credentialed: Credentials.has(bot.servicelabel),
-    }))
+export function serviceStatuses(): ServiceStatusT[] {
+  return Credentials.ServicelabelVals.toSorted((aa, bb) => aa.localeCompare(bb)).map((servicelabel) => ({ servicelabel, credentialed: Credentials.has(servicelabel) }))
 }

@@ -2,27 +2,24 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
-import { bulkItemsBlock } from '../../../lib/ask/prompts'
-import { MaxTokensForJob, ModelForTier, BotForJob } from '../../../lib/ask/models'
+import { renderPrompt } from '../../../lib/ask/prompts'
+import { ModelForTier } from '../../../lib/ask/models'
 import * as Approval from '../../../lib/approval'
 import * as Credentials from '../../../lib/credentials'
 import * as Postmortem from '../../../lib/postmortem'
-import { botFor, promptFor } from '../../../lib/ask/bots'
+import { seededWidgetFor } from '../../../lib/ask/bots'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failureReplyFor } from '../../../lib/ask/failures'
 import { vetReply } from '../../../lib/ask/replies'
 import { ValidatorKit } from '../../../lib/validator'
 import { IshValidators } from '../../../models/ish'
-import type { BotT } from '../../../models/bot'
+import type { AibotWidgetT } from '../../../models/widget'
+import type { ModelTier } from '../../../models/ask'
 
-const { obj, arr, str } = ValidatorKit
+const { obj, arr } = ValidatorKit
 
-/** The shape every single-text ish job constrains the model's answer to */
+/** The shape every ish job constrains the model's answer to */
 const IshItemsFormat = obj({ items: arr(IshValidators.ishItemReply) })
-
-/** The same, one group per tagged text, for the batched job */
-const BulkGroupFormat = obj({ key: str, items: arr(IshValidators.ishItemReply) })
-const BulkGroupsFormat = obj({ groups: arr(BulkGroupFormat) })
 
 /**
  * The one place this tool reaches outside the browser.
@@ -37,11 +34,11 @@ export async function POST(request: Request): Promise<Response> {
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
 
   try {
-    const bot = botFor(BotForJob[parsed.data.job])
+    const widget = seededWidgetFor(parsed.data)
     Approval.need(null, { act: 'anthropic_bot' }, { job: parsed.data.job })
-    if (! Credentials.has(bot.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
-    const client = new Anthropic({ apiKey: Credentials.get(bot.servicelabel) })
-    return replied(vetReply(await answerAsk(client, bot, parsed.data)))
+    if (! Credentials.has(widget.config.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
+    const client = new Anthropic({ apiKey: Credentials.get(widget.config.servicelabel) })
+    return replied(vetReply(await answerAsk(client, widget, parsed.data)))
   } catch (err) {
     const failed = failureReplyFor(err)
     if (failed.failurekind !== 'notPermitted') { Postmortem.report(`answer a ${parsed.data.job} ask`, err, { failurekind: failed.failurekind }) }
@@ -49,40 +46,32 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-/** Whichever job was asked for, answered by the bot it was put to */
-async function answerAsk(client: Anthropic, bot: BotT, ask: AskRequestT): Promise<AskReplyT> {
+/** Whichever job was asked for, answered by the seeded widget it was put as */
+async function answerAsk(client: Anthropic, widget: AibotWidgetT, ask: AskRequestT): Promise<AskReplyT> {
+  const { model_tier, max_tokens } = widget.config
   switch (ask.job) {
   case 'guess': {
-    return await answerGuess(client, bot, ask.clueing)
+    return await answerGuess(client, widget, ask.clueing)
   }
   case 'ishes': {
-    const prompt = promptFor(bot, ask.textkind, { [ask.textkind]: ask.text })
-    const outcome = await extract(client, bot, prompt, IshItemsFormat, bot.max_tokens)
+    const prompt = renderPrompt(widget.formula, { [ask.textkind]: ask.text })
+    const outcome = await extract(client, model_tier, prompt, IshItemsFormat, max_tokens)
     if (! outcome.ok) { return outcome }
     return {
       ok: true, job: 'ishes', items: outcome.parsed.items, truncated: outcome.truncated,
-      model_tier_applied: bot.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
-    }
-  }
-  case 'bulk_ishes': {
-    const prompt = promptFor(bot, 'bulk', { items: bulkItemsBlock(ask.items) })
-    const outcome = await extract(client, bot, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
-    if (! outcome.ok) { return outcome }
-    return {
-      ok: true, job: 'bulk_ishes', groups: outcome.parsed.groups, truncated: outcome.truncated,
-      model_tier_applied: bot.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
-      text_count: ask.items.length,
+      model_tier_applied: model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
     }
   }
   }
 }
 
 /** Dumdum's hasty first-instinct read, with no thinking to slow it down */
-async function answerGuess(client: Anthropic, dumdum: BotT, clueing: string): Promise<AskReplyT> {
-  const prompt = promptFor(dumdum, 'clueing', { clueing })
+async function answerGuess(client: Anthropic, dumdum: AibotWidgetT, clueing: string): Promise<AskReplyT> {
+  const prompt = renderPrompt(dumdum.formula, { clueing })
+  const { model_tier, max_tokens } = dumdum.config
   const answer = await client.messages.create({
-    model:      ModelForTier[dumdum.model_tier],
-    max_tokens: dumdum.max_tokens,
+    model:      ModelForTier[model_tier],
+    max_tokens,
     messages:   [{ role: 'user', content: prompt }],
   })
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
@@ -91,7 +80,7 @@ async function answerGuess(client: Anthropic, dumdum: BotT, clueing: string): Pr
   return {
     ok: true, job: 'guess', text,
     truncated:          answer.stop_reason === 'max_tokens',
-    model_tier_applied: dumdum.model_tier,
+    model_tier_applied: model_tier,
     approx_tokens:      approxTokensFor(prompt, text),
   }
 }
@@ -101,14 +90,14 @@ type Extracted<SC extends Z.ZodType> =
   | { ok: false, failurekind: 'declined' | 'unreadable' }
 
 /**
- * One structured extraction from `bot`, or the reason there was not one.
+ * One structured extraction from the model of `model_tier`, or the reason there was not one.
  *
- * Streamed, then gathered: the SDK refuses to send an unstreamed ask with room for a long answer
- * (a whole-quiz run's `max_tokens` is well past its line), and streaming costs nothing here.
+ * Streamed, then gathered: the SDK refuses to send an unstreamed ask with room for a long answer,
+ * and streaming costs nothing here.
  */
-async function extract<SC extends Z.ZodType>(client: Anthropic, bot: BotT, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
+async function extract<SC extends Z.ZodType>(client: Anthropic, model_tier: ModelTier, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
   const answer = await client.messages.stream({
-    model: ModelForTier[bot.model_tier],
+    model: ModelForTier[model_tier],
     max_tokens,
     messages:      [{ role: 'user', content: prompt }],
     output_config: { format: zodOutputFormat(format) },

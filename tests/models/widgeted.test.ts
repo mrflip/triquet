@@ -41,3 +41,99 @@ describe('WidgetedValidators.widgeted', () => {
     expect(refuses.map((widgeted) => WidgetedValidators.widgeted.safeParse(widgeted).success)).to.deep.eq([false, false, false])
   })
 })
+
+const QuestionId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
+const WidgetingId = 'k97bcq0xz8wb4j3v5r2nqg1y6d7r9x2s'
+
+describe('WidgetedValidators.row', () => {
+  const Ok = { question_id: QuestionId, widgeting_id: WidgetingId, status: 'ok' as const, value: { items: [] }, message: null, result_meta: { approx_tokens: 12 } }
+  const Errored = { ...Ok, status: 'errored' as const, value: null, message: 'The model would not say.', result_meta: { response: 'nope' } }
+
+  it("takes an ok row and an errored row as the database holds them", () => {
+    expect(WidgetedValidators.row(Ok)).to.deep.eq(Ok)
+    expect(WidgetedValidators.row(Errored)).to.deep.eq(Errored)
+  })
+
+  it("takes a null value on an ok row: JSON null is a value", () => {
+    expect(WidgetedValidators.row({ ...Ok, value: null }).value).to.be.null
+  })
+
+  it("trims the message", () => {
+    expect(WidgetedValidators.row({ ...Errored, message: '  No.\n' }).message).to.eq('No.')
+  })
+
+  const Refused: [object, string][] = [
+    // status consistency:
+    [{ ...Ok, message: 'But also no.' },                      'an ok row carrying a failure message'],
+    [{ ...Errored, value: 3 },                                'an errored row carrying a value'],
+    [{ ...Errored, message: null },                           'an errored row that does not say why'],
+    [{ ...Ok, status: 'missing' },                            'a missing row, which is never stored'],
+    // size bounds:
+    [{ ...Ok, value: 'x'.repeat(40_000) },                    'a value whose JSON runs past 40,000 characters'],
+    [{ ...Ok, result_meta: { response: 'x'.repeat(40_000) } }, 'a result_meta whose JSON runs past 40,000 characters'],
+    // ids:
+    [{ ...Ok, widgeting_id: 'dumdum' },                       'a widgeting named by label rather than id'],
+  ]
+  for (const [row, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(WidgetedValidators.row.safeParse(row).success).to.be.false
+    })
+  }
+
+  it("takes a value just inside the bound", () => {
+    // Its JSON is the text and its two quotes.
+    expect(WidgetedValidators.row.safeParse({ ...Ok, value: 'x'.repeat(39_998) }).success).to.be.true
+    expect(WidgetedValidators.row.safeParse({ ...Ok, value: 'x'.repeat(39_999) }).success).to.be.false
+  })
+})
+
+describe('WidgetedValidators.record', () => {
+  const Recording = { question_id: QuestionId, widgeting_label: 'dumdum', status: 'ok', value: { guess: 'Leon', explanation: '' } } as const
+
+  it("defaults the message to none and the result_meta to empty", () => {
+    expect(WidgetedValidators.record(Recording)).to.deep.eq({ ...Recording, message: null, result_meta: {} })
+  })
+
+  it("defaults the value to none for a failure", () => {
+    expect(WidgetedValidators.record({ question_id: QuestionId, widgeting_label: 'dumdum', status: 'errored', message: 'No.' }).value).to.be.null
+  })
+
+  const Refused: [object, string][] = [
+    [{ ...Recording, widgeting_label: 'Dum Dum' },                       'a widgeting label that is not one'],
+    [{ ...Recording, message: 'No.' },                                   'an ok recording carrying a failure message'],
+    [{ ...Recording, status: 'errored' },                                'an errored recording that does not say why'],
+    [{ ...Recording, status: 'errored', message: 'No.' },                'an errored recording carrying a value'],
+    [{ ...Recording, value: 'x'.repeat(40_000) },                        'a value past the bound'],
+  ]
+  for (const [recording, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(WidgetedValidators.record.safeParse(recording).success).to.be.false
+    })
+  }
+})
+
+describe('WidgetedValidators.stored and .history', () => {
+  const Stored = { status: 'ok', value: 7, message: null, result_meta: {}, _creationTime: 1_700_000_000_000.25 } as const
+
+  it("takes a stored row's fields and when it was recorded, fraction and all", () => {
+    expect(WidgetedValidators.stored(Stored)).to.deep.eq(Stored)
+  })
+
+  it("refuses a stored row with no time, or a time before the epoch", () => {
+    expect(WidgetedValidators.stored.safeParse({ ...Stored, _creationTime: undefined }).success).to.be.false
+    expect(WidgetedValidators.stored.safeParse({ ...Stored, _creationTime: -1 }).success).to.be.false
+  })
+
+  it("takes a history whose newest row is a failure and which never had a value", () => {
+    const failed = { ...Stored, status: 'errored', value: null, message: 'No.' } as const
+    expect(WidgetedValidators.history({ newest: failed, ok: null })).to.deep.eq({ newest: failed, ok: null })
+  })
+
+  it("takes a history whose newest row is its newest ok one", () => {
+    expect(WidgetedValidators.history({ newest: Stored, ok: Stored }).ok).to.deep.eq(Stored)
+  })
+
+  it("refuses a history with no newest row", () => {
+    expect(WidgetedValidators.history.safeParse({ newest: null, ok: Stored }).success).to.be.false
+  })
+})

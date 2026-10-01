@@ -5,12 +5,11 @@ import Papa from 'papaparse'
 import * as Changes from './changes'
 import * as Exporting from './exporting'
 import * as Runner from './formulary/runner'
-import * as Standins from './formulary/standins'
 import * as Exposure from './exposure'
 import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
-import type { ExpressionT } from '../models/expression'
 import type { QuizT } from '../models/quiz'
+import { Widget, type WidgetT } from '../models/widget'
 
 /** Where each quiz's repository lives, one directory per quiz, named by the id that never moves */
 export const RepoRoot = '/quizzes'
@@ -43,14 +42,28 @@ export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: Runner.
   return { tsv: `${dir}/${label}${QuestionsExt}`, json: `${dir}/${label}${QuizJsonExt}` }
 }
 
+/** The file-name extension of a widget's file */
+export const WidgetJsonExt = '.tqwidget.json'
+
 /**
- * Where the hunt's expressions are kept in every repository of its quizzes: at the hunt's own
- * level, since they belong to it rather than to any one quiz.
+ * Where a widget the quiz works is kept in its repository: under its key, beside the hunt tree,
+ * since it belongs to the library rather than to any one quiz.
  *
- * @example expressionsPathFor(Runner.placeOf(deepLake, home))  // => 'tq/hunt/deep_lake/deep_lake.tqexpressions.json'
+ * @example widgetPathFor({ scope: 'pub', label: 'dumdum' })  // => 'tq/widget/pub/dumdum.tqwidget.json'
  */
-export function expressionsPathFor(place: Runner.QuizPlace): string {
-  return `tq/hunt/${place.hunt.label}/${place.hunt.label}.tqexpressions.json`
+export function widgetPathFor(widget: Pick<WidgetT, 'scope' | 'label'>): string {
+  return `tq/widget/${Widget.keyOf(widget)}${WidgetJsonExt}`
+}
+
+/**
+ * The widgets of `library` that `quiz`'s widgetings work, in library order: what its repository
+ * keeps a copy of.
+ *
+ * @example worked(quiz, library).map((widget) => widget.label)  // => ['dumdum', 'numnum_clueing', ...]
+ */
+export function worked(quiz: Pick<QuizT, 'widgetings'>, library: readonly WidgetT[]): WidgetT[] {
+  const named = new Set(quiz.widgetings.map((widgeting) => widgeting.widget_label))
+  return library.filter((widget) => named.has(widget.label))
 }
 
 /** Where `quiz`'s repository sits. Keyed by id, so renaming a quiz never orphans its history. */
@@ -102,8 +115,8 @@ export async function flushFs(fs: GitFs): Promise<void> {
 /**
  * `quiz`'s table as tab-separated text, a header line first and one line per question after.
  *
- * It has a column for every exposed field of every widget -- the questions' own, the bots',
- * and each expression's value -- alphabetically by widget label and then by field label, and its
+ * It has a column for every exposed field -- the questions' own, and each widgeting's status and
+ * value -- alphabetically by whose it is and then by field label, and its
  * rows are in order of question label. Neither depends on how the author has arranged the grid
  * or the quiz, so a commit's diff of it shows what changed and nothing else. Quoting is Papa
  * Parse's, so a tab, a quote or a line break inside a field cannot break the row it sits in.
@@ -112,7 +125,7 @@ export async function flushFs(fs: GitFs): Promise<void> {
  * @param run - The quiz, run (`Runner.runQuiz`): what its widgetings came to.
  * @returns The text, ending in a newline.
  *
- * @example questionsTsv(quiz, run).split('\n')[0]  // => 'clueing_full.value\t...\tquestion.alt_text\t...'
+ * @example questionsTsv(quiz, run).split('\n')[0]  // => 'butnot_full.status\tbutnot_full.value\t...\tquestion.alt_text\t...'
  */
 export function questionsTsv(quiz: QuizT, run: Runner.QuizRun): string {
   const { header, rows } = Exposure.tableOf(quiz, run)
@@ -122,12 +135,13 @@ export function questionsTsv(quiz: QuizT, run: Runner.QuizRun): string {
 
 /**
  * The whole working tree for `quiz`: a legible table of its questions, a complete JSON file, and
- * the hunt's expressions, moving together in one commit.
+ * a file for each widget it works, moving together in one commit.
  *
  * The `.qq.tsv` is what a commit reads as -- a line per question, so a diff is legible to anyone.
  * It is also lossy, so the `.tq.json` beside it carries the whole quiz as a smith is handed it
  * (by label, without ids), and is what could restore one from its own history through Import.
- * The expressions its widgets work are in the hunt's own file.
+ * The widgets its widgetings work are each in a file of their own, so a prompt edit shows up as a
+ * diff of every quiz that works it.
  * All are written in a fixed order (sorted keys for the JSON), because a diff that shuffles its
  * lines for no reason is a diff nobody reads.
  *
@@ -135,19 +149,19 @@ export function questionsTsv(quiz: QuizT, run: Runner.QuizRun): string {
  * than as a loss.
  *
  * @param quiz - The quiz as it now stands.
- * @param expressions - The hunt's expressions.
+ * @param library - The library's widgets; only those the quiz works are written.
  * @param place - The hunt and realm it sits in.
  * @returns Every file the repository should hold, and nothing else, by repository-relative path.
  *
- * @example quizFiles(quiz, expressions).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, the expressions path]
+ * @example quizFiles(quiz, library, place).keys().toArray()  // => [the .qq.tsv path, the .tq.json path, a path per widget worked]
  */
-export function quizFiles(quiz: QuizT, expressions: readonly ExpressionT[], place: Runner.QuizPlace): Map<string, string> {
+export function quizFiles(quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace): Map<string, string> {
   const paths = quizPathsFor(quiz, place)
-  const run = Runner.runQuiz(Standins.sourceOf(quiz, expressions, place))
+  const run = Runner.runQuiz(Runner.sourceOf(quiz, library, place))
   return new Map([
     [paths.tsv, questionsTsv(quiz, run)],
-    [paths.json, `${UU.jsonify(Exporting.quizExported(quiz), { pretty: true })}\n`],
-    [expressionsPathFor(place), `${UU.jsonify(expressions, { pretty: true })}\n`],
+    [paths.json, `${UU.jsonify(Exporting.quizExported(quiz, run), { pretty: true })}\n`],
+    ...worked(quiz, library).map((widget) => [widgetPathFor(widget), `${UU.jsonify(widget, { pretty: true })}\n`] as const),
   ])
 }
 
@@ -181,17 +195,17 @@ function tagStampOf(at: Date): string {
  *
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
- * @param expressions - The hunt's expressions, kept in the same commit.
+ * @param library - The library's widgets; those the quiz works are kept in the same commit.
  * @param place - The hunt and realm it sits in.
  * @returns The new commit's oid, or null when the quiz's branch already had commits.
  *
- * @example await commitFirst(fs, quiz, expressions, Runner.placeOf(hunt, realm))
+ * @example await commitFirst(fs, quiz, library, Runner.placeOf(hunt, realm))
  */
-export async function commitFirst(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Runner.QuizPlace): Promise<string | null> {
+export async function commitFirst(fs: GitFs, quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace): Promise<string | null> {
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
   if (await hasCommits(fs, dir)) { return null }
-  return await commitQuiz(fs, quiz, expressions, place, Changes.quizChanges(null, quiz))
+  return await commitQuiz(fs, quiz, library, place, Changes.quizChanges(null, quiz))
 }
 
 /** The sweeping changes the history brackets with commits and tags: an import merged in, questions deleted */
@@ -226,23 +240,23 @@ export function markTagFor(version: string, markkind: Markkind, at: Date): strin
  *
  * @param fs - Where the repositories live.
  * @param quiz - The quiz as it now stands.
- * @param expressions - The hunt's expressions, kept in the same commit.
+ * @param library - The library's widgets; those the quiz works are kept in the same commit.
  * @param place - The hunt and realm it sits in.
- * @param changes - What moved, as `Changes.quizChanges` and `Changes.expressionChanges` reported it.
+ * @param changes - What moved, as `Changes.quizChanges` and `Changes.widgetChanges` reported it.
  * @returns The new commit's oid, or null when nothing changed and nothing was committed.
  *
  * The commit message is the shorthand alone. The quiz itself is in the tree, and a body that
  * repeated it would only be a second copy to drift.
  *
- * @example await commitQuiz(fs, quiz, expressions, place, quizChanges(before, quiz))
+ * @example await commitQuiz(fs, quiz, library, place, quizChanges(before, quiz))
  */
-export async function commitQuiz(fs: GitFs, quiz: QuizT, expressions: readonly ExpressionT[], place: Runner.QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
+export async function commitQuiz(fs: GitFs, quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
   const message = Changes.shorthandFor(changes)
   if (message === null) { return null }
 
   const dir = repopathFor(quiz)
   await openRepo(fs, dir, quiz.version)
-  const { written, removed } = await syncTree(fs, dir, quizFiles(quiz, expressions, place))
+  const { written, removed } = await syncTree(fs, dir, quizFiles(quiz, library, place))
 
   for (const filepath of written) { await git.add({ fs, dir, filepath }) }
   for (const filepath of removed) { await git.remove({ fs, dir, filepath }) }

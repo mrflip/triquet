@@ -8,8 +8,7 @@ import { NumberField } from './cells/fields'
 import { SortableList } from './SortableList'
 import { useDraft } from './use-draft'
 import * as Labelmaker from '../lib/labelmaker'
-import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, WidthPxMax, type ColumnPatch, type ColumnT } from '../models/column'
-import { QuestionWidgetLabel } from '../models/widget'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidthPxMax, type ColumnPatch, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
@@ -42,7 +41,7 @@ function sourcesOf(quiz: QuizT) {
   return [
     ...QuestionFieldVals.map((field) => ({ value: `${QuestionWidgetLabel}.${field}`, group: 'A question field' })),
     ...QuestionViewVals.map((view) => ({ value: `${QuestionWidgetLabel}.${view}`, group: 'Worked out from the chain' })),
-    ...quiz.widgets.map((widget) => ({ value: widget.label, group: `A ${widget.kind} widget` })),
+    ...quiz.widgetings.map((widgeting) => ({ value: widgeting.label, group: 'A widgeting' })),
   ]
 }
 

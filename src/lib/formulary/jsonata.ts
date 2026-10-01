@@ -2,16 +2,13 @@ import * as Formulas from '../formulas'
 import * as UU from '../useful'
 import { formulaPrompt } from '../formula-prompt'
 import { Widgeted, type JsonT, type WidgetedT } from '../../models/widgeted'
-import { WidgetValidators, type LibraryWidgetT } from '../../models/widget'
+import { JsonataDefaultInput, WidgetValidators, type WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 import type { AdviceSubject, InputOutcome, LiveRun } from './formularies'
 import type { QuizBag } from './runner'
 
 /** What a formula can come to that a cell shows as nothing */
 const Absent: ReadonlySet<unknown> = new Set([undefined, null, ''])
-
-/** The keys of the object a formula returns when it wants to say a value is stale */
-const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
 
 /**
  * The formulary of a JSONata formula, worked out over its input on every render and stored
@@ -26,7 +23,7 @@ const MarkedKeys: ReadonlySet<string> = new Set(['value', 'stale'])
 export class JsonataFormulary {
   static readonly kind = 'jsonata'
   /** The whole bag */
-  static readonly defaultInput = '$'
+  static readonly defaultInput = JsonataDefaultInput
   static readonly refresh = 'live'
   static readonly store = null
   static readonly config = WidgetValidators.jsonataConfig
@@ -37,7 +34,7 @@ export class JsonataFormulary {
    *
    * @example JsonataFormulary.check({ formula: '$sum(', input_formula: '$', ... })  // => a sentence naming the problem
    */
-  static check(widget: Pick<LibraryWidgetT, 'formula' | 'input_formula'>): string | null {
+  static check(widget: Pick<WidgetT, 'formula' | 'input_formula'>): string | null {
     const inputIssue = Formulas.check(widget.input_formula)
     if (inputIssue !== null) { return `The input formula: ${inputIssue}` }
     return Formulas.check(widget.formula)
@@ -54,7 +51,7 @@ export class JsonataFormulary {
    *
    * @example JsonataFormulary.input({ input_formula: 'qn.title' }, bag)  // => { status: 'ok', input: 'Leon' }
    */
-  static input(widget: Pick<LibraryWidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
+  static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
     const outcome = Formulas.evaluate(widget.input_formula, bag)
     if (! outcome.ok) { return { status: 'errored', message: `The input formula: ${outcome.message}`, stops: outcome.failkind === 'timeout' } }
     return outcome.val === undefined ? { status: 'missing' } : { status: 'ok', input: outcome.val }
@@ -68,17 +65,17 @@ export class JsonataFormulary {
    * @param widget - Its formula and its input formula.
    * @param widgeting - The widgeting working it, whose params the bag already holds.
    * @param bag - The question's bag, as the widgeting sees it.
-   * @returns The widgeted, and whether it was marked stale or should stop the rest of its column.
+   * @returns The widgeted, and whether it should stop the rest of its column.
    *
    * @example JsonataFormulary.run({ formula: '6 * 7', input_formula: '$' }, null, bag).widgeted  // => { status: 'ok', value: 42, err: null }
    */
-  static run(widget: Pick<LibraryWidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag): LiveRun {
+  static run(widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag): LiveRun {
     const input = this.input(widget, bag)
-    if (input.status === 'missing') { return { widgeted: Widgeted.missing, stale: false, stops: false } }
-    if (input.status === 'errored') { return { widgeted: failed(input.message), stale: false, stops: input.stops } }
+    if (input.status === 'missing') { return { widgeted: Widgeted.missing, stops: false } }
+    if (input.status === 'errored') { return { widgeted: failed(input.message), stops: input.stops } }
     const outcome = Formulas.evaluate(widget.formula, input.input)
-    if (! outcome.ok) { return { widgeted: failed(outcome.message), stale: false, stops: outcome.failkind === 'timeout' } }
-    return { ...reading(outcome.val), stops: false }
+    if (! outcome.ok) { return { widgeted: failed(outcome.message), stops: outcome.failkind === 'timeout' } }
+    return { widgeted: reading(outcome.val), stops: false }
   }
 
   /**
@@ -89,12 +86,8 @@ export class JsonataFormulary {
    * @param sample - One real question's bag, to make the schema concrete.
    * @returns Plain text, ready to copy.
    */
-  static advice(widget: Pick<LibraryWidgetT, 'label' | 'description' | 'formula'>, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
-    return formulaPrompt({
-      expressing: widgeting,
-      expression: widget,
-      sample:     sample?.qn ?? null,
-    })
+  static advice(widget: Pick<WidgetT, 'label' | 'description' | 'formula'>, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
+    return formulaPrompt({ widgeting, widget, sample: sample?.qn ?? null })
   }
 }
 
@@ -103,11 +96,10 @@ function failed(message: string): WidgetedT {
   return Widgeted.errored({ message, at: null, response: null })
 }
 
-/** What a formula's value shows in a cell, and whether it was marked stale */
-function reading(val: unknown): Pick<LiveRun, 'widgeted' | 'stale'> {
-  if (isFunction(val)) { return { widgeted: failed('The formula came to a function rather than a value'), stale: false } }
-  if (isMarked(val)) { return { widgeted: valued(val.value), stale: val.stale === true && ! Absent.has(val.value) } }
-  return { widgeted: valued(val), stale: false }
+/** What a formula's value shows in a cell */
+function reading(val: unknown): WidgetedT {
+  if (isFunction(val)) { return failed('The formula came to a function rather than a value') }
+  return valued(val)
 }
 
 /** Whether a formula came to a function: JSONata hands one back as a marked object, or as a plain function */
@@ -122,11 +114,4 @@ function valued(val: unknown): WidgetedT {
   if (typeof val !== 'object') { return Widgeted.ok(val as JsonT) }
   // JSONata's objects have no prototype and its lists carry markers of their own: hand on plain JSON.
   return Widgeted.ok(JSON.parse(UU.jsonify(val)) as JsonT)
-}
-
-/** Whether a formula answered in the `{ value, stale }` form, rather than with a bare value */
-function isMarked(val: unknown): val is { value?: unknown, stale?: unknown } {
-  if (typeof val !== 'object' || val === null || Array.isArray(val)) { return false }
-  const keys = Object.keys(val)
-  return keys.length > 0 && keys.every((key) => MarkedKeys.has(key))
 }

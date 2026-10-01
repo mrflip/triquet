@@ -17,7 +17,7 @@ const bag = present(Runner.bagsAt(run, { label: 'dumdum', params: {} }).get(ques
 
 /** A seeded-shaped widget, under `label`, put the clueing */
 const widgetOf = (label: string, input_formula = "$trim(qn.clueing) != '' ? { 'clueing': $trim(qn.clueing) }"): AibotWidgetT => ({
-  formulary: 'aibot', label, title: 'Dumdum', description: '', formula: 'Question: {{clueing}}', input_formula,
+  scope:     'pub', formulary: 'aibot', label, title: 'Dumdum', description: '', formula: 'Question: {{clueing}}', input_formula,
   config:    { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },
 })
 const widgeting: WidgetingT = { label: 'dumdum', widget_label: 'dumdum', description: '', params: {} }

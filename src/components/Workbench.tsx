@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { ConfirmDeleteQuestions } from './ConfirmDeleteQuestions'
-import { ExpressionsModal } from './ExpressionsModal'
 import { Footnote } from './Footnote'
+import { LibraryModal } from './LibraryModal'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
@@ -18,12 +18,12 @@ import { useAsking, type AskedStep } from '../state/use-asking'
 import { useBots } from '../state/use-bots'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Runner from '../lib/formulary/runner'
-import * as Standins from '../lib/formulary/standins'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { IdentT } from '../models/ident'
 import type { QuizT } from '../models/quiz'
+import type { WidgetT } from '../models/widget'
 import type { HuntHandle } from '../state/use-hunt'
 import styles from './workbench.module.css'
 
@@ -34,6 +34,8 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
   realm: ShallowRealmT
   /** The quiz the address names: the one on screen */
   quiz:  QuizT
+  /** The library: the widgets its widgetings work */
+  library: readonly WidgetT[]
   /** Who is working on it */
   ident: IdentT
 }
@@ -45,21 +47,21 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
  * by navigating, and every editing action lands on the quiz the address names.
  */
-export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
-  const { asking, ask, recalculateAll, running, runNotice, runFailure } = useAsking(dispatch)
+  const { asking, ask } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
   const [chainDescending, setChainDescending] = useState(true)
   const [managing, setManaging] = useState(false)
-  const [editingExpressions, setEditingExpressions] = useState(false)
+  const [editingLibrary, setEditingLibrary] = useState(false)
   // Worked out afresh from the questions as they stand and stored nowhere, so a computed
   // column is never out of step with what it reads.
   const specs = useMemo(() => specsFor(quiz), [quiz])
   const place = useMemo(() => Runner.placeOf(hunt, realm), [hunt, realm])
-  const run = useMemo(() => Runner.runQuiz(Standins.sourceOf(quiz, hunt.expressions, place)), [quiz, hunt.expressions, place])
+  const run = useMemo(() => Runner.runQuiz(Runner.sourceOf(quiz, library, place)), [quiz, library, place])
   const questionIds = useMemo(() => quiz.questions.map((question) => question._id), [quiz])
   const checklist = useChecklist(quiz._id, questionIds)
   // The questions the author has asked to delete, until they confirm or keep them.
@@ -134,9 +136,10 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
           hunt={hunt}
           realm={realm}
           quiz={quiz}
+          library={library}
           dispatch={dispatch}
           onOpen={goTo}
-          onEditExpressions={() => { setEditingExpressions(true) }}
+          onEditLibrary={() => { setEditingLibrary(true) }}
           onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}
           onRelabelHunt={(label) => {
             // Followed once it has landed, and not at all when it was refused (the label taken):
@@ -160,10 +163,11 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
           }}
         />
       )}
-      {editingExpressions && (
-        <ExpressionsModal
-          onClose={() => { setEditingExpressions(false) }}
+      {editingLibrary && (
+        <LibraryModal
+          onClose={() => { setEditingLibrary(false) }}
           hunt={hunt}
+          library={library}
           quiz={quiz}
           dispatch={dispatch}
         />
@@ -211,18 +215,13 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
       />
       <Toolbar
         locked={quiz.locked}
-        bulkIshesLast={quiz.bulk_ishes_last}
-        running={running}
-        runNotice={runNotice}
-        runFailure={runFailure}
         batching={batching}
         checkedCount={checklist.checked.length}
         onBatch={(on) => { if (on) { checklist.begin() } else { checklist.end() } }}
         onDeleteChecked={() => { setDoomedIds(checklist.checked) }}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
-        onRecalculate={() => { recalculateAll(quiz.questions, run.steps) }}
-        onEditExpressions={() => { setEditingExpressions(true) }}
+        onEditLibrary={() => { setEditingLibrary(true) }}
         onSortByChain={() => {
           const descending = ! chainDescending
           setChainDescending(descending)
@@ -236,11 +235,16 @@ export function Workbench({ hunt, realm, quiz, ident, reviews, dispatch, carryOu
         realm={realm}
         ident={ident}
         reviews={reviews}
+        library={library}
         run={run}
         carryOut={carryOut}
         saveNotice={saveNotice}
-        onImport={(questions) => {
-          void QuizMirror.markedChange(quiz, 'import', () => { dispatch({ kind: 'import_questions', questions }) })
+        dispatch={dispatch}
+        onImport={(questions, widgetingActions) => {
+          void QuizMirror.markedChange(quiz, 'import', () => {
+            for (const action of widgetingActions) { dispatch(action) }
+            dispatch({ kind: 'import_questions', questions })
+          })
         }}
       />
     </main>

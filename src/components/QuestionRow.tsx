@@ -4,15 +4,15 @@ import { useCallback, useState } from 'react'
 import { Checkbox, IconButton } from '@mui/material'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import clsx from 'clsx'
-import { GutterWidthPx, type ColumnSpec, type Resolved } from '../lib/columns'
+import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
 import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
-import { WidgetedReadout } from './cells/readouts'
+import { WidgetedAskCell, WidgetedReadout } from './cells/readouts'
 import * as Runner from '../lib/formulary/runner'
+import { formularyFor } from '../lib/formulary/formularies'
 import type { QuestionField } from '../models/column'
+import type { WidgetingT } from '../models/widgeting'
 import { ButnotPreview, ChainPicker } from './cells/chain'
-import { GuessCell } from './cells/guess'
-import { ButnotIshesCell, IshesCell } from './cells/ishes'
 import { useReorderable } from './use-reorder'
 import type { QuestionPatch, QuestionT } from '../models/question'
 import styles from './workbench.module.css'
@@ -75,7 +75,7 @@ export type QuestionRowProps = {
  *
  * The Clueing and Hint boxes grow with their own content and the taller of the two sets the
  * height for both, capped; the notes columns are stretched to that same height but never get a
- * say in it, and the ishes columns are capped at it and scroll.
+ * say in it, and the widgetings' columns are capped at it and scroll.
  *
  * Folded, every box is one line high and clips what it holds, and the boxes go on measuring
  * themselves, so the row opens straight to the height it would have had.
@@ -97,35 +97,22 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const labelWorking = (widget_label: string): string | null => (
     run.steps.find((step) => step.widget?.formulary === 'aibot' && step.widget.label === widget_label)?.widgeting.label ?? null
   )
-  const reextractFor = (expression_label: string) => {
+  const reextractFor = (widget_label: string) => {
     if (locked) { return }
     const clueing = labelWorking('numnum_clueing')
     const hint = labelWorking('numnum_hint')
-    if (expression_label === 'clueing_full' && clueing !== null) { onAsk(clueing) }
-    if (expression_label === 'hint_full' && hint !== null) { onAsk(hint) }
-    if (expression_label === 'butnot_full' && hint !== null) { onAskTarget(hint) }
+    if (widget_label === 'clueing_full' && clueing !== null) { onAsk(clueing) }
+    if (widget_label === 'hint_full' && hint !== null) { onAsk(hint) }
+    if (widget_label === 'butnot_full' && hint !== null) { onAskTarget(hint) }
   }
   /** What a column shows for this question */
   const bodyOf = (spec: ColumnSpec): React.JSX.Element => {
     const { source } = spec
     if (source.kind === 'field') { return fieldBody(source.field) }
     if (source.kind === 'view') {
-      return source.view === 'butnot'
-        ? <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
-        : <ButnotIshesCell ishes={chainTarget?.hint_ishes ?? null} chained={question.chains_to !== null} heightPx={heightPx} />
+      return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
     }
-    if (source.kind === 'expressing') {
-      const { label } = source.widget
-      return (
-        <WidgetedReadout
-          widgeted={Runner.widgetedOf(run, label, question._id)}
-          stale={Runner.isStale(run, label, question._id)}
-          wide={spec.widthPx >= WideReadoutPx}
-          heightPx={heightPx}
-        />
-      )
-    }
-    return playedBody(source)
+    return widgetingBody(source.widgeting, spec)
   }
 
   /** One of the question's own fields, in the box it is edited in */
@@ -163,23 +150,17 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What one bot answered, in the cell that asks it again: askable when its input comes to something */
-  const playedBody = (source: Extract<Resolved, { kind: 'botting' }>): React.JSX.Element => {
-    const { field } = source.slot
-    const { label } = source.widget
-    const askable = Runner.inputOf(run, label, question._id).status === 'ok'
-    if (field === 'guess') {
-      return (
-        <GuessCell
-          guess={question.guess} asking={asking(label)} askable={askable}
-          locked={locked} notice={unavailableNotice(label)} heightPx={heightPx} onAsk={() => { onAsk(label) }}
-        />
-      )
+  /** What a widgeting came to: asked from the cell when its formulary is, else worked out and read-only */
+  const widgetingBody = (widgeting: WidgetingT, spec: ColumnSpec): React.JSX.Element => {
+    const { label } = widgeting
+    const widgeted = Runner.widgetedOf(run, label, question._id)
+    const widget = Runner.stepOf(run, label)?.widget ?? null
+    if (widget === null || formularyFor(widget).refresh !== 'click') {
+      return <WidgetedReadout widgeted={widgeted} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
     }
     return (
-      <IshesCell
-        ishes={question[field]} label={field === 'clueing_ishes' ? 'Clueing ishes' : 'Hint Ishes'}
-        asking={asking(label)} askable={askable}
+      <WidgetedAskCell
+        widgeted={widgeted} meta={question.stored[label]?.ok?.result_meta ?? null} label={spec.title} asking={asking(label)} askable={Runner.inputOf(run, label, question._id).status === 'ok'}
         locked={locked} notice={unavailableNotice(label)} heightPx={heightPx} onAsk={() => { onAsk(label) }}
       />
     )
@@ -192,7 +173,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       className={styles.cell}
       style={{ width: `${String(spec.widthPx)}px` }}
       data-colname={spec.title}
-      onDoubleClick={spec.source.kind === 'expressing' ? () => { reextractFor(spec.source.kind === 'expressing' ? spec.source.widget.expression_label : '') } : undefined}
+      onDoubleClick={spec.source.kind === 'widgeting' ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}
     >
       {bodyOf(spec)}
     </td>
@@ -241,7 +222,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       {/* The double-click shortcut on a Full Sum is undocumented on screen, on purpose: it is
           muscle memory for someone iterating hard on one clue's total, and the ishes cell it
           summarises is the documented, keyboard-reachable way to the same thing. It belongs to
-          the standard Full Sum expressions, wherever a quiz has put them. */}
+          the standard Full Sum widgets, wherever a quiz has put them to work. */}
       {specs.map((spec) => cell(spec))}
     </tr>
   )

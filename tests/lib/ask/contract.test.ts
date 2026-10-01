@@ -11,17 +11,16 @@ describe('AskContract.askRequest', () => {
     expect(AskContract.askRequest({ job: 'ishes', textkind: 'hint', text: 'BUT NOT 1994' }).job).to.eq('ishes')
   })
 
-  it('accepts a batched ask', () => {
-    const ask = AskContract.askRequest({ job: 'bulk_ishes', items: [{ key: 'c:aa', text: 'Two' }] })
-    expect(ask.job).to.eq('bulk_ishes')
-  })
-
   it('refuses an ask about no text at all, which would spend usage for nothing', () => {
     expect(() => AskContract.askRequest({ job: 'guess', clueing: '' })).to.throw(Z.ZodError)
   })
 
-  it('refuses a batched ask with nothing in it', () => {
-    expect(() => AskContract.askRequest({ job: 'bulk_ishes', items: [] })).to.throw(Z.ZodError)
+  it('refuses a batched ask, a job it no longer offers', () => {
+    expect(() => AskContract.askRequest({ job: 'bulk_ishes', items: [{ key: 'c:aa', text: 'Two' }] } as never)).to.throw(Z.ZodError)
+  })
+
+  it('refuses an extraction from a text other than the clueing or the hint', () => {
+    expect(() => AskContract.askRequest({ job: 'ishes', textkind: 'answer', text: 'Two' } as never)).to.throw(Z.ZodError)
   })
 
   it('refuses a job it does not offer', () => {
@@ -48,6 +47,16 @@ describe('AskContract.askReply', () => {
 
   it('refuses a failure kind with no sentence behind it', () => {
     expect(() => AskContract.askReply({ ok: false, failurekind: 'gremlins' } as never)).to.throw(Z.ZodError)
+  })
+
+  it('refuses a text missing from a batched run, which no ask can now come back as', () => {
+    expect(() => AskContract.askReply({ ok: false, failurekind: 'missingFromRun' } as never)).to.throw(Z.ZodError)
+  })
+
+  it('refuses a batched answer, a job it no longer offers', () => {
+    expect(() => AskContract.askReply({
+      ok: true, job: 'bulk_ishes', groups: [], truncated: false, model_tier_applied: 'careful', approx_tokens: 1, text_count: 0,
+    } as never)).to.throw(Z.ZodError)
   })
 
   it('refuses an extraction item the model mangled', () => {

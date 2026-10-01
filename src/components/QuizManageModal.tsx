@@ -5,7 +5,7 @@ import { Button, Dialog, DialogActions, DialogContent, Stack, TextField, Typogra
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
-import { WidgetsEditor } from './WidgetsEditor'
+import { WidgetingsEditor } from './WidgetingsEditor'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
@@ -13,6 +13,7 @@ import type { HuntActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
+import type { WidgetT } from '../models/widget'
 import styles from './workbench.module.css'
 
 export type QuizManageModalProps = {
@@ -21,11 +22,13 @@ export type QuizManageModalProps = {
   hunt:      ShallowHuntT
   realm:     ShallowRealmT
   quiz:      QuizT
+  /** The library's widgets, which the quiz's widgetings work */
+  library:   readonly WidgetT[]
   dispatch:  (action: HuntActionDNA) => void
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
-  /** Open the hunt's expressions for editing */
-  onEditExpressions: () => void
+  /** Open the library for editing */
+  onEditLibrary: () => void
   /** Give the hunt a new title: what it is called on screen */
   onRetitleHunt: (title: string) => void
   /** Give the hunt a new label, which the address then follows */
@@ -41,7 +44,7 @@ export type QuizManageModalProps = {
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, and, fenced
  * off at the foot, deleting the quiz -- or, when it is the hunt's last, the quiz and its hunt.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, onOpen, onEditExpressions, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dispatch, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -58,7 +61,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
   const deleting: DangerousAct = lastQuiz
     ? {
       actname: 'Delete this quiz and its hunt',
-      blurb:   `“${quiz.title || AppNotices.untitledQuiz}” is the last quiz of the hunt “${hunt.title}”, so the two go together: its questions, what the bots said of them, every review of it, the hunt's expressions, and everyone's place on it.`,
+      blurb:   `“${quiz.title || AppNotices.untitledQuiz}” is the last quiz of the hunt “${hunt.title}”, so the two go together: its questions, its widgetings and what they stored, every review of it, and everyone's place on it.`,
       confirm: huntLabel,
       onAct:   () => { onDeleteHunt(); onClose() },
     }
@@ -141,9 +144,9 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, dispatch, on
           </section>
 
           <section>
-            <Typography variant="h6" component="h3">Widgets</Typography>
-            <p className={styles.microcopy}>What this quiz can show for every question besides the questions&apos; own fields: bots put to it, and expressions put to work. A column shows a widget.</p>
-            <WidgetsEditor hunt={hunt} quiz={quiz} dispatch={dispatch} onEditExpressions={onEditExpressions} />
+            <Typography variant="h6" component="h3">Widgetings</Typography>
+            <p className={styles.microcopy}>The widgets of the library this quiz puts to work, in run order: each one reads what those above it came to. A column shows a widgeting.</p>
+            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} dispatch={dispatch} onEditLibrary={onEditLibrary} />
           </section>
 
           <section>

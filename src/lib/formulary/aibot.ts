@@ -3,9 +3,8 @@ import * as Errs from '../ask/errs'
 import { askModel } from '../ask/port'
 import { AskFailureNotices } from '../notices'
 import { JsonataFormulary } from './jsonata'
-import { WidgetValidators, type LibraryWidgetT } from '../../models/widget'
+import { AibotDefaultInput, WidgetValidators, type WidgetT } from '../../models/widget'
 import type { AskFailedT, AskRequestDNA, GuessReplyT, IshesReplyT, Textkind } from '../ask/contract'
-import type { BotLabel } from '../../models/bot-label'
 import type { JsonT, WidgetedRecordT } from '../../models/widgeted'
 import type { WidgetingT } from '../../models/widgeting'
 import type { AdviceSubject, AskedT, InputOutcome } from './formularies'
@@ -13,17 +12,20 @@ import type { QuizBag } from './runner'
 
 /** Which of the ask route's fixed asks one seeded `aibot` widget is put as, until the route takes a rendered prompt */
 export type SeededAsk = {
-  job:       'guess' | 'ishes'
-  bot_label: BotLabel
+  job:      'guess' | 'ishes'
   /** Which of the question's texts it is put, and so which key of its input holds it */
-  textkind:  Textkind
+  textkind: Textkind
 }
 
-/** The three seeded `aibot` widgets, by label, and the fixed ask each is put as */
+/**
+ * The three seeded `aibot` widgets, by label, and the fixed ask each is put as: a temporary
+ * mapping, while the ask route still takes fixed asks rather than a rendered prompt. Any other
+ * `aibot` widget cannot be asked yet.
+ */
 export const SeededAsks: Readonly<Record<string, SeededAsk>> = {
-  dumdum:         { job: 'guess', bot_label: 'dumdum', textkind: 'clueing' },
-  numnum_clueing: { job: 'ishes', bot_label: 'numnum', textkind: 'clueing' },
-  numnum_hint:    { job: 'ishes', bot_label: 'numnum', textkind: 'hint' },
+  dumdum:         { job: 'guess', textkind: 'clueing' },
+  numnum_clueing: { job: 'ishes', textkind: 'clueing' },
+  numnum_hint:    { job: 'ishes', textkind: 'hint' },
 }
 
 /**
@@ -37,7 +39,7 @@ export const SeededAsks: Readonly<Record<string, SeededAsk>> = {
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class AibotFormulary {
   static readonly kind = 'aibot'
-  static readonly defaultInput = "{ 'clueing': qn.clueing }"
+  static readonly defaultInput = AibotDefaultInput
   static readonly refresh = 'click'
   static readonly store = 'append'
   static readonly config = WidgetValidators.aibotConfig
@@ -48,7 +50,7 @@ export class AibotFormulary {
    *
    * @example AibotFormulary.check({ formula: '', input_formula: '$', ... })  // => 'The prompt is empty'
    */
-  static check(widget: Pick<LibraryWidgetT, 'formula' | 'input_formula'>): string | null {
+  static check(widget: Pick<WidgetT, 'formula' | 'input_formula'>): string | null {
     const inputIssue = JsonataFormulary.check({ formula: '$', input_formula: widget.input_formula })
     if (inputIssue !== null) { return inputIssue }
     return widget.formula.trim() === '' ? 'The prompt is empty' : null
@@ -64,7 +66,7 @@ export class AibotFormulary {
    *
    * @example AibotFormulary.input({ input_formula: "{ 'clueing': qn.clueing }" }, bag)  // => { status: 'ok', input: { clueing: 'Who?' } }
    */
-  static input(widget: Pick<LibraryWidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
+  static input(widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag): InputOutcome {
     const outcome = JsonataFormulary.input(widget, bag)
     if (outcome.status !== 'ok' || isObject(outcome.input)) { return outcome }
     return { status: 'errored', message: 'The input formula has to come to an object, for the prompt to be filled in from', stops: false }
@@ -84,7 +86,7 @@ export class AibotFormulary {
    *
    * @example await AibotFormulary.run(dumdum, widgeting, bag)  // => { input: { clueing: 'Who?' }, widgeted: { status: 'ok', value: { guess: 'Leon', explanation: '' }, ... } }
    */
-  static async run(widget: LibraryWidgetT, widgeting: WidgetingT, bag: QuizBag): Promise<AskedT | null> {
+  static async run(widget: WidgetT, widgeting: WidgetingT, bag: QuizBag): Promise<AskedT | null> {
     const outcome = this.input(widget, bag)
     if (outcome.status !== 'ok') { return null }
     const input = outcome.input as Record<string, unknown>
@@ -92,7 +94,7 @@ export class AibotFormulary {
     if (! seeded) { return { input, widgeted: failedRecord({ ok: false, failurekind: 'unavailable' }) } }
     const reply = await askModel(requestFor(seeded, input))
     const failed = Errs.failureOf(reply, seeded.job)
-    if (failed !== null || ! reply.ok || reply.job === 'bulk_ishes') { return { input, widgeted: failedRecord(failed ?? { ok: false, failurekind: 'unreadable' }) } }
+    if (failed !== null || ! reply.ok) { return { input, widgeted: failedRecord(failed ?? { ok: false, failurekind: 'unreadable' }) } }
     return { input, widgeted: answeredRecord(reply) }
   }
 
@@ -104,7 +106,7 @@ export class AibotFormulary {
    * @param sample - One real question's bag, to show what the prompt is filled in from.
    * @returns Plain text, ready to copy.
    */
-  static advice(widget: LibraryWidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
+  static advice(widget: WidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null): string {
     const input = sample === null ? null : this.input(widget, sample)
     return [
       AdvicePreamble,
@@ -173,7 +175,7 @@ const AdviceReply = `## How to reply
 Ask me anything you need to first. Once we have settled it, send the prompt alone: no code fence, no explanation before or after, so I can paste it straight into the prompt box. It should say in words what JSON object it wants back.`
 
 /** The widget and widgeting, in the author's own words, leaving out whatever is blank */
-function aboutLines(widget: LibraryWidgetT, widgeting: AdviceSubject | null): string[] {
+function aboutLines(widget: WidgetT, widgeting: AdviceSubject | null): string[] {
   const facts = [
     ['The column\'s title',                widgeting?.title],
     ['The widgeting\'s label',             widgeting?.label],

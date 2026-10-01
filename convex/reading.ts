@@ -1,14 +1,15 @@
 import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import * as PA from '../src/lib/vv/patterns'
-import { BotSlots, slotkeyOf, type BotSlot } from '../src/models/botting'
-import { huntFrom, quizFrom, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type SlotRows } from '../src/lib/rows'
+import { huntFrom, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows } from '../src/lib/rows'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
 
 // Every read here goes through an index, and takes at most the cap `lib/vv/patterns.ts` sets for
 // that kind of child, which the writes refuse to pass: a read never silently drops a row. A
 // quiz's questions are read by id, in the order the quiz holds them, which the same cap bounds.
+// One read is not capped: a stored cell's history, walked newest first and stopped at the first
+// `ok` row, so it reads one row, plus one per failure since.
 
 /** What a query or a mutation reads through */
 export type Reader = QueryCtx['db']
@@ -84,21 +85,30 @@ export async function quizzesOf(db: Reader, realm_id: Id<'realms'>): Promise<Doc
   return await db.query('quizzes').withIndex('by_realm_id', (cvx) => cvx.eq('realm_id', realm_id)).take(PA.QuizzesPerRealm.max)
 }
 
-/** A hunt's expressions, in order */
-export async function expressionsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Doc<'expressions'>[]> {
-  return await db.query('expressions').withIndex('by_hunt_id_and_position', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.ExpressionsPerHunt.max)
+/** The library: every `pub` widget, in the order it lists them */
+export async function libraryOf(db: Reader): Promise<Doc<'widgets'>[]> {
+  return await db.query('widgets').withIndex('by_scope_and_position', (cvx) => cvx.eq('scope', 'pub')).take(PA.WidgetsInLibrary.max)
+}
+
+/** The library's widget labelled `label`: the earliest made, should two have been; null when there is none */
+export async function widgetForLabel(db: Reader, label: string): Promise<Doc<'widgets'> | null> {
+  return await db.query('widgets').withIndex('by_scope_and_label', (cvx) => cvx.eq('scope', 'pub').eq('label', label)).first()
+}
+
+/** Whether any widgeting, in any quiz of any hunt, works the widget labelled `widget_label` */
+export async function isWorked(db: Reader, widget_label: string): Promise<boolean> {
+  return (await db.query('widgetings').withIndex('by_widget_label', (cvx) => cvx.eq('widget_label', widget_label)).first()) !== null
 }
 
 /**
- * One hunt's own rows: its row, its realms in order with their quizzes' rows, and its expressions.
+ * One hunt's own rows: its row, and its realms in order with their quizzes' rows.
  *
  * @returns The rows, or null when there is no such hunt.
  */
 export async function huntRowsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<HuntRows | null> {
   const hunt = await db.get('hunts', hunt_id)
   if (! hunt) { return null }
-  const [realms, expressions] = await Promise.all([realmsOf(db, hunt_id), expressionsOf(db, hunt_id)])
-  return { hunt, realms, expressions }
+  return { hunt, realms: await realmsOf(db, hunt_id) }
 }
 
 /**
@@ -115,54 +125,39 @@ export async function wholeHuntOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Hun
   return huntFrom(rows, quizFor)
 }
 
-/** A quiz's widgets, in order */
-export async function widgetsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Doc<'widgets'>[]> {
-  return await db.query('widgets').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.WidgetsPerQuiz.max)
+/** A quiz's widgetings, in run order */
+export async function widgetingsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Doc<'widgetings'>[]> {
+  return await db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.WidgetingsPerQuiz.max)
 }
 
 /**
- * How many widgets, across every quiz of the hunt, work each expression.
+ * One cell's history, as far as the cell needs it: the newest row, and the newest `ok` one.
+ * Walks the cell newest first and stops at the first `ok`, so it reads one row for a cell whose
+ * last ask answered, and one more for each failure since.
  *
- * @returns Counts by expression label; an expression no widget works is absent.
+ * @returns The history; null for a cell with nothing recorded.
  */
-export async function expressionUsageOf(db: Reader, realms: readonly RealmRows[]): Promise<Map<string, number>> {
-  const quizzes = realms.flatMap((realm) => realm.quizzes)
-  const widgetlists = await Promise.all(quizzes.map(async (quiz) => await widgetsOf(db, quiz._id)))
-  const usage = new Map<string, number>()
-  for (const widget of widgetlists.flat()) {
-    if (widget.kind === 'expressing') {
-      usage.set(widget.expression_label, (usage.get(widget.expression_label) ?? 0) + 1)
-    }
-  }
-  return usage
-}
-
-/**
- * One cell's history, as far as the cell needs it: the newest botting, and the newest that
- * answered. Walks the cell newest first and stops at the first answer, so it reads one row for a
- * cell whose last ask answered, and one more for each failure since.
- *
- * @returns The history; null for a cell never asked.
- */
-async function slotRowsOf(db: Reader, question_id: Id<'questions'>, slot: BotSlot): Promise<SlotRows | null> {
-  const history = db.query('bottings')
-    .withIndex('by_question_id_and_bot_label_and_textkind', (cvx) => cvx.eq('question_id', question_id).eq('bot_label', slot.bot_label).eq('textkind', slot.textkind))
+export async function cellRowsOf(db: Reader, question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>): Promise<CellRows | null> {
+  const history = db.query('widgeteds')
+    .withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', question_id).eq('widgeting_id', widgeting_id))
     .order('desc')
-  const seen: { newest: Doc<'bottings'> | null } = { newest: null }
-  for await (const botting of history) {
-    seen.newest ??= botting
-    if (botting.status === 'done') { return { newest: seen.newest, done: botting } }
+  const seen: { newest: Doc<'widgeteds'> | null } = { newest: null }
+  for await (const widgeted of history) {
+    seen.newest ??= widgeted
+    if (widgeted.status === 'ok') { return { newest: seen.newest, ok: widgeted } }
   }
-  return seen.newest && { newest: seen.newest, done: null }
+  return seen.newest && { newest: seen.newest, ok: null }
 }
 
-/** Each played cell's history of `questions`, by `slotkeyOf`; a cell never asked is absent */
-export async function slotsOf(db: Reader, questions: readonly Doc<'questions'>[]): Promise<Map<string, SlotRows>> {
-  const cells = questions.flatMap((question) => BotSlots.map((slot) => ({ question_id: question._id, slot })))
-  const histories = await Promise.all(cells.map(async ({ question_id, slot }) => await slotRowsOf(db, question_id, slot)))
-  return new Map(cells.flatMap(({ question_id, slot }, idx) => {
-    const history = histories[idx]
-    return history ? [[slotkeyOf({ question_id, ...slot }), history] as const] : []
+/**
+ * What `question` stored for each of `widgetings`, by the widgeting's label. A widgeting with
+ * nothing recorded for it (a `jsonata` one always) is absent.
+ */
+export async function storedOf(db: Reader, question_id: Id<'questions'>, widgetings: readonly Doc<'widgetings'>[]): Promise<StoredRows> {
+  const cells = await Promise.all(widgetings.map(async (widgeting) => await cellRowsOf(db, question_id, widgeting._id)))
+  return new Map(widgetings.flatMap((widgeting, idx) => {
+    const cell = cells[idx]
+    return cell ? [[widgeting.label, cell] as const] : []
   }))
 }
 
@@ -182,7 +177,7 @@ export async function questionOf(db: Reader, quiz_id: Id<'quizzes'>, question_id
 }
 
 /**
- * One quiz's own row, and its widgets and columns in their committed order: everything a quiz
+ * One quiz's own row, and its widgetings and columns in their committed order: everything a quiz
  * holds but its questions.
  *
  * @returns The rows, or null when there is no such quiz.
@@ -190,16 +185,26 @@ export async function questionOf(db: Reader, quiz_id: Id<'quizzes'>, question_id
 export async function layoutRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<LayoutRows | null> {
   const quiz = await db.get('quizzes', quiz_id)
   if (! quiz) { return null }
-  const [widgets, columns] = await Promise.all([
-    widgetsOf(db, quiz_id),
+  const [widgetings, columns] = await Promise.all([
+    widgetingsOf(db, quiz_id),
     db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
   ])
-  return { quiz, widgets, columns }
+  return { quiz, widgetings, columns }
 }
 
 /**
- * One quiz's rows: its own, its questions, widgets and columns in their committed order, and
- * each played cell's history.
+ * What each of `questions` stored for each of `widgetings`, by the question's id.
+ *
+ * @example (await allStoredOf(db, questions, widgetings)).get(question._id)?.get('dumdum')?.ok?.value
+ */
+export async function allStoredOf(db: Reader, questions: readonly Doc<'questions'>[], widgetings: readonly Doc<'widgetings'>[]): Promise<Map<string, StoredRows>> {
+  const stored = await Promise.all(questions.map(async (question) => await storedOf(db, question._id, widgetings)))
+  return new Map(questions.map((question, idx) => [question._id, stored[idx] ?? new Map()]))
+}
+
+/**
+ * One quiz's rows: its own, its questions, widgetings and columns in their committed order, and
+ * what each question stored.
  *
  * @returns The rows, or null when there is no such quiz.
  *
@@ -209,7 +214,7 @@ export async function quizRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<Qu
   const layout = await layoutRowsOf(db, quiz_id)
   if (! layout) { return null }
   const questions = await questionsOf(db, layout.quiz)
-  return { ...layout, questions, slots: await slotsOf(db, questions) }
+  return { ...layout, questions, stored: await allStoredOf(db, questions, layout.widgetings) }
 }
 
 /** A quiz's reviews, oldest first: the order two reviews by one ident are settled by */

@@ -123,7 +123,6 @@ test('a locked quiz accepts no edits, but stays readable and copyable', async ({
   await expect(clueing).toBeEnabled()
   await expect(page.getByRole('combobox', { name: 'Chains to' }).first()).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Renumber Q#' })).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Recalculate all ishes' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Ask Quick-model guess' }).first()).toBeDisabled()
 
   // Exporting still works.
