@@ -1,6 +1,7 @@
 import * as Labelmaker from '../lib/labelmaker'
 import { Column } from '../models/column'
-import { WidgetValidators, type Formularykind, type WidgetT } from '../models/widget'
+import * as UU from '../lib/useful'
+import { AibotDefaultInput, WidgetValidators, type AibotWidgetT, type Formularykind, type JsonataWidgetT, type WidgetPatch, type WidgetT } from '../models/widget'
 import { ReservedWidgetingLabels, WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../models/widgeting'
 import type { QuizT } from '../models/quiz'
 import type { HuntActionDNA } from '../models/actions'
@@ -14,8 +15,24 @@ export const NewColumnWidthPx: Readonly<Record<Formularykind, number>> = {
   aibot:   170,
 }
 
-/** The parts of a `jsonata` widget being written or revised beside the widgeting that works it */
-export type WidgetDraft = Pick<WidgetT, 'label' | 'description' | 'formula'>
+/** The parts of a `jsonata` widget being written or revised: a draft that names no formulary is one */
+export type JsonataDraft = Pick<JsonataWidgetT, 'label' | 'description' | 'formula'> & { formulary?: 'jsonata' }
+
+/** The parts of an `aibot` widget being written or revised: its prompt, its input formula and its config */
+export type AibotDraft = Pick<AibotWidgetT, 'label' | 'description' | 'formula' | 'input_formula' | 'config'> & { formulary: 'aibot' }
+
+/** The parts of a widget being written or revised, in the library or beside the widgeting that works it */
+export type WidgetDraft = JsonataDraft | AibotDraft
+
+/** What a new `aibot` widget starts as: the clueing put to the quick tier, with room for a short object */
+export const BlankAibotDraft: AibotDraft = {
+  formulary:     'aibot',
+  label:         '',
+  description:   '',
+  formula:       '',
+  input_formula: AibotDefaultInput,
+  config:        { servicelabel: 'claude', model_tier: 'quick', max_tokens: 1024 },
+}
 
 /** Everything the widgeting editor holds while it is open */
 export type WidgetingEdit = {
@@ -23,9 +40,9 @@ export type WidgetingEdit = {
   widgeting:   WidgetingT | null
   label:       string
   description: string
-  /** The widget it works, or `NewWidget` to write a `jsonata` one now */
+  /** The widget it works, or `NewWidget` to write one now */
   widgetLabel: string
-  /** The `jsonata` widget being written or revised beside it; null when the widget is left as it is */
+  /** The widget being written or revised beside it; null when the widget is left as it is */
   widget:      WidgetDraft | null
 }
 
@@ -37,8 +54,8 @@ export type WidgetPlan =
 /**
  * The actions that applying `edit` of a widgeting comes to, or the reason it cannot be.
  *
- * A new `jsonata` widget is added to the library before the widgeting that works it; an existing
- * one is revised only if its formula or description changed. A new widgeting brings a column to
+ * A new widget is added to the library before the widgeting that works it; an existing one is
+ * revised only if something of it changed. A new widgeting brings a column to
  * show it, just before Alt Text, and is labelled as its widget is unless the author says
  * otherwise, growing `_2`, `_3` while that is taken. On a locked quiz the widgeting is left alone
  * and only the widget -- which belongs to the library -- can be revised.
@@ -57,6 +74,32 @@ export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readon
   return widgeting.ok ? { ok: true, actions: [...widget.actions, ...widgeting.actions] } : widgeting
 }
 
+/**
+ * The actions that revising a widget of the library to `draft` comes to: one edit when anything
+ * of it changed, none when nothing did; or the reason it cannot be.
+ *
+ * @param draft - The widget as revised; its label names the widget.
+ * @param library - The library's widgets.
+ * @returns The plan.
+ *
+ * @example planWidgetEdit({ ...draftOf(heldWidget), formula: '1' }, library)  // => { ok: true, actions: [{ kind: 'edit_widget', ... }] }
+ */
+export function planWidgetEdit(draft: WidgetDraft, library: readonly WidgetT[]): WidgetPlan {
+  const step = widgetPlanFor({ widgeting: null, label: '', description: '', widgetLabel: draft.label, widget: draft }, library)
+  return step.ok ? { ok: true, actions: step.actions } : step
+}
+
+/**
+ * A widget of the library as a draft to revise: the parts its formulary lets an author change.
+ *
+ * @example draftOf(SeedWidgets[0]).formulary  // => 'aibot'
+ */
+export function draftOf(widget: WidgetT): WidgetDraft {
+  const { label, description, formula } = widget
+  if (widget.formulary === 'jsonata') { return { formulary: 'jsonata', label, description, formula } }
+  return { formulary: 'aibot', label, description, formula, input_formula: widget.input_formula, config: widget.config }
+}
+
 /** A plan, and on its way to success the label of the widget it works */
 type WidgetStep = (Extract<WidgetPlan, { ok: true }> & { widget_label: string }) | Extract<WidgetPlan, { ok: false }>
 
@@ -66,8 +109,8 @@ function refused(issue: string, labelIssue = false): Extract<WidgetPlan, { ok: f
 }
 
 /**
- * The widget's share of an edit: the `jsonata` widget added when it is new, revised when it
- * changed, and nothing otherwise; or why it will not do.
+ * The widget's share of an edit: the widget added when it is new, revised when it changed, and
+ * nothing otherwise; or why it will not do.
  */
 function widgetPlanFor(edit: Readonly<WidgetingEdit>, library: readonly WidgetT[]): WidgetStep {
   const { widget } = edit
@@ -76,12 +119,19 @@ function widgetPlanFor(edit: Readonly<WidgetingEdit>, library: readonly WidgetT[
   if (widget_label === '') { return refused(isNew ? 'Give the new widget a label.' : 'Pick a widget for it to work.', isNew) }
   if (isNew && library.some((other) => other.label === widget_label)) { return refused('Another widget in the library already has that label.', true) }
   if (widget === null) { return { ok: true, actions: [], widget_label } }
-  const checked = WidgetValidators.widget.safeParse({ ...widget, label: widget_label, formulary: 'jsonata' })
-  if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That formula will not do.') }
+  const checked = WidgetValidators.widget.safeParse({ formulary: 'jsonata', ...widget, label: widget_label })
+  if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That widget will not do.') }
   if (isNew) { return { ok: true, actions: [{ kind: 'add_widget', widget: checked.data }], widget_label } }
+  const patch = patchFor(checked.data)
   const held = library.find((other) => other.label === widget_label)
-  if (held?.formula === widget.formula && held.description === widget.description) { return { ok: true, actions: [], widget_label } }
-  return { ok: true, actions: [{ kind: 'edit_widget', label: widget_label, patch: { formula: widget.formula, description: widget.description } }], widget_label }
+  if (held && Object.entries(patch).every(([key, val]) => UU.jsonify(held[key as keyof WidgetT]) === UU.jsonify(val))) { return { ok: true, actions: [], widget_label } }
+  return { ok: true, actions: [{ kind: 'edit_widget', label: widget_label, patch }], widget_label }
+}
+
+/** What revising a widget to `widget` sets: its description and formula, and an `aibot` widget's input formula and config */
+function patchFor(widget: WidgetT): WidgetPatch {
+  const shared = { formula: widget.formula, description: widget.description }
+  return widget.formulary === 'aibot' ? { ...shared, input_formula: widget.input_formula, config: widget.config } : shared
 }
 
 /**
@@ -96,7 +146,7 @@ function widgetingPlanFor(edit: Readonly<WidgetingEdit>, widget_label: string, l
   const checked = WidgetingValidators.widgeting.safeParse({ widget_label, label, description: edit.description, params: edit.widgeting?.params ?? {} })
   if (! checked.success) { return refused(checked.error.issues[0]?.message ?? 'That widgeting will not do.') }
   if (edit.widgeting !== null) { return { ok: true, actions: editWidgetingActions(edit.widgeting, checked.data) } }
-  const formulary = library.find((widget) => widget.label === widget_label)?.formulary ?? 'jsonata'
+  const formulary = library.find((widget) => widget.label === widget_label)?.formulary ?? edit.widget?.formulary ?? 'jsonata'
   return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }, newColumnFor(quiz, checked.data.label, NewColumnWidthPx[formulary])] }
 }
 
