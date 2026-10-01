@@ -8,13 +8,98 @@ Workers add their sections below the table, newest first.
 | Thread | Label | Status |
 |---|---|---|
 | 1 | Design note and vocabulary | complete: PR #67 (docs only, unreviewed) |
-| 2 | The formulary seam, no data change | pending |
+| 2 | The formulary seam, no data change | complete: PR #68, stacked on #67 (awaiting review) |
 | 3 | The data model, as a clean break | pending |
 | 4 | Pasted prompts | pending |
 | 5 | Status | pending |
 | 6 | Views | pending |
 | 7 | The basic set and the catalogue | pending |
 | 8 | Entry widgets | pending |
+
+## Thread 2: The formulary seam, no data change (2026-10-01)
+
+Branch `20261001-formulary_seam`, PR #68, stacked on #67. Suites: typecheck and lint clean;
+`pnpm test` 2346 passed; `pnpm test:e2e:agent` 193 passed. `origin/main` had not moved, so
+there was nothing to replay.
+
+* **Built**:
+  - `src/lib/formulary/`:
+    - `formularies.ts`: the interface, its types (`InputOutcome`, `LiveRun`, `AskedT`), and the
+      lookup `formularyFor`.
+    - `jsonata.ts`: `JsonataFormulary`, wrapping `Formulas` and the reading `Expressed` did.
+    - `aibot.ts`: `AibotFormulary`; `SeededAsks`, the temporary map from widget label to the
+      route's fixed job; `guessValueOf`.
+    - `runner.ts`: `runQuiz`, `widgetedOf`, `inputOf`, `stepOf`, `bagsAt`, `statusCounts`,
+      `widgetedFrom` (the projection), `placeOf`, and the `QuizBag` and `QuizPlace` types.
+    - `standins.ts`: today's rows as a `RunSource`. This is the one file thread 3 replaces.
+  - Models:
+    - `src/models/widgeted.ts`: `WidgetedT`, its validator, `StoredWidgetedT`,
+      `WidgetedHistoryT`, `WidgetedRecordT`, and the `Widgeted` statics.
+    - `src/models/widgeting.ts`: the type `WidgetingT`.
+    - `src/models/widget.ts`: `FormularykindVals`, the `jsonataConfig` and `aibotConfig`
+      validators, `AibotTokensMax`, and `LibraryWidgetT`.
+  - Every reader of a worked-out column takes a `QuizRun`: the grid, the sorts (browser and
+    server), `exposure.ts`, `sheets.ts`, `quizgit.ts` and the expression preview.
+  - Asks go through `AibotFormulary.run` and are keyed by widgeting label. `src/lib/expressed.ts`
+    is gone.
+  - Tests: `tests/lib/formulary/`, `tests/models/widgeted.test.ts`, and `tests/support/runs.ts`
+    (`runOf`, `runHolding`).
+* **Decisions taken**:
+  - **The runner reads a `RunSource`**: `{ quiz, place, steps: [{ widgeting, widget }], storedOf }`.
+    Thread 3 builds one from the new tables in place of `Standins.sourceOf`. Callers then change
+    only that argument.
+  - **`run(widget, widgeting, bag)` works out the input itself**, as the design sketch has it.
+    The runner also calls `input` separately for `click` widgetings, so a cell knows whether it
+    is askable (`Runner.inputOf`).
+  - **The retiring `{ value, stale }` form rides beside `WidgetedT`, not in it**:
+    `LiveRun.stale`, and `QuizRun.stale` read by `Runner.isStale`. The bag gets the bare value.
+    Thread 3 deletes both.
+  - **`LibraryWidgetT` is an interim name**, because `WidgetT` still means a quiz's widget.
+    Thread 3 renames it as it redefines `src/models/widget.ts`.
+  - **A widgeting whose label matches a key a question already has in the bag** (its exposed
+    fields, `rank`, the three aliases) is left out of the bag, never shadowing the question's own
+    field. Thread 3's reserved pattern makes this unreachable.
+  - **Dumdum's reply** is split into `{ guess, explanation }`, each trimmed. Recording it as a
+    botting joins the two with one line break.
+  - **`useBots().unavailableNotice` takes a widget** and checks its `config.servicelabel`
+    against the bots route's statuses. The notice text is unchanged.
+* **Deviations**:
+  - **The bots' cells (`guess.tsx`, `ishes.tsx`) still read the question's reply fields** for
+    their body and metaline. Askability, the in-flight state and the ask itself come from the
+    runner. Retiring the cells is thread 5's.
+  - **The hunt's JSON export (`exporting.ts`) does not read the runner.** It carries no
+    worked-out values today, and flat widgeteds in it would collide with question fields until
+    the reserved pattern exists (thread 3).
+  - **The git table keeps today's exposed fields per botting.** Its expressing columns read the
+    runner, as the sheet's do.
+* **Pulled forward** (strike from the later threads):
+  - From thread 5: the status projection, `Runner.widgetedFrom`.
+  - From thread 6: per-widgeting counts, `Runner.statusCounts`.
+  - From thread 3: `FormularykindVals` and the config validators in `src/models/widget.ts`;
+    `WidgetedT` and its validator; the bag's `params` and `widgeting_label`; the seeded `aibot`
+    input formulas (in `standins.ts`); and the `aibot` value shapes in the bag.
+* **Discoveries**:
+  - **Thread 3 must give the bots' cells something to read.** When `guess`, `clueing_ishes` and
+    `hint_ishes` leave the question, `GuessCell` and `IshesCell` have nothing left. Either thread
+    3 points them at `WidgetedT` and `result_meta`, or it pulls thread 5's single cell forward.
+    `WidgetedReadout` (`cells/readouts.tsx`) already shows any `WidgetedT`.
+  - **The `aibot` formulary imports `lib/ask/port.ts`** (a `fetch`), so the Convex bundle now
+    includes it through `runner` (the server-side sort). Nothing calls it there; the push and
+    convex-test are both fine with it.
+  - **JSONata's objects have no prototype**, and its lists carry markers. `jsonata.ts` hands on
+    plain JSON (a `UU.jsonify` round trip) so a value is honest `JsonT`.
+  - **The per-render cost** is noted in `notes/database-decisions.md`, item 5. It is W
+    widgetings by Q questions: an input formula and a formula per `jsonata` cell, an input
+    formula per `aibot` cell, and one copy of each question's bag entry per widgeting.
+  - **The expression editor's preview** reads the bag before the widgeting being edited. A new
+    expression, not yet worked by any widgeting, reads the bag after every one.
+* **For the Coach**:
+  - **Three `eslint-disable-next-line @typescript-eslint/no-extraneous-class`** comments, on
+    `JsonataFormulary`, `AibotFormulary` and `Widgeted`. These are classes of statics with no
+    instance fields. An `allowStaticOnly` override for `src/lib/formulary/**` would be the
+    alternative.
+  - **`CLAUDE.md` still names `Expressed`** as an example namespace under *Architecture*. The
+    module is gone, and I left `CLAUDE.md` for you to edit.
 
 ## Thread 1: Design note and vocabulary (2026-10-01)
 
