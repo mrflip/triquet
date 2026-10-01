@@ -28,12 +28,13 @@ export default defineConfig({
   // One retry on CI, so a failure there comes with a trace; a spec that passes only on its retry
   // is reported as flaky rather than hidden.
   retries:     process.env.CI ? 1 : 0,
-  // One spec at a time on CI: a runner's few slow cores already carry the dev server, Convex and the
+  // One spec at a time on CI: a runner's few slow cores already carry the web server, Convex and the
   // browser, and a second worker there times specs out. CI goes wide by sharding instead. Locally,
   // half the cores and no retry, so specs that collide over the one server they share fail here,
   // the only place they run side by side.
   workers:     process.env.CI ? 1 : '50%',
-  // A route's first visit waits for it to compile, and a fresh page for its first reads.
+  // Under the dev server a route's first visit waits for it to compile, and a fresh page always
+  // waits for its first reads.
   expect:      { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${port}`,
@@ -44,7 +45,7 @@ export default defineConfig({
     { name: 'environment', testMatch: /\.setup\.ts$/, use: { ...devices['Desktop Chrome'] } },
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['environment'] },
   ],
-  // The dev server, or the optimized build (`pnpm test:e2e:built`), beside the role's own Convex
+  // The dev server, or the optimized build (`pnpm test:e2e:built`, and CI), beside the role's own Convex
   // backend with the functions pushed to it and every row of the last run cleared away
   // (`scripts/convex_dev`). The build is made here, so it sees the settings below: a NEXT_PUBLIC_
   // one is fixed into the pages as they are built.

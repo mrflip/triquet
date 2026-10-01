@@ -2,6 +2,53 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-09-30: Sprint misc done -- six threads, four PRs open
+
+* **The sprint.** Six threads issued over the afternoon, each built by a thread-worker and
+  reviewed by the new thread-reviewer (its first run: two `fix:` commits kept across six
+  threads, nothing flagged). Plan and handoff: `whiteboard/20260930-misc/`. Live mirror: the
+  *Sprint misc* Claude Doc.
+* **PRs, in stack order.** #58 (chai in vitest, research) and #60 (the alarm Snackbar) are
+  merged. Open: **#61** `pnpm test:e2e:built` on the `e2e-built` role, stacked on main; **#63**
+  formulas read `quiz.smiths_note`, `hunt.*`, `realm.*`, stacked on #61; **#64** chai's property
+  form (`.to.be.true`) with chai-expect and chai-friendly in place of `vitest/valid-expect`,
+  stacked on #63; **#65** CI's e2e shards run against the build, stacked on #64. Merging #65
+  lands all four.
+* **Open questions, gathered:**
+  - **Finishing suite**: git_hygiene still says `pnpm test:e2e` (dev). Switch it to
+    `test:e2e:built`, or run both (about a minute more)? CI now runs the build.
+  - **CLAUDE.md** *Global resources*: the role list lacks `e2e-built` (and could name
+    `pnpm test:e2e:built`, port 3005). Left for you.
+  - **More chai property style?** Empty collections (about 84 lines) to `.to.be.empty` (looser),
+    and the 10 Jest-style spy matchers to `.calledOnce` / `.not.called` / `.calledWith`.
+  - **More for formulas?** Thread 4's proposal, best first: per-question review aggregates (shared
+    reviews only), the hunt's other quizzes and their answers (for metas; a thread of its own),
+    the quiz's position in its realm, the expressing's own label, the quiz's `version`.
+  - **The alarm** (#60, merged): bottom centre; Escape doesn't dismiss; a later success doesn't
+    clear it; the refused text stays in its field until reload; an alarm under an open dialog
+    isn't announced. Each a small change if you'd rather.
+  - **Small hardening, not built**: `&& exec next start` in the built server command; caching
+    the Playwright browser in CI (apt stalled two shards for 4-6 minutes).
+* **Housekeeping.** The sprint machinery (thread-reviewer and friends) was found uncommitted at
+  the start; it went in with #58. The local branches `20260930-chai_in_vitest`,
+  `20260930-failure_snackbar` and `20260930-misc_start` are merged or spent and can go, with
+  the local tag `prerebase/20260930-formula_exposure`. *A smith's note beside the quiz's name*,
+  below, is stale where it says formulas can't see the note.
+
+## 2026-09-30: CI's e2e now runs against the optimized build (#65)
+
+* **As you asked**: the e2e job's six shards run `next build`, then `next start`, in place of the
+  dev server. It's one env line, `TRIQUET_E2E_SERVER: built`. There's still no CI role of its own
+  (port 3002, backend 3402, `.next-e2e`, as before) and no second matrix axis.
+* **It costs nothing.** Each shard builds for itself, about 30s on a runner, and the specs then
+  run faster than on the dev server, so the Playwright step came out a little quicker (every shard
+  under 2 minutes, where the last dev run had five over 2). All 208 runs passed, none flaky.
+  Building once and sharing it between the shards isn't worth doing for now.
+* **Your call: the local finishing suite** (`pnpm test:e2e` in git_hygiene) still runs the dev
+  server. You didn't ask to change it. As it stands a PR is tested in dev mode locally and built
+  mode on CI, which covers both. Should it switch to the build, or add `pnpm test:e2e:built`
+  beside it?
+
 ## 2026-09-30: Sprint foldable_ui paused before thread 4
 
 * **Where it stands.** Threads 1-3 are done, each a PR stacked on the one before, none merged:

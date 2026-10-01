@@ -165,8 +165,8 @@ Settled; reach for these before writing the equivalent.
   `scripts/` run under (`scripts/convex_healthcheck`); a local backend needs no key at all. Staging, production and CI get their environment from Doppler's
   syncs, not the CLI; CI runs `playwright test` directly.
 * **GitHub Actions** (`.github/workflows/ci.yml`): `tsc --noEmit`, `eslint`, `vitest run`,
-  `next build` and the Playwright suite. All gate a merge; agent-authored PRs go through the
-  same gates as anyone's.
+  `next build` and the Playwright suite, run against the optimized build. All gate a merge;
+  agent-authored PRs go through the same gates as anyone's.
 
 ### Testing
 
