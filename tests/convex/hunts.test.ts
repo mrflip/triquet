@@ -11,6 +11,7 @@ import { RefusalNotices } from '../../src/lib/notices'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import type { HuntRole } from '../../src/models/hunting'
 import { mintId } from '../../src/lib/ids'
@@ -22,7 +23,7 @@ import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, t
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
   const questions = pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
-  return huntHolding([{ ...Quiz.blank('Quiz one'), ...defaultLayout(), questions }])
+  return huntHolding([{ ...Quiz.blank('Quiz one'), ...classicLayout(), questions }])
 }
 
 /** A hunt holding one quiz of blank questions */
@@ -505,7 +506,7 @@ describe("hunts.perform", () => {
     })
 
     it("refuses a question of another quiz", async () => {
-      const { act, read } = await seed(huntHolding(['one', 'two'].map((title) => ({ ...Quiz.blank(title), ...defaultLayout() }))))
+      const { act, read } = await seed(huntHolding(['one', 'two'].map((title) => ({ ...Quiz.blank(title), ...classicLayout() }))))
       const other = present(quizNamed(await read(), 'two').questions[0])
       await expectRefusal(act({ kind: 'record_widgeted', widgeted: found(other._id, 1) }), 'questionGone')
     })
@@ -614,25 +615,17 @@ describe("hunts.perform", () => {
       expect(quizzes).to.have.length(2)
     })
 
-    it("starts the new quiz with the default widgetings and columns", async () => {
+    it("starts the new quiz lean: the starter columns, and no widgetings", async () => {
       const { act, read } = await seed(openHunt())
       await act({ kind: 'new_quiz' })
-      const { widgetings, columns } = defaultLayout()
       const newest = newestOf(await read())
-      expect([newest.widgetings, newest.columns]).to.deep.eq([widgetings, columns])
+      expect([newest.widgetings, newest.columns]).to.deep.eq([[], defaultLayout().columns])
     })
 
-    it("gives the library whichever of the default widgetings' widgets it lacks, at its end", async () => {
+    it("leaves the library as it was, even one lacking every widget a classic quiz works", async () => {
       const { act, read } = await seed(openHunt())
       await act({ kind: 'delete_widget', label: 'hint_full' })
       await act({ kind: 'delete_widget', label: 'dumdum' })
-      await act({ kind: 'new_quiz' })
-      const { library } = await read()
-      expect(library.map((widget) => widget.label).slice(-2)).to.deep.eq(['dumdum', 'hint_full'])
-    })
-
-    it("leaves the library's widgets as they were when it lacks none of them", async () => {
-      const { act, read } = await seed(Hunt.blank())
       const ante = await read()
       await act({ kind: 'new_quiz' })
       const { library } = await read()
@@ -664,7 +657,7 @@ describe("hunts.perform", () => {
 
   describe("delete_quiz", () => {
     it("removes the quiz and everything it held, and leaves the library alone", async () => {
-      const { tt, act, read } = await seed(huntHolding(['one', 'two', 'three'].map((title) => ({ ...Quiz.blank(title), ...defaultLayout() }))), 1)
+      const { tt, act, read } = await seed(huntHolding(['one', 'two', 'three'].map((title) => ({ ...Quiz.blank(title), ...classicLayout() }))), 1)
       const ante = await read()
       const doomed = quizNamed(ante, 'two')._id
       const asked = present(quizNamed(ante, 'two').questions[0])

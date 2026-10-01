@@ -8,14 +8,15 @@ import type { HuntActionDNA } from '../../../src/models/actions'
 import type { WidgetedRecordingDNA } from '../../../src/models/widgeted'
 import { present } from '../../support/present'
 import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen } from '../../support/convex'
+import { classicHunt } from '../../support/layouts'
 
-/** A fresh hunt with its quiz laid out as a new quiz's is */
+/** A fresh hunt with its quiz laid out as every new quiz was before they started lean */
 function standard(locked = false): HuntT {
-  const hunt = Hunt.blank()
+  const hunt = classicHunt()
   return { ...hunt, realms: hunt.realms.map((realm) => ({ ...realm, quizzes: realm.quizzes.map((quiz) => ({ ...quiz, locked })) })) }
 }
 
-/** The one quiz of a fresh standard hunt */
+/** The one quiz of a fresh classic hunt */
 const standardQuiz = () => present(Hunt.quizzesOf(standard())[0])
 
 /** A standard hunt whose one quiz holds `questions` */
@@ -372,11 +373,12 @@ describe("sort_questions by a column that shows a jsonata widgeting", () => {
 })
 
 describe("the widgetings and columns of a new quiz", () => {
-  it("are the default ones", async () => {
+  it("are those a fresh hunt's quiz starts with, whatever the open quiz works", async () => {
     const { act, read } = await seed()
     await act({ kind: 'new_quiz' })
     const { quizzes } = await read()
-    expect([present(quizzes.at(-1)).widgetings, present(quizzes.at(-1)).columns]).to.deep.eq([standardQuiz().widgetings, standardQuiz().columns])
+    const fresh = present(Hunt.quizzesOf(Hunt.blank())[0])
+    expect([present(quizzes.at(-1)).widgetings, present(quizzes.at(-1)).columns]).to.deep.eq([fresh.widgetings, fresh.columns])
   })
 })
 

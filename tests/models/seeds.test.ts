@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Runner from '../../src/lib/formulary/runner'
 import { mintId } from '../../src/lib/ids'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { DefaultWidgetings, SeedWidgets } from '../../src/models/seeds'
@@ -141,7 +141,7 @@ describe('the seeded formulas, run', () => {
   function quizHolding(alphaStored: QuestionT['stored'], betaStored: QuestionT['stored'] = {}) {
     const alpha = Question.fill({ _id: alphaId, label: 'alpha', qnum: '1', clueing: 'Three blind mice', hint: 'Seven seas', chains_to: betaId, stored: alphaStored })
     const beta = Question.fill({ _id: betaId, label: 'beta', qnum: '2', clueing: 'Two', hint: '', stored: betaStored })
-    return { ...Quiz.blank(), ...defaultLayout(), questions: [alpha, beta] }
+    return { ...Quiz.blank(), ...classicLayout(), questions: [alpha, beta] }
   }
 
   /** What `label` came to for alpha */

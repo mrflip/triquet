@@ -10,7 +10,7 @@ import * as Changes from '../../src/lib/changes'
 import * as Exporting from '../../src/lib/exporting'
 import * as Quizgit from '../../src/lib/quizgit'
 import { Question, type QuestionT } from '../../src/models/question'
-import { defaultLayout } from '../../src/models/layout'
+import { classicLayout } from '../support/layouts'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
@@ -178,11 +178,11 @@ describe('questionsTsv', () => {
   })
 
   it("names each widgeting's status and value, the widgetings before the questions' own fields", () => {
-    const header = tsvOf(quizOf([], defaultLayout())).split('\n', 1)[0]?.split('\t') ?? []
+    const header = tsvOf(quizOf([], classicLayout())).split('\n', 1)[0]?.split('\t') ?? []
     const at = (colkey: string) => header.indexOf(colkey)
     expect(at('clueing_full.value')).to.eq(at('clueing_full.status') + 1)
     expect(at('clueing_full.value')).to.be.below(at('question.alt_text'))
-    expect(header).to.have.lengthOf((defaultLayout().widgetings.length * 2) + 9)
+    expect(header).to.have.lengthOf((classicLayout().widgetings.length * 2) + 9)
   })
 
   // A tab, a quote or a line break inside a field must never leak into the row structure:
@@ -219,8 +219,8 @@ describe('widgetPathFor', () => {
 
 describe('worked', () => {
   it("is the widgets the quiz's widgetings work, in library order", () => {
-    expect(labelsWorked(defaultLayout()).slice(0, 2)).to.deep.eq(['dumdum', 'numnum_clueing'])
-    expect(labelsWorked(defaultLayout())).to.have.lengthOf(defaultLayout().widgetings.length)
+    expect(labelsWorked(classicLayout()).slice(0, 2)).to.deep.eq(['dumdum', 'numnum_clueing'])
+    expect(labelsWorked(classicLayout())).to.have.lengthOf(classicLayout().widgetings.length)
   })
 
   it("names a widget once, however many widgetings work it, and leaves out the ones none does", () => {

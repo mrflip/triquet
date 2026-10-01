@@ -428,7 +428,12 @@ code projected as rows: on the data layer is the point.
   none (a lean quiz, from thread 7) is left alone, so the mutation stays harmless to re-run.
   *(The whole set rather than only the named ones: a column can be removed while its widget is
   kept, so a quiz showing a sum may not show the numnum widgeting the sum reads.)*
-* **A new hunt seeds nothing**, and from thread 7 a new quiz starts with no widgetings.
+* **A new hunt seeds nothing**, and from thread 7 a new quiz starts lean (`defaultLayout` in
+  `src/models/layout.ts`): no widgetings, and columns for `title`, `qnum`, `clueing`,
+  `full_answer` and `notes`, the question's `label` riding under its title in the Title column as
+  it always has. `hint`, `chains_to` and `alt_text` stay on the question row, their columns (and the
+  `butnot` view's) added through the columns editor; the library's widgets through the widgeting
+  editor, each bringing its column. `insertQuiz` no longer tops up the library: it is seeded once.
 
 ### Names
 
