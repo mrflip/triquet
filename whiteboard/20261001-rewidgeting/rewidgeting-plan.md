@@ -2,7 +2,7 @@
 
 Sprint plan, 2026-10-01. Mode: **YOLO**. Review level: **medium** (thread 1 is docs only, so
 unreviewed). Issued by the Coach (Flip).
-**Status: thread 7 underway.** Threads 1 (PR #67, docs only), 2 (#68), 3 (#69), 4 (#70), 5 (#71) and 6 (#72) done.
+**Status: thread 8 underway.** Threads 1 (PR #67, docs only), 2 (#68), 3 (#69), 4 (#70), 5 (#71), 6 (#72) and 7 (#73) done.
 
 Eight threads, stacked in order. `rewidgeting-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -436,7 +436,14 @@ a query for the usage line (counts across hunts) in `convex/`, per
 > ~~widgeting editor's picker is the catalogue.~~ *(thread 6)* `src/models/layout.ts`, `Hunt.blank`,
 > `insertHunt` and the e2e fixtures follow.
 
-*Orchestrator:* the catalogue picker was built in thread 6; e2e specs add what they need with
+*Orchestrator:* **done, PR #73** (review: clean). A new quiz has five columns (Title, Q#, Clueing,
+Full Answer, Notes) and no widgetings; the question's label shows in the Title column, so no column
+of its own (YOLO decision 10). `hint`, `chains_to`, `alt_text` come back through the columns editor,
+which now opens on a field no column shows and names the column after it (`hint` / *Hint*). The old
+layout is `classicLayout()`/`classicHunt()` in `tests/support/layouts.ts`; e2e specs set up through
+`addWidgetings` and `addColumns`, and the suite runs in 1.7 minutes, down from 3.7.
+
+*Orchestrator (before):* the catalogue picker was built in thread 6; e2e specs add what they need with
 `addWidgeting` (`e2e/support.ts`). Thread 3's `insertQuiz` top-up of the library goes with the
 defaults. `DefaultWidgetings` in `src/models/seeds.ts` stays: the seeding mutation still gives
 today's quizzes their layout by what their columns name.
@@ -460,7 +467,12 @@ picker or a fixture.
 editors (`src/components/cells/fields.tsx`, `use-draft`), the widget editor's `entry` arm, and
 `HUMAN-whatsup.md`.
 
-*Look-ahead*: the reserved pattern forbids a widgeting labelled `notes` while `notes` is a
+*Look-ahead*: from thread 7, an `entry` widgeting's column comes through the same picker, and specs
+add it with `addWidgetings`; `notes` stays a question column. The `widgeteds` index
+`by_question_id_and_widgeting_id` (thread 3) serves the upsert as one read, and `allStoredOf` already
+reads every formulary whose `store` is not null (thread 3's review). Thread 5's review: a quick
+double-click on a fold button can reach a cell's re-ask handler; an entry cell must not ask. The
+reserved pattern forbids a widgeting labelled `notes` while `notes` is a
 question field, so a default `notes` entry widgeting does not read cleanly; expect `notes` to
 stay a question field this sprint, and say so.
 
@@ -491,6 +503,8 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
 9. *(Thread 4 review's minor finding.)* Thread 6 refuses the triple-brace and `&` mustache tags in
    `templateIssue` rather than writing a custom mustache writer: `{{name}}` already renders every
    value as JSON with escaping off, so nothing is lost.
+10. *(Thread 7, accepted.)* The starter set's `label` is the question's label as the Title column
+    already shows it, not a column of its own (which would need a read-only source and show it twice).
 
 ## For the Coach
 
@@ -522,6 +536,10 @@ The orchestrator's calls, each a two-way door. Workers add theirs to their progr
   `{ items }` sorts by span count; a many-key object does not sort), yours to overturn.
 * Thread 6's: should the library's export and import move off the Export panel (left there)? And a
   widget's title can't be edited in the UI, only by library import: add a Title field?
+* Thread 7's: the starter set has no separate `label` column (decision 10); a widgeting's column is
+  headed by its label titleized (*Butnot Ishes*) rather than the widget's title (*BUT NOT ishes*) --
+  switch?; a new widgeting's column lands after Notes on a lean quiz. Older: a taken label gets a
+  random suffix in the columns editor but `_2` in the widgeting editor.
 * PR #66 and #67 both edit `notes/vocabulary.md`'s *stale* entry: a small docs conflict for
   whichever lands second.
 
