@@ -1,677 +1,87 @@
 { "questions": [
   {
-    "alt_text": "",
     "chains_to": "fugitives",
-    "clueing": "The array of science Youtubers in the image are paying homage to a notable Irish physicist, whose character later raps “no one uses my quaternions, But just you wait, just you wait\". **What's his name, man?**",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "one",
-          "value": 1
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "(William Rowan / Lewis) Hamilton",
-    "guess": null,
+    "clueing": "READ THE SMITH'S NOTE — it is ESSENTIAL you understand the structure of the quiz and how the hints that make it enjoyable work\n\nThe array of science YouTubers in the image is paying homage to a notable Irish physicist, whose character later raps \"And no one uses my quaternions, But just you wait, just you wait\". **What's his name, man?**",
     "hint": "the driver with the most all-time Formula One Grand Prix wins",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "One",
-          "value": 1
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
     "label": "graffitist",
-    "notes": "Accept William Hamilton, W. R. Hamilton, Sir William Rowan Hamilton. Accept Lewis Hamilton. Reject Alexander Hamilton.",
-    "qnum": "1",
-    "title": "Quaternions"
+    "qnum": "1"
   },
   {
-    "alt_text": "",
     "chains_to": "alsip",
-    "clueing": "At a glance, the lines below are gibberish; but in a different sense they're quite familiar. Describe **WHAT are lost**...\n\n> Lille' beau pipe\n> Ocelot serre chypre\n> En *douzaine* aux verres tuf indemne\n> Livre de melons un dé huile qu'aux mômes\n> Eau à guigne d'air telle baie indemne?",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "douzaine",
-          "value": 12
-        },
-        {
-          "kind": "wordish",
-          "text": "un",
-          "value": 1
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Sheep (Little Bo Peep's / Dolly's progenitors)",
-    "guess": null,
-    "hint": "the progenitors in \"Viable offspring from a differentiated adult mammalian cell\" (Wilmut, Schnieke et. al., Nature 1997 Feb 27;385(6619):810-3)",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "1997",
-          "value": 1997
-        },
-        {
-          "kind": "numeral",
-          "text": "27",
-          "value": 27
-        },
-        {
-          "kind": "numeral",
-          "text": "385",
-          "value": 385
-        },
-        {
-          "kind": "numeral",
-          "text": "6619",
-          "value": 6619
-        },
-        {
-          "kind": "numeral",
-          "text": "810",
-          "value": 810
-        },
-        {
-          "kind": "numeral",
-          "text": "3",
-          "value": 3
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "At a glance, the lines below are gibberish; but in a different sense they're quite familiar. Describe **WHAT are lost**...\n\n> Lille' beau pipe\n> Ocelot serre chypre\n> En *douzaine* aux verres tuf indemne\n> Livre de melons un dé huile qu'aux mômes\n> Eau à guigne d'air telle baie indemne",
+    "hint": "the progenitors in \"Viable offspring derived from fetal and adult mammalian cells\" (Wilmut, Schnieke et al., Nature 1997 Feb 27;385(6619):810-3)",
     "label": "gibberish",
-    "notes": "Accept her sheep, Bo Peep's sheep, flock of sheep. Accept ewes, Finn Dorset, Scottish Blackface, mammary or udder cells. Reject Dolly.",
-    "qnum": "2",
-    "title": "Gibberish"
+    "qnum": "2"
   },
   {
-    "alt_text": "",
     "chains_to": "cvn_80",
-    "clueing": "\"千里之行，始于足下.” Ha! 老子 had a Lǐ hardly 438 yards long, what’s he know? Me, I’m an inchworm, and one quarter-inch step each second feels 老 slow. Oh, 足下, my 足 sure ache – **would you tell me how long this 千里 journey will take**?",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "千",
-          "value": 1000
-        },
-        {
-          "kind": "numeral",
-          "text": "438",
-          "value": 438
-        },
-        {
-          "kind": "wordish",
-          "text": "one",
-          "value": 1
-        },
-        {
-          "kind": "wordish",
-          "text": "quarter",
-          "value": 0.25
-        },
-        {
-          "kind": "wordish",
-          "text": "千",
-          "value": 1000
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Two years (the inchworm's thousand li / Two Years Before the Mast)",
-    "guess": null,
-    "hint": "titlewise, Richard Henry Dana Jr's period in the foc's'le (the equivalent of fifty-six RFK crises plus two Ivan Denisovich's, or 10% of a Jane Addams' Hull-House)\n\n\n\n",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "fifty-six",
-          "value": 56
-        },
-        {
-          "kind": "wordish",
-          "text": "two",
-          "value": 2
-        },
-        {
-          "kind": "numeral",
-          "text": "10",
-          "value": 10
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "\"千里之行，始于足下\". Ha! 老子 had a Lǐ hardly 438 yards long, what's he know? Me, I'm an inchworm, and one quarter-inch step each second feels 老 slow. Oh, 足下, my 足 sure ache — **would you tell me how long this whole journey will take**?",
+    "hint": "titlewise, Richard Henry Dana Jr's period in the fo'c's'le (the equivalent of fifty-six RFK crises plus two Ivan Denisoviches, or 10% of a Jane Addams' Hull-House)",
     "label": "inchworm",
-    "notes": "Accept 730 days, 24 months, 63,072,000 seconds, or the same in hours or minutes. Accept Two Years Before the Mast.",
-    "qnum": "3",
-    "title": "Inchworm"
+    "qnum": "3"
   },
   {
-    "alt_text": "",
     "chains_to": "falkirk",
-    "clueing": "The story excerpted here first appeared in *Fugitives*, a hasty posthumous biography:\n\n> They class them as cold-blooded fugitives,\n> They say they are heartless and mean,\n> But I say this with pride:\n> That I once knew [REDACTED]\n> When he was honest and upright and clean\n\n**Name the author of the autobiographical poem**",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "first",
-          "value": 1
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "(Bonnie / Trey) Parker",
-    "guess": null,
-    "hint": "The animated voice behind Joseph Smith, Brian Boitano, and Stan Marsh",
-    "hint_ishes": {
-      "items": [],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "The story excerpted here was included in *Fugitives*, a hasty posthumous biography:\n\n> They class them as cold-blooded fugitives,\n> They say they are heartless and mean,\n> But I say this with pride:\n> That I once knew [REDACTED]\n> When he was honest and upright and clean\n\n**Name the author of the autobiographical poem**...",
+    "hint": "the animated voice behind Joseph Smith, Brian Boitano, and Stan Marsh",
     "label": "fugitives",
-    "notes": "Accept Bonnie Elizabeth Parker, Bonnie Parker Thornton. Accept Bonnie alone. Accept Randolph Parker (Trey's given name).",
-    "qnum": "4",
-    "title": "fugitives"
+    "qnum": "4"
   },
   {
-    "alt_text": "",
     "chains_to": "go_to_texas",
-    "clueing": "**What name** will be given to CVN-80, the third of the Gerald R. Ford-class aircraft carriers? That storied name is also contemplated for a future vessel with hull number NCC-1701",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "80",
-          "value": 80
-        },
-        {
-          "kind": "wordish",
-          "text": "third",
-          "value": 3
-        },
-        {
-          "kind": "numeral",
-          "text": "1701",
-          "value": 1701
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Enterprise (USS Enterprise, CVN-80 / Enterprise Rent-A-Car)",
-    "guess": null,
-    "hint": "the business -- larger than the inverse unit and the latin bird together -- that operates more than 9500 locations, about three dozen each around ATLanta, Dallas-Fort Worth, DENver, and CHIcago.",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "9500",
-          "value": 9500
-        },
-        {
-          "kind": "wordish",
-          "text": "three dozen",
-          "value": 36
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "**What name** will be borne by CVN-80, the third of the Gerald R. Ford-class aircraft carriers? That storied name is also contemplated for a future vessel with hull number NCC-1701...",
+    "hint": "the business — larger than the inverse unit and the Latin bird together — that operates more than 9,500 locations, about three dozen each around ATLanta, Dallas-Fort Worth, DENver, and CHIcago",
     "label": "cvn_80",
-    "notes": "Accept USS Enterprise. Accept Enterprise Rent-A-Car, Enterprise Mobility, Enterprise Holdings.",
-    "qnum": "5",
-    "title": "CVN-80"
+    "qnum": "5"
   },
   {
-    "alt_text": "",
     "chains_to": "graffitist",
-    "clueing": "Within the six seals (pictured) at the Texas State Capitol, the historical region blazoned ‹‹rampant gules›› here joined in union with one neighbor (‹‹embattled Or››) in 1230, then another in 1479 -- **name any of those three regions**",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "six",
-          "value": 6
-        },
-        {
-          "kind": "wordish",
-          "text": "one",
-          "value": 1
-        },
-        {
-          "kind": "numeral",
-          "text": "1230",
-          "value": 1230
-        },
-        {
-          "kind": "numeral",
-          "text": "1479",
-          "value": 1479
-        },
-        {
-          "kind": "wordish",
-          "text": "three",
-          "value": 3
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "León, Castile, or Aragon (Léon of *The Professional*; Castile soap; Catherine of Aragon)",
-    "guess": null,
-    "hint": "the titular role in an internationally successful 1994 French film about a young woman and her reclusive neighbor",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "1994",
-          "value": 1994
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "Among the six seals (pictured) at the Texas State Capitol, the historical region blazoned «rampant gules» here joined in union with one neighbor («embattled Or») in 1230, then another in 1479 — **name any of those three regions**...",
+    "hint": "the first name of *The Professional* (nor a type of olive-oil-based soap, let alone the woman married(?) to Prince Arthur in 1501)",
     "label": "rampant",
-    "notes": "Accept any one of the three. Accept Kingdom or Crown of León, Castile, or Aragon. Accept Castile and León. Accept Castile soap. Accept Catherine of Aragon.",
-    "qnum": "6",
-    "title": "Rampant"
+    "qnum": "6"
   },
   {
-    "alt_text": "",
     "chains_to": "rampant",
-    "clueing": "In 1896 -- one hundred thirty years ago last week -- Edward and Mary Fitzgerald named their child for Edward's distant cousin, a lawyer / poet born a century earlier. Give **all four parts of their son's name**",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "1896",
-          "value": 1896
-        },
-        {
-          "kind": "wordish",
-          "text": "one hundred thirty",
-          "value": 130
-        },
-        {
-          "kind": "wordish",
-          "text": "century",
-          "value": 100
-        },
-        {
-          "kind": "wordish",
-          "text": "four",
-          "value": 4
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Francis Scott Key Fitzgerald (Francis Scott Key Bridge)",
-    "guess": null,
+    "clueing": "In 1896 — one hundred thirty years ago last week — Edward and Mary Fitzgerald named their child for Edward's distant cousin, a lawyer/poet born over a century earlier. Give **all four parts of their son's name**...",
     "hint": "the bridge",
-    "hint_ishes": {
-      "items": [],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
     "label": "same_name",
-    "notes": "Full name required by the clueing, so the last name alone is not enough. Accept Francis Scott Key. Accept Francis Scott Key Fitzgerald. Reject F. Scott Key. Reject F. Scott Fitzgerald and Francis Scott Fitzgerald.",
-    "qnum": "7",
-    "title": "Same Name"
+    "qnum": "7"
   },
   {
-    "alt_text": "",
     "chains_to": "oops_bridge",
-    "clueing": "“The Troubles” went from perpetual discord to active conflict in 1968 and ended (exactly one Doomsday before April 10 of this year) on **what day of the week**…",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "1968",
-          "value": 1968
-        },
-        {
-          "kind": "wordish",
-          "text": "one",
-          "value": 1
-        },
-        {
-          "kind": "numeral",
-          "text": "10",
-          "value": 10
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Friday (Good Friday Agreement / King Friday XIII)",
-    "guess": null,
+    "clueing": "\"The Troubles\" went from perpetual discord to active conflict in 1968 and ended (exactly one Doomsday before April 10 of this year) on **what day of the week**...",
     "hint": "the regal triskaidekaphile whose TV career began in a certain neighborhood in 1954 and continues on a different one today",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "1954",
-          "value": 1954
-        },
-        {
-          "kind": "wordish",
-          "text": "one",
-          "value": 1
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
     "label": "troubles",
-    "notes": "Accept King Friday, King Friday XIII, King Friday 13th. Accept Good Friday.",
-    "qnum": "8",
-    "title": "Troubles"
+    "qnum": "8"
   },
   {
-    "alt_text": "",
     "chains_to": "gibberish",
     "clueing": "The Falkirk Wheel and its two associated locks enable boat passage between the Union Canal and the canal connecting the Firth of Forth with **what second Firth**?",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "two",
-          "value": 2
-        },
-        {
-          "kind": "wordish",
-          "text": "second",
-          "value": 2
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Firth of Clyde (Forth and Clyde Canal / Clyde Barrow)",
-    "guess": null,
     "hint": "her partner's (redacted) first name",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "first",
-          "value": 1
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
     "label": "falkirk",
-    "notes": "Accept Clyde, the Clyde, River Clyde. Accept Clyde Barrow, Clyde Chestnut Barrow.",
-    "qnum": "9",
-    "title": "Falkirk"
+    "qnum": "9"
   },
   {
-    "alt_text": "",
     "chains_to": "troubles",
-    "clueing": "A congressperson, on losing re-election in 1835, declared to his constituents “you may all go to hell and I will go to Texas”. They may or may not have, but he did, perishing a year later in San Antonio. **Name the Tennessean**…",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "1835",
-          "value": 1835
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "(Davy/Sonny) Crockett",
-    "guess": {
-      "approx_tokens": 156,
-      "last_err": null,
-      "model_tier_applied": "quick",
-      "status": "done",
-      "text": "Davy Crockett\n\nHe lost his congressional seat in Tennessee, made that famous quote about going to Texas, and died at the Alamo in San Antonio in 1836.",
-      "truncated": false,
-      "updated_at": 1790818160792
-    },
+    "clueing": "A congressperson, on losing re-election in 1835, declared to his constituents \"you may all go to hell and I will go to Texas\". They may or may not have, but he did, perishing the next year in San Antonio. **Name the Tennessean**...",
     "hint": "Tubbs' Ferrari-driving vice-squad partner",
-    "hint_ishes": {
-      "items": [],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
     "label": "go_to_texas",
-    "notes": "Accept David Crockett. Accept James Crockett (with or without Sonny).",
-    "qnum": "10",
-    "title": "Go to Hell"
+    "qnum": "10"
   },
   {
-    "alt_text": "",
     "chains_to": "same_name",
-    "clueing": "**Name the container ship** (sister of the MV Cezanne), that collapsed a Baltimore bridge in 2024…",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "2024",
-          "value": 2024
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "MV Dali (Dolly Parton)",
-    "guess": {
-      "approx_tokens": 135,
-      "last_err": null,
-      "model_tier_applied": "quick",
-      "status": "done",
-      "text": "**MV Dali**\n\nIt hit the Francis Scott Key Bridge in Baltimore in March 2024. The question says it's a sister ship to the Cezanne, and Dali's the one that made the news for that bridge collapse.",
-      "truncated": false,
-      "updated_at": 1790870667021
-    },
-    "hint": "The first name of the theme park co-owner whose Imagination Library has gifted more than 300 million free books worldwide",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "first",
-          "value": 1
-        },
-        {
-          "kind": "wordish",
-          "text": "300 million",
-          "value": 300000000
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "**Name the container ship** (sister of the MV Cezanne) that collapsed a Baltimore bridge in 2024...",
+    "hint": "the first name of the theme park co-owner whose Imagination Library has gifted more than 300 million free books worldwide",
     "label": "oops_bridge",
-    "notes": "Accept Dolly Parton. Accept Dolly. Accept Dalí. Accept HMV/HMS/USS Dalí or similar. Accept Salvador Dalí.",
-    "qnum": "11",
-    "title": "Oops Bridge"
+    "qnum": "11"
   },
   {
-    "alt_text": "",
     "chains_to": "inchworm",
-    "clueing": "On a map, Alsip is in Illinois, Coni is in Azerbaijan, and Gage is a small town in Oklahoma. On a certain ordered list, they start at #13, #27 and #31, respectively. **What county** -- a gambling destination and election-eve worryspot -- occupies #17-19?",
-    "clueing_ishes": {
-      "items": [
-        {
-          "kind": "numeral",
-          "text": "13",
-          "value": 13
-        },
-        {
-          "kind": "numeral",
-          "text": "27",
-          "value": 27
-        },
-        {
-          "kind": "numeral",
-          "text": "31",
-          "value": 31
-        },
-        {
-          "kind": "numeral",
-          "text": "17",
-          "value": 17
-        },
-        {
-          "kind": "numeral",
-          "text": "19",
-          "value": 19
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
-    "forced_label": null,
-    "full_answer": "Clark County (Clark County, Nevada / Caitlin Clark)",
-    "guess": null,
-    "hint": "The point guard drafted first overall by the Indiana Fever in 2024",
-    "hint_ishes": {
-      "items": [
-        {
-          "kind": "wordish",
-          "text": "first",
-          "value": 1
-        },
-        {
-          "kind": "numeral",
-          "text": "2024",
-          "value": 2024
-        }
-      ],
-      "last_err": null,
-      "model_tier_applied": "careful",
-      "stale": false,
-      "status": "done",
-      "truncated": false,
-      "updated_at": 1790895303983
-    },
+    "clueing": "On a map, Alsip is in Illinois, Coni is in Azerbaijan, and Gage is a small town in Oklahoma. On a certain ordered list, they start at #13, #27, and #31, respectively. **What county** — a gambling destination and election-night worryspot — occupies #17–19?",
+    "hint": "the point guard drafted first overall by the Indiana Fever in 2024",
     "label": "alsip",
-    "notes": "Accept Clark. Accept Clark County, Nevada. Accept Caitlin Clark. Reject Las Vegas.",
-    "qnum": "12",
-    "title": "Alsip"
+    "qnum": "12"
   }
 ]
 }
