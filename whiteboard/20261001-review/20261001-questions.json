@@ -227,7 +227,7 @@
   },
   {
     "alt_text": "",
-    "chains_to": "go_to_hell",
+    "chains_to": "go_to_texas",
     "clueing": "**What name** will be given to CVN-80, the third of the Gerald R. Ford-class aircraft carriers? That storied name is also contemplated for a future vessel with hull number NCC-1701",
     "clueing_ishes": {
       "items": [
@@ -544,7 +544,7 @@
       "truncated": false,
       "updated_at": 1790895303983
     },
-    "label": "go_to_hell",
+    "label": "go_to_texas",
     "notes": "",
     "qnum": "10",
     "title": "Go to Hell"
