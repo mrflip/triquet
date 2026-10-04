@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 1 underway.
+`/sprint`. **Status:** thread 1 done (#79); thread 2 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -282,6 +282,14 @@ a username and then works as before; two browser contexts are two actors, and th
 turned away from the first's username with the sentence above (unit-tested and in one e2e spec).
 
 **Leaves for later threads.** `ctx.actor`, `Actor`, and the identity-bound test helpers.
+
+*Orchestrator, after thread 1 (#79):* the actor is built by `askerOf(ctx)` in `convex/functions.ts`,
+which also puts `ctx.user_id` beside `ctx.actor`; later builders call `askerOf` in their `input`
+hook rather than reading identity again. The rules in `convex/authorize.ts` already take
+`actor: ActorT`, so thread 2 renames and moves them rather than rethreading identity. Test actors
+for the matrix: `seeded.smith`, `join(label, 'reviewer')`, `identified(tt, label)` (stranger),
+`signedIn(tt)` (anonymous with a session), bare `tt` (no session); the progress document has the
+details.
 
 ---
 
@@ -619,8 +627,8 @@ an admin is `Actor.isAdmin`.
 Merging this one waits on the Coach running the backfills of threads 3 and 4 on production; say
 so at the top of the PR.
 
-**Steps.** For each field thread 4 added: make it required in `convex/schema.ts` (remove the
-hand-written optional). For `forced_label`, which thread 3 left optional on three tables: remove
+**Steps.** For each field thread 4 added, and for `idents.user_id` (thread 1's widen): make it
+required in `convex/schema.ts` (remove the hand-written optional). For `forced_label`, which thread 3 left optional on three tables: remove
 it from the schema. Drop the backfills from `convex/migrations.ts`, empty `Backfilling` in
 `tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
 that still holds each backfill.

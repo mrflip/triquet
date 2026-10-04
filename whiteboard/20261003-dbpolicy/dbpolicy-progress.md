@@ -7,8 +7,8 @@ its row below and adds its section above the others, newest first.
 
 | # | Thread | Status | Branch | PR |
 |---|---|---|---|---|
-| 1 | Sessions and the actor | complete, in review | `20261004-dbpolicy_sessions` | #79 |
-| 2 | `Approve`: pure policy and the dispatcher | pending | | |
+| 1 | Sessions and the actor | complete, reviewed (1 fix) | `20261004-dbpolicy_sessions` | #79 |
+| 2 | `Approve`: pure policy and the dispatcher | underway | | |
 | 3 | One label, and integrity repairs | pending | | |
 | 4 | Denormalize | pending | | |
 | 5 | Affirmations | pending | | |
@@ -19,6 +19,18 @@ its row below and adds its section above the others, newest first.
 | 10 | Tighten | pending (merge waits on production backfills) | | |
 
 ## Thread 1: Sessions and the actor (2026-10-04)
+
+*Orchestrator:* the worker that built this thread was interrupted during its wrap-up; a second
+worker checked the *Done when*, committed the syndication below, ran the full suite, pushed, and
+filed #79. Nothing was rebuilt. Separately, the Coach ruled on 2026-10-04 that a reviewer is sent
+`full_answer` (the view's `AnswerLock` is a spoiler shield, not security); the plan's threads 4
+and 7 now say so.
+
+*Review:* `fixed`, at medium. Kept `b01892c`: a failed anonymous sign-in in `use-session.ts` is
+retried every 3 seconds by the hook that started it, rather than leaving the visitor at the gate.
+Left, minor: if that component unmounts before the retry fires, other screens wait for the next
+mount; no backoff, and each failed retry logs; `use-session.ts` has no unit test of its own (the
+e2e suite exercises it through the username gate).
 
 Branch `20261004-dbpolicy_sessions`, PR #79, against `main` (carries the five planning commits of
 `20261003-dbpolicy_a` beneath it; no PR beneath). Suites: typecheck, lint, `pnpm test` (109 files,
