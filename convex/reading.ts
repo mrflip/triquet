@@ -241,10 +241,19 @@ export async function questionOf(db: Reader, quiz_id: Id<'quizzes'>, question_id
  */
 export async function layoutRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<LayoutRows | null> {
   const quiz = await db.get('quizzes', quiz_id)
-  if (! quiz) { return null }
+  return quiz && await layoutOf(db, quiz)
+}
+
+/**
+ * The quiz `quiz`, a row already in hand, with its widgetings and columns in their committed
+ * order: as `layoutRowsOf`, reading nothing of the quiz itself.
+ *
+ * @example const { widgetings, columns } = await layoutOf(ctx.db, claims.quiz)
+ */
+export async function layoutOf(db: Reader, quiz: Doc<'quizzes'>): Promise<LayoutRows> {
   const [widgetings, columns] = await Promise.all([
-    widgetingsOf(db, quiz_id),
-    db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
+    widgetingsOf(db, quiz._id),
+    db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).take(PA.ColumnsPerQuiz.max),
   ])
   return { quiz, widgetings, columns }
 }

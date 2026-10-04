@@ -8,22 +8,24 @@ import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
-import { huntHolding, identified, openTester, putOn, type Identified, type Tester } from '../support/convex'
+import { affirmsOf, huntHolding, identified, openTester, putOn, seedHunt, type AffirmsBag, type Identified, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
-/** What a test reads a quiz through: a deployment, and the session of a reviewer on the quiz's hunt */
-type Reading = { tt: Tester, alice: Identified }
+/** What a test reads a quiz through: a deployment, and the session of a reviewer on the quiz's hunt, with what they affirm of themselves there */
+type Reading = { tt: Tester, alice: Identified, affirms: AffirmsBag }
 
 /** A fresh deployment holding `hunt` with a reviewer on it; its first quiz's id, and its questions' ids in order */
 async function holding(hunt: HuntT): Promise<Reading & { quiz_id: Id<'quizzes'>, question_ids: Id<'questions'>[] }> {
   const tt = openTester()
   const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
-  const quiz_id = present(present(home).quizzes[0])._id
+  const realm = present(home)
+  const quiz_id = present(realm.quizzes[0])._id
   const question_ids = await tt.run(async (ctx) => present(await quizRowsOf(ctx.db, quiz_id)).questions.map((row) => row._id))
   const alice = await identified(tt, 'alice_reviews')
   await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
-  return { tt, alice, quiz_id, question_ids }
+  const affirms = await affirmsOf(tt, alice, { hunt_id, realm_id: realm.realm._id, quiz_id })
+  return { tt, alice, affirms, quiz_id, question_ids }
 }
 
 /** A hunt of one quiz, its questions labelled `aa`, `bb` and `cc` */
@@ -32,9 +34,9 @@ function threeQuestions(): HuntT {
 }
 
 /** The quiz as a browser reads it: its frame from `quizzes.open`, each question from `questions.open`, assembled */
-async function opened({ alice }: Reading, quiz_id: Id<'quizzes'>) {
-  const frame = present(await alice.as.query(api.quizzes.open, { quiz_id }))
-  const seen = await Promise.all(frame.row_ordering.map(async (question_id) => present(await alice.as.query(api.questions.open, { question_id }))))
+async function opened({ alice, affirms }: Reading, quiz_id: Id<'quizzes'>) {
+  const frame = present(await alice.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, quiz_id } }))
+  const seen = await Promise.all(frame.row_ordering.map(async (question_id) => present(await alice.as.query(api.questions.open, { question_id, affirms: affirms.hunt }))))
   return quizFromSeen(frame, seen)
 }
 
@@ -102,22 +104,33 @@ describe("a quiz as the browser assembles it from quizzes.open and questions.ope
 
 describe("quizzes.open", () => {
   it("reads the quiz without its questions: its fields, its layout, and its questions' order by id", async () => {
-    const { alice, quiz_id, question_ids } = await holding(threeQuestions())
-    const frame = present(await alice.as.query(api.quizzes.open, { quiz_id }))
+    const { alice, affirms, question_ids } = await holding(threeQuestions())
+    const frame = present(await alice.as.query(api.quizzes.open, { affirms: affirms.quiz }))
     expect(frame.row_ordering).to.deep.eq(question_ids)
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
     expect(frame).to.include.keys('widgetings', 'columns')
   })
 
   it("reads null for a quiz that is not there", async () => {
-    const { tt, alice, quiz_id } = await holding(Hunt.blank())
+    const { tt, alice, affirms, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
-    expect(await alice.as.query(api.quizzes.open, { quiz_id })).to.be.null
+    expect(await alice.as.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
   })
 
-  it("reads null, as for one not there, for someone not on its hunt", async () => {
-    const { tt, quiz_id } = await holding(Hunt.blank())
+  it("reads null, as for one not there, for someone not on its hunt, or with no session", async () => {
+    const { tt, affirms } = await holding(Hunt.blank())
     const stranger = await identified(tt, 'carol_strays')
-    expect(await stranger.as.query(api.quizzes.open, { quiz_id })).to.be.null
+    expect(await stranger.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, ident_id: stranger.ident_id, standing: 'stranger' } })).to.be.null
+    expect(await tt.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
+  })
+
+  it("reads null for affirms that are not so: a standing not held, another's ident, or a quiz of another hunt", async () => {
+    const { tt, alice, affirms } = await holding(Hunt.blank())
+    const stranger = await identified(tt, 'carol_strays')
+    const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })
+    expect(await alice.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, standing: 'smith' } })).to.be.null
+    expect(await stranger.as.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
+    expect(await alice.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, quiz_id: other.open.quiz_id } })).to.be.null
+    expect(await alice.as.query(api.quizzes.open, { affirms: affirms.quiz })).to.not.be.null
   })
 })

@@ -4,7 +4,7 @@ import * as Actor from '../../src/lib/actor'
 import * as Approve from '../../src/lib/approve'
 import { AuthorizationError } from '../../src/lib/errors'
 import { RefusalNotices } from '../../src/lib/notices'
-import { ActionValidators, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT } from '../../src/models/actions'
+import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT } from '../../src/models/actions'
 import type { ReviewPhase, ReviewRowT } from '../../src/models/review'
 
 /** Whatever `attempt` throws, or null when it does not */
@@ -27,16 +27,25 @@ const bob_id        = 'j97d0qbj35dar1v8edndzckvsx8f8299' as Id<'idents'>
 
 const Alice = Actor.asIdent(user_id, { _id: alice_id, label: 'alice_smiths' })
 
-/** The four standings a request can come with: the matrix's columns */
+/** The four standings a request can come with */
 const StandingVals = ['smith', 'reviewer', 'stranger', 'anonymous'] as const
 type Standing = typeof StandingVals[number]
 
-/** Alice's claims on the hunt in each standing; the anonymous actor is a stranger to every hunt */
-const ClaimsAs: Record<Standing, Actor.HuntClaimsT> = {
-  smith:     Actor.claimsOn(Alice, hunt_id, { role: 'smith' }),
-  reviewer:  Actor.claimsOn(Alice, hunt_id, { role: 'reviewer' }),
-  stranger:  Actor.claimsOn(Alice, hunt_id, null),
-  anonymous: Actor.claimsOn(Actor.anonymous, hunt_id, null),
+/** The matrix's columns: each standing with an unlocked quiz on screen, and a smith with a locked one */
+const ColumnVals = [...StandingVals, 'locked_smith'] as const
+type Column = typeof ColumnVals[number]
+
+/** The quiz on screen, unlocked and locked */
+const Unlocked = { locked: false }
+const Locked   = { locked: true }
+
+/** Alice's claims on the hunt in each standing, an unlocked quiz on screen; the anonymous actor is a stranger to every hunt */
+const ClaimsAs: Record<Column, Actor.QuizClaimsT> = {
+  smith:        { ...Actor.claimsOn(Alice, hunt_id, { role: 'smith' }), quiz: Unlocked },
+  reviewer:     { ...Actor.claimsOn(Alice, hunt_id, { role: 'reviewer' }), quiz: Unlocked },
+  stranger:     { ...Actor.claimsOn(Alice, hunt_id, null), quiz: Unlocked },
+  anonymous:    { ...Actor.claimsOn(Actor.anonymous, hunt_id, null), quiz: Unlocked },
+  locked_smith: { ...Actor.claimsOn(Alice, hunt_id, { role: 'smith' }), quiz: Locked },
 }
 
 /** A review of the quiz, by `ident_id`, in `phase` */
@@ -68,6 +77,26 @@ describe('Approve.mayChangeHunt', () => {
   for (const [standing, expected, describes] of Cases) {
     it(describes, () => {
       expect(Approve.mayChangeHunt(ClaimsAs[standing])).to.eq(expected)
+    })
+  }
+})
+
+describe('Approve.mayReviseQuiz', () => {
+  const Cases: [Standing, { locked: boolean } | null, Approve.VerdictT, string][] = [
+    // one case per guard, in order:
+    ['anonymous', Unlocked, 'notIdentified', 'nobody who has asserted no username'],
+    ['reviewer',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a reviewer'],
+    ['stranger',  Unlocked, 'notPermitted',  'only a smith of the hunt: not a stranger'],
+    ['smith',     null,     'allow',         "a quiz that is gone is the write's to refuse, as it would be for anyone"],
+    ['smith',     Locked,   'quizLocked',    'nothing in a locked quiz changes'],
+    ['smith',     Unlocked, 'allow',         'a smith, in an unlocked quiz'],
+    // the lock is no reason for anyone else:
+    ['reviewer',  Locked,   'notPermitted',  'a reviewer is told they may not, not that the quiz is locked'],
+    ['anonymous', Locked,   'notIdentified', 'nobody is told the quiz is locked before saying who they are'],
+  ]
+  for (const [standing, quiz, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(Approve.mayReviseQuiz(quiz, ClaimsAs[standing])).to.eq(expected)
     })
   }
 })
@@ -204,26 +233,27 @@ function actionOf(dna: HuntActionDNA | HuntlessDNA): ActionT {
   return ActionValidators.huntAction(dna)
 }
 
-/** A verdict for each standing, in `StandingVals` order */
-type VerdictRowT = readonly [Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT]
+/** A verdict for each column, in `ColumnVals` order */
+type VerdictRowT = readonly [Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT, Approve.VerdictT]
 
-//                       smith    reviewer        stranger        anonymous
-const Smiths:  VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified']
-const Members: VerdictRowT = ['allow', 'allow',        'notPermitted', 'notIdentified']
-const Idents:  VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified']
-const Anyone:  VerdictRowT = ['allow', 'allow',        'allow',        'allow']
+//                            smith    reviewer        stranger        anonymous        smith, quiz locked
+const Revisers: VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'quizLocked']
+const Smiths:   VerdictRowT = ['allow', 'notPermitted', 'notPermitted', 'notIdentified', 'allow']
+const Members:  VerdictRowT = ['allow', 'allow',        'notPermitted', 'notIdentified', 'allow']
+const Idents:   VerdictRowT = ['allow', 'allow',        'allow',        'notIdentified', 'allow']
+const Anyone:   VerdictRowT = ['allow', 'allow',        'allow',        'allow',         'allow']
 
 /** One action of every kind, and what each standing is told of it; a kind missing here fails to compile */
 const Matrix = {
   // layout:
-  add_widgeting:       [{ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } },                                Smiths],
-  edit_widgeting:      [{ kind: 'edit_widgeting', label: 'dumdum', patch: { description: 'The quick one' } },                        Smiths],
-  delete_widgeting:    [{ kind: 'delete_widgeting', label: 'dumdum' },                                                               Smiths],
-  move_widgeting:      [{ kind: 'move_widgeting', label: 'dumdum', onto_idx: 2 },                                                    Smiths],
-  add_column:          [{ kind: 'add_column', column: { label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 } },        Smiths],
-  edit_column:         [{ kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },                                             Smiths],
-  delete_column:       [{ kind: 'delete_column', label: 'qnum' },                                                                    Smiths],
-  move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Smiths],
+  add_widgeting:       [{ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } },                                Revisers],
+  edit_widgeting:      [{ kind: 'edit_widgeting', label: 'dumdum', patch: { description: 'The quick one' } },                        Revisers],
+  delete_widgeting:    [{ kind: 'delete_widgeting', label: 'dumdum' },                                                               Revisers],
+  move_widgeting:      [{ kind: 'move_widgeting', label: 'dumdum', onto_idx: 2 },                                                    Revisers],
+  add_column:          [{ kind: 'add_column', column: { label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 } },        Revisers],
+  edit_column:         [{ kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },                                             Revisers],
+  delete_column:       [{ kind: 'delete_column', label: 'qnum' },                                                                    Revisers],
+  move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Revisers],
   // library:
   add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } },  Smiths],
   edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },                         Smiths],
@@ -231,21 +261,21 @@ const Matrix = {
   move_widget:         [{ kind: 'move_widget', label: 'shout', onto_idx: 2 },                                                        Smiths],
   import_widgets:      [{ kind: 'import_widgets', widgets: [] },                                                                     Smiths],
   // content:
-  retitle_quiz:        [{ kind: 'retitle_quiz', title: 'Princes' },                                                                  Smiths],
-  relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Smiths],
-  reversion_quiz:      [{ kind: 'reversion_quiz', version: 'playtest' },                                                             Smiths],
-  set_smiths_note:     [{ kind: 'set_smiths_note', smiths_note: 'Theme: princes.' },                                                 Smiths],
-  edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Smiths],
-  add_question:        [{ kind: 'add_question' },                                                                                    Smiths],
-  delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Smiths],
-  sort_questions:      [{ kind: 'sort_questions', sortkey: 'column:qnum', descending: false },                                       Smiths],
-  renumber_qnums:      [{ kind: 'renumber_qnums' },                                                                                  Smiths],
-  move_question:       [{ kind: 'move_question', question_id, onto_idx: 0 },                                                         Smiths],
-  set_chain:           [{ kind: 'set_chain', question_id, chains_to: null },                                                         Smiths],
-  sort_by_chain_order: [{ kind: 'sort_by_chain_order', descending: true },                                                           Smiths],
-  record_widgeted:     [{ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 'Leon', result_meta: { model_tier_applied: 'quick' } } }, Smiths],
-  enter_widgeted:      [{ kind: 'enter_widgeted', entered: { question_id, widgeting_label: 'notes', value: 'Leon' } },               Smiths],
-  import_questions:    [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }] },                                     Smiths],
+  retitle_quiz:        [{ kind: 'retitle_quiz', title: 'Princes' },                                                                  Revisers],
+  relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Revisers],
+  reversion_quiz:      [{ kind: 'reversion_quiz', version: 'playtest' },                                                             Revisers],
+  set_smiths_note:     [{ kind: 'set_smiths_note', smiths_note: 'Theme: princes.' },                                                 Revisers],
+  edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
+  add_question:        [{ kind: 'add_question' },                                                                                    Revisers],
+  delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Revisers],
+  sort_questions:      [{ kind: 'sort_questions', sortkey: 'column:qnum', descending: false },                                       Revisers],
+  renumber_qnums:      [{ kind: 'renumber_qnums' },                                                                                  Revisers],
+  move_question:       [{ kind: 'move_question', question_id, onto_idx: 0 },                                                         Revisers],
+  set_chain:           [{ kind: 'set_chain', question_id, chains_to: null },                                                         Revisers],
+  sort_by_chain_order: [{ kind: 'sort_by_chain_order', descending: true },                                                           Revisers],
+  record_widgeted:     [{ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 'Leon', result_meta: { model_tier_applied: 'quick' } } }, Revisers],
+  enter_widgeted:      [{ kind: 'enter_widgeted', entered: { question_id, widgeting_label: 'notes', value: 'Leon' } },               Revisers],
+  import_questions:    [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }] },                                     Revisers],
   // the realm's quizzes:
   new_quiz:            [{ kind: 'new_quiz' },                                                                                        Smiths],
   delete_quiz:         [{ kind: 'delete_quiz', quiz_id },                                                                            Smiths],
@@ -268,11 +298,11 @@ const Matrix = {
   new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
 } as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | HuntlessDNA, { kind: KK }>, VerdictRowT] }
 
-describe('the matrix: every action kind, as each standing', () => {
+describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
   for (const [kind, [dna, expected]] of Object.entries(Matrix)) {
     it(`${kind}: ${expected.join(', ')}`, () => {
       const action = actionOf(dna)
-      const verdicts = StandingVals.map((standing) => Approve.verdictOn(action.kind, ClaimsAs[standing], action))
+      const verdicts = ColumnVals.map((column) => Approve.verdictOn(action.kind, ClaimsAs[column], action))
       expect(verdicts).to.deep.eq(expected)
     })
   }
@@ -282,9 +312,14 @@ describe('the matrix: every action kind, as each standing', () => {
     expect(tabled.toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(Object.keys(Matrix).toSorted((aa, bb) => aa.localeCompare(bb)))
   })
 
+  it('asks every action that revises the quiz on screen of its lock, and no other', () => {
+    const revising = Object.entries(Matrix).filter(([, [, expected]]) => expected === Revisers).map(([kind]) => kind)
+    expect(revising.toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(QuizRevisionKindVals.toSorted((aa, bb) => aa.localeCompare(bb)))
+  })
+
   it('asks a hunt-naming account action as the hunt action of its kind', () => {
     const retitle = { kind: 'retitle_hunt', hunt_id, title: 'Princes' } as const
-    expect(StandingVals.map((standing) => Approve.verdictOn('retitle_hunt', ClaimsAs[standing], retitle))).to.deep.eq(Smiths)
+    expect(ColumnVals.map((column) => Approve.verdictOn('retitle_hunt', ClaimsAs[column], retitle))).to.deep.eq(Smiths)
   })
 
   it("refuses a change to one's own place on the hunt, for a smith, by its own refusal", () => {

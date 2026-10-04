@@ -1,4 +1,5 @@
 import type * as Z from 'zod'
+import { HuntStandingVals } from '../lib/actor'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
 import { ColumnValidators } from './column'
@@ -18,16 +19,33 @@ export const LayoutActionKindVals = [
   'add_column', 'edit_column', 'delete_column', 'move_column',
 ] as const
 
+/** The actions that revise the quiz on screen and its questions */
+export const ContentActionKindVals = [
+  'retitle_quiz', 'relabel_quiz', 'reversion_quiz', 'set_smiths_note',
+  'edit_question', 'add_question', 'delete_questions', 'sort_questions', 'renumber_qnums', 'move_question',
+  'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'import_questions',
+] as const
+
+/** The actions that revise the quiz on screen: its contents and its layout, which a locked quiz refuses */
+export const QuizRevisionKindVals = [...ContentActionKindVals, ...LayoutActionKindVals] as const
+export type QuizRevisionKind = typeof QuizRevisionKindVals[number]
+
 /** The actions that revise the library: the widgets every hunt shares */
 export const LibraryActionKindVals = ['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'] as const
 
 export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, str, zid }) => {
-  const open = obj({
+  const huntAffirms = obj({
+    ident_id: zid('idents'),
     hunt_id:  zid('hunts'),
-    realm_id: zid('realms'),
-    quiz_id:  zid('quizzes'),
+    standing: oneof(HuntStandingVals),
   })
-    .describe('The quiz an author has on screen, and the realm and hunt it belongs to: where every action lands.')
+    .describe('What a browser says of itself on a hunt: who it is, which hunt, and its standing there, as the hunt was last read. The server checks every one.')
+
+  const quizAffirms = huntAffirms.extend({ quiz_id: zid('quizzes') })
+    .describe('What a browser says of itself on a hunt, and the quiz of that hunt it is reading.')
+
+  const affirms = quizAffirms.extend({ realm_id: zid('realms') })
+    .describe('What a browser says of itself on a hunt, and the quiz it has on screen and the realm that quiz belongs to: where every action lands.')
 
   const question_ids = arr(zid('questions')).readonly()
 
@@ -93,11 +111,21 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
   ])
     .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle or relabel one they smith.')
 
-  return { open, huntAction, accountAction }
+  return { huntAffirms, quizAffirms, affirms, huntAction, accountAction }
 })
 
-/** The quiz an author has on screen, and the realm and hunt it belongs to, as the server holds them */
-export type OpenQuizT     = Z.output<typeof ActionValidators.open>
+/** What a browser says of itself on a hunt, as it sends it */
+export type HuntAffirmsDNA = Z.input<typeof ActionValidators.huntAffirms>
+/** What a browser says of itself on a hunt, and the quiz it is reading, as it sends it */
+export type QuizAffirmsDNA = Z.input<typeof ActionValidators.quizAffirms>
+/** What a browser sends with every action: itself on a hunt, and the quiz on its screen and its realm */
+export type AffirmsDNA     = Z.input<typeof ActionValidators.affirms>
+/** What a browser says of itself on a hunt: who it is, which hunt, and its standing there */
+export type HuntAffirmsT  = Z.output<typeof ActionValidators.huntAffirms>
+/** What a browser says of itself on a hunt, and the quiz of it that it is reading */
+export type QuizAffirmsT  = Z.output<typeof ActionValidators.quizAffirms>
+/** What a browser says of itself on a hunt, and the quiz on its screen and that quiz's realm: what every action is sent with */
+export type AffirmsT      = Z.output<typeof ActionValidators.affirms>
 /** What the author did from inside a quiz, as a view says it */
 export type HuntActionDNA = Z.input<typeof ActionValidators.huntAction>
 /** What the author did from inside a quiz, validated */

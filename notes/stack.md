@@ -55,6 +55,9 @@ don't trust a recalled version number, including one recalled by an agent.
   - Zod is **patched** (`patches/zod@4.6.5.patch`): issues carry the refused input by default.
     Deliberate; `notes/guidelines.md` says what follows from it. A Zod bump re-cuts the patch.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
+  - What compat lacks comes from es-toolkit itself, imported whole as `EST`: `EST.allKeyed`, an
+    object of promises to an object of results, is how `convex/authorize.ts` gathers its evidence
+    in one round.
 * **Convex** (`convex`, pinned exact) is the database, and `convex/` at the repo root the whole
   server side. See `notes/decisions/2026-09-convex.md` for the shape of the data and the rules
   that follow, and `notes/database-decisions.md` for the verdict. Read

@@ -4,9 +4,9 @@ import type { Doc } from '../_generated/dataModel'
 import type { LayoutRows } from '../../src/lib/rows'
 import { ColumnValidators, sortkeyOf, sourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../../src/models/widgeting'
-import type { LayoutActionT, OpenQuizT } from '../../src/models/actions'
+import type { LayoutActionT } from '../../src/models/actions'
 import { widgetForLabel } from '../reading'
-import { deleteWidgeting as deleteWidgetingRows, movedTo, repositioned, updateColumn, updateQuiz, updateWidgeting, type Writer } from './quiz_writing'
+import { deleteWidgeting as deleteWidgetingRows, movedTo, repositioned, updateColumn, updateQuiz, updateWidgeting, type OpenQuizT, type Writer } from './quiz_writing'
 import { reviseOpenLayout } from './quiz_actions'
 
 /** The widgeting of the quiz labelled `label`, refusing when there is none */

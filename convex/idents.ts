@@ -1,5 +1,4 @@
 import * as Actor from '../src/lib/actor'
-import * as Approve from '../src/lib/approve'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
@@ -37,8 +36,7 @@ export const performAccount = zMutation({
   handler: async (ctx, { action }) => await refusingInvalid(async () => {
     const { actor, user_id } = ctx
     if (user_id === null) { refuse('notSignedIn') }
-    const verdict = await affirmAccountAction(ctx.db, actor, action)
-    if (verdict !== Approve.Allow) { refuse(verdict) }
+    await affirmAccountAction(ctx.db, actor, action)
     return await performAccountAction(ctx.db, user_id, actor, action)
   }),
 })

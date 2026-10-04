@@ -13,12 +13,13 @@ import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
 import { assembledQuiz, smithsOf, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
-import type { HuntActionDNA, OpenQuizT } from '../models/actions'
+import type { AffirmsDNA, HuntActionDNA, QuizAffirmsDNA } from '../models/actions'
 import type { HuntRole } from '../models/hunting'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
+import { useAffirms } from './use-affirms'
 import { useSession } from './use-session'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
@@ -149,14 +150,16 @@ type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: ()
  * watches rather than renders: the client tells a watch of a change before the change's own
  * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
  * The quiz is its frame and a watch per question it orders, followed as the order changes, with
- * the library its widgetings work; a reading with a question still on its way is not noted.
+ * the library its widgetings work; a reading with a question still on its way is not noted. Each
+ * is the same watch the screen holds, sent the same affirms, so none is opened twice.
  */
-function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes'> | null): void {
+function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirmsDNA | null): void {
   const convex = useConvex()
   useEffect(() => {
-    if (quiz_id === null || ! ready) { return }
+    if (affirms === null || ! ready) { return }
+    const { quiz_id, ...huntAffirms } = affirms
     const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
-    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const frameWatch = convex.watchQuery(api.quizzes.open, { affirms })
     const libraryWatch = convex.watchQuery(api.widgets.library, {})
     const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
     const last: { snapshot: MirrorSnapshot | null } = { snapshot: null }
@@ -186,7 +189,7 @@ function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes
       }
       for (const question_id of ordered) {
         if (questionWatches.has(question_id)) { continue }
-        const watch = convex.watchQuery(api.questions.open, { question_id })
+        const watch = convex.watchQuery(api.questions.open, { question_id, affirms: huntAffirms })
         questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
       }
     }
@@ -197,7 +200,7 @@ function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes
       for (const stop of stops) { stop() }
       for (const watch of questionWatches.values()) { watch.stop() }
     }
-  }, [convex, hunt_label, ready, quiz_id])
+  }, [convex, hunt_label, ready, affirms])
 }
 
 /**
@@ -231,10 +234,12 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
   const placing = placeIn(askable && opening === undefined ? undefined : hunt, labels, shown?.address === address ? shown.quiz_id : null)
   const quiz_id = placing.quizRow?._id ?? null
-  const quizSeen = useQuiz(quiz_id)
-  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null || ! ready ? 'skip' : { quiz_id })
+  // What this browser affirms of itself with every request about the quiz: see `useAffirms`.
+  const { huntAffirms, quizAffirms } = useAffirms(hunt, quiz_id)
+  const quizSeen = useQuiz(huntAffirms, quiz_id)
+  const reviewsSeen = useQuery(api.reviews.forQuiz, quizAffirms === null || ! ready ? 'skip' : { affirms: quizAffirms })
   const library = useQuery(api.widgets.library, ready ? {} : 'skip')
-  useHistoryFeed(labels.hunt, ready, askable ? quiz_id : null)
+  useHistoryFeed(labels.hunt, ready, askable ? quizAffirms : null)
 
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
@@ -250,13 +255,13 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
   // Kept in a layout effect: every layout effect in the tree runs before any passive one, so a
   // screen that dispatches as it mounts (the review, opening itself) finds the quiz it is on.
-  const open: OpenQuizT | null = hunt && found.realm && placing.quizRow ? { hunt_id: hunt._id, realm_id: found.realm._id, quiz_id: placing.quizRow._id } : null
-  const latest = useRef({ open, labels, role: hunt?.role ?? null })
-  useLayoutEffect(() => { latest.current = { open, labels, role: hunt?.role ?? null } })
+  const affirms: AffirmsDNA | null = quizAffirms && found.realm ? { ...quizAffirms, realm_id: found.realm._id } : null
+  const latest = useRef({ affirms, labels, role: hunt?.role ?? null })
+  useLayoutEffect(() => { latest.current = { affirms, labels, role: hunt?.role ?? null } })
   const convex = useConvex()
 
   const carryOut = useCallback(async (action: HuntActionDNA, { quietly = false }: CarryOutOptions = {}): Promise<boolean> => {
-    const { open: there, labels: place, role } = latest.current
+    const { affirms: there, labels: place, role } = latest.current
     if (there === null) {
       console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role })
       setSaveNotice(AppNotices.changeNotSent)
@@ -269,7 +274,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
       try {
         // The client sends one browser's changes in the order they were made, and the server
         // carries each out against the rows as they then stand.
-        await perform({ open: there, action })
+        await perform({ affirms: there, action })
         setSaveNotice(null)
         return true
       } catch (err) {

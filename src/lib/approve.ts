@@ -1,6 +1,7 @@
 /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
 import type { HuntingRowT } from '../models/hunting'
-import type { AccountActionT, HuntActionT } from '../models/actions'
+import type { AccountActionT, HuntActionT, QuizRevisionKind } from '../models/actions'
+import { Quiz, type QuizRowT } from '../models/quiz'
 import { Review, type ReviewRowT } from '../models/review'
 import { Validator } from './validator'
 import * as Actor from './actor'
@@ -16,7 +17,7 @@ import { RefusalNotices, type Refusalkind } from './notices'
 export const Allow = 'allow'
 
 /** Why a policy said no: each a refusal kind, so its sentence is the refusal's (`RefusalNotices`) */
-export const DenialkindVals = ['notIdentified', 'notPermitted', 'ownHunting', 'botsOff'] as const satisfies readonly Refusalkind[]
+export const DenialkindVals = ['notIdentified', 'notPermitted', 'ownHunting', 'quizLocked', 'botsOff'] as const satisfies readonly Refusalkind[]
 export type Denialkind = typeof DenialkindVals[number]
 
 /** What a policy decides: `'allow'`, or why not */
@@ -67,8 +68,9 @@ export function mayReadHunt(claims: Actor.HuntClaimsT): VerdictT {
 }
 
 /**
- * Whether the claimed actor may change their hunt: its quizzes, their questions and layout, and
- * itself; and, from one of its quizzes, the library. In order:
+ * Whether the claimed actor may change their hunt: make, delete, lock and unlock its quizzes,
+ * retitle, relabel or delete it; and, from one of its quizzes, change the library. Revising a quiz
+ * asks `mayReviseQuiz`, which also holds to the quiz's lock. In order:
  *
  * * Nobody who has asserted no username
  * * A smith of the hunt
@@ -80,6 +82,41 @@ export function mayChangeHunt(claims: Actor.HuntClaimsT): VerdictT {
   if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no username
   if (Actor.isSmith(claims))     { return Allow }           // A smith of the hunt
   return 'notPermitted'                                     // Nobody else
+}
+
+/**
+ * Whether the claimed actor may revise `quiz`, a quiz of their hunt: its fields, its questions and
+ * what they stored, and its widgetings and columns. A locked quiz is a finished draft sent out for
+ * playtesting, and holds still until a smith unlocks it; the refusal says so, so the author knows
+ * what to do. In order:
+ *
+ * * Nobody who has asserted no username
+ * * Only a smith of the hunt
+ * * A quiz that is gone is the write's to refuse (`quizGone`), as it would be for anyone
+ * * Nothing in a locked quiz changes
+ * * A smith, in an unlocked quiz
+ *
+ * @param quiz - The quiz, as last read; null when it is gone.
+ * @param claims - The actor's claims on its hunt.
+ *
+ * @example Approve.mayReviseQuiz({ locked: true }, claims)  // => 'quizLocked', for a smith
+ */
+export function mayReviseQuiz(quiz: Pick<QuizRowT, 'locked'> | null, claims: Actor.HuntClaimsT): VerdictT {
+  if (Actor.isAnonymous(claims)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (! Actor.isSmith(claims))   { return 'notPermitted' }  // Only a smith of the hunt
+  if (quiz === null)             { return Allow }           // A quiz that is gone is the write's to refuse (`quizGone`), as it would be for anyone
+  if (Quiz.isLocked(quiz))       { return 'quizLocked' }    // Nothing in a locked quiz changes
+  return Allow                                              // A smith, in an unlocked quiz
+}
+
+/**
+ * Whether the claimed actor may revise the quiz their claims hold (`mayReviseQuiz`): the dispatch
+ * table's row for every action that revises the quiz on screen.
+ *
+ * @example Approve.verdictOn('add_question', { ...claims, quiz }, { kind: 'add_question' })
+ */
+function mayReviseClaimedQuiz(claims: Actor.QuizClaimsT): VerdictT {
+  return mayReviseQuiz(claims.quiz, claims)
 }
 
 /**
@@ -249,11 +286,14 @@ type HuntlessKind = Exclude<AccountActionT['kind'], HuntActionT['kind']>
 
 /**
  * What each policy is handed, by key. An action's policy is handed the claims on the hunt it
- * lands on (the actor alone, for one decided before any hunt is in play) and the action; the
- * account actions that name a hunt share the row of the hunt action of their kind.
+ * lands on (the actor alone, for one decided before any hunt is in play; with the quiz on screen,
+ * for one that revises it) and the action; the account actions that name a hunt share the row of
+ * the hunt action of their kind.
  */
 type EvidenceT = {
-  [KK in ActionKind]: KK extends HuntlessKind ? [actor: Actor.ActorT, action: ActionT] : [claims: Actor.HuntClaimsT, action: ActionT]
+  [KK in ActionKind]: KK extends HuntlessKind ? [actor: Actor.ActorT, action: ActionT]
+    : KK extends QuizRevisionKind ? [claims: Actor.QuizClaimsT, action: ActionT]
+      : [claims: Actor.HuntClaimsT, action: ActionT]
 } & {
   read_hunt:         [claims: Actor.HuntClaimsT]
   read_review:       [review: ReviewRowT, claims: Actor.HuntClaimsT, ownReview: ReviewRowT | null]
@@ -272,19 +312,19 @@ type PolicyRowT<KK extends PolicyKey> = KK extends ActionKind
 
 type PolicyRowsT<KS extends PolicyKey> = { [KK in KS]: PolicyRowT<KK> }
 
-/** The actions that revise a quiz's widgetings and columns */
+/** The actions that revise a quiz's widgetings and columns: refused while it is locked */
 const LayoutPolicies = {
-  add_widgeting:    mayChangeHunt,
-  edit_widgeting:   mayChangeHunt,
-  delete_widgeting: mayChangeHunt,
-  move_widgeting:   mayChangeHunt,
-  add_column:       mayChangeHunt,
-  edit_column:      mayChangeHunt,
-  delete_column:    mayChangeHunt,
-  move_column:      mayChangeHunt,
+  add_widgeting:    mayReviseClaimedQuiz,
+  edit_widgeting:   mayReviseClaimedQuiz,
+  delete_widgeting: mayReviseClaimedQuiz,
+  move_widgeting:   mayReviseClaimedQuiz,
+  add_column:       mayReviseClaimedQuiz,
+  edit_column:      mayReviseClaimedQuiz,
+  delete_column:    mayReviseClaimedQuiz,
+  move_column:      mayReviseClaimedQuiz,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions that revise the library every hunt shares, taken from a quiz on screen */
+/** The actions that revise the library every hunt shares, taken from a quiz on screen: a quiz's lock does not reach the library */
 const LibraryPolicies = {
   add_widget:     mayChangeHunt,
   edit_widget:    mayChangeHunt,
@@ -293,33 +333,36 @@ const LibraryPolicies = {
   import_widgets: mayChangeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions that revise the quiz on screen and its questions */
+/** The actions that revise the quiz on screen and its questions: refused while it is locked */
 const ContentPolicies = {
-  retitle_quiz:        mayChangeHunt,
-  relabel_quiz:        mayChangeHunt,
-  reversion_quiz:      mayChangeHunt,
-  set_smiths_note:     mayChangeHunt,
-  edit_question:       mayChangeHunt,
-  add_question:        mayChangeHunt,
-  delete_questions:    mayChangeHunt,
-  sort_questions:      mayChangeHunt,
-  renumber_qnums:      mayChangeHunt,
-  move_question:       mayChangeHunt,
-  set_chain:           mayChangeHunt,
-  sort_by_chain_order: mayChangeHunt,
-  record_widgeted:     mayChangeHunt,
-  enter_widgeted:      mayChangeHunt,
-  import_questions:    mayChangeHunt,
+  retitle_quiz:        mayReviseClaimedQuiz,
+  relabel_quiz:        mayReviseClaimedQuiz,
+  reversion_quiz:      mayReviseClaimedQuiz,
+  set_smiths_note:     mayReviseClaimedQuiz,
+  edit_question:       mayReviseClaimedQuiz,
+  add_question:        mayReviseClaimedQuiz,
+  delete_questions:    mayReviseClaimedQuiz,
+  sort_questions:      mayReviseClaimedQuiz,
+  renumber_qnums:      mayReviseClaimedQuiz,
+  move_question:       mayReviseClaimedQuiz,
+  set_chain:           mayReviseClaimedQuiz,
+  sort_by_chain_order: mayReviseClaimedQuiz,
+  record_widgeted:     mayReviseClaimedQuiz,
+  enter_widgeted:      mayReviseClaimedQuiz,
+  import_questions:    mayReviseClaimedQuiz,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions that make, delete, lock and unlock a realm's quizzes */
+/**
+ * The actions that make, delete, lock and unlock a realm's quizzes. A locked quiz refuses none of
+ * them: locking is never a trap, and one can always make another quiz, delete one, or unlock.
+ */
 const RealmPolicies = {
   new_quiz:    mayChangeHunt,
   delete_quiz: mayChangeHunt,
   set_lock:    mayChangeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions on one's own review of a quiz */
+/** The actions on one's own review of a quiz: never refused for a lock, since reviewing a finished draft is the point of one */
 const ReviewPolicies = {
   open_review:      mayWriteReview,
   set_overall:      mayWriteReview,

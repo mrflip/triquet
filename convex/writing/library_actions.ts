@@ -6,9 +6,6 @@ import { Widget, WidgetValidators, type WidgetPatch, type WidgetT } from '../../
 import { isWorked, libraryOf, widgetForLabel } from '../reading'
 import { insertAbsentWidgets, movedTo, repositioned, updateWidget, type Writer } from './quiz_writing'
 
-// The library belongs to no hunt and no quiz, so a locked quiz refuses none of this: a column's
-// values change with its widget's formula, but the quiz itself does not.
-
 /**
  * Put a widget at the end of the library. A label the library already holds is refused, as is one
  * widget more than the library may hold.

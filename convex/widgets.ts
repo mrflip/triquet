@@ -2,7 +2,7 @@ import * as Approve from '../src/lib/approve'
 import { ValidatorKit } from '../src/lib/validator'
 import { widgetFrom, type WidgetUsageT } from '../src/lib/rows'
 import type { WidgetT } from '../src/models/widget'
-import { zQuery } from './functions'
+import { emptyIfDenied, zQuery } from './functions'
 import { affirmCountUsage } from './authorize'
 import { libraryOf, usageOf } from './reading'
 
@@ -29,8 +29,8 @@ export const library = zQuery({
  */
 export const usage = zQuery({
   args:    { widget_label: label },
-  handler: async (ctx, { widget_label }): Promise<WidgetUsageT | null> => {
-    if (! await affirmCountUsage(ctx.db, ctx.actor)) { return null }
+  handler: async (ctx, { widget_label }): Promise<WidgetUsageT | null> => await emptyIfDenied(null, async () => {
+    await affirmCountUsage(ctx.db, ctx.actor)
     return await usageOf(ctx.db, widget_label)
-  },
+  }),
 })

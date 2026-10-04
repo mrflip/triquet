@@ -1,5 +1,6 @@
 import * as Z from 'zod'
 import { ConvexError, type Value } from 'convex/values'
+import { NotApprovedError } from './approve'
 import { AppNotices, RefusalNotices, type Refusalkind } from './notices'
 import { explain } from './vv/reporting'
 
@@ -35,22 +36,24 @@ export function refuse(failurekind: Refusalkind, message: string = RefusalNotice
 }
 
 /**
- * `err` as a refusal when it is Zod's: a row the change would come to that its validator refuses
- * is the author's to hear about, not a server error. Anything else is handed back as it was.
+ * `err` as a refusal when it is a policy's denial (`Approve.NotApprovedError`), or Zod's: a request
+ * the policy turned away, or a row the change would come to that its validator refuses, is the
+ * author's to hear about, not a server error. Anything else is handed back as it was.
  *
  * @param err - Whatever a handler threw.
- * @returns A `ConvexError` for a Zod error; `err` itself otherwise.
+ * @returns A `ConvexError` for a denial or a Zod error; `err` itself otherwise.
  *
  * @example catch (err) { throw refusalFor(err) }
  */
 export function refusalFor(err: unknown): unknown {
+  if (err instanceof NotApprovedError) { return new ConvexError<RefusalT>({ failurekind: err.denial, message: err.message }) }
   if (! (err instanceof Z.ZodError)) { return err }
   const issues = err.issues.map(({ code, path, message }) => ({ code, message, path: path.map((seg) => (typeof seg === 'number' ? seg : String(seg))) }))
   return new ConvexError<RefusalT>({ failurekind: 'invalid', message: explain(err), ZodError: issues })
 }
 
 /**
- * Run `handler`, turning a Zod error it throws into a refusal: see `refusalFor`.
+ * Run `handler`, turning a denial or a Zod error it throws into a refusal: see `refusalFor`.
  *
  * @example handler: async (ctx, args) => await refusingInvalid(async () => await perform(ctx.db, args))
  */

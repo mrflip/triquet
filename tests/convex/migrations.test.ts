@@ -145,7 +145,7 @@ describe("the forced_label migrations", () => {
       const quiz = present(await ctx.db.query('quizzes').first())
       const realm = present(await ctx.db.get('realms', quiz.realm_id))
       await relabelHunt(ctx.db, hunt._id, 'renamed_hunt')
-      await relabelQuiz(ctx.db, { hunt_id: realm.hunt_id, realm_id: quiz.realm_id, quiz_id: quiz._id }, 'renamed_quiz')
+      await relabelQuiz(ctx.db, { hunt_id: realm.hunt_id, realm_id: quiz.realm_id, quiz_id: quiz._id, quiz, realm }, 'renamed_quiz')
     })
     await tt.mutation(internal.migrations.runAll, {})
     await tt.finishAllScheduledFunctions(vi.runAllTimers)

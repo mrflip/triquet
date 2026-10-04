@@ -3,7 +3,7 @@ import type * as Z from 'zod'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import * as Labelmaker from '../../src/lib/labelmaker'
-import type { OpenQuizT } from '../../src/models/actions'
+import type { AffirmsT } from '../../src/models/actions'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
 import { defaultLayout, type Layout } from '../../src/models/layout'
@@ -22,10 +22,17 @@ import { huntIdOf, huntIdOfLayoutRow, libraryOf, reviewingCopiesOf } from '../re
 export type Writer = MutationCtx['db']
 
 /** Where a quiz belongs: its hunt, and the realm of it that holds the quiz */
-export type QuizPlace = Pick<OpenQuizT, 'hunt_id' | 'realm_id'>
+export type QuizPlace = Pick<AffirmsT, 'hunt_id' | 'realm_id'>
+
+/**
+ * The quiz on the author's screen, where an action on "the quiz" lands, as `authorize` checked it:
+ * its id and its realm's and hunt's, and its own row and its realm's as read in that check, each
+ * null when it is gone.
+ */
+export type OpenQuizT = Pick<AffirmsT, 'hunt_id' | 'realm_id' | 'quiz_id'> & { quiz: Doc<'quizzes'> | null, realm: Doc<'realms'> | null }
 
 /** Where a quiz's widgetings and columns belong: the quiz, and its hunt */
-export type LayoutPlace = Pick<OpenQuizT, 'hunt_id' | 'quiz_id'>
+export type LayoutPlace = Pick<AffirmsT, 'hunt_id' | 'quiz_id'>
 
 /** The question a stored cell is in, as far as its rows copy it: its id, its quiz and its hunt */
 export type CellQuestion = Pick<Doc<'questions'>, '_id' | 'hunt_id' | 'quiz_id'>

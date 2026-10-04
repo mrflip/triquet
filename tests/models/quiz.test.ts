@@ -168,6 +168,12 @@ describe('Quiz.blank', () => {
   })
 })
 
+describe('Quiz.isLocked', () => {
+  it('is true of a locked quiz, and false of one that is not', () => {
+    expect([Quiz.isLocked({ locked: true }), Quiz.isLocked({ locked: false })]).to.deep.eq([true, false])
+  })
+})
+
 describe('QuizValidators.row', () => {
   const Row = {
     hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', version: 'main', locked: false, last_sortkey: null,

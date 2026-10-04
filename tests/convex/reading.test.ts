@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import {
-  cellRowsOf, huntForLabel, huntIdOf, huntIdOfLayoutRow, huntingFor, huntRowsOf, identFor, isWorked, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor,
+  cellRowsOf, huntForLabel, huntIdOf, huntIdOfLayoutRow, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor,
   reviewingCopiesOf, usageOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -154,7 +154,7 @@ describe("cellRowsOf", () => {
   })
 })
 
-describe("layoutRowsOf and widgetingsOf", () => {
+describe("layoutRowsOf, layoutOf and widgetingsOf", () => {
   it("read a quiz's widgetings in run order, and its columns, without its questions", async () => {
     const { tt, quiz_id } = await holding(huntHolding([quizWorking(['cc', 'aa', 'bb'])]))
     const layout = present(await tt.run(async (ctx) => await layoutRowsOf(ctx.db, quiz_id)))
@@ -168,6 +168,16 @@ describe("layoutRowsOf and widgetingsOf", () => {
     const { tt, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
     expect(await tt.run(async (ctx) => await layoutRowsOf(ctx.db, quiz_id))).to.be.null
+  })
+
+  it("read the same layout from a quiz row already in hand, which is handed back as it was", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['cc', 'aa', 'bb'])]))
+    const [byId, byRow, held] = await tt.run(async (ctx) => {
+      const quiz = present(await ctx.db.get('quizzes', quiz_id))
+      return [await layoutRowsOf(ctx.db, quiz_id), await layoutOf(ctx.db, quiz), quiz]
+    })
+    expect(byRow).to.deep.eq(byId)
+    expect(byRow.quiz).to.deep.eq(held)
   })
 })
 

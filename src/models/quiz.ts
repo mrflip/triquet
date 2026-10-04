@@ -142,6 +142,15 @@ export class Quiz implements QuizT {
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
   /**
+   * Whether `quiz` is locked: nothing in it changes until it is unlocked.
+   *
+   * @example if (Quiz.isLocked(quiz)) { return 'quizLocked' }
+   */
+  static isLocked(quiz: Pick<QuizRowT, 'locked'>): boolean {
+    return quiz.locked
+  }
+
+  /**
    * Validated quiz, with every omitted field defaulted and its chains checked. A blank title is
    * populated from the label, titleized, so a fresh quiz reads as "Quiet Otter" rather than
    * nothing at all.

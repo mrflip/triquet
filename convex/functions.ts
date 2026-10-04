@@ -4,6 +4,7 @@ import { zCustomMutation, zCustomQuery } from 'convex-helpers/server/zod4'
 import type { Id } from './_generated/dataModel'
 import { internalMutation, mutation, query } from './_generated/server'
 import * as Actor from '../src/lib/actor'
+import * as Approve from '../src/lib/approve'
 import { installErrorMap } from '../src/lib/vv/reporting'
 import { identFor, type Reader } from './reading'
 
@@ -36,6 +37,28 @@ export async function askerOf(ctx: { auth: Auth, db: Reader }): Promise<AskerT> 
   const [session, ident] = await Promise.all([ctx.db.get('authSessions', session_id), identFor(ctx.db, user_id)])
   if (session === null) { return NoSession }
   return { user_id, actor: ident ? Actor.asIdent(user_id, ident) : Actor.anonymous }
+}
+
+/**
+ * Run a query function's `read`, answering a denial with `empty`, the facet's empty value (`null`
+ * or `[]`): a watch that throws takes the page down with it, and a reader turned away is owed
+ * nothing more than what someone with nothing to see is shown. A denial is what the `affirm…`
+ * functions throw (`Approve.NotApprovedError`: a stale or forged affirm, or a policy's no);
+ * anything else is thrown on. A mutation refuses instead (`refusingInvalid`).
+ *
+ * @param empty - What the query answers when the reader is turned away.
+ * @param read - The query's work, affirmations first.
+ * @returns What `read` returned, or `empty`.
+ *
+ * @example handler: async (ctx, { affirms }) => await emptyIfDenied(null, async () => { const claims = await affirmReadHunt(ctx.db, affirms, ctx.actor); ... })
+ */
+export async function emptyIfDenied<TT, ET>(empty: ET, read: () => Promise<TT>): Promise<TT | ET> {
+  try {
+    return await read()
+  } catch (err) {
+    if (err instanceof Approve.NotApprovedError) { return empty }
+    throw err
+  }
 }
 
 /** Our Zod error map, put in place before a function's arguments are parsed, so a refusal reads in our words */
