@@ -1,10 +1,127 @@
 # Sprint `dbpolicy`: the handoffs of finished threads, whole
 
 Moved here from `dbpolicy-progress.md` by the orchestrator (threads 1 to 4 after thread 4, thread 5
-after thread 6), newest first, to keep the progress document under its ceiling. Each section is as its worker wrote it, with the orchestrator's
+after thread 6, thread 6 after thread 7), newest first, to keep the progress document under its ceiling. Each section is as its worker wrote it, with the orchestrator's
 *Review:* and *Orchestrator:* lines. The progress document keeps a digest of what later threads
 build on. **Read this when** your thread touches what one of these built and the digest is not
 enough, and **thread 10 reads it whole**: its removal lists are in threads 3 and 4 here.
+
+## Thread 6: A scoped database handle (2026-10-04)
+
+Branch `20261004-dbpolicy_scoped_db`, PR #88, stacked on #86. Suites: typecheck, lint, `pnpm test` (111 files, 2951), `pnpm test:e2e` (207) all green, first run.
+
+*Review:* `clean`, at medium; no fixes, no findings. Checked the wrapper as `policy_rules.ts`
+uses it, every write `hunts.perform` makes against its table's rule, the census keeping the
+cross-hunt checks whole, the reviews read rule, and the public-function test. Recorded, not a
+bug: rows without their `hunt_id` copy are invisible to a scoped database, so `runAll` must run
+before this deploys (already the ledger's rule).
+
+* **Built**:
+  - **`convex/policy_rules.ts`**: one rule per table, `{ read, modify, insert }`, each a non-async
+    `(claims, row) => boolean` that reads nothing, adapted to convex-helpers' `Rules` once
+    (`asHelperRules`), `defaultPolicy: 'deny'`. `WritingRules` (mutations) and `ReadingRules`
+    (queries, which differ only in `reviews.read`). `scopedReader(db, claims)`,
+    `scopedWriter(db, claims)`. Claims type `ScopeClaimsT` = `ClaimsOf<HuntAffirmsT>` plus an
+    optional `own_review`.
+    - `hunts`: own id for read and modify; never insert.
+    - realms, quizzes, questions, widgetings, columns, widgeteds, huntings: `row.hunt_id ===
+      claims.hunt_id` for all three.
+    - `reviews`: query read is `Approve.may('read_review', review, claims, own)`, where `own` is
+      `claims.own_review` when it is of the review's quiz and null otherwise. Mutation read is
+      hunt-only, so caps count and cascades delete every review. Write (modify and insert):
+      hunt, then one's own, then a smith.
+    - `reviewings`: hunt-only read; write as reviews.
+    - `widgets`: read `read_library`; write `change_library`, a new `Approve` key (a `RowPolicies`
+      group, `mayChangeHunt` today) that thread 9 re-points.
+    - `idents`: read always, never written. identings and the auth tables have no rule, so they are
+      unreachable.
+  - **Builders** in `convex/functions.ts`: `zHuntQuery({ args, empty, affirm, handler })` and
+    `zHuntMutation({ args, returns, affirm, handler })`. Each wraps `zQuery`/`zMutation`. It runs
+    `affirm(ctx, args)` on the plain db inside `emptyIfDenied(empty)` (queries) or
+    `refusingInvalid` (mutations). Then `handler({ ...ctx, db: scoped, claims, census? }, args)`.
+    Context types: `HuntQueryCtx<CT>`, `HuntMutationCtx<CT>` (adds `census`), `AskingQueryCtx`,
+    `AskingMutationCtx`. `isHuntScoped(fn)` reads a `WeakSet` of what the builders made.
+  - **Converted**: `hunts.whole`, `hunts.perform`, `quizzes.open`, `questions.open`,
+    `reviews.forQuiz` (hand filter gone: `reviewsOf(ctx.db, quiz_id)` through the reading rules).
+    `affirmReadReviews` now returns `ReviewClaimsT` (quiz claims plus `own_review`). It reads the
+    own review by `reviewFor` in the same round, so there is still one membership read, plus one
+    `.first()`.
+  - **`Unscoped`** at the top of `convex/authorize.ts`: `module:name` to reason. It lists auth's
+    three, `idents:current`, `idents:performAccount`, `hunts:list`, `hunts:open`,
+    `widgets:library`, `widgets:usage`. `hunts.list`'s doc block says it needs no rule.
+  - **Census**: `CensusT`/`censusOf(db)` in `convex/reading.ts` (`huntIdForLabel`, `isWorked`),
+    answering with an id or a boolean. `perform(db, census, claims, action)`,
+    `relabelHunt(db, census, hunt_id, label)`, `performLibrary(db, census, action)`,
+    `deleteWidget(db, census, label)`. `performAccount` passes `censusOf(db)` from its plain db.
+  - **Tests**:
+    - `tests/convex/policy_rules.test.ts`: per hunt-owned table and `hunts`, a smith's scoped
+      writer on hunt A cannot `get`, list, `patch`, `delete` or `insert` hunt B's row, and can
+      do all of it to its own.
+    - Same file: identings and auth unreachable; idents read-only; widgets by standing; reviews'
+      write rule and read rules (mutation vs query); `delete_quiz` (with another reviewer's draft
+      review and reviewing) and `delete_hunt` through `hunts.perform`, the other hunt unchanged,
+      `expectSound`; the rule tables' shape.
+    - Public-function test: scoped list, and the rest equal to `Unscoped`'s keys.
+    - `censusOf`, and `change_library` agreeing with the library actions' matrix row.
+    - `affirmReadReviews`'s tests now read through `scopedReader`.
+    - Raw test inserts given their copies (hunts, questions, quizzes tests).
+  - Docs: `notes/convex.md` (*Who is asking*), `notes/vocabulary.md` (*scoped database*,
+    *census*), `notes/queries_hooks_and_subscriptions.md`, `notes/stack.md` (`rowLevelSecurity`
+    under `convex-helpers`).
+* **Decisions taken**:
+  - **The builders wrap the handler rather than use the `input` hook.** convex-helpers runs
+    `input` before the function's Zod args are parsed, and sees only its own Convex-validated
+    args. An `input` that throws cannot answer a query's empty value either. `affirm` is a field
+    of the definition, so each function says which `affirm…` it rests on.
+  - **Idents are readable, never writable, through the scoped database** (the plan said
+    unreachable). `add_hunting` finds its member by label (`identForLabel`), and `reviews.forQuiz`
+    shows each reviewer's label and title. An ident is a public persona; `user_id` is on the row,
+    but nothing scoped returns a row whole.
+  - **Two rule sets, differing only for reviews.** A mutation reads reviews to count them
+    (`openReview`'s cap) and to delete them (cascades). Hiding drafts from it would undercount and
+    orphan rows. A query shows what it reads, so it filters by `mayReadReview`.
+  - **Reviews and reviewings are written by their writer or a smith.** convex-helpers' `modify`
+    covers patch and delete alike, and a smith's cascades delete others' reviewings.
+  - **The widgets rule asks `Approve` by a new key, `change_library`**, rather than an action
+    kind, since the rule has no action in hand.
+  - A rule violation throws convex-helpers' plain `Error` (*no read access or doc does not
+    exist*, *write access not allowed*, *insert access not allowed*), which is not a refusal. It
+    should only ever fire on a bug.
+* **Deviations**:
+  - **The census** is not in the plan. Two writes in `hunts.perform` must see every hunt:
+    `relabelHunt`'s label clash and `deleteWidget`'s `isWorked`. Through the scoped database,
+    another hunt's label or widgetings read as absent, a silent integrity hole. They ask the
+    census, built from the plain db by `zHuntMutation`. When thread 9 moves library actions to
+    `widgets.perform`, `deleteWidget` goes with it and passes `censusOf(ctx.db)` (or keeps the
+    census) on whatever builder that is.
+  - Reviewings do not defer to `mayReadReview` (the plan's step 2): a rule reads nothing, and a
+    reviewing does not carry its review's phase. They are seen only through a review in hand
+    (thread 4's finding).
+* **Discoveries**:
+  - **Cost, by inspection.** Not measured on a backend: convex-test has no read counts, and
+    local backends give no per-function usage. convex-helpers' wrapper filters each row in JS
+    over the same index ranges, so there are no extra document reads where ranges are per hunt
+    (all of ours). Its `.take(n)` iterates until `n` rows pass. A write's `get` comes before the
+    write, which Convex caches. The one added read is `reviews.forQuiz`'s own-review `.first()`.
+    The census keeps the cross-hunt index reads as cheap as before. A scan through the scoped
+    `isWorked` would have read every hunt's widgetings of that label.
+  - **The wrapper did not fight the Zod builders or convex-test**, once the builder wrapped the
+    handler. One cast is needed: `zHuntMutation`'s inner handler returns `never`, because
+    `ReturnValueInput<RV>` does not resolve for a generic `RV`.
+  - **A patch or replace is judged by the row as it stands**, not as it would become. A patch
+    could move a row's `hunt_id` to another hunt. Nothing writes a copy after insert, so it is
+    left as is.
+  - **Rows without their copies are invisible to a scoped database.** Five tests' raw inserts
+    lacked `hunt_id`/`quiz_id` and failed until given them. `runAll` must have run before this
+    deploys (already the ledger's rule).
+  - **For thread 7:** `ctx.claims.standing` is on every hunt query's context. `questions.open`'s
+    handler is where to project.
+  - **For thread 9:** add `'widgets:perform'` to `Unscoped` (or give it a library-scoped builder).
+    Re-point `change_library` in `RowPolicies` to `mayChangeLibrary`, with `LibraryPolicies`
+    beside it. `deleteWidget` takes a census.
+* **For the Coach**: idents are reachable (read-only) through a hunt's scoped database, against the
+  plan's step 2; say if you would rather copy reviewer label and title onto reviews (a schema
+  widen) and resolve `add_hunting`'s member some narrower way.
 
 ## Thread 5: Affirmations (2026-10-04)
 

@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 6 done (#79, #81, #82, #83, #86, #88); thread 7 underway.
+`/sprint`. **Status:** threads 1 to 7 done (#79, #81, #82, #83, #86, #88, #89); thread 8 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -143,7 +143,9 @@ Add these to `notes/vocabulary.md` in the first thread that uses each.
   `e2e-agent` roles.
 * **Integrity refusals stay with the write.** `labelTaken`, `widgetGone`, `questionGone`, the caps:
   facts about the data, true for every actor. They are not policy, and stay where they are.
-* **Each thread ends green:** `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e`.
+* **Each thread ends green:** `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e:agent`.
+  *Orchestrator, after thread 7:* use `test:e2e:agent` (the `e2e-agent` role, port 3003), not
+  `test:e2e`, which runs on the shared `e2e` role; threads 1 to 6 ran the latter.
 
 ## When a directive does not fit
 
@@ -653,6 +655,11 @@ server uses.
    treats a failure there as a programming error to report, not a notice to show.
 4. Tests for each gated affordance under each standing.
 
+*Orchestrator, after thread 7 (#89):* the export box asks `Approve.may('export_hunt', claims)`
+(`HuntClaimsT`). `useHistoryFeed`'s gate, `Question.isSentWhole(standing)`, is a fact about the
+data a reader holds, not a permission: leave it. A reviewer's questions arrive with unsent fields
+blanked (`quizFromSeen`), so views keep taking a whole `QuizT`.
+
 *Orchestrator, after thread 5 (#86):* the browser's affirms come from `useAffirms(hunt, quiz_id)`
 in `src/state/use-affirms.ts`; the claims for `mayReviseQuiz` are `Actor.QuizClaimsT` (hunt claims
 plus `quiz: { locked } | null`). Affirms are watch arguments, so a change of standing or ident
@@ -725,7 +732,8 @@ that still holds each backfill.
 4. **The admin helper approves everyone** (thread 9). Until it is given a real rule, anyone with a
    username may change the library, where today it takes a smith of the hunt on screen.
 5. **What a reviewer is sent** (thread 7): settled for the answer (sent, shielded only in the
-   view: the Coach, 2026-10-04); the rest of the list under that thread is still a proposal.
+   view: the Coach, 2026-10-04); the rest of the list under that thread is still a proposal, built
+   as written. It lives in one place, `Question.sentTo.reviewer` (`src/models/question.ts`).
 6. **Backfills between merges.** Thread 3's (`forced_label` into `label`) wants running straight
    after thread 3 deploys: until it has, a relabelled hunt or quiz answers to its minted label
    again. Thread 4's wants running before threads 5 to 9 deploy.
@@ -740,3 +748,9 @@ that still holds each backfill.
    plan's "unreachable", because `add_hunting` finds its member by label and `reviews.forQuiz`
    shows reviewers' labels and titles. The alternative is a copy of label and title on reviews (a
    widen) and a narrower lookup for `add_hunting`. Say if you want it.
+9. **A backstop on widgeteds** (thread 7): a reviewer's queries could still read widgeteds
+   through the scoped database (the read rule is hunt-only), though none does. A smith-only read
+   rule for widgeteds in queries is one rule and a test. Say if you want it, and in which thread.
+10. **The e2e role** (thread 7): threads 1 to 6 ran `pnpm test:e2e`, on the shared `e2e` role;
+   from thread 8 on, agents run `pnpm test:e2e:agent`. If the `e2e` role is yours, it may need a
+   reset.
