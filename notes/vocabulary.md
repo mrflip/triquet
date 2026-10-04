@@ -107,18 +107,28 @@ words above.
   `'stranger'` (`Actor.HuntStandingVals`). A named value rather than a null role, so that "not on
   the hunt" is a state with a name. An actor who has asserted no username is a stranger to every
   hunt.
+* **affirms** -- what a browser says is true of itself on a hunt, sent with every request about
+  it: `{ ident_id, hunt_id, standing }`, and where the request is about a quiz, its `quiz_id`, and
+  for an action, the quiz's `realm_id` too (`ActionValidators.huntAffirms`, `quizAffirms`,
+  `affirms`). Each is something the browser already holds from the hunt it opened
+  (`useAffirms`). The server believes none of it until it has checked it (`affirmForHunt`): a
+  stale or forged affirm is a denial. Named `affirms`, the whole object, never one of its fields.
 * **claims** -- what the server has verified of an actor on one hunt, handed to a policy:
-  `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`). Code handed
-  claims trusts them. Named `claims`, the whole object, never one of its fields.
+  `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`), and with a
+  quiz on screen, that quiz's row (`Actor.QuizClaimsT`). On the server, the affirms once checked,
+  with the rows read to check them (`ClaimsOf` in `convex/authorize.ts`). Code handed claims
+  trusts them. Named `claims`, the whole object, never one of its fields.
 * **policy**, **verdict** -- a policy is a non-async `may…` function in `src/lib/approve.ts`
   (`mayReadReview`, `mayChangeMembership`) that decides from the evidence it is handed and reads
   nothing, so the browser and the server run the same one. Its verdict is `'allow'` or the refusal
-  kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`). `Approve.may(key, …)`
+  kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`, `quizLocked`). `Approve.may(key, …)`
   answers yes or no, `Approve.must(key, …)` throws when no, and `Approve.verdictOn(key, …)` says
   which; the key is an action's kind or the name of a read (`read_hunt`).
 * **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
-  `affirmReadReviews`) that gathers the evidence a policy needs, builds the claims, and hands them
-  to `Approve`. It decides nothing itself.
+  `affirmReadReviews`) that checks the affirms and gathers the evidence a policy needs in one
+  parallel round (`affirmForHunt`), builds the claims, and hands them to `Approve`. It decides
+  nothing itself. A denial is thrown: a mutation refuses with it, a query answers its empty value
+  (`emptyIfDenied`).
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
   global, and exports on its own. Its label is global; should two share one, the earlier-made wins.

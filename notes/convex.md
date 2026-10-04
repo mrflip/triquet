@@ -68,8 +68,16 @@ Who may do what is decided in one place and gathered in another. `src/lib/approv
 policy, a non-async `may…` function deciding from the claims it is handed, reachable by key
 through `Approve.may`, `Approve.must` and `Approve.verdictOn`; its dispatch table gives every
 action kind its policy, and a kind without a row fails to compile. `convex/authorize.ts` holds the
-`affirm…` functions that read the evidence and build the claims, and decide nothing. A query
-answers a denial with its empty value; a mutation refuses with the verdict's refusal kind.
+`affirm…` functions that read the evidence and build the claims, and decide nothing. A request
+about a hunt carries the browser's **affirms** (its ident, the hunt, its standing there, the quiz
+on screen), and `affirmForHunt` checks them all in one parallel round of reads (`EST.allKeyed`),
+with whatever else the decision needs read beside them; a stale or forged affirm is a denial like
+any other. A denial is thrown (`Approve.NotApprovedError`): a mutation's `refusingInvalid` turns it
+into a refusal of its kind, and a query wraps its work in `emptyIfDenied` (`functions.ts`) so it
+answers with its empty value, since a watch that throws takes the page down. Business code in
+`writing/` is handed the claims, trusts them, and takes the rows they carry (the quiz on screen,
+its realm) rather than reading them again. A quiz's lock is policy (`Approve.mayReviseQuiz`), not
+the write's.
 
 Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not

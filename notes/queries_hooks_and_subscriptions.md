@@ -91,6 +91,12 @@ browser per change, both of which the phase 4 harness reports (`whiteboard/conve
 * A query function takes ids or labels, and refuses nothing a screen might reasonably ask: a
   watch that throws takes the page down with it (`useQuery` throws into React). Keep an
   argument a query function would refuse from reaching it (see `useHunt`'s `askable`).
+* A query function about a hunt also takes the browser's affirms (`useAffirms`: its ident, the
+  hunt, its standing, and the quiz where there is one), built from facets the screen already
+  holds, so no watch waits on another only to learn what to affirm. The server checks them
+  (`convex/authorize.ts`), and a query answers a denial, stale affirms included, with its empty
+  value (`emptyIfDenied`), never a throw. A watch's affirms are kept the same object while
+  nothing in them changes, so the watch keeps its subscription.
 * Every read in a query function goes through an index and is bounded by the caps in
   `lib/vv/patterns.ts`.
 * Convex deduplicates identical watches in the browser: two hooks watching the same query
