@@ -107,6 +107,8 @@ export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): P
   const [quiz, holder] = await Promise.all([openQuizRow(db, open), quizForLabel(db, open.realm_id, label)])
   if (holder && holder._id !== quiz._id) { refuse('labelTaken') }
   await updateQuiz(db, quiz, { label })
+  // A retiring override still on the row would win back over this label when it is folded in.
+  if (quiz.forced_label !== undefined) { await db.patch('quizzes', quiz._id, { forced_label: undefined }) }
 }
 
 /**

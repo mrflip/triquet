@@ -1,6 +1,8 @@
 import migrationsTest from '@convex-dev/migrations/test'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
+import { relabelHunt } from '../../convex/writing/hunt_actions'
+import { relabelQuiz } from '../../convex/writing/quiz_actions'
 import { Quiz } from '../../src/models/quiz'
 import { huntHolding, openTester, seedHunt, signedIn, type Tester } from '../support/convex'
 import { present } from '../support/present'
@@ -131,5 +133,21 @@ describe("the forced_label migrations", () => {
       expect([labels[0], labels.every(([, forced]) => forced === 'missing')]).to.deep.eq([[`chosen_${tablename}`, 'missing'], true])
     }
     await expectSound(tt)
+  })
+
+  it("keeps a label given after the deploy and before the migration, over the override it replaced", async () => {
+    const tt = migratable()
+    await holdForcedLabels(tt)
+    await tt.run(async (ctx) => {
+      const hunt = present(await ctx.db.query('hunts').first())
+      const quiz = present(await ctx.db.query('quizzes').first())
+      const realm = present(await ctx.db.get('realms', quiz.realm_id))
+      await relabelHunt(ctx.db, hunt._id, 'renamed_hunt')
+      await relabelQuiz(ctx.db, { hunt_id: realm.hunt_id, realm_id: quiz.realm_id, quiz_id: quiz._id }, 'renamed_quiz')
+    })
+    await tt.mutation(internal.migrations.runAll, {})
+    await tt.finishAllScheduledFunctions(vi.runAllTimers)
+    const [hunts, quizzes] = await Promise.all([labelsIn(tt, 'hunts'), labelsIn(tt, 'quizzes')])
+    expect([hunts[0], quizzes[0]]).to.deep.eq([['renamed_hunt', 'missing'], ['renamed_quiz', 'missing']])
   })
 })

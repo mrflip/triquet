@@ -36,6 +36,8 @@ export async function relabelHunt(db: Writer, hunt_id: Id<'hunts'>, label: strin
   if (! held) { refuse('huntGone') }
   if (taken && taken._id !== hunt_id) { refuse('labelTaken') }
   await updateHunt(db, held, { label })
+  // A retiring override still on the row would win back over this label when it is folded in.
+  if (held.forced_label !== undefined) { await db.patch('hunts', held._id, { forced_label: undefined }) }
 }
 
 /**
