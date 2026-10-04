@@ -8,8 +8,8 @@ disagree. Workers add their sections below, newest first.
 | Thread | Name | Status |
 |---|---|---|
 | 1 | Categories and the category editor | complete, PR #85, review clean |
-| 2 | Category personas | complete, PR #87 |
-| 3 | The category estimate entry | pending |
+| 2 | Category personas | complete, PR #87, review clean |
+| 3 | The category estimate entry | underway |
 | 4 | The category spread chart | pending |
 
 ## Thread 2: Category personas (2026-10-04)
@@ -68,6 +68,11 @@ Branch `20261004-category_personas`, PR #87, stacked on #85. Suites: typecheck a
     - Since duplicates are refused, the pill's category select should leave out categories other
       pills hold, or the write will fail validation.
     - `Estimate.neutral(difficulty)` is the all-blank value's one element.
+
+*Review:* clean at medium; no fixes. Left, minor and unconfirmed in a browser: at slots 8 and 16
+the persona card (17cqi wide, centred 45.5 out) may cover the outer corner of that slot's tile by
+about 1.8 x 1.4cqi, more if a title wraps, so that corner can't be grabbed for a drag. A layout
+call (move the card, or `pointerEvents: 'none'` on the adornment wrapper); for the Coach.
 
 ## Thread 1: Categories and the category editor (2026-10-04)
 
