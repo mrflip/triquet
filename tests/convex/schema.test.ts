@@ -47,9 +47,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
 const Backfilling: Partial<Record<TableNames, string[]>> = {}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
-const Retiring: Partial<Record<TableNames, string[]>> = {
-  quizzes: ['bulk_ishes_last'],
-}
+const Retiring: Partial<Record<TableNames, string[]>> = {}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)

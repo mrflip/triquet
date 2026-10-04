@@ -24,15 +24,12 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // Three fields are written by hand, each any JSON at all, whose recursive type the bridge converts
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
-//
-// One field is retiring: a quiz's `bulk_ishes_last`, which no row validator writes any more, is
-// still let through, as anything at all, until `migrations.ts` has taken it off every quiz.
 
 const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = { ...zodOutputToConvexFields(QuizValidators.row.shape), bulk_ishes_last: CVX.optional(CVX.any()) }
+const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
   ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),
