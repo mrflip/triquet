@@ -58,17 +58,15 @@ export function CategoryWheel({ wheel, title, onArrange, outside = [] }: Readonl
     <Box>
       <Box sx={{ overflowX: 'auto' }}>
         <Box sx={{ containerType: 'inline-size', width: '100%', minWidth: WheelWidthMin, maxWidth: 760, mx: 'auto' }}>
-          <Box
-            role={editing ? 'group' : 'list'}
-            aria-label={title}
-            aria-describedby={editing ? hintId : undefined}
-            sx={{ position: 'relative', height: `${String(stageHt)}cqi` }}
-          >
+          <Box sx={{ position: 'relative', height: `${String(stageHt)}cqi` }}>
             <Ground />
             <Spokes />
-            {editing
-              ? <Board wheel={wheel} pool={pool} onArrange={onArrange} />
-              : Wheel.orderOf(wheel).map((label, idx) => <ShownTile key={label} label={label} slotIdx={idx} />)}
+            {/* The tiles' own box holds nothing else, so the list a reader is told of holds only them */}
+            <Box role={editing ? 'group' : 'list'} aria-label={title} aria-describedby={editing ? hintId : undefined} sx={{ position: 'absolute', inset: 0 }}>
+              {editing
+                ? <Board wheel={wheel} pool={pool} onArrange={onArrange} />
+                : Wheel.orderOf(wheel).map((label, idx) => <ShownTile key={label} label={label} slotIdx={idx} />)}
+            </Box>
             {outside.map(({ slotIdx, node }) => (
               <Box key={slotIdx} sx={{ ...atSpot(spotOf(slotIdx, WheelGeometry.outsideRadius)) }}>{node}</Box>
             ))}

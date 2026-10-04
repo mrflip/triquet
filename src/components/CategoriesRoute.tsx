@@ -8,6 +8,7 @@ import * as Approve from '../lib/approve'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT } from '../lib/rows'
+import * as Wheel from '../lib/wheel'
 import type { WheelT } from '../models/category'
 import { useCategories } from '../state/use-categories'
 import { useIdent } from '../state/use-ident'
@@ -15,6 +16,7 @@ import { CategoryWheel } from './CategoryWheel'
 import NextLink from './NextLink'
 import { NotOnHunt } from './NotOnHunt'
 import { Panel } from './panels/Panel'
+import { personaAdornmentsOf } from './PersonaCard'
 import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
 
@@ -74,7 +76,14 @@ function CategoriesScreen({ hunt, onArrange, unsaved }: Readonly<CategoriesScree
   return (
     <main className={styles.page} data-unsaved={unsaved ? 'true' : 'false'}>
       <Panel title={`Categories of ${hunt.title}`} blurb={blurb}>
-        <CategoryWheel wheel={hunt.wheel} title="Category wheel" onArrange={onArrange} />
+        <CategoryWheel wheel={hunt.wheel} title="Category wheel" onArrange={onArrange} outside={personaAdornmentsOf(Wheel.orderOf(hunt.wheel))} />
+        <p className={styles.microcopy}>
+          Masie, Artie and Poppy sit at the triangle&rsquo;s corners. Each gets most questions in the
+          category beside them, or either side of it (nine in ten easy ones, three in four medium,
+          six in ten hard), and fewest in the three opposite (six in ten easy, three in ten medium,
+          no hard ones), falling off evenly between. A question of no category in particular they
+          take as halfway.
+        </p>
         <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
           <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
         </Stack>
