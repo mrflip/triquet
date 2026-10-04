@@ -170,6 +170,11 @@ than one kind of player. Begun by the categories sprint, October 2026
   blank, or that nobody has filled in, reads as one estimate of no category in particular. Its
   widgeting offers **parts** (below, *Columns*); `Estimates.quizEstimatesOf` reads every
   question's estimates under a quiz's first one.
+* **spread** -- how a quiz's questions fall round the wheel (`Spread.spreadOf`): each
+  category's **count**, every question counting once, split evenly across the categories its
+  estimates name, and the **smoothed** count, each share spread 9/16/50/16/9 percent over the
+  category and its two neighbours either side. A question of no category in particular counts in
+  neither and is told apart. Drawn as a radar in the *Category spread* panel below the grid.
 * **chance** -- how likely a persona is to get a question, 0 to 1 (`Personas.chanceOf`): their
   best for its difficulty within one slot of their own, their worst within one slot of the
   opposite, evenly between by ring distance, and halfway for no category in particular. Over a
