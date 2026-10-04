@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest'
+import type { OptimisticLocalStore } from 'convex/browser'
+import type { Id } from '../../convex/_generated/dataModel'
+import type { HuntOpeningT, ShallowHuntT } from '../../src/lib/rows'
+import * as Wheel from '../../src/lib/wheel'
+import { findingOf, showArranged } from '../../src/state/use-categories'
+
+const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>
+const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8h02' as Id<'hunts'>
+
+/** A hunt as its screens hold it, with nothing in it */
+function shallowHunt(_id: Id<'hunts'>): ShallowHuntT {
+  return { _id, label: 'quiet_otter', forced_label: null, title: 'Quiet Otter', realms: [], wheel: Wheel.defaultWheel(), members: [], role: 'smith' }
+}
+
+/** A stand-in for the client's watched results: every opening it holds, and what was written back */
+function storeHolding(openings: { args: { hunt_label: string, browser_key: string }, value: HuntOpeningT | undefined }[]) {
+  const written: { args: unknown, value: unknown }[] = []
+  const store = {
+    getAllQueries: () => openings,
+    setQuery:      (_query: unknown, args: unknown, value: unknown) => { written.push({ args, value }) },
+  } as unknown as OptimisticLocalStore
+  return { store, written }
+}
+
+describe("findingOf", () => {
+  const FindingCases: [boolean, HuntOpeningT | undefined, string, string][] = [
+    [true,  undefined,                                          'waiting', 'the server has not answered yet'],
+    [true,  { why: null, hunt: shallowHunt(hunt_id) },          'found',   'the visitor is on the hunt'],
+    [true,  { why: 'notOnHunt', hunt: null, smiths: [] },       'refused', 'the visitor is not on the hunt'],
+    [true,  { why: 'noSuchHunt', hunt: null },                  'missing', 'no hunt answers to the label'],
+    [false, undefined,                                          'missing', 'the address names something that cannot be a label, so nothing was asked'],
+  ]
+  for (const [askable, opening, expected, describes] of FindingCases) {
+    it(`is ${expected} when ${describes}`, () => {
+      expect(findingOf(askable, opening)).to.eq(expected)
+    })
+  }
+})
+
+describe("showArranged", () => {
+  const wheel = Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool')
+  const arranging = { action: { kind: 'arrange_categories' as const, hunt_id, wheel }, browser_key: 'key' }
+
+  it("shows the arranged hunt's every watched opening with its new wheel at once", () => {
+    const args = { hunt_label: 'quiet_otter', browser_key: 'key' }
+    const { store, written } = storeHolding([{ args, value: { why: null, hunt: shallowHunt(hunt_id) } }])
+    showArranged(store, arranging)
+    expect(written).to.deep.eq([{ args, value: { why: null, hunt: { ...shallowHunt(hunt_id), wheel } } }])
+  })
+
+  it("leaves another hunt's opening, one still on its way, and one shown to a stranger alone", () => {
+    const args = { hunt_label: 'other', browser_key: 'key' }
+    const { store, written } = storeHolding([
+      { args, value: { why: null, hunt: shallowHunt(other_id) } },
+      { args, value: undefined },
+      { args, value: { why: 'notOnHunt', hunt: null, smiths: [] } },
+    ])
+    showArranged(store, arranging)
+    expect(written).to.deep.eq([])
+  })
+
+  it("shows nothing early for any other account action", () => {
+    const args = { hunt_label: 'quiet_otter', browser_key: 'key' }
+    const { store, written } = storeHolding([{ args, value: { why: null, hunt: shallowHunt(hunt_id) } }])
+    showArranged(store, { action: { kind: 'retitle_hunt', hunt_id, title: 'Autumn' } })
+    expect(written).to.deep.eq([])
+  })
+})

@@ -128,3 +128,135 @@ export function useReorderable({ listkey, itemkey, idx, count, disabled, onMove 
 function carriedIdx(bag: Record<string | symbol, unknown>, listkey: string): number {
   return bag.listkey === listkey && typeof bag.idx === 'number' ? bag.idx : -1
 }
+
+export type PlaceProps = {
+  /** Names the board, so a place refuses a piece dragged from a different board on the same page */
+  boardkey: string
+  /** What the caller calls this place; handed back when a piece is dropped on it */
+  placekey: string
+  disabled: boolean
+}
+
+export type Place = {
+  /** The place: what a dragged piece is dropped on */
+  placeRef: (elem: HTMLElement | null) => void
+  /** A piece of this board is being dragged over this place */
+  over:     boolean
+}
+
+/** How a piece came to move: dropped there, or sent by a key */
+export type Placing = 'drop' | 'key'
+
+export type PieceProps = PlaceProps & {
+  /** What the caller calls this piece; handed back when it moves */
+  piecekey:    string
+  /** Told which piece moved, the place it was dropped on or sent to, and which of the two */
+  onPlace:     (piecekey: string, placekey: string, placing: Placing) => void
+  /** The place a key sends this piece to, once it has focus; null for a key that sends it nowhere */
+  placeForKey: (key: string) => string | null
+}
+
+export type Piece = {
+  /** The piece: what a drag begins from, what a drop on it lands in the place it sits in, and where the keys are heard */
+  pieceRef:  (elem: HTMLElement | null) => void
+  /** This is the piece being dragged, so it goes translucent */
+  dragging:  boolean
+  /** Another piece of this board is being dragged over this one */
+  over:      boolean
+  onPieceKeyDown: (event: React.KeyboardEvent) => void
+}
+
+/**
+ * One place on a board of places that pieces are dragged between -- a slot of a wheel, a pool
+ * beside it -- for the places no piece sits in. A piece is a place too (`usePiece`), so a drop on
+ * a piece lands in the place it sits in.
+ *
+ * @param boardkey - Names the board.
+ * @param placekey - Names this place on it.
+ * @returns A ref for the place, and whether a piece is being dragged over it.
+ *
+ * @example const { placeRef, over } = usePlace({ boardkey: 'wheel', placekey: 'pool', disabled })
+ */
+export function usePlace({ boardkey, placekey, disabled }: Readonly<PlaceProps>): Place {
+  const [placeElem, setPlaceElem] = useState<HTMLElement | null>(null)
+  const [over, setOver] = useState(false)
+
+  useEffect(() => {
+    if (disabled || placeElem === null) { return }
+    return placeTarget(placeElem, boardkey, placekey, setOver)
+  }, [placeElem, boardkey, placekey, disabled])
+
+  return { placeRef: setPlaceElem, over }
+}
+
+/**
+ * One piece on a board of places, dragged from place to place, or sent by a key once it has
+ * focus. The piece is a place as well, the one it sits in, so a piece dropped on another lands
+ * where that one sits.
+ *
+ * Nothing moves until the drop, and the board is never rearranged here: the caller is told which
+ * piece went to which place, and hands back the new arrangement, so what is on screen is always
+ * what is held. What a drop means -- a swap, a send to the pool -- is the caller's to say.
+ *
+ * @param boardkey - Names the board.
+ * @param piecekey - Names this piece.
+ * @param placekey - Names the place this piece sits in.
+ * @param onPlace - Told which piece was dropped, or sent by a key, where, and which it was.
+ * @param placeForKey - Where each key sends this piece.
+ * @returns A ref for the piece, what to draw while a drag is on, and its key handler.
+ *
+ * @example const { pieceRef, dragging, over, onPieceKeyDown } = usePiece({ boardkey: 'wheel', piecekey: 'tv', placekey: '15', disabled, onPlace, placeForKey })
+ */
+export function usePiece({ boardkey, piecekey, placekey, disabled, onPlace, placeForKey }: Readonly<PieceProps>): Piece {
+  const [pieceElem, setPieceElem] = useState<HTMLElement | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const [over, setOver] = useState(false)
+  const place = useRef(onPlace)
+
+  useEffect(() => { place.current = onPlace }, [onPlace])
+
+  useEffect(() => {
+    if (disabled || pieceElem === null) { return }
+    return combine(
+      draggable({
+        element:        pieceElem,
+        getInitialData: () => ({ boardkey, piecekey }),
+        onDragStart:    () => { setDragging(true) },
+        onDrop:         ({ location }) => {
+          setDragging(false)
+          const onto = location.current.dropTargets[0]
+          const ontoKey = onto ? carriedPlacekey(onto.data, boardkey) : null
+          if (ontoKey !== null) { place.current(piecekey, ontoKey, 'drop') }
+        },
+      }),
+      placeTarget(pieceElem, boardkey, placekey, setOver),
+    )
+  }, [pieceElem, boardkey, piecekey, placekey, disabled])
+
+  const onPieceKeyDown = (event: React.KeyboardEvent) => {
+    const ontoKey = disabled ? null : placeForKey(event.key)
+    if (ontoKey === null) { return }
+    event.preventDefault()
+    onPlace(piecekey, ontoKey, 'key')
+  }
+
+  return { pieceRef: setPieceElem, dragging, over, onPieceKeyDown }
+}
+
+/** `elem` made a place a piece of `boardkey` may be dropped on, saying so through `setOver` while one is over it; hands back how to undo it */
+function placeTarget(elem: HTMLElement, boardkey: string, placekey: string, setOver: (over: boolean) => void): () => void {
+  return dropTargetForElements({
+    element:     elem,
+    canDrop:     ({ source }) => source.data.boardkey === boardkey,
+    getData:     () => ({ boardkey, placekey }),
+    // A piece dragged over itself would stay where it is, so it is left unmarked.
+    onDragEnter: ({ source }) => { setOver(source.element !== elem) },
+    onDragLeave: () => { setOver(false) },
+    onDrop:      () => { setOver(false) },
+  })
+}
+
+/** The place a drop target names, when it is a place of the board `boardkey`; null when it is not */
+function carriedPlacekey(bag: Record<string | symbol, unknown>, boardkey: string): string | null {
+  return bag.boardkey === boardkey && typeof bag.placekey === 'string' ? bag.placekey : null
+}

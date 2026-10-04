@@ -52,6 +52,15 @@ export function quizPath(labels: QuizLabels, act?: Act): string {
 }
 
 /**
+ * Where the hunt labelled `hunt` arranges its subject categories round its wheel.
+ *
+ * @example categoriesPath('quiet_otter')  // => '/c/quiet_otter/categories'
+ */
+export function categoriesPath(hunt: string): string {
+  return `/c/${hunt}/categories`
+}
+
+/**
  * `act` read from an address, or null when it names no presentation.
  *
  * @example actFrom('review')  // => 'review'

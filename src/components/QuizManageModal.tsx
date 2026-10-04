@@ -1,14 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, Stack, TextField, Typography } from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, Link, Stack, TextField, Typography } from '@mui/material'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
+import NextLink from './NextLink'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
+import * as Routes from '../lib/routes'
 import type { HuntActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
@@ -190,7 +192,10 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dis
                 <Button variant="outlined" onClick={onRelabelHuntClick} disabled={Labelmaker.normalize(huntLabelDraft) === huntLabel}>Relabel</Button>
               </Stack>
             </Stack>
-            <p className={styles.microcopy}>{AppNotices.deletingHunt}</p>
+            <p className={styles.microcopy}>
+              <Link component={NextLink} href={Routes.categoriesPath(huntLabel)}>Arrange the hunt&apos;s categories</Link>
+              {' '}round its wheel. {AppNotices.deletingHunt}
+            </p>
           </section>
 
           <section>

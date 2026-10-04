@@ -11,8 +11,8 @@ import type { IdentT } from '../models/ident'
 import styles from './workbench.module.css'
 
 export type NotOnHuntProps = {
-  /** What the address asked for */
-  labels: Routes.QuizLabels
+  /** The quiz the address asked for; null for an address naming the hunt alone */
+  labels: Routes.QuizLabels | null
   /** Who is looking */
   ident:  IdentT
   /** Their role on the hunt: null when they are not on it, `reviewer` when they asked to work on it as a smith */
@@ -35,7 +35,7 @@ export function NotOnHunt({ labels, ident, role, smiths }: Readonly<NotOnHuntPro
         blurb={reviewing ? notASmithNotice(smiths, ident.label) : notOnHuntNotice(smiths, ident.label)}
       >
         <Stack direction="row" spacing={2}>
-          {reviewing && <Link component={NextLink} href={Routes.quizPath(labels, 'review')}>Review this quiz</Link>}
+          {reviewing && labels !== null && <Link component={NextLink} href={Routes.quizPath(labels, 'review')}>Review this quiz</Link>}
           <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
         </Stack>
       </Panel>

@@ -38,6 +38,7 @@ export const AppNotices = {
   pageFailed:           "This page couldn't be shown. Trying again often works; if it doesn't, send us what it says below.",
   opening:              'Opening…',
   openingHunts:         'Opening your hunts…',
+  openingHunt:          'Opening the hunt…',
   noHunts:              'No hunts yet.',
   identLabelShape:      'An ident label is 6 to 24 lowercase letters, digits and single underscores, starting with a letter. Spaces become underscores.',
   identLabelNeeded:     'Type the label you go by.',

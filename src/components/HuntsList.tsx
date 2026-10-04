@@ -115,8 +115,9 @@ function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountAction
 }
 
 /**
- * One hunt: its title, the visitor's role on it, a gear to edit it for its smiths, and a link to
- * each of its quizzes, which sit beside the title while there is room and wrap beneath it when not.
+ * One hunt: its title, the visitor's role on it, a gear to edit it for its smiths, its categories,
+ * and a link to each of its quizzes, which sit beside the title while there is room and wrap
+ * beneath it when not.
  */
 function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
   const [editing, setEditing] = useState(false)
@@ -131,6 +132,7 @@ function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
             <SettingsOutlinedIcon fontSize="small" />
           </IconButton>
         )}
+        <Link component={NextLink} href={Routes.categoriesPath(huntLabel)} aria-label={`Categories of ${hunt.title}`}>Categories</Link>
       </Stack>
       <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', columnGap: 1 }}>
         <Typography component="span">Quizzes:</Typography>
