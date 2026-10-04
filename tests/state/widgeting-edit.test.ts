@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../src/state/widgeting-edit'
+import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../src/state/widgeting-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { defaultLayout } from '../../src/models/layout'
@@ -33,6 +33,14 @@ function actionsOf(edit: WidgetingEdit, target: QuizT = quiz, held = library): H
 describe("NewColumnWidthPx", () => {
   it("gives a number its narrow column, and a model's answer and an entry a wide one", () => {
     expect(NewColumnWidthPx).to.deep.eq({ jsonata: 78, aibot: 170, entry: 170 })
+  })
+})
+
+describe("EstimatesColumnWidthPx", () => {
+  it("is the width of the column a new category-estimate widgeting brings, wider than any other entry's", () => {
+    const actions = actionsOf(ofHeld('categories'))
+    expect(actions[1]?.kind === 'add_column' && [actions[1].column.source, actions[1].column.width_px]).to.deep.eq(['categories', EstimatesColumnWidthPx])
+    expect(EstimatesColumnWidthPx).to.be.above(NewColumnWidthPx.entry)
   })
 })
 
