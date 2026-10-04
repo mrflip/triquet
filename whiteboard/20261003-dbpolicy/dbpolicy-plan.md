@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 4 done (#79, #81, #82, #83); thread 5 underway.
+`/sprint`. **Status:** threads 1 to 5 done (#79, #81, #82, #83, #86); thread 6 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -583,6 +583,15 @@ check still cannot leak another hunt.
 
 **Done when.** No public function outside the exceptions list holds an unscoped `db`.
 
+*Orchestrator, after thread 5 (#86):* every `affirm…` now throws `NotApprovedError`; mutations
+refuse it (`refusalFor`), queries answer empty through `emptyIfDenied` in `convex/functions.ts`.
+An `input` hook that throws cannot answer a query's empty value, so `zHuntQuery` wraps the handler
+in `emptyIfDenied` and calls `affirmForHunt(db, affirms, ctx.actor, queries)` (or the affirm
+function) inside it, putting the claims on `ctx` before handing over the scoped `db`.
+`affirmForHunt` guards the anonymous actor itself. Affirms come in three shapes (`huntAffirms`,
+`quizAffirms`, `affirms`); `questions.open` takes `huntAffirms` and checks `question.hunt_id`.
+`idents.performAccount` and `hunts.open` take no affirms: both belong on the exceptions list.
+
 ---
 
 ### Thread 7: Reads shaped by role
@@ -605,7 +614,8 @@ browser's spoiler shield, and `peeked` stays a record of the reveal.
    standing is sent. `src/lib/rows.ts`: `seenQuestionFor(row, stored, claims)` chooses the
    projection by standing alone; no reviewing is read for it.
 2. `convex/questions.ts` `open`: project by the claims' standing. A reviewer's result carries no
-   `stored`.
+   `stored`. (*After thread 5:* `questions.open` takes `huntAffirms`, so the standing is in its
+   claims already.)
 3. `src/components/ReviewScreen.tsx`: `AnswerLock` keeps hiding the answer until the reviewer
    reveals it, as now. Its doc block says it is a spoiler shield, not a security boundary.
 4. `hunts.whole`: add `mayExportHunt(claims)` (smith) to `Approve` and its affirmation (a new
@@ -637,6 +647,12 @@ server uses.
 3. The dispatcher in `use-hunt.ts` checks `Approve.may` for an action before sending it, and
    treats a failure there as a programming error to report, not a notice to show.
 4. Tests for each gated affordance under each standing.
+
+*Orchestrator, after thread 5 (#86):* the browser's affirms come from `useAffirms(hunt, quiz_id)`
+in `src/state/use-affirms.ts`; the claims for `mayReviseQuiz` are `Actor.QuizClaimsT` (hunt claims
+plus `quiz: { locked } | null`). Affirms are watch arguments, so a change of standing or ident
+re-asks the quiz's watches and shows *Opening…* for a round trip (the grid remounts). Consider
+having `useQuiz` keep the last quiz on screen while the new affirms' answers arrive.
 
 **Done when.** `grep -rn "role ===" src/components src/state` finds nothing that decides
 permission.

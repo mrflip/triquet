@@ -11,8 +11,8 @@ its row below and adds its section above the others, newest first.
 | 2 | `Approve`: pure policy and the dispatcher | complete, reviewed (clean) | `20261004-dbpolicy_approve` | #81 |
 | 3 | One label, and integrity repairs | complete, reviewed (1 fix) | `20261004-dbpolicy_one_label` | #82 |
 | 4 | Denormalize | complete, reviewed (clean) | `20261004-dbpolicy_denormalize` | #83 |
-| 5 | Affirmations | complete | `20261004-dbpolicy_affirm` | #86 |
-| 6 | A scoped database handle | pending | | |
+| 5 | Affirmations | complete, reviewed (clean) | `20261004-dbpolicy_affirm` | #86 |
+| 6 | A scoped database handle | underway | | |
 | 7 | Reads shaped by role | pending | | |
 | 8 | Views ask `Approve` | pending | | |
 | 9 | The library behind an admin helper | pending | | |
@@ -22,6 +22,12 @@ its row below and adds its section above the others, newest first.
 ## Thread 5: Affirmations (2026-10-04)
 
 Branch `20261004-dbpolicy_affirm`, PR #86, stacked on #83. Suites: typecheck, lint, `pnpm test` (110 files, 2930), `pnpm test:e2e` (207) all green; the first full e2e run lost 5 `widgets.spec` tests to the local backend's 1 s function timeout under load, which passed alone and on a clean rerun.
+
+*Review:* `clean`, at medium; no fixes. Checked that the affirm guards cover all `isPlaced` and
+`isQuizOfHunt` did, and that `QuizRevisionKindVals` covers every action the lock used to gate.
+Left, minor: for an anonymous actor `affirmForHunt` refuses before the round, so reads already
+started in `queries` go unawaited (at most a Convex warning); and a quiz not yet backfilled is
+denied as another hunt's (settled: `runAll` runs before threads 5 to 9 deploy).
 
 * **Built**:
   - **Affirms.** `ActionValidators.open` is gone; `huntAffirms` (`{ ident_id, hunt_id, standing }`),
