@@ -8,7 +8,7 @@ its row below and adds its section above the others, newest first.
 | # | Thread | Status | Branch | PR |
 |---|---|---|---|---|
 | 1 | Sessions and the actor | complete, reviewed (1 fix) | `20261004-dbpolicy_sessions` | #79 |
-| 2 | `Approve`: pure policy and the dispatcher | underway | | |
+| 2 | `Approve`: pure policy and the dispatcher | complete | `20261004-dbpolicy_approve` | #81 |
 | 3 | One label, and integrity repairs | pending | | |
 | 4 | Denormalize | pending | | |
 | 5 | Affirmations | pending | | |
@@ -17,6 +17,83 @@ its row below and adds its section above the others, newest first.
 | 8 | Views ask `Approve` | pending | | |
 | 9 | The library behind an admin helper | pending | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
+
+## Thread 2: `Approve`: pure policy and the dispatcher (2026-10-04)
+
+Branch `20261004-dbpolicy_approve`, PR #81, stacked on #79. Suites: typecheck, lint, `pnpm test`
+(109 files, 2852), `pnpm test:e2e` (207) all green.
+
+* **Built**:
+  - `src/lib/approve.ts` (was `approval.ts`): one non-async `may…` per rule, each a doc-block list
+    of rules and one guard per line beside its rule. A policy returns a **verdict**: `Allow`
+    (`'allow'`) or a `Denialkind` (`notIdentified`, `notPermitted`, `ownHunting`, `botsOff`), each a
+    `Refusalkind`, so its sentence is `RefusalNotices[...]`. `Approve.may` (boolean), `must`
+    (throws `NotApprovedError`, which now carries `.denial`), `verdictOn` (the verdict), `every`
+    (kept), `PolicyKeys`.
+  - **The dispatch table**: groups `LayoutPolicies`, `LibraryPolicies`, `ContentPolicies`,
+    `RealmPolicies`, `ReviewPolicies`, `HuntPolicies`, `AccountPolicies` (together
+    `ActionPolicies`), and `ReadPolicies` (`read_hunt`, `read_review`, `read_library`,
+    `count_usage`, `ask_anthropic_bot`). `EvidenceT` says what each key is handed; every action
+    key takes `(claims, action: ActionT)` (the actor alone for `assume_ident`, `retitle_ident`,
+    `new_hunt`), and each row is typed to take its own kind's action, so a missing row or a policy
+    that cannot take that kind fails to compile. `verdictOn` throws for an unknown key, or an
+    action handed under another kind's key (which is what makes its one type assertion sound).
+    Account `retitle_hunt`/`relabel_hunt` share the hunt action's row.
+  - `src/lib/actor.ts`: `HuntStandingVals`, `HuntClaimsT` (`ActorT & { hunt_id, standing }`),
+    `MemberClaimsT`, `IdentRefT`, `claimsOn(actor, hunt_id, hunting)`, `isSmith`, `isReviewer`,
+    `isMember` (a type guard), `roleOf` (throws for a stranger), `isOneself` (by id or label).
+  - `src/models/review.ts`: class `Review` with `isShared`, `isHidden`, `isActiveOwner`, `ownOf`.
+  - `convex/authorize.ts`: `claimsFor(db, hunt_id, actor)`, `affirmReadHunt`, `affirmReadReviews`,
+    `affirmCountUsage`, `affirmPerform`, `affirmAccountAction`. The last two return a verdict; the
+    mutations do `if (verdict !== Approve.Allow) { refuse(verdict) }`. `isPlaced`/`isQuizOfHunt`
+    stay (plain guards now) for thread 5 to replace.
+  - Tests: `tests/lib/approve.test.ts` (a case per guard; **the matrix**, keyed by kind with
+    `satisfies` so a kind missing there fails to compile; dispatcher errors; `must`'s story and
+    backstory); `tests/convex/authorize.test.ts` (each `affirm…`; `hunts.perform` as each standing,
+    and with no session, agreeing with `Approve.verdictOn`); actor and review predicate suites.
+* **Decisions taken**:
+  - **Verdicts, not booleans**, so the `ownHunting` sentence (and thread 5's `quizLocked`) comes
+    from the one decision rather than a second test. Thread 5: add `quizLocked` to
+    `DenialkindVals`.
+  - **Reads return booleans, writes verdicts**, from the `affirm…` functions: a query's denial is
+    its empty value and needs no reason.
+  - The library read asks `Approve.may('read_library', ctx.actor)` straight from `widgets.ts`:
+    there is no evidence to gather.
+  - `hunts.perform` keeps its `isAnonymous` guard: the policy says `notIdentified` too, but the
+    guard narrows `actor` for `performAction`.
+* **Deviations**:
+  - `mayAskAnthropicBot(switchval)`, not `()`: the route reads `process.env` and hands the value
+    in, so `approve.ts` reads no environment and has no `window` guard. The ask route's
+    `moreinfo` backstory is dropped.
+  - `mayChangeMembership(claims, target: IdentRefT)`, not `target_ident_id`: `add_hunting` names
+    the member by label, and comparing labels costs no read. Consequence: a smith asking for the
+    role they already hold is refused `ownHunting` (it was a silent no-op). Test changed.
+  - `affirmReadReviews(db, reviews, actor)` over a quiz's set, not `affirmReadReview` per row: one
+    hunting read for the lot, own review found in the set. **Pulled forward from thread 6 step 4**
+    (evaluating the reader's own review once); thread 6 still owns the scoped handle and dropping
+    the hand filter.
+  - No `affirmChangeHunt`: nothing outside `authorize` called `mayChangeHunt`. Added
+    `affirmCountUsage` and `claimsFor`.
+  - Policies the plan's list did not name, for the account actions: `mayAssertUsername`,
+    `mayRetitleIdent`, `mayMakeHunt`. `retitleIdent`/`newHunt` keep their own anonymous guards
+    (type narrowing), now unreachable through `performAccount`.
+  - `mayWriteReview` delegates to `mayReadHunt` (sonarjs refused two identical bodies).
+  - `isReviewAction`, `ReviewActionT`, `ReviewActionKindVals` and the `TODO dbpolicy` are gone;
+    `ApprovalNotices` became `RefusalNotices.botsOff`.
+* **Discoveries**:
+  - **`unicorn/prefer-combined-guards` contradicts `notes/policy_approve.md`.** Disabled with a
+    reason file-wide in `approve.ts`, in a block in `Review.isActiveOwner`, and on one line of
+    `affirmPerform`. Threads 5 and 6: expect it on every guard list.
+  - `Approve.verdictOn(action.kind, claims, action)` type-checks for a union-typed action because
+    every action key's evidence tuple uses the wide `ActionT`; the narrow types live in the rows.
+  - **Thread 5**: `mayReviseQuiz(quiz, claims)` does not fit the `(claims, action)` row as is;
+    either the claims carry the quiz (`claims.quiz`) and the row is a one-line adapter, or the
+    evidence tuple for content/layout kinds grows. Thread 7: `mayExportHunt` is a new read key
+    (`EvidenceT` and `ReadPolicies`). Thread 8: the browser builds claims with `Actor.claimsOn`,
+    and an affordance check for an action key needs a sample action of that kind. Thread 9:
+    `LibraryPolicies` is the block to move; `count_usage`'s evidence changes with it.
+* **For the Coach**: (also in `HUMAN-whatsup.md`) whether to switch `prefer-combined-guards` off
+  for policy code in `eslint.config.mjs`; whether the own-role no-op should come back.
 
 ## Thread 1: Sessions and the actor (2026-10-04)
 
