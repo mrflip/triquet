@@ -23,6 +23,10 @@ export const Brand = {
  * its own ground (bermuda on bonjour, comet on martinique) is that mode's soft fill instead, and
  * `accent` takes a brand colour that reads. Verdigris is deepened for light and lifted for dark,
  * so the focus ring shows on every surface and a label written on it reads.
+ *
+ * A chart's two series are `seriesA` and `seriesB`: the brand's purple and verdigris, each made
+ * vivid enough to read as a colour rather than a grey, stepped for the mode's surface, and far
+ * enough apart to be told from each other with any colour vision.
  */
 export const LightPalette = {
   page:        Brand.bonjour,
@@ -39,6 +43,8 @@ export const LightPalette = {
   goodSoft:    '#dbeadf',
   bad:         '#a63c29',
   badSoft:     '#f6ded8',
+  seriesA:     '#614092',
+  seriesB:     '#008c7a',
 } as const
 
 export type Colorkey = keyof typeof LightPalette
@@ -58,6 +64,8 @@ export const DarkPalette: Record<Colorkey, string> = {
   goodSoft:    '#1d3a2c',
   bad:         '#e0846c',
   badSoft:     '#3a201a',
+  seriesA:     '#9274c3',
+  seriesB:     '#37a69a',
 }
 
 /**

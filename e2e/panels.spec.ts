@@ -157,3 +157,9 @@ test('the library is handed out on its own, and a pasted library is merged into 
   await expect(section.getByText(/numnum_hint — skipped: it is a jsonata widget here, and an aibot widget in the library/)).toBeVisible()
   await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(new RegExp(`"label":"${label}"`))
 })
+
+test("the Category spread panel says how to begin when the quiz has no category estimate entry", async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Category spread' })
+  await expect(panel).toContainText('This quiz has no category estimate entry yet.')
+  await expect(panel.getByRole('button', { name: 'Category spread chart, full width' })).toHaveCount(0)
+})
