@@ -3,6 +3,12 @@ import * as Routes from '../../src/lib/routes'
 
 const Labels = { hunt: 'quiet_otter', realm: 'home', quiz: 'loud_heron' }
 
+describe("Routes.categoriesPath", () => {
+  it("puts a hunt's categories at /c/<hunt>/categories", () => {
+    expect(Routes.categoriesPath('quiet_otter')).to.eq('/c/quiet_otter/categories')
+  })
+})
+
 describe('Routes.quizPath', () => {
   it('puts a quiz at /h/<hunt>/<realm>/<quiz>', () => {
     expect(Routes.quizPath(Labels)).to.eq('/h/quiet_otter/home/loud_heron')
