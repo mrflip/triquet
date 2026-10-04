@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import * as Z from 'zod'
 import { describe, expect, it } from 'vitest'
 import type { Id, TableNames } from '../../convex/_generated/dataModel'
@@ -18,9 +19,9 @@ import { WidgetingValidators } from '../../src/models/widgeting'
 import { openTester, type Tester } from '../support/convex'
 
 // Every table's fields are derived from its row validator, bar a few written by hand. This holds
-// the two together: the same fields (kind by kind, for a table that is a union), every one
-// required but those being backfilled, and a row the validator makes is one the table takes,
-// while a row with a field of the wrong type is refused.
+// the two together: the same fields (kind by kind, for a table that is a union), bar those
+// retiring, every one required but those being backfilled or retired, and a row the validator
+// makes is one the table takes, while a row with a field of the wrong type is refused.
 
 /** A row validator: one shape, or a union of shapes told apart by a field */
 type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
@@ -44,6 +45,11 @@ const RowValidators: Record<TableNames, RowValidator> = {
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
 const Backfilling: Partial<Record<TableNames, string[]>> = {}
+
+/** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
+const Retiring: Partial<Record<TableNames, string[]>> = {
+  quizzes: ['bulk_ishes_last'],
+}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
@@ -137,12 +143,15 @@ describe("every table and its row validator", () => {
     describe(tablename, () => {
       const shapes = tableShapesOf(tablename)
 
-      it("name the same fields", () => {
-        expect(namesOf(shapes)).to.deep.eq(namesOf(rowShapesOf(row)))
+      const retiring = Retiring[tablename] ?? []
+
+      it("name the same fields, bar those retiring", () => {
+        expect(namesOf(shapes.map((fields) => _.omit(fields, retiring)))).to.deep.eq(namesOf(rowShapesOf(row)))
       })
 
-      it("require every field, bar those being backfilled", () => {
-        expect(shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))).to.deep.eq(Backfilling[tablename] ?? [])
+      it("require every field, bar those being backfilled or retired", () => {
+        const optional = shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))
+        expect(optional.toSorted(alphabetically)).to.deep.eq([...(Backfilling[tablename] ?? []), ...retiring].toSorted(alphabetically))
       })
 
       it("take a row the row validator makes", async () => {

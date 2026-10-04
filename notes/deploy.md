@@ -101,14 +101,18 @@ mutation seeds what the tool can make again. What is lost, and what comes back, 
    `./scripts/doppledo prd_janitor npx convex export --path <zip>` (read-only; it also leaves a
    snapshot in the dashboard to restore from).
 2. **Clear the old tables in the Convex dashboard** (production's data view): delete every
-   document of `expressions`, `widgets` and `bottings`, and on each `quizzes` document delete the
-   field `bulk_ishes_last`. A push is refused while a table absent from the new schema holds
-   documents, or a document holds a field it no longer names, so the deploy cannot land until
-   this is done; a missed one names itself in the build log, and the deployment keeps serving
-   the old version meanwhile. Between this step and the next the old app is still serving: its
-   bots' cells read empty, and a quiz edit that rewrites the quiz row is refused (the old code
-   wants the field just removed), so go straight on.
-3. **Deploy**: merge, and Vercel's build pushes the new schema and functions.
+   document of `expressions`, `widgets` and `bottings`. A push is refused while a table absent
+   from the new schema holds documents, so the deploy cannot land until this is done; a missed
+   one names itself in the build log, and the deployment keeps serving the old version
+   meanwhile. Between this step and the next the old app is still serving, its bots' cells
+   reading empty, so go straight on.
+3. **Deploy**: merge, and Vercel's build pushes the new schema and functions. Each quiz's
+   `bulk_ishes_last`, which the new schema no longer names, cannot be deleted in the dashboard
+   (the old schema, still serving, requires it), so the merge that lands first is
+   `20261004-unset_bulk_ishes_last`, whose schema still lets a quiz hold it. Once Vercel has
+   deployed it, take the field off:
+   `./scripts/doppledo prd_janitor npx convex run migrations:run '{"fn": "migrations:retireBulkIshesLast"}'`.
+   Then merge the tightening after it, which pushes the schema without the field.
 4. **Seed**: `./scripts/doppledo prd_janitor npx convex run seeding:seedWidgets`. It answers with
    the widgets it added (seventeen, the first time) and each quiz it gave the default widgetings,
    as `hunt/realm/quiz`; a second run adds nothing. A quiz whose columns name none of the default
