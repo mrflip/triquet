@@ -1,8 +1,10 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
-**Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Status:** planned.
+**Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
+`/sprint`. **Status:** thread 1 underway.
 
-Ten threads, stacked in order. This document and `dbpolicy-progress.md` beside it are everything
+Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
+so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
 a thread needs about the sprint; where they disagree, the progress document is newer.
 
 ## What the sprint is for

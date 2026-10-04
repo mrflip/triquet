@@ -7,7 +7,7 @@ its row below and adds its section above the others, newest first.
 
 | # | Thread | Status | Branch | PR |
 |---|---|---|---|---|
-| 1 | Sessions and the actor | pending | | |
+| 1 | Sessions and the actor | underway | | |
 | 2 | `Approve`: pure policy and the dispatcher | pending | | |
 | 3 | One label, and integrity repairs | pending | | |
 | 4 | Denormalize | pending | | |
