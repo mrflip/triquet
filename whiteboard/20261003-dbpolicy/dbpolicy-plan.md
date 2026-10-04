@@ -31,8 +31,8 @@ When the sprint is done:
   owns, and a few more denormalized fields.
 * **The database handle is scoped**: after affirmation, a function can only see rows of the hunt
   it was affirmed for.
-* **Reads are shaped by role**: a reviewer is sent what a review needs, and the answer only after
-  they reveal it.
+* **Reads are shaped by role**: a reviewer is sent what a review needs. That includes the
+  answer: hiding it until revealed is a "no spoilers" shield in the view, not a security rule.
 * Three integrity holes are closed.
 
 ## Read first (every thread)
@@ -413,7 +413,7 @@ so they cost a field and no upkeep.
 | `widgetings` | `hunt_id` | its quiz | -- |
 | `columns` | `hunt_id` | its quiz | -- |
 | `widgeteds` | `hunt_id`, `quiz_id` | its question | -- |
-| `reviewings` | `hunt_id`, `quiz_id`, `ident_id` | its review | `by_question_id_and_ident_id` replaces `by_question_id` (same prefix) |
+| `reviewings` | `hunt_id`, `quiz_id`, `ident_id` | its review | -- |
 | `huntings` | `ident_label`, `ident_title` | its ident | -- |
 
 `huntings.ident_title` is the one that changes: `retitleIdent` must also patch that ident's
@@ -444,8 +444,11 @@ huntings (bounded by the hunts one ident is on; read them with `huntingsFor`).
 **Done when.** No policy check or membership listing reads a parent row only to learn the hunt;
 `expectSound` verifies every copy; the backfills are tested.
 
-**Leaves for later threads.** `hunt_id` everywhere (threads 5, 6); `reviewings` by question and
-ident (thread 7).
+**Leaves for later threads.** `hunt_id` everywhere (threads 5, 6).
+
+*Orchestrator:* the `by_question_id_and_ident_id` index once listed here served thread 7's
+server-side answer mask, which the Coach has since ruled out (see thread 7). Add it only if
+something else wants it.
 
 ---
 
@@ -535,30 +538,31 @@ check still cannot leak another hunt.
 
 ### Thread 7: Reads shaped by role
 
-**Goal.** A reviewer is sent only what a review needs. The browser stops hiding things it should
-not have been given.
+**Goal.** A reviewer is sent only what a review needs.
 
-**What a reviewer is sent** (confirm against *For the Coach* before building): of a question,
-`_id`, `label`, `title`, `qnum`, `clueing`, `chains_to`, `hint`; `full_answer` only once their
-own reviewing of that question has `peeked: true`. Not `notes`, `alt_text`, or anything a
-widgeting stored. Of a quiz: its frame as today, including `smiths_note`. `hunts.whole` (the
-export) is for smiths only.
+**The Coach's word (2026-10-04):** don't mask the answer on the database side when reading a
+reviewer's question. Hiding it is more like a "no spoilers" tag than a security interdiction. So
+`full_answer` is sent to a reviewer whether or not they have peeked. `AnswerLock` stays as the
+browser's spoiler shield, and `peeked` stays a record of the reveal.
+
+**What a reviewer is sent** (the rest is still a proposal; see *For the Coach*): of a question,
+`_id`, `label`, `title`, `qnum`, `clueing`, `chains_to`, `hint`, `full_answer`. Not `notes`,
+`alt_text`, or anything a widgeting stored. Of a quiz: its frame as today, including
+`smiths_note`. `hunts.whole` (the export) is for smiths only.
 
 **Steps.**
 
 1. `src/models/question.ts`: beside `Question.exposed`, a list per standing of the fields that
-   standing is sent. `src/lib/rows.ts`: `seenQuestionFor(row, stored, claims, reviewing)` chooses
-   the projection.
-2. `convex/questions.ts` `open`: for a reviewer, fetch their reviewing of this question in the
-   affirmation's round (`by_question_id_and_ident_id`), and project accordingly. A reviewer's
-   result carries no `stored`.
-3. `peek_answer` already records the reveal; the watch on that question then reruns and delivers
-   the answer. `src/components/ReviewScreen.tsx`: `AnswerLock` shows the answer when it has one
-   and the reveal control when it does not; remove the client-side concealment.
+   standing is sent. `src/lib/rows.ts`: `seenQuestionFor(row, stored, claims)` chooses the
+   projection by standing alone; no reviewing is read for it.
+2. `convex/questions.ts` `open`: project by the claims' standing. A reviewer's result carries no
+   `stored`.
+3. `src/components/ReviewScreen.tsx`: `AnswerLock` keeps hiding the answer until the reviewer
+   reveals it, as now. Its doc block says it is a spoiler shield, not a security boundary.
 4. `hunts.whole`: add `mayExportHunt(claims)` (smith) to `Approve` and its affirmation.
-5. Tests: a reviewer's `questions.open` has no `full_answer` before `peek_answer` and has it
-   after; has no `notes`, `alt_text` or `stored`; `hunts.whole` is `null` for a reviewer. An e2e
-   pass through the review screen.
+5. Tests: a reviewer's `questions.open` has `full_answer` (peeked or not) and has no `notes`,
+   `alt_text` or `stored`; `hunts.whole` is `null` for a reviewer. An e2e pass through the review
+   screen.
 
 **Done when.** The query results a reviewer can call hold what the list above says, and no more.
 
@@ -633,7 +637,8 @@ that still holds each backfill.
    unclaimed username holds both and is the newest. Say if a session should hold one only.
 4. **The admin helper approves everyone** (thread 9). Until it is given a real rule, anyone with a
    username may change the library, where today it takes a smith of the hunt on screen.
-5. **What a reviewer is sent** (thread 7): the list under that thread is a proposal.
+5. **What a reviewer is sent** (thread 7): settled for the answer (sent, shielded only in the
+   view: the Coach, 2026-10-04); the rest of the list under that thread is still a proposal.
 6. **Backfills between merges.** Thread 3's (`forced_label` into `label`) wants running straight
    after thread 3 deploys: until it has, a relabelled hunt or quiz answers to its minted label
    again. Thread 4's wants running before threads 5 to 9 deploy.
