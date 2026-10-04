@@ -37,8 +37,8 @@ this section, lists the words they replace while code still holds them.
   template with `{{placeholders}}` for `aibot`.
 * **config** -- a widget's formulary-specific settings: `servicelabel`, `model_tier` and
   `max_tokens` for `aibot`; `entry_kind` for `entry`; nothing for `jsonata`.
-* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label) or
-  `titleish` (one line). Fixed once the widget is made, as its formulary is; together they are its
+* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label),
+  `titleish` (one line) or `estimates` (a question's category estimates, *Categories*). Fixed once the widget is made, as its formulary is; together they are its
   **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
   no row and reads `missing`.
 * **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
@@ -228,6 +228,12 @@ than one kind of player. Begun by the categories sprint, October 2026
   in particular**, and a **difficulty**, `easy`, `medium` (the default) or `hard`
   (`src/models/estimate.ts`). A question's estimates list each category once, or are a lone
   estimate of no category.
+* **category-estimate entry** -- an `entry` widget of kind `estimates` (the seeded one is
+  `categories`): each cell is a row of **pills**, one per category the question draws on, each a
+  category (or blank) and a difficulty. Blank pills come to nothing; a cell whose every pill is
+  blank, or that nobody has filled in, reads as one estimate of no category in particular. Its
+  widgeting offers **parts** (below, *Columns*); `Estimates.quizEstimatesOf` reads every
+  question's estimates under a quiz's first one.
 * **chance** -- how likely a persona is to get a question, 0 to 1 (`Personas.chanceOf`): their
   best for its difficulty within one slot of their own, their worst within one slot of the
   opposite, evenly between by ring distance, and halfway for no category in particular. Over a
@@ -267,8 +273,11 @@ than one kind of player. Begun by the categories sprint, October 2026
   from widgetings on purpose: a widgeting *has* a value, a column *shows* one. Removing a column
   keeps its widgeting; removing a widgeting takes its columns. Columns have a label space of their
   own per quiz, and the TSV's headers are column labels.
-* **source** -- what a column shows: `question.<field>`, `question.<view>`, or a widgeting's
-  label. `question` names the questions' own fields here, and no widgeting may be labelled it.
+* **source** -- what a column shows: `question.<field>`, `question.<view>`, a widgeting's
+  label, or `<widgeting>.<part>`: one **part** of what a widgeting came to, which only a
+  category-estimate entry offers (`estimates`, `masie`, `artie`, `poppy`, `average`), worked out on
+  render from the hunt's total order and stored nowhere. A formula reads the same parts on the
+  widgeted, `qn.<label>.masie`. `question` names the questions' own fields here, and no widgeting may be labelled it.
 * **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `quiz`, `qns`, `qn`,
   `qn_label`, `quiz_label`, and the running widgeting's `params` and `widgeting_label`. No ids;
   everything by label. It is **flat**: each earlier widgeting's widgeted sits at `qn.<label>`,
