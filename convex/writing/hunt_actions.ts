@@ -1,4 +1,5 @@
 import type { Id } from '../_generated/dataModel'
+import type { WheelT } from '../../src/models/category'
 import { refuse } from '../../src/lib/refusals'
 import { huntingsOf, realmsOf, type CensusT } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
@@ -37,6 +38,22 @@ export async function relabelHunt(db: Writer, census: CensusT, hunt_id: Id<'hunt
   if (! held) { refuse('huntGone') }
   if (holder_id !== null && holder_id !== hunt_id) { refuse('labelTaken') }
   await updateHunt(db, held, { label })
+}
+
+/**
+ * Arrange the subject categories of `hunt_id` round its wheel as `wheel`: what every screen of the
+ * hunt reads its total order from. Refused for a hunt that is gone.
+ *
+ * @param db - The mutation's database.
+ * @param hunt_id - Which hunt.
+ * @param wheel - Its new wheel, already validated.
+ *
+ * @example await arrangeCategories(db, hunt_id, Wheel.placed(wheel, 'tv', 'pool'))
+ */
+export async function arrangeCategories(db: Writer, hunt_id: Id<'hunts'>, wheel: WheelT): Promise<void> {
+  const held = await db.get('hunts', hunt_id)
+  if (! held) { refuse('huntGone') }
+  await updateHunt(db, held, { wheel })
 }
 
 /**

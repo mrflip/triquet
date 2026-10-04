@@ -305,14 +305,15 @@ type ActionT = HuntActionT | LibraryActionT | AccountActionT
 type ActionKind = ActionT['kind']
 /** The action of one kind */
 type ActionOfKind<KK extends ActionKind> = Extract<ActionT, { kind: KK }>
-/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play */
-type HuntlessKind = Exclude<LibraryActionT['kind'] | AccountActionT['kind'], HuntActionT['kind']>
+/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play (an account action that names no hunt) */
+type HuntlessKind = Exclude<LibraryActionT['kind'] | Exclude<AccountActionT, { hunt_id: unknown }>['kind'], HuntActionT['kind']>
 
 /**
  * What each policy is handed, by key. An action's policy is handed the claims on the hunt it
  * lands on (the actor alone, for one on the library or one decided before any hunt is in play;
  * with the quiz on screen, for one that revises it) and the action; the account actions that name
- * a hunt share the row of the hunt action of their kind.
+ * a hunt share the row of the hunt action of their kind, where there is one, and are handed the
+ * claims on that hunt all the same where there is not (arranging its categories).
  */
 type EvidenceT = {
   [KK in ActionKind]: KK extends HuntlessKind ? [actor: Actor.ActorT, action: ActionT]
@@ -404,6 +405,7 @@ const HuntPolicies = {
   retitle_hunt:   mayChangeHunt,
   relabel_hunt:   mayChangeHunt,
   delete_hunt:    mayChangeHunt,
+  arrange_categories: mayChangeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The account actions that name no hunt: of the actor alone */

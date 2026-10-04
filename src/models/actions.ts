@@ -2,6 +2,7 @@ import type * as Z from 'zod'
 import { HuntStandingVals } from '../lib/actor'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
+import { CategoryValidators } from './category'
 import { ColumnValidators } from './column'
 import { HuntingValidators } from './hunting'
 import { IdentValidators } from './ident'
@@ -105,8 +106,9 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('new_hunt'),      label }),
     obj({ kind: lit('retitle_hunt'),  hunt_id: zid('hunts'), title: titleish }),
     obj({ kind: lit('relabel_hunt'),  hunt_id: zid('hunts'), label }),
+    obj({ kind: lit('arrange_categories'), hunt_id: zid('hunts'), wheel: CategoryValidators.wheel }),
   ])
-    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle or relabel one they smith.')
+    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle, relabel or arrange the categories of one they smith.')
 
   return { huntAffirms, quizAffirms, affirms, huntAction, libraryAction, accountAction }
 })

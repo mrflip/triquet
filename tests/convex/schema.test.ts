@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { authTables } from '@convex-dev/auth/server'
 import type { Id, TableNames as AllTableNames } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
+import { CategoryLabelVals } from '../../src/models/category'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
 import { HuntingValidators } from '../../src/models/hunting'
@@ -21,9 +22,9 @@ import { openTester, type Tester } from '../support/convex'
 
 // Every table's fields are derived from its row validator, bar a few written by hand. This holds
 // the two together: the same fields (kind by kind, for a table that is a union), bar those
-// retiring, every one required but those being backfilled or retired, and a row the validator
-// makes is one the table takes, while a row with a field of the wrong type is refused. Convex
-// Auth's tables are its own, derived from no row validator of ours, and left to it.
+// retiring, every one required but those absentable for good, being backfilled or retired, and a
+// row the validator makes is one the table takes, while a row with a field of the wrong type is
+// refused. Convex Auth's tables are its own, derived from no row validator of ours, and left to it.
 
 /** Our tables: every one but Convex Auth's */
 type TableNames = Exclude<AllTableNames, keyof typeof authTables>
@@ -47,6 +48,9 @@ const RowValidators: Record<TableNames, RowValidator> = {
   widgetings:  WidgetingValidators.row,
   widgeteds:   WidgetedValidators.row,
 }
+
+/** The fields a row may lack for good, their absence meaning what the code reading them says: a hunt nobody has arranged reads as the default wheel */
+const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'] }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
 const Backfilling: Partial<Record<TableNames, string[]>> = {}
@@ -80,7 +84,7 @@ type Samples = Record<TableNames, Record<string, unknown>>
 async function samplesIn(tt: Tester): Promise<Samples> {
   return await tt.run(async (ctx) => {
     const insert = async <TN extends TableNames>(tablename: TN, row: Record<string, unknown>): Promise<Id<TN>> => await ctx.db.insert(tablename, row as never)
-    const hunt = HuntValidators.row({ label: 'quiet_otter', title: 'Quiet Otter' })
+    const hunt = HuntValidators.row({ label: 'quiet_otter', title: 'Quiet Otter', wheel: [null, ...CategoryLabelVals.slice(1)] })
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
@@ -124,7 +128,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
 /** A field of each table given a value of the wrong type */
 const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   columns:     { width_px: '200px' },
-  hunts:       { title: 7 },
+  hunts:       { wheel: ['knitting'] },
   huntings:    { role: 'owner' },
   idents:      { label: null },
   identings:   { user_id: 12 },
@@ -154,9 +158,9 @@ describe("every table and its row validator", () => {
         expect(namesOf(shapes.map((fields) => _.omit(fields, retiring)))).to.deep.eq(namesOf(rowShapesOf(row)))
       })
 
-      it("require every field, bar those being backfilled or retired", () => {
+      it("require every field, bar those absentable, being backfilled or retired", () => {
         const optional = shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))
-        expect(optional.toSorted(alphabetically)).to.deep.eq([...(Backfilling[tablename] ?? []), ...retiring].toSorted(alphabetically))
+        expect(optional.toSorted(alphabetically)).to.deep.eq([...(Absentable[tablename] ?? []), ...(Backfilling[tablename] ?? []), ...retiring].toSorted(alphabetically))
       })
 
       it("take a row the row validator makes", async () => {
