@@ -7,7 +7,7 @@ its row below and adds its section above the others, newest first.
 
 | # | Thread | Status | Branch | PR |
 |---|---|---|---|---|
-| 1 | Sessions and the actor | complete, in review | `20261004-dbpolicy_sessions` | #PRNUM |
+| 1 | Sessions and the actor | complete, in review | `20261004-dbpolicy_sessions` | #79 |
 | 2 | `Approve`: pure policy and the dispatcher | pending | | |
 | 3 | One label, and integrity repairs | pending | | |
 | 4 | Denormalize | pending | | |
@@ -20,7 +20,7 @@ its row below and adds its section above the others, newest first.
 
 ## Thread 1: Sessions and the actor (2026-10-04)
 
-Branch `20261004-dbpolicy_sessions`, PR #PRNUM, against `main` (carries the five planning commits of
+Branch `20261004-dbpolicy_sessions`, PR #79, against `main` (carries the five planning commits of
 `20261003-dbpolicy_a` beneath it; no PR beneath). Suites: typecheck, lint, `pnpm test` (109 files,
 2740 tests), `pnpm test:e2e` (207) all green.
 
