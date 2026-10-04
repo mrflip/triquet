@@ -3,6 +3,7 @@
 import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
 import { ReviewsPanel } from './ReviewsPanel'
+import { SpreadPanel } from './SpreadPanel'
 import { WidgetsPanel } from './WidgetsPanel'
 import * as Labelmaker from '../../lib/labelmaker'
 import type { QuizRun } from '../../lib/formulary/runner'
@@ -29,12 +30,14 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
 }
 
-/** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
+/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
 export function Panels({ quiz, hunt, realm, library, ident, reviews, run, carryOut, saveNotice, dispatch, onImport }: Readonly<PanelsProps>) {
   const labels = { hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) }
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />
+
+      <SpreadPanel run={run} />
 
       <MembersPanel members={hunt.members} self_id={ident._id} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 

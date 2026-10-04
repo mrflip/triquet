@@ -70,6 +70,8 @@ const ContrastCases = [
   [["highlight", "surface"],     3,   'the focus ring on a panel'],
   [["highlight", "surfaceSunk"], 3,   'the focus ring on a sunk surface'],
   [["accent",    "surface"],     3,   'a drop line or active border in the grid'],
+  [["seriesA",   "surface"],     3,   "a chart's first line on a panel"],
+  [["seriesB",   "surface"],     3,   "a chart's second line on a panel"],
 ] as const
 
 describe.each([['light', LightPalette], ['dark', DarkPalette]] as const)('the %s palette', (_mode, palette) => {

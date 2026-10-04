@@ -86,3 +86,36 @@ test("columns can show Masie's chance and the personas' average, worked out from
   await expect(cellOf(page, 0, 'Masie')).toHaveText('69%')
   await expect(cellOf(page, 0, 'Average')).toHaveText('76%')
 })
+
+test("the category spread counts the questions round the wheel, smoothed beside them, and widens when clicked", async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Category spread' })
+  await expect(panel).toContainText('0 questions placed, from the estimates under categories.')
+  await pick(page, categoryList(page, 0, 1), 'Art')
+  await pick(page, categoryList(page, 1, 1), 'Art')
+  await addButton(page, 1).click()
+  await pick(page, categoryList(page, 1, 2), 'TV')
+  await expect(panel).toContainText('2 questions placed')
+  await expect(panel).toContainText(/draws? on no category in particular/)
+
+  // Art has one question and half of another; smoothed, it keeps half of that, and lends Classical Music 16%.
+  await panel.getByRole('button', { name: 'As a table' }).click()
+  const table = panel.getByRole('table', { name: 'Category spread' })
+  await expect(table.locator('tr[data-category="art"]').getByRole('cell')).toHaveText(['Art', '1.5', '0.75'])
+  await expect(table.locator('tr[data-category="tv"]').getByRole('cell')).toHaveText(['TV', '0.5', '0.25'])
+  await expect(table.locator('tr[data-category="classical_music"]').getByRole('cell')).toHaveText(['Classical Music', '0', '0.24'])
+
+  // A click widens the chart to the whole row of panels, in the page; Enter narrows it again.
+  const chart = panel.getByRole('button', { name: 'Category spread chart, full width' })
+  await expect(chart).toHaveAttribute('aria-pressed', 'false')
+  const widthOf = async () => {
+    const box = await panel.boundingBox()
+    return box?.width ?? 0
+  }
+  const restingWidth = await widthOf()
+  await chart.click()
+  await expect(chart).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(widthOf).toBeGreaterThan(restingWidth)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await chart.press('Enter')
+  await expect(chart).toHaveAttribute('aria-pressed', 'false')
+})
