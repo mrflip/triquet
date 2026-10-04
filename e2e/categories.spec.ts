@@ -111,6 +111,20 @@ test.describe("a hunt's category wheel", () => {
     await expect(emptySlotAt(page, 12)).toHaveText('Geogr')
   })
 
+  test("sets Masie, Artie and Poppy at the triangle's corners, each knowing best what sits beside them", async ({ page }) => {
+    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    const masie = page.getByRole('group', { name: 'Masie' })
+    await expect(masie).toContainText('Best: Math & Econ')
+    await expect(masie).toContainText('Worst: Theater')
+    await expect(page.getByRole('group', { name: 'Artie' })).toContainText('Best: Art')
+    await expect(page.getByRole('group', { name: 'Poppy' })).toContainText('Best: Pop Music')
+
+    // A persona keeps their slot, so what they know follows what is put in it.
+    await dropOn(page, 'theater', tileOf(page, 'Math & Econ'))
+    await expect(masie).toContainText('Best: Theater')
+    await expect(masie).toContainText('Worst: Math & Econ')
+  })
+
   test("shows a reviewer the total order, read-only, and a stranger who to ask", async ({ page, browser }) => {
     const path = Routes.categoriesPath(huntLabelOf(page))
     const reviewer = await otherVisitor(browser)
@@ -130,6 +144,7 @@ test.describe("a hunt's category wheel", () => {
     await expect(wheel.getByRole('listitem')).toHaveCount(24)
     await expect(wheel.getByRole('listitem', { name: '9. TV' })).toBeVisible()
     await expect(wheel.getByRole('listitem', { name: '16. Art' })).toBeVisible()
+    await expect(reviewer.getByRole('group', { name: 'Artie' })).toContainText('Best: TV')
     await expect(reviewer.getByRole('button', { name: /^Art, / })).toHaveCount(0)
     await expect(reviewer.getByRole('region', { name: 'Pool' })).toHaveCount(0)
 
