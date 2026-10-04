@@ -3,6 +3,8 @@
 The running handoff for the categories sprint. Newer than `categories-plan.md` wherever the two
 disagree. Workers add their sections below, newest first.
 
+**Sprint done** (2026-10-04): PRs #85 <- #87 <- #91 <- #94, all reviewed, none merged.
+
 ## Status
 
 | Thread | Name | Status |
@@ -10,7 +12,7 @@ disagree. Workers add their sections below, newest first.
 | 1 | Categories and the category editor | complete, PR #85, review clean |
 | 2 | Category personas | complete, PR #87, review clean |
 | 3 | The category estimate entry | complete, PR #91, review fixed 1 |
-| 4 | The category spread chart | complete, PR #94 |
+| 4 | The category spread chart | complete, PR #94, review clean |
 
 ## Thread 4: The category spread chart (2026-10-04)
 
@@ -68,6 +70,9 @@ Branch `20261004-category_radar`, PR #94, stacked on #91. Suites: typecheck and 
   - Recharts vs `@mui/x-charts` stays open (plan, *For the Coach*). Only `SpreadPanel.tsx`
     imports Recharts.
   - Confirm or adjust the new series colours (HUMAN-whatsup).
+
+*Review:* clean at medium; no fixes. Left, minor: an empty quiz reads "Every question names a
+category." under the chart: true, but odd; wording for the Coach.
 
 ## Thread 3: The category estimate entry (2026-10-04)
 
