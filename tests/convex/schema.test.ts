@@ -49,22 +49,10 @@ const RowValidators: Record<TableNames, RowValidator> = {
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {
-  columns:    ['hunt_id'],
-  huntings:   ['ident_label', 'ident_title'],
-  idents:     ['user_id'],
-  quizzes:    ['hunt_id'],
-  reviewings: ['hunt_id', 'ident_id', 'quiz_id'],
-  widgetings: ['hunt_id'],
-  widgeteds:  ['hunt_id', 'quiz_id'],
-}
+const Backfilling: Partial<Record<TableNames, string[]>> = {}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
-const Retiring: Partial<Record<TableNames, string[]>> = {
-  hunts:     ['forced_label'],
-  questions: ['forced_label'],
-  quizzes:   ['forced_label'],
-}
+const Retiring: Partial<Record<TableNames, string[]>> = {}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)

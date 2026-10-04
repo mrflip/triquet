@@ -42,11 +42,11 @@ async function chainDangling({ tt, open }: Seeded) {
 }
 
 async function columnOfNoWidgeting({ tt, open }: Seeded) {
-  await tt.run(async (ctx) => { await ctx.db.insert('columns', { quiz_id: open.quiz_id, label: 'ghost', title: 'Ghost', source: 'ghost', width_px: 100, position: 99 }) })
+  await tt.run(async (ctx) => { await ctx.db.insert('columns', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, label: 'ghost', title: 'Ghost', source: 'ghost', width_px: 100, position: 99 }) })
 }
 
 async function columnOfNoField({ tt, open }: Seeded) {
-  await tt.run(async (ctx) => { await ctx.db.insert('columns', { quiz_id: open.quiz_id, label: 'askew', title: 'Askew', source: 'question.askew', width_px: 100, position: 99 }) })
+  await tt.run(async (ctx) => { await ctx.db.insert('columns', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, label: 'askew', title: 'Askew', source: 'question.askew', width_px: 100, position: 99 }) })
 }
 
 async function quizLabelShared({ tt, open }: Seeded) {
@@ -66,8 +66,9 @@ async function huntLabelShared({ tt, open }: Seeded) {
   })
 }
 
-async function copyMissing({ tt, open }: Seeded) {
-  await tt.run(async (ctx) => { await ctx.db.patch('quizzes', open.quiz_id, { hunt_id: undefined }) })
+async function quizOfAnotherHunt({ tt, open }: Seeded) {
+  const other = await seedHunt(tt, huntHolding([Quiz.blank('Three')]))
+  await tt.run(async (ctx) => { await ctx.db.patch('quizzes', open.quiz_id, { hunt_id: other.open.hunt_id }) })
 }
 
 async function widgetingOfAnotherHunt({ tt, open }: Seeded) {
@@ -102,7 +103,7 @@ const Breakages: [(seeded: Seeded) => Promise<void>, string, string][] = [
   [columnOfNoField,     "every column's source names something showable: column askew",                         'a column showing a field questions lack'],
   [quizLabelShared,     'no two hunts, nor two quizzes of a realm, share a label: two quizzes of one realm',     'two quizzes of a realm under one label'],
   [huntLabelShared,     'no two hunts, nor two quizzes of a realm, share a label: two hunts',                   'two hunts under one label'],
-  [copyMissing,         "quizzes.hunt_id is its realm_id's hunt_id: quizzes",                                    'a quiz lacking its copy of its hunt'],
+  [quizOfAnotherHunt,   "quizzes.hunt_id is its realm_id's hunt_id: quizzes",                                    "a quiz whose hunt is not its realm's"],
   [widgetingOfAnotherHunt, "widgetings.hunt_id is its quiz_id's hunt_id: widgetings",                           "a widgeting whose hunt is not its quiz's"],
   [titleStale,          "huntings.ident_title is its ident_id's title: huntings",                               "a hunting still holding its ident's old title"],
   [cellAcrossQuizzes,   "widgeteds.quiz_id is its widgeting_id's quiz_id: widgeteds",                           "a cell whose widgeting is of another quiz"],

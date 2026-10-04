@@ -16,7 +16,7 @@ import { refuse } from '../../src/lib/refusals'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
-import { huntIdOf, huntIdOfLayoutRow, libraryOf, reviewingCopiesOf } from '../reading'
+import { libraryOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
@@ -62,9 +62,7 @@ export function movedTo<RT extends { label: string }>(items: readonly RT[], labe
 }
 
 // Each update below is held to its row validator whole, as the row would stand afterwards, and
-// then writes only the fields that change; one that changes nothing writes nothing. A row written
-// before it carried its copies of its parents' fields (`notes/convex.md`, *Denormalized fields*)
-// is given them as it is updated, read from its parent, until `migrations.ts` has backfilled it.
+// then writes only the fields that change; one that changes nothing writes nothing.
 
 /** Revise a hunt's own row */
 export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<Z.output<typeof HuntValidators.row>>): Promise<void> {
@@ -74,8 +72,7 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
 
 /** Revise a quiz's own row */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const hunt_id = await huntIdOf(db, held) ?? refuse('realmGone')
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
+  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 
@@ -101,15 +98,13 @@ export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: Widg
 
 /** Revise a widgeting's row */
 export async function updateWidgeting(db: Writer, held: Doc<'widgetings'>, patch: Partial<Z.output<typeof WidgetingValidators.row>>): Promise<void> {
-  const hunt_id = await huntIdOfLayoutRow(db, held) ?? refuse('quizGone')
-  const changed = changedFields(held, WidgetingValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
+  const changed = changedFields(held, WidgetingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('widgetings', held._id, changed) }
 }
 
 /** Revise a column's row */
 export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: Partial<Z.output<typeof ColumnValidators.row>>): Promise<void> {
-  const hunt_id = await huntIdOfLayoutRow(db, held) ?? refuse('quizGone')
-  const changed = changedFields(held, ColumnValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
+  const changed = changedFields(held, ColumnValidators.row({ ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('columns', held._id, changed) }
 }
 
@@ -121,8 +116,7 @@ export async function updateReview(db: Writer, held: Doc<'reviews'>, patch: Part
 
 /** Revise a reviewing's row */
 export async function updateReviewing(db: Writer, held: Doc<'reviewings'>, patch: Partial<Z.output<typeof ReviewingValidators.row>>): Promise<void> {
-  const copies = await reviewingCopiesOf(db, held) ?? refuse('reviewNotOpened')
-  const changed = changedFields(held, ReviewingValidators.row({ ..._.omit(held, SystemFields), ...copies, ...patch }))
+  const changed = changedFields(held, ReviewingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('reviewings', held._id, changed) }
 }
 

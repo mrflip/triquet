@@ -95,8 +95,8 @@ describe('hunts.perform: add_hunting', () => {
     await seeded.tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntingsPerHunt.max - 1 }, (_unused, idx) => `member_${String(idx)}`)
       for (const label of labels) {
-        const ident_id = await ctx.db.insert('idents', { label, title: 'Member' })
-        await ctx.db.insert('huntings', { hunt_id: seeded.open.hunt_id, ident_id, role: 'reviewer' })
+        const ident_id = await ctx.db.insert('idents', { label, title: 'Member', user_id: null })
+        await ctx.db.insert('huntings', { hunt_id: seeded.open.hunt_id, ident_id, ident_label: label, ident_title: 'Member', role: 'reviewer' })
       }
     })
     await identified(seeded.tt, 'one_member_more')

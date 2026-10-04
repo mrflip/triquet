@@ -26,65 +26,29 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
-// An ident's `user_id` is written by hand too, optional here though every write gives one, so
-// that idents written before it existed still fit until `migrations.ts` backfills them.
-//
-// Copies of a parent's field (`notes/convex.md`, *Denormalized fields*) are written by hand too,
-// optional here though every write gives them, so that rows written before each was copied still
-// fit until `migrations.ts` backfills them: `hunt_id` on quizzes, widgetings, columns, widgeteds
-// and reviewings; `quiz_id` on widgeteds and reviewings; `ident_id` on reviewings; and an ident's
-// label and title on huntings.
-//
-// One field is retiring from three tables: `forced_label` on hunts, quizzes and questions, which
-// no row validator writes any more, is still let through until `migrations.ts` has folded it into
-// `label` and taken it off every row.
-//
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
 
-const identFields       = {
-  ...zodOutputToConvexFields(_.omit(IdentValidators.row.shape, ['user_id'])),
-  user_id: CVX.optional(CVX.union(CVX.id('users'), CVX.null())),
-}
+const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
-/** A copy of the hunt a row belongs to, being backfilled */
-const copiedHuntId      = { hunt_id: CVX.optional(CVX.id('hunts')) }
-/** A copy of the quiz a row belongs to, being backfilled */
-const copiedQuizId      = { quiz_id: CVX.optional(CVX.id('quizzes')) }
-/** A copy of who wrote the review a reviewing is part of, being backfilled */
-const copiedIdentId     = { ident_id: CVX.optional(CVX.id('idents')) }
-/** A copy of the label and title of the ident a hunting puts on its hunt, being backfilled */
-const copiedIdent       = { ident_label: CVX.optional(CVX.string()), ident_title: CVX.optional(CVX.string()) }
-
-/** The retiring `forced_label`: a label, or null */
-const retiringForcedLabel = { forced_label: CVX.optional(CVX.union(CVX.string(), CVX.null())) }
-
-const huntFields        = { ...zodOutputToConvexFields(HuntValidators.row.shape), ...retiringForcedLabel }
+const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = { ...zodOutputToConvexFields(_.omit(QuizValidators.row.shape, ['hunt_id'])), ...copiedHuntId, ...retiringForcedLabel }
+const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
-  ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params', 'hunt_id'])),
+  ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),
   params: CVX.any() as VAny<Record<string, JsonT>>,
-  ...copiedHuntId,
 }
 const widgetedFields    = {
-  ...zodOutputToConvexFields(_.omit(WidgetedValidators.row.shape, ['value', 'result_meta', 'hunt_id', 'quiz_id'])),
+  ...zodOutputToConvexFields(_.omit(WidgetedValidators.row.shape, ['value', 'result_meta'])),
   value:       CVX.any() as VAny<JsonT | null>,
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
-  ...copiedHuntId,
-  ...copiedQuizId,
 }
-const columnFields      = { ...zodOutputToConvexFields(_.omit(ColumnValidators.row.shape, ['hunt_id'])), ...copiedHuntId }
-const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), ...retiringForcedLabel }
+const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
+const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
-const reviewingFields   = {
-  ...zodOutputToConvexFields(_.omit(ReviewingValidators.row.shape, ['hunt_id', 'quiz_id', 'ident_id'])),
-  ...copiedHuntId,
-  ...copiedQuizId,
-  ...copiedIdentId,
-}
-const huntingFields     = { ...zodOutputToConvexFields(_.omit(HuntingValidators.row.shape, ['ident_label', 'ident_title'])), ...copiedIdent }
+const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
+const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
 
 /**
  * The app's tables. Children are read through their parent's index, in their committed order

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import type { Id } from '../../convex/_generated/dataModel'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntIdOf, huntIdOfLayoutRow, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor,
-  reviewingCopiesOf, usageOf, widgetForLabel, widgetingsOf,
+  censusOf, cellRowsOf, huntForLabel, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor, usageOf,
+  widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
@@ -13,7 +13,6 @@ import { Widgeting } from '../../src/models/widgeting'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { classicLayout } from '../support/layouts'
 import { huntHolding, identified, openTester, putOn, signedIn, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
@@ -37,11 +36,12 @@ function quizWorking(labels: readonly string[], qty = 1): QuizT {
   return { ...Quiz.blank(), questions: Array.from({ length: qty }, () => Question.blank()), widgetings: labels.map((label) => Widgeting.fill({ widget_label: 'numnum_clueing', label })) }
 }
 
-/** A widgeted of a numnum reading as the row holds it: `ok` with one item of `text`, or `errored` saying `text` */
-function numnum(question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>, status: 'ok' | 'errored', text: string) {
+/** A widgeted of a numnum for `question`, reading as the row holds it: `ok` with one item of `text`, or `errored` saying `text` */
+function numnum(question: Pick<Doc<'questions'>, '_id' | 'hunt_id' | 'quiz_id'>, widgeting_id: Id<'widgetings'>, status: 'ok' | 'errored', text: string) {
+  const { _id: question_id, hunt_id, quiz_id } = question
   return status === 'ok'
-    ? { question_id, widgeting_id, status, value: { items: [{ text, value: 1, kind: 'numeral' }] }, message: null, result_meta: {} }
-    : { question_id, widgeting_id, status, value: null, message: text, result_meta: {} }
+    ? { hunt_id, quiz_id, question_id, widgeting_id, status, value: { items: [{ text, value: 1, kind: 'numeral' }] }, message: null, result_meta: {} }
+    : { hunt_id, quiz_id, question_id, widgeting_id, status, value: null, message: text, result_meta: {} }
 }
 
 /** What a stored cell's row says: its message when it failed, else its one item's text */
@@ -117,7 +117,7 @@ describe("quizRowsOf", () => {
   it("reads each stored cell's newest row, and the newest ok one", async () => {
     const { tt, quiz_id } = await holding(huntHolding([quizWorking(['numnum_clueing'], 2)]))
     const { questions, widgetings } = await rowsOf(tt, quiz_id)
-    const [first, second] = questions.map((row) => row._id)
+    const [first, second] = questions
     const widgeting_id = present(widgetings[0])._id
     await tt.run(async (ctx) => {
       for (const row of [
@@ -134,10 +134,11 @@ describe("quizRowsOf", () => {
   it("keeps cells apart: another widgeting of the same widget is another cell", async () => {
     const { tt, quiz_id } = await holding(huntHolding([quizWorking(['numnum_clueing', 'numnum_again'])]))
     const { questions, widgetings } = await rowsOf(tt, quiz_id)
-    const question_id = present(questions[0])._id
+    const question = present(questions[0])
+    const question_id = question._id
     await tt.run(async (ctx) => {
-      await ctx.db.insert('widgeteds', numnum(question_id, present(widgetings[0])._id, 'ok', 'first'))
-      await ctx.db.insert('widgeteds', numnum(question_id, present(widgetings[1])._id, 'errored', 'second'))
+      await ctx.db.insert('widgeteds', numnum(question, present(widgetings[0])._id, 'ok', 'first'))
+      await ctx.db.insert('widgeteds', numnum(question, present(widgetings[1])._id, 'errored', 'second'))
     })
     const { stored } = await rowsOf(tt, quiz_id)
     const cells = present(stored[question_id])
@@ -243,10 +244,10 @@ describe("usageOf", () => {
 
   it("reads no further than it may, and says its counts are a floor past that", async () => {
     const tt = openTester()
-    const { quiz_id } = await holding(huntHolding([Quiz.blank()]), tt)
+    const { hunt_id, quiz_id } = await holding(huntHolding([Quiz.blank()]), tt)
     await tt.run(async (ctx) => {
       for (let ii = 0; ii <= PA.WidgetingsCounted.max; ii++) {
-        await ctx.db.insert('widgetings', { quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, position: ii })
+        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, position: ii })
       }
     })
     const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))
@@ -298,88 +299,5 @@ describe("membersOf", () => {
     const members = await tt.run(async (ctx) => await membersOf(ctx.db, hunt_id))
     expect(members.map(({ label, title, role }) => [label, title, role])).to.deep.eq([['alice_reviews', 'As The Hunting Holds It', 'reviewer']])
   })
-
-  it("reads the ident of a hunting not yet backfilled, and passes over one whose ident is gone", async () => {
-    const { tt, hunt_id } = await holding(Hunt.blank())
-    const [alice, bob] = [await identified(tt, 'alice_reviews'), await identified(tt, 'bob_reviews')]
-    await tt.run(async (ctx) => {
-      await ctx.db.insert('huntings', { hunt_id, ident_id: alice.ident_id, role: 'smith' })
-      await ctx.db.insert('huntings', { hunt_id, ident_id: bob.ident_id, role: 'reviewer' })
-      await ctx.db.delete('idents', bob.ident_id)
-    })
-    const members = await tt.run(async (ctx) => await membersOf(ctx.db, hunt_id))
-    expect(members.map(({ label, title, role }) => [label, title, role])).to.deep.eq([['alice_reviews', 'Alice Reviews', 'smith']])
-  })
 })
 
-/** A hunt of one laid-out quiz, and the quiz's own row, its first widgeting's and its first column's */
-async function laidOut() {
-  const { tt, hunt_id, quiz_id } = await holding(huntHolding([{ ...Quiz.blank(), ...classicLayout() }]))
-  const rows = await tt.run(async (ctx) => present(await layoutRowsOf(ctx.db, quiz_id)))
-  return { tt, hunt_id, quiz: rows.quiz, widgeting: present(rows.widgetings[0]), column: present(rows.columns[0]) }
-}
-
-describe("huntIdOf and huntIdOfLayoutRow", () => {
-  it("read the hunt off the row, with no other read: a quiz whose realm is gone still names it", async () => {
-    const { tt, hunt_id, quiz, widgeting, column } = await laidOut()
-    await tt.run(async (ctx) => { await ctx.db.delete('realms', quiz.realm_id) })
-    const found = await tt.run(async (ctx) => [await huntIdOf(ctx.db, quiz), await huntIdOfLayoutRow(ctx.db, widgeting), await huntIdOfLayoutRow(ctx.db, column)])
-    expect(found).to.deep.eq([hunt_id, hunt_id, hunt_id])
-  })
-
-  it("read it through the parent for a row not yet backfilled", async () => {
-    const { tt, hunt_id, quiz, widgeting, column } = await laidOut()
-    const unfilled = { hunt_id: undefined }
-    const found = await tt.run(async (ctx) => {
-      await ctx.db.patch('quizzes', quiz._id, unfilled)
-      return [await huntIdOf(ctx.db, { ...quiz, ...unfilled }), await huntIdOfLayoutRow(ctx.db, { ...widgeting, ...unfilled }), await huntIdOfLayoutRow(ctx.db, { ...column, ...unfilled })]
-    })
-    expect(found).to.deep.eq([hunt_id, hunt_id, hunt_id])
-  })
-
-  it("are null for a row not yet backfilled whose parent is gone", async () => {
-    const { tt, quiz, widgeting } = await laidOut()
-    const found = await tt.run(async (ctx) => {
-      await ctx.db.delete('realms', quiz.realm_id)
-      await ctx.db.delete('quizzes', quiz._id)
-      return [await huntIdOf(ctx.db, { ...quiz, hunt_id: undefined }), await huntIdOfLayoutRow(ctx.db, { ...widgeting, hunt_id: undefined })]
-    })
-    expect(found).to.deep.eq([null, null])
-  })
-})
-
-/** A hunt whose quiz alice has reviewed, and her verdict on its first question, without the copies a reviewing holds */
-async function reviewed() {
-  const { tt, hunt_id, quiz_id } = await holding(Hunt.blank())
-  const { ident_id } = await identified(tt, 'alice_reviews')
-  const { review_id, reviewing } = await tt.run(async (ctx) => {
-    const rows = present(await quizRowsOf(ctx.db, quiz_id))
-    const question_id = present(rows.questions[0])._id
-    const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'draft' })
-    const reviewing_id = await ctx.db.insert('reviewings', { review_id, question_id, get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false })
-    return { review_id, reviewing: present(await ctx.db.get('reviewings', reviewing_id)) }
-  })
-  return { tt, hunt_id, quiz_id, ident_id, review_id, reviewing }
-}
-
-describe("reviewingCopiesOf", () => {
-  it("is what the reviewing holds, once it holds them", async () => {
-    const { tt, hunt_id, quiz_id, ident_id, review_id, reviewing } = await reviewed()
-    const held = { ...reviewing, hunt_id, quiz_id, ident_id }
-    const copies = await tt.run(async (ctx) => {
-      await ctx.db.delete('reviews', review_id)
-      return await reviewingCopiesOf(ctx.db, held)
-    })
-    expect(copies).to.deep.eq({ hunt_id, quiz_id, ident_id })
-  })
-
-  it("is its review's hunt, quiz and writer for a reviewing not yet backfilled, and null when the review is gone", async () => {
-    const { tt, hunt_id, quiz_id, ident_id, review_id, reviewing } = await reviewed()
-    const before = await tt.run(async (ctx) => await reviewingCopiesOf(ctx.db, reviewing))
-    const after = await tt.run(async (ctx) => {
-      await ctx.db.delete('reviews', review_id)
-      return await reviewingCopiesOf(ctx.db, reviewing)
-    })
-    expect([before, after]).to.deep.eq([{ hunt_id, quiz_id, ident_id }, null])
-  })
-})
