@@ -8,9 +8,66 @@ disagree. Workers add their sections below, newest first.
 | Thread | Name | Status |
 |---|---|---|
 | 1 | Categories and the category editor | complete, PR #85, review clean |
-| 2 | Category personas | underway |
+| 2 | Category personas | complete, PR #87 |
 | 3 | The category estimate entry | pending |
 | 4 | The category spread chart | pending |
+
+## Thread 2: Category personas (2026-10-04)
+
+Branch `20261004-category_personas`, PR #87, stacked on #85. Suites: typecheck and lint clean;
+`pnpm test` 114 files, 2880 tests; `pnpm test:e2e` 213 passed.
+
+* **Built**:
+  - `src/models/estimate.ts`: `DifficultyVals` (`easy medium hard`), `DifficultyDefault`
+    (`medium`), and `EstimateValidators` (`difficulty`, `estimate`, `estimates`). They are built over
+    `CategoryValidators`, so `category` is the category enum or null. `estimate` fills a missing
+    difficulty with `medium`. `estimates` takes 1 to 24 estimates, each category once, and allows a
+    null category only as the lone estimate. Types: `EstimateT`, `EstimatesT` (and their DNA).
+    Statics: `Estimate.fill`, `Estimate.neutral(difficulty?)`.
+  - `src/models/persona.ts`: `PersonaLabelVals` (`masie artie poppy`), `PersonaTitles`,
+    `PersonaSlots` (0, 8, 16), `PersonaChanceBounds` (the Coach's table by difficulty, as 0..1),
+    `Persona.titleOf`, `Persona.slotIdxOf`.
+  - `src/lib/personas.ts` (`import * as Personas`). All pure, and all take the **total order**:
+    - `chanceOf(personalabel, order, estimate)`
+    - `chanceOfAll(personalabel, order, estimates)`: independent, 1 − Π(1 − pᵢ); an empty list
+      gives 0.
+    - `chancesOf(order, estimates)` → `{ masie, artie, poppy, average }` (`PersonaChancesT`).
+      **Thread 3 should call this once per question**: it returns every column part except
+      `estimates`.
+    - `averageChanceOf(order, estimates)`
+    - `strongestOf` / `weakestOf(personalabel, order)`: the three categories around the persona's
+      slot and around the slot opposite, counter-clockwise first.
+  - `src/components/PersonaCard.tsx`: `PersonaCard` (an MUI `Card`, `role="group"` named for the
+    persona, `data-persona`). It shows "Best: <the category in their slot>" and "Worst: <the one
+    opposite>". `personaAdornmentsOf(order)` gives `CategoryWheel`'s `outside` list.
+    `CategoriesScreen` passes it for smiths and reviewers alike, with a note under the wheel giving
+    the table in words.
+  - e2e: `categories.spec.ts` has a new test, "sets Masie, Artie and Poppy at the triangle's
+    corners…" (it follows a swap into slot 0), and the reviewer test now checks Artie's card.
+* **Decisions taken**:
+  - The curve is exactly the plan's: `t = clamp((d − 1) / 10, 0, 1)`, null `t = 0.5`. A persona's
+    slot is fixed, so dragging Theater into slot 0 makes Masie best at Theater.
+  - Duplicate categories in a list are refused, as is a null estimate alongside a real one. The
+    stored list is then always either all categories, each once, or `[{ category: null, … }]`.
+    That is the shape thread 3's write already makes (blank pills dropped; all blank → one null).
+  - The word is **chance** (0..1), not *get rate*: get rate is a reviewer's own 0..100 guess.
+  - The persona cards name only the category in the slot and the one opposite. The microcopy
+    covers "or either side of it". At 560px the cards' text is 8px; anything more would not fit.
+* **Deviations**:
+  - `CategoryWheel` now renders `outside` adornments beside the tiles' `list`/`group` box rather
+    than inside it, so the read-only `role="list"` owns only listitems. Nothing else in thread 1's
+    behaviour changed, and its e2e specs pass untouched.
+  - The vocabulary's *ident* entry said "a persona in the app"; it now says "who someone is in the
+    app", so *persona* means one thing. The code's own doc comments on ident (`src/models/ident.ts`,
+    `convex/schema.ts`) still say "a persona in the app". I left them alone to keep this thread out
+    of the ident model.
+* **Discoveries**:
+  - **For thread 3**:
+    - Widen `WidgetedValidators.enteredValue` and `EntryValueFor` with
+      `EstimateValidators.estimates`. The list is plain JSON, well under `WidgetedJson`'s bound.
+    - Since duplicates are refused, the pill's category select should leave out categories other
+      pills hold, or the write will fail validation.
+    - `Estimate.neutral(difficulty)` is the all-blank value's one element.
 
 ## Thread 1: Categories and the category editor (2026-10-04)
 
