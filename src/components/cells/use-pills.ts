@@ -100,7 +100,8 @@ export function usePills(committed: EstimatesT, onCommit: (estimates: EstimatesT
     const estimates = estimatesFrom(next)
     const nextKey = UU.jsonify(estimates)
     if (nextKey === (sentKey ?? committedKey)) { return }
-    setSentKey(nextKey)
+    // A change back to what the cell already holds may never be seen to land, so nothing waits on it.
+    setSentKey(nextKey === committedKey ? null : nextKey)
     onCommit(estimates)
   }
   return {
