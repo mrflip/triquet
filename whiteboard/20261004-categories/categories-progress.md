@@ -9,8 +9,8 @@ disagree. Workers add their sections below, newest first.
 |---|---|---|
 | 1 | Categories and the category editor | complete, PR #85, review clean |
 | 2 | Category personas | complete, PR #87, review clean |
-| 3 | The category estimate entry | complete, PR #91, awaiting review |
-| 4 | The category spread chart | pending |
+| 3 | The category estimate entry | complete, PR #91, review fixed 1 |
+| 4 | The category spread chart | underway |
 
 ## Thread 3: The category estimate entry (2026-10-04)
 
@@ -91,6 +91,16 @@ routing spec to `assumeIdent` timing out under load; it passed alone and on a se
 * **For the Coach**: run `seeding:seedWidgets` on production after the deploy, so `categories`
   is in the library (HUMAN-whatsup). Choices to confirm or overturn: written-not-deleted
   all-blank cells, the "(blank)" wording, and difficulty shown by chip colour as well as by word.
+
+*Review:* fixed at medium. Kept `78f8b34`: `usePills` waited forever for a write that a later
+change back had superseded (Convex can merge the two, so the awaited value never showed), ignoring
+other tabs meanwhile; a change back to the held value now waits for nothing. No unit test: the repo
+cannot render hooks in tests. Left, minor: (1) a refused write leaves the pills on the unsaved value
+with nothing to roll back; fixing it means `onCommit` reporting the mutation's outcome through
+`Workbench`'s `dispatch` (for the Coach, a follow-up); (2) a widgeting label over ~30 characters
+makes a default part-column label over the 40-character limit (the dialog says so); (3) a hunt
+import does not check that a part column names an estimating widgeting (blank cells, nothing
+breaks).
 
 ## Thread 2: Category personas (2026-10-04)
 
