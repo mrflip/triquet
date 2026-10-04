@@ -332,7 +332,7 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
 })
 
 /** The keys of the policies that are not an action's */
-const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'read_review', 'read_library', 'count_usage', 'ask_anthropic_bot'] as const)
+const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'read_review', 'read_library', 'count_usage', 'ask_anthropic_bot', 'change_library'] as const)
 
 describe('Approve.verdictOn', () => {
   it('asks the reads by name', () => {
@@ -343,6 +343,11 @@ describe('Approve.verdictOn', () => {
       Approve.verdictOn('count_usage', Alice, [{ role: 'smith' }]),
       Approve.verdictOn('ask_anthropic_bot', 'allow'),
     ]).to.deep.eq(['allow', 'allow', 'notIdentified', 'allow', 'allow'])
+  })
+
+  it('asks of changing the library by name, as it asks of each library action', () => {
+    const verdicts = ColumnVals.map((column) => Approve.verdictOn('change_library', ClaimsAs[column]))
+    expect(verdicts).to.deep.eq(Matrix.add_widget[1])
   })
 
   const Unknown: [string, string][] = [

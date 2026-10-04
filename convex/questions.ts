@@ -1,7 +1,7 @@
 import { ValidatorKit } from '../src/lib/validator'
 import { seenQuestionOf, type SeenQuestionT } from '../src/lib/rows'
 import { ActionValidators } from '../src/models/actions'
-import { emptyIfDenied, zQuery } from './functions'
+import { zHuntQuery } from './functions'
 import { affirmReadQuestion } from './authorize'
 import { storedOf, widgetingsOf } from './reading'
 
@@ -14,11 +14,13 @@ const { zid } = ValidatorKit
  * when there is no such question (deleted a moment ago), they are not on its hunt, or what they
  * affirm of themselves there is not so.
  */
-export const open = zQuery({
+export const open = zHuntQuery({
   args:    { question_id: zid('questions'), affirms: ActionValidators.huntAffirms },
-  handler: async (ctx, { question_id, affirms }): Promise<SeenQuestionT | null> => await emptyIfDenied(null, async () => {
-    const { question } = await affirmReadQuestion(ctx.db, affirms, ctx.actor, question_id)
+  empty:   null,
+  affirm:  async (ctx, { question_id, affirms }) => await affirmReadQuestion(ctx.db, affirms, ctx.actor, question_id),
+  handler: async (ctx): Promise<SeenQuestionT | null> => {
+    const { question } = ctx.claims
     if (! question) { return null }
     return seenQuestionOf(question, await storedOf(ctx.db, question._id, await widgetingsOf(ctx.db, question.quiz_id)))
-  }),
+  },
 })

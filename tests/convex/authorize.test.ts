@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { affirmAccountAction, affirmCountUsage, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor } from '../../convex/authorize'
-import { huntingFor, identForLabel } from '../../convex/reading'
+import { affirmAccountAction, affirmCountUsage, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor, Unscoped } from '../../convex/authorize'
+import { isHuntScoped } from '../../convex/functions'
+import { scopedReader } from '../../convex/policy_rules'
+import { huntingFor, identForLabel, reviewsOf } from '../../convex/reading'
 import * as Actor from '../../src/lib/actor'
 import * as Approve from '../../src/lib/approve'
 import { failurekindOf } from '../../src/lib/refusals'
@@ -19,15 +21,21 @@ function isPublicFunction(val: unknown): boolean {
   return typeof val === 'function' && 'isPublic' in val && val.isPublic === true
 }
 
-/** Every public function the deployment offers, as `module:name`, in order */
-async function publicFunctions(): Promise<string[]> {
+/** Every public function the deployment offers, by `module:name`, in order */
+async function publicFunctionsFor(): Promise<[string, unknown][]> {
   const sources = Object.entries(modules).filter(([path]) => ! path.includes('/_generated/') && ! path.endsWith('/convex.config.ts'))
   const found = await Promise.all(sources.map(async ([path, load]) => {
     const exported = await load() as Record<string, unknown>
     const modulename = path.replace('../../convex/', '').replace(/\.ts$/, '')
-    return Object.entries(exported).filter(([, val]) => isPublicFunction(val)).map(([fnname]) => `${modulename}:${fnname}`)
+    return Object.entries(exported).filter(([, val]) => isPublicFunction(val)).map(([fnname, val]): [string, unknown] => [`${modulename}:${fnname}`, val])
   }))
-  return found.flat().toSorted((aa, bb) => aa.localeCompare(bb))
+  return found.flat().toSorted(([aa], [bb]) => aa.localeCompare(bb))
+}
+
+/** Every public function the deployment offers, as `module:name`, in order */
+async function publicFunctions(): Promise<string[]> {
+  const found = await publicFunctionsFor()
+  return found.map(([fnname]) => fnname)
 }
 
 /** One hunt with a smith, a reviewer and a stranger (an ident on no hunt), and a second hunt the smith alone is on */
@@ -144,18 +152,21 @@ describe("affirmReadHunt and affirmReadQuestion", () => {
   })
 })
 
-/** Which of the quiz's reviews each of `readers` may read, by their writers' labels, each affirming as a browser that has read the hunt would */
+/**
+ * Which of the quiz's reviews each of `readers` is shown, by their writers' labels, each affirming
+ * as a browser that has read the hunt would and reading through a database scoped to the claims.
+ */
 async function readersOf(tt: Tester, open: PlaceT, readers: Identified[], labelFor: Record<string, string>): Promise<string[][]> {
   const seen: string[][] = []
   for (const reader of readers) {
     const { quiz: affirms } = await affirmsOf(tt, reader, open)
-    const readable = await tt.run(async (ctx) => await affirmReadReviews(ctx.db, affirms, reader.actor))
+    const readable = await tt.run(async (ctx) => await reviewsOf(scopedReader(ctx.db, await affirmReadReviews(ctx.db, affirms, reader.actor)), open.quiz_id))
     seen.push(readable.map((review) => labelFor[review.ident_id] ?? '?'))
   }
   return seen
 }
 
-describe("affirmReadReviews", () => {
+describe("affirmReadReviews, and the reviews a database scoped to its claims shows", () => {
   it("let a reviewer read their own review whatever its phase; once shared, a smith, and another reviewer only while theirs is shared too", async () => {
     const { tt, open, act, join, alice, bob, carol } = await peopled()
     const dave = await join('dave_reviews', 'reviewer')
@@ -373,6 +384,16 @@ describe("identings, each session's own", () => {
       'reviews:forQuiz',
       'widgets:library', 'widgets:usage',
     ])
+  })
+})
+
+describe("the database a public function holds", () => {
+  it("is scoped to one hunt, by a hunt's builder, for every public function but those named unscoped, each with why", async () => {
+    const found = await publicFunctionsFor()
+    const scoped = found.filter(([, val]) => isHuntScoped(val)).map(([fnname]) => fnname)
+    const unscoped = found.filter(([, val]) => ! isHuntScoped(val)).map(([fnname]) => fnname)
+    expect(scoped).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'reviews:forQuiz'])
+    expect(unscoped).to.deep.eq(keysOf(Unscoped))
   })
 })
 

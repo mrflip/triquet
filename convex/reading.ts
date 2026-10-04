@@ -142,6 +142,34 @@ export async function isWorked(db: Reader, widget_label: string): Promise<boolea
 }
 
 /**
+ * What a write must know of every hunt to keep the data whole, asked of a database that sees them
+ * all: whose a hunt label is, so no two hunts answer to one; and whether any quiz of any hunt works
+ * a widget, so none is left working a widget the library lost. It answers with an id or a yes,
+ * never a row, so a function whose database sees one hunt (`policy_rules.ts`) can hold it.
+ */
+export type CensusT = {
+  /** The hunt answering to `label`, should one: see `huntForLabel` */
+  huntIdForLabel: (label: string) => Promise<Id<'hunts'> | null>
+  /** Whether any widgeting works the widget labelled `widget_label`: see `isWorked` */
+  isWorked:       (widget_label: string) => Promise<boolean>
+}
+
+/**
+ * The census of `db`, a database that sees every hunt.
+ *
+ * @example await censusOf(ctx.db).huntIdForLabel('quiet_otter')  // => the hunt's id, or null
+ */
+export function censusOf(db: Reader): CensusT {
+  return {
+    huntIdForLabel: async (label) => {
+      const hunt = await huntForLabel(db, label)
+      return hunt?._id ?? null
+    },
+    isWorked:       async (widget_label) => await isWorked(db, widget_label),
+  }
+}
+
+/**
  * How far the widget labelled `widget_label` is put to work: by how many widgetings, across how
  * many quizzes, in how many hunts. Counts only. At most `WidgetingsCounted` widgetings are read;
  * past that many, every count is a floor, and says so. A widget nobody works counts nothing.

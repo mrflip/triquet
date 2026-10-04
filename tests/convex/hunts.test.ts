@@ -1312,9 +1312,9 @@ async function crowded(tablename: 'questions' | 'widgetings' | 'columns', qty: n
         const quiz = present(await ctx.db.get('quizzes', quiz_id))
         await ctx.db.patch('quizzes', quiz_id, { row_ordering: [...quiz.row_ordering, question_id] })
       } else if (tablename === 'widgetings') {
-        await ctx.db.insert('widgetings', { quiz_id, position, widget_label: 'dumdum', label: `w_${String(position)}`, description: '', params: {} })
+        await ctx.db.insert('widgetings', { hunt_id: seeded.open.hunt_id, quiz_id, position, widget_label: 'dumdum', label: `w_${String(position)}`, description: '', params: {} })
       } else {
-        await ctx.db.insert('columns', { quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
+        await ctx.db.insert('columns', { hunt_id: seeded.open.hunt_id, quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
       }
     }
   })
@@ -1367,7 +1367,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id: open.realm_id, title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')

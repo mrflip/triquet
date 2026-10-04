@@ -91,7 +91,7 @@ describe("a quiz as the browser assembles it from quizzes.open and questions.ope
       const [widgeting] = await widgetingsOf(ctx.db, quiz_id)
       const widgeting_id = present(widgeting)._id
       for (const text of ['older', 'newer']) {
-        await ctx.db.insert('widgeteds', { question_id: present(question_id), widgeting_id, status: 'ok', value: { items: [{ text, value: 1, kind: 'numeral' }] }, message: null, result_meta: {} })
+        await ctx.db.insert('widgeteds', { hunt_id: present(widgeting).hunt_id, quiz_id, question_id: present(question_id), widgeting_id, status: 'ok', value: { items: [{ text, value: 1, kind: 'numeral' }] }, message: null, result_meta: {} })
       }
     })
     const quiz = await opened(reading, quiz_id)

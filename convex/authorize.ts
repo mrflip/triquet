@@ -3,8 +3,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
 import type { AccountActionT, AffirmsT, HuntActionT, HuntAffirmsT, QuizAffirmsT } from '../src/models/actions'
-import { Review } from '../src/models/review'
-import { huntingFor, huntingsFor, reviewsOf, type Reader } from './reading'
+import { huntingFor, huntingsFor, reviewFor, type Reader } from './reading'
 
 // Where the evidence for every authorization is gathered. Who is asking is the actor every
 // function is handed (`ctx.actor`, built in `functions.ts`): the ident the request's session
@@ -32,10 +31,34 @@ import { huntingFor, huntingsFor, reviewsOf, type Reader } from './reading'
 // the library is reached from a quiz. How far a widget is put to work reads widgetings of every
 // hunt, so it is counted only, and only for a smith of some hunt (`affirmCountUsage`).
 //
+// Once affirmed, a function about one hunt holds a database that reaches nothing else
+// (`policy_rules.ts`): the backstop behind every check here. The few that hold the whole database
+// are listed below (`Unscoped`), each with why.
+//
 // Two kinds of row are private by what the functions offer rather than by a rule. A session's
-// identings are read only through its own token, so no session sees which idents another has
-// taken on. An ident may be made by any session, which then holds it; no function hands it to
-// another or removes it, so a username someone holds cannot be pulled from under them.
+// identings are read only through its own token (and no hunt's database reaches them), so no
+// session sees which idents another has taken on. An ident may be made by any session, which then
+// holds it; no function hands it to another or removes it, so a username someone holds cannot be
+// pulled from under them.
+
+/**
+ * The public functions that hold the whole database, each with why. Every other public function
+ * is about one hunt, built by `zHuntQuery` or `zHuntMutation` (`functions.ts`): it affirms first,
+ * and its handler holds a database that sees and writes only that hunt (`policy_rules.ts`). These
+ * act before any hunt is in play, across hunts, or on what no hunt owns, and each checks what it
+ * needs itself.
+ */
+export const Unscoped = {
+  "auth:isAuthenticated":  "Convex Auth's own, of the session alone",
+  "auth:signIn":           "Convex Auth's own, of the session alone",
+  "auth:signOut":          "Convex Auth's own, of the session alone",
+  "idents:current":        "Who the session is: asked before any hunt is in play",
+  "idents:performAccount": "A username, or a hunt from the hunts list, before any quiz is open: a hunt it names is asked of the actor's claims on it (`claimsFor`)",
+  "hunts:list":            "The hunts the actor is on, read through the actor's own huntings: many hunts, none affirmed",
+  "hunts:open":            "Finds a hunt by its label and tells the browser its standing there, which is what the browser goes on to affirm",
+  "widgets:library":       "The library belongs to no hunt: every hunt sees the same one",
+  "widgets:usage":         "Counts the widgetings of every hunt, and hands back counts only (`affirmCountUsage`)",
+} as const satisfies Record<string, string>
 
 /** Affirms of any shape `affirmForHunt` checks: of a hunt, and perhaps a quiz of it, and that quiz's realm */
 type AffirmableT = HuntAffirmsT & { quiz_id?: Id<'quizzes'>, realm_id?: Id<'realms'> }
@@ -154,23 +177,25 @@ export async function affirmReadQuestion(db: Reader, affirms: HuntAffirmsT, acto
   return claims
 }
 
+/** The claims a quiz's reviews are read on: of the hunt and the quiz, and the reader's own review of it, null when they have none */
+export type ReviewClaimsT = ClaimsOf<QuizAffirmsT> & { own_review: Doc<'reviews'> | null }
+
 /**
- * The reviews of the affirmed quiz that `actor` may read (`Approve.mayReadReview`), in the order
- * they were made. One round: the quiz's reviews are read beside the evidence, and their own review
- * is found among them, so each is judged with nothing more read.
+ * The claims of `actor` on the affirmed quiz, to read its reviews on, with their own review of it.
+ * One round: their own review is read beside the evidence, so a database scoped to these claims
+ * judges each review (`Approve.mayReadReview`, in `policy_rules.ts`) with nothing more read.
  *
  * @param db - The function's database.
  * @param affirms - What the browser says of itself, and the quiz.
  * @param actor - Who is asking.
- * @returns The readable ones; none for a stranger to the hunt.
+ * @returns The claims, and their own review of the quiz.
  * @throws `Approve.NotApprovedError` when an affirm is not borne out.
  *
- * @example const readable = await affirmReadReviews(ctx.db, affirms, ctx.actor)
+ * @example const claims = await affirmReadReviews(ctx.db, affirms, ctx.actor)  // => { ...claims, own_review }
  */
-export async function affirmReadReviews(db: Reader, affirms: QuizAffirmsT, actor: Actor.ActorT): Promise<Doc<'reviews'>[]> {
-  const { reviews, ...claims } = await affirmForHunt(db, affirms, actor, { reviews: reviewsOf(db, affirms.quiz_id) })
-  const ownReview = Review.ownOf(reviews, claims)
-  return reviews.filter((review) => Approve.may('read_review', review, claims, ownReview))
+export async function affirmReadReviews(db: Reader, affirms: QuizAffirmsT, actor: Actor.ActorT): Promise<ReviewClaimsT> {
+  if (Actor.isAnonymous(actor)) { deny('notIdentified', 'actor') }
+  return await affirmForHunt(db, affirms, actor, { own_review: reviewFor(db, affirms.quiz_id, actor.ident_id) })
 }
 
 /**

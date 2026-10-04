@@ -37,7 +37,7 @@ async function holding() {
       { status: 'ok' as const,      value: { guess: 'Hamlet', explanation: 'A prince.' }, message: null },
       { status: 'ok' as const,      value: { guess: 'Leon', explanation: 'A lion.' },     message: null },
       { status: 'errored' as const, value: null,                                          message: 'Overloaded' },
-    ]) { await ctx.db.insert('widgeteds', { question_id: first, widgeting_id, result_meta: {}, ...recorded }) }
+    ]) { await ctx.db.insert('widgeteds', { hunt_id, quiz_id: quiz._id, question_id: first, widgeting_id, result_meta: {}, ...recorded }) }
     return { question_id: first, place: { hunt_id, realm_id: realm.realm._id, quiz_id: quiz._id } }
   })
   const alice = await identified(tt, 'alice_reviews')

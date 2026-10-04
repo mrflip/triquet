@@ -298,6 +298,7 @@ type EvidenceT = {
   read_hunt:         [claims: Actor.HuntClaimsT]
   read_review:       [review: ReviewRowT, claims: Actor.HuntClaimsT, ownReview: ReviewRowT | null]
   read_library:      [actor: Actor.ActorT]
+  change_library:    [claims: Actor.HuntClaimsT]
   count_usage:       [actor: Actor.ActorT, huntings: readonly Pick<HuntingRowT, 'role'>[]]
   ask_anthropic_bot: [switchval: string | undefined]
 }
@@ -396,6 +397,14 @@ const ReadPolicies = {
   ask_anthropic_bot: mayAskAnthropicBot,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
+/**
+ * What a hunt's scoped database asks of a row it is to write (`convex/policy_rules`): changing the
+ * library's widgets, which rides the hunt on screen, as its library actions do.
+ */
+const RowPolicies = {
+  change_library: mayChangeHunt,
+} as const satisfies Partial<PolicyRowsT<PolicyKey>>
+
 /** The policy of every action, by its kind */
 const ActionPolicies = {
   ...LayoutPolicies, ...LibraryPolicies, ...ContentPolicies, ...RealmPolicies,
@@ -403,7 +412,7 @@ const ActionPolicies = {
 } as const satisfies PolicyRowsT<ActionKind>
 
 /** Every policy, by key: a key with no row fails to compile, and so does a row with no key */
-const Policies = { ...ActionPolicies, ...ReadPolicies } as const satisfies PolicyRowsT<PolicyKey>
+const Policies = { ...ActionPolicies, ...ReadPolicies, ...RowPolicies } as const satisfies PolicyRowsT<PolicyKey>
 
 /** Every policy key, in the table's order */
 export const PolicyKeys = Object.keys(Policies) as PolicyKey[]

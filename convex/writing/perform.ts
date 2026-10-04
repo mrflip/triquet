@@ -6,6 +6,7 @@ import * as Quiz from './quiz_actions'
 import * as Review from './review_actions'
 import { isLayoutAction, isLibraryAction, type HuntActionT } from '../../src/models/actions'
 import type { PerformClaimsT } from '../authorize'
+import type { CensusT } from '../reading'
 import type { Writer } from './quiz_writing'
 
 /**
@@ -13,25 +14,27 @@ import type { Writer } from './quiz_writing'
  *
  * Whether the actor may take the action at all, and whether the quiz, realm and hunt they affirm
  * are as they say, is `authorize`'s to settle first: the claims it hands on are trusted here, and
- * carry the rows it read, so an action does not read its quiz again. A refused action writes
- * nothing and throws a refusal saying why (`lib/refusals`). Each action reads whatever else it
- * needs as it stands, inside the transaction.
+ * carry the rows it read, so an action does not read its quiz again. `db` sees only the claims'
+ * hunt (`policy_rules.ts`); what a write must know across every hunt it asks `census`. A refused
+ * action writes nothing and throws a refusal saying why (`lib/refusals`). Each action reads
+ * whatever else it needs as it stands, inside the transaction.
  *
- * @param db - The mutation's database.
+ * @param db - The mutation's database, scoped to the claims' hunt.
+ * @param census - What spans every hunt: whose a hunt label is, whether a widget is worked.
  * @param claims - Who is acting, and the quiz on their screen, its realm and hunt, as `affirmPerform` checked them.
  * @param action - What the author did, validated.
  * @throws A refusal, or a Zod error when a row the action comes to is not valid; nothing is written.
  *
- * @example await perform(ctx.db, await affirmPerform(ctx.db, affirms, ctx.actor, action), action)
+ * @example await perform(ctx.db, ctx.census, ctx.claims, action)
  */
-export async function perform(db: Writer, claims: PerformClaimsT, action: HuntActionT): Promise<void> {
+export async function perform(db: Writer, census: CensusT, claims: PerformClaimsT, action: HuntActionT): Promise<void> {
   const { hunt_id, ident_id, named } = claims
   if (isLayoutAction(action)) {
     await Layout.performLayout(db, claims, action)
     return
   }
   if (isLibraryAction(action)) {
-    await Library.performLibrary(db, action)
+    await Library.performLibrary(db, census, action)
     return
   }
   switch (action.kind) {
@@ -61,7 +64,7 @@ export async function perform(db: Writer, claims: PerformClaimsT, action: HuntAc
   case 'add_hunting':         { await Hunting.addHunting(db, hunt_id, action.ident_label, action.role); return }
   case 'remove_hunting':      { await Hunting.removeHunting(db, hunt_id, action.ident_id); return }
   case 'retitle_hunt':        { await Hunt.retitleHunt(db, hunt_id, action.title); return }
-  case 'relabel_hunt':        { await Hunt.relabelHunt(db, hunt_id, action.label); return }
+  case 'relabel_hunt':        { await Hunt.relabelHunt(db, census, hunt_id, action.label); return }
   case 'delete_hunt':         { await Hunt.deleteHunt(db, hunt_id) }
   }
 }
