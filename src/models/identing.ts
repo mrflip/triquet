@@ -1,18 +1,16 @@
 import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 
-export const IdentingValidators = Validator(({ obj, uuid, zid }) => {
-  const browserKey = uuid
-    .describe('The key this browser minted for itself on its first visit and keeps: what it says it is, for the trial, until it has an account to say so. Not a secret: it names the ident the browser took on last, whose places on hunts say what it may do, and anyone may take on any ident.')
-
+export const IdentingValidators = Validator(({ obj, zid }) => {
   const row = obj({
-    browser_key: browserKey,
-    ident_id:    zid('idents')
-      .describe('The ident this browser took on.'),
+    user_id:  zid('users')
+      .describe('The session that asserted the username: its Convex Auth user.'),
+    ident_id: zid('idents')
+      .describe('The ident it took on.'),
   })
-    .describe('One time a browser took on an ident. The browser\'s newest identing is the ident it is now; the older ones are its history.')
+    .describe('One time a session asserted a username. Its newest identing is the ident it is now; the older ones are its history.')
 
-  return { browserKey, row }
+  return { row }
 })
 
 export type IdentingRowT = Z.output<typeof IdentingValidators.row>

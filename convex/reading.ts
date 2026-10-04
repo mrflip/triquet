@@ -15,9 +15,9 @@ import type { QuizT } from '../src/models/quiz'
 /** What a query or a mutation reads through */
 export type Reader = QueryCtx['db']
 
-/** The newest identing a browser has made, and so the ident it is now; null when it has never said */
-export async function identFor(db: Reader, browser_key: string): Promise<Doc<'idents'> | null> {
-  const identing = await db.query('identings').withIndex('by_browser_key', (cvx) => cvx.eq('browser_key', browser_key)).order('desc').first()
+/** The ident the session `user_id` asserted last, by its newest identing; null when it has asserted none */
+export async function identFor(db: Reader, user_id: Id<'users'>): Promise<Doc<'idents'> | null> {
+  const identing = await db.query('identings').withIndex('by_user_id', (cvx) => cvx.eq('user_id', user_id)).order('desc').first()
   return identing && await db.get('idents', identing.ident_id)
 }
 

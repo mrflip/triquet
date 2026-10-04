@@ -5,8 +5,9 @@
 #   1. Starts the role's backend (scripts/convex_backend) unless it is already answering, logging
 #      to data/convex-<role>/backend.log, and stops it again on the way out. One already running,
 #      someone else's or your own, is used and left alone.
-#   2. Pushes convex/ to it (regenerating convex/_generated/), and marks it clearable
-#      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for).
+#   2. Pushes convex/ to it (regenerating convex/_generated/), marks it clearable
+#      (TRIQUET_CLEARABLE=yes, which testing:clearAll asks for), and gives it Convex Auth's keys
+#      when it has none (scripts/convex_auth_keys).
 #   3. With --reset, empties it (scripts/convex_reset). A push that a schema change refuses, for
 #      rows the new schema no longer fits, is then retried once the backend is empty.
 #   4. With --seed, seeds it (seeding:seedWidgets, which is safe to run again): the library's seed
@@ -95,6 +96,7 @@ if ! push; then
   push
 fi
 "$convex" env set TRIQUET_CLEARABLE yes > /dev/null
+scripts/convex_auth_keys "$role"
 if [[ "$reset" == yes ]]; then scripts/convex_reset "$role"; fi
 if [[ "$seed" == yes ]]; then "$convex" run seeding:seedWidgets > /dev/null; fi
 if [[ "$watch" == yes ]]; then

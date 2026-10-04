@@ -1,15 +1,17 @@
 import type { Doc, Id } from './_generated/dataModel'
+import * as Actor from '../src/lib/actor'
 import { isReviewAction, type AccountActionT, type HuntActionT, type OpenQuizT } from '../src/models/actions'
 import type { HuntRole } from '../src/models/hunting'
 import { huntingFor, huntingsFor, huntIdOf, reviewFor, type Reader } from './reading'
-import * as Approval from '@/lib/approval.js'
+import * as Approval from '../src/lib/approval'
 
-// The only place authorization is written. Who is asking is the ident a browser is now
-// (`identFor`), and an ident's hunting on a hunt says what it may do there: a smith reads and
-// changes everything of the hunt, a reviewer reads it and writes their own reviews (and reads the
-// others' shared ones once their own is shared), and anyone
-// else is shown nothing of it but who to ask. Anyone may still take on any ident, so this is as
-// strong as that: a rule here asks who the ident is, never how the browser came to be it.
+// The only place authorization is written. Who is asking is the actor every function is handed
+// (`ctx.actor`, built in `functions.ts`): the ident the request's session asserted last, or
+// nobody. An ident's hunting on a hunt says what it may do there: a smith reads and changes
+// everything of the hunt, a reviewer reads it and writes their own reviews (and reads the others'
+// shared ones once their own is shared), and anyone else is shown nothing of it but who to ask.
+// A username belongs to the session that claimed it (`writing/account_actions`), so a rule here
+// asks who the ident is and trusts that the session holding it is theirs.
 //
 // The library of widgets belongs to no hunt: every hunt sees the same one. Any browser that has
 // said who it is may read it (`mayReadLibrary`): it holds formulas and prompts, nothing of any
@@ -19,91 +21,93 @@ import * as Approval from '@/lib/approval.js'
 // far a widget is put to work reads widgetings of every hunt, so it is counted only, and only for
 // a smith of some hunt (`mayCountUsage`), who may change the widget.
 //
-// Two kinds of row are private by what the functions offer rather than by a rule. A browser's
-// identings are read only through its own key, so no browser sees which idents another has taken
-// on. An ident may be made by anyone, but no function changes or removes one, so an ident
-// someone has taken on cannot be pulled from under them.
+// Two kinds of row are private by what the functions offer rather than by a rule. A session's
+// identings are read only through its own token, so no session sees which idents another has
+// taken on. An ident may be made by any session, which then holds it; no function hands it to
+// another or removes it, so a username someone holds cannot be pulled from under them.
 
 /**
- * The role `ident_id` has on `hunt_id`: what every rule here turns on.
+ * The role `actor` has on `hunt_id`: what every rule here turns on.
  *
  * @param db - The function's database.
  * @param hunt_id - Which hunt.
- * @param ident_id - Who is asking; null for a browser that has not said who it is.
- * @returns Its role; null when it is not on the hunt, or nobody is asking.
+ * @param actor - Who is asking.
+ * @returns Its role; null when it is not on the hunt, or has asserted no username.
  *
- * @example await roleOn(ctx.db, hunt._id, ident?._id ?? null)  // => 'reviewer'
+ * @example await roleOn(ctx.db, hunt._id, ctx.actor)  // => 'reviewer'
  */
-export async function roleOn(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'> | null): Promise<HuntRole | null> {
-  if (ident_id === null) { return null }
-  const hunting = await huntingFor(db, hunt_id, ident_id)
+export async function roleOn(db: Reader, hunt_id: Id<'hunts'>, actor: Actor.ActorT): Promise<HuntRole | null> {
+  if (Actor.isAnonymous(actor)) { return null }
+  const hunting = await huntingFor(db, hunt_id, actor.ident_id)
   return hunting?.role ?? null
 }
 
 /**
- * Whether `ident_id` may read the library of widgets: anyone who has said who they are.
+ * Whether `actor` may read the library of widgets: anyone who has asserted a username.
  *
- * @example if (! mayReadLibrary(ident?._id ?? null)) { return [] }
+ * @example if (! mayReadLibrary(ctx.actor)) { return [] }
  */
-export function mayReadLibrary(ident_id: Id<'idents'> | null): boolean {
-  return ident_id !== null
+export function mayReadLibrary(actor: Actor.ActorT): boolean {
+  return ! Actor.isAnonymous(actor)
 }
 
 /**
- * Whether `ident_id` may count how far a widget of the library is put to work, across every hunt:
+ * Whether `actor` may count how far a widget of the library is put to work, across every hunt:
  * anyone who may change the library, which is any smith of any hunt. The count says how many, never
- * which, so a hunt the ident is not on shows them nothing of itself.
+ * which, so a hunt the actor is not on shows them nothing of itself.
  *
- * @example if (! await mayCountUsage(ctx.db, ident?._id ?? null)) { return null }
+ * @example if (! await mayCountUsage(ctx.db, ctx.actor)) { return null }
  */
-export async function mayCountUsage(db: Reader, ident_id: Id<'idents'> | null): Promise<boolean> {
-  if (ident_id === null) { return false }
-  const huntings = await huntingsFor(db, ident_id)
+export async function mayCountUsage(db: Reader, actor: Actor.ActorT): Promise<boolean> {
+  if (Actor.isAnonymous(actor)) { return false }
+  const huntings = await huntingsFor(db, actor.ident_id)
   return huntings.some((hunting) => hunting.role === 'smith')
 }
 
 /**
- * Whether `ident_id` may read `hunt_id` and all it holds: its realms, quizzes and questions,
+ * Whether `actor` may read `hunt_id` and all it holds: its realms, quizzes and questions,
  * and members. Anyone on it may, in either role.
  *
- * @example if (! await mayReadHunt(ctx.db, row.hunt_id, ident?._id ?? null)) { return null }
+ * @example if (! await mayReadHunt(ctx.db, row.hunt_id, ctx.actor)) { return null }
  */
-export async function mayReadHunt(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'> | null): Promise<boolean> {
-  return (await roleOn(db, hunt_id, ident_id)) !== null
+export async function mayReadHunt(db: Reader, hunt_id: Id<'hunts'>, actor: Actor.ActorT): Promise<boolean> {
+  return (await roleOn(db, hunt_id, actor)) !== null
 }
 
 /**
- * Whether `ident_id` may change `hunt_id`: its quizzes, their questions and layout, and who is on
+ * Whether `actor` may change `hunt_id`: its quizzes, their questions and layout, and who is on
  * it; and, from one of its quizzes, the library. Its smiths may.
  */
-export async function mayChangeHunt(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'> | null): Promise<boolean> {
-  return (await roleOn(db, hunt_id, ident_id)) === 'smith'
+export async function mayChangeHunt(db: Reader, hunt_id: Id<'hunts'>, actor: Actor.ActorT): Promise<boolean> {
+  return (await roleOn(db, hunt_id, actor)) === 'smith'
 }
 
 /**
- * Whether `ident_id` may read `review`, with its verdicts: always their own; another's only once
- * it is shared, and then by a smith of its hunt, or by a reviewer there whose own review of the
- * quiz is shared too, so no reviewer reads the others' before they have made up their own mind.
+ * Whether `actor` may read `review`, with its verdicts: nobody who has asserted no username; their
+ * own, always; another's only once it is shared, and then by a smith of its hunt, or by a
+ * reviewer there whose own review of the quiz is shared too, so no reviewer reads the others'
+ * before they have made up their own mind.
  */
-export async function mayReadReview(db: Reader, review: Doc<'reviews'>, ident_id: Id<'idents'> | null): Promise<boolean> {
-  if (review.ident_id === ident_id) { return true }
-  if (ident_id === null || review.phase !== 'shared') { return false }
-  const role = await roleOn(db, review.hunt_id, ident_id)
+export async function mayReadReview(db: Reader, review: Doc<'reviews'>, actor: Actor.ActorT): Promise<boolean> {
+  if (Actor.isAnonymous(actor))          { return false }
+  if (review.ident_id === actor.ident_id) { return true }
+  if (review.phase !== 'shared')         { return false }
+  const role = await roleOn(db, review.hunt_id, actor)
   if (role !== 'reviewer') { return role === 'smith' }
-  const own = await reviewFor(db, review.quiz_id, ident_id)
+  const own = await reviewFor(db, review.quiz_id, actor.ident_id)
   return own?.phase === 'shared'
 }
 
 /**
- * Whether `ident_id` may write a review of a quiz of `hunt_id`. A review is always the writer's
+ * Whether `actor` may write a review of a quiz of `hunt_id`. A review is always the writer's
  * own, so anyone on the hunt may, in either role.
  */
-export async function mayWriteReview(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<'idents'> | null): Promise<boolean> {
-  return await mayReadHunt(db, hunt_id, ident_id)
+export async function mayWriteReview(db: Reader, hunt_id: Id<'hunts'>, actor: Actor.ActorT): Promise<boolean> {
+  return await mayReadHunt(db, hunt_id, actor)
 }
 
 /**
- * Whether `ident_id` may carry out `action` from the quiz: a review action as someone who
+ * Whether `actor` may carry out `action` from the quiz: a review action as someone who
  * may write a review there, anything else as someone who may change the hunt.
  *
  * The rule is asked of `quiz.hunt_id`, so `quiz` must truly be of that hunt: its realm is the
@@ -113,16 +117,16 @@ export async function mayWriteReview(db: Reader, hunt_id: Id<'hunts'>, ident_id:
  *
  * @param db - The mutation's database.
  * @param quiz - The quiz object
- * @param ident_id - Who is acting.
+ * @param actor - Who is acting.
  * @param action - What they did.
  * @returns Whether they may.
  *
- * @example if (! await mayPerform(ctx.db, quiz, ident._id, action)) { refuse('notPermitted') }
+ * @example if (! await mayPerform(ctx.db, quiz, ctx.actor, action)) { refuse('notPermitted') }
  */
-export async function mayPerform(db: Reader, quiz: OpenQuizT, ident_id: Id<'idents'>, action: HuntActionT): Promise<boolean> {
+export async function mayPerform(db: Reader, quiz: OpenQuizT, actor: Actor.ActorT, action: HuntActionT): Promise<boolean> {
   const named = 'quiz_id' in action ? action.quiz_id : null
   const verdicts = await Promise.all([
-    isReviewAction(action) ? mayWriteReview(db, quiz.hunt_id, ident_id) : mayChangeHunt(db, quiz.hunt_id, ident_id),
+    isReviewAction(action) ? mayWriteReview(db, quiz.hunt_id, actor) : mayChangeHunt(db, quiz.hunt_id, actor),
     isPlaced(db, quiz),
     named === null || isQuizOfHunt(db, named, quiz.hunt_id),
   ])
@@ -130,18 +134,18 @@ export async function mayPerform(db: Reader, quiz: OpenQuizT, ident_id: Id<'iden
 }
 
 /**
- * Whether `ident_id` may carry out the account action `action`: one that names a hunt as someone
- * who may change it, anything else as anyone at all (it acts only on the ident the browser is).
+ * Whether `actor` may carry out the account action `action`: one that names a hunt as someone
+ * who may change it, anything else as anyone at all (it acts only on the session's own ident).
  *
  * @param db - The mutation's database.
- * @param ident_id - Who is acting; null for a browser that has not said who it is.
+ * @param actor - Who is acting.
  * @param action - What they did.
  * @returns Whether they may.
  *
- * @example if (! await mayActOnAccount(ctx.db, ident?._id ?? null, action)) { refuse('notPermitted') }
+ * @example if (! await mayActOnAccount(ctx.db, ctx.actor, action)) { refuse('notPermitted') }
  */
-export async function mayActOnAccount(db: Reader, ident_id: Id<'idents'> | null, action: AccountActionT): Promise<boolean> {
-  return 'hunt_id' in action ? await mayChangeHunt(db, action.hunt_id, ident_id) : true
+export async function mayActOnAccount(db: Reader, actor: Actor.ActorT, action: AccountActionT): Promise<boolean> {
+  return 'hunt_id' in action ? await mayChangeHunt(db, action.hunt_id, actor) : true
 }
 
 /**

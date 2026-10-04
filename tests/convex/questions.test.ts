@@ -5,7 +5,6 @@ import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
-import { mintId } from '../../src/lib/ids'
 import { huntHolding, identified, openTester, putOn } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
@@ -18,7 +17,7 @@ const Widgetings = [
 
 /**
  * A fresh deployment holding one quiz of two questions, `aa` chained to `bb`, whose `dumdum`
- * widgeting answered for `aa` twice and then failed; the first question's id, and the browser of
+ * widgeting answered for `aa` twice and then failed; the first question's id, and the session of
  * a reviewer on the hunt.
  */
 async function holding() {
@@ -39,15 +38,15 @@ async function holding() {
     ]) { await ctx.db.insert('widgeteds', { question_id: first, widgeting_id, result_meta: {}, ...recorded }) }
     return first
   })
-  const { browser_key, ident_id } = await identified(tt, 'alice_reviews')
-  await putOn(tt, hunt_id, ident_id, 'reviewer')
-  return { tt, question_id, browser_key }
+  const alice = await identified(tt, 'alice_reviews')
+  await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
+  return { tt, question_id, alice }
 }
 
 describe("questions.open", () => {
   it("reads one question: its row, and for each widgeting that stored, the newest row and the newest ok one", async () => {
-    const { tt, question_id, browser_key } = await holding()
-    const seen = present(await tt.query(api.questions.open, { question_id, browser_key }))
+    const { question_id, alice } = await holding()
+    const seen = present(await alice.as.query(api.questions.open, { question_id }))
     expect(seen).to.deep.include({ _id: question_id, label: 'aa', clueing: 'Who?' })
     expect(Object.keys(seen.stored)).to.deep.eq(['dumdum'])
     const cell = present(seen.stored.dumdum)
@@ -57,29 +56,29 @@ describe("questions.open", () => {
   })
 
   it("reads nothing stored for a question none of its widgetings has recorded for", async () => {
-    const { tt, question_id, browser_key } = await holding()
+    const { tt, question_id, alice } = await holding()
     const second = await tt.run(async (ctx) => {
       const question = present(await ctx.db.get('questions', question_id))
       return present(present(await ctx.db.get('quizzes', question.quiz_id)).row_ordering[1])
     })
-    expect(present(await tt.query(api.questions.open, { question_id: second, browser_key })).stored).to.deep.eq({})
+    expect(present(await alice.as.query(api.questions.open, { question_id: second })).stored).to.deep.eq({})
   })
 
   it("leaves a chain as the label the row holds: only the quiz knows which question answers to it", async () => {
-    const { tt, question_id, browser_key } = await holding()
-    expect(present(await tt.query(api.questions.open, { question_id, browser_key })).chains_to).to.eq('bb')
+    const { question_id, alice } = await holding()
+    expect(present(await alice.as.query(api.questions.open, { question_id })).chains_to).to.eq('bb')
   })
 
   it("reads null for a question that is not there", async () => {
-    const { tt, question_id, browser_key } = await holding()
+    const { tt, question_id, alice } = await holding()
     await tt.run(async (ctx) => { await ctx.db.delete('questions', question_id) })
-    expect(await tt.query(api.questions.open, { question_id, browser_key })).to.be.null
+    expect(await alice.as.query(api.questions.open, { question_id })).to.be.null
   })
 
   it("reads null, as for one not there, for someone not on its hunt", async () => {
     const { tt, question_id } = await holding()
     const stranger = await identified(tt, 'carol_strays')
-    expect(await tt.query(api.questions.open, { question_id, browser_key: stranger.browser_key })).to.be.null
-    expect(await tt.query(api.questions.open, { question_id, browser_key: mintId() })).to.be.null
+    expect(await stranger.as.query(api.questions.open, { question_id })).to.be.null
+    expect(await tt.query(api.questions.open, { question_id })).to.be.null
   })
 })

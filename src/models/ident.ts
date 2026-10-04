@@ -3,24 +3,28 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const IdentValidators = Validator(({ obj, identlabel, titleish }) => {
+export const IdentValidators = Validator(({ obj, identlabel, titleish, zid }) => {
   const identLabel = identlabel
-    .describe('What a person types to become this ident, and what others add them to a hunt by. Unique across the app, by convention: two idents made with one label at one moment resolve to the earlier.')
+    .describe('What a person types to become this ident (their username), and what others add them to a hunt by. Unique across the app: a new one is made inside the write that looks it up, so two sessions asserting one new label at once make one ident between them.')
   const title = titleish.min(1)
     .describe('What the ident is called on screen.')
+  const user_id = zid('users').nullable()
+    .describe('The session that claimed this username, and the only one that may assert it; null for an ident nobody has claimed yet, which the next session to assert it claims.')
 
   const row = obj({
     label: identLabel,
     title,
+    user_id,
   })
-    .describe('One ident: a persona in the app. For now anyone may assume any ident; nothing is secret about one.')
+    .describe('One ident: a persona in the app, a username held by the session that claimed it.')
 
-  return { identLabel, title, row }
+  return { identLabel, title, user_id, row }
 })
 
 export type IdentDNA  = Z.input<typeof IdentValidators.row>
 export type IdentRowT = Z.output<typeof IdentValidators.row>
-export type IdentT    = IdentRowT & { _id: string }
+/** An ident as anyone is shown it, its holder included: never which session claimed it */
+export type IdentT    = Pick<IdentRowT, 'label' | 'title'> & { _id: string }
 
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
@@ -45,11 +49,11 @@ export class Ident implements IdentT {
   /**
    * An ident's row, validated, with a blank title defaulting to its label titleized.
    *
-   * @param dna - The label, already normalized, and what to call it; a blank title means "use the label".
+   * @param dna - The label, already normalized; what to call it, where blank means "use the label"; and the session claiming it.
    * @returns The row to insert.
    * @throws When the label is not an ident label, or the title is not a title.
    *
-   * @example Ident.fill({ label: 'flip_kromer', title: '' })  // => { label: 'flip_kromer', title: 'Flip Kromer' }
+   * @example Ident.fill({ label: 'flip_kromer', title: '', user_id })  // => { label: 'flip_kromer', title: 'Flip Kromer', user_id }
    */
   static fill(dna: IdentDNA): IdentRowT {
     const title = dna.title.trim() === '' ? Labelmaker.titleize(dna.label) : dna.title

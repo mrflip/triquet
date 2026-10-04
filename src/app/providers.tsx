@@ -3,7 +3,8 @@
 import { useState, type ReactNode } from 'react'
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter'
 import { CssBaseline, ThemeProvider } from '@mui/material'
-import { ConvexProvider, ConvexReactClient } from 'convex/react'
+import { ConvexReactClient } from 'convex/react'
+import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { AlarmSnackbar } from '../components/AlarmSnackbar'
 import { SyncUnconfigured } from '../components/SyncNotices'
 import { AlarmsProvider } from '../state/alarms'
@@ -30,7 +31,8 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
 
 /**
  * The page's connection to its Convex deployment, which every hunt and quiz is read from and
- * written to. There is no account and no login: a browser says who it is by a key it keeps.
+ * written to, with the browser's session (Convex Auth): signed in anonymously on its first visit
+ * (`useSession`) and kept in this browser's storage, so that it is the same visitor next time.
  */
 export function SyncProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [client] = useState(() => {
@@ -39,8 +41,8 @@ export function SyncProvider({ children }: Readonly<{ children: ReactNode }>) {
   })
   if (client === null) { return <SyncUnconfigured /> }
   return (
-    <ConvexProvider client={client}>
+    <ConvexAuthProvider client={client}>
       {children}
-    </ConvexProvider>
+    </ConvexAuthProvider>
   )
 }

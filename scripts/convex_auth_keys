@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Gives one role's local Convex backend what Convex Auth needs to sign and check its sessions'
+# tokens: a key pair minted here (JWT_PRIVATE_KEY, and its public half as JWKS), and SITE_URL, the
+# address of the role's web server. Does nothing when the backend already has JWKS, so a backend
+# keeps its keys, and its visitors their sessions, across restarts. scripts/convex_dev calls this
+# on every start.
+#
+# The keys are throwaway: minted the way Convex Auth's manual setup does (an RS256 pair, the
+# private half as PKCS#8 with its newlines turned to spaces, the public half as a JWK set), handed
+# to the backend through a file only this user can read, which is removed at once, and kept
+# nowhere else. Production's are set by a Coach (notes/deploy.md).
+#
+# The backend must be running (scripts/convex_backend <role>, or scripts/convex_dev).
+#
+# Usage: scripts/convex_auth_keys <dev|agent|e2e|e2e-agent|e2e-built>
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+role="${1:-}"
+# The role's web server, as package.json's scripts have it.
+case "$role" in
+  dev)       web_port=3000 ;;
+  agent)     web_port=3001 ;;
+  e2e)       web_port=3002 ;;
+  e2e-agent) web_port=3003 ;;
+  e2e-built) web_port=3005 ;;
+  *) echo "Usage: scripts/convex_auth_keys <dev|agent|e2e|e2e-agent|e2e-built>" >&2; exit 1 ;;
+esac
+clienv="data/convex-${role}/cli.env"
+if [[ ! -s "$clienv" ]]; then
+  echo "No ${clienv}: start the ${role} backend first (scripts/convex_backend ${role})." >&2
+  exit 1
+fi
+
+# A local role talks only to its own backend: a cloud deployment the environment names (a deploy
+# key, say) would otherwise win over it.
+unset CONVEX_DEPLOY_KEY CONVEX_DEPLOYMENT
+while IFS='=' read -r envname val; do
+  case "$envname" in
+    CONVEX_SELF_HOSTED_URL | CONVEX_SELF_HOSTED_ADMIN_KEY) export "${envname}=${val}" ;;
+  esac
+done < "$clienv"
+if [[ ! "${CONVEX_SELF_HOSTED_URL:-}" =~ ^http://127\.0\.0\.1:[0-9]+$ ]]; then
+  echo "${clienv} names ${CONVEX_SELF_HOSTED_URL:-no backend}, not a local one: refusing." >&2
+  exit 1
+fi
+convex=./node_modules/.bin/convex
+
+if [[ -n "$("$convex" env get JWKS 2> /dev/null || true)" ]]; then exit 0; fi
+
+keyfile="$(umask 077 && mktemp "${TMPDIR:-/tmp}/triquet-auth-keys.XXXXXX")"
+trap 'rm -f "$keyfile"' EXIT
+node --input-type=module - "$keyfile" "http://localhost:${web_port}" <<'NODE'
+import { generateKeyPairSync } from 'node:crypto'
+import { writeFileSync } from 'node:fs'
+
+const [keyfile, siteUrl] = process.argv.slice(2)
+const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).trimEnd().replaceAll('\n', ' ')
+const jwks = JSON.stringify({ keys: [{ use: 'sig', ...publicKey.export({ format: 'jwk' }) }] })
+writeFileSync(keyfile, `JWT_PRIVATE_KEY="${pem}"\nJWKS=${jwks}\nSITE_URL=${siteUrl}\n`, { mode: 0o600 })
+NODE
+"$convex" env set --force --from-file "$keyfile" > /dev/null
+echo "The ${role} Convex backend has fresh keys for its sessions." >&2

@@ -150,7 +150,7 @@ export function whereabouts(): WhereaboutsT {
  * glance, then the postmortem and `context` to unfold, then the error itself with its stack. A
  * refusal is a warning, since the server meant it; anything else is an error.
  *
- * Nothing sensitive goes in `context`: a browser key never does.
+ * Nothing sensitive goes in `context`: a session's token never does.
  *
  * @param attempt - What was being tried, as a reader of the console would say it.
  * @param err - What it failed with.

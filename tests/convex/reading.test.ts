@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { cellRowsOf, huntForLabel, huntRowsOf, identFor, isWorked, layoutRowsOf, libraryOf, quizRowsOf, realmsOf, reviewFor, usageOf, widgetForLabel, widgetingsOf } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -9,7 +10,7 @@ import { Widgeting } from '../../src/models/widgeting'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { huntHolding, identified, openTester, type Tester } from '../support/convex'
+import { huntHolding, identified, openTester, signedIn, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
@@ -229,11 +230,13 @@ describe("usageOf", () => {
 })
 
 describe("identFor", () => {
-  it("is the ident a browser took on last, and null for one that never has", async () => {
+  it("is the ident a session asserted last, and null for one that never has", async () => {
     const tt = openTester()
-    const { browser_key } = await identified(tt, 'flip_kromer')
-    const found = await tt.run(async (ctx) => [await identFor(ctx.db, browser_key), await identFor(ctx.db, mintId())])
-    expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['flip_kromer', null])
+    const flip = await identified(tt, 'flip_kromer')
+    await flip.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'quiet_otter', title: '' } })
+    const { user_id } = await signedIn(tt)
+    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, user_id)])
+    expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['quiet_otter', null])
   })
 })
 

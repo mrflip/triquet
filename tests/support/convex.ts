@@ -5,7 +5,8 @@ import * as Z from 'zod'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
-import { identForLabel, libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
+import { libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
+import * as Actor from '../../src/lib/actor'
 import { mintId } from '../../src/lib/ids'
 import { widgetFrom } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -20,6 +21,9 @@ const modules = import.meta.glob('../../convex/**/*.*s')
 
 /** A Convex deployment of our schema and functions, in this process, empty until a test writes to it */
 export type Tester = TestConvex<typeof schema>
+
+/** The same deployment, called as one session: what a browser signed in as it would call */
+export type SessionTester = ReturnType<Tester['withIdentity']>
 
 /**
  * A fresh, empty deployment, holding no other test's rows.
@@ -47,28 +51,31 @@ export type Seen = {
   open_quiz_id: string
 }
 
-/** A browser that has taken on an ident: its key, and the ident's id */
-export type Browsing = { browser_key: string, ident_id: Id<'idents'> }
+/** A browser's session, signed in and nothing more: how to call as it, and its Convex Auth user */
+export type Session = { as: SessionTester, user_id: Id<'users'> }
+
+/** A session that has asserted a username: how to call as it, its user, the ident it took on, and the actor the server sees */
+export type Identified = Session & { ident_id: Id<'idents'>, label: string, actor: Actor.IdentActorT }
 
 /** A deployment holding a hunt, where its smith has a quiz open, and how to act on it and read it back */
 export type Seeded = {
   tt:    Tester
   open:  OpenQuizT
-  /** The browser of the hunt's one smith, who acts unless a test says otherwise */
-  smith: Browsing
+  /** The session of the hunt's one smith, who acts unless a test says otherwise */
+  smith: Identified
   /** The hunt as its rows now make it up */
   read:  () => Promise<Seen>
   /**
-   * Carry out `action` through `hunts.perform`, as the browser `browser_key`.
+   * Carry out `action` through `hunts.perform`, as the session `by`.
    *
-   * @param browser_key - Who is acting; the hunt's smith unless given.
+   * @param by - Who is acting; the hunt's smith unless given. A session with no username, or the bare tester (no session at all), are anonymous.
    */
-  act:   (action: HuntActionDNA, browser_key?: string) => Promise<void>
+  act:   (action: HuntActionDNA, by?: Session | Tester) => Promise<void>
   /**
-   * A fresh browser, taking on the ident labelled `label` (made if it is new), put on the hunt as
+   * A fresh session, asserting the username `label` (made if it is new), put on the hunt as
    * `role`.
    */
-  join:  (label: string, role: HuntRole) => Promise<Browsing>
+  join:  (label: string, role: HuntRole) => Promise<Identified>
 }
 
 /** How a hunt is seeded: which quiz of its first realm is open, and the label of its smith */
@@ -104,10 +111,10 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   const realm = present(home, 'the seeded realm')
   const open = { hunt_id, realm_id: realm.realm._id, quiz_id: present(realm.quizzes[openIdx], 'the quiz to open')._id }
-  const join = async (label: string, role: HuntRole): Promise<Browsing> => {
-    const browsing = await identified(tt, label)
-    await putOn(tt, hunt_id, browsing.ident_id, role)
-    return browsing
+  const join = async (label: string, role: HuntRole): Promise<Identified> => {
+    const member = await identified(tt, label)
+    await putOn(tt, hunt_id, member.ident_id, role)
+    return member
   }
   const smith = await join(smithlabel, 'smith')
   const read = async (): Promise<Seen> => {
@@ -116,8 +123,8 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
     const library = rows.map((row) => widgetFrom(row))
     return { hunt: now, quizzes: present(now.realms[0]).quizzes, library, open_quiz_id: open.quiz_id }
   }
-  const act = async (action: HuntActionDNA, browser_key: string = smith.browser_key) => {
-    await tt.mutation(api.hunts.perform, { open, action, browser_key })
+  const act = async (action: HuntActionDNA, by: Session | Tester = smith) => {
+    await callerOf(by).mutation(api.hunts.perform, { open, action })
   }
   return { tt, open, smith, read, act, join }
 }
@@ -127,16 +134,56 @@ export function openOf(seen: Seen): QuizT {
   return present(seen.quizzes.find((quiz) => quiz._id === seen.open_quiz_id), 'the open quiz')
 }
 
+/** How long a test's session lasts: longer than any test */
+const SessionMs = 24 * 60 * 60 * 1000
+
 /**
- * A fresh browser that has taken on the ident labelled `label`: its key, and the ident's id.
+ * A fresh browser's session, signed in anonymously as Convex Auth would sign it in (a `users` row
+ * and an `authSessions` row), having asserted no username: anonymous, but able to assert one.
  *
- * @example const { browser_key } = await identified(tt, 'alice_reviews')
+ * @example const { as } = await signedIn(tt); await as.mutation(api.idents.performAccount, { action })
  */
-export async function identified(tt: Tester, label: string): Promise<Browsing> {
-  const browser_key = mintId()
-  await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title: '' }, browser_key })
-  const ident = await tt.run(async (ctx) => await identForLabel(ctx.db, label))
-  return { browser_key, ident_id: present(ident, 'the ident')._id }
+export async function signedIn(tt: Tester): Promise<Session> {
+  const { user_id, session_id } = await tt.run(async (ctx) => {
+    const user_id = await ctx.db.insert('users', { isAnonymous: true })
+    const session_id = await ctx.db.insert('authSessions', { userId: user_id, expirationTime: Date.now() + SessionMs })
+    return { user_id, session_id }
+  })
+  return { as: tt.withIdentity({ subject: `${user_id}|${session_id}` }), user_id }
+}
+
+/** The sessions `identified` has signed in, by the username each holds, for each deployment */
+const HoldersIn = new WeakMap<Tester, Map<string, Identified>>()
+
+/**
+ * The session holding the username `label`: the one `identified` already signed in for it in
+ * `tt`, or else a fresh browser's, asserting it (made, and claimed, if it is new) through
+ * `idents.performAccount`. How to call as it, the ident's id, and the actor the server builds for
+ * it, for a test that asks a rule directly. A username has one holder, so asking twice is asking
+ * for the same person; a test of a second session asserting a held username uses `signedIn`.
+ *
+ * @example const alice = await identified(tt, 'alice_reviews'); await alice.as.query(api.hunts.list, {})
+ */
+export async function identified(tt: Tester, label: string): Promise<Identified> {
+  const holders = HoldersIn.get(tt) ?? new Map<string, Identified>()
+  HoldersIn.set(tt, holders)
+  const held = holders.get(label)
+  if (held) { return held }
+  const session = await signedIn(tt)
+  const ident_id = await session.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title: '' } }) as Id<'idents'>
+  const holder = { ...session, ident_id, label, actor: Actor.asIdent(session.user_id, { _id: ident_id, label }) }
+  holders.set(label, holder)
+  return holder
+}
+
+/**
+ * What to call functions through as `by`: a session's own tester, or the bare tester, which has no
+ * session at all.
+ *
+ * @example await callerOf(bob).query(api.hunts.list, {})
+ */
+export function callerOf(by: Session | Tester): SessionTester | Tester {
+  return 'as' in by ? by.as : by
 }
 
 /** A refusal's data, as far as a test needs it */

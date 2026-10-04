@@ -16,18 +16,18 @@ import type { Writer } from './quiz_writing'
  *
  * @param db - The mutation's database.
  * @param hunt_id - Which hunt.
- * @param acting_id - Who is adding them.
+ * @param acting_ident_id - Who is adding them.
  * @param ident_label - Who to add, by the label they chose.
  * @param role - What they are to do on it.
  *
  * @example await addHunting(db, open.hunt_id, ident_id, 'alice_reviews', 'reviewer')
  */
-export async function addHunting(db: Writer, hunt_id: Id<'hunts'>, acting_id: Id<'idents'>, ident_label: string, role: HuntRole): Promise<void> {
+export async function addHunting(db: Writer, hunt_id: Id<'hunts'>, acting_ident_id: Id<'idents'>, ident_label: string, role: HuntRole): Promise<void> {
   const ident = await identForLabel(db, ident_label)
   if (! ident) { refuse('identUnknown', identUnknownNotice(ident_label)) }
   const held = await huntingFor(db, hunt_id, ident._id)
   if (held?.role === role) { return }
-  if (ident._id === acting_id) { refuse('ownHunting') }
+  if (ident._id === acting_ident_id) { refuse('ownHunting') }
   const row = HuntingValidators.row({ hunt_id, ident_id: ident._id, role })
   if (held) {
     await db.patch('huntings', held._id, { role: row.role })
@@ -44,11 +44,11 @@ export async function addHunting(db: Writer, hunt_id: Id<'hunts'>, acting_id: Id
  *
  * @param db - The mutation's database.
  * @param hunt_id - Which hunt.
- * @param acting_id - Who is removing them.
+ * @param acting_ident_id - Who is removing them.
  * @param ident_id - Who to remove.
  */
-export async function removeHunting(db: Writer, hunt_id: Id<'hunts'>, acting_id: Id<'idents'>, ident_id: Id<'idents'>): Promise<void> {
-  if (ident_id === acting_id) { refuse('ownHunting') }
+export async function removeHunting(db: Writer, hunt_id: Id<'hunts'>, acting_ident_id: Id<'idents'>, ident_id: Id<'idents'>): Promise<void> {
+  if (ident_id === acting_ident_id) { refuse('ownHunting') }
   const held = await huntingFor(db, hunt_id, ident_id)
   if (held) { await db.delete('huntings', held._id) }
 }

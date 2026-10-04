@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as authorize from "../authorize.js";
 import type * as functions from "../functions.js";
+import type * as http from "../http.js";
 import type * as hunts from "../hunts.js";
 import type * as idents from "../idents.js";
 import type * as migrations from "../migrations.js";
@@ -37,8 +39,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   authorize: typeof authorize;
   functions: typeof functions;
+  http: typeof http;
   hunts: typeof hunts;
   idents: typeof idents;
   migrations: typeof migrations;

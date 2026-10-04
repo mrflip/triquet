@@ -87,6 +87,8 @@ export const RefusalNotices = {
   huntNotEmptied:   AppNotices.deletingHunt,
   notInRealm:       'That quiz belongs to another realm.',
   notIdentified:    'Say who you are first.',
+  notSignedIn:      "This browser isn't signed in yet — try again in a moment.",
+  usernameClaimed:  "Someone else holds that username. Choose a different one — or, if it's yours, create an account on the device where you first chose it.",
   reviewNotOpened:  'Open your review of this quiz first.',
   identUnknown:     identUnknownNotice('…'),
   ownHunting:       "You can't take yourself off this hunt or change your own role — another smith can.",

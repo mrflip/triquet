@@ -14,8 +14,10 @@ import styles from './workbench.module.css'
 
 /**
  * The front door: say who you are by typing an ident's label (a username, on screen), and become
- * that ident -- the one there is, or a new one titled after its label, which its owner can retitle
- * from their hunts. There is no password: anyone may be anyone, for now.
+ * that ident -- a new one titled after its label, which its owner can retitle from their hunts, or
+ * one this browser already holds. A username another browser holds is refused, saying what to do
+ * instead, and the visitor may try another at once. There is no password: the browser's session
+ * is what holds a username.
  *
  * A visitor who has already said is sent on at once: to where the address's `then` points, when
  * a link sent them here, and to their hunts otherwise. `?switch` keeps them here, to become
@@ -54,7 +56,7 @@ export function IdentGate() {
 
   return (
     <main className={styles.page}>
-      <Panel title={AppNotices.identGateTitle} blurb="If nobody goes by it yet, it becomes yours; if somebody does, you become them. There is no password.">
+      <Panel title={AppNotices.identGateTitle} blurb="If nobody goes by it yet, it becomes yours, held by this browser. There is no password.">
         {ident && <p className={styles.microcopy}>You are {ident.title} ({ident.label}) now.</p>}
         <Stack
           component="form" spacing={1.5} sx={{ maxWidth: 420, mt: 1 }}

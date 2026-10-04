@@ -317,7 +317,7 @@ describe("the library, as a reviewer", () => {
       { kind: 'delete_widget', label: 'answer_reversed' },
       { kind: 'import_widgets', widgets: [Shout] },
     ] as const satisfies readonly HuntActionDNA[]) {
-      expect(await refusedAs(seeded.act(action, reviewer.browser_key))).to.eq('notPermitted')
+      expect(await refusedAs(seeded.act(action, reviewer))).to.eq('notPermitted')
     }
     expect(await seeded.read()).to.deep.eq(ante)
   })

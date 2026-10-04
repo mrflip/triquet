@@ -2,13 +2,14 @@
 
 import { useCallback, useState } from 'react'
 import { useMutation } from 'convex/react'
+import { useAuthActions } from '@convex-dev/auth/react'
 import { api } from '../../convex/_generated/api'
 import * as Alarms from '../lib/alarms'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { failurekindOf, noticeOf } from '../lib/refusals'
 import type { AccountActionDNA } from '../models/actions'
-import { useBrowserKey } from './browser-key'
+import { useSession } from './use-session'
 
 /**
  * How an account action came out: kept, or not, why, and the alarm to raise for it, for a caller
@@ -26,33 +27,41 @@ export type AccountActionsHandle = {
 }
 
 /**
- * What a visitor can do before any quiz is open -- become an ident, make a hunt -- carried out
+ * What a visitor can do before any quiz is open -- assert a username, make a hunt -- carried out
  * one at a time, with a sentence rather than a code when one fails.
  *
  * Unlike a change to a quiz, the caller waits on these: each is followed by a navigation that
- * needs what it wrote, and it resolves only once the screen's own reads have it.
+ * needs what it wrote, and it resolves only once the screen's own reads have it. A session the
+ * server no longer holds (`notSignedIn`) is let go, so that a fresh one is signed in for the next
+ * try.
  */
 export function useAccountActions(): AccountActionsHandle {
-  const browser_key = useBrowserKey()
+  const { ready } = useSession()
+  const { signOut } = useAuthActions()
   const performAccount = useMutation(api.idents.performAccount)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
   const act = useCallback(async (action: AccountActionDNA): Promise<AccountOutcome> => {
-    if (browser_key === null) { return { kept: false, failurekind: null, alarm: { headline: AppNotices.changeNotKept, notice: AppNotices.changeFailed, request_id: null } } }
+    if (! ready) {
+      setNotice(RefusalNotices.notSignedIn)
+      return { kept: false, failurekind: 'notSignedIn', alarm: { headline: AppNotices.changeNotKept, notice: RefusalNotices.notSignedIn, request_id: null } }
+    }
     setBusy(true)
     try {
-      await performAccount({ action, browser_key })
+      await performAccount({ action })
       setNotice(null)
       return { kept: true }
     } catch (err) {
       Postmortem.report(`carry out an account action (${action.kind})`, err, { action })
       setNotice(noticeOf(err))
-      return { kept: false, failurekind: failurekindOf(err), alarm: Alarms.of(AppNotices.changeNotKept, err) }
+      const failurekind = failurekindOf(err)
+      if (failurekind === 'notSignedIn') { void signOut() }
+      return { kept: false, failurekind, alarm: Alarms.of(AppNotices.changeNotKept, err) }
     } finally {
       setBusy(false)
     }
-  }, [browser_key, performAccount])
+  }, [ready, performAccount, signOut])
 
   return { act, busy, notice }
 }

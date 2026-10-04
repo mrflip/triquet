@@ -3,7 +3,7 @@
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { WidgetUsageT } from '../lib/rows'
-import { useBrowserKey } from './browser-key'
+import { useSession } from './use-session'
 
 /**
  * How far the library's widget labelled `widget_label` is put to work, in every hunt, live: a
@@ -14,6 +14,6 @@ import { useBrowserKey } from './browser-key'
  *   hunt); undefined until they have arrived.
  */
 export function useWidgetUsage(widget_label: string): WidgetUsageT | null | undefined {
-  const browser_key = useBrowserKey()
-  return useQuery(api.widgets.usage, browser_key === null ? 'skip' : { browser_key, widget_label })
+  const { ready } = useSession()
+  return useQuery(api.widgets.usage, ready ? { widget_label } : 'skip')
 }

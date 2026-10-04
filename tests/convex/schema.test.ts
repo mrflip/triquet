@@ -1,7 +1,8 @@
 import _ from 'es-toolkit/compat'
 import * as Z from 'zod'
 import { describe, expect, it } from 'vitest'
-import type { Id, TableNames } from '../../convex/_generated/dataModel'
+import { authTables } from '@convex-dev/auth/server'
+import type { Id, TableNames as AllTableNames } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
@@ -21,7 +22,11 @@ import { openTester, type Tester } from '../support/convex'
 // Every table's fields are derived from its row validator, bar a few written by hand. This holds
 // the two together: the same fields (kind by kind, for a table that is a union), bar those
 // retiring, every one required but those being backfilled or retired, and a row the validator
-// makes is one the table takes, while a row with a field of the wrong type is refused.
+// makes is one the table takes, while a row with a field of the wrong type is refused. Convex
+// Auth's tables are its own, derived from no row validator of ours, and left to it.
+
+/** Our tables: every one but Convex Auth's */
+type TableNames = Exclude<AllTableNames, keyof typeof authTables>
 
 /** A row validator: one shape, or a union of shapes told apart by a field */
 type RowValidator = Z.ZodObject | Z.ZodDiscriminatedUnion<Z.ZodObject[]>
@@ -44,7 +49,9 @@ const RowValidators: Record<TableNames, RowValidator> = {
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {}
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  idents: ['user_id'],
+}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
 const Retiring: Partial<Record<TableNames, string[]>> = {}
@@ -83,7 +90,8 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const quiz_id = await insert('quizzes', quiz)
     const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)
-    const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip' })
+    const user_id = await ctx.db.insert('users', { isAnonymous: true })
+    const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip', user_id })
     const ident_id = await insert('idents', ident)
     const review = ReviewValidators.row({ hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     const review_id = await insert('reviews', review)
@@ -96,7 +104,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
       quizzes:     quiz,
       questions:   question,
       idents:      ident,
-      identings:   IdentingValidators.row({ browser_key: crypto.randomUUID(), ident_id }),
+      identings:   IdentingValidators.row({ user_id, ident_id }),
       widgets:     WidgetValidators.row({
         scope: 'pub', label: 'dumdum', title: 'Dumdum', description: '', formulary: 'aibot', formula: 'Answer this: {{clueing}}', input_formula: "{ 'clueing': qn.clueing }",
         config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }, position: 0,
@@ -121,7 +129,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   hunts:       { title: 7 },
   huntings:    { role: 'owner' },
   idents:      { label: null },
-  identings:   { browser_key: 12 },
+  identings:   { user_id: 12 },
   questions:   { position: 'first' },
   quizzes:     { locked: 'yes' },
   realms:      { hunt_id: 'nowhere' },
@@ -134,7 +142,8 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
 
 describe("every table and its row validator", () => {
   it("cover the same tables", () => {
-    expect(Object.keys(schema.tables).toSorted(alphabetically)).to.deep.eq(Object.keys(RowValidators).toSorted(alphabetically))
+    const ours = Object.keys(schema.tables).filter((tablename) => ! Object.hasOwn(authTables, tablename))
+    expect(ours.toSorted(alphabetically)).to.deep.eq(Object.keys(RowValidators).toSorted(alphabetically))
   })
 
   for (const [tablename, row] of Object.entries(RowValidators) as [TableNames, RowValidator][]) {

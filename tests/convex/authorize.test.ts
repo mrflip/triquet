@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import { mayActOnAccount, mayChangeHunt, mayCountUsage, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
 import { identForLabel, reviewFor } from '../../convex/reading'
+import * as Actor from '../../src/lib/actor'
 import { Hunt } from '../../src/models/hunt'
-import { mintId } from '../../src/lib/ids'
 import { present } from '../support/present'
-import { expectRefusal, identified, openOf, openTester, seedHunt } from '../support/convex'
+import { expectRefusal, identified, openOf, openTester, seedHunt, signedIn } from '../support/convex'
 
 const modules = import.meta.glob('../../convex/**/*.ts')
 
@@ -38,11 +38,11 @@ async function peopled() {
 describe("the rules", () => {
   it("let a smith read and change the hunt, a reviewer read it and write reviews, and nobody else do either", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
-    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ ident_id }) => [
-      await roleOn(ctx.db, open.hunt_id, ident_id),
-      await mayReadHunt(ctx.db, open.hunt_id, ident_id),
-      await mayChangeHunt(ctx.db, open.hunt_id, ident_id),
-      await mayWriteReview(ctx.db, open.hunt_id, ident_id),
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ actor }) => [
+      await roleOn(ctx.db, open.hunt_id, actor),
+      await mayReadHunt(ctx.db, open.hunt_id, actor),
+      await mayChangeHunt(ctx.db, open.hunt_id, actor),
+      await mayWriteReview(ctx.db, open.hunt_id, actor),
     ])))
     expect(verdicts).to.deep.eq([
       ['smith',    true,  true,  true],
@@ -51,35 +51,35 @@ describe("the rules", () => {
     ])
   })
 
-  it("let nobody at all read or change a hunt: a browser that has not said who it is", async () => {
+  it("let nobody at all read or change a hunt: an actor who has asserted no username", async () => {
     const { tt, open } = await peopled()
-    const verdicts = await tt.run(async (ctx) => [await roleOn(ctx.db, open.hunt_id, null), await mayReadHunt(ctx.db, open.hunt_id, null), await mayChangeHunt(ctx.db, open.hunt_id, null)])
+    const verdicts = await tt.run(async (ctx) => [await roleOn(ctx.db, open.hunt_id, Actor.anonymous), await mayReadHunt(ctx.db, open.hunt_id, Actor.anonymous), await mayChangeHunt(ctx.db, open.hunt_id, Actor.anonymous)])
     expect(verdicts).to.deep.eq([null, false, false])
   })
 
   it("let a reviewer read their own review whatever its phase; once shared, a smith, and another reviewer only while theirs is shared too", async () => {
     const { tt, open, act, join, alice, bob, carol } = await peopled()
     const dave = await join('dave_reviews', 'reviewer')
-    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob.browser_key)
-    await act({ kind: 'open_review', quiz_id: open.quiz_id }, dave.browser_key)
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob)
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, dave)
     const readers = async () => await tt.run(async (ctx) => {
       const review = present(await reviewFor(ctx.db, open.quiz_id, bob.ident_id))
-      return await Promise.all([bob, alice, dave, carol].map(async ({ ident_id }) => await mayReadReview(ctx.db, review, ident_id)))
+      return await Promise.all([bob.actor, alice.actor, dave.actor, carol.actor, Actor.anonymous].map(async (actor) => await mayReadReview(ctx.db, review, actor)))
     })
-    expect(await readers()).to.deep.eq([true, false, false, false])
-    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob.browser_key)
-    expect(await readers()).to.deep.eq([true, true, false, false])
-    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, dave.browser_key)
-    expect(await readers()).to.deep.eq([true, true, true, false])
-    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave.browser_key)
-    expect(await readers()).to.deep.eq([true, true, false, false])
+    expect(await readers()).to.deep.eq([true, false, false, false, false])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob)
+    expect(await readers()).to.deep.eq([true, true, false, false, false])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, dave)
+    expect(await readers()).to.deep.eq([true, true, true, false, false])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave)
+    expect(await readers()).to.deep.eq([true, true, false, false, false])
   })
 })
 
 describe("mayCountUsage", () => {
   it("lets a smith of any hunt count how far a widget is put to work, and nobody else", async () => {
     const { tt, alice, bob, carol } = await peopled()
-    const verdicts = await tt.run(async (ctx) => await Promise.all([alice.ident_id, bob.ident_id, carol.ident_id, null].map(async (ident_id) => await mayCountUsage(ctx.db, ident_id))))
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice.actor, bob.actor, carol.actor, Actor.anonymous].map(async (actor) => await mayCountUsage(ctx.db, actor))))
     expect(verdicts).to.deep.eq([true, false, false, false])
   })
 })
@@ -92,8 +92,8 @@ describe("mayActOnAccount", () => {
       { kind: 'relabel_hunt', hunt_id: open.hunt_id, label: 'mine_now' },
       { kind: 'new_hunt',     label: 'loud_heron' },
     ] as const
-    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ ident_id }) => (
-      await Promise.all(actions.map(async (action) => await mayActOnAccount(ctx.db, ident_id, action)))
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ actor }) => (
+      await Promise.all(actions.map(async (action) => await mayActOnAccount(ctx.db, actor, action)))
     ))))
     expect(verdicts).to.deep.eq([
       [true,  true,  true],
@@ -102,9 +102,9 @@ describe("mayActOnAccount", () => {
     ])
   })
 
-  it("lets nobody retitle a hunt from a browser that has not said who it is", async () => {
+  it("lets nobody retitle a hunt who has asserted no username", async () => {
     const { tt, open } = await peopled()
-    expect(await tt.run(async (ctx) => await mayActOnAccount(ctx.db, null, { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' }))).to.be.false
+    expect(await tt.run(async (ctx) => await mayActOnAccount(ctx.db, Actor.anonymous, { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' }))).to.be.false
   })
 })
 
@@ -112,23 +112,24 @@ describe("hunts.perform, authorized", () => {
   it("lets a smith change the hunt, and refuses a reviewer and a stranger, writing nothing", async () => {
     const { act, read, bob, carol } = await peopled()
     await act({ kind: 'retitle_quiz', title: 'Princes' })
-    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, bob.browser_key), 'notPermitted')
-    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, carol.browser_key), 'notPermitted')
-    await expectRefusal(act({ kind: 'add_hunting', ident_label: 'carol_strays', role: 'smith' }, bob.browser_key), 'notPermitted')
-    await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'smuggled', patch: {} }] }, bob.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, bob), 'notPermitted')
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, carol), 'notPermitted')
+    await expectRefusal(act({ kind: 'add_hunting', ident_label: 'carol_strays', role: 'smith' }, bob), 'notPermitted')
+    await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'smuggled', patch: {} }] }, bob), 'notPermitted')
     expect(openOf(await read()).title).to.eq('Princes')
   })
 
   it("lets a reviewer, or a smith, write their own review, and refuses a stranger", async () => {
     const { act, open, bob, carol, alice } = await peopled()
-    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob.browser_key)
-    await act({ kind: 'open_review', quiz_id: open.quiz_id }, alice.browser_key)
-    await expectRefusal(act({ kind: 'open_review', quiz_id: open.quiz_id }, carol.browser_key), 'notPermitted')
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob)
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, alice)
+    await expectRefusal(act({ kind: 'open_review', quiz_id: open.quiz_id }, carol), 'notPermitted')
   })
 
-  it("refuses a browser that has not said who it is, before anything else", async () => {
-    const { act } = await peopled()
-    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, mintId()), 'notIdentified')
+  it("refuses a session that has asserted no username, or a request with no session, before anything else", async () => {
+    const { tt, act } = await peopled()
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, await signedIn(tt)), 'notIdentified')
+    await expectRefusal(act({ kind: 'retitle_quiz', title: 'Kings' }, tt), 'notIdentified')
   })
 
   it("refuses a place whose realm or quiz is another hunt's, or an action naming a quiz of another hunt", async () => {
@@ -138,7 +139,7 @@ describe("hunts.perform, authorized", () => {
     const before = openOf(await theirs.read())
     const forgeries = [{ ...mine.open, quiz_id: theirs.open.quiz_id }, { ...theirs.open, hunt_id: mine.open.hunt_id }]
     for (const open of forgeries) {
-      await expectRefusal(tt.mutation(api.hunts.perform, { open, action: { kind: 'retitle_quiz', title: 'Mine now' }, browser_key: mine.smith.browser_key }), 'notPermitted')
+      await expectRefusal(mine.smith.as.mutation(api.hunts.perform, { open, action: { kind: 'retitle_quiz', title: 'Mine now' } }), 'notPermitted')
     }
     await expectRefusal(mine.act({ kind: 'set_lock', quiz_id: theirs.open.quiz_id, locked: true }), 'notPermitted')
     await expectRefusal(mine.act({ kind: 'open_review', quiz_id: theirs.open.quiz_id }), 'notPermitted')
@@ -152,11 +153,11 @@ describe("mayPerform", () => {
     const retitle = { kind: 'retitle_quiz', title: 'Kings' } as const
     const peek = { kind: 'open_review', quiz_id: open.quiz_id } as const
     const verdicts = await tt.run(async (ctx) => [
-      await mayPerform(ctx.db, open, alice.ident_id, retitle),
-      await mayPerform(ctx.db, open, bob.ident_id, retitle),
-      await mayPerform(ctx.db, open, bob.ident_id, peek),
-      await mayPerform(ctx.db, { ...open, quiz_id: other.open.quiz_id }, alice.ident_id, retitle),
-      await mayPerform(ctx.db, { ...open, realm_id: other.open.realm_id }, alice.ident_id, retitle),
+      await mayPerform(ctx.db, open, alice.actor, retitle),
+      await mayPerform(ctx.db, open, bob.actor, retitle),
+      await mayPerform(ctx.db, open, bob.actor, peek),
+      await mayPerform(ctx.db, { ...open, quiz_id: other.open.quiz_id }, alice.actor, retitle),
+      await mayPerform(ctx.db, { ...open, realm_id: other.open.realm_id }, alice.actor, retitle),
     ])
     expect(verdicts).to.deep.eq([true, false, true, false, false])
   })
@@ -165,21 +166,23 @@ describe("mayPerform", () => {
     const { tt, open, alice } = await peopled()
     const verdict = await tt.run(async (ctx) => {
       await ctx.db.delete('realms', open.realm_id)
-      return await mayPerform(ctx.db, open, alice.ident_id, { kind: 'retitle_quiz', title: 'Kings' })
+      return await mayPerform(ctx.db, open, alice.actor, { kind: 'retitle_quiz', title: 'Kings' })
     })
     expect(verdict).to.be.false
   })
 })
 
-describe("identings, each browser's own", () => {
-  it("are read only through the browser's own key: another browser learns nothing of them", async () => {
+describe("identings, each session's own", () => {
+  it("are read only through the session's own token: another session, or none, learns nothing of them", async () => {
     const tt = openTester()
     await identified(tt, 'alice_reviews')
-    expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.be.null
+    const other = await signedIn(tt)
+    expect([await other.as.query(api.idents.current, {}), await tt.query(api.idents.current, {})]).to.deep.eq([null, null])
   })
 
-  it("are listed by no function, nor are idents changed or removed by one", async () => {
+  it("are listed by no function, nor are idents changed or removed by one; Convex Auth's own functions are the rest", async () => {
     expect(await publicFunctions()).to.deep.eq([
+      'auth:isAuthenticated', 'auth:signIn', 'auth:signOut',
       'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:whole',
       'idents:current', 'idents:performAccount',
       'questions:open',
@@ -191,11 +194,12 @@ describe("identings, each browser's own", () => {
 })
 
 describe("idents", () => {
-  it("are made by anyone, and are never changed by taking one on again", async () => {
+  it("are made by any session, and are never changed by another asserting the username", async () => {
     const tt = openTester()
-    await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Flip' }, browser_key: mintId() })
-    await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' }, browser_key: mintId() })
+    const [first, second] = [await signedIn(tt), await signedIn(tt)]
+    await first.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Flip' } })
+    await expectRefusal(second.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'flip_kromer', title: 'Impostor' } }), 'usernameClaimed')
     const ident = await tt.run(async (ctx) => await identForLabel(ctx.db, 'flip_kromer'))
-    expect(ident?.title).to.eq('Flip')
+    expect([ident?.title, ident?.user_id]).to.deep.eq(['Flip', first.user_id])
   })
 })

@@ -2,6 +2,7 @@ import _ from 'es-toolkit/compat'
 import { defineSchema, defineTable } from 'convex/server'
 import { v as CVX, type VAny } from 'convex/values'
 import { zodOutputToConvex, zodOutputToConvexFields } from 'convex-helpers/server/zod4'
+import { authTables } from '@convex-dev/auth/server'
 import { ColumnValidators } from '../src/models/column'
 import { HuntValidators } from '../src/models/hunt'
 import { HuntingValidators } from '../src/models/hunting'
@@ -24,8 +25,17 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // Three fields are written by hand, each any JSON at all, whose recursive type the bridge converts
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
+//
+// An ident's `user_id` is written by hand too, optional here though every write gives one, so
+// that idents written before it existed still fit until `migrations.ts` backfills them.
+//
+// The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
+// spread in as it ships them and written only by it: no row validator of ours derives them.
 
-const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
+const identFields       = {
+  ...zodOutputToConvexFields(_.omit(IdentValidators.row.shape, ['user_id'])),
+  user_id: CVX.optional(CVX.union(CVX.id('users'), CVX.null())),
+}
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
@@ -54,10 +64,11 @@ const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
  * read by its id.
  */
 export default defineSchema({
-  /** A persona in the app, named by a label a person types to become it */
+  ...authTables,
+  /** A persona in the app, named by a label a person types to become it, held by the session that claimed it */
   idents:      defineTable(identFields).index('by_label', ['label']),
-  /** One time a browser took on an ident: its newest is the ident it is now */
-  identings:   defineTable(identingFields).index('by_browser_key', ['browser_key']),
+  /** One time a session asserted a username: its newest is the ident it is now */
+  identings:   defineTable(identingFields).index('by_user_id', ['user_id']),
   /** A hunt: the unit of address and of membership. Its realms hold its quizzes. */
   hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_forced_label', ['forced_label']),
   /** A division of a hunt, holding quizzes, kept in the order its hunt lists them */

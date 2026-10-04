@@ -15,11 +15,10 @@ import { defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import type { HuntRole } from '../../src/models/hunting'
-import { mintId } from '../../src/lib/ids'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import { present } from '../support/present'
-import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, type Seen, type Tester } from '../support/convex'
+import { huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seen, type Session, type Tester } from '../support/convex'
 
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
@@ -139,12 +138,12 @@ describe("hunts.perform", () => {
    */
   const reviewed = async (hunt: HuntT = huntOf(['1', 'a'], ['2', 'b'])) => {
     const seeded = await seed(hunt)
-    const { browser_key } = await seeded.join('alice_reviews', 'reviewer')
+    const alice = await seeded.join('alice_reviews', 'reviewer')
     const quiz = openOf(await seeded.read())
     const [first, second] = quiz.questions.map((question) => question._id as Id<'questions'>)
-    const asAlice = async (action: HuntActionDNA) => { await seeded.act(action, browser_key) }
+    const asAlice = async (action: HuntActionDNA) => { await seeded.act(action, alice) }
     await asAlice({ kind: 'open_review', quiz_id: quiz._id })
-    return { ...seeded, asAlice, browser_key, quiz_id: quiz._id, first: present(first), second: present(second) }
+    return { ...seeded, asAlice, alice, quiz_id: quiz._id, first: present(first), second: present(second) }
   }
 
   /** A seeded hunt whose first question already holds a guess, and that question's id */
@@ -861,19 +860,19 @@ describe("hunts.perform", () => {
   describe("open_review", () => {
     it("opens an empty review for the acting ident", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key, ident_id } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, member)
       const reviews = await reviewsIn(tt, quiz_id)
-      expect(reviews.map((review) => [review.ident_id, review.overall, review.phase])).to.deep.eq([[ident_id, '', 'empty']])
+      expect(reviews.map((review) => [review.ident_id, review.overall, review.phase])).to.deep.eq([[member.ident_id, '', 'empty']])
     })
 
     it("is idempotent: opening it again writes nothing new", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
-      await act({ kind: 'open_review', quiz_id }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, member)
+      await act({ kind: 'open_review', quiz_id }, member)
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
@@ -881,66 +880,66 @@ describe("hunts.perform", () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
       const [alice, bob] = [await join('alice_reviews', 'reviewer'), await join('bob_reviews', 'reviewer')]
-      await act({ kind: 'open_review', quiz_id }, alice.browser_key)
-      await act({ kind: 'open_review', quiz_id }, bob.browser_key)
+      await act({ kind: 'open_review', quiz_id }, alice)
+      await act({ kind: 'open_review', quiz_id }, bob)
       const reviews = await reviewsIn(tt, quiz_id)
       expect(reviews.map((review) => review.ident_id)).to.deep.eq([alice.ident_id, bob.ident_id])
     })
 
     it("works on a locked quiz, since reviewing one is the point", async () => {
       const { act, read, tt, join } = await seed(openHunt(true))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, member)
       expect(await reviewsIn(tt, quiz_id)).to.have.length(1)
     })
 
-    it("refuses a browser that has not said who it is, writing nothing", async () => {
+    it("refuses a session that has asserted no username, writing nothing", async () => {
       const { act, read, tt } = await seed(huntOf(['1', 'a']))
       const quiz_id = openOf(await read())._id
-      await expectRefusal(act({ kind: 'open_review', quiz_id }, mintId()), 'notIdentified')
+      await expectRefusal(act({ kind: 'open_review', quiz_id }, await signedIn(tt)), 'notIdentified')
       expect(await reviewsIn(tt, quiz_id)).to.deep.eq([])
     })
 
-    it("reviews as the ident the browser took on last", async () => {
-      const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
-      const bob = await join('bob_reviews', 'reviewer')
-      await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'bob_reviews', title: '' }, browser_key })
+    it("reviews as the ident the session asserted last", async () => {
+      const { act, read, tt, open, join } = await seed(huntOf(['1', 'a']))
+      const alice = await join('alice_reviews', 'reviewer')
+      const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
+      await putOn(tt, open.hunt_id, otherself, 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, alice)
       const reviews = await reviewsIn(tt, quiz_id)
-      expect(reviews.map((review) => review.ident_id)).to.deep.eq([bob.ident_id])
+      expect(reviews.map((review) => review.ident_id)).to.deep.eq([otherself])
     })
   })
 
   describe("set_overall", () => {
     it("writes the note and moves an empty review to draft", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
-      await act({ kind: 'set_overall', quiz_id, overall: 'Went well.' }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, member)
+      await act({ kind: 'set_overall', quiz_id, overall: 'Went well.' }, member)
       const [review] = await reviewsIn(tt, quiz_id)
       expect([review?.overall, review?.phase]).to.deep.eq(['Went well.', 'draft'])
     })
 
     it("leaves a shared review shared", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
-      await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, browser_key)
-      await act({ kind: 'set_overall', quiz_id, overall: 'One more thought.' }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, member)
+      await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, member)
+      await act({ kind: 'set_overall', quiz_id, overall: 'One more thought.' }, member)
       const [review] = await reviewsIn(tt, quiz_id)
       expect([review?.overall, review?.phase]).to.deep.eq(['One more thought.', 'shared'])
     })
 
     it("refuses when the review has not been opened", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await expectRefusal(act({ kind: 'set_overall', quiz_id, overall: 'Too soon.' }, browser_key), 'reviewNotOpened')
+      await expectRefusal(act({ kind: 'set_overall', quiz_id, overall: 'Too soon.' }, member), 'reviewNotOpened')
       expect(await reviewsIn(tt, quiz_id)).to.deep.eq([])
     })
   })
@@ -948,22 +947,22 @@ describe("hunts.perform", () => {
   describe("set_review_phase", () => {
     it("moves a review between draft and shared, both ways", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, browser_key)
-      await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, browser_key)
+      await act({ kind: 'open_review', quiz_id }, member)
+      await act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, member)
       const [shared] = await reviewsIn(tt, quiz_id)
       expect(shared?.phase).to.eq('shared')
-      await act({ kind: 'set_review_phase', quiz_id, phase: 'draft' }, browser_key)
+      await act({ kind: 'set_review_phase', quiz_id, phase: 'draft' }, member)
       const [withdrawn] = await reviewsIn(tt, quiz_id)
       expect(withdrawn?.phase).to.eq('draft')
     })
 
     it("refuses when the review has not been opened", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('alice_reviews', 'reviewer')
+      const member = await join('alice_reviews', 'reviewer')
       const quiz_id = openOf(await read())._id
-      await expectRefusal(act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, browser_key), 'reviewNotOpened')
+      await expectRefusal(act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, member), 'reviewNotOpened')
       expect(await reviewsIn(tt, quiz_id)).to.deep.eq([])
     })
   })
@@ -1000,9 +999,9 @@ describe("hunts.perform", () => {
     it("keeps each reviewer's verdicts apart", async () => {
       const { tt, asAlice, act, quiz_id, first, join } = await reviewed()
       const bob = await join('bob_reviews', 'reviewer')
-      await act({ kind: 'open_review', quiz_id }, bob.browser_key)
+      await act({ kind: 'open_review', quiz_id }, bob)
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 10 } })
-      await act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 90 } }, bob.browser_key)
+      await act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 90 } }, bob)
       const reviewings = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
       const reviews = await reviewsIn(tt, quiz_id)
       const rateBy = new Map(reviewings.map((reviewing) => [reviews.find((review) => review._id === reviewing.review_id)?.ident_id, reviewing.get_rate]))
@@ -1077,12 +1076,12 @@ describe("hunts.perform", () => {
       const hunt = huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd'])
       const { tt, asAlice, act, quiz_id, read, join } = await reviewed(hunt)
       const bob = await join('bob_reviews', 'reviewer')
-      await act({ kind: 'open_review', quiz_id }, bob.browser_key)
+      await act({ kind: 'open_review', quiz_id }, bob)
       const question_ids = questionIdsOf(await read())
       for (const question_id of question_ids.slice(0, PA.PicksPerReview.max)) {
         await asAlice({ kind: 'set_reviewing', quiz_id, question_id, patch: { keep_it: true } })
       }
-      await act({ kind: 'set_reviewing', quiz_id, question_id: present(question_ids.at(-1)), patch: { keep_it: true } }, bob.browser_key)
+      await act({ kind: 'set_reviewing', quiz_id, question_id: present(question_ids.at(-1)), patch: { keep_it: true } }, bob)
       const reviewings = await reviewingsIn(tt)
       expect(reviewings.filter((reviewing) => reviewing.keep_it)).to.have.lengthOf(PA.PicksPerReview.max + 1)
     })
@@ -1096,10 +1095,10 @@ describe("hunts.perform", () => {
 
     it("refuses when the review has not been opened, writing nothing", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('bob_reviews', 'reviewer')
+      const member = await join('bob_reviews', 'reviewer')
       const seen = await read()
       const [quiz_id, question_id] = [openOf(seen)._id, firstOf(seen)._id]
-      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 40 } }, browser_key), 'reviewNotOpened')
+      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 40 } }, member), 'reviewNotOpened')
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
@@ -1119,9 +1118,9 @@ describe("hunts.perform", () => {
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
-    it("refuses a browser that has not said who it is", async () => {
+    it("refuses a session that has asserted no username", async () => {
       const { tt, act, quiz_id, first } = await reviewed()
-      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, mintId()), 'notIdentified')
+      await expectRefusal(act({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } }, await signedIn(tt)), 'notIdentified')
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
   })
@@ -1154,10 +1153,10 @@ describe("hunts.perform", () => {
 
     it("refuses when the review has not been opened, writing nothing", async () => {
       const { act, read, tt, join } = await seed(huntOf(['1', 'a']))
-      const { browser_key } = await join('bob_reviews', 'reviewer')
+      const member = await join('bob_reviews', 'reviewer')
       const seen = await read()
       const [quiz_id, question_id] = [openOf(seen)._id, firstOf(seen)._id]
-      await expectRefusal(act({ kind: 'peek_answer', quiz_id, question_id }, browser_key), 'reviewNotOpened')
+      await expectRefusal(act({ kind: 'peek_answer', quiz_id, question_id }, member), 'reviewNotOpened')
       expect(await reviewingsIn(tt)).to.deep.eq([])
     })
 
@@ -1347,8 +1346,8 @@ describe("hunts.perform, at the caps", () => {
         await ctx.db.insert('reviews', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, ident_id, overall: '', phase: 'empty' })
       }
     })
-    const { browser_key } = await join('one_more_reviewer', 'reviewer')
-    await expectRefusal(act({ kind: 'open_review', quiz_id: open.quiz_id }, browser_key), 'reviewsFull')
+    const member = await join('one_more_reviewer', 'reviewer')
+    await expectRefusal(act({ kind: 'open_review', quiz_id: open.quiz_id }, member), 'reviewsFull')
     expect(await reviewsIn(tt, open.quiz_id)).to.have.lengthOf(999)
   })
 })
@@ -1368,17 +1367,17 @@ describe("hunts.perform, refusing", () => {
 })
 
 describe("hunts.perform, at the door", () => {
-  it("refuses a browser key that is not one, writing nothing", async () => {
+  it("refuses a request with no session, writing nothing", async () => {
     const { tt, open, read } = await seedHunt(openTester(), openHunt())
     const ante = await read()
-    await expect(tt.mutation(api.hunts.perform, { open, action: { kind: 'add_question' }, browser_key: 'my_laptop' })).rejects.toThrow(/uuid|UUID/)
+    await expectRefusal(tt.mutation(api.hunts.perform, { open, action: { kind: 'add_question' } }), 'notIdentified')
     expect(await read()).to.deep.eq(ante)
   })
 
   it("refuses an action it does not know", async () => {
-    const { tt, open } = await seedHunt(openTester(), openHunt())
+    const { open, smith } = await seedHunt(openTester(), openHunt())
     const action = { kind: 'burn_it_all' } as never
-    await expect(tt.mutation(api.hunts.perform, { open, action, browser_key: crypto.randomUUID() })).rejects.toThrow(/Validator error/)
+    await expect(smith.as.mutation(api.hunts.perform, { open, action })).rejects.toThrow(/Validator error/)
   })
 })
 
@@ -1395,7 +1394,7 @@ describe("hunts.list", () => {
     const heron = await seedHunt(tt, { ...huntHolding([Quiz.blank('Only')]), label: 'loud_heron', title: 'The Heron Hunt' })
     await joinHunt(tt, heron.open.hunt_id, alice.ident_id, 'smith')
     await joinHunt(tt, otter.open.hunt_id, alice.ident_id, 'reviewer')
-    const hunts = await tt.query(api.hunts.list, { browser_key: alice.browser_key })
+    const hunts = await alice.as.query(api.hunts.list, {})
     expect(hunts.map((hunt) => [hunt.label, hunt.title, hunt.role, hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])])).to.deep.eq([
       ['quiet_otter', 'Quiet Otter', 'reviewer', [['home', ['First', 'Second']]]],
       ['loud_heron', 'The Heron Hunt', 'smith', [['home', ['Only']]]],
@@ -1409,32 +1408,32 @@ describe("hunts.list", () => {
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Mine')]), label: 'quiet_otter' })
     await seedHunt(tt, { ...huntHolding([Quiz.blank('Nobody\'s')]), label: 'loud_heron' })
     await joinHunt(tt, otter.open.hunt_id, alice.ident_id, 'smith')
-    const listed = await tt.query(api.hunts.list, { browser_key: alice.browser_key })
+    const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
-    expect(await tt.query(api.hunts.list, { browser_key: bob.browser_key })).to.deep.eq([])
+    expect(await bob.as.query(api.hunts.list, {})).to.deep.eq([])
   })
 
-  it("lists the hunts of the ident the browser took on last", async () => {
+  it("lists the hunts of the ident the session asserted last", async () => {
     const tt = openTester()
-    const { browser_key } = await identified(tt, 'alice_smiths')
-    const bob = await identified(tt, 'bob_reviews')
-    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Bob\'s')]), label: 'quiet_otter' })
-    await joinHunt(tt, otter.open.hunt_id, bob.ident_id, 'reviewer')
-    await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'bob_reviews', title: '' }, browser_key })
-    const listed = await tt.query(api.hunts.list, { browser_key })
+    const alice = await identified(tt, 'alice_smiths')
+    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Her other self\'s')]), label: 'quiet_otter' })
+    const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
+    await joinHunt(tt, otter.open.hunt_id, otherself, 'reviewer')
+    const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
   })
 
-  it("lists nothing for a browser that has not said who it is", async () => {
+  it("lists nothing for a session that has asserted no username, or a request with no session", async () => {
     const tt = openTester()
     await seedHunt(tt, Hunt.blank('quiet_otter'))
-    expect(await tt.query(api.hunts.list, { browser_key: mintId() })).to.deep.eq([])
+    const session = await signedIn(tt)
+    expect([await session.as.query(api.hunts.list, {}), await tt.query(api.hunts.list, {})]).to.deep.eq([[], []])
   })
 })
 
-/** The hunt `hunt_label` as the browser `browser_key` is shown it, which must be shown */
-async function shown(tt: Tester, hunt_label: string, browser_key: string) {
-  const opening = await tt.query(api.hunts.open, { hunt_label, browser_key })
+/** The hunt `hunt_label` as the session `by` is shown it, which must be shown */
+async function shown(hunt_label: string, by: Session) {
+  const opening = await by.as.query(api.hunts.open, { hunt_label })
   return present(opening.hunt)
 }
 
@@ -1443,7 +1442,7 @@ describe("hunts.open", () => {
     const tt = openTester()
     const { act, smith } = await seedHunt(tt, { ...Hunt.blank('quiet_otter'), title: '' })
     await act({ kind: 'new_quiz' })
-    const hunt = await shown(tt, 'quiet_otter', smith.browser_key)
+    const hunt = await shown('quiet_otter', smith)
     expect([hunt.title, hunt.realms.map((realm) => [realm.title, realm.quizzes.length])]).to.deep.eq(['Quiet Otter', [['Home', 2]]])
     expect(hunt).to.not.have.any.keys('expressions', 'library', 'widgets')
   })
@@ -1455,7 +1454,7 @@ describe("hunts.open", () => {
     const alice = await identified(tt, 'alice_smiths')
     await joinHunt(tt, open.hunt_id, alice.ident_id, 'smith')
     await joinHunt(tt, open.hunt_id, bob.ident_id, 'reviewer')
-    const hunt = await shown(tt, 'quiet_otter', bob.browser_key)
+    const hunt = await shown('quiet_otter', bob)
     expect(hunt.members.map((member) => [member.label, member.title, member.role, member.ident_id])).to.deep.eq([
       ['seed_smith', 'Seed Smith', 'smith', smith.ident_id],
       ['alice_smiths', 'Alice Smiths', 'smith', alice.ident_id],
@@ -1467,7 +1466,7 @@ describe("hunts.open", () => {
     const tt = openTester()
     const { join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const [alice, bob] = [await join('alice_smiths', 'smith'), await join('bob_reviews', 'reviewer')]
-    const [aliceSees, bobSees] = [await shown(tt, 'quiet_otter', alice.browser_key), await shown(tt, 'quiet_otter', bob.browser_key)]
+    const [aliceSees, bobSees] = [await shown('quiet_otter', alice), await shown('quiet_otter', bob)]
     expect([aliceSees.role, bobSees.role]).to.deep.eq(['smith', 'reviewer'])
   })
 
@@ -1478,14 +1477,14 @@ describe("hunts.open", () => {
     await join('bob_reviews', 'reviewer')
     const carol = await identified(tt, 'carol_strays')
     const refused = { why: 'notOnHunt', hunt: null, smiths: [{ label: 'seed_smith', title: 'Seed Smith' }, { label: 'alice_smiths', title: 'Alice Smiths' }] }
-    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: carol.browser_key })).to.deep.eq(refused)
-    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: mintId() })).to.deep.eq(refused)
+    expect(await carol.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })).to.deep.eq(refused)
+    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter' })).to.deep.eq(refused)
   })
 
   it("says so for a label no hunt answers to", async () => {
     const tt = openTester()
     const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
-    expect(await tt.query(api.hunts.open, { hunt_label: 'loud_heron', browser_key: smith.browser_key })).to.deep.eq({ why: 'noSuchHunt', hunt: null })
+    expect(await smith.as.query(api.hunts.open, { hunt_label: 'loud_heron' })).to.deep.eq({ why: 'noSuchHunt', hunt: null })
   })
 })
 
@@ -1500,7 +1499,7 @@ describe("hunts.whole", () => {
   it("is null for a hunt that is not there", async () => {
     const { tt, open, smith } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', open.hunt_id) })
-    expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: smith.browser_key })).to.be.null
+    expect(await smith.as.query(api.hunts.whole, { hunt_id: open.hunt_id })).to.be.null
   })
 
   it("is read whole by anyone on the hunt, and is null, as for one not there, for anyone else", async () => {
@@ -1508,8 +1507,8 @@ describe("hunts.whole", () => {
     const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await join('bob_reviews', 'reviewer')
     const carol = await identified(tt, 'carol_strays')
-    const read = await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: bob.browser_key })
+    const read = await bob.as.query(api.hunts.whole, { hunt_id: open.hunt_id })
     expect(read?.label).to.eq('quiet_otter')
-    expect(await tt.query(api.hunts.whole, { hunt_id: open.hunt_id, browser_key: carol.browser_key })).to.be.null
+    expect(await carol.as.query(api.hunts.whole, { hunt_id: open.hunt_id })).to.be.null
   })
 })
