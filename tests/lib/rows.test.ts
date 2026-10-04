@@ -4,6 +4,7 @@ import {
   assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
+import * as Wheel from '../../src/lib/wheel'
 import * as Runner from '../../src/lib/formulary/runner'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeted } from '../../src/models/widgeted'
@@ -208,8 +209,17 @@ describe('shallowHuntOf', () => {
     expect(shallowHuntOf(Rows, members, 'smith').role).to.eq('smith')
   })
 
-  it('is the hunt\'s listing, and nothing of a library or expressions', () => {
-    expect(shallowHuntOf(Rows, [], 'smith')).to.deep.eq({ ...huntListingOf(Rows), members: [], role: 'smith' })
+  it('is the hunt\'s listing and its wheel, and nothing of a library or expressions', () => {
+    expect(shallowHuntOf(Rows, [], 'smith')).to.deep.eq({ ...huntListingOf(Rows), wheel: Wheel.defaultWheel(), members: [], role: 'smith' })
+  })
+
+  it("reads a hunt nobody has arranged as holding the default wheel", () => {
+    expect(shallowHuntOf(Rows, [], 'smith').wheel).to.deep.eq(Wheel.defaultWheel())
+  })
+
+  it("carries the wheel the hunt holds, holes and all", () => {
+    const wheel = Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool')
+    expect(shallowHuntOf({ ...Rows, hunt: { ...HuntRow, wheel } }, [], 'smith').wheel).to.deep.eq(wheel)
   })
 })
 

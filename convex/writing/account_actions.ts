@@ -6,7 +6,7 @@ import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
 import { huntForLabel, huntsOf, identFor, identForLabel } from '../reading'
-import { relabelHunt, retitleHunt } from './hunt_actions'
+import { arrangeCategories, relabelHunt, retitleHunt } from './hunt_actions'
 import { insertHunt, type Writer } from './quiz_writing'
 
 /**
@@ -70,7 +70,7 @@ export async function newHunt(db: Writer, browser_key: string, label: string): P
 
 /**
  * Carry out what a visitor did before opening any quiz, writing the rows it comes to. Whether
- * they may retitle or relabel a hunt is asked before this (`authorize`).
+ * they may retitle, relabel or arrange the categories of a hunt is asked before this (`authorize`).
  *
  * @param db - The mutation's database.
  * @param browser_key - The visitor's browser.
@@ -85,5 +85,6 @@ export async function performAccount(db: Writer, browser_key: string, action: Ac
   case 'new_hunt':      { return await newHunt(db, browser_key, action.label) }
   case 'retitle_hunt':  { await retitleHunt(db, action.hunt_id, action.title); return action.hunt_id }
   case 'relabel_hunt':  { await relabelHunt(db, action.hunt_id, action.label); return action.hunt_id }
+  case 'arrange_categories': { await arrangeCategories(db, action.hunt_id, action.wheel); return action.hunt_id }
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
+import { CategoryLabelVals } from '../../src/models/category'
 import { Hunt, HuntValidators } from '../../src/models/hunt'
 import { defaultLayout } from '../../src/models/layout'
 import { Quiz, type QuizDNA } from '../../src/models/quiz'
@@ -110,5 +111,15 @@ describe('HuntValidators.row', () => {
 
   it('refuses a label that is not one', () => {
     expect(() => HuntValidators.row({ ...Row, label: 'Quiet Otter' })).to.throw(Z.ZodError)
+  })
+
+  it("takes a hunt with no wheel, which reads as the default, and one with a wheel of its own", () => {
+    const wheel = [null, ...CategoryLabelVals.slice(1)]
+    expect(HuntValidators.row(Row)).not.to.have.property('wheel')
+    expect(HuntValidators.row({ ...Row, wheel }).wheel).to.deep.eq(wheel)
+  })
+
+  it("refuses a wheel that is not one", () => {
+    expect(() => HuntValidators.row({ ...Row, wheel: [...CategoryLabelVals, null] })).to.throw(Z.ZodError)
   })
 })

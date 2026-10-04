@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import { huntForLabel, identForLabel, realmsOf } from '../../convex/reading'
 import { Hunt } from '../../src/models/hunt'
+import type { WheelT } from '../../src/models/category'
 import { HomeRealmLabel } from '../../src/models/realm'
 import { BlankQuestionQty } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
+import * as Wheel from '../../src/lib/wheel'
 import { present } from '../support/present'
 import { identified, openTester, refusedAs, seedHunt, wholeHunt, type Tester } from '../support/convex'
 
@@ -174,8 +176,8 @@ describe('idents.performAccount: new_hunt', () => {
   })
 })
 
-/** What a smith does to a hunt from the hunts list, less the hunt it names */
-type HuntEdit = { kind: 'retitle_hunt', title: string } | { kind: 'relabel_hunt', label: string }
+/** What a smith does to a hunt from outside its quizzes, less the hunt it names */
+type HuntEdit = { kind: 'retitle_hunt', title: string } | { kind: 'relabel_hunt', label: string } | { kind: 'arrange_categories', wheel: WheelT }
 
 /** A hunt with its smith and a reviewer on it, as the hunts list would find it, and how to edit it from there */
 async function smithed() {
@@ -184,7 +186,7 @@ async function smithed() {
   const bob = await join('bob_reviews', 'reviewer')
   const perform = async (edit: HuntEdit, browser_key = smith.browser_key) => await tt.mutation(api.idents.performAccount, { action: { ...edit, hunt_id }, browser_key })
   const held = async () => present(await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id)))
-  return { tt, hunt_id, bob, perform, held }
+  return { tt, hunt_id, smith, bob, perform, held }
 }
 
 describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
@@ -220,5 +222,61 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
     const hunt = await held()
     expect(hunt.forced_label).to.be.null
+  })
+})
+
+describe('idents.performAccount: arrange_categories', () => {
+  // TV in the pool, and Art moved to the top, swapping with Math & Econ.
+  const arranged = Wheel.placed(Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool'), 'art', 0)
+
+  it("lets the hunt's smith arrange its wheel, holes and all, with no quiz open", async () => {
+    const { hunt_id, perform, held } = await smithed()
+    expect(await perform({ kind: 'arrange_categories', wheel: arranged })).to.eq(hunt_id)
+    const hunt = await held()
+    expect(hunt.wheel).to.deep.eq(arranged)
+  })
+
+  it("hands the wheel to everyone on the hunt, where its screens already watch it", async () => {
+    const { tt, smith, bob, perform } = await smithed()
+    await perform({ kind: 'arrange_categories', wheel: arranged })
+    for (const browser_key of [smith.browser_key, bob.browser_key]) {
+      const opening = await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key })
+      expect(opening.hunt?.wheel).to.deep.eq(arranged)
+    }
+  })
+
+  it("shows a hunt nobody has arranged with the default wheel, and writes nothing to it", async () => {
+    const { tt, smith, held } = await smithed()
+    const opening = await tt.query(api.hunts.open, { hunt_label: 'quiet_otter', browser_key: smith.browser_key })
+    expect(opening.hunt?.wheel).to.deep.eq(Wheel.defaultWheel())
+    expect(await held()).not.to.have.property('wheel')
+  })
+
+  it("lets a smith arrange it again, and back to the default", async () => {
+    const { perform, held } = await smithed()
+    await perform({ kind: 'arrange_categories', wheel: arranged })
+    await perform({ kind: 'arrange_categories', wheel: Wheel.defaultWheel() })
+    const hunt = await held()
+    expect(hunt.wheel).to.deep.eq(Wheel.defaultWheel())
+  })
+
+  it("refuses a reviewer on the hunt, and a stranger, writing nothing", async () => {
+    const { tt, bob, perform, held } = await smithed()
+    const carol = await identified(tt, 'carol_strays')
+    const ante = await held()
+    const refusals = [
+      await refusedAs(perform({ kind: 'arrange_categories', wheel: arranged }, bob.browser_key)),
+      await refusedAs(perform({ kind: 'arrange_categories', wheel: arranged }, carol.browser_key)),
+    ]
+    expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
+    expect(await held()).to.deep.eq(ante)
+  })
+
+  it("refuses a wheel that is not one, writing nothing", async () => {
+    const { perform, held } = await smithed()
+    const twice = Wheel.defaultWheel().map((label, idx) => (idx === 1 ? 'math_econ' : label))
+    await expect(perform({ kind: 'arrange_categories', wheel: twice })).rejects.toThrow(/only one slot/)
+    await expect(perform({ kind: 'arrange_categories', wheel: Wheel.defaultWheel().slice(1) })).rejects.toThrow()
+    expect(await held()).not.to.have.property('wheel')
   })
 })

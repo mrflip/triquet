@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import type { Id } from '../../convex/_generated/dataModel'
+import { CategoryLabelVals } from '../../src/models/category'
 import { ActionValidators, isLayoutAction, isLibraryAction, isReviewAction, LayoutActionKindVals, LibraryActionKindVals, ReviewActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
@@ -109,6 +110,17 @@ describe('ActionValidators.accountAction', () => {
     const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
     const actions: AccountActionT[] = [{ kind: 'retitle_hunt', hunt_id, title: 'The Autumn Hunt' }, { kind: 'relabel_hunt', hunt_id, label: 'autumn_hunt' }]
     expect(actions.map((action) => ActionValidators.accountAction(action))).to.deep.eq(actions)
+  })
+
+  it("takes arranging a hunt's categories, holes and all", () => {
+    const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
+    const action: AccountActionT = { kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] }
+    expect(ActionValidators.accountAction(action)).to.deep.eq(action)
+  })
+
+  it("refuses arranging a hunt's categories with one category in two slots", () => {
+    const wheel = CategoryLabelVals.map((label, idx) => (idx === 3 ? 'tv' : label))
+    expect(() => ActionValidators.accountAction({ kind: 'arrange_categories', hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f82aa', wheel })).to.throw(Z.ZodError)
   })
 
   it('refuses relabelling a hunt to something that is not a label', () => {

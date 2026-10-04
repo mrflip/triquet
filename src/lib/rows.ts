@@ -1,6 +1,8 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from './labelmaker'
+import * as Wheel from './wheel'
+import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
 import type { QuestionT } from '../models/question'
@@ -98,8 +100,13 @@ export type MemberT = {
 /** A smith of a hunt, as someone not on it is told who to ask */
 export type SmithT = Pick<MemberT, 'label' | 'title'>
 
-/** A hunt as a quiz's screen holds it: its listing, who is on it, and the role on it of whoever is looking */
+/**
+ * A hunt as a quiz's screen holds it: its listing, its wheel of categories, who is on it, and the
+ * role on it of whoever is looking
+ */
 export type ShallowHuntT = HuntListingT & {
+  /** How the hunt arranges its categories: the default wheel until someone arranges them. `Wheel.orderOf` gives its total order. */
+  wheel:   WheelT
   members: readonly MemberT[]
   role:    HuntRole
 }
@@ -267,8 +274,8 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
 }
 
 /**
- * A hunt as a quiz's screen holds it: its listing, who is on it, and the role of whoever is
- * looking.
+ * A hunt as a quiz's screen holds it: its listing, its wheel (the default one, for a hunt nobody
+ * has arranged), who is on it, and the role of whoever is looking.
  *
  * @param rows - The hunt's own rows.
  * @param members - Who is on the hunt.
@@ -278,7 +285,7 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
  * @example shallowHuntOf(rows, members, 'smith').role  // => 'smith'
  */
 export function shallowHuntOf(rows: HuntRows, members: readonly MemberT[], role: HuntRole): ShallowHuntT {
-  return { ...huntListingOf(rows), members, role }
+  return { ...huntListingOf(rows), wheel: rows.hunt.wheel ?? Wheel.defaultWheel(), members, role }
 }
 
 /**
