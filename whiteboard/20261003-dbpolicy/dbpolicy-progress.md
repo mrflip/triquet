@@ -14,10 +14,87 @@ its row below and adds its section above the others, newest first.
 | 5 | Affirmations | complete, reviewed (clean) | `20261004-dbpolicy_affirm` | #86 |
 | 6 | A scoped database handle | complete, reviewed (clean) | `20261004-dbpolicy_scoped_db` | #88 |
 | 7 | Reads shaped by role | complete, reviewed (clean) | `20261004-dbpolicy_role_reads` | #89 |
-| 8 | Views ask `Approve` | underway | | |
+| 8 | Views ask `Approve` | complete | `20261004-dbpolicy_views_approve` | #90 |
 | 9 | The library behind an admin helper | pending | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
 
+
+## Thread 8: Views ask `Approve` (2026-10-04)
+
+Branch `20261004-dbpolicy_views_approve`, PR #90, stacked on #89. Suites: typecheck, lint, `pnpm test` (112 files, 3031), e2e (209, `pnpm test:e2e:agent`) all green, first run.
+
+* **Built**:
+  - **`Approve.mayOffer(kind, claims)`** (`src/lib/approve.ts`): asks an action's policy by its
+    kind alone. Typed to `OfferableKind`, the kinds whose policy takes only the claims, with a
+    runtime guard (`policy.length > 1`) behind it. `add_hunting` and `remove_hunting` read the
+    action, so a view asks them with the action through `Approve.may`.
+  - **The browser's actor.** `idents.current` answers `{ ident, actor }` (`CurrentIdentT` in
+    `src/models/ident.ts`); `useIdent` exposes `actor` (`Actor.anonymous` until known).
+  - **The browser's claims.** `useHunt` exposes `claims: Actor.QuizClaimsT | null` (pure
+    `claimsOf(actor, hunt, locked)`, exported) in place of `role`, which is gone from
+    `HuntHandle`. `claims.quiz` is null until the quiz is found.
+  - **The dispatcher** (`carryOut`) calls `denialOf(claims, action)` (exported, pure). It reads
+    the action as the server will (`ActionValidators.huntAction.safeParse`) and asks
+    `Approve.verdictOn`. An unparseable action is left to the server. A denial is not sent:
+    `Postmortem.report` (console.error, a `NotApprovedError`), plus `saveNotice` and an alarm
+    unless `quietly` (see *Deviations*).
+  - **`workbenchOffers(claims)`** (`src/components/offers.ts`): `reviseQuiz` (`retitle_quiz`),
+    `reviseQuestions` (`edit_question`), `importQuestions`, `reviseLayout` (`edit_column`),
+    `changeLibrary` (`change_library`), `exportHunt` (`export_hunt`). `Workbench` hands booleans
+    to `QuizHeader` (new `revisable`; `locked` now only drives the pill), `QuestionTable`,
+    `Toolbar`, `QuizManageModal`, `ColumnsEditor` (and its dialog's Apply and Remove),
+    `WidgetingsEditor` (`revisable`, `changeable`), `LibraryModal` and `LibraryForm`
+    (`changeable`), and `ExportImportPanel` (Raw Export tab dropped when not offered).
+  - **Members panel**: `MemberDoor` asks `remove_hunting` per member (own row says "you"), and
+    `AddMember` asks `add_hunting` before sending, putting `RefusalNotices.ownHunting` beside the
+    field. `Panels` and `Workbench` lost their `ident` prop: the claims carry who.
+  - **Presentations**: `Hunting.mayAct(claims, act)` asks `ActKinds` (`smith: 'set_lock'`,
+    `review: 'open_review'`). `QuizRoute` and `NotOnHunt` (prop `claims`, not `role`) use it.
+    The hunts list's gear asks `mayOffer('retitle_hunt', Actor.claimsOn(actor, hunt._id, hunt))`.
+  - `planWidgetingEdit` no longer reads `quiz.locked`.
+  - Tests: `mayOffer` against the matrix, all five columns; `workbenchOffers` per column;
+    `Hunting.mayAct` per standing; `claimsOf`, `denialOf`; `idents.current`'s actor; the locked
+    widgeting plan refused `quizLocked` by the server. e2e: own member row, adding oneself, a
+    reviewer's hunts list, a locked quiz's column dialog.
+  - Docs: `notes/views.md` (*What a view offers*), `notes/vocabulary.md` (**offer**; browser
+    claims), `notes/queries_hooks_and_subscriptions.md`, `notes/convex.md`.
+* **Decisions taken**:
+  - **A kind-only entry point**, not sample actions. A sample `edit_question` or `retitle_quiz`
+    would need a made-up id or title. The compiler holds `mayOffer` to policies that read
+    nothing of the action, so a row that later starts reading it breaks its kind-only callers at
+    compile time.
+  - **A presentation is shown to whoever may take the one action it always offers.** That keeps
+    the decision tied to server rows, with no view-only key.
+  - **Offers gathered in one pure function**, so step 4 is a unit-tested matrix. Hooks and
+    components are not unit tested here (`notes/testing.md`).
+  - **Not gated one by one**: the switcher, hunt settings and the danger zone. They share
+    `mayChangeHunt` with the workbench's own gate, which already covers them.
+  - **The library editor** is gated on `change_library` at its doors (gear, new widget, the
+    widgeting dialog's widget buttons, the Library tab's import). `WidgetEditor` itself is
+    reachable only through those doors.
+* **Deviations**:
+  - **Step 3: the author is told.** The orchestrator asked for no notice on a refusal at the
+    dispatcher. `e2e/alarms.spec.ts` tests a real race on purpose: the quiz is locked in another
+    tab under a held draft, and on blur the author gets the `quizLocked` alarm. With the
+    browser's check that blur is refused before it is sent. Shown nothing, the author would lose
+    the typing silently. I kept the console report as a bug, and say what the server would have
+    said. Silent instead is two lines in `carryOut`, plus a rewrite of that spec.
+  - `idents.current` changed shape and now sends the session its own `user_id` (in `actor`). The
+    test "never says which session holds it" now checks the ident it returns.
+* **Discoveries**:
+  - **For thread 9**: re-point `change_library` in `RowPolicies` and the view follows, since
+    `workbenchOffers.changeLibrary` asks that key. If its evidence becomes the actor alone,
+    `Approve.may('change_library', claims)` still type-checks (claims extend the actor). The
+    library editor's gate needs no quiz in principle, but today it reaches the editor only
+    through the Workbench's offers. A library editor outside a quiz would ask
+    `Approve.may('change_library', actor)` from `useIdent().actor`. `WidgetEditor` has no
+    read-only mode: when not offered, its doors are hidden.
+  - **The *Opening…* flash** was not taken. Holding the last quiz in `useQuiz` would not stop it:
+    `reviews.forQuiz` also re-subscribes on new affirms, and `findingOf` waits on it.
+  - Unit tests run in node, with no component rendering. View wiring is covered by e2e.
+* **For the Coach**:
+  - Rule on the step 3 deviation (tell the author, or stay silent).
+  - Sending a session its own `user_id` through `idents.current`: fine by you?
 
 ## Thread 7: Reads shaped by role (2026-10-04)
 
