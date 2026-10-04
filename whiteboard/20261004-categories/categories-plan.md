@@ -1,7 +1,7 @@
 # Categories: a wheel of subject categories, personas that answer by it, and a quiz's spread
 
 Sprint plan, 2026-10-04. Mode: **YOLO**. Review level: **medium**. Issued by the Coach (Flip).
-**Status: threads 1 (PR #85), 2 (PR #87) and 3 (PR #91) done and reviewed; thread 4 underway.**
+**Status: done.** PRs #85, #87, #91 and #94, stacked in that order, all reviewed; none merged.
 
 Four threads, stacked in order. `categories-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
