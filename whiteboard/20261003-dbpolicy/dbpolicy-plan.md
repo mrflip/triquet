@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 (#79) and 2 (#81) done; thread 3 underway.
+`/sprint`. **Status:** threads 1 (#79), 2 (#81) and 3 (#82) done; thread 4 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -418,6 +418,11 @@ cascade.
 `label` per row, which thread 4 can copy or index without a derived field; the tighten, which
 thread 10 does.
 
+*Orchestrator, after thread 3 (#82):* `expectSound` lives in `tests/support/soundness.ts`, its
+checks a list (`SoundnessChecks`); any field ending `_id` is already checked to name a row (via
+`TableForIdField`). `migrations:runAll` exists (thread 1's backfill, then thread 3's three).
+`forced_label` is listed under `Retiring`, not `Backfilling`, in `tests/convex/schema.test.ts`.
+
 ---
 
 ### Thread 4: Denormalize
@@ -450,13 +455,15 @@ huntings (bounded by the hunts one ident is on; read them with `huntingsFor`).
    `account_actions.ts` (`newHunt`), and `convex/seeding.ts`. `Quiz.blankRow` and
    `Reviewing.blank` gain the arguments.
 3. Backfills in `convex/migrations.ts`, one per table, each copying from the parent named above,
-   with a `runAll` listing them in dependency order (quizzes before widgetings, columns,
+   appended to the existing `runAll` (thread 3 made it) in dependency order (quizzes before widgetings, columns,
    widgeteds; reviews before reviewings). List each field under `Backfilling` in
    `tests/convex/schema.test.ts`. Test each backfill on rows written without the field.
 4. Use them: `membersOf` in `convex/reading.ts` reads label and title off the hunting instead of
    one `db.get` per member. `huntIdOf` (quiz → realm → hunt) is replaced by `quiz.hunt_id`.
    `isQuizOfHunt` in `convex/authorize.ts` becomes one `db.get`.
-5. Extend `expectSound`: every denormalized field equals its source.
+5. Extend `expectSound`: every denormalized field equals its source, each copy a new entry in
+   `SoundnessChecks` (`tests/support/soundness.ts`). The new id fields are checked to exist
+   already.
 6. `notes/convex.md`: a short section, *Denormalized fields*, with the table above and the rule
    (copy at insert; immutable unless listed; the one fan-out).
 7. `notes/deploy.md`: a ledger row for these backfills.
@@ -527,6 +534,10 @@ flat list of guards, or its progress note says why that one could not and what i
 before business code runs.
 
 **Leaves for later threads.** Claims on `ctx` for thread 6; `mayReviseQuiz` for thread 8.
+
+*Orchestrator, after thread 3:* `relabelQuiz` looks up a clashing quiz by `open.realm_id`, which is
+sound only because `isPlaced` has checked the quiz is of that realm. The verified `realm_id` in
+the claims must keep that true when `affirmForHunt` replaces `isPlaced`.
 
 ---
 
@@ -655,7 +666,9 @@ so at the top of the PR.
 
 **Steps.** For each field thread 4 added, and for `idents.user_id` (thread 1's widen): make it
 required in `convex/schema.ts` (remove the hand-written optional). For `forced_label`, which thread 3 left optional on three tables: remove
-it from the schema. Drop the backfills from `convex/migrations.ts`, empty `Backfilling` in
+it from the schema (`retiringForcedLabel`), and the two lines in `relabelHunt` and `relabelQuiz`
+that clear a lingering one (the compiler will point at them). Drop the backfills from
+`convex/migrations.ts` and from `runAll`, empty `Backfilling` and `Retiring` in
 `tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
 that still holds each backfill.
 
@@ -676,3 +689,10 @@ that still holds each backfill.
 6. **Backfills between merges.** Thread 3's (`forced_label` into `label`) wants running straight
    after thread 3 deploys: until it has, a relabelled hunt or quiz answers to its minted label
    again. Thread 4's wants running before threads 5 to 9 deploy.
+   *Orchestrator, after thread 3:* `migrations:runAll` runs every backfill in order. Run it
+   straight after each deploy that brings one: until then, besides answering to old labels, a
+   new hunt or quiz label could take one an unmigrated override holds.
+7. **Import's `forced_label` key** (thread 3): import still prefers a pasted `forced_label`, but
+   the label is no longer reserved for widgetings; a widgeting labelled `forced_label` would be
+   read both ways on re-import. Unlikely. Thread 10 can drop the key from import, or reserve the
+   label again: say which.

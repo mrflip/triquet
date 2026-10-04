@@ -9,8 +9,8 @@ its row below and adds its section above the others, newest first.
 |---|---|---|---|---|
 | 1 | Sessions and the actor | complete, reviewed (1 fix) | `20261004-dbpolicy_sessions` | #79 |
 | 2 | `Approve`: pure policy and the dispatcher | complete, reviewed (clean) | `20261004-dbpolicy_approve` | #81 |
-| 3 | One label, and integrity repairs | complete | `20261004-dbpolicy_one_label` | #82 |
-| 4 | Denormalize | pending | | |
+| 3 | One label, and integrity repairs | complete, reviewed (1 fix) | `20261004-dbpolicy_one_label` | #82 |
+| 4 | Denormalize | underway | | |
 | 5 | Affirmations | pending | | |
 | 6 | A scoped database handle | pending | | |
 | 7 | Reads shaped by role | pending | | |
@@ -22,6 +22,13 @@ its row below and adds its section above the others, newest first.
 
 Branch `20261004-dbpolicy_one_label`, PR #82, stacked on #81. Suites: typecheck, lint,
 `pnpm test` (110 files, 2868), `pnpm test:e2e` (207) all green.
+
+*Review:* `fixed`, at medium. Kept `2364608`: `relabelHunt` and `relabelQuiz` also clear a
+lingering `forced_label`, so a relabel made between deploy and backfill is not undone by the
+backfill (regression test in `tests/convex/migrations.test.ts`; thread 10 removes those two lines
+with the field). Left, minor: in the same window, the uniqueness checks (`huntForLabel`,
+`quizForLabel`, `newQuiz`'s siblings) see only `label`, so a new label could match an unmigrated
+override; closed by running the backfill straight after deploy, as the ledger says.
 
 * **Built**:
   - **One label.** `forced_label` is gone from the row validators, trees and classes of hunts,
