@@ -7,15 +7,15 @@ disagree. Workers add their sections below, newest first.
 
 | Thread | Name | Status |
 |---|---|---|
-| 1 | Categories and the category editor | complete (PR pending review) |
+| 1 | Categories and the category editor | complete, PR #85 |
 | 2 | Category personas | pending |
 | 3 | The category estimate entry | pending |
 | 4 | The category spread chart | pending |
 
 ## Thread 1: Categories and the category editor (2026-10-04)
 
-Branch `20261004-category_wheel`, PR #PRNUM, carrying `chore: redact notes` (the Coach's
-`20261004-redact`) and the sprint's plan commit beneath it. Suites: SUITES.
+Branch `20261004-category_wheel`, PR #85, carrying `chore: redact notes` (the Coach's
+`20261004-redact`) and the sprint's plan commit beneath it. Suites: typecheck and lint clean; `pnpm test` 111 files, 2818 tests; `pnpm test:e2e` 212 passed (a first full run lost 4 specs to the local backend timing out under load; they passed alone and on a second full run).
 
 * **Built**:
   - `src/models/category.ts`: the 24 categories (`CategoryLabelVals`, `CategoryTitles`), the
