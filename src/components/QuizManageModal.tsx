@@ -147,7 +147,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
             <p className={styles.microcopy}>The grid&apos;s columns in the order they appear. Drag a handle to move one; the gear opens the rest.</p>
-            <ColumnsEditor quiz={quiz} revisable={offers.reviseLayout} dispatch={dispatch} />
+            <ColumnsEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
           </section>
 
           <section>

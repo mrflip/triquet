@@ -8,13 +8,17 @@ import { NumberField } from './cells/fields'
 import { SortableList } from './SortableList'
 import { useDraft } from './use-draft'
 import * as Labelmaker from '../lib/labelmaker'
-import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidthPxMax, namesFor, type ColumnPatch, type ColumnT } from '../models/column'
+import * as Estimates from '../lib/estimates'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals, WidthPxMax, namesFor, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
+import type { WidgetT } from '../models/widget'
 import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type ColumnsEditorProps = {
   quiz:      QuizT
+  /** The library's widgets, which say which of the quiz's widgetings offer parts to show */
+  library:   readonly WidgetT[]
   /** Whether the columns may be changed here: listed as they are when not */
   revisable: boolean
   dispatch:  (action: HuntActionDNA) => void
@@ -38,12 +42,16 @@ function hiddenUntil(room: string) {
   return { display: { '@': 'none', [room]: 'block' } }
 }
 
-/** What a column of `quiz` can show, each with the group it is listed under */
-function sourcesOf(quiz: QuizT) {
+/** What a column of `quiz` can show, each with the group it is listed under: a category-estimate widgeting's parts beneath it */
+function sourcesOf(quiz: QuizT, library: readonly WidgetT[]) {
+  const estimating = new Set(library.filter((widget) => Estimates.isEstimating(widget)).map((widget) => widget.label))
   return [
     ...QuestionFieldVals.map((field) => ({ value: `${QuestionWidgetLabel}.${field}`, group: 'A question field' })),
     ...QuestionViewVals.map((view) => ({ value: `${QuestionWidgetLabel}.${view}`, group: 'Worked out from the chain' })),
-    ...quiz.widgetings.map((widgeting) => ({ value: widgeting.label, group: 'A widgeting' })),
+    ...quiz.widgetings.flatMap((widgeting) => [
+      { value: widgeting.label, group: 'A widgeting' },
+      ...(estimating.has(widgeting.widget_label) ? WidgetingPartVals.map((part) => ({ value: widgetingSourceOf(widgeting.label, part), group: 'Part of a widgeting' })) : []),
+    ]),
   ]
 }
 
@@ -53,10 +61,10 @@ function sourcesOf(quiz: QuizT) {
  * those, and a gear that opens the rest. The list measures its own width, not the window's, to
  * decide which of those there is room for.
  */
-export function ColumnsEditor({ quiz, revisable, dispatch }: Readonly<ColumnsEditorProps>) {
+export function ColumnsEditor({ quiz, library, revisable, dispatch }: Readonly<ColumnsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited = editing?.kind === 'column' ? quiz.columns.find((each) => each.label === editing.label) ?? null : null
-  const sources = sourcesOf(quiz)
+  const sources = sourcesOf(quiz, library)
 
   return (
     <Stack spacing={1} sx={{ containerType: 'inline-size' }}>
@@ -75,7 +83,7 @@ export function ColumnsEditor({ quiz, revisable, dispatch }: Readonly<ColumnsEdi
         <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new' }) }}>+ New column…</Button>
       </Stack>
       {editing !== null && (editing.kind === 'new' || edited !== null) && (
-        <ColumnDialog key={editing.kind === 'new' ? 'new' : editing.label} quiz={quiz} column={edited} revisable={revisable} dispatch={dispatch} onClose={() => { setEditing(null) }} />
+        <ColumnDialog key={editing.kind === 'new' ? 'new' : editing.label} quiz={quiz} sources={sources} column={edited} revisable={revisable} dispatch={dispatch} onClose={() => { setEditing(null) }} />
       )}
     </Stack>
   )
@@ -136,7 +144,9 @@ function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readon
 }
 
 type ColumnDialogProps = {
-  quiz:     QuizT
+  quiz:      QuizT
+  /** What a column of the quiz can show */
+  sources:   readonly { value: string, group: string }[]
   /** The column being edited, or null to make a new one */
   column:    ColumnT | null
   /** Whether the column may be changed: shown as it is, with nothing to apply, when not */
@@ -146,8 +156,7 @@ type ColumnDialogProps = {
 }
 
 /** Everything a column says about itself, to edit at once; nothing is applied until Apply */
-function ColumnDialog({ quiz, column, revisable, dispatch, onClose }: Readonly<ColumnDialogProps>) {
-  const sources = sourcesOf(quiz)
+function ColumnDialog({ quiz, sources, column, revisable, dispatch, onClose }: Readonly<ColumnDialogProps>) {
   const [title, setTitle] = useState(column?.title ?? '')
   const [label, setLabel] = useState(column?.label ?? '')
   /** What a new column offers to show first: the first thing no column shows yet */

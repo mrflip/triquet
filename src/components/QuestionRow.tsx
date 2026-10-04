@@ -9,9 +9,10 @@ import { openOnEntry } from './FoldButton'
 import { GrowingField, PlainField, QnumField, StretchField } from './cells/fields'
 import { WidgetedAskCell, WidgetedReadout } from './cells/readouts'
 import { EntryCell } from './cells/entry'
+import { EstimatePartReadout } from './cells/estimates'
 import * as Runner from '../lib/formulary/runner'
 import { formularyFor } from '../lib/formulary/formularies'
-import type { QuestionField } from '../models/column'
+import type { QuestionField, WidgetingPart } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
 import type { EntryValueT } from '../models/widget'
 import { ButnotPreview, ChainPicker } from './cells/chain'
@@ -116,7 +117,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     if (source.kind === 'view') {
       return <ButnotPreview target={chainTarget} chained={question.chains_to !== null} heightPx={heightPx} />
     }
-    return widgetingBody(source.widgeting, spec)
+    return widgetingBody(source.widgeting, source.part, spec)
   }
 
   /** One of the question's own fields, in the box it is edited in */
@@ -154,13 +155,19 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
   }
 
-  /** What a widgeting came to: typed into for an entry, asked from the cell when its formulary is, else worked out and read-only */
-  const widgetingBody = (widgeting: WidgetingT, spec: ColumnSpec): React.JSX.Element => {
+  /**
+   * What a widgeting came to: typed into for an entry, asked from the cell when its formulary is,
+   * else worked out and read-only; one part of it, read-only, when the column shows a part
+   */
+  const widgetingBody = (widgeting: WidgetingT, part: WidgetingPart | null, spec: ColumnSpec): React.JSX.Element => {
     const { label } = widgeting
-    const widgeted = Runner.widgetedOf(run, label, question._id)
+    const widgeted = Runner.widgetedOf(run, label, question._id, part)
+    if (part !== null) {
+      return <EstimatePartReadout part={part} widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
+    }
     const widget = Runner.stepOf(run, label)?.widget ?? null
     if (widget?.formulary === 'entry') {
-      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} />
+      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} order={run.frame.order} onEnter={(value) => { onEnter(label, value) }} />
     }
     if (widget === null || formularyFor(widget).refresh !== 'click') {
       return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />
