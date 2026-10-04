@@ -96,7 +96,9 @@ browser per change, both of which the phase 4 harness reports (`whiteboard/conve
   holds, so no watch waits on another only to learn what to affirm. The server checks them
   (`convex/authorize.ts`), and a query answers a denial, stale affirms included, with its empty
   value (`emptyIfDenied`), never a throw. A watch's affirms are kept the same object while
-  nothing in them changes, so the watch keeps its subscription.
+  nothing in them changes, so the watch keeps its subscription. Such a query function is built
+  with `zHuntQuery` (`convex/functions.ts`), which does both, and hands its handler a database
+  that sees only the affirmed hunt; one that is not is named in `Unscoped` (`convex/authorize.ts`).
 * Every read in a query function goes through an index and is bounded by the caps in
   `lib/vv/patterns.ts`.
 * Convex deduplicates identical watches in the browser: two hooks watching the same query

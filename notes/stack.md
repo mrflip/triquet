@@ -69,9 +69,11 @@ don't trust a recalled version number, including one recalled by an agent.
     only through `notes/database-decisions.md`.
 * **convex-helpers** (pinned exact), Convex's own companion library. Its `server/zod4` is how a Zod
   schema becomes a Convex validator (`zodOutputToConvexFields`, `zodOutputToConvex`, `zid`) and how a function takes
-  Zod arguments (`zCustomQuery`, `zCustomMutation`). At 0.1.x its version number alone would make
-  it *Discuss*; it is *Use* because it is the supported path, and what lets one schema drive the
-  others.
+  Zod arguments (`zCustomQuery`, `zCustomMutation`). Its `server/rowLevelSecurity`
+  (`wrapDatabaseReader`, `wrapDatabaseWriter`) wraps the database a hunt's function holds, held to
+  the rules in `convex/policy_rules.ts` (see `notes/convex.md`, *Who is asking*). At 0.1.x its
+  version number alone would make it *Discuss*; it is *Use* because it is the supported path, and
+  what lets one schema drive the others.
 * **@convex-dev/migrations** (pinned exact), Convex's own component for backfilling a live
   deployment's rows in batches, resumably, with a dry run: every migration goes through it
   (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps). Added September 2026

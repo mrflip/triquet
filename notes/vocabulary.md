@@ -124,6 +124,14 @@ words above.
   kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`, `quizLocked`). `Approve.may(key, …)`
   answers yes or no, `Approve.must(key, …)` throws when no, and `Approve.verdictOn(key, …)` says
   which; the key is an action's kind or the name of a read (`read_hunt`).
+* **scoped database** -- the `db` a hunt's function holds once its affirms are checked: it sees and
+  writes only rows of that hunt, by one rule per table (`convex/policy_rules.ts`), whatever the
+  handler asks for. Built by `zHuntQuery` and `zHuntMutation`; the functions that hold the whole
+  database instead are named in `Unscoped` (`convex/authorize.ts`). Not a widget's `scope`.
+* **census** -- what a write must know across every hunt, asked of the whole database and
+  answered with an id or a yes, never a row: whose a hunt label is, whether a widget is worked
+  anywhere (`CensusT` in `convex/reading.ts`). A hunt's mutation holds one beside its scoped
+  database.
 * **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
   `affirmReadReviews`) that checks the affirms and gathers the evidence a policy needs in one
   parallel round (`affirmForHunt`), builds the claims, and hands them to `Approve`. It decides

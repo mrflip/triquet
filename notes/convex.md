@@ -79,6 +79,19 @@ answers with its empty value, since a watch that throws takes the page down. Bus
 its realm) rather than reading them again. A quiz's lock is policy (`Approve.mayReviseQuiz`), not
 the write's.
 
+Once affirmed, a function about one hunt holds a **scoped database**: the builders `zHuntQuery`
+and `zHuntMutation` run its `affirm` on the plain database, then hand its handler the claims
+(`ctx.claims`) and a `db` wrapped by convex-helpers' row-level security, held to one non-async rule
+per table in `convex/policy_rules.ts`. A row of another hunt reads as absent and a write to one
+throws, so a function that forgets a check still cannot reach another hunt. A query's rules
+differ from a mutation's only for reviews: a query shows the ones its reader may read
+(`Approve.mayReadReview`), a mutation sees them all to count and delete them. Identings and Convex
+Auth's tables are not reachable through it; idents are read, never written. The two facts a write
+must know across hunts (a hunt label's holder, a widget worked anywhere) are asked of the
+**census** (`ctx.census`) instead. The public functions that hold the whole database, acting
+before any hunt is in play or across hunts, are named in `Unscoped` (`convex/authorize.ts`) with
+why, and a test holds every public function to one or the other.
+
 Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not
 derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out.
