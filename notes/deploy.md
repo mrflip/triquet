@@ -89,7 +89,8 @@ below the table.
 | --- | --- | --- |
 | `b648bc6` | `hunt_id` on questions and reviews; a smith (`CaretakerLabel`) on each hunt nobody is on | `migrations:runAll` |
 | `ed009a7` | `smiths_note` on quizzes, empty | `migrations:run '{"fn": "migrations:backfillSmithsNotes"}'` |
-| the rewidgeting merge (thread 3, `20261001-widget_tables`) | No backfill. Cleared by hand: `expressions`, `widgets` and `bottings`, and `bulk_ishes_last` off each quiz, which no schema since holds. Re-created by seeding: the library and each laid-out quiz's default widgetings. Not re-created: the bots' replies, and any expression or widget a person wrote (*Clearing the widget tables*, below; `whiteboard/20261001-rewidgeting/losses.md`) | `seeding:seedWidgets` |
+| the rewidgeting merge (thread 3, `20261001-widget_tables`) | No backfill. Cleared by hand: `expressions`, `widgets` and `bottings`, which no schema since holds (`bulk_ishes_last` too, taken off by the next row). Re-created by seeding: the library and each laid-out quiz's default widgetings. Not re-created: the bots' replies, and any expression or widget a person wrote (*Clearing the widget tables*, below; `whiteboard/20261001-rewidgeting/losses.md`) | `seeding:seedWidgets` |
+| `20261004-unset_bulk_ishes_last` (#77) | No backfill: takes `bulk_ishes_last` off each quiz, which no schema since the rewidgeting names | `migrations:run '{"fn": "migrations:retireBulkIshesLast"}'` |
 
 **Clearing the widget tables (rewidgeting).** The merge that brought in `widgets`, `widgetings`
 and `widgeteds` translates no rows: the three tables they replace are cleared, and one idempotent
