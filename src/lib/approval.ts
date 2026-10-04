@@ -16,19 +16,21 @@ const EnvvarFor: Record<ApprovalAct, string> = {
 /** The one value that switches an act on: anything else, or nothing, leaves it off */
 const Allowed = 'allow'
 
-const ApprovalValidators = Validator(({ obj, oneof, rec, str, zod }) => {
+const ApprovalValidators = Validator(({ obj, oneof, rec, str, unk, arr, bool }) => {
   const act = oneof(ApprovalActVals)
     .describe('What the caller wants to do.')
   const action = obj({ act })
     .describe('What approval is being asked for.')
   const ident = IdentValidators.row.extend({ _id: str }).nullable()
     .describe('Who is asking; null when the request does not say.')
-  const moreinfo = rec(str, zod.unknown())
+  const moreinfo = rec(str, unk)
     .describe("Details of the request, kept in a refusal's backstory.")
   // Named for `of`, which is too short a name for a schema
   const approvalOf = obj({ ident, action, moreinfo })
     .describe('One request for approval: who is asking, to do what, and whatever else the request said.')
-  return { act, action, approvalOf }
+
+  const verdicts = arr(bool).nonempty().describe('List of permission check results')
+  return { act, action, approvalOf, verdicts }
 })
 
 export type ApprovalActionDNA = Z.input<typeof ApprovalValidators.action>
@@ -82,4 +84,13 @@ export function of(ident: IdentT | null, action: ApprovalActionDNA, moreinfo: Re
 export function need(ident: IdentT | null, action: ApprovalActionDNA, moreinfo: RequestInfo = {}): 'allow' {
   if (of(ident, action, moreinfo)) { return 'allow' }
   throw new NotApprovedError(ApprovalNotices[action.act], { action, ident }, { moreinfo })
+}
+
+/** Whether all the `verdicts` are true.
+ * @param verdicts - The verdicts to check -- booleans or promises of booleans.
+ * @returns Whether all the `verdicts` are true.
+ */
+export async function every(verdicts: (boolean | Promise<boolean>)[]): Promise<boolean> {
+  const verdictsA = await Promise.all(verdicts)
+  return ApprovalValidators.verdicts(verdictsA).every(Boolean)
 }

@@ -2,6 +2,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import { isReviewAction, type AccountActionT, type HuntActionT, type OpenQuizT } from '../src/models/actions'
 import type { HuntRole } from '../src/models/hunting'
 import { huntingFor, huntingsFor, huntIdOf, reviewFor, type Reader } from './reading'
+import * as Approval from '@/lib/approval.js'
 
 // The only place authorization is written. Who is asking is the ident a browser is now
 // (`identFor`), and an ident's hunting on a hunt says what it may do there: a smith reads and
@@ -102,30 +103,30 @@ export async function mayWriteReview(db: Reader, hunt_id: Id<'hunts'>, ident_id:
 }
 
 /**
- * Whether `ident_id` may carry out `action` from the quiz `open`: a review action as someone who
+ * Whether `ident_id` may carry out `action` from the quiz: a review action as someone who
  * may write a review there, anything else as someone who may change the hunt.
  *
- * The rule is asked of `open.hunt_id`, so `open` must truly be of that hunt: its realm is the
+ * The rule is asked of `quiz.hunt_id`, so `quiz` must truly be of that hunt: its realm is the
  * hunt's and its quiz the realm's, and any quiz the action names by id is the hunt's too. A
  * browser that says otherwise is refused, as for a hunt it is not on. A quiz or realm that is gone
  * passes here and is the action's to refuse, as it would be for anyone.
  *
  * @param db - The mutation's database.
- * @param open - The quiz on the actor's screen, as their browser names it.
+ * @param quiz - The quiz object
  * @param ident_id - Who is acting.
  * @param action - What they did.
  * @returns Whether they may.
  *
- * @example if (! await mayPerform(ctx.db, open, ident._id, action)) { refuse('notPermitted') }
+ * @example if (! await mayPerform(ctx.db, quiz, ident._id, action)) { refuse('notPermitted') }
  */
-export async function mayPerform(db: Reader, open: OpenQuizT, ident_id: Id<'idents'>, action: HuntActionT): Promise<boolean> {
+export async function mayPerform(db: Reader, quiz: OpenQuizT, ident_id: Id<'idents'>, action: HuntActionT): Promise<boolean> {
   const named = 'quiz_id' in action ? action.quiz_id : null
   const verdicts = await Promise.all([
-    isReviewAction(action) ? mayWriteReview(db, open.hunt_id, ident_id) : mayChangeHunt(db, open.hunt_id, ident_id),
-    isPlaced(db, open),
-    named === null || isQuizOfHunt(db, named, open.hunt_id),
+    isReviewAction(action) ? mayWriteReview(db, quiz.hunt_id, ident_id) : mayChangeHunt(db, quiz.hunt_id, ident_id),
+    isPlaced(db, quiz),
+    named === null || isQuizOfHunt(db, named, quiz.hunt_id),
   ])
-  return verdicts.every(Boolean)
+  return Approval.every(verdicts)
 }
 
 /**

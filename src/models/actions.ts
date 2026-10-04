@@ -116,6 +116,8 @@ export type AccountActionDNA = Z.input<typeof ActionValidators.accountAction>
 /** What a visitor did before opening any quiz, validated */
 export type AccountActionT = Z.output<typeof ActionValidators.accountAction>
 
+// TODO dbpolicy sprint: make this a dispatch pattern
+
 /** Whether `action` is one that revises a quiz's widgetings or columns */
 export function isLayoutAction(action: HuntActionT): action is LayoutActionT {
   return (LayoutActionKindVals as readonly string[]).includes(action.kind)
