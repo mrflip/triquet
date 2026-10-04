@@ -120,7 +120,8 @@ fixture, act, and compare trees; row ids are never asserted on, except where the
 under test. A test of a write that deletes or relinks rows ends with `expectSound(tt)`
 (`tests/support/soundness.ts`): it reads every table back and fails on anything that no longer
 holds together (an id naming no row, a quiz's `row_ordering` that is not its questions, a dangling
-chain or column source, two siblings under one label). Each check is a named entry in
+chain or column source, two siblings under one label, a copy of a parent's field that is missing
+or no longer its parent's). Each check is a named entry in
 `SoundnessChecks`; a new kind of integrity is a new entry there.
 
 The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to the functions is

@@ -28,6 +28,31 @@ function's arguments and every row written, never rows read back. A change to a 
 rows already written would not fit is a migration on production (`convex/migrations.ts`, and
 `notes/deploy.md` for the order of steps); a local backend is simply emptied and pushed again.
 
+## Denormalized fields
+
+A row carries copies of what policy needs from the rows above it, so that the evidence for a
+decision is one parallel round of `.get`/`.first`, with no read waiting on another only to learn
+which hunt a row is of. The copies:
+
+| Table | Copies | From |
+|---|---|---|
+| `questions` | `hunt_id` | its quiz |
+| `reviews` | `hunt_id` | its quiz |
+| `quizzes` | `hunt_id` (index `by_hunt_id`) | its realm |
+| `widgetings` | `hunt_id` | its quiz |
+| `columns` | `hunt_id` | its quiz |
+| `widgeteds` | `hunt_id`, `quiz_id` | its question |
+| `reviewings` | `hunt_id`, `quiz_id`, `ident_id` | its review |
+| `huntings` | `ident_label`, `ident_title` | its ident |
+
+The rule: **a copy is written when its row is, and never changes after**, since nothing moves
+between parents (a quiz does not change hunts, an ident's label is fixed). The one exception is
+`huntings.ident_title`: retitling an ident (`retitleIdent`) rewrites it on every hunting the ident
+has, a fan-out bounded by the hunts one ident is on. A copy that would need upkeep beyond that is
+not added; a new one goes in this table, and in `Copies` in `tests/support/soundness.ts`, which
+`expectSound` checks against its source. A reviewing does not copy its review's `phase`, which
+changes: whatever needs it reads the review.
+
 ## Who is asking
 
 A browser is a Convex Auth session (`convex/auth.ts`; anonymous for now), and asserts a username
