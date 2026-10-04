@@ -2,6 +2,20 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-10-04: Categories thread 3 -- a new seed widget wants a seeding run on production
+
+* **Run `seeding:seedWidgets` on production after #91 deploys.** The library gains a seeded
+  category-estimate entry, `categories`. Seeding is by hand (`notes/deploy.md`, step 4 of the
+  rewidgeting procedure: `./scripts/doppledo prd_janitor npx convex run seeding:seedWidgets`),
+  and it adds only what is absent, so it is safe to run. Until it runs, a smith can still make the
+  widget in the library (Entry kind: *Category estimates*); nothing breaks either way. The schema
+  change itself is additive (a fifth `entry_kind`), with no migration.
+* **The wheel and the export, again.** Thread 1 asked whether the wheel belongs in the hunt's
+  export. It now matters a little more: a formula reading a persona's chance
+  (`qn.categories.masie`) is worked out for the Export box against the default wheel, since
+  `HuntT` carries none, while the grid, the server's sort and the history mirror use the hunt's
+  own wheel.
+
 ## 2026-10-04: Categories thread 1 -- a field that is optional for good, and a decision note behind the curtain
 
 * **A hunt's `wheel` is optional forever, not optional-until-backfilled.** Until now every row

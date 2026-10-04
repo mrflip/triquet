@@ -9,8 +9,88 @@ disagree. Workers add their sections below, newest first.
 |---|---|---|
 | 1 | Categories and the category editor | complete, PR #85, review clean |
 | 2 | Category personas | complete, PR #87, review clean |
-| 3 | The category estimate entry | underway |
+| 3 | The category estimate entry | complete, PR #91, awaiting review |
 | 4 | The category spread chart | pending |
+
+## Thread 3: The category estimate entry (2026-10-04)
+
+Branch `20261004-category_estimates`, PR #91, stacked on #87. Suites: typecheck and lint clean;
+`pnpm test` 116 files, 2965 tests; `pnpm test:e2e` 215 passed. The first full run lost one
+routing spec to `assumeIdent` timing out under load; it passed alone and on a second full run.
+
+* **Built**:
+  - **The entry kind** `estimates` (`EntryKindVals`, `EntryValueFor.estimates`,
+    `WidgetedValidators.enteredValue` widened, `EntryValueT` now includes `EstimatesT`;
+    `Widget.flavorOf` says "a category estimate entry"). A seeded widget of the kind:
+    `categories` (`src/models/seeds.ts`, now eighteen seeds). Import and export carry the list as
+    any entry value is carried (nothing new was needed in `importing.ts`).
+  - **Column sources with a part** (`src/models/column.ts`): `WidgetingPartVals` (`estimates`,
+    `masie`, `artie`, `poppy`, `average`), `WidgetingPartTitles`. The `Source` type's widgeting arm
+    gains `part`; `sourceOf`, `namesFor` (`categories.masie` becomes label `categories_masie`,
+    title *Masie*), `widgetingSourceOf(label, part)` and `widgetingLabelOf(source)`. `Resolved` in
+    `src/lib/columns.ts` carries `part`. Sorts and the sheet read a part through it.
+  - **`src/lib/estimates.ts`** (`import * as Estimates`): `isEstimating(widget)`,
+    `estimatesOf(widgeted)` (the stored list, or `[Estimate.neutral()]` for an empty cell),
+    `partsOf(order, widgeted)` (the list plus `Personas.chancesOf`; null for a failed cell),
+    `quizEstimatesOf(run)`, `textOf(estimates)` and `chanceTextOf(chance)`.
+  - **The runner**: `QuizPlace` gains `order` (the hunt's total order). `Runner.placeOf` reads it
+    off `hunt.wheel`, defaulting to the default wheel when the hunt has none. `QuizBag` keeps only
+    `hunt` and `realm`, so the order never reaches a formula. `QuizRun.parts` holds each estimating
+    widgeting's parts per question, and `Runner.widgetedOf(run, label, question_id, part)` reads
+    one. A part of any other widgeting is `missing`. In the bag, `qn.<label>` is the widgeted
+    with the parts spread beside `status`, `value` and `err`.
+  - **Server**: `layout_actions.ts` carries part columns through a widgeting's rename
+    (`<old>.masie` becomes `<new>.masie`) and its removal, and refuses a part of a widgeting whose
+    widget is not an estimating entry (`partUnoffered`, new in `RefusalNotices`).
+  - **Views**: `src/components/cells/estimates.tsx` holds `EstimatesCell`, the pills, and
+    `EstimatePartReadout`, which shows a chance as a percentage and the estimates in words.
+    `src/components/cells/use-pills.ts` holds the `usePills` hook and its pure helpers, `pillsOf`,
+    `estimatesFrom`, `choicesFor` and `addable`. `EntryCell` gains an `estimates` case and an
+    `order` prop; `QuestionRow` reads the order as `run.frame.order`. The columns editor takes
+    `library` and lists an estimating widgeting's parts as "Part of a widgeting". A new estimating
+    widgeting brings a 360px column (`EstimatesColumnWidthPx`).
+  - e2e: `e2e/estimates.spec.ts` has two specs, the pills across a reload and the
+    Masie/Average columns.
+* **Decisions taken**:
+  - **The order rides on `QuizPlace`**, not a new `RunSource` field or argument. Every place a
+    quiz is run already makes a place from its hunt, so the grid, the bag preview, the server's
+    sort and the history mirror all get the hunt's own wheel with no new plumbing. The cost: a
+    wheel rearrangement changes the mirror's snapshot place, which can prompt a commit when a
+    formula reads a chance.
+  - **The all-blank value is written, not deleted**: `[Estimate.neutral(difficulty)]`, as the
+    orchestrator bound it, so a lone blank pill keeps its difficulty. A cell nobody touched has
+    no row and reads the same, as one blank pill at medium. Its parts are the neutral chances
+    (52.5% at medium), not `missing`.
+  - **Pills are MUI `Chip`s holding MUI `Select`s**, not raw `<select>`s. A native select is as
+    wide as its longest option ("Classical Music", "(remove)"), so two pills did not fit a 300px
+    cell. MUI's `Select` shows only the chosen value. The blank shows as a muted "(blank)", which
+    is also the first item of the list. The chip's colour follows difficulty (easy green, hard
+    red).
+  - **Each pick is written at once**, with no blur and no optimistic update. `usePills` keeps the
+    local pills while they agree with the cell, and passes over the cell's values on the way to
+    the latest write it sent (an earlier write landing). Any other value that disagrees takes
+    over. It adjusts state while rendering, as React advises, rather than in an effect.
+  - **Part names in the columns editor** are `<label>.<part>`, grouped as "Part of a widgeting".
+    A part column's default title is the part's alone (*Masie*, *Average*, *Estimates*).
+  - Part readouts round to a whole percent; formulas, sorts and the sheet get the raw 0..1 value.
+* **Deviations**: none from the plan. The orchestrator's `qn.<label>.masie` is literal: the parts
+  sit on the widgeted itself, not under `value`.
+* **Discoveries**:
+  - **For thread 4**: `Estimates.quizEstimatesOf(run)` returns the quiz's first
+    category-estimate widgeting in run order and every question's stored estimates, by question
+    id, in quiz order, nulls included. It returns null when the quiz works none. `Panels` already
+    takes `run` (and hands it to `WidgetsPanel`), so a new panel can read it there. To find the
+    widgeting yourself, use
+    `run.steps.find((step) => Estimates.isEstimating(step.widget))`. The order is
+    `run.frame.order`, or `Wheel.orderOf(hunt.wheel)` as before. A question whose only estimate
+    is null (including one nobody touched) is `[{ category: null, ... }]`.
+  - The Export box builds from `HuntT`, which has no wheel, so a formula reading a chance exports
+    values computed against the default order. In HUMAN-whatsup beside thread 1's question.
+  - The column source regex now refuses `question.<part>` by a lookahead. Before this, nothing
+    could have parsed it.
+* **For the Coach**: run `seeding:seedWidgets` on production after the deploy, so `categories`
+  is in the library (HUMAN-whatsup). Choices to confirm or overturn: written-not-deleted
+  all-blank cells, the "(blank)" wording, and difficulty shown by chip colour as well as by word.
 
 ## Thread 2: Category personas (2026-10-04)
 
