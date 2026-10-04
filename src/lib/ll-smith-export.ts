@@ -12,6 +12,17 @@ export const RecordEnd = '$$'
 /** An empty italic run: shows as nothing, and keeps two dollar signs from touching */
 const DollarFence = '[i][/i]'
 
+/** A blank line, as `LLBBCode.translate` writes one: what sets a smith's note apart from the question after it */
+const ParagraphBreak = ' [br]  [br] '
+
+/**
+ * What the export does on its way out. `plain` leaves the questions as they are; `playtesting`
+ * puts the whole smith's note ahead of the first question, since the playtesting form has nowhere
+ * else for it; `go_live` puts the quiz's `q1_preamble` there instead.
+ */
+export const ExportModes = ['plain', 'playtesting', 'go_live'] as const
+export type ExportMode = typeof ExportModes[number]
+
 /**
  * The quiz in the league's import format: one record per question, in **rank order**, each
  * followed by `$$`. A record is four `|`-separated fields -- the question's rank, its body (the
@@ -21,18 +32,43 @@ const DollarFence = '[i][/i]'
  * Numbering follows Renumber: a question's rank is its place in Q# order, whatever Q# it was
  * given, and a question with no Q# has no rank, so it comes last with its number left blank.
  *
+ * The mode may put something ahead of the first record's body (`leadOf`): the first question is
+ * the one with the lowest-ranked Q#, or the first unranked one when no question has a Q#.
+ *
  * @param quiz - The quiz.
+ * @param mode - What to put ahead of the first question, if anything.
  * @returns The records, run together on one line; empty for a quiz with no questions.
  *
  * @example recordsOf(quiz)  // => '1|Who wrote [i]Hamlet[/i]?|Shakespeare|$$2|...'
+ * @example recordsOf(quiz, 'go_live')  // => '1|Important: Read the smith's note before you play![br][br]Who wrote...'
  */
-export function recordsOf(quiz: QuizT): string {
+export function recordsOf(quiz: QuizT, mode: ExportMode = 'plain'): string {
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
   const ranks = Rank.ranksOf(quiz.questions)
-  return Rank.inRankOrder(quiz.questions).map((question) => {
+  const lead = leadOf(quiz, mode)
+  return Rank.inRankOrder(quiz.questions).map((question, idx) => {
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
-    return recordOf(question, { target, rank: ranks.get(question._id) ?? null }) + RecordEnd
+    return recordOf(question, { target, rank: ranks.get(question._id) ?? null, lead: idx === 0 ? lead : '' }) + RecordEnd
   }).join('')
+}
+
+/**
+ * What `mode` puts ahead of the first question's body, in BBCode on one line: nothing when
+ * plain, the smith's note and a blank line when playtesting, the quiz's preamble (which carries
+ * its own line breaks) when going live. Nothing at all when there is nothing to put.
+ *
+ * @param quiz - The quiz, for its smith's note and its preamble.
+ * @param mode - The export's mode.
+ * @returns The lead, not yet made safe for the format.
+ *
+ * @example leadOf({ ...quiz, smiths_note: '*Theme*: princes' }, 'playtesting')  // => '[i]Theme[/i]: princes [br]  [br] '
+ */
+export function leadOf(quiz: Pick<QuizT, 'smiths_note' | 'q1_preamble'>, mode: ExportMode): string {
+  switch (mode) {
+  case 'plain':       { return '' }
+  case 'playtesting': { return quiz.smiths_note === '' ? '' : LLBBCode.translate(quiz.smiths_note) + ParagraphBreak }
+  case 'go_live':     { return LLBBCode.translate(quiz.q1_preamble) }
+  }
 }
 
 /**
@@ -41,13 +77,15 @@ export function recordsOf(quiz: QuizT): string {
  *
  * @param question - The question.
  * @param placed - Where it sits: the question it chains to (whose hint is its BUT NOT, null when
- *   unchained), and its rank (null when it has no Q#).
+ *   unchained), its rank (null when it has no Q#), and any lead to put ahead of its body, already
+ *   in BBCode (`leadOf`).
  * @returns The record, without the `$$` that follows it.
  *
  * @example recordOf({ ...qn, clueing: 'Who?', full_answer: 'Me', notes: '' }, { target: null, rank: 3 })  // => '3|Who?|Me|'
  */
-export function recordOf(question: QuestionT, { target, rank }: Readonly<{ target: QuestionT | null, rank: number | null }>): string {
-  const fields = [bodyOf(question, target), question.full_answer, question.notes].map((field) => fieldTextOf(field))
+export function recordOf(question: QuestionT, { target, rank, lead = '' }: Readonly<{ target: QuestionT | null, rank: number | null, lead?: string }>): string {
+  const body = safeOf(lead + LLBBCode.translate(bodyOf(question, target)))
+  const fields = [body, ...[question.full_answer, question.notes].map((field) => fieldTextOf(field))]
   const record = [rank === null ? '' : String(rank), ...fields].join('|')
   return record.endsWith('$') ? record + DollarFence : record
 }
@@ -70,8 +108,7 @@ export function bodyOf(question: QuestionT, target: QuestionT | null): string {
 
 /**
  * One field's text, made safe for the format: translated into the league's BBCode on one line
- * (`LLBBCode.translate`), then with every run of dollar signs broken up, so it never reads as a
- * record's end, and every pipe written as a broken bar (`¦`), so it never reads as a field's.
+ * (`LLBBCode.translate`), then made safe by `safeOf`.
  *
  * @param text - One field, as the author wrote it.
  * @returns The field, on one line.
@@ -80,7 +117,12 @@ export function bodyOf(question: QuestionT, target: QuestionT | null): string {
  * @example fieldTextOf('$$5 | $10')                 // => '$[i][/i]$5 ¦ $10'
  */
 export function fieldTextOf(text: string): string {
-  return LLBBCode.translate(text)
+  return safeOf(LLBBCode.translate(text))
+}
+
+/** BBCode with every run of dollar signs broken up, so it never reads as a record's end, and every pipe written as a broken bar (`¦`), so it never reads as a field's */
+function safeOf(bbcode: string): string {
+  return bbcode
     .split(/(?<=\$)(?=\$)/).join(DollarFence)
     // A broken bar stands in for a pipe, which the format keeps for separating fields.
     .replaceAll('|', '¦')

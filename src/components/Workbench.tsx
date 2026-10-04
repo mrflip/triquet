@@ -259,6 +259,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
             dispatch({ kind: 'import_questions', questions })
           })
         }}
+        onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
       />
     </main>
   )

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as LLSmithExport from '../../src/lib/ll-smith-export'
 import { Question, type QuestionT } from '../../src/models/question'
-import { Quiz, type QuizT } from '../../src/models/quiz'
+import { DefaultQ1Preamble, Quiz, type QuizT } from '../../src/models/quiz'
 
 /** A question with the given fields and nothing else written */
 const qn = (fields: Partial<QuestionT>): QuestionT => ({ ...Question.blank(), ...fields })
@@ -73,6 +73,31 @@ describe('recordOf', () => {
     const record = LLSmithExport.recordOf(question, placed({ target: qn({ hint: '*not*' }), rank: 2 }))
     expect(record).to.eq('2|[b]Who[/b] [br] then? [br]  [br] ...BUT NOT... [br]  [br] [i]not[/i]|A ¦ B|x [br] y')
   })
+
+  it('puts the lead ahead of the body, and makes the two safe together', () => {
+    const record = LLSmithExport.recordOf(qn({ clueing: '$5 | what?' }), { ...placed({ rank: 1 }), lead: 'Costs $' })
+    expect(record).to.eq('1|Costs $[i][/i]$5 ¦ what?||')
+  })
+})
+
+describe('leadOf', () => {
+  const quiz = { smiths_note: 'Theme: *princes*.\n\nMeta: | initials.', q1_preamble: 'See the **note**![br][br]' }
+
+  it('is nothing when plain', () => {
+    expect(LLSmithExport.leadOf(quiz, 'plain')).to.eq('')
+  })
+
+  it("is the whole smith's note in BBCode, then a blank line, when playtesting", () => {
+    expect(LLSmithExport.leadOf(quiz, 'playtesting')).to.eq('Theme: [i]princes[/i]. [br]  [br] Meta: | initials. [br]  [br] ')
+  })
+
+  it("is nothing when playtesting a quiz with no smith's note", () => {
+    expect(LLSmithExport.leadOf({ ...quiz, smiths_note: '' }, 'playtesting')).to.eq('')
+  })
+
+  it('is the preamble in BBCode when going live', () => {
+    expect(LLSmithExport.leadOf(quiz, 'go_live')).to.eq('See the [b]note[/b]![br][br]')
+  })
 })
 
 /** A quiz holding just `questions` */
@@ -107,5 +132,26 @@ describe('recordsOf', () => {
 
   it('is empty for a quiz with no questions', () => {
     expect(LLSmithExport.recordsOf(quizOf([]))).to.eq('')
+  })
+
+  it('is plain unless told otherwise', () => {
+    const quiz = { ...quizOf([qn({ qnum: '1', clueing: 'First' })]), smiths_note: 'Theme.' }
+    expect(LLSmithExport.recordsOf(quiz)).to.eq(LLSmithExport.recordsOf(quiz, 'plain'))
+  })
+
+  it("puts the smith's note ahead of the lowest-ranked question alone when playtesting, its pipes made safe", () => {
+    const questions = [qn({ qnum: '2', clueing: 'Second' }), qn({ qnum: '', clueing: 'Draft' }), qn({ qnum: '1', clueing: 'First' })]
+    const quiz = { ...quizOf(questions), smiths_note: 'Theme: a | b.' }
+    expect(LLSmithExport.recordsOf(quiz, 'playtesting')).to.eq('1|Theme: a ¦ b. [br]  [br] First||$$2|Second||$$|Draft||$$')
+  })
+
+  it('puts the preamble ahead of the lowest-ranked question alone when going live, the default one at first', () => {
+    const questions = [qn({ qnum: '2', clueing: 'Second' }), qn({ qnum: '1', clueing: 'First' })]
+    expect(LLSmithExport.recordsOf(quizOf(questions), 'go_live')).to.eq(`1|${DefaultQ1Preamble}First||$$2|Second||$$`)
+  })
+
+  it('puts the lead ahead of the first unranked question when no question has a Q#', () => {
+    const quiz = { ...quizOf([qn({ qnum: '', clueing: 'Draft' })]), q1_preamble: 'Read![br]' }
+    expect(LLSmithExport.recordsOf(quiz, 'go_live')).to.eq('|Read![br]Draft||$$')
   })
 })

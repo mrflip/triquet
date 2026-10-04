@@ -310,8 +310,8 @@ export async function showTab(page: Page, tabname: string): Promise<Locator> {
 /**
  * Ask the Raw Export box for the hunt once every change on screen has landed, and read what it holds.
  *
- * The box reads the hunt only when asked, and empties again at the next change on screen, so an
- * export read before an edit has landed would be withdrawn by it.
+ * The box reads the hunt only when asked, and is withdrawn again at the next change on screen, so
+ * an export read before an edit has landed would be withdrawn by it.
  *
  * @returns The export, as the box holds it.
  */

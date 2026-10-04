@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, TextField } from '@mui/material'
 import * as Clipboard from '../../lib/clipboard'
 import { AppNotices } from '../../lib/notices'
@@ -15,16 +15,18 @@ export type ReadonlyBoxProps = {
   rows?: number
   /** Denser type, for material meant to be copied out wholesale rather than read */
   dense?: boolean
+  /** More buttons, to the right of Copy */
+  actions?: ReactNode
 }
 
 /**
- * A read-only box of generated text, with a Copy button.
+ * A read-only box of generated text, with a Copy button, and any other actions beside it.
  *
  * Clicking the box selects the lot. When the browser refuses to write to the clipboard the
  * button falls back to selecting the text *for* the author and saying so -- a slightly worse
  * outcome, never a silent nothing.
  */
-export function ReadonlyBox({ label, text, rows = 8, dense = false }: Readonly<ReadonlyBoxProps>) {
+export function ReadonlyBox({ label, text, rows = 8, dense = false, actions }: Readonly<ReadonlyBoxProps>) {
   const boxRef = useRef<HTMLTextAreaElement>(null)
   const [note, setNote] = useState<string | null>(null)
 
@@ -67,6 +69,7 @@ export function ReadonlyBox({ label, text, rows = 8, dense = false }: Readonly<R
       />
       <div className={styles.panelRow}>
         <Button size="small" variant="outlined" onClick={copy}>Copy</Button>
+        {actions}
         {note === null ? null : <span className={styles.microcopy} role="status">{note}</span>}
       </div>
     </>

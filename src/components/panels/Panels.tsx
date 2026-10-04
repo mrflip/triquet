@@ -32,10 +32,12 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   changeLibrary: (action: LibraryActionDNA) => void
   /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
+  /** Rewrite the quiz's Q1 preamble, from the LL Export tab */
+  onQ1Preamble: (q1_preamble: string) => void
 }
 
 /** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
-export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport }: Readonly<PanelsProps>) {
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onQ1Preamble }: Readonly<PanelsProps>) {
   const labels = { hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <div className={styles.panels}>
@@ -45,7 +47,7 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
 
       <MembersPanel members={hunt.members} claims={claims} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 
-      <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} />
+      <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} onQ1Preamble={onQ1Preamble} />
 
       <WidgetsPanel quiz={quiz} run={run} />
     </div>
