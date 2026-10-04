@@ -91,12 +91,16 @@ export async function wholeHunt(tt: Tester, hunt_id: Id<'hunts'>): Promise<HuntT
 }
 
 /**
- * Put the ident `ident_id` on the hunt `hunt_id` as `role`, as a smith would.
+ * Put the ident `ident_id` on the hunt `hunt_id` as `role`, as a smith would: its hunting carries
+ * the ident's label and title.
  *
  * @example await putOn(tt, open.hunt_id, alice.ident_id, 'reviewer')
  */
 export async function putOn(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>, role: HuntRole): Promise<void> {
-  await tt.run(async (ctx) => { await ctx.db.insert('huntings', { hunt_id, ident_id, role }) })
+  await tt.run(async (ctx) => {
+    const ident = present(await ctx.db.get('idents', ident_id), 'the ident to put on the hunt')
+    await ctx.db.insert('huntings', { hunt_id, ident_id, ident_label: ident.label, ident_title: ident.title, role })
+  })
 }
 
 /**

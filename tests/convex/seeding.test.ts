@@ -25,13 +25,13 @@ async function oldHunt(tt: Tester, label: string, quizzes: readonly OldQuiz[]): 
     const realm_id = await ctx.db.insert('realms', { hunt_id, label: 'home', title: '', position: 0 })
     const ids: Record<string, Id<'quizzes'>> = {}
     for (const quiz of quizzes) {
-      const quiz_id = await ctx.db.insert('quizzes', Quiz.blankRow(realm_id, '', quiz.label))
+      const quiz_id = await ctx.db.insert('quizzes', Quiz.blankRow({ hunt_id, realm_id }, '', quiz.label))
       for (const [position, source] of quiz.sources.entries()) {
-        await ctx.db.insert('columns', { quiz_id, label: `col_${String(position)}`, title: '', source, width_px: 80, position })
+        await ctx.db.insert('columns', { hunt_id, quiz_id, label: `col_${String(position)}`, title: '', source, width_px: 80, position })
       }
       const widgetings = quiz.widgetings ?? []
       for (const [position, widget_label] of widgetings.entries()) {
-        await ctx.db.insert('widgetings', { quiz_id, widget_label, label: widget_label, description: '', params: {}, position })
+        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label, label: widget_label, description: '', params: {}, position })
       }
       ids[quiz.label] = quiz_id
     }

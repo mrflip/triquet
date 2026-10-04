@@ -95,9 +95,10 @@ describe("add_widgeting", () => {
   })
 
   it("can work one widget twice, under two labels", async () => {
-    const { act, read } = await withWidgeting()
+    const { tt, act, read } = await withWidgeting()
     await act({ kind: 'add_widgeting', widgeting: { ...Backward, label: 'backward_again' } })
     expect(quizOf(await read()).widgetings.slice(-2).map((widgeting) => [widgeting.widget_label, widgeting.label])).to.deep.eq([['answer_reversed', 'backward'], ['answer_reversed', 'backward_again']])
+    await expectSound(tt)
   })
 
   it("refuses a label a sibling has, and a widget the library does not hold, leaving the hunt as it was", async () => {
@@ -246,9 +247,10 @@ describe("add_column", () => {
   const column = { label: 'notes_again', title: 'Notes again', source: 'question.notes', width_px: 200 }
 
   it("adds a column to the end", async () => {
-    const { act, read } = await seed()
+    const { tt, act, read } = await seed()
     await act({ kind: 'add_column', column })
     expect(columnsOf(await read())).to.deep.eq([...StandardColumns, 'notes_again'])
+    await expectSound(tt)
   })
 
   it("adds it at an index when given one, the rest keeping their order", async () => {

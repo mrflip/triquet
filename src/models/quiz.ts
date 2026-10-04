@@ -56,6 +56,8 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     .describe('One trivia quiz. Chain integrity and column labels are checked here rather than on the question or the column, because each is only meaningful relative to its siblings.')
 
   const row = obj({
+    hunt_id:         zid('hunts')
+      .describe('The hunt its realm belongs to, copied from the realm when the quiz is made: a quiz never moves between hunts.'),
     realm_id:        zid('realms')
       .describe('The realm this quiz belongs to.'),
     title:           titleish,
@@ -175,19 +177,19 @@ export class Quiz implements QuizT {
   }
 
   /**
-   * A fresh quiz's own row for `realm_id`, holding no questions yet: what `insertQuiz` writes
-   * first, before the questions that need its id.
+   * A fresh quiz's own row in the realm `place` names, holding no questions yet: what `insertQuiz`
+   * writes first, before the questions that need its id.
    *
-   * @param realm_id - The realm it belongs to.
+   * @param place - The realm it belongs to, and that realm's hunt.
    * @param title - What to call it; blank means its label, titleized.
    * @param label - The label it starts under; one is generated when omitted.
    * @returns The row to insert.
    *
-   * @example Quiz.blankRow(realm_id, '', 'princes').title  // => 'Princes'
+   * @example Quiz.blankRow({ hunt_id, realm_id }, '', 'princes').title  // => 'Princes'
    */
-  static blankRow(realm_id: QuizRowT['realm_id'], title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
+  static blankRow({ hunt_id, realm_id }: Pick<QuizRowT, 'hunt_id' | 'realm_id'>, title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
-      realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', version: DefaultVersion,
+      hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', version: DefaultVersion,
       locked: false, last_sortkey: null, row_ordering: [],
     })
   }

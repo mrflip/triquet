@@ -1,7 +1,7 @@
 import { ValidatorKit } from '../src/lib/validator'
 import { QuestionWidgetLabel } from '../src/models/column'
 import { DefaultWidgetings, SeedWidgets } from '../src/models/seeds'
-import type { Doc } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { zInternalMutation } from './functions'
 import { huntsOf, layoutRowsOf, realmsOf } from './reading'
 import { insertAbsentWidgets, insertLayout, updateColumn, type Writer } from './writing/quiz_writing'
@@ -40,7 +40,7 @@ export const seedWidgets = zInternalMutation({
       const realms = await realmsOf(ctx.db, hunt._id)
       for (const { realm, quizzes: rows } of realms) {
         for (const quiz of rows) {
-          if (await seedQuiz(ctx.db, quiz)) { quizzes.push(`${hunt.label}/${realm.label}/${quiz.label}`) }
+          if (await seedQuiz(ctx.db, hunt._id, quiz)) { quizzes.push(`${hunt.label}/${realm.label}/${quiz.label}`) }
         }
       }
     }
@@ -48,11 +48,11 @@ export const seedWidgets = zInternalMutation({
   },
 })
 
-/** Give `quiz` the default widgetings, when it has none and its columns name any of them; whether it was given them */
-async function seedQuiz(db: Writer, quiz: Doc<'quizzes'>): Promise<boolean> {
+/** Give `quiz`, of the hunt `hunt_id`, the default widgetings, when it has none and its columns name any of them; whether it was given them */
+async function seedQuiz(db: Writer, hunt_id: Id<'hunts'>, quiz: Doc<'quizzes'>): Promise<boolean> {
   const rows = await layoutRowsOf(db, quiz._id)
   if (! rows || rows.widgetings.length > 0 || rows.columns.every((column) => ! DefaultSources.has(column.source))) { return false }
-  await insertLayout(db, quiz._id, { widgetings: [...DefaultWidgetings], columns: [] })
+  await insertLayout(db, { hunt_id, quiz_id: quiz._id }, { widgetings: [...DefaultWidgetings], columns: [] })
   for (const column of rows.columns) {
     if (column.source === ButnotIshesView) { await updateColumn(db, column, { source: ButnotIshesLabel }) }
   }

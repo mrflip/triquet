@@ -6,7 +6,7 @@ import { HuntingValidators } from '../../src/models/hunting'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
-import { huntForLabel, huntsOf, identForLabel } from '../reading'
+import { huntForLabel, huntingsFor, huntsOf, identForLabel } from '../reading'
 import { relabelHunt, retitleHunt } from './hunt_actions'
 import { insertHunt, type Writer } from './quiz_writing'
 
@@ -54,18 +54,22 @@ async function claimFor(db: Writer, ident: Doc<'idents'>, user_id: Id<'users'>):
 }
 
 /**
- * Retitle the ident `actor` is: what it is called on screen, which it may change at any time. Its
- * label, which others add it to hunts by, stays. An actor who has asserted no username is refused.
+ * Retitle the ident `actor` is: what it is called on screen, which it may change at any time, and
+ * so the copy of it each of its huntings holds. Its label, which others add it to hunts by, stays.
+ * An actor who has asserted no username is refused.
  *
  * @returns The ident's row id.
  * @throws A refusal (`notIdentified`); nothing is written.
  */
 export async function retitleIdent(db: Writer, actor: Actor.ActorT, title: string): Promise<Id<'idents'>> {
   if (Actor.isAnonymous(actor)) { refuse('notIdentified') }
-  const ident = await db.get('idents', actor.ident_id)
+  const [ident, huntings] = await Promise.all([db.get('idents', actor.ident_id), huntingsFor(db, actor.ident_id)])
   if (! ident) { refuse('notIdentified') }
   const { title: filled } = Ident.fill({ label: ident.label, title, user_id: actor.user_id })
   if (filled !== ident.title) { await db.patch('idents', ident._id, { title: filled }) }
+  for (const hunting of huntings) {
+    if (hunting.ident_title !== filled) { await db.patch('huntings', hunting._id, { ident_title: filled }) }
+  }
   return ident._id
 }
 
@@ -81,11 +85,12 @@ export async function retitleIdent(db: Writer, actor: Actor.ActorT, title: strin
  */
 export async function newHunt(db: Writer, actor: Actor.ActorT, label: string): Promise<Id<'hunts'>> {
   if (Actor.isAnonymous(actor)) { refuse('notIdentified') }
-  const [taken, hunts] = await Promise.all([huntForLabel(db, label), huntsOf(db)])
+  const [taken, hunts, ident] = await Promise.all([huntForLabel(db, label), huntsOf(db), db.get('idents', actor.ident_id)])
+  if (! ident) { refuse('notIdentified') }
   if (taken) { refuse('labelTaken') }
   if (hunts.length >= PA.HuntsInApp.max) { refuse('huntsFull') }
   const hunt_id = await insertHunt(db, label)
-  await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: actor.ident_id, role: 'smith' }))
+  await db.insert('huntings', HuntingValidators.row({ hunt_id, ident_id: ident._id, ident_label: ident.label, ident_title: ident.title, role: 'smith' }))
   return hunt_id
 }
 

@@ -4,6 +4,7 @@ import { Question } from '../../src/models/question'
 import { ReservedWidgetingLabels, Widgeting, WidgetingValidators } from '../../src/models/widgeting'
 
 const QuizId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
+const HuntId = 'k67a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 
 describe('ReservedWidgetingLabels', () => {
   it("is every name a question already answers to: its exposed fields, its label's override, its rank, its views, and the questions themselves", () => {
@@ -122,7 +123,7 @@ describe('WidgetingValidators.widgetingPatch', () => {
 })
 
 describe('WidgetingValidators.row', () => {
-  const Row = { quiz_id: QuizId, widget_label: 'dumdum', label: 'dumdum', description: '', params: {}, position: 0 }
+  const Row = { hunt_id: HuntId, quiz_id: QuizId, widget_label: 'dumdum', label: 'dumdum', description: '', params: {}, position: 0 }
 
   it("takes a widgeting as the database holds it", () => {
     expect(WidgetingValidators.row(Row)).to.deep.eq(Row)
@@ -133,6 +134,7 @@ describe('WidgetingValidators.row', () => {
     [{ ...Row, position: -1 },        'a place before the first'],
     [{ ...Row, params: undefined },   'missing params, which a row never defaults'],
     [{ ...Row, quiz_id: 'princes' },  'a quiz named by label rather than id'],
+    [{ ...Row, hunt_id: undefined },  'no hunt'],
   ]
   for (const [row, describes] of Refused) {
     it(`refuses ${describes}`, () => {

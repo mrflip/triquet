@@ -7,8 +7,8 @@ import { huntingFor, huntingsOf, identForLabel } from '../reading'
 import type { Writer } from './quiz_writing'
 
 /**
- * Put the ident labelled `ident_label` on `hunt_id` as `role`: a new hunting, or the role of the
- * one it already has replaced, never a second.
+ * Put the ident labelled `ident_label` on `hunt_id` as `role`: a new hunting, carrying the
+ * ident's label and title, or the role of the one it already has replaced, never a second.
  *
  * Refused when no ident answers to the label (they have to choose it first), or when the hunt
  * holds as many members as a hunt may. Whether the one acting may change this member's place is
@@ -26,7 +26,7 @@ export async function addHunting(db: Writer, hunt_id: Id<'hunts'>, ident_label: 
   if (! ident) { refuse('identUnknown', identUnknownNotice(ident_label)) }
   const held = await huntingFor(db, hunt_id, ident._id)
   if (held?.role === role) { return }
-  const row = HuntingValidators.row({ hunt_id, ident_id: ident._id, role })
+  const row = HuntingValidators.row({ hunt_id, ident_id: ident._id, ident_label: ident.label, ident_title: ident.title, role })
   if (held) {
     await db.patch('huntings', held._id, { role: row.role })
     return

@@ -17,7 +17,7 @@ import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/wid
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
 import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizForLabel, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
-import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type Writer } from './quiz_writing'
+import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type LayoutPlace, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row, the questions it names
 // by id, and the whole quiz only for an order worked out across every question. What an action
@@ -232,7 +232,7 @@ export async function recordWidgeted(db: Writer, open: OpenQuizT, widgeted: Widg
   if (! widgeting) { refuse('widgetingGone') }
   const widget = await widgetForLabel(db, widgeting.widget_label)
   if (! widget || formularyFor(widget).store !== 'append') { refuse('notStored') }
-  await insertWidgeted(db, held._id, widgeting._id, widgeted)
+  await insertWidgeted(db, held, widgeting._id, widgeted)
 }
 
 /**
@@ -251,7 +251,7 @@ export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: Widget
   const widget = await widgetForLabel(db, widgeting.widget_label)
   if (widget?.formulary !== 'entry') { refuse('notEntered') }
   const value = entered.value === null ? null : EntryFormulary.valueOf(widget).parse(entered.value)
-  await upsertWidgeted(db, held._id, widgeting._id, value)
+  await upsertWidgeted(db, held, widgeting._id, value)
 }
 
 /**
@@ -287,7 +287,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
     }
   }
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added] })
-  await enterImported(db, quiz._id, imported, idFor)
+  await enterImported(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
   await reorderOpenQuiz(db, open, { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
 }
 
@@ -296,7 +296,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
  * value is upserted, a null empties the cell. A label naming no entry widgeting of the quiz (one
  * whose adding was refused, say) is passed over, as an import passes over what it cannot place.
  */
-async function enterImported(db: Writer, quiz_id: Id<'quizzes'>, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
+async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
   if (imported.every(({ entered }) => _.isEmpty(entered))) { return }
   const [widgetings, library] = await Promise.all([widgetingsOf(db, quiz_id), libraryOf(db)])
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
@@ -310,7 +310,7 @@ async function enterImported(db: Writer, quiz_id: Id<'quizzes'>, imported: reado
     return question_id && entry ? [{ question_id, entry, value }] : []
   }))
   for (const { question_id, entry, value } of cells) {
-    await upsertWidgeted(db, question_id, entry.widgeting._id, value === null ? null : EntryFormulary.valueOf(entry.widget).parse(value))
+    await upsertWidgeted(db, { _id: question_id, hunt_id, quiz_id }, entry.widgeting._id, value === null ? null : EntryFormulary.valueOf(entry.widget).parse(value))
   }
 }
 

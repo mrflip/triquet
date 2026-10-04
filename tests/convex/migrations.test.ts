@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
 import { relabelHunt } from '../../convex/writing/hunt_actions'
 import { relabelQuiz } from '../../convex/writing/quiz_actions'
+import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
+import { classicLayout } from '../support/layouts'
 import { huntHolding, openTester, seedHunt, signedIn, type Tester } from '../support/convex'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
@@ -149,5 +151,95 @@ describe("the forced_label migrations", () => {
     await tt.finishAllScheduledFunctions(vi.runAllTimers)
     const [hunts, quizzes] = await Promise.all([labelsIn(tt, 'hunts'), labelsIn(tt, 'quizzes')])
     expect([hunts[0], quizzes[0]]).to.deep.eq([['renamed_hunt', 'missing'], ['renamed_quiz', 'missing']])
+  })
+})
+
+/** Each table given copies of its parents' fields, the fields it copies, and the migration that backfills them */
+const Copied = [
+  ['quizzes',    ['hunt_id'],                         'migrations:backfillQuizCopies'],
+  ['widgetings', ['hunt_id'],                         'migrations:backfillWidgetingCopies'],
+  ['columns',    ['hunt_id'],                         'migrations:backfillColumnCopies'],
+  ['widgeteds',  ['hunt_id', 'quiz_id'],              'migrations:backfillWidgetedCopies'],
+  ['reviewings', ['hunt_id', 'quiz_id', 'ident_id'],  'migrations:backfillReviewingCopies'],
+  ['huntings',   ['ident_label', 'ident_title'],      'migrations:backfillHuntingCopies'],
+] as const
+
+type CopiedTablename = typeof Copied[number][0]
+
+/** Each row's copies, in the order the rows were made; `missing` where a copy is absent */
+async function copiesIn(tt: Tester, tablename: CopiedTablename, fieldnames: readonly string[]) {
+  const rows = await tt.run(async (ctx) => await ctx.db.query(tablename).collect()) as Record<string, unknown>[]
+  return rows.map((row) => fieldnames.map((fieldname) => (Object.hasOwn(row, fieldname) ? row[fieldname] : 'missing')))
+}
+
+/**
+ * Two hunts as a deployment written before the copies might hold them: each a laid-out quiz with a
+ * smith and a reviewer, a stored cell and a verdict, and then every copy taken off every row. The
+ * copies each row held before, by table.
+ */
+async function holdUncopied(tt: Tester) {
+  for (const reviewer of ['alice_reviews', 'bob_reviews']) {
+    const { act, open, join } = await seedHunt(tt, huntHolding([{ ...Quiz.blank(), ...classicLayout(), questions: [Question.blank(), Question.blank()] }]))
+    const member = await join(reviewer, 'reviewer')
+    const question_id = await tt.run(async (ctx) => present(present(await ctx.db.get('quizzes', open.quiz_id)).row_ordering[1]))
+    await act({ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: { guess: 'Leon', explanation: '' } } })
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, member)
+    await act({ kind: 'set_reviewing', quiz_id: open.quiz_id, question_id, patch: { get_rate: 40 } }, member)
+  }
+  const copied = Object.fromEntries(await Promise.all(Copied.map(async ([tablename, fieldnames]) => [tablename, await copiesIn(tt, tablename, fieldnames)] as const)))
+  await tt.run(async (ctx) => {
+    for (const [tablename, fieldnames] of Copied) {
+      const rows = await ctx.db.query(tablename).collect()
+      for (const row of rows) { await ctx.db.patch(tablename, row._id as never, Object.fromEntries(fieldnames.map((fieldname) => [fieldname, undefined]))) }
+    }
+  })
+  return copied as Record<CopiedTablename, unknown[][]>
+}
+
+describe("the copy backfills", () => {
+  for (const [tablename, fieldnames, fn] of Copied) {
+    describe(fn, () => {
+      it(`gives each of the ${tablename} what it copies of its parent, whatever else is backfilled yet`, async () => {
+        const tt = migratable()
+        const copied = await holdUncopied(tt)
+        const stripped = await copiesIn(tt, tablename, fieldnames)
+        expect(stripped.flat().every((copy) => copy === 'missing')).to.be.true
+        await migrate(tt, fn)
+        expect(await copiesIn(tt, tablename, fieldnames)).to.deep.eq(copied[tablename])
+      })
+
+      it("changes nothing when run again", async () => {
+        const tt = migratable()
+        await holdUncopied(tt)
+        await migrate(tt, fn)
+        const once = await copiesIn(tt, tablename, fieldnames)
+        await migrate(tt, fn)
+        expect(await copiesIn(tt, tablename, fieldnames)).to.deep.eq(once)
+      })
+    })
+  }
+
+  it("leaves a row whose parent is gone as it is", async () => {
+    const tt = migratable()
+    await holdUncopied(tt)
+    const doomed = await tt.run(async (ctx) => {
+      const quiz = present(await ctx.db.query('quizzes').first())
+      await ctx.db.delete('realms', quiz.realm_id)
+      return quiz._id
+    })
+    await migrate(tt, 'migrations:backfillQuizCopies')
+    const quiz = await tt.run(async (ctx) => present(await ctx.db.get('quizzes', doomed)))
+    expect('hunt_id' in quiz).to.be.false
+  })
+
+  it("all run from runAll, leaving a deployment that holds together", async () => {
+    const tt = migratable()
+    const copied = await holdUncopied(tt)
+    await tt.mutation(internal.migrations.runAll, {})
+    await tt.finishAllScheduledFunctions(vi.runAllTimers)
+    for (const [tablename, fieldnames] of Copied) {
+      expect(await copiesIn(tt, tablename, fieldnames)).to.deep.eq(copied[tablename])
+    }
+    await expectSound(tt)
   })
 })

@@ -23,7 +23,7 @@ import { SeedWidgets } from '../../src/models/seeds'
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
   const { title, label, smiths_note, version, locked, last_sortkey } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, smiths_note, version, locked, last_sortkey, row_ordering: [] }))
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, version, locked, last_sortkey, row_ordering: [] }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
@@ -44,7 +44,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
     row_ordering.push(await db.insert('questions', row))
   }
   await db.patch('quizzes', quiz_id, { row_ordering })
-  await insertLayout(db, quiz_id, quiz)
+  await insertLayout(db, { hunt_id, quiz_id }, quiz)
   return quiz_id
 }
 

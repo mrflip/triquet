@@ -6,6 +6,7 @@ import * as PA from '../../../src/lib/vv/patterns'
 import { Hunt } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
 import { expectRefusal, huntHolding, identified, openTester, seedHunt, signedIn, type Seeded } from '../../support/convex'
+import { expectSound } from '../../support/soundness'
 
 /**
  * A fresh hunt with alice on it as its smith, and how to act as her: what every case begins
@@ -40,6 +41,7 @@ describe('hunts.perform: add_hunting', () => {
     await identified(seeded.tt, 'bob_reviews')
     await seeded.asAlice({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' })
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith'], ['bob_reviews', 'reviewer']])
+    await expectSound(seeded.tt)
   })
 
   it('replaces the role of an ident already on the hunt, rather than putting them on twice', async () => {

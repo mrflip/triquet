@@ -119,6 +119,50 @@ function sharedLabels(held: Held): string[] {
   ]
 }
 
+/**
+ * One field a row holds a copy of (`notes/convex.md`, *Denormalized fields*): the table and field,
+ * the field of the row naming the parent it is copied from (`via`), and the parent's table and the
+ * field there it copies (`from`).
+ */
+export type Copy = { tablename: HeldTablename, fieldname: string, via: string, parent: HeldTablename, from: string }
+
+/**
+ * Every copy a row holds of a field of a row it names. The first of each table's copies are the
+ * ones it was written with; the last two follow from them, that a cell's widgeting and a
+ * verdict's question are of the same quiz as the cell's question and the verdict's review.
+ */
+export const Copies: readonly Copy[] = [
+  { tablename: 'quizzes',    fieldname: 'hunt_id',     via: 'realm_id',     parent: 'realms',     from: 'hunt_id' },
+  { tablename: 'questions',  fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
+  { tablename: 'widgetings', fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
+  { tablename: 'columns',    fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
+  { tablename: 'widgeteds',  fieldname: 'hunt_id',     via: 'question_id',  parent: 'questions',  from: 'hunt_id' },
+  { tablename: 'widgeteds',  fieldname: 'quiz_id',     via: 'question_id',  parent: 'questions',  from: 'quiz_id' },
+  { tablename: 'reviews',    fieldname: 'hunt_id',     via: 'quiz_id',      parent: 'quizzes',    from: 'hunt_id' },
+  { tablename: 'reviewings', fieldname: 'hunt_id',     via: 'review_id',    parent: 'reviews',    from: 'hunt_id' },
+  { tablename: 'reviewings', fieldname: 'quiz_id',     via: 'review_id',    parent: 'reviews',    from: 'quiz_id' },
+  { tablename: 'reviewings', fieldname: 'ident_id',    via: 'review_id',    parent: 'reviews',    from: 'ident_id' },
+  { tablename: 'huntings',   fieldname: 'ident_label', via: 'ident_id',     parent: 'idents',     from: 'label' },
+  { tablename: 'huntings',   fieldname: 'ident_title', via: 'ident_id',     parent: 'idents',     from: 'title' },
+  { tablename: 'widgeteds',  fieldname: 'quiz_id',     via: 'widgeting_id', parent: 'widgetings', from: 'quiz_id' },
+  { tablename: 'reviewings', fieldname: 'quiz_id',     via: 'question_id',  parent: 'questions',  from: 'quiz_id' },
+]
+
+/**
+ * Each row's copy is what the row it names holds: a copy missing, or gone stale, is a fault. A row
+ * naming a row that is gone is `danglingIds`' to say.
+ */
+function staleCopies({ tablename, fieldname, via, parent, from }: Copy): (held: Held) => string[] {
+  return (held) => {
+    const parents = new Map((held[parent] as Record<string, unknown>[]).map((row) => [row._id, row]))
+    return (held[tablename] as Record<string, unknown>[]).flatMap((row) => {
+      const source = parents.get(row[via])
+      if (! source) { return [] }
+      return row[fieldname] === source[from] ? [] : [`${tablename} ${String(row._id)} holds ${String(row[fieldname])}, where ${parent} ${String(source._id)} holds ${String(source[from])}`]
+    })
+  }
+}
+
 /** What a sound deployment holds to */
 export const SoundnessChecks: SoundnessCheck[] = [
   { title: 'every id names a row',                                faultsOf: danglingIds },
@@ -126,6 +170,7 @@ export const SoundnessChecks: SoundnessCheck[] = [
   { title: 'every chain names a sibling',                         faultsOf: danglingChains },
   { title: "every column's source names something showable",      faultsOf: unshowableSources },
   { title: 'no two hunts, nor two quizzes of a realm, share a label', faultsOf: sharedLabels },
+  ...Copies.map((copy) => ({ title: `${copy.tablename}.${copy.fieldname} is its ${copy.via}'s ${copy.from}`, faultsOf: staleCopies(copy) })),
 ]
 
 /**

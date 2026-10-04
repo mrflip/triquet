@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { Reviewing, ReviewingFlags, ReviewingValidators } from '../../src/models/reviewing'
 
-const Ids = { review_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa' } as const
+const Ids = {
+  hunt_id:     '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f6',
+  quiz_id:     '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f7',
+  ident_id:    '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8',
+  review_id:   '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9',
+  question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa',
+} as const
 
 const Blank = {
   ...Ids, get_rate: null, guesses: '', comments: '', minutes: null,
@@ -37,6 +43,7 @@ describe('ReviewingValidators.row', () => {
     [{ keep_it: 'yes' },         'a flag that is not a boolean'],
     [{ review_id: 'nope' },      'a review that is not a row id'],
     [{ question_id: undefined }, 'no question'],
+    [{ ident_id: undefined },    'no writer for its review'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -71,8 +78,9 @@ describe('ReviewingValidators.reviewingPatch', () => {
 })
 
 describe('Reviewing.blank', () => {
-  it('is a reviewing with nothing said', () => {
-    expect(Reviewing.blank(Ids.review_id, Ids.question_id)).to.deep.eq(Blank)
+  it("is a reviewing with nothing said, carrying its review's hunt, quiz and writer", () => {
+    const review = { _id: Ids.review_id, hunt_id: Ids.hunt_id, quiz_id: Ids.quiz_id, ident_id: Ids.ident_id }
+    expect(Reviewing.blank(review, Ids.question_id)).to.deep.eq(Blank)
   })
 })
 

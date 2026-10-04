@@ -43,7 +43,7 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
     if (labelTaken(rows, widgeting.label)) { refuse('labelTaken') }
     if (rows.widgetings.length >= PA.WidgetingsPerQuiz.max) { refuse('widgetingsFull') }
     if (! await widgetForLabel(db, widgeting.widget_label)) { refuse('widgetGone') }
-    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
+    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
   })
 }
 
@@ -109,7 +109,7 @@ export async function addColumn(db: Writer, open: OpenQuizT, column: ColumnT, on
       const position = idx < at ? idx : idx + 1
       if (held.position !== position) { await updateColumn(db, held, { position }) }
     }
-    await db.insert('columns', ColumnValidators.row({ ...column, quiz_id: rows.quiz._id, position: at }))
+    await db.insert('columns', ColumnValidators.row({ ...column, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: at }))
   })
 }
 

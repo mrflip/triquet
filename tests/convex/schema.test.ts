@@ -50,7 +50,13 @@ const RowValidators: Record<TableNames, RowValidator> = {
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
 const Backfilling: Partial<Record<TableNames, string[]>> = {
-  idents: ['user_id'],
+  columns:    ['hunt_id'],
+  huntings:   ['ident_label', 'ident_title'],
+  idents:     ['user_id'],
+  quizzes:    ['hunt_id'],
+  reviewings: ['hunt_id', 'ident_id', 'quiz_id'],
+  widgetings: ['hunt_id'],
+  widgeteds:  ['hunt_id', 'quiz_id'],
 }
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
@@ -90,7 +96,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
+    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
     const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)
@@ -99,11 +105,11 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const ident_id = await insert('idents', ident)
     const review = ReviewValidators.row({ hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     const review_id = await insert('reviews', review)
-    const widgeting = WidgetingValidators.row({ quiz_id, widget_label: 'dumdum', label: 'dumdum', description: '', params: { strictness: { level: 3, words: ['but', 'not'] } }, position: 0 })
+    const widgeting = WidgetingValidators.row({ hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: '', params: { strictness: { level: 3, words: ['but', 'not'] } }, position: 0 })
     const widgeting_id = await insert('widgetings', widgeting)
     return {
       hunts:       hunt,
-      huntings:    HuntingValidators.row({ hunt_id, ident_id, role: 'reviewer' }),
+      huntings:    HuntingValidators.row({ hunt_id, ident_id, ident_label: ident.label, ident_title: ident.title, role: 'reviewer' }),
       realms:      realm,
       quizzes:     quiz,
       questions:   question,
@@ -114,13 +120,13 @@ async function samplesIn(tt: Tester): Promise<Samples> {
         config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 }, position: 0,
       }),
       widgetings:  widgeting,
-      columns:     ColumnValidators.row({ quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 200, position: 0 }),
+      columns:     ColumnValidators.row({ hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 200, position: 0 }),
       reviews:     review,
       reviewings:  ReviewingValidators.row({
-        review_id, question_id, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', minutes: 2.5, keep_it: true, needs_fact_check: false, elimination_candidate: false, peeked: true,
+        hunt_id, quiz_id, ident_id, review_id, question_id, get_rate: 40, guesses: 'Hamlet?', comments: 'Fair.', minutes: 2.5, keep_it: true, needs_fact_check: false, elimination_candidate: false, peeked: true,
       }),
       widgeteds:   WidgetedValidators.row({
-        question_id, widgeting_id, status: 'ok', value: { guess: 'Hamlet', explanation: 'A prince.' }, message: null,
+        hunt_id, quiz_id, question_id, widgeting_id, status: 'ok', value: { guess: 'Hamlet', explanation: 'A prince.' }, message: null,
         result_meta: { model_tier_applied: 'quick', approx_tokens: 120, truncated: false, response: { error: { kind: 'overloaded', retry: [1, 2] } } },
       }),
     }

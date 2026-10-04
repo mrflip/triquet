@@ -141,7 +141,7 @@ async function isPlaced(db: Reader, open: OpenQuizT): Promise<boolean> {
   return quiz.realm_id === open.realm_id
 }
 
-/** Whether the quiz `quiz_id` belongs to `hunt_id`; one that is gone passes */
+/** Whether the quiz `quiz_id` belongs to `hunt_id`, by the hunt the quiz names: one read. A quiz that is gone passes. */
 async function isQuizOfHunt(db: Reader, quiz_id: Id<'quizzes'>, hunt_id: Id<'hunts'>): Promise<boolean> {
   const quiz = await db.get('quizzes', quiz_id)
   if (quiz === null) { return true }

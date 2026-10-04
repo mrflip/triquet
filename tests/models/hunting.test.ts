@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import { Hunting, HuntingValidators, HuntRoleVals } from '../../src/models/hunting'
 import { ActVals } from '../../src/lib/routes'
 
-const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', role: 'smith' } as const
+const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', ident_label: 'flip_kromer', ident_title: 'Flip', role: 'smith' } as const
 
 describe('HuntingValidators.row', () => {
   it('takes each role', () => {
@@ -17,6 +17,9 @@ describe('HuntingValidators.row', () => {
     [{ role: undefined },      'no role: a hunting always says what it is'],
     [{ hunt_id: 'nope' },      'a hunt that is not a row id'],
     [{ ident_id: undefined },  'no ident'],
+    [{ ident_label: 'Flip K' }, "an ident's label that is not one"],
+    [{ ident_title: '' },      "an ident's title left blank, which no ident has"],
+    [{ ident_title: undefined }, "no title for its ident"],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {

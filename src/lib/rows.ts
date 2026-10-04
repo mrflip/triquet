@@ -156,7 +156,7 @@ export function seenQuestionOf(row: Doc<'questions'>, stored: StoredRows): SeenQ
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
-    ..._.omit(quiz, ['_creationTime', 'realm_id']),
+    ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
     columns:    columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
   }

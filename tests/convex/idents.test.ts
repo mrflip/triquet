@@ -5,11 +5,12 @@ import { RefusalNotices } from '../../src/lib/notices'
 import { failurekindOf, noticeOf } from '../../src/lib/refusals'
 import { Hunt } from '../../src/models/hunt'
 import { HomeRealmLabel } from '../../src/models/realm'
-import { BlankQuestionQty } from '../../src/models/quiz'
+import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { callerOf, identified, openTester, refusedAs, seedHunt, signedIn, wholeHunt, type Session, type Tester } from '../support/convex'
+import { callerOf, huntHolding, identified, openTester, putOn, refusedAs, seedHunt, signedIn, wholeHunt, type Session, type Tester } from '../support/convex'
+import { expectSound } from '../support/soundness'
 
 /** Assert the username `label` as the session `by` (the bare tester for no session), through the public function */
 async function assume(by: Session | Tester, label: string, title = '') {
@@ -171,6 +172,17 @@ describe('idents.performAccount: retitle_ident', () => {
     expect(idents.map((row) => [row.label, row.title])).to.deep.eq([['quiet_otter', 'Otto']])
   })
 
+  it("rewrites the title every hunting of the ident holds, on every hunt it is on, and no one else's", async () => {
+    const tt = openTester()
+    const one = await seedHunt(tt, huntHolding([Quiz.blank()]), { smith: 'quiet_otter' })
+    const two = await seedHunt(tt, huntHolding([Quiz.blank()]), { smith: 'loud_heron' })
+    await putOn(tt, two.open.hunt_id, one.smith.ident_id, 'reviewer')
+    await retitle(one.smith, 'Otto')
+    const huntings = await allOf(tt, 'huntings')
+    expect(huntings.map((row) => [row.ident_label, row.ident_title])).to.deep.eq([['quiet_otter', 'Otto'], ['loud_heron', 'Loud Heron'], ['quiet_otter', 'Otto']])
+    await expectSound(tt)
+  })
+
   it('refuses a session that has asserted no username, or a request with no session, writing nothing', async () => {
     const tt = openTester()
     const session = await signedIn(tt)
@@ -191,12 +203,13 @@ describe('idents.performAccount: new_hunt', () => {
       .to.deep.eq(['loud_heron', HomeRealmLabel, 'loud_heron', hunt.title, BlankQuestionQty])
   })
 
-  it('puts the ident the session is now on the hunt it made, as its smith', async () => {
+  it('puts the ident the session is now on the hunt it made, as its smith, its hunting holding its label and title', async () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
     const hunt_id = await makeHunt(tt, 'loud_heron', alice)
     const huntings = await allOf(tt, 'huntings')
-    expect(huntings.map((row) => [row.hunt_id, row.ident_id, row.role])).to.deep.eq([[hunt_id, alice.ident_id, 'smith']])
+    expect(huntings.map((row) => [row.hunt_id, row.ident_id, row.ident_label, row.ident_title, row.role])).to.deep.eq([[hunt_id, alice.ident_id, 'alice_smiths', 'Alice Smiths', 'smith']])
+    await expectSound(tt)
   })
 
   it('refuses a session that has asserted no username, or a request with no session, writing nothing', async () => {

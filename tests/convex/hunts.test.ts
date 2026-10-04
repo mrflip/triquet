@@ -115,10 +115,10 @@ async function reviewsIn(tt: Tester, quiz_id: string) {
   return await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id as Id<'quizzes'>))
 }
 
-/** Every reviewing the rows hold, oldest first, as what was said about which question */
+/** Every reviewing the rows hold, oldest first, as what was said about which question (what it copies of its review, `expectSound` checks) */
 async function reviewingsIn(tt: Tester) {
   const rows = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
-  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id']))
+  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'ident_id']))
 }
 
 /** The ids of the open quiz's questions, in order */
@@ -528,13 +528,14 @@ describe("hunts.perform", () => {
 
   describe("record_widgeted", () => {
     it("stores a value in its own cell: the newest row of that widgeting for that question", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a']))
+      const { tt, act, read } = await seed(huntOf(['1', 'a']))
       const { _id: id } = firstOf(await read())
       await act({ kind: 'record_widgeted', widgeted: found(id, 1994, 'numnum_hint') })
       const cell = present(cellOf(await read(), 'numnum_hint'))
       expect(cell.newest).to.deep.include({ status: 'ok', value: { items: [{ text: '1994', value: 1994, kind: 'numeral' }] }, message: null })
       expect(cell.ok).to.deep.eq(cell.newest)
       expect(cellOf(await read(), 'numnum_clueing')).to.be.null
+      await expectSound(tt)
     })
 
     it("stores a guess, with how it ran", async () => {
@@ -749,9 +750,10 @@ describe("hunts.perform", () => {
     })
 
     it("starts the new quiz with the same blank questions a fresh hunt has", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a']))
+      const { tt, act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'new_quiz' })
       expect(newestOf(await read()).questions).to.have.length(BlankQuestionQty)
+      await expectSound(tt)
     })
 
     it("works from a locked quiz", async () => {
@@ -1003,6 +1005,7 @@ describe("hunts.perform", () => {
       const { tt, asAlice, quiz_id, first } = await reviewed()
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: first, patch: { get_rate: 40 } })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, get_rate: 40 }])
+      await expectSound(tt)
     })
 
     it("revises it after, leaving alone what a patch leaves out", async () => {
@@ -1163,6 +1166,7 @@ describe("hunts.perform", () => {
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: first, peeked: true }])
       const [review] = await reviewsIn(tt, quiz_id)
       expect(review?.phase).to.eq('empty')
+      await expectSound(tt)
     })
 
     it("marks a reviewing already made, keeping what it says", async () => {
@@ -1202,7 +1206,7 @@ describe("hunts.perform", () => {
 
   describe("import_questions", () => {
     it("types what each question carries into its entry cells: into a question held and one added, and empties one for null", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       for (const action of entryActions('remark')) { await act(action) }
       const [aa, bb] = openOf(await read()).questions
       await act(entering(present(bb)._id, 'remark', 'Was here.'))
@@ -1212,6 +1216,7 @@ describe("hunts.perform", () => {
         { label: 'fresh_one', patch: {}, entered: { remark: 'Fresh.' } },
       ] })
       expect(openOf(await read()).questions.map((question) => question.stored.remark?.ok?.value ?? null)).to.deep.eq(['Imported.', null, 'Fresh.'])
+      await expectSound(tt)
     })
 
     it("passes over what it carries for a widgeting that is not an entry, or that the quiz does not have", async () => {
