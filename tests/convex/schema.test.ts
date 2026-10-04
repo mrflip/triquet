@@ -53,7 +53,9 @@ const RowValidators: Record<TableNames, RowValidator> = {
 const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'] }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {}
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  quizzes: ['q1_preamble'],
+}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
 const Retiring: Partial<Record<TableNames, string[]>> = {}
@@ -88,7 +90,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
+    const quiz = QuizValidators.row({ hunt_id, realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', version: 'main', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
     const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)

@@ -19,6 +19,9 @@ export const BlankQuestionQty = 5
 /** The version every quiz starts on, and so the branch its history begins on */
 export const DefaultVersion = 'main'
 
+/** What every quiz's LL export puts ahead of its first question when going live, until a smith rewrites it */
+export const DefaultQ1Preamble = 'Important: Read the smith\'s note before you play![br][br]'
+
 export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, noteish, label, bool, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
@@ -33,12 +36,16 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
   const smiths_note = noteish
     .describe('What the smiths want to say about the quiz as a whole: its theme, its meta, what is left to do. Several paragraphs if need be; kept trimmed.')
 
+  const q1_preamble = noteish
+    .describe('What the LL export puts ahead of the first question when the quiz goes live, in the league\'s BBCode: a pointer to the smith\'s note, which the league\'s site shows apart from the questions. Kept trimmed.')
+
   const quiz = obj({
     _id:             treeid,
     title:           titleish.default('')
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     smiths_note:     smiths_note.default(''),
+    q1_preamble:     q1_preamble.default(DefaultQ1Preamble),
     version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
@@ -63,6 +70,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     title:           titleish,
     label:           quizLabel,
     smiths_note,
+    q1_preamble,
     version,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
@@ -71,7 +79,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgetings and columns in rows of their own.')
 
-  return { sortkey, smiths_note, quiz, row }
+  return { sortkey, smiths_note, q1_preamble, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */
@@ -127,6 +135,7 @@ export class Quiz implements QuizT {
   declare title:           string
   declare label:           string
   declare smiths_note:     string
+  declare q1_preamble:     string
   declare version:         string
   declare questions:       QuestionT[]
   declare widgetings:      WidgetingT[]
@@ -137,7 +146,8 @@ export class Quiz implements QuizT {
   /**
    * The fields a quiz shows the outside world, alphabetically: its label, the
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
-   * are exposed on their own; and not the housekeeping -- version, lock, remembered sort.
+   * are exposed on their own; not the LL export's preamble; and not the housekeeping -- version,
+   * lock, remembered sort.
    */
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
@@ -198,7 +208,7 @@ export class Quiz implements QuizT {
    */
   static blankRow({ hunt_id, realm_id }: Pick<QuizRowT, 'hunt_id' | 'realm_id'>, title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
-      hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', version: DefaultVersion,
+      hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', q1_preamble: DefaultQ1Preamble, version: DefaultVersion,
       locked: false, last_sortkey: null, row_ordering: [],
     })
   }

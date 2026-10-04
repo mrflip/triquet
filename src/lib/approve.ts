@@ -366,6 +366,7 @@ const ContentPolicies = {
   relabel_quiz:        mayReviseClaimedQuiz,
   reversion_quiz:      mayReviseClaimedQuiz,
   set_smiths_note:     mayReviseClaimedQuiz,
+  set_q1_preamble:     mayReviseClaimedQuiz,
   edit_question:       mayReviseClaimedQuiz,
   add_question:        mayReviseClaimedQuiz,
   delete_questions:    mayReviseClaimedQuiz,

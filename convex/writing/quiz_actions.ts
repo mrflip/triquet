@@ -121,6 +121,11 @@ export async function setSmithsNote(db: Writer, open: OpenQuizT, smiths_note: st
   await updateQuiz(db, openQuizRow(open), { smiths_note })
 }
 
+/** Rewrite what the open quiz's LL export puts ahead of its first question when going live. An empty one is kept: nothing goes ahead. */
+export async function setQ1Preamble(db: Writer, open: OpenQuizT, q1_preamble: string): Promise<void> {
+  await updateQuiz(db, openQuizRow(open), { q1_preamble })
+}
+
 /**
  * Revise one question of the open quiz by a patch. A chain in the patch names the question it
  * points at; one that names no other question of the quiz is cleared. A question not in the

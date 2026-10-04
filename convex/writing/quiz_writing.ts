@@ -8,7 +8,7 @@ import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
 import { defaultLayout, type Layout } from '../../src/models/layout'
 import { Question, QuestionValidators } from '../../src/models/question'
-import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
+import { BlankQuestionQty, DefaultQ1Preamble, Quiz, QuizValidators } from '../../src/models/quiz'
 import { HomeRealmLabel, RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
@@ -70,9 +70,9 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
-/** Revise a quiz's own row */
+/** Revise a quiz's own row, giving it the default LL preamble if it was written before it had one */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, QuizValidators.row({ q1_preamble: DefaultQ1Preamble, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 

@@ -22,8 +22,8 @@ import { SeedWidgets } from '../../src/models/seeds'
  * @example await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank('Princes'))
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
-  const { title, label, smiths_note, version, locked, last_sortkey } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, version, locked, last_sortkey, row_ordering: [] }))
+  const { title, label, smiths_note, q1_preamble, version, locked, last_sortkey } = quiz
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, q1_preamble, version, locked, last_sortkey, row_ordering: [] }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
