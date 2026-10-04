@@ -13,9 +13,9 @@ const Ishes: WidgetedHistoryT = { newest: IshesRow, ok: IshesRow }
 const GuessRow = { status: 'ok' as const, value: { guess: 'Leon', explanation: 'A first instinct.' }, message: null, result_meta: {}, _creationTime: 1 }
 
 describe('the bags formulas are actually given', () => {
-  const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film', stored: { numnum_hint: Ishes } }
+  const target = { ...Question.blank(), qnum: '2', title: 'The film', label: 'the_film', stored: { numnum_hint: Ishes } }
   const question = { ...Question.blank(), qnum: '1', chains_to: target._id, stored: { numnum_clueing: Ishes, dumdum: { newest: GuessRow, ok: GuessRow } } }
-  const quiz = { ...Quiz.blank('Bag'), ...classicLayout(), forced_label: 'my_quiz', last_sortkey: 'column:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
+  const quiz = { ...Quiz.blank('Bag'), ...classicLayout(), label: 'my_quiz', last_sortkey: 'column:clueing_full' as const, questions: [question, target, { ...Question.blank(), qnum: '' }] }
   // As the last widgeting would see them: every other widgeting's widgeted on every question.
   const bags = Runner.bagsAt(runOf(quiz), { label: 'clueing_plus_butnot_full', params: {} })
 

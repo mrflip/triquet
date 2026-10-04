@@ -54,13 +54,13 @@ describe("a quiz as the browser assembles it from quizzes.open and questions.ope
     expect([quiz._id, ...quiz.questions.map((question) => question._id)]).to.deep.eq([quiz_id, ...question_ids])
   })
 
-  it("reads a chain held as a label as the id of the question answering to it, by the label in force", async () => {
+  it("reads a chain held as a label as the id of the question answering to it", async () => {
     const { quiz_id, question_ids, ...reading } = await holding(threeQuestions())
     const { tt } = reading
     const [first, second, third] = question_ids
     await tt.run(async (ctx) => {
       await ctx.db.patch('questions', present(first), { chains_to: 'cc' })
-      await ctx.db.patch('questions', present(second), { forced_label: 'bee' })
+      await ctx.db.patch('questions', present(second), { label: 'bee' })
       await ctx.db.patch('questions', present(third), { chains_to: 'bee' })
     })
     const quiz = await opened(reading, quiz_id)

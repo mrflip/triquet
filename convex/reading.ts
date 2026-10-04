@@ -27,16 +27,12 @@ export async function identForLabel(db: Reader, label: string): Promise<Doc<'ide
 }
 
 /**
- * The hunt answering to `label`, by whichever label is in force for it: the earliest made,
- * should two answer to one.
+ * The hunt answering to `label`: the earliest made, should two answer to one.
  *
  * @example (await huntForLabel(db, 'quiet_otter'))?._id
  */
 export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunts'> | null> {
-  const forced = await db.query('hunts').withIndex('by_forced_label', (cvx) => cvx.eq('forced_label', label)).first()
-  const minted = await db.query('hunts').withIndex('by_label', (cvx) => cvx.eq('label', label)).filter((cvx) => cvx.eq(cvx.field('forced_label'), null)).first()
-  if (! forced || ! minted) { return forced ?? minted }
-  return forced._creationTime < minted._creationTime ? forced : minted
+  return await db.query('hunts').withIndex('by_label', (cvx) => cvx.eq('label', label)).first()
 }
 
 /** Every hunt, in the order they were made */
@@ -84,6 +80,11 @@ export async function huntIdOf(db: Reader, quiz: Pick<Doc<'quizzes'>, 'realm_id'
 /** A realm's quizzes' rows, in the order they were made */
 export async function quizzesOf(db: Reader, realm_id: Id<'realms'>): Promise<Doc<'quizzes'>[]> {
   return await db.query('quizzes').withIndex('by_realm_id', (cvx) => cvx.eq('realm_id', realm_id)).take(PA.QuizzesPerRealm.max)
+}
+
+/** The quiz of `realm_id` answering to `label`: the earliest made, should two answer to one; null when none does */
+export async function quizForLabel(db: Reader, realm_id: Id<'realms'>, label: string): Promise<Doc<'quizzes'> | null> {
+  return await db.query('quizzes').withIndex('by_realm_id_and_label', (cvx) => cvx.eq('realm_id', realm_id).eq('label', label)).first()
 }
 
 /** The library: every `pub` widget, in the order it lists them */

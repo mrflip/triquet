@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import * as Importing from '../../src/lib/importing'
-import * as Labelmaker from '../../src/lib/labelmaker'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -93,7 +92,20 @@ describe('importInto', () => {
         label:  'quiet_otter',
         realms: [{ label: 'home', quizzes: [
           { label: 'other_quiz', title: 'Quiz one', questions: [{ label: 'leon', clueing: 'Wrong one' }] },
-          { label: Labelmaker.effectiveLabelOf(quiz), title: 'Renamed since', questions: [{ label: 'leon', clueing: 'Right one' }] },
+          { label: quiz.label, title: 'Renamed since', questions: [{ label: 'leon', clueing: 'Right one' }] },
+        ] }],
+      }), SeedWidgets)
+      expect(patchFor(present(outcome.questions), 'leon').clueing).to.eq('Right one')
+      expect(outcome.summary).to.include('matched this quiz by label')
+    })
+
+    it('matches the open quiz by the forced_label an older export carries, which it answered to then', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({
+        label:  'quiet_otter',
+        realms: [{ label: 'home', quizzes: [
+          { label: 'other_quiz', forced_label: null, title: 'Quiz one', questions: [{ label: 'leon', clueing: 'Wrong one' }] },
+          { label: 'minted_once', forced_label: quiz.label, title: 'Renamed since', questions: [{ label: 'leon', clueing: 'Right one' }] },
         ] }],
       }), SeedWidgets)
       expect(patchFor(present(outcome.questions), 'leon').clueing).to.eq('Right one')
@@ -123,9 +135,8 @@ describe('importInto', () => {
       expect(outcomesOf(quiz, [{ label: 'other_one', title: 'Leon' }])).to.deep.eq(['added'])
     })
 
-    it('matches on the label in force, which is the forced label where there is one', () => {
-      const base = quizOf(['1', 'generated_one', 'Which region?'])
-      const quiz = { ...base, questions: base.questions.map((question) => ({ ...question, forced_label: 'chosen_one' })) }
+    it('matches a question an older export carries a forced_label for by that label, which it answered to then', () => {
+      const quiz = quizOf(['1', 'chosen_one', 'Which region?'])
       const pasted = [{ label: 'generated_one', forced_label: 'chosen_one', clueing: 'Reworded' }]
       expect(labelsOf(imported(quiz, pasted))).to.deep.eq(['chosen_one'])
       expect(outcomesOf(quiz, pasted)).to.deep.eq(['merged'])
@@ -133,7 +144,7 @@ describe('importInto', () => {
 
     it('never revises a label: neither label is in the patch', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
-      expect(patchFor(imported(quiz, [{ label: 'leon', forced_label: null, clueing: 'Reworded' }]), 'leon')).to.deep.eq({ clueing: 'Reworded' })
+      expect(patchFor(imported(quiz, [{ label: 'leon', clueing: 'Reworded' }]), 'leon')).to.deep.eq({ clueing: 'Reworded' })
     })
 
     it('reads a quiz\'s own export pasted straight back as one merge per question', () => {

@@ -16,7 +16,7 @@ import type { QuizT, Sortkey } from '../../src/models/quiz'
 import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
-import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizRowsOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
+import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizForLabel, quizRowsOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
 import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row, the questions it names
@@ -97,11 +97,16 @@ export async function retitleQuiz(db: Writer, open: OpenQuizT, title: string): P
 }
 
 /**
- * Override the open quiz's generated label, which is kept. The label itself, and uniqueness
- * against sibling quizzes, are the caller's to check first.
+ * Give the open quiz the label `label`, the last part of its address; the label it had answers to
+ * nothing afterwards. Refused when another quiz of its realm already answers to it; its own label
+ * is no clash, and changes nothing.
+ *
+ * @throws A refusal (`quizGone`, `quizLocked`, `labelTaken`); nothing is written.
  */
 export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): Promise<void> {
-  await updateQuiz(db, await openQuizRow(db, open), { forced_label: label })
+  const [quiz, holder] = await Promise.all([openQuizRow(db, open), quizForLabel(db, open.realm_id, label)])
+  if (holder && holder._id !== quiz._id) { refuse('labelTaken') }
+  await updateQuiz(db, quiz, { label })
 }
 
 /**
@@ -135,7 +140,7 @@ export async function editQuestion(db: Writer, open: OpenQuizT, question_id: str
 async function chainLabelFor(db: Writer, held: Doc<'questions'>, chains_to: string | null): Promise<string | null> {
   const id = chains_to === null ? null : db.normalizeId('questions', chains_to)
   const target = id === null || id === held._id ? null : await questionOf(db, held.quiz_id, id)
-  return target && Labelmaker.effectiveLabelOf(target)
+  return target?.label ?? null
 }
 
 /** Add a blank question to the end of the open quiz; refused when it holds as many as a quiz may */
@@ -156,7 +161,7 @@ export async function deleteQuestions(db: Writer, open: OpenQuizT, question_ids:
   const doomed = new Set(question_ids)
   const quiz = await openQuizRow(db, open)
   const [gone, kept] = _.partition(await questionsOf(db, quiz), (row) => doomed.has(row._id))
-  const goneLabels = new Set(gone.map((row) => Labelmaker.effectiveLabelOf(row)))
+  const goneLabels = new Set(gone.map((row) => row.label))
   for (const row of gone) { await deleteQuestion(db, row._id) }
   for (const row of kept) {
     if (row.chains_to !== null && goneLabels.has(row.chains_to)) { await updateQuestion(db, row, { chains_to: null }) }
@@ -248,7 +253,7 @@ export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: Widget
 }
 
 /**
- * Fold imported questions into the open quiz, each by the label in force: one a question of
+ * Fold imported questions into the open quiz, each by its label: one a question of
  * the quiz answers to is revised by its patch; one none answers to adds a question under it,
  * at the end, titled from its label unless the patch says otherwise. What each types into its
  * entry cells is upserted there. Nothing is deleted, and Q#s are then renumbered by rank, as the
@@ -260,7 +265,7 @@ export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: Widget
 export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[]): Promise<void> {
   const quiz = await openQuizRow(db, open)
   const rows = await questionsOf(db, quiz)
-  const held = new Map(rows.map((row) => [Labelmaker.effectiveLabelOf(row), row]))
+  const held = new Map(rows.map((row) => [row.label, row]))
   const known = new Set([...held.keys(), ...imported.map((question) => question.label)])
   if (known.size > PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
   const added: Id<'questions'>[] = []
@@ -324,7 +329,7 @@ async function enterImported(db: Writer, quiz_id: Id<'quizzes'>, imported: reado
  */
 export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Promise<Id<'quizzes'>> {
   const [realm, siblings] = await Promise.all([db.get('realms', open.realm_id), quizzesOf(db, open.realm_id)])
-  const taken = label !== undefined && siblings.some((quiz) => Labelmaker.effectiveLabelOf(quiz) === label)
+  const taken = label !== undefined && siblings.some((quiz) => quiz.label === label)
   if (realm?.hunt_id !== open.hunt_id) { refuse('realmGone') }
   if (taken) { refuse('labelTaken') }
   if (siblings.length >= PA.QuizzesPerRealm.max) { refuse('quizzesFull') }

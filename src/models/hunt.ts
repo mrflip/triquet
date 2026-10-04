@@ -10,15 +10,12 @@ import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) => {
   const huntLabel = label
     .describe('What the hunt is called in an address. Minted when the hunt is made, and unique across the app by convention: two hunts minted with one label resolve to the earlier.')
-  const forced_label = label.nullable()
-    .describe('An author-chosen label overriding the minted one, or null to keep the minted one.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
 
   const hunt = obj({
     _id:          treeid,
     label:        huntLabel,
-    forced_label: forced_label.default(null),
     title:        title.default(''),
     realms:       arr(RealmValidators.realm).min(PA.RealmsPerHunt.min).max(PA.RealmsPerHunt.max)
       .describe(`The hunt's realms, in order, at most ${String(PA.RealmsPerHunt.max)}. Every hunt has \`home\`, and for now nothing else.`),
@@ -30,7 +27,6 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
 
   const row = obj({
     label:        huntLabel,
-    forced_label,
     title,
   })
     .describe('One hunt as the database holds it: its realms are rows of their own.')
@@ -49,7 +45,7 @@ function integrityIssues(hunt: Pick<HuntT, 'realms'>): Issue[] {
   return [
     ...repeatIssues(hunt.realms.map((realm) => realm.label), (idx) => ['realms', idx, 'label'], 'Two realms of one hunt share a label'),
     ...hunt.realms.flatMap((realm, realmIdx) => (
-      repeatIssues(realm.quizzes.map((quiz) => Labelmaker.effectiveLabelOf(quiz)), (idx) => ['realms', realmIdx, 'quizzes', idx, 'label'], 'Two quizzes of one realm answer to one label')
+      repeatIssues(realm.quizzes.map((quiz) => quiz.label), (idx) => ['realms', realmIdx, 'quizzes', idx, 'label'], 'Two quizzes of one realm answer to one label')
     )),
   ]
 }
@@ -61,14 +57,13 @@ function repeatIssues(keys: readonly string[], pathFor: (idx: number) => Issue['
 
 /** Everything one hunt holds: its realms and their quizzes */
 export class Hunt implements HuntT {
-  declare _id:           string
-  declare label:        string
-  declare forced_label: string | null
-  declare title:        string
-  declare realms:       RealmT[]
+  declare _id:    string
+  declare label:  string
+  declare title:  string
+  declare realms: RealmT[]
 
   /**
-   * The fields a hunt shows the outside world, alphabetically: its label (the one in force) and
+   * The fields a hunt shows the outside world, alphabetically: its label and
    * its title (as shown, so never blank). Not the id or the realms, and not who is on it.
    */
   static readonly exposed = ['label', 'title'] as const
@@ -85,7 +80,7 @@ export class Hunt implements HuntT {
     const hunt = HuntValidators.hunt(dna)
     return {
       ...hunt,
-      title:  hunt.title === '' ? Labelmaker.titleize(Labelmaker.effectiveLabelOf(hunt)) : hunt.title,
+      title:  hunt.title === '' ? Labelmaker.titleize(hunt.label) : hunt.title,
       realms: hunt.realms.map((realm) => Realm.fill(realm)),
     }
   }

@@ -47,16 +47,14 @@ function sayingOf(row: { value: unknown, message: string | null } | null): strin
 }
 
 describe("huntForLabel", () => {
-  it("finds a hunt by the label in force", async () => {
-    const hunt = { ...Hunt.blank('minted_label'), forced_label: 'forced_label' }
-    const { tt, hunt_id } = await holding(hunt)
-    const found = await tt.run(async (ctx) => [await huntForLabel(ctx.db, 'forced_label'), await huntForLabel(ctx.db, 'minted_label')])
-    expect(found.map((row) => row?._id ?? null)).to.deep.eq([hunt_id, null])
+  it("finds a hunt by its label", async () => {
+    const { tt, hunt_id } = await holding(Hunt.blank('quiet_otter'))
+    const found = await tt.run(async (ctx) => await huntForLabel(ctx.db, 'quiet_otter'))
+    expect(found?._id).to.eq(hunt_id)
   })
 
-  it("takes the earlier of two hunts made with one label, whichever label each has in force", async () => {
+  it("takes the earlier of two hunts made with one label", async () => {
     const first = await holding(Hunt.blank('twice_made'))
-    await holding({ ...Hunt.blank('other_label'), forced_label: 'twice_made' }, first.tt)
     await holding(Hunt.blank('twice_made'), first.tt)
     const found = await first.tt.run(async (ctx) => await huntForLabel(ctx.db, 'twice_made'))
     expect(found?._id).to.eq(first.hunt_id)

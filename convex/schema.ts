@@ -29,6 +29,10 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // An ident's `user_id` is written by hand too, optional here though every write gives one, so
 // that idents written before it existed still fit until `migrations.ts` backfills them.
 //
+// One field is retiring from three tables: `forced_label` on hunts, quizzes and questions, which
+// no row validator writes any more, is still let through until `migrations.ts` has folded it into
+// `label` and taken it off every row.
+//
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
 
@@ -37,9 +41,12 @@ const identFields       = {
   user_id: CVX.optional(CVX.union(CVX.id('users'), CVX.null())),
 }
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
-const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
+/** The retiring `forced_label`: a label, or null */
+const retiringForcedLabel = { forced_label: CVX.optional(CVX.union(CVX.string(), CVX.null())) }
+
+const huntFields        = { ...zodOutputToConvexFields(HuntValidators.row.shape), ...retiringForcedLabel }
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
+const quizFields        = { ...zodOutputToConvexFields(QuizValidators.row.shape), ...retiringForcedLabel }
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
   ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),
@@ -51,7 +58,7 @@ const widgetedFields    = {
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
 }
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
-const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
+const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), ...retiringForcedLabel }
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
@@ -70,13 +77,13 @@ export default defineSchema({
   /** One time a session asserted a username: its newest is the ident it is now */
   identings:   defineTable(identingFields).index('by_user_id', ['user_id']),
   /** A hunt: the unit of address and of membership. Its realms hold its quizzes. */
-  hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_forced_label', ['forced_label']),
+  hunts:       defineTable(huntFields).index('by_label', ['label']),
   /** A division of a hunt, holding quizzes, kept in the order its hunt lists them */
   realms:      defineTable(realmFields).index('by_hunt_id_and_position', ['hunt_id', 'position']),
   /** A reusable definition in the library every hunt shares, kept in the order the library lists them */
   widgets:     defineTable(widgetFields).index('by_scope_and_position', ['scope', 'position']).index('by_scope_and_label', ['scope', 'label']),
-  /** One trivia quiz, in the order its realm's quizzes were made */
-  quizzes:     defineTable(quizFields).index('by_realm_id', ['realm_id']),
+  /** One trivia quiz, in the order its realm's quizzes were made, or found in its realm by label */
+  quizzes:     defineTable(quizFields).index('by_realm_id', ['realm_id']).index('by_realm_id_and_label', ['realm_id', 'label']),
   /** One widget put to work in one quiz, in its quiz's run order */
   widgetings:  defineTable(widgetingFields).index('by_quiz_id_and_position', ['quiz_id', 'position']).index('by_widget_label', ['widget_label']),
   /** One column of a quiz's grid, apart from the widgetings they show */

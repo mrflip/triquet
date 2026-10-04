@@ -22,8 +22,6 @@ export const QuestionValidators = Validator(({ obj, rec, str, textish, noteish, 
     .describe('A brief name for the question, which can optionally be added to its text. Also what this question is called in other questions\' chain dropdowns. Not the answer: that is `full_answer`.')
   const questionLabel = label
     .describe('A freeform-editable local identifier, generated once at creation. Unlike the id, an author can read it, type it, and paste it back after a round-trip through another tool.')
-  const forced_label = label.nullable()
-    .describe('An author-chosen label overriding the generated one, or null to keep the generated one.')
   const chains_to = treeid.nullable()
     .describe('The question that follows this one in the quiz, or null when unchained. The BUT NOT text presented with THIS question is the chained-to question\'s hint, so solving this one hands the player a pointer to the next answer. Must name a different question in the same quiz; anything dangling or self-referential is cleared rather than kept.')
   const alt_text = noteish
@@ -40,7 +38,6 @@ export const QuestionValidators = Validator(({ obj, rec, str, textish, noteish, 
     hint:          hint.default(''),
     title:         title.default(''),
     label:         questionLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
-    forced_label:  forced_label.default(null),
     chains_to:     chains_to.default(null),
     alt_text:      alt_text.default(''),
     notes:         notes.default(''),
@@ -50,7 +47,7 @@ export const QuestionValidators = Validator(({ obj, rec, str, textish, noteish, 
   })
     .describe('One question in a quiz. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
-  // label and forced_label are absent: a patch never revises a question's label. So is what
+  // label is absent: a patch never revises a question's label. So is what
   // its widgetings stored: that is recorded, never revised (`record_widgeted`).
   const questionPatch = obj({
     qnum:          qnum.optional(),
@@ -70,7 +67,6 @@ export const QuestionValidators = Validator(({ obj, rec, str, textish, noteish, 
     quiz_id:      zid('quizzes')
       .describe('The quiz this question belongs to. Its place there is the quiz\'s to say (`row_ordering`).'),
     label:        questionLabel,
-    forced_label,
     title,
     qnum,
     clueing,
@@ -99,7 +95,6 @@ export class Question implements QuestionT {
   declare hint:          string
   declare title:         string
   declare label:         string
-  declare forced_label:  string | null
   declare chains_to:     string | null
   declare alt_text:      string
   declare notes:         string
@@ -108,9 +103,8 @@ export class Question implements QuestionT {
 
   /**
    * The fields a question shows the outside world, alphabetically: what a formula may read and
-   * what a quiz's git table carries. Everything but the id, the override of the label (the label
-   * in force is what is shown), and what its widgetings stored, which each widgeting exposes for
-   * itself.
+   * what a quiz's git table carries. Everything but the id, and what its widgetings stored, which
+   * each widgeting exposes for itself.
    */
   static readonly exposed = ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'] as const
 
@@ -151,7 +145,7 @@ export class Question implements QuestionT {
    */
   static blankRow({ hunt_id, quiz_id }: Pick<QuestionRowT, 'hunt_id' | 'quiz_id'>, label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuestionRowT {
     return QuestionValidators.row({
-      hunt_id, quiz_id, label, forced_label: null, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
+      hunt_id, quiz_id, label, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
     })
   }
 }

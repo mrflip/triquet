@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import NextLink from './NextLink'
 import { Button, Link, Stack } from '@mui/material'
-import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
@@ -25,7 +24,7 @@ type QuizRow = ShallowHuntT['realms'][number]['quizzes'][number]
 /** Where `quiz` of `hunt` lives, worked on */
 function addressOf(hunt: ShallowHuntT, quiz: QuizRow): string {
   const realm = hunt.realms.find((each) => each.quizzes.includes(quiz)) ?? hunt.realms[0]
-  return Routes.quizPath({ hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm?.label ?? '', quiz: Labelmaker.effectiveLabelOf(quiz) })
+  return Routes.quizPath({ hunt: hunt.label, realm: realm?.label ?? '', quiz: quiz.label })
 }
 
 /**

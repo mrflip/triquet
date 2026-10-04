@@ -31,17 +31,17 @@ function widgetedRow(status: 'ok' | 'errored', at: number, text: string): Doc<'w
 const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), ok: widgetedRow('ok', 5.5, 'answered') }
 
 const QuizRow: Doc<'quizzes'> = {
-  _id: quiz_id, _creationTime: 1, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes', forced_label: null,
+  _id: quiz_id, _creationTime: 1, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
   smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
   _id: widgeting_id, _creationTime: 1, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
 }
 const QuestionRow: Doc<'questions'> = {
-  _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', forced_label: null, title: 'Leon', qnum: '1',
+  _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', title: 'Leon', qnum: '1',
   clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
 }
-const HuntRow: Doc<'hunts'> = { _id: idOf('hunts', 'h1'), _creationTime: 0, label: 'quiet_otter', forced_label: null, title: '' }
+const HuntRow: Doc<'hunts'> = { _id: idOf('hunts', 'h1'), _creationTime: 0, label: 'quiet_otter', title: '' }
 const RealmRow: Doc<'realms'> = { _id: idOf('realms', 'r1'), _creationTime: 0, hunt_id: HuntRow._id, label: 'home', title: '', position: 0 }
 const Rows: HuntRows = { hunt: HuntRow, realms: [{ realm: RealmRow, quizzes: [QuizRow] }] }
 
@@ -178,9 +178,9 @@ describe('widgetingFrom', () => {
 })
 
 describe('the titles', () => {
-  it('read a blank hunt title as the label in force, titleized, and keep one that is there', () => {
-    expect([huntTitleOf(HuntRow), huntTitleOf({ ...HuntRow, forced_label: 'loud_heron' }), huntTitleOf({ ...HuntRow, title: 'Autumn' })])
-      .to.deep.eq(['Quiet Otter', 'Loud Heron', 'Autumn'])
+  it('read a blank hunt title as its label, titleized, and keep one that is there', () => {
+    expect([huntTitleOf(HuntRow), huntTitleOf({ ...HuntRow, title: 'Autumn' })])
+      .to.deep.eq(['Quiet Otter', 'Autumn'])
   })
 
   it('read a blank realm title as its label, titleized', () => {

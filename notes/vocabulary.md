@@ -181,9 +181,11 @@ words above.
   idents and hunts have no parent, so theirs are global.
   Labels are what URLs, formulas, exports, git paths and column sources use, because people
   export, edit and re-import -- so many things refer by label where an id would be easier.
-* **forced_label** / **effective label** -- a generated label (`quiet_otter`) can be overridden by
-  an author-chosen `forced_label`; whichever is in force is the effective label, and the only
-  one the outside world sees. `Labelmaker` is the facility for all of this.
+  A label is minted when its row is made (`quiet_otter`), and is the row's one label: relabelling
+  a hunt or a quiz replaces it, and a question's stays as minted. `Labelmaker` is the facility for
+  all of this. (Until October 2026 a row could also hold a `forced_label` overriding the minted
+  one, "the effective label"; that pair is retired, and only an import of an older export still
+  reads a `forced_label`.)
 * **version** -- which line of work a quiz is on; also its git branch. A **milestone** is a tag.
 
 ## Columns and the bag

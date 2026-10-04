@@ -4,7 +4,6 @@ import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
 import { ReviewsPanel } from './ReviewsPanel'
 import { WidgetsPanel } from './WidgetsPanel'
-import * as Labelmaker from '../../lib/labelmaker'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
 import type { HuntActionDNA } from '../../models/actions'
@@ -31,7 +30,7 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
 
 /** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
 export function Panels({ quiz, hunt, realm, library, ident, reviews, run, carryOut, saveNotice, dispatch, onImport }: Readonly<PanelsProps>) {
-  const labels = { hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) }
+  const labels = { hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />

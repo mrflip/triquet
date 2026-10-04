@@ -21,9 +21,9 @@ export async function retitleHunt(db: Writer, hunt_id: Id<'hunts'>, title: strin
 }
 
 /**
- * Give `hunt_id` the label `label`, which every address of its quizzes names it by. The label it
- * was minted with is kept underneath, so relabelling back to it clears the override. Refused when
- * some other hunt already answers to the label, and for a hunt that is gone.
+ * Give `hunt_id` the label `label`, which every address of its quizzes names it by; the label it
+ * had answers to nothing afterwards. Refused when some other hunt already answers to the label,
+ * and for a hunt that is gone.
  *
  * @param db - The mutation's database.
  * @param hunt_id - Which hunt.
@@ -35,7 +35,7 @@ export async function relabelHunt(db: Writer, hunt_id: Id<'hunts'>, label: strin
   const [held, taken] = await Promise.all([db.get('hunts', hunt_id), huntForLabel(db, label)])
   if (! held) { refuse('huntGone') }
   if (taken && taken._id !== hunt_id) { refuse('labelTaken') }
-  await updateHunt(db, held, { forced_label: label === held.label ? null : label })
+  await updateHunt(db, held, { label })
 }
 
 /**

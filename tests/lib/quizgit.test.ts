@@ -54,12 +54,12 @@ function fsRootedAt(root: string): Quizgit.GitFs {
   }
 }
 
-function questionOf(forced_label: string, fields: Partial<QuestionT> = {}): QuestionT {
-  return { ...Question.blank(), forced_label, ...fields }
+function questionOf(label: string, fields: Partial<QuestionT> = {}): QuestionT {
+  return { ...Question.blank(), label, ...fields }
 }
 
 function quizOf(questions: QuestionT[], fields: Partial<QuizT> = {}): QuizT {
-  return { ...Quiz.blank(), title: 'Ours', forced_label: 'ours', questions, ...fields }
+  return { ...Quiz.blank(), title: 'Ours', label: 'ours', questions, ...fields }
 }
 
 /** The throwaway directory this test is working in, and the filesystem rooted at it */
@@ -118,18 +118,14 @@ const tsvOf = (quiz: QuizT) => Quizgit.quizFiles(quiz, [], Here).get(OursTsv) ??
 
 describe('quizPathsFor', () => {
   it('nests both files under the hunt and realm, each named for the quiz', () => {
-    expect(Quizgit.quizPathsFor({ label: 'quiet_otter', forced_label: null }, Here)).to.deep.eq({
+    expect(Quizgit.quizPathsFor({ label: 'quiet_otter' }, Here)).to.deep.eq({
       tsv:  'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.qq.tsv',
       json: 'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.tq.json',
     })
   })
 
-  it('follows an author\'s override rather than the generated label', () => {
-    expect(Quizgit.quizPathsFor({ label: 'quiet_otter', forced_label: 'ours' }, Here)).to.deep.eq({ tsv: OursTsv, json: OursJson })
-  })
-
   it('moves with the hunt and the realm', () => {
-    expect(Quizgit.quizPathsFor({ label: 'ours', forced_label: null }, placeAt('high_tarn', 'finals')).json).to.eq('tq/hunt/high_tarn/realm/finals/quiz/ours.tq.json')
+    expect(Quizgit.quizPathsFor({ label: 'ours' }, placeAt('high_tarn', 'finals')).json).to.eq('tq/hunt/high_tarn/realm/finals/quiz/ours.tq.json')
   })
 })
 
@@ -453,7 +449,7 @@ describe('commitQuiz', () => {
   it('renames the file when the quiz is relabelled, keeping one file and not two', async () => {
     const before = quizOf([questionOf('quiet_otter')])
     await commitFresh(before)
-    const after = { ...before, forced_label: 'renamed' }
+    const after = { ...before, label: 'renamed' }
     await commitStep(before, after)
 
     expect(gitSays(after, 'ls-files').split('\n')).to.deep.eq([
@@ -591,7 +587,7 @@ describe('listRepos', () => {
   it('lists every quiz, the newest work first', async () => {
     const [older, newer] = [quizOf([], { title: 'Older' }), quizOf([], { title: 'Newer' })]
     await commitFresh(older)
-    await commitFresh({ ...newer, forced_label: 'newer' })
+    await commitFresh({ ...newer, label: 'newer' })
     await new Promise((resolve) => { setTimeout(resolve, 1100) })
     await commitStep(older, { ...older, title: 'Older, revised' })
     const repos = await Quizgit.listRepos(suite.fs)

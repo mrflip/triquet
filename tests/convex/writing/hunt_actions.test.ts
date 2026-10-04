@@ -43,7 +43,7 @@ describe("hunts.perform: retitle_hunt", () => {
     const ante = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
     await act({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
     const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
-    expect([hunt.title, hunt.label, hunt.forced_label]).to.deep.eq(['The Autumn Hunt', ante.label, ante.forced_label])
+    expect([hunt.title, hunt.label]).to.deep.eq(['The Autumn Hunt', ante.label])
   })
 
   it("refuses a reviewer, as not theirs to change", async () => {
@@ -61,13 +61,19 @@ describe("hunts.perform: relabel_hunt", () => {
     expect([await answersTo(tt, 'autumn_hunt'), await answersTo(tt, minted)]).to.deep.eq([open.hunt_id, null])
   })
 
-  it("clears the override when relabelled back to the label it was minted with", async () => {
+  it("can be relabelled back to the label it was made with", async () => {
     const { tt, act, open } = await seedHunt(openTester(), huntOfTwo())
     const minted = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id))).label
     await act({ kind: 'relabel_hunt', label: 'autumn_hunt' })
     await act({ kind: 'relabel_hunt', label: minted })
-    const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
-    expect([hunt.forced_label, await answersTo(tt, minted)]).to.deep.eq([null, open.hunt_id])
+    expect([await answersTo(tt, minted), await answersTo(tt, 'autumn_hunt')]).to.deep.eq([open.hunt_id, null])
+  })
+
+  it("takes the label the hunt already has, changing nothing", async () => {
+    const { tt, act, open } = await seedHunt(openTester(), huntOfTwo())
+    const ante = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
+    await act({ kind: 'relabel_hunt', label: ante.label })
+    expect(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id))).to.deep.eq(ante)
   })
 
   it("refuses a label another hunt answers to, writing nothing", async () => {

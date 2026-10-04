@@ -33,11 +33,11 @@ export const QuizJsonExt = '.tq.json'
  * @param place - The hunt and realm it sits in; only their labels count here.
  * @returns Repository-relative paths for the questions file and the whole-quiz file.
  *
- * @example quizPathsFor({ label: 'quiet_otter', forced_label: null }, Runner.placeOf(deepLake, home)).json
+ * @example quizPathsFor({ label: 'quiet_otter' }, Runner.placeOf(deepLake, home)).json
  *   // => 'tq/hunt/deep_lake/realm/home/quiz/quiet_otter.tq.json'
  */
 export function quizPathsFor(quiz: Readonly<Labelmaker.Labelled>, place: Runner.QuizPlace): { tsv: string, json: string } {
-  const label = Labelmaker.effectiveLabelOf(quiz)
+  const { label } = quiz
   const dir = `tq/hunt/${place.hunt.label}/realm/${place.realm.label}/quiz`
   return { tsv: `${dir}/${label}${QuestionsExt}`, json: `${dir}/${label}${QuizJsonExt}` }
 }
@@ -344,7 +344,7 @@ function untakenTag(wanted: string, taken: ReadonlySet<string>): string {
  */
 export async function zipQuizRepo(fs: GitFs, quiz: QuizT): Promise<Uint8Array> {
   const dir = repopathFor(quiz)
-  const stem = Labelmaker.effectiveLabelOf(quiz)
+  const stem = quiz.label
   const filepaths = await allFiles(fs, dir)
   const entries: Record<string, Uint8Array> = {}
   for (const filepath of filepaths) {

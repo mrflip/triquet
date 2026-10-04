@@ -54,7 +54,11 @@ const Backfilling: Partial<Record<TableNames, string[]>> = {
 }
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
-const Retiring: Partial<Record<TableNames, string[]>> = {}
+const Retiring: Partial<Record<TableNames, string[]>> = {
+  hunts:     ['forced_label'],
+  questions: ['forced_label'],
+  quizzes:   ['forced_label'],
+}
 
 /** For sorting names into a stable order to compare */
 const alphabetically = (aa: string, bb: string) => aa.localeCompare(bb)
@@ -82,13 +86,13 @@ type Samples = Record<TableNames, Record<string, unknown>>
 async function samplesIn(tt: Tester): Promise<Samples> {
   return await tt.run(async (ctx) => {
     const insert = async <TN extends TableNames>(tablename: TN, row: Record<string, unknown>): Promise<Id<TN>> => await ctx.db.insert(tablename, row as never)
-    const hunt = HuntValidators.row({ label: 'quiet_otter', forced_label: null, title: 'Quiet Otter' })
+    const hunt = HuntValidators.row({ label: 'quiet_otter', title: 'Quiet Otter' })
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)
-    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', forced_label: null, smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
+    const quiz = QuizValidators.row({ realm_id, title: '', label: 'princes', smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: 'column:clueing', row_ordering: [] })
     const quiz_id = await insert('quizzes', quiz)
-    const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', forced_label: null, title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+    const question = QuestionValidators.row({ hunt_id, quiz_id, label: 'leon', title: '', qnum: '1', clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
     const question_id = await insert('questions', question)
     const user_id = await ctx.db.insert('users', { isAnonymous: true })
     const ident = IdentValidators.row({ label: 'flip_kromer', title: 'Flip', user_id })

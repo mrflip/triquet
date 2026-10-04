@@ -76,7 +76,7 @@ export type Placing =
 
 /**
  * Where the realm and quiz `labels` name sit in `hunt`: placed, missing, or not known until the
- * hunt arrives. A quiz answers to the label in force for it; should two, the earlier made.
+ * hunt arrives. A quiz answers to its label; should two, the earlier made.
  *
  * The quiz last found at this address is still placed when it answers to another label now
  * (relabelled, here or by someone else), with the label it answers to, so the address can follow
@@ -98,7 +98,7 @@ export function placeIn(hunt: ShallowHuntT | null | undefined, labels: Pick<Quiz
   const quizRow = Labelmaker.entityForLabel(realm.quizzes, labels.quiz)
   if (quizRow) { return { finding: 'placed', realm, quizRow, movedTo: null } }
   const moved = realm.quizzes.find((row) => row._id === shown)
-  return moved ? { finding: 'placed', realm, quizRow: moved, movedTo: Labelmaker.effectiveLabelOf(moved) } : { finding: 'missing', ...none }
+  return moved ? { finding: 'placed', realm, quizRow: moved, movedTo: moved.label } : { finding: 'missing', ...none }
 }
 
 /**

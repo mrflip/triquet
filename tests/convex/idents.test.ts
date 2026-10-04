@@ -218,7 +218,7 @@ describe('idents.performAccount: new_hunt', () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntsInApp.max }, (_unused, idx) => `hunt_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('hunts', { label, forced_label: null, title: '' })
+        await ctx.db.insert('hunts', { label, title: '' })
       }
     })
     expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
@@ -251,7 +251,7 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     expect(await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })).to.eq(hunt_id)
     expect(await perform({ kind: 'relabel_hunt', label: 'autumn_hunt' })).to.eq(hunt_id)
     const hunt = await held()
-    expect([hunt.title, hunt.forced_label]).to.deep.eq(['The Autumn Hunt', 'autumn_hunt'])
+    expect([hunt.title, hunt.label]).to.deep.eq(['The Autumn Hunt', 'autumn_hunt'])
   })
 
   it('refuses a reviewer on the hunt, and a stranger, writing nothing', async () => {
@@ -277,6 +277,6 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     await makeHunt(tt, 'taken_label')
     expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
     const hunt = await held()
-    expect(hunt.forced_label).to.be.null
+    expect(hunt.label).to.eq('quiet_otter')
   })
 })

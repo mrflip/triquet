@@ -1,5 +1,4 @@
 import { ValidatorKit } from '../src/lib/validator'
-import * as Labelmaker from '../src/lib/labelmaker'
 import { QuestionWidgetLabel } from '../src/models/column'
 import { DefaultWidgetings, SeedWidgets } from '../src/models/seeds'
 import type { Doc } from './_generated/dataModel'
@@ -41,7 +40,7 @@ export const seedWidgets = zInternalMutation({
       const realms = await realmsOf(ctx.db, hunt._id)
       for (const { realm, quizzes: rows } of realms) {
         for (const quiz of rows) {
-          if (await seedQuiz(ctx.db, quiz)) { quizzes.push(`${Labelmaker.effectiveLabelOf(hunt)}/${realm.label}/${Labelmaker.effectiveLabelOf(quiz)}`) }
+          if (await seedQuiz(ctx.db, quiz)) { quizzes.push(`${hunt.label}/${realm.label}/${quiz.label}`) }
         }
       }
     }

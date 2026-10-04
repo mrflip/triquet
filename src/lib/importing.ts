@@ -20,7 +20,7 @@ export type ImportIssue = {
 export type ImportLogEntry = {
   /** 1-based position in the pasted list, so the author can find it again */
   position:     number
-  /** The label in force for the question, or '' where the paste named none and the question was skipped */
+  /** The question's label, or '' where the paste named none and the question was skipped */
   label:        string
   outcome:      'merged' | 'added' | 'skipped'
   issues:       ImportIssue[]
@@ -53,9 +53,10 @@ export type ImportOutcome = {
 /**
  * `pasted` read against `quiz`, as the questions to send.
  *
- * Questions are matched to existing ones **by label**: the label in force, meaning the forced
- * label where a question has one. A label is the one name that survives both the author
- * rewriting a question's title and a round trip through another tool.
+ * Questions are matched to existing ones **by label**: the one name that survives both the
+ * author rewriting a question's title and a round trip through another tool. An export made while
+ * a label could be overridden carries the override as `forced_label`; where it is set, it is the
+ * label matched on, as it was the one the question answered to.
  *
  * Nothing is ever deleted by an import. A label no question here holds becomes a new question
  * appended to the quiz under that label; so does a question with no label at all, under a fresh
@@ -88,7 +89,7 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
     return { ok: false, summary: `${payload.reading} It holds no questions, so nothing was changed.`, ...nothing }
   }
 
-  const held = new Set(quiz.questions.map((question) => Labelmaker.effectiveLabelOf(question)))
+  const held = new Set(quiz.questions.map((question) => question.label))
   const widgetings = widgetingsMerged(quiz, payload.quiz.widgetings, library)
   const merge: MergeState = { patches: new Map(), entered: new Map(), log: [] }
   const entries = entryWidgetingsOf(quiz, payload.quiz.widgetings, widgetings.actions, library)
@@ -286,11 +287,11 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
 
 /** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: ImportQuizT, openQuiz: QuizT): string {
-  if (labelOfPasted(chosen) === Labelmaker.effectiveLabelOf(openQuiz)) { return 'matched this quiz by label' }
+  if (labelOfPasted(chosen) === openQuiz.label) { return 'matched this quiz by label' }
   return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
 }
 
-/** The label in force of a pasted quiz, or null when it carries none */
+/** The label a pasted quiz answered to (its `forced_label`, in an export made while one could be set), or null when it carries none */
 function labelOfPasted(quiz: ImportQuizT): string | null {
   return quiz.forced_label ?? quiz.label ?? null
 }
@@ -300,7 +301,7 @@ function labelOfPasted(quiz: ImportQuizT): string | null {
  * first.
  */
 export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
-  const label = Labelmaker.effectiveLabelOf(openQuiz)
+  const { label } = openQuiz
   return quizzes.find((quiz) => labelOfPasted(quiz) === label)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
     ?? quizzes[0]
@@ -325,7 +326,7 @@ function patchFrom(bag: Record<string, unknown>, clean: Record<string, unknown>)
 
 /**
  * The questions to send, each chain checked: a pasted chain names its target by label, which
- * must be the label in force of a question here or of one the same import adds. A chain to
+ * must be the label of a question here or of one the same import adds. A chain to
  * anything else, or to the question itself, is left unset and logged.
  */
 function chainsResolved(merge: MergeState, held: ReadonlySet<string>): ImportedQuestionT[] {

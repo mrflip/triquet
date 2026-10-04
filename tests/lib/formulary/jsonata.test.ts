@@ -9,7 +9,7 @@ import { runOf } from '../../support/runs'
 
 const question = { ...Question.blank(), qnum: '1', title: 'Leon', full_answer: 'Leon' }
 const quiz = { ...Quiz.blank('Princes'), smiths_note: 'Meta: their initials.', questions: [question] }
-const place = Runner.placeOf({ label: 'deep_lake', forced_label: null, title: 'The Deep Lake Hunt' }, { label: 'finals', title: '' })
+const place = Runner.placeOf({ label: 'deep_lake', title: 'The Deep Lake Hunt' }, { label: 'finals', title: '' })
 const bag = present(Runner.bagsAt(runOf(quiz, [], place), { label: 'col', params: { size: 3 } }).get(question._id))
 
 /** What `formula`, over the whole bag, comes to for the one question */

@@ -4,7 +4,7 @@ import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { quizzesOf, reviewsOf } from '../../convex/reading'
+import { quizForLabel, quizzesOf, reviewsOf } from '../../convex/reading'
 import * as PA from '../../src/lib/vv/patterns'
 import * as UU from '../../src/lib/useful'
 import { noticeOf } from '../../src/lib/refusals'
@@ -184,11 +184,34 @@ describe("hunts.perform", () => {
   })
 
   describe("relabel_quiz", () => {
-    it("overrides the generated label of the open quiz, and leaves the generated one alone", async () => {
-      const { act, read } = await seed(openHunt())
-      const generated = openOf(await read()).label
+    it("gives the open quiz the new label, in place of the one it had", async () => {
+      const { tt, act, read, open } = await seed(openHunt())
+      const ante = openOf(await read()).label
       await act({ kind: 'relabel_quiz', label: 'leon' })
-      expect([openOf(await read()).forced_label, openOf(await read()).label]).to.deep.eq(['leon', generated])
+      const found = await tt.run(async (ctx) => [await quizForLabel(ctx.db, open.realm_id, 'leon'), await quizForLabel(ctx.db, open.realm_id, ante)])
+      expect([openOf(await read()).label, ...found.map((quiz) => quiz?._id ?? null)]).to.deep.eq(['leon', open.quiz_id, null])
+    })
+
+    it("refuses a label another quiz of the realm answers to, writing nothing", async () => {
+      const { act, read } = await seed(huntTitled(['one', 'two']), 0)
+      const ante = await read()
+      await expectRefusal(act({ kind: 'relabel_quiz', label: quizNamed(ante, 'two').label }), 'labelTaken')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("takes the label the quiz already has, changing nothing", async () => {
+      const { act, read } = await seed(huntTitled(['one', 'two']), 0)
+      const ante = await read()
+      await act({ kind: 'relabel_quiz', label: openOf(ante).label })
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("takes a label a quiz of another hunt answers to, as labels are unique only among siblings", async () => {
+      const theirs = await seed(huntTitled(['three']), 0)
+      const { act, read } = await seed(huntTitled(['one', 'two']), 0)
+      const taken = openOf(await theirs.read()).label
+      await act({ kind: 'relabel_quiz', label: taken })
+      expect(openOf(await read()).label).to.eq(taken)
     })
 
     it("refuses while the quiz is locked", async () => {
@@ -763,7 +786,7 @@ describe("hunts.perform", () => {
       expect(await read()).to.deep.eq(ante)
     })
 
-    it("counts an overriding label as taken", async () => {
+    it("counts a label another quiz was given as taken", async () => {
       const { act, read } = await seed(huntOf(['1', 'a']))
       await act({ kind: 'relabel_quiz', label: 'leon' })
       const ante = await read()
@@ -826,7 +849,7 @@ describe("hunts.perform", () => {
       const { act, tt, open } = await seed(huntTitled(['one', 'two']), 0)
       const elsewhere = await tt.run(async (ctx) => {
         const realm_id = await ctx.db.insert('realms', { hunt_id: open.hunt_id, label: 'away', title: '', position: 1 })
-        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
       expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.be.null
@@ -1270,7 +1293,7 @@ async function crowded(tablename: 'questions' | 'widgetings' | 'columns', qty: n
   await seeded.tt.run(async (ctx) => {
     for (const position of positions) {
       if (tablename === 'questions') {
-        const question_id = await ctx.db.insert('questions', { hunt_id: seeded.open.hunt_id, quiz_id, label: `q_${String(position)}`, forced_label: null, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+        const question_id = await ctx.db.insert('questions', { hunt_id: seeded.open.hunt_id, quiz_id, label: `q_${String(position)}`, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
         const quiz = present(await ctx.db.get('quizzes', quiz_id))
         await ctx.db.patch('quizzes', quiz_id, { row_ordering: [...quiz.row_ordering, question_id] })
       } else if (tablename === 'widgetings') {
@@ -1329,7 +1352,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')

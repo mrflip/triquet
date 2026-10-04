@@ -159,27 +159,13 @@ describe('display', () => {
   })
 })
 
-describe('effectiveLabelOf', () => {
-  it('reads the generated label when there is no override', () => {
-    expect(Labelmaker.effectiveLabelOf({ label: 'quiet_otter', forced_label: null })).to.eq('quiet_otter')
-  })
-
-  it('prefers the author\'s override over the generated label', () => {
-    expect(Labelmaker.effectiveLabelOf({ label: 'quiet_otter', forced_label: 'leon' })).to.eq('leon')
-  })
-})
-
 describe('entityForLabel', () => {
   const entities = [
-    { label: 'quiet_otter', forced_label: null },
-    { label: 'loud_gecko', forced_label: 'leon' },
+    { label: 'quiet_otter' },
+    { label: 'leon' },
   ]
 
-  it('finds an entity by its generated label', () => {
-    expect(Labelmaker.entityForLabel(entities, 'quiet_otter')).to.eq(entities[0])
-  })
-
-  it('finds an entity by its overriding label rather than its generated one', () => {
+  it('finds an entity by its label', () => {
     expect(Labelmaker.entityForLabel(entities, 'leon')).to.eq(entities[1])
   })
 
@@ -194,16 +180,9 @@ describe('freshLabelFor', () => {
   })
 
   it('never gives back a label a sibling already answers to', () => {
-    const siblings = Array.from({ length: 40 }, () => ({ label: Labelmaker.freshLabelFor([]), forced_label: null }))
-    const taken = new Set(siblings.map((each) => Labelmaker.effectiveLabelOf(each)))
+    const siblings = Array.from({ length: 40 }, () => ({ label: Labelmaker.freshLabelFor([]) }))
+    const taken = new Set(siblings.map((each) => each.label))
     expect(taken.has(Labelmaker.freshLabelFor(siblings))).to.be.false
   })
 
-  it('counts an overriding label as taken, not just the generated one', () => {
-    const siblings = [{ label: 'quiet_otter', forced_label: 'leon' }]
-    // Asked forty times over, so a one-in-many collision cannot pass for a pass.
-    for (let ii = 0; ii < 40; ii += 1) {
-      expect(Labelmaker.freshLabelFor(siblings)).to.not.eq('leon')
-    }
-  })
 })

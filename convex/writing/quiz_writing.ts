@@ -247,7 +247,7 @@ export async function deleteQuiz(db: Writer, held: QuizRows): Promise<void> {
  * @example await insertHunt(ctx.db, 'quiet_otter')
  */
 export async function insertHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, forced_label: null, title: Labelmaker.titleize(label) }))
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, title: Labelmaker.titleize(label) }))
   const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position: 0, label: HomeRealmLabel, title: Labelmaker.titleize(HomeRealmLabel) }))
   await insertQuiz(db, { hunt_id, realm_id }, '', label)
   return hunt_id

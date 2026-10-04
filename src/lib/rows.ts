@@ -75,13 +75,12 @@ export type ShallowRealmT = {
   quizzes: readonly ListedQuizT[]
 }
 
-/** A hunt as the hunts list shows it: its labels, its title, and each realm's quizzes as rows */
+/** A hunt as the hunts list shows it: its label, its title, and each realm's quizzes as rows */
 export type HuntListingT = {
-  _id:          Id<'hunts'>
-  label:        string
-  forced_label: string | null
-  title:        string
-  realms:       readonly ShallowRealmT[]
+  _id:    Id<'hunts'>
+  label:  string
+  title:  string
+  realms: readonly ShallowRealmT[]
 }
 
 /** A hunt as its hunts list shows one ident: its listing, and the ident's role on it */
@@ -178,7 +177,7 @@ export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetin
  * @example quizFromSeen(frame, seen).questions.length
  */
 export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]): QuizT {
-  const idForLabel = new Map(seen.map((question) => [Labelmaker.effectiveLabelOf(question), question._id]))
+  const idForLabel = new Map(seen.map((question) => [question.label, question._id]))
   const questions = seen.map((row): QuestionT => {
     const target = row.chains_to === null ? null : idForLabel.get(row.chains_to) ?? null
     return { ..._.omit(row, ['_creationTime', 'hunt_id', 'quiz_id']), chains_to: target === row._id ? null : target }
@@ -234,9 +233,9 @@ export function widgetingFrom(row: Doc<'widgetings'>): WidgetingT {
   return { widget_label, label, description, params }
 }
 
-/** A hunt's title as the screen shows it: a blank one reads as the label in force, titleized */
-export function huntTitleOf(hunt: Pick<Doc<'hunts'>, 'label' | 'forced_label' | 'title'>): string {
-  return hunt.title === '' ? Labelmaker.titleize(Labelmaker.effectiveLabelOf(hunt)) : hunt.title
+/** A hunt's title as the screen shows it: a blank one reads as its label, titleized */
+export function huntTitleOf(hunt: Pick<Doc<'hunts'>, 'label' | 'title'>): string {
+  return hunt.title === '' ? Labelmaker.titleize(hunt.label) : hunt.title
 }
 
 /** A realm's title as the screen shows it: a blank one reads as its label, titleized */
@@ -251,11 +250,10 @@ export function realmTitleOf(realm: Pick<Doc<'realms'>, 'label' | 'title'>): str
  * @example huntListingOf(rows).realms[0].quizzes.length
  */
 export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntListingT {
-  const { _id, label, forced_label } = rows.hunt
+  const { _id, label } = rows.hunt
   return {
     _id,
     label,
-    forced_label,
     title:  huntTitleOf(rows.hunt),
     realms: rows.realms.map(({ realm, quizzes }) => ({
       _id:     realm._id,
@@ -301,11 +299,10 @@ export function smithsOf(members: readonly MemberT[]): SmithT[] {
  * @example huntFrom(rows, quizzes).realms[0].quizzes[0].title
  */
 export function huntFrom(rows: HuntRows, quizFor: ReadonlyMap<string, QuizT>): HuntT {
-  const { _id, label, forced_label } = rows.hunt
+  const { _id, label } = rows.hunt
   return {
     _id,
     label,
-    forced_label,
     title:  huntTitleOf(rows.hunt),
     realms: rows.realms.map(({ realm, quizzes }) => ({
       _id:     realm._id,

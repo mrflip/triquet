@@ -1,5 +1,4 @@
 import _ from 'es-toolkit/compat'
-import * as Labelmaker from '../labelmaker'
 import * as Rank from '../rank'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { formularyFor, type InputOutcome } from './formularies'
@@ -217,18 +216,18 @@ export function widgetedFrom(history: WidgetedHistoryT | null): WidgetedT {
 
 /**
  * Where a quiz sits, as its formulas and its history are told: the hunt's and the realm's
- * exposed fields, each label the one in force and each title as shown, never blank.
+ * exposed fields, each title as shown, never blank.
  *
  * @param hunt - The quiz's hunt, as a row or a screen holds it.
  * @param realm - The realm it sits in.
  * @returns Its place.
  *
- * @example placeOf({ label: 'deep_lake', forced_label: null, title: '' }, { label: 'home', title: '' })
+ * @example placeOf({ label: 'deep_lake', title: '' }, { label: 'home', title: '' })
  *   // => { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' } }
  */
-export function placeOf(hunt: Pick<HuntT, 'label' | 'forced_label' | 'title'>, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
+export function placeOf(hunt: Pick<HuntT, 'label' | 'title'>, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
   return {
-    hunt:  { ..._.pick(hunt, Hunt.exposed), label: Labelmaker.effectiveLabelOf(hunt), title: huntTitleOf(hunt) },
+    hunt:  { ..._.pick(hunt, Hunt.exposed), title: huntTitleOf(hunt) },
     realm: { ..._.pick(realm, Realm.exposed), title: realmTitleOf(realm) },
   }
 }
@@ -240,14 +239,14 @@ function errOf(row: StoredWidgetedT): WidgetedErrT {
 
 /** What every bag of `quiz` holds besides its questions and its widgeting */
 function frameOf(quiz: QuizT, place: QuizPlace): BagFrame {
-  const quiz_label = Labelmaker.effectiveLabelOf(quiz)
+  const quiz_label = quiz.label
   return {
     hunt:         place.hunt,
     realm:        place.realm,
     quiz:         { ..._.pick(quiz, Quiz.exposed), label: quiz_label },
     quiz_label,
     question_ids: quiz.questions.map((question) => question._id),
-    qn_labels:    quiz.questions.map((question) => Labelmaker.effectiveLabelOf(question)),
+    qn_labels:    quiz.questions.map((question) => question.label),
   }
 }
 
@@ -274,11 +273,11 @@ function emptyBag(frame: BagFrame, widgeting: Pick<WidgetingT, 'label' | 'params
 
 /**
  * Every question as a formula sees it before any widgeting has run: only its exposed fields, its
- * label the one in force and its chain named by label, and its rank added.
+ * chain named by label, and its rank added.
  */
 function baseQns(quiz: QuizT): Record<string, unknown>[] {
   const ranks = Rank.ranksOf(quiz.questions)
-  const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
+  const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   return quiz.questions.map((question) => ({
     ..._.pick(question, Question.exposed),
     label:       labelForId.get(question._id) ?? question.label,

@@ -120,7 +120,7 @@ function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountAction
  */
 function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
   const [editing, setEditing] = useState(false)
-  const huntLabel = Labelmaker.effectiveLabelOf(hunt)
+  const huntLabel = hunt.label
   return (
     <Stack component="li" direction="row" useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', columnGap: 2 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -135,7 +135,7 @@ function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
       <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', columnGap: 1 }}>
         <Typography component="span">Quizzes:</Typography>
         {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (
-          <Link key={quiz._id} component={NextLink} href={Routes.quizPath({ hunt: huntLabel, realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) })}>
+          <Link key={quiz._id} component={NextLink} href={Routes.quizPath({ hunt: huntLabel, realm: realm.label, quiz: quiz.label })}>
             {quiz.locked ? '🔒 ' : ''}{quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
           </Link>
         )))}
