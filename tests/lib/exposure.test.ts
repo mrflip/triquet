@@ -80,7 +80,7 @@ describe('tableOf', () => {
   it('shows what a bot answered as text: the status, the answer, the spans as JSON, whether stale', () => {
     const question = {
       ...Question.blank(),
-      guess: { status: 'done' as const, text: 'Lyon', truncated: false, updated_at: 1, last_err: null },
+      guess: { status: 'done' as const, text: 'Lyon', truncated: false, stale: false, updated_at: 1, last_err: null },
       clueing_ishes: { status: 'done' as const, items: [{ text: '3', value: 3, kind: 'numeral' as const }], truncated: false, stale: true, updated_at: 1, last_err: null },
     }
     const { header, rows } = tableOf(quizOf([question]))

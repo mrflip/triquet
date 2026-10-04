@@ -124,7 +124,7 @@ that way; the model bots were called players until September 2026.
   with the value a player would total for it. `kind` is `numeral` (digits) or `wordish`. The
   **sums** over them are seeded expressions; they exist for quizzes whose meta is numeric.
 * **stale** -- derived, never discarded: a result whose `asked_text` is no longer the question's
-  text stays on screen, marked.
+  text, or is not known (a reply carried in by an import), stays on screen, marked.
 * **last_err** -- a failed ask never replaces a value; it rides along on the cell until a success
   clears it.
 * **model tier** -- `quick` or `careful`: a feature of the bot, not a cost dodge.

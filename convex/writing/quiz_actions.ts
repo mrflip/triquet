@@ -8,9 +8,9 @@ import * as Sortings from '../../src/lib/sortings'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { expressionFrom, quizFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
-import type { BottingRowT } from '../../src/models/botting'
-import type { ImportedQuestionT } from '../../src/models/import'
+import { expressionFrom, quizFrom, type LayoutRows, type QuizRows, type SlotRows } from '../../src/lib/rows'
+import { slotkeyOf, type BottingRowT } from '../../src/models/botting'
+import type { ImportedBottingT, ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
 import type { OpenQuizT } from '../../src/models/actions'
 import type { BulkIshesRunT, QuizT, Sortkey } from '../../src/models/quiz'
@@ -241,6 +241,10 @@ export async function applyBulkIshes(db: Writer, open: OpenQuizT, bottings: read
  * Q#s are then renumbered by rank, as the Import panel promises. A chain names its target by
  * label: one naming no question the quiz will hold, or the question itself, is no chain.
  *
+ * The bots' replies an import carries fill only cells holding no reply of their own, so a real
+ * reply is never buried under a pasted one. Each is recorded with what it was asked unknown,
+ * so it reads as stale until the bot is asked again.
+ *
  * @throws A refusal (`quizGone`, `quizLocked`, `questionsFull`); nothing is written.
  */
 export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[]): Promise<void> {
@@ -250,19 +254,33 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
   const known = new Set([...held.keys(), ...imported.map((question) => question.label)])
   if (known.size > PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
   const added: Id<'questions'>[] = []
-  for (const { label, patch } of imported) {
+  for (const { label, patch, bottings } of imported) {
     const chained = patch.chains_to === undefined ? {} : { chains_to: patch.chains_to !== null && patch.chains_to !== label && known.has(patch.chains_to) ? patch.chains_to : null }
     const fields = { ...patch, ...chained }
     const row = held.get(label)
     if (row) {
       await updateQuestion(db, row, fields)
+      await carryReplies(db, row._id, bottings, row)
     } else {
       const fresh = QuestionValidators.row({ ...Question.blankRow({ hunt_id: open.hunt_id, quiz_id: quiz._id }, label), ...fields })
-      added.push(await db.insert('questions', fresh))
+      const question_id = await db.insert('questions', fresh)
+      added.push(question_id)
+      await carryReplies(db, question_id, bottings)
     }
   }
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added] })
   await reorderOpenQuiz(db, open, { replies: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
+}
+
+/**
+ * Record each of `bottings` against `question_id` where its cell holds no reply yet, with what it
+ * was asked unknown. A question not yet `held` has no replies to read.
+ */
+async function carryReplies(db: Writer, question_id: Id<'questions'>, bottings: readonly ImportedBottingT[], held?: Doc<'questions'>): Promise<void> {
+  if (bottings.length === 0) { return }
+  const slots = held ? await slotsOf(db, [held]) : new Map<string, SlotRows>()
+  const unanswered = bottings.filter((botting) => ! slots.get(slotkeyOf({ question_id, ...botting }))?.done)
+  await insertBottings(db, unanswered.map((botting) => ({ ...botting, question_id, asked_text: null, status: 'done', message: null, response: null })))
 }
 
 // What follows is about the realm rather than a quiz's contents, so a locked quiz refuses none of

@@ -97,6 +97,14 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
   await expect(grid(page).locator('tbody tr')).toHaveCount(5)
 })
 
+test('a bot reply carried in fills its empty cell, marked stale', async ({ page }) => {
+  await runImport(page, [{ label: await labelAt(page, 0), guess: { status: 'done', text: 'Lyon', truncated: false } }])
+  await expect(page.getByText(/Carried 1 bot reply\(ies\) to cells holding none, marked stale/)).toBeVisible()
+  const cell = page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
+  await expect(cell).toContainText('Lyon')
+  await expect(cell).toContainText('· stale')
+})
+
 test('importing is refused while the quiz is locked', async ({ page }) => {
   await fillImport(page, '[{"label":"anyone","clueing":"Sneaked in"}]')
   await page.getByRole('button', { name: 'Lock quiz' }).click()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { ClearedValueFor, ImportValidators, ImportableFieldnames } from '../../src/models/import'
+import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportedBottingT } from '../../src/models/import'
 
 describe('ImportValidators.importQuestion', () => {
   it('tells absent, null and present apart: leave it, clear it, take this', () => {
@@ -48,9 +48,15 @@ describe('ImportValidators.importPayload', () => {
 })
 
 describe('ImportValidators.importedQuestions', () => {
-  it('takes one entry per label, each with what to change', () => {
+  it('takes one entry per label, each with what to change and no replies unless it carries some', () => {
     const sent = [{ label: 'leon', patch: { clueing: 'Who?', chains_to: 'nantes' } }, { label: 'nantes', patch: {} }]
-    expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent)
+    expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent.map((question) => ({ ...question, bottings: [] })))
+  })
+
+  it('takes the replies an entry carries, and refuses one from a bot not put that text', () => {
+    const reply: ImportedBottingT = { bot_label: 'dumdum', textkind: 'clueing', reply_text: 'Leon', items: [], truncated: false, model_tier_applied: null, approx_tokens: null }
+    expect(ImportValidators.importedQuestions([{ label: 'leon', patch: {}, bottings: [reply] }])[0]?.bottings).to.deep.eq([reply])
+    expect(() => ImportValidators.importedQuestions([{ label: 'leon', patch: {}, bottings: [{ ...reply, textkind: 'hint' }] }])).to.throw(Z.ZodError)
   })
 
   it('refuses two entries naming one label', () => {

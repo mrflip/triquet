@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Importing from '../../src/lib/importing'
+import { quizExported } from '../../src/lib/exporting'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import { Question } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
@@ -19,8 +20,12 @@ function imported(quiz: QuizT, pasted: unknown): ImportedQuestionT[] {
   return present(Importing.importInto(quiz, JSON.stringify(pasted)).questions)
 }
 
-const labelsOf   = (questions: readonly ImportedQuestionT[]) => questions.map((question) => question.label)
-const patchFor   = (questions: readonly ImportedQuestionT[], label: string) => present(questions.find((question) => question.label === label), label).patch
+const labelsOf    = (questions: readonly ImportedQuestionT[]) => questions.map((question) => question.label)
+const patchFor    = (questions: readonly ImportedQuestionT[], label: string) => present(questions.find((question) => question.label === label), label).patch
+const bottingsFor = (questions: readonly ImportedQuestionT[], label: string) => present(questions.find((question) => question.label === label), label).bottings
+
+/** A guess as the Export box hands one over */
+const Guessed = { status: 'done', text: 'Lyon', truncated: false, stale: false, model_tier_applied: 'quick', approx_tokens: 84, updated_at: 1, last_err: null } as const
 const outcomesOf = (quiz: QuizT, pasted: unknown) => Importing.importInto(quiz, JSON.stringify(pasted)).log.map((entry) => entry.outcome)
 
 describe('importInto', () => {
@@ -115,10 +120,9 @@ describe('importInto', () => {
       expect(patchFor(imported(quiz, [{ label: 'leon', clueing: null }]), 'leon')).to.deep.eq({ clueing: '' })
     })
 
-    it('passes over what a bot replied, which is recorded by asking rather than pasted', () => {
+    it('keeps what a bot replied out of the patch: a reply is carried, never revised', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
-      const guess = { status: 'done', text: 'leon', truncated: false, updated_at: 1, last_err: null }
-      expect(patchFor(imported(quiz, [{ label: 'leon', guess, clueing_ishes: null }]), 'leon')).to.deep.eq({})
+      expect(patchFor(imported(quiz, [{ label: 'leon', guess: Guessed, clueing_ishes: null }]), 'leon')).to.deep.eq({})
     })
 
     it('adds a label nothing here holds', () => {
@@ -146,6 +150,56 @@ describe('importInto', () => {
     it('names nothing to delete: a question the paste leaves out is not in what is sent', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
       expect(labelsOf(imported(quiz, [{ label: 'leon' }]))).to.deep.eq(['leon'])
+    })
+  })
+
+  describe('what the bots replied', () => {
+    const items = [{ text: 'three', value: 3, kind: 'wordish' }]
+    const Spotted = { status: 'done', items, truncated: true, stale: false, updated_at: 1, last_err: null }
+
+    it('carries a guess and each extraction as a reply to its cell, without what they were asked', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(bottingsFor(imported(quiz, [{ label: 'leon', guess: Guessed, clueing_ishes: Spotted, hint_ishes: Spotted }]), 'leon')).to.deep.eq([
+        { bot_label: 'dumdum', textkind: 'clueing', reply_text: 'Lyon', items: [], truncated: false, model_tier_applied: 'quick', approx_tokens: 84 },
+        { bot_label: 'numnum', textkind: 'clueing', reply_text: null, items, truncated: true, model_tier_applied: null, approx_tokens: null },
+        { bot_label: 'numnum', textkind: 'hint', reply_text: null, items, truncated: true, model_tier_applied: null, approx_tokens: null },
+      ])
+    })
+
+    it('carries nothing for a cell never asked, or one that only ever failed', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const failure = { status: 'error', message: 'Overloaded', updated_at: 1, last_err: { message: 'Overloaded', response: {}, at: 1 } }
+      const outcome = Importing.importInto(quiz, JSON.stringify([{ label: 'leon', guess: failure, clueing_ishes: null }]))
+      expect(bottingsFor(present(outcome.questions), 'leon')).to.deep.eq([])
+      expect(present(outcome.log[0]).issues).to.deep.eq([])
+    })
+
+    it('leaves out a reply that will not read, and says so, but still takes the question', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify([{ label: 'leon', clueing: 'Reworded', guess: 'Lyon', clueing_ishes: Spotted }]))
+      expect(patchFor(present(outcome.questions), 'leon')).to.deep.eq({ clueing: 'Reworded' })
+      expect(bottingsFor(present(outcome.questions), 'leon').map((botting) => botting.bot_label)).to.deep.eq(['numnum'])
+      expect(present(outcome.log[0]).outcome).to.eq('merged')
+      expect(present(outcome.log[0]).issues).to.deep.eq([{ fieldpath: 'guess', message: 'Bot reply could not be read; left out', code: 'reply_unreadable' }])
+    })
+
+    it('folds two pasted questions naming one label cell by cell, the later reply winning', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const sent = imported(quiz, [{ label: 'leon', guess: Guessed, clueing_ishes: Spotted }, { label: 'leon', guess: { ...Guessed, text: 'Nantes' } }])
+      expect(bottingsFor(sent, 'leon').map((botting) => [botting.bot_label, botting.reply_text])).to.deep.eq([['dumdum', 'Nantes'], ['numnum', null]])
+    })
+
+    it('carries a quiz\'s own replies back when its export is pasted', () => {
+      const base = quizOf(['1', 'leon', 'Which region?'])
+      const quiz = { ...base, questions: base.questions.map((question) => ({ ...question, guess: Guessed })) }
+      const sent = imported(quiz, quizExported(quiz))
+      expect(bottingsFor(sent, 'leon')).to.have.length(1)
+    })
+
+    it('says how many replies it carried, and that they read as stale', () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(Importing.importInto(quiz, JSON.stringify([{ label: 'leon', guess: Guessed }])).summary).to.include('Carried 1 bot reply(ies) to cells holding none, marked stale.')
+      expect(Importing.importInto(quiz, JSON.stringify([{ label: 'leon' }])).summary).to.not.include('Carried')
     })
   })
 

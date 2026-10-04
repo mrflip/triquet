@@ -129,7 +129,7 @@ describe('sheetsExport', () => {
     const question = {
       ...Question.blank(), qnum: '1', clueing: 'Which region?',
       clueing_ishes: { status: 'done' as const, items: [numeral('300', 300), numeral('17', 17)], truncated: false, stale: false, updated_at: 1, last_err: null },
-      guess: { status: 'done' as const, text: 'Leon', truncated: false, updated_at: 1, last_err: null },
+      guess: { status: 'done' as const, text: 'Leon', truncated: false, stale: false, updated_at: 1, last_err: null },
     }
     const table = exported([question])
     const cells = ['clueing_full', 'clueing_ishes', 'guess'].map((header) => cellOf(table, header, 0))

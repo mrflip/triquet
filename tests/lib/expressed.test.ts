@@ -339,7 +339,7 @@ describe('sortValueOf', () => {
 describe('what a bag exposes', () => {
   const answered = {
     ...Question.blank(), qnum: '1', title: 'Leon', forced_label: 'leon_q',
-    guess: { status: 'done' as const, text: 'Lyon', truncated: true, model_tier_applied: 'quick' as const, approx_tokens: 84, updated_at: 5, last_err: { message: 'no', response: { ok: false }, at: 9 } },
+    guess: { status: 'done' as const, text: 'Lyon', truncated: true, stale: false, model_tier_applied: 'quick' as const, approx_tokens: 84, updated_at: 5, last_err: { message: 'no', response: { ok: false }, at: 9 } },
     clueing_ishes: { status: 'done' as const, items: [numeral('3', 3)], truncated: true, stale: true, model_tier_applied: 'careful' as const, approx_tokens: 10, updated_at: 5, last_err: null },
     hint_ishes: { status: 'error' as const, message: 'Too many requests.', updated_at: 5, last_err: { message: 'Too many requests.', response: { ok: false }, at: 5 } },
   }

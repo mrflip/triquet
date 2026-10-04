@@ -10,6 +10,8 @@ export const GuessValidators = Validator(({ obj, textish, bool, timestamp, lit, 
     model_tier_applied: AskValidators.model_tier.optional(),
     truncated:          bool.default(false),
     approx_tokens:      AskValidators.approxTokens.optional(),
+    stale:              bool.default(false)
+      .describe('True when the clueing this was guessed from has been edited since, or was never known (a guess carried in by an import). The guess stays on screen, greyed, rather than vanishing.'),
     updated_at:         timestamp,
     last_err:           AskValidators.lastErr.nullable().default(null)
       .describe('The most recent failed refresh of this guess, which leaves the guess itself as it was; null after any success.'),

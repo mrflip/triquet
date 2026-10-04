@@ -1,5 +1,6 @@
 'use client'
 
+import clsx from 'clsx'
 import { ErrBadge } from './ErrBadge'
 import { AskableCell } from './readouts'
 import { AskFailureNotices, CellNotices } from '../../lib/notices'
@@ -48,15 +49,16 @@ function GuessBody({ guess, notice }: Readonly<{ guess: GuessT, notice: string |
     )
   }
   return (
-    <>
+    <div className={clsx(guess.stale && styles.stale)}>
       <div>{guess.text}</div>
       <div className={styles.metaline}>
         {guess.model_tier_applied ?? 'quick'}
+        {guess.stale ? ` ${CellNotices.stale}` : ''}
         {guess.truncated ? ` ${CellNotices.truncated}` : ''}
         {guess.approx_tokens === undefined ? '' : ` · ~${String(guess.approx_tokens)} tok`}
         {' · Refresh'}
       </div>
-    </>
+    </div>
   )
 }
 

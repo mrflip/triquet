@@ -17,6 +17,7 @@ import type { HuntRole } from '../../src/models/hunting'
 import { mintId } from '../../src/lib/ids'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { BottingRowDNA } from '../../src/models/botting'
+import type { ImportedBottingT } from '../../src/models/import'
 import { present } from '../support/present'
 import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, type Seen, type Tester } from '../support/convex'
 
@@ -1164,6 +1165,38 @@ describe('hunts.perform', () => {
       const ante = await read()
       await expectRefusal(act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {} }] }), 'quizLocked')
       expect(await read()).to.deep.eq(ante)
+    })
+
+    describe('the replies it carries', () => {
+      const carriedGuess: ImportedBottingT = { bot_label: 'dumdum', textkind: 'clueing', reply_text: 'Lyon', items: [], truncated: false, model_tier_applied: 'quick', approx_tokens: null }
+      const carriedIshes: ImportedBottingT = { ...carriedGuess, bot_label: 'numnum', reply_text: null, items: [{ text: '3', value: 3, kind: 'numeral' }] }
+
+      it('fills a cell holding no reply, where the reply reads as stale', async () => {
+        const { act, read } = await seed(huntOf(['1', 'a']))
+        const { label } = firstOf(await read())
+        await act({ kind: 'import_questions', questions: [{ label, patch: {}, bottings: [carriedGuess, carriedIshes] }] })
+        const after = firstOf(await read())
+        expect(after.guess).to.include({ status: 'done', text: 'Lyon', stale: true })
+        expect(after.clueing_ishes).to.include({ status: 'done', stale: true })
+      })
+
+      it('fills the cells of a question it adds', async () => {
+        const { act, read } = await seed(huntOf(['1', 'a']))
+        await act({ kind: 'import_questions', questions: [{ label: 'fresh_one', patch: {}, bottings: [carriedGuess] }] })
+        const added = present(openOf(await read()).questions[1])
+        expect(added.guess).to.include({ text: 'Lyon', stale: true })
+      })
+
+      it('never buries a reply the cell already holds, though it fills one that only ever failed', async () => {
+        const { act, read } = await seed(huntOf(['1', 'a']))
+        const { _id, label } = firstOf(await read())
+        await act({ kind: 'record_botting', botting: guessed(_id, 'Leon') })
+        await act({ kind: 'record_botting', botting: failed(_id, 'numnum', 'clueing', { message: 'Overloaded', response: { status: 529 } }) })
+        await act({ kind: 'import_questions', questions: [{ label, patch: {}, bottings: [carriedGuess, carriedIshes] }] })
+        const after = firstOf(await read())
+        expect(after.guess).to.include({ text: 'Leon', stale: false })
+        expect(after.clueing_ishes).to.include({ status: 'done', stale: true })
+      })
     })
   })
 })
