@@ -49,6 +49,10 @@ this section, lists the words they replace while code still holds them.
   `ok` of null is shown, written and sorted as nothing too, but keeps its status.
 * **err** -- a failure on a widgeted: on `errored` the failure itself, on `ok` a newer failure
   riding along on an older value, which it never replaces. Shown as one badge.
+* **stale** -- derived, never discarded: a stored widgeted whose input is no longer what it was
+  asked about, or is not known (a value carried in by an import), stays on screen, marked. Off
+  until it returns by digest (the decision's *Deferred*); `whiteboard/20261003-widgets_todo.md`
+  has what bringing it back, and the imported replies with it, takes.
 * **refresh** -- how a formulary's widgeteds come to be: `live` (worked out on every render),
   `click` (asked from the cell), or neither (typed).
 * **library** -- every widget there is. Its own export and import, apart from any hunt's.
@@ -73,8 +77,6 @@ words above.
   what a stored widgeted was. Its `done`/`error` status became `ok`/`errored`.
 * **slot** -- a (bot, textkind) pair and the question field that showed it (`BotSlots`). Gone with
   the fields: replies sit under widgeting labels.
-* **stale** -- a result whose `asked_text` no longer matched the question's text, kept and marked.
-  Off until staleness returns, by digest (the decision's *Deferred*), as a different rule.
 * **last_err** -- a failed ask riding along on a cell. Now `err`.
 * **job** -- which of the ask route's three fixed asks a request was (`guess`, `ishes`,
   `bulk_ishes`). The route now takes a rendered prompt.
