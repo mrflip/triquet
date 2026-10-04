@@ -1,26 +1,28 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
+import * as Actor from '../lib/actor'
 import * as Alarms from '../lib/alarms'
+import * as Approve from '../lib/approve'
 import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
 import { assembledQuiz, smithsOf, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
-import type { AffirmsDNA, HuntActionDNA, QuizAffirmsDNA } from '../models/actions'
-import type { HuntRole } from '../models/hunting'
+import { ActionValidators, type AffirmsDNA, type HuntActionDNA, type QuizAffirmsDNA } from '../models/actions'
 import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
 import { useAffirms } from './use-affirms'
+import { useIdent } from './use-ident'
 import { useSession } from './use-session'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
@@ -44,8 +46,13 @@ export type HuntHandle = {
   library:    readonly WidgetT[]
   /** The quiz's reviews this browser's ident may read (its own, and the shared ones), oldest first; empty until the quiz is found */
   reviews:    readonly ReviewedT[]
-  /** What this browser's ident does on the hunt; null when it is not on it, or the hunt has not arrived */
-  role:       HuntRole | null
+  /**
+   * What this browser holds of itself on the hunt, as the server would verify it: who it is, the
+   * hunt, its standing there, and the quiz on screen (null until it has arrived, or once it is
+   * gone). What a view offers is decided from these, by the policies the server decides by
+   * (`Approve`). Null until the hunt and who this browser is are both known.
+   */
+  claims:     Actor.QuizClaimsT | null
   /** Who could put this visitor on the hunt, or make them a smith of it; empty until the hunt has arrived */
   smiths:     readonly SmithT[]
   /** Whether a change dispatched here is still being written */
@@ -119,6 +126,37 @@ function findingOf(opening: HuntOpeningT | undefined, placing: Placing, quiz: Qu
 function smithsFor(opening: HuntOpeningT | undefined): readonly SmithT[] {
   if (opening?.why === 'notOnHunt') { return opening.smiths }
   return smithsOf(opening?.hunt?.members ?? [])
+}
+
+/**
+ * What this browser holds of itself on `hunt`, as the server would verify it (`Actor.claimsOn`),
+ * with the quiz on screen as far as a policy reads it.
+ *
+ * @param actor - Who this browser is; null until that is known.
+ * @param hunt - The hunt, as its screen holds it; null when there is none to hold, or it has not arrived.
+ * @param locked - Whether the quiz on screen is locked; null when none is.
+ * @returns The claims; null until both who and which hunt are known.
+ *
+ * @example claimsOf(actor, hunt, false)  // => { ...actor, hunt_id: hunt._id, standing: hunt.role, quiz: { locked: false } }
+ */
+export function claimsOf(actor: Actor.ActorT | null, hunt: Pick<ShallowHuntT, '_id' | 'role'> | null, locked: boolean | null): Actor.QuizClaimsT | null {
+  if (actor === null || hunt === null) { return null }
+  return { ...Actor.claimsOn(actor, hunt._id, hunt), quiz: locked === null ? null : { locked } }
+}
+
+/**
+ * Why the policies refuse `action` from the holder of `claims`, judged as the server will judge it
+ * once it has read it (`ActionValidators.huntAction`); null when they allow it. An action that does
+ * not read as one is left to the server, which refuses it saying what is wrong with it.
+ *
+ * @example denialOf(claims, { kind: 'add_question' })  // => 'quizLocked', for a smith of a locked quiz
+ * @example denialOf(claims, { kind: 'open_review', quiz_id })  // => null, for a reviewer
+ */
+export function denialOf(claims: Actor.QuizClaimsT, action: HuntActionDNA): Approve.Denialkind | null {
+  const read = ActionValidators.huntAction.safeParse(action)
+  if (! read.success) { return null }
+  const verdict = Approve.verdictOn(read.data.kind, claims, read.data)
+  return verdict === Approve.Allow ? null : verdict
 }
 
 /** The library before it has arrived: one list, so a render that has none hands on the same one */
@@ -217,7 +255,8 @@ function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirms
  * There is no save button and no save queue: a change goes to the server as soon as it is
  * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
  * first. A change the server refuses writes nothing, and says why in `saveNotice` and in an alarm
- * (`useRaiseAlarm`), which the author sees wherever they are on the page. For a smith, every
+ * (`useRaiseAlarm`), which the author sees wherever they are on the page. One the policies refuse
+ * of the browser's own claims (`denialOf`) is not sent at all, and is said the same way. For a smith, every
  * reading of the open quiz, whoever changed it, goes into its history.
  *
  * @param labels - The hunt, realm and quiz the address names.
@@ -241,6 +280,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const quiz_id = placing.quizRow?._id ?? null
   // What this browser affirms of itself with every request about the quiz: see `useAffirms`.
   const { huntAffirms, quizAffirms } = useAffirms(hunt, quiz_id)
+  const { actor, ident } = useIdent()
   const quizSeen = useQuiz(huntAffirms, quiz_id)
   const reviewsSeen = useQuery(api.reviews.forQuiz, quizAffirms === null || ! ready ? 'skip' : { affirms: quizAffirms })
   const library = useQuery(api.widgets.library, ready ? {} : 'skip')
@@ -248,6 +288,8 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
+  const locked = found.quiz?.locked ?? null
+  const claims = useMemo(() => claimsOf(ident === null ? null : actor, hunt, locked), [actor, ident, hunt, locked])
 
   // Kept as React keeps state derived from a render: set during the render, which React redoes.
   const foundId = found.quiz?._id ?? null
@@ -261,16 +303,28 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   // Kept in a layout effect: every layout effect in the tree runs before any passive one, so a
   // screen that dispatches as it mounts (the review, opening itself) finds the quiz it is on.
   const affirms: AffirmsDNA | null = quizAffirms && found.realm ? { ...quizAffirms, realm_id: found.realm._id } : null
-  const latest = useRef({ affirms, labels, role: hunt?.role ?? null })
-  useLayoutEffect(() => { latest.current = { affirms, labels, role: hunt?.role ?? null } })
+  const latest = useRef({ affirms, claims, labels })
+  useLayoutEffect(() => { latest.current = { affirms, claims, labels } })
   const convex = useConvex()
 
   const carryOut = useCallback(async (action: HuntActionDNA, { quietly = false }: CarryOutOptions = {}): Promise<boolean> => {
-    const { affirms: there, labels: place, role } = latest.current
-    if (there === null) {
-      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role })
+    const { affirms: there, claims: held, labels: place } = latest.current
+    const standing = held?.standing ?? null
+    if (there === null || held === null) {
+      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, standing })
       setSaveNotice(AppNotices.changeNotSent)
       if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: AppNotices.changeNotSent, request_id: null }) }
+      return false
+    }
+    // A view offers only what the policies allow, so one refused here is a view that offered what
+    // it should not, or held a draft across a change that took it away (the quiz locked under a
+    // field being typed into): said in the console as a bug, never sent, and the author told what
+    // the server would have told them.
+    const denial = denialOf(held, action)
+    if (denial !== null) {
+      Postmortem.report(`send a change (${action.kind})`, new Approve.NotApprovedError(denial, { policy: action.kind }), { action, ...place, standing })
+      setSaveNotice(RefusalNotices[denial])
+      if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: RefusalNotices[denial], request_id: null }) }
       return false
     }
     const write = async (): Promise<boolean> => {
@@ -284,7 +338,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
         return true
       } catch (err) {
         const { isWebSocketConnected, connectionRetries, inflightMutations } = convex.connectionState()
-        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, role, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
+        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, standing, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
         setSaveNotice(noticeOf(err))
         if (! quietly) { raise(Alarms.of(AppNotices.changeNotKept, err)) }
         return false
@@ -300,5 +354,5 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 
-  return { finding, hunt, ...found, library: library ?? NoWidgets, role: hunt?.role ?? null, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
+  return { finding, hunt, ...found, library: library ?? NoWidgets, claims, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
 }

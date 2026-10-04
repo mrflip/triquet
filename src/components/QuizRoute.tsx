@@ -24,23 +24,24 @@ export type QuizRouteProps = {
  *
  * A visitor who has not said who they are is sent to say so, and brought back here. An address
  * that names no presentation is given the one the visitor's role on the hunt is shown: a smith
- * works the quiz, a reviewer reviews it. A visitor not on the hunt, or a reviewer asking to work
- * on it, is told which smiths to ask and what for, with the address left as it is: the server
+ * works the quiz, a reviewer reviews it. A visitor not on the hunt, or one asking for a
+ * presentation the policies would not let them use (`Hunting.mayAct`: a reviewer asking to work
+ * on it), is told which smiths to ask and what for, with the address left as it is: the server
  * shows them nothing more. An address naming no quiz says so, once the server has had its say;
  * one whose quiz is relabelled follows it.
  */
 export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const { finding, hunt, realm, quiz, library, role, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(labels)
+  const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(labels)
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
   }, [loaded, ident, router])
 
   useEffect(() => {
-    if (act === null && role !== null) { router.replace(Routes.quizPath(labels, Hunting.actFor(role))) }
-  }, [act, role, labels, router])
+    if (act === null && hunt !== null) { router.replace(Routes.quizPath(labels, Hunting.actFor(hunt.role))) }
+  }, [act, hunt, labels, router])
 
   // A quiz relabelled while it is open, here or elsewhere, takes its address with it.
   useEffect(() => {
@@ -49,15 +50,15 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
 
   if (! loaded || ! ident) { return <OpeningNotice notice={saveNotice} /> }
   // Said as soon as the hunt arrives, without waiting on a quiz this visitor will not be shown.
-  if (finding === 'refused' || (role !== null && act !== null && ! Hunting.mayAct(role, act))) {
-    return <NotOnHunt labels={labels} ident={ident} role={role} smiths={smiths} />
+  if (finding === 'refused' || (claims !== null && act !== null && ! Hunting.mayAct(claims, act))) {
+    return <NotOnHunt labels={labels} ident={ident} claims={claims} smiths={smiths} />
   }
   if (finding === 'waiting') { return <OpeningNotice notice={saveNotice} /> }
-  if (! hunt || ! realm || ! quiz) { return <QuizNotFound labels={labels} hunt={hunt} /> }
+  if (! hunt || ! realm || ! quiz || ! claims) { return <QuizNotFound labels={labels} hunt={hunt} /> }
   // On its way to the presentation the visitor's role is shown.
   if (act === null) { return <OpeningNotice notice={saveNotice} /> }
   if (act === 'review') {
     return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} />
   }
-  return <Workbench hunt={hunt} realm={realm} quiz={quiz} library={library} ident={ident} reviews={reviews} dispatch={dispatch} carryOut={carryOut} unsaved={unsaved} saveNotice={saveNotice} />
+  return <Workbench hunt={hunt} realm={realm} quiz={quiz} library={library} claims={claims} reviews={reviews} dispatch={dispatch} carryOut={carryOut} unsaved={unsaved} saveNotice={saveNotice} />
 }

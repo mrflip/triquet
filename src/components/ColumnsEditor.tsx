@@ -14,8 +14,10 @@ import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type ColumnsEditorProps = {
-  quiz:     QuizT
-  dispatch: (action: HuntActionDNA) => void
+  quiz:      QuizT
+  /** Whether the columns may be changed here: listed as they are when not */
+  revisable: boolean
+  dispatch:  (action: HuntActionDNA) => void
 }
 
 /** Which column's editor is open: one of the quiz's, or a new one */
@@ -51,7 +53,7 @@ function sourcesOf(quiz: QuizT) {
  * those, and a gear that opens the rest. The list measures its own width, not the window's, to
  * decide which of those there is room for.
  */
-export function ColumnsEditor({ quiz, dispatch }: Readonly<ColumnsEditorProps>) {
+export function ColumnsEditor({ quiz, revisable, dispatch }: Readonly<ColumnsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited = editing?.kind === 'column' ? quiz.columns.find((each) => each.label === editing.label) ?? null : null
   const sources = sourcesOf(quiz)
@@ -63,17 +65,17 @@ export function ColumnsEditor({ quiz, dispatch }: Readonly<ColumnsEditorProps>) 
         label="Columns"
         items={quiz.columns}
         keyOf={(column) => column.label}
-        disabled={quiz.locked}
+        disabled={! revisable}
         onMove={(label, onto_idx) => { dispatch({ kind: 'move_column', label, onto_idx }) }}
         renderRow={(column, handle) => (
-          <ColumnRow column={column} sources={sources} handle={handle} locked={quiz.locked} dispatch={dispatch} onEdit={() => { setEditing({ kind: 'column', label: column.label }) }} />
+          <ColumnRow column={column} sources={sources} handle={handle} locked={! revisable} dispatch={dispatch} onEdit={() => { setEditing({ kind: 'column', label: column.label }) }} />
         )}
       />
       <Stack direction="row">
-        <Button size="small" variant="outlined" disabled={quiz.locked} onClick={() => { setEditing({ kind: 'new' }) }}>+ New column…</Button>
+        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new' }) }}>+ New column…</Button>
       </Stack>
       {editing !== null && (editing.kind === 'new' || edited !== null) && (
-        <ColumnDialog key={editing.kind === 'new' ? 'new' : editing.label} quiz={quiz} column={edited} dispatch={dispatch} onClose={() => { setEditing(null) }} />
+        <ColumnDialog key={editing.kind === 'new' ? 'new' : editing.label} quiz={quiz} column={edited} revisable={revisable} dispatch={dispatch} onClose={() => { setEditing(null) }} />
       )}
     </Stack>
   )
@@ -136,13 +138,15 @@ function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readon
 type ColumnDialogProps = {
   quiz:     QuizT
   /** The column being edited, or null to make a new one */
-  column:   ColumnT | null
-  dispatch: (action: HuntActionDNA) => void
-  onClose:  () => void
+  column:    ColumnT | null
+  /** Whether the column may be changed: shown as it is, with nothing to apply, when not */
+  revisable: boolean
+  dispatch:  (action: HuntActionDNA) => void
+  onClose:   () => void
 }
 
 /** Everything a column says about itself, to edit at once; nothing is applied until Apply */
-function ColumnDialog({ quiz, column, dispatch, onClose }: Readonly<ColumnDialogProps>) {
+function ColumnDialog({ quiz, column, revisable, dispatch, onClose }: Readonly<ColumnDialogProps>) {
   const sources = sourcesOf(quiz)
   const [title, setTitle] = useState(column?.title ?? '')
   const [label, setLabel] = useState(column?.label ?? '')
@@ -189,7 +193,7 @@ function ColumnDialog({ quiz, column, dispatch, onClose }: Readonly<ColumnDialog
         </Stack>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between' }}>
-        {column
+        {column && revisable
           ? (
             <ConfirmRemove
               noun="column"
@@ -200,7 +204,7 @@ function ColumnDialog({ quiz, column, dispatch, onClose }: Readonly<ColumnDialog
           : <span />}
         <Stack direction="row" spacing={1}>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="contained" onClick={onApply}>Apply</Button>
+          <Button variant="contained" disabled={! revisable} onClick={onApply}>Apply</Button>
         </Stack>
       </DialogActions>
     </Dialog>

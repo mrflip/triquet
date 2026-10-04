@@ -3,6 +3,7 @@
 import { Button, Stack } from '@mui/material'
 
 export type ToolbarProps = {
+  /** Whether the questions are left as they are: adding, selecting, sorting and renumbering not offered */
   locked:          boolean
   /** Whether the grid is in batch mode, its questions showing checkboxes */
   batching:        boolean

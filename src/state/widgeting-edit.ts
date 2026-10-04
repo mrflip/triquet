@@ -32,8 +32,9 @@ export type WidgetingPlan =
  *
  * An existing widgeting is revised only where it changed. A new one works a widget the library
  * holds, brings a column to show it just before Alt Text, and is labelled as its widget is unless
- * the author says otherwise, growing `_2`, `_3` while that is taken or reserved. A locked quiz's
- * widgetings are left alone. The widget itself is the library's, and is never changed from here.
+ * the author says otherwise, growing `_2`, `_3` while that is taken or reserved. Whether the quiz
+ * may be changed at all is the editor's to offer (`Approve`), not the plan's. The widget itself is
+ * the library's, and is never changed from here.
  *
  * @param edit - The editor's state.
  * @param library - The library's widgets, with any written a moment ago that it does not hold yet.
@@ -44,7 +45,6 @@ export type WidgetingPlan =
  *   // => { ok: true, actions: [{ kind: 'add_widgeting', ... }, { kind: 'add_column', ... }] }
  */
 export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readonly WidgetT[], quiz: QuizT): WidgetingPlan {
-  if (quiz.locked) { return { ok: true, actions: [] } }
   const widget = library.find((each) => each.label === edit.widgetLabel)
   if (! widget && edit.widgeting === null) { return refused('Pick a widget for it to work.') }
   const siblings = new Set(quiz.widgetings.filter((other) => other.label !== edit.widgeting?.label).map((other) => other.label))

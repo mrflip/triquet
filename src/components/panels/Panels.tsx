@@ -4,10 +4,11 @@ import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
 import { ReviewsPanel } from './ReviewsPanel'
 import { WidgetsPanel } from './WidgetsPanel'
+import type { WorkbenchOffersT } from '../offers'
+import type * as Actor from '../../lib/actor'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
 import type { HuntActionDNA } from '../../models/actions'
-import type { IdentT } from '../../models/ident'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
@@ -20,8 +21,10 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   realm:     ShallowRealmT
   /** The library's widgets */
   library:   readonly WidgetT[]
-  /** Who is looking */
-  ident:     IdentT
+  /** What whoever is looking holds of themselves on the hunt: whose place on it they may change is asked of each member */
+  claims:    Actor.QuizClaimsT
+  /** What the screen offers them */
+  offers:    WorkbenchOffersT
   /** The quiz, run: what its widgetings came to */
   run:       QuizRun
   /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
@@ -29,15 +32,15 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
 }
 
 /** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
-export function Panels({ quiz, hunt, realm, library, ident, reviews, run, carryOut, saveNotice, dispatch, onImport }: Readonly<PanelsProps>) {
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, dispatch, onImport }: Readonly<PanelsProps>) {
   const labels = { hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />
 
-      <MembersPanel members={hunt.members} self_id={ident._id} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
+      <MembersPanel members={hunt.members} claims={claims} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 
-      <ExportImportPanel quiz={quiz} hunt={hunt} library={library} run={run} dispatch={dispatch} onImport={onImport} />
+      <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} dispatch={dispatch} onImport={onImport} />
 
       <WidgetsPanel quiz={quiz} run={run} />
     </div>

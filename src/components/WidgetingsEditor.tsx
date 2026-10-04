@@ -22,6 +22,10 @@ export type WidgetingsEditorProps = {
   quiz:          QuizT
   /** The library's widgets, which the quiz's widgetings work */
   library:       readonly WidgetT[]
+  /** Whether the quiz's widgetings may be changed here: listed as they are when not */
+  revisable:     boolean
+  /** Whether the library may be written to from here: no door to the widget editor when not */
+  changeable:    boolean
   dispatch:      (action: HuntActionDNA) => void
   onEditLibrary: () => void
 }
@@ -34,7 +38,7 @@ type Editing = { kind: 'widgeting', label: string } | { kind: 'new' } | null
  * dragged into a new one by their handles, each with a gear that opens it in the widgeting
  * editor, and a door to put another to work.
  */
-export function WidgetingsEditor({ hunt, quiz, library, dispatch, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
+export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, dispatch, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited: WidgetingT | null = editing?.kind === 'widgeting' ? quiz.widgetings.find((each) => each.label === editing.label) ?? null : null
   const close = () => { setEditing(null) }
@@ -46,7 +50,7 @@ export function WidgetingsEditor({ hunt, quiz, library, dispatch, onEditLibrary 
         label="Widgetings"
         items={quiz.widgetings}
         keyOf={(widgeting) => widgeting.label}
-        disabled={quiz.locked}
+        disabled={! revisable}
         onMove={(label, onto_idx) => { dispatch({ kind: 'move_widgeting', label, onto_idx }) }}
         renderRow={(widgeting, handle) => (
           <Stack direction="row" spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`} sx={{ alignItems: 'center' }}>
@@ -60,11 +64,11 @@ export function WidgetingsEditor({ hunt, quiz, library, dispatch, onEditLibrary 
         )}
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-        <Button size="small" variant="outlined" disabled={quiz.locked} onClick={() => { setEditing({ kind: 'new' }) }}>+ New widgeting…</Button>
+        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new' }) }}>+ New widgeting…</Button>
         <Button size="small" variant="outlined" onClick={onEditLibrary}>Widget library…</Button>
       </Stack>
       {(edited !== null || editing?.kind === 'new') && (
-        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} dispatch={dispatch} onClose={close} />
+        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} onClose={close} />
       )}
     </Stack>
   )
@@ -83,6 +87,10 @@ type WidgetingDialogProps = {
   library:   readonly WidgetT[]
   /** The widgeting being edited, or null to make a new one */
   widgeting: WidgetingT | null
+  /** Whether the widgeting may be changed: shown as it is, with nothing to apply, when not */
+  revisable:  boolean
+  /** Whether the library may be written to: no door to the widget editor when not */
+  changeable: boolean
   dispatch:  (action: HuntActionDNA) => void
   onClose:   () => void
 }
@@ -100,7 +108,7 @@ type WidgetEditing = 'new' | 'held' | null
  * every quiz that works it. Nothing is applied until Apply. Removing a widgeting asks first; its
  * widget stays in the library.
  */
-function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: Readonly<WidgetingDialogProps>) {
+function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable, dispatch, onClose }: Readonly<WidgetingDialogProps>) {
   const [label, setLabel] = useState(widgeting?.label ?? '')
   const [description, setDescription] = useState(widgeting?.description ?? '')
   const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? '')
@@ -112,7 +120,7 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: 
 
   const known = made && library.every((each) => each.label !== made.label) ? [...library, made] : library
   const widget = known.find((each) => each.label === widgetLabel) ?? null
-  const fixed = quiz.locked || widgeting !== null
+  const fixed = ! revisable || widgeting !== null
 
   const onApply = () => {
     const plan = planWidgetingEdit({ widgeting, label, description, widgetLabel }, known, quiz)
@@ -133,24 +141,24 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: 
               onPick={(picked) => { setWidgetLabel(picked); setIssue(null) }}
             />
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-              {widgeting === null && <Button size="small" variant="outlined" disabled={quiz.locked} onClick={() => { setWidgetEditing('new') }}>New widget…</Button>}
-              {widget && <Button size="small" variant="outlined" onClick={() => { setWidgetEditing('held') }}>Edit the widget…</Button>}
+              {changeable && widgeting === null && <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setWidgetEditing('new') }}>New widget…</Button>}
+              {changeable && widget && <Button size="small" variant="outlined" onClick={() => { setWidgetEditing('held') }}>Edit the widget…</Button>}
             </Stack>
             <Divider />
             <TextField
-              size="small" label="Widgeting label" value={label} disabled={quiz.locked} placeholder={widgetLabel}
+              size="small" label="Widgeting label" value={label} disabled={! revisable} placeholder={widgetLabel}
               error={labelIssue !== null} helperText={labelIssue ?? "Names it within this quiz: its column, and what later widgets read it as. Blank takes the widget's."}
               onChange={(event) => { setLabel(event.target.value); setIssue(null); setLabelIssue(null) }}
             />
             <TextField
-              size="small" label="Widgeting description" value={description} disabled={quiz.locked}
+              size="small" label="Widgeting description" value={description} disabled={! revisable}
               helperText="What this widgeting is for in this quiz." onChange={(event) => { setDescription(event.target.value) }}
             />
             {issue !== null && issue !== labelIssue && <p className={styles.microcopy} role="alert">{issue}</p>}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between' }}>
-          {widgeting && ! quiz.locked
+          {widgeting && revisable
             ? (
               <ConfirmRemove
                 noun="widgeting"
@@ -161,7 +169,7 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: 
             : <span />}
           <Stack direction="row" spacing={1}>
             <Button onClick={onClose}>Cancel</Button>
-            <Button variant="contained" onClick={onApply}>Apply</Button>
+            <Button variant="contained" disabled={! revisable} onClick={onApply}>Apply</Button>
           </Stack>
         </DialogActions>
       </Dialog>

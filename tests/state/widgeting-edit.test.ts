@@ -149,8 +149,8 @@ describe("planWidgetingEdit, making a new widgeting", () => {
 })
 
 describe("planWidgetingEdit, on a locked quiz", () => {
-  it("comes to nothing, whatever was touched", () => {
-    expect(actionsOf(untouched({ description: 'Ignored' }), lockedQuiz())).to.deep.eq([])
-    expect(actionsOf(ofHeld('answer_reversed'), lockedQuiz())).to.deep.eq([])
+  it("plans as for any other: whether the quiz may be changed is the editor's to offer, not the plan's", () => {
+    expect(actionsOf(untouched({ description: 'Revised' }), lockedQuiz())).to.deep.eq(actionsOf(untouched({ description: 'Revised' })))
+    expect(actionsOf(ofHeld('answer_reversed'), lockedQuiz())).to.deep.eq(actionsOf(ofHeld('answer_reversed')))
   })
 })

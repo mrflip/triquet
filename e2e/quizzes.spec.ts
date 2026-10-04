@@ -129,6 +129,14 @@ test('a locked quiz accepts no edits, but stays readable and copyable', async ({
 
   // Exporting still works.
   await expect(page.getByRole('textbox', { name: 'Copy for Sheets' })).toHaveValue(/Which region\?/)
+
+  // The gear still opens a column to read, with nothing to apply and no way to remove it.
+  await openManage(page)
+  await manageDialog(page).getByRole('button', { name: /^Edit column / }).first().click()
+  const column = page.getByRole('dialog', { name: /^Column: / })
+  await expect(column.getByRole('button', { name: 'Apply' })).toBeDisabled()
+  // Drawn in the same render as the Apply button beside it.
+  await expect(column.getByRole('button', { name: 'Remove column' })).toHaveCount(0)
 })
 
 test('the lock holds even when an edit is forced past the disabled controls', async ({ page }) => {

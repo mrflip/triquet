@@ -403,7 +403,7 @@ describe("the editors' plans, carried out", () => {
     expect(columns[columns.indexOf('alt_text') - 1]).to.eq('title_length')
   })
 
-  it("revises a widget from a locked quiz, which the lock does not hold, and leaves its widgetings alone", async () => {
+  it("revises a widget from a locked quiz, which the lock does not hold, and refuses to revise its widgetings", async () => {
     const { act, read } = await seed(standard(true))
     const ante = await read()
     const held = present(quizOf(ante).widgetings.find((widgeting) => widgeting.label === 'clueing_full'))
@@ -411,7 +411,8 @@ describe("the editors' plans, carried out", () => {
     const widgetPlan = planWidgetEdit({ ...(draftOf(widget) as JsonataDraft), description: 'Revised.', formula: '1' }, ante.library)
     const widgetingPlan = planWidgetingEdit({ widgeting: held, label: held.label, description: 'Renamed?', widgetLabel: 'clueing_full' }, ante.library, quizOf(ante))
     if (! widgetPlan.ok || ! widgetingPlan.ok) { throw new Error('Expected both plans') }
-    for (const action of [...widgetPlan.actions, ...widgetingPlan.actions]) { await act(action) }
+    for (const action of widgetPlan.actions) { await act(action) }
+    for (const action of widgetingPlan.actions) { expect(await refusedAs(act(action))).to.eq('quizLocked') }
     const after = await read()
     expect(after.library.find((each) => each.label === 'clueing_full')).to.deep.include({ formula: '1', description: 'Revised.' })
     expect(quizOf(after)).to.deep.eq(quizOf(ante))
