@@ -77,7 +77,9 @@ into a refusal of its kind, and a query wraps its work in `emptyIfDenied` (`func
 answers with its empty value, since a watch that throws takes the page down. Business code in
 `writing/` is handed the claims, trusts them, and takes the rows they carry (the quiz on screen,
 its realm) rather than reading them again. A quiz's lock is policy (`Approve.mayReviseQuiz`), not
-the write's.
+the write's. The browser asks the same policies of the same claims: `idents.current` hands a
+session the actor the server builds for it, and a screen's views decide what to offer from
+claims built on it (`notes/views.md`, *What a view offers*).
 
 Once affirmed, a function about one hunt holds a **scoped database**: the builders `zHuntQuery`
 and `zHuntMutation` run its `affirm` on the plain database, then hand its handler the claims

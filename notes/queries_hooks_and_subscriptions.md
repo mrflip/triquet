@@ -101,6 +101,10 @@ browser per change, both of which the phase 4 harness reports (`whiteboard/conve
   nothing in them changes, so the watch keeps its subscription. Such a query function is built
   with `zHuntQuery` (`convex/functions.ts`), which does both, and hands its handler a database
   that sees only the affirmed hunt; one that is not is named in `Unscoped` (`convex/authorize.ts`).
+* The screen hook also hands its screen the browser's **claims** on the hunt (`useHunt`'s
+  `claims`: the actor `idents.current` sends, the hunt, the standing, the quiz on screen's lock),
+  which the screen's views decide what to offer from (`Approve`), rather than from a role. They
+  are worked out from what the screen already watches, and cost no watch of their own.
 * Every read in a query function goes through an index and is bounded by the caps in
   `lib/vv/patterns.ts`.
 * Convex deduplicates identical watches in the browser: two hooks watching the same query

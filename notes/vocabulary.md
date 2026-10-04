@@ -116,14 +116,24 @@ words above.
 * **claims** -- what the server has verified of an actor on one hunt, handed to a policy:
   `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`), and with a
   quiz on screen, that quiz's row (`Actor.QuizClaimsT`). On the server, the affirms once checked,
-  with the rows read to check them (`ClaimsOf` in `convex/authorize.ts`). Code handed claims
-  trusts them. Named `claims`, the whole object, never one of its fields.
+  with the rows read to check them (`ClaimsOf` in `convex/authorize.ts`). In the browser, what it
+  holds of itself on the hunt it has open, built the same way from the actor `idents.current` hands
+  it (`useIdent`) and the hunt it read (`useHunt`'s `claims`). Code handed claims trusts them.
+  Named `claims`, the whole object, never one of its fields.
 * **policy**, **verdict** -- a policy is a non-async `may…` function in `src/lib/approve.ts`
   (`mayReadReview`, `mayChangeMembership`) that decides from the evidence it is handed and reads
   nothing, so the browser and the server run the same one. Its verdict is `'allow'` or the refusal
   kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`, `quizLocked`). `Approve.may(key, …)`
   answers yes or no, `Approve.must(key, …)` throws when no, and `Approve.verdictOn(key, …)` says
   which; the key is an action's kind or the name of a read (`read_hunt`).
+* **offer** -- what a view puts in front of the author to do: a field left editable, a button
+  shown. A view offers what the server would accept, decided from the browser's claims by the
+  same policies, never by testing a role: `Approve.mayOffer(kind, claims)` asks of an action's
+  kind before the author has said what it is (only for a kind whose policy reads nothing of the
+  action), and `Approve.may` with the action itself otherwise (who a membership action names).
+  The smith's screen gathers its offers in `workbenchOffers`. `useHunt`'s dispatcher asks the
+  policy again before sending, so a view that offered what it should not is caught before the
+  server is asked.
 * **scoped database** -- the `db` a hunt's function holds once its affirms are checked: it sees and
   writes only rows of that hunt, by one rule per table (`convex/policy_rules.ts`), whatever the
   handler asks for. Built by `zHuntQuery` and `zHuntMutation`; the functions that hold the whole
