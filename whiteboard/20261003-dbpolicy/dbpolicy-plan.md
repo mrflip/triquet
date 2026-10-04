@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 7 done (#79, #81, #82, #83, #86, #88, #89); thread 8 underway.
+`/sprint`. **Status:** threads 1 to 8 done (#79, #81, #82, #83, #86, #88, #89, #90); thread 9 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -698,6 +698,15 @@ key `change_library` (in `RowPolicies`, mapped to `mayChangeHunt` today): re-poi
 (or give it a library-scoped builder). `deleteWidget(db, census, label)` needs the census
 (`censusOf(ctx.db)` from a plain db) for `isWorked`.
 
+*Orchestrator, after thread 8 (#90):* step 4 is half done. The library editor's doors (the gear,
+new widget, the widgeting dialog's widget buttons, the Library tab's import) are already gated on
+`change_library` through `workbenchOffers` (`src/components/offers.ts`), so re-pointing the key
+carries the view. A view asks by kind with `Approve.mayOffer(kind, claims)`; claims extend the
+actor, so `change_library` on the actor alone still type-checks. Outside a quiz, ask with
+`useIdent().actor`. `WidgetEditor` has no read-only mode: when writing is not offered, its doors
+are hidden. The browser dispatcher checks each action with `denialOf` before sending; library
+actions moving to `widgets.perform` need the same check on their own path.
+
 **Done when.** No library write goes through `hunts.perform`; the only place that knows who is
 an admin is `Actor.isAdmin`.
 
@@ -754,3 +763,10 @@ that still holds each backfill.
 10. **The e2e role** (thread 7): threads 1 to 6 ran `pnpm test:e2e`, on the shared `e2e` role;
    from thread 8 on, agents run `pnpm test:e2e:agent`. If the `e2e` role is yours, it may need a
    reset.
+11. **A refusal at the browser's dispatcher** (thread 8): the plan said show the author nothing
+   (a programming error, reported). Thread 8 also shows the notice the server would have sent,
+   because one refusal is a real race (`e2e/alarms.spec.ts`: the quiz locked in another tab
+   under a held draft), and silence would lose the author's typing without a word. Rule: tell
+   the author (as built), or stay silent (two lines and a spec rewrite).
+12. **`idents.current` now sends a session its own `user_id`** (inside the actor), for the
+   browser's claims (thread 8). Say if a session should not see it.

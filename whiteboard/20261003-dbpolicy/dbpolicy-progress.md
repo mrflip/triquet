@@ -14,14 +14,21 @@ its row below and adds its section above the others, newest first.
 | 5 | Affirmations | complete, reviewed (clean) | `20261004-dbpolicy_affirm` | #86 |
 | 6 | A scoped database handle | complete, reviewed (clean) | `20261004-dbpolicy_scoped_db` | #88 |
 | 7 | Reads shaped by role | complete, reviewed (clean) | `20261004-dbpolicy_role_reads` | #89 |
-| 8 | Views ask `Approve` | complete | `20261004-dbpolicy_views_approve` | #90 |
-| 9 | The library behind an admin helper | pending | | |
+| 8 | Views ask `Approve` | complete, reviewed (clean) | `20261004-dbpolicy_views_approve` | #90 |
+| 9 | The library behind an admin helper | underway | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
 
 
 ## Thread 8: Views ask `Approve` (2026-10-04)
 
 Branch `20261004-dbpolicy_views_approve`, PR #90, stacked on #89. Suites: typecheck, lint, `pnpm test` (112 files, 3031), e2e (209, `pnpm test:e2e:agent`) all green, first run.
+
+*Review:* `clean`, at medium; no fixes. Checked `mayOffer`'s type limit against its runtime
+guard, `useHunt`'s claims (null exactly when ident or hunt is missing), `Hunting.mayAct` against
+the old role check, and `planWidgetingEdit` without the lock. Left, minor: after an ident switch
+in another tab, the new actor can pair with the old standing until the hunt query refreshes (a
+wrong offer for a moment; the server still decides); and the lock-under-a-draft race is reported
+to `Postmortem` as a bug, pending the Coach's ruling on the step 3 deviation.
 
 * **Built**:
   - **`Approve.mayOffer(kind, claims)`** (`src/lib/approve.ts`): asks an action's policy by its
