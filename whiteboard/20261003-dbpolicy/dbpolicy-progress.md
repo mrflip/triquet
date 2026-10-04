@@ -12,8 +12,8 @@ its row below and adds its section above the others, newest first.
 | 3 | One label, and integrity repairs | complete, reviewed (1 fix) | `20261004-dbpolicy_one_label` | #82 |
 | 4 | Denormalize | complete, reviewed (clean) | `20261004-dbpolicy_denormalize` | #83 |
 | 5 | Affirmations | complete, reviewed (clean) | `20261004-dbpolicy_affirm` | #86 |
-| 6 | A scoped database handle | complete | `20261004-dbpolicy_scoped_db` | #88 |
-| 7 | Reads shaped by role | pending | | |
+| 6 | A scoped database handle | complete, reviewed (clean) | `20261004-dbpolicy_scoped_db` | #88 |
+| 7 | Reads shaped by role | underway | | |
 | 8 | Views ask `Approve` | pending | | |
 | 9 | The library behind an admin helper | pending | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
@@ -22,6 +22,12 @@ its row below and adds its section above the others, newest first.
 ## Thread 6: A scoped database handle (2026-10-04)
 
 Branch `20261004-dbpolicy_scoped_db`, PR #88, stacked on #86. Suites: typecheck, lint, `pnpm test` (111 files, 2951), `pnpm test:e2e` (207) all green, first run.
+
+*Review:* `clean`, at medium; no fixes, no findings. Checked the wrapper as `policy_rules.ts`
+uses it, every write `hunts.perform` makes against its table's rule, the census keeping the
+cross-hunt checks whole, the reviews read rule, and the public-function test. Recorded, not a
+bug: rows without their `hunt_id` copy are invisible to a scoped database, so `runAll` must run
+before this deploys (already the ledger's rule).
 
 * **Built**:
   - **`convex/policy_rules.ts`**: one rule per table, `{ read, modify, insert }`, each a non-async
@@ -130,114 +136,31 @@ Branch `20261004-dbpolicy_scoped_db`, PR #88, stacked on #86. Suites: typecheck,
   plan's step 2; say if you would rather copy reviewer label and title onto reviews (a schema
   widen) and resolve `add_hunting`'s member some narrower way.
 
-## Thread 5: Affirmations (2026-10-04)
-
-Branch `20261004-dbpolicy_affirm`, PR #86, stacked on #83. Suites: typecheck, lint, `pnpm test` (110 files, 2930), `pnpm test:e2e` (207) all green; the first full e2e run lost 5 `widgets.spec` tests to the local backend's 1 s function timeout under load, which passed alone and on a clean rerun.
-
-*Review:* `clean`, at medium; no fixes. Checked that the affirm guards cover all `isPlaced` and
-`isQuizOfHunt` did, and that `QuizRevisionKindVals` covers every action the lock used to gate.
-Left, minor: for an anonymous actor `affirmForHunt` refuses before the round, so reads already
-started in `queries` go unawaited (at most a Convex warning); and a quiz not yet backfilled is
-denied as another hunt's (settled: `runAll` runs before threads 5 to 9 deploy).
-
-* **Built**:
-  - **Affirms.** `ActionValidators.open` is gone; `huntAffirms` (`{ ident_id, hunt_id, standing }`),
-    `quizAffirms` (+ `quiz_id`) and `affirms` (+ `realm_id`) replace it in `src/models/actions.ts`
-    (types `HuntAffirmsT`/`QuizAffirmsT`/`AffirmsT`, and `…DNA` for the browser). Who takes what:
-    `hunts.perform` `{ affirms, action }`; `hunts.whole` `{ affirms: huntAffirms }`;
-    `quizzes.open` and `reviews.forQuiz` `{ affirms: quizAffirms }`; `questions.open`
-    `{ question_id, affirms: huntAffirms }`.
-  - **`affirmForHunt(db, affirms, actor, queries)`** in `convex/authorize.ts`: an anonymous guard,
-    then one `EST.allKeyed` round (the actor's hunting, the quiz and realm when their ids are
-    affirmed, and the caller's `queries`, nested in the same round), then one guard per line:
-    ident, standing, quiz's hunt, quiz's realm, realm's hunt. A quiz or realm that is gone passes
-    (the write refuses `quizGone`, as before). Returns `ClaimsOf<AT>`: the actor, the affirms, the
-    rows read (`quiz`, `realm` only when affirmed), and the queries' results by name. Mismatch
-    throws `Approve.NotApprovedError` (`notIdentified` / `notPermitted`, story `{ affirm }`).
-    `isPlaced`/`isQuizOfHunt` are deleted.
-  - **The affirm functions** now throw a denial rather than return a boolean or verdict:
-    `affirmReadHunt` (generic over the affirms' shape; hands back the claims, quiz included),
-    `affirmReadQuestion` (new: the question read in the round, held to the hunt),
-    `affirmReadReviews(db, quizAffirms, actor)` (reviews read in the round), `affirmPerform`
-    (returns `PerformClaimsT`, with `named`, the quiz the action names, read in the round and held
-    to the hunt), `affirmCountUsage`, `affirmAccountAction`. Each is a round, at most one extra
-    guard, and one `Approve.must`; no `await` after the round.
-  - **Denial shapes.** `refusalFor` (`src/lib/refusals.ts`) turns a `NotApprovedError` into a
-    refusal of its kind, so `refusingInvalid` refuses denials in mutations. `emptyIfDenied(empty,
-    read)` in `convex/functions.ts` answers one with the facet's empty value in queries (it
-    catches `NotApprovedError` only). Every hunt query and `widgets.usage` use it.
-  - **The lock is policy.** `quizLocked` is a `Denialkind`; `Approve.mayReviseQuiz(quiz, claims)`
-    (anonymous, not smith, gone quiz allowed, locked, allow), with a one-line row adapter
-    `mayReviseClaimedQuiz(claims)` reading `claims.quiz`. `Actor.QuizClaimsT = HuntClaimsT & { quiz:
-    Pick<QuizRowT, 'locked'> | null }` is the evidence for every `QuizRevisionKind`
-    (`ContentActionKindVals` + `LayoutActionKindVals`, new in `actions.ts`). `Quiz.isLocked`.
-  - **Writing takes rows from the claims.** `perform(db, claims, action)`. `OpenQuizT` is now a
-    `convex/writing/quiz_writing.ts` type: the ids plus `quiz` and `realm` rows. `openQuizRow(open)`
-    is synchronous; `revisable` checks only that the quiz exists; `reorderQuiz` takes the quiz row
-    (`importQuestions` re-reads it after writing its order); `newQuiz` uses `open.realm`;
-    `deleteQuizFrom`, `setLock`, `openReview` take the named quiz row. `layoutOf(db, quiz)` in
-    `reading.ts` reads a layout for a row in hand. Widgetings and columns copy the verified
-    `claims.hunt_id`; `relabelQuiz` looks its clash up by the verified `realm_id`. `writing/`
-    mentions `locked` only in `setLock` (and `perform`'s `set_lock` case).
-  - **Browser.** `src/state/use-affirms.ts`: `useAffirms(hunt, quiz_id)` → `{ huntAffirms,
-    quizAffirms }`, each memoized on its primitive fields (from `useIdent` and the shallow hunt).
-    `useHunt`, `useQuiz(affirms, quiz_id)`, `useOtherQuiz(hunt, quiz_id)` (`usePreviewBag` passes
-    the hunt it had), `useWholeHunt` and the history feed send them.
-  - **Tests.** `affirmsOf(tt, by, place)` in `tests/support/convex.ts` (an `AffirmsBag`: `hunt`,
-    `quiz`, `action`), `PlaceT`; `seedHunt`'s `act` affirms honestly for whoever acts (the smith's
-    affirms for an anonymous caller). The matrix gains a fifth column, a smith of a locked quiz,
-    and a test that the `Revisers` rows are exactly `QuizRevisionKindVals`. Forged-affirm tests:
-    `affirmForHunt` guard by guard; `hunts.perform` refuses eight forgeries `notPermitted` writing
-    nothing; `quizzes.open`, `questions.open`, `reviews.forQuiz`, `hunts.whole` answer empty for a
-    wrong standing, another's ident, a quiz/question of another hunt. Also `emptyIfDenied`,
-    `refusalFor` on a denial, `layoutOf`, `Quiz.isLocked`, `mayReviseQuiz`.
-  - Docs: `notes/vocabulary.md` (*affirms*; *claims* and *affirm…* updated), `notes/convex.md`
-    (*Who is asking*), `notes/queries_hooks_and_subscriptions.md` (affirms on a hunt's queries),
-    `notes/stack.md` (`EST.allKeyed`).
-* **Decisions taken**:
-  - **Denials are thrown, everywhere.** Every `affirm…` throws `NotApprovedError` (affirm mismatch
-    or policy no) and hands back what it read; mutations turn it into a refusal, queries into
-    their empty value. Thread 6's builders: call `affirmForHunt` (or the affirm function) inside
-    the handler body wrapped in `emptyIfDenied` for a query, and put the claims on `ctx`; an
-    `input` hook that throws cannot answer a query's empty value, so the query builder wraps the
-    handler rather than relying on `input` alone.
-  - **`affirmForHunt` guards the anonymous actor itself**, before any read, so a builder calls it
-    with `ctx.actor` as is. Signature order is `(db, affirms, actor, queries)`; `queries` is
-    required (`{}` for none) because a default generic resolves to `{}`, which lint refuses.
-  - **Gone rows pass** affirmation (null quiz, realm, named quiz, question): the write refuses
-    `quizGone` etc., as before, and a query answers null. A quiz present with its realm gone now
-    passes too (it carries `hunt_id`), where `isPlaced` refused it; the test changed.
-  - **`questions.open` takes `huntAffirms`**, not `quizAffirms`, and checks `question.hunt_id`:
-    a per-question quiz read would add a read per watched question for nothing.
-  - **`mayReviseQuiz` allows a gone quiz** (null) so the write's `quizGone` sentence survives; the
-    smith check comes before the lock, so a reviewer is told `notPermitted`, not `quizLocked`.
-* **Deviations**:
-  - **`idents.performAccount` takes no affirms**: an account action names its hunt in the action,
-    comes from the hunts list before a quiz is open, and its claims are one read
-    (`claimsFor`); thread 6 lists it as an exception anyway. `hunts.open` (by label) likewise.
-  - `affirmReadReviews` reads the affirmed quiz too (one more `get`, in the same round) so the quiz
-    is held to the hunt like every other quiz affirm.
-* **Discoveries**:
-  - **A change of standing or ident re-subscribes the quiz's watches.** Affirms are watch args, so
-    when `hunts.open` delivers a new role (a smith re-roles you) or `idents.current` a new ident,
-    the frame, every question and the reviews are asked again with the new affirms, and the
-    screen shows *Opening…* for a round trip (the grid remounts). Rare, and the stale ones answer
-    empty rather than throw. Thread 8 may want `useQuiz` to keep the last quiz while new affirms
-    are on their way.
-  - Convex's argument validators refuse extra fields, so a browser must send exactly the shape a
-    function takes: `useAffirms` gives `huntAffirms` and `quizAffirms` separately for that reason.
-  - Raw test inserts of quizzes without `hunt_id` are now denied as another hunt's (one test fixed).
-  - The first full e2e run failed 5 consecutive `widgets.spec` tests with *Function execution timed
-    out (maximum duration: 1s)* on `hunts:perform` and `quizzes:open`, right after the runaway-
-    formula test; alone, and on a full rerun, all passed. Load on the local `e2e` backend, I
-    believe, not this change (which reads fewer rows per request than before); worth watching.
-* **For the Coach**: one more `unicorn/prefer-combined-guards` disable (on `holdsTo` in
-  `convex/authorize.ts`), with the policy note's reason.
-
-## Threads 1 to 4, in brief
+## Threads 1 to 5, in brief
 
 *Orchestrator:* a digest of what later threads build on. The whole sections, as their workers
-wrote them, are in `dbpolicy-done-1-4.md`: read it when this is not enough. Thread 10 reads it whole.
+wrote them, are in `dbpolicy-done.md`: read it when this is not enough. Thread 10 reads it whole.
+
+### Thread 5: Affirmations (#86; review clean)
+
+* **Affirms**, three shapes in `src/models/actions.ts`: `huntAffirms` (`ident_id`, `hunt_id`,
+  `standing`), `quizAffirms` (+ `quiz_id`), `affirms` (+ `realm_id`). `hunts.perform` takes
+  `affirms`; `hunts.whole` `huntAffirms`; `quizzes.open`, `reviews.forQuiz` `quizAffirms`;
+  `questions.open` `huntAffirms` (checks `question.hunt_id`). `idents.performAccount` and
+  `hunts.open` take none. Browser: `useAffirms(hunt, quiz_id)` in `src/state/use-affirms.ts`.
+* **`affirmForHunt(db, affirms, actor, queries)`**: anonymous guard, one `EST.allKeyed` round,
+  one guard per affirm; returns `ClaimsOf<AT>`. Gone rows pass (the write says `quizGone`).
+* **Denials are thrown** (`NotApprovedError`) by every `affirm…`; mutations refuse them
+  (`refusalFor`), queries answer empty (`emptyIfDenied`).
+* **The lock is policy**: `quizLocked` is a `Denialkind`; `Approve.mayReviseQuiz(quiz, claims)`
+  through the adapter `mayReviseClaimedQuiz(claims)` on `Actor.QuizClaimsT` (`quiz: { locked } |
+  null`), for every `QuizRevisionKind`. A reviewer is told `notPermitted`, not `quizLocked`.
+* **Writing takes rows from the claims** (`OpenQuizT` carries `quiz` and `realm`).
+* **Affirms are watch arguments**: a change of standing or ident re-asks the quiz's watches and
+  shows *Opening…* for a round trip (thread 8 may keep the last quiz on screen).
+* e2e once lost five `widgets.spec` tests to the local backend's 1 s timeout under load; a rerun
+  passed. Rerun before calling it red.
+
 
 ### Thread 4: Denormalize (#83; review clean)
 

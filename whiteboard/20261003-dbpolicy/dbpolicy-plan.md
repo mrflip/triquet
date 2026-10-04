@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 5 done (#79, #81, #82, #83, #86); thread 6 underway.
+`/sprint`. **Status:** threads 1 to 6 done (#79, #81, #82, #83, #86, #88); thread 7 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -48,8 +48,9 @@ When the sprint is done:
 * `notes/guidelines.md` (validation, the patch pattern), `notes/vocabulary.md`, `STYLE.md`.
 * `notes/deploy.md`, *Schema pushes* -- threads 1, 3, 4 and 10 change row shapes.
 * `notes/testing.md`.
-* `dbpolicy-done-1-4.md` (beside this plan) holds threads 1 to 4's handoffs whole; the progress
-  document carries their digest. Read the whole only where the digest is not enough.
+* `dbpolicy-done.md` (beside this plan) holds finished threads' handoffs whole, once they leave
+  the progress document; the progress document carries their digest. Read the whole only where
+  the digest is not enough.
 
 ## The model in brief
 
@@ -626,6 +627,10 @@ browser's spoiler shield, and `peeked` stays a record of the reveal.
 
 **Done when.** The query results a reviewer can call hold what the list above says, and no more.
 
+*Orchestrator, after thread 6 (#88):* every hunt query is built with `zHuntQuery({ args, empty,
+affirm, handler })`; `ctx.claims.standing` is on its context, so `questions.open`'s handler is
+where to project. `hunts.whole` is likewise scoped: add `mayExportHunt` where its `affirm` runs.
+
 ---
 
 ### Thread 8: Views ask `Approve`
@@ -680,6 +685,12 @@ when it is made only the helper changes.
 5. Matrix rows and tests for the new mutation, including one that stubs `Actor.isAdmin` false and
    sees the write refused and the affordances gone.
 
+*Orchestrator, after thread 6 (#88):* the scoped database's `widgets` rule asks `Approve` by the
+key `change_library` (in `RowPolicies`, mapped to `mayChangeHunt` today): re-point it to
+`mayChangeLibrary`. Add `'widgets:perform'` to `Unscoped` in `convex/authorize.ts` with its reason
+(or give it a library-scoped builder). `deleteWidget(db, census, label)` needs the census
+(`censusOf(ctx.db)` from a plain db) for `isWorked`.
+
 **Done when.** No library write goes through `hunts.perform`; the only place that knows who is
 an admin is `Actor.isAdmin`.
 
@@ -696,7 +707,7 @@ it from the schema (`retiringForcedLabel`), and the two lines in `relabelHunt` a
 that clear a lingering one (the compiler will point at them). Remove thread 4's fallbacks for rows
 without their copies (`huntIdOf` becomes `quiz.hunt_id`; `huntIdOfLayoutRow` and
 `reviewingCopiesOf` become the row's fields; `membersOf`'s ident read; the four update helpers'
-fills); the full list is thread 4's section in `dbpolicy-done-1-4.md`. Drop the backfills from
+fills); the full list is thread 4's section in `dbpolicy-done.md`. Drop the backfills from
 `convex/migrations.ts` and from `runAll`, empty `Backfilling` and `Retiring` in
 `tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
 that still holds each backfill.
@@ -725,3 +736,7 @@ that still holds each backfill.
    the label is no longer reserved for widgetings; a widgeting labelled `forced_label` would be
    read both ways on re-import. Unlikely. Thread 10 can drop the key from import, or reserve the
    label again: say which.
+8. **Idents through a hunt's scoped database** (thread 6): readable, never writable, against the
+   plan's "unreachable", because `add_hunting` finds its member by label and `reviews.forQuiz`
+   shows reviewers' labels and titles. The alternative is a copy of label and title on reviews (a
+   widen) and a narrower lookup for `add_hunting`. Say if you want it.
