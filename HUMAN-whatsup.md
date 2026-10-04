@@ -29,8 +29,10 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   ./scripts/doppledo prd_janitor npx convex run migrations:run '{"fn": "migrations:backfillQ1Preambles"}'
   ```
 
-  Then a tightening PR (field required in the schema, fallbacks and backfill dropped, ledger row
-  added) can follow. Until the backfill runs, a quiz without the field reads as having the default.
+  Then merge the stacked tightening PR, `20261004-tighten_q1_preamble` (field required in the
+  schema, fallbacks and backfill dropped, ledger row added). Its push checks every quiz, so it
+  lands only once the backfill is complete. Until then, a quiz without the field reads as having
+  the default.
 
 ## 2026-10-04: Sprint dbpolicy done -- ten threads, ten PRs open, a deploy in order
 

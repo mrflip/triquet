@@ -1,4 +1,3 @@
-import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
@@ -7,7 +6,7 @@ import {
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
 import * as Runner from '../../src/lib/formulary/runner'
-import { DefaultQ1Preamble, Quiz } from '../../src/models/quiz'
+import { Quiz } from '../../src/models/quiz'
 import { Widgeted } from '../../src/models/widgeted'
 import { runOf } from '../support/runs'
 
@@ -92,9 +91,8 @@ describe('quizFrom', () => {
     expect(quizFrom(rows).smiths_note).to.eq('Theme: princes.')
   })
 
-  it('carries the LL preamble, and gives a quiz written before it had one the default', () => {
-    const unprefaced = { ...rows, quiz: _.omit(QuizRow, ['q1_preamble']) }
-    expect([quizFrom(rows).q1_preamble, quizFrom(unprefaced).q1_preamble]).to.deep.eq(['Read the note![br]', DefaultQ1Preamble])
+  it('carries the LL preamble', () => {
+    expect(quizFrom(rows).q1_preamble).to.eq('Read the note![br]')
   })
 
   it('carries the quiz\'s widgetings, each without its ids or place', () => {

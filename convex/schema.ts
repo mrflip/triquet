@@ -22,11 +22,9 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // union table. What the bridge cannot carry (patterns, lengths, integers, and checks across
 // fields) stays the row validator's, which every write passes first.
 //
-// Four fields are written by hand. Three are any JSON at all, whose recursive type the bridge
-// converts at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's
-// `value` and `result_meta`; `tests/convex/schema.test.ts` holds them to the row validators. A
-// quiz's `q1_preamble` is optional here though every write gives one, so that quizzes written
-// before it existed still fit until `migrations.ts` backfills them.
+// Three fields are written by hand, each any JSON at all, whose recursive type the bridge converts
+// at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
+// `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
@@ -35,7 +33,7 @@ const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = { ...zodOutputToConvexFields(QuizValidators.row.shape), q1_preamble: CVX.optional(CVX.string()) }
+const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
   ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),
