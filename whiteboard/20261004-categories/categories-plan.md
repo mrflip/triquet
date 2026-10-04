@@ -1,7 +1,7 @@
 # Categories: a wheel of subject categories, personas that answer by it, and a quiz's spread
 
 Sprint plan, 2026-10-04. Mode: **YOLO**. Review level: **medium**. Issued by the Coach (Flip).
-**Status: thread 1 done (PR #85, review clean); thread 2 underway.**
+**Status: threads 1 (PR #85) and 2 (PR #87) done, reviews clean; thread 3 underway.**
 
 Four threads, stacked in order. `categories-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -180,6 +180,12 @@ The flat bag should carry the worked-out parts too, so a later formula can read
 *Orchestrator, after thread 1:* on the quiz screen the total order is
 `Wheel.orderOf(hunt.wheel)`, from the `hunt` that `useHunt` already hands `Workbench`, `Panels`
 and the editors. No new watch is needed.
+
+*Orchestrator, after thread 2:* the value's validator is `EstimateValidators.estimates`
+(`src/models/estimate.ts`): widen `WidgetedValidators.enteredValue` and `EntryValueFor` with it.
+It refuses a category twice and a null beside a real category, so each pill's select leaves out
+categories other pills hold; the all-blank value is `[Estimate.neutral(difficulty)]`. The four
+persona parts come from one `Personas.chancesOf(order, estimates)` per question.
 
 *Look-ahead.* Thread 4 reads every question's estimates for the quiz; expose a pure way to get
 them (the stored list, nulls included) that does not go through a column.
