@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 9 done (#79, #81, #82, #83, #86, #88, #89, #90, #92); thread 10 underway.
+`/sprint`. **Status:** done. All ten threads complete and reviewed: #79, #81, #82, #83, #86, #88, #89, #90, #92, #93, each stacked on the one before. Nothing merged; see `HUMAN-whatsup.md`, *Sprint dbpolicy done*.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything

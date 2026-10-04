@@ -1,5 +1,8 @@
 # Sprint `dbpolicy`: progress
 
+**Sprint done, 2026-10-04**: ten threads, ten PRs (#79 to #93), all reviewed, none merged. The
+summary and every open question are in `HUMAN-whatsup.md` (*Sprint dbpolicy done*).
+
 The running handoff. Newer than `dbpolicy-plan.md` wherever they disagree. Each thread updates
 its row below and adds its section above the others, newest first.
 
@@ -16,12 +19,23 @@ its row below and adds its section above the others, newest first.
 | 7 | Reads shaped by role | complete, reviewed (clean) | `20261004-dbpolicy_role_reads` | #89 |
 | 8 | Views ask `Approve` | complete, reviewed (clean) | `20261004-dbpolicy_views_approve` | #90 |
 | 9 | The library behind an admin helper | complete, reviewed (clean) | `20261004-dbpolicy_library_admin` | #92 |
-| 10 | Tighten | complete (merge waits on production backfills) | `20261004-dbpolicy_tighten` | #93 |
+| 10 | Tighten | complete, reviewed (clean); merge waits on production backfills | `20261004-dbpolicy_tighten` | #93 |
 
 
 ## Thread 10: Tighten (2026-10-04)
 
 Branch `20261004-dbpolicy_tighten`, PR #93, stacked on #92. Suites: typecheck, lint, `pnpm test` (112 files, 3016), e2e (209, `pnpm test:e2e:agent`) all green, first run.
+
+*Review:* `clean`, at medium; no fixes, no findings. Checked that every table derives from its
+row validator, that no row read still touches `forced_label` (only the paste-import format names
+it: *For the Coach* 7), that the helpers and readers stripped of fallbacks read required fields,
+and that nothing references the deleted backfills. One behaviour change, harmless once
+backfilled: `membersOf` no longer drops a hunting whose ident is missing. The main risk is deploy
+order, not code: production refuses #93's push until `runAll` has finished there.
+
+*Orchestrator:* this thread read a production export it found on disk
+(`data/triquet-prod-20261004.zip`), by script, imported nowhere, extracted copy deleted. No rule
+forbade it, but production data is the Coach's to hand out: flagged in `HUMAN-whatsup.md`.
 
 * **Built**:
   - **`convex/schema.ts`** derives every table from its row validator again, as main does, apart
