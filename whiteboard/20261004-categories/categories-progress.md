@@ -10,7 +10,64 @@ disagree. Workers add their sections below, newest first.
 | 1 | Categories and the category editor | complete, PR #85, review clean |
 | 2 | Category personas | complete, PR #87, review clean |
 | 3 | The category estimate entry | complete, PR #91, review fixed 1 |
-| 4 | The category spread chart | underway |
+| 4 | The category spread chart | complete, PR #94 |
+
+## Thread 4: The category spread chart (2026-10-04)
+
+Branch `20261004-category_radar`, PR #94, stacked on #91. Suites: typecheck and lint clean;
+`pnpm test` 118 files, 2995 tests; `pnpm test:e2e` 217 passed.
+
+* **Built**:
+  - **Recharts 3.10.1** (`package.json`). It was the current release on 2026-10-04, and its peers
+    take React 19 (`react-is` resolves to 19.3). It is listed in `notes/stack.md` under *Small
+    libraries in use*.
+  - **`src/lib/spread.ts`** (`import * as Spread`):
+    - `SmoothingWeights`: `[0.09, 0.16, 0.5, 0.16, 0.09]`.
+    - `sharesOf(estimates)`: 1/N per non-null category, and none for a lone null.
+    - `smoothedOf(order, share)`: the weights over `Wheel.neighboursOf(order, label, 2)`.
+    - `spreadOf(order, questionEstimates)`: `{ points: [{ category, count, smoothed }]` in total order, `placedCount, unplacedCount }`. The two series add up to the same number of questions.
+  - **`src/components/panels/SpreadPanel.tsx`**: the *Category spread* panel, second in `Panels`
+    after Reviews. It reads `Estimates.quizEstimatesOf(run)` and `run.frame.order`, and says when
+    the quiz works no category-estimate entry. It draws a Recharts `RadarChart`:
+    - The count is drawn in `seriesA` with dots only where a category counts. The smoothed count is drawn in `seriesB` with a 10% wash.
+    - The angle axis's ticks are tiles like the wheel's, clockwise from the top.
+    - The radius rings mark whole questions.
+    - It has a legend and a tooltip, and the same numbers sit in an "As a table" fold.
+    - It says how many questions name no category.
+  - **`src/components/panels/spread-chart.ts`**: `SpreadLayout`, `tileOf(angle, plot)` (where a
+    tile sits, from Recharts' `usePlotArea`), and `radiusTicksOf(spread)`.
+  - **Palette**: `seriesA` and `seriesB` in both modes (`src/app/palette.ts`, with contrast cases
+    in `tests/app/palette.test.ts`).
+  - **e2e**: `estimates.spec.ts` has "the category spread counts the questions…" (the table's
+    numbers, the no-category count, click to widen and Enter to narrow). `panels.spec.ts` has
+    the no-entry panel.
+* **Decisions taken**:
+  - **The chart is one control.** An MUI `ButtonBase` (`component="div"`, `aria-pressed`, named
+    "Category spread chart, full width") wraps the chart. Click, Enter or Space toggles `Panel`'s
+    `wide`, which is `grid-column: 1 / -1`, and the chart's size goes with it. At rest the chart is
+    as tall as its column is wide (aspect ratio 1/1.08); widened, it is 680px tall. Recharts'
+    `accessibilityLayer` is off, so no focus target sits inside a button; the table carries the
+    numbers for anyone who cannot see the chart.
+  - **Series colours are new palette tokens, not `primary`/`secondary`.** The dataviz validator
+    failed every theme pair: the brand's accents fall under the 0.10 chroma floor, and in dark mode
+    bermuda and verdigris come to ΔE 3.1 under deuteranopia. The new pair passes every check in both modes.
+  - **Tiles sit on a ring of their own** (0.42 of the shorter side, each 0.085 across), placed from
+    the plot area rather than from Recharts' tick position, so neighbours never overlap.
+    `tests/components/panels/spread-chart.test.ts` proves this all the way round.
+  - Animation is off: a resize re-ran the radar's grow-in, and the chart is read, not watched.
+* **Deviations**: none from the plan.
+* **Discoveries**:
+  - Recharts' `PolarRadiusAxis` with its default domain marked 0 to 4 for a largest count of 1.5.
+    Explicit `ticks` and `domain` from `radiusTicksOf` fix it.
+  - Clicking the chart focused an SVG element inside it, and Chrome drew a ring round the radar
+    polygon. `'& svg *:focus': { outline: 'none' }` on the button removes it. The button's own
+    focus-visible ring stays.
+* **For the Coach**:
+  - In a resting column of about 340px, tiles are about 29px with 8px titles, and "Classical Music"
+    spills slightly past its tile. Widened, they read easily.
+  - Recharts vs `@mui/x-charts` stays open (plan, *For the Coach*). Only `SpreadPanel.tsx`
+    imports Recharts.
+  - Confirm or adjust the new series colours (HUMAN-whatsup).
 
 ## Thread 3: The category estimate entry (2026-10-04)
 
