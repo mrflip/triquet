@@ -16,7 +16,7 @@ import type { QuizT, Sortkey } from '../../src/models/quiz'
 import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
-import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizForLabel, quizRowsOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
+import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizForLabel, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
 import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row, the questions it names
@@ -345,12 +345,12 @@ export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Prom
  * @throws A refusal (`notInRealm`, `lastQuiz`); nothing is written.
  */
 export async function deleteQuizFrom(db: Writer, open: OpenQuizT, quiz_id: Id<'quizzes'>): Promise<void> {
-  const doomed = await quizRowsOf(db, quiz_id)
+  const doomed = await db.get('quizzes', quiz_id)
   if (! doomed) { return }
-  if (doomed.quiz.realm_id !== open.realm_id) { refuse('notInRealm') }
+  if (doomed.realm_id !== open.realm_id) { refuse('notInRealm') }
   const siblings = await quizzesOf(db, open.realm_id)
   if (siblings.length <= 1) { refuse('lastQuiz') }
-  await deleteQuiz(db, doomed)
+  await deleteQuiz(db, quiz_id)
 }
 
 /** Lock or unlock a quiz. Works from inside the lock, and changes nothing else about the quiz; a quiz gone is refused. */

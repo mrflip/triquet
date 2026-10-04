@@ -18,6 +18,7 @@ import type { HuntRole } from '../../src/models/hunting'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import { present } from '../support/present'
+import { expectSound } from '../support/soundness'
 import { huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seen, type Session, type Tester } from '../support/convex'
 
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
@@ -425,12 +426,13 @@ describe("hunts.perform", () => {
 
   describe("delete_questions", () => {
     it("deletes the named questions, and the rest close ranks keeping their Q#s", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd']))
       const [, second, , fourth] = openOf(await read()).questions
       await act({ kind: 'delete_questions', question_ids: [present(second)._id, present(fourth)._id] })
       const after = await read()
       expect(titlesOf(after)).to.deep.eq(['a', 'c'])
       expect(qnumsOf(after)).to.deep.eq(['1', '3'])
+      await expectSound(tt)
     })
 
     it("takes each deleted question's replies with it, and leaves the others' alone", async () => {
@@ -441,6 +443,7 @@ describe("hunts.perform", () => {
       await act({ kind: 'delete_questions', question_ids: [present(first)._id] })
       const widgeteds = await tt.run(async (ctx) => await ctx.db.query('widgeteds').collect())
       expect(widgeteds.map((widgeted) => widgeted.question_id)).to.deep.eq([present(second)._id])
+      await expectSound(tt)
     })
 
     it("takes each deleted question's reviewings with it, and leaves the others' alone", async () => {
@@ -449,14 +452,16 @@ describe("hunts.perform", () => {
       await asAlice({ kind: 'set_reviewing', quiz_id, question_id: second, patch: { get_rate: 20 } })
       await act({ kind: 'delete_questions', question_ids: [first] })
       expect(await reviewingsIn(tt)).to.deep.eq([{ ...Unsaid, question_id: second, get_rate: 20 }])
+      await expectSound(tt)
     })
 
     it("clears a chain to a deleted question, so a later question answering to its label does not inherit it", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       const [first, second] = openOf(await read()).questions
       await act({ kind: 'set_chain', question_id: present(first)._id, chains_to: present(second)._id })
       await act({ kind: 'delete_questions', question_ids: [present(second)._id] })
       expect(firstOf(await read()).chains_to).to.be.null
+      await expectSound(tt)
     })
 
     it("passes over an id that names no question of the quiz", async () => {
@@ -468,9 +473,10 @@ describe("hunts.perform", () => {
     })
 
     it("can empty the quiz", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
       await act({ kind: 'delete_questions', question_ids: openOf(await read()).questions.map((question) => question._id) })
       expect(titlesOf(await read())).to.deep.eq([])
+      await expectSound(tt)
     })
 
     it("refuses while the quiz is locked", async () => {
@@ -814,6 +820,7 @@ describe("hunts.perform", () => {
       })
       expect(left).to.deep.eq({ questions: 0, widgetings: 0, columns: 0, widgeteds: 0 })
       expect(after.library).to.deep.eq(ante.library)
+      await expectSound(tt)
     })
 
     it("takes the quiz's reviews and their reviewings with it", async () => {
@@ -822,6 +829,7 @@ describe("hunts.perform", () => {
       await act({ kind: 'delete_quiz', quiz_id })
       const [reviews, reviewings] = await tt.run(async (ctx) => [await ctx.db.query('reviews').collect(), await ctx.db.query('reviewings').collect()])
       expect([reviews, reviewings]).to.deep.eq([[], []])
+      await expectSound(tt)
     })
 
     it("refuses to delete the realm's last quiz", async () => {

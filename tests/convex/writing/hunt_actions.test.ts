@@ -5,6 +5,7 @@ import { classicLayout } from '../../support/layouts'
 import { Question } from '../../../src/models/question'
 import { Quiz } from '../../../src/models/quiz'
 import { present } from '../../support/present'
+import { expectSound } from '../../support/soundness'
 import { expectRefusal, huntHolding, openOf, openTester, seedHunt, type Tester } from '../../support/convex'
 
 /** A hunt of two quizzes, the first holding two questions, laid out with the default widgetings and columns */
@@ -118,6 +119,7 @@ describe("hunts.perform: delete_hunt", () => {
     expect(idents.map((ident) => ident.label)).to.include.members(['seed_smith', 'bob_reviews'])
     const { quizzes } = await spared.read()
     expect(quizzes.map((quiz) => quiz.title)).to.deep.eq(['Quiz one', 'Quiz two'])
+    await expectSound(tt)
   })
 
   it("refuses while the hunt holds another quiz, deleting nothing", async () => {

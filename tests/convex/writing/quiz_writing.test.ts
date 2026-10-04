@@ -15,6 +15,7 @@ import { classicLayout } from '../../support/layouts'
 import { present } from '../../support/present'
 import { huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
 import { seedHuntRows } from '../../support/seed'
+import { expectSound } from '../../support/soundness'
 
 /** A fresh deployment holding `hunt`, and ways to read back its first quiz */
 async function holding(hunt: HuntT) {
@@ -175,7 +176,7 @@ describe("insertQuiz", () => {
 describe("deleteQuiz", () => {
   it("deletes the quiz and every row that hangs from it", async () => {
     const quiz = { ...Quiz.blank('', 'princes'), ...classicLayout(), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
-    const { tt, hunt_id, quiz_id, revise } = await holding(huntHolding([quiz]))
+    const { tt, hunt_id, quiz_id } = await holding(huntHolding([quiz, Quiz.blank('', 'kings')]))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
@@ -184,9 +185,24 @@ describe("deleteQuiz", () => {
     })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 12, 21, 1, 1])
     const library = await libraryIn(tt)
-    await revise(async (db, rows) => { await deleteQuiz(db, rows) })
+    await tt.run(async (ctx) => { await deleteQuiz(ctx.db, quiz_id) })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([0, 0, 0, 0, 0, 0])
     expect(await libraryIn(tt)).to.deep.eq(library)
+    await expectSound(tt)
+  })
+
+  it("deletes a question naming the quiz that the quiz does not list, and what was stored for it", async () => {
+    const { tt, hunt_id, quiz_id } = await holding(huntHolding([{ ...Quiz.blank('', 'princes'), ...classicLayout() }, Quiz.blank('', 'kings')]))
+    await tt.run(async (ctx) => {
+      const { widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
+      const stray = await ctx.db.insert('questions', Question.blankRow({ hunt_id, quiz_id }, 'stray'))
+      await ctx.db.insert('widgeteds', { question_id: stray, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
+    })
+    const [quizzes, questions] = await heldCounts(tt, quiz_id)
+    expect([quizzes, questions]).to.deep.eq([1, BlankQuestionQty + 1])
+    await tt.run(async (ctx) => { await deleteQuiz(ctx.db, quiz_id) })
+    expect(await heldCounts(tt, quiz_id)).to.deep.eq([0, 0, 0, 0, 0, 0])
+    await expectSound(tt)
   })
 })
 

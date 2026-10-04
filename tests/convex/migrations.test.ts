@@ -4,6 +4,7 @@ import { internal } from '../../convex/_generated/api'
 import { Quiz } from '../../src/models/quiz'
 import { huntHolding, openTester, seedHunt, signedIn, type Tester } from '../support/convex'
 import { present } from '../support/present'
+import { expectSound } from '../support/soundness'
 
 // The migrations run as the migrations component runs them, in batches handed to the scheduler,
 // so each test runs the scheduler dry before reading what they wrote.
@@ -120,7 +121,7 @@ describe("the forced_label migrations", () => {
     })
   }
 
-  it("all run from runAll", async () => {
+  it("all run from runAll, leaving a deployment that holds together", async () => {
     const tt = migratable()
     await holdForcedLabels(tt)
     await tt.mutation(internal.migrations.runAll, {})
@@ -129,5 +130,6 @@ describe("the forced_label migrations", () => {
       const labels = await labelsIn(tt, tablename)
       expect([labels[0], labels.every(([, forced]) => forced === 'missing')]).to.deep.eq([[`chosen_${tablename}`, 'missing'], true])
     }
+    await expectSound(tt)
   })
 })

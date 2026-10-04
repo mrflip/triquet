@@ -9,6 +9,7 @@ import type { WidgetedRecordingDNA } from '../../../src/models/widgeted'
 import { present } from '../../support/present'
 import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen } from '../../support/convex'
 import { classicHunt } from '../../support/layouts'
+import { expectSound } from '../../support/soundness'
 
 /** A fresh hunt with its quiz laid out as every new quiz was before they started lean */
 function standard(locked = false): HuntT {
@@ -169,11 +170,12 @@ describe("edit_widgeting", () => {
 
 describe("delete_widgeting", () => {
   it("removes the widgeting, and the columns that showed it, and no others", async () => {
-    const { act, read } = await seed()
+    const { tt, act, read } = await seed()
     await act({ kind: 'delete_widgeting', label: 'hint_full' })
     const after = await read()
     expect(widgetingsOf(after)).to.deep.eq(StandardWidgetings.filter((label) => label !== 'hint_full'))
     expect(columnsOf(after)).to.deep.eq(StandardColumns.filter((label) => label !== 'hint_full'))
+    await expectSound(tt)
   })
 
   it("takes what it stored with it, and leaves what its siblings stored", async () => {
@@ -182,6 +184,7 @@ describe("delete_widgeting", () => {
     await seeded.act({ kind: 'delete_widgeting', label: 'dumdum' })
     expect(await widgetedCounts(seeded)).to.deep.eq({ numnum_clueing: 1 })
     expect(columnsOf(await seeded.read())).to.not.include('guess')
+    await expectSound(seeded.tt)
   })
 
   it("leaves the widget it worked in the library", async () => {

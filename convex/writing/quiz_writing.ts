@@ -3,7 +3,6 @@ import type * as Z from 'zod'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import * as Labelmaker from '../../src/lib/labelmaker'
-import type { QuizRows } from '../../src/lib/rows'
 import type { OpenQuizT } from '../../src/models/actions'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
@@ -17,7 +16,7 @@ import { refuse } from '../../src/lib/refusals'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
-import { libraryOf, reviewsOf } from '../reading'
+import { libraryOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
@@ -220,19 +219,23 @@ export async function insertQuiz(db: Writer, place: QuizPlace, title: string, la
 }
 
 /**
- * Delete a quiz and everything that hangs from it: its questions with what their widgetings
- * stored and their reviewings, its widgetings and columns, and its reviews.
+ * Delete a quiz and everything that hangs from it: every question naming it, whether or not the
+ * quiz lists it, with what their widgetings stored and their reviewings; its widgetings with what
+ * they stored; its columns; and its reviews. Each is found through its quiz's index.
  *
  * @param db - The mutation's database.
- * @param held - The quiz's rows.
+ * @param quiz_id - Which quiz.
  */
-export async function deleteQuiz(db: Writer, held: QuizRows): Promise<void> {
-  for (const question of held.questions) { await deleteQuestion(db, question._id) }
-  for (const widgeting of held.widgetings) { await db.delete('widgetings', widgeting._id) }
-  for (const column of held.columns) { await db.delete('columns', column._id) }
-  const reviews = await reviewsOf(db, held.quiz._id)
-  for (const review of reviews) { await db.delete('reviews', review._id) }
-  await db.delete('quizzes', held.quiz._id)
+export async function deleteQuiz(db: Writer, quiz_id: Id<'quizzes'>): Promise<void> {
+  const questions = db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const question of questions) { await deleteQuestion(db, question._id) }
+  const widgetings = db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const widgeting of widgetings) { await deleteWidgeting(db, widgeting._id) }
+  const columns = db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const column of columns) { await db.delete('columns', column._id) }
+  const reviews = db.query('reviews').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const review of reviews) { await db.delete('reviews', review._id) }
+  await db.delete('quizzes', quiz_id)
 }
 
 /**

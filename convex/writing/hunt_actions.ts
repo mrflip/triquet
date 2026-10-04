@@ -1,6 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import { refuse } from '../../src/lib/refusals'
-import { huntForLabel, huntingsOf, quizRowsOf, realmsOf } from '../reading'
+import { huntForLabel, huntingsOf, realmsOf } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
 
 /**
@@ -54,10 +54,7 @@ export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void
   const [realms, huntings] = await Promise.all([realmsOf(db, hunt_id), huntingsOf(db, hunt_id)])
   if (realms.flatMap(({ quizzes }) => quizzes).length > 1) { refuse('huntNotEmptied') }
   for (const { realm, quizzes } of realms) {
-    for (const quiz of quizzes) {
-      const rows = await quizRowsOf(db, quiz._id)
-      if (rows) { await deleteQuiz(db, rows) }
-    }
+    for (const quiz of quizzes) { await deleteQuiz(db, quiz._id) }
     await db.delete('realms', realm._id)
   }
   for (const hunting of huntings) { await db.delete('huntings', hunting._id) }
