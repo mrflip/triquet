@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 (#79), 2 (#81) and 3 (#82) done; thread 4 underway.
+`/sprint`. **Status:** threads 1 to 4 done (#79, #81, #82, #83); thread 5 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -48,6 +48,8 @@ When the sprint is done:
 * `notes/guidelines.md` (validation, the patch pattern), `notes/vocabulary.md`, `STYLE.md`.
 * `notes/deploy.md`, *Schema pushes* -- threads 1, 3, 4 and 10 change row shapes.
 * `notes/testing.md`.
+* `dbpolicy-done-1-4.md` (beside this plan) holds threads 1 to 4's handoffs whole; the progress
+  document carries their digest. Read the whole only where the digest is not enough.
 
 ## The model in brief
 
@@ -473,6 +475,11 @@ huntings (bounded by the hunts one ident is on; read them with `huntingsFor`).
 
 **Leaves for later threads.** `hunt_id` everywhere (threads 5, 6).
 
+*Orchestrator, after thread 4 (#83):* every hunt-owned table carries `hunt_id`. Until `runAll`
+runs, old rows lack their copies, so thread 4's readers fall back to the parent (a list in the
+progress digest); new code in threads 5 to 9 reads the copies directly. Thread 10 removes the
+fallbacks.
+
 *Orchestrator:* the `by_question_id_and_ident_id` index once listed here served thread 7's
 server-side answer mask, which the Coach has since ruled out (see thread 7). Add it only if
 something else wants it.
@@ -553,7 +560,10 @@ check still cannot leak another hunt.
    `wrapDatabaseWriter`) and custom function builders. List the module in `notes/stack.md` under
    the existing `convex-helpers` entry.
 2. `convex/policy_rules.ts`: one rule per table, each a non-async function of `(claims, row)`
-   that reads nothing. Hunt-owned tables (`realms`, `quizzes`, `questions`, `widgetings`,
+   that reads nothing. *Orchestrator, after thread 4:* reviewings are only read through a review
+   already in hand, so the reviewings rule can be hunt-only for reads and ownership (its
+   `ident_id`) for writes; it must not require ownership to read (a smith reads others' shared
+   reviews). Hunt-owned tables (`realms`, `quizzes`, `questions`, `widgetings`,
    `columns`, `widgeteds`, `reviews`, `reviewings`, `huntings`): the row's `hunt_id` is the
    claims' hunt. `reviews` and `reviewings` additionally defer to `Approve.mayReadReview`.
    `hunts`: its own id. `widgets`: readable by a non-anonymous actor. `idents`, `identings` and
@@ -667,7 +677,10 @@ so at the top of the PR.
 **Steps.** For each field thread 4 added, and for `idents.user_id` (thread 1's widen): make it
 required in `convex/schema.ts` (remove the hand-written optional). For `forced_label`, which thread 3 left optional on three tables: remove
 it from the schema (`retiringForcedLabel`), and the two lines in `relabelHunt` and `relabelQuiz`
-that clear a lingering one (the compiler will point at them). Drop the backfills from
+that clear a lingering one (the compiler will point at them). Remove thread 4's fallbacks for rows
+without their copies (`huntIdOf` becomes `quiz.hunt_id`; `huntIdOfLayoutRow` and
+`reviewingCopiesOf` become the row's fields; `membersOf`'s ident read; the four update helpers'
+fills); the full list is thread 4's section in `dbpolicy-done-1-4.md`. Drop the backfills from
 `convex/migrations.ts` and from `runAll`, empty `Backfilling` and `Retiring` in
 `tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
 that still holds each backfill.
