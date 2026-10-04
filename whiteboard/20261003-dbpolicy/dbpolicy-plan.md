@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 8 done (#79, #81, #82, #83, #86, #88, #89, #90); thread 9 underway.
+`/sprint`. **Status:** threads 1 to 9 done (#79, #81, #82, #83, #86, #88, #89, #90, #92); thread 10 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -727,6 +727,25 @@ fills); the full list is thread 4's section in `dbpolicy-done.md`. Drop the back
 `convex/migrations.ts` and from `runAll`, empty `Backfilling` and `Retiring` in
 `tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
 that still holds each backfill.
+
+*Orchestrator, before thread 10:* the whole list, gathered from threads 1, 3 and 4 (their sections
+in `dbpolicy-done.md` hold the detail):
+* **Thread 1**: `idents.user_id` -- drop the hand-written optional, `migrations:backfillIdentClaims`,
+  and its `Backfilling` entry.
+* **Thread 3**: `forced_label` -- drop `retiringForcedLabel` from the schema, the two lines in
+  `relabelHunt`/`relabelQuiz` that clear a lingering one, the three `retire…ForcedLabels`
+  migrations (and from `runAll`), and the `Retiring` entry. Import's reading of a pasted
+  `forced_label` stays unless the Coach has ruled on *For the Coach* 7 by then: old exports still
+  carry it.
+* **Thread 4**: the four `copied*` blocks in `convex/schema.ts`, the six `backfill…Copies`
+  migrations (and from `runAll`), their `Backfilling` entries, and the fallbacks for rows without
+  copies (`huntIdOf` becomes `quiz.hunt_id` at its callers; `huntIdOfLayoutRow` and
+  `reviewingCopiesOf` become the row's fields; `membersOf`'s ident read; the fills in
+  `updateQuiz`, `updateWidgeting`, `updateColumn`, `updateReviewing`); raw test inserts without
+  copies (the compiler names them). `runAll` goes if nothing is left in it.
+* Threads 5 to 9 added no widen and no fallback.
+* Ledger rows in `notes/deploy.md` for each, naming the commit that still holds the backfill.
+  The PR says at its top that merging waits on the Coach running `migrations:runAll` on production.
 
 ## For the Coach
 

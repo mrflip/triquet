@@ -15,13 +15,20 @@ its row below and adds its section above the others, newest first.
 | 6 | A scoped database handle | complete, reviewed (clean) | `20261004-dbpolicy_scoped_db` | #88 |
 | 7 | Reads shaped by role | complete, reviewed (clean) | `20261004-dbpolicy_role_reads` | #89 |
 | 8 | Views ask `Approve` | complete, reviewed (clean) | `20261004-dbpolicy_views_approve` | #90 |
-| 9 | The library behind an admin helper | complete | `20261004-dbpolicy_library_admin` | #92 |
-| 10 | Tighten | pending (merge waits on production backfills) | | |
+| 9 | The library behind an admin helper | complete, reviewed (clean) | `20261004-dbpolicy_library_admin` | #92 |
+| 10 | Tighten | underway (merge waits on production backfills) | | |
 
 
 ## Thread 9: The library behind an admin helper (2026-10-04)
 
 Branch `20261004-dbpolicy_library_admin`, PR #92, stacked on #90. Suites: typecheck, lint, `pnpm test` (113 files, 3046), e2e (209, `pnpm test:e2e:agent`) all green, first run.
+
+*Review:* `clean`, at medium; no fixes, no findings. Checked that no library write is left on
+`hunts.perform` (a hunt's `widgets` rule is now `never`), that `isWorked` still reads every hunt
+from the plain db, that hunt claims still type-check where `change_library` expects the actor,
+that a widget made in the widgeting dialog lands before its widgeting (one ordered mutation queue
+per client), that `holdThePage` keeps one shared count, and that nothing still uses the removed
+names.
 
 * **Built**:
   - **`Actor.isAdmin(_actor: IdentActorT)`** (`src/lib/actor.ts`): returns true. Its doc block
