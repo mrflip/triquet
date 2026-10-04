@@ -19,7 +19,7 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   the scoped database <- #89 reads shaped by role <- #90 views ask `Approve` <- #92 the library
   behind an admin <- #93 tighten. **Deploying takes steps on production, in order**: the entry
   below this one.
-* **Reviews**: every thread reviewed at medium; 3 `fix:` commits kept (#79 a sign-in retry, #82 a
+* **Reviews**: every thread reviewed at medium; 2 `fix:` commits kept (#79 a sign-in retry, #82 a
   relabel the backfill would have undone), nothing flagged. Normal mode: no YOLO decisions.
 * **Read a production export.** Thread 10 found `data/triquet-prod-20261004.zip` on disk and
   read it by script to check the tightened schema would take production's rows (no orphans; eight
