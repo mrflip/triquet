@@ -10,8 +10,8 @@ import { useSession } from './use-session'
  * facet of its own, watched only while the widget's editor is open, since nothing else shows it.
  *
  * @param widget_label - A widget the library holds.
- * @returns The counts; null when this browser's ident may not count them (it is a smith of no
- *   hunt); undefined until they have arrived.
+ * @returns The counts; null when this browser may not count them (it may not change the library:
+ *   `Approve.mayCountUsage`); undefined until they have arrived.
  */
 export function useWidgetUsage(widget_label: string): WidgetUsageT | null | undefined {
   const { ready } = useSession()

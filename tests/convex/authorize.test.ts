@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { affirmAccountAction, affirmCountUsage, affirmExportHunt, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor, Unscoped } from '../../convex/authorize'
-import { isHuntScoped } from '../../convex/functions'
+import { affirmAccountAction, affirmExportHunt, affirmLibraryAction, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor, Unscoped } from '../../convex/authorize'
+import { scopeOf } from '../../convex/functions'
 import { scopedReader } from '../../convex/policy_rules'
 import { huntingFor, identForLabel, reviewsOf } from '../../convex/reading'
 import * as Actor from '../../src/lib/actor'
@@ -211,14 +211,33 @@ describe("affirmReadReviews, and the reviews a database scoped to its claims sho
   })
 })
 
-describe("affirmCountUsage", () => {
-  it("lets a smith of any hunt count how far a widget is put to work, and nobody else", async () => {
-    const { tt, alice, bob, carol } = await peopled()
-    const outcomes = []
-    for (const actor of [alice.actor, bob.actor, carol.actor, Actor.anonymous]) {
-      outcomes.push(await outcomeOf(tt.run(async (ctx) => { await affirmCountUsage(ctx.db, actor) })))
+describe("affirmLibraryAction", () => {
+  const action = { kind: 'move_widget', label: 'dumdum', onto_idx: 0 } as const
+
+  /** What `affirmLibraryAction` says of `actor` taking the action: `'allow'`, or the kind of its denial */
+  function outcomeFor(actor: Actor.ActorT): string {
+    try {
+      affirmLibraryAction(actor, action)
+      return Approve.Allow
+    } catch (err) {
+      if (err instanceof Approve.NotApprovedError) { return err.denial }
+      throw err
     }
-    expect(outcomes).to.deep.eq(['allow', 'notPermitted', 'notPermitted', 'notIdentified'])
+  }
+
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it("lets anyone with a username change the library, smith of a hunt or not, while every one is an admin", async () => {
+    const { alice, bob, carol } = await peopled()
+    const outcomes = [alice.actor, bob.actor, carol.actor, Actor.anonymous].map((actor) => outcomeFor(actor))
+    expect(outcomes).to.deep.eq(['allow', 'allow', 'allow', 'notIdentified'])
+  })
+
+  it("asks `Actor.isAdmin`, and nothing of any hunt: nobody is let through once nobody is an admin", async () => {
+    const { alice, carol } = await peopled()
+    vi.spyOn(Actor, 'isAdmin').mockReturnValue(false)
+    const outcomes = [alice.actor, carol.actor].map((actor) => outcomeFor(actor))
+    expect(outcomes).to.deep.eq(['notPermitted', 'notPermitted'])
   })
 })
 
@@ -394,18 +413,18 @@ describe("identings, each session's own", () => {
       'questions:open',
       'quizzes:open',
       'reviews:forQuiz',
-      'widgets:library', 'widgets:usage',
+      'widgets:library', 'widgets:perform', 'widgets:usage',
     ])
   })
 })
 
 describe("the database a public function holds", () => {
-  it("is scoped to one hunt, by a hunt's builder, for every public function but those named unscoped, each with why", async () => {
+  it("is scoped to one hunt, by a hunt's builder, or to the library, by the library's, for every public function but those named unscoped, each with why", async () => {
     const found = await publicFunctionsFor()
-    const scoped = found.filter(([, val]) => isHuntScoped(val)).map(([fnname]) => fnname)
-    const unscoped = found.filter(([, val]) => ! isHuntScoped(val)).map(([fnname]) => fnname)
-    expect(scoped).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'reviews:forQuiz'])
-    expect(unscoped).to.deep.eq(keysOf(Unscoped))
+    const scopedTo = (scope: ReturnType<typeof scopeOf>) => found.filter(([, val]) => scopeOf(val) === scope).map(([fnname]) => fnname)
+    expect(scopedTo('hunt')).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'reviews:forQuiz'])
+    expect(scopedTo('library')).to.deep.eq(['widgets:perform'])
+    expect(scopedTo(null)).to.deep.eq(keysOf(Unscoped))
   })
 })
 

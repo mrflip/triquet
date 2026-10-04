@@ -145,7 +145,8 @@ export async function isWorked(db: Reader, widget_label: string): Promise<boolea
  * What a write must know of every hunt to keep the data whole, asked of a database that sees them
  * all: whose a hunt label is, so no two hunts answer to one; and whether any quiz of any hunt works
  * a widget, so none is left working a widget the library lost. It answers with an id or a yes,
- * never a row, so a function whose database sees one hunt (`policy_rules.ts`) can hold it.
+ * never a row, so a function whose database sees one hunt, or only the library (`policy_rules.ts`),
+ * can hold it.
  */
 export type CensusT = {
   /** The hunt answering to `label`, should one: see `huntForLabel` */

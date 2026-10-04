@@ -1,6 +1,5 @@
 /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
-import type { HuntingRowT } from '../models/hunting'
-import type { AccountActionT, HuntActionT, QuizRevisionKind } from '../models/actions'
+import type { AccountActionT, HuntActionT, LibraryActionT, QuizRevisionKind } from '../models/actions'
 import { Quiz, type QuizRowT } from '../models/quiz'
 import { Review, type ReviewRowT } from '../models/review'
 import { Validator } from './validator'
@@ -69,8 +68,8 @@ export function mayReadHunt(claims: Actor.HuntClaimsT): VerdictT {
 
 /**
  * Whether the claimed actor may change their hunt: make, delete, lock and unlock its quizzes,
- * retitle, relabel or delete it; and, from one of its quizzes, change the library. Revising a quiz
- * asks `mayReviseQuiz`, which also holds to the quiz's lock. In order:
+ * retitle, relabel or delete it. Revising a quiz asks `mayReviseQuiz`, which also holds to the
+ * quiz's lock. In order:
  *
  * * Nobody who has asserted no username
  * * A smith of the hunt
@@ -213,23 +212,34 @@ export function mayReadLibrary(actor: Actor.ActorT): VerdictT {
 }
 
 /**
- * Whether `actor` may count how far a widget of the library is put to work across every hunt:
- * anyone who may change the library. The count says how many, never which, so a hunt the actor
- * is not on shows them nothing of itself. In order:
+ * Whether `actor` may change the library of widgets: add, revise, move, remove and import them.
+ * The library belongs to no hunt, and an edit to a widget changes every quiz that works it, in
+ * every hunt, so changing it is an admin's act, not a smith's; who is an admin is
+ * `Actor.isAdmin`'s to say. In order:
  *
  * * Nobody who has asserted no username
- * * A smith of any hunt
+ * * An admin
  * * Nobody else
  *
- * @param actor - Who is asking.
- * @param huntings - The actor's huntings, on every hunt they are on.
- *
- * @example Approve.mayCountUsage(actor, [{ role: 'reviewer' }, { role: 'smith' }])  // => 'allow'
+ * @example Approve.mayChangeLibrary(actor)  // => 'allow', for an admin
  */
-export function mayCountUsage(actor: Actor.ActorT, huntings: readonly Pick<HuntingRowT, 'role'>[]): VerdictT {
-  if (Actor.isAnonymous(actor))                                { return 'notIdentified' } // Nobody who has asserted no username
-  if (huntings.some((hunting) => hunting.role === 'smith'))  { return Allow }           // A smith of any hunt
-  return 'notPermitted'                                                                  // Nobody else
+export function mayChangeLibrary(actor: Actor.ActorT): VerdictT {
+  if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no username
+  if (Actor.isAdmin(actor))     { return Allow }           // An admin
+  return 'notPermitted'                                    // Nobody else
+}
+
+/**
+ * Whether `actor` may count how far a widget of the library is put to work across every hunt. The
+ * count says how many, never which, so a hunt the actor is not on shows them nothing of itself; it
+ * is for whoever weighs changing or removing the widget. In order:
+ *
+ * * Whoever may change the library (`mayChangeLibrary`)
+ *
+ * @example Approve.mayCountUsage(actor)  // => 'allow', for an admin
+ */
+export function mayCountUsage(actor: Actor.ActorT): VerdictT {
+  return mayChangeLibrary(actor) // Whoever may change the library (`mayChangeLibrary`)
 }
 
 /**
@@ -290,19 +300,19 @@ export function mayAskAnthropicBot(switchval: string | undefined): VerdictT {
 
 // --- The dispatch table
 
-/** Every action a request can carry, from inside a quiz or before one is open */
-type ActionT = HuntActionT | AccountActionT
+/** Every action a request can carry: from inside a quiz, to the library, or before any quiz is open */
+type ActionT = HuntActionT | LibraryActionT | AccountActionT
 type ActionKind = ActionT['kind']
 /** The action of one kind */
 type ActionOfKind<KK extends ActionKind> = Extract<ActionT, { kind: KK }>
-/** The kinds of action decided before any hunt is in play: of the actor alone */
-type HuntlessKind = Exclude<AccountActionT['kind'], HuntActionT['kind']>
+/** The kinds of action decided of the actor alone: on the library, which no hunt owns, or before any hunt is in play */
+type HuntlessKind = Exclude<LibraryActionT['kind'] | AccountActionT['kind'], HuntActionT['kind']>
 
 /**
  * What each policy is handed, by key. An action's policy is handed the claims on the hunt it
- * lands on (the actor alone, for one decided before any hunt is in play; with the quiz on screen,
- * for one that revises it) and the action; the account actions that name a hunt share the row of
- * the hunt action of their kind.
+ * lands on (the actor alone, for one on the library or one decided before any hunt is in play;
+ * with the quiz on screen, for one that revises it) and the action; the account actions that name
+ * a hunt share the row of the hunt action of their kind.
  */
 type EvidenceT = {
   [KK in ActionKind]: KK extends HuntlessKind ? [actor: Actor.ActorT, action: ActionT]
@@ -313,8 +323,8 @@ type EvidenceT = {
   export_hunt:       [claims: Actor.HuntClaimsT]
   read_review:       [review: ReviewRowT, claims: Actor.HuntClaimsT, ownReview: ReviewRowT | null]
   read_library:      [actor: Actor.ActorT]
-  change_library:    [claims: Actor.HuntClaimsT]
-  count_usage:       [actor: Actor.ActorT, huntings: readonly Pick<HuntingRowT, 'role'>[]]
+  change_library:    [actor: Actor.ActorT]
+  count_usage:       [actor: Actor.ActorT]
   ask_anthropic_bot: [switchval: string | undefined]
 }
 
@@ -340,13 +350,13 @@ const LayoutPolicies = {
   move_column:      mayReviseClaimedQuiz,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
-/** The actions that revise the library every hunt shares, taken from a quiz on screen: a quiz's lock does not reach the library */
+/** The actions that revise the library every hunt shares: an admin's, of the actor alone, with no hunt or quiz in play */
 const LibraryPolicies = {
-  add_widget:     mayChangeHunt,
-  edit_widget:    mayChangeHunt,
-  delete_widget:  mayChangeHunt,
-  move_widget:    mayChangeHunt,
-  import_widgets: mayChangeHunt,
+  add_widget:     mayChangeLibrary,
+  edit_widget:    mayChangeLibrary,
+  delete_widget:  mayChangeLibrary,
+  move_widget:    mayChangeLibrary,
+  import_widgets: mayChangeLibrary,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The actions that revise the quiz on screen and its questions: refused while it is locked */
@@ -414,11 +424,11 @@ const ReadPolicies = {
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /**
- * What a hunt's scoped database asks of a row it is to write (`convex/policy_rules`): changing the
- * library's widgets, which rides the hunt on screen, as its library actions do.
+ * What a scoped database asks of a row it is to write (`convex/policy_rules`), and a view asks
+ * before it opens a door to the library: changing the library's widgets, as its actions do.
  */
 const RowPolicies = {
-  change_library: mayChangeHunt,
+  change_library: mayChangeLibrary,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The policy of every action, by its kind */

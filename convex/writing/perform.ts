@@ -1,10 +1,9 @@
 import * as Hunt from './hunt_actions'
 import * as Hunting from './hunting_actions'
 import * as Layout from './layout_actions'
-import * as Library from './library_actions'
 import * as Quiz from './quiz_actions'
 import * as Review from './review_actions'
-import { isLayoutAction, isLibraryAction, type HuntActionT } from '../../src/models/actions'
+import { isLayoutAction, type HuntActionT } from '../../src/models/actions'
 import type { PerformClaimsT } from '../authorize'
 import type { CensusT } from '../reading'
 import type { Writer } from './quiz_writing'
@@ -20,7 +19,7 @@ import type { Writer } from './quiz_writing'
  * whatever else it needs as it stands, inside the transaction.
  *
  * @param db - The mutation's database, scoped to the claims' hunt.
- * @param census - What spans every hunt: whose a hunt label is, whether a widget is worked.
+ * @param census - What spans every hunt: whose a hunt label is.
  * @param claims - Who is acting, and the quiz on their screen, its realm and hunt, as `affirmPerform` checked them.
  * @param action - What the author did, validated.
  * @throws A refusal, or a Zod error when a row the action comes to is not valid; nothing is written.
@@ -31,10 +30,6 @@ export async function perform(db: Writer, census: CensusT, claims: PerformClaims
   const { hunt_id, ident_id, named } = claims
   if (isLayoutAction(action)) {
     await Layout.performLayout(db, claims, action)
-    return
-  }
-  if (isLibraryAction(action)) {
-    await Library.performLibrary(db, census, action)
     return
   }
   switch (action.kind) {

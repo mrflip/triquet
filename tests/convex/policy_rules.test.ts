@@ -1,9 +1,10 @@
 import _ from 'es-toolkit/compat'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
 import type { MutationCtx } from '../../convex/_generated/server'
-import { ReadingRules, scopedReader, scopedWriter, WritingRules, type ScopeClaimsT } from '../../convex/policy_rules'
+import { libraryWriter, ReadingRules, scopedReader, scopedWriter, WritingRules, type ScopeClaimsT } from '../../convex/policy_rules'
 import { reviewsOf } from '../../convex/reading'
+import * as Actor from '../../src/lib/actor'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
 import { Widgeting } from '../../src/models/widgeting'
@@ -134,7 +135,7 @@ describe("a database scoped to one hunt", () => {
     expect(outcomes).to.deep.eq(['bob_smiths', 'write access not allowed'])
   })
 
-  it("shows the library to anyone on the hunt, and changes it as Approve says a smith of the hunt may", async () => {
+  it("shows the library to anyone on the hunt, and changes it for nobody, a smith included: the library's own mutation does", async () => {
     const { tt, ours, claims } = await twoHunts()
     const carol = await ours.seeded.join('carol_reviews', 'reviewer')
     const reviewer = claimsOf(carol, ours.seeded.open.hunt_id, 'reviewer')
@@ -143,7 +144,45 @@ describe("a database scoped to one hunt", () => {
       const widget = present(await db.query('widgets').first())
       return [widget.label, await outcomeOf(db.patch('widgets', widget._id, { title: 'Renamed' }))]
     })
-    expect([await outcomesFor(claims), await outcomesFor(reviewer)]).to.deep.eq([['dumdum', 'wrote'], ['dumdum', 'write access not allowed']])
+    expect([await outcomesFor(claims), await outcomesFor(reviewer)]).to.deep.eq([['dumdum', 'write access not allowed'], ['dumdum', 'write access not allowed']])
+  })
+})
+
+describe("the library's database", () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it("changes the library's widgets for whoever may change the library, a reviewer of some hunt as much as a smith", async () => {
+    const { tt, ours } = await twoHunts()
+    const carol = await ours.seeded.join('carol_reviews', 'reviewer')
+    const outcomes = await tt.run(async (ctx) => {
+      const db = libraryWriter(ctx.db, carol.actor)
+      const widget = present(await db.query('widgets').first())
+      const wrote = await outcomeOf(db.patch('widgets', widget._id, { title: 'Renamed' }))
+      const after = await db.get('widgets', widget._id)
+      return [wrote, after?.title]
+    })
+    expect(outcomes).to.deep.eq(['wrote', 'Renamed'])
+  })
+
+  it("shows the library, and changes none of it, once `Actor.isAdmin` says nobody is an admin", async () => {
+    const { tt, ours } = await twoHunts()
+    vi.spyOn(Actor, 'isAdmin').mockReturnValue(false)
+    const outcomes = await tt.run(async (ctx) => {
+      const db = libraryWriter(ctx.db, ours.seeded.smith.actor)
+      const widget = present(await db.query('widgets').first())
+      return [widget.label, await outcomeOf(db.patch('widgets', widget._id, { title: 'Renamed' })), await outcomeOf(db.delete('widgets', widget._id))]
+    })
+    expect(outcomes).to.deep.eq(['dumdum', 'write access not allowed', 'write access not allowed'])
+  })
+
+  it("shows nothing of any hunt, and writes nothing there: a row of each table a hunt owns reads as absent", async () => {
+    const { tt, ours } = await twoHunts()
+    const seen = await tt.run(async (ctx) => {
+      const db = libraryWriter(ctx.db, ours.seeded.smith.actor)
+      const rows = await Promise.all(HuntOwnedTablenames.map(async (tablename) => await db.get(tablename, ours.rows[tablename] as never)))
+      return [...rows, await db.get('hunts', ours.rows.hunts), await outcomeOf(db.patch('quizzes', ours.rows.quizzes, { title: 'Forged' }))]
+    })
+    expect(seen).to.deep.eq([...HuntOwnedTablenames.map(() => null), null, 'no read access or doc does not exist'])
   })
 })
 

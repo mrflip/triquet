@@ -15,7 +15,7 @@ import * as UU from '../../lib/useful'
 import { AppNotices } from '../../lib/notices'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
-import type { HuntActionDNA } from '../../models/actions'
+import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
@@ -31,7 +31,8 @@ export type ExportImportPanelProps = {
   offers:    WorkbenchOffersT
   /** The quiz, run: what the sheet's worked-out columns show */
   run:       QuizRun
-  dispatch:  (action: HuntActionDNA) => void
+  /** Carry out a change to the library, from the Library tab's import (`useLibraryActions`) */
+  changeLibrary: (action: LibraryActionDNA) => void
   /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
 }
@@ -42,7 +43,7 @@ export type ExportImportPanelProps = {
  * its own, the quiz's full history, and the league's own import format, with the smith's note in
  * the league's BBCode.
  */
-export function ExportImportPanel({ quiz, hunt, library, offers, run, dispatch, onImport }: Readonly<ExportImportPanelProps>) {
+export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
   const tabs = [
     {
@@ -72,7 +73,7 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, dispatch, 
     {
       label:   'Library',
       blurb:   'The widgets every hunt shares, on their own: copy them out, or paste a library back. Widgets are matched by label; one the library lacks is added, one it holds is revised. Nothing is ever deleted.',
-      content: <LibraryForm library={library} changeable={offers.changeLibrary} dispatch={dispatch} />,
+      content: <LibraryForm library={library} changeable={offers.changeLibrary} dispatch={changeLibrary} />,
     },
     {
       label:   'Full History',

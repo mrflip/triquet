@@ -23,6 +23,7 @@ import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
 import { useAffirms } from './use-affirms'
 import { useIdent } from './use-ident'
+import { holdThePage } from './page-hold'
 import { useSession } from './use-session'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
@@ -161,25 +162,6 @@ export function denialOf(claims: Actor.QuizClaimsT, action: HuntActionDNA): Appr
 
 /** The library before it has arrived: one list, so a render that has none hands on the same one */
 const NoWidgets: readonly WidgetT[] = []
-
-/** How many changes this page is writing */
-const Writing = { count: 0 }
-
-/** Asks before the page is left, which would lose a change still being written */
-function askBeforeLeaving(event: BeforeUnloadEvent): void {
-  event.preventDefault()
-}
-
-/**
- * Hold the page while a change is written, and let it go once none is. Done at once rather than
- * after the next render, because a change is only a moment in the writing and the author may
- * leave in that moment.
- */
-function holdThePage(holding: boolean): void {
-  Writing.count += holding ? 1 : -1
-  if (holding && Writing.count === 1) { addEventListener('beforeunload', askBeforeLeaving) }
-  if (! holding && Writing.count === 0) { removeEventListener('beforeunload', askBeforeLeaving) }
-}
 
 /** A watch on one question of the open quiz, and how to stop listening to it */
 type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: () => void }

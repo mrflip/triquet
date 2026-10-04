@@ -14,7 +14,7 @@ import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
 import type { WidgetingT } from '../models/widgeting'
 import type { QuizT } from '../models/quiz'
 import type { ShallowHuntT } from '../lib/rows'
-import type { HuntActionDNA } from '../models/actions'
+import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type WidgetingsEditorProps = {
@@ -27,6 +27,8 @@ export type WidgetingsEditorProps = {
   /** Whether the library may be written to from here: no door to the widget editor when not */
   changeable:    boolean
   dispatch:      (action: HuntActionDNA) => void
+  /** Carry out a change to the library, from the widget editor (`useLibraryActions`) */
+  changeLibrary: (action: LibraryActionDNA) => void
   onEditLibrary: () => void
 }
 
@@ -38,7 +40,7 @@ type Editing = { kind: 'widgeting', label: string } | { kind: 'new' } | null
  * dragged into a new one by their handles, each with a gear that opens it in the widgeting
  * editor, and a door to put another to work.
  */
-export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, dispatch, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
+export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, dispatch, changeLibrary, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited: WidgetingT | null = editing?.kind === 'widgeting' ? quiz.widgetings.find((each) => each.label === editing.label) ?? null : null
   const close = () => { setEditing(null) }
@@ -68,7 +70,7 @@ export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, d
         <Button size="small" variant="outlined" onClick={onEditLibrary}>Widget library…</Button>
       </Stack>
       {(edited !== null || editing?.kind === 'new') && (
-        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} onClose={close} />
+        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} changeLibrary={changeLibrary} onClose={close} />
       )}
     </Stack>
   )
@@ -92,6 +94,7 @@ type WidgetingDialogProps = {
   /** Whether the library may be written to: no door to the widget editor when not */
   changeable: boolean
   dispatch:  (action: HuntActionDNA) => void
+  changeLibrary: (action: LibraryActionDNA) => void
   onClose:   () => void
 }
 
@@ -108,7 +111,7 @@ type WidgetEditing = 'new' | 'held' | null
  * every quiz that works it. Nothing is applied until Apply. Removing a widgeting asks first; its
  * widget stays in the library.
  */
-function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable, dispatch, onClose }: Readonly<WidgetingDialogProps>) {
+function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable, dispatch, changeLibrary, onClose }: Readonly<WidgetingDialogProps>) {
   const [label, setLabel] = useState(widgeting?.label ?? '')
   const [description, setDescription] = useState(widgeting?.description ?? '')
   const [widgetLabel, setWidgetLabel] = useState(widgeting?.widget_label ?? '')
@@ -180,7 +183,7 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, revisable, changeable
           quiz={quiz}
           widget={widgetEditing === 'held' ? widget : null}
           widgeting={{ label: label || widgetLabel, description }}
-          dispatch={dispatch}
+          dispatch={changeLibrary}
           onClose={() => { setWidgetEditing(null) }}
           onMade={(fresh) => { setMade(fresh); setWidgetLabel(fresh.label); setIssue(null) }}
           onRemoved={(gone) => {

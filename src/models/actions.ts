@@ -30,9 +30,6 @@ export const ContentActionKindVals = [
 export const QuizRevisionKindVals = [...ContentActionKindVals, ...LayoutActionKindVals] as const
 export type QuizRevisionKind = typeof QuizRevisionKindVals[number]
 
-/** The actions that revise the library: the widgets every hunt shares */
-export const LibraryActionKindVals = ['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'] as const
-
 export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, str, zid }) => {
   const huntAffirms = obj({
     ident_id: zid('idents'),
@@ -60,17 +57,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('move_column'),       label, onto_idx: uint }),
   ] as const
 
-  const libraryAction = [
-    obj({ kind: lit('add_widget'),        widget: WidgetValidators.widget }),
-    obj({ kind: lit('edit_widget'),       label, patch: WidgetValidators.widgetPatch }),
-    obj({ kind: lit('delete_widget'),     label }),
-    obj({ kind: lit('move_widget'),       label, onto_idx: uint }),
-    obj({ kind: lit('import_widgets'),    widgets: arr(WidgetValidators.widget).max(PA.WidgetsInLibrary.max).readonly() }),
-  ] as const
-
   const huntAction = discrim('kind', [
     ...layoutAction,
-    ...libraryAction,
     obj({ kind: lit('retitle_quiz'),        title: titleish }),
     obj({ kind: lit('relabel_quiz'),        label }),
     obj({ kind: lit('reversion_quiz'),      version: label }),
@@ -100,7 +88,16 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('relabel_hunt'),        label }),
     obj({ kind: lit('delete_hunt') }),
   ])
-    .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, to the library of widgets, and to who is on the hunt.')
+    .describe('Everything the author can do from inside a quiz: to it, to its realm\'s quizzes, and to who is on the hunt.')
+
+  const libraryAction = discrim('kind', [
+    obj({ kind: lit('add_widget'),        widget: WidgetValidators.widget }),
+    obj({ kind: lit('edit_widget'),       label, patch: WidgetValidators.widgetPatch }),
+    obj({ kind: lit('delete_widget'),     label }),
+    obj({ kind: lit('move_widget'),       label, onto_idx: uint }),
+    obj({ kind: lit('import_widgets'),    widgets: arr(WidgetValidators.widget).max(PA.WidgetsInLibrary.max).readonly() }),
+  ])
+    .describe('What an admin can do to the library of widgets every hunt shares, from anywhere: no hunt or quiz need be open.')
 
   const accountAction = discrim('kind', [
     obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: str }),
@@ -111,7 +108,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
   ])
     .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle or relabel one they smith.')
 
-  return { huntAffirms, quizAffirms, affirms, huntAction, accountAction }
+  return { huntAffirms, quizAffirms, affirms, huntAction, libraryAction, accountAction }
 })
 
 /** What a browser says of itself on a hunt, as it sends it */
@@ -132,8 +129,10 @@ export type HuntActionDNA = Z.input<typeof ActionValidators.huntAction>
 export type HuntActionT   = Z.output<typeof ActionValidators.huntAction>
 /** What the author did to a quiz's widgetings or columns, validated */
 export type LayoutActionT = Extract<HuntActionT, { kind: typeof LayoutActionKindVals[number] }>
-/** What the author did to the library, validated */
-export type LibraryActionT = Extract<HuntActionT, { kind: typeof LibraryActionKindVals[number] }>
+/** What an admin did to the library, as a view says it */
+export type LibraryActionDNA = Z.input<typeof ActionValidators.libraryAction>
+/** What an admin did to the library, validated */
+export type LibraryActionT = Z.output<typeof ActionValidators.libraryAction>
 /** What a visitor did before opening any quiz, as a view says it */
 export type AccountActionDNA = Z.input<typeof ActionValidators.accountAction>
 /** What a visitor did before opening any quiz, validated */
@@ -144,7 +143,3 @@ export function isLayoutAction(action: HuntActionT): action is LayoutActionT {
   return (LayoutActionKindVals as readonly string[]).includes(action.kind)
 }
 
-/** Whether `action` is one that revises the library */
-export function isLibraryAction(action: HuntActionT): action is LibraryActionT {
-  return (LibraryActionKindVals as readonly string[]).includes(action.kind)
-}

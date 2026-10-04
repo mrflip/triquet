@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import type { Id } from '../../convex/_generated/dataModel'
-import { ActionValidators, isLayoutAction, isLibraryAction, LayoutActionKindVals, LibraryActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
+import { ActionValidators, isLayoutAction, LayoutActionKindVals, type HuntActionDNA, type AccountActionT, type LibraryActionDNA } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
@@ -27,11 +27,6 @@ const Actions: HuntActionDNA[] = [
   { kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },
   { kind: 'delete_column', label: 'qnum' },
   { kind: 'move_column', label: 'qnum', onto_idx: 1 },
-  { kind: 'add_widget', widget: Shout },
-  { kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },
-  { kind: 'delete_widget', label: 'shout' },
-  { kind: 'move_widget', label: 'shout', onto_idx: 2 },
-  { kind: 'import_widgets', widgets: [Shout, { label: 'ask_it', formulary: 'aibot', formula: '{{clueing}}?', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 64 } }] },
   { kind: 'retitle_quiz', title: 'Princes' },
   { kind: 'relabel_quiz', label: 'princes' },
   { kind: 'reversion_quiz', version: 'playtest' },
@@ -58,6 +53,15 @@ const Actions: HuntActionDNA[] = [
   { kind: 'peek_answer', quiz_id, question_id },
 ]
 
+/** One of each action on the library, as a view would say it */
+const LibraryActions: LibraryActionDNA[] = [
+  { kind: 'add_widget', widget: Shout },
+  { kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },
+  { kind: 'delete_widget', label: 'shout' },
+  { kind: 'move_widget', label: 'shout', onto_idx: 2 },
+  { kind: 'import_widgets', widgets: [Shout, { label: 'ask_it', formulary: 'aibot', formula: '{{clueing}}?', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 64 } }] },
+]
+
 describe('ActionValidators.huntAction', () => {
   it('takes every action a view can say, each of its own kind', () => {
     expect(Actions.map((action) => ActionValidators.huntAction(action).kind)).to.deep.eq(Actions.map((action) => action.kind))
@@ -68,11 +72,10 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'retitle_quiz' },                                              'an action missing what it carries'],
     [{ kind: 'relabel_quiz', label: 'Not A Label' },                        'a label that is not one'],
     [{ kind: 'move_question', question_id: 'nobody', onto_idx: 0 },         'a question that is not a row id'],
-    [{ kind: 'move_widget', label: 'dumdum', onto_idx: -1 },                'a place before the first'],
     [{ kind: 'record_widgeted', widgeted: { ...Answered, message: 'No.' } }, 'an ok widgeted carrying a failure'],
     [{ kind: 'record_widgeted', widgeted: { ...Answered, status: 'missing' } }, 'a missing widgeted, which is never recorded'],
     [{ kind: 'add_widgeting', widgeting: { widget_label: 'notes', label: 'notes' } }, 'a widgeting under a label the questions already use'],
-    [{ kind: 'add_widget', widget: { ...Shout, formulary: 'entry' } },      'a widget of a formulary there is not yet'],
+    [{ kind: 'add_widget', widget: Shout },                                 "an action on the library, which is the library's own"],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
     [{ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 101 } }, 'a get rate past certain'],
     [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }, { label: 'leon', patch: {} }] }, 'an import naming one label twice'],
@@ -83,12 +86,6 @@ describe('ActionValidators.huntAction', () => {
     })
   }
 
-  it("takes either formulary's settings in a widget's patch, for the widget's own formulary to judge", () => {
-    const action = ActionValidators.huntAction({ kind: 'edit_widget', label: 'dumdum', patch: { config: { servicelabel: 'claude', model_tier: 'careful', max_tokens: 500 } } })
-    expect(action).to.deep.include({ patch: { config: { servicelabel: 'claude', model_tier: 'careful', max_tokens: 500 } } })
-    expect(ActionValidators.huntAction({ kind: 'edit_widget', label: 'shout', patch: { config: {} } })).to.deep.include({ patch: { config: {} } })
-  })
-
   it("defaults a recorded widgeted's message and result_meta", () => {
     const action = ActionValidators.huntAction({ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 3 } })
     expect(action).to.deep.include({ widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 3, message: null, result_meta: {} } })
@@ -96,6 +93,33 @@ describe('ActionValidators.huntAction', () => {
 
   it('crosses to Convex as a validator of its own', () => {
     expect(zodToConvex(ActionValidators.huntAction as Z.ZodType).kind).to.eq('union')
+  })
+})
+
+describe('ActionValidators.libraryAction', () => {
+  it('takes every action on the library a view can say, each of its own kind', () => {
+    expect(LibraryActions.map((action) => ActionValidators.libraryAction(action).kind)).to.deep.eq(LibraryActions.map((action) => action.kind))
+  })
+
+  const Refused: [unknown, string][] = [
+    [{ kind: 'move_widget', label: 'dumdum', onto_idx: -1 },           'a place before the first'],
+    [{ kind: 'add_widget', widget: { ...Shout, formulary: 'entry' } }, 'a widget of a formulary there is not yet'],
+    [{ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } }, "an action on a quiz, which is the quiz's own"],
+  ]
+  for (const [dna, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => ActionValidators.libraryAction(dna as never)).to.throw(Z.ZodError)
+    })
+  }
+
+  it("takes either formulary's settings in a widget's patch, for the widget's own formulary to judge", () => {
+    const action = ActionValidators.libraryAction({ kind: 'edit_widget', label: 'dumdum', patch: { config: { servicelabel: 'claude', model_tier: 'careful', max_tokens: 500 } } })
+    expect(action).to.deep.include({ patch: { config: { servicelabel: 'claude', model_tier: 'careful', max_tokens: 500 } } })
+    expect(ActionValidators.libraryAction({ kind: 'edit_widget', label: 'shout', patch: { config: {} } })).to.deep.include({ patch: { config: {} } })
+  })
+
+  it('crosses to Convex as a validator of its own', () => {
+    expect(zodToConvex(ActionValidators.libraryAction as Z.ZodType).kind).to.eq('union')
   })
 })
 
@@ -131,9 +155,3 @@ describe('isLayoutAction', () => {
   })
 })
 
-describe('isLibraryAction', () => {
-  it("picks out exactly the actions on the library's widgets", () => {
-    const library = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLibraryAction(action)).map((action) => action.kind)
-    expect([...new Set(library)]).to.deep.eq([...LibraryActionKindVals])
-  })
-})

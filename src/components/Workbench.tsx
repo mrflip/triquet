@@ -18,6 +18,7 @@ import * as QuizMirror from '../state/quiz-mirror'
 import type * as Actor from '../lib/actor'
 import { useAsking, type AskedStep } from '../state/use-asking'
 import { useBots } from '../state/use-bots'
+import { useLibraryActions } from '../state/use-library-actions'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
@@ -55,6 +56,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const router = useRouter()
   const { asking, ask } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
+  const librarian = useLibraryActions()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
@@ -101,7 +103,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   }
 
   return (
-    <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved}>
+    <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved || librarian.unsaved}>
       <QuizSwitcher
         quizzes={realm.quizzes}
         openQuiz={quiz}
@@ -145,6 +147,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           library={library}
           offers={offers}
           dispatch={dispatch}
+          changeLibrary={librarian.dispatch}
           onOpen={goTo}
           onEditLibrary={() => { setEditingLibrary(true) }}
           onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}
@@ -177,7 +180,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           library={library}
           quiz={quiz}
           changeable={offers.changeLibrary}
-          dispatch={dispatch}
+          dispatch={librarian.dispatch}
         />
       )}
       {doomed.length > 0 && (
@@ -249,7 +252,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         run={run}
         carryOut={carryOut}
         saveNotice={saveNotice}
-        dispatch={dispatch}
+        changeLibrary={librarian.dispatch}
         onImport={(questions, widgetingActions) => {
           void QuizMirror.markedChange(quiz, 'import', () => {
             for (const action of widgetingActions) { dispatch(action) }

@@ -10,7 +10,7 @@ import type { WorkbenchOffersT } from './offers'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
-import type { HuntActionDNA } from '../models/actions'
+import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
@@ -28,6 +28,8 @@ export type QuizManageModalProps = {
   /** What the screen offers whoever is working: the quiz's own label, version and layout are left as they are where it is not revisable */
   offers:    WorkbenchOffersT
   dispatch:  (action: HuntActionDNA) => void
+  /** Carry out a change to the library, from the widgeting editor's door to the widget editor (`useLibraryActions`) */
+  changeLibrary: (action: LibraryActionDNA) => void
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the library for editing */
@@ -47,7 +49,7 @@ export type QuizManageModalProps = {
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, and, fenced
  * off at the foot, deleting the quiz -- or, when it is the hunt's last, the quiz and its hunt.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(quiz.label)
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -149,7 +151,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           <section>
             <Typography variant="h6" component="h3">Widgetings</Typography>
             <p className={styles.microcopy}>The widgets of the library this quiz puts to work, in run order: each one reads what those above it came to. A column shows a widgeting.</p>
-            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} onEditLibrary={onEditLibrary} />
+            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
           </section>
 
           <section>

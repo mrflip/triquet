@@ -19,7 +19,7 @@ import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
-import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seen, type Session, type Tester } from '../support/convex'
+import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
 
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
@@ -71,12 +71,10 @@ function failed(question_id: string, widgeting_label: string, err: { message: st
   return recorded(question_id, { widgeting_label, status: 'errored', value: null, message: err.message, result_meta: { response: err.response } })
 }
 
-/** The actions that put an entry widget of `entry_kind` into the library, labelled `label`, and to work in the open quiz under the same label */
-function entryActions(label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): HuntActionDNA[] {
-  return [
-    { kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } },
-    { kind: 'add_widgeting', widgeting: { widget_label: label, label } },
-  ]
+/** Put an entry widget of `entry_kind` into the library, labelled `label`, and to work in `seeded`'s open quiz under the same label */
+async function putEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): Promise<void> {
+  await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } })
+  await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label } })
 }
 
 /** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
@@ -158,7 +156,8 @@ describe("hunts.perform", () => {
   /** A seeded hunt of two questions whose open quiz works the entry widgets `remark` (text) and `points` (a number), and its two questions' ids */
   const withEntries = async () => {
     const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
-    for (const action of [...entryActions('remark'), ...entryActions('points', 'number')]) { await seeded.act(action) }
+    await putEntryToWork(seeded, 'remark')
+    await putEntryToWork(seeded, 'points', 'number')
     const [first, second] = questionIdsOf(await seeded.read())
     return { ...seeded, id: present(first), second: present(second) }
   }
@@ -771,9 +770,9 @@ describe("hunts.perform", () => {
     })
 
     it("leaves the library as it was, even one lacking every widget a classic quiz works", async () => {
-      const { act, read } = await seed(openHunt())
-      await act({ kind: 'delete_widget', label: 'hint_full' })
-      await act({ kind: 'delete_widget', label: 'dumdum' })
+      const { act, actOnLibrary, read } = await seed(openHunt())
+      await actOnLibrary({ kind: 'delete_widget', label: 'hint_full' })
+      await actOnLibrary({ kind: 'delete_widget', label: 'dumdum' })
       const ante = await read()
       await act({ kind: 'new_quiz' })
       const { library } = await read()
@@ -1208,8 +1207,9 @@ describe("hunts.perform", () => {
 
   describe("import_questions", () => {
     it("types what each question carries into its entry cells: into a question held and one added, and empties one for null", async () => {
-      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
-      for (const action of entryActions('remark')) { await act(action) }
+      const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const { tt, act, read } = seeded
+      await putEntryToWork(seeded, 'remark')
       const [aa, bb] = openOf(await read()).questions
       await act(entering(present(bb)._id, 'remark', 'Was here.'))
       await act({ kind: 'import_questions', questions: [
@@ -1229,8 +1229,9 @@ describe("hunts.perform", () => {
     })
 
     it("refuses, writing nothing, a value not of its entry's kind", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a']))
-      for (const action of entryActions('points', 'number')) { await act(action) }
+      const seeded = await seed(huntOf(['1', 'a']))
+      const { act, read } = seeded
+      await putEntryToWork(seeded, 'points', 'number')
       const ante = await read()
       await refusalOf(act({ kind: 'import_questions', questions: [{ label: firstOf(ante).label, patch: { clueing: 'Imported' }, entered: { points: 'three' } }] }))
       expect(await read()).to.deep.eq(ante)
@@ -1349,7 +1350,7 @@ describe("hunts.perform, at the caps", () => {
   })
 
   it("refuses a widget more than the library may hold", async () => {
-    const { act, tt, read } = await seedHunt(openTester(), openHunt())
+    const { actOnLibrary, tt, read } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => {
       const held = await ctx.db.query('widgets').collect()
       const positions = Array.from({ length: PA.WidgetsInLibrary.max - held.length }, (_unused, idx) => idx + held.length)
@@ -1357,7 +1358,7 @@ describe("hunts.perform, at the caps", () => {
         await ctx.db.insert('widgets', { scope: 'pub', label: `widget_${String(position)}`, title: '', description: '', formulary: 'jsonata', formula: '1', input_formula: '$', config: {}, position })
       }
     })
-    await expectRefusal(act({ kind: 'add_widget', widget: { label: 'one_more', formulary: 'jsonata', formula: '2' } }), 'libraryFull')
+    await expectRefusal(actOnLibrary({ kind: 'add_widget', widget: { label: 'one_more', formulary: 'jsonata', formula: '2' } }), 'libraryFull')
     const { library } = await read()
     expect(library).to.have.lengthOf(PA.WidgetsInLibrary.max)
   })
@@ -1398,8 +1399,8 @@ describe("hunts.perform, refusing", () => {
   })
 
   it("refuses a row its validator will not take, saying where and why", async () => {
-    const { act } = await seedHunt(openTester(), huntOf(['1', 'a']))
-    const err = await refusalOf(act({ kind: 'edit_widget', label: 'dumdum', patch: { config: {} } }))
+    const { actOnLibrary } = await seedHunt(openTester(), huntOf(['1', 'a']))
+    const err = await refusalOf(actOnLibrary({ kind: 'edit_widget', label: 'dumdum', patch: { config: {} } }))
     expect(noticeOf(err)).to.include('config.model_tier «undefined» should be one of quick or careful')
   })
 })

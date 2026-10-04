@@ -22,19 +22,23 @@ import type { ClaimsOf } from './authorize'
 //
 // Two facts a write must know span every hunt, and so are not asked through this database: whose
 // a hunt label is, and whether a widget is worked anywhere (`CensusT` in `reading.ts`).
+//
+// The library belongs to no hunt, and a hunt's function never writes it. Its own mutation
+// (`widgets.perform`, built by `zLibraryMutation`) holds a database held to `LibraryRules`: the
+// library's widgets, and nothing of any hunt.
 
 /** What a scoped database is scoped by: the checked claims of an actor on one hunt, and for a read of a quiz's reviews, their own review of it (null when they have none) */
 export type ScopeClaimsT = ClaimsOf<HuntAffirmsT> & { own_review?: Doc<'reviews'> | null }
 
-/** One table's rule: whether the claims may see a row, change or delete it, and insert one */
-type TableRuleT<TN extends TableNames> = {
-  read:   (claims: ScopeClaimsT, row: Doc<TN>) => boolean
-  modify: (claims: ScopeClaimsT, row: Doc<TN>) => boolean
-  insert: (claims: ScopeClaimsT, row: WithoutSystemFields<Doc<TN>>) => boolean
+/** One table's rule: whether the claims `CT` may see a row, change or delete it, and insert one */
+type TableRuleT<TN extends TableNames, CT> = {
+  read:   (claims: CT, row: Doc<TN>) => boolean
+  modify: (claims: CT, row: Doc<TN>) => boolean
+  insert: (claims: CT, row: WithoutSystemFields<Doc<TN>>) => boolean
 }
 
-/** A rule for every table a scoped database reaches; a table left out is not reachable */
-type TableRulesT = { [TN in TableNames]?: TableRuleT<TN> }
+/** A rule for every table a scoped database reaches, by the claims `CT` it is scoped by; a table left out is not reachable */
+type TableRulesT<CT = ScopeClaimsT> = { [TN in TableNames]?: TableRuleT<TN, CT> }
 
 /** A row of the claims' hunt: one that carries the hunt it belongs to, and it is theirs */
 function isOfHunt(claims: ScopeClaimsT, row: { hunt_id?: Id<'hunts'> }): boolean {
@@ -79,14 +83,14 @@ function mayShowReview(claims: ScopeClaimsT, review: Doc<'reviews'>): boolean {
   return Approve.may('read_review', review, claims, ownReview)
 }
 
-/** Whether the claims may see the library's widgets (`Approve.mayReadLibrary`) */
-function mayReadLibrary(claims: ScopeClaimsT): boolean {
-  return Approve.may('read_library', claims)
+/** Whether the actor (or the claims, which carry one) may see the library's widgets (`Approve.mayReadLibrary`) */
+function mayReadLibrary(actor: Actor.ActorT): boolean {
+  return Approve.may('read_library', actor)
 }
 
-/** Whether the claims may change the library's widgets (`Approve`'s `change_library`) */
-function mayChangeLibrary(claims: ScopeClaimsT): boolean {
-  return Approve.may('change_library', claims)
+/** Whether the actor may change the library's widgets (`Approve.mayChangeLibrary`) */
+function mayChangeLibrary(actor: Actor.ActorT): boolean {
+  return Approve.may('change_library', actor)
 }
 
 /** Every row of the claims' hunt, and no other: to see, change, delete or insert */
@@ -100,8 +104,8 @@ const HuntOwned = { read: isOfHunt, modify: isOfHunt, insert: isOfHunt } as cons
  * * `hunts` -- its own hunt's row; none is made here (a hunt is made from the hunts list).
  * * The tables a hunt owns -- each row of the hunt, by the hunt it carries.
  * * `reviews`, `reviewings` -- seen across the hunt; written by their writer, or deleted by a smith.
- * * `widgets` -- the library every hunt shares: seen by anyone with a username, changed as
- *   `Approve` says the library is.
+ * * `widgets` -- the library every hunt shares: seen by anyone with a username, never written.
+ *   Changing it is an admin's act, on a mutation of its own (`LibraryRules`).
  * * `idents` -- a public persona, its label and title shown to whoever shares a hunt with it, and
  *   named by a smith adding a member: seen, never written (retitling is the ident's own).
  */
@@ -116,7 +120,7 @@ export const WritingRules = {
   huntings:   HuntOwned,
   reviews:    { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },
   reviewings: { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },
-  widgets:    { read: mayReadLibrary, modify: mayChangeLibrary, insert: mayChangeLibrary },
+  widgets:    { read: mayReadLibrary, modify: never, insert: never },
   idents:     { read: always, modify: never, insert: never },
 } as const satisfies TableRulesT
 
@@ -130,21 +134,31 @@ export const ReadingRules = {
   reviews: { ...WritingRules.reviews, read: mayShowReview },
 } as const satisfies TableRulesT
 
+/**
+ * What the library's mutation may touch, scoped by the actor alone: the library's widgets, seen by
+ * anyone with a username and changed by whoever may change the library (`Approve.mayChangeLibrary`).
+ * Nothing of any hunt: whether a widget is worked anywhere is the census's to say.
+ */
+export const LibraryRules = {
+  widgets: { read: mayReadLibrary, modify: mayChangeLibrary, insert: mayChangeLibrary },
+} as const satisfies TableRulesT<Actor.ActorT>
+
 /** Tables with no rule are not reachable through a scoped database */
 const Unlisted: RLSConfig = { defaultPolicy: 'deny' }
 
 /** `rules` as convex-helpers asks for them: each check answered as a promise */
-function asHelperRules(rules: TableRulesT): Rules<ScopeClaimsT, DataModel> {
+function asHelperRules<CT>(rules: TableRulesT<CT>): Rules<CT, DataModel> {
   // Each rule keeps its table's row type; the map over tables cannot say so.
   return _.mapValues(rules, (rule) => rule && ({
-    read:   (claims: ScopeClaimsT, row: never) => Promise.resolve(rule.read(claims, row)),
-    modify: (claims: ScopeClaimsT, row: never) => Promise.resolve(rule.modify(claims, row)),
-    insert: (claims: ScopeClaimsT, row: never) => Promise.resolve(rule.insert(claims, row)),
-  })) as Rules<ScopeClaimsT, DataModel>
+    read:   (claims: CT, row: never) => Promise.resolve(rule.read(claims, row)),
+    modify: (claims: CT, row: never) => Promise.resolve(rule.modify(claims, row)),
+    insert: (claims: CT, row: never) => Promise.resolve(rule.insert(claims, row)),
+  })) as Rules<CT, DataModel>
 }
 
 const HelperReadingRules = asHelperRules(ReadingRules)
 const HelperWritingRules = asHelperRules(WritingRules)
+const HelperLibraryRules = asHelperRules<Actor.ActorT>(LibraryRules)
 
 /**
  * `db` as a hunt's query holds it: seeing only what `ReadingRules` let `claims` see.
@@ -169,4 +183,18 @@ export function scopedReader(db: QueryCtx['db'], claims: ScopeClaimsT): QueryCtx
  */
 export function scopedWriter(db: MutationCtx['db'], claims: ScopeClaimsT): MutationCtx['db'] {
   return wrapDatabaseWriter(claims, db, HelperWritingRules, Unlisted)
+}
+
+/**
+ * `db` as the library's mutation holds it: seeing and writing the library's widgets as
+ * `LibraryRules` let `actor`, and nothing else: a row of any hunt reads as absent, and a write it
+ * may not make throws.
+ *
+ * @param db - The mutation's own database.
+ * @param actor - Who is acting, once the policy of their action has let them.
+ *
+ * @example await libraryWriter(ctx.db, ctx.actor).get('quizzes', quiz_id)  // => null: no hunt's rows are reachable
+ */
+export function libraryWriter(db: MutationCtx['db'], actor: Actor.ActorT): MutationCtx['db'] {
+  return wrapDatabaseWriter(actor, db, HelperLibraryRules, Unlisted)
 }

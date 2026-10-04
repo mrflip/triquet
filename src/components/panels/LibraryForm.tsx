@@ -8,7 +8,7 @@ import * as Exporting from '../../lib/exporting'
 import * as Importing from '../../lib/importing'
 import * as UU from '../../lib/useful'
 import type { LibraryLogEntry } from '../../lib/importing'
-import type { HuntActionDNA } from '../../models/actions'
+import type { LibraryActionDNA } from '../../models/actions'
 import type { WidgetT } from '../../models/widget'
 import styles from '../workbench.module.css'
 
@@ -17,7 +17,8 @@ export type LibraryFormProps = {
   library:    readonly WidgetT[]
   /** Whether the library may be written to here (`change_library`): only copied out, when not */
   changeable: boolean
-  dispatch:   (action: HuntActionDNA) => void
+  /** Carry out a change to the library (`useLibraryActions`) */
+  dispatch:   (action: LibraryActionDNA) => void
 }
 
 /**

@@ -8,7 +8,7 @@ import { FormularyWords } from './widget-words'
 import { Widget, type WidgetT } from '../models/widget'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import type { HuntActionDNA } from '../models/actions'
+import type { LibraryActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type LibraryModalProps = {
@@ -20,7 +20,8 @@ export type LibraryModalProps = {
   quiz:      QuizT
   /** Whether the library may be written to here (`change_library`): listed to read, with no editor, when not */
   changeable: boolean
-  dispatch:  (action: HuntActionDNA) => void
+  /** Carry out a change to the library (`useLibraryActions`) */
+  dispatch:  (action: LibraryActionDNA) => void
 }
 
 /** Which widget's editor is open: one of the library's, by its label, or a new one */

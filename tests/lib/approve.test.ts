@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import * as Approve from '../../src/lib/approve'
 import { AuthorizationError } from '../../src/lib/errors'
 import { RefusalNotices } from '../../src/lib/notices'
-import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT } from '../../src/models/actions'
+import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT } from '../../src/models/actions'
 import type { ReviewPhase, ReviewRowT } from '../../src/models/review'
 
 /** Whatever `attempt` throws, or null when it does not */
@@ -174,18 +174,36 @@ describe('Approve.mayReadLibrary', () => {
   })
 })
 
+/** Nobody is an admin, as `Actor.isAdmin` would say once it is given a real rule */
+function nobodyIsAdmin(): void {
+  vi.spyOn(Actor, 'isAdmin').mockReturnValue(false)
+}
+
+describe('Approve.mayChangeLibrary', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('nobody who has asserted no username', () => {
+    expect(Approve.mayChangeLibrary(Actor.anonymous)).to.eq('notIdentified')
+  })
+
+  it('an admin: anyone who has, while `Actor.isAdmin` approves everyone', () => {
+    expect(Approve.mayChangeLibrary(Alice)).to.eq('allow')
+  })
+
+  it('nobody else: one `Actor.isAdmin` says is no admin', () => {
+    nobodyIsAdmin()
+    expect(Approve.mayChangeLibrary(Alice)).to.eq('notPermitted')
+  })
+})
+
 describe('Approve.mayCountUsage', () => {
-  const Cases: [Actor.ActorT, { role: 'smith' | 'reviewer' }[], Approve.VerdictT, string][] = [
-    [Actor.anonymous, [],                                       'notIdentified', 'nobody who has asserted no username'],
-    [Alice,           [{ role: 'reviewer' }, { role: 'smith' }], 'allow',         'a smith of any hunt'],
-    [Alice,           [{ role: 'reviewer' }],                    'notPermitted',  'nobody else: a reviewer only'],
-    [Alice,           [],                                        'notPermitted',  'nobody else: on no hunt'],
-  ]
-  for (const [actor, huntings, expected, describes] of Cases) {
-    it(describes, () => {
-      expect(Approve.mayCountUsage(actor, huntings)).to.eq(expected)
-    })
-  }
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('whoever may change the library', () => {
+    const verdicts = [Approve.mayCountUsage(Actor.anonymous), Approve.mayCountUsage(Alice)]
+    nobodyIsAdmin()
+    expect([...verdicts, Approve.mayCountUsage(Alice)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
+  })
 })
 
 describe('Approve.mayAssertUsername', () => {
@@ -226,8 +244,8 @@ describe('Approve.mayAskAnthropicBot', () => {
 
 // --- The matrix: every action kind, as each standing, through the dispatcher
 
-type ActionT = HuntActionT | AccountActionT
-type ActionDNA = HuntActionDNA | AccountActionDNA
+type ActionT = HuntActionT | LibraryActionT | AccountActionT
+type ActionDNA = HuntActionDNA | LibraryActionDNA | AccountActionDNA
 type ActionKind = ActionT['kind']
 
 /** An account action that names no hunt, and so is no hunt action's kind too */
@@ -236,14 +254,23 @@ type HuntlessDNA = Extract<AccountActionDNA, { kind: 'assume_ident' | 'retitle_i
 /** The kinds of account action that name no hunt */
 const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_ident', 'retitle_ident', 'new_hunt'])
 
+/** The kinds of action on the library */
+const LibraryKinds: ReadonlySet<string> = new Set<LibraryActionDNA['kind']>(['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'])
+
 /** Whether `dna` is an account action that names no hunt */
 function isHuntless(dna: ActionDNA): dna is HuntlessDNA {
   return HuntlessKinds.has(dna.kind)
 }
 
+/** Whether `dna` is an action on the library */
+function isOnLibrary(dna: ActionDNA): dna is LibraryActionDNA {
+  return LibraryKinds.has(dna.kind)
+}
+
 /** `dna` validated, as the server holds an action */
-function actionOf(dna: HuntActionDNA | HuntlessDNA): ActionT {
+function actionOf(dna: HuntActionDNA | LibraryActionDNA | HuntlessDNA): ActionT {
   if (isHuntless(dna)) { return ActionValidators.accountAction(dna) }
+  if (isOnLibrary(dna)) { return ActionValidators.libraryAction(dna) }
   return ActionValidators.huntAction(dna)
 }
 
@@ -268,12 +295,12 @@ const Matrix = {
   edit_column:         [{ kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },                                             Revisers],
   delete_column:       [{ kind: 'delete_column', label: 'qnum' },                                                                    Revisers],
   move_column:         [{ kind: 'move_column', label: 'qnum', onto_idx: 1 },                                                         Revisers],
-  // library:
-  add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } },  Smiths],
-  edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },                         Smiths],
-  delete_widget:       [{ kind: 'delete_widget', label: 'shout' },                                                                   Smiths],
-  move_widget:         [{ kind: 'move_widget', label: 'shout', onto_idx: 2 },                                                        Smiths],
-  import_widgets:      [{ kind: 'import_widgets', widgets: [] },                                                                     Smiths],
+  // library, an admin's, of the actor alone (every ident, while `Actor.isAdmin` approves everyone):
+  add_widget:          [{ kind: 'add_widget', widget: { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } },  Idents],
+  edit_widget:         [{ kind: 'edit_widget', label: 'shout', patch: { formula: '$lowercase(qn.title)' } },                         Idents],
+  delete_widget:       [{ kind: 'delete_widget', label: 'shout' },                                                                   Idents],
+  move_widget:         [{ kind: 'move_widget', label: 'shout', onto_idx: 2 },                                                        Idents],
+  import_widgets:      [{ kind: 'import_widgets', widgets: [] },                                                                     Idents],
   // content:
   retitle_quiz:        [{ kind: 'retitle_quiz', title: 'Princes' },                                                                  Revisers],
   relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Revisers],
@@ -310,7 +337,7 @@ const Matrix = {
   assume_ident:        [{ kind: 'assume_ident', label: 'alice_smiths', title: 'Alice' },                                             Anyone],
   retitle_ident:       [{ kind: 'retitle_ident', title: 'Alice' },                                                                   Idents],
   new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
-} as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | HuntlessDNA, { kind: KK }>, VerdictRowT] }
+} as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA, { kind: KK }>, VerdictRowT] }
 
 describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
   for (const [kind, [dna, expected]] of Object.entries(Matrix)) {
@@ -329,6 +356,33 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
   it('asks every action that revises the quiz on screen of its lock, and no other', () => {
     const revising = Object.entries(Matrix).filter(([, [, expected]]) => expected === Revisers).map(([kind]) => kind)
     expect(revising.toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(QuizRevisionKindVals.toSorted((aa, bb) => aa.localeCompare(bb)))
+  })
+
+  describe('once nobody is an admin', () => {
+    afterEach(() => { vi.restoreAllMocks() })
+
+    //                             smith           reviewer        stranger        anonymous        smith, quiz locked
+    const Nobody: VerdictRowT = ['notPermitted', 'notPermitted', 'notPermitted', 'notIdentified', 'notPermitted']
+
+    it('refuses every library action, and changing or counting the library by name, to every ident, smith or not', () => {
+      nobodyIsAdmin()
+      const kinds = Object.keys(Matrix).filter((kind) => LibraryKinds.has(kind))
+      const verdicts = kinds.map((kind) => {
+        const action = actionOf(Matrix[kind as keyof typeof Matrix][0])
+        return ColumnVals.map((column) => Approve.verdictOn(action.kind, ClaimsAs[column], action))
+      })
+      const named = (['change_library', 'count_usage'] as const).map((key) => ColumnVals.map((column) => Approve.verdictOn(key, ClaimsAs[column])))
+      expect([...verdicts, ...named]).to.deep.eq([...kinds, 'change_library', 'count_usage'].map(() => Nobody))
+    })
+
+    it('leaves every other action as it was', () => {
+      const others = Object.entries(Matrix).filter(([kind]) => ! LibraryKinds.has(kind))
+      nobodyIsAdmin()
+      for (const [, [dna, expected]] of others) {
+        const action = actionOf(dna)
+        expect(ColumnVals.map((column) => Approve.verdictOn(action.kind, ClaimsAs[column], action))).to.deep.eq(expected)
+      }
+    })
   })
 
   it('asks a hunt-naming account action as the hunt action of its kind', () => {
@@ -355,7 +409,7 @@ describe('Approve.verdictOn', () => {
       Approve.verdictOn('export_hunt', ClaimsAs.reviewer),
       Approve.verdictOn('read_review', reviewBy(bob_id, 'shared'), ClaimsAs.smith, null),
       Approve.verdictOn('read_library', Actor.anonymous),
-      Approve.verdictOn('count_usage', Alice, [{ role: 'smith' }]),
+      Approve.verdictOn('count_usage', Alice),
       Approve.verdictOn('ask_anthropic_bot', 'allow'),
     ]).to.deep.eq(['allow', 'notPermitted', 'allow', 'notIdentified', 'allow', 'allow'])
   })

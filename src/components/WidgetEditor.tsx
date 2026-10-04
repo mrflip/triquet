@@ -14,7 +14,7 @@ import { FormularykindVals, type Formularykind, type WidgetT } from '../models/w
 import type { AdviceSubject } from '../lib/formulary/formularies'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import type { HuntActionDNA } from '../models/actions'
+import type { LibraryActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type WidgetEditorProps = {
@@ -27,7 +27,8 @@ export type WidgetEditorProps = {
   widget:     WidgetT | null
   /** The widgeting it is being written for, when it is opened from one: what the preview and the advice are told */
   widgeting?: AdviceSubject | null
-  dispatch:   (action: HuntActionDNA) => void
+  /** Carry out a change to the library (`useLibraryActions`) */
+  dispatch:   (action: LibraryActionDNA) => void
   onClose:    () => void
   /** Told of a new widget once it has been sent to the library */
   onMade?:    (widget: WidgetT) => void
@@ -44,6 +45,9 @@ export type WidgetEditorProps = {
  * put to work, in every hunt, and cannot be removed while anything works it. An edit here changes
  * every quiz that works the widget, which is why the widgetings that put it to work are edited
  * elsewhere. Nothing is applied until Apply.
+ *
+ * It has no read-only mode: it is opened only by whoever may change the library
+ * (`change_library`), and its doors are not shown to anyone else.
  */
 export function WidgetEditor({ widget, ...rest }: Readonly<WidgetEditorProps>) {
   return widget === null ? <NewWidgetEditor {...rest} /> : <HeldWidgetEditor widget={widget} {...rest} />

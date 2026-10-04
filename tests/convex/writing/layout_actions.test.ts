@@ -368,8 +368,8 @@ describe("sort_questions by a column that shows a jsonata widgeting", () => {
 
   it("works the formula out with the hunt and the realm the quiz sits in, as the grid does", async () => {
     const hunt = standardWith(['x', 'Home', 'Lakeside'].map((full_answer) => ({ ...Question.blank(), full_answer })))
-    const { act, read } = await seed({ ...hunt, title: 'Lakeside' })
-    await act({ kind: 'add_widget', widget: { label: 'placed', formulary: 'jsonata', formula: 'qn.full_answer = hunt.title ? 0 : qn.full_answer = realm.title ? 1 : 2' } })
+    const { act, actOnLibrary, read } = await seed({ ...hunt, title: 'Lakeside' })
+    await actOnLibrary({ kind: 'add_widget', widget: { label: 'placed', formulary: 'jsonata', formula: 'qn.full_answer = hunt.title ? 0 : qn.full_answer = realm.title ? 1 : 2' } })
     await act({ kind: 'add_widgeting', widgeting: { widget_label: 'placed', label: 'placed' } })
     await act({ kind: 'add_column', column: { label: 'placed', title: 'Placed', source: 'placed', width_px: 78 } })
     await act({ kind: 'sort_questions', sortkey: 'column:placed', descending: false })
@@ -389,13 +389,14 @@ describe("the widgetings and columns of a new quiz", () => {
 
 describe("the editors' plans, carried out", () => {
   it("adds a new widget to the library, then a widgeting working it before the library's watch has brought it back, and a column showing it just before Alt Text", async () => {
-    const { act, read } = await seed()
+    const { act, actOnLibrary, read } = await seed()
     const ante = await read()
     const made = planNewWidget({ ...BlankJsonataDraft, label: 'title_length', formula: '$length(qn.title)' }, ante.library)
     if (! made.ok) { throw new Error(made.issue) }
     const plan = planWidgetingEdit({ widgeting: null, label: '', description: '', widgetLabel: made.widget.label }, [...ante.library, made.widget], quizOf(ante))
     if (! plan.ok) { throw new Error(plan.issue) }
-    for (const action of [...made.actions, ...plan.actions]) { await act(action) }
+    for (const action of made.actions) { await actOnLibrary(action) }
+    for (const action of plan.actions) { await act(action) }
     const after = await read()
     expect(after.library.at(-1)?.label).to.eq('title_length')
     expect(widgetingsOf(after).at(-1)).to.eq('title_length')
@@ -404,14 +405,14 @@ describe("the editors' plans, carried out", () => {
   })
 
   it("revises a widget from a locked quiz, which the lock does not hold, and refuses to revise its widgetings", async () => {
-    const { act, read } = await seed(standard(true))
+    const { act, actOnLibrary, read } = await seed(standard(true))
     const ante = await read()
     const held = present(quizOf(ante).widgetings.find((widgeting) => widgeting.label === 'clueing_full'))
     const widget = present(ante.library.find((each) => each.label === 'clueing_full'))
     const widgetPlan = planWidgetEdit({ ...(draftOf(widget) as JsonataDraft), description: 'Revised.', formula: '1' }, ante.library)
     const widgetingPlan = planWidgetingEdit({ widgeting: held, label: held.label, description: 'Renamed?', widgetLabel: 'clueing_full' }, ante.library, quizOf(ante))
     if (! widgetPlan.ok || ! widgetingPlan.ok) { throw new Error('Expected both plans') }
-    for (const action of widgetPlan.actions) { await act(action) }
+    for (const action of widgetPlan.actions) { await actOnLibrary(action) }
     for (const action of widgetingPlan.actions) { expect(await refusedAs(act(action))).to.eq('quizLocked') }
     const after = await read()
     expect(after.library.find((each) => each.label === 'clueing_full')).to.deep.include({ formula: '1', description: 'Revised.' })

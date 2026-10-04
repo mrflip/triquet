@@ -11,7 +11,7 @@ import { mintId } from '../../src/lib/ids'
 import { widgetFrom } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import type { WidgetT } from '../../src/models/widget'
-import type { AffirmsT, HuntActionDNA, HuntAffirmsT, QuizAffirmsT } from '../../src/models/actions'
+import type { AffirmsT, HuntActionDNA, HuntAffirmsT, LibraryActionDNA, QuizAffirmsT } from '../../src/models/actions'
 import type { HuntRole } from '../../src/models/hunting'
 import type { QuizT } from '../../src/models/quiz'
 import { present } from './present'
@@ -86,6 +86,13 @@ export type Seeded = {
    */
   act:   (action: HuntActionDNA, by?: Session | Tester) => Promise<void>
   /**
+   * Carry out `action` on the library through `widgets.perform`, as the session `by`, which
+   * affirms nothing: the library belongs to no hunt.
+   *
+   * @param by - Who is acting; the hunt's smith unless given.
+   */
+  actOnLibrary: (action: LibraryActionDNA, by?: Session | Tester) => Promise<void>
+  /**
    * A fresh session, asserting the username `label` (made if it is new), put on the hunt as
    * `role`.
    */
@@ -145,7 +152,10 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
     const { action: affirms } = await affirmsOf(tt, isIdentified(by) ? by : smith, open)
     await callerOf(by).mutation(api.hunts.perform, { affirms, action })
   }
-  return { tt, open, smith, read, act, join }
+  const actOnLibrary = async (action: LibraryActionDNA, by: Session | Tester = smith) => {
+    await callerOf(by).mutation(api.widgets.perform, { action })
+  }
+  return { tt, open, smith, read, act, actOnLibrary, join }
 }
 
 /**

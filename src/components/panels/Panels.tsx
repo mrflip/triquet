@@ -8,14 +8,14 @@ import type { WorkbenchOffersT } from '../offers'
 import type * as Actor from '../../lib/actor'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
-import type { HuntActionDNA } from '../../models/actions'
+import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
 import type { HuntHandle } from '../../state/use-hunt'
 import styles from '../workbench.module.css'
 
-export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice' | 'dispatch'> & {
+export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'> & {
   quiz:      QuizT
   hunt:      ShallowHuntT
   realm:     ShallowRealmT
@@ -27,12 +27,14 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   offers:    WorkbenchOffersT
   /** The quiz, run: what its widgetings came to */
   run:       QuizRun
+  /** Carry out a change to the library, from the Library tab's import (`useLibraryActions`) */
+  changeLibrary: (action: LibraryActionDNA) => void
   /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
 }
 
 /** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
-export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, dispatch, onImport }: Readonly<PanelsProps>) {
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport }: Readonly<PanelsProps>) {
   const labels = { hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <div className={styles.panels}>
@@ -40,7 +42,7 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
 
       <MembersPanel members={hunt.members} claims={claims} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 
-      <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} dispatch={dispatch} onImport={onImport} />
+      <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} />
 
       <WidgetsPanel quiz={quiz} run={run} />
     </div>

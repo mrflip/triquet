@@ -45,6 +45,20 @@ export function isAnonymous(actor: ActorT): actor is AnonymousActorT {
   return actor.kind === 'anonymous'
 }
 
+/**
+ * Whether `actor` is an admin: one who looks after what belongs to no hunt, the library of widgets
+ * every hunt shares. This is the one place admin standing is decided; every policy that turns on
+ * it asks here (`Approve.mayChangeLibrary`), so that when who is an admin is settled, only this
+ * changes. Until then it approves everyone: anyone who has asserted a username is an admin.
+ *
+ * @param _actor - Who is asking, having asserted a username. Not read yet: every one of them is an admin.
+ *
+ * @example Actor.isAdmin(actor)  // => true, for now, for every ident
+ */
+export function isAdmin(_actor: IdentActorT): boolean {
+  return true
+}
+
 /** An actor's place on one hunt: a smith or reviewer there, by its hunting, or a stranger to it */
 export const HuntStandingVals = ['smith', 'reviewer', 'stranger'] as const
 export type HuntStanding = typeof HuntStandingVals[number]

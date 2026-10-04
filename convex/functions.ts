@@ -8,7 +8,7 @@ import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
 import { refusingInvalid } from '../src/lib/refusals'
 import { installErrorMap } from '../src/lib/vv/reporting'
-import { scopedReader, scopedWriter, type ScopeClaimsT } from './policy_rules'
+import { libraryWriter, scopedReader, scopedWriter, type ScopeClaimsT } from './policy_rules'
 import { censusOf, identFor, type CensusT, type Reader } from './reading'
 
 /**
@@ -115,24 +115,30 @@ type ZodFieldsT = Record<string, Z.ZodType>
 /** Those arguments, parsed */
 type ArgsOfT<AV extends ZodFieldsT> = Z.output<Z.ZodObject<AV>>
 
-/** The public functions built by a hunt's builder: each holds only a database scoped to its hunt */
-const HuntScoped = new WeakSet<object>()
+/** What a scoped builder holds a function's database to: one hunt, or the library */
+export type ScopeT = 'hunt' | 'library'
 
-/** `fn`, remembered as built by a hunt's builder */
-function huntScoped<FT extends object>(fn: FT): FT {
-  HuntScoped.add(fn)
+/** The public functions built by a scoped builder, and what each one's database is scoped to */
+const Scoped = new WeakMap<object, ScopeT>()
+
+/** `fn`, remembered as built by a builder scoping its database to `scope` */
+function scopedTo<FT extends object>(scope: ScopeT, fn: FT): FT {
+  Scoped.set(fn, scope)
   return fn
 }
 
 /**
- * Whether `fn` was built by a hunt's builder (`zHuntQuery`, `zHuntMutation`), and so holds only a
- * database scoped to its hunt. Every public function is, or is named in `Unscoped`
- * (`authorize.ts`) with why it is not.
+ * What `fn`'s database is scoped to: one hunt, for a function built by a hunt's builder
+ * (`zHuntQuery`, `zHuntMutation`); the library, for one built by `zLibraryMutation`; null for any
+ * other, which holds the whole database. Every public function is scoped, or is named in
+ * `Unscoped` (`authorize.ts`) with why it is not.
  *
- * @example isHuntScoped(whole)  // => true, for `hunts.whole`
+ * @example scopeOf(whole)    // => 'hunt', for `hunts.whole`
+ * @example scopeOf(library)  // => null, for `widgets.library`
  */
-export function isHuntScoped(fn: unknown): boolean {
-  return typeof fn === 'function' && HuntScoped.has(fn)
+export function scopeOf(fn: unknown): ScopeT | null {
+  if (typeof fn !== 'function') { return null }
+  return Scoped.get(fn) ?? null
 }
 
 /**
@@ -157,7 +163,7 @@ export function zHuntQuery<AV extends ZodFieldsT, CT extends ScopeClaimsT, RT, E
   handler: (ctx: HuntQueryCtx<CT>, args: ArgsOfT<AV>) => Promise<RT>
 }) {
   const { args, empty, affirm, handler } = def
-  return huntScoped(zQuery({
+  return scopedTo('hunt', zQuery({
     args,
     handler: async (ctx, parsed): Promise<RT | ET> => await emptyIfDenied(empty, async () => {
       const claims = await affirm(ctx, parsed as ArgsOfT<AV>)
@@ -186,13 +192,51 @@ export function zHuntMutation<AV extends ZodFieldsT, RV extends Z.ZodType, CT ex
   handler: (ctx: HuntMutationCtx<CT>, args: ArgsOfT<AV>) => Promise<Z.input<RV>>
 }) {
   const { args, returns, affirm, handler } = def
-  return huntScoped(zMutation({
+  return scopedTo('hunt', zMutation({
     args,
     returns,
     // What `handler` returns is what `returns` takes in, which zMutation cannot see through `RV` until it is named.
     handler: async (ctx, parsed): Promise<never> => await refusingInvalid(async () => {
       const claims = await affirm(ctx, parsed as ArgsOfT<AV>)
       return await handler({ ...ctx, db: scopedWriter(ctx.db, claims), census: censusOf(ctx.db), claims }, parsed as ArgsOfT<AV>) as never
+    }),
+  }))
+}
+
+// --- The library's function
+
+/** The library's mutation's context: its `db` sees and writes only the library (`LibraryRules`), and `census` says what spans every hunt */
+export type LibraryMutationCtx = AskingMutationCtx & { census: CensusT }
+
+/**
+ * The builder of a mutation on the library of widgets, which belongs to no hunt. Its `affirm`
+ * goes on only when the actor may take the action (an `affirm…` of `authorize.ts`); its `handler`
+ * then writes through a database that reaches the library's widgets and nothing of any hunt
+ * (`LibraryRules`), asking `ctx.census` whether a widget is worked anywhere. A denial, or a Zod
+ * error, is refused (`refusingInvalid`); nothing is written.
+ *
+ * @example
+ *   export const perform = zLibraryMutation({
+ *     args:    { action: ActionValidators.libraryAction },
+ *     returns: zod.null(),
+ *     affirm:  (ctx, { action }) => { affirmLibraryAction(ctx.actor, action) },
+ *     handler: async (ctx, { action }) => { await performLibrary(ctx.db, ctx.census, action); return null },
+ *   })
+ */
+export function zLibraryMutation<AV extends ZodFieldsT, RV extends Z.ZodType>(def: {
+  args:    AV
+  returns: RV
+  affirm:  (ctx: AskingMutationCtx, args: ArgsOfT<AV>) => void | Promise<void>
+  handler: (ctx: LibraryMutationCtx, args: ArgsOfT<AV>) => Promise<Z.input<RV>>
+}) {
+  const { args, returns, affirm, handler } = def
+  return scopedTo('library', zMutation({
+    args,
+    returns,
+    // As in `zHuntMutation`: what `handler` returns is what `returns` takes in.
+    handler: async (ctx, parsed): Promise<never> => await refusingInvalid(async () => {
+      await affirm(ctx, parsed as ArgsOfT<AV>)
+      return await handler({ ...ctx, db: libraryWriter(ctx.db, ctx.actor), census: censusOf(ctx.db) }, parsed as ArgsOfT<AV>) as never
     }),
   }))
 }
