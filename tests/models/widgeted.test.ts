@@ -136,6 +136,24 @@ describe('WidgetedValidators.record', () => {
   }
 })
 
+describe('WidgetedValidators.entered', () => {
+  const question_id = '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9'
+  const Values: [unknown, boolean, string][] = [
+    ['Ask Flip.',                                                     true,  'text'],
+    [-2.5,                                                            true,  'a number'],
+    [null,                                                            true,  'null, for a cell emptied'],
+    [[{ category: 'tv', difficulty: 'hard' }, { category: 'art' }],   true,  "a question's category estimates"],
+    [[{ category: 'tv' }, { category: 'tv' }],                        false, 'estimates naming one category twice'],
+    [{ category: 'tv' },                                              false, 'an object that is no list of estimates'],
+    [true,                                                            false, 'a boolean'],
+  ]
+  for (const [value, ok, describes] of Values) {
+    it(`${ok ? 'takes' : 'refuses'} ${describes}`, () => {
+      expect(WidgetedValidators.entered.safeParse({ question_id, widgeting_label: 'remark', value }).success).to.eq(ok)
+    })
+  }
+})
+
 describe('WidgetedValidators.stored and .history', () => {
   const Stored = { status: 'ok', value: 7, message: null, result_meta: {}, _creationTime: 1_700_000_000_000.25 } as const
 

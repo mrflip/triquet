@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Column, ColumnValidators, QuestionFieldVals, QuestionSourceTitles, QuestionViewVals, columnLabelOf, namesFor, sortkeyOf, sourceOf } from '../../src/models/column'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionSourceTitles, QuestionViewVals, WidgetingPartTitles, WidgetingPartVals, columnLabelOf, namesFor, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf } from '../../src/models/column'
 
 const base = { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 }
 
@@ -23,6 +23,13 @@ describe('Column.fill', () => {
     ['Dumdum',                false, 'a label that is not one'],
     ['',                      false, 'nothing at all'],
     ['dumdum.value',          false, 'a field of a widgeting, which a column cannot name'],
+    ['categories.masie',      true,  "a part of a widgeting: one persona's chance"],
+    ['categories.estimates',  true,  'a part of a widgeting: its list of estimates'],
+    ['categories.average',    true,  'a part of a widgeting: the personas\' average'],
+    ['categories.bogus',      false, 'a part no widgeting offers'],
+    ['categories.masie.more', false, 'a part of a part'],
+    ['question.masie',        false, 'a part of the questions themselves'],
+    ['.masie',                false, 'a part of no widgeting'],
   ]
   for (const [source, ok, describes] of Sources) {
     it(`${ok ? 'takes' : 'refuses'} ${describes}`, () => {
@@ -52,8 +59,28 @@ describe('sourceOf', () => {
   it('reads a question field, a view, and a widgeting', () => {
     expect(sourceOf('question.clueing')).to.deep.eq({ kind: 'field', field: 'clueing' })
     expect(sourceOf('question.butnot')).to.deep.eq({ kind: 'view', view: 'butnot' })
-    expect(sourceOf('dumdum')).to.deep.eq({ kind: 'widgeting', label: 'dumdum' })
-    expect(sourceOf('butnot_ishes')).to.deep.eq({ kind: 'widgeting', label: 'butnot_ishes' })
+    expect(sourceOf('dumdum')).to.deep.eq({ kind: 'widgeting', label: 'dumdum', part: null })
+    expect(sourceOf('butnot_ishes')).to.deep.eq({ kind: 'widgeting', label: 'butnot_ishes', part: null })
+  })
+
+  it('reads one part of a widgeting', () => {
+    expect(sourceOf('categories.masie')).to.deep.eq({ kind: 'widgeting', label: 'categories', part: 'masie' })
+    expect(sourceOf('cats_2.estimates')).to.deep.eq({ kind: 'widgeting', label: 'cats_2', part: 'estimates' })
+  })
+})
+
+describe('widgetingSourceOf and widgetingLabelOf', () => {
+  it('write the source of a widgeting, whole or one part of it', () => {
+    expect([widgetingSourceOf('categories', null), widgetingSourceOf('categories', 'poppy')]).to.deep.eq(['categories', 'categories.poppy'])
+  })
+
+  it("read the widgeting's label back out of either, and nothing out of a question's own field or view", () => {
+    const sources = ['categories', 'categories.average', 'question.title', 'question.butnot']
+    expect(sources.map((source) => widgetingLabelOf(source))).to.deep.eq(['categories', 'categories', null, null])
+  })
+
+  it('write every part as a column takes it', () => {
+    expect(WidgetingPartVals.every((part) => ColumnValidators.column.safeParse({ ...base, source: widgetingSourceOf('cats', part) }).success)).to.be.true
   })
 })
 
@@ -66,12 +93,18 @@ describe('namesFor', () => {
     ["question.hint",      { label: "hint",         title: "Hint" },         'the hint, opted into on a lean quiz'],
     ["question.alt_text",  { label: "alt_text",     title: "Alt Text" },     'the alt text, its header as the grid always had it'],
     ["question.butnot",    { label: "butnot",       title: "BUT NOT" },      'the view of the chained-to hint, in capitals as always'],
+    ["categories.masie",   { label: "categories_masie", title: "Masie" },    "a part of a widgeting, under both their names and headed by the part's"],
+    ["cats.average",       { label: "cats_average", title: "Average" },      "the personas' average"],
   ]
   for (const [source, expected, describes] of NamesCases) {
     it(`names ${describes}`, () => {
       expect(namesFor(source)).to.deep.eq(expected)
     })
   }
+
+  it("titles every part of a widgeting", () => {
+    expect(Object.keys(WidgetingPartTitles)).to.have.members([...WidgetingPartVals])
+  })
 
   it("titles every question field and view", () => {
     expect(Object.keys(QuestionSourceTitles)).to.have.members([...QuestionFieldVals, ...QuestionViewVals])

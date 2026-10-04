@@ -18,6 +18,7 @@ import type { HuntRole } from '../../src/models/hunting'
 import { mintId } from '../../src/lib/ids'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
+import type { EstimatesDNA } from '../../src/models/estimate'
 import { present } from '../support/present'
 import { huntHolding, identified, openOf, openTester, expectRefusal, seedHunt, type Seen, type Tester } from '../support/convex'
 
@@ -72,7 +73,7 @@ function failed(question_id: string, widgeting_label: string, err: { message: st
 }
 
 /** The actions that put an entry widget of `entry_kind` into the library, labelled `label`, and to work in the open quiz under the same label */
-function entryActions(label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): HuntActionDNA[] {
+function entryActions(label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' | 'estimates' = 'text'): HuntActionDNA[] {
   return [
     { kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } },
     { kind: 'add_widgeting', widgeting: { widget_label: label, label } },
@@ -80,7 +81,7 @@ function entryActions(label: string, entry_kind: 'text' | 'number' | 'labelish' 
 }
 
 /** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
-function entering(question_id: string, widgeting_label: string, value: string | number | null): HuntActionDNA {
+function entering(question_id: string, widgeting_label: string, value: string | number | EstimatesDNA | null): HuntActionDNA {
   return { kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }
 }
 
@@ -608,6 +609,24 @@ describe("hunts.perform", () => {
       await refusalOf(act(entering(id, 'remark', 3)))
       const blank = ' '.repeat(3)
       await refusalOf(act(entering(id, 'remark', blank)))
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("keeps a question's category estimates as the cell's one row, each difficulty medium unless said", async () => {
+      const { act, read, id } = await withEntries()
+      for (const action of entryActions('cats', 'estimates')) { await act(action) }
+      await act(entering(id, 'cats', [{ category: 'tv', difficulty: 'hard' }, { category: 'art' }]))
+      await act(entering(id, 'cats', [{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'easy' }]))
+      expect(cellOf(await read(), 'cats')?.newest.value).to.deep.eq([{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'easy' }])
+    })
+
+    it("refuses estimates that name a category twice, or set no category in particular beside one", async () => {
+      const { act, read, id } = await withEntries()
+      for (const action of entryActions('cats', 'estimates')) { await act(action) }
+      const ante = await read()
+      await refusalOf(act(entering(id, 'cats', [{ category: 'tv' }, { category: 'tv', difficulty: 'hard' }])))
+      await refusalOf(act(entering(id, 'cats', [{ category: null }, { category: 'tv' }])))
+      await refusalOf(act(entering(id, 'remark', [{ category: 'tv' }])))
       expect(await read()).to.deep.eq(ante)
     })
 

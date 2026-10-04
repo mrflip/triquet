@@ -214,6 +214,7 @@ describe('Widget.flavorOf', () => {
     expect(Widget.flavorOf(Widget.fill(Guesser))).to.eq('an aibot widget')
     expect(Widget.flavorOf(Widget.fill(Remark))).to.eq('a text entry')
     expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'number' } }))).to.eq('a number entry')
+    expect(Widget.flavorOf(Widget.fill({ ...Remark, config: { entry_kind: 'estimates' } }))).to.eq('a category estimate entry')
   })
 
   it("tells two entries apart by kind alone", () => {
@@ -235,6 +236,11 @@ describe('EntryValueFor', () => {
     expect(EntryValueFor.titleish.parse(' The Quiet Otter ')).to.eq('The Quiet Otter')
   })
 
+  it("takes a question's category estimates for a category-estimate entry, each difficulty medium unless said", () => {
+    expect(EntryValueFor.estimates.parse([{ category: 'tv', difficulty: 'hard' }, { category: 'art' }])).to.deep.eq([{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'medium' }])
+    expect(EntryValueFor.estimates.parse([{ category: null, difficulty: 'easy' }])).to.deep.eq([{ category: null, difficulty: 'easy' }])
+  })
+
   const Refused: [keyof typeof EntryValueFor, unknown, string][] = [
     ['text',     ' '.repeat(3),     'blank text, which is an emptied cell rather than a value'],
     ['text',     'x'.repeat(3601),  'text past 3600 characters'],
@@ -246,6 +252,11 @@ describe('EntryValueFor', () => {
     ['titleish', 'x'.repeat(83),    'a title past 82 characters'],
     ['titleish', 'two\nlines',      'a title of two lines'],
     ['titleish', '',                'an empty title, which is an emptied cell'],
+    ['estimates', [],                                                            'no estimates at all, which is an emptied cell'],
+    ['estimates', [{ category: 'tv' }, { category: 'tv', difficulty: 'hard' }], 'one category estimated twice'],
+    ['estimates', [{ category: null }, { category: 'tv' }],                     'no category in particular beside a category'],
+    ['estimates', [{ category: 'cooking' }],                                    'a category there is not'],
+    ['estimates', 'tv',                                                         'text in a category-estimate entry'],
   ]
   for (const [entry_kind, val, describes] of Refused) {
     it(`refuses ${describes}`, () => {

@@ -3,6 +3,7 @@ import * as Runner from '../../src/lib/formulary/runner'
 import { QuizBagValidators, inputSchema, outputSchema } from '../../src/models/quiz-bag'
 import { Question } from '../../src/models/question'
 import { Quiz } from '../../src/models/quiz'
+import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runOf } from '../support/runs'
 import { classicLayout } from '../support/layouts'
@@ -32,6 +33,13 @@ describe('the bags formulas are actually given', () => {
     expect(bag.qn.clueing_full).to.deep.eq({ status: 'ok', value: 300, err: null })
     expect(bag.qn).not.to.have.property('clueing_plus_butnot_full')
     expect(bag.qn).not.to.have.property('stored')
+  })
+
+  it("satisfy the schema with a category-estimate widgeting's parts carried beside its status and value", () => {
+    const estimated = { ...quiz, widgetings: [Widgeting.fill({ widget_label: 'categories', label: 'categories' }), ...quiz.widgetings] }
+    const bag = present(Runner.bagsAt(runOf(estimated), { label: 'clueing_plus_butnot_full', params: {} }).get(question._id))
+    expect(bag.qn.categories).to.deep.include({ status: 'missing', average: 0.525 })
+    expect(QuizBagValidators.quizBag.safeParse(bag).success).to.be.true
   })
 
   it('name the failing field when one does not', () => {

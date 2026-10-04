@@ -2,6 +2,7 @@ import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit, type JsonataDraft } from '../../../src/state/widget-edit'
 import { planWidgetingEdit } from '../../../src/state/widgeting-edit'
+import * as Wheel from '../../../src/lib/wheel'
 import { Question } from '../../../src/models/question'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
 import type { HuntActionDNA } from '../../../src/models/actions'
@@ -369,6 +370,61 @@ describe("sort_questions by a column that shows a jsonata widgeting", () => {
     await act({ kind: 'add_column', column: { label: 'placed', title: 'Placed', source: 'placed', width_px: 78 } })
     await act({ kind: 'sort_questions', sortkey: 'column:placed', descending: false })
     expect(quizOf(await read()).questions.map((question) => question.full_answer)).to.deep.eq(['Lakeside', 'Home', 'x'])
+  })
+})
+
+/** A column labelled and titled `label`, showing `source` */
+const columnFor = (label: string, source: string) => ({ label, title: label, source, width_px: 80 })
+
+/** The two columns of `cats` that `withParts` adds, as `[column label, source]`, while the quiz has them */
+const partColumnsOf = (seen: Seen) => quizOf(seen).columns.filter((column) => ['cats', 'masie'].includes(column.label)).map((column) => [column.label, column.source])
+
+describe("a category-estimate widgeting's parts", () => {
+  const Cats = { widget_label: 'categories', label: 'cats' }
+
+  /** A standard hunt working the category-estimate entry as `cats`, with a column of it whole and one of Masie's chance */
+  async function withParts(hunt: HuntT = standard()): Promise<Seeded> {
+    const seeded = await seed(hunt)
+    await seeded.act({ kind: 'add_widgeting', widgeting: Cats })
+    await seeded.act({ kind: 'add_column', column: columnFor('cats', 'cats') })
+    await seeded.act({ kind: 'add_column', column: columnFor('masie', 'cats.masie') })
+    return seeded
+  }
+
+  it("can be shown in columns, each part beside the widgeting whole", async () => {
+    const { read } = await withParts()
+    expect(partColumnsOf(await read())).to.deep.eq([['cats', 'cats'], ['masie', 'cats.masie']])
+  })
+
+  it("are refused of a widgeting whose widget offers none, and of one the quiz does not have", async () => {
+    await expectRefused(await withParts(),
+      [{ kind: 'add_column', column: columnFor('guess_masie', 'dumdum.masie') }, 'partUnoffered'],
+      [{ kind: 'edit_column', label: 'masie', patch: { source: 'clueing_full.average' } }, 'partUnoffered'],
+      [{ kind: 'add_column', column: columnFor('gone_masie', 'gone.masie') }, 'sourceUnshowable'])
+  })
+
+  it("follow the widgeting when it is renamed, and go with it when it is removed", async () => {
+    const { act, read } = await withParts()
+    await act({ kind: 'edit_widgeting', label: 'cats', patch: { label: 'topics' } })
+    expect(partColumnsOf(await read())).to.deep.eq([['cats', 'topics'], ['masie', 'topics.masie']])
+    await act({ kind: 'delete_widgeting', label: 'topics' })
+    expect(partColumnsOf(await read())).to.deep.eq([])
+  })
+
+  it("sort the questions by a persona's chance, read against the hunt's own wheel", async () => {
+    const seeded = await withParts(standardWith(['art', 'tv', 'none'].map((title) => ({ ...Question.blank(), title }))))
+    const [art, tv] = quizOf(await seeded.read()).questions.map((question) => question._id)
+    await seeded.act({ kind: 'enter_widgeted', entered: { question_id: present(art), widgeting_label: 'cats', value: [{ category: 'art', difficulty: 'easy' }] } })
+    await seeded.act({ kind: 'enter_widgeted', entered: { question_id: present(tv), widgeting_label: 'cats', value: [{ category: 'tv', difficulty: 'easy' }] } })
+    await seeded.act({ kind: 'sort_questions', sortkey: 'column:masie', descending: true })
+    expect(quizOf(await seeded.read()).questions.map((question) => question.title)).to.deep.eq(['art', 'tv', 'none'])
+    // Masie keeps slot 0; put TV there, and she knows it best.
+    await seeded.tt.run(async (ctx) => {
+      const hunt = present(await ctx.db.query('hunts').first())
+      await ctx.db.patch('hunts', hunt._id, { wheel: Wheel.placed(Wheel.defaultWheel(), 'tv', 0) })
+    })
+    await seeded.act({ kind: 'sort_questions', sortkey: 'column:masie', descending: true })
+    expect(quizOf(await seeded.read()).questions.map((question) => question.title)).to.deep.eq(['tv', 'art', 'none'])
   })
 })
 

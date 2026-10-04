@@ -21,7 +21,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
         .describe('This question\'s 1-based place once the quiz is put in Q# order (ties broken by title); null when it has no Q#.'),
     })
     .catchall(WidgetedValidators.widgeted
-      .describe('What a widgeting before this one in the run order came to for this question, under that widgeting\'s label: `qn.numnum_clueing.value.items`, say.'))
+      .describe('What a widgeting before this one in the run order came to for this question, under that widgeting\'s label: `qn.numnum_clueing.value.items`, say. A category-estimate entry\'s carries more beside its status and value: `estimates` (its list, a question nobody has placed reading as one estimate of no category in particular), each persona\'s chance at the question, 0 to 1, as `masie`, `artie` and `poppy`, and their `average`: `qn.categories.average`, say.'))
     .describe('One question as a formula sees it: only its exposed fields, no id, and its chain named by label; and the widgeted of every widgeting before the one being worked out, each under its label.')
 
   const bagQuiz = QuizValidators.row.pick(maskOf(Quiz.exposed))

@@ -79,6 +79,7 @@ export const RefusalNotices = {
   columnGone:       'That column is no longer in this quiz.',
   labelTaken:       'That label is already taken here — choose another.',
   sourceUnshowable: "That column would show a widgeting this quiz doesn't have.",
+  partUnoffered:    'Only a category-estimate entry has parts for a column to show.',
   widgetInUse:      'A widgeting still works this widget — remove the widgeting first.',
   formularyFixed:   "A widget's formulary is fixed once it is made — make a new widget instead.",
   notStored:        "That widgeting isn't asked from its cell; there is nothing to record.",

@@ -2,6 +2,7 @@ import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
+import { EstimateValidators } from './estimate'
 
 /** Any JSON value: what a widgeted's `value` may be */
 export type JsonT = Z.core.util.JSONType
@@ -85,8 +86,8 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
     .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
     .describe('One widgeted as a browser sends it to be recorded: the question by id, the widgeting by label, and what it came to.')
 
-  const enteredValue = union([str.max(PA.Textish.max), num]).nullable()
-    .describe('What was typed into an entry cell: text or a number, held to the widget\'s entry kind once it is known; null for a cell emptied.')
+  const enteredValue = union([str.max(PA.Textish.max), num, EstimateValidators.estimates]).nullable()
+    .describe('What was typed into an entry cell: text, a number, or a question\'s category estimates, held to the widget\'s entry kind once it is known; null for a cell emptied.')
   const entered = obj({
     question_id:     zid('questions')
       .describe('The question it is for, by its row id.'),
