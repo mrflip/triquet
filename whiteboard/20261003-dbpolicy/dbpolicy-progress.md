@@ -9,7 +9,7 @@ its row below and adds its section above the others, newest first.
 |---|---|---|---|---|
 | 1 | Sessions and the actor | pending | | |
 | 2 | `Approve`: pure policy and the dispatcher | pending | | |
-| 3 | Integrity repairs | pending | | |
+| 3 | One label, and integrity repairs | pending | | |
 | 4 | Denormalize | pending | | |
 | 5 | Affirmations | pending | | |
 | 6 | A scoped database handle | pending | | |

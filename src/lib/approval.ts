@@ -91,6 +91,6 @@ export function need(ident: IdentT | null, action: ApprovalActionDNA, moreinfo: 
  * @returns Whether all the `verdicts` are true.
  */
 export async function every(verdicts: (boolean | Promise<boolean>)[]): Promise<boolean> {
-  const verdictsA = await Promise.all(verdicts)
+  const verdictsA = await Promise.all(verdicts as Promise<boolean>[])
   return ApprovalValidators.verdicts(verdictsA).every(Boolean)
 }

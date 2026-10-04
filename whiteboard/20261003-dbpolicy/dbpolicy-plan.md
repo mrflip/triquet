@@ -44,7 +44,7 @@ When the sprint is done:
   behind them: see *When a directive does not fit*.
 * `notes/convex.md`, `convex/_generated/ai/guidelines.md`, `notes/queries_hooks_and_subscriptions.md`.
 * `notes/guidelines.md` (validation, the patch pattern), `notes/vocabulary.md`, `STYLE.md`.
-* `notes/deploy.md`, *Schema pushes* -- threads 1, 4 and 10 change row shapes.
+* `notes/deploy.md`, *Schema pushes* -- threads 1, 3, 4 and 10 change row shapes.
 * `notes/testing.md`.
 
 ## The model in brief
@@ -56,7 +56,7 @@ uniqueness is code in `convex/writing/`, safe because a mutation is one transact
 | ------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | `idents`     | --                                                     | A persona, named by `label` (fixed) with a `title`. No delete path. Thread 1 adds `user_id`, the session that claimed it |
 | `identings`  | ident (`ident_id`)                                     | Associates assertion of identity (eg oauth) with ident record. Keyed by `browser_key` today |
-| `hunts`      | --                                                     | Unit of membership. `label`, `forced_label`                                  |
+| `hunts`      | --                                                     | Unit of membership, addressed by `label`                                     |
 | `huntings`   | hunt (`hunt_id`), ident (`ident_id`)                   | Membership with `role`: `smith` or `reviewer`. One per pair                  |
 | `realms`     | hunt (`hunt_id`)                                       | Only `home` exists. No write path                                            |
 | `quizzes`    | realm (`realm_id`)                                     | `locked`, `row_ordering` (ids of its questions, in order)                    |
@@ -188,14 +188,14 @@ reason says where, and why.
 |---|---|---|
 | 1 | Sessions and the actor | `idents`, `identings`, auth tables |
 | 2 | `Approve`: pure policy and the dispatcher | no |
-| 3 | Integrity repairs | no |
+| 3 | One label, and integrity repairs | `forced_label` off three tables (widen) |
 | 4 | Denormalize | six tables (widen) |
 | 5 | Affirmations | no |
 | 6 | A scoped database handle | no |
 | 7 | Reads shaped by role | no |
 | 8 | Views ask `Approve` | no |
 | 9 | The library behind an admin helper | no |
-| 10 | Tighten | six tables (tighten) |
+| 10 | Tighten | threads 3 and 4 (tighten) |
 
 ---
 
@@ -334,32 +334,67 @@ extend rather than rewrite.
 
 ---
 
-### Thread 3: Integrity repairs
+### Thread 3: One label, and integrity repairs
 
-**Goal.** Close three holes that need no schema change.
+**Goal.** Remove `forced_label`, then close three integrity holes.
+
+**Background.** Hunts, quizzes and questions each carry a minted `label` and a nullable
+`forced_label` that overrides it; "the label in force" is `forced_label ?? label`
+(`Labelmaker.effectiveLabelOf`, about forty call sites). The override was meant for a label that
+would follow the title unless set by hand. That was not built: a label is minted once and nothing
+regenerates it. What the pair does today is remember the minted label after a relabel, which
+nothing reads as a key (row ids are the stable keys). Its costs: a hunt is found by two index
+reads and a `.filter`; a question's `forced_label` is written by no path at all; several places
+read the bare `label` where the label in force was meant.
+
+After this thread there is one `label`. Relabelling a hunt or a quiz changes it. A question's
+label stays fixed, as now.
 
 **Steps.**
 
-1. **Quiz labels unique within a realm, on the server.** `relabelQuiz` in
-   `convex/writing/quiz_actions.ts` trusts its caller; only the browser checks. Read the realm's
-   quizzes (`quizzesOf`), refuse `labelTaken` when another quiz's effective label
-   (`Labelmaker.effectiveLabelOf`) is the new one, and write `forced_label: null` when the new
-   label is the quiz's minted `label`, as `relabelHunt` does. Tests for the clash, the
-   relabel-back, and relabelling to one's own current label.
-2. **Delete a quiz's questions by index.** `deleteQuiz` in `convex/writing/quiz_writing.ts`
+1. Row validators: remove `forced_label` from `src/models/hunt.ts`, `quiz.ts` and `question.ts`
+   (rows, trees, class declarations, `blankRow`s). In `convex/schema.ts` keep it on the three
+   tables as a hand-written optional field (the widen), and drop the `by_forced_label` index.
+   Add `by_realm_id_and_label` to `quizzes`, beside `by_realm_id` (which stays: it gives a
+   realm's quizzes in the order they were made).
+2. A backfill per table in `convex/migrations.ts`: where `forced_label` is set, copy it into
+   `label`; then remove the field from the row. List the field under `Backfilling` in
+   `tests/convex/schema.test.ts`. Test it on rows with the override set, null, and absent.
+3. `relabelHunt` (`convex/writing/hunt_actions.ts`) and `relabelQuiz`
+   (`convex/writing/quiz_actions.ts`) patch `label`. `huntForLabel` in `convex/reading.ts`
+   becomes one indexed read.
+4. **Quiz labels unique within a realm, on the server.** `relabelQuiz` trusts its caller today;
+   only the browser checks. Look the new label up through `by_realm_id_and_label` and refuse
+   `labelTaken` when another quiz holds it; `newQuiz` can check the same way. Tests for the
+   clash and for relabelling to one's own current label.
+5. Replace every `Labelmaker.effectiveLabelOf(x)` with `x.label`, and remove `effectiveLabelOf`
+   and the `Labelled` type's `forced_label`. Remove `forced_label` from `src/lib/rows.ts`,
+   `src/lib/exporting.ts`, `src/lib/formulary/runner.ts`, and from `ReservedWidgetingLabels` in
+   `src/models/widgeting.ts`.
+6. Import (`src/models/import.ts`, `src/lib/importing.ts`) keeps accepting a `forced_label` in a
+   pasted export and prefers it, so files exported before this thread still match their
+   questions and quizzes. Export stops emitting it. Update `notes/examples/` and the fixtures.
+7. `notes/vocabulary.md`: retire *forced_label* and *effective label*. `notes/deploy.md`: a
+   ledger row for the backfill.
+8. **Delete a quiz's questions by index.** `deleteQuiz` in `convex/writing/quiz_writing.ts`
    deletes the questions `row_ordering` lists, so a question missing from that array would
    outlive its quiz. Delete every question the `by_quiz_id` index finds (`for await`, as
    `deleteQuestion` iterates), and delete each widgeting through `deleteWidgeting` rather than a
    bare `db.delete`. `deleteQuiz` then needs only the quiz's id; simplify its callers. Test with
    a question row deliberately absent from `row_ordering`.
-3. **An integrity check for tests.** In `tests/support/convex.ts`, `expectSound(tt)`: walks every
+9. **An integrity check for tests.** In `tests/support/convex.ts`, `expectSound(tt)`: walks every
    table and asserts each id field names a row, each `row_ordering` matches its quiz's questions,
-   each `chains_to` names a sibling, each column `source` names something showable. Call it at
-   the end of the delete-quiz, delete-hunt, delete-questions and delete-widgeting tests.
+   each `chains_to` names a sibling, each column `source` names something showable, and no two
+   quizzes of a realm (or two hunts) share a label. Call it at the end of the delete-quiz,
+   delete-hunt, delete-questions and delete-widgeting tests.
 
-**Done when.** The three behaviours are tested and `expectSound` passes after every cascade.
+**Done when.** `grep -rn forced_label src convex` finds it only in the import reader, the widened
+schema and the backfill; the behaviours above are tested; `expectSound` passes after every
+cascade.
 
-**Leaves for later threads.** `expectSound`, which thread 4 extends to the new fields.
+**Leaves for later threads.** `expectSound`, which thread 4 extends to the new fields; one
+`label` per row, which thread 4 can copy or index without a derived field; the tighten, which
+thread 10 does.
 
 ---
 
@@ -575,13 +610,14 @@ an admin is `Actor.isAdmin`.
 
 ### Thread 10: Tighten
 
-Merging this one waits on the Coach running thread 4's backfills on production; say so at the
-top of the PR.
+Merging this one waits on the Coach running the backfills of threads 3 and 4 on production; say
+so at the top of the PR.
 
 **Steps.** For each field thread 4 added: make it required in `convex/schema.ts` (remove the
-hand-written optional), drop the backfill from `convex/migrations.ts`, empty `Backfilling` in
-`tests/convex/schema.test.ts`, and complete the ledger row in `notes/deploy.md` with the commit
-that still holds the backfill.
+hand-written optional). For `forced_label`, which thread 3 left optional on three tables: remove
+it from the schema. Drop the backfills from `convex/migrations.ts`, empty `Backfilling` in
+`tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
+that still holds each backfill.
 
 ## For the Coach
 
@@ -596,4 +632,6 @@ that still holds the backfill.
 4. **The admin helper approves everyone** (thread 9). Until it is given a real rule, anyone with a
    username may change the library, where today it takes a smith of the hunt on screen.
 5. **What a reviewer is sent** (thread 7): the list under that thread is a proposal.
-6. **Backfills between merges**: run thread 4's on production before deploying threads 5 to 9.
+6. **Backfills between merges.** Thread 3's (`forced_label` into `label`) wants running straight
+   after thread 3 deploys: until it has, a relabelled hunt or quiz answers to its minted label
+   again. Thread 4's wants running before threads 5 to 9 deploy.
