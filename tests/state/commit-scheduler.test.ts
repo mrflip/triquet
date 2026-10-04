@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCommitScheduler, type MirrorSnapshot } from '../../src/state/commit-scheduler'
 import { Quiz, type QuizT } from '../../src/models/quiz'
+import { Widget } from '../../src/models/widget'
 import { Here } from '../support/places'
 
 /** What each commit was handed, in order: the quiz's title as it stood, and as it had become */
@@ -21,8 +22,8 @@ function schedulerOf(seconds: number, landed: Landed[], commit?: (was: MirrorSna
     seconds,
     commit: commit ?? recordInto(landed),
   })
-  // These tests are about quizzes; the expressions that ride along are none, and every quiz sits in one place.
-  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, expressions: [], place: Here }, { quiz: after, expressions: [], place: Here }) } }
+  // These tests are about quizzes; the library that rides along is empty, and every quiz sits in one place.
+  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, library: [], place: Here }, { quiz: after, library: [], place: Here }) } }
 }
 
 const titled = (quiz: QuizT, title: string): QuizT => ({ ...quiz, title })
@@ -164,17 +165,18 @@ describe('createCommitScheduler, at 2 seconds', () => {
   })
 })
 
-describe('createCommitScheduler, carrying the expressions', () => {
-  it('hands the commit the expressions as they were when the wait began and as they are now', async () => {
+describe('createCommitScheduler, carrying the library', () => {
+  it('hands the commit the library as it was when the wait began and as it is now', async () => {
     const seen: [number, number][] = []
     const scheduler = createCommitScheduler({
       seconds: 2,
-      commit: async (was, now) => { await Promise.resolve(); seen.push([was?.expressions.length ?? -1, now.expressions.length]) },
+      commit: async (was, now) => { await Promise.resolve(); seen.push([was?.library.length ?? -1, now.library.length]) },
     })
     const quiz = Quiz.blank('One')
-    const expression = { owner: 'tq' as const, label: 'shout', formula: '1', description: '' }
-    scheduler.note({ quiz, expressions: [], place: Here }, { quiz, expressions: [expression], place: Here })
-    scheduler.note({ quiz, expressions: [expression], place: Here }, { quiz, expressions: [expression, { ...expression, label: 'whisper' }], place: Here })
+    const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
+    const whisper = Widget.fill({ label: 'whisper', formulary: 'jsonata', formula: '$lowercase(qn.title)' })
+    scheduler.note({ quiz, library: [], place: Here }, { quiz, library: [shout], place: Here })
+    scheduler.note({ quiz, library: [shout], place: Here }, { quiz, library: [shout, whisper], place: Here })
     await sec(2)
     expect(seen).to.deep.eq([[0, 2]])
   })

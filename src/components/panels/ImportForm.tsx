@@ -4,39 +4,45 @@ import { useState } from 'react'
 import { Button, TextField } from '@mui/material'
 import clsx from 'clsx'
 import * as Importing from '../../lib/importing'
-import type { ImportLogEntry } from '../../lib/importing'
+import type { ImportLogEntry, WidgetingLogEntry } from '../../lib/importing'
+import type { HuntActionDNA } from '../../models/actions'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
+import type { WidgetT } from '../../models/widget'
 import styles from '../workbench.module.css'
 
 export type ImportFormProps = {
   quiz:     QuizT
+  /** The library, whose widgets a pasted widgeting must name */
+  library:  readonly WidgetT[]
   locked:   boolean
-  /** Fold what was read into the quiz: one entry per label */
-  onImport: (questions: readonly ImportedQuestionT[]) => void
+  /** Fold what was read into the quiz: the widgetings' adds and revisions, then one entry per question label */
+  onImport: (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
 }
 
 /**
- * The Import tab, the counterpart to Raw Export: bring a quiz's questions back from a backup, or fold a
- * collaborator's edits into your own copy. What the bots replied comes along to fill cells
- * holding no reply, marked stale until asked again.
+ * The Import tab, the counterpart to Raw Export: bring a quiz's questions and widgetings back from
+ * a backup, or fold a collaborator's edits into your own copy. What the widgetings came to is not
+ * pasted back: it is worked out again, or recorded by asking.
  *
  * Results are reported twice -- a one-line summary next to the button, and a scrollable log
  * with a line per question and a nested line per validation issue. The same detail goes to the
  * browser console for anyone who wants to dig.
  */
-export function ImportForm({ quiz, locked, onImport }: Readonly<ImportFormProps>) {
+export function ImportForm({ quiz, library, locked, onImport }: Readonly<ImportFormProps>) {
   const [pasted, setPasted] = useState('')
   const [summary, setSummary] = useState<{ text: string, ok: boolean } | null>(null)
   const [log, setLog] = useState<ImportLogEntry[]>([])
+  const [widgetingLog, setWidgetingLog] = useState<WidgetingLogEntry[]>([])
 
   const runImport = () => {
-    const outcome = Importing.importInto(quiz, pasted)
+    const outcome = Importing.importInto(quiz, pasted, library)
     setSummary({ text: outcome.summary, ok: outcome.ok })
     setLog(outcome.log)
-    console.warn('Triquet import:', outcome.summary, outcome.log)
+    setWidgetingLog(outcome.widgetingLog)
+    console.warn('Triquet import:', outcome.summary, outcome.log, outcome.widgetingLog)
     if (outcome.questions === null) { return }
-    onImport(outcome.questions)
+    onImport(outcome.questions, outcome.widgetingActions)
     // Only a run that actually merged something clears the box; anything else leaves the text
     // exactly where it is, so the author can fix it and retry rather than re-pasting a big blob.
     setPasted('')
@@ -74,6 +80,11 @@ export function ImportForm({ quiz, locked, onImport }: Readonly<ImportFormProps>
                   {issue.fieldpath}: {issue.message} [{issue.code}]
                 </div>
               ))}
+            </div>
+          ))}
+          {widgetingLog.map((entry, idx) => (
+            <div key={`widgeting-${String(idx)}-${entry.label}`}>
+              widgeting {entry.label === '' ? '(no label)' : entry.label} — {entry.outcome}{entry.reason === null ? '' : `: ${entry.reason}`}
             </div>
           ))}
         </div>

@@ -1,118 +1,182 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Expression } from '../../src/models/expression'
-import { Expressing, BottingWidget, WidgetValidators, expressingsOf, bottingsOf } from '../../src/models/widget'
+import { AibotDefaultInput, AibotTokensMax, FormularykindVals, JsonataDefaultInput, Widget, WidgetValidators, type WidgetRowT } from '../../src/models/widget'
 
-describe('Expressing.fill', () => {
-  it('defaults the description to nothing, and trims the one it is given', () => {
-    const base = { kind: 'expressing' as const, label: 'letters', expression_label: 'answer_letter_count' }
-    expect(Expressing.fill(base).description).to.eq('')
-    expect(Expressing.fill({ ...base, description: '  For the anagram round.\n' }).description).to.eq('For the anagram round.')
+const Shout = { label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' } as const
+const Guesser = {
+  label:     'guesser',
+  formulary: 'aibot',
+  formula:   'Answer this: {{clueing}}',
+  config:    { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },
+} as const
+
+describe('FormularykindVals', () => {
+  it("names the two formularies a library widget can be worked by", () => {
+    expect(FormularykindVals).to.deep.eq(['jsonata', 'aibot'])
+  })
+})
+
+describe('Widget.fill', () => {
+  it("defaults a jsonata widget's scope, title, description, input and config", () => {
+    expect(Widget.fill(Shout)).to.deep.eq({ ...Shout, scope: 'pub', title: '', description: '', input_formula: '$', config: {} })
+  })
+
+  it("starts a jsonata widget's input as the whole bag, per the doc example", () => {
+    expect(Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' }).input_formula).to.eq(JsonataDefaultInput)
+    expect(JsonataDefaultInput).to.eq('$')
+  })
+
+  it("starts an aibot widget's input as the clueing, for a {{clueing}} in its prompt", () => {
+    const widget = Widget.fill(Guesser)
+    expect(widget.input_formula).to.eq(AibotDefaultInput)
+    expect(AibotDefaultInput).to.eq("{ 'clueing': qn.clueing }")
+    expect(widget.config).to.deep.eq(Guesser.config)
+  })
+
+  it("keeps a formula exactly as typed, newlines and surrounding space and all", () => {
+    const formula = '  (\n  $x := 1;\n  $x\n)\n'
+    expect(Widget.fill({ ...Shout, formula }).formula).to.eq(formula)
+  })
+
+  it("trims the description", () => {
+    expect(Widget.fill({ ...Shout, description: '  Shouts.\n' }).description).to.eq('Shouts.')
+  })
+
+  it("lets an aibot formula run past a jsonata formula's bound, up to 3600", () => {
+    expect(Widget.fill({ ...Guesser, formula: 'x'.repeat(3600) }).formula).to.have.lengthOf(3600)
+  })
+
+  it("takes the most room a model may be given, and no less than one token", () => {
+    expect(Widget.fill({ ...Guesser, config: { ...Guesser.config, max_tokens: AibotTokensMax } }).config).to.have.property('max_tokens', 8000)
+    expect(Widget.fill({ ...Guesser, config: { ...Guesser.config, max_tokens: 1 } }).config).to.have.property('max_tokens', 1)
   })
 
   const Refused: [object, string][] = [
-    [{ label: 'Letters' },                  'a label that is not one'],
-    [{ expression_label: 'A B' },           'an expression label that is not one'],
-    [{ description: 'x'.repeat(3601) },     'a description past 3600 characters'],
-    [{ kind: 'somethingelse' },             'a kind there is not'],
+    // either formulary:
+    [{ ...Shout, label: 'Shout' },                                                  'a label that is not one'],
+    [{ ...Shout, scope: 'mine' },                                                   'a scope there is not'],
+    [{ ...Shout, formulary: 'entry' },                                              'a formulary there is not yet'],
+    [{ ...Shout, description: 'x'.repeat(3601) },                                   'a description past 3600 characters'],
+    [{ ...Shout, title: 'x'.repeat(83) },                                           'a title past 82 characters'],
+    [{ ...Shout, input_formula: '' },                                               'an empty input formula'],
+    // jsonata:
+    [{ ...Shout, formula: '' },                                                     'an empty jsonata formula'],
+    [{ ...Shout, formula: 'x'.repeat(1000) },                                       'a jsonata formula past 999 characters'],
+    [{ ...Shout, config: { max_tokens: 3 } },                                       'a jsonata widget with settings'],
+    [{ ...Shout, config: Guesser.config },                                          'a jsonata widget with an aibot widget\'s settings'],
+    // aibot:
+    [{ ...Guesser, formula: '' },                                                   'an empty prompt'],
+    [{ ...Guesser, formula: 'x'.repeat(3601) },                                     'a prompt past 3600 characters'],
+    [{ ...Guesser, config: undefined },                                             'an aibot widget with no settings'],
+    [{ ...Guesser, config: {} },                                                    'an aibot widget with empty settings'],
+    [{ ...Guesser, config: { ...Guesser.config, servicelabel: 'openai' } },         'a service there is not'],
+    [{ ...Guesser, config: { ...Guesser.config, model_tier: 'genius' } },           'a model tier there is not'],
+    [{ ...Guesser, config: { ...Guesser.config, max_tokens: 0 } },                  'no room at all to answer'],
+    [{ ...Guesser, config: { ...Guesser.config, max_tokens: AibotTokensMax + 1 } }, 'more room than any widget may give'],
+    [{ ...Guesser, config: { ...Guesser.config, max_tokens: 2.5 } },                'a fraction of a token'],
   ]
-  for (const [overrides, describes] of Refused) {
+  for (const [dna, describes] of Refused) {
     it(`refuses ${describes}`, () => {
-      expect(() => WidgetValidators.widget({ kind: 'expressing', label: 'letters', expression_label: 'answer_letter_count', ...overrides } as never)).to.throw(Z.ZodError)
+      expect(() => Widget.fill(dna as never)).to.throw(Z.ZodError)
     })
   }
-
-  it('exposes one field, the value it comes to', () => {
-    expect(Expressing.exposed).to.deep.eq(['value'])
-  })
 })
 
-describe('Expressing.forExpression', () => {
-  const expression = Expression.fill({ label: 'answer_reversed', formula: '1' })
-
-  it('is labelled after the expression', () => {
-    expect(Expressing.forExpression(expression, new Set())).to.deep.eq({ kind: 'expressing', label: 'answer_reversed', expression_label: 'answer_reversed', description: '' })
+describe('WidgetValidators.widgetPatch', () => {
+  it("takes any one revisable field alone, defaulting nothing else", () => {
+    expect(WidgetValidators.widgetPatch({ title: 'Loud' })).to.deep.eq({ title: 'Loud' })
+    expect(WidgetValidators.widgetPatch({})).to.deep.eq({})
   })
 
-  it('takes a suffixed label when a sibling already has the plain one, and still names the same expression', () => {
-    const second = Expressing.forExpression(expression, new Set(['answer_reversed']))
-    expect(second.label).to.match(/^answer_reversed_[a-z0-9]{8}$/)
-    expect(second.expression_label).to.eq('answer_reversed')
+  it("takes either formulary's settings, for the widget's own formulary to judge once applied", () => {
+    expect(WidgetValidators.widgetPatch({ config: {} }).config).to.deep.eq({})
+    expect(WidgetValidators.widgetPatch({ config: Guesser.config }).config).to.deep.eq(Guesser.config)
   })
-})
 
-describe('BottingWidget', () => {
-  const Allowed: [string, string, string][] = [
-    ['dumdum', 'clueing', 'guess'],
-    ['numnum', 'clueing', 'clueing_ishes'],
-    ['numnum', 'hint',    'hint_ishes'],
+  it("drops the scope, the label and the formulary, which are fixed once made", () => {
+    expect(WidgetValidators.widgetPatch({ scope: 'pub', label: 'louder', formulary: 'aibot', title: 'Loud' } as never)).to.deep.eq({ title: 'Loud' })
+  })
+
+  const Refused: [object, string][] = [
+    [{ formula: '' },                                  'an empty formula'],
+    [{ formula: 'x'.repeat(3601) },                    'a formula past the larger of the two bounds'],
+    [{ config: { servicelabel: 'claude' } },           'settings of neither shape'],
   ]
-  for (const [bot_label, textkind, field] of Allowed) {
-    it(`connects ${bot_label} to a ${textkind}, held in ${field}`, () => {
-      const widget = BottingWidget.fill({ kind: 'botting', label: 'thing', bot_label, textkind } as never)
-      expect(BottingWidget.slotOf(widget).field).to.eq(field)
+  for (const [patch, describes] of Refused) {
+    it(`refuses ${describes}`, () => {
+      expect(() => WidgetValidators.widgetPatch(patch as never)).to.throw(Z.ZodError)
     })
   }
-
-  it('refuses a bot that is not put that text in this tool', () => {
-    expect(() => BottingWidget.fill({ kind: 'botting', label: 'thing', bot_label: 'dumdum', textkind: 'hint' })).to.throw(Z.ZodError)
-  })
-
-  it('refuses a bot there is not', () => {
-    expect(() => BottingWidget.fill({ kind: 'botting', label: 'thing', bot_label: 'smartypants' as never, textkind: 'clueing' })).to.throw(Z.ZodError)
-  })
-
-  it('exposes the answer and whether it is stale, and never the cost, the model, the time or the failure', () => {
-    expect(BottingWidget.exposed({ bot_label: 'dumdum', textkind: 'clueing' })).to.deep.eq(['status', 'text'])
-    expect(BottingWidget.exposed({ bot_label: 'numnum', textkind: 'hint' })).to.deep.eq(['items', 'stale', 'status'])
-  })
-
-  it('exposes its fields alphabetically, so a table of them is in a fixed order', () => {
-    for (const [bot_label, textkind] of Allowed) {
-      const fields = BottingWidget.exposed({ bot_label, textkind } as never)
-      expect(fields).to.deep.eq(fields.toSorted((aa, bb) => aa.localeCompare(bb)))
-    }
-  })
-})
-
-describe('the two kinds of widget in one list', () => {
-  const widgets = [
-    WidgetValidators.widget({ kind: 'botting', label: 'dumdum', bot_label: 'dumdum', textkind: 'clueing' }),
-    WidgetValidators.widget({ kind: 'expressing', label: 'letters', expression_label: 'answer_letter_count' }),
-  ]
-
-  it('are told apart by kind', () => {
-    expect(expressingsOf(widgets).map((widget) => widget.label)).to.deep.eq(['letters'])
-    expect(bottingsOf(widgets).map((widget) => widget.label)).to.deep.eq(['dumdum'])
-  })
 })
 
 describe('WidgetValidators.row', () => {
-  const Base = { quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'thing', description: '', position: 0 }
-  const Expressing = { ...Base, kind: 'expressing', expression_label: 'shout' } satisfies Z.input<typeof WidgetValidators.row>
-  const Botting = { ...Base, kind: 'botting', bot_label: 'numnum', textkind: 'hint' } satisfies Z.input<typeof WidgetValidators.row>
+  const Base = { scope: 'pub', title: '', description: '', input_formula: '$', position: 0 } as const
+  const JsonataRow = { ...Base, label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)', config: {} } as const satisfies WidgetRowT
+  const AibotRow = { ...Base, ...Guesser, input_formula: AibotDefaultInput, position: 1 } as const satisfies WidgetRowT
 
-  it('takes either kind as the database holds it, with its own kind\'s fields alone', () => {
-    expect(WidgetValidators.row(Expressing)).to.deep.eq(Expressing)
-    expect(WidgetValidators.row(Botting)).to.deep.eq(Botting)
-  })
-
-  it('drops the other kind\'s fields, which the table has no place for', () => {
-    expect(WidgetValidators.row({ ...Expressing, bot_label: 'dumdum', textkind: 'clueing' } as never)).to.deep.eq(Expressing)
-    expect(WidgetValidators.row({ ...Botting, expression_label: 'shout' } as never)).to.deep.eq(Botting)
+  it("takes either formulary as the database holds it", () => {
+    expect(WidgetValidators.row(JsonataRow)).to.deep.eq(JsonataRow)
+    expect(WidgetValidators.row(AibotRow)).to.deep.eq(AibotRow)
   })
 
   const Refused: [object, string][] = [
-    [{ ...Expressing, expression_label: null },          'an expressing that names no expression'],
-    [{ ...Botting, textkind: null },                     'a botting that names no text'],
-    [{ ...Botting, bot_label: 'dumdum' },                'a bot that is not put that text in this tool'],
-    [{ ...Botting, bot_label: 'smartypants' },           'a bot there is not'],
-    [{ ...Botting, kind: 'gadget' },                     'a kind there is not'],
-    [{ ...Botting, position: -1 },                       'a place before the first'],
+    [{ ...JsonataRow, position: -1 },               'a place before the first'],
+    [{ ...JsonataRow, position: undefined },        'no place at all'],
+    [{ ...JsonataRow, title: undefined },           'a missing title, which a row never defaults'],
+    [{ ...JsonataRow, formula: 'x'.repeat(1000) },  'a jsonata formula past 999 characters'],
+    [{ ...AibotRow, formula: 'x'.repeat(3601) },    'a prompt past 3600 characters'],
+    [{ ...AibotRow, formulary: 'jsonata' },         'an aibot widget\'s settings under the jsonata formulary'],
   ]
   for (const [row, describes] of Refused) {
     it(`refuses ${describes}`, () => {
       expect(() => WidgetValidators.row(row as never)).to.throw(Z.ZodError)
     })
   }
+})
+
+describe('WidgetValidators.library', () => {
+  it("is every widget, in library order, defaulted as each is filled", () => {
+    const library = WidgetValidators.library({ widgets: [Guesser, Shout] })
+    expect(library.widgets.map((widget) => widget.label)).to.deep.eq(['guesser', 'shout'])
+    expect(library.widgets[1]).to.deep.eq(Widget.fill(Shout))
+  })
+
+  it("refuses a widget that is not one", () => {
+    expect(() => WidgetValidators.library({ widgets: [{ ...Shout, formula: '' }] })).to.throw(Z.ZodError)
+  })
+})
+
+describe('Widget.keyOf', () => {
+  it("is the scope and the label", () => {
+    expect(Widget.keyOf({ scope: 'pub', label: 'dumdum' })).to.eq('pub/dumdum')
+  })
+})
+
+describe('Widget.titleOf', () => {
+  it("reads a blank title as the label, titleized", () => {
+    expect(Widget.titleOf({ label: 'clueing_full', title: '' })).to.eq('Clueing Full')
+  })
+
+  it("is the title when there is one", () => {
+    expect(Widget.titleOf({ label: 'numnum_hint', title: 'Numnum: hint' })).to.eq('Numnum: hint')
+  })
+})
+
+describe('Widget.exported', () => {
+  it("is a row's fields without its place, per the doc example", () => {
+    const row: WidgetRowT = { ...Widget.fill({ ...Guesser, label: 'dumdum' }), position: 4 }
+    const exported = Widget.exported(row)
+    expect(exported.label).to.eq('dumdum')
+    expect(exported).to.deep.eq(Widget.fill({ ...Guesser, label: 'dumdum' }))
+    expect(exported).not.to.have.property('position')
+  })
+
+  it("leaves a widget that has no place as it was", () => {
+    expect(Widget.exported(Widget.fill(Shout))).to.deep.eq(Widget.fill(Shout))
+  })
+
+  it("drops anything else riding along on the row", () => {
+    const row = { ...Widget.fill(Shout), position: 0, _id: 'w1', _creationTime: 5 }
+    expect(Object.keys(Widget.exported(row)).toSorted((aa, bb) => aa.localeCompare(bb))).to.deep.eq(['config', 'description', 'formula', 'formulary', 'input_formula', 'label', 'scope', 'title'])
+  })
 })

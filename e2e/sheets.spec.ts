@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { closeManage, expect, fillRows, openManage, test, waitUntilSaved } from './support'
+import { addWidgeting, expect, fillRows, test, waitUntilSaved } from './support'
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
@@ -22,21 +22,14 @@ test('a header row of column labels in alphabetical order, then a line per quest
   const lines = text.split('\n')
   const header = lines[0]?.split('\t') ?? []
   expect(header).toEqual(header.toSorted((aa, bb) => aa.localeCompare(bb)))
-  expect(header).toContain('clueing_full')
-  expect(header).toContain('guess')
+  expect(header).toEqual(['clueing', 'full_answer', 'notes', 'qnum', 'title'])
   const clueingCol = header.indexOf('clueing')
   expect(lines.slice(1, 4).map((line) => line.split('\t')[clueingCol])).toEqual(['first', 'second', 'third'])
   expect(new Set(lines.map((line) => line.split('\t').length))).toEqual(new Set([header.length]))
 })
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
-  await openManage(page)
-  await page.getByRole('button', { name: '+ New expressing…' }).click()
-  const editor = page.getByRole('dialog', { name: 'New expressing' })
-  await editor.getByRole('combobox', { name: 'Expression' }).click()
-  await page.getByRole('option', { name: 'answer_reversed', exact: true }).click()
-  await editor.getByRole('button', { name: 'Apply' }).click()
-  await closeManage(page)
+  await addWidgeting(page, 'answer_reversed')
   await expect.poll(async () => {
     const text = await sheetsText(page)
     return text.split('\n', 1)[0]?.split('\t')

@@ -105,6 +105,42 @@ describe('appendFallback', () => {
   })
 })
 
+const Forty = `${'x'.repeat(39)}y`
+
+const FirstFreeCases: [[string, string[]], string, string][] = [
+  // regular usage:
+  [["dumdum", []],                                 "dumdum",                        'a free label is itself'],
+  [["dumdum", ["dumdum"]],                         "dumdum_2",                      'a taken label grows _2'],
+  [["dumdum", ["dumdum", "dumdum_2"]],             "dumdum_3",                      'counts on past each suffix already taken'],
+  [["dumdum", ["dumdum", "dumdum_3"]],             "dumdum_2",                      'takes the first gap rather than the next after the highest'],
+  [["notes", ["notes", "title", "rank"]],          "notes_2",                       'a reserved word in the taken set is grown past like any other'],
+  // trivial cases:
+  [["dumdum", ["dumdum_2"]],                       "dumdum",                        'a taken suffixed label does not stop the bare one'],
+  // the 40-character bound:
+  [[Forty, [Forty]],                               `${'x'.repeat(38)}_2`,           'a 40-character label is trimmed so the suffix still fits'],
+  [[Forty, [Forty, `${'x'.repeat(38)}_2`]],        `${'x'.repeat(38)}_3`,           'a trimmed stem counts on like any other'],
+  [[`${'x'.repeat(37)}_ab`, [`${'x'.repeat(37)}_ab`]], `${'x'.repeat(37)}_2`,       'a stem trimmed to a trailing underscore drops it rather than doubling it'],
+  [[Forty, [Forty, ...Array.from({ length: 8 }, (_unused, ii) => `${'x'.repeat(38)}_${String(ii + 2)}`)]], `${'x'.repeat(37)}_10`, 'a two-digit suffix trims the stem one character further'],
+  // weird cases:
+  [["item_2", ["item_2"]],                         "item_2_2",                      'a label that already ends in a number grows a suffix of its own'],
+]
+
+describe('firstFree', () => {
+  for (const [[label, taken], expected, describes] of FirstFreeCases) {
+    it(describes, () => {
+      const found = Labelmaker.firstFree(label, new Set(taken))
+      expect(found).to.eq(expected)
+      expect(found.length).to.be.at.most(40)
+      expect(ValidatorKit.label.safeParse(found).success).to.be.true
+    })
+  }
+
+  it("reads the doc block's examples", () => {
+    expect(Labelmaker.firstFree('dumdum', new Set())).to.eq('dumdum')
+    expect(Labelmaker.firstFree('dumdum', new Set(['dumdum', 'dumdum_2']))).to.eq('dumdum_3')
+  })
+})
+
 describe('titleize', () => {
   it('reads an under_score label as Title Case words', () => {
     expect(Labelmaker.titleize('quiet_otter')).to.eq('Quiet Otter')

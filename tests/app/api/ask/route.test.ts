@@ -1,36 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '../../../../src/app/api/ask/route'
-import { MaxTokensForJob } from '../../../../src/lib/ask/models'
 import { ApprovalNotices } from '../../../../src/lib/notices'
 
-/** A guess, asked of the route as the browser would */
-function askGuess(): Request {
-  return new Request('http://localhost/api/ask', { method: 'POST', body: JSON.stringify({ job: 'guess', clueing: 'Who was Danish?' }) })
+/** A prompt, asked of the route as the browser sends one once it has filled in a widget's template */
+function askOf(prompt: string, model_tier = 'quick', max_tokens = 256): Request {
+  return new Request('http://localhost/api/ask', { method: 'POST', body: JSON.stringify({ prompt, servicelabel: 'claude', model_tier, max_tokens }) })
 }
 
-/** A whole quiz's ishes in one run, asked of the route as the browser would */
-function askBulk(): Request {
-  const items = [{ key: 'c:q1', text: 'Snow White kept house for seven dwarfs' }, { key: 'h:q1', text: 'Think a dozen minus five' }]
-  return new Request('http://localhost/api/ask', { method: 'POST', body: JSON.stringify({ job: 'bulk_ishes', items }) })
-}
+const Guessing = 'Question: Who was Danish?'
 
-/** What the model found in `askBulk`'s texts, as a live run answered it */
-const BulkGroups = [
-  { key: 'c:q1', items: [{ text: 'seven', value: 7, kind: 'wordish' }] },
-  { key: 'h:q1', items: [{ text: 'dozen', value: 12, kind: 'wordish' }, { text: 'five', value: 5, kind: 'wordish' }] },
-]
+/** What the model found in a hint, as a live run answered it */
+const HintItems = [{ text: 'dozen', value: 12, kind: 'wordish' }, { text: 'five', value: 5, kind: 'wordish' }]
 
 /**
  * The Messages API's answer as it streams one: `text` in a single delta, then a clean stop.
  * Every event the SDK needs to put the final message together is here, and nothing more.
  */
-function streamedAnswer(text: string): Response {
+function streamedAnswer(text: string, stop_reason = 'end_turn'): Response {
   const events = [
     { type: 'message_start', message: { id: 'msg_test', type: 'message', role: 'assistant', model: 'claude-test', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 400, output_tokens: 1 } } },
     { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
     { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
     { type: 'content_block_stop', index: 0 },
-    { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 60 } },
+    { type: 'message_delta', delta: { stop_reason, stop_sequence: null }, usage: { output_tokens: 60 } },
     { type: 'message_stop' },
   ]
   const body = events.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('')
@@ -38,9 +30,9 @@ function streamedAnswer(text: string): Response {
 }
 
 /** The body the route sent the model, as the SDK handed it to fetch */
-function sentBody(): { stream?: boolean, max_tokens?: number } {
+function sentBody(): { stream?: boolean, max_tokens?: number, model?: string, system?: string, messages: { content: string }[] } {
   const [, init] = fetched.mock.calls[0] as [unknown, { body: string }]
-  return JSON.parse(init.body) as { stream?: boolean, max_tokens?: number }
+  return JSON.parse(init.body) as { stream?: boolean, max_tokens?: number, model?: string, system?: string, messages: { content: string }[] }
 }
 
 // The SDK reaches the model through the global fetch, so a route that never calls it never asked,
@@ -50,6 +42,18 @@ const fetched = vi.fn()
 beforeEach(() => {
   vi.stubGlobal('fetch', fetched)
 })
+
+/** What the route answers `request` with, read */
+async function replyTo(request: Request): Promise<unknown> {
+  const answer = await POST(request)
+  return answer.json()
+}
+
+/** Switch asking on, with a key that reaches nobody */
+function enableAsking() {
+  vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
+  vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-not-a-real-key')
+}
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -62,7 +66,7 @@ describe('POST /api/ask', () => {
   it('declines politely, and asks nobody, when the server has not switched asking on', async () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', undefined)
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-not-a-real-key')
-    const answer = await POST(askGuess())
+    const answer = await POST(askOf(Guessing))
     expect(await answer.json()).to.deep.eq({ ok: false, failurekind: 'notPermitted', detail: { name: 'NotApprovedError', message: ApprovalNotices.anthropic_bot } })
     expect(fetched).not.toHaveBeenCalled()
   })
@@ -70,22 +74,66 @@ describe('POST /api/ask', () => {
   it('says asking is unavailable, and asks nobody, when switched on but holding no key', async () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
     vi.stubEnv('ANTHROPIC_API_KEY', '')
-    const answer = await POST(askGuess())
+    const answer = await POST(askOf(Guessing))
     expect(await answer.json()).to.deep.eq({ ok: false, failurekind: 'unavailable' })
     expect(fetched).not.toHaveBeenCalled()
   })
 
-  it("puts a whole-quiz run to the model, streamed so the SDK lets it have room for a long answer", async () => {
-    vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
-    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-not-a-real-key')
-    fetched.mockResolvedValue(streamedAnswer(JSON.stringify({ groups: BulkGroups })))
-    const answer = await POST(askBulk())
-    const reply = await answer.json() as { ok: boolean, job: string, groups: unknown, truncated: boolean, text_count: number }
-    expect(reply).to.include({ ok: true, job: 'bulk_ishes', truncated: false, text_count: 2 })
-    expect(reply.groups).to.deep.eq(BulkGroups)
+  it('puts the prompt to the tier\'s model as it came, streamed with the room asked for, and answers with the object', async () => {
+    enableAsking()
+    fetched.mockResolvedValue(streamedAnswer(JSON.stringify({ guess: 'Hamlet', explanation: 'The Dane.' })))
+    const answer = await POST(askOf(Guessing))
+    expect(await answer.json()).to.deep.eq({ ok: true, value: { explanation: 'The Dane.', guess: 'Hamlet' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 18 })
     expect(fetched).toHaveBeenCalledOnce()
-    expect(sentBody()).to.include({ stream: true, max_tokens: MaxTokensForJob.bulk_ishes })
+    expect(sentBody()).to.include({ stream: true, max_tokens: 256, model: 'claude-haiku-4-5' })
+    expect(sentBody().messages[0]?.content).to.eq(Guessing)
+    expect(sentBody().system).to.match(/single JSON object/)
   })
+
+  it('puts a careful ask to the careful model, with its own room', async () => {
+    enableAsking()
+    fetched.mockResolvedValue(streamedAnswer(JSON.stringify({ items: HintItems })))
+    const reply = await replyTo(askOf('Hint: Think a dozen minus five', 'careful', 4000))
+    expect(reply).to.deep.include({ model_tier_applied: 'careful', value: { items: HintItems } })
+    expect(sentBody()).to.include({ max_tokens: 4000, model: 'claude-opus-5' })
+  })
+
+  it('says an answer that is not a JSON object is unreadable', async () => {
+    enableAsking()
+    vi.spyOn(console, 'warn').mockImplementation(() => null)
+    fetched.mockResolvedValue(streamedAnswer('Hamlet, surely.'))
+    expect(await replyTo(askOf(Guessing))).to.deep.eq({ ok: false, failurekind: 'unreadable' })
+  })
+
+  it('says an answer the room ran out in was cut short', async () => {
+    enableAsking()
+    vi.spyOn(console, 'warn').mockImplementation(() => null)
+    fetched.mockResolvedValue(streamedAnswer('{"guess": "Ham', 'max_tokens'))
+    expect(await replyTo(askOf(Guessing))).to.deep.eq({ ok: false, failurekind: 'cutShort' })
+  })
+
+  it('refuses an answer carrying a control character rather than keep it', async () => {
+    enableAsking()
+    vi.spyOn(console, 'warn').mockImplementation(() => null)
+    fetched.mockResolvedValue(streamedAnswer(JSON.stringify({ guess: 'Ham\u{1}let' })))
+    expect(await replyTo(askOf(Guessing))).to.deep.eq({ ok: false, failurekind: 'unreadable' })
+  })
+
+  const Refused: [unknown, string][] = [
+    [{ prompt: '', servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },                     'an empty prompt'],
+    [{ prompt: 'x'.repeat(16_001), servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },     'a prompt past its bound'],
+    [{ prompt: Guessing, servicelabel: 'claude', model_tier: 'quick', max_tokens: 8001 },              'more room than a widget may have'],
+    [{ job: 'guess', clueing: 'Who was Danish?' },                                                     'the old fixed guess job'],
+  ]
+  for (const [body, describes] of Refused) {
+    it(`refuses ${describes} at the door, asking nobody`, async () => {
+      enableAsking()
+      const answer = await POST(new Request('http://localhost/api/ask', { method: 'POST', body: JSON.stringify(body) }))
+      expect(answer.status).to.eq(400)
+      expect(await answer.json()).to.deep.eq({ ok: false, failurekind: 'unreadable' })
+      expect(fetched).not.toHaveBeenCalled()
+    })
+  }
 
   it("answers a failure with its kind, and logs what the SDK threw on the server", async () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
@@ -93,17 +141,17 @@ describe('POST /api/ask', () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => null)
     // A status the SDK does not retry, so the test waits on no backoff.
     fetched.mockResolvedValue(Response.json({ type: 'error', error: { type: 'permission_error', message: 'nope' } }, { status: 403 }))
-    const answer = await POST(askBulk())
+    const answer = await POST(askOf('Hint: Think a dozen minus five', 'careful', 4000))
     const reply = await answer.json() as { failurekind: string }
     expect(reply.failurekind).to.eq('accountOff')
     expect(logged).toHaveBeenCalledOnce()
-    expect(logged.mock.calls[0]?.[0]).to.match(/^Triquet: could not answer a bulk_ishes ask — Error: 403 .*permission_error/)
+    expect(logged.mock.calls[0]?.[0]).to.match(/^Triquet: could not answer an ask of the careful tier — Error: 403 .*permission_error/)
   })
 
   it("logs nothing when asking is only switched off", async () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', undefined)
     const logged = vi.spyOn(console, 'error').mockImplementation(() => null)
-    await POST(askBulk())
+    await POST(askOf('Hint: Think a dozen minus five', 'careful', 4000))
     expect(logged).not.toHaveBeenCalled()
   })
 })

@@ -1,126 +1,69 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
-import type * as Z from 'zod'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
-import { bulkItemsBlock } from '../../../lib/ask/prompts'
-import { MaxTokensForJob, ModelForTier, BotForJob } from '../../../lib/ask/models'
+import { ModelForTier } from '../../../lib/ask/models'
 import * as Approval from '../../../lib/approval'
 import * as Credentials from '../../../lib/credentials'
 import * as Postmortem from '../../../lib/postmortem'
-import { botFor, promptFor } from '../../../lib/ask/bots'
 import { approxTokensFor } from '../../../lib/ask/tokens'
 import { failureReplyFor } from '../../../lib/ask/failures'
-import { vetReply } from '../../../lib/ask/replies'
-import { ValidatorKit } from '../../../lib/validator'
-import { IshValidators } from '../../../models/ish'
-import type { BotT } from '../../../models/bot'
+import { answerOf, vetReply } from '../../../lib/ask/replies'
 
-const { obj, arr, str } = ValidatorKit
-
-/** The shape every single-text ish job constrains the model's answer to */
-const IshItemsFormat = obj({ items: arr(IshValidators.ishItemReply) })
-
-/** The same, one group per tagged text, for the batched job */
-const BulkGroupFormat = obj({ key: str, items: arr(IshValidators.ishItemReply) })
-const BulkGroupsFormat = obj({ groups: arr(BulkGroupFormat) })
+/**
+ * What the model is told beside every prompt: the route keeps an answer only as a JSON object,
+ * and each prompt says in its own words which object it wants.
+ */
+const AnswerAsObject = 'Reply with a single JSON object and nothing else: no prose before or after it, and no code fence.'
 
 /**
  * The one place this tool reaches outside the browser.
  *
  * The key never leaves the server, so asking has to go through here; everything else in the
- * tool works with the network off. A failure is answered with a kind, never a stack trace and
- * never a bare status code, so the browser always has an author-shaped sentence to show; the
- * stack goes to the server's log instead, unless the failure is only asking being switched off.
+ * tool works with the network off. The browser sends a prompt it has already filled in, the
+ * service and tier to put it to, and the room to answer in; what comes back is the JSON object
+ * the model answered with, vetted before the browser keeps it. A failure is answered with a
+ * kind, never a stack trace and never a bare status code, so the browser always has an
+ * author-shaped sentence to show; the stack goes to the server's log instead, unless the
+ * failure is only asking being switched off.
  */
 export async function POST(request: Request): Promise<Response> {
   const parsed = AskContract.askRequest.safeParse(await request.json())
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
+  const ask = parsed.data
 
   try {
-    const bot = botFor(BotForJob[parsed.data.job])
-    Approval.need(null, { act: 'anthropic_bot' }, { job: parsed.data.job })
-    if (! Credentials.has(bot.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
-    const client = new Anthropic({ apiKey: Credentials.get(bot.servicelabel) })
-    return replied(vetReply(await answerAsk(client, bot, parsed.data)))
+    Approval.need(null, { act: 'anthropic_bot' }, { servicelabel: ask.servicelabel, model_tier: ask.model_tier, prompt_chars: ask.prompt.length })
+    if (! Credentials.has(ask.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
+    const client = new Anthropic({ apiKey: Credentials.get(ask.servicelabel) })
+    return replied(vetReply(await answerAsk(client, ask)))
   } catch (err) {
     const failed = failureReplyFor(err)
-    if (failed.failurekind !== 'notPermitted') { Postmortem.report(`answer a ${parsed.data.job} ask`, err, { failurekind: failed.failurekind }) }
+    if (failed.failurekind !== 'notPermitted') { Postmortem.report(`answer an ask of the ${ask.model_tier} tier`, err, { failurekind: failed.failurekind }) }
     return replied(failed)
   }
 }
 
-/** Whichever job was asked for, answered by the bot it was put to */
-async function answerAsk(client: Anthropic, bot: BotT, ask: AskRequestT): Promise<AskReplyT> {
-  switch (ask.job) {
-  case 'guess': {
-    return await answerGuess(client, bot, ask.clueing)
-  }
-  case 'ishes': {
-    const prompt = promptFor(bot, ask.textkind, { [ask.textkind]: ask.text })
-    const outcome = await extract(client, bot, prompt, IshItemsFormat, bot.max_tokens)
-    if (! outcome.ok) { return outcome }
-    return {
-      ok: true, job: 'ishes', items: outcome.parsed.items, truncated: outcome.truncated,
-      model_tier_applied: bot.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
-    }
-  }
-  case 'bulk_ishes': {
-    const prompt = promptFor(bot, 'bulk', { items: bulkItemsBlock(ask.items) })
-    const outcome = await extract(client, bot, prompt, BulkGroupsFormat, MaxTokensForJob.bulk_ishes)
-    if (! outcome.ok) { return outcome }
-    return {
-      ok: true, job: 'bulk_ishes', groups: outcome.parsed.groups, truncated: outcome.truncated,
-      model_tier_applied: bot.model_tier, approx_tokens: approxTokensFor(prompt, outcome.raw),
-      text_count: ask.items.length,
-    }
-  }
-  }
-}
-
-/** Dumdum's hasty first-instinct read, with no thinking to slow it down */
-async function answerGuess(client: Anthropic, dumdum: BotT, clueing: string): Promise<AskReplyT> {
-  const prompt = promptFor(dumdum, 'clueing', { clueing })
-  const answer = await client.messages.create({
-    model:      ModelForTier[dumdum.model_tier],
-    max_tokens: dumdum.max_tokens,
-    messages:   [{ role: 'user', content: prompt }],
-  })
-  if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
-  const text = textOf(answer.content)
-  if (text.trim() === '') { return { ok: false, failurekind: 'emptyAnswer' } }
-  return {
-    ok: true, job: 'guess', text,
-    truncated:          answer.stop_reason === 'max_tokens',
-    model_tier_applied: dumdum.model_tier,
-    approx_tokens:      approxTokensFor(prompt, text),
-  }
-}
-
-type Extracted<SC extends Z.ZodType> =
-  | { ok: true, parsed: Z.output<SC>, raw: string, truncated: boolean }
-  | { ok: false, failurekind: 'declined' | 'unreadable' }
-
 /**
- * One structured extraction from `bot`, or the reason there was not one.
+ * The prompt put to the model of its tier, and the JSON object it answered with.
  *
- * Streamed, then gathered: the SDK refuses to send an unstreamed ask with room for a long answer
- * (a whole-quiz run's `max_tokens` is well past its line), and streaming costs nothing here.
+ * Streamed, then gathered: the SDK refuses to send an unstreamed ask with room for a long answer,
+ * and streaming costs nothing here.
  */
-async function extract<SC extends Z.ZodType>(client: Anthropic, bot: BotT, prompt: string, format: SC, max_tokens: number): Promise<Extracted<SC>> {
+async function answerAsk(client: Anthropic, ask: AskRequestT): Promise<AskReplyT> {
   const answer = await client.messages.stream({
-    model: ModelForTier[bot.model_tier],
-    max_tokens,
-    messages:      [{ role: 'user', content: prompt }],
-    output_config: { format: zodOutputFormat(format) },
+    model:      ModelForTier[ask.model_tier],
+    max_tokens: ask.max_tokens,
+    system:     AnswerAsObject,
+    messages:   [{ role: 'user', content: ask.prompt }],
   }).finalMessage()
   if (answer.stop_reason === 'refusal') { return { ok: false, failurekind: 'declined' } }
-  // The model answered, but not in the shape the format asked for.
-  const { parsed_output } = answer
-  if (! parsed_output) {
-    console.warn('Triquet: a model answer did not fit the format asked for', { stop_reason: answer.stop_reason, text: textOf(answer.content).slice(0, 600) })
-    return { ok: false, failurekind: 'unreadable' }
+  const text = textOf(answer.content)
+  const truncated = answer.stop_reason === 'max_tokens'
+  const read = answerOf(text, truncated)
+  if (! read.ok) {
+    console.warn('Triquet: a model answer was not a JSON object', { stop_reason: answer.stop_reason, text: text.slice(0, 600) })
+    return read
   }
-  return { ok: true, parsed: parsed_output, raw: textOf(answer.content), truncated: answer.stop_reason === 'max_tokens' }
+  return { ok: true, value: read.value, truncated, model_tier_applied: ask.model_tier, approx_tokens: approxTokensFor(ask.prompt, text) }
 }
 
 /** Every text block of an answer, run together */

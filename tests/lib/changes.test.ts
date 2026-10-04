@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Changes from '../../src/lib/changes'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
+import { Widget } from '../../src/models/widget'
 import { present } from '../support/present'
 
 /** A blank question answering to `forced_label`, with any fields worth setting on top */
@@ -157,23 +158,39 @@ describe('shorthandFor', () => {
   })
 })
 
-describe('expressionChanges', () => {
-  const expression = { owner: 'tq' as const, label: 'shout', formula: '1', description: '' }
+describe('widgetChanges', () => {
+  const dumdum = Widget.fill({ label: 'dumdum', formulary: 'jsonata', formula: 'qn.title' })
+  const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
 
-  it('is one change, filed under widgets, when the expressions moved', () => {
-    expect(Changes.expressionChanges([], [expression])).to.deep.eq([{ scope: 'widgets', fieldkey: 'expressions', changekind: 'revised' }])
-    expect(Changes.expressionChanges([expression], [{ ...expression, formula: '2' }])).to.have.length(1)
+  it("is one change per widget the quiz now works that it did not, filed under widgets", () => {
+    expect(Changes.widgetChanges([], [dumdum])).to.deep.eq([{ scope: 'widgets', fieldkey: 'dumdum', changekind: 'added' }])
   })
 
-  it('is nothing when they are the same, even as new objects', () => {
-    expect(Changes.expressionChanges([expression], [{ ...expression }])).to.deep.eq([])
+  it("is one change per widget revised", () => {
+    expect(Changes.widgetChanges([dumdum, shout], [dumdum, { ...shout, formula: '$lowercase(qn.title)' }])).to.deep.eq([
+      { scope: 'widgets', fieldkey: 'shout', changekind: 'revised' },
+    ])
   })
 
-  it('is nothing for a quiz only now coming into being, which is reported as itself', () => {
-    expect(Changes.expressionChanges(null, [expression])).to.deep.eq([])
+  it("is one change per widget the quiz no longer works", () => {
+    expect(Changes.widgetChanges([dumdum, shout], [shout])).to.deep.eq([{ scope: 'widgets', fieldkey: 'dumdum', changekind: 'dropped' }])
   })
 
-  it('reads in a commit subject as widgets ~expressions', () => {
-    expect(Changes.shorthandFor(Changes.expressionChanges([], [expression]))).to.eq('widgets ~expressions')
+  it("puts the added and revised first, in the order they now stand, and then the dropped", () => {
+    const revised = { ...dumdum, title: 'Dumdum' }
+    const kinds = Changes.widgetChanges([dumdum, Widget.fill({ label: 'gone', formulary: 'jsonata', formula: '1' })], [shout, revised])
+    expect(kinds.map((change) => [change.fieldkey, change.changekind])).to.deep.eq([['shout', 'added'], ['dumdum', 'revised'], ['gone', 'dropped']])
+  })
+
+  it("is nothing when they are the same, even as new objects in another order", () => {
+    expect(Changes.widgetChanges([dumdum, shout], [{ ...shout }, { ...dumdum }])).to.deep.eq([])
+  })
+
+  it("is nothing for a quiz only now coming into being, which is reported as itself", () => {
+    expect(Changes.widgetChanges(null, [dumdum])).to.deep.eq([])
+  })
+
+  it("reads in a commit subject under widgets, one sigil per widget", () => {
+    expect(Changes.shorthandFor(Changes.widgetChanges([dumdum], [{ ...dumdum, title: 'Dumdum' }, shout]))).to.eq('widgets ~dumdum +shout')
   })
 })

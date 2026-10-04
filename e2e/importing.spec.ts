@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, expect, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -54,6 +54,7 @@ test('an explicit null clears the field', async ({ page }) => {
 })
 
 test('a label nothing here holds is appended, and a chain names its target by label', async ({ page }) => {
+  await addColumns(page, ['butnot'])
   await runImport(page, [
     { label: await labelAt(page, 0), chains_to: 'nantes_one' },
     { label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },
@@ -95,14 +96,6 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Which region?')
   await expect(fieldAt(page, 'Clueing', 1)).toHaveValue('Another one')
   await expect(grid(page).locator('tbody tr')).toHaveCount(5)
-})
-
-test('a bot reply carried in fills its empty cell, marked stale', async ({ page }) => {
-  await runImport(page, [{ label: await labelAt(page, 0), guess: { status: 'done', text: 'Lyon', truncated: false } }])
-  await expect(page.getByText(/Carried 1 bot reply\(ies\) to cells holding none, marked stale/)).toBeVisible()
-  const cell = page.getByRole('button', { name: 'Ask Quick-model guess' }).first()
-  await expect(cell).toContainText('Lyon')
-  await expect(cell).toContainText('· stale')
 })
 
 test('importing is refused while the quiz is locked', async ({ page }) => {

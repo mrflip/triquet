@@ -10,7 +10,7 @@ import { AskContract, AskRoutepath, type AskReplyT, type AskRequestDNA } from '.
  * @param ask - What to ask for.
  * @returns The answer, or the kind of failure it was.
  *
- * @example await askModel({ job: 'guess', clueing: 'Which region?' })
+ * @example await askModel({ prompt: 'Question: Which region?', servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 })
  */
 export async function askModel(ask: AskRequestDNA): Promise<AskReplyT> {
   try {
