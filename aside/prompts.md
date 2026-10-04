@@ -1,3 +1,5 @@
+write a script that uses @visulima/redact to process arbitrary json on its stdin. before passing to redact, the value of any field at the top level with a fieldname matching /^.*visibility.*$/i tha has value "masked" is changed to "__d
+
 after those: in playtest grid mode, add a mode allowing questions to be reordered. adda a control like the batch-mode checkmarks at the top left , but this should be double arrows . when it's enabled, teh questions gain drag handles. Their Q#s numbers don't change. The ordering li
 
 You should be operating out of a sandbox whose container sets `$TQ_IS_SANDBOXED` to "true".
