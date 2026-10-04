@@ -2,7 +2,7 @@ import _ from 'es-toolkit/compat'
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { LibraryActionT } from '../../src/models/actions'
-import { WidgetValidators, type WidgetPatch, type WidgetT } from '../../src/models/widget'
+import { Widget, WidgetValidators, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { isWorked, libraryOf, widgetForLabel } from '../reading'
 import { insertAbsentWidgets, movedTo, repositioned, updateWidget, type Writer } from './quiz_writing'
 
@@ -22,10 +22,11 @@ export async function addWidget(db: Writer, widget: WidgetT): Promise<void> {
 
 /**
  * Revise the library's widget labelled `label`, its patch held to the widget's own formulary: a
- * config of another formulary's shape, or a formula past its bound, is not valid. Every quiz
- * working it changes with it. Refused when the library holds no such widget.
+ * config of another formulary's shape, or a formula past its bound, is not valid, and an entry's
+ * kind stays as it is. Every quiz working it changes with it. Refused when the library holds no
+ * such widget.
  *
- * @throws A refusal (`widgetGone`), or a Zod error when the patch does not fit the widget's formulary; nothing is written.
+ * @throws A refusal (`widgetGone`, `entryKindFixed`), or a Zod error when the patch does not fit the widget's formulary; nothing is written.
  */
 export async function editWidget(db: Writer, label: string, patch: WidgetPatch): Promise<void> {
   const held = await widgetForLabel(db, label)
@@ -58,7 +59,7 @@ export async function deleteWidget(db: Writer, label: string): Promise<void> {
 /**
  * Merge widgets into the library by label: one it lacks is added at the end; one it holds is
  * revised (title, description, formula, input formula, config); one whose formulary differs from
- * the one held is passed over rather than half-merged. None is removed. A label the import names
+ * the one held, or an entry whose kind does, is passed over rather than half-merged. None is removed. A label the import names
  * twice is merged once, as its first.
  *
  * @throws A refusal (`libraryFull`) when the widgets added would pass what the library may hold; nothing is written.
@@ -72,7 +73,7 @@ export async function importWidgets(db: Writer, widgets: readonly WidgetT[]): Pr
   if (held.length + added.length > PA.WidgetsInLibrary.max) { refuse('libraryFull') }
   for (const widget of merged) {
     const row = heldFor.get(widget.label)
-    if (row?.formulary !== widget.formulary) { continue }
+    if (! row || Widget.flavorOf(row) !== Widget.flavorOf(widget)) { continue }
     const { title, description, formula, input_formula, config } = widget
     await updateWidget(db, row, { title, description, formula, input_formula, config })
   }

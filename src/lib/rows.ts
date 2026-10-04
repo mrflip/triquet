@@ -224,6 +224,7 @@ export function widgetFrom(row: Doc<'widgets'>): WidgetT {
   switch (row.formulary) {
   case 'jsonata': { return { ...shared, formulary: 'jsonata', formula: row.formula, config: row.config } }
   case 'aibot':   { return { ...shared, formulary: 'aibot', formula: row.formula, config: row.config } }
+  case 'entry':   { return { ...shared, formulary: 'entry', formula: '', input_formula: '', config: row.config } }
   }
 }
 

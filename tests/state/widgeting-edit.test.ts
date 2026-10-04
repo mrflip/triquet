@@ -31,8 +31,8 @@ function actionsOf(edit: WidgetingEdit, target: QuizT = quiz, held = library): H
 }
 
 describe("NewColumnWidthPx", () => {
-  it("gives a number its narrow column and a model's answer a wide one", () => {
-    expect(NewColumnWidthPx).to.deep.eq({ jsonata: 78, aibot: 170 })
+  it("gives a number its narrow column, and a model's answer and an entry a wide one", () => {
+    expect(NewColumnWidthPx).to.deep.eq({ jsonata: 78, aibot: 170, entry: 170 })
   })
 })
 

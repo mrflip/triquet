@@ -93,15 +93,23 @@ export function StretchField({ committed, onCommit, locked, placeholder, label, 
   )
 }
 
+export type PlainFieldProps = FieldProps & {
+  /** Cleans what was typed up on the way out, as `useDraft` does: a label made a label, say */
+  tidy?:      (draft: string) => string
+  /** The most characters that may be typed */
+  maxLength?: number
+}
+
 /** Title: one line, borderless until touched */
-export function PlainField({ committed, onCommit, locked, placeholder, label }: Readonly<FieldProps>) {
-  const { draft, onChange, onBlur } = useDraft(committed, onCommit)
+export function PlainField({ committed, onCommit, locked, placeholder, label, tidy, maxLength }: Readonly<PlainFieldProps>) {
+  const { draft, onChange, onBlur } = useDraft(committed, onCommit, tidy)
   return (
     <input
       className={clsx(styles.field, styles.fieldData)}
       aria-label={label}
       placeholder={placeholder}
       readOnly={locked}
+      maxLength={maxLength}
       value={draft}
       onChange={(event) => { onChange(event.target.value) }}
       onBlur={onBlur}
@@ -129,6 +137,8 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
   onCommit:   (num: number | null) => void
   /** Whether a fraction may be typed, as `2.5` */
   fractional: boolean
+  /** Whether a number below nought may be typed */
+  signed?:    boolean
   /** The most that may be typed */
   max?:       number
   /** The grid's own borderless box, rather than a labelled MUI text field */
@@ -136,23 +146,23 @@ export type NumberFieldProps = Omit<FieldProps, 'committed' | 'onCommit'> & {
 }
 
 /**
- * An optional non-negative number, committed when the box loses focus: as a number, or null
- * when it was emptied. Keystrokes that would make it anything else, or more than `max`, are not
+ * An optional number, non-negative unless `signed`, committed when the box loses focus: as a
+ * number, or null when it was emptied. Keystrokes that would make it anything else, or more than `max`, are not
  * taken, and what was typed is tidied on exit into the number it means (`2.50` becomes `2.5`, and
  * a lone `.` nothing).
  */
-export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, max, bare = false }: Readonly<NumberFieldProps>) {
+export function NumberField({ committed, onCommit, locked, placeholder, label, fractional, signed = false, max, bare = false }: Readonly<NumberFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(
     committed === null ? '' : String(committed),
     (typed) => { onCommit(typed === '' ? null : Number(typed)) },
-    // A lone point means no number at all.
+    // A lone point, or a lone minus sign, means no number at all.
     (typed) => (typed === '' || Number.isNaN(Number(typed)) ? '' : String(Number(typed))),
   )
   const inputMode = fractional ? 'decimal' : 'numeric'
   const numeric = {
     value:                draft,
     valueIsNumericString: true,
-    allowNegative:        false,
+    allowNegative:        signed,
     decimalScale:         fractional ? undefined : 0,
     placeholder,
     onBlur,

@@ -13,9 +13,11 @@ import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
 import type { OpenQuizT } from '../../src/models/actions'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
-import type { WidgetedRecordingT } from '../../src/models/widgeted'
-import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizRowsOf, quizzesOf, widgetForLabel } from '../reading'
-import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, type Writer } from './quiz_writing'
+import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
+import { EntryFormulary } from '../../src/lib/formulary/entry'
+import { formularyFor } from '../../src/lib/formulary/formularies'
+import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizRowsOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
+import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row, the questions it names
 // by id, and the whole quiz only for an order worked out across every question. What an action
@@ -211,8 +213,8 @@ export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: 
 /**
  * Record what one widgeting of the open quiz came to for one of its questions, as the newest row
  * in that cell. What the cell held before stays in its history. A question not in the quiz, a
- * widgeting it does not have, or one whose widget works its values out rather than storing them,
- * is refused.
+ * widgeting it does not have, or one whose widget is not asked from its cell (worked out on
+ * render, or typed), is refused.
  *
  * @throws A refusal (`quizGone`, `quizLocked`, `questionGone`, `widgetingGone`, `notStored`); nothing is written.
  */
@@ -222,18 +224,38 @@ export async function recordWidgeted(db: Writer, open: OpenQuizT, widgeted: Widg
   const widgeting = layout.widgetings.find((each) => each.label === widgeted.widgeting_label)
   if (! widgeting) { refuse('widgetingGone') }
   const widget = await widgetForLabel(db, widgeting.widget_label)
-  if (widget?.formulary !== 'aibot') { refuse('notStored') }
+  if (! widget || formularyFor(widget).store !== 'append') { refuse('notStored') }
   await insertWidgeted(db, held._id, widgeting._id, widgeted)
+}
+
+/**
+ * Put what was typed into one entry cell of the open quiz, as that cell's one row: revised in
+ * place, never appended; an emptied cell (null) holds no row. The value is held to the entry
+ * widget's kind. A question not in the quiz, a widgeting it does not have, or one whose widget is
+ * not an entry, is refused.
+ *
+ * @throws A refusal (`quizGone`, `quizLocked`, `questionGone`, `widgetingGone`, `notEntered`), or a Zod error when the value is not of the entry's kind; nothing is written.
+ */
+export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: WidgetedEnteringT): Promise<void> {
+  const layout = revisable(await layoutRowsOf(db, open.quiz_id))
+  const held = await questionIn(db, layout.quiz, entered.question_id)
+  const widgeting = layout.widgetings.find((each) => each.label === entered.widgeting_label)
+  if (! widgeting) { refuse('widgetingGone') }
+  const widget = await widgetForLabel(db, widgeting.widget_label)
+  if (widget?.formulary !== 'entry') { refuse('notEntered') }
+  const value = entered.value === null ? null : EntryFormulary.valueOf(widget).parse(entered.value)
+  await upsertWidgeted(db, held._id, widgeting._id, value)
 }
 
 /**
  * Fold imported questions into the open quiz, each by the label in force: one a question of
  * the quiz answers to is revised by its patch; one none answers to adds a question under it,
- * at the end, titled from its label unless the patch says otherwise. Nothing is deleted, and
- * Q#s are then renumbered by rank, as the Import panel promises. A chain names its target by
- * label: one naming no question the quiz will hold, or the question itself, is no chain.
+ * at the end, titled from its label unless the patch says otherwise. What each types into its
+ * entry cells is upserted there. Nothing is deleted, and Q#s are then renumbered by rank, as the
+ * Import panel promises. A chain names its target by label: one naming no question the quiz will
+ * hold, or the question itself, is no chain.
  *
- * @throws A refusal (`quizGone`, `quizLocked`, `questionsFull`); nothing is written.
+ * @throws A refusal (`quizGone`, `quizLocked`, `questionsFull`), or a Zod error when an entered value is not of its entry's kind; nothing is written.
  */
 export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[]): Promise<void> {
   const quiz = await openQuizRow(db, open)
@@ -242,19 +264,47 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
   const known = new Set([...held.keys(), ...imported.map((question) => question.label)])
   if (known.size > PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
   const added: Id<'questions'>[] = []
+  const idFor = new Map<string, Id<'questions'>>()
   for (const { label, patch } of imported) {
     const chained = patch.chains_to === undefined ? {} : { chains_to: patch.chains_to !== null && patch.chains_to !== label && known.has(patch.chains_to) ? patch.chains_to : null }
     const fields = { ...patch, ...chained }
     const row = held.get(label)
     if (row) {
       await updateQuestion(db, row, fields)
+      idFor.set(label, row._id)
     } else {
       const fresh = QuestionValidators.row({ ...Question.blankRow({ hunt_id: open.hunt_id, quiz_id: quiz._id }, label), ...fields })
-      added.push(await db.insert('questions', fresh))
+      const question_id = await db.insert('questions', fresh)
+      added.push(question_id)
+      idFor.set(label, question_id)
     }
   }
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added] })
+  await enterImported(db, quiz._id, imported, idFor)
   await reorderOpenQuiz(db, open, { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
+}
+
+/**
+ * Type what an import carries into the quiz's entry cells, each value held to its entry's kind: a
+ * value is upserted, a null empties the cell. A label naming no entry widgeting of the quiz (one
+ * whose adding was refused, say) is passed over, as an import passes over what it cannot place.
+ */
+async function enterImported(db: Writer, quiz_id: Id<'quizzes'>, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
+  if (imported.every(({ entered }) => _.isEmpty(entered))) { return }
+  const [widgetings, library] = await Promise.all([widgetingsOf(db, quiz_id), libraryOf(db)])
+  const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
+  const entries = new Map(widgetings.flatMap((widgeting) => {
+    const widget = widgetFor.get(widgeting.widget_label)
+    return widget?.formulary === 'entry' ? [[widgeting.label, { widgeting, widget }] as const] : []
+  }))
+  const cells = imported.flatMap(({ label, entered }) => Object.entries(entered).flatMap(([widgeting_label, value]) => {
+    const question_id = idFor.get(label)
+    const entry = entries.get(widgeting_label)
+    return question_id && entry ? [{ question_id, entry, value }] : []
+  }))
+  for (const { question_id, entry, value } of cells) {
+    await upsertWidgeted(db, question_id, entry.widgeting._id, value === null ? null : EntryFormulary.valueOf(entry.widget).parse(value))
+  }
 }
 
 // What follows is about the realm rather than a quiz's contents, so a locked quiz refuses none of

@@ -3,6 +3,8 @@
 The running handoff for `rewidgeting-plan.md`, newer than the plan wherever they disagree.
 Workers add their sections below the table, newest first.
 
+**Sprint done, 2026-10-01**: eight threads, PRs #67 to #74 stacked in that order, none merged.
+
 ## Status
 
 | Thread | Label | Status |
@@ -14,7 +16,78 @@ Workers add their sections below the table, newest first.
 | 5 | Status | complete: PR #71, stacked on #70 (reviewed: fixed) |
 | 6 | Views | complete: PR #72, stacked on #71 (reviewed: fixed) |
 | 7 | The basic set and the catalogue | complete: PR #73, stacked on #72 (reviewed: clean) |
-| 8 | Entry widgets | pending |
+| 8 | Entry widgets | complete: PR #74, stacked on #73 (reviewed: fixed) |
+
+## Thread 8: Entry widgets (2026-10-01)
+
+Branch `20261001-entry_widgets`, PR #74, stacked on #73. Suites: typecheck and lint clean; `pnpm test`
+2730 passed (107 files); `pnpm test:e2e:agent` 205 passed (202 specs and 3 environment checks). `origin/main`
+had not moved. No schema change beyond the new `entry` arm of the `widgets` union (additive, no
+migration); no `convex/_generated/` churn.
+
+* **Built**:
+  - **The formulary** (`src/lib/formulary/entry.ts`, `EntryFormulary`): no formula, no input,
+    `refresh` null, `store` `upsert`, `valueOf(widget)` the validator of a cell. In
+    `formularies.ts`, `TypedFormulary` joins the union with no `run` and no `advice`; `advice` moved
+    to the two formularies with a formula. The runner gives a non-`click` stored column no inputs.
+  - **The model** (`src/models/widget.ts`): `EntryKindVals` (`text`, `number`, `labelish`,
+    `titleish`), `entryConfig` (strict), the entry arm of `widget` and `row` (formula and input
+    formula `''`), `EntryValueFor`, `EntryWidgetT`, `EntryValueT`, `Widget.flavorOf`; `Widget.fill`
+    is generic over the formulary it is given. `rows.ts`'s `widgetFrom` has the arm.
+  - **The write**: `enter_widgeted` (`WidgetedValidators.entered`), `enterWidgeted` in
+    `quiz_actions.ts`, `upsertWidgeted` in `quiz_writing.ts` (one indexed read; replace, insert, or
+    delete for null). `record_widgeted` refuses anything whose `store` is not `append`
+    (`notStored`, reworded); new refusals `notEntered`, `entryKindFixed`.
+  - **The cell** (`src/components/cells/entry.tsx`, `EntryCell`) from `StretchField`,
+    `NumberField` (new `signed`) and `PlainField` (new `tidy`, `maxLength`); `QuestionRow` routes
+    entry widgetings to it and gives their columns no double-click handler; `onEnter` plumbed
+    through `QuestionTable` and `Workbench`.
+  - **The editors**: `src/components/EntryFields.tsx` (label, description, kind; the kind is
+    disabled for a held widget); `widget-edit.ts`'s `EntryDraft`, `BlankEntryDraft`, and
+    `planWidgetEdit` refusing a change of flavor; `FormularyWords.entry`, `EntryKindWords`; the
+    Widgets panel's entry arm; `WidgetingsEditor`'s removal question by `store`.
+  - **The import** carries entry values: `ImportValidators.importedQuestion.entered`, read in
+    `importInto` (`entryWidgetingsOf`, `enteredFrom`), upserted by `importQuestions`
+    (`enterImported`). `libraryImported` and `importWidgets` compare flavors, not formularies.
+  - **e2e**: `e2e/entries.spec.ts` (local helper `addNewEntry`).
+  - **Docs**: the decision note's *Entries* section, row shapes, import bullet, *Settled here* 17;
+    vocabulary (*entry kind*, *flavor*); `notes/stack.md` (signed number boxes); HUMAN-whatsup.
+* **Decisions taken**:
+  - **The entry kind is fixed once made** (values typed hang on it), enforced in `updateWidget`
+    and passed over by library imports.
+  - **An emptied cell deletes its row** (reads `missing`), rather than storing an `ok` of null.
+  - **A separate action, `enter_widgeted`**, rather than `record_widgeted` dispatching on `store`:
+    the browser sends only a value, held to the kind on the server, never a status or meta.
+  - **Entry values are imported now, merged as a field** (value replaces, null empties), ahead of
+    #66, since it is what a person typed and the export is their exit door; `aibot` replies still
+    wait. A value not of its kind fails its question.
+  - **`number` is signed and fractional**; `text` is `noteish` (trimmed, markdown); `labelish` is
+    tidied to a label on blur; `titleish` is trimmed and capped at 82.
+  - **No seeded entry widget**; every entry column starts 170px wide.
+* **Deviations**:
+  - From the decision note: entries lack `run` and `advice` (the sketch gave every formulary
+    both), and imported entry values merge as fields rather than "into empty cells, marked
+    `imported`". Both recorded in the note.
+  - The library import's skip reason now names flavors ("a jsonata widget here, and an aibot
+    widget in the library"); `e2e/panels.spec.ts` and `tests/lib/importing.test.ts` follow.
+* **Pulled forward**: none.
+* **Discoveries**:
+  - Spreading a `WidgetT` and overriding `formula` stops type-checking once a union arm has a
+    literal `''` formula; tests narrow (`formulaOf`, `as JsonataDraft`), and `Widget.fill` now
+    returns the arm it was given.
+  - Thread 5's double-click finding stays unreachable, and entry columns now have no handler at all.
+* **For the Coach**: the four minor questions in PR #74 (import ahead of #66; delete on empty; one
+  width; a seeded entry), and HUMAN-whatsup's *Moving hint, alt_text and notes into entries*
+  (recommendation: `hint` stays core). No lint or type suppressions added; one `as` in
+  `Widget.fill`.
+
+*Review:* fixed. Kept `2e80b19`: an import read entry values under a widgeting label even when the
+paste said the label works another widget, so a pasted aibot `{ status: 'ok', value }` overwrote what a
+person typed, and a pasted `errored` skipped the whole question; such labels now stay out of the
+entry map. The upsert, `enter_widgeted`'s kind check, `record_widgeted`'s append-only refusal,
+`entryKindFixed` and `enterImported` read sound. Left, minor: a very small or large number shows in
+exponent form in a number entry; typing only spaces into an empty text entry sends a no-op write and
+the spaces stay in the box.
 
 ## Thread 7: The basic set and the catalogue (2026-10-01)
 

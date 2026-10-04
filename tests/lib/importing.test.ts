@@ -37,6 +37,31 @@ const withWidgetings = (quiz: QuizT, widgetings: unknown[], library: readonly Wi
   Importing.importInto(quiz, JSON.stringify({ questions: [{ label: 'leon' }], widgetings }), library)
 )
 
+/** The library, with the entries `remark` (text) and `points` (a number) */
+const EntryLibrary = [
+  ...SeedWidgets,
+  Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } }),
+  Widget.fill({ label: 'points', formulary: 'entry', config: { entry_kind: 'number' } }),
+]
+
+/** A quiz of `leon` and `nantes` working the entries `remark` and `points`, and the formula `clueing_full` */
+function enteredQuiz(): QuizT {
+  return {
+    ...quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Which city?']),
+    widgetings: ['remark', 'points', 'clueing_full'].map((label) => Widgeting.fill({ widget_label: label, label })),
+  }
+}
+
+/** What importing `pasted` into `quiz` comes to, the library holding the entries */
+function read(quiz: QuizT, pasted: unknown): Importing.ImportOutcome {
+  return Importing.importInto(quiz, JSON.stringify(pasted), EntryLibrary)
+}
+
+/** What an import types into the entry cells of the question labelled `label` */
+function enteredFor(outcome: Importing.ImportOutcome, label: string): ImportedQuestionT['entered'] {
+  return present(present(outcome.questions).find((question) => question.label === label), label).entered
+}
+
 describe('importInto', () => {
   describe('what it accepts', () => {
     it('takes a bare list of questions', () => {
@@ -339,6 +364,59 @@ describe('importInto', () => {
       expect(outcome.widgetingActions).to.deep.eq([])
     })
   })
+
+  describe('entries', () => {
+
+    it("types a value under an entry's label into its cell, read as the export writes it or bare", () => {
+      const outcome = read(enteredQuiz(), [{ label: 'leon', remark: { status: 'ok', value: 'Ask Flip.' }, points: 3 }])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.', points: 3 })
+    })
+
+    it("empties a cell for nothing: null, an empty text, or a missing cell as the export writes it", () => {
+      const outcome = read(enteredQuiz(), [{ label: 'leon', remark: null, points: { status: 'missing', value: null } }, { label: 'nantes', remark: '' }])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: null, points: null })
+      expect(enteredFor(outcome, 'nantes')).to.deep.eq({ remark: null })
+    })
+
+    it("leaves a cell the paste says nothing of as it was, and passes over what a formula came to", () => {
+      const outcome = read(enteredQuiz(), [{ label: 'leon', clueing: 'Reworded', clueing_full: { status: 'ok', value: 12 } }])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({})
+      expect(patchFor(present(outcome.questions), 'leon')).to.deep.eq({ clueing: 'Reworded' })
+    })
+
+    it("reads a quiz's own export pasted straight back, each question merged with what its entries hold", () => {
+      const pasted = { questions: [
+        { label: 'leon', remark: { status: 'ok', value: 'Ask Flip.' }, points: { status: 'missing', value: null }, clueing_full: { status: 'missing', value: null } },
+      ] }
+      const outcome = read(enteredQuiz(), pasted)
+      expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq(['merged'])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.', points: null })
+    })
+
+    it("types into the entries of a widgeting the same import adds", () => {
+      const outcome = read(quizOf(['1', 'leon', 'Which region?']), { questions: [{ label: 'leon', remark: 'Fresh.' }], widgetings: [{ widget_label: 'remark', label: 'remark' }] })
+      expect(outcome.widgetingActions.map((action) => action.kind)).to.deep.eq(['add_widgeting'])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Fresh.' })
+    })
+
+    it("passes over a value under an entry's label when the paste says that label works another widget", () => {
+      const outcome = read(enteredQuiz(), { questions: [{ label: 'leon', clueing: 'Reworded', remark: { status: 'errored', value: null } }], widgetings: [{ widget_label: 'dumdum', label: 'remark' }] })
+      expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq(['merged'])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({})
+    })
+
+    it("folds two pasted questions naming one label into one, the later value winning", () => {
+      const outcome = read(enteredQuiz(), [{ label: 'leon', remark: 'First.', points: 1 }, { label: 'leon', remark: 'Second.' }])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Second.', points: 1 })
+    })
+
+    it("skips a question whose entry holds what its kind does not take, naming the entry", () => {
+      const outcome = read(enteredQuiz(), [{ label: 'leon', clueing: 'Reworded', points: 'three' }, { label: 'nantes', remark: { status: 'errored', value: null } }])
+      expect(outcome.log.map((entry) => [entry.outcome, entry.issues.map((issue) => issue.fieldpath)])).to.deep.eq([['skipped', ['points']], ['skipped', ['remark']]])
+      expect(outcome.questions).to.deep.eq([])
+      expect(outcome.ok).to.be.false
+    })
+  })
 })
 
 describe('libraryImported', () => {
@@ -388,7 +466,7 @@ describe('libraryImported', () => {
 
   it("skips and logs a widget whose formulary differs from the one held", () => {
     const outcome = Importing.libraryImported(SeedWidgets, JSON.stringify([{ label: 'dumdum', formulary: 'jsonata', formula: 'qn.title' }]))
-    expect(outcome.log).to.deep.eq([{ label: 'dumdum', outcome: 'skipped', reason: 'it is worked by jsonata here, and by aibot in the library' }])
+    expect(outcome.log).to.deep.eq([{ label: 'dumdum', outcome: 'skipped', reason: 'it is a jsonata widget here, and an aibot widget in the library' }])
     expect(outcome.widgets).to.deep.eq([])
     expect(outcome.ok).to.be.false
   })

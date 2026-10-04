@@ -5,10 +5,11 @@ import type { Formularykind, WidgetT } from '../models/widget'
 import type { QuizT } from '../models/quiz'
 import type { HuntActionDNA } from '../models/actions'
 
-/** How wide the column a new widgeting brings with it is: a number's, or a model's answer's */
+/** How wide the column a new widgeting brings with it is: a number's, a model's answer's, or a note's */
 export const NewColumnWidthPx: Readonly<Record<Formularykind, number>> = {
   jsonata: 78,
   aibot:   170,
+  entry:   170,
 }
 
 /** Everything the widgeting editor holds while it is open: a widgeting's own fields, and which widget it works */

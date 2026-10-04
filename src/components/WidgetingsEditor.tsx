@@ -154,9 +154,7 @@ function WidgetingDialog({ hunt, quiz, library, widgeting, dispatch, onClose }: 
             ? (
               <ConfirmRemove
                 noun="widgeting"
-                question={widget && formularyFor(widget).store !== null
-                  ? 'Remove this widgeting, the columns that show it, and every answer it kept? Its widget stays in the library.'
-                  : 'Remove this widgeting, and the columns that show it? Its widget stays in the library.'}
+                question={removalQuestion(widget)}
                 onConfirm={() => { dispatch({ kind: 'delete_widgeting', label: widgeting.label }); onClose() }}
               />
             )
@@ -241,4 +239,13 @@ function pickedNote(widget: WidgetT | null, gone: string | null): string {
   if (gone !== null) { return `It works ${gone}, which the library no longer holds.` }
   if (widget === null) { return 'Pick one of the library to put to work in this quiz, or write a new one.' }
   return widget.description === '' ? FormularyWords[widget.formulary].gist : widget.description
+}
+
+/** What removing a widgeting asks first: what it takes with it, by how its widget keeps its values */
+function removalQuestion(widget: WidgetT | null): string {
+  switch (widget ? formularyFor(widget).store : null) {
+  case 'append': { return 'Remove this widgeting, the columns that show it, and every answer it kept? Its widget stays in the library.' }
+  case 'upsert': { return 'Remove this widgeting, the columns that show it, and everything typed into it? Its widget stays in the library.' }
+  case null:     { return 'Remove this widgeting, and the columns that show it? Its widget stays in the library.' }
+  }
 }

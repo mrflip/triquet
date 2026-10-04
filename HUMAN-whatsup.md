@@ -14,6 +14,98 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   `notes/views.md` says when a view asks its container and when the window.
 * **Possibly flaky:** `expressions.spec.ts` › *the prompt for a chatbot is copied…* failed once
   in a full e2e run, then passed 3 of 3 on its own.
+## 2026-10-01: Sprint rewidgeting done -- eight threads, eight PRs open, a hand deploy
+
+* **The sprint.** Bots and expressions are one family on the data layer: a global library of
+  *widgets* (formularies `jsonata`, `aibot`, `entry`), put to work in a quiz as *widgetings*, coming
+  to a *widgeted* per question. Authors paste their own prompts; a new quiz starts lean (five
+  columns, no widgetings) and picks from the library. Plan, handoff and `losses.md`:
+  `whiteboard/20261001-rewidgeting/`. Live mirror: the *Rewidgeting sprint* Claude Doc.
+* **The PRs, stacked in order** (land the top, #74, to take them all, or one at a time):
+  #67 decision record and vocabulary (docs only) <- #68 formulary seam <- #69 the three tables,
+  seeding, clean break <- #70 pasted prompts <- #71 status <- #72 two editors and the Widgets panel
+  <- #73 the lean starter set <- #74 entry widgets. #67 also carries the unmerged
+  `20261001-rewidgeting_plan` (yours) and `20261001-rewidgeting_start` commits beneath it.
+* **The deploy is a hand procedure** (thread 3's entry below; `notes/deploy.md`, *Clearing the
+  widget tables*; `losses.md`). Land and deploy the stack together, at least through #70: the seeding
+  mutation inserts only what is absent, so production should be seeded once, from the final fixture.
+* **Bulk recalculation is gone, and the batched run was already slower than it should be**: worth
+  a look of its own the day bulk returns (thread 3's entry below).
+* **Reviews**: every code thread reviewed at medium; 12 `fix:` commits kept across seven threads;
+  one flagged finding (thread 2: dumdum's reply not stored verbatim), fixed on resume and since made
+  moot by thread 4's JSON route. Nothing significant left open.
+* **YOLO decisions, yours to overturn** (the plan's *Decisions taken in YOLO* has all eleven):
+  seeding a quiz's widgetings only when its columns name the old defaults; `butnot_ishes` as a seeded
+  `jsonata` widget; dumdum's value `{ guess, explanation }`; imports keep pasted values per #66;
+  duplicate labels in a library import merge, first wins; raw mustache tags (`{{{x}}}`, `{{&x}}`)
+  refused; no separate `label` starter column; entry values imported ahead of #66.
+* **Open questions, gathered** (detail in the plan's *For the Coach*):
+  - Rate limiting on `/api/ask` (thread 4's entry below); `servicelabel` in the request, or assume
+    `claude`?
+  - Your `dev` backend needs `--reset --seed` (it holds the old schema and dumdum's old prompt).
+    Previews seed only twelve widgets unless `build:vercel` runs `seeding:seedWidgets`.
+  - Library export/import on the Export panel, or elsewhere? A Title field in the widget editor?
+  - Column headings from a widgeting's label (*Butnot Ishes*) or the widget's title?
+  - The sort rule for objects (a one-key object sorts as what it holds).
+  - A paste holding widgetings but no questions changes nothing today; merge them?
+  - Seed a generic entry widget? Move `notes` and `alt_text` into entries (thread 8's entry below)?
+  - Suppressions: four `no-extraneous-class` disables on classes of statics (`JsonataFormulary`,
+    `AibotFormulary`, `Widgeted`, `Widget`), or an `allowStaticOnly` override.
+  - `CLAUDE.md` names the deleted `Expressed`, and points (with `notes/database-decisions.md`) at
+    decision records under `/aside/`.
+  - PR #66 and #67 both edit the vocabulary's *stale* entry: a small docs conflict for the second.
+  - A known limit: the stored read nears Convex's per-transaction bound around 999 questions by 5
+    `aibot` widgetings.
+
+## 2026-10-01: Rewidgeting thread 8 -- entry widgets, and moving hint, alt_text and notes into them
+
+* **Entries are built.** A widget of the `entry` formulary is typed into: its config names what its
+  cells take (`text`, `number`, `labelish`, `titleish`), and its cell is the grid's own field
+  editor for that kind, committing on blur to the cell's one `widgeteds` row (upserted; an emptied
+  cell deletes it). Make one from *New widget…* in the widgeting editor, formulary *An entry*.
+  The library seeds none, so the picker's *Entries* group is empty until someone makes one -- say
+  if a generic seeded entry (a `remark`, say) would earn its place.
+* **Three calls for you to overturn**, all in `notes/decisions/2026-10-widgets.md`, *Entries*:
+  an entry's kind is fixed once made, as its formulary is (the values typed hang on it); an
+  emptied cell holds no row, so it reads `missing`, not an `ok` of nothing; and **an entry's value
+  rides the hunt import now**, merged as a question's own field is (a value replaces, null
+  empties), rather than waiting on PR #66 with the `aibot` replies: it is what a person typed, and
+  the export is their exit door.
+* **`notes` stays a question field**, as the plan expected: while `notes` is an exposed question
+  field, no widgeting may be labelled `notes`, so a default `notes` entry would have to be called
+  something else, and a quiz would show two notes.
+
+### Moving `hint`, `alt_text` and `notes` into entries: what it would take
+
+Not done (a data move, and a later call). Read for the day it is wanted:
+
+1. **The widgets.** Three seeded entry widgets. `notes` fits `text` as built. `alt_text` is read
+   aloud as written, so it wants a plain text kind (no markdown face; `StretchField` has a `plain`
+   prop already). `hint` is the hard one: its box grows and, with the clueing, decides the row's
+   height (`GrowingField`); an entry's text box only stretches to the row. A fifth kind, or a
+   `grows` flag on the kind.
+2. **The bag and every formula.** Out of `Question.exposed`, each name frees for a widgeting
+   label, and `qn.hint` becomes `{ status, value, err }`: every formula reading `qn.hint`,
+   `qn.notes` or `qn.alt_text` (the seeded `numnum_hint` input and `clueing_with_butnot`, and any
+   author's) must read `.value`, guarded by status. The seeds can be rewritten; an author's
+   formulas cannot be found and fixed for them.
+3. **The core features that read `hint` by name.** BUT NOT is the tool's own mechanic: the
+   chained-to question's hint, shown by `cells/chain.tsx`, `ReviewScreen`, the sheet's `butnot`
+   column and the league export (`ll-smith-export.ts`). As a widgeting, that is a core view knowing
+   a label -- what retiring the `butnot_ishes` view undid. **My recommendation: `hint` stays a
+   question field, as `chains_to` does; move only `notes` and `alt_text`.**
+4. **The data.** A migration through `notes/deploy.md`: for each quiz, a `notes` (and `alt_text`)
+   widgeting; for each question with a non-empty value, its row; then the question fields dropped
+   (widen, copy, tighten -- three pushes). That is translation code of the kind this sprint chose
+   not to write; small, but it touches every quiz and question.
+5. **What follows the fields.** The starter layout's `notes` column re-pointed to the widgeting
+   (so a new quiz starts with one widgeting again); `QuestionField`, `QuestionRow`'s field cases,
+   `ImportableFieldnames`, `ClearedValueFor` and the question validators lose them; the league
+   export reads the run; the git mirror's `question.notes` column becomes `notes.status` and
+   `notes.value`, one diff of churn in every quiz's history. The hunt export keeps the key `notes`
+   if the widgeting keeps the label, and this thread's import already reads an old export's bare
+   `"notes": "..."` as an entry's value -- the one part that is free.
+
 ## 2026-10-01: Rewidgeting thread 4 -- the ask route is a free-form relay now
 
 * **Rate limiting has moved closer.** `/api/ask` used to answer three fixed jobs; it now puts any

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BlankAibotDraft, BlankJsonataDraft, blankDraftOf, draftOf, planNewWidget, planWidgetEdit, type AibotDraft, type WidgetDraft } from '../../src/state/widget-edit'
+import { BlankAibotDraft, BlankEntryDraft, BlankJsonataDraft, blankDraftOf, draftOf, planNewWidget, planWidgetEdit, type AibotDraft, type EntryDraft, type JsonataDraft, type WidgetDraft } from '../../src/state/widget-edit'
 import { Widget } from '../../src/models/widget'
 import { SeedWidgets } from '../../src/models/seeds'
 import { present } from '../support/present'
@@ -10,6 +10,10 @@ const dumdum = present(library.find((each) => each.label === 'dumdum'))
 
 /** A new formula, as written */
 const titleLength: WidgetDraft = { ...BlankJsonataDraft, label: 'title_length', formula: '$length(qn.title)' }
+
+/** A new entry, of numbers */
+const points: EntryDraft = { ...BlankEntryDraft, label: 'points', config: { entry_kind: 'number' } }
+const Points = Widget.fill({ label: 'points', formulary: 'entry', config: { entry_kind: 'number' } })
 
 /** A new prompt, as pasted in */
 const pasted: AibotDraft = { ...BlankAibotDraft, label: 'riddler', formula: 'Riddle: {{clueing}}. Reply as {"answer": string}.' }
@@ -23,7 +27,12 @@ describe("blankDraftOf", () => {
     expect(blankDraftOf('aibot', { label: 'riddler', description: '' })).to.deep.eq({ ...BlankAibotDraft, label: 'riddler' })
     expect((blankDraftOf('aibot', { label: 'riddler', description: '' }) as AibotDraft).input_formula).to.eq("{ 'clueing': qn.clueing }")
   })
+
+  it("starts an entry as text, as a note is", () => {
+    expect(blankDraftOf('entry', { label: 'remark', description: 'Said aside.' })).to.deep.eq({ formulary: 'entry', label: 'remark', description: 'Said aside.', config: { entry_kind: 'text' } })
+  })
 })
+
 
 describe("planNewWidget", () => {
   it("adds a new formula to the library, and hands back the widget it adds", () => {
@@ -34,6 +43,10 @@ describe("planNewWidget", () => {
   it("adds a pasted prompt with its input formula and config", () => {
     const plan = planNewWidget(pasted, library)
     expect(plan.ok && plan.actions).to.deep.eq([{ kind: 'add_widget', widget: Widget.fill({ ...pasted }) }])
+  })
+
+  it("adds an entry with its kind, and no formula", () => {
+    expect(planNewWidget(points, library)).to.deep.eq({ ok: true, actions: [{ kind: 'add_widget', widget: Points }], widget: Points })
   })
 
   it("normalizes the new widget's label", () => {
@@ -64,7 +77,7 @@ describe("planWidgetEdit", () => {
   })
 
   it("revises what changed, in one edit", () => {
-    expect(planWidgetEdit({ ...draftOf(heldWidget), formula: '1' }, library)).to.deep.eq({
+    expect(planWidgetEdit({ ...(draftOf(heldWidget) as JsonataDraft), formula: '1' }, library)).to.deep.eq({
       ok: true, actions: [{ kind: 'edit_widget', label: 'hint_full', patch: { formula: '1', description: heldWidget.description } }],
     })
   })
@@ -76,8 +89,19 @@ describe("planWidgetEdit", () => {
     })
   })
 
+  it("revises an entry's description alone", () => {
+    expect(planWidgetEdit({ ...draftOf(Points), description: 'Out of ten.' }, [...library, Points])).to.deep.eq({
+      ok: true, actions: [{ kind: 'edit_widget', label: 'points', patch: { description: 'Out of ten.' } }],
+    })
+  })
+
+  it("refuses another kind for an entry the library holds, saying it is fixed", () => {
+    const plan = planWidgetEdit({ ...points, config: { entry_kind: 'text' } }, [...library, Points])
+    expect(plan.ok ? '' : plan.issue).to.eq('It is a number entry, which is fixed once it is made.')
+  })
+
   it("refuses what the widget validator refuses", () => {
-    expect(planWidgetEdit({ ...draftOf(heldWidget), formula: '' }, library).ok).to.be.false
+    expect(planWidgetEdit({ ...(draftOf(heldWidget) as JsonataDraft), formula: '' }, library).ok).to.be.false
   })
 })
 
@@ -88,5 +112,9 @@ describe("draftOf", () => {
 
   it("is a prompt's, with its input formula and config", () => {
     expect(draftOf(dumdum)).to.deep.include({ formulary: 'aibot', label: 'dumdum', input_formula: dumdum.input_formula })
+  })
+
+  it("is an entry's label, description and kind, and nothing it does not have", () => {
+    expect(draftOf(Points)).to.deep.eq({ formulary: 'entry', label: 'points', description: '', config: { entry_kind: 'number' } })
   })
 })

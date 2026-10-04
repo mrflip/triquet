@@ -1,12 +1,13 @@
 import type * as Z from 'zod'
 import { AibotFormulary } from './aibot'
+import { EntryFormulary } from './entry'
 import { JsonataFormulary } from './jsonata'
 import type { QuizBag } from './runner'
-import type { AibotWidgetT, Formularykind, WidgetT } from '../../models/widget'
+import type { AibotWidgetT, EntryValueT, EntryWidgetT, Formularykind, WidgetT } from '../../models/widget'
 import type { WidgetedRecordT, WidgetedT } from '../../models/widgeted'
 import type { WidgetingT } from '../../models/widgeting'
 
-/** How a formulary's widgeteds come to be: worked out on every render, or asked from the cell */
+/** How a formulary's widgeteds come to be: worked out on every render, or asked from the cell (or neither: typed) */
 export type Refresh = 'live' | 'click'
 
 /** How a formulary's widgeteds are kept: appended as history, or upserted as the one value */
@@ -41,7 +42,7 @@ export type AdviceSubject = Pick<WidgetingT, 'label' | 'description'> & {
   title?: string
 }
 
-/** What every formulary answers and reports, whatever its run is like */
+/** What every formulary answers and reports, whatever its widgeteds are like */
 type FormularyFacts = {
   readonly kind:         Formularykind
   /** The input formula a new widget of this formulary starts with; null when it reads nothing */
@@ -56,31 +57,47 @@ type FormularyFacts = {
   check:  (widget: WidgetT) => string | null
   /** What the widget reads: its input formula worked out over `bag` */
   input:  (widget: Pick<WidgetT, 'input_formula'>, bag: QuizBag) => InputOutcome
+}
+
+/** What a formulary with a formula answers besides: the help it offers in writing one */
+type FormulaFacts = {
   /** The meta-prompt an author copies out to get help writing this widget's formula */
   advice: (widget: WidgetT, widgeting: AdviceSubject | null, sample: QuizBag | null) => string
 }
 
 /** A formulary whose widgeteds are worked out on every render, and stored nowhere */
-export type LiveFormulary = FormularyFacts & {
+export type LiveFormulary = FormularyFacts & FormulaFacts & {
   readonly refresh: 'live'
   readonly store:   null
   run: (widget: Pick<WidgetT, 'formula' | 'input_formula'>, widgeting: WidgetingT | null, bag: QuizBag) => LiveRun
 }
 
 /** A formulary whose widgeteds are asked for from the cell, and appended to its history */
-export type AskedFormulary = FormularyFacts & {
+export type AskedFormulary = FormularyFacts & FormulaFacts & {
   readonly refresh: 'click'
   readonly store:   'append'
   run: (widget: AibotWidgetT, widgeting: WidgetingT, bag: QuizBag) => Promise<AskedT | null>
 }
 
+/**
+ * A formulary whose widgeteds a person types, each cell's one value upserted: no formula, so no
+ * run and no advice.
+ */
+export type TypedFormulary = FormularyFacts & {
+  readonly refresh: null
+  readonly store:   'upsert'
+  /** The validator of what one of the widget's cells may hold */
+  valueOf: (widget: Pick<EntryWidgetT, 'config'>) => Z.ZodType<EntryValueT>
+}
+
 /** One generic runner behind a widget: code, never a row */
-export type Formulary = LiveFormulary | AskedFormulary
+export type Formulary = LiveFormulary | AskedFormulary | TypedFormulary
 
 /** Every formulary, by the kind a widget names */
 export const Formularies = {
   jsonata: JsonataFormulary,
   aibot:   AibotFormulary,
+  entry:   EntryFormulary,
 } as const satisfies Record<Formularykind, Formulary>
 
 /**
