@@ -85,7 +85,7 @@ words above.
 
 ## Who and where
 
-* **ident** -- a persona in the app, named by a global label a person types to become it: 6 to
+* **ident** -- who someone is in the app, named by a global label a person types to become it: 6 to
   24 characters of the label alphabet, normalised from what was typed. No password: anyone may
   assume any ident, for now. Has a `title` for display. Never changed or deleted.
 * **identing** -- one browser taking on one ident, named by the browser's key. The browser's
@@ -156,6 +156,19 @@ than one kind of player. Begun by the categories sprint, October 2026
 * **ring distance** -- how many slots apart two slots are, the short way round: 0 to 12
   (`Wheel.ringDistance`). **Neighbours** are the slots within a reach either side
   (`Wheel.around`), or the categories the total order puts there (`Wheel.neighboursOf`).
+* **persona** -- one of three imagined players, **Masie**, **Artie** and **Poppy**, who sit
+  outside the wheel at the triangle's corners: slots 0, 8 and 16, which hold Math & Econ, Art and
+  Pop Music on the default wheel (`src/models/persona.ts`). A persona keeps their slot whatever is
+  put in it, so arranging the wheel changes what they know. Not an ident: nobody becomes one.
+* **estimate** -- one guess at what a question draws on: a category, or null for **no category
+  in particular**, and a **difficulty**, `easy`, `medium` (the default) or `hard`
+  (`src/models/estimate.ts`). A question's estimates list each category once, or are a lone
+  estimate of no category.
+* **chance** -- how likely a persona is to get a question, 0 to 1 (`Personas.chanceOf`): their
+  best for its difficulty within one slot of their own, their worst within one slot of the
+  opposite, evenly between by ring distance, and halfway for no category in particular. Over a
+  question's estimates, got if any one gets it, each independently (`Personas.chanceOfAll`). Not
+  a get rate, which is a reviewer's own guess at themselves.
 
 ## Chains
 
