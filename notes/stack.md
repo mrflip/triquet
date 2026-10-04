@@ -133,6 +133,14 @@ Settled; reach for these before writing the equivalent.
   does here. **Not `remark-gfm`**: its strikethrough takes a single `~`, and trivia is full of
   `~50 years`. Added Sept 2026 at a Coach's request, settling the display half of the rich-text
   question under Discuss.
+* **Recharts** (3.x) for charts: the most-downloaded React charting library, declarative
+  components over SVG, peer-compatible with React 19. Its first use is the category spread's radar
+  (`components/panels/SpreadPanel.tsx`). Colour a series from the palette's `seriesA` and
+  `seriesB` tokens (`src/app/palette.ts`, validated for both modes and for colour-blind readers),
+  never a hex at the call site, and keep text in the ink tokens. Every chart gets a table of the
+  same numbers beside it. `@mui/x-charts`, which would take the theme natively, was the other
+  candidate; the Coach asked for the most popular. Added Oct 2026 by the categories sprint, under
+  the rule above.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
   typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed
