@@ -82,6 +82,11 @@ Rehearse on a copy first: `npx convex export --path <zip>` from production (read
 leaves a snapshot in the dashboard to restore from), `npx convex import --replace-all` into a
 local role, then the three steps against that role.
 
+A field whose absence has a meaning of its own needs none of this: it is optional in its row
+validator for good, every reader says what its absence means, and `tests/convex/schema.test.ts`
+lists it under `Absentable`. A hunt's `wheel` is the first: a hunt nobody has arranged reads as
+the default wheel.
+
 A local role whose rows no longer fit is simply emptied (`scripts/convex_reset <role>`), unless
 its rows are worth keeping: then catch it up (below). A preview deployment is made fresh for a
 branch and kept across its pushes; delete it in the dashboard and the next push makes another.
