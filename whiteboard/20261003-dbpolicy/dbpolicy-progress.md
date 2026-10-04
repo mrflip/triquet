@@ -10,13 +10,86 @@ its row below and adds its section above the others, newest first.
 | 1 | Sessions and the actor | complete, reviewed (1 fix) | `20261004-dbpolicy_sessions` | #79 |
 | 2 | `Approve`: pure policy and the dispatcher | complete, reviewed (clean) | `20261004-dbpolicy_approve` | #81 |
 | 3 | One label, and integrity repairs | complete, reviewed (1 fix) | `20261004-dbpolicy_one_label` | #82 |
-| 4 | Denormalize | underway | | |
+| 4 | Denormalize | complete | `20261004-dbpolicy_denormalize` | #83 |
 | 5 | Affirmations | pending | | |
 | 6 | A scoped database handle | pending | | |
 | 7 | Reads shaped by role | pending | | |
 | 8 | Views ask `Approve` | pending | | |
 | 9 | The library behind an admin helper | pending | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
+
+## Thread 4: Denormalize (2026-10-04)
+
+Branch `20261004-dbpolicy_denormalize`, PR #83, stacked on #82. Suites: typecheck, lint, `pnpm test` (110 files, 2905), `pnpm test:e2e` (207) all green.
+
+* **Built**:
+  - **The copies**, as the plan's table: `quizzes.hunt_id` (index `by_hunt_id`, no reader yet),
+    `hunt_id` on widgetings and columns, `hunt_id`/`quiz_id` on widgeteds,
+    `hunt_id`/`quiz_id`/`ident_id` on reviewings, `ident_label`/`ident_title` on huntings (shapes
+    are `IdentValidators.identLabel`/`.title`). Row validators strict; `convex/schema.ts` widens
+    each by hand (`copiedHuntId`, `copiedQuizId`, `copiedIdentId`, `copiedIdent`, one block).
+  - **Every insert writes them.** `Quiz.blankRow({ hunt_id, realm_id }, …)`,
+    `Reviewing.blank(review, question_id)` (copies from the review row), `insertLayout(db,
+    { hunt_id, quiz_id }, layout)`, `insertWidgeted`/`upsertWidgeted(db, question, …)` (a
+    `CellQuestion`: `_id`, `hunt_id`, `quiz_id`). `addHunting` and `newHunt` (now reads the ident,
+    in its existing `Promise.all`) copy label and title. **The fan-out**: `retitleIdent` reads
+    `huntingsFor` in parallel with the ident and patches each hunting's `ident_title`.
+  - **Readers**: `membersOf` reads label and title off the hunting; `huntIdOf(db, quiz)` is
+    `quiz.hunt_id`; `isQuizOfHunt` is one `db.get`; `usageOf` counts hunts from the widgetings'
+    copies (no quiz or realm reads).
+  - **Backfills**: `migrations:backfill{Quiz,Widgeting,Column,Widgeted,Reviewing,Hunting}Copies`,
+    appended to `runAll` in that order. Each validates the whole row, patches only the copies,
+    leaves an orphan (parent gone) alone. They do not depend on order: a widgeting's or column's
+    backfill goes through the realm when its quiz is not yet backfilled. Rehearsed on the `agent`
+    backend.
+  - **`expectSound`**: `Copies` in `tests/support/soundness.ts`, one `SoundnessChecks` entry per
+    copy (missing or stale is a fault): the new copies, the older `hunt_id` on questions and
+    reviews, and two that follow from them (a widgeted's widgeting and a reviewing's question are
+    of the row's `quiz_id`).
+  - **Tests**: the copy backfills (`tests/convex/migrations.test.ts`: each alone on rows stripped of
+    every copy, twice, an orphan, and `runAll` then `expectSound`); `membersOf`, `huntIdOf`,
+    `huntIdOfLayoutRow`, `reviewingCopiesOf` (`tests/convex/reading.test.ts`); the update helpers
+    filling copies; the fan-out (`tests/convex/idents.test.ts`); `expectSound` after add_widgeting,
+    add_column, record_widgeted, new_quiz, import_questions, add_hunting, new_hunt, set_reviewing,
+    peek_answer; four new breakages in `soundness.test.ts`; model and schema tests.
+  - Docs: `notes/convex.md` *Denormalized fields*; `notes/deploy.md` ledger row;
+    `notes/testing.md` (what `expectSound` checks).
+* **Decisions taken**:
+  - **The widen copies with absence**, as `notes/deploy.md` asks and as `b648bc6` did: until a row
+    is backfilled, its reader goes to its parent (`huntIdOf`, `huntIdOfLayoutRow`,
+    `reviewingCopiesOf`, `membersOf`'s `memberOf`), and `updateQuiz`, `updateWidgeting`,
+    `updateColumn`, `updateReviewing` fill the copies in. Once backfilled none of these reads
+    anything extra. Without it, every quiz's frame would read `null` and every edit be refused
+    between the deploy and the backfill.
+  - **Widgetings and columns copy `open.hunt_id`**, as `addQuestion` already did, not
+    `rows.quiz.hunt_id` (optional until backfilled). `isPlaced` has checked it is the quiz's;
+    thread 5's verified claims keep that true.
+  - `frameOf` (`src/lib/rows.ts`) leaves `hunt_id` out of the quiz tree, as it does `realm_id`.
+  - No `by_question_id_and_ident_id` (nothing wants it). Raw `ctx.db.insert`s in tests that
+    predate the copies are left as they are, but `putOn` writes them.
+* **Deviations**:
+  - **`huntIdOf` stays** (as `quiz.hunt_id`, with the fallback) rather than being replaced by
+    `quiz.hunt_id` at each caller; thread 10 inlines it.
+  - `retireQuizForcedLabels` now validates only the label: the whole row would refuse a quiz that
+    has no `hunt_id` yet.
+* **Discoveries** (for threads 5, 6 and 10):
+  - **Every hunt-owned table now carries `hunt_id`**: realms, quizzes, questions, widgetings,
+    columns, widgeteds, reviews, reviewings, huntings. Thread 6's list is complete.
+  - **Reviewings are only read through a review already in hand**: `reviewingsOf(review_id)` in
+    `reviews.forQuiz` (after `affirmReadReviews`), `reviewingFor(review_id, question_id)` and
+    `reviewingsOf` in `review_actions` (behind `reviewFor(quiz_id, actor's ident)`). The one other
+    path is `deleteQuestion`'s cascade by `by_question_id`, a write. So thread 6's reviewing rule
+    can be hunt-only for reads, with ownership (the new `ident_id`) for writes. One caution: a smith
+    reads reviewings of others' shared reviews, so the read rule must not require ownership.
+  - `reviews.forQuiz` still does one `db.get('idents')` per review for the reviewer's label and
+    title, the same shape `membersOf` had. A copy on reviews (with the same fan-out) would end it.
+    Not policy, so not added.
+  - **Thread 10** removes, beyond the schema's four `copied*` blocks, `Backfilling` and the six
+    migrations: the fallbacks above (`huntIdOf` becomes `quiz.hunt_id`; `huntIdOfLayoutRow` and
+    `reviewingCopiesOf` become the row's fields; `memberOf`'s ident read; the four update helpers'
+    fills); the raw test inserts without copies (the compiler names them).
+* **For the Coach**: run `migrations:runAll` after this deploys and before threads 5 to 9 do
+  (ledger row): those read the copies with no fallback.
 
 ## Thread 3: One label, and integrity repairs (2026-10-04)
 
