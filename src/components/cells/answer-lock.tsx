@@ -25,6 +25,10 @@ const LockSx = { p: 0.5, minWidth: 0 } as const
  * either way. Neither state is stored; `onReveal` hears of the first reveal, for whoever wants
  * to keep it, and a lock the reviewer has opened before says so.
  *
+ * A spoiler shield, not a security boundary: a reviewer is sent the answer with the question
+ * (`Question.sentTo`), peeked or not, and the lock only keeps it off the screen until they choose
+ * to see it.
+ *
  * @param answer - What to reveal.
  * @param seen - Whether it has been revealed before.
  * @param onReveal - Told of the first reveal.

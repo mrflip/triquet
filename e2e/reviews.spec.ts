@@ -1,5 +1,5 @@
 import type { Browser, Page } from '@playwright/test'
-import { addMember, assumeIdent, expect, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { addColumns, addMember, assumeIdent, expect, fillRows, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about a second visitor reviewing the first's hunt, so each goes in by itself.
 test.use({ startAt: null })
@@ -136,6 +136,38 @@ test.describe('a review', () => {
 
     await reviewer.getByRole('button', { name: 'Hide answer' }).first().click()
     await expect(reviewer.getByText('Hamlet')).toBeHidden()
+  })
+
+  test("shows a reviewer each question as a review needs it, its BUT NOT and its answer behind the lock, through a reload, and never the smiths' notes", async ({ page, browser }) => {
+    await startHunt(page)
+    await addColumns(page, ['hint', 'chains_to'])
+    await fillRows(page, [
+      { 'Title': 'Danish prince', 'Clueing': 'Which prince was Danish?', 'Full Answer': 'Hamlet', 'Notes': 'Check the folio first.' },
+      { 'Title': 'Scottish king', 'Hint': 'Not the one in the play.' },
+    ])
+    await page.getByRole('combobox', { name: 'Chains to' }).first().selectOption({ label: 'Scottish king' })
+    await page.getByLabel('Quiz name').click()
+    await waitUntilSaved(page)
+
+    const reviewer = await enterReview(page, browser)
+    const row = reviewer.getByRole('region', { name: 'Danish prince' })
+    await expect(row.getByText('Which prince was Danish?')).toBeVisible()
+    await expect(row.getByText('Not the one in the play.')).toBeVisible()
+    await expect(row.getByText('Hamlet')).toBeHidden()
+    await expect(reviewer.getByText('Check the folio first.')).toHaveCount(0)
+
+    await row.getByRole('button', { name: 'Reveal answer' }).click()
+    await reviewer.getByRole('button', { name: 'Reveal', exact: true }).click()
+    await expect(row.getByText('Hamlet')).toBeVisible()
+    await waitUntilSaved(reviewer)
+
+    // Peeked or not, the answer is the reviewer's to see: the lock keeps it off the screen, no more
+    await reviewer.reload()
+    await expect(row.getByText('Seen before')).toBeVisible()
+    await expect(row.getByText('Hamlet')).toBeHidden()
+    await row.getByRole('button', { name: 'Reveal answer' }).click()
+    await reviewer.getByRole('button', { name: 'Reveal', exact: true }).click()
+    await expect(row.getByText('Hamlet')).toBeVisible()
   })
 
   test('carries a reviewer\'s verdict on a question to the smith once shared', async ({ page, browser }) => {

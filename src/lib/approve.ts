@@ -85,6 +85,20 @@ export function mayChangeHunt(claims: Actor.HuntClaimsT): VerdictT {
 }
 
 /**
+ * Whether the claimed actor may export their hunt: every quiz whole, every field of every question
+ * and what its widgetings stored, as the Export box emits it. The export is the authors' way out
+ * with their work; a reviewer is sent what a review needs (`Question.sentTo`), never the whole. In
+ * order:
+ *
+ * * Whoever may change the hunt (`mayChangeHunt`): a smith of it
+ *
+ * @example Approve.mayExportHunt(claims)  // => 'notPermitted', for a reviewer
+ */
+export function mayExportHunt(claims: Actor.HuntClaimsT): VerdictT {
+  return mayChangeHunt(claims) // Whoever may change the hunt (`mayChangeHunt`): a smith of it
+}
+
+/**
  * Whether the claimed actor may revise `quiz`, a quiz of their hunt: its fields, its questions and
  * what they stored, and its widgetings and columns. A locked quiz is a finished draft sent out for
  * playtesting, and holds still until a smith unlocks it; the refusal says so, so the author knows
@@ -296,6 +310,7 @@ type EvidenceT = {
       : [claims: Actor.HuntClaimsT, action: ActionT]
 } & {
   read_hunt:         [claims: Actor.HuntClaimsT]
+  export_hunt:       [claims: Actor.HuntClaimsT]
   read_review:       [review: ReviewRowT, claims: Actor.HuntClaimsT, ownReview: ReviewRowT | null]
   read_library:      [actor: Actor.ActorT]
   change_library:    [claims: Actor.HuntClaimsT]
@@ -391,6 +406,7 @@ const AccountPolicies = {
 /** The reads, and the ask, by name */
 const ReadPolicies = {
   read_hunt:         mayReadHunt,
+  export_hunt:       mayExportHunt,
   read_review:       mayReadReview,
   read_library:      mayReadLibrary,
   count_usage:       mayCountUsage,

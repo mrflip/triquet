@@ -15,6 +15,7 @@ import { assembledQuiz, smithsOf, type ReviewedT, type SeenQuestionT, type HuntO
 import { ValidatorKit } from '../lib/validator'
 import type { AffirmsDNA, HuntActionDNA, QuizAffirmsDNA } from '../models/actions'
 import type { HuntRole } from '../models/hunting'
+import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { MirrorSnapshot } from './commit-scheduler'
@@ -152,11 +153,15 @@ type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: ()
  * The quiz is its frame and a watch per question it orders, followed as the order changes, with
  * the library its widgetings work; a reading with a question still on its way is not noted. Each
  * is the same watch the screen holds, sent the same affirms, so none is opened twice.
+ *
+ * Fed only where the standing affirmed is sent every question whole (`Question.isSentWhole`): a
+ * smith's. A reviewer is not sent the smiths' notes or what the widgetings stored, and a history
+ * made from what they are sent would record those as blanked.
  */
 function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirmsDNA | null): void {
   const convex = useConvex()
   useEffect(() => {
-    if (affirms === null || ! ready) { return }
+    if (affirms === null || ! ready || ! Question.isSentWhole(affirms.standing)) { return }
     const { quiz_id, ...huntAffirms } = affirms
     const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
     const frameWatch = convex.watchQuery(api.quizzes.open, { affirms })
@@ -212,8 +217,8 @@ function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirms
  * There is no save button and no save queue: a change goes to the server as soon as it is
  * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
  * first. A change the server refuses writes nothing, and says why in `saveNotice` and in an alarm
- * (`useRaiseAlarm`), which the author sees wherever they are on the page. Every reading
- * of the open quiz, whoever changed it, goes into its history.
+ * (`useRaiseAlarm`), which the author sees wherever they are on the page. For a smith, every
+ * reading of the open quiz, whoever changed it, goes into its history.
  *
  * @param labels - The hunt, realm and quiz the address names.
  * @returns The hunt, realm and quiz, a dispatcher, and why anything went wrong.

@@ -19,11 +19,14 @@ const Widgetings = [
 /**
  * A fresh deployment holding one quiz of two questions, `aa` chained to `bb`, whose `dumdum`
  * widgeting answered for `aa` twice and then failed; the first question's id, where it sits, and
- * the session of a reviewer on the hunt, with what that reviewer affirms of themselves there.
+ * the sessions of a smith and a reviewer on the hunt, with what each affirms of themselves there.
  */
 async function holding() {
   const tt = openTester()
-  const questions = [{ ...Question.blank(), label: 'aa', clueing: 'Who?' }, { ...Question.blank(), label: 'bb' }]
+  const questions = [
+    { ...Question.blank(), label: 'aa', title: 'Danish prince', clueing: 'Who?', hint: 'Not a king.', full_answer: 'Hamlet', notes: 'Check the folio.', alt_text: 'A prince.' },
+    { ...Question.blank(), label: 'bb' },
+  ]
   const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, huntHolding([{ ...Quiz.blank(), questions, widgetings: Widgetings }])))
   const { question_id, place } = await tt.run(async (ctx) => {
     const [home] = await realmsOf(ctx.db, hunt_id)
@@ -42,15 +45,26 @@ async function holding() {
   })
   const alice = await identified(tt, 'alice_reviews')
   await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
+  const sam = await identified(tt, 'sam_smiths')
+  await putOn(tt, hunt_id, sam.ident_id, 'smith')
   const { hunt: affirms } = await affirmsOf(tt, alice, place)
-  return { tt, question_id, place, alice, affirms }
+  const { hunt: smiths } = await affirmsOf(tt, sam, place)
+  return { tt, question_id, place, alice, affirms, sam, smiths }
+}
+
+/** A question as a smith reads it: every field, and what was stored */
+async function smithsRead(holds: Awaited<ReturnType<typeof holding>>, question_id = holds.question_id) {
+  const seen = present(await holds.sam.as.query(api.questions.open, { question_id, affirms: holds.smiths }))
+  if (! ('stored' in seen)) { throw new Error('A smith is sent what was stored') }
+  return seen
 }
 
 describe("questions.open", () => {
-  it("reads one question: its row, and for each widgeting that stored, the newest row and the newest ok one", async () => {
-    const { question_id, alice, affirms } = await holding()
-    const seen = present(await alice.as.query(api.questions.open, { question_id, affirms }))
-    expect(seen).to.deep.include({ _id: question_id, label: 'aa', clueing: 'Who?' })
+  it("reads one question for a smith: every field, and for each widgeting that stored, the newest row and the newest ok one", async () => {
+    const holds = await holding()
+    const { question_id } = holds
+    const seen = await smithsRead(holds)
+    expect(seen).to.deep.include({ _id: question_id, label: 'aa', clueing: 'Who?', notes: 'Check the folio.', alt_text: 'A prince.', full_answer: 'Hamlet' })
     expect(Object.keys(seen.stored)).to.deep.eq(['dumdum'])
     const cell = present(seen.stored.dumdum)
     expect(cell.newest).to.deep.include({ status: 'errored', value: null, message: 'Overloaded', result_meta: {} })
@@ -59,17 +73,40 @@ describe("questions.open", () => {
   })
 
   it("reads nothing stored for a question none of its widgetings has recorded for", async () => {
-    const { tt, question_id, alice, affirms } = await holding()
+    const holds = await holding()
+    const { tt, question_id } = holds
     const second = await tt.run(async (ctx) => {
       const question = present(await ctx.db.get('questions', question_id))
       return present(present(await ctx.db.get('quizzes', question.quiz_id)).row_ordering[1])
     })
-    expect(present(await alice.as.query(api.questions.open, { question_id: second, affirms })).stored).to.deep.eq({})
+    const seen = await smithsRead(holds, second)
+    expect(seen.stored).to.deep.eq({})
   })
 
   it("leaves a chain as the label the row holds: only the quiz knows which question answers to it", async () => {
+    const holds = await holding()
+    const { question_id, alice, affirms } = holds
+    const seen = await smithsRead(holds)
+    expect(seen.chains_to).to.eq('bb')
+    expect(present(await alice.as.query(api.questions.open, { question_id, affirms }))).to.deep.include({ chains_to: 'bb' })
+  })
+
+  it("reads a reviewer what a review needs, the answer among it, and not the notes or what was stored", async () => {
     const { question_id, alice, affirms } = await holding()
-    expect(present(await alice.as.query(api.questions.open, { question_id, affirms })).chains_to).to.eq('bb')
+    expect(await alice.as.query(api.questions.open, { question_id, affirms })).to.deep.eq({
+      _id: question_id, label: 'aa', title: 'Danish prince', qnum: '', clueing: 'Who?', hint: 'Not a king.', chains_to: 'bb', full_answer: 'Hamlet',
+    })
+  })
+
+  it("reads a reviewer the answer whether or not they have peeked at it", async () => {
+    const { tt, question_id, place, alice, affirms } = await holding()
+    const before = present(await alice.as.query(api.questions.open, { question_id, affirms }))
+    const { action } = await affirmsOf(tt, alice, place)
+    await alice.as.mutation(api.hunts.perform, { affirms: action, action: { kind: 'open_review', quiz_id: place.quiz_id } })
+    await alice.as.mutation(api.hunts.perform, { affirms: action, action: { kind: 'peek_answer', quiz_id: place.quiz_id, question_id } })
+    const after = present(await alice.as.query(api.questions.open, { question_id, affirms }))
+    expect([before, after].map((seen) => 'full_answer' in seen && seen.full_answer)).to.deep.eq(['Hamlet', 'Hamlet'])
+    expect(after).to.not.have.any.keys('notes', 'alt_text', 'stored')
   })
 
   it("reads null for a question that is not there", async () => {

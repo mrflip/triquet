@@ -67,6 +67,20 @@ describe('Approve.mayReadHunt', () => {
   }
 })
 
+describe('Approve.mayExportHunt', () => {
+  const Cases: [Standing, Approve.VerdictT, string][] = [
+    ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
+    ['smith',     'allow',         'a smith of the hunt'],
+    ['reviewer',  'notPermitted',  'nobody else: not a reviewer of the hunt'],
+    ['stranger',  'notPermitted',  'nobody else: not a stranger to it'],
+  ]
+  for (const [standing, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(Approve.mayExportHunt(ClaimsAs[standing])).to.eq(expected)
+    })
+  }
+})
+
 describe('Approve.mayChangeHunt', () => {
   const Cases: [Standing, Approve.VerdictT, string][] = [
     ['anonymous', 'notIdentified', 'nobody who has asserted no username'],
@@ -332,17 +346,18 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
 })
 
 /** The keys of the policies that are not an action's */
-const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'read_review', 'read_library', 'count_usage', 'ask_anthropic_bot', 'change_library'] as const)
+const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'export_hunt', 'read_review', 'read_library', 'count_usage', 'ask_anthropic_bot', 'change_library'] as const)
 
 describe('Approve.verdictOn', () => {
   it('asks the reads by name', () => {
     expect([
       Approve.verdictOn('read_hunt', ClaimsAs.reviewer),
+      Approve.verdictOn('export_hunt', ClaimsAs.reviewer),
       Approve.verdictOn('read_review', reviewBy(bob_id, 'shared'), ClaimsAs.smith, null),
       Approve.verdictOn('read_library', Actor.anonymous),
       Approve.verdictOn('count_usage', Alice, [{ role: 'smith' }]),
       Approve.verdictOn('ask_anthropic_bot', 'allow'),
-    ]).to.deep.eq(['allow', 'allow', 'notIdentified', 'allow', 'allow'])
+    ]).to.deep.eq(['allow', 'notPermitted', 'allow', 'notIdentified', 'allow', 'allow'])
   })
 
   it('asks of changing the library by name, as it asks of each library action', () => {

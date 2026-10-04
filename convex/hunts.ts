@@ -6,7 +6,7 @@ import { huntListingOf, shallowHuntOf, smithsOf, type HuntOpeningT, type ListedH
 import { ActionValidators } from '../src/models/actions'
 import type { HuntT } from '../src/models/hunt'
 import { zHuntMutation, zHuntQuery, zQuery } from './functions'
-import { affirmPerform, affirmReadHunt, claimsFor } from './authorize'
+import { affirmExportHunt, affirmPerform, claimsFor } from './authorize'
 import { huntForLabel, huntingsFor, huntRowsOf, membersOf, realmsOf, wholeHuntOf } from './reading'
 import { perform as performAction } from './writing/perform'
 
@@ -51,14 +51,14 @@ export const open = zQuery({
 })
 
 /**
- * The affirmed hunt, every quiz whole, as the Export box emits it, for someone on it. Null when
- * there is no such hunt, the asking actor is not on it, or what they affirm of themselves there
- * is not so.
+ * The affirmed hunt, every quiz whole, as the Export box emits it, for a smith of it
+ * (`Approve.mayExportHunt`). Null when there is no such hunt, the asking actor is not a smith of
+ * it, or what they affirm of themselves there is not so.
  */
 export const whole = zHuntQuery({
   args:    { affirms: ActionValidators.huntAffirms },
   empty:   null,
-  affirm:  async (ctx, { affirms }) => await affirmReadHunt(ctx.db, affirms, ctx.actor),
+  affirm:  async (ctx, { affirms }) => await affirmExportHunt(ctx.db, affirms, ctx.actor),
   handler: async (ctx): Promise<HuntT | null> => await wholeHuntOf(ctx.db, ctx.claims.hunt_id),
 })
 

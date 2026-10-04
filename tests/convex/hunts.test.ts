@@ -1543,24 +1543,26 @@ describe("hunts.whole", () => {
     expect(await smith.as.query(api.hunts.whole, { affirms })).to.be.null
   })
 
-  it("is read whole by anyone on the hunt, and is null, as for one not there, for anyone else", async () => {
+  it("is read whole by a smith of the hunt, and is null, as for one not there, for a reviewer of it and for anyone else", async () => {
     const tt = openTester()
-    const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const { open, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await join('bob_reviews', 'reviewer')
     const carol = await identified(tt, 'carol_strays')
-    const [bobs, carols] = [await affirmsOf(tt, bob, open), await affirmsOf(tt, carol, open)]
-    const read = await bob.as.query(api.hunts.whole, { affirms: bobs.hunt })
+    const [smiths, bobs, carols] = [await affirmsOf(tt, smith, open), await affirmsOf(tt, bob, open), await affirmsOf(tt, carol, open)]
+    const read = await smith.as.query(api.hunts.whole, { affirms: smiths.hunt })
     expect(read?.label).to.eq('quiet_otter')
+    expect(await bob.as.query(api.hunts.whole, { affirms: bobs.hunt })).to.be.null
     expect(await carol.as.query(api.hunts.whole, { affirms: carols.hunt })).to.be.null
   })
 
   it("is null for affirms that are not so: a standing not held, or another's ident", async () => {
     const tt = openTester()
-    const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const { open, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await join('bob_reviews', 'reviewer')
-    const carol = await identified(tt, 'carol_strays')
-    const { hunt: affirms } = await affirmsOf(tt, bob, open)
-    expect(await bob.as.query(api.hunts.whole, { affirms: { ...affirms, standing: 'smith' } })).to.be.null
-    expect(await carol.as.query(api.hunts.whole, { affirms })).to.be.null
+    const { hunt: affirms } = await affirmsOf(tt, smith, open)
+    const { hunt: bobs } = await affirmsOf(tt, bob, open)
+    expect(await bob.as.query(api.hunts.whole, { affirms: { ...bobs, standing: 'smith' } })).to.be.null
+    expect(await bob.as.query(api.hunts.whole, { affirms })).to.be.null
+    expect(await smith.as.query(api.hunts.whole, { affirms })).to.not.be.null
   })
 })

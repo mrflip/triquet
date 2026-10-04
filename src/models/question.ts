@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
+import type { HuntStanding } from '../lib/actor'
 import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 
 /** What a question carries in a formula's bag beside its exposed fields: its place once the quiz is put in Q# order */
@@ -87,6 +88,12 @@ export type QuestionT     = Z.output<typeof QuestionValidators.question>
 export type QuestionPatch = Z.output<typeof QuestionValidators.questionPatch>
 export type QuestionRowT  = Z.output<typeof QuestionValidators.row>
 
+/** The name of one of a question's fields, apart from its id */
+export type QuestionFieldname = Exclude<keyof QuestionT, '_id'>
+
+/** Every field of a question apart from its id, as its validator lists them */
+const QuestionFieldnames = Object.keys(QuestionValidators.question.shape).filter((fieldname) => fieldname !== '_id') as QuestionFieldname[]
+
 /** One question in a quiz: its clueing, its own BUT NOT hint, and everything hung off them */
 export class Question implements QuestionT {
   declare _id:            string
@@ -107,6 +114,41 @@ export class Question implements QuestionT {
    * each widgeting exposes for itself.
    */
   static readonly exposed = ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'] as const
+
+  /**
+   * The fields of a question each standing on its hunt is sent, beside its id, alphabetically: the
+   * one place a change to who is sent what lands (`seenQuestionFor`). A smith works the question,
+   * and is sent all of it: its exposed fields, and what its widgetings stored. A reviewer is sent
+   * what a review needs: the question as it will be asked, the BUT NOT it chains to, and its
+   * answer, which the review screen keeps behind its lock; not the smiths' notes, nor what the
+   * widgetings stored. A stranger to the hunt is sent nothing.
+   */
+  static readonly sentTo = {
+    smith:    ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'stored', 'title'],
+    reviewer: ['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title'],
+    stranger: [],
+  } as const satisfies Record<HuntStanding, readonly QuestionFieldname[]>
+
+  /**
+   * Whether someone of `standing` on a question's hunt is sent its `fieldname` (`sentTo`).
+   *
+   * @example Question.isSent('stored', 'reviewer')  // => false
+   */
+  static isSent(fieldname: QuestionFieldname, standing: HuntStanding): boolean {
+    const sent: readonly QuestionFieldname[] = this.sentTo[standing]
+    return sent.includes(fieldname)
+  }
+
+  /**
+   * Whether someone of `standing` on a question's hunt is sent every question whole, as a smith
+   * is. A record of the quiz (its history) is made only from questions read whole: one missing a
+   * field it was not sent would read as though the field had been blanked.
+   *
+   * @example Question.isSentWhole('reviewer')  // => false
+   */
+  static isSentWhole(standing: HuntStanding): boolean {
+    return QuestionFieldnames.every((fieldname) => this.isSent(fieldname, standing))
+  }
 
   /**
    * Validated question, with every omitted field defaulted. A blank title is populated from the

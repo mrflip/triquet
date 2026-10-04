@@ -19,10 +19,11 @@ function readingOf(reading: QuestionReading): SeenQuestionT | null | undefined {
 }
 
 /**
- * The quiz `quiz_id`, whole and live, as this browser's ident may read it: its frame
- * (`quizzes.open`) and each of its questions (`questions.open`) are queries of their own, so an
- * edit to one question reruns that question's query alone, and only it is sent again. Each is
- * sent what the browser affirms of itself on the quiz's hunt.
+ * The quiz `quiz_id`, live, as this browser's ident may read it: its frame (`quizzes.open`) and
+ * each of its questions (`questions.open`) are queries of their own, so an edit to one question
+ * reruns that question's query alone, and only it is sent again. Each is sent what the browser
+ * affirms of itself on the quiz's hunt. A smith is sent each question whole; a reviewer what a
+ * review needs, and a field they are not sent reads as blank (`quizFromSeen`).
  *
  * A question the frame orders but whose reading is still on its way (one added a moment ago)
  * does not blank the screen: the quiz as last read whole stays until it arrives, so the grid never

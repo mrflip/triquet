@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionOf, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
+  assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Runner from '../../src/lib/formulary/runner'
@@ -37,6 +37,11 @@ const QuizRow: Doc<'quizzes'> = {
 const WidgetingRow: Doc<'widgetings'> = {
   _id: widgeting_id, _creationTime: 1, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
 }
+/** The standings a question's reader can hold on its hunt, as the claims carry them */
+const Smith = { standing: 'smith' } as const
+const Reviewer = { standing: 'reviewer' } as const
+const Stranger = { standing: 'stranger' } as const
+
 const QuestionRow: Doc<'questions'> = {
   _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', title: 'Leon', qnum: '1',
   clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
@@ -100,20 +105,38 @@ describe('quizFrom', () => {
   })
 })
 
-describe('seenQuestionOf', () => {
-  it('is the question\'s row with each stored cell\'s history under its widgeting\'s label, its chain still the label it holds', () => {
-    const seen = seenQuestionOf({ ...QuestionRow, chains_to: 'lear' }, new Map([['dumdum', FailedSince]]))
-    expect(seen).to.deep.include({ _id: question_id, chains_to: 'lear', clueing: 'Who?' })
-    expect(seen.stored).to.deep.eq({ dumdum: historyOf(FailedSince) })
+describe('seenQuestionFor', () => {
+  const Written = { ...QuestionRow, chains_to: 'lear', full_answer: 'Leontes', notes: 'Check the folio.', alt_text: 'A lion.' }
+
+  it('is, for a smith, the question\'s id and every field, with each stored cell\'s history under its widgeting\'s label, its chain still the label it holds', () => {
+    const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Smith)
+    expect(seen).to.deep.eq({
+      _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear',
+      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', stored: { dumdum: historyOf(FailedSince) },
+    })
   })
 
   it('reads the newest row\'s status where the doc block says', () => {
     const answered = widgetedRow('ok', 5, 'answered')
-    expect(seenQuestionOf(QuestionRow, new Map([['dumdum', { newest: answered, ok: answered }]])).stored.dumdum?.newest.status).to.eq('ok')
+    const seen = seenQuestionFor(QuestionRow, new Map([['dumdum', { newest: answered, ok: answered }]]), Smith)
+    expect('stored' in seen && seen.stored.dumdum?.newest.status).to.eq('ok')
   })
 
   it('stores nothing for a question with no stored cells', () => {
-    expect(seenQuestionOf(QuestionRow, new Map()).stored).to.deep.eq({})
+    expect(seenQuestionFor(QuestionRow, new Map(), Smith)).to.deep.include({ stored: {} })
+  })
+
+  it('is, for a reviewer, what a review needs, the answer among it: not the notes, nor what was stored, whatever is handed in', () => {
+    const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Reviewer)
+    expect(seen).to.deep.eq({ _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear', full_answer: 'Leontes' })
+  })
+
+  it('is, for a stranger to the hunt, the id alone', () => {
+    expect(seenQuestionFor(Written, new Map(), Stranger)).to.deep.eq({ _id: question_id })
+  })
+
+  it('sends none of the row\'s housekeeping: its hunt, its quiz, when it was made', () => {
+    expect(seenQuestionFor(QuestionRow, new Map(), Smith)).to.not.have.any.keys('hunt_id', 'quiz_id', '_creationTime')
   })
 })
 
@@ -127,8 +150,8 @@ describe('frameOf', () => {
 })
 
 describe('quizFromSeen', () => {
-  const second = { ...seenQuestionOf(QuestionRow, new Map()), _id: idOf('questions', 'qn2'), label: 'lear', chains_to: 'leon' }
-  const first = { ...seenQuestionOf(QuestionRow, new Map()), chains_to: 'lear' }
+  const second = { ...seenQuestionFor(QuestionRow, new Map(), Smith), _id: idOf('questions', 'qn2'), label: 'lear', chains_to: 'leon' }
+  const first = { ...seenQuestionFor(QuestionRow, new Map(), Smith), chains_to: 'lear' }
 
   it('is the quiz its frame and questions make up, in the order given', () => {
     const quiz = quizFromSeen(frameOf(QuizRow, [], []), [second, first])
@@ -140,11 +163,21 @@ describe('quizFromSeen', () => {
     const quiz = quizFromSeen(frameOf(QuizRow, [], []), [first, second, { ...second, _id: idOf('questions', 'qn3'), label: 'lone', chains_to: 'lone' }])
     expect(quiz.questions.map((question) => question.chains_to)).to.deep.eq([second._id, question_id, null])
   })
+
+  it('reads a field a reviewer was not sent as blank, and chains their questions as a smith\'s', () => {
+    const written = { ...QuestionRow, notes: 'Check the folio.', alt_text: 'A lion.', full_answer: 'Leontes' }
+    const reviewed = [
+      { ...seenQuestionFor(written, new Map([['dumdum', FailedSince]]), Reviewer), chains_to: 'lear' },
+      { ...seenQuestionFor(written, new Map(), Reviewer), _id: idOf('questions', 'qn2'), label: 'lear' },
+    ]
+    const [question] = quizFromSeen(frameOf(QuizRow, [], []), reviewed).questions
+    expect(question).to.deep.include({ full_answer: 'Leontes', notes: '', alt_text: '', stored: {}, chains_to: idOf('questions', 'qn2') })
+  })
 })
 
 describe('assembledQuiz', () => {
   const frame = { ...frameOf(QuizRow, [], []), row_ordering: [question_id, idOf('questions', 'qn2')] }
-  const seen = seenQuestionOf(QuestionRow, new Map())
+  const seen = seenQuestionFor(QuestionRow, new Map(), Smith)
 
   it('is undefined while a question the frame orders is still on its way', () => {
     expect(assembledQuiz(frame, (id) => (id === question_id ? seen : undefined))).to.be.undefined

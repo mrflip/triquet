@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { affirmAccountAction, affirmCountUsage, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor, Unscoped } from '../../convex/authorize'
+import { affirmAccountAction, affirmCountUsage, affirmExportHunt, affirmForHunt, affirmPerform, affirmReadHunt, affirmReadQuestion, affirmReadReviews, claimsFor, Unscoped } from '../../convex/authorize'
 import { isHuntScoped } from '../../convex/functions'
 import { scopedReader } from '../../convex/policy_rules'
 import { huntingFor, identForLabel, reviewsOf } from '../../convex/reading'
@@ -149,6 +149,18 @@ describe("affirmReadHunt and affirmReadQuestion", () => {
     await tt.run(async (ctx) => { await ctx.db.delete('questions', question_id) })
     const { question: gone } = await tt.run(async (ctx) => await affirmReadQuestion(ctx.db, affirms, alice.actor, question_id))
     expect(gone).to.be.null
+  })
+})
+
+describe("affirmExportHunt", () => {
+  it("lets a smith of the hunt export it, and turns away a reviewer, a stranger and anyone who has asserted no username", async () => {
+    const { tt, open, alice, bob, carol } = await peopled()
+    const outcomes = []
+    for (const [actor, by] of [[alice.actor, alice], [bob.actor, bob], [carol.actor, carol], [Actor.anonymous, alice]] as const) {
+      const { hunt: affirms } = await affirmsOf(tt, by, open)
+      outcomes.push(await outcomeOf(tt.run(async (ctx) => { await affirmExportHunt(ctx.db, affirms, actor) })))
+    }
+    expect(outcomes).to.deep.eq(['allow', 'notPermitted', 'notPermitted', 'notIdentified'])
   })
 })
 

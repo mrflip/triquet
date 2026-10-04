@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -11,10 +12,13 @@ import { present } from '../support/present'
 import { affirmsOf, huntHolding, identified, openTester, putOn, seedHunt, type AffirmsBag, type Identified, type Tester } from '../support/convex'
 import { seedHuntRows } from '../support/seed'
 
-/** What a test reads a quiz through: a deployment, and the session of a reviewer on the quiz's hunt, with what they affirm of themselves there */
-type Reading = { tt: Tester, alice: Identified, affirms: AffirmsBag }
+/**
+ * What a test reads a quiz through: a deployment, and the sessions of a reviewer and a smith on the
+ * quiz's hunt, with what each affirms of themselves there
+ */
+type Reading = { tt: Tester, alice: Identified, affirms: AffirmsBag, sam: Identified, smiths: AffirmsBag }
 
-/** A fresh deployment holding `hunt` with a reviewer on it; its first quiz's id, and its questions' ids in order */
+/** A fresh deployment holding `hunt` with a reviewer and a smith on it; its first quiz's id, and its questions' ids in order */
 async function holding(hunt: HuntT): Promise<Reading & { quiz_id: Id<'quizzes'>, question_ids: Id<'questions'>[] }> {
   const tt = openTester()
   const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
@@ -24,8 +28,11 @@ async function holding(hunt: HuntT): Promise<Reading & { quiz_id: Id<'quizzes'>,
   const question_ids = await tt.run(async (ctx) => present(await quizRowsOf(ctx.db, quiz_id)).questions.map((row) => row._id))
   const alice = await identified(tt, 'alice_reviews')
   await putOn(tt, hunt_id, alice.ident_id, 'reviewer')
-  const affirms = await affirmsOf(tt, alice, { hunt_id, realm_id: realm.realm._id, quiz_id })
-  return { tt, alice, affirms, quiz_id, question_ids }
+  const sam = await identified(tt, 'sam_smiths')
+  await putOn(tt, hunt_id, sam.ident_id, 'smith')
+  const place = { hunt_id, realm_id: realm.realm._id, quiz_id }
+  const [affirms, smiths] = [await affirmsOf(tt, alice, place), await affirmsOf(tt, sam, place)]
+  return { tt, alice, affirms, sam, smiths, quiz_id, question_ids }
 }
 
 /** A hunt of one quiz, its questions labelled `aa`, `bb` and `cc` */
@@ -33,14 +40,28 @@ function threeQuestions(): HuntT {
   return huntHolding([{ ...Quiz.blank(), questions: ['aa', 'bb', 'cc'].map((label) => ({ ...Question.blank(), label, title: label.toUpperCase() })) }])
 }
 
-/** The quiz as a browser reads it: its frame from `quizzes.open`, each question from `questions.open`, assembled */
-async function opened({ alice, affirms }: Reading, quiz_id: Id<'quizzes'>) {
-  const frame = present(await alice.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, quiz_id } }))
-  const seen = await Promise.all(frame.row_ordering.map(async (question_id) => present(await alice.as.query(api.questions.open, { question_id, affirms: affirms.hunt }))))
+/**
+ * The quiz as a browser reads it: its frame from `quizzes.open`, each question from
+ * `questions.open`, assembled; as the smith reads it, unless a reader is given.
+ */
+async function opened({ sam, smiths }: Reading, quiz_id: Id<'quizzes'>, reader = sam, affirms = smiths) {
+  const frame = present(await reader.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, quiz_id } }))
+  const seen = await Promise.all(frame.row_ordering.map(async (question_id) => present(await reader.as.query(api.questions.open, { question_id, affirms: affirms.hunt }))))
   return quizFromSeen(frame, seen)
 }
 
 describe("a quiz as the browser assembles it from quizzes.open and questions.open", () => {
+  it("reads a reviewer the frame as a smith reads it, and of each question what a review needs, the rest blank", async () => {
+    const written = { ...Question.blank(), label: 'aa', clueing: 'Who?', full_answer: 'Hamlet', notes: 'Check the folio.', alt_text: 'A prince.' }
+    const hunt = huntHolding([{ ...Quiz.blank(), smiths_note: 'Theme: princes.', questions: [written] }])
+    const { quiz_id, ...reading } = await holding(hunt)
+    const [asSmith, asReviewer] = [await opened(reading, quiz_id), await opened(reading, quiz_id, reading.alice, reading.affirms)]
+    expect(asReviewer.smiths_note).to.eq('Theme: princes.')
+    expect(_.omit(asReviewer, ['questions'])).to.deep.eq(_.omit(asSmith, ['questions']))
+    expect(asSmith.questions[0]).to.deep.include({ full_answer: 'Hamlet', notes: 'Check the folio.', alt_text: 'A prince.' })
+    expect(asReviewer.questions[0]).to.deep.include({ full_answer: 'Hamlet', clueing: 'Who?', notes: '', alt_text: '', stored: {} })
+  })
+
   it("reads back a quiz exactly as it was written, apart from its ids", async () => {
     const hunt = Hunt.blank()
     const { quiz_id, ...reading } = await holding(hunt)
