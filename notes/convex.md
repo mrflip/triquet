@@ -92,6 +92,12 @@ must know across hunts (a hunt label's holder, a widget worked anywhere) are ask
 before any hunt is in play or across hunts, are named in `Unscoped` (`convex/authorize.ts`) with
 why, and a test holds every public function to one or the other.
 
+What a query sends is shaped by the reader's **standing**, not only gated by it. A question is sent
+as `Question.sentTo` lists for that standing (`seenQuestionFor` in `src/lib/rows.ts`): a smith all
+of it, a reviewer what a review needs (the answer included: the review screen's lock is a spoiler
+shield, not a security rule). A change to who is sent what is an edit to that list. The whole hunt
+(`hunts.whole`, the export) is a smith's alone (`Approve.mayExportHunt`).
+
 Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not
 derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out.

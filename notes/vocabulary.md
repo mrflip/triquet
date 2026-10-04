@@ -226,6 +226,10 @@ words above.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
   JSON Schema and the git table are all built from these lists, so hiding a field is one edit. A
   widgeting exposes `status` and `value`; never its `err` or how it ran.
+* **sent** -- what a query hands a reader of a given standing. `Question.sentTo` lists a
+  question's fields per standing: a smith is sent all of it, a reviewer what a review needs (not
+  the notes, nor what the widgetings stored), a stranger nothing. Not the same list as *exposed*,
+  which says what a formula reads; a field a reader is not sent reads as blank in their browser.
 
 ## Bots
 
@@ -267,7 +271,8 @@ that way; the model bots were called players until September 2026.
   they looked, not when, and it is the reviewer's own: their lock says "Seen before", and the
   smiths are not shown it.
 * **the lock** -- the answer, hidden behind a confirmation until a reviewer chooses to see it.
-  Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`.
+  Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`. A
+  spoiler shield, not a security boundary: the reviewer is sent the answer, peeked or not.
 
 ## Reading from Convex
 

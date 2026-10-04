@@ -20,7 +20,9 @@ it means.
 * **facet** -- the unit a watch covers: a set of rows that change together and are shown
   together. A quiz's frame (its own fields, widgetings and columns) is a facet; one question with
   what its widgetings stored is a facet; a quiz's reviews are a facet; the library of widgets is
-  a facet. Facets are what a query function is written for.
+  a facet. Facets are what a query function is written for. A facet's shape may depend on who
+  reads it: a reviewer's question carries what a review needs (`Question.sentTo`), and the
+  browser reads a field it was not sent as blank.
 * **screen hook** -- the one hook that owns a screen's watches and hands the rest of the screen
   what it needs as props: `useHunt` for a quiz's screen, `useHuntsList` for the hunts page,
   `useIdent` for who the browser is. A screen hook may be built from smaller hooks (`useHunt`
