@@ -4,13 +4,14 @@ import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 import { ServicelabelVals } from '../lib/credentials'
 import { ModelTierVals } from './ask'
+import { EstimateValidators, type EstimatesT } from './estimate'
 
 /** The formularies a widget of the library can be worked by: a JSONata formula worked out on render, a prompt put to a model, or a value a person types */
 export const FormularykindVals = ['jsonata', 'aibot', 'entry'] as const
 export type Formularykind = typeof FormularykindVals[number]
 
-/** What an `entry` widget's cells take: prose, a number, a label, or a one-line title */
-export const EntryKindVals = ['text', 'number', 'labelish', 'titleish'] as const
+/** What an `entry` widget's cells take: prose, a number, a label, a one-line title, or a question's category estimates */
+export const EntryKindVals = ['text', 'number', 'labelish', 'titleish', 'estimates'] as const
 export type EntryKind = typeof EntryKindVals[number]
 
 /** Who a widget belongs to: `pub`, the library every hunt sees, is the only scope there is so far */
@@ -40,7 +41,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
     .describe('An `aibot` widget\'s settings: who answers, and how much room they have.')
   const entryConfig = obj({
     entry_kind: oneof(EntryKindVals)
-      .describe('What its cells take: `text` (prose, markdown welcome), `number`, `labelish` (a label, as `quiet_otter`) or `titleish` (one line). Fixed once made: the values typed hang on it.'),
+      .describe('What its cells take: `text` (prose, markdown welcome), `number`, `labelish` (a label, as `quiet_otter`), `titleish` (one line) or `estimates` (the subject categories a question draws on, each with a difficulty). Fixed once made: the values typed hang on it.'),
   }).strict()
     .describe('An `entry` widget\'s settings: what kind of value is typed into its cells.')
 
@@ -158,15 +159,16 @@ export type JsonataWidgetT = Extract<WidgetT, { formulary: 'jsonata' }>
 export type AibotWidgetT   = Extract<WidgetT, { formulary: 'aibot' }>
 /** A widget of the library whose cells a person types into */
 export type EntryWidgetT   = Extract<WidgetT, { formulary: 'entry' }>
-/** What an `entry` widget's cell holds: text or a number */
-export type EntryValueT    = string | number
+/** What an `entry` widget's cell holds: text, a number, or a question's category estimates */
+export type EntryValueT    = string | number | EstimatesT
 
 /** The validator of what each kind of `entry` widget's cell holds */
 export const EntryValueFor: Readonly<Record<EntryKind, Z.ZodType<EntryValueT>>> = {
-  text:     WidgetValidators.entryText,
-  number:   WidgetValidators.entryNumber,
-  labelish: WidgetValidators.entryLabelish,
-  titleish: WidgetValidators.entryTitleish,
+  text:      WidgetValidators.entryText,
+  number:    WidgetValidators.entryNumber,
+  labelish:  WidgetValidators.entryLabelish,
+  titleish:  WidgetValidators.entryTitleish,
+  estimates: EstimateValidators.estimates,
 }
 export type WidgetPatch    = Z.output<typeof WidgetValidators.widgetPatch>
 export type WidgetRowT     = Z.output<typeof WidgetValidators.row>
@@ -239,4 +241,4 @@ export class Widget {
 }
 
 /** How each kind of entry is named in a sentence */
-const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', labelish: 'label', titleish: 'title' }
+const EntryKindNames: Readonly<Record<EntryKind, string>> = { text: 'text', number: 'number', labelish: 'label', titleish: 'title', estimates: 'category estimate' }

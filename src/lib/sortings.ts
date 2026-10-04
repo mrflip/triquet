@@ -79,7 +79,7 @@ function readerFor(source: Resolved, questions: readonly QuestionT[], run: Runne
     return () => null
   }
   case 'widgeting': {
-    return (question) => sortValueOf(Runner.widgetedOf(run, source.widgeting.label, question._id))
+    return (question) => sortValueOf(Runner.widgetedOf(run, source.widgeting.label, question._id, source.part))
   }
   }
 }

@@ -1,15 +1,15 @@
-import { sortkeyOf, sourceOf, type ColumnT, type QuestionField, type QuestionView } from '../models/column'
+import { sortkeyOf, sourceOf, type ColumnT, type QuestionField, type QuestionView, type WidgetingPart } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
 import type { Sortkey } from '../models/quiz'
 
 /** How a column's header is drawn: along the row, or rotated into it */
 export type Headkind = 'plain' | 'vertical'
 
-/** What a column shows, found: the question's own field, a view of it, or the widgeting it names */
+/** What a column shows, found: the question's own field, a view of it, or the widgeting it names, whole or one part of it */
 export type Resolved =
   | { kind: 'field', field: QuestionField }
   | { kind: 'view', view: QuestionView }
-  | { kind: 'widgeting', widgeting: WidgetingT }
+  | { kind: 'widgeting', widgeting: WidgetingT, part: WidgetingPart | null }
 
 /** One column as the grid draws it */
 export type ColumnSpec = {
@@ -36,13 +36,14 @@ export const GutterWidthPx = 40
  * @param widgetings - The quiz's widgetings.
  * @returns The thing shown, or null when it names a widgeting the quiz does not have.
  *
- * @example resolve('question.clueing', [])  // => { kind: 'field', field: 'clueing' }
+ * @example resolve('question.clueing', [])                  // => { kind: 'field', field: 'clueing' }
+ * @example resolve('categories.masie', [categories])         // => { kind: 'widgeting', widgeting: categories, part: 'masie' }
  */
 export function resolve(source: string, widgetings: readonly WidgetingT[]): Resolved | null {
   const named = sourceOf(source)
   if (named.kind !== 'widgeting') { return named }
   const widgeting = widgetings.find((each) => each.label === named.label)
-  return widgeting ? { kind: 'widgeting', widgeting } : null
+  return widgeting ? { kind: 'widgeting', widgeting, part: named.part } : null
 }
 
 /** Whether ordering the quiz by this can mean something: a value each question has */

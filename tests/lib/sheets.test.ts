@@ -7,6 +7,7 @@ import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widgeted, type JsonT, type WidgetedHistoryT, type WidgetedT } from '../../src/models/widgeted'
 import { Widgeting } from '../../src/models/widgeting'
+import { Widget } from '../../src/models/widget'
 import type { IshItemT } from '../../src/models/ish'
 import { present } from '../support/present'
 import { runHolding, runOf } from '../support/runs'
@@ -58,7 +59,7 @@ describe('cellTextOf', () => {
   const question = Question.blank()
   const run = runHolding({ questions: [question] }, { col: { [question._id]: Widgeted.ok('x') } })
   const widgeting = Widgeting.fill({ label: 'col', widget_label: 'whatever' })
-  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ kind: 'widgeting', widgeting }, { question, target: null, run: runHolding({ questions: [question] }, { col: { [question._id]: widgeted } }) })
+  const textFor = (widgeted: WidgetedT) => Sheets.cellTextOf({ kind: 'widgeting', widgeting, part: null }, { question, target: null, run: runHolding({ questions: [question] }, { col: { [question._id]: widgeted } }) })
 
   const Cases: [WidgetedT, string, string][] = [
     // widgeted                                                     text                          blurb
@@ -76,6 +77,14 @@ describe('cellTextOf', () => {
       expect(textFor(widgeted)).to.eq(expected)
     })
   }
+
+  it("writes a part of a category-estimate widgeting as what it came to: a chance as its number, the estimates as their JSON", () => {
+    const placed = { ...Question.blank(), stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]) } }
+    const cats = Widgeting.fill({ label: 'cats', widget_label: 'categories' })
+    const estimated = runOf({ ...Quiz.blank(), questions: [placed], widgetings: [cats] }, [Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } })])
+    const partText = (part: 'artie' | 'estimates') => Sheets.cellTextOf({ kind: 'widgeting', widgeting: cats, part }, { question: placed, target: null, run: estimated })
+    expect([partText('artie'), partText('estimates')]).to.deep.eq(['0.9', '[{"category":"art","difficulty":"easy"}]'])
+  })
 
   it('writes a field as the question holds it, and the chain as the target\'s label', () => {
     const target = { ...Question.blank(), label: 'the_film', hint: 'BUT NOT the film' }

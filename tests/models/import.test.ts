@@ -58,6 +58,11 @@ describe('ImportValidators.importedQuestions', () => {
     expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent)
   })
 
+  it("takes a question's category estimates to type into a category-estimate cell", () => {
+    const sent = [{ label: 'leon', patch: {}, entered: { cats: [{ category: 'tv' as const, difficulty: 'hard' as const }] } }]
+    expect(ImportValidators.importedQuestions(sent)).to.deep.eq(sent)
+  })
+
   it('refuses what no entry could hold, and a key that is not a label', () => {
     expect(() => ImportValidators.importedQuestions([{ label: 'leon', patch: {}, entered: { remark: { nested: true } as never } }])).to.throw(Z.ZodError)
     expect(() => ImportValidators.importedQuestions([{ label: 'leon', patch: {}, entered: { 'Not A Label': 'x' } }])).to.throw(Z.ZodError)
