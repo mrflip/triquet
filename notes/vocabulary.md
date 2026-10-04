@@ -55,7 +55,9 @@ this section, lists the words they replace while code still holds them.
   has what bringing it back, and the imported replies with it, takes.
 * **refresh** -- how a formulary's widgeteds come to be: `live` (worked out on every render),
   `click` (asked from the cell), or neither (typed).
-* **library** -- every widget there is. Its own export and import, apart from any hunt's.
+* **library** -- every widget there is. Its own export and import, apart from any hunt's. It
+  belongs to no hunt, and is changed by an admin on a mutation of its own (`widgets.perform`), with
+  no hunt or quiz open.
 * **catalogue** -- the library as the widgeting editor's picker offers it.
 * **widgeting editor** -- the quiz's dialog for one widgeting: the widget it works, picked from the
   catalogue, and its own label and description. It never edits the widget.
@@ -131,17 +133,22 @@ words above.
   same policies, never by testing a role: `Approve.mayOffer(kind, claims)` asks of an action's
   kind before the author has said what it is (only for a kind whose policy reads nothing of the
   action), and `Approve.may` with the action itself otherwise (who a membership action names).
-  The smith's screen gathers its offers in `workbenchOffers`. `useHunt`'s dispatcher asks the
-  policy again before sending, so a view that offered what it should not is caught before the
-  server is asked.
+  The smith's screen gathers its offers in `workbenchOffers`. `useHunt`'s dispatcher, and the
+  library's (`useLibraryActions`), ask the policy again before sending, so a view that offered
+  what it should not is caught before the server is asked.
 * **scoped database** -- the `db` a hunt's function holds once its affirms are checked: it sees and
   writes only rows of that hunt, by one rule per table (`convex/policy_rules.ts`), whatever the
-  handler asks for. Built by `zHuntQuery` and `zHuntMutation`; the functions that hold the whole
-  database instead are named in `Unscoped` (`convex/authorize.ts`). Not a widget's `scope`.
+  handler asks for. Built by `zHuntQuery` and `zHuntMutation`. The library's mutation holds one
+  scoped to the library (`zLibraryMutation`, `LibraryRules`): its widgets, and nothing of any hunt.
+  The functions that hold the whole database instead are named in `Unscoped`
+  (`convex/authorize.ts`). Not a widget's `scope`.
+* **admin** -- one who looks after what belongs to no hunt: the library. Changing it is an admin's
+  act (`Approve.mayChangeLibrary`). Who is an admin is decided in one place, `Actor.isAdmin`, and
+  nowhere else; until that is settled it approves everyone who has asserted a username.
 * **census** -- what a write must know across every hunt, asked of the whole database and
   answered with an id or a yes, never a row: whose a hunt label is, whether a widget is worked
-  anywhere (`CensusT` in `convex/reading.ts`). A hunt's mutation holds one beside its scoped
-  database.
+  anywhere (`CensusT` in `convex/reading.ts`). A hunt's mutation, and the library's, holds one
+  beside its scoped database.
 * **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
   `affirmReadReviews`) that checks the affirms and gathers the evidence a policy needs in one
   parallel round (`affirmForHunt`), builds the claims, and hands them to `Approve`. It decides

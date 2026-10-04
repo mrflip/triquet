@@ -20,13 +20,14 @@ verdict is `notes/database-decisions.md` and its decision `notes/decisions/2026-
 plan and its handoff are `whiteboard/convex_yay-plan.md` and `whiteboard/convex_yay-progress.md`:
 the thread's history, read when a question is "why is it like this", not as spec.
 
-Rows, not a tree. A view dispatches an action, the `hunts.perform` mutation writes the rows it
-comes to, and views subscribe to query functions that assemble what a screen shows
-(`notes/queries_hooks_and_subscriptions.md` has the words: query function, watch, fetch, facet,
-screen hook). Row ids are Convex's `_id` and internal: refer by label. Zod validates every
-function's arguments and every row written, never rows read back. A change to a row shape that
-rows already written would not fit is a migration on production (`convex/migrations.ts`, and
-`notes/deploy.md` for the order of steps); a local backend is simply emptied and pushed again.
+Rows, not a tree. A view dispatches an action, the `hunts.perform` mutation (`widgets.perform`,
+for the library) writes the rows it comes to, and views subscribe to query functions that
+assemble what a screen shows (`notes/queries_hooks_and_subscriptions.md` has the words: query
+function, watch, fetch, facet, screen hook). Row ids are Convex's `_id` and internal: refer by
+label. Zod validates every function's arguments and every row written, never rows read back. A
+change to a row shape that rows already written would not fit is a migration on production
+(`convex/migrations.ts`, and `notes/deploy.md` for the order of steps); a local backend is simply
+emptied and pushed again.
 
 ## Denormalized fields
 
@@ -90,9 +91,13 @@ differ from a mutation's only for reviews: a query shows the ones its reader may
 (`Approve.mayReadReview`), a mutation sees them all to count and delete them. Identings and Convex
 Auth's tables are not reachable through it; idents are read, never written. The two facts a write
 must know across hunts (a hunt label's holder, a widget worked anywhere) are asked of the
-**census** (`ctx.census`) instead. The public functions that hold the whole database, acting
-before any hunt is in play or across hunts, are named in `Unscoped` (`convex/authorize.ts`) with
-why, and a test holds every public function to one or the other.
+**census** (`ctx.census`) instead. The library belongs to no hunt, and no hunt's function writes
+it: changing it is an admin's act (`Approve.mayChangeLibrary`, and `Actor.isAdmin`, the one place
+that says who an admin is), on a mutation of its own, `widgets.perform`, built by
+`zLibraryMutation`, whose database reaches the library's widgets and nothing of any hunt
+(`LibraryRules`). The public functions that hold the whole database, acting before any hunt is in
+play or across hunts, are named in `Unscoped` (`convex/authorize.ts`) with why, and a test holds
+every public function to one or the other.
 
 What a query sends is shaped by the reader's **standing**, not only gated by it. A question is sent
 as `Question.sentTo` lists for that standing (`seenQuestionFor` in `src/lib/rows.ts`): a smith all

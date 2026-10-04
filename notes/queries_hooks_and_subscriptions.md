@@ -34,8 +34,10 @@ it means.
   on the hunt (which quizzes exist, and who is on it), one on the library (`widgets.library`),
   one on the quiz's frame, one per question the frame lists, and one on the reviews. `useQuiz`
   assembles frame and questions into the quiz the rest of the tool reads.
-* A change is one mutation, `hunts.perform`, which reads the truth inside its transaction and
-  writes the rows it comes to. The server reruns every watched query function whose reads were
+* A change is one mutation, `hunts.perform` (or for the library, which no hunt owns,
+  `widgets.perform`), which reads the truth inside its transaction and writes the rows it comes
+  to. One browser's changes are carried out in the order they were made, whichever of the two
+  each rides. The server reruns every watched query function whose reads were
   touched and sends the ones whose result changed. Nothing in the browser guesses what a
   change affected.
 * Components take props. A cell, a row, a dialog or a panel is handed what it shows and a
