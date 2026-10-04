@@ -9,7 +9,7 @@ its row below and adds its section above the others, newest first.
 |---|---|---|---|---|
 | 1 | Sessions and the actor | complete, reviewed (1 fix) | `20261004-dbpolicy_sessions` | #79 |
 | 2 | `Approve`: pure policy and the dispatcher | complete, reviewed (clean) | `20261004-dbpolicy_approve` | #81 |
-| 3 | One label, and integrity repairs | underway | | |
+| 3 | One label, and integrity repairs | complete | `20261004-dbpolicy_one_label` | #82 |
 | 4 | Denormalize | pending | | |
 | 5 | Affirmations | pending | | |
 | 6 | A scoped database handle | pending | | |
@@ -17,6 +17,84 @@ its row below and adds its section above the others, newest first.
 | 8 | Views ask `Approve` | pending | | |
 | 9 | The library behind an admin helper | pending | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
+
+## Thread 3: One label, and integrity repairs (2026-10-04)
+
+Branch `20261004-dbpolicy_one_label`, PR #82, stacked on #81. Suites: typecheck, lint,
+`pnpm test` (110 files, 2868), `pnpm test:e2e` (207) all green.
+
+* **Built**:
+  - **One label.** `forced_label` is gone from the row validators, trees and classes of hunts,
+    quizzes and questions, from `rows.ts`, `exporting.ts`, `runner.ts` and
+    `ReservedWidgetingLabels`; `Labelmaker.effectiveLabelOf` is gone and `Labelled` is
+    `{ label }`. `relabelHunt`/`relabelQuiz` patch `label`. `huntForLabel` is one read of
+    `by_label`; `by_forced_label` is dropped. Import (`models/import.ts`, `lib/importing.ts`) still
+    reads a pasted `forced_label` and prefers it, for quizzes and questions alike; export no
+    longer emits it.
+  - **The widen.** `convex/schema.ts` lets the three tables still hold `forced_label` (string or
+    null, optional, written by hand: `retiringForcedLabel`). `convex/migrations.ts`:
+    `retireHuntForcedLabels`, `retireQuizForcedLabels`, `retireQuestionForcedLabels` (each folds
+    a set override into `label` through the row validator and patches `forced_label: undefined`;
+    a row without the field is left alone), and `runAll`, a series of every backfill defined
+    (thread 1's `backfillIdentClaims`, then these three). Tested in
+    `tests/convex/migrations.test.ts` on rows with the override set, null and absent, run twice,
+    and through `runAll`.
+  - **Quiz labels unique in a realm, on the server.** Index `quizzes.by_realm_id_and_label`,
+    `quizForLabel(db, realm_id, label)` in `reading.ts`; `relabelQuiz` refuses `labelTaken` when
+    another quiz holds the label. Tests: clash, own current label (no write), a label another
+    hunt's quiz holds (allowed).
+  - **`deleteQuiz(db, quiz_id)`** deletes every question, widgeting (through `deleteWidgeting`),
+    column and review its quiz's indexes find, each with `for await`. `deleteQuizFrom` reads only
+    the quiz row; `deleteHunt` passes ids. Tested with a question absent from `row_ordering`.
+  - **`expectSound(tt)`** in `tests/support/soundness.ts` (with `faultsIn`, `heldIn`, and
+    `SoundnessChecks`, a list of `{ title, faultsOf(held) }`), tested in
+    `tests/support/soundness.test.ts` by breaking a deployment each way. Called at the end of the
+    delete-quiz, delete-hunt, delete-questions and delete-widgeting tests and the `runAll` test.
+    `eslint.config.mjs` names it an assertion function; `notes/testing.md` describes it.
+  - Docs: `notes/vocabulary.md` (*label* now says one label; *forced_label*/*effective label*
+    retired), `notes/deploy.md` ledger row.
+* **Decisions taken**:
+  - **`newQuiz` keeps its siblings check** (now by `.label`): it already reads the realm's
+    quizzes for the cap and `freshLabelFor`, so the index would be one more read for nothing.
+  - **`relabelQuiz` reads the holder by `open.realm_id`, in parallel with the quiz**, which is
+    sound because `isPlaced` has checked the quiz is of that realm. **Thread 5:** when `isPlaced`
+    gives way to `affirmForHunt`, the verified `realm_id` keeps that true.
+  - **The id check is by field name.** Any field ending `_id` must name a row of the table
+    `TableForIdField` gives (`hunt_id` → `hunts`, `user_id` → `users`, ...); a null is let be (an
+    unclaimed ident); an `_id` field with no entry there is itself a fault. **Thread 4:** the
+    `hunt_id`, `quiz_id`, `ident_id` you add are checked for existence already; add a check per
+    copy (equals its source) as new entries in `SoundnessChecks`, and an entry in
+    `TableForIdField` only for a new kind of id. Convex Auth's tables are not walked; `users` is
+    read so `user_id` resolves.
+  - **`expectSound` is not called after the bare `deleteWidgeting` helper**: it leaves the
+    widgeting's columns to its caller by contract (`layout_actions` removes them, and that
+    action's test does call it).
+  - `deleteQuiz` deletes widgetings, columns and reviews by index too, not only questions.
+* **Deviations**:
+  - **`Retiring`, not `Backfilling`.** The plan says list `forced_label` under `Backfilling` in
+    `tests/convex/schema.test.ts`, but that list is for fields the row validator writes and old
+    rows lack; a field the schema still holds and no validator writes is what `Retiring` is for
+    (as `bulk_ishes_last` was). **Thread 10:** empty `Retiring` as well as `Backfilling`, drop
+    `retiringForcedLabel` from `schema.ts`, and drop the three migrations from `runAll`.
+  - **`expectSound` lives in `tests/support/soundness.ts`**, not `tests/support/convex.ts`, so its
+    checks have a file and a test of their own. It runs under the node project (convex-test does
+    fine there for it).
+  - **`runAll` pulled forward from thread 4 step 3.** Thread 4: append your six backfills to it
+    in dependency order rather than creating it.
+* **Discoveries**:
+  - `notes/examples/` is gitignored: its exports were updated (`forced_label` lines gone; the one
+    set override, `yummyostrich`, became that quiz's label) in this checkout only.
+  - `ReservedWidgetingLabels` no longer reserves `forced_label` (as the plan asked), while import
+    still reads that key off a pasted question. A widgeting now labelled `forced_label`, in an
+    export pasted back, would be read both as the question's label and as that entry's value.
+    Unlikely; the tighten (thread 10) may want to drop import's reading of it, or reserve it again.
+  - `convex/_generated/` did not change: the API types derive from the modules, and an index is
+    not in them. The agent backend took the push (index dropped and added) without a reset.
+  - Tests that asserted an override (a hunt titled after it, `placeOf` preferring it,
+    `freshLabelFor` avoiding it, `placeIn` missing a replaced label) are gone or now assert plain
+    labels.
+* **For the Coach**: run the backfill straight after this deploys (`notes/deploy.md` ledger):
+  until it has, a hunt or quiz relabelled before answers only to the label it was made with.
 
 ## Thread 2: `Approve`: pure policy and the dispatcher (2026-10-04)
 
