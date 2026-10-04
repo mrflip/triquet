@@ -36,12 +36,12 @@ export type LeagueExportProps = {
 }
 
 /**
- * The quiz in the league's import format, in the mode the pulldown names, and the smith's note
- * in the league's BBCode, line for line. Going live, the quiz's Q1 preamble shows beside the
- * pulldown, to be rewritten there.
+ * The quiz in the league's import format, in the mode the pulldown names (going live, unless told
+ * otherwise; never kept), and the smith's note in the league's BBCode, line for line. Going live,
+ * the quiz's Q1 preamble shows beside the pulldown, to be rewritten there.
  */
 export function LeagueExport({ quiz, revisable, onQ1Preamble }: Readonly<LeagueExportProps>) {
-  const [mode, setMode] = useState<LLSmithExport.ExportMode>('plain')
+  const [mode, setMode] = useState<LLSmithExport.ExportMode>('go_live')
   const preamble = useDraft(quiz.q1_preamble, onQ1Preamble)
 
   return (
