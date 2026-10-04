@@ -103,6 +103,17 @@ two-way door; the Coach may overturn any of them.
    asked for "the most popular". (`@mui/x-charts` also has a radar chart; see *For the Coach*.)
 7. **The route is `/c/<hunt>/categories`**, exactly as asked, written once in `src/lib/routes.ts`.
 
+## The Coach's answers (2026-10-04, after the sprint)
+
+* **Confirmed**: decisions 1–5 and 7; an all-blank cell written, not deleted; difficulty by chip
+  colour as well as word; persona cards naming one category each way (to try first); a persona
+  card over a tile's corner at slots 8 and 16 is probably fine.
+* **Changes asked for**: the blank pill reads **"~General~"**, not "(blank)"; an empty quiz's
+  spread panel also says something like "add categories to see focus graph", beside "Every question
+  names a category."
+* **Open**: decision 6 (Recharts): the Coach is weighing a library that goes further, without
+  joining a cult. Tile size at rest: the Coach will try it and report back.
+
 ## Threads
 
 ### Thread 1: categories and the category editor
