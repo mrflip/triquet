@@ -152,6 +152,19 @@ Settled; reach for these before writing the equivalent.
   view, an export, and a promise to an adopter that their work leaves with them, in a form the
   people who build puzzle hunts already know how to use. Design it as that.
 
+### Authentication
+
+* **Convex Auth** (`@convex-dev/auth`, with the `@auth/core` it asks for, both pinned exact):
+  sessions, chosen October 2026 (the `dbpolicy` sprint) over a hosted hub. Client-side only: the
+  React provider (`ConvexAuthProvider`) keeps a session's tokens in the browser's storage; no
+  Next.js middleware, no server function. Only the **Anonymous** provider for now: a browser is
+  signed in silently on its first visit and then asserts a username, which its session holds.
+  **Google is deferred**, and joins `Anonymous` in the list in `convex/auth.ts` when it comes, with
+  the "anonymous here, signed in there" collision (a username held by the anonymous session on
+  another device) designed then. Its keys (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`) live on the
+  deployment: `scripts/convex_auth_keys` mints throwaway ones for a local backend, and a Coach sets
+  production's (`notes/deploy.md`).
+
 ### AI
 
 * **`@anthropic-ai/sdk`**, called only from `src/app/api/ask/route.ts` (`lib/ask/failures.ts` reads
@@ -238,9 +251,9 @@ agrees to another.
 
 ## Later, i.e when we get there
 
-* **A second device**: the browser key has no door to another browser; typing one's ident label
-  there is the trial's answer. The identity plan's is a sign-in (see *Authentication* under
-  Discuss).
+* **A second device**: a username belongs to the anonymous session that claimed it, so another
+  browser cannot take it on. The door is a sign-in (Google, deferred: see *Authentication* under
+  Use), made from the device holding the username.
 * **Rate limiting** the public functions (`convex-helpers`' rate limiter), if anyone ever abuses
   a deployment's URL: every function is callable by whoever has it.
 * **MSW** for network mocking, so the same handlers serve tests and local development.
@@ -264,12 +277,6 @@ it a decision rather than a default.
 
 * **CodeMirror 6** for the editing surface: markdown source with live preview.
 * Object storage and delivery — S3? Vercel? Cloudflare? Abuse the DB? Something else?
-* **Authentication**, the identity plan, after the playtesting thread (phases 5 to 7 of
-  `whiteboard/convex_yay-plan.md`). The brief: Convex Auth (`@convex-dev/auth`, beta) with the
-  anonymous provider replacing the browser key and Google behind it, weighed against a hosted hub
-  (Clerk or WorkOS) whose JWTs Convex trusts. Client-side only; the "anonymous here, signed in
-  there" collision designed, not discovered; `convex/authorize.ts` changes its first line and not
-  its rules. See `notes/decisions/2026-09-convex.md`, *Identity*.
 * Rich-text editing: markdown typed into a plain box, or a wysiwyg (**TipTap**)? Showing it is
   settled (see **react-markdown** under *Use*); editing is still the plain box, which shows its
   markdown rendered until it is typed into.
@@ -286,7 +293,8 @@ a trial of Jazz; `notes/database-decisions.md` has the verdict), the rendering p
 (client-first; pages prerender at build), client state (Convex queries, one per thing a screen
 shows, assembled on the server; `hunts.perform` writes rows), models versus schema (the Zod row
 validators are the source, and `convex/schema.ts` is derived from them), and the shape of
-identity (a browser key for the trial; see *Authentication* above). Still open:
+identity (a browser key for the trial, replaced in October 2026 by Convex Auth: see
+*Authentication* under Use). Still open:
 
 * **How thick the end-to-end layer should be.** The line above says thin; the suite is sixteen
   spec files and larger than any unit area. Tied to whether components and hooks get tests of

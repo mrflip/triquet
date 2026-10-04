@@ -84,12 +84,25 @@ words above.
 
 ## Who and where
 
+* **session** -- a Convex Auth sign-in, anonymous for now: what a browser is to the server. It
+  gives a `users` row id (`user_id`), and is kept in the browser's storage, so a browser is the
+  same session visit after visit. A session says nothing of who someone is; its username does.
+* **username** -- what the screen calls an ident's label: what a person types to become an ident.
 * **ident** -- a persona in the app, named by a global label a person types to become it: 6 to
-  24 characters of the label alphabet, normalised from what was typed. No password: anyone may
-  assume any ident, for now. Has a `title` for display. Never changed or deleted.
-* **identing** -- one browser taking on one ident, named by the browser's key. The browser's
+  24 characters of the label alphabet, normalised from what was typed. Held by the session that
+  claimed it (`user_id`), and asserted by no other: no password, but no taking on another's
+  either. One made before sessions held usernames is unclaimed (`user_id` null) until a session
+  asserts it. Has a `title` for display. Never deleted, and its label never changes.
+* **identing** -- one session asserting one ident, by the session's `user_id`. The session's
   newest identing is its current ident; that row, not browser storage, is what "logged in" means.
-  (Later, a cred will be the thing an identing hangs off.)
+* **actor** -- who a request is from, as a tagged value built once per request and handed to
+  every function as `ctx.actor` (`src/lib/actor.ts`): `{ kind: 'anonymous' }` when no username
+  has been asserted (signed in or not), or `{ kind: 'ident', user_id, ident_id, ident_label }`.
+  A tagged value rather than `null`, so that "anonymous" is a state with a name
+  (`Actor.isAnonymous`). A variable, field or parameter named `actor` is the whole tagged value;
+  one that holds an id or a label of the one acting is named for what it holds (`ident_id`,
+  `user_id`, `ident_label`), and `acting_ident_id` where it must be told apart from another ident
+  in the same scope.
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
   global, and exports on its own. Its label is global; should two share one, the earlier-made wins.

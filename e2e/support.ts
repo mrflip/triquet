@@ -38,7 +38,7 @@ test.afterEach(async () => {
   await Promise.all(Others.splice(0).map(async (context) => { await context.close() }))
 })
 
-/** A page in a browser of its own: another visitor, with a browser key of their own, on the same database */
+/** A page in a browser of its own: another visitor, signed in as a session of their own, on the same database */
 export async function otherVisitor(browser: Browser): Promise<Page> {
   const context = await browser.newContext()
   Others.push(context)

@@ -29,7 +29,13 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
 * **Convex** keeps one production deployment and a preview deployment per open branch, each with
   its own database and its own environment variables. A deployment holds exactly one version of
   the functions and one schema, whichever was pushed last. There is no permissions head:
-  authorization is code in `convex/authorize.ts` and ships with the functions.
+  authorization is code in `convex/authorize.ts` and ships with the functions. Sessions are
+  Convex Auth's (`convex/auth.ts`), and every deployment needs three environment variables of its
+  own for them, set on the deployment (the Convex dashboard, or `npx convex env set`), never in
+  Doppler's app configs: `JWT_PRIVATE_KEY` and `JWKS`, a key pair minted for that deployment alone
+  (`scripts/convex_auth_keys` shows how), and `SITE_URL`, the web app's address. Without them no
+  browser can sign in, and so none can assert a username. Preview deployments take theirs from
+  the project's default environment variables for previews.
 * **GitHub Actions** (`.github/workflows/ci.yml`) typechecks, lints, tests, builds and runs e2e
   (against the optimized build) on every pull request and every push to `main`, and checks that
   `convex/_generated/` was committed as the functions regenerate it. Every job runs against a local backend or none; CI
@@ -91,6 +97,7 @@ below the table.
 | `ed009a7` | `smiths_note` on quizzes, empty | `migrations:run '{"fn": "migrations:backfillSmithsNotes"}'` |
 | the rewidgeting merge (thread 3, `20261001-widget_tables`) | No backfill. Cleared by hand: `expressions`, `widgets` and `bottings`, which no schema since holds (`bulk_ishes_last` too, taken off by the next row). Re-created by seeding: the library and each laid-out quiz's default widgetings. Not re-created: the bots' replies, and any expression or widget a person wrote (*Clearing the widget tables*, below; `whiteboard/20261001-rewidgeting/losses.md`) | `seeding:seedWidgets` |
 | `20261004-unset_bulk_ishes_last` (#77) | No backfill: takes `bulk_ishes_last` off each quiz, which no schema since the rewidgeting names | `migrations:run '{"fn": "migrations:retireBulkIshesLast"}'` |
+| `20261004-dbpolicy_sessions` (dbpolicy thread 1) | Cleared by hand first: `identings`, whose rows name a browser key the new schema has no place for. It is only history: every browser signs in afresh and asserts its username once more (*Sessions*, below). Then the backfill: `user_id: null` on each ident, claimed by nobody until a session asserts it | `migrations:run '{"fn": "migrations:backfillIdentClaims"}'` |
 
 **Clearing the widget tables (rewidgeting).** The merge that brought in `widgets`, `widgetings`
 and `widgeteds` translates no rows: the three tables they replace are cleared, and one idempotent
@@ -126,6 +133,23 @@ it, pushes, and seeds it (the dev scripts pass `--seed` on every start). One who
 keeping is exported first as in step 1 and its questions pasted back through Import once it has
 been reset.
 
+**Sessions (dbpolicy thread 1).** The merge that brings in Convex Auth replaces the browser key.
+A Coach's steps, in order:
+
+1. **Keys.** Set `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` on production (and in the defaults for
+   preview deployments), from a pair minted for it alone: run `scripts/convex_auth_keys`' Node
+   snippet by hand, or Convex Auth's own `generateKeys.mjs` (its *Manual Setup* page), and paste
+   the values in the dashboard. `SITE_URL` is the app's public address. Keep the private key out
+   of chat, files and Doppler's app configs.
+2. **Clear `identings`** in production's data view, every document, and go straight on: the push
+   is refused while any row still names a browser key, and the old app keeps writing them until
+   the new one serves. A row that slipped in names itself in the build log; clear it and redeploy.
+3. **Deploy**: merge.
+4. **Backfill**: `./scripts/doppledo prd_janitor npx convex run migrations:run '{"fn": "migrations:backfillIdentClaims"}'`.
+   Every ident made before is then claimed by nobody, and the first session to assert its username
+   holds it from then on: that is how each person gets theirs back, and also how someone else could
+   get there first.
+
 **Catching up a backend that missed a backfill.** Main cannot do it: its schema push checks every
 row before any of its functions arrive, so it is refused before a backfill could run, and main no
 longer has the backfill anyway. The refusal names the table and the field, which the ledger
@@ -153,7 +177,8 @@ actions on `35xx`), with its database, file storage, instance secret and the CLI
 
 `scripts/convex_dev <role> [--reset] [--watch] <command>` is how anything runs against one: it
 starts the backend if it is not answering, pushes `convex/` to it (which regenerates
-`convex/_generated/`), marks it clearable, empties it with `--reset`, keeps pushing as `convex/`
+`convex/_generated/`), marks it clearable, gives it throwaway keys for Convex Auth when it has none
+(`scripts/convex_auth_keys`), empties it with `--reset`, keeps pushing as `convex/`
 changes with `--watch`, and runs the command with `NEXT_PUBLIC_CONVEX_URL` naming the backend.
 `pnpm dev` and `pnpm dev:agent` go through it; so does the e2e suite, from `playwright.config.ts`.
 A backend the script started stops with the command; one that was already running is left alone.
