@@ -15,6 +15,12 @@ export type DangerousAct = {
 }
 
 /**
+ * How wide the zone must be for an act's button to sit beside what it costs, rather than below,
+ * as MUI's container-query shorthand. The zone measures itself, as it sits in a dialog.
+ */
+const RoomFor = { sideBySide: '@560' } as const
+
+/**
  * The acts that cannot be undone, fenced off at the foot of a page in red, one row each: what the
  * act is and what it costs on the left, its button on the right. Each asks the person to type the
  * label of what they are about to lose before it goes ahead.
@@ -24,10 +30,13 @@ export function DangerZone({ acts }: Readonly<{ acts: readonly DangerousAct[] }>
   return (
     <section aria-labelledby="danger-zone-title">
       <Typography id="danger-zone-title" variant="h6" component="h3" sx={{ mb: 1 }}>Danger Zone</Typography>
-      <Box sx={{ border: 1, borderColor: 'error.main', borderRadius: 1 }}>
+      <Box sx={{ border: 1, borderColor: 'error.main', borderRadius: 1, containerType: 'inline-size' }}>
         <Stack divider={<Divider sx={{ borderColor: 'error.light' }} />}>
           {acts.map((act) => (
-            <Stack key={act.actname} direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2, alignItems: { sm: 'center' } }}>
+            <Stack
+              key={act.actname} useFlexGap spacing={2}
+              sx={{ p: 2, flexDirection: { '@': 'column', [RoomFor.sideBySide]: 'row' }, alignItems: { [RoomFor.sideBySide]: 'center' } }}
+            >
               <Box sx={{ flex: 1 }}>
                 <Typography sx={{ fontWeight: 600 }}>{act.actname}</Typography>
                 <Typography variant="body2" color="text.secondary">{act.blurb}</Typography>

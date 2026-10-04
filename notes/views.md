@@ -37,6 +37,16 @@ tripwires below. Form controls in the chrome around the grid are MUI's (`Select 
 `selectOption` and `getByLabel` working; the grid's own cells are the one place a raw element is
 the settled choice (below).
 
+A view that changes its layout as it narrows asks the box it sits in, not the window, unless it
+is the page itself. A dialog or a panel is not as wide as the window. Give the measured box
+`containerType: 'inline-size'`, and use MUI's container-query shorthand in `sx` (`'@620'`, or
+`'@sm'` for the theme's breakpoint against the box's width). Name the widths in a `RoomFor`
+constant beside the view, saying what each one makes room for (`ColumnsEditor`, `DangerZone`).
+`Stack`'s `direction` prop takes window breakpoints only, so set `flexDirection` in `sx` instead.
+A page's own layout (`ReviewScreen`, `About`, the grid's cards) stays on the window's
+breakpoints. Content that only needs to wrap wants `flexWrap` or an `auto-fit` grid, and no
+query at all.
+
 ## Tripwires that mean "stop and ask"
 
 * You are attaching native DOM event handlers beyond click and change.

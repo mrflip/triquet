@@ -65,6 +65,21 @@ test('a hunt goes only with its last quiz', async ({ page }) => {
   await expect(zone.getByRole('button')).toHaveText(['Delete this quiz'])
 })
 
+test('a dangerous act puts its button beside what it costs when the dialog has room, and below it when not', async ({ page }) => {
+  await openManage(page)
+  const zone = manageDialog(page).getByRole('region', { name: 'Danger Zone' })
+  const cost = zone.getByText('Delete this quiz and its hunt', { exact: true }).first()
+  const button = zone.getByRole('button', { name: 'Delete this quiz and its hunt' })
+  const buttonIsBeside = async () => {
+    const [costBox, buttonBox] = [await cost.boundingBox(), await button.boundingBox()]
+    return (buttonBox?.x ?? 0) > (costBox?.x ?? 0) + (costBox?.width ?? 0)
+  }
+  expect(await buttonIsBeside()).toBe(true)
+  // A window wide enough for MUI's sm breakpoint, which the zone once went by, with a dialog too narrow for both.
+  await page.setViewportSize({ width: 620, height: 900 })
+  await expect.poll(buttonIsBeside).toBe(false)
+})
+
 test('a smith renames the hunt, and the address stays as it is', async ({ page }) => {
   await waitUntilSaved(page)
   const address = page.url()

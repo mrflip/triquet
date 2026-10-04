@@ -322,14 +322,39 @@ test('every dialog has a close button, and an editor is not dismissed by clickin
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
-test('the columns list shows each label beside its title where there is room, and not on a narrow screen', async ({ page }) => {
+test('a column row gives up its label, then what it shows, then its width, as the dialog narrows', async ({ page }) => {
   await openManage(page)
-  const label = page.getByRole('group', { name: 'Column Hint Full Sum' }).getByText('hint_full', { exact: true })
-  // The source is also written under the title, so the label is the second of two.
-  await expect(label).toHaveCount(2)
-  await expect(label.last()).toBeVisible()
-  await page.setViewportSize({ width: 600, height: 900 })
-  await expect(label.last()).toBeHidden()
+  const row = page.getByRole('group', { name: 'Column Hint Full Sum' })
+  // The widget is labelled as the column is, so the picked source says it too: the label is the last.
+  const label = row.getByText('hint_full', { exact: true }).last()
+  const shows = row.getByRole('combobox', { name: 'Shows' })
+  const width = row.getByRole('textbox', { name: 'Width (px)' })
+  const title = row.getByRole('textbox', { name: 'Column title' })
+  const visibleAt = async (viewport: number, expected: [boolean, boolean, boolean]) => {
+    await page.setViewportSize({ width: viewport, height: 900 })
+    for (const [field, shown] of [[label, expected[0]], [shows, expected[1]], [width, expected[2]]] as const) {
+      await expect(field).toBeVisible({ visible: shown })
+    }
+    await expect(title).toBeVisible()
+  }
+  await visibleAt(1280, [true, true, true])
+  await visibleAt(900, [false, true, true])
+  await visibleAt(600, [false, false, true])
+  await visibleAt(400, [false, false, false])
+})
+
+test('what a column shows and its width are changed in place, and kept', async ({ page }) => {
+  await openManage(page)
+  const row = page.getByRole('group', { name: 'Column Hint Full Sum' })
+  await row.getByRole('combobox', { name: 'Shows' }).click()
+  await page.getByRole('option', { name: 'question.notes', exact: false }).first().click()
+  await row.getByRole('textbox', { name: 'Width (px)' }).fill('250')
+  await row.getByRole('textbox', { name: 'Column title' }).focus()
+  await closeManage(page)
+  await reloadOnceSaved(page)
+  await openManage(page)
+  await expect(row.getByRole('combobox', { name: 'Shows' })).toHaveText('question.notes')
+  await expect(row.getByRole('textbox', { name: 'Width (px)' })).toHaveValue('250')
 })
 
 test('the input a formula reads is folded to one line each, and opens to a pretty-printed box', async ({ page }) => {
