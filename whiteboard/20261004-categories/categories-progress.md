@@ -7,8 +7,8 @@ disagree. Workers add their sections below, newest first.
 
 | Thread | Name | Status |
 |---|---|---|
-| 1 | Categories and the category editor | complete, PR #85 |
-| 2 | Category personas | pending |
+| 1 | Categories and the category editor | complete, PR #85, review clean |
+| 2 | Category personas | underway |
 | 3 | The category estimate entry | pending |
 | 4 | The category spread chart | pending |
 
@@ -80,3 +80,7 @@ Branch `20261004-category_wheel`, PR #85, carrying `chore: redact notes` (the Co
     slot.
 * **For the Coach**: whether the wheel belongs in the hunt's export; whether an optional-forever
   field is acceptable (HUMAN-whatsup).
+
+*Review:* clean at medium; no fixes, no findings. For the record: a stored wheel is exactly 24
+slots over the category enum, so adding a category later needs a migration (and, until then,
+`updateHunt`'s whole-row validation would refuse a retitle of a hunt with a stored wheel).

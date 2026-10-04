@@ -1,7 +1,7 @@
 # Categories: a wheel of subject categories, personas that answer by it, and a quiz's spread
 
 Sprint plan, 2026-10-04. Mode: **YOLO**. Review level: **medium**. Issued by the Coach (Flip).
-**Status: planned.**
+**Status: thread 1 done (PR #85, review clean); thread 2 underway.**
 
 Four threads, stacked in order. `categories-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -43,7 +43,8 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 * `notes/queries_hooks_and_subscriptions.md`, before adding a query function, a state hook or a
   `useQuery` (threads 1, 3, 4).
 * `notes/deploy.md`, *Schema pushes* (threads 1 and 3 change row shapes).
-* `notes/decisions/2026-09-drag-and-drop.md` and `src/components/use-reorder.ts` (thread 1).
+* `notes/decisions/2026-10-drag-and-drop-boards.md` and `src/components/use-reorder.ts` (thread 1).
+  *Orchestrator:* the older `2026-09-drag-and-drop.md` now sits in `aside/`, which agents do not read.
 * `notes/decisions/2026-10-widgets.md`, `src/models/{widget,widgeting,widgeted,column}.ts`,
   `src/components/cells/entry.tsx` (thread 3).
 * `src/lib/routes.ts` and `src/app/(synced)/h/[hunt]/[realm]/[quiz]/page.tsx`: how an address
@@ -150,6 +151,12 @@ stores it; the editor view gains the three boxes outside the wheel. "Text boxes"
 naming the persona, and what they are best and worst at in the current order; the names are
 fixed like the category titles.
 
+*Orchestrator, after thread 1:* the boxes go in `CategoryWheel`'s `outside` prop (`[{ slotIdx, node }]`,
+centred `WheelGeometry.outsideRadius` from the middle). In thread 1's terms the curve is
+`d = Wheel.ringDistance(personaSlot, order.indexOf(label))` (0..12), `t = clamp((d - 1) / 10, 0, 1)`,
+`p = best + t * (worst - best)`; null is `t = 0.5`. The order is always `Wheel.orderOf(wheel)`,
+never the holed wheel.
+
 *Look-ahead.* Thread 3 calls the list function per question with the hunt's total order, so its
 signature takes the order and the list and returns a number in [0, 1]. Keep it pure and cheap: it
 runs per cell, per render.
@@ -170,6 +177,10 @@ dropped; if every pill is blank, one estimate with a null category (and that pil
 The flat bag should carry the worked-out parts too, so a later formula can read
 `qn.<label>.masie`.
 
+*Orchestrator, after thread 1:* on the quiz screen the total order is
+`Wheel.orderOf(hunt.wheel)`, from the `hunt` that `useHunt` already hands `Workbench`, `Panels`
+and the editors. No new watch is needed.
+
 *Look-ahead.* Thread 4 reads every question's estimates for the quiz; expose a pure way to get
 them (the stored list, nulls included) that does not go through a column.
 
@@ -188,6 +199,8 @@ series; say how many there are under the chart. If a quiz works more than one ca
 widgeting, read the first in run order. "The category wheel" can be the chart's own angle axis,
 drawn with the wheel's tiles as its ticks, clockwise from the top: simpler than aligning two
 drawings. Click toggles between its resting size and the panel's full width, in the page.
+*Orchestrator, after thread 1:* neighbours are `Wheel.neighboursOf(order, label, 2)`; the order is
+`Wheel.orderOf(hunt.wheel)`.
 
 ## For the Coach
 
