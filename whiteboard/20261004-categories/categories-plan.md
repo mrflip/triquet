@@ -1,7 +1,7 @@
 # Categories: a wheel of subject categories, personas that answer by it, and a quiz's spread
 
 Sprint plan, 2026-10-04. Mode: **YOLO**. Review level: **medium**. Issued by the Coach (Flip).
-**Status: threads 1 (PR #85) and 2 (PR #87) done, reviews clean; thread 3 underway.**
+**Status: threads 1 (PR #85), 2 (PR #87) and 3 (PR #91) done and reviewed; thread 4 underway.**
 
 Four threads, stacked in order. `categories-progress.md`, beside this file, is newer than this
 plan wherever the two disagree.
@@ -207,6 +207,11 @@ drawn with the wheel's tiles as its ticks, clockwise from the top: simpler than 
 drawings. Click toggles between its resting size and the panel's full width, in the page.
 *Orchestrator, after thread 1:* neighbours are `Wheel.neighboursOf(order, label, 2)`; the order is
 `Wheel.orderOf(hunt.wheel)`.
+*Orchestrator, after thread 3:* the data is `Estimates.quizEstimatesOf(run)` (`src/lib/estimates.ts`):
+the first category-estimate widgeting in run order and each question's stored list, nulls
+included, or null when the quiz works none (say so in the panel). `Panels` already takes `run`;
+the order is also `run.frame.order`. An untouched question reads `[{ category: null, ... }]`, so it
+counts in neither series but in the "no category" count.
 
 ## For the Coach
 
