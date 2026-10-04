@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 1 done (#79); thread 2 underway.
+`/sprint`. **Status:** threads 1 (#79) and 2 (#81) done; thread 3 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -342,6 +342,18 @@ makes the compiler check that).
 **Leaves for later threads.** The dispatch table and the matrix, which threads 5, 7, 8 and 9
 extend rather than rewrite.
 
+*Orchestrator, after thread 2 (#81):* what later threads build on, beyond the plan's words.
+* **A policy returns a verdict**: `Approve.Allow` or a `Denialkind` that is also a `Refusalkind`
+  (its sentence is `RefusalNotices[...]`). `may` answers a boolean, `must` throws, `verdictOn`
+  gives the verdict. Read-side `affirm…` functions return booleans, write-side ones verdicts.
+* **The table** is grouped (`LayoutPolicies`, `LibraryPolicies`, `ContentPolicies`,
+  `RealmPolicies`, `ReviewPolicies`, `HuntPolicies`, `AccountPolicies`, `ReadPolicies`); every
+  action row takes `(claims, action)`, typed to its own kind; `EvidenceT` says what each key is
+  handed. Claims are built with `Actor.claimsOn` (server: `claimsFor` in `authorize.ts`).
+* **`unicorn/prefer-combined-guards` contradicts `notes/policy_approve.md`** and is disabled, with
+  a reason, where it bites. Until the Coach rules on an `eslint.config.mjs` override, later
+  threads do the same and report each disable.
+
 ---
 
 ### Thread 3: One label, and integrity repairs
@@ -482,6 +494,13 @@ moves the quiz lock out of the business code.
    none) is the affirmed standing; `quiz.hunt_id` and `realm.hunt_id` are the affirmed hunt;
    `quiz.realm_id` is the affirmed realm. Any mismatch is a denial. Return claims: the verified
    affirms plus the fetched rows. Delete `isPlaced` and `isQuizOfHunt`.
+*Orchestrator, after thread 2:* the lock's refusal comes from the verdict: add `quizLocked` to
+`DenialkindVals`, so `mayReviseQuiz` returns it and no second check is needed. `mayReviseQuiz(quiz,
+claims)` does not fit the table's `(claims, action)` row shape: either the claims carry the quiz
+(`claims.quiz`, which step 3's claims already hold) and the row is a one-line adapter, or the
+evidence for content and layout kinds grows. Prefer the first. `isPlaced`/`isQuizOfHunt` are still
+there for step 3 to delete.
+
 4. Rewrite each `affirm…` function on top of it, in the shape `notes/policy_approve.md` sketches
    for `affirmReadReview`: anonymous guard, one `affirmForHunt`, one call to the pure function,
    and ideally no `await` after the round.
@@ -533,8 +552,9 @@ check still cannot leak another hunt.
    (`idents.current`, `idents.performAccount`, `hunts.list`, `hunts.open`) keep the plain
    builders and are named in a short list at the top of `convex/authorize.ts` with the reason.
 4. Convert the hunt-scoped public functions. Remove the hand filter in `reviews.forQuiz`: query
-   by the function's own criteria and let the rule filter; evaluate the reviewer's own review
-   once, from the set already read, not once per row.
+   by the function's own criteria and let the rule filter. ~~Evaluate the reviewer's own review
+   once, from the set already read, not once per row.~~ *Pulled forward by thread 2*:
+   `affirmReadReviews` judges a quiz's whole set with one membership read; keep that property.
 5. `hunts.list` reads the actor's huntings directly and needs no rule; say so in its doc block.
 6. Tests: for each hunt-owned table, a handler given claims for hunt A cannot `get`, `query`,
    `patch` or `delete` a row of hunt B. Extend the public-function test: every public function
@@ -567,7 +587,8 @@ browser's spoiler shield, and `peeked` stays a record of the reveal.
    `stored`.
 3. `src/components/ReviewScreen.tsx`: `AnswerLock` keeps hiding the answer until the reviewer
    reveals it, as now. Its doc block says it is a spoiler shield, not a security boundary.
-4. `hunts.whole`: add `mayExportHunt(claims)` (smith) to `Approve` and its affirmation.
+4. `hunts.whole`: add `mayExportHunt(claims)` (smith) to `Approve` and its affirmation (a new
+   read key: `EvidenceT` and `ReadPolicies`).
 5. Tests: a reviewer's `questions.open` has `full_answer` (peeked or not) and has no `notes`,
    `alt_text` or `stored`; `hunts.whole` is `null` for a reviewer. An e2e pass through the review
    screen.
@@ -588,6 +609,10 @@ server uses.
 2. Replace role tests in components and in `src/models/hunting.ts` (`Hunting.mayAct`) with
    `Approve.may(key, …)` on those claims: the lock's effect on editing affordances, the members
    panel, the library editor, the export box, the review screen's entry.
+   *Orchestrator, after thread 2:* the browser builds claims with `Actor.claimsOn`. An
+   affordance check by action key needs a sample action of that kind, since every action row
+   takes `(claims, action)`: decide whether a view asks with a sample action or the table grows a
+   kind-only entry point.
 3. The dispatcher in `use-hunt.ts` checks `Approve.may` for an action before sending it, and
    treats a failure there as a programming error to report, not a notice to show.
 4. Tests for each gated affordance under each standing.
@@ -609,7 +634,8 @@ when it is made only the helper changes.
    the one place admin standing is decided and that it approves everyone until that is settled.
 2. `Approve.mayChangeLibrary(actor)`: the actor has a username, and `Actor.isAdmin`.
    `mayCountUsage` becomes the same rule.
-3. Move the library action kinds out of `huntAction` into a `libraryAction` union and a
+3. Move the library action kinds (thread 2's `LibraryPolicies` block, and `count_usage`'s
+   evidence with it) out of `huntAction` into a `libraryAction` union and a
    `widgets.perform` mutation, so an admin act no longer rides a hunt's mutation or needs a quiz
    on screen.
 4. The library editor (`LibraryModal`, `WidgetEditor`, `src/state/widget-edit.ts`) dispatches to

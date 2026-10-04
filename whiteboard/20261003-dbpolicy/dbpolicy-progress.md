@@ -8,8 +8,8 @@ its row below and adds its section above the others, newest first.
 | # | Thread | Status | Branch | PR |
 |---|---|---|---|---|
 | 1 | Sessions and the actor | complete, reviewed (1 fix) | `20261004-dbpolicy_sessions` | #79 |
-| 2 | `Approve`: pure policy and the dispatcher | complete | `20261004-dbpolicy_approve` | #81 |
-| 3 | One label, and integrity repairs | pending | | |
+| 2 | `Approve`: pure policy and the dispatcher | complete, reviewed (clean) | `20261004-dbpolicy_approve` | #81 |
+| 3 | One label, and integrity repairs | underway | | |
 | 4 | Denormalize | pending | | |
 | 5 | Affirmations | pending | | |
 | 6 | A scoped database handle | pending | | |
@@ -22,6 +22,13 @@ its row below and adds its section above the others, newest first.
 
 Branch `20261004-dbpolicy_approve`, PR #81, stacked on #79. Suites: typecheck, lint, `pnpm test`
 (109 files, 2852), `pnpm test:e2e` (207) all green.
+
+*Review:* `clean`, at medium; no fixes. Every decision matched the old rules apart from the
+recorded changes (own review needs membership; an anonymous `retitle_ident` or `new_hunt` is
+`notIdentified`). Left, minor: the own-role no-op (the worker's deviation, with the Coach); and
+`Approve.every` and `ApproveValidators` now have no caller outside their test (the review deleted
+them, then undid it because the plan said keep `every`; revisit once threads 5 and 6 settle
+whether verdicts combine; `notes/policy_approve.md:152` uses it as its "BAD" example).
 
 * **Built**:
   - `src/lib/approve.ts` (was `approval.ts`): one non-async `may…` per rule, each a doc-block list
