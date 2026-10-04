@@ -118,7 +118,7 @@ describe('idents.performAccount: assume_ident', () => {
     await assume(session, 'quiet_otter')
     const idents = await allOf(tt, 'idents')
     expect(idents.map((row) => row.user_id)).to.deep.eq([session.user_id, session.user_id])
-    expect(await session.as.query(api.idents.current, {})).to.deep.include({ label: 'quiet_otter' })
+    expect(present(await session.as.query(api.idents.current, {})).ident).to.deep.include({ label: 'quiet_otter' })
   })
 
   it('refuses a label too short to be an ident\'s, writing nothing', async () => {
@@ -150,9 +150,17 @@ describe('idents.current', () => {
     const session = await signedIn(tt)
     await assume(session, 'flip_kromer', 'Flip')
     await assume(session, 'quiet_otter', 'Otter')
-    const current = present(await session.as.query(api.idents.current, {}))
-    expect(current).to.deep.include({ label: 'quiet_otter', title: 'Otter' })
-    expect(current).to.not.have.any.keys('user_id')
+    const { ident } = present(await session.as.query(api.idents.current, {}))
+    expect(ident).to.deep.include({ label: 'quiet_otter', title: 'Otter' })
+    expect(ident).to.not.have.any.keys('user_id')
+  })
+
+  it('hands the session the actor the server sees in its requests, which the browser builds its claims on', async () => {
+    const tt = openTester()
+    const otter = await identified(tt, 'quiet_otter')
+    const { ident, actor } = present(await otter.as.query(api.idents.current, {}))
+    expect(actor).to.deep.eq(otter.actor)
+    expect(actor.ident_id).to.eq(ident._id)
   })
 
   it('is null for a session that has asserted no username, and for a request with no session', async () => {

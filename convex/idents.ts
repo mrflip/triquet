@@ -2,20 +2,24 @@ import * as Actor from '../src/lib/actor'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
-import type { IdentT } from '../src/models/ident'
+import type { CurrentIdentT } from '../src/models/ident'
 import { zMutation, zQuery } from './functions'
 import { affirmAccountAction } from './authorize'
 import { performAccount as performAccountAction } from './writing/account_actions'
 
 const { zid, zod } = ValidatorKit
 
-/** The ident the asking session is now: the one its newest identing names; null when it has asserted no username, or there is no session */
+/**
+ * Who the asking session is now: the ident its newest identing names, and the actor the server
+ * builds of it for every request, so the browser decides what to offer as the server decides what
+ * to allow (`Approve`). Null when it has asserted no username, or there is no session.
+ */
 export const current = zQuery({
   args:    {},
-  handler: async (ctx): Promise<IdentT | null> => {
+  handler: async (ctx): Promise<CurrentIdentT | null> => {
     if (Actor.isAnonymous(ctx.actor)) { return null }
     const ident = await ctx.db.get('idents', ctx.actor.ident_id)
-    return ident && { _id: ident._id, label: ident.label, title: ident.title }
+    return ident && { ident: { _id: ident._id, label: ident.label, title: ident.title }, actor: ctx.actor }
   },
 })
 

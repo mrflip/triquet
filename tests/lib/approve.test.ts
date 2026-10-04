@@ -393,6 +393,47 @@ describe('Approve.may', () => {
   })
 })
 
+/** Whether a view may ask of `kind` by its kind alone */
+function isOfferable(kind: string): boolean {
+  try {
+    Approve.mayOffer(kind as Approve.OfferableKind, ClaimsAs.smith)
+    return true
+  } catch {
+    return false
+  }
+}
+
+describe('Approve.mayOffer', () => {
+  const offerable = Object.keys(Matrix).filter((kind) => isOfferable(kind))
+
+  for (const kind of offerable) {
+    const [dna] = Matrix[kind as keyof typeof Matrix]
+    it(`offers ${kind} in every column exactly where an action of it would be allowed`, () => {
+      const action = actionOf(dna)
+      const offered = ColumnVals.map((column) => Approve.mayOffer(kind as Approve.OfferableKind, ClaimsAs[column]))
+      const allowed = ColumnVals.map((column) => Approve.may(action.kind, ClaimsAs[column], action))
+      expect(offered).to.deep.eq(allowed)
+    })
+  }
+
+  it('is asked by kind alone of every action but those whose policy reads who the action names', () => {
+    const asked = Object.keys(Matrix).filter((kind) => ! isOfferable(kind))
+    expect(asked).to.deep.eq(['add_hunting', 'remove_hunting'])
+  })
+
+  it('throws for a kind whose policy reads the action, rather than deciding without it', () => {
+    expect(() => Approve.mayOffer('remove_hunting' as string as Approve.OfferableKind, ClaimsAs.smith)).to.throw('The policy for remove_hunting reads the action')
+  })
+
+  it('throws for a key no action answers to, even one a read answers to', () => {
+    expect(() => Approve.mayOffer('read_hunt' as string as Approve.OfferableKind, ClaimsAs.smith)).to.throw('No action answers to read_hunt')
+  })
+
+  it('withholds revising a locked quiz from its smith, and offers a reviewer their review', () => {
+    expect([Approve.mayOffer('edit_question', ClaimsAs.locked_smith), Approve.mayOffer('open_review', ClaimsAs.reviewer)]).to.deep.eq([false, true])
+  })
+})
+
 describe('Approve.must', () => {
   it('says allow when the policy allows', () => {
     expect(Approve.must('ask_anthropic_bot', 'allow')).to.eq('allow')

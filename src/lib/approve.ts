@@ -479,6 +479,30 @@ export function must<KK extends PolicyKey>(key: KK, ...evidence: EvidenceT[KK]):
   throw new NotApprovedError(verdict, { policy: key }, { evidence })
 }
 
+/** The kinds of action whose policy decides from the claims alone, reading nothing of the action itself */
+export type OfferableKind = {
+  [KK in ActionKind]: Parameters<typeof ActionPolicies[KK]> extends [] | [unknown] ? KK : never
+}[ActionKind]
+
+/**
+ * Whether a view should offer the holder of `claims` an action of `kind`: the verdict the server
+ * would reach on any action of that kind, asked before the author has said what it is (a field
+ * left editable, a button shown). Only for a kind whose policy reads nothing of the action; one
+ * whose does (who a membership action names) is asked with the action itself, through `may`.
+ *
+ * @throws When no action answers to `kind`, or its policy reads the action: a programming error.
+ *
+ * @example Approve.mayOffer('edit_question', claims)  // => false, for a smith of a locked quiz
+ * @example Approve.mayOffer('open_review', claims)    // => true, for a reviewer
+ */
+export function mayOffer<KK extends OfferableKind>(kind: KK, claims: EvidenceT[KK][0]): boolean {
+  if (! Object.hasOwn(ActionPolicies, kind)) { throw new Error(`No action answers to ${kind}`) }
+  const policy = ActionPolicies[kind] as (claims: EvidenceT[KK][0], ...rest: unknown[]) => VerdictT
+  // The compiler holds a caller to the kinds whose policy takes the claims alone; this holds an untyped one.
+  if (policy.length > 1) { throw new Error(`The policy for ${kind} reads the action: ask it with one`) }
+  return policy(claims) === Allow
+}
+
 /**
  * Whether all the `verdicts` are true.
  *

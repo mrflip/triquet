@@ -1,4 +1,5 @@
 import type * as Z from 'zod'
+import type * as Actor from '../lib/actor'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
@@ -25,6 +26,8 @@ export type IdentDNA  = Z.input<typeof IdentValidators.row>
 export type IdentRowT = Z.output<typeof IdentValidators.row>
 /** An ident as anyone is shown it, its holder included: never which session claimed it */
 export type IdentT    = Pick<IdentRowT, 'label' | 'title'> & { _id: string }
+/** Who a session is, as it is told: the ident it took on last, and the actor the server sees in its requests */
+export type CurrentIdentT = { ident: IdentT, actor: Actor.IdentActorT }
 
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
