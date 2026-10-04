@@ -15,9 +15,87 @@ its row below and adds its section above the others, newest first.
 | 6 | A scoped database handle | complete, reviewed (clean) | `20261004-dbpolicy_scoped_db` | #88 |
 | 7 | Reads shaped by role | complete, reviewed (clean) | `20261004-dbpolicy_role_reads` | #89 |
 | 8 | Views ask `Approve` | complete, reviewed (clean) | `20261004-dbpolicy_views_approve` | #90 |
-| 9 | The library behind an admin helper | underway | | |
+| 9 | The library behind an admin helper | complete | `20261004-dbpolicy_library_admin` | #92 |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
 
+
+## Thread 9: The library behind an admin helper (2026-10-04)
+
+Branch `20261004-dbpolicy_library_admin`, PR #92, stacked on #90. Suites: typecheck, lint, `pnpm test` (113 files, 3046), e2e (209, `pnpm test:e2e:agent`) all green, first run.
+
+* **Built**:
+  - **`Actor.isAdmin(_actor: IdentActorT)`** (`src/lib/actor.ts`): returns true. Its doc block
+    says it is the one place admin standing is decided. Nothing else reads admin standing.
+  - **`Approve.mayChangeLibrary(actor)`**: anonymous is `notIdentified`; an admin is allowed;
+    anyone else is `notPermitted`. The five library kinds and `change_library` (still in
+    `RowPolicies`, evidence `[actor]`) use it. `mayCountUsage(actor)` returns it, and its
+    huntings evidence is gone. `HuntlessKind` and `ActionT` in `approve.ts` now include
+    `LibraryActionT`.
+  - **`ActionValidators.libraryAction`** (a discriminated union) and its types
+    `LibraryActionDNA`/`LibraryActionT`. The library kinds left `huntAction`.
+    `LibraryActionKindVals` and `isLibraryAction` are gone.
+  - **`widgets.perform`** (`convex/widgets.ts`) is built by **`zLibraryMutation`**
+    (`convex/functions.ts`). Its `affirm` is `affirmLibraryAction(actor, action)` in
+    `authorize.ts` (`Approve.must`, nothing read). Its handler gets `libraryWriter(db, actor)` and
+    `census`. **`LibraryRules`** and `libraryWriter` live in `convex/policy_rules.ts`; the rule
+    types are now generic over the claims. `perform.ts` lost its library branch.
+  - **A hunt's `WritingRules.widgets` is `modify: never, insert: never`**: no hunt function writes
+    the library.
+  - **`scopeOf(fn)`** (`'hunt' | 'library' | null`) replaces `isHuntScoped`.
+  - `widgets.usage` asks `Approve.may('count_usage', ctx.actor)`. `affirmCountUsage` is deleted.
+  - **Browser**: `useLibraryActions()` (`src/state/use-library-actions.ts`) returns
+    `{ dispatch, unsaved }` and needs only `useIdent().actor`. It runs `libraryDenialOf` before
+    sending, and adds `trackWrite` and the page hold. `holdThePage` moved to
+    `src/state/page-hold.ts`, shared with `useHunt`. `Workbench` calls the hook; `data-unsaved` is
+    the OR of the two dispatchers. The library dispatcher is the `dispatch` prop of
+    `LibraryModal`, `WidgetEditor` and `LibraryForm`, and the `changeLibrary` prop of
+    `WidgetingsEditor`, `QuizManageModal`, `ExportImportPanel` and `Panels`. Panels lost its
+    hunt `dispatch`, which only the Library tab used. `widget-edit.ts` plans `LibraryActionDNA[]`.
+  - **Tests**:
+    - The matrix (library kinds `Idents`), plus a *once nobody is an admin* block.
+    - `mayChangeLibrary`, `mayCountUsage`, `affirmLibraryAction`.
+    - `widgets.perform`: by standing, on no hunt, anonymous, nobody an admin. `hunts.perform`
+      refuses library kinds.
+    - `widgets.usage`.
+    - The library database's rules, and the hunt database writing no widgets.
+    - `scopeOf` in the public-function test, `workbenchOffers` with nobody an admin,
+      `libraryDenialOf`, `libraryAction`.
+    - `seedHunt` gained `actOnLibrary`.
+  - Docs: `notes/convex.md`, `notes/views.md`, `notes/queries_hooks_and_subscriptions.md`,
+    `notes/testing.md`, `notes/vocabulary.md` (**admin**; library, scoped database, census,
+    offer).
+* **Decisions taken**:
+  - **A library-scoped builder, not `Unscoped`.** It is the same backstop a hunt has: the library's
+    mutation cannot reach a hunt row, and a hunt's mutation cannot write a widget. The census
+    still comes from the plain db.
+  - **The library writers, found and moved**: the library editor; the widgeting dialog's *New
+    widget…* and *Edit the widget…* doors (`WidgetEditor`); and the Library tab's import. The
+    question import only brings widgetings. `convex/seeding.ts` is internal, on the plain db. No
+    hunt action writes a widget, so there was nothing to split.
+  - **Ordering across the two mutations** relies on Convex's documented guarantee: React-client
+    mutations run "one at a time in a single, ordered queue"
+    (docs.convex.dev/functions/mutation-functions). So a widget made in the widgeting dialog lands
+    before the `add_widgeting` dispatched after it.
+  - **The stub seam** is `vi.spyOn(Actor, 'isAdmin')`. Approve calls it through the namespace, so
+    it works in node unit tests and in convex-test alike. No parameter leaks into callers.
+  - The library dispatcher has no `saveNotice`. No library field shows one; the alarm says it.
+* **Deviations**:
+  - Four library tests named "works from a locked quiz" were dropped: a library action no longer
+    touches a quiz.
+* **Discoveries**:
+  - `_generated/` did not change: `api.d.ts` takes `typeof widgets`, so a new export needs no
+    regeneration.
+  - convex-test's own argument validator throws (`Validator error`) for a library action sent to
+    `hunts.perform`, before our Zod parse, so that refusal is not a `ZodError` refusal.
+  - **For thread 10:** nothing here widens or adds a fallback.
+* **For the Coach**:
+  - **Behaviour change (your *For the Coach* 4):** anyone with a username may now change the
+    library and count widget usage, from any client, with no hunt involved. Give
+    `Actor.isAdmin` a rule when ready; nothing else needs to change. One thing to decide when you
+    do: it takes an `IdentActorT`, so an `admins` table or flag would mean either a sync rule over
+    the actor (for example a label list) or an affirm that reads it. `zLibraryMutation`'s
+    `affirm` may already be async for that.
+  - `useWidgetUsage` now answers counts to every ident (it was smiths only).
 
 ## Thread 8: Views ask `Approve` (2026-10-04)
 
