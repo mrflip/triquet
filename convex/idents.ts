@@ -1,10 +1,11 @@
 import * as Actor from '../src/lib/actor'
+import * as Approve from '../src/lib/approve'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { ActionValidators } from '../src/models/actions'
 import type { IdentT } from '../src/models/ident'
 import { zMutation, zQuery } from './functions'
-import { mayActOnAccount } from './authorize'
+import { affirmAccountAction } from './authorize'
 import { performAccount as performAccountAction } from './writing/account_actions'
 
 const { zid, zod } = ValidatorKit
@@ -36,7 +37,8 @@ export const performAccount = zMutation({
   handler: async (ctx, { action }) => await refusingInvalid(async () => {
     const { actor, user_id } = ctx
     if (user_id === null) { refuse('notSignedIn') }
-    if (! await mayActOnAccount(ctx.db, actor, action)) { refuse(Actor.isAnonymous(actor) ? 'notIdentified' : 'notPermitted') }
+    const verdict = await affirmAccountAction(ctx.db, actor, action)
+    if (verdict !== Approve.Allow) { refuse(verdict) }
     return await performAccountAction(ctx.db, user_id, actor, action)
   }),
 })

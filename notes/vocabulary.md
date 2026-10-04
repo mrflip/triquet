@@ -103,6 +103,22 @@ words above.
   one that holds an id or a label of the one acting is named for what it holds (`ident_id`,
   `user_id`, `ident_label`), and `acting_ident_id` where it must be told apart from another ident
   in the same scope.
+* **standing** -- an actor's place on one hunt: `'smith'` or `'reviewer'` by its hunting, or
+  `'stranger'` (`Actor.HuntStandingVals`). A named value rather than a null role, so that "not on
+  the hunt" is a state with a name. An actor who has asserted no username is a stranger to every
+  hunt.
+* **claims** -- what the server has verified of an actor on one hunt, handed to a policy:
+  `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`). Code handed
+  claims trusts them. Named `claims`, the whole object, never one of its fields.
+* **policy**, **verdict** -- a policy is a non-async `may…` function in `src/lib/approve.ts`
+  (`mayReadReview`, `mayChangeMembership`) that decides from the evidence it is handed and reads
+  nothing, so the browser and the server run the same one. Its verdict is `'allow'` or the refusal
+  kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`). `Approve.may(key, …)`
+  answers yes or no, `Approve.must(key, …)` throws when no, and `Approve.verdictOn(key, …)` says
+  which; the key is an action's kind or the name of a read (`read_hunt`).
+* **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
+  `affirmReadReviews`) that gathers the evidence a policy needs, builds the claims, and hands them
+  to `Approve`. It decides nothing itself.
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
   global, and exports on its own. Its label is global; should two share one, the earlier-made wins.

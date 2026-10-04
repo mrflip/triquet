@@ -1,7 +1,7 @@
 import { ValidatorKit } from '../src/lib/validator'
 import { frameOf, type QuizFrameT } from '../src/lib/rows'
 import { zQuery } from './functions'
-import { mayReadHunt } from './authorize'
+import { affirmReadHunt } from './authorize'
 import { huntIdOf, layoutRowsOf } from './reading'
 
 const { zid } = ValidatorKit
@@ -16,7 +16,7 @@ export const open = zQuery({
   handler: async (ctx, { quiz_id }): Promise<QuizFrameT | null> => {
     const quiz = await ctx.db.get('quizzes', quiz_id)
     const hunt_id = quiz && await huntIdOf(ctx.db, quiz)
-    if (! hunt_id || ! await mayReadHunt(ctx.db, hunt_id, ctx.actor)) { return null }
+    if (! hunt_id || ! await affirmReadHunt(ctx.db, hunt_id, ctx.actor)) { return null }
     const rows = await layoutRowsOf(ctx.db, quiz_id)
     return rows && frameOf(rows.quiz, rows.widgetings, rows.columns)
   },

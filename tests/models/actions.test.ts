@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { zodToConvex } from 'convex-helpers/server/zod4'
 import type { Id } from '../../convex/_generated/dataModel'
-import { ActionValidators, isLayoutAction, isLibraryAction, isReviewAction, LayoutActionKindVals, LibraryActionKindVals, ReviewActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
+import { ActionValidators, isLayoutAction, isLibraryAction, LayoutActionKindVals, LibraryActionKindVals, type HuntActionDNA, type AccountActionT } from '../../src/models/actions'
 
 const question_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f8299'
@@ -135,12 +135,5 @@ describe('isLibraryAction', () => {
   it("picks out exactly the actions on the library's widgets", () => {
     const library = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLibraryAction(action)).map((action) => action.kind)
     expect([...new Set(library)]).to.deep.eq([...LibraryActionKindVals])
-  })
-})
-
-describe("isReviewAction", () => {
-  it("picks out exactly the actions on one's own review", () => {
-    const reviewing = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isReviewAction(action)).map((action) => action.kind)
-    expect([...new Set(reviewing)]).to.deep.eq([...ReviewActionKindVals])
   })
 })

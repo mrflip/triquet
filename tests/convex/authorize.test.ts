@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import { mayActOnAccount, mayChangeHunt, mayCountUsage, mayPerform, mayReadHunt, mayReadReview, mayWriteReview, roleOn } from '../../convex/authorize'
-import { identForLabel, reviewFor } from '../../convex/reading'
+import type { Id } from '../../convex/_generated/dataModel'
+import { affirmAccountAction, affirmCountUsage, affirmPerform, affirmReadHunt, affirmReadReviews, claimsFor } from '../../convex/authorize'
+import { identForLabel, reviewsOf } from '../../convex/reading'
 import * as Actor from '../../src/lib/actor'
+import * as Approve from '../../src/lib/approve'
+import { ActionValidators, type HuntActionDNA } from '../../src/models/actions'
+import type { HuntRole } from '../../src/models/hunting'
 import { Hunt } from '../../src/models/hunt'
 import { present } from '../support/present'
-import { expectRefusal, identified, openOf, openTester, seedHunt, signedIn } from '../support/convex'
+import { callerOf, expectRefusal, identified, openOf, openTester, refusedAs, seedHunt, signedIn, type Session, type Tester } from '../support/convex'
 
 const modules = import.meta.glob('../../convex/**/*.ts')
 
@@ -35,76 +39,117 @@ async function peopled() {
   return { ...seeded, other, alice: seeded.smith, bob, carol }
 }
 
-describe("the rules", () => {
-  it("let a smith read and change the hunt, a reviewer read it and write reviews, and nobody else do either", async () => {
+describe("claimsFor and affirmReadHunt", () => {
+  it("give a smith and a reviewer their role as their standing, and anyone else a stranger's, who may not read the hunt", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
-    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ actor }) => [
-      await roleOn(ctx.db, open.hunt_id, actor),
-      await mayReadHunt(ctx.db, open.hunt_id, actor),
-      await mayChangeHunt(ctx.db, open.hunt_id, actor),
-      await mayWriteReview(ctx.db, open.hunt_id, actor),
-    ])))
-    expect(verdicts).to.deep.eq([
-      ['smith',    true,  true,  true],
-      ['reviewer', true,  false, true],
-      [null,       false, false, false],
+    const seen = await tt.run(async (ctx) => await Promise.all([alice.actor, bob.actor, carol.actor, Actor.anonymous].map(async (actor) => {
+      const claims = await claimsFor(ctx.db, open.hunt_id, actor)
+      return [claims.standing, await affirmReadHunt(ctx.db, open.hunt_id, actor)]
+    })))
+    expect(seen).to.deep.eq([
+      ['smith',    true],
+      ['reviewer', true],
+      ['stranger', false],
+      ['stranger', false],
     ])
-  })
-
-  it("let nobody at all read or change a hunt: an actor who has asserted no username", async () => {
-    const { tt, open } = await peopled()
-    const verdicts = await tt.run(async (ctx) => [await roleOn(ctx.db, open.hunt_id, Actor.anonymous), await mayReadHunt(ctx.db, open.hunt_id, Actor.anonymous), await mayChangeHunt(ctx.db, open.hunt_id, Actor.anonymous)])
-    expect(verdicts).to.deep.eq([null, false, false])
-  })
-
-  it("let a reviewer read their own review whatever its phase; once shared, a smith, and another reviewer only while theirs is shared too", async () => {
-    const { tt, open, act, join, alice, bob, carol } = await peopled()
-    const dave = await join('dave_reviews', 'reviewer')
-    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob)
-    await act({ kind: 'open_review', quiz_id: open.quiz_id }, dave)
-    const readers = async () => await tt.run(async (ctx) => {
-      const review = present(await reviewFor(ctx.db, open.quiz_id, bob.ident_id))
-      return await Promise.all([bob.actor, alice.actor, dave.actor, carol.actor, Actor.anonymous].map(async (actor) => await mayReadReview(ctx.db, review, actor)))
-    })
-    expect(await readers()).to.deep.eq([true, false, false, false, false])
-    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob)
-    expect(await readers()).to.deep.eq([true, true, false, false, false])
-    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, dave)
-    expect(await readers()).to.deep.eq([true, true, true, false, false])
-    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave)
-    expect(await readers()).to.deep.eq([true, true, false, false, false])
   })
 })
 
-describe("mayCountUsage", () => {
+/** Which of the quiz's reviews each of `actors` may read, by their writers' labels */
+async function readersOf(tt: Tester, quiz_id: Id<'quizzes'>, actors: Actor.ActorT[], labelFor: Record<string, string>): Promise<string[][]> {
+  return await tt.run(async (ctx) => {
+    const reviews = await reviewsOf(ctx.db, quiz_id)
+    return await Promise.all(actors.map(async (actor) => {
+      const readable = await affirmReadReviews(ctx.db, reviews, actor)
+      return readable.map((review) => labelFor[review.ident_id] ?? '?')
+    }))
+  })
+}
+
+describe("affirmReadReviews", () => {
+  it("let a reviewer read their own review whatever its phase; once shared, a smith, and another reviewer only while theirs is shared too", async () => {
+    const { tt, open, act, join, alice, bob, carol } = await peopled()
+    const dave = await join('dave_reviews', 'reviewer')
+    const labelFor = { [bob.ident_id]: 'bob', [dave.ident_id]: 'dave' }
+    const readers = [bob.actor, alice.actor, dave.actor, carol.actor, Actor.anonymous]
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob)
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, dave)
+    expect(await readersOf(tt, open.quiz_id, readers, labelFor)).to.deep.eq([['bob'], [], ['dave'], [], []])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob)
+    expect(await readersOf(tt, open.quiz_id, readers, labelFor)).to.deep.eq([['bob'], ['bob'], ['dave'], [], []])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, dave)
+    expect(await readersOf(tt, open.quiz_id, readers, labelFor)).to.deep.eq([['bob', 'dave'], ['bob', 'dave'], ['bob', 'dave'], [], []])
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'draft' }, dave)
+    expect(await readersOf(tt, open.quiz_id, readers, labelFor)).to.deep.eq([['bob'], ['bob'], ['dave'], [], []])
+  })
+
+  it("let a reviewer taken off the hunt read nothing of it, not even their own review", async () => {
+    const { tt, open, act, bob } = await peopled()
+    await act({ kind: 'open_review', quiz_id: open.quiz_id }, bob)
+    await act({ kind: 'set_review_phase', quiz_id: open.quiz_id, phase: 'shared' }, bob)
+    await act({ kind: 'remove_hunting', ident_id: bob.ident_id })
+    expect(await readersOf(tt, open.quiz_id, [bob.actor], { [bob.ident_id]: 'bob' })).to.deep.eq([[]])
+  })
+
+  it("read nothing of a quiz with no reviews", async () => {
+    const { tt, alice } = await peopled()
+    expect(await tt.run(async (ctx) => await affirmReadReviews(ctx.db, [], alice.actor))).to.deep.eq([])
+  })
+})
+
+describe("affirmCountUsage", () => {
   it("lets a smith of any hunt count how far a widget is put to work, and nobody else", async () => {
     const { tt, alice, bob, carol } = await peopled()
-    const verdicts = await tt.run(async (ctx) => await Promise.all([alice.actor, bob.actor, carol.actor, Actor.anonymous].map(async (actor) => await mayCountUsage(ctx.db, actor))))
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice.actor, bob.actor, carol.actor, Actor.anonymous].map(async (actor) => await affirmCountUsage(ctx.db, actor))))
     expect(verdicts).to.deep.eq([true, false, false, false])
   })
 })
 
-describe("mayActOnAccount", () => {
-  it("lets only a smith retitle or relabel a hunt, and anyone take the actions that name none", async () => {
+describe("affirmAccountAction", () => {
+  it("lets only a smith retitle or relabel a hunt, anyone with a username retitle themselves or make a hunt, and anyone at all assert a username", async () => {
     const { tt, open, alice, bob, carol } = await peopled()
     const actions = [
-      { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' },
-      { kind: 'relabel_hunt', hunt_id: open.hunt_id, label: 'mine_now' },
-      { kind: 'new_hunt',     label: 'loud_heron' },
+      { kind: 'retitle_hunt',  hunt_id: open.hunt_id, title: 'Mine now' },
+      { kind: 'relabel_hunt',  hunt_id: open.hunt_id, label: 'mine_now' },
+      { kind: 'new_hunt',      label: 'loud_heron' },
+      { kind: 'retitle_ident', title: 'Me' },
+      { kind: 'assume_ident',  label: 'someone_else', title: 'Someone' },
     ] as const
-    const verdicts = await tt.run(async (ctx) => await Promise.all([alice, bob, carol].map(async ({ actor }) => (
-      await Promise.all(actions.map(async (action) => await mayActOnAccount(ctx.db, actor, action)))
+    const verdicts = await tt.run(async (ctx) => await Promise.all([alice.actor, bob.actor, carol.actor, Actor.anonymous].map(async (actor) => (
+      await Promise.all(actions.map(async (action) => await affirmAccountAction(ctx.db, actor, action)))
     ))))
     expect(verdicts).to.deep.eq([
-      [true,  true,  true],
-      [false, false, true],
-      [false, false, true],
+      ['allow',         'allow',         'allow',         'allow',         'allow'],
+      ['notPermitted',  'notPermitted',  'allow',         'allow',         'allow'],
+      ['notPermitted',  'notPermitted',  'allow',         'allow',         'allow'],
+      ['notIdentified', 'notIdentified', 'notIdentified', 'notIdentified', 'allow'],
     ])
   })
+})
 
-  it("lets nobody retitle a hunt who has asserted no username", async () => {
-    const { tt, open } = await peopled()
-    expect(await tt.run(async (ctx) => await mayActOnAccount(ctx.db, Actor.anonymous, { kind: 'retitle_hunt', hunt_id: open.hunt_id, title: 'Mine now' }))).to.be.false
+describe("affirmPerform", () => {
+  it("asks the policy of the action's kind, of the hunt the place names, and holds the place to that hunt", async () => {
+    const { tt, open, other, alice, bob } = await peopled()
+    const retitle = { kind: 'retitle_quiz', title: 'Kings' } as const
+    const review = { kind: 'open_review', quiz_id: open.quiz_id } as const
+    const verdicts = await tt.run(async (ctx) => [
+      await affirmPerform(ctx.db, open, alice.actor, retitle),
+      await affirmPerform(ctx.db, open, bob.actor, retitle),
+      await affirmPerform(ctx.db, open, bob.actor, review),
+      await affirmPerform(ctx.db, { ...open, quiz_id: other.open.quiz_id }, alice.actor, retitle),
+      await affirmPerform(ctx.db, { ...open, realm_id: other.open.realm_id }, alice.actor, retitle),
+      await affirmPerform(ctx.db, open, alice.actor, { kind: 'set_lock', quiz_id: other.open.quiz_id, locked: true }),
+    ])
+    expect(verdicts).to.deep.eq(['allow', 'notPermitted', 'allow', 'notPermitted', 'notPermitted', 'notPermitted'])
+  })
+
+  it("refuses a quiz whose realm is gone, since nothing then says whose it is", async () => {
+    const { tt, open, alice } = await peopled()
+    const verdict = await tt.run(async (ctx) => {
+      await ctx.db.delete('realms', open.realm_id)
+      return await affirmPerform(ctx.db, open, alice.actor, { kind: 'retitle_quiz', title: 'Kings' })
+    })
+    expect(verdict).to.eq('notPermitted')
   })
 })
 
@@ -147,29 +192,47 @@ describe("hunts.perform, authorized", () => {
   })
 })
 
-describe("mayPerform", () => {
-  it("asks the rule of the hunt the place names, and holds the place to that hunt", async () => {
-    const { tt, open, other, alice, bob } = await peopled()
-    const retitle = { kind: 'retitle_quiz', title: 'Kings' } as const
-    const peek = { kind: 'open_review', quiz_id: open.quiz_id } as const
-    const verdicts = await tt.run(async (ctx) => [
-      await mayPerform(ctx.db, open, alice.actor, retitle),
-      await mayPerform(ctx.db, open, bob.actor, retitle),
-      await mayPerform(ctx.db, open, bob.actor, peek),
-      await mayPerform(ctx.db, { ...open, quiz_id: other.open.quiz_id }, alice.actor, retitle),
-      await mayPerform(ctx.db, { ...open, realm_id: other.open.realm_id }, alice.actor, retitle),
-    ])
-    expect(verdicts).to.deep.eq([true, false, true, false, false])
-  })
+/** What became of `pending`: `'allow'` when it went through, or the kind of the refusal */
+async function outcomeOf(pending: Promise<unknown>): Promise<string> {
+  try {
+    await pending
+  } catch {
+    return await refusedAs(pending) // settled already: says why it was refused
+  }
+  return Approve.Allow
+}
 
-  it("refuses a quiz whose realm is gone, since nothing then says whose it is", async () => {
-    const { tt, open, alice } = await peopled()
-    const verdict = await tt.run(async (ctx) => {
-      await ctx.db.delete('realms', open.realm_id)
-      return await mayPerform(ctx.db, open, alice.actor, { kind: 'retitle_quiz', title: 'Kings' })
+/** One action decided by each policy a hunt action is: the hunt's, one's own review's, and the membership's */
+function actionsOn(quiz_id: Id<'quizzes'>): HuntActionDNA[] {
+  return [
+    { kind: 'retitle_quiz', title: 'Kings' },
+    { kind: 'open_review', quiz_id },
+    { kind: 'add_hunting', ident_label: 'erin_reviews', role: 'reviewer' },
+  ]
+}
+
+describe("hunts.perform agrees with Approve, as each standing", () => {
+  for (const kind of ['retitle_quiz', 'open_review', 'add_hunting'] as const) {
+    it(`${kind}: as a smith, a reviewer, a stranger, a session with no username, and no session`, async () => {
+      const { tt, open, alice, bob, carol } = await peopled()
+      await identified(tt, 'erin_reviews')
+      const dna = present(actionsOn(open.quiz_id).find((each) => each.kind === kind))
+      const action = ActionValidators.huntAction(dna)
+      const callers: [Session | Tester, Actor.ActorT, HuntRole | null][] = [
+        [alice,            alice.actor,     'smith'],
+        [bob,              bob.actor,       'reviewer'],
+        [carol,            carol.actor,     null],
+        [await signedIn(tt), Actor.anonymous, null],
+        [tt,               Actor.anonymous, null],
+      ]
+      const expected = callers.map(([, actor, role]) => Approve.verdictOn(action.kind, Actor.claimsOn(actor, open.hunt_id, role && { role }), action))
+      const seen: string[] = []
+      for (const [by] of callers) {
+        seen.push(await outcomeOf(callerOf(by).mutation(api.hunts.perform, { open, action: dna })))
+      }
+      expect(seen).to.deep.eq(expected)
     })
-    expect(verdict).to.be.false
-  })
+  }
 })
 
 describe("identings, each session's own", () => {

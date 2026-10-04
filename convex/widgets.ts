@@ -1,8 +1,9 @@
+import * as Approve from '../src/lib/approve'
 import { ValidatorKit } from '../src/lib/validator'
 import { widgetFrom, type WidgetUsageT } from '../src/lib/rows'
 import type { WidgetT } from '../src/models/widget'
 import { zQuery } from './functions'
-import { mayCountUsage, mayReadLibrary } from './authorize'
+import { affirmCountUsage } from './authorize'
 import { libraryOf, usageOf } from './reading'
 
 const { label } = ValidatorKit
@@ -14,7 +15,7 @@ const { label } = ValidatorKit
 export const library = zQuery({
   args:    {},
   handler: async (ctx): Promise<WidgetT[]> => {
-    if (! mayReadLibrary(ctx.actor)) { return [] }
+    if (! Approve.may('read_library', ctx.actor)) { return [] }
     const rows = await libraryOf(ctx.db)
     return rows.map((row) => widgetFrom(row))
   },
@@ -29,7 +30,7 @@ export const library = zQuery({
 export const usage = zQuery({
   args:    { widget_label: label },
   handler: async (ctx, { widget_label }): Promise<WidgetUsageT | null> => {
-    if (! await mayCountUsage(ctx.db, ctx.actor)) { return null }
+    if (! await affirmCountUsage(ctx.db, ctx.actor)) { return null }
     return await usageOf(ctx.db, widget_label)
   },
 })

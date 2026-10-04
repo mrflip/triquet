@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import Anthropic from '@anthropic-ai/sdk'
 import { AskContract } from '../../../src/lib/ask/contract'
 import { failureReplyFor, failurekindFor } from '../../../src/lib/ask/failures'
-import * as Approval from '../../../src/lib/approval'
-import { ApprovalNotices } from '../../../src/lib/notices'
+import * as Approve from '../../../src/lib/approve'
+import { RefusalNotices } from '../../../src/lib/notices'
 
 describe('failurekindFor', () => {
   it('reads an error nobody recognises as unknown, rather than guessing at a cause', () => {
@@ -12,7 +12,7 @@ describe('failurekindFor', () => {
   })
 
   it("reads the server's declining to ask as not permitted", () => {
-    expect(failurekindFor(new Approval.NotApprovedError('off'))).to.eq('notPermitted')
+    expect(failurekindFor(new Approve.NotApprovedError('botsOff'))).to.eq('notPermitted')
   })
 
   it('reads a connection error as one', () => {
@@ -32,8 +32,8 @@ describe('failureReplyFor', () => {
   })
 
   it("carries the polite sentence of a declined approval, and none of the request behind it", () => {
-    const reply = failureReplyFor(new Approval.NotApprovedError(ApprovalNotices.anthropic_bot, { action: { act: 'anthropic_bot' }, ident: null }, { moreinfo: { userAgent: 'curious-crawler' } }))
-    expect(reply).to.deep.eq({ ok: false, failurekind: 'notPermitted', detail: { name: 'NotApprovedError', message: ApprovalNotices.anthropic_bot } })
+    const reply = failureReplyFor(new Approve.NotApprovedError('botsOff', { policy: 'ask_anthropic_bot' }, { evidence: ['off'] }))
+    expect(reply).to.deep.eq({ ok: false, failurekind: 'notPermitted', detail: { name: 'NotApprovedError', message: RefusalNotices.botsOff } })
   })
 
   it('carries nothing but the kind for something that is not an error', () => {

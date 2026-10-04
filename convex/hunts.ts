@@ -1,12 +1,13 @@
 import _ from 'es-toolkit/compat'
 import * as Actor from '../src/lib/actor'
+import * as Approve from '../src/lib/approve'
 import { ValidatorKit } from '../src/lib/validator'
 import { refuse, refusingInvalid } from '../src/lib/refusals'
 import { huntListingOf, shallowHuntOf, smithsOf, type HuntOpeningT, type ListedHuntT } from '../src/lib/rows'
 import { ActionValidators } from '../src/models/actions'
 import type { HuntT } from '../src/models/hunt'
 import { zMutation, zQuery } from './functions'
-import { mayPerform, mayReadHunt, roleOn } from './authorize'
+import { affirmPerform, affirmReadHunt, claimsFor } from './authorize'
 import { huntForLabel, huntingsFor, huntRowsOf, membersOf, realmsOf, wholeHuntOf } from './reading'
 import { perform as performAction } from './writing/perform'
 
@@ -40,11 +41,11 @@ export const open = zQuery({
   handler: async (ctx, { hunt_label }): Promise<HuntOpeningT> => {
     const hunt = await huntForLabel(ctx.db, hunt_label)
     if (! hunt) { return { why: 'noSuchHunt', hunt: null } }
-    const [members, role] = await Promise.all([membersOf(ctx.db, hunt._id), roleOn(ctx.db, hunt._id, ctx.actor)])
-    if (role === null) { return { why: 'notOnHunt', hunt: null, smiths: smithsOf(members) } }
+    const [members, claims] = await Promise.all([membersOf(ctx.db, hunt._id), claimsFor(ctx.db, hunt._id, ctx.actor)])
+    if (! Approve.may('read_hunt', claims)) { return { why: 'notOnHunt', hunt: null, smiths: smithsOf(members) } }
     const rows = await huntRowsOf(ctx.db, hunt._id)
     if (! rows) { return { why: 'noSuchHunt', hunt: null } }
-    return { why: null, hunt: shallowHuntOf(rows, members, role) }
+    return { why: null, hunt: shallowHuntOf(rows, members, Actor.roleOf(claims)) }
   },
 })
 
@@ -55,19 +56,20 @@ export const open = zQuery({
 export const whole = zQuery({
   args:    { hunt_id: zid('hunts') },
   handler: async (ctx, { hunt_id }): Promise<HuntT | null> => {
-    if (! await mayReadHunt(ctx.db, hunt_id, ctx.actor)) { return null }
+    if (! await affirmReadHunt(ctx.db, hunt_id, ctx.actor)) { return null }
     return await wholeHuntOf(ctx.db, hunt_id)
   },
 })
 
 /**
  * Carry out what the author did from inside a quiz, writing the rows it comes to: see
- * `writing/perform`. Who is acting is the asking actor, who must be allowed to (`authorize`): a
- * smith of the hunt, or for their own review, anyone on it.
+ * `writing/perform`. Who is acting is the asking actor, who must be allowed to by the policy of the
+ * action's kind (`authorize`, `lib/approve`): a smith of the hunt, or for their own review, anyone
+ * on it.
  *
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`) when the action cannot be
  *   carried out (`notIdentified` for an actor who has asserted no username, `notPermitted` for an
- *   action its ident may not take), or `{ ZodError }` when an argument is not valid; nothing is
+ *   action its ident may not take, `ownHunting` for a change to one's own place on the hunt), or `{ ZodError }` when an argument is not valid; nothing is
  *   written.
  */
 export const perform = zMutation({
@@ -76,7 +78,8 @@ export const perform = zMutation({
   handler: async (ctx, { open: place, action }) => await refusingInvalid(async () => {
     const { actor } = ctx
     if (Actor.isAnonymous(actor)) { refuse('notIdentified') }
-    if (! await mayPerform(ctx.db, place, actor, action)) { refuse('notPermitted') }
+    const verdict = await affirmPerform(ctx.db, place, actor, action)
+    if (verdict !== Approve.Allow) { refuse(verdict) }
     await performAction(ctx.db, place, actor.ident_id, action)
     return null
   }),

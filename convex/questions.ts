@@ -1,7 +1,7 @@
 import { ValidatorKit } from '../src/lib/validator'
 import { seenQuestionOf, type SeenQuestionT } from '../src/lib/rows'
 import { zQuery } from './functions'
-import { mayReadHunt } from './authorize'
+import { affirmReadHunt } from './authorize'
 import { storedOf, widgetingsOf } from './reading'
 
 const { zid } = ValidatorKit
@@ -16,7 +16,7 @@ export const open = zQuery({
   args:    { question_id: zid('questions') },
   handler: async (ctx, { question_id }): Promise<SeenQuestionT | null> => {
     const row = await ctx.db.get('questions', question_id)
-    if (! row || ! await mayReadHunt(ctx.db, row.hunt_id, ctx.actor)) { return null }
+    if (! row || ! await affirmReadHunt(ctx.db, row.hunt_id, ctx.actor)) { return null }
     return seenQuestionOf(row, await storedOf(ctx.db, row._id, await widgetingsOf(ctx.db, row.quiz_id)))
   },
 })

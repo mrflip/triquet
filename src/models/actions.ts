@@ -21,9 +21,6 @@ export const LayoutActionKindVals = [
 /** The actions that revise the library: the widgets every hunt shares */
 export const LibraryActionKindVals = ['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'] as const
 
-/** The kinds of action about one's own review of a quiz: what a reviewer may do on a hunt */
-export const ReviewActionKindVals = ['open_review', 'set_overall', 'set_review_phase', 'set_reviewing', 'peek_answer'] as const
-
 export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, str, zid }) => {
   const open = obj({
     hunt_id:  zid('hunts'),
@@ -109,15 +106,10 @@ export type HuntActionT   = Z.output<typeof ActionValidators.huntAction>
 export type LayoutActionT = Extract<HuntActionT, { kind: typeof LayoutActionKindVals[number] }>
 /** What the author did to the library, validated */
 export type LibraryActionT = Extract<HuntActionT, { kind: typeof LibraryActionKindVals[number] }>
-/** What the author did to their own review of a quiz, validated */
-export type ReviewActionT = Extract<HuntActionT, { kind: typeof ReviewActionKindVals[number] }>
 /** What a visitor did before opening any quiz, as a view says it */
 export type AccountActionDNA = Z.input<typeof ActionValidators.accountAction>
 /** What a visitor did before opening any quiz, validated */
 export type AccountActionT = Z.output<typeof ActionValidators.accountAction>
-
-// eslint-disable-next-line sonarjs/todo-tag
-// TODO dbpolicy sprint: make this a dispatch pattern
 
 /** Whether `action` is one that revises a quiz's widgetings or columns */
 export function isLayoutAction(action: HuntActionT): action is LayoutActionT {
@@ -127,9 +119,4 @@ export function isLayoutAction(action: HuntActionT): action is LayoutActionT {
 /** Whether `action` is one that revises the library */
 export function isLibraryAction(action: HuntActionT): action is LibraryActionT {
   return (LibraryActionKindVals as readonly string[]).includes(action.kind)
-}
-
-/** Whether `action` is one about the actor's own review of a quiz, which any role on the hunt may take */
-export function isReviewAction(action: HuntActionT): action is ReviewActionT {
-  return (ReviewActionKindVals as readonly string[]).includes(action.kind)
 }

@@ -39,6 +39,13 @@ session's user, null with no session). A builder layered over these calls `asker
 reading identity a second way. Tests call as a session: `identified(tt, label)` and `signedIn(tt)`
 in `tests/support/convex.ts`.
 
+Who may do what is decided in one place and gathered in another. `src/lib/approve.ts` holds every
+policy, a non-async `may…` function deciding from the claims it is handed, reachable by key
+through `Approve.may`, `Approve.must` and `Approve.verdictOn`; its dispatch table gives every
+action kind its policy, and a kind without a row fails to compile. `convex/authorize.ts` holds the
+`affirm…` functions that read the evidence and build the claims, and decide nothing. A query
+answers a denial with its empty value; a mutation refuses with the verdict's refusal kind.
+
 Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not
 derived from a row validator of ours. `tests/convex/schema.test.ts` leaves them out.

@@ -8,28 +8,6 @@ import type { SmithT } from './rows'
  * these are content, and they live together where they can be read as a set and revised as a set.
  */
 
-/** Why the server declined to carry out an act it keeps switched off unless told otherwise: one per `ApprovalAct` */
-export const ApprovalNotices = {
-  anthropic_bot: "Asking Claude is switched off on this server for now — everything else still works.",
-} as const
-
-/** Why an ask failed, in the author's language */
-export const AskFailureNotices = {
-  notPermitted:   ApprovalNotices.anthropic_bot,
-  rateLimited:    'Too many requests right now — try again shortly.',
-  declined:       'Claude declined to answer this one.',
-  emptyAnswer:    'Got an empty answer — try again.',
-  unreadable:     "Couldn't read that as structured data — try again.",
-  cutShort:       'The answer ran out of room before it finished — give the widget more tokens.',
-  accountOff:     'Asking Claude is off for this account.',
-  sessionExpired: 'Sign in again to keep asking Claude.',
-  connection:     'A connection hiccup — try again.',
-  unknown:        'Something went wrong asking the model.',
-  unavailable:    "Asking Claude isn't available in this view.",
-} as const
-
-export type AskFailurekind = keyof typeof AskFailureNotices
-
 /** Notices about the tool itself rather than about one cell */
 export const AppNotices = {
   changeFailed:         "Couldn't keep that change — nothing was altered. Try it again, or reload the page.",
@@ -65,7 +43,7 @@ export const AppNotices = {
   huntRelabelMoves:     "Changing this label updates the URL. Old links won't find this page anymore.",
 } as const
 
-/** Why the server refused a change, in the author's language: one per `failurekind` */
+/** Why the server refused a change, or a request, in the author's language: one per `failurekind` */
 export const RefusalNotices = {
   notPermitted:     "You can't change this hunt.",
   quizLocked:       'This quiz is locked — unlock it to change it.',
@@ -102,9 +80,27 @@ export const RefusalNotices = {
   libraryFull:      `The library holds at most ${String(PA.WidgetsInLibrary.max)} widgets.`,
   huntsFull:        `The app holds at most ${String(PA.HuntsInApp.max)} hunts.`,
   huntingsFull:     `A hunt holds at most ${String(PA.HuntingsPerHunt.max)} members.`,
+  botsOff:          'Asking Claude is switched off on this server for now — everything else still works.',
 } as const
 
 export type Refusalkind = keyof typeof RefusalNotices
+
+/** Why an ask failed, in the author's language */
+export const AskFailureNotices = {
+  notPermitted:   RefusalNotices.botsOff,
+  rateLimited:    'Too many requests right now — try again shortly.',
+  declined:       'Claude declined to answer this one.',
+  emptyAnswer:    'Got an empty answer — try again.',
+  unreadable:     "Couldn't read that as structured data — try again.",
+  cutShort:       'The answer ran out of room before it finished — give the widget more tokens.',
+  accountOff:     'Asking Claude is off for this account.',
+  sessionExpired: 'Sign in again to keep asking Claude.',
+  connection:     'A connection hiccup — try again.',
+  unknown:        'Something went wrong asking the model.',
+  unavailable:    "Asking Claude isn't available in this view.",
+} as const
+
+export type AskFailurekind = keyof typeof AskFailureNotices
 
 /**
  * Why a smith could not add `label` to a hunt: nobody has chosen that ident yet. The refusal

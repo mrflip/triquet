@@ -69,9 +69,9 @@ describe('hunts.perform: add_hunting', () => {
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
-  it('leaves one\'s own role alone when asked for the role one has', async () => {
+  it('refuses one\'s own place even when asked for the role one has: nobody touches their own hunting', async () => {
     const seeded = await smithed()
-    await seeded.asAlice({ kind: 'add_hunting', ident_label: 'alice_smiths', role: 'smith' })
+    await expectRefusal(seeded.asAlice({ kind: 'add_hunting', ident_label: 'alice_smiths', role: 'smith' }), 'ownHunting')
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 

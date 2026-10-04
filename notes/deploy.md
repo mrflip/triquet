@@ -24,8 +24,8 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
   a preview key makes (or reuses) a preview deployment named for the branch. Without a key the
   build fails before it starts; without the URL, the page says so instead of opening
   (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route, beside
-  `ENABLE_ANTHROPIC_BOT=allow`, which switches the route on (`lib/approval`): unset, or anything
-  but `allow`, and every ask is declined politely before a model is called.
+  `ENABLE_ANTHROPIC_BOT=allow`, which switches the route on (`Approve.mayAskAnthropicBot`):
+  unset, or anything but `allow`, and every ask is declined politely before a model is called.
 * **Convex** keeps one production deployment and a preview deployment per open branch, each with
   its own database and its own environment variables. A deployment holds exactly one version of
   the functions and one schema, whichever was pushed last. There is no permissions head:
@@ -206,9 +206,9 @@ on any difference.
 ### Asking a real bot while debugging
 
 The ask route declines every ask unless `ENABLE_ANTHROPIC_BOT` is exactly `allow`
-(`src/lib/approval.ts`), and it spends real model usage when it is. To switch it on for one
-session without touching a Doppler config, set it *inside* `doppledo`, so it lands after Doppler
-has filled the environment:
+(`mayAskAnthropicBot` in `src/lib/approve.ts`), and it spends real model usage when it is. To switch
+it on for one session without touching a Doppler config, set it *inside* `doppledo`, so it lands
+after Doppler has filled the environment:
 
 ```sh
 # an agent's dev server, switched on: dev:agent, plus ENABLE_ANTHROPIC_BOT=allow
