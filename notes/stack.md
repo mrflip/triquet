@@ -76,9 +76,11 @@ don't trust a recalled version number, including one recalled by an agent.
 * pnpm
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every
-  drag, wired up only in `useReorderable` (`src/components/use-reorder.ts`). Do **not** take
-  `-react-drop-indicator`. Every grip also answers the arrow keys.
-  See `notes/decisions/2026-09-drag-and-drop.md`.
+  drag, wired up only in `src/components/use-reorder.ts`: `useReorderable` for a list reordered
+  by its grips, and `usePiece` and `usePlace` for a board of places that pieces are dragged
+  between (the category wheel and its pool). Do **not** take `-react-drop-indicator`. Every grip
+  and every piece also answers the keys. See `notes/decisions/2026-09-drag-and-drop.md`, and
+  `notes/decisions/2026-10-drag-and-drop-boards.md` for the board.
 
 ### Routing
 

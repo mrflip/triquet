@@ -76,7 +76,8 @@ words above.
 * **botting** -- as a widget, what a widgeting of an `aibot` widget was; as a row in `bottings`,
   what a stored widgeted was. Its `done`/`error` status became `ok`/`errored`.
 * **slot** -- a (bot, textkind) pair and the question field that showed it (`BotSlots`). Gone with
-  the fields: replies sit under widgeting labels.
+  the fields: replies sit under widgeting labels. The word now means a place on the category
+  wheel (*Categories*, below).
 * **last_err** -- a failed ask riding along on a cell. Now `err`.
 * **job** -- which of the ask route's three fixed asks a request was (`guess`, `ishes`,
   `bulk_ishes`). The route now takes a rendered prompt.
@@ -131,6 +132,30 @@ words above.
   decimal are all legal; `3.1` means "between 3 and 4" without renumbering anything.
 * **rank** -- a question's 1-based place once the quiz is put in Q# order; null without a Q#.
   Rank is derived and dense where Q# is typed and loose. Exports are always in rank order.
+
+## Categories
+
+What a question draws on, and how a hunt arranges them so that a question can be pitched at more
+than one kind of player. Begun by the categories sprint, October 2026
+(`whiteboard/20261004-categories/`).
+
+* **category** -- a subject area a question draws on: Math & Econ, TV, Classic Lit and the rest.
+  Twenty-four, fixed in code for now (`src/models/category.ts`), each named by a label
+  (`math_econ`, `tv`) and titled as its tile shows it. Its **default index** is its place in the
+  default order, 0 to 23.
+* **wheel** -- a hunt's categories arranged round a ring: 24 **slots**, clockwise from the top,
+  each holding a category or empty. Stored on the hunt with its holes (`wheel`); a hunt nobody
+  has arranged has none, which reads as the **default wheel**, every category in its default
+  slot. Neighbours on the wheel are kin; opposite slots are as far apart as two can be.
+* **pool** -- the categories no slot holds. The editor shows it beneath the wheel; a category is
+  dragged there to take it off the wheel. There are always as many in the pool as slots empty.
+* **total order** -- the wheel with every empty slot filled: walking the slots from the first,
+  each empty one takes the lowest-numbered category left in the pool. Always every category,
+  once each, and the only thing anything downstream reads (`Wheel.orderOf`); the holes are the
+  editor's business alone.
+* **ring distance** -- how many slots apart two slots are, the short way round: 0 to 12
+  (`Wheel.ringDistance`). **Neighbours** are the slots within a reach either side
+  (`Wheel.around`), or the categories the total order puts there (`Wheel.neighboursOf`).
 
 ## Chains
 
