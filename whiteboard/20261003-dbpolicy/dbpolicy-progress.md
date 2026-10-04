@@ -13,11 +13,86 @@ its row below and adds its section above the others, newest first.
 | 4 | Denormalize | complete, reviewed (clean) | `20261004-dbpolicy_denormalize` | #83 |
 | 5 | Affirmations | complete, reviewed (clean) | `20261004-dbpolicy_affirm` | #86 |
 | 6 | A scoped database handle | complete, reviewed (clean) | `20261004-dbpolicy_scoped_db` | #88 |
-| 7 | Reads shaped by role | underway | | |
+| 7 | Reads shaped by role | complete | `20261004-dbpolicy_role_reads` | #89 |
 | 8 | Views ask `Approve` | pending | | |
 | 9 | The library behind an admin helper | pending | | |
 | 10 | Tighten | pending (merge waits on production backfills) | | |
 
+
+## Thread 7: Reads shaped by role (2026-10-04)
+
+Branch `20261004-dbpolicy_role_reads`, PR #89, stacked on #88. Suites: typecheck, lint, `pnpm test` (111 files, 2968), e2e (208, run as `pnpm test:e2e:agent`, the `e2e-agent` role) all green, first run.
+
+* **Built**:
+  - **`Question.sentTo`** (`src/models/question.ts`), beside `exposed`: per standing, the fields
+    a question's reader is sent besides its id. Smith: all ten (`exposed` plus `stored`).
+    Reviewer: `chains_to`, `clueing`, `full_answer`, `hint`, `label`, `qnum`, `title`. Stranger:
+    none. It is the one place the Coach's ruling on the rest of the list lands. Also
+    `Question.isSent(fieldname, standing)`, `Question.isSentWhole(standing)`, and the type
+    `QuestionFieldname`.
+  - **`seenQuestionFor(row, stored, claims)`** (`src/lib/rows.ts`) replaces `seenQuestionOf`. It
+    picks `_id` plus `sentTo[claims.standing]`, by standing alone. `SeenQuestionT` is now a union
+    over standings (`SeenQuestionAsT<SS>`). `quizFrom` (export, server) projects as a smith.
+  - **`questions.open`** projects by `ctx.claims.standing`. It reads widgetings and widgeteds only
+    for a standing sent `stored`: a reviewer's watch reads neither, so an aibot's record no longer
+    reruns it.
+  - **Browser**: `quizFromSeen` fills a field the reader was not sent with a blank (`Unsent`,
+    as a fresh question's). `useQuiz`, `ReviewScreen` and the rest still take a whole `QuizT`.
+    `useHistoryFeed` (`src/state/use-hunt.ts`) runs only where `Question.isSentWhole(standing)`,
+    a smith's.
+  - **`Approve.mayExportHunt(claims)`**: `return mayChangeHunt(claims)`, after `mayWriteReview`'s
+    precedent (a body identical to `mayChangeHunt` trips `sonarjs/no-identical-functions`). The
+    key `export_hunt` is in `EvidenceT` and `ReadPolicies`. **`affirmExportHunt`** in
+    `convex/authorize.ts`; `hunts.whole` affirms with it, so it is null for a reviewer.
+  - `AnswerLock` and `ReviewScreen` doc blocks say the lock is a spoiler shield, not a security
+    boundary.
+  - **Tests**:
+    - `Question.sentTo` (the smith's list is every field, and `exposed` plus `stored`),
+      `isSent`, `isSentWhole`.
+    - `seenQuestionFor` for each standing, and `quizFromSeen` blanking a reviewer's unsent fields.
+    - `questions.open`: a reviewer gets exactly the list, `full_answer` before and after
+      `peek_answer`, no `notes`, `alt_text` or `stored`; a smith gets everything.
+    - A reviewer's assembled quiz: frame equal to the smith's, `smiths_note` included.
+    - `hunts.whole` null for a reviewer; `mayExportHunt` per standing; `affirmExportHunt`.
+    - e2e `reviews.spec`: a reviewer sees clueing, the chained BUT NOT and the locked answer,
+      never the smith's notes; peeks, reloads, sees *Seen before*, and reveals again.
+  - Docs: `notes/convex.md` (a paragraph under *Who is asking*), `notes/vocabulary.md` (**sent**;
+    the lock), `notes/queries_hooks_and_subscriptions.md` (a facet's shape may depend on the
+    reader).
+* **Decisions taken**:
+  - **The decision point: where a reviewer's browser reads a question.** I checked:
+    - **Review screen**: reads `_id`, `qnum`, `clueing`, `title`, `chains_to`, `full_answer`, the
+      target's `hint`. `ReviewsPanel` reads `title` and `qnum`.
+    - **Grid**: a reviewer cannot reach `Workbench` (`Hunting.mayAct`), nor its cells, column
+      readouts, preview bag (`useOtherQuiz`) or export box.
+    - **History feed**: the one break. `useHistoryFeed` ran for every standing. It runs every
+      formula over the quiz and commits a git table of every exposed field. Fed a reviewer's
+      projection, it would have committed notes, alt text and every stored cell as blanked, and
+      run formulas on the blanks.
+
+    I left the facet as one type, filled with blanks in the browser, and kept the history to a
+    standing that reads each question whole. A typed reviewer's quiz (`ReviewQuizT` through
+    `useQuiz`, `useHunt` and `QuizRoute`) would make `HuntHandle` a union by standing, which is
+    thread 8's ground, for no gain: no view a reviewer reaches reads the withheld fields. Thread
+    8's plan is unchanged, so not blocked.
+  - **One projection for every standing.** A smith's reading is `_id` plus their list too, so
+    it no longer carries `_creationTime`, `hunt_id` or `quiz_id`. `quizFromSeen` dropped them
+    anyway, so the tree a smith's formulas read is unchanged.
+  - **The history gate asks the data, not the role**: `Question.isSentWhole(standing)`, not
+    `standing === 'smith'`. The reason is the reading's shape, not a permission.
+* **Discoveries**:
+  - **For thread 8:** `useHistoryFeed`'s gate is a fact about data, so leave it as it is. The
+    export box can ask `Approve.may('export_hunt', claims)`, which takes `HuntClaimsT`, once
+    `useHunt` exposes claims.
+  - **Not done (a backstop):** a reviewer's queries still *could* read widgeteds through the
+    scoped database: `ReadingRules.widgeteds.read` is hunt-only. Nothing a reviewer calls reads
+    them now. A smith-only read rule for widgeteds in queries would make that a rule, not a
+    convention. Rules cannot hide fields of a row, so questions stay a projection.
+* **For the Coach**:
+  - **The rest of the reviewer's list** is still the proposal: it now lives in
+    `Question.sentTo.reviewer`. Change it there.
+  - Should a reviewer's queries be barred from widgeteds by rule (the backstop above)? It is a
+    one-line rule and a test.
 
 ## Thread 6: A scoped database handle (2026-10-04)
 
