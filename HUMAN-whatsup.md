@@ -2,6 +2,15 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-10-04: Column rows edit in place (#75), and a failure #66 brings
+
+* **#75** puts a column's title, what it shows and its width on one editable line in Manage,
+  with its label read-only beside them; they give way to an MUI container query as the list
+  narrows. Stacked on #66, whose two commits come in with it.
+* **#66 breaks one e2e test.** `e2e/failures.spec.ts` › *a failed combined run is shown by its
+  button and touches no cell* passes on `main` and fails on #66's tip: the "Couldn't
+  recalculate: … Nothing was changed." line never appears. Not looked into further.
+
 ## 2026-09-30: Sprint misc done -- six threads, four PRs open
 
 * **The sprint.** Six threads issued over the afternoon, each built by a thread-worker and
