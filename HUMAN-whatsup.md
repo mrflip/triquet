@@ -10,6 +10,10 @@ Agents: add at the top of the document, add a level two header;  Put the date be
 * **#66 breaks one e2e test.** `e2e/failures.spec.ts` › *a failed combined run is shown by its
   button and touches no cell* passes on `main` and fails on #66's tip: the "Couldn't
   recalculate: … Nothing was changed." line never appears. Not looked into further.
+* **#76**, stacked on #75: the Danger Zone lays out by its own width (it sits in a dialog), and
+  `notes/views.md` says when a view asks its container and when the window.
+* **Possibly flaky:** `expressions.spec.ts` › *the prompt for a chatbot is copied…* failed once
+  in a full e2e run, then passed 3 of 3 on its own.
 
 ## 2026-09-30: Sprint misc done -- six threads, four PRs open
 
