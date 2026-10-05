@@ -5,7 +5,7 @@ History on main is semi-linear: each PR branch is rebased onto current main and 
 - **The spine** is the one stack of landed branches, checked out in the main checkout at its top: what the Coach watches and merges. It is shared; a branch not yet landed is its agent's alone. See *The spine*.
 - **Agents write only in worktrees of their own**, cut from the spine's top with `pnpm worktree <label>`. The main checkout is the Coach's: read it freely, never write to it except by landing.
 - A line of work is a thread: a worktree, commits at milestones, `pnpm land`, a PR, `pnpm worktree --remove`. See *A thread, start to finish*.
-- Don't merge main into a branch, and never use GitHub's "Update branch" in merge mode. A pushed branch contains no merge commits; the `semi-linear` CI check rejects them.
+- Don't merge main into a branch, and never use GitHub's "Update branch" in merge mode. A pushed branch contains no merge commits; the `lint` CI check rejects them.
 - Force-push only with an explicit lease: `--force-with-lease=<branch>:<the commit you expect origin to hold>`. Never plain `--force`. The spine's scripts do this for you.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
 - Never merge a PR or enable auto-merge. Coach merges.
@@ -42,7 +42,7 @@ Why this shape:
 - `git revert -m 1 <merge>` backs out a whole PR at once.
 - Merge commits keep the branch's SHAs. Stacked branches and anything that cites a SHA stay valid after a merge. Squash-merge and GitHub's rebase-merge rewrite every SHA, which forces a restack after each merge.
 
-Enforcement: the `semi-linear` CI check rejects any PR branch that contains a merge commit. The main ruleset requires branches to be up to date with `main` before merging and allows the "merge commit" method only.
+Enforcement: the `lint` CI check rejects any PR branch that contains a merge commit. The main ruleset requires branches to be up to date with `main` before merging and allows the "merge commit" method only.
 
 ## The spine
 
