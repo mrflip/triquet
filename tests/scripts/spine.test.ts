@@ -352,6 +352,15 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       expect(world.top()).to.eq(`${Today}-alpha`)
       expect(world.git(world.main, 'log', '-1', '--format=%s')).to.eq('docs: swept from the main checkout')
     })
+
+    it('sweeps a note already committed and edited since, whose status line starts with a space', () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'notes/idea.md', 'an idea\n')
+      world.spine(root, ['land'])
+      fs.writeFileSync(path.join(world.main, 'notes', 'idea.md'), 'a better idea\n')
+      expect(world.spine(world.main, ['sweep']).said.trim()).to.eq('Swept from the main checkout: notes/idea.md.')
+      expect(world.git(world.main, 'show', 'HEAD:notes/idea.md')).to.eq('a better idea')
+    })
   })
 
   describe('restack', () => {
