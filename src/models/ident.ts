@@ -40,17 +40,19 @@ export class Ident implements IdentT {
   declare title: string
 
   /**
-   * The ident label a name makes: normalized as every label is, and no longer than an ident label
-   * may be. Shorter than the minimum is left short, for the validator to refuse. What the label
-   * field beside a name shows until the label is typed in itself.
+   * The ident label a name makes: normalized as every label is, and no longer than a `Userlabel`
+   * may be, the `z` a leading digit gets counted in. Shorter than the minimum is left short, for
+   * the validator to refuse. What the label field beside a name shows until the label is typed in
+   * itself.
    *
    * @param name - Whatever was typed as a name.
    * @returns A label-shaped string, or `''` when nothing was typed.
    *
    * @example Ident.labelFor('Flip Kromer')  // => 'flip_kromer'
+   * @example Ident.labelFor('2nd Avenue Puzzle Solvers Club')  // => 'z2nd_avenue_puzzle_solve'
    */
   static labelFor(name: string): string {
-    return Labelmaker.normalize(name, { maxlen: PA.Userlabel.max })
+    return Labelmaker.normalize(name, PA.Userlabel)
   }
 
   /**

@@ -69,40 +69,46 @@ export function firstFree(label: string, taken: ReadonlySet<string>): string {
   }
 }
 
-export type NormalizeOpts = {
-  /** Cuts the cleaned body to this many characters before the letter/length repairs run; never past what a label may hold */
-  maxlen?: number
-}
+/**
+ * How `normalize` is bounded: a pattern's bag (`PA.Userlabel`, say), of which it uses `max`. The
+ * rest is a validator's business and is dropped. `re` would refuse what normalizing is there to
+ * repair; `min` could only be met by padding with characters nobody typed, so a label shorter
+ * than the pattern wants is handed back short, for the validator to refuse; `msg` is advice for a
+ * failure normalizing never has.
+ */
+export type NormalizeOpts = Readonly<PA.Patternbag>
 
 /**
  * `str` squeezed into a label body: deburred, lowercased, with every run of whitespace,
  * punctuation and underscore collapsed to a single underscore and none left at either end.
  * Repaired afterward so it always starts with a letter and is never shorter than two
- * characters, then validated against the `label` shape on the way out.
+ * characters, cut to `max` with every repair in, then validated against the `label` shape on
+ * the way out.
  *
  * A reserved word (`PA.ReservedLabels`) comes back as it is, for the label's validator to refuse
  * in words the author can act on: quietly turning `position` into something else would leave
  * them wondering where their label went.
  *
  * @param str - Whatever the author typed; a blank string is a legal "no label yet".
- * @param opts - `maxlen` caps the cleaned body before the repairs run.
- * @returns A label-shaped string, or `''` when `str` was blank.
+ * @param opts - A pattern's bag; its `max` caps the label, never past what a label may hold (nor under the two characters it needs). Everything else in it is dropped.
+ * @returns A label-shaped string no longer than `max`, or `''` when `str` was blank.
  *
  * @example normalize('Hello, World!')  // => 'hello_world'
  * @example normalize('clueing_full')   // => 'clueing_full'
  * @example normalize('  ')            // => ''
+ * @example normalize('2nd Avenue Puzzle Solvers Club', PA.Userlabel)  // => 'z2nd_avenue_puzzle_solve'
  */
-export function normalize(str: string, opts: Readonly<NormalizeOpts> = {}): string {
+export function normalize(str: string, opts: NormalizeOpts = {}): string {
   if (str.trim() === '') { return '' }
-  return repaired(_.trim(_.deburr(str).toLowerCase().replaceAll(/[\W_]+/g, '_'), '_'), opts.maxlen)
+  const max = _.clamp(opts.max ?? PA.Label.max, PA.Label.min, PA.Label.max)
+  return repaired(_.trim(_.deburr(str).toLowerCase().replaceAll(/[\W_]+/g, '_'), '_'), max)
 }
 
-/** `cleaned`, cut to length without a trailing underscore, made to start with a letter and be two characters long, then validated as label-shaped */
-function repaired(cleaned: string, maxlen: number = PA.Label.max): string {
-  let label = _.trimEnd(cleaned.slice(0, Math.min(maxlen, PA.Label.max)), '_')
-  if (! /^[a-z]/.test(label)) { label = `z${label}`.slice(0, PA.Label.max) }
-  if (label.length < 2) { label += 'z' }
-  return CK.labelshape.parse(label)
+/** `cleaned`, made to start with a letter, cut to `max` without a trailing underscore, made two characters long, then validated as label-shaped */
+function repaired(cleaned: string, max: number): string {
+  const lettered = /^[a-z]/.test(cleaned) ? cleaned : `z${cleaned}`
+  const label = _.trimEnd(lettered.slice(0, max), '_')
+  return CK.labelshape.parse(label.padEnd(PA.Label.min, 'z'))
 }
 
 export type IsReservedOpts = {

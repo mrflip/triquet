@@ -10,11 +10,13 @@ describe('Ident.labelFor', () => {
     ["Ünïcödé Pérson",       "unicode_person",               'deburrs'],
     ["Philip (flip) Kromer", "philip_flip_kromer",           'drops punctuation, as a name may hold any'],
     ["the_quite_long_name_indeed", "the_quite_long_name_inde", 'stops at 24 characters'],
+    ["2nd Avenue Puzzle Solvers Club", "z2nd_avenue_puzzle_solve", 'stops at 24 characters, the z before a leading digit counted in'],
     ["",                     "",                             'hands back nothing for nothing'],
   ] as const
   for (const [name, label, describes] of Cases) {
     it(describes, () => {
       expect(Ident.labelFor(name)).to.eq(label)
+      expect(Ident.labelFor(name).length).to.be.at.most(24)
     })
   }
 })
@@ -53,8 +55,8 @@ describe('Ident.flawIn', () => {
   }
 
   it('finds no flaw in any label a name makes but a short one', () => {
-    const names = ['Flip Kromer', 'Philip (flip) Kromer', 'Ünïcödé Pérson', '1st Flipper', 'the quite long name indeed', '田中 Kromer', '🤔🤔🤔']
-    expect(names.map((name) => Ident.flawIn(Ident.labelFor(name)))).to.deep.eq([null, null, null, null, null, null, 'unfinished'])
+    const names = ['Flip Kromer', 'Philip (flip) Kromer', 'Ünïcödé Pérson', '1st Flipper', 'the quite long name indeed', '2nd Avenue Puzzle Solvers Club', '田中 Kromer', '🤔🤔🤔']
+    expect(names.map((name) => Ident.flawIn(Ident.labelFor(name)))).to.deep.eq([null, null, null, null, null, null, null, 'unfinished'])
   })
 })
 
