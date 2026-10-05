@@ -30,6 +30,10 @@ describe('Column.fill', () => {
     ['categories.masie.more', false, 'a part of a part'],
     ['question.masie',        false, 'a part of the questions themselves'],
     ['.masie',                false, 'a part of no widgeting'],
+    ['a'.repeat(41),          false, 'a widgeting by a label longer than any label may be'],
+    [`${'a'.repeat(41)}.masie`, false, 'a part of a widgeting whose label is longer than any may be'],
+    ['dum__dum',              false, 'a widgeting by a label with two underscores in a row'],
+    ['dumdum_',               false, 'a widgeting by a label ending in an underscore'],
   ]
   for (const [source, ok, describes] of Sources) {
     it(`${ok ? 'takes' : 'refuses'} ${describes}`, () => {

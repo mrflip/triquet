@@ -158,6 +158,25 @@ describe('ActionValidators.accountAction', () => {
   it('refuses retitling an ident to nothing', () => {
     expect(() => ActionValidators.accountAction({ kind: 'retitle_ident', title: '' })).to.throw(Z.ZodError)
   })
+
+  it("takes a blank title on assuming an ident, which then goes by its label, but not one that is not a title", () => {
+    expect(ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip_kromer', title: '' })).to.deep.eq({ kind: 'assume_ident', label: 'flip_kromer', title: '' })
+    expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'Flip\u{0}Kromer' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.accountAction({ kind: 'assume_ident', label: 'flip_kromer', title: 'F'.repeat(83) })).to.throw(Z.ZodError)
+  })
+})
+
+describe('ActionValidators.huntAction, refusing at the door', () => {
+  it("refuses a review's overall that is not prose: a control character, or past a note's length", () => {
+    const quiz_id = 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'quizzes'>
+    expect(() => ActionValidators.huntAction({ kind: 'set_overall', quiz_id, overall: 'Went\u{7} well.' })).to.throw(Z.ZodError)
+    expect(() => ActionValidators.huntAction({ kind: 'set_overall', quiz_id, overall: 'x'.repeat(3601) })).to.throw(Z.ZodError)
+  })
+
+  it("refuses deleting more questions at once than a quiz may hold", () => {
+    const question_ids = Array.from({ length: 1000 }, () => 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'questions'>)
+    expect(() => ActionValidators.huntAction({ kind: 'delete_questions', question_ids })).to.throw(Z.ZodError)
+  })
 })
 
 describe('isLayoutAction', () => {

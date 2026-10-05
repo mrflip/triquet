@@ -26,7 +26,13 @@ const AnswerAsObject = 'Reply with a single JSON object and nothing else: no pro
  * failure is only asking being switched off.
  */
 export async function POST(request: Request): Promise<Response> {
-  const parsed = AskContract.askRequest.safeParse(await request.json())
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return replied({ ok: false, failurekind: 'unreadable', detail: { name: 'SyntaxError', message: 'The request was not JSON.' } }, 400)
+  }
+  const parsed = AskContract.askRequest.safeParse(body)
   if (! parsed.success) { return replied({ ok: false, failurekind: 'unreadable' }, 400) }
   const ask = parsed.data
 

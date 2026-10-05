@@ -9,6 +9,7 @@ import { IdentValidators } from './ident'
 import { ImportValidators } from './import'
 import { QuestionValidators } from './question'
 import { QuizValidators } from './quiz'
+import { ReviewValidators } from './review'
 import { ReviewingValidators } from './reviewing'
 import { WidgetValidators } from './widget'
 import { WidgetedValidators } from './widgeted'
@@ -31,7 +32,7 @@ export const ContentActionKindVals = [
 export const QuizRevisionKindVals = [...ContentActionKindVals, ...LayoutActionKindVals] as const
 export type QuizRevisionKind = typeof QuizRevisionKindVals[number]
 
-export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, str, zid }) => {
+export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool, uint, label, titleish, zid }) => {
   const huntAffirms = obj({
     ident_id: zid('idents'),
     hunt_id:  zid('hunts'),
@@ -45,7 +46,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
   const affirms = quizAffirms.extend({ realm_id: zid('realms') })
     .describe('What a browser says of itself on a hunt, and the quiz it has on screen and the realm that quiz belongs to: where every action lands.')
 
-  const question_ids = arr(zid('questions')).readonly()
+  const question_ids = arr(zid('questions')).max(PA.QuestionsPerQuiz.max).readonly()
 
   const layoutAction = [
     obj({ kind: lit('add_widgeting'),     widgeting: WidgetingValidators.widgeting }),
@@ -80,7 +81,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('set_lock'),            quiz_id: zid('quizzes'), locked: bool }),
     obj({ kind: lit('import_questions'),    questions: ImportValidators.importedQuestions }),
     obj({ kind: lit('open_review'),         quiz_id: zid('quizzes') }),
-    obj({ kind: lit('set_overall'),         quiz_id: zid('quizzes'), overall: str }),
+    obj({ kind: lit('set_overall'),         quiz_id: zid('quizzes'), overall: ReviewValidators.overall }),
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),
     obj({ kind: lit('set_reviewing'),       quiz_id: zid('quizzes'), question_id: zid('questions'), patch: ReviewingValidators.reviewingPatch }),
     obj({ kind: lit('peek_answer'),         quiz_id: zid('quizzes'), question_id: zid('questions') }),
@@ -102,7 +103,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     .describe('What an admin can do to the library of widgets every hunt shares, from anywhere: no hunt or quiz need be open.')
 
   const accountAction = discrim('kind', [
-    obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: str }),
+    obj({ kind: lit('assume_ident'),  label: IdentValidators.identLabel, title: titleish }),
     obj({ kind: lit('retitle_ident'), title: IdentValidators.title }),
     obj({ kind: lit('new_hunt'),      label }),
     obj({ kind: lit('retitle_hunt'),  hunt_id: zid('hunts'), title: titleish }),
