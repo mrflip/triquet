@@ -1452,16 +1452,16 @@ describe("hunts.perform, at the door", () => {
 })
 
 describe("hunts.list", () => {
-  it("lists the hunts one is on, titled, in the order they were made, with its realms' quizzes in the order they were made", async () => {
+  it("lists the hunts one is on, titled, in the order they were made, with its realms' quizzes by label", async () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
-    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('First'), Quiz.blank('Second')]), label: 'quiet_otter', title: '' })
+    const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Second', 'zebra_crossing'), Quiz.blank('Under', 'alpha_under'), Quiz.blank('First', 'alpha')]), label: 'quiet_otter', title: '' })
     const heron = await seedHunt(tt, { ...huntHolding([Quiz.blank('Only')]), label: 'loud_heron', title: 'The Heron Hunt' })
     await putOn(tt, heron.open.hunt_id, alice.ident_id, 'smith')
     await putOn(tt, otter.open.hunt_id, alice.ident_id, 'reviewer')
     const hunts = await alice.as.query(api.hunts.list, {})
     expect(hunts.map((hunt) => [hunt.label, hunt.title, hunt.role, hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])])).to.deep.eq([
-      ['quiet_otter', 'Quiet Otter', 'reviewer', [['home', ['First', 'Second']]]],
+      ['quiet_otter', 'Quiet Otter', 'reviewer', [['home', ['First', 'Under', 'Second']]]],
       ['loud_heron', 'The Heron Hunt', 'smith', [['home', ['Only']]]],
     ])
   })

@@ -1,5 +1,11 @@
 import type { Page } from '@playwright/test'
-import { actDangerously, addColumns, addWidgetings, closeManage, expect, faceOf, grid, holderOf, manageDialog, newQuiz, openManage, openQuiz, reloadOnceSaved, test, waitUntilSaved } from './support'
+import * as Tsv from '../src/lib/tsv'
+import { actDangerously, addColumns, addWidgetings, closeManage, expect, faceOf, grid, holderOf, huntOf, manageDialog, newQuiz, openManage, openQuiz, quizPathOf, reloadOnceSaved, test, waitUntilSaved } from './support'
+
+/** The label of the quiz `page` is at, from its address */
+function quizLabelIn(page: Page): string {
+  return quizPathOf(page).split('/').at(-1) ?? ''
+}
 
 /** The label the open quiz answers to, as the gear's dialog has it; the dialog must be open */
 async function quizLabelOf(page: Page): Promise<string> {
@@ -26,11 +32,15 @@ test('each quiz is wholly independent', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Which region?')
 })
 
-test('a quiz with its title cleared shows as Untitled quiz in the switcher', async ({ page }) => {
+test('a quiz with its title cleared shows as Untitled quiz in the switcher, which lists quizzes by label', async ({ page }) => {
+  // The fixture's quiz shares its hunt's label; a new quiz is given a fresh one.
+  const first = huntOf(page).hunt
   await newQuiz(page)
+  const second = quizLabelIn(page)
   await page.getByLabel('Quiz name').fill('')
   await page.getByLabel('Quiz name').blur()
-  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText(['Quiz one', 'Untitled quiz'])
+  const titled = new Map([[first, 'Quiz one'], [second, 'Untitled quiz']])
+  await expect(page.getByLabel('Open quiz').locator('option')).toHaveText([first, second].toSorted(Tsv.byCode).map((label) => titled.get(label) ?? ''))
 })
 
 test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring quiz opens', async ({ page }) => {

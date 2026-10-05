@@ -260,8 +260,19 @@ describe('huntListingOf', () => {
     expect([listing.title, listing.realms.map((realm) => [realm.title, realm.quizzes.map((quiz) => quiz.title)])]).to.deep.eq(['Quiet Otter', [['Home', ['Princes']]]])
   })
 
-  it('is addressed under the org its members make it', () => {
+  it('is addressed under the org its members make it, for a hunt that stores none', () => {
     expect(huntListingOf(Rows, Members).org).to.eq('alice_smiths')
+  })
+
+  it('is addressed under the org the hunt stores, whoever is on it', () => {
+    expect(huntListingOf({ ...Rows, hunt: { ...HuntRow, orglabel: 'pat_smith' } }, Members).org).to.eq('pat_smith')
+  })
+
+  it("lists each realm's quizzes by label, in code-unit order, whatever the order they were made", () => {
+    const labels = ['zebra', 'alpha_two', 'alpha', 'b2b']
+    const quizzes = labels.map((label) => ({ ...QuizRow, _id: idOf('quizzes', label), label }))
+    const listing = huntListingOf({ ...Rows, realms: [{ realm: RealmRow, quizzes }] }, Members)
+    expect(listing.realms[0]?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['alpha', 'alpha_two', 'b2b', 'zebra'])
   })
 
   it('leaves out each quiz\'s order of its questions, which only the quiz\'s own screen reads', () => {

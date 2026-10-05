@@ -1,6 +1,7 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from './labelmaker'
+import * as Tsv from './tsv'
 import type * as Actor from './actor'
 import * as Wheel from './wheel'
 import type { WheelT } from '../models/category'
@@ -84,7 +85,7 @@ export type WidgetUsageT = {
 /** A quiz's row as a realm lists it: everything but its questions' order, which only the quiz's own screen reads */
 export type ListedQuizT = Omit<Doc<'quizzes'>, 'row_ordering'>
 
-/** A realm as the hunts list and the switcher show it: titled, with its quizzes as rows */
+/** A realm as the hunts list and the switcher show it: titled, with its quizzes as rows, by label */
 export type ShallowRealmT = {
   _id:     Id<'realms'>
   label:   string
@@ -297,7 +298,8 @@ export function orgFor(hunt: Pick<Doc<'hunts'>, 'orglabel'>, members: readonly P
 
 /**
  * A hunt as the hunts list shows it: titled, addressed under its org, with its realms in order,
- * each titled and holding its quizzes' rows in the order they were made.
+ * each titled and holding its quizzes' rows by label, in code-unit order, as the hunt's files
+ * sort them: every list of quizzes the app shows is in this order.
  *
  * @param rows - The hunt's own rows.
  * @param members - Who is on the hunt, in the order they joined: its org, for a hunt that stores none (`orgFor`).
@@ -317,7 +319,7 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: 
       _id:     realm._id,
       label:   realm.label,
       title:   realmTitleOf(realm),
-      quizzes: quizzes.map((quiz) => _.omit(quiz, ['row_ordering'])),
+      quizzes: quizzes.toSorted((aa, bb) => Tsv.byCode(aa.label, bb.label)).map((quiz) => _.omit(quiz, ['row_ordering'])),
     })),
   }
 }
