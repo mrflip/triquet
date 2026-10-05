@@ -263,6 +263,12 @@ agrees to another.
   expand-all, and brings `react-stately` with it. The line above holds here too: if folding
   grows keyboard control of its own, or wants the folds kept across a reload, weigh a library
   before extending the hook.
+* **Retiring stray branches is a script of our own, `scripts/git-attic`.** Approved by a Coach
+  Oct 2026. The tools for it (`git-delete-merged-branches`, `git-trim`, `git branch --merged`)
+  delete branches outright, and find only those whose own commits reached `main`; a branch whose
+  PR merged after a rebase, or a draft of a commit that landed reworded, is invisible to them.
+  The script finds those by `git cherry` and by subject line, and keeps each as an annotated tag
+  saying what it was. The manual is `notes/housekeeping.md`.
 
 ## Later, i.e when we get there
 
