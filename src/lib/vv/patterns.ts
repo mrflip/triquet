@@ -128,6 +128,10 @@ export const Byte     = { min: 0, max: 255 } as const
 export const Lat      = { min: -90, max: 90 } as const
 export const Lng      = { min: -180, max: 180 } as const
 export const Portnum  = { min: 0, max: 65_535 } as const
+/** An HTTP response's status code */
+export const Httpstatus = { min: 100, max: 599 } as const
+/** Minutes a person says they spent on one thing: past this it is a typo, not a long think */
+export const Minutes  = { min: 0, max: 999 } as const
 /** A money amount in the smallest unit, capped where a mistake stops looking like a typo */
 export const Ubux     = { min: -1e12, max: 1e12 } as const
 

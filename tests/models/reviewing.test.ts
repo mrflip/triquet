@@ -25,6 +25,7 @@ describe('ReviewingValidators.row', () => {
     [{ get_rate: 100 },                     'a get rate of certain'],
     [{ minutes: 0 },                        'no minutes spent'],
     [{ minutes: 2.5 },                      'a fraction of a minute'],
+    [{ minutes: 999 },                      'the most minutes anyone could mean'],
     [{ comments: '  Two lines,\nkept.  ' }, 'comments as typed, untrimmed'],
   ]
   for (const [overrides, describes] of Taken) {
@@ -40,6 +41,7 @@ describe('ReviewingValidators.row', () => {
     [{ get_rate: '50' },         'a get rate as text'],
     [{ minutes: -1 },            'negative minutes'],
     [{ minutes: Infinity },      'endless minutes'],
+    [{ minutes: 1000 },          'more minutes than anyone means: a typo'],
     [{ keep_it: 'yes' },         'a flag that is not a boolean'],
     [{ review_id: 'nope' },      'a review that is not a row id'],
     [{ question_id: undefined }, 'no question'],

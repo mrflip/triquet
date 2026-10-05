@@ -140,6 +140,7 @@ describe('ColumnValidators.row', () => {
     [{ width_px: 29 },               'a width narrower than any column may be'],
     [{ source: 'question' },         'the questions\' own widget, which has no value'],
     [{ position: -1 },               'a place before the first'],
+    [{ position: 100 },              'a place past as many columns as a quiz may hold'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {

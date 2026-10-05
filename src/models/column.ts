@@ -92,7 +92,7 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     quiz_id:  zid('quizzes')
       .describe('The quiz this column belongs to.'),
     ...column.shape,
-    position: uint
+    position: uint.max(PA.ColumnsPerQuiz.max)
       .describe('The column\'s place among its quiz\'s columns, counting from zero.'),
   })
     .describe('One column as the database holds it.')

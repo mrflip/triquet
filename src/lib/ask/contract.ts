@@ -23,7 +23,7 @@ export const AskContract = Validator(({ obj, oneof, str, uint, bool, lit, union,
 
   const failureDetail = obj({
     name:    str.max(120).optional(),
-    status:  uint.optional(),
+    status:  uint.min(PA.Httpstatus.min).max(PA.Httpstatus.max).optional(),
     message: str.max(600).optional(),
   })
     .describe('What the SDK or the runtime said, kept so the author can read what really happened; never anything from the request, and so never a credential.')
@@ -39,7 +39,7 @@ export const AskContract = Validator(({ obj, oneof, str, uint, bool, lit, union,
     value:              answer,
     truncated:          bool,
     model_tier_applied: AskValidators.model_tier,
-    approx_tokens:      uint,
+    approx_tokens:      uint.max(PA.Quantity.max),
   })
 
   const askReply = union([askDone, askFailed])
