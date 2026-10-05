@@ -59,7 +59,20 @@ export class Ident implements IdentT {
    * @example Ident.byline({ label: 'mrflip', title: 'Mrflip' })  // => 'Mrflip (@mrflip)'
    */
   static byline(ident: Pick<IdentT, 'label' | 'title'>): string {
-    return `${ident.title} (@${ident.label})`
+    return `${ident.title} (${this.atLabel(ident)})`
+  }
+
+  /**
+   * An ident's label written `@label`, as its byline writes it, for a screen that shows the
+   * title some other way (the hunts page, where it is retitled in place).
+   *
+   * @param ident - The ident whose label to write.
+   * @returns Its label, after an `@`.
+   *
+   * @example Ident.atLabel({ label: 'mrflip' })  // => '@mrflip'
+   */
+  static atLabel(ident: Pick<IdentT, 'label'>): string {
+    return `@${ident.label}`
   }
 
   /**

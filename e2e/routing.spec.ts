@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
-import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -26,7 +26,7 @@ test.describe('the front door', () => {
     const label = await assumeIdent(page)
     await loadAfresh(page, '/')
     await expect(page).toHaveURL(/\/my\/hunts$/)
-    await expect(page.getByText(`(${label})`)).toBeVisible()
+    await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
   test('will not log in as a label too short to be an ident\'s, saying why', async ({ page }) => {
@@ -45,7 +45,7 @@ test.describe('the front door', () => {
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label.replaceAll('_', ' ').toUpperCase())
     await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
-    await expect(page.getByText(`(${label})`)).toBeVisible()
+    await expect(page.getByText(`(@${label})`)).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue(Labelmaker.titleize(label))
   })
 
@@ -56,7 +56,7 @@ test.describe('the front door', () => {
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
     await page.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
-    await expect(page.getByText(`(${other})`)).toBeVisible()
+    await expect(page.getByText(`(@${other})`)).toBeVisible()
   })
 
   test('lets a visitor about to become someone else keep being who they are', async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe('the front door', () => {
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
     await page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
-    await expect(page.getByText(`(${label})`)).toBeVisible()
+    await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
   test('turns a second browser away from a username the first holds, saying what to do, and lets it choose another', async ({ page, browser }) => {
@@ -86,9 +86,9 @@ test.describe('the front door', () => {
     await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
     await elsewhere.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(elsewhere).toHaveURL(/\/my\/hunts$/)
-    await expect(elsewhere.getByText(`(${other})`)).toBeVisible()
+    await expect(elsewhere.getByText(`(@${other})`)).toBeVisible()
     await loadAfresh(page, '/my/hunts')
-    await expect(page.getByText(`(${label})`)).toBeVisible()
+    await expect(page.getByText(`(@${label})`)).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('The First')
   })
 })
@@ -123,6 +123,30 @@ test.describe('the hunts', () => {
     await expect(page.getByLabel('Quiz name')).toHaveValue(title)
   })
 
+  test('line up in a table, each quiz marked locked or still being worked on', async ({ page }) => {
+    await startHunt(page)
+    const thinking = freshTitle('Thinking quiz')
+    await page.getByLabel('Quiz name').fill(thinking)
+    await page.getByLabel('Quiz name').blur()
+    await waitUntilSaved(page)
+    await newQuiz(page)
+    const locked = freshTitle('Locked quiz')
+    await page.getByLabel('Quiz name').fill(locked)
+    await page.getByLabel('Quiz name').blur()
+    await page.getByRole('button', { name: 'Lock quiz' }).click()
+    await expect(page.getByText('Locked', { exact: true })).toBeVisible()
+    await loadAfresh(page, '/my/hunts')
+    await newHunt(page)
+    await loadAfresh(page, '/my/hunts')
+
+    const hunts = page.getByRole('table', { name: 'Your hunts' })
+    await expect(hunts.getByRole('link', { name: `Still being worked on ${thinking}` })).toBeVisible()
+    await expect(hunts.getByRole('link', { name: `Locked ${locked}` })).toBeVisible()
+    const doors = hunts.getByRole('link', { name: /^Categories of / })
+    await expect(doors).toHaveCount(2)
+    await expect.poll(() => doors.evaluateAll((links) => new Set(links.map((link) => link.getBoundingClientRect().left)).size)).toBe(1)
+  })
+
   test('are retitled and relabelled by their smith from the gear beside each, and their quizzes follow the label', async ({ page }) => {
     await startHunt(page)
     const title = freshTitle('Relabelled quiz')
@@ -139,7 +163,7 @@ test.describe('the hunts', () => {
     await dialog.getByRole('textbox', { name: 'Label', exact: true }).fill(huntLabel)
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByRole('heading', { name: huntTitle })).toBeVisible()
+    await expect(page.getByRole('rowheader', { name: huntTitle })).toBeVisible()
     await page.getByRole('link', { name: title }).click()
     await expect(page).toHaveURL(new RegExp(`/h/${huntLabel}/home/`))
     await expect(page.getByLabel('Quiz name')).toHaveValue(title)
@@ -381,7 +405,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend.getByRole('link', { name: title })).toBeHidden()
 
     await addMember(page, label, 'Reviewer')
-    const listed = friend.getByRole('listitem').filter({ hasText: title })
+    const listed = friend.getByRole('row').filter({ hasText: title })
     await expect(listed).toContainText('Reviewer')
     // Drawn in the same render as the role beside it: a reviewer is offered no gear to edit the hunt.
     await expect(listed.getByRole('button', { name: /^Edit hunt / })).toHaveCount(0)

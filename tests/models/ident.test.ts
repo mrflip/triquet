@@ -25,6 +25,12 @@ describe('Ident.byline', () => {
   })
 })
 
+describe('Ident.atLabel', () => {
+  it("writes an ident's label as its byline does, after an @", () => {
+    expect(Ident.atLabel({ label: 'flip_kromer' })).to.eq('@flip_kromer')
+  })
+})
+
 describe('Ident.fill', () => {
   const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr'
 
