@@ -10,7 +10,7 @@ import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
 import { quizFrom, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
-import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
+import { Question, QuestionValidators, type QuestionPatch, type QuestionT, type QuestionViz } from '../../src/models/question'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
 import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
@@ -162,6 +162,19 @@ export async function deleteQuestions(db: Writer, open: OpenQuizT, question_ids:
     if (row.chains_to !== null && goneLabels.has(row.chains_to)) { await updateQuestion(db, row, { chains_to: null }) }
   }
   await updateQuiz(db, quiz, { row_ordering: kept.map((row) => row._id) })
+}
+
+/**
+ * Show questions of the open quiz as `viz` says: archived, secondary, or normal. Nothing else about
+ * them changes, nor the quiz's order; one already so is left as it is. Ids of no question here are
+ * passed over.
+ */
+export async function setViz(db: Writer, open: OpenQuizT, question_ids: readonly string[], viz: QuestionViz): Promise<void> {
+  const named = new Set(question_ids)
+  const questions = await questionsOf(db, openQuizRow(open))
+  for (const row of questions) {
+    if (named.has(row._id)) { await updateQuestion(db, row, { viz }) }
+  }
 }
 
 /**

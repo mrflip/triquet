@@ -28,8 +28,8 @@ import { WidgetingValidators } from '../src/models/widgeting'
 //
 // More are written by hand while rows gain them (`notes/deploy.md`, *Schema pushes*), each
 // optional here though every write gives one, so that rows written before it existed still fit
-// until `migrations.ts` backfills them: a hunt's `orglabel`, and the stamps (`created_at`,
-// `updated_at`) of the rows a person makes and edits.
+// until `migrations.ts` backfills them: a hunt's `orglabel`, the stamps (`created_at`,
+// `updated_at`) of the rows a person makes and edits, and a question's `viz`.
 //
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
@@ -53,7 +53,7 @@ const widgetedFields    = {
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
 }
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
-const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), ...backfillingStamps }
+const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), ...backfillingStamps, viz: CVX.optional(zodOutputToConvex(QuestionValidators.viz)) }
 const reviewFields      = { ...zodOutputToConvexFields(ReviewValidators.row.shape), ...backfillingStamps }
 const reviewingFields   = { ...zodOutputToConvexFields(ReviewingValidators.row.shape), ...backfillingStamps }
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)

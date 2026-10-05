@@ -184,7 +184,7 @@ describe('QuestionValidators, field by field', () => {
 describe('QuestionValidators.row', () => {
   const Row = {
     hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
-    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '', created_at: 1_759_700_000_000, updated_at: 1_759_700_100_000,
+    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '', viz: 'secondary' as const, created_at: 1_759_700_000_000, updated_at: 1_759_700_100_000,
   }
 
   it('takes a question as the database holds it, its clueing untouched', () => {
@@ -204,6 +204,7 @@ describe('QuestionValidators.row', () => {
     [{ chains_to: '01j0000000000000000000000a' }, 'a chain naming a question by id rather than by label'],
     [{ qnum: 'three' },                      'a question number that is not a number'],
     [{ created_at: 1.5 },                    'a stamp that is not a whole millisecond'],
+    [{ viz: 'hidden' },                      'a viz that is none of archived, secondary and normal'],
     [{ updated_at: '2026-10-05T00:00:00Z' }, 'a stamp written as a person reads it'],
   ]
   for (const [overrides, describes] of Refused) {
@@ -249,12 +250,12 @@ function alphabetically(fieldnames: readonly string[]): string[] {
 describe('Question.sentTo', () => {
   it("sends a smith every field of a question, what a formula reads, what its widgetings stored and its stamps", () => {
     const everyField = Object.keys(Question.blank()).filter((fieldname) => fieldname !== '_id')
-    expect(Question.sentTo.smith).to.deep.eq(alphabetically([...Question.exposed, 'stored', 'created_at', 'updated_at']))
+    expect(Question.sentTo.smith).to.deep.eq(alphabetically([...Question.exposed, 'stored', 'created_at', 'updated_at', 'viz']))
     expect(Question.sentTo.smith).to.deep.eq(alphabetically(everyField))
   })
 
-  it("sends a reviewer what a review needs, the answer among it, and not the notes or what the widgetings stored", () => {
-    expect(Question.sentTo.reviewer).to.deep.eq(['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title'])
+  it("sends a reviewer what a review needs, the answer and how it is shown among it, and not the notes or what the widgetings stored", () => {
+    expect(Question.sentTo.reviewer).to.deep.eq(['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title', 'viz'])
     for (const withheld of ['notes', 'alt_text', 'stored']) { expect(Question.sentTo.reviewer).to.not.include(withheld) }
   })
 
@@ -273,5 +274,16 @@ describe('Question.isSent', () => {
 describe('Question.isSentWhole', () => {
   it("is so for a smith alone", () => {
     expect([Question.isSentWhole('smith'), Question.isSentWhole('reviewer'), Question.isSentWhole('stranger')]).to.deep.eq([true, false, false])
+  })
+})
+
+describe('Question viz', () => {
+  it("reads the doc blocks' examples", () => {
+    expect([Question.isArchived({ viz: 'archived' }), Question.isSecondary({ viz: 'secondary' })]).to.deep.eq([true, true])
+    expect(Question.unarchived([{ viz: 'normal' }, { viz: 'archived' }, { viz: 'secondary' }])).to.deep.eq([{ viz: 'normal' }, { viz: 'secondary' }])
+  })
+
+  it("starts every question normal", () => {
+    expect([Question.blank().viz, Question.blankRow({ hunt_id: anId as Id<'hunts'>, quiz_id: anId as Id<'quizzes'> }).viz]).to.deep.eq(['normal', 'normal'])
   })
 })

@@ -52,11 +52,11 @@ export type MemberBodyT = { title: string, role: HuntRole }
 export type WidgetedBodyT = Pick<WidgetedT, 'status' | 'value'>
 
 /**
- * One question, by its label: its place in the quiz, its own fields, its chain by the label of the
- * question it points at, its stamps as a person reads them, and beside them what each widgeting of
+ * One question, by its label: its place in the quiz, its own fields (how it is shown among them),
+ * its chain by the label of the question it points at, its stamps as a person reads them, and beside them what each widgeting of
  * the quiz came to, under the widgeting's label.
  */
-export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer'> & IsoStampsT & {
+export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer' | 'viz'> & IsoStampsT & {
   position:  number
   chains_to: string | null
   [widgeting_label: string]: unknown

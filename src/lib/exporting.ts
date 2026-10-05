@@ -149,6 +149,7 @@ function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun): Record<string, Jsonb
     alt_text:    question.alt_text,
     notes:       question.notes,
     full_answer: question.full_answer,
+    viz:         question.viz,
     chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
     ...Stamps.isoStampsOf(question),
     ...Object.fromEntries(quiz.widgetings.map(({ label }) => [label, widgetedBodyOf(run, label, question._id)])),

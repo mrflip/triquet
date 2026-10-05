@@ -369,6 +369,7 @@ const ContentPolicies = {
   edit_question:       mayReviseClaimedQuiz,
   add_question:        mayReviseClaimedQuiz,
   delete_questions:    mayReviseClaimedQuiz,
+  set_viz:             mayReviseClaimedQuiz,
   sort_questions:      mayReviseClaimedQuiz,
   renumber_qnums:      mayReviseClaimedQuiz,
   move_question:       mayReviseClaimedQuiz,

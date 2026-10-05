@@ -60,7 +60,7 @@ const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'], co
 const Backfilling: Partial<Record<TableNames, string[]>> = {
   hunts:      ['orglabel', 'created_at', 'updated_at'],
   quizzes:    ['created_at', 'updated_at'],
-  questions:  ['created_at', 'updated_at'],
+  questions:  ['created_at', 'updated_at', 'viz'],
   reviews:    ['created_at', 'updated_at'],
   reviewings: ['created_at', 'updated_at'],
 }

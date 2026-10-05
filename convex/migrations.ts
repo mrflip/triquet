@@ -5,7 +5,7 @@ import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import * as Stamps from '../src/lib/stamps'
 import { HuntValidators } from '../src/models/hunt'
-import { QuestionValidators } from '../src/models/question'
+import { DefaultViz, QuestionValidators } from '../src/models/question'
 import { QuizValidators } from '../src/models/quiz'
 import { ReviewValidators } from '../src/models/review'
 import { ReviewingValidators } from '../src/models/reviewing'
@@ -84,6 +84,18 @@ export const backfillReviewStamps = stampBackfill('reviews', ReviewValidators.ro
 /** Stamp each reviewing written before rows were stamped (`stampBackfill`) */
 export const backfillReviewingStamps = stampBackfill('reviewings', ReviewingValidators.row)
 
+/**
+ * Give each question written before questions had a viz the one every question starts with, and
+ * that it is read as meanwhile: normal. The viz is held to the row validator's own field for it.
+ */
+export const backfillQuestionViz = migrations.define({
+  table:      'questions',
+  migrateOne: async (ctx, question) => {
+    if (question.viz !== undefined) { return }
+    await ctx.db.patch('questions', question._id, { viz: QuestionValidators.viz.parse(DefaultViz) })
+  },
+})
+
 /** Every backfill still defined, in the order they run: the hunts' orgs, the questions' viz, and the stamps */
 export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillHuntOrglabels,
@@ -92,6 +104,7 @@ export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillQuestionStamps,
   internal.migrations.backfillReviewStamps,
   internal.migrations.backfillReviewingStamps,
+  internal.migrations.backfillQuestionViz,
 ]
 
 /**

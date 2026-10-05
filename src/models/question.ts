@@ -9,7 +9,21 @@ import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 /** What a question carries in a formula's bag beside its exposed fields: its place once the quiz is put in Q# order */
 export const RankField = 'rank'
 
-export const QuestionValidators = Validator(({ obj, rec, textish, noteish, titleish, label, stamp, timestamp, zid, treeid }) => {
+/**
+ * How a question is shown (its **viz**): `normal`, as every question starts; `secondary`, an
+ * alternate, shown as one and sorted after its peers; or `archived`, put away from every screen
+ * but the gear's, and from what is handed to players, but kept with the quiz.
+ */
+export const QuestionVizVals = ['archived', 'secondary', 'normal'] as const
+export type QuestionViz = typeof QuestionVizVals[number]
+
+/** The viz every question starts with, and that a row written before questions had one reads as */
+export const DefaultViz: QuestionViz = 'normal'
+
+/** The field a question's viz is held in */
+export const VizField = 'viz'
+
+export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish, titleish, label, stamp, timestamp, zid, treeid }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -32,6 +46,8 @@ export const QuestionValidators = Validator(({ obj, rec, textish, noteish, title
     .describe('Second freeform notes column, carried through to the spreadsheet export.')
   const full_answer = noteish
     .describe('The answer, as it will actually be read out.')
+  const viz = oneof(QuestionVizVals)
+    .describe('How the question is shown: `normal`; `secondary`, an alternate, its title marked as one and sorted after its peers; or `archived`, on no screen but the gear\'s and in nothing handed to players, until it is made normal again or deleted.')
 
   const question = obj({
     _id:           treeid,
@@ -44,6 +60,7 @@ export const QuestionValidators = Validator(({ obj, rec, textish, noteish, title
     alt_text:      alt_text.default(''),
     notes:         notes.default(''),
     full_answer:   full_answer.default(''),
+    viz:           viz.default(DefaultViz),
     stored:        rec(label, WidgetedValidators.history).default({})
       .describe('What each widgeting that stores (an `aibot` one) has recorded for this question, by the widgeting\'s label: its newest row, and its newest `ok` one. A widgeting with nothing recorded here is absent.'),
     created_at:    timestamp.nullable().default(null)
@@ -82,6 +99,7 @@ export const QuestionValidators = Validator(({ obj, rec, textish, noteish, title
     full_answer,
     alt_text,
     notes,
+    viz:          viz.default(DefaultViz),
     created_at:   stamp
       .describe('When it was made, in epoch milliseconds: stamped by the database\'s writer, never by its author.'),
     updated_at:   stamp
@@ -89,7 +107,7 @@ export const QuestionValidators = Validator(({ obj, rec, textish, noteish, title
   })
     .describe('One question as the database holds it: only what the author writes. What its widgetings stored is in rows of their own.')
 
-  return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, question, questionPatch, row }
+  return { qnum, clueing, hint, title, chains_to, alt_text, notes, full_answer, viz, question, questionPatch, row }
 })
 
 export type QuestionDNA   = Z.input<typeof QuestionValidators.question>
@@ -115,6 +133,7 @@ export class Question implements QuestionT {
   declare alt_text:      string
   declare notes:         string
   declare full_answer:   string
+  declare viz:           QuestionViz
   declare stored:        Record<string, WidgetedHistoryT>
   declare created_at:    number | null
   declare updated_at:    number | null
@@ -130,13 +149,13 @@ export class Question implements QuestionT {
    * The fields of a question each standing on its hunt is sent, beside its id, alphabetically: the
    * one place a change to who is sent what lands (`seenQuestionFor`). A smith works the question,
    * and is sent all of it: its exposed fields, what its widgetings stored, and its stamps. A reviewer is sent
-   * what a review needs: the question as it will be asked, the BUT NOT it chains to, and its
-   * answer, which the review screen keeps behind its lock; not the smiths' notes, nor what the
+   * what a review needs: the question as it will be asked, the BUT NOT it chains to, how it is
+   * shown (its viz), and its answer, which the review screen keeps behind its lock; not the smiths' notes, nor what the
    * widgetings stored, nor when it was made and edited. A stranger to the hunt is sent nothing.
    */
   static readonly sentTo = {
-    smith:    ['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'stored', 'title', 'updated_at'],
-    reviewer: ['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title'],
+    smith:    ['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'stored', 'title', 'updated_at', 'viz'],
+    reviewer: ['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title', 'viz'],
     stranger: [],
   } as const satisfies Record<HuntStanding, readonly QuestionFieldname[]>
 
@@ -159,6 +178,33 @@ export class Question implements QuestionT {
    */
   static isSentWhole(standing: HuntStanding): boolean {
     return QuestionFieldnames.every((fieldname) => this.isSent(fieldname, standing))
+  }
+
+  /**
+   * Whether `question` is archived: on no screen but the gear's, and in nothing handed to players.
+   *
+   * @example Question.isArchived({ viz: 'archived' })  // => true
+   */
+  static isArchived(question: Pick<QuestionT, 'viz'>): boolean {
+    return question.viz === 'archived'
+  }
+
+  /**
+   * Whether `question` is an alternate: its title marked as one, and sorted after its peers.
+   *
+   * @example Question.isSecondary({ viz: 'secondary' })  // => true
+   */
+  static isSecondary(question: Pick<QuestionT, 'viz'>): boolean {
+    return question.viz === 'secondary'
+  }
+
+  /**
+   * The questions of `questions` any screen shows, in the order given: all but the archived.
+   *
+   * @example Question.unarchived([{ viz: 'normal' }, { viz: 'archived' }, { viz: 'secondary' }])  // => [{ viz: 'normal' }, { viz: 'secondary' }]
+   */
+  static unarchived<QT extends Pick<QuestionT, 'viz'>>(questions: readonly QT[]): QT[] {
+    return questions.filter((question) => ! this.isArchived(question))
   }
 
   /**
@@ -198,7 +244,7 @@ export class Question implements QuestionT {
    */
   static blankRow({ hunt_id, quiz_id }: Pick<QuestionRowT, 'hunt_id' | 'quiz_id'>, label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuestionRowT {
     return QuestionValidators.row({
-      hunt_id, quiz_id, label, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
+      hunt_id, quiz_id, label, title: Labelmaker.titleize(label), qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', viz: DefaultViz,
     })
   }
 }

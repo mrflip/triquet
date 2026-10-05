@@ -166,6 +166,22 @@ describe('importInto', () => {
       expect(patchFor(imported(quiz, [{ label: 'leon', clueing: null }]), 'leon')).to.deep.eq({ clueing: '' })
     })
 
+    it("carries how a question is shown, null making it normal", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
+      const questions = imported(quiz, [{ label: 'leon', viz: 'archived' }, { label: 'nantes', viz: null }])
+      expect([patchFor(questions, 'leon'), patchFor(questions, 'nantes')]).to.deep.eq([{ viz: 'archived' }, { viz: 'normal' }])
+    })
+
+    it("skips a question shown in a way this tool does not know", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(outcomesOf(quiz, [{ label: 'leon', viz: 'hidden' }])).to.deep.eq(['skipped'])
+    })
+
+    it("passes over when a question was made and edited: it is stamped as the import writes it", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(patchFor(imported(quiz, [{ label: 'leon', created_at: '2001-01-01T00:00:00.000Z', updated_at: '2001-01-01T00:00:00.000Z' }]), 'leon')).to.deep.eq({})
+    })
+
     it("passes over what a widgeting came to, which is worked out again or recorded by asking rather than pasted", () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const dumdum = { status: 'ok', value: { guess: 'leon', explanation: 'a lion' } }

@@ -9,7 +9,7 @@ import * as Wheel from './wheel'
 import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
-import { Question, type QuestionT } from '../models/question'
+import { DefaultViz, Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { WidgetedHistoryT } from '../models/widgeted'
@@ -35,8 +35,8 @@ export type QuizRows = {
   stored:     ReadonlyMap<string, StoredRows>
 }
 
-/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded */
-type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT> & Stamps.StampsT & Pick<QuestionT, 'stored'>
+/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`) and shown as it will be (`vizOf`), and what its stored widgetings recorded */
+type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT | 'viz'> & Stamps.StampsT & Pick<QuestionT, 'stored' | 'viz'>
 
 /** A question as its own query sends it to someone of `SS` on its hunt: its id, and the fields that standing is sent (`Question.sentTo`) */
 export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuestionT, '_id' | (typeof Question.sentTo)[SS][number]>
@@ -53,7 +53,18 @@ export type SeenQuestionT = { [SS in Actor.HuntStanding]: SeenQuestionAsT<SS> }[
  * it: blank, as in a fresh question. Only a smith is sent every field (`Question.sentTo`), and only
  * a smith's screens show the rest.
  */
-const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', stored: {}, created_at: null, updated_at: null }
+const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', viz: DefaultViz, stored: {}, created_at: null, updated_at: null }
+
+/**
+ * How a question's row says it is shown: its own viz, or for a row written before questions had
+ * one, as the backfill will give it (`migrations:backfillQuestionViz`): normal.
+ *
+ * @example vizOf({ viz: 'archived' })  // => 'archived'
+ * @example vizOf({})                   // => 'normal'
+ */
+export function vizOf(row: Pick<Doc<'questions'>, 'viz'>): QuestionT['viz'] {
+  return row.viz ?? DefaultViz
+}
 
 /** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgetings and columns */
 export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
@@ -202,7 +213,7 @@ const Whole = { standing: 'smith' } as const
  * @example 'notes' in seenQuestionFor(row, new Map(), claims)                 // => false, for a reviewer
  */
 export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
-  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
+  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), viz: vizOf(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
   return _.pick(sendable, ['_id', ...Question.sentTo[standing]])
 }
 

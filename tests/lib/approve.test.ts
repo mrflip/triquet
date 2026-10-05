@@ -321,6 +321,7 @@ const Matrix = {
   edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
   add_question:        [{ kind: 'add_question' },                                                                                    Revisers],
   delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Revisers],
+  set_viz:             [{ kind: 'set_viz', question_ids: [question_id], viz: 'archived' },                                           Revisers],
   sort_questions:      [{ kind: 'sort_questions', sortkey: 'column:qnum', descending: false },                                       Revisers],
   renumber_qnums:      [{ kind: 'renumber_qnums' },                                                                                  Revisers],
   move_question:       [{ kind: 'move_question', question_id, onto_idx: 0 },                                                         Revisers],

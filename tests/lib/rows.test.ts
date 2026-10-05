@@ -2,7 +2,7 @@ import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, backfillFrom, backfillsFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, orgFor, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
+  assembledQuiz, backfillFrom, backfillsFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, orgFor, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, vizOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
@@ -120,8 +120,13 @@ describe('seenQuestionFor', () => {
     expect(seen).to.deep.eq({
       _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear',
       full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', stored: { dumdum: historyOf(FailedSince) },
-      created_at: 2, updated_at: 2,
+      viz: 'normal', created_at: 2, updated_at: 2,
     })
+  })
+
+  it("sends the viz its row holds, and for a row written before questions had one, normal", () => {
+    expect(seenQuestionFor({ ...QuestionRow, viz: 'archived' }, new Map(), Reviewer)).to.deep.include({ viz: 'archived' })
+    expect(seenQuestionFor(QuestionRow, new Map(), Smith)).to.deep.include({ viz: 'normal' })
   })
 
   it("sends a smith the question's stamps: its own, or for a row written before rows were stamped, made and last edited when the database made it", () => {
@@ -143,7 +148,7 @@ describe('seenQuestionFor', () => {
 
   it('is, for a reviewer, what a review needs, the answer among it: not the notes, nor what was stored, whatever is handed in', () => {
     const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Reviewer)
-    expect(seen).to.deep.eq({ _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear', full_answer: 'Leontes' })
+    expect(seen).to.deep.eq({ _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear', full_answer: 'Leontes', viz: 'normal' })
   })
 
   it('is, for a stranger to the hunt, the id alone', () => {
@@ -389,5 +394,11 @@ describe('backfillsFrom', () => {
   })
   it("lists only those defined, when the component remembers nothing else", () => {
     expect(backfillsFrom([orgs], [orgs], 20)).to.have.lengthOf(1)
+  })
+})
+
+describe('vizOf', () => {
+  it("reads the doc block's examples: a row's own viz, and normal for a row written before questions had one", () => {
+    expect([vizOf({ viz: 'archived' }), vizOf({})]).to.deep.eq(['archived', 'normal'])
   })
 })

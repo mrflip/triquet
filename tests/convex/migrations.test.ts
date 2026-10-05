@@ -150,6 +150,22 @@ describe("the stamp backfills", () => {
   })
 })
 
+describe("migrations.backfillQuestionViz", () => {
+  it("shows each question written before questions had a viz as normal, and leaves one that has one alone", async () => {
+    const { tt } = deployment()
+    const { act, read } = await seedHunt(tt, Hunt.blank('spring_hunt'), { smith: 'pat_smiths' })
+    const [first, second] = openOf(await read()).questions
+    await act({ kind: 'set_viz', question_ids: [present(first)._id], viz: 'archived' })
+    await tt.run(async (ctx) => { await ctx.db.patch('questions', present(second)._id as Id<'questions'>, { viz: undefined }) })
+    await migrate(tt, 'migrations:backfillQuestionViz')
+    const vizzes = await tt.run(async (ctx) => {
+      const rows = await ctx.db.query('questions').collect()
+      return rows.map((row) => row.viz ?? null)
+    })
+    expect(vizzes.slice(0, 2)).to.deep.eq(['archived', 'normal'])
+  })
+})
+
 describe("migrations.runAll", () => {
   it("backfills the hunts' orgs, and every stamp, a hunt nobody is on included", async () => {
     const { tt, oldHunt } = deployment()

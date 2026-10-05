@@ -1,7 +1,7 @@
 import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
-import { QuestionValidators } from './question'
+import { DefaultViz, QuestionValidators } from './question'
 import { WidgetedValidators } from './widgeted'
 
 export const ImportValidators = Validator(({ obj, arr, rec, label }) => {
@@ -16,8 +16,9 @@ export const ImportValidators = Validator(({ obj, arr, rec, label }) => {
     alt_text:      QuestionValidators.alt_text.nullable().optional(),
     notes:         QuestionValidators.notes.nullable().optional(),
     full_answer:   QuestionValidators.full_answer.nullable().optional(),
+    viz:           QuestionValidators.viz.nullable().optional(),
   })
-    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label is the key a question is matched on, and is never itself revised; an export made while a label could be overridden carries the override as `forced_label`, which is the key in its place where it is set. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again and an asked one is recorded by asking. An entry widgeting\'s value, which a person typed, is read apart from these fields, under its label.')
+    .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label is the key a question is matched on, and is never itself revised; an export made while a label could be overridden carries the override as `forced_label`, which is the key in its place where it is set. A chain names the label of the question it points at; how the question is shown (its viz) is carried, null making it normal, but when it was made and edited is not: the question is stamped as the import writes it. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again and an asked one is recorded by asking. An entry widgeting\'s value, which a person typed, is read apart from these fields, under its label.')
 
   const importPatch = obj({
     qnum:        QuestionValidators.qnum.optional(),
@@ -28,6 +29,7 @@ export const ImportValidators = Validator(({ obj, arr, rec, label }) => {
     alt_text:    QuestionValidators.alt_text.optional(),
     notes:       QuestionValidators.notes.optional(),
     full_answer: QuestionValidators.full_answer.optional(),
+    viz:         QuestionValidators.viz.optional(),
   })
     .describe('What an import changes on one question, once read: the author\'s fields, each optional, as `edit_question` takes them, except that a chain names the label of the question it points at, or null for none.')
 
@@ -58,7 +60,7 @@ export type ImportedQuestionDNA = Z.input<typeof ImportValidators.importedQuesti
 
 /** Fields an import may revise; the label is not among them, and neither is anything derived */
 export const ImportableFieldnames = [
-  'qnum', 'clueing', 'hint', 'title', 'chains_to', 'alt_text', 'notes', 'full_answer',
+  'qnum', 'clueing', 'hint', 'title', 'chains_to', 'alt_text', 'notes', 'full_answer', 'viz',
 ] as const
 export type ImportableFieldname = typeof ImportableFieldnames[number]
 
@@ -72,4 +74,5 @@ export const ClearedValueFor: Record<ImportableFieldname, string | null> = {
   alt_text:      '',
   notes:         '',
   full_answer:   '',
+  viz:           DefaultViz,
 }

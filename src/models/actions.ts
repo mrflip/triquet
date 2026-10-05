@@ -25,7 +25,7 @@ export const LayoutActionKindVals = [
 /** The actions that revise the quiz on screen and its questions */
 export const ContentActionKindVals = [
   'retitle_quiz', 'relabel_quiz', 'set_smiths_note', 'set_q1_preamble',
-  'edit_question', 'add_question', 'delete_questions', 'sort_questions', 'renumber_qnums', 'move_question',
+  'edit_question', 'add_question', 'delete_questions', 'set_viz', 'sort_questions', 'renumber_qnums', 'move_question',
   'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'import_questions',
 ] as const
 
@@ -69,6 +69,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('edit_question'),       question_id: zid('questions'), patch: QuestionValidators.questionPatch }),
     obj({ kind: lit('add_question') }),
     obj({ kind: lit('delete_questions'),    question_ids }),
+    obj({ kind: lit('set_viz'),             question_ids, viz: QuestionValidators.viz }),
     obj({ kind: lit('sort_questions'),      sortkey: QuizValidators.sortkey, descending: bool }),
     obj({ kind: lit('renumber_qnums') }),
     obj({ kind: lit('move_question'),       question_id: zid('questions'), onto_idx: uint }),

@@ -153,7 +153,7 @@ describe('quizBodyOf', () => {
 
   it("adds nothing beside a question's fields and its position for a quiz with no widgetings", () => {
     const nantes = present(bodyOf({ ...chainedQuiz(), widgetings: [], columns: [] }).questions.nantes)
-    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'title', 'updated_at'])
+    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'title', 'updated_at', 'viz'])
   })
 
   it("writes the stamps of the quiz and each question as a person reads them: ISO-8601, in UTC", () => {
@@ -480,7 +480,7 @@ describe("a quiz's export, imported", () => {
     expect(outcome.summary).to.include('matched this quiz by label')
     expect(outcome.widgetingActions).to.deep.eq(quiz.widgetings.map((widgeting) => ({ kind: 'add_widgeting', widgeting })))
     const [leon, nantes] = present(outcome.questions)
-    const fields = _.pick(present(quiz.questions[0]), ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer'])
+    const fields = _.pick(present(quiz.questions[0]), ['qnum', 'clueing', 'hint', 'title', 'alt_text', 'notes', 'full_answer', 'viz'])
     expect(leon).to.deep.eq({ label: 'leon', patch: { ...fields, chains_to: 'nantes' }, entered: { remark: 'Ask Flip.' } })
     expect(nantes).to.deep.include({ label: 'nantes', entered: { remark: null } })
   })

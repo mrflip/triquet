@@ -6,15 +6,15 @@ import { StampFieldnames } from '../lib/stamps'
 import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
 import { QuestionViewVals, QuestionWidgetLabel } from './column'
-import { Question, RankField } from './question'
+import { Question, RankField, VizField } from './question'
 import type { WidgetT } from './widget'
 
 /**
  * The labels no widgeting may take, because a question already answers to each in the bag, in a
- * column's source or in an export: its exposed fields, its rank, its place and its stamps in a
+ * column's source or in an export: its exposed fields, its rank, its place, viz and stamps in a
  * jsonball, the views of it, and the questions themselves.
  */
-export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, PositionField, ...StampFieldnames, ...QuestionViewVals, QuestionWidgetLabel]
+export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, QuestionWidgetLabel]
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels)
 

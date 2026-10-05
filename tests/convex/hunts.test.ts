@@ -497,6 +497,43 @@ describe("hunts.perform", () => {
     })
   })
 
+  describe("set_viz", () => {
+    it("shows the named questions as it says, leaving the rest, the order and the Q#s alone", async () => {
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+      const [first, , third] = openOf(await read()).questions
+      await act({ kind: 'set_viz', question_ids: [present(first)._id, present(third)._id], viz: 'archived' })
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'archived'], ['b', 'normal'], ['c', 'archived']])
+      await act({ kind: 'set_viz', question_ids: [present(third)._id], viz: 'secondary' })
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'archived'], ['b', 'normal'], ['c', 'secondary']])
+      expect(qnumsOf(await read())).to.deep.eq(['1', '2', '3'])
+      await expectSound(tt)
+    })
+
+    it("brings an archived question back as normal", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const { _id: id } = firstOf(await read())
+      await act({ kind: 'set_viz', question_ids: [id], viz: 'archived' })
+      await act({ kind: 'set_viz', question_ids: [id], viz: 'normal' })
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'normal']])
+    })
+
+    it("passes over an id that names no question of the quiz", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const elsewhere = await seed(huntOf(['1', 'z']))
+      await act({ kind: 'set_viz', question_ids: [firstOf(await elsewhere.read())._id], viz: 'archived' })
+      expect([vizzesOf(await read()), vizzesOf(await elsewhere.read())]).to.deep.eq([[['a', 'normal']], [['z', 'normal']]])
+    })
+
+    it("refuses a reviewer, and refuses while the quiz is locked", async () => {
+      const { asAlice, first, read } = await reviewed()
+      await expectRefusal(asAlice({ kind: 'set_viz', question_ids: [first], viz: 'archived' }), 'notPermitted')
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'normal'], ['b', 'normal']])
+      const locked = await seed(openHunt(true))
+      const doomed = firstOf(await locked.read())
+      await expectRefusal(locked.act({ kind: 'set_viz', question_ids: [doomed._id], viz: 'archived' }), 'quizLocked')
+    })
+  })
+
   describe("set_chain", () => {
     it("chains one question to another, which the quiz then shows", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
@@ -1317,6 +1354,11 @@ describe("hunts.perform", () => {
   })
 })
 
+/** Each of the open quiz's questions' title and viz, in the quiz's order */
+function vizzesOf(seen: Seen) {
+  return openOf(seen).questions.map((question) => [question.title, question.viz])
+}
+
 /** `tree` with every id and stamp blanked, for comparing a tree with the one its rows make up */
 function sansIds(tree: HuntT) {
   const unstamped = { created_at: null, updated_at: null }
@@ -1608,12 +1650,13 @@ function bodyOfOpen(seen: Seen) {
 }
 
 describe("a quiz's export, imported into an empty quiz", () => {
-  it("reproduces it whole: its own fields, its questions in order with all they hold, their chains, its widgetings in run order, what its entries hold, and its columns as laid out", async () => {
+  it("reproduces it whole: its own fields, its questions in order with all they hold (how each is shown among it), their chains, its widgetings in run order, what its entries hold, and its columns as laid out", async () => {
     const tt = openTester()
     const source = await seedHunt(tt, huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
     await putEntryToWork(source, 'remark')
     const [leon, nantes] = questionIdsOf(await source.read())
     await source.act({ kind: 'edit_question', question_id: present(leon), patch: { clueing: 'Which region?', hint: 'BUT NOT a lion', notes: 'keep me', full_answer: 'León' } })
+    await source.act({ kind: 'set_viz', question_ids: [present(nantes)], viz: 'secondary' })
     await source.act({ kind: 'set_chain', question_id: present(leon), chains_to: present(nantes) })
     await source.act({ kind: 'enter_widgeted', entered: { question_id: present(leon), widgeting_label: 'remark', value: 'Ask Flip.' } })
     await source.act({ kind: 'set_smiths_note', smiths_note: 'Kings and lions.' })
