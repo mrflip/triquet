@@ -49,6 +49,10 @@ export type Source =
   | { kind: 'view', view: QuestionView }
   | { kind: 'widgeting', label: string, part: WidgetingPart | null }
 
+/** Where a column sets its text across its width, header and cells alike: the order a click on its alignment steps through */
+export const ColumnAlignVals = ['left', 'center', 'right'] as const
+export type ColumnAlign = typeof ColumnAlignVals[number]
+
 /** The smallest and largest a column may be, in pixels */
 export const WidthPxMin = 30
 export const WidthPxMax = 800
@@ -57,7 +61,7 @@ const QuestionSourcePattern = String.raw`${QuestionWidgetLabel}\.(${[...Question
 const WidgetingSourcePattern = String.raw`(?!${QuestionWidgetLabel}\.)[a-z]\w*(\.(${WidgetingPartVals.join('|')}))?`
 const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${WidgetingSourcePattern})$`)
 
-export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uint, zid }) => {
+export const ColumnValidators = Validator(({ obj, str, oneof, titleish, label, int, uint, zid }) => {
   const columnLabel = label
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, the label of a widgeting, or a widgeting\'s label and one of its parts')
@@ -68,6 +72,9 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     })
     .describe(`What the column shows: \`question.title\` and the like for a question's own field, \`question.butnot\` for a view of it, a widgeting's label for what it came to, or \`<widgeting>.<part>\` for one part of what a category-estimate entry came to (${WidgetingPartVals.join(', ')}).`)
 
+  const align = oneof(ColumnAlignVals)
+    .describe('Where the column sets its header and every cell\'s text. Absent, Q# is centered and every other cell sets itself: a number to the right, anything else to the left.')
+
   const column = obj({
     label:    columnLabel,
     title:    titleish
@@ -75,6 +82,7 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     source,
     width_px: int.min(WidthPxMin).max(WidthPxMax)
       .describe('How wide the column is. The grid\'s layout is fixed, so nothing a cell holds can widen it.'),
+    align:    align.optional(),
   })
     .describe('One column of a quiz\'s grid. A quiz keeps its columns in a list, which is the order they appear in, apart from its widgetings: a column only says what to show, and where.')
 
@@ -83,6 +91,7 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     title:    titleish.optional(),
     source:   source.optional(),
     width_px: int.min(WidthPxMin).max(WidthPxMax).optional(),
+    align:    align.optional(),
   })
     .describe('The fields of one column being revised. A key absent means "leave whatever is already there".')
 
@@ -104,12 +113,13 @@ export type ColumnDNA   = Z.input<typeof ColumnValidators.column>
 export type ColumnT     = Z.output<typeof ColumnValidators.column>
 export type ColumnPatch = Z.output<typeof ColumnValidators.columnPatch>
 
-/** One column of a quiz's grid: a header, a width, and what to show */
+/** One column of a quiz's grid: a header, a width, what to show, and perhaps where to set it */
 export class Column implements ColumnT {
   declare label:    string
   declare title:    string
   declare source:   string
   declare width_px: number
+  declare align?:   ColumnAlign
 
   /**
    * Validated column.

@@ -188,7 +188,7 @@ export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetin
   return {
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
-    columns:    columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
+    columns:    columns.map((row) => _.pick(row, ['label', 'title', 'source', 'width_px', 'align'])),
   }
 }
 

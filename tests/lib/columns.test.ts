@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { GutterWidthPx, gridWidthPx, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
-import { Column } from '../../src/models/column'
+import { GutterWidthPx, alignAfter, alignOf, gridWidthPx, headAlignOf, qnumSortkeyOf, resolve, specFor, specsFor } from '../../src/lib/columns'
+import { Column, type ColumnAlign } from '../../src/models/column'
 import { classicLayout } from '../support/layouts'
 import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
@@ -12,6 +12,9 @@ const widgetings = [
   Widgeting.fill({ label: 'total', widget_label: 'clueing_full' }),
 ]
 const columnOf = (source: string, width_px = 100, label = 'col') => Column.fill({ label, title: 'Col', source, width_px })
+
+/** The alignment the grid draws a column showing `source` with, set to `align` or never set */
+const aligned = (source: string, align?: ColumnAlign) => present(specFor({ ...columnOf(source), ...(align && { align }) }, widgetings)).align
 
 describe('resolve', () => {
   it('finds a question field, a view, and a widgeting by its label, whatever widget it works', () => {
@@ -69,6 +72,37 @@ describe('specFor', () => {
   it('names the column in an export by its label', () => {
     const spec = present(specFor(columnOf('question.title', 100, 'named'), widgetings))
     expect(spec.header).to.eq('named')
+  })
+
+  it('carries the column\'s alignment, Q# centered when it says none, and none for any other column that says none', () => {
+    expect([aligned('question.title', 'right'), aligned('question.qnum'), aligned('question.qnum', 'left'), aligned('question.title'), aligned('total')])
+      .to.deep.eq(['right', 'center', 'left', null, null])
+  })
+})
+
+describe('alignOf and headAlignOf', () => {
+  const Cases: [string, number, ColumnAlign | undefined, ColumnAlign | null, ColumnAlign, string][] = [
+    // source             width  align       alignOf    headAlignOf  blurb
+    ['question.qnum',     60,    undefined,  'center',  'center',    'Q# is centered until it says otherwise'],
+    ['question.qnum',     60,    'right',    'right',   'right',     'Q# set right is right'],
+    ['question.title',    160,   undefined,  null,      'left',      'a field says nothing, its header to the left'],
+    ['question.title',    60,    undefined,  null,      'left',      'a narrow field keeps its header along the row, to the left'],
+    ['total',             78,    undefined,  null,      'right',     'a narrow widgeting turns its header, to the right over its numbers'],
+    ['total',             180,   undefined,  null,      'left',      'a wide widgeting lays its header along the row, to the left'],
+    ['total',             78,    'center',   'center',  'center',    'a turned header follows its column'],
+    ['question.clueing',  330,   'left',     'left',    'left',      'a column set left says so, though left is where it sat'],
+  ]
+  for (const [source, width, align, aligned, headAligned, blurb] of Cases) {
+    it(blurb, () => {
+      const column = { ...columnOf(source, width), ...(align && { align }) }
+      expect([alignOf(column), headAlignOf(column)]).to.deep.eq([aligned, headAligned])
+    })
+  }
+})
+
+describe('alignAfter', () => {
+  it('steps left, center, right, and round to left again', () => {
+    expect(['left', 'center', 'right'].map((align) => alignAfter(align as ColumnAlign))).to.deep.eq(['center', 'right', 'left'])
   })
 })
 

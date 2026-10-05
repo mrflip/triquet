@@ -31,7 +31,7 @@
   font-weight:    600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-align:     left;
+  text-align:     var(--col-align, left);
   /* Set in as far as the text of the boxes below it: the cell's padding, then the box's own */
   padding:        8px calc(var(--cell-pad) + 6px);
   border-bottom:  1px solid var(--border);
@@ -48,11 +48,12 @@
 }
 
 /* The cell stays horizontal and only its title turns: Safari before 26 ignores writing-mode on a
-   table cell. The title sits bottom-right, over the right-aligned numbers below it. */
+   table cell. The title sits bottom-right, over the right-aligned numbers below it, unless its
+   column says otherwise. */
 .headVertical {
   height:      150px;
   padding:     8px 2px;
-  text-align:  right;
+  text-align:  var(--col-align, right);
 }
 
 .headVerticalInner {
@@ -72,7 +73,17 @@
   border-bottom:  1px solid var(--border);
   vertical-align: top;
   overflow:       hidden;
+  text-align:     var(--col-align, left);
 }
+
+/* == A column's alignment ==
+   A column that says where its text sits says it to every box in it, header to foot, as
+   `--col-align` (and `--col-justify`, for a row of pills). A column that says nothing leaves
+   each box to its own, which each states as its fallback: a number to the right, text to the left. */
+
+.alignLeft   { --col-align: left;   --col-justify: flex-start }
+.alignCenter { --col-align: center; --col-justify: center }
+.alignRight  { --col-align: right;  --col-justify: flex-end }
 
 /* The first cell of a row: its grip, or in batch mode its checkbox over its trash can */
 .gutter {
@@ -110,6 +121,7 @@
   padding:       4px 5px;
   resize:        none;
   display:       block;
+  text-align:    var(--col-align, left);
 }
 
 /* A one-line box says it holds more than it shows */
@@ -135,7 +147,7 @@ select.field {
 /* A number to type: figures of one width, right-aligned as every number in the grid is */
 .fieldNumber {
   font-variant-numeric: tabular-nums;
-  text-align:           right;
+  text-align:           var(--col-align, right);
   appearance:           textfield;
 }
 
@@ -257,13 +269,13 @@ textarea.veiled {
 
 .sum {
   font-variant-numeric: tabular-nums;
-  text-align:       right;
+  text-align:       var(--col-align, right);
   white-space:      normal;
   word-break:       keep-all;
 }
 
 .expressedText {
-  text-align:    left;
+  text-align:    var(--col-align, left);
   white-space:   normal;
   overflow-wrap: anywhere;
 }
@@ -366,7 +378,7 @@ textarea.veiled {
   font:          inherit;
   width:         100%;
   box-sizing:    border-box;
-  text-align:    left;
+  text-align:    var(--col-align, left);
   border:        1px solid transparent;
   background:    transparent;
   color:         inherit;
@@ -452,7 +464,8 @@ textarea.veiled {
     padding:       8px;
   }
 
-  .cell { border-bottom: none; padding: 4px 0; height: auto }
+  /* A card has no header above a column to line up under: each box sets itself, whatever its column says */
+  .cell { border-bottom: none; padding: 4px 0; height: auto; --col-align: initial; --col-justify: initial }
 
   .cell::before {
     content:        attr(data-colname);

@@ -153,6 +153,15 @@ describe('frameOf', () => {
     expect(frame.widgetings.map((widgeting) => widgeting.label)).to.deep.eq(['dumdum'])
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
   })
+
+  it('sends each column as the grid needs it, its alignment only where one was set', () => {
+    const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 }
+    const columns = [ColumnRow, { ...ColumnRow, _id: idOf('columns', 'col2'), label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60, position: 1, align: 'right' as const }]
+    expect(frameOf(QuizRow, [], columns).columns).to.deep.eq([
+      { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 },
+      { label: 'qnum',    title: 'Q#',      source: 'question.qnum',    width_px: 60,  align: 'right' },
+    ])
+  })
 })
 
 describe('quizFromSeen', () => {

@@ -280,10 +280,12 @@ than one kind of player. Begun by the categories sprint, October 2026
 
 ## Columns and the bag
 
-* **column** -- what the grid shows: a `label`, a `title`, a `width_px` and a `source`. Kept apart
-  from widgetings on purpose: a widgeting *has* a value, a column *shows* one. Removing a column
-  keeps its widgeting; removing a widgeting takes its columns. Columns have a label space of their
-  own per quiz, and the TSV's headers are column labels.
+* **column** -- what the grid shows: a `label`, a `title`, a `width_px`, a `source`, and perhaps
+  an `align` (left, center or right; absent, Q# is centered and every other cell sets itself, a
+  number to the right and anything else to the left). Kept apart from widgetings on purpose: a
+  widgeting *has* a value, a column *shows* one. Removing a column keeps its widgeting; removing a
+  widgeting takes its columns. Columns have a label space of their own per quiz, and the TSV's
+  headers are column labels.
 * **source** -- what a column shows: `question.<field>`, `question.<view>`, a widgeting's
   label, or `<widgeting>.<part>`: one **part** of what a widgeting came to, which only a
   category-estimate entry offers (`estimates`, `masie`, `artie`, `poppy`, `average`), worked out on

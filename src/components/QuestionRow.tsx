@@ -12,7 +12,7 @@ import { EntryCell } from './cells/entry'
 import { EstimatePartReadout } from './cells/estimates'
 import * as Runner from '../lib/formulary/runner'
 import { formularyFor } from '../lib/formulary/formularies'
-import type { QuestionField, WidgetingPart } from '../models/column'
+import type { ColumnAlign, QuestionField, WidgetingPart } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
 import type { EntryValueT } from '../models/widget'
 import { ButnotPreview, ChainPicker } from './cells/chain'
@@ -31,6 +31,14 @@ const WideReadoutPx = 150
 
 /** Shortest a row may be, so an empty quiz still reads as a grid */
 export const RowFloorPx = 56
+
+/** The class that hands a column's alignment to every box in its cells and its header */
+const AlignClasses: Readonly<Record<ColumnAlign, string | undefined>> = { left: styles.alignLeft, center: styles.alignCenter, right: styles.alignRight }
+
+/** The class for a header or cell of a column aligned so; none when the column leaves each box to set itself */
+export function alignClassOf(align: ColumnAlign | null): string | undefined {
+  return align === null ? undefined : AlignClasses[align]
+}
 
 /** The height a folded row gives every cell: one line of the grid's own box, its 20px line and 5px of padding and border above and below */
 export const FoldedRowPx = 30
@@ -190,7 +198,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const cell = (spec: ColumnSpec) => (
     <td
       key={spec.colkey}
-      className={styles.cell}
+      className={clsx(styles.cell, alignClassOf(spec.align))}
       style={{ width: `${String(spec.widthPx)}px` }}
       data-colname={spec.title}
       onDoubleClick={asksOnDoubleClick(spec) ? () => { reextractFor(spec.source.kind === 'widgeting' ? spec.source.widgeting.widget_label : '') } : undefined}

@@ -291,6 +291,20 @@ describe("edit_column", () => {
     expect(quizOf(await read()).columns.find((column) => column.label === 'notes')).to.deep.eq({ label: 'notes', title: 'My notes', source: 'question.notes', width_px: 300 })
   })
 
+  it("aligns a column, which the quiz then reads back; a column never aligned reads as having no alignment", async () => {
+    const { tt, act, read } = await seed()
+    await act({ kind: 'edit_column', label: 'notes', patch: { align: 'center' } })
+    const { columns } = quizOf(await read())
+    expect(columns.find((column) => column.label === 'notes')?.align).to.eq('center')
+    expect(columns.find((column) => column.label === 'title')).to.not.have.property('align')
+    await expectSound(tt)
+  })
+
+  it("refuses an alignment there is not", async () => {
+    const { act } = await seed()
+    await expect(act({ kind: 'edit_column', label: 'notes', patch: { align: 'middle' as never } })).rejects.toThrow()
+  })
+
   it("renames a column, carrying the quiz's sort memory with it", async () => {
     const { act, read } = await seed()
     await act({ kind: 'sort_questions', sortkey: 'column:title', descending: false })

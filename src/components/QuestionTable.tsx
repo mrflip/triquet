@@ -6,7 +6,7 @@ import ChecklistIcon from '@mui/icons-material/Checklist'
 import clsx from 'clsx'
 import { GutterWidthPx, gridWidthPx, type ColumnSpec, type Headkind } from '../lib/columns'
 import { FoldButton } from './FoldButton'
-import { QuestionRow } from './QuestionRow'
+import { QuestionRow, alignClassOf } from './QuestionRow'
 import { useFolds } from './use-folds'
 import { useSettledResize } from './use-settled-resize'
 import type { QuizRun } from '../lib/formulary/runner'
@@ -117,7 +117,7 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
                 <th
                   key={column.colkey}
                   scope="col"
-                  className={clsx(styles.head, headClassOf(column.headkind), sortkey !== null && sortkey === lastSortkey && styles.headSorted)}
+                  className={clsx(styles.head, headClassOf(column.headkind), alignClassOf(column.align), sortkey !== null && sortkey === lastSortkey && styles.headSorted)}
                   data-sorted={(sortkey !== null && sortkey === lastSortkey) || undefined}
                   style={{ width: `${String(column.widthPx)}px` }}
                   aria-sort={ariaSortFor(sortkey, sortMark)}
