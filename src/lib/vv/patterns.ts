@@ -132,6 +132,18 @@ export const Portnum  = { min: 0, max: 65_535 } as const
 export const Ubux     = { min: -1e12, max: 1e12 } as const
 
 //
+// == [Numberlike strings] == a number written as plain text: digits, an optional sign, an
+// optional decimal point. No exponent, no grouping, no spaces. Lengths leave room for a safe
+// integer's 16 digits, and 16 more past the point; how large the number may be is the check's
+// business, against the numeric bounds above.
+//
+
+export const Intstr  = { re: /^[+-]?\d+$/,          max: 17, msg: 'should be a whole number, written as plain digits' } as const satisfies Patternbag
+export const Uintstr = { re: /^\d+$/,               max: 16, msg: 'should be a whole number, zero or more, written as plain digits' } as const satisfies Patternbag
+export const Numstr  = { re: /^[+-]?\d+(\.\d+)?$/,  max: 34, msg: 'should be a number, written as plain digits with an optional decimal point' } as const satisfies Patternbag
+export const Unumstr = { re: /^\d+(\.\d+)?$/,       max: 33, msg: 'should be a number, zero or more, written as plain digits with an optional decimal point' } as const satisfies Patternbag
+
+//
 // == [Collection sizes] ==
 //
 // The most one parent holds of a kind of child: what a read of them takes, and past which adding

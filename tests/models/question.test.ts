@@ -101,6 +101,14 @@ describe('Question.fill', () => {
         expect(QuestionValidators.question.safeParse({ _id: anId, qnum }).success).to.eq(isLegal)
       })
     }
+
+    it("keeps a Q# written as a number, as a spreadsheet's import sends one, as the text it reads as", () => {
+      expect(QuestionValidators.question.parse({ _id: anId, qnum: 3.1 }).qnum).to.eq('3.1')
+    })
+
+    it("refuses a Q# past the numbers it can count on", () => {
+      expect(QuestionValidators.question.safeParse({ _id: anId, qnum: '9'.repeat(17) }).success).to.be.false
+    })
   })
 })
 

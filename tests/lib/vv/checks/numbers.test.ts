@@ -114,3 +114,101 @@ describe('the advice a numeric check gives', () => {
     expect(rejects(CK.quantity, 20_000_000)).to.include('20_000_000')
   })
 })
+
+describe("numberlike strings", () => {
+  // [check, given, what it hands back, or null where it refuses]
+  const Cases: [keyof typeof CK, unknown, unknown][] = [
+    ['intstr',  "-12",    "-12"],
+    ['intstr',  -12,      "-12"],
+    ['intstr',  " 7",     null],
+    ['intstr',  "+7",     "+7"],
+    ['intstr',  "1.5",    null],
+    ['intstr',  1.5,      null],
+    ['uintstr', "0",      "0"],
+    ['uintstr', "-1",     null],
+    ['uintstr', -1,       null],
+    ['numstr',  "-2.5",   "-2.5"],
+    ['numstr',  2.5,      "2.5"],
+    ['numstr',  "3.10",   "3.10"],
+    ['unumstr', "3.1",    "3.1"],
+    ['unumstr', "-3.1",   null],
+    ['strint',  "-12",    -12],
+    ['strint',  -12,      -12],
+    ['strint',  "1.5",    null],
+    ['ustrint', "007",    7],
+    ['ustrint', "-7",     null],
+    ['strnum',  "-2.5",   -2.5],
+    ['strnum',  2.5,      2.5],
+    ['ustrnum', "3.10",   3.1],
+    ['ustrnum', "-3.1",   null],
+  ]
+  for (const [ckname, val, wanted] of Cases) {
+    if (wanted === null) {
+      it(`${ckname} refuses ${JSON.stringify(val)}`, () => { rejects(CK[ckname], val) })
+    } else {
+      it(`${ckname} makes ${JSON.stringify(val)} into ${JSON.stringify(wanted)}`, () => {
+        expect(accepts(CK[ckname], val)).to.eq(wanted)
+      })
+    }
+  }
+
+  const NotNumberlike: [unknown, string][] = [
+    ["",        'blank text'],
+    ["three",   'a word'],
+    ["1e5",     'an exponent'],
+    ["1,000",   'grouped digits'],
+    ["1 000",   'spaced digits'],
+    ["7 ",      'a trailing space'],
+    [".5",      'a fraction with no whole part'],
+    ["5.",      'a point with nothing after it'],
+    ["0x1f",    'hexadecimal'],
+    [null,      'null'],
+    [NaN,       'NaN'],
+    [Infinity,  'an infinity'],
+  ]
+  for (const ckname of ['intstr', 'uintstr', 'numstr', 'unumstr', 'strint', 'ustrint', 'strnum', 'ustrnum'] as const) {
+    for (const [val, blurb] of NotNumberlike) {
+      it(`${ckname} refuses ${blurb}`, () => { rejects(CK[ckname], val) })
+    }
+  }
+
+  it("refuses text spelling a number past the safe integers, either way it arrives", () => {
+    accepts(CK.uintstr, '9007199254740991')
+    rejects(CK.uintstr, '9007199254740992')
+    rejects(CK.strint, '-9007199254740992')
+    rejects(CK.numstr, '9007199254740991.5')
+  })
+
+  it("refuses a number that writes itself with an exponent, which no text check takes", () => {
+    rejects(CK.numstr, 1e-7)
+    expect(accepts(CK.strnum, 1e-7)).to.eq(1e-7)
+  })
+
+  it("encodes back the other way", () => {
+    expect(CK.ustrnum.encode(2.5)).to.eq('2.5')
+    expect(CK.unumstr.encode('2.5')).to.eq('2.5')
+  })
+
+  it("says what shape it wanted", () => {
+    expect(rejects(CK.unumstr, 'three')).to.include('should be a number, zero or more, written as plain digits')
+    expect(rejects(CK.uintstr, '9007199254740992')).to.include('should be from 0 to 9007199254740991')
+  })
+
+  it("says only what shape it wanted, when the text is not a number at all", () => {
+    expect(rejects(CK.unumstr, 'three')).not.to.include('should be from')
+  })
+})
+
+describe("unumstrOrBlank", () => {
+  it("takes blank text, and what unumstr takes", () => {
+    expect(accepts(CK.unumstrOrBlank, '')).to.eq('')
+    expect(accepts(CK.unumstrOrBlank, '3.1')).to.eq('3.1')
+    expect(accepts(CK.unumstrOrBlank, 3.1)).to.eq('3.1')
+  })
+  it("refuses what unumstr refuses, with unumstr's own advice and code", () => {
+    const res = CK.unumstrOrBlank.safeParse('three')
+    expect(res.error?.issues.map((issue) => issue.code)).to.deep.eq(['invalid_format'])
+    rejects(CK.unumstrOrBlank, ' ')
+    rejects(CK.unumstrOrBlank, -1)
+  })
+})
