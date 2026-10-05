@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: threads 0-6 landed (#121, #125, #126, #127, #128, #129, #130); thread 7 (the Coach's follow-ups) underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: done. Threads 0-7 landed (#121, #125, #126, #127, #128, #129, #130, #133); the `orglabel` tighten waits on the production backfill.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first

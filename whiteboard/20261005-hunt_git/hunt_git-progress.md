@@ -14,7 +14,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 4 | Watches at the grain of the files | landed #128 |
 | 5 | One repository per hunt | landed #129 |
 | 6 | Downloads and the hunts page | landed #130 |
-| 7 | The Coach's follow-ups | landing (lane 1) |
+| 7 | The Coach's follow-ups | landed #133 |
 
 ## What the threads have taught
 
@@ -207,3 +207,21 @@ README's paths and the tag format by `tests/content/full-history.test.ts`.
 *Review:* clean at medium. Left, minor: `FullHistoryDownload` and `QuizManageModal` don't catch
 a failed download (predates the sprint); a hunt on the not-found page shows unlinked until the
 hunts list loads; `useHuntRepos` says "Looking…" forever if the listing itself rejects.
+
+### Thread 7: the Coach's follow-ups (landed #133)
+
+A hunt stores its `orglabel` (the maker's ident label, copied at creation, never changed), and
+hunt labels are unique within an org (`by_orglabel_and_label`; `hunts.open` takes the org, or
+none for an old `/h/` address). **Widen only:** after merging, the Coach runs `migrations:runAll`
+on production (`backfillHuntOrglabels`), then a tighten PR makes `orglabel` required and drops
+`rows.orgFor`'s fallback. A wrong org is not found, not redirected. A bare quiz address opens by
+role (smith `!edit`, reviewer `!playtest`; anyone else a notice to contact the smith). Quiz lists
+sort by label. Import carries the whole quiz (fields, widgetings, columns, styling,
+`last_sortkey`). Tables follow `notes/decisions/tsv-formats.md`. Widgets live at
+`/pub/widgets/<label>`, balls `{ pub: { widgets } }`. Off-screen quiz watches open after load and
+idle.
+
+*Review:* fixed at medium (`hunts.open` accepts a missing org, for tabs on the previous app
+during a deploy). Left, minor: a whole-hunt paste into an unmatched quiz carries the first quiz's
+fields and columns [orchestrator: carry them only on a label or title match, or a single-quiz
+paste]; a re-added column can clear the quiz's sort memory.
