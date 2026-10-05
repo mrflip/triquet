@@ -71,7 +71,24 @@ suite runs at landing.
   widgeting): 141 columns for the classic layout. That is the Coach's "even if that's
   silly"; the questions' table is the legible one.
 
+## Review
+
+Medium review, `fixed`: one commit added (`e53cb04`: `Tsv.textOf` escapes the header's column
+names as it escapes cells, since a free-form key holding a tab or a line break split the header).
+Minor findings left:
+
+* **Dotted column names can collide**: `{ a: { b: 1 } }` and a literal `'a.b'` key both become
+  column `a.b`, and the `.tsv` loses one value (the `.json` keeps both). Reachable only through
+  free-form keys (a widgeting's value, a widget's config). A column-naming decision, left.
+* The jq test fails rather than skips where jq is missing; its error names jq, and CI's ubuntu
+  runners have it.
+* **For thread 4**: a quiz's files also depend on the library and the wheel (through its `run`),
+  so a change to either rewrites every quiz's `.tqq` files.
+
 ## For the Coach
+
+*The orchestrator recommends keeping all three as built: a row per question for reviews, the
+quiz's one-row table (the Coach asked that every TSV read the same way), and the escapes.*
 
 * **A review's table: a row per question (as built), or one row** as the plan's gloss reads?
   One line in `Huntfiles.recordsOf` either way.
