@@ -1,9 +1,9 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 3 underway. Threads 1 and 2 merged to main by the Coach via #99 (#96 closed);
-thread 1b complete and reviewed (#105, follows #99); thread 2 reviewed late, clean. The sprint runs in
-the worktree `.claude/worktrees/little_fixes`.
+`/sprint`. **Status:** done. Threads 1 and 2 merged by the Coach via #99 (#96 closed); thread 1b is #105
+(follows #99), thread 3 is #108 (stacked on #105); all reviewed, all clean or fixed. See
+`human/20261005-sprint_little_fixes_done.md`.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz

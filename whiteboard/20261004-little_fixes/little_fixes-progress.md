@@ -9,8 +9,8 @@ their sections below the table, newest first.
 | ------ | ---------------------------- | ------ | -- | ------- |
 | 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
 | 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
-| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete |
-| 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | complete |
+| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete, reviewed (clean) |
+| 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | complete, reviewed (clean) |
 
 ## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
 
@@ -85,6 +85,11 @@ Screenshots (`screenshots/thread3-*-{before,after}.png`; read them to review the
 `grid-folded-dark-1400`, `grid-folded-right-light-1400` (the widget columns), `grid-open-dark-1400`,
 `grid-folded-light-900`, `widgets-light-1400` and `widgets-dark-1400` (one row open),
 `widgets-light-640` and `widgets-light-420` (narrowing).
+* *Review:* `clean`, at medium; the full `pnpm test:e2e` then passed 230, the two late panel
+  specs included. Minor, left: `statusLine` (`widget-words.ts`) is exported and tested but no
+  view calls it -- `StatusSentence` repeats its join to colour the errored phrase, while both
+  doc blocks name `statusLine` as the way; `hiddenUntil` in its new `room.ts` has no unit test
+  of its own (it had none before; e2e narrowing specs cover it).
 
 ## Thread 1b: the ident gate, the Coach's follow-up (2026-10-05)
 
