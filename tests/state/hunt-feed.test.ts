@@ -566,6 +566,67 @@ describe('watchHunt, when the browser is idle', () => {
   })
 })
 
+/** A page still loading: its `document` says so, and its `window` fires `load` when the test says */
+function loadingPage(): { load: () => void } {
+  const page = new EventTarget()
+  vi.stubGlobal('window', page)
+  vi.stubGlobal('document', { readyState: 'loading' })
+  return { load: () => { page.dispatchEvent(new Event('load')) } }
+}
+
+/** The quiz watches `standIn` holds: each quiz's whole, and the screen's frame and questions */
+const quizWatchesOf = (standIn: StandInT) => standIn.held().filter((fnname) => fnname.startsWith('quiz') || fnname.startsWith('question'))
+
+describe('watchHunt, as the page loads', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it("opens the quizzes not on screen only once the page has loaded and the browser is idle, the screen's own first", async () => {
+    const page = loadingPage()
+    const idle = heldIdle()
+    const held = await peopled()
+    const { standIn, readings } = await fed(held)
+    const settleIdle = async () => {
+      for (let works = idle.pending(); works.length > 0; works = idle.pending()) {
+        for (const work of works) { work() }
+        await standIn.settle()
+      }
+    }
+    await settleIdle()
+    expect(quizWatchesOf(standIn)).to.deep.eq(['questions:open', 'questions:open', 'quizzes:open'])
+    expect(readings).to.have.lengthOf(0)
+
+    page.load()
+    expect(idle.timeouts().at(-1)).to.eq(IdleWaitMs)
+    await settleIdle()
+    expect(quizWatchesOf(standIn)).to.deep.eq(['questions:open', 'questions:open', 'quizzes:open', 'quizzes:whole', 'quizzes:whole'])
+    expect(readings).to.have.lengthOf(1)
+    expect(lastOf(readings).files).to.deep.eq(await filesFromRows(held))
+  })
+
+  it("opens them at once for whoever waits on the feed to be read", async () => {
+    loadingPage()
+    heldIdle()
+    const held = await peopled()
+    const { standIn, feed } = await fed(held)
+    const read = feed.whenRead()
+    await standIn.settle()
+    feed.settle()
+    await read
+    expect(quizWatchesOf(standIn).filter((fnname) => fnname === 'quizzes:whole')).to.have.lengthOf(2)
+  })
+
+  it("calls off its wait for the page when stopped", async () => {
+    const page = loadingPage()
+    const idle = heldIdle()
+    const held = await peopled()
+    const { standIn, feed } = await fed(held)
+    feed.stop()
+    page.load()
+    expect(idle.pending()).to.have.lengthOf(0)
+    expect(standIn.held()).to.deep.eq([])
+  })
+})
+
 // --- Measured: what the feed costs on a large hunt. `TQ_MEASURE_FEED=1 pnpm vitest run tests/state/hunt-feed.test.ts`
 // runs it (about five minutes) and writes its table to `MeasuredPath`.
 

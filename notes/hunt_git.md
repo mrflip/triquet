@@ -225,9 +225,14 @@ the grain of the files**, for a smith only (`Question.isSentWhole`):
 Every watch is sent the affirms the screen sends, so one the screen also holds is one
 subscription, and an author's edit to the quiz on screen arrives as the one question. The feed
 follows the quiz list, opening a quiz's watches as it is listed and closing them as it goes, and
-moves the quiz on screen between the two ways of reading it as the screen moves (`focus`). A
-quiz's files depend on the library and the hunt's wheel as well as the quiz (its run), so a
-change to either makes every quiz's files again; only the bodies that differ are new.
+moves the quiz on screen between the two ways of reading it as the screen moves (`focus`). **A
+quiz not on screen opens its watches only once the page has loaded and the browser is idle**
+(`requestIdleCallback`, `IdleWaitMs` at the latest), so the screen's own reads come first; so the
+first reading, and the catch-up commit, wait for that too, and waiting on the feed to be read (a
+milestone, an import, a deletion) opens them at once. Nothing else is deferred, nothing polls, and
+nothing is read again as the page unloads. A quiz's files depend on the library and the hunt's
+wheel as well as the quiz (its run), so a change to either makes every quiz's files again; only
+the bodies that differ are new.
 
 Each part's files are made from its watches alone (`huntPartOf`, `quizPartOf`, `widgetsPartOf`,
 over `Exporting.huntLevelBalls`, `quizBallsIn` and `workedBalls`, handed to `Huntfiles.filesOf`),
