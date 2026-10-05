@@ -85,8 +85,9 @@ a database -- give yourself a parallel one the same way, and add its script to `
 **Your checkout's root is `git rev-parse --show-toplevel`**, which in a worktree is not
 `/workspace/triquet`. Every path in this repo's documents and in a handoff is relative to that
 root. When a tool wants an absolute path, build it from your own root, never from a path you
-saw elsewhere: an absolute path into another checkout edits that checkout, not yours. Hand
-paths on the same way, relative to the root, or prefixed with the root you mean, spelled out.
+saw elsewhere: an absolute path into another checkout edits that checkout, not yours. Reading
+the main checkout for context is fine; writing to it is not. Hand paths on the same way,
+relative to the root, or prefixed with the root you mean, spelled out.
 
 A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is emptied and pushed again, and production is migrated (`notes/deploy.md`).
 
