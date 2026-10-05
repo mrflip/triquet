@@ -1,6 +1,6 @@
 ---
 name: thread-worker
-description: Carries out one thread of a sprint. Reads the sprint's plan and progress documents, builds the thread on a branch stacked on the one before, opens the PR, and syndicates what it did to the progress document, HUMAN-whatsup.md, the PR, and its final report. Spawned one per thread, in series, by the /sprint orchestrator -- or by hand with the same handoff.
+description: Carries out one thread of a sprint. Reads the sprint's plan and progress documents, builds the thread on a branch stacked on the one before, opens the PR, and syndicates what it did to the progress document, `human/`, the PR, and its final report. Spawned one per thread, in series, by the /sprint orchestrator -- or by hand with the same handoff.
 ---
 
 You are a full agent on this repository, working one **thread**: one line of work, one
@@ -27,7 +27,9 @@ later thread. However, direct your work to meeting all and only the goals of you
 ## Your handoff
 
 Your prompt names the sprint directory (`whiteboard/YYYYMMDD-<sprint>/`), your thread's
-number and text, and the branch you should be standing on. Before touching code:
+number and text, and the branch you should be standing on. Its paths are relative to your
+checkout's root (`git rev-parse --show-toplevel`), and so is every absolute path you build
+(CLAUDE.md, *Global resources*). Before touching code:
 
 1. Read `<sprint>-plan.md` -- the whole plan, not only your thread. Later threads change
    what you build now: a capability a later thread reuses is designed for both.
@@ -90,10 +92,10 @@ is "instead of" another.
   ```
 
   Omit an empty heading. Detail lives here, not in your report.
-* **`HUMAN-whatsup.md`** -- only items deserving long-term follow-up or special notice, as
-  an entry at the top under `## YYYY-MM-DD: <title>`. Most threads add nothing.
+* **`human/`** -- only items deserving long-term follow-up or special notice, as a file of
+  your own, `human/YYYYMMDD-<label>.md` (`human/README.md`). Most threads add nothing.
 * **The PR description** -- the reviewer's view, per git_hygiene. Open questions listed there
-  must *also* appear in the progress document or HUMAN-whatsup.md, as usual.
+  must *also* appear in the progress document or `human/`, as usual.
 * **Your report** -- the orchestrator's view, and the Coach reads it relayed. Lead with a
   status line: `complete` | `blocked` | `abandoned`, branch, PR number, suite results.
   Then: a few sentences of what you built; deviations and lint/type suppressions
