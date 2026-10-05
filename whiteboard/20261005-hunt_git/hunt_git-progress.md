@@ -12,7 +12,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 2 | Jsonballs, and Import and Export through them | landed #126 |
 | 3 | A hunt's files | landed #127 |
 | 4 | Watches at the grain of the files | landed #128 |
-| 5 | One repository per hunt | underway |
+| 5 | One repository per hunt | landing (lane 1) |
 | 6 | Downloads and the hunts page | pending (after 5 and 1) |
 
 ## What the threads have taught
