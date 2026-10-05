@@ -75,17 +75,13 @@ describe('idents.performAccount: assume_ident', () => {
     expect([again, idents.map((row) => row.title), identings.length]).to.deep.eq([first, ['Flip'], 2])
   })
 
-  it('claims an ident nobody holds yet, made before usernames were held, whether its holder is null or missing', async () => {
+  it('claims an ident nobody holds yet, made before usernames were held', async () => {
     const tt = openTester()
-    await tt.run(async (ctx) => {
-      await ctx.db.insert('idents', { label: 'old_timer', title: 'Old Timer', user_id: null })
-      await ctx.db.insert('idents', { label: 'older_timer', title: 'Older Timer' })
-    })
+    await tt.run(async (ctx) => { await ctx.db.insert('idents', { label: 'old_timer', title: 'Old Timer', user_id: null }) })
     const session = await signedIn(tt)
     await assume(session, 'old_timer')
-    await assume(session, 'older_timer')
     const idents = await allOf(tt, 'idents')
-    expect(idents.map((row) => row.user_id)).to.deep.eq([session.user_id, session.user_id])
+    expect(idents.map((row) => row.user_id)).to.deep.eq([session.user_id])
   })
 
   it('refuses a username another session holds, saying what to do instead, and writes nothing', async () => {

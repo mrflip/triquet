@@ -1,5 +1,8 @@
 # Sprint `dbpolicy`: progress
 
+**Sprint done, 2026-10-04**: ten threads, ten PRs (#79 to #93), all reviewed, none merged. The
+summary and every open question are in `HUMAN-whatsup.md` (*Sprint dbpolicy done*).
+
 The running handoff. Newer than `dbpolicy-plan.md` wherever they disagree. Each thread updates
 its row below and adds its section above the others, newest first.
 
@@ -16,8 +19,93 @@ its row below and adds its section above the others, newest first.
 | 7 | Reads shaped by role | complete, reviewed (clean) | `20261004-dbpolicy_role_reads` | #89 |
 | 8 | Views ask `Approve` | complete, reviewed (clean) | `20261004-dbpolicy_views_approve` | #90 |
 | 9 | The library behind an admin helper | complete, reviewed (clean) | `20261004-dbpolicy_library_admin` | #92 |
-| 10 | Tighten | underway (merge waits on production backfills) | | |
+| 10 | Tighten | complete, reviewed (clean); merge waits on production backfills | `20261004-dbpolicy_tighten` | #93 |
 
+
+## Thread 10: Tighten (2026-10-04)
+
+Branch `20261004-dbpolicy_tighten`, PR #93, stacked on #92. Suites: typecheck, lint, `pnpm test` (112 files, 3016), e2e (209, `pnpm test:e2e:agent`) all green, first run.
+
+*Review:* `clean`, at medium; no fixes, no findings. Checked that every table derives from its
+row validator, that no row read still touches `forced_label` (only the paste-import format names
+it: *For the Coach* 7), that the helpers and readers stripped of fallbacks read required fields,
+and that nothing references the deleted backfills. One behaviour change, harmless once
+backfilled: `membersOf` no longer drops a hunting whose ident is missing. The main risk is deploy
+order, not code: production refuses #93's push until `runAll` has finished there.
+
+*Orchestrator:* this thread read a production export it found on disk
+(`data/triquet-prod-20261004.zip`), by script, imported nowhere, extracted copy deleted. No rule
+forbade it, but production data is the Coach's to hand out: flagged in `HUMAN-whatsup.md`.
+
+* **Built**:
+  - **`convex/schema.ts`** derives every table from its row validator again, as main does, apart
+    from the three any-JSON fields. Now required: `idents.user_id` (still nullable: unclaimed),
+    the copies of thread 4's table. `forced_label` is gone from the schema; `copied*` and
+    `retiringForcedLabel` are gone.
+  - **`convex/migrations.ts`** is byte for byte main's (#78's shape): the component, `run`, nothing
+    pending. `runAll` and the ten backfills are gone, and `tests/convex/migrations.test.ts` with
+    them. The component stays registered (`convex/convex.config.ts`) for the next widen.
+  - **Fallbacks removed**:
+    - `huntIdOf`, `huntIdOfLayoutRow` and `reviewingCopiesOf` are deleted. Their only callers
+      were the update helpers and the backfills.
+    - `membersOf` maps the huntings (no ident read, no null filter).
+    - `usageOf` counts `widgeting.hunt_id`.
+    - `updateQuiz`, `updateWidgeting`, `updateColumn` and `updateReviewing` hold the row as it
+      stands.
+    - `relabelHunt`/`relabelQuiz` lost their `forced_label` lines.
+    - `claimFor` reads `ident.user_id` without `?? null`.
+  - **Tests**:
+    - `Backfilling` and `Retiring` are empty.
+    - The fallback tests in `reading.test.ts` and `quiz_writing.test.ts` are gone. A new test has
+      the three update helpers revise their rows, keep their copies, and pass `expectSound`.
+    - Raw inserts now write every copy and `user_id`. `joinHunt` in `hunts.test.ts` became the
+      shared `putOn`.
+    - The idents test of a claim on a missing `user_id` now tests a null one.
+    - `soundness.test.ts` breaks a quiz's copy by naming another hunt (a missing copy is no longer
+      possible).
+  - **`notes/deploy.md`**: the three ledger rows name #79, #82, #83. Thread 4's row says its
+    `runAll` covers all three.
+* **Decisions taken**:
+  - **The ledger names branches and PRs, not main's commits.** None is merged yet. This follows
+    #77's row. Once merged, each name stands for that PR's merge commit.
+  - **Kept `@convex-dev/migrations` and `migrations.run`**, as #78 did. Nothing else needs them,
+    but the next widen does, and removing the component would itself be a push to plan.
+  - **Tests rewritten, not deleted**, where a fallback test was the only coverage (the three
+    update helpers).
+* **Discoveries**:
+  - **The production export of 2026-10-04** (`data/triquet-prod-20261004.zip`), read with a
+    script and not imported:
+    - No orphans: no quiz without its realm, column without its quiz, reviewing without its review,
+      or hunting without its ident. Its widgetings and widgeteds are empty, from before the
+      rewidgeting clearing. So `runAll` should leave nothing for this push to refuse.
+    - Eight `forced_label` overrides (three hunts, five quizzes) fold without a label clash.
+
+    I did not rehearse the whole sequence on a local copy. That export also needs the
+    rewidgeting's clearing and #77's migration before main's schema takes it.
+  - **A dry run of `runAll` previews only its first migration**: `@convex-dev/migrations` throws
+    after one batch. To preview a single backfill, dry-run it alone through `migrations:run`.
+  - `convex/_generated/` did not change.
+* **For the Coach**: **what is left before the stack can deploy**, in order (also in
+  `HUMAN-whatsup.md` and at the top of #93):
+  1. Production's Convex Auth keys (`JWT_PRIVATE_KEY`, `JWKS`, `SITE_URL`), then clear
+     `identings` by hand: before #79 (`notes/deploy.md`, *Sessions*).
+  2. Merge #79 to #92 in order. Run `migrations:runAll` straight after #83 deploys and before #86
+     does (or straight after, if the stack goes out at once). Check `lib:getStatus` until all ten
+     are done.
+  3. Merge #93. A row its push names is an orphan: delete it and redeploy.
+
+  Still open from earlier threads:
+  - *For the Coach* 7: import's `forced_label`. Import still reads it.
+  - 2 and 3: claiming usernames.
+  - 5: what a reviewer is sent.
+  - 8: idents through the scoped database.
+  - 9: the widgeteds backstop.
+  - 10: the `e2e` role may need a reset.
+  - 11: the dispatcher's notice.
+  - 12: `idents.current` sends `user_id`.
+  - The `prefer-combined-guards` lint ruling.
+  - Session lifetime.
+  - `isAdmin`'s rule.
 
 ## Thread 9: The library behind an admin helper (2026-10-04)
 

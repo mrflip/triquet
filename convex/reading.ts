@@ -13,8 +13,7 @@ import type { QuizT } from '../src/models/quiz'
 // `ok` row, so it reads one row, plus one per failure since.
 //
 // A row carries copies of what policy needs from its parents (`notes/convex.md`, *Denormalized
-// fields*), so the hunt a row belongs to is on the row. A row written before it carried its copies
-// has its parent read for them instead, until `migrations.ts` has backfilled it.
+// fields*), so the hunt a row belongs to is on the row.
 
 /** What a query or a mutation reads through */
 export type Reader = QueryCtx['db']
@@ -62,58 +61,13 @@ export async function huntingFor(db: Reader, hunt_id: Id<'hunts'>, ident_id: Id<
 /** A hunt's huntings, in the order they were made, each with the label and title of its ident, as the hunting holds them */
 export async function membersOf(db: Reader, hunt_id: Id<'hunts'>): Promise<MemberT[]> {
   const huntings = await huntingsOf(db, hunt_id)
-  const members = await Promise.all(huntings.map(async (hunting) => await memberOf(db, hunting)))
-  return members.filter((member) => member !== null)
-}
-
-/** One hunting as a member: its ident's label and title as it holds them, or as its ident does for a hunting not yet backfilled; null when that ident is gone */
-async function memberOf(db: Reader, hunting: Doc<'huntings'>): Promise<MemberT | null> {
-  const { ident_id, ident_label, ident_title, role } = hunting
-  if (ident_label !== undefined && ident_title !== undefined) { return { ident_id, label: ident_label, title: ident_title, role } }
-  const ident = await db.get('idents', ident_id)
-  return ident && { ident_id, label: ident.label, title: ident.title, role }
+  return huntings.map(({ ident_id, ident_label, ident_title, role }) => ({ ident_id, label: ident_label, title: ident_title, role }))
 }
 
 /** A hunt's realms in order, each with its quizzes' rows in the order they were made */
 export async function realmsOf(db: Reader, hunt_id: Id<'hunts'>): Promise<RealmRows[]> {
   const realms = await db.query('realms').withIndex('by_hunt_id_and_position', (cvx) => cvx.eq('hunt_id', hunt_id)).take(PA.RealmsPerHunt.max)
   return await Promise.all(realms.map(async (realm) => ({ realm, quizzes: await quizzesOf(db, realm._id) })))
-}
-
-/**
- * The hunt `quiz` belongs to: the one it names, or for a quiz not yet backfilled, its realm's.
- * Null when that realm is gone.
- *
- * @example await huntIdOf(ctx.db, quiz)  // => quiz.hunt_id, read from no other row once backfilled
- */
-export async function huntIdOf(db: Reader, quiz: Pick<Doc<'quizzes'>, 'hunt_id' | 'realm_id'>): Promise<Id<'hunts'> | null> {
-  if (quiz.hunt_id !== undefined) { return quiz.hunt_id }
-  const realm = await db.get('realms', quiz.realm_id)
-  return realm?.hunt_id ?? null
-}
-
-/**
- * The hunt a widgeting or column belongs to: the one it names, or for one not yet backfilled, its
- * quiz's. Null when that quiz is gone, or its realm.
- */
-export async function huntIdOfLayoutRow(db: Reader, row: Pick<Doc<'widgetings'> | Doc<'columns'>, 'hunt_id' | 'quiz_id'>): Promise<Id<'hunts'> | null> {
-  if (row.hunt_id !== undefined) { return row.hunt_id }
-  const quiz = await db.get('quizzes', row.quiz_id)
-  return quiz && await huntIdOf(db, quiz)
-}
-
-/** What a reviewing copies from its review */
-export type ReviewingCopiesT = Pick<Doc<'reviews'>, 'hunt_id' | 'quiz_id' | 'ident_id'>
-
-/**
- * The hunt, quiz and writer of the review `reviewing` is part of: as it holds them, or for one not
- * yet backfilled, as its review does. Null when that review is gone.
- */
-export async function reviewingCopiesOf(db: Reader, reviewing: Doc<'reviewings'>): Promise<ReviewingCopiesT | null> {
-  const { hunt_id, quiz_id, ident_id } = reviewing
-  if (hunt_id !== undefined && quiz_id !== undefined && ident_id !== undefined) { return { hunt_id, quiz_id, ident_id } }
-  const review = await db.get('reviews', reviewing.review_id)
-  return review && { hunt_id: review.hunt_id, quiz_id: review.quiz_id, ident_id: review.ident_id }
 }
 
 /** A realm's quizzes' rows, in the order they were made */
@@ -181,9 +135,8 @@ export async function usageOf(db: Reader, widget_label: string): Promise<WidgetU
   const read = await db.query('widgetings').withIndex('by_widget_label', (cvx) => cvx.eq('widget_label', widget_label)).take(PA.WidgetingsCounted.max + 1)
   const counted = read.slice(0, PA.WidgetingsCounted.max)
   const quiz_ids = new Set(counted.map((widgeting) => widgeting.quiz_id))
-  const hunt_ids = await Promise.all(counted.map(async (widgeting) => await huntIdOfLayoutRow(db, widgeting)))
-  const hunts = new Set(hunt_ids.filter((hunt_id) => hunt_id !== null))
-  return { widgetings: counted.length, quizzes: quiz_ids.size, hunts: hunts.size, at_least: read.length > counted.length }
+  const hunt_ids = new Set(counted.map((widgeting) => widgeting.hunt_id))
+  return { widgetings: counted.length, quizzes: quiz_ids.size, hunts: hunt_ids.size, at_least: read.length > counted.length }
 }
 
 /**

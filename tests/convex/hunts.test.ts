@@ -14,7 +14,6 @@ import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { defaultLayout } from '../../src/models/layout'
 import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
-import type { HuntRole } from '../../src/models/hunting'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import { present } from '../support/present'
@@ -1381,7 +1380,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const reviewers = Array.from({ length: 999 }, (_unused, idx) => `reviewer_${String(idx)}`)
       for (const label of reviewers) {
-        const ident_id = await ctx.db.insert('idents', { label, title: 'Reviewer' })
+        const ident_id = await ctx.db.insert('idents', { label, title: 'Reviewer', user_id: null })
         await ctx.db.insert('reviews', { hunt_id: open.hunt_id, quiz_id: open.quiz_id, ident_id, overall: '', phase: 'empty' })
       }
     })
@@ -1422,19 +1421,14 @@ describe("hunts.perform, at the door", () => {
   })
 })
 
-/** Put `ident_id` on the hunt `hunt_id` as `role`, as a smith adding them would */
-async function joinHunt(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'idents'>, role: HuntRole) {
-  await tt.run(async (ctx) => { await ctx.db.insert('huntings', { hunt_id, ident_id, role }) })
-}
-
 describe("hunts.list", () => {
   it("lists the hunts one is on, titled, in the order they were made, with its realms' quizzes in the order they were made", async () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('First'), Quiz.blank('Second')]), label: 'quiet_otter', title: '' })
     const heron = await seedHunt(tt, { ...huntHolding([Quiz.blank('Only')]), label: 'loud_heron', title: 'The Heron Hunt' })
-    await joinHunt(tt, heron.open.hunt_id, alice.ident_id, 'smith')
-    await joinHunt(tt, otter.open.hunt_id, alice.ident_id, 'reviewer')
+    await putOn(tt, heron.open.hunt_id, alice.ident_id, 'smith')
+    await putOn(tt, otter.open.hunt_id, alice.ident_id, 'reviewer')
     const hunts = await alice.as.query(api.hunts.list, {})
     expect(hunts.map((hunt) => [hunt.label, hunt.title, hunt.role, hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])])).to.deep.eq([
       ['quiet_otter', 'Quiet Otter', 'reviewer', [['home', ['First', 'Second']]]],
@@ -1448,7 +1442,7 @@ describe("hunts.list", () => {
     const bob = await identified(tt, 'bob_reviews')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Mine')]), label: 'quiet_otter' })
     await seedHunt(tt, { ...huntHolding([Quiz.blank('Nobody\'s')]), label: 'loud_heron' })
-    await joinHunt(tt, otter.open.hunt_id, alice.ident_id, 'smith')
+    await putOn(tt, otter.open.hunt_id, alice.ident_id, 'smith')
     const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
     expect(await bob.as.query(api.hunts.list, {})).to.deep.eq([])
@@ -1459,7 +1453,7 @@ describe("hunts.list", () => {
     const alice = await identified(tt, 'alice_smiths')
     const otter = await seedHunt(tt, { ...huntHolding([Quiz.blank('Her other self\'s')]), label: 'quiet_otter' })
     const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
-    await joinHunt(tt, otter.open.hunt_id, otherself, 'reviewer')
+    await putOn(tt, otter.open.hunt_id, otherself, 'reviewer')
     const listed = await alice.as.query(api.hunts.list, {})
     expect(listed.map((hunt) => hunt.label)).to.deep.eq(['quiet_otter'])
   })
@@ -1493,8 +1487,8 @@ describe("hunts.open", () => {
     const { open, smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await identified(tt, 'bob_reviews')
     const alice = await identified(tt, 'alice_smiths')
-    await joinHunt(tt, open.hunt_id, alice.ident_id, 'smith')
-    await joinHunt(tt, open.hunt_id, bob.ident_id, 'reviewer')
+    await putOn(tt, open.hunt_id, alice.ident_id, 'smith')
+    await putOn(tt, open.hunt_id, bob.ident_id, 'reviewer')
     const hunt = await shown('quiet_otter', bob)
     expect(hunt.members.map((member) => [member.label, member.title, member.role, member.ident_id])).to.deep.eq([
       ['seed_smith', 'Seed Smith', 'smith', smith.ident_id],

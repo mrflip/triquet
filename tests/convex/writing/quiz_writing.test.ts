@@ -133,26 +133,25 @@ describe("the update helpers", () => {
     expect([after?.overall, after?.phase, after?.ident_id]).to.deep.eq(['Went well.', 'draft', ident_id])
   })
 
-  it("give a row written before it held its copies of its parents' fields those copies, read from its parent", async () => {
+  it("revise a widgeting, a column and a reviewing, keeping each row's copies of its parents' fields", async () => {
     const { tt, hunt_id, quiz_id, rows } = await holding(huntHolding([{ ...Quiz.blank('Princes'), ...classicLayout(), questions: [Question.blank()] }]))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const held = present(await quizRowsOf(ctx.db, quiz_id))
       const [widgeting, column, question] = [present(held.widgetings[0]), present(held.columns[0]), present(held.questions[0])]
       const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'draft' })
-      const reviewing_id = await ctx.db.insert('reviewings', { review_id, question_id: question._id, get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false })
-      await ctx.db.patch('quizzes', quiz_id, { hunt_id: undefined })
-      await ctx.db.patch('widgetings', widgeting._id, { hunt_id: undefined })
-      await ctx.db.patch('columns', column._id, { hunt_id: undefined })
-      await updateQuiz(ctx.db, present(await ctx.db.get('quizzes', quiz_id)), { title: 'Kings' })
-      await updateWidgeting(ctx.db, present(await ctx.db.get('widgetings', widgeting._id)), { description: 'Revised.' })
-      await updateColumn(ctx.db, present(await ctx.db.get('columns', column._id)), { width_px: 120 })
+      const reviewing_id = await ctx.db.insert('reviewings', {
+        hunt_id, quiz_id, ident_id, review_id, question_id: question._id, get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false,
+      })
+      await updateWidgeting(ctx.db, widgeting, { description: 'Revised.' })
+      await updateColumn(ctx.db, column, { width_px: 120 })
       await updateReviewing(ctx.db, present(await ctx.db.get('reviewings', reviewing_id)), { get_rate: 40 })
     })
     const held = await rows()
     const [reviewing] = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
-    expect([held.quiz.hunt_id, held.widgetings[0]?.hunt_id, held.columns[0]?.hunt_id]).to.deep.eq([hunt_id, hunt_id, hunt_id])
-    expect([reviewing?.hunt_id, reviewing?.quiz_id, reviewing?.ident_id, reviewing?.get_rate]).to.deep.eq([hunt_id, quiz_id, ident_id, 40])
+    expect([held.widgetings[0]?.description, held.columns[0]?.width_px, reviewing?.get_rate]).to.deep.eq(['Revised.', 120, 40])
+    expect([held.widgetings[0]?.hunt_id, held.columns[0]?.hunt_id]).to.deep.eq([hunt_id, hunt_id])
+    expect([reviewing?.hunt_id, reviewing?.quiz_id, reviewing?.ident_id]).to.deep.eq([hunt_id, quiz_id, ident_id])
     await expectSound(tt)
   })
 })
@@ -204,7 +203,7 @@ describe("deleteQuiz", () => {
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
-      await ctx.db.insert('widgeteds', { question_id: present(questions[0])._id, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
+      await ctx.db.insert('widgeteds', { hunt_id, quiz_id, question_id: present(questions[0])._id, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
       await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'empty' })
     })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 12, 21, 1, 1])
@@ -220,7 +219,7 @@ describe("deleteQuiz", () => {
     await tt.run(async (ctx) => {
       const { widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
       const stray = await ctx.db.insert('questions', Question.blankRow({ hunt_id, quiz_id }, 'stray'))
-      await ctx.db.insert('widgeteds', { question_id: stray, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
+      await ctx.db.insert('widgeteds', { hunt_id, quiz_id, question_id: stray, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
     })
     const [quizzes, questions] = await heldCounts(tt, quiz_id)
     expect([quizzes, questions]).to.deep.eq([1, BlankQuestionQty + 1])
@@ -232,12 +231,12 @@ describe("deleteQuiz", () => {
 
 describe("deleteWidgeting", () => {
   it("deletes a widgeting and everything it stored, and leaves another widgeting's alone", async () => {
-    const { tt, quiz_id } = await holding(huntHolding([{ ...Quiz.blank('', 'princes'), ...classicLayout() }]))
+    const { tt, hunt_id, quiz_id } = await holding(huntHolding([{ ...Quiz.blank('', 'princes'), ...classicLayout() }]))
     const ids = await tt.run(async (ctx) => {
       const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
       const [doomed, kept] = [present(widgetings[0]), present(widgetings[1])]
       for (const widgeting of [doomed, kept]) {
-        await ctx.db.insert('widgeteds', { question_id: present(questions[0])._id, widgeting_id: widgeting._id, status: 'ok', value: 1, message: null, result_meta: {} })
+        await ctx.db.insert('widgeteds', { hunt_id, quiz_id, question_id: present(questions[0])._id, widgeting_id: widgeting._id, status: 'ok', value: 1, message: null, result_meta: {} })
       }
       await deleteWidgeting(ctx.db, doomed._id)
       return { kept: kept._id }

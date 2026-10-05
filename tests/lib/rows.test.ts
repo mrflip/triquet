@@ -14,6 +14,7 @@ function idOf<TN extends TableNames>(_table: TN, tail: string): Id<TN> {
   return `j97d0qbj35dar1v8edndzck${tail.padStart(9, '0')}` as Id<TN>
 }
 
+const hunt_id = idOf('hunts', 'h1')
 const quiz_id = idOf('quizzes', 'q1')
 const question_id = idOf('questions', 'qn1')
 const widgeting_id = idOf('widgetings', 'wg1')
@@ -21,7 +22,7 @@ const widgeting_id = idOf('widgetings', 'wg1')
 /** A widgeted row of the first question's `dumdum` cell, recorded at `at`: an answer, or a failure saying `text` */
 function widgetedRow(status: 'ok' | 'errored', at: number, text: string): Doc<'widgeteds'> {
   return {
-    _id: idOf('widgeteds', `d${String(at).replace('.', '')}`), _creationTime: at, question_id, widgeting_id, status,
+    _id: idOf('widgeteds', `d${String(at).replace('.', '')}`), _creationTime: at, hunt_id, quiz_id, question_id, widgeting_id, status,
     value: status === 'ok' ? { guess: text, explanation: '' } : null, message: status === 'errored' ? text : null,
     result_meta: status === 'ok' ? { approx_tokens: 12 } : { response: { ok: false } },
   }
@@ -31,11 +32,11 @@ function widgetedRow(status: 'ok' | 'errored', at: number, text: string): Doc<'w
 const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), ok: widgetedRow('ok', 5.5, 'answered') }
 
 const QuizRow: Doc<'quizzes'> = {
-  _id: quiz_id, _creationTime: 1, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
+  _id: quiz_id, _creationTime: 1, hunt_id, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
   smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
-  _id: widgeting_id, _creationTime: 1, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
+  _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
 }
 /** The standings a question's reader can hold on its hunt, as the claims carry them */
 const Smith = { standing: 'smith' } as const
@@ -43,10 +44,10 @@ const Reviewer = { standing: 'reviewer' } as const
 const Stranger = { standing: 'stranger' } as const
 
 const QuestionRow: Doc<'questions'> = {
-  _id: question_id, _creationTime: 2, hunt_id: idOf('hunts', 'h1'), quiz_id, label: 'leon', title: 'Leon', qnum: '1',
+  _id: question_id, _creationTime: 2, hunt_id, quiz_id, label: 'leon', title: 'Leon', qnum: '1',
   clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
 }
-const HuntRow: Doc<'hunts'> = { _id: idOf('hunts', 'h1'), _creationTime: 0, label: 'quiet_otter', title: '' }
+const HuntRow: Doc<'hunts'> = { _id: hunt_id, _creationTime: 0, label: 'quiet_otter', title: '' }
 const RealmRow: Doc<'realms'> = { _id: idOf('realms', 'r1'), _creationTime: 0, hunt_id: HuntRow._id, label: 'home', title: '', position: 0 }
 const Rows: HuntRows = { hunt: HuntRow, realms: [{ realm: RealmRow, quizzes: [QuizRow] }] }
 

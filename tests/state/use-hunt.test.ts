@@ -7,7 +7,8 @@ import { claimsOf, denialOf, placeIn } from '../../src/state/use-hunt'
 /** A quiz's row as a realm lists it */
 function quizRow(tail: string, label: string): Doc<'quizzes'> {
   return {
-    _id: `j97d0qbj35dar1v8edndzckvsx8f8${tail}` as Id<'quizzes'>, _creationTime: 1, realm_id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>,
+    _id: `j97d0qbj35dar1v8edndzckvsx8f8${tail}` as Id<'quizzes'>, _creationTime: 1, hunt_id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>,
+    realm_id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>,
     title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [],
   }
 }

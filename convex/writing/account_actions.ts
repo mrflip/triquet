@@ -46,7 +46,7 @@ export async function assumeIdent(db: Writer, user_id: Id<'users'>, label: strin
  * @throws A refusal (`usernameClaimed`) when another session holds it; nothing is written.
  */
 async function claimFor(db: Writer, ident: Doc<'idents'>, user_id: Id<'users'>): Promise<Id<'idents'>> {
-  const holder = ident.user_id ?? null
+  const holder = ident.user_id
   if (holder === user_id) { return ident._id }            // this session's own
   if (holder !== null)    { refuse('usernameClaimed') }   // another session's
   await db.patch('idents', ident._id, { user_id })         // nobody's yet: this session's now
