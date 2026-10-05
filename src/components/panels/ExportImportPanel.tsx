@@ -65,8 +65,8 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     {
       label:   'Full History',
-      blurb:   'Every version of this quiz this browser has kept, as a git repository: the best way we know to look back over what changed and when, and yours to take with you.',
-      content: <FullHistoryDownload quiz={quiz} />,
+      blurb:   'Every version of this hunt this browser has kept, each of its quizzes and all, as a git repository: the best way we know to look back over what changed and when, and yours to take with you.',
+      content: <FullHistoryDownload hunt={hunt} />,
     },
     {
       label:   'LL Export',

@@ -4,24 +4,24 @@ import { useState } from 'react'
 import { Button, Dialog, DialogContent, Link, Stack } from '@mui/material'
 import { ClosableTitle } from './ClosableTitle'
 import HowToSeeFullHistory from '../content/full-history.md'
-import * as QuizMirror from '../state/quiz-mirror'
+import * as HuntMirror from '../state/hunt-mirror'
 import { AppNotices } from '../lib/notices'
-import type { QuizT } from '../models/quiz'
+import type { ShallowHuntT } from '../lib/rows'
 import styles from './workbench.module.css'
 
 /**
- * A way to take a quiz's whole history with you, on both the Raw Export and Full History tabs: a
- * download of it as a git repository, and beside it a quiet pointer to what one does with such a
- * thing, which opens as a dialog rather than sending the author away from their work.
+ * A way to take the hunt's whole history with you, on the Full History tab: a download of it as a
+ * git repository, and beside it a quiet pointer to what one does with such a thing, which opens
+ * as a dialog rather than sending the author away from their work.
  *
- * @param quiz - The quiz whose history is downloaded.
+ * @param hunt - The hunt whose history is downloaded.
  */
-export function FullHistoryDownload({ quiz }: Readonly<{ quiz: QuizT }>) {
+export function FullHistoryDownload({ hunt }: Readonly<{ hunt: ShallowHuntT }>) {
   const [helping, setHelping] = useState(false)
   const [noted, setNoted] = useState<string | null>(null)
 
   const onDownload = async () => {
-    const offered = await QuizMirror.downloadQuizRepo(quiz)
+    const offered = await HuntMirror.downloadHuntRepo(hunt)
     setNoted(offered ? null : AppNotices.noHistoryHere)
   }
 

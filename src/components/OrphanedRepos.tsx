@@ -5,10 +5,10 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import * as Alarms from '../lib/alarms'
 import { AppNotices } from '../lib/notices'
-import * as Quizgit from '../lib/quizgit'
+import * as Huntgit from '../lib/huntgit'
 import type { ListedHuntT } from '../lib/rows'
 import { useRaiseAlarm } from '../state/alarms'
-import * as QuizMirror from '../state/quiz-mirror'
+import * as HuntMirror from '../state/hunt-mirror'
 import { useQuizRepos } from '../state/use-quiz-repos'
 import styles from './workbench.module.css'
 
@@ -25,12 +25,12 @@ export function OrphanedRepos({ hunts }: Readonly<{ hunts: readonly ListedHuntT[
   if (repos === null) { return null }
 
   const quizIds = new Set(hunts.flatMap((hunt) => hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => quiz._id))))
-  const orphans = Quizgit.orphansAmong(repos, quizIds)
+  const orphans = Huntgit.orphansAmong(repos, quizIds)
   if (orphans.length === 0) { return null }
 
-  const onDownload = async (repo: Quizgit.RepoSummary) => {
+  const onDownload = async (repo: Huntgit.RepoSummary) => {
     try {
-      await QuizMirror.downloadRepo(repo)
+      await HuntMirror.downloadQuizRepo(repo)
     } catch (err) {
       raise(Alarms.of(AppNotices.repoNotDownloaded, err))
     }
@@ -63,7 +63,7 @@ export function OrphanedRepos({ hunts }: Readonly<{ hunts: readonly ListedHuntT[
  *
  * @example describeRepo(repo)  // => 'main · +quiz · 10/5/2026, 3:04:05 PM'
  */
-export function describeRepo(repo: Quizgit.RepoSummary): string {
+export function describeRepo(repo: Huntgit.RepoSummary): string {
   const branch = repo.branch ?? 'no branch'
   if (repo.committed_at === null) { return branch }
   return `${branch} · ${repo.message ?? ''} · ${new Date(repo.committed_at).toLocaleString()}`

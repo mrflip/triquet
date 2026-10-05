@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { addMember, assumeIdent, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -396,32 +396,6 @@ test.describe('an address naming a quiz that is not there', () => {
     await page.goto(Routes.quizPath({ org: 'nobody_here', hunt: 'no_such_hunt_here', realm: 'home', quiz: 'asdf' }, 'edit'))
     await expect(page.getByText('There is no hunt labelled “no_such_hunt_here”.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Your hunts' })).toBeVisible()
-  })
-
-  test('lists the history repositories this browser holds, including those of deleted quizzes', async ({ page }) => {
-    await startHunt(page)
-    await page.getByLabel('Quiz name').fill('Quiz one')
-    await page.getByLabel('Quiz name').blur()
-    await openManage(page)
-    await page.getByLabel('Label', { exact: true }).fill('kept_history')
-    await page.getByRole('button', { name: 'Apply' }).click()
-    await expect(page).toHaveURL(/\/home\/kept_history\/!edit$/)
-    await openManage(page)
-    await page.getByRole('button', { name: 'Mark a milestone' }).click()
-    await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
-    await closeManage(page)
-
-    await newQuiz(page)
-    await openQuiz(page, 'Quiz one')
-    await openManage(page)
-    await actDangerously(page, 'Delete this quiz', 'kept_history')
-    await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
-    await waitUntilSaved(page)
-
-    await loadAfresh(page, Routes.quizPath({ ...huntOf(page), realm: 'home', quiz: 'nothing' }, 'edit'))
-    const repo = page.getByRole('listitem').filter({ hasText: 'kept_history' })
-    await expect(repo).toContainText('main')
-    await expect(repo).toContainText('not in this hunt')
   })
 })
 

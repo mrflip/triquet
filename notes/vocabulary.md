@@ -391,12 +391,13 @@ lines between them, and these are here so they are findable beside the rest.
   foot of the window until dismissed. For a failure with nothing on screen beside it to say so,
   such as a change not kept; a refusal about a field is said beside the field. Raised with
   `useRaiseAlarm` (`src/state/alarms.tsx`), shown by `AlarmSnackbar`.
-* **mirror** -- the quiz's git history in the browser. A past-versions view and an exit door,
-  not a source of truth. `.qq.tsv` is the diffable table; `.tq.json` is the whole quiz; both sit
-  at `tq/hunt/<hunt>/realm/<realm>/quiz/`, and each widget the quiz works at
-  `tq/widget/pub/<label>.tqwidget.json` (until widgets replace them, the hunt's expressions at
-  `tq/hunt/<hunt>/<hunt>.tqexpressions.json`). The history follows the quiz: a relabel is a new
-  label on the same thing, an edit new content for it.
+* **mirror** -- the hunt's git history in the browser, one repository per hunt, on the branch
+  the hunt names. A past-versions view and an exit door, not a source of truth. It holds the
+  hunt's files (`notes/hunt_git.md`): each resource as its jsonball and a `.tsv` table beside it,
+  at the path its address names (`quizzes/home/legends.tqq.json`). A commit holds the files that
+  changed, its message a line per quiz; a tag (`main_legends_m_20261005120000z`) marks a
+  milestone, an import or a deletion of questions, from the quiz it was marked from. The history
+  follows each thing: a relabel moves its files, an edit gives them new content.
 * **jsonball** -- one resource of a hunt (the hunt's own fields, its categories, its members, a
   quiz, a shared review, a widget) as JSON nested under the key path its address gives it
   (`{ quizzes: { home: { legends: { ... } } } }`), so that deep-merging any set of them is that

@@ -199,7 +199,7 @@ test('every read-only export box has a Copy button', async ({ page }) => {
   }
 })
 
-test('Download Full History hands over the quiz\'s history as a zip, from its own tab alone', async ({ page }) => {
+test('Download Full History hands over the hunt\'s history as a zip, from its own tab alone', async ({ page }) => {
   const rawSection = await showTab(page, 'Raw Export')
   await expect(rawSection.getByRole('button', { name: 'Download Full History' })).toHaveCount(0)
   const section = await showTab(page, 'Full History')

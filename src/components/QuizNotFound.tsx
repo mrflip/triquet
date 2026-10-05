@@ -6,12 +6,12 @@ import * as Alarms from '../lib/alarms'
 import * as Routes from '../lib/routes'
 import { Hunting } from '../models/hunting'
 import { useRaiseAlarm } from '../state/alarms'
-import * as QuizMirror from '../state/quiz-mirror'
+import * as HuntMirror from '../state/hunt-mirror'
 import { useQuizRepos } from '../state/use-quiz-repos'
 import { AppNotices } from '../lib/notices'
 import { describeRepo } from './OrphanedRepos'
 import { Panel } from './panels/Panel'
-import type { RepoSummary } from '../lib/quizgit'
+import type { RepoSummary } from '../lib/huntgit'
 import type { ShallowHuntT } from '../lib/rows'
 import styles from './workbench.module.css'
 
@@ -82,7 +82,7 @@ function RepoRow({ repo, address }: Readonly<{ repo: RepoSummary, address: strin
   const raise = useRaiseAlarm()
   const onDownload = async () => {
     try {
-      await QuizMirror.downloadRepo(repo)
+      await HuntMirror.downloadQuizRepo(repo)
     } catch (err) {
       raise(Alarms.of(AppNotices.repoNotDownloaded, err))
     }

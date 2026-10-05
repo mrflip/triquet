@@ -1,17 +1,19 @@
 # A hunt's git repository
 
-The **mirror** (`notes/vocabulary.md`) is moving from one repository per quiz to one per hunt.
-This file is the index of what such a repository holds and where. It is the spec for the
-`hunt_git` sprint, whose plan is `whiteboard/20261005-hunt_git/hunt_git-plan.md`.
+The **mirror** (`notes/vocabulary.md`) is one git repository per hunt. This file is the index of
+what such a repository holds and where, and how it is kept. It was the spec for the `hunt_git`
+sprint, whose plan is `whiteboard/20261005-hunt_git/hunt_git-plan.md`.
 
-**Status (2026-10-05): the files and the feed that reads them are built; the repository that
-holds them is not yet.** `src/lib/huntfiles.ts` (`Huntfiles`) writes every file below from a
-hunt's snapshot, and one resource's files from that resource alone; `src/state/hunt-feed.ts`
-reads them from watches (*Watching and committing, by file*, below); the repository per hunt is
-thread 5 of the sprint. Paths follow `notes/decisions/urls.md` (rule 10, with the
-realm written `home`), through `src/lib/addresses.ts`. The per-quiz repositories of today
-(`/quizzes/<quiz _id>`, `src/lib/quizgit.ts`) get **no special treatment**: there is no
-migration, and nothing new reads or lists them.
+**Status (2026-10-05): built.** `src/lib/huntfiles.ts` (`Huntfiles`) writes every file below from
+a hunt's snapshot, and one resource's files from that resource alone; `src/state/hunt-feed.ts`
+reads them from watches; `src/state/hunt-mirror.ts` commits them, after a wait
+(`src/state/commit-scheduler.ts`), to the hunt's repository (`src/lib/huntgit.ts`), each commit
+written and named by `src/state/hunt-commits.ts` (*Watching and committing, by file*, below).
+Paths follow `notes/decisions/urls.md` (rule 10, with the realm written `home`), through
+`src/lib/addresses.ts`. The per-quiz repositories of before (`/quizzes/<quiz _id>`) get **no
+special treatment**: there is no migration, and nothing writes them. Until the sprint's thread 6,
+the hunts page's folded list and a missing quiz's page still list them
+(`Huntgit.listQuizRepos`), as the only place they can be found.
 
 ## What stays the same
 
@@ -157,8 +159,16 @@ One hunt, one branch at a time, so a hunt repository is on exactly the branch th
 * **Changing the hunt's branch starts or joins a git branch, as a quiz's version did.** A new
   name branches from the current tip, and a name the history has seen checks that branch out
   again. Every commit goes to the hunt's branch.
-* **Tags must follow the label rule**, since `@{ref}` names them. Their exact shape (today's
-  `<version>-m-<stamp>` has a hyphen) is open until the URL conversation.
+* **Tags follow the label rule**, since `@{ref}` names them (`Huntgit.tagFor`):
+  `<branch>_<quiz>_<mark>_<stamp>z`, as `main_legends_m_20261005120000z`. The branch leads, so a
+  branch's tags list together; the quiz the moment was marked from follows, so one quiz's
+  milestones are told apart from another's in the hunt's one repository (`git tag -l
+  'main_legends_*'`); the mark says what the moment was (`m` a milestone, `import` an import
+  merged in, `delete` questions deleted); the stamp is the UTC second as fourteen digits and a
+  `z`, so tags sort as text in time order. A second tag in the same second takes `_2`, `_3`. Since
+  a branch and a quiz label may each hold underscores, a tag is a name to read, not a key to
+  parse; and it runs past a label's 40 characters when both are long, which the rule's shape
+  allows.
 
 ## Watching and committing, by file
 
@@ -183,28 +193,57 @@ change to either makes every quiz's files again; only the bodies that differ are
 Each part's files are made from its watches alone (`huntPartOf`, `quizPartOf`, `widgetsPartOf`,
 over `Exporting.huntLevelBalls`, `quizBallsIn` and `workedBalls`, handed to `Huntfiles.filesOf`),
 and a reading (`HuntReadingT`) hands on every part, keyed (`hunt`, each quiz's id, `widgets`), and
-all the files together. The first reading comes once every listed quiz has been read whole, and
+all the files together. The first reading comes once every listed quiz has answered (below), and
 says so (`first`); after it, a reading comes at each change that writes a file differently, a part
 unchanged being the same object as before. `Huntfiles.changesBetween` says which files to write
 and which to remove. What it costs on a large hunt is measured in
 `whiteboard/20261005-hunt_git/thread-4-measured.md`.
 
-* **Dirty files, not whole trees.** Each watch maps its result to the files it owns. The
-  scheduler keeps, per hunt, the set of files whose body differs from what was last committed.
-  A commit writes only those blobs into its branch's tree, and drops the files of anything that
-  went.
+* **One repository per hunt** at `/hunts/<hunt _id>` in the browser's filesystem (LightningFS,
+  named `triquet-quizzes` for the per-quiz repositories it first held), so relabelling a hunt
+  neither moves nor strands its history. Every commit goes to the branch the hunt names; a new
+  name branches from the tip, and a name seen before is checked out again.
+* **Dirty files, not whole trees.** The scheduler (`createCommitScheduler`) holds, per hunt, the
+  reading its wait began from and the latest; at commit, the files that differ between them
+  (`Huntfiles.changesBetween`) are written and removed, and each one's blob is compared with the
+  branch's tip (`git.hashBlob`), so only what differs from the tip is committed, and nothing at
+  all when it holds them already (another tab of this browser committed it first).
 * **One clock per hunt.** The first change starts the wait, and later changes do not restart
-  it.
+  it. The wait is `NEXT_PUBLIC_TRIQUET_COMMIT_DEBOUNCE_SECONDS` (30 by default, 2 in the e2e
+  suite).
+* **Off the edit's path.** The feed makes each reading when the browser is next idle (2 s at the
+  latest), not as the change arrives: making every quiz's files, which a change to the library,
+  the wheel or the hunt's title asks, takes most of a second on a large hunt
+  (`whiteboard/20261005-hunt_git/thread-4-measured.md`). The git work is asynchronous, after the
+  wait. A failure to commit is reported (`Postmortem`), never fails an edit.
 * **Consistency.** The Convex client applies every subscribed query's new result at one
   timestamp, so the files never mix two moments. The exception is a new watch (a new quiz, or
-  a quiz newly listed): it reports a moment later, and until it has reported, its files are
+  a question just added): it reports a moment later, and until it has reported, its files are
   neither written nor removed.
-* **The message is the dirty set, summarised.** One line per quiz that moved, with its label
-  leading `Changes.shorthandFor`'s shorthand (`quiet_otter: +2 qq, clueing×3`), then a line for
-  each hunt-level file that moved.
-* **Catch-up on the first full reading in a tab.** Each file's body is compared with HEAD's
-  blob (`git.hashBlob` against the tree), and whatever differs is committed straight away as
-  `catch up: changes made while this browser was away`. Without this, changes made elsewhere
-  while this browser was away ride along, mislabelled, in the next local commit.
-* Milestones, and the before-and-after commits around an import or a deletion, flush the hunt's
-  pending files first, as they flush the quiz's today.
+* **The message is a line per part that moved**, joined on one line while it fits 72 characters,
+  else the first line and a count, with every line below (`HuntCommits.messageFor`): the hunt's
+  own files (`~hunt ~members`), each quiz by label with `Changes.shorthandLines` for what moved in
+  it and its reviews (`legends: quiz ~title, leon +clueing, reviews ~lee_jones`), a quiz arriving
+  or leaving as `+legends` or `-legends`, and the widgets (`widgets ~dumdum`). A quiz whose files
+  moved only because what it runs on did has no line of its own.
+* **Catch-up on a tab's first full reading.** A feed's first reading is committed at once,
+  whole: whatever differs from the tip is committed, as `start: the hunt as this browser first
+  read it` for a repository with no history, `catch up: changes made while this browser was
+  away` for one under way, or, for a tab whose feed started over on a hunt it read before, by
+  what moved since that reading. Without it, changes made elsewhere while this browser was away
+  would ride along, mislabelled, in the next local commit. The README is written by the first
+  commit, and never again. One feed serves every screen of a hunt, and is kept 10 s after the
+  last lets go, so moving between the hunt's quizzes moves the feed rather than starting it over.
+* **A quiz that cannot be read never stalls the hunt, nor loses its files.** The first reading
+  waits for every listed quiz to answer: read whole, or found unreadable (its watch failed, or
+  answered nothing while listed). An unreadable quiz is handed on as `unread`, with no files, and
+  the catch-up keeps whatever files the tip has for it (`Huntfiles.isQuizFile`) rather than
+  reading it as removed; once it can be read, it joins as `legends: caught up`. A quiz read before
+  whose watch then fails stands as last read.
+* **Taking up a branch** commits what was waiting to the branch it was done on, then the hunt
+  whole to the new one, as `catch up: the hunt as it stands, on taking up branch <branch>`.
+* **Milestones, imports and deletions.** A milestone flushes the hunt's waiting changes, after
+  waiting (5 s at most) for the feed to hear from every watch it holds, then tags the tip. An
+  import or a deletion of questions commits what was waiting, applies the change, commits it
+  (waiting the same way, since the questions it adds arrive on watches opened as it lands), and
+  tags that commit. A deleted quiz is a commit removing its files; the history keeps them.

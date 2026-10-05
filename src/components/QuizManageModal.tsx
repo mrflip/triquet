@@ -9,7 +9,7 @@ import NextLink from './NextLink'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
 import * as Labelmaker from '../lib/labelmaker'
-import * as QuizMirror from '../state/quiz-mirror'
+import * as HuntMirror from '../state/hunt-mirror'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
@@ -106,12 +106,12 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
   }
 
   const onMilestone = async () => {
-    const tag = await QuizMirror.milestoneQuiz(quiz, hunt.branch)
+    const tag = await HuntMirror.milestone(hunt, quiz)
     setNoted(tag ?? AppNotices.nothingToMilestone)
   }
 
   const onDownload = async () => {
-    if (! await QuizMirror.downloadQuizRepo(quiz)) { setNoted(AppNotices.noHistoryHere) }
+    if (! await HuntMirror.downloadHuntRepo(hunt)) { setNoted(AppNotices.noHistoryHere) }
   }
 
   return (
