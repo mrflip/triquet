@@ -1,6 +1,6 @@
 # Thread 4: the name field is the title; the label beside it follows until edited (2026-10-05)
 
-Branch `20261005-name_title_label`, PR not yet filed (ready, not landed). Suites: typecheck and
+Branch `20261005-name_title_label`, PR filed at landing, stacked on #110; see the report. Suites: typecheck and
 lint clean; `pnpm test` 126 files, 3549 tests; `pnpm test:e2e:agent` 230 passed, 4 failed
 (`sheets.spec.ts` 2, `widgets.spec.ts` 2: Convex's 1s function timeout under a load average of
 50, from `new_hunt` and `auth:signIn`, which this thread does not touch). Those two files rerun
@@ -67,6 +67,10 @@ once the load fell: 45 passed.
     would rather it folded (a one-line change back to `labelFor`).
   - Whether a short name should turn the username red once the name is left (as now), or stay
     quiet until the username field itself is touched.
+  - From the review (left as found): `Labelmaker.repaired` cuts to `maxlen` before prefixing
+    `z`, so a long name starting with a digit makes a 25-character username, red at once; and
+    Enter in an emptied username field is stopped by `required`, though the followed username
+    would be good to log in with.
 
 Screenshots (`screenshots/thread4-*-{before,after}.png`; read them to review the look):
 `login-empty-light-1100`, `login-typed-dark-1100` (a name with `!`), `login-short-light-1100`
