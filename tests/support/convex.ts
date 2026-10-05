@@ -5,13 +5,13 @@ import * as Z from 'zod'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
-import { libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
+import { huntingFor, libraryOf, realmsOf, wholeHuntOf } from '../../convex/reading'
 import * as Actor from '../../src/lib/actor'
 import { mintId } from '../../src/lib/ids'
 import { widgetFrom } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import type { WidgetT } from '../../src/models/widget'
-import type { HuntActionDNA, OpenQuizT } from '../../src/models/actions'
+import type { AffirmsT, HuntActionDNA, HuntAffirmsT, LibraryActionDNA, QuizAffirmsT } from '../../src/models/actions'
 import type { HuntRole } from '../../src/models/hunting'
 import type { QuizT } from '../../src/models/quiz'
 import { present } from './present'
@@ -57,20 +57,41 @@ export type Session = { as: SessionTester, user_id: Id<'users'> }
 /** A session that has asserted a username: how to call as it, its user, the ident it took on, and the actor the server sees */
 export type Identified = Session & { ident_id: Id<'idents'>, label: string, actor: Actor.IdentActorT }
 
+/** Where a quiz sits: its hunt, its realm, and its id */
+export type PlaceT = Pick<AffirmsT, 'hunt_id' | 'realm_id' | 'quiz_id'>
+
+/** What one session affirms of itself on a hunt, in each shape a function takes it */
+export type AffirmsBag = {
+  /** Its ident, the hunt, and its standing there */
+  hunt:   HuntAffirmsT
+  /** ...and the quiz it is reading */
+  quiz:   QuizAffirmsT
+  /** ...and that quiz's realm: what an action is sent with */
+  action: AffirmsT
+}
+
 /** A deployment holding a hunt, where its smith has a quiz open, and how to act on it and read it back */
 export type Seeded = {
   tt:    Tester
-  open:  OpenQuizT
+  open:  PlaceT
   /** The session of the hunt's one smith, who acts unless a test says otherwise */
   smith: Identified
   /** The hunt as its rows now make it up */
   read:  () => Promise<Seen>
   /**
-   * Carry out `action` through `hunts.perform`, as the session `by`.
+   * Carry out `action` through `hunts.perform`, as the session `by`, affirming what a browser that
+   * has read the hunt would: its ident, its standing as its hunting says, and the open quiz.
    *
-   * @param by - Who is acting; the hunt's smith unless given. A session with no username, or the bare tester (no session at all), are anonymous.
+   * @param by - Who is acting; the hunt's smith unless given. A session with no username, or the bare tester (no session at all), are anonymous, and affirm as the smith.
    */
   act:   (action: HuntActionDNA, by?: Session | Tester) => Promise<void>
+  /**
+   * Carry out `action` on the library through `widgets.perform`, as the session `by`, which
+   * affirms nothing: the library belongs to no hunt.
+   *
+   * @param by - Who is acting; the hunt's smith unless given.
+   */
+  actOnLibrary: (action: LibraryActionDNA, by?: Session | Tester) => Promise<void>
   /**
    * A fresh session, asserting the username `label` (made if it is new), put on the hunt as
    * `role`.
@@ -128,9 +149,28 @@ export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: sm
     return { hunt: now, quizzes: present(now.realms[0]).quizzes, library, open_quiz_id: open.quiz_id }
   }
   const act = async (action: HuntActionDNA, by: Session | Tester = smith) => {
-    await callerOf(by).mutation(api.hunts.perform, { open, action })
+    const { action: affirms } = await affirmsOf(tt, isIdentified(by) ? by : smith, open)
+    await callerOf(by).mutation(api.hunts.perform, { affirms, action })
   }
-  return { tt, open, smith, read, act, join }
+  const actOnLibrary = async (action: LibraryActionDNA, by: Session | Tester = smith) => {
+    await callerOf(by).mutation(api.widgets.perform, { action })
+  }
+  return { tt, open, smith, read, act, actOnLibrary, join }
+}
+
+/**
+ * What `by` affirms of itself on the hunt `place` names, as a browser that has read the hunt
+ * would: its ident, and its standing there as its hunting says (a stranger with none), with the
+ * place's quiz and realm, in each shape a function takes.
+ *
+ * @example await alice.as.query(api.quizzes.open, { affirms: (await affirmsOf(tt, alice, open)).quiz })
+ */
+export async function affirmsOf(tt: Tester, by: Pick<Identified, 'ident_id'>, place: PlaceT): Promise<AffirmsBag> {
+  const { ident_id } = by
+  const { hunt_id, realm_id, quiz_id } = place
+  const hunting = await tt.run(async (ctx) => await huntingFor(ctx.db, hunt_id, ident_id))
+  const hunt = { ident_id, hunt_id, standing: hunting?.role ?? 'stranger' } as const
+  return { hunt, quiz: { ...hunt, quiz_id }, action: { ...hunt, quiz_id, realm_id } }
 }
 
 /** The quiz a seeded test has open, as `seen` has it */
@@ -178,6 +218,11 @@ export async function identified(tt: Tester, label: string): Promise<Identified>
   const holder = { ...session, ident_id, label, actor: Actor.asIdent(session.user_id, { _id: ident_id, label }) }
   holders.set(label, holder)
   return holder
+}
+
+/** Whether `by` is a session that has asserted a username */
+function isIdentified(by: Session | Tester): by is Identified {
+  return 'ident_id' in by
 }
 
 /**

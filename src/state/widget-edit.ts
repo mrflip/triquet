@@ -1,7 +1,7 @@
 import * as Labelmaker from '../lib/labelmaker'
 import * as UU from '../lib/useful'
 import { AibotDefaultInput, Widget, WidgetValidators, type AibotWidgetT, type EntryWidgetT, type Formularykind, type JsonataWidgetT, type WidgetPatch, type WidgetT } from '../models/widget'
-import type { HuntActionDNA } from '../models/actions'
+import type { LibraryActionDNA } from '../models/actions'
 
 /** The parts of a `jsonata` widget being written or revised: its formula */
 export type JsonataDraft = Pick<JsonataWidgetT, 'label' | 'description' | 'formula'> & { formulary: 'jsonata' }
@@ -40,13 +40,13 @@ const BlankDrafts: Readonly<Record<Formularykind, WidgetDraft>> = {
 
 /** What applying an edit comes to: the actions to dispatch, or what to tell the author is wrong, and whether it is the label */
 export type WidgetPlan =
-  | { ok: true, actions: HuntActionDNA[] }
+  | { ok: true, actions: LibraryActionDNA[] }
   | { ok: false, issue: string, labelIssue: string | null }
 
 /** What writing a new widget comes to: the action adding it, and the widget as added; or what is wrong */
 export type NewWidgetPlan =
   | Extract<WidgetPlan, { ok: false }>
-  | { ok: true, actions: HuntActionDNA[], widget: WidgetT }
+  | { ok: true, actions: LibraryActionDNA[], widget: WidgetT }
 
 /**
  * A new widget of `formulary`, as it starts, keeping the label and description already typed: what

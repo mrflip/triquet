@@ -38,6 +38,9 @@ export type ReviewScreenProps = {
  *
  * A review of this quiz for this ident is opened the moment this screen is, so a reviewer who
  * never writes anything still has a row waiting once they type into the overall note.
+ *
+ * Each question is what a reviewer is sent of it (`Question.sentTo`), the answer included: the
+ * lock (`AnswerLock`) is a spoiler shield, not a security boundary.
  */
 export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readonly<ReviewScreenProps>) {
   useEffect(() => {

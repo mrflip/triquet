@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
+import type { Id } from '../../convex/_generated/dataModel'
+import * as Actor from '../../src/lib/actor'
 import { Hunting, HuntingValidators, HuntRoleVals } from '../../src/models/hunting'
 import { ActVals } from '../../src/lib/routes'
 
@@ -35,15 +37,25 @@ describe('Hunting.actFor', () => {
 })
 
 describe('Hunting.mayAct', () => {
-  it('shows a smith either presentation, and a reviewer only the review', () => {
-    const table = HuntRoleVals.map((role) => ActVals.map((act) => Hunting.mayAct(role, act)))
+  const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
+  const hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
+  const Alice = Actor.asIdent(user_id, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' })
+  const ClaimsAs = {
+    smith:     Actor.claimsOn(Alice, hunt_id, { role: 'smith' }),
+    reviewer:  Actor.claimsOn(Alice, hunt_id, { role: 'reviewer' }),
+    stranger:  Actor.claimsOn(Alice, hunt_id, null),
+    anonymous: Actor.claimsOn(Actor.anonymous, hunt_id, null),
+  } as const
+
+  it('shows a smith either presentation, a reviewer only the review, and nobody else either', () => {
+    const table = Object.values(ClaimsAs).map((claims) => ActVals.map((act) => Hunting.mayAct(claims, act)))
     expect(ActVals).to.deep.eq(['smith', 'review'])
-    expect(table).to.deep.eq([[true, true], [false, true]])
+    expect(table).to.deep.eq([[true, true], [false, true], [false, false], [false, false]])
   })
 
   it('shows each role the presentation it is sent to', () => {
     for (const role of HuntRoleVals) {
-      expect(Hunting.mayAct(role, Hunting.actFor(role))).to.be.true
+      expect(Hunting.mayAct(ClaimsAs[role], Hunting.actFor(role))).to.be.true
     }
   })
 })

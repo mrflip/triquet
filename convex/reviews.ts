@@ -1,21 +1,22 @@
-import { ValidatorKit } from '../src/lib/validator'
 import type { ReviewedT } from '../src/lib/rows'
-import { zQuery } from './functions'
+import { ActionValidators } from '../src/models/actions'
+import { zHuntQuery } from './functions'
 import { affirmReadReviews } from './authorize'
 import { reviewingsOf, reviewsOf } from './reading'
 
-const { zid } = ValidatorKit
-
 /**
- * The reviews of `quiz_id` that the asking actor may read (their own;
+ * The reviews of the affirmed quiz that the asking actor may read (their own;
  * the shared ones, for a smith of its hunt, or for a reviewer whose own is shared: see
  * `Approve.mayReadReview`), oldest first, each with who wrote it and its verdict on each question.
+ * None when what they affirm of themselves is not so. The quiz's reviews are read whole, and the
+ * database they are read through shows only those the actor may read (`policy_rules.ts`).
  */
-export const forQuiz = zQuery({
-  args:    { quiz_id: zid('quizzes') },
-  handler: async (ctx, { quiz_id }): Promise<ReviewedT[]> => {
-    const reviews = await reviewsOf(ctx.db, quiz_id)
-    const readable = await affirmReadReviews(ctx.db, reviews, ctx.actor)
+export const forQuiz = zHuntQuery({
+  args:    { affirms: ActionValidators.quizAffirms },
+  empty:   [],
+  affirm:  async (ctx, { affirms }) => await affirmReadReviews(ctx.db, affirms, ctx.actor),
+  handler: async (ctx, { affirms }): Promise<ReviewedT[]> => {
+    const readable = await reviewsOf(ctx.db, affirms.quiz_id)
     return await Promise.all(readable.map(async (review) => {
       const [reviewer, reviewings] = await Promise.all([ctx.db.get('idents', review.ident_id), reviewingsOf(ctx.db, review._id)])
       return { ...review, reviewer: reviewer && { label: reviewer.label, title: reviewer.title }, reviewings }

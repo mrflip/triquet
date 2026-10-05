@@ -7,6 +7,7 @@ import * as Postmortem from '../lib/postmortem'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
+import { useAffirms } from './use-affirms'
 import { useSession } from './use-session'
 
 /** The Export box's hunt: what was read, whether a read is on its way, and how to ask for one */
@@ -22,7 +23,7 @@ export type WholeHuntAsk = {
 }
 
 /** The screen a read was asked for: the hunt and the open quiz, as the screen held them */
-type Screen = { hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT }
+type Screen = { hunt: Pick<ShallowHuntT, '_id' | 'role'>, openQuiz: QuizT }
 
 /** How the last read came out, and the screen it was for */
 type Outcome = Screen & { whole: HuntT | null }
@@ -39,9 +40,10 @@ type Outcome = Screen & { whole: HuntT | null }
  * @param openQuiz - The quiz on screen.
  * @returns The read, and a way to ask for one.
  */
-export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): WholeHuntAsk {
+export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id' | 'role'>, openQuiz: QuizT): WholeHuntAsk {
   const convex = useConvex()
   const { ready } = useSession()
+  const { huntAffirms: affirms } = useAffirms(hunt, null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [asking, setAsking] = useState(false)
 
@@ -49,7 +51,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
     const ask = async () => {
       setAsking(true)
       try {
-        const whole = ready ? await convex.query(api.hunts.whole, { hunt_id: hunt._id }) : null
+        const whole = ready && affirms !== null ? await convex.query(api.hunts.whole, { affirms }) : null
         setOutcome({ hunt, openQuiz, whole })
       } catch (err) {
         Postmortem.report('read the whole hunt for the export', err, { hunt_id: hunt._id })
@@ -59,7 +61,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
       }
     }
     void ask()
-  }, [convex, ready, hunt, openQuiz])
+  }, [convex, ready, affirms, hunt, openQuiz])
 
   const current = outcome?.hunt === hunt && outcome.openQuiz === openQuiz ? outcome : null
   return { whole: current?.whole ?? null, asking, failed: current !== null && current.whole === null, prepare }

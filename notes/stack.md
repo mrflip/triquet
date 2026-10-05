@@ -55,6 +55,9 @@ don't trust a recalled version number, including one recalled by an agent.
   - Zod is **patched** (`patches/zod@4.6.5.patch`): issues carry the refused input by default.
     Deliberate; `notes/guidelines.md` says what follows from it. A Zod bump re-cuts the patch.
 * **es-toolkit/compat** for the lodash-shaped utility surface.
+  - What compat lacks comes from es-toolkit itself, imported whole as `EST`: `EST.allKeyed`, an
+    object of promises to an object of results, is how `convex/authorize.ts` gathers its evidence
+    in one round.
 * **Convex** (`convex`, pinned exact) is the database, and `convex/` at the repo root the whole
   server side. See `notes/decisions/2026-09-convex.md` for the shape of the data and the rules
   that follow, and `notes/database-decisions.md` for the verdict. Read
@@ -66,9 +69,11 @@ don't trust a recalled version number, including one recalled by an agent.
     only through `notes/database-decisions.md`.
 * **convex-helpers** (pinned exact), Convex's own companion library. Its `server/zod4` is how a Zod
   schema becomes a Convex validator (`zodOutputToConvexFields`, `zodOutputToConvex`, `zid`) and how a function takes
-  Zod arguments (`zCustomQuery`, `zCustomMutation`). At 0.1.x its version number alone would make
-  it *Discuss*; it is *Use* because it is the supported path, and what lets one schema drive the
-  others.
+  Zod arguments (`zCustomQuery`, `zCustomMutation`). Its `server/rowLevelSecurity`
+  (`wrapDatabaseReader`, `wrapDatabaseWriter`) wraps the database a hunt's function holds, held to
+  the rules in `convex/policy_rules.ts` (see `notes/convex.md`, *Who is asking*). At 0.1.x its
+  version number alone would make it *Discuss*; it is *Use* because it is the supported path, and
+  what lets one schema drive the others.
 * **@convex-dev/migrations** (pinned exact), Convex's own component for backfilling a live
   deployment's rows in batches, resumably, with a dry run: every migration goes through it
   (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps). Added September 2026

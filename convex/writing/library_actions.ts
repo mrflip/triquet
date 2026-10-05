@@ -3,11 +3,8 @@ import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { LibraryActionT } from '../../src/models/actions'
 import { Widget, WidgetValidators, type WidgetPatch, type WidgetT } from '../../src/models/widget'
-import { isWorked, libraryOf, widgetForLabel } from '../reading'
+import { libraryOf, widgetForLabel, type CensusT } from '../reading'
 import { insertAbsentWidgets, movedTo, repositioned, updateWidget, type Writer } from './quiz_writing'
-
-// The library belongs to no hunt and no quiz, so a locked quiz refuses none of this: a column's
-// values change with its widget's formula, but the quiz itself does not.
 
 /**
  * Put a widget at the end of the library. A label the library already holds is refused, as is one
@@ -43,15 +40,16 @@ export async function moveWidget(db: Writer, label: string, onto_idx: number): P
 
 /**
  * Remove the library's widget labelled `label`. Refused while any widgeting, in any quiz of any
- * hunt, works it: that widgeting would have nothing to work. One already gone is nothing to do.
+ * hunt, works it (as `census` counts them): that widgeting would have nothing to work. One already
+ * gone is nothing to do.
  *
  * @throws A refusal (`widgetInUse`); nothing is written.
  */
-export async function deleteWidget(db: Writer, label: string): Promise<void> {
+export async function deleteWidget(db: Writer, census: CensusT, label: string): Promise<void> {
   const held = await libraryOf(db)
   const doomed = held.find((widget) => widget.label === label)
   if (! doomed) { return }
-  if (await isWorked(db, label)) { refuse('widgetInUse') }
+  if (await census.isWorked(label)) { refuse('widgetInUse') }
   await db.delete('widgets', doomed._id)
   await repositioned(held.filter((widget) => widget._id !== doomed._id), async (row, position) => { await updateWidget(db, row, { position }) })
 }
@@ -80,13 +78,13 @@ export async function importWidgets(db: Writer, widgets: readonly WidgetT[]): Pr
   await insertAbsentWidgets(db, added)
 }
 
-/** Carry out an action on the library, writing the rows it comes to. See `perform`. */
-export async function performLibrary(db: Writer, action: LibraryActionT): Promise<void> {
+/** Carry out an action on the library, writing the rows it comes to, asking `census` what spans every hunt. See `perform`. */
+export async function performLibrary(db: Writer, census: CensusT, action: LibraryActionT): Promise<void> {
   switch (action.kind) {
   case 'add_widget':     { await addWidget(db, action.widget); return }
   case 'edit_widget':    { await editWidget(db, action.label, action.patch); return }
   case 'move_widget':    { await moveWidget(db, action.label, action.onto_idx); return }
-  case 'delete_widget':  { await deleteWidget(db, action.label); return }
+  case 'delete_widget':  { await deleteWidget(db, census, action.label); return }
   case 'import_widgets': { await importWidgets(db, action.widgets) }
   }
 }

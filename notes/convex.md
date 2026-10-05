@@ -20,13 +20,14 @@ verdict is `notes/database-decisions.md` and its decision `notes/decisions/2026-
 plan and its handoff are `whiteboard/convex_yay-plan.md` and `whiteboard/convex_yay-progress.md`:
 the thread's history, read when a question is "why is it like this", not as spec.
 
-Rows, not a tree. A view dispatches an action, the `hunts.perform` mutation writes the rows it
-comes to, and views subscribe to query functions that assemble what a screen shows
-(`notes/queries_hooks_and_subscriptions.md` has the words: query function, watch, fetch, facet,
-screen hook). Row ids are Convex's `_id` and internal: refer by label. Zod validates every
-function's arguments and every row written, never rows read back. A change to a row shape that
-rows already written would not fit is a migration on production (`convex/migrations.ts`, and
-`notes/deploy.md` for the order of steps); a local backend is simply emptied and pushed again.
+Rows, not a tree. A view dispatches an action, the `hunts.perform` mutation (`widgets.perform`,
+for the library) writes the rows it comes to, and views subscribe to query functions that
+assemble what a screen shows (`notes/queries_hooks_and_subscriptions.md` has the words: query
+function, watch, fetch, facet, screen hook). Row ids are Convex's `_id` and internal: refer by
+label. Zod validates every function's arguments and every row written, never rows read back. A
+change to a row shape that rows already written would not fit is a migration on production
+(`convex/migrations.ts`, and `notes/deploy.md` for the order of steps); a local backend is simply
+emptied and pushed again.
 
 ## Denormalized fields
 
@@ -68,8 +69,41 @@ Who may do what is decided in one place and gathered in another. `src/lib/approv
 policy, a non-async `may…` function deciding from the claims it is handed, reachable by key
 through `Approve.may`, `Approve.must` and `Approve.verdictOn`; its dispatch table gives every
 action kind its policy, and a kind without a row fails to compile. `convex/authorize.ts` holds the
-`affirm…` functions that read the evidence and build the claims, and decide nothing. A query
-answers a denial with its empty value; a mutation refuses with the verdict's refusal kind.
+`affirm…` functions that read the evidence and build the claims, and decide nothing. A request
+about a hunt carries the browser's **affirms** (its ident, the hunt, its standing there, the quiz
+on screen), and `affirmForHunt` checks them all in one parallel round of reads (`EST.allKeyed`),
+with whatever else the decision needs read beside them; a stale or forged affirm is a denial like
+any other. A denial is thrown (`Approve.NotApprovedError`): a mutation's `refusingInvalid` turns it
+into a refusal of its kind, and a query wraps its work in `emptyIfDenied` (`functions.ts`) so it
+answers with its empty value, since a watch that throws takes the page down. Business code in
+`writing/` is handed the claims, trusts them, and takes the rows they carry (the quiz on screen,
+its realm) rather than reading them again. A quiz's lock is policy (`Approve.mayReviseQuiz`), not
+the write's. The browser asks the same policies of the same claims: `idents.current` hands a
+session the actor the server builds for it, and a screen's views decide what to offer from
+claims built on it (`notes/views.md`, *What a view offers*).
+
+Once affirmed, a function about one hunt holds a **scoped database**: the builders `zHuntQuery`
+and `zHuntMutation` run its `affirm` on the plain database, then hand its handler the claims
+(`ctx.claims`) and a `db` wrapped by convex-helpers' row-level security, held to one non-async rule
+per table in `convex/policy_rules.ts`. A row of another hunt reads as absent and a write to one
+throws, so a function that forgets a check still cannot reach another hunt. A query's rules
+differ from a mutation's only for reviews: a query shows the ones its reader may read
+(`Approve.mayReadReview`), a mutation sees them all to count and delete them. Identings and Convex
+Auth's tables are not reachable through it; idents are read, never written. The two facts a write
+must know across hunts (a hunt label's holder, a widget worked anywhere) are asked of the
+**census** (`ctx.census`) instead. The library belongs to no hunt, and no hunt's function writes
+it: changing it is an admin's act (`Approve.mayChangeLibrary`, and `Actor.isAdmin`, the one place
+that says who an admin is), on a mutation of its own, `widgets.perform`, built by
+`zLibraryMutation`, whose database reaches the library's widgets and nothing of any hunt
+(`LibraryRules`). The public functions that hold the whole database, acting before any hunt is in
+play or across hunts, are named in `Unscoped` (`convex/authorize.ts`) with why, and a test holds
+every public function to one or the other.
+
+What a query sends is shaped by the reader's **standing**, not only gated by it. A question is sent
+as `Question.sentTo` lists for that standing (`seenQuestionFor` in `src/lib/rows.ts`): a smith all
+of it, a reviewer what a review needs (the answer included: the review screen's lock is a spoiler
+shield, not a security rule). A change to who is sent what is an edit to that list. The whole hunt
+(`hunts.whole`, the export) is a smith's alone (`Approve.mayExportHunt`).
 
 Convex Auth's tables (`users`, `authSessions`, `authAccounts` and the rest) are spread into
 `convex/schema.ts` as it ships them (`authTables`): they are its own, written only by it, and not

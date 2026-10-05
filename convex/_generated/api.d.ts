@@ -15,6 +15,7 @@ import type * as http from "../http.js";
 import type * as hunts from "../hunts.js";
 import type * as idents from "../idents.js";
 import type * as migrations from "../migrations.js";
+import type * as policy_rules from "../policy_rules.js";
 import type * as questions from "../questions.js";
 import type * as quizzes from "../quizzes.js";
 import type * as reading from "../reading.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   hunts: typeof hunts;
   idents: typeof idents;
   migrations: typeof migrations;
+  policy_rules: typeof policy_rules;
   questions: typeof questions;
   quizzes: typeof quizzes;
   reading: typeof reading;

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, IconButton, InputBase, Link, Stack, Typography } from '@mui/material'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
+import * as Actor from '../lib/actor'
+import * as Approve from '../lib/approve'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
@@ -34,7 +36,7 @@ const NewHuntAttemptsMax = 3
  */
 export function HuntsList() {
   const router = useRouter()
-  const { ident, loaded } = useIdent()
+  const { ident, actor, loaded } = useIdent()
   const hunts = useHuntsList()
   const { act, busy } = useAccountActions()
   const raise = useRaiseAlarm()
@@ -77,7 +79,7 @@ export function HuntsList() {
         <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>
         {hunts.length === 0 && <p className={styles.microcopy}>{AppNotices.noHunts}</p>}
         <Stack component="ul" spacing={1} sx={{ listStyle: 'none', p: 0, mt: 1 }}>
-          {hunts.map((hunt) => <HuntEntry key={hunt._id} hunt={hunt} />)}
+          {hunts.map((hunt) => <HuntEntry key={hunt._id} hunt={hunt} actor={actor} />)}
         </Stack>
       </Panel>
     </main>
@@ -114,19 +116,27 @@ function IdentTitle({ ident, act }: Readonly<{ ident: IdentT, act: AccountAction
   )
 }
 
+type HuntEntryProps = {
+  hunt:  ListedHuntT
+  /** Who is looking, whose claims on the hunt decide whether they may edit it */
+  actor: Actor.ActorT
+}
+
 /**
- * One hunt: its title, the visitor's role on it, a gear to edit it for its smiths, and a link to
- * each of its quizzes, which sit beside the title while there is room and wrap beneath it when not.
+ * One hunt: its title, the visitor's role on it, a gear to edit it for whoever may (a smith), and
+ * a link to each of its quizzes, which sit beside the title while there is room and wrap beneath
+ * it when not.
  */
-function HuntEntry({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
+function HuntEntry({ hunt, actor }: Readonly<HuntEntryProps>) {
   const [editing, setEditing] = useState(false)
   const huntLabel = hunt.label
+  const editable = Approve.mayOffer('retitle_hunt', Actor.claimsOn(actor, hunt._id, hunt))
   return (
     <Stack component="li" direction="row" useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center', columnGap: 2 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
         <Typography component="h3" sx={{ fontWeight: 600 }}>{hunt.title}</Typography>
         <span className={styles.microcopy}>{HuntRoleTitles[hunt.role]}</span>
-        {hunt.role === 'smith' && (
+        {editable && (
           <IconButton size="small" aria-label={`Edit hunt ${hunt.title}`} onClick={() => { setEditing(true) }}>
             <SettingsOutlinedIcon fontSize="small" />
           </IconButton>

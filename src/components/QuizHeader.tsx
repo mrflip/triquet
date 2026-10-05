@@ -16,7 +16,10 @@ export const SmithsNoteMaxRows = 14
 export type QuizHeaderProps = {
   title:        string
   smithsNote:   string
+  /** Whether the quiz is locked, which the Locked pill says */
   locked:       boolean
+  /** Whether its name and smith's note may be changed here: read-only when not */
+  revisable:    boolean
   onRetitle:    (title: string) => void
   onSmithsNote: (smiths_note: string) => void
   onManage:     () => void
@@ -31,7 +34,7 @@ export type QuizHeaderProps = {
  * does clicking or tabbing into it; unfolded, it grows to several paragraphs before it scrolls,
  * and stays unfolded until its triangle folds it again.
  */
-export function QuizHeader({ title, smithsNote, locked, onRetitle, onSmithsNote, onManage }: Readonly<QuizHeaderProps>) {
+export function QuizHeader({ title, smithsNote, locked, revisable, onRetitle, onSmithsNote, onManage }: Readonly<QuizHeaderProps>) {
   // The quiz name is the one field that updates live rather than on blur.
   const { draft, onChange, onBlur } = useDraft(title, onRetitle)
   const note = useDraft(smithsNote, onSmithsNote)
@@ -45,7 +48,7 @@ export function QuizHeader({ title, smithsNote, locked, onRetitle, onSmithsNote,
         <InputBase
           value={draft}
           placeholder={AppNotices.untitledQuiz}
-          readOnly={locked}
+          readOnly={! revisable}
           inputProps={{ 'aria-label': 'Quiz name', size: Math.max(draft.length, AppNotices.untitledQuiz.length) + 1 }}
           onChange={(event) => {
             onChange(event.target.value)
@@ -64,7 +67,7 @@ export function QuizHeader({ title, smithsNote, locked, onRetitle, onSmithsNote,
             borderRadius:  'var(--radius-input)',
             // As wide as the title, where the browser can size a field to its text; `size` stands in where it can't.
             '& input':        { fieldSizing: 'content', minWidth: '4ch' },
-            '&:hover':        { borderColor: locked ? 'transparent' : 'var(--border)' },
+            '&:hover':        { borderColor: revisable ? 'var(--border)' : 'transparent' },
             '&.Mui-focused':  { borderColor: 'var(--accent)', bgcolor: 'color-mix(in srgb, var(--accent-soft) 45%, transparent)' },
           }}
         />
@@ -87,7 +90,7 @@ export function QuizHeader({ title, smithsNote, locked, onRetitle, onSmithsNote,
           onChange={(event) => { note.onChange(event.target.value) }}
           onFocus={openOnEntry(() => { setNoteOpen(true) })}
           onBlur={note.onBlur}
-          slotProps={{ input: { readOnly: locked, endAdornment: <MarkdownFace inInput text={note.draft} /> }, htmlInput: { className: veiledIf(note.draft) } }}
+          slotProps={{ input: { readOnly: ! revisable, endAdornment: <MarkdownFace inInput text={note.draft} /> }, htmlInput: { className: veiledIf(note.draft) } }}
           // Folded, the rendered face still stands as tall as the whole note, and would scroll.
           sx={{ flex: 1, ...(! noteOpen && { '& [data-face]': { overflowY: 'hidden' } }) }}
         />

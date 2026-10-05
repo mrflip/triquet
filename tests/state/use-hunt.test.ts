@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
+import * as Actor from '../../src/lib/actor'
 import type { ShallowHuntT } from '../../src/lib/rows'
-import { placeIn } from '../../src/state/use-hunt'
+import { claimsOf, denialOf, placeIn } from '../../src/state/use-hunt'
 
 /** A quiz's row as a realm lists it */
 function quizRow(tail: string, label: string): Doc<'quizzes'> {
@@ -57,4 +58,45 @@ describe('placeIn', () => {
   it('finds nothing when the quiz last shown is gone too', () => {
     expect(placeIn(Hunt, { realm: 'home', quiz: 'princes' }, 'j97d0qbj35dar1v8edndzckvsx8f8q99').finding).to.eq('missing')
   })
+})
+
+const Alice = Actor.asIdent('m57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' })
+
+describe('claimsOf', () => {
+  it("holds who is looking, the hunt, their standing there and the quiz on screen's lock", () => {
+    expect(claimsOf(Alice, Hunt, false)).to.deep.eq({ ...Alice, hunt_id: Hunt._id, standing: 'smith', quiz: { locked: false } })
+  })
+
+  it('holds no quiz while none is on screen', () => {
+    expect(claimsOf(Alice, { ...Hunt, role: 'reviewer' }, null)).to.deep.eq({ ...Alice, hunt_id: Hunt._id, standing: 'reviewer', quiz: null })
+  })
+
+  it('is null until both who is looking and the hunt are known', () => {
+    expect([claimsOf(null, Hunt, false), claimsOf(Alice, null, false)]).to.deep.eq([null, null])
+  })
+})
+
+describe('denialOf', () => {
+  const quiz_id = Hunt.realms[0]?.quizzes[0]?._id as Id<'quizzes'>
+  const smith = { ...Actor.claimsOn(Alice, Hunt._id, { role: 'smith' }), quiz: { locked: false } }
+  const lockedSmith = { ...smith, quiz: { locked: true } }
+  const reviewer = { ...Actor.claimsOn(Alice, Hunt._id, { role: 'reviewer' }), quiz: { locked: false } }
+
+  const Cases: [Actor.QuizClaimsT, Parameters<typeof denialOf>[1], ReturnType<typeof denialOf>, string][] = [
+    // regular usage:
+    [smith,       { kind: 'add_question' },                                        null,           'lets a smith revise an unlocked quiz'],
+    [lockedSmith, { kind: 'add_question' },                                        'quizLocked',   "refuses a change to a locked quiz, with the lock's own refusal"],
+    [lockedSmith, { kind: 'set_lock', quiz_id, locked: false },                    null,           'lets a smith unlock it'],
+    [reviewer,    { kind: 'open_review', quiz_id },                                null,           'lets a reviewer open their review'],
+    [reviewer,    { kind: 'retitle_quiz', title: 'Kings' },                        'notPermitted', 'refuses a reviewer a change to the quiz'],
+    [smith,       { kind: 'remove_hunting', ident_id: Alice.ident_id },            'ownHunting',   "refuses a smith's taking themselves off, as the server would"],
+    [lockedSmith, { kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum' } }, 'quizLocked', 'judges an action whose defaults a view left out, read as the server will read it'],
+    // weird cases:
+    [reviewer,    { kind: 'retitle_quiz', title: 'x'.repeat(5000) },               null,           'leaves an action that does not read as one to the server, which says what is wrong with it'],
+  ]
+  for (const [claims, action, expected, describes] of Cases) {
+    it(describes, () => {
+      expect(denialOf(claims, action)).to.eq(expected)
+    })
+  }
 })

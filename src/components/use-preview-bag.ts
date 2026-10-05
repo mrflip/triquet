@@ -45,7 +45,7 @@ export function usePreviewBag(hunt: ShallowHuntT, library: readonly WidgetT[], o
 
   const quizzes = useMemo(() => hunt.realms.flatMap((realm) => realm.quizzes), [hunt])
   const picked = quiz_id === openQuiz._id ? null : quizzes.find((row) => row._id === quiz_id) ?? null
-  const other = useOtherQuiz(picked?._id ?? null)
+  const other = useOtherQuiz(hunt, picked?._id ?? null)
   const quiz: QuizT | null = picked ? other : openQuiz
   const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
   const question = ranked.find((held) => held._id === question_id) ?? ranked[0]

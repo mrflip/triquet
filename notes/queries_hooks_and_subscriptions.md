@@ -20,7 +20,9 @@ it means.
 * **facet** -- the unit a watch covers: a set of rows that change together and are shown
   together. A quiz's frame (its own fields, widgetings and columns) is a facet; one question with
   what its widgetings stored is a facet; a quiz's reviews are a facet; the library of widgets is
-  a facet. Facets are what a query function is written for.
+  a facet. Facets are what a query function is written for. A facet's shape may depend on who
+  reads it: a reviewer's question carries what a review needs (`Question.sentTo`), and the
+  browser reads a field it was not sent as blank.
 * **screen hook** -- the one hook that owns a screen's watches and hands the rest of the screen
   what it needs as props: `useHunt` for a quiz's screen, `useHuntsList` for the hunts page,
   `useIdent` for who the browser is. A screen hook may be built from smaller hooks (`useHunt`
@@ -32,8 +34,10 @@ it means.
   on the hunt (which quizzes exist, and who is on it), one on the library (`widgets.library`),
   one on the quiz's frame, one per question the frame lists, and one on the reviews. `useQuiz`
   assembles frame and questions into the quiz the rest of the tool reads.
-* A change is one mutation, `hunts.perform`, which reads the truth inside its transaction and
-  writes the rows it comes to. The server reruns every watched query function whose reads were
+* A change is one mutation, `hunts.perform` (or for the library, which no hunt owns,
+  `widgets.perform`), which reads the truth inside its transaction and writes the rows it comes
+  to. One browser's changes are carried out in the order they were made, whichever of the two
+  each rides. The server reruns every watched query function whose reads were
   touched and sends the ones whose result changed. Nothing in the browser guesses what a
   change affected.
 * Components take props. A cell, a row, a dialog or a panel is handed what it shows and a
@@ -91,6 +95,18 @@ browser per change, both of which the phase 4 harness reports (`whiteboard/conve
 * A query function takes ids or labels, and refuses nothing a screen might reasonably ask: a
   watch that throws takes the page down with it (`useQuery` throws into React). Keep an
   argument a query function would refuse from reaching it (see `useHunt`'s `askable`).
+* A query function about a hunt also takes the browser's affirms (`useAffirms`: its ident, the
+  hunt, its standing, and the quiz where there is one), built from facets the screen already
+  holds, so no watch waits on another only to learn what to affirm. The server checks them
+  (`convex/authorize.ts`), and a query answers a denial, stale affirms included, with its empty
+  value (`emptyIfDenied`), never a throw. A watch's affirms are kept the same object while
+  nothing in them changes, so the watch keeps its subscription. Such a query function is built
+  with `zHuntQuery` (`convex/functions.ts`), which does both, and hands its handler a database
+  that sees only the affirmed hunt; one that is not is named in `Unscoped` (`convex/authorize.ts`).
+* The screen hook also hands its screen the browser's **claims** on the hunt (`useHunt`'s
+  `claims`: the actor `idents.current` sends, the hunt, the standing, the quiz on screen's lock),
+  which the screen's views decide what to offer from (`Approve`), rather than from a role. They
+  are worked out from what the screen already watches, and cost no watch of their own.
 * Every read in a query function goes through an index and is bounded by the caps in
   `lib/vv/patterns.ts`.
 * Convex deduplicates identical watches in the browser: two hooks watching the same query

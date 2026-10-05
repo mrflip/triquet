@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { Button, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material'
 import { CopyButton } from '../CopyButton'
 import { Panel } from './Panel'
-import { AppNotices } from '../../lib/notices'
+import * as Actor from '../../lib/actor'
+import * as Approve from '../../lib/approve'
+import { AppNotices, RefusalNotices } from '../../lib/notices'
 import * as Routes from '../../lib/routes'
 import type { MemberT } from '../../lib/rows'
 import { HuntRoleTitles, HuntRoleVals, type HuntRole } from '../../models/hunting'
@@ -15,17 +17,18 @@ import styles from '../workbench.module.css'
 export type MembersPanelProps = Pick<HuntHandle, 'carryOut' | 'saveNotice'> & {
   /** Who is on the hunt, in the order they were put on it */
   members: readonly MemberT[]
-  /** Who is looking: a smith, who may not take themselves off */
-  self_id: string
+  /** What whoever is looking holds of themselves on the hunt: who may be put on or taken off is asked of the policy (`Approve`) */
+  claims:  Actor.HuntClaimsT
   /** The quiz on screen, which the reviewer link opens for review */
   labels:  Routes.QuizLabels
 }
 
 /**
- * Who is on the hunt and in what role, for a smith: a row to take each off, a row to put someone
- * on by the ident label they chose, and the link that opens this quiz for review.
+ * Who is on the hunt and in what role, for a smith: a button to take off each the policy lets them
+ * (not themselves: another smith does that), a row to put someone on by the ident label they
+ * chose, and the link that opens this quiz for review.
  */
-export function MembersPanel({ members, self_id, labels, carryOut, saveNotice }: Readonly<MembersPanelProps>) {
+export function MembersPanel({ members, claims, labels, carryOut, saveNotice }: Readonly<MembersPanelProps>) {
   return (
     <Panel title="Members" blurb="Who is on this hunt. Smiths work on its quizzes and say who else is on it; reviewers playtest them. Put someone on by the ident label they chose; putting them on again changes their role.">
       <TableContainer>
@@ -45,18 +48,14 @@ export function MembersPanel({ members, self_id, labels, carryOut, saveNotice }:
                 <TableCell>{member.label}</TableCell>
                 <TableCell>{HuntRoleTitles[member.role]}</TableCell>
                 <TableCell align="right">
-                  {member.ident_id === self_id ? <span className={styles.microcopy}>you</span> : (
-                    <Button size="small" aria-label={`Remove ${member.label}`} onClick={() => { void carryOut({ kind: 'remove_hunting', ident_id: member.ident_id }) }}>
-                      Remove
-                    </Button>
-                  )}
+                  <MemberDoor member={member} claims={claims} carryOut={carryOut} />
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
-      <AddMember carryOut={carryOut} saveNotice={saveNotice} />
+      <AddMember claims={claims} carryOut={carryOut} saveNotice={saveNotice} />
       <div className={styles.panelRow}>
         <CopyButton textOf={() => `${location.origin}${Routes.quizPath(labels, 'review')}`}>Copy reviewer link</CopyButton>
       </div>
@@ -65,10 +64,26 @@ export function MembersPanel({ members, self_id, labels, carryOut, saveNotice }:
 }
 
 /**
- * The row that puts someone on the hunt: their ident label, their role, and a button. A label
- * refused, here or by the server, says why beneath it until it is changed.
+ * What a member's row offers whoever is looking: a button to take them off the hunt, where the
+ * policy allows it; their own row says it is theirs.
  */
-function AddMember({ carryOut, saveNotice }: Readonly<Pick<HuntHandle, 'carryOut' | 'saveNotice'>>) {
+function MemberDoor({ member, claims, carryOut }: Readonly<Pick<MembersPanelProps, 'claims' | 'carryOut'> & { member: MemberT }>) {
+  const removal = { kind: 'remove_hunting', ident_id: member.ident_id } as const
+  if (Actor.isOneself(claims, member)) { return <span className={styles.microcopy}>you</span> }
+  if (! Approve.may(removal.kind, claims, removal)) { return null }
+  return (
+    <Button size="small" aria-label={`Remove ${member.label}`} onClick={() => { void carryOut(removal) }}>
+      Remove
+    </Button>
+  )
+}
+
+/**
+ * The row that puts someone on the hunt: their ident label, their role, and a button. A label
+ * refused, here, by the policy (one's own: `ownHunting`), or by the server, says why beneath it
+ * until it is changed.
+ */
+function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelProps, 'claims' | 'carryOut' | 'saveNotice'>>) {
   const [labelDraft, setLabelDraft] = useState('')
   const [role, setRole] = useState<HuntRole>('reviewer')
   const [issue, setIssue] = useState<string | null>(null)
@@ -80,8 +95,11 @@ function AddMember({ carryOut, saveNotice }: Readonly<Pick<HuntHandle, 'carryOut
     const ident_label = Ident.labelFor(labelDraft)
     if (ident_label === '') { setIssue(AppNotices.identLabelNeeded); return }
     if (! IdentValidators.identLabel.safeParse(ident_label).success) { setIssue(AppNotices.identLabelShape); return }
+    const addition = { kind: 'add_hunting', ident_label, role } as const
+    const verdict = Approve.verdictOn(addition.kind, claims, addition)
+    if (verdict !== Approve.Allow) { setIssue(RefusalNotices[verdict]); return }
     setIssue(null)
-    const kept = await carryOut({ kind: 'add_hunting', ident_label, role }, { quietly: true })
+    const kept = await carryOut(addition, { quietly: true })
     setRefused(! kept)
     if (kept) { setLabelDraft('') }
   }

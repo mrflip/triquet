@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { askerOf } from '../../convex/functions'
+import { askerOf, emptyIfDenied } from '../../convex/functions'
 import * as Actor from '../../src/lib/actor'
+import * as Approve from '../../src/lib/approve'
+import { refuse } from '../../src/lib/refusals'
 import { identified, openTester, signedIn } from '../support/convex'
 
 describe("askerOf", () => {
@@ -29,5 +31,39 @@ describe("askerOf", () => {
       for (const held of sessions) { await ctx.db.delete('authSessions', held._id) }
     })
     expect(await flip.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: Actor.anonymous, user_id: null })
+  })
+})
+
+/** A read that finds `found` */
+async function finding(found: string): Promise<string> {
+  await Promise.resolve()
+  return found
+}
+
+/** A read that is turned away with `denial` */
+async function deniedWith(denial: Approve.Denialkind): Promise<string> {
+  await Promise.resolve()
+  throw new Approve.NotApprovedError(denial)
+}
+
+describe("emptyIfDenied", () => {
+  it("hands back what the read returns", async () => {
+    expect(await emptyIfDenied(null, async () => await finding('the frame'))).to.eq('the frame')
+  })
+
+  it("answers a denial with the empty value it is given, whichever denial it is", async () => {
+    const seen = [await emptyIfDenied([], async () => await deniedWith('notIdentified')), await emptyIfDenied([], async () => await deniedWith('notPermitted'))]
+    expect(seen).to.deep.eq([[], []])
+  })
+
+  it("throws on anything that is not a denial: a refusal, or a failure", async () => {
+    await expect(emptyIfDenied(null, async () => {
+      await finding('the frame')
+      refuse('quizGone')
+    })).rejects.toThrow(/quizGone/)
+    await expect(emptyIfDenied(null, async () => {
+      await finding('the frame')
+      throw new Error('the database fell over')
+    })).rejects.toThrow('the database fell over')
   })
 })

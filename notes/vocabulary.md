@@ -55,7 +55,9 @@ this section, lists the words they replace while code still holds them.
   has what bringing it back, and the imported replies with it, takes.
 * **refresh** -- how a formulary's widgeteds come to be: `live` (worked out on every render),
   `click` (asked from the cell), or neither (typed).
-* **library** -- every widget there is. Its own export and import, apart from any hunt's.
+* **library** -- every widget there is. Its own export and import, apart from any hunt's. It
+  belongs to no hunt, and is changed by an admin on a mutation of its own (`widgets.perform`), with
+  no hunt or quiz open.
 * **catalogue** -- the library as the widgeting editor's picker offers it.
 * **widgeting editor** -- the quiz's dialog for one widgeting: the widget it works, picked from the
   catalogue, and its own label and description. It never edits the widget.
@@ -107,18 +109,51 @@ words above.
   `'stranger'` (`Actor.HuntStandingVals`). A named value rather than a null role, so that "not on
   the hunt" is a state with a name. An actor who has asserted no username is a stranger to every
   hunt.
+* **affirms** -- what a browser says is true of itself on a hunt, sent with every request about
+  it: `{ ident_id, hunt_id, standing }`, and where the request is about a quiz, its `quiz_id`, and
+  for an action, the quiz's `realm_id` too (`ActionValidators.huntAffirms`, `quizAffirms`,
+  `affirms`). Each is something the browser already holds from the hunt it opened
+  (`useAffirms`). The server believes none of it until it has checked it (`affirmForHunt`): a
+  stale or forged affirm is a denial. Named `affirms`, the whole object, never one of its fields.
 * **claims** -- what the server has verified of an actor on one hunt, handed to a policy:
-  `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`). Code handed
-  claims trusts them. Named `claims`, the whole object, never one of its fields.
+  `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`), and with a
+  quiz on screen, that quiz's row (`Actor.QuizClaimsT`). On the server, the affirms once checked,
+  with the rows read to check them (`ClaimsOf` in `convex/authorize.ts`). In the browser, what it
+  holds of itself on the hunt it has open, built the same way from the actor `idents.current` hands
+  it (`useIdent`) and the hunt it read (`useHunt`'s `claims`). Code handed claims trusts them.
+  Named `claims`, the whole object, never one of its fields.
 * **policy**, **verdict** -- a policy is a non-async `may…` function in `src/lib/approve.ts`
   (`mayReadReview`, `mayChangeMembership`) that decides from the evidence it is handed and reads
   nothing, so the browser and the server run the same one. Its verdict is `'allow'` or the refusal
-  kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`). `Approve.may(key, …)`
+  kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`, `quizLocked`). `Approve.may(key, …)`
   answers yes or no, `Approve.must(key, …)` throws when no, and `Approve.verdictOn(key, …)` says
   which; the key is an action's kind or the name of a read (`read_hunt`).
+* **offer** -- what a view puts in front of the author to do: a field left editable, a button
+  shown. A view offers what the server would accept, decided from the browser's claims by the
+  same policies, never by testing a role: `Approve.mayOffer(kind, claims)` asks of an action's
+  kind before the author has said what it is (only for a kind whose policy reads nothing of the
+  action), and `Approve.may` with the action itself otherwise (who a membership action names).
+  The smith's screen gathers its offers in `workbenchOffers`. `useHunt`'s dispatcher, and the
+  library's (`useLibraryActions`), ask the policy again before sending, so a view that offered
+  what it should not is caught before the server is asked.
+* **scoped database** -- the `db` a hunt's function holds once its affirms are checked: it sees and
+  writes only rows of that hunt, by one rule per table (`convex/policy_rules.ts`), whatever the
+  handler asks for. Built by `zHuntQuery` and `zHuntMutation`. The library's mutation holds one
+  scoped to the library (`zLibraryMutation`, `LibraryRules`): its widgets, and nothing of any hunt.
+  The functions that hold the whole database instead are named in `Unscoped`
+  (`convex/authorize.ts`). Not a widget's `scope`.
+* **admin** -- one who looks after what belongs to no hunt: the library. Changing it is an admin's
+  act (`Approve.mayChangeLibrary`). Who is an admin is decided in one place, `Actor.isAdmin`, and
+  nowhere else; until that is settled it approves everyone who has asserted a username.
+* **census** -- what a write must know across every hunt, asked of the whole database and
+  answered with an id or a yes, never a row: whose a hunt label is, whether a widget is worked
+  anywhere (`CensusT` in `convex/reading.ts`). A hunt's mutation, and the library's, holds one
+  beside its scoped database.
 * **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
-  `affirmReadReviews`) that gathers the evidence a policy needs, builds the claims, and hands them
-  to `Approve`. It decides nothing itself.
+  `affirmReadReviews`) that checks the affirms and gathers the evidence a policy needs in one
+  parallel round (`affirmForHunt`), builds the claims, and hands them to `Approve`. It decides
+  nothing itself. A denial is thrown: a mutation refuses with it, a query answers its empty value
+  (`emptyIfDenied`).
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
   global, and exports on its own. Its label is global; should two share one, the earlier-made wins.
@@ -208,6 +243,10 @@ words above.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
   JSON Schema and the git table are all built from these lists, so hiding a field is one edit. A
   widgeting exposes `status` and `value`; never its `err` or how it ran.
+* **sent** -- what a query hands a reader of a given standing. `Question.sentTo` lists a
+  question's fields per standing: a smith is sent all of it, a reviewer what a review needs (not
+  the notes, nor what the widgetings stored), a stranger nothing. Not the same list as *exposed*,
+  which says what a formula reads; a field a reader is not sent reads as blank in their browser.
 
 ## Bots
 
@@ -249,7 +288,8 @@ that way; the model bots were called players until September 2026.
   they looked, not when, and it is the reviewer's own: their lock says "Seen before", and the
   smiths are not shown it.
 * **the lock** -- the answer, hidden behind a confirmation until a reviewer chooses to see it.
-  Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`.
+  Neither the confirmation nor the reveal is stored, apart from the reviewing's `peeked`. A
+  spoiler shield, not a security boundary: the reviewer is sent the answer, peeked or not.
 
 ## Reading from Convex
 

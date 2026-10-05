@@ -370,7 +370,10 @@ test.describe('a link handed to a friend', () => {
     await expect(friend.getByRole('link', { name: title })).toBeHidden()
 
     await addMember(page, label, 'Reviewer')
-    await expect(friend.getByRole('listitem').filter({ hasText: title })).toContainText('Reviewer')
+    const listed = friend.getByRole('listitem').filter({ hasText: title })
+    await expect(listed).toContainText('Reviewer')
+    // Drawn in the same render as the role beside it: a reviewer is offered no gear to edit the hunt.
+    await expect(listed.getByRole('button', { name: /^Edit hunt / })).toHaveCount(0)
     await friend.getByRole('link', { name: title }).click()
     await expect(friend).toHaveURL(/\?act=review$/)
   })
@@ -382,6 +385,21 @@ test.describe('a link handed to a friend', () => {
     await members.getByLabel('Ident label').fill(label)
     await members.getByRole('button', { name: 'Add' }).click()
     await expect(members.getByText(`No ident is labelled "${label}". They need to visit the app and choose it first.`)).toBeVisible()
+  })
+
+  test('offers a smith no way to take themselves off, and says why beside the field when they try to put themselves on', async ({ page }) => {
+    const label = await startHunt(page)
+    const members = page.getByRole('region', { name: 'Members' })
+    const own = members.getByRole('row').filter({ hasText: label })
+    await expect(own).toContainText('you')
+    // Drawn in the same render as "you": one's own row is offered no Remove.
+    await expect(own.getByRole('button', { name: `Remove ${label}` })).toHaveCount(0)
+
+    await members.getByLabel('Ident label').fill(label)
+    await members.getByRole('button', { name: 'Add' }).click()
+    await expect(members.getByText(RefusalNotices.ownHunting)).toBeVisible()
+    // Said beside the field without asking the server, in the same moment an alarm would be raised, were one.
+    await expect(page.getByRole('alert').filter({ hasText: RefusalNotices.ownHunting })).toHaveCount(0)
   })
 
   test('lets a smith take a member off, who is then told they are not on the hunt', async ({ page, browser }) => {

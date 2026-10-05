@@ -6,7 +6,8 @@ import { Panel } from './panels/Panel'
 import { notASmithNotice, notOnHuntNotice } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { SmithT } from '../lib/rows'
-import type { HuntRole } from '../models/hunting'
+import type * as Actor from '../lib/actor'
+import { Hunting } from '../models/hunting'
 import type { IdentT } from '../models/ident'
 import styles from './workbench.module.css'
 
@@ -15,8 +16,8 @@ export type NotOnHuntProps = {
   labels: Routes.QuizLabels
   /** Who is looking */
   ident:  IdentT
-  /** Their role on the hunt: null when they are not on it, `reviewer` when they asked to work on it as a smith */
-  role:   HuntRole | null
+  /** What they hold of themselves on the hunt; null when the server says they are not on it */
+  claims: Actor.HuntClaimsT | null
   /** The hunt's smiths, who could put them on it or make them a smith */
   smiths: readonly SmithT[]
 }
@@ -26,8 +27,9 @@ export type NotOnHuntProps = {
  * is: a visitor not on its hunt, or a reviewer asking for the smiths' presentation. Names the
  * smiths to ask and what to ask them for, and where the visitor may go instead.
  */
-export function NotOnHunt({ labels, ident, role, smiths }: Readonly<NotOnHuntProps>) {
-  const reviewing = role === 'reviewer'
+export function NotOnHunt({ labels, ident, claims, smiths }: Readonly<NotOnHuntProps>) {
+  // Someone on the hunt who may not work on the quiz may still be able to review it.
+  const reviewing = claims !== null && Hunting.mayAct(claims, 'review')
   return (
     <main className={styles.page}>
       <Panel

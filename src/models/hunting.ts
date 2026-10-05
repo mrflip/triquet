@@ -1,4 +1,6 @@
 import type * as Z from 'zod'
+import type * as Actor from '../lib/actor'
+import * as Approve from '../lib/approve'
 import { Validator } from '../lib/validator'
 import type { Act } from '../lib/routes'
 import { IdentValidators } from './ident'
@@ -35,6 +37,13 @@ export type HuntingRowT = Z.output<typeof HuntingValidators.row>
 /** The presentation each role is shown when an address names none */
 const ActForRole = { smith: 'smith', reviewer: 'review' } as const satisfies Record<HuntRole, Act>
 
+/**
+ * The action each presentation of a quiz always offers, whatever else it does, and so whose policy
+ * says who is shown it: the workbench always offers to lock or unlock the quiz, locked or not; the
+ * review opens one's review of it the moment it is shown.
+ */
+const ActKinds = { smith: 'set_lock', review: 'open_review' } as const satisfies Record<Act, Approve.OfferableKind>
+
 /** One ident's place on one hunt, with a role */
 export class Hunting implements HuntingRowT {
   declare hunt_id:     HuntingRowT['hunt_id']
@@ -54,12 +63,13 @@ export class Hunting implements HuntingRowT {
   }
 
   /**
-   * Whether `role` may be shown a quiz presented as `act`. A smith may be shown either; a reviewer
-   * only the review.
+   * Whether the holder of `claims` may be shown a quiz of their hunt presented as `act`: whether
+   * the server would let them take the one action that presentation always offers (`ActKinds`).
+   * A smith may be shown either; a reviewer only the review; nobody else either.
    *
-   * @example Hunting.mayAct('reviewer', 'smith')  // => false
+   * @example Hunting.mayAct(claims, 'smith')  // => false, for a reviewer
    */
-  static mayAct(role: HuntRole, act: Act): boolean {
-    return role === 'smith' || act === 'review'
+  static mayAct(claims: Actor.HuntClaimsT, act: Act): boolean {
+    return Approve.mayOffer(ActKinds[act], claims)
   }
 }

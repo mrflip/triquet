@@ -11,33 +11,32 @@ import { refuse } from '../../src/lib/refusals'
 import { quizFrom, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT } from '../../src/models/question'
-import type { OpenQuizT } from '../../src/models/actions'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
 import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
-import { allStoredOf, layoutRowsOf, libraryOf, questionOf, questionsOf, quizForLabel, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
-import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type LayoutPlace, type Writer } from './quiz_writing'
+import { allStoredOf, layoutOf, libraryOf, questionOf, questionsOf, quizForLabel, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
+import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type LayoutPlace, type OpenQuizT, type Writer } from './quiz_writing'
 
-// Each action reads what it needs and no more: the open quiz's own row, the questions it names
-// by id, and the whole quiz only for an order worked out across every question. What an action
-// reads is what Convex bills, and what a mutation holds in its transaction.
+// Each action reads what it needs and no more: the open quiz's own row comes with the claims
+// `authorize` checked, and an action reads beside it the questions it names by id, and the whole
+// quiz only for an order worked out across every question. What an action reads is what Convex
+// bills, and what a mutation holds in its transaction. Whether the actor may revise the quiz at
+// all is settled before any of this (`Approve.mayReviseQuiz`).
 
-/** Refuse a change to a quiz that is gone or locked. The freeze is a property of the quiz, not of whether a button happened to be greyed out. */
-function revisable<RT extends { quiz: Doc<'quizzes'> }>(rows: RT | null): RT {
-  if (! rows) { refuse('quizGone') }
-  if (rows.quiz.locked) { refuse('quizLocked') }
-  return rows
+/** The quiz `quiz`, refusing when it is gone */
+function revisable(quiz: Doc<'quizzes'> | null): Doc<'quizzes'> {
+  if (! quiz) { refuse('quizGone') }
+  return quiz
 }
 
 /**
- * The open quiz's own row, refusing when the quiz is locked or gone.
+ * The open quiz's own row, as the claims hold it, refusing when the quiz is gone.
  *
- * @throws A refusal (`quizGone`, `quizLocked`); nothing is written.
+ * @throws A refusal (`quizGone`); nothing is written.
  */
-export async function openQuizRow(db: Writer, open: OpenQuizT): Promise<Doc<'quizzes'>> {
-  const quiz = await db.get('quizzes', open.quiz_id)
-  return revisable(quiz && { quiz }).quiz
+export function openQuizRow(open: OpenQuizT): Doc<'quizzes'> {
+  return revisable(open.quiz)
 }
 
 /**
@@ -45,7 +44,7 @@ export async function openQuizRow(db: Writer, open: OpenQuizT): Promise<Doc<'qui
  * `openQuizRow` does. What a change to the quiz's layout needs.
  */
 export async function reviseOpenLayout(db: Writer, open: OpenQuizT, write: (rows: LayoutRows) => Promise<void>): Promise<void> {
-  await write(revisable(await layoutRowsOf(db, open.quiz_id)))
+  await write(await layoutOf(db, openQuizRow(open)))
 }
 
 /** The row of the question `question_id` of `quiz`, refusing when it is not the quiz's */
@@ -58,22 +57,21 @@ async function questionIn(db: Writer, quiz: Doc<'quizzes'>, question_id: string)
 
 /** Where the open quiz sits, as its formulas are told: its hunt and realm, refusing as a gone quiz when either is */
 async function placeOfOpen(db: Writer, open: OpenQuizT): Promise<Runner.QuizPlace> {
-  const [hunt, realm] = await Promise.all([db.get('hunts', open.hunt_id), db.get('realms', open.realm_id)])
-  if (! hunt || ! realm) { refuse('quizGone') }
-  return Runner.placeOf(hunt, realm)
+  const hunt = await db.get('hunts', open.hunt_id)
+  if (! hunt || ! open.realm) { refuse('quizGone') }
+  return Runner.placeOf(hunt, open.realm)
 }
 
 /** What a new order is worked out from: the quiz's own rows and questions, with what they stored only when asked for */
 type ReorderReads = { stored: boolean }
 
 /**
- * The open quiz and its questions, for an action that works out a new order, refusing as
- * `openQuizRow` does. What the questions stored is read only for an order that can depend on it
- * (a sort, by a widgeting's column); every other order leaves it unread, and the questions it is
- * handed show none.
+ * The quiz `quiz` and its questions, put in a new order. What the questions stored is read only
+ * for an order that can depend on it (a sort, by a widgeting's column); every other order leaves
+ * it unread, and the questions it is handed show none.
  */
-async function reorderOpenQuiz(db: Writer, open: OpenQuizT, reads: ReorderReads, reorder: (quiz: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
-  const layout = revisable(await layoutRowsOf(db, open.quiz_id))
+async function reorderQuiz(db: Writer, quiz: Doc<'quizzes'>, reads: ReorderReads, reorder: (tree: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
+  const layout = await layoutOf(db, quiz)
   const questions = await questionsOf(db, layout.quiz)
   const rows = { ...layout, questions, stored: reads.stored ? await allStoredOf(db, questions, layout.widgetings) : new Map() }
   const ordered = reorder(quizFrom(rows))
@@ -93,7 +91,7 @@ async function writeOrder(db: Writer, rows: QuizRows, ordered: readonly Question
 
 /** Retitle the open quiz. An empty title is kept as it is; the screen shows it as "Untitled quiz". */
 export async function retitleQuiz(db: Writer, open: OpenQuizT, title: string): Promise<void> {
-  await updateQuiz(db, await openQuizRow(db, open), { title })
+  await updateQuiz(db, openQuizRow(open), { title })
 }
 
 /**
@@ -101,10 +99,11 @@ export async function retitleQuiz(db: Writer, open: OpenQuizT, title: string): P
  * nothing afterwards. Refused when another quiz of its realm already answers to it; its own label
  * is no clash, and changes nothing.
  *
- * @throws A refusal (`quizGone`, `quizLocked`, `labelTaken`); nothing is written.
+ * @throws A refusal (`quizGone`, `labelTaken`); nothing is written.
  */
 export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): Promise<void> {
-  const [quiz, holder] = await Promise.all([openQuizRow(db, open), quizForLabel(db, open.realm_id, label)])
+  const quiz = openQuizRow(open)
+  const holder = await quizForLabel(db, open.realm_id, label)
   if (holder && holder._id !== quiz._id) { refuse('labelTaken') }
   await updateQuiz(db, quiz, { label })
   // A retiring override still on the row would win back over this label when it is folded in.
@@ -116,12 +115,12 @@ export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): P
  * there, not here; the shape of the name is the caller's to check.
  */
 export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string): Promise<void> {
-  await updateQuiz(db, await openQuizRow(db, open), { version })
+  await updateQuiz(db, openQuizRow(open), { version })
 }
 
 /** Rewrite the open quiz's smith's note. An empty note is kept as it is: the screen shows its placeholder. */
 export async function setSmithsNote(db: Writer, open: OpenQuizT, smiths_note: string): Promise<void> {
-  await updateQuiz(db, await openQuizRow(db, open), { smiths_note })
+  await updateQuiz(db, openQuizRow(open), { smiths_note })
 }
 
 /**
@@ -132,8 +131,7 @@ export async function setSmithsNote(db: Writer, open: OpenQuizT, smiths_note: st
  * What the question's widgetings stored stays as it was.
  */
 export async function editQuestion(db: Writer, open: OpenQuizT, question_id: string, patch: QuestionPatch): Promise<void> {
-  const quiz = await openQuizRow(db, open)
-  const held = await questionIn(db, quiz, question_id)
+  const held = await questionIn(db, openQuizRow(open), question_id)
   const { chains_to, ...fields } = patch
   await updateQuestion(db, held, { ...fields, ...(chains_to !== undefined && { chains_to: await chainLabelFor(db, held, chains_to) }) })
 }
@@ -147,7 +145,7 @@ async function chainLabelFor(db: Writer, held: Doc<'questions'>, chains_to: stri
 
 /** Add a blank question to the end of the open quiz; refused when it holds as many as a quiz may */
 export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
-  const quiz = await openQuizRow(db, open)
+  const quiz = openQuizRow(open)
   if (quiz.row_ordering.length >= PA.QuestionsPerQuiz.max) { refuse('questionsFull') }
   const question_id = await db.insert('questions', Question.blankRow({ hunt_id: open.hunt_id, quiz_id: quiz._id }))
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, question_id] })
@@ -161,7 +159,7 @@ export async function addQuestion(db: Writer, open: OpenQuizT): Promise<void> {
  */
 export async function deleteQuestions(db: Writer, open: OpenQuizT, question_ids: readonly string[]): Promise<void> {
   const doomed = new Set(question_ids)
-  const quiz = await openQuizRow(db, open)
+  const quiz = openQuizRow(open)
   const [gone, kept] = _.partition(await questionsOf(db, quiz), (row) => doomed.has(row._id))
   const goneLabels = new Set(gone.map((row) => row.label))
   for (const row of gone) { await deleteQuestion(db, row._id) }
@@ -179,7 +177,7 @@ export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortke
   const rows = await libraryOf(db)
   const library = rows.map((row) => widgetFrom(row))
   const place = await placeOfOpen(db, open)
-  await reorderOpenQuiz(db, open, { stored: true }, (quiz) => {
+  await reorderQuiz(db, openQuizRow(open), { stored: true }, (quiz) => {
     const run = Runner.runQuiz(Runner.sourceOf(quiz, library, place))
     return { questions: Sortings.sortQuestions(quiz.questions, Sortings.sortValueFor(sortkey, quiz, run), descending), last_sortkey: sortkey }
   })
@@ -192,12 +190,12 @@ export async function sortQuestions(db: Writer, open: OpenQuizT, sortkey: Sortke
  * mode that re-sorts at once, undoing the promise that nothing moved.
  */
 export async function renumberQnums(db: Writer, open: OpenQuizT): Promise<void> {
-  await reorderOpenQuiz(db, open, { stored: false }, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
+  await reorderQuiz(db, openQuizRow(open), { stored: false }, (quiz) => ({ questions: Rank.renumberByRank(quiz.questions) }))
 }
 
 /** Drag one question of the open quiz to `onto_idx`, then number every question by where it sits. A drag leaves the quiz in Q# order. */
 export async function moveQuestion(db: Writer, open: OpenQuizT, question_id: string, onto_idx: number): Promise<void> {
-  await reorderOpenQuiz(db, open, { stored: false }, (quiz) => ({
+  await reorderQuiz(db, openQuizRow(open), { stored: false }, (quiz) => ({
     questions:    Rank.renumberByPosition(Rank.moveQuestion(quiz.questions, question_id, onto_idx)),
     last_sortkey: qnumSortkeyOf(quiz),
   }))
@@ -208,13 +206,13 @@ export async function moveQuestion(db: Writer, open: OpenQuizT, question_id: str
  * to no question here is no chain; a question not in the quiz is refused.
  */
 export async function setChain(db: Writer, open: OpenQuizT, question_id: string, chains_to: string | null): Promise<void> {
-  const held = await questionIn(db, await openQuizRow(db, open), question_id)
+  const held = await questionIn(db, openQuizRow(open), question_id)
   await updateQuestion(db, held, { chains_to: await chainLabelFor(db, held, chains_to) })
 }
 
 /** Put the open quiz in the order its chains walk, and remember that */
 export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: boolean): Promise<void> {
-  await reorderOpenQuiz(db, open, { stored: false }, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
+  await reorderQuiz(db, openQuizRow(open), { stored: false }, (quiz) => ({ questions: Chain.chainOrder(quiz.questions, descending), last_sortkey: 'chain_order' }))
 }
 
 /**
@@ -223,10 +221,10 @@ export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: 
  * widgeting it does not have, or one whose widget is not asked from its cell (worked out on
  * render, or typed), is refused.
  *
- * @throws A refusal (`quizGone`, `quizLocked`, `questionGone`, `widgetingGone`, `notStored`); nothing is written.
+ * @throws A refusal (`quizGone`, `questionGone`, `widgetingGone`, `notStored`); nothing is written.
  */
 export async function recordWidgeted(db: Writer, open: OpenQuizT, widgeted: WidgetedRecordingT): Promise<void> {
-  const layout = revisable(await layoutRowsOf(db, open.quiz_id))
+  const layout = await layoutOf(db, openQuizRow(open))
   const held = await questionIn(db, layout.quiz, widgeted.question_id)
   const widgeting = layout.widgetings.find((each) => each.label === widgeted.widgeting_label)
   if (! widgeting) { refuse('widgetingGone') }
@@ -241,10 +239,10 @@ export async function recordWidgeted(db: Writer, open: OpenQuizT, widgeted: Widg
  * widget's kind. A question not in the quiz, a widgeting it does not have, or one whose widget is
  * not an entry, is refused.
  *
- * @throws A refusal (`quizGone`, `quizLocked`, `questionGone`, `widgetingGone`, `notEntered`), or a Zod error when the value is not of the entry's kind; nothing is written.
+ * @throws A refusal (`quizGone`, `questionGone`, `widgetingGone`, `notEntered`), or a Zod error when the value is not of the entry's kind; nothing is written.
  */
 export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: WidgetedEnteringT): Promise<void> {
-  const layout = revisable(await layoutRowsOf(db, open.quiz_id))
+  const layout = await layoutOf(db, openQuizRow(open))
   const held = await questionIn(db, layout.quiz, entered.question_id)
   const widgeting = layout.widgetings.find((each) => each.label === entered.widgeting_label)
   if (! widgeting) { refuse('widgetingGone') }
@@ -262,10 +260,10 @@ export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: Widget
  * Import panel promises. A chain names its target by label: one naming no question the quiz will
  * hold, or the question itself, is no chain.
  *
- * @throws A refusal (`quizGone`, `quizLocked`, `questionsFull`), or a Zod error when an entered value is not of its entry's kind; nothing is written.
+ * @throws A refusal (`quizGone`, `questionsFull`), or a Zod error when an entered value is not of its entry's kind; nothing is written.
  */
 export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[]): Promise<void> {
-  const quiz = await openQuizRow(db, open)
+  const quiz = openQuizRow(open)
   const rows = await questionsOf(db, quiz)
   const held = new Map(rows.map((row) => [row.label, row]))
   const known = new Set([...held.keys(), ...imported.map((question) => question.label)])
@@ -288,7 +286,8 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
   }
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added] })
   await enterImported(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
-  await reorderOpenQuiz(db, open, { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
+  // Read again: its order has just been written, and the renumbering works from that.
+  await reorderQuiz(db, revisable(await db.get('quizzes', quiz._id)), { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
 }
 
 /**
@@ -314,10 +313,6 @@ async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, impo
   }
 }
 
-// What follows is about the realm rather than a quiz's contents, so a locked quiz refuses none of
-// it. Locking must never be a trap: you can always switch away, make another quiz, delete one, or
-// unlock.
-
 /**
  * Make a fresh quiz in the open quiz's realm, with its blank questions and the standard layout.
  *
@@ -330,34 +325,30 @@ async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, impo
  * @throws A refusal (`realmGone`, `labelTaken`, `quizzesFull`); nothing is written.
  */
 export async function newQuiz(db: Writer, open: OpenQuizT, label?: string): Promise<Id<'quizzes'>> {
-  const [realm, siblings] = await Promise.all([db.get('realms', open.realm_id), quizzesOf(db, open.realm_id)])
-  const taken = label !== undefined && siblings.some((quiz) => quiz.label === label)
-  if (realm?.hunt_id !== open.hunt_id) { refuse('realmGone') }
-  if (taken) { refuse('labelTaken') }
+  if (! open.realm) { refuse('realmGone') }
+  const siblings = await quizzesOf(db, open.realm_id)
+  if (label !== undefined && siblings.some((quiz) => quiz.label === label)) { refuse('labelTaken') }
   if (siblings.length >= PA.QuizzesPerRealm.max) { refuse('quizzesFull') }
   return await insertQuiz(db, open, '', label ?? Labelmaker.freshLabelFor(siblings))
 }
 
 /**
- * Delete a quiz of the open quiz's realm and all it holds. The realm's last quiz cannot go on
- * its own: an empty realm would leave its address leading nowhere, and the author with no way
- * back. It goes only with its hunt (`deleteHunt`). A quiz already gone is gone; one of another
- * realm is refused.
+ * Delete `doomed`, a quiz of the open quiz's realm, and all it holds. The realm's last quiz cannot
+ * go on its own: an empty realm would leave its address leading nowhere, and the author with no
+ * way back. It goes only with its hunt (`deleteHunt`). A quiz already gone (null) is gone; one of
+ * another realm is refused.
  *
  * @throws A refusal (`notInRealm`, `lastQuiz`); nothing is written.
  */
-export async function deleteQuizFrom(db: Writer, open: OpenQuizT, quiz_id: Id<'quizzes'>): Promise<void> {
-  const doomed = await db.get('quizzes', quiz_id)
+export async function deleteQuizFrom(db: Writer, open: OpenQuizT, doomed: Doc<'quizzes'> | null): Promise<void> {
   if (! doomed) { return }
   if (doomed.realm_id !== open.realm_id) { refuse('notInRealm') }
   const siblings = await quizzesOf(db, open.realm_id)
   if (siblings.length <= 1) { refuse('lastQuiz') }
-  await deleteQuiz(db, quiz_id)
+  await deleteQuiz(db, doomed._id)
 }
 
-/** Lock or unlock a quiz. Works from inside the lock, and changes nothing else about the quiz; a quiz gone is refused. */
-export async function setLock(db: Writer, quiz_id: Id<'quizzes'>, locked: boolean): Promise<void> {
-  const quiz = await db.get('quizzes', quiz_id)
-  if (! quiz) { refuse('quizGone') }
-  await updateQuiz(db, quiz, { locked })
+/** Lock or unlock `quiz`, as read, changing nothing else about it; a quiz gone (null) is refused. */
+export async function setLock(db: Writer, quiz: Doc<'quizzes'> | null, locked: boolean): Promise<void> {
+  await updateQuiz(db, revisable(quiz), { locked })
 }

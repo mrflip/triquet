@@ -222,3 +222,38 @@ describe('Question.exposed and RankField', () => {
     expect(QuestionValidators.questionPatch({ stored: {} } as never)).to.deep.eq({})
   })
 })
+
+/** `fieldnames`, in alphabetical order */
+function alphabetically(fieldnames: readonly string[]): string[] {
+  return fieldnames.toSorted((aa, bb) => aa.localeCompare(bb))
+}
+
+describe('Question.sentTo', () => {
+  it("sends a smith every field of a question, what a formula reads and what its widgetings stored", () => {
+    const everyField = Object.keys(Question.blank()).filter((fieldname) => fieldname !== '_id')
+    expect(Question.sentTo.smith).to.deep.eq(alphabetically([...Question.exposed, 'stored']))
+    expect(Question.sentTo.smith).to.deep.eq(alphabetically(everyField))
+  })
+
+  it("sends a reviewer what a review needs, the answer among it, and not the notes or what the widgetings stored", () => {
+    expect(Question.sentTo.reviewer).to.deep.eq(['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title'])
+    for (const withheld of ['notes', 'alt_text', 'stored']) { expect(Question.sentTo.reviewer).to.not.include(withheld) }
+  })
+
+  it("sends a stranger to the hunt nothing", () => {
+    expect(Question.sentTo.stranger).to.deep.eq([])
+  })
+})
+
+describe('Question.isSent', () => {
+  it("says whether a standing is sent a field, as `sentTo` lists it", () => {
+    expect([Question.isSent('stored', 'smith'), Question.isSent('stored', 'reviewer'), Question.isSent('full_answer', 'reviewer'), Question.isSent('title', 'stranger')])
+      .to.deep.eq([true, false, true, false])
+  })
+})
+
+describe('Question.isSentWhole', () => {
+  it("is so for a smith alone", () => {
+    expect([Question.isSentWhole('smith'), Question.isSentWhole('reviewer'), Question.isSentWhole('stranger')]).to.deep.eq([true, false, false])
+  })
+})

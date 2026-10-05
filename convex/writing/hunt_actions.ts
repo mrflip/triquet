@@ -1,6 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import { refuse } from '../../src/lib/refusals'
-import { huntForLabel, huntingsOf, realmsOf } from '../reading'
+import { huntingsOf, realmsOf, type CensusT } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
 
 /**
@@ -26,15 +26,16 @@ export async function retitleHunt(db: Writer, hunt_id: Id<'hunts'>, title: strin
  * and for a hunt that is gone.
  *
  * @param db - The mutation's database.
+ * @param census - Whose each hunt label is, across every hunt.
  * @param hunt_id - Which hunt.
  * @param label - Its new label, already validated.
  *
- * @example await relabelHunt(db, open.hunt_id, 'autumn_hunt')
+ * @example await relabelHunt(db, census, open.hunt_id, 'autumn_hunt')
  */
-export async function relabelHunt(db: Writer, hunt_id: Id<'hunts'>, label: string): Promise<void> {
-  const [held, taken] = await Promise.all([db.get('hunts', hunt_id), huntForLabel(db, label)])
+export async function relabelHunt(db: Writer, census: CensusT, hunt_id: Id<'hunts'>, label: string): Promise<void> {
+  const [held, holder_id] = await Promise.all([db.get('hunts', hunt_id), census.huntIdForLabel(label)])
   if (! held) { refuse('huntGone') }
-  if (taken && taken._id !== hunt_id) { refuse('labelTaken') }
+  if (holder_id !== null && holder_id !== hunt_id) { refuse('labelTaken') }
   await updateHunt(db, held, { label })
   // A retiring override still on the row would win back over this label when it is folded in.
   if (held.forced_label !== undefined) { await db.patch('hunts', held._id, { forced_label: undefined }) }

@@ -8,7 +8,7 @@ import { FormularyWords } from './widget-words'
 import { Widget, type WidgetT } from '../models/widget'
 import type { ShallowHuntT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import type { HuntActionDNA } from '../models/actions'
+import type { LibraryActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
 
 export type LibraryModalProps = {
@@ -18,7 +18,10 @@ export type LibraryModalProps = {
   library:   readonly WidgetT[]
   /** The quiz on screen, which the preview starts on */
   quiz:      QuizT
-  dispatch:  (action: HuntActionDNA) => void
+  /** Whether the library may be written to here (`change_library`): listed to read, with no editor, when not */
+  changeable: boolean
+  /** Carry out a change to the library (`useLibraryActions`) */
+  dispatch:  (action: LibraryActionDNA) => void
 }
 
 /** Which widget's editor is open: one of the library's, by its label, or a new one */
@@ -26,11 +29,11 @@ type Editing = { kind: 'held', label: string } | { kind: 'new' } | null
 
 /**
  * The library -- the widgets every hunt's quizzes can put to work -- listed, each with a gear that
- * opens it in the widget editor, and a door to write a new one. An edit here changes every quiz
- * that works the widget, in every hunt; which quizzes work it is each quiz's own business, in its
- * widgetings.
+ * opens it in the widget editor, and a door to write a new one, for whoever may change it. An edit
+ * here changes every quiz that works the widget, in every hunt; which quizzes work it is each
+ * quiz's own business, in its widgetings.
  */
-export function LibraryModal({ onClose, hunt, library, quiz, dispatch }: Readonly<LibraryModalProps>) {
+export function LibraryModal({ onClose, hunt, library, quiz, changeable, dispatch }: Readonly<LibraryModalProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited = editing?.kind === 'held' ? library.find((widget) => widget.label === editing.label) : undefined
 
@@ -50,16 +53,16 @@ export function LibraryModal({ onClose, hunt, library, quiz, dispatch }: Readonl
                 <strong>{widget.label}</strong> <span className={styles.microcopy}>{FormularyWords[widget.formulary].noun}</span>
                 <div className={styles.microcopy}>{widget.description}</div>
               </div>
-              <IconButton size="small" aria-label={`Edit widget ${widget.label}`} onClick={() => { setEditing({ kind: 'held', label: widget.label }) }}>⚙</IconButton>
+              {changeable && <IconButton size="small" aria-label={`Edit widget ${widget.label}`} onClick={() => { setEditing({ kind: 'held', label: widget.label }) }}>⚙</IconButton>}
             </Stack>
           ))}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between' }}>
-        <Button size="small" variant="outlined" onClick={() => { setEditing({ kind: 'new' }) }}>+ New widget…</Button>
+        {changeable ? <Button size="small" variant="outlined" onClick={() => { setEditing({ kind: 'new' }) }}>+ New widget…</Button> : <span />}
         <Button onClick={onClose}>Done</Button>
       </DialogActions>
-      {(edited !== undefined || editing?.kind === 'new') && (
+      {changeable && (edited !== undefined || editing?.kind === 'new') && (
         <WidgetEditor
           key={edited?.label ?? 'new'}
           hunt={hunt}

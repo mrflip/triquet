@@ -1,7 +1,7 @@
 # Sprint `dbpolicy`: sign-in, a policy layer, and relational integrity
 
 **Date:** 2026-10-04. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 1 to 4 done (#79, #81, #82, #83); thread 5 underway.
+`/sprint`. **Status:** threads 1 to 9 done (#79, #81, #82, #83, #86, #88, #89, #90, #92); thread 10 underway.
 
 Ten threads, stacked in order. The planning branch `20261003-dbpolicy_a` sits beneath thread 1,
 so its commits (this directory, `notes/policy_approve.md`, `Approval.every`) ride into thread 1's PR. This document and `dbpolicy-progress.md` beside it are everything
@@ -48,8 +48,9 @@ When the sprint is done:
 * `notes/guidelines.md` (validation, the patch pattern), `notes/vocabulary.md`, `STYLE.md`.
 * `notes/deploy.md`, *Schema pushes* -- threads 1, 3, 4 and 10 change row shapes.
 * `notes/testing.md`.
-* `dbpolicy-done-1-4.md` (beside this plan) holds threads 1 to 4's handoffs whole; the progress
-  document carries their digest. Read the whole only where the digest is not enough.
+* `dbpolicy-done.md` (beside this plan) holds finished threads' handoffs whole, once they leave
+  the progress document; the progress document carries their digest. Read the whole only where
+  the digest is not enough.
 
 ## The model in brief
 
@@ -142,7 +143,9 @@ Add these to `notes/vocabulary.md` in the first thread that uses each.
   `e2e-agent` roles.
 * **Integrity refusals stay with the write.** `labelTaken`, `widgetGone`, `questionGone`, the caps:
   facts about the data, true for every actor. They are not policy, and stay where they are.
-* **Each thread ends green:** `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e`.
+* **Each thread ends green:** `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e:agent`.
+  *Orchestrator, after thread 7:* use `test:e2e:agent` (the `e2e-agent` role, port 3003), not
+  `test:e2e`, which runs on the shared `e2e` role; threads 1 to 6 ran the latter.
 
 ## When a directive does not fit
 
@@ -583,6 +586,15 @@ check still cannot leak another hunt.
 
 **Done when.** No public function outside the exceptions list holds an unscoped `db`.
 
+*Orchestrator, after thread 5 (#86):* every `affirm…` now throws `NotApprovedError`; mutations
+refuse it (`refusalFor`), queries answer empty through `emptyIfDenied` in `convex/functions.ts`.
+An `input` hook that throws cannot answer a query's empty value, so `zHuntQuery` wraps the handler
+in `emptyIfDenied` and calls `affirmForHunt(db, affirms, ctx.actor, queries)` (or the affirm
+function) inside it, putting the claims on `ctx` before handing over the scoped `db`.
+`affirmForHunt` guards the anonymous actor itself. Affirms come in three shapes (`huntAffirms`,
+`quizAffirms`, `affirms`); `questions.open` takes `huntAffirms` and checks `question.hunt_id`.
+`idents.performAccount` and `hunts.open` take no affirms: both belong on the exceptions list.
+
 ---
 
 ### Thread 7: Reads shaped by role
@@ -605,7 +617,8 @@ browser's spoiler shield, and `peeked` stays a record of the reveal.
    standing is sent. `src/lib/rows.ts`: `seenQuestionFor(row, stored, claims)` chooses the
    projection by standing alone; no reviewing is read for it.
 2. `convex/questions.ts` `open`: project by the claims' standing. A reviewer's result carries no
-   `stored`.
+   `stored`. (*After thread 5:* `questions.open` takes `huntAffirms`, so the standing is in its
+   claims already.)
 3. `src/components/ReviewScreen.tsx`: `AnswerLock` keeps hiding the answer until the reviewer
    reveals it, as now. Its doc block says it is a spoiler shield, not a security boundary.
 4. `hunts.whole`: add `mayExportHunt(claims)` (smith) to `Approve` and its affirmation (a new
@@ -615,6 +628,10 @@ browser's spoiler shield, and `peeked` stays a record of the reveal.
    screen.
 
 **Done when.** The query results a reviewer can call hold what the list above says, and no more.
+
+*Orchestrator, after thread 6 (#88):* every hunt query is built with `zHuntQuery({ args, empty,
+affirm, handler })`; `ctx.claims.standing` is on its context, so `questions.open`'s handler is
+where to project. `hunts.whole` is likewise scoped: add `mayExportHunt` where its `affirm` runs.
 
 ---
 
@@ -637,6 +654,17 @@ server uses.
 3. The dispatcher in `use-hunt.ts` checks `Approve.may` for an action before sending it, and
    treats a failure there as a programming error to report, not a notice to show.
 4. Tests for each gated affordance under each standing.
+
+*Orchestrator, after thread 7 (#89):* the export box asks `Approve.may('export_hunt', claims)`
+(`HuntClaimsT`). `useHistoryFeed`'s gate, `Question.isSentWhole(standing)`, is a fact about the
+data a reader holds, not a permission: leave it. A reviewer's questions arrive with unsent fields
+blanked (`quizFromSeen`), so views keep taking a whole `QuizT`.
+
+*Orchestrator, after thread 5 (#86):* the browser's affirms come from `useAffirms(hunt, quiz_id)`
+in `src/state/use-affirms.ts`; the claims for `mayReviseQuiz` are `Actor.QuizClaimsT` (hunt claims
+plus `quiz: { locked } | null`). Affirms are watch arguments, so a change of standing or ident
+re-asks the quiz's watches and shows *Opening…* for a round trip (the grid remounts). Consider
+having `useQuiz` keep the last quiz on screen while the new affirms' answers arrive.
 
 **Done when.** `grep -rn "role ===" src/components src/state` finds nothing that decides
 permission.
@@ -664,6 +692,21 @@ when it is made only the helper changes.
 5. Matrix rows and tests for the new mutation, including one that stubs `Actor.isAdmin` false and
    sees the write refused and the affordances gone.
 
+*Orchestrator, after thread 6 (#88):* the scoped database's `widgets` rule asks `Approve` by the
+key `change_library` (in `RowPolicies`, mapped to `mayChangeHunt` today): re-point it to
+`mayChangeLibrary`. Add `'widgets:perform'` to `Unscoped` in `convex/authorize.ts` with its reason
+(or give it a library-scoped builder). `deleteWidget(db, census, label)` needs the census
+(`censusOf(ctx.db)` from a plain db) for `isWorked`.
+
+*Orchestrator, after thread 8 (#90):* step 4 is half done. The library editor's doors (the gear,
+new widget, the widgeting dialog's widget buttons, the Library tab's import) are already gated on
+`change_library` through `workbenchOffers` (`src/components/offers.ts`), so re-pointing the key
+carries the view. A view asks by kind with `Approve.mayOffer(kind, claims)`; claims extend the
+actor, so `change_library` on the actor alone still type-checks. Outside a quiz, ask with
+`useIdent().actor`. `WidgetEditor` has no read-only mode: when writing is not offered, its doors
+are hidden. The browser dispatcher checks each action with `denialOf` before sending; library
+actions moving to `widgets.perform` need the same check on their own path.
+
 **Done when.** No library write goes through `hunts.perform`; the only place that knows who is
 an admin is `Actor.isAdmin`.
 
@@ -680,10 +723,29 @@ it from the schema (`retiringForcedLabel`), and the two lines in `relabelHunt` a
 that clear a lingering one (the compiler will point at them). Remove thread 4's fallbacks for rows
 without their copies (`huntIdOf` becomes `quiz.hunt_id`; `huntIdOfLayoutRow` and
 `reviewingCopiesOf` become the row's fields; `membersOf`'s ident read; the four update helpers'
-fills); the full list is thread 4's section in `dbpolicy-done-1-4.md`. Drop the backfills from
+fills); the full list is thread 4's section in `dbpolicy-done.md`. Drop the backfills from
 `convex/migrations.ts` and from `runAll`, empty `Backfilling` and `Retiring` in
 `tests/convex/schema.test.ts`, and complete the ledger rows in `notes/deploy.md` with the commit
 that still holds each backfill.
+
+*Orchestrator, before thread 10:* the whole list, gathered from threads 1, 3 and 4 (their sections
+in `dbpolicy-done.md` hold the detail):
+* **Thread 1**: `idents.user_id` -- drop the hand-written optional, `migrations:backfillIdentClaims`,
+  and its `Backfilling` entry.
+* **Thread 3**: `forced_label` -- drop `retiringForcedLabel` from the schema, the two lines in
+  `relabelHunt`/`relabelQuiz` that clear a lingering one, the three `retire…ForcedLabels`
+  migrations (and from `runAll`), and the `Retiring` entry. Import's reading of a pasted
+  `forced_label` stays unless the Coach has ruled on *For the Coach* 7 by then: old exports still
+  carry it.
+* **Thread 4**: the four `copied*` blocks in `convex/schema.ts`, the six `backfill…Copies`
+  migrations (and from `runAll`), their `Backfilling` entries, and the fallbacks for rows without
+  copies (`huntIdOf` becomes `quiz.hunt_id` at its callers; `huntIdOfLayoutRow` and
+  `reviewingCopiesOf` become the row's fields; `membersOf`'s ident read; the fills in
+  `updateQuiz`, `updateWidgeting`, `updateColumn`, `updateReviewing`); raw test inserts without
+  copies (the compiler names them). `runAll` goes if nothing is left in it.
+* Threads 5 to 9 added no widen and no fallback.
+* Ledger rows in `notes/deploy.md` for each, naming the commit that still holds the backfill.
+  The PR says at its top that merging waits on the Coach running `migrations:runAll` on production.
 
 ## For the Coach
 
@@ -698,7 +760,8 @@ that still holds each backfill.
 4. **The admin helper approves everyone** (thread 9). Until it is given a real rule, anyone with a
    username may change the library, where today it takes a smith of the hunt on screen.
 5. **What a reviewer is sent** (thread 7): settled for the answer (sent, shielded only in the
-   view: the Coach, 2026-10-04); the rest of the list under that thread is still a proposal.
+   view: the Coach, 2026-10-04); the rest of the list under that thread is still a proposal, built
+   as written. It lives in one place, `Question.sentTo.reviewer` (`src/models/question.ts`).
 6. **Backfills between merges.** Thread 3's (`forced_label` into `label`) wants running straight
    after thread 3 deploys: until it has, a relabelled hunt or quiz answers to its minted label
    again. Thread 4's wants running before threads 5 to 9 deploy.
@@ -709,3 +772,20 @@ that still holds each backfill.
    the label is no longer reserved for widgetings; a widgeting labelled `forced_label` would be
    read both ways on re-import. Unlikely. Thread 10 can drop the key from import, or reserve the
    label again: say which.
+8. **Idents through a hunt's scoped database** (thread 6): readable, never writable, against the
+   plan's "unreachable", because `add_hunting` finds its member by label and `reviews.forQuiz`
+   shows reviewers' labels and titles. The alternative is a copy of label and title on reviews (a
+   widen) and a narrower lookup for `add_hunting`. Say if you want it.
+9. **A backstop on widgeteds** (thread 7): a reviewer's queries could still read widgeteds
+   through the scoped database (the read rule is hunt-only), though none does. A smith-only read
+   rule for widgeteds in queries is one rule and a test. Say if you want it, and in which thread.
+10. **The e2e role** (thread 7): threads 1 to 6 ran `pnpm test:e2e`, on the shared `e2e` role;
+   from thread 8 on, agents run `pnpm test:e2e:agent`. If the `e2e` role is yours, it may need a
+   reset.
+11. **A refusal at the browser's dispatcher** (thread 8): the plan said show the author nothing
+   (a programming error, reported). Thread 8 also shows the notice the server would have sent,
+   because one refusal is a real race (`e2e/alarms.spec.ts`: the quiz locked in another tab
+   under a held draft), and silence would lose the author's typing without a word. Rule: tell
+   the author (as built), or stay silent (two lines and a spec rewrite).
+12. **`idents.current` now sends a session its own `user_id`** (inside the actor), for the
+   browser's claims (thread 8). Say if a session should not see it.

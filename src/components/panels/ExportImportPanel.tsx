@@ -6,6 +6,7 @@ import { ImportForm } from './ImportForm'
 import { LibraryForm } from './LibraryForm'
 import { ReadonlyBox } from './ReadonlyBox'
 import { TabbedPanel } from './TabbedPanel'
+import type { WorkbenchOffersT } from '../offers'
 import * as Exporting from '../../lib/exporting'
 import * as LLBBCode from '../../lib/ll-bbcode'
 import * as LLSmithExport from '../../lib/ll-smith-export'
@@ -14,7 +15,7 @@ import * as UU from '../../lib/useful'
 import { AppNotices } from '../../lib/notices'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
-import type { HuntActionDNA } from '../../models/actions'
+import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
 import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
@@ -26,9 +27,12 @@ export type ExportImportPanelProps = {
   hunt:      ShallowHuntT
   /** The library's widgets, which the quizzes are run over and the Library tab hands out */
   library:   readonly WidgetT[]
+  /** What the screen offers whoever is looking: the whole hunt's export, Import and the library's import each only where it is */
+  offers:    WorkbenchOffersT
   /** The quiz, run: what the sheet's worked-out columns show */
   run:       QuizRun
-  dispatch:  (action: HuntActionDNA) => void
+  /** Carry out a change to the library, from the Library tab's import (`useLibraryActions`) */
+  changeLibrary: (action: LibraryActionDNA) => void
   /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
 }
@@ -39,7 +43,7 @@ export type ExportImportPanelProps = {
  * its own, the quiz's full history, and the league's own import format, with the smith's note in
  * the league's BBCode.
  */
-export function ExportImportPanel({ quiz, hunt, library, run, dispatch, onImport }: Readonly<ExportImportPanelProps>) {
+export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
   const tabs = [
     {
@@ -47,7 +51,7 @@ export function ExportImportPanel({ quiz, hunt, library, run, dispatch, onImport
       blurb:   'Tab-separated: a header row, then one line per question, with every column the grid has, always in rank order whatever the grid is sorted into. Click the box to select the lot, then paste straight into a spreadsheet.',
       content: <ReadonlyBox label="Copy for Sheets" text={Sheets.sheetsExport(quiz, run)} />,
     },
-    {
+    offers.exportHunt && {
       label:   'Raw Export',
       blurb:   'Every quiz of this hunt, not just this one, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz\'s questions back. Any change on screen empties the box again, so what it holds is never behind you.',
       content: (
@@ -64,12 +68,12 @@ export function ExportImportPanel({ quiz, hunt, library, run, dispatch, onImport
     {
       label:   'Import',
       blurb:   'Paste back anything Raw Export ever gave you, a single quiz, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted.',
-      content: <ImportForm quiz={quiz} library={library} locked={quiz.locked} onImport={onImport} />,
+      content: <ImportForm quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} />,
     },
     {
       label:   'Library',
       blurb:   'The widgets every hunt shares, on their own: copy them out, or paste a library back. Widgets are matched by label; one the library lacks is added, one it holds is revised. Nothing is ever deleted.',
-      content: <LibraryForm library={library} dispatch={dispatch} />,
+      content: <LibraryForm library={library} changeable={offers.changeLibrary} dispatch={changeLibrary} />,
     },
     {
       label:   'Full History',
@@ -88,5 +92,5 @@ export function ExportImportPanel({ quiz, hunt, library, run, dispatch, onImport
       ),
     },
   ]
-  return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs} />
+  return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs.filter((tab) => tab !== false)} />
 }

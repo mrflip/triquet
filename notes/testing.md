@@ -106,7 +106,8 @@ Everything under `convex/` is tested in `tests/convex/`, path for path, under `c
 Vitest's `convex` project (the edge runtime). `tests/support/convex.ts` has `openTester()` (a
 fresh, empty deployment in this process: no test sees another's rows), `huntHolding`,
 `seedHunt(tt, hunt, { openIdx, smith })` (the hunt written with one smith on it; `open`, `act`
-through `hunts.perform` as that smith unless given another session, `join(label, role)` to put
+through `hunts.perform` as that smith unless given another session, `actOnLibrary` likewise through
+`widgets.perform`, `join(label, role)` to put
 another ident on it, and `read`, the hunt as its rows make it up), `openOf(seen)`, `wholeHunt`
 (read past authorization), `putOn`, and the sessions a test calls as: `identified(tt, label)` (the
 session holding the username `label`, signed in fresh unless one already holds it in `tt`, on no

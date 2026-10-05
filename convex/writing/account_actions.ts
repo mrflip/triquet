@@ -6,7 +6,7 @@ import { HuntingValidators } from '../../src/models/hunting'
 import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
-import { huntForLabel, huntingsFor, huntsOf, identForLabel } from '../reading'
+import { censusOf, huntForLabel, huntingsFor, huntsOf, identForLabel } from '../reading'
 import { relabelHunt, retitleHunt } from './hunt_actions'
 import { insertHunt, type Writer } from './quiz_writing'
 
@@ -111,6 +111,6 @@ export async function performAccount(db: Writer, user_id: Id<'users'>, actor: Ac
   case 'retitle_ident': { return await retitleIdent(db, actor, action.title) }
   case 'new_hunt':      { return await newHunt(db, actor, action.label) }
   case 'retitle_hunt':  { await retitleHunt(db, action.hunt_id, action.title); return action.hunt_id }
-  case 'relabel_hunt':  { await relabelHunt(db, action.hunt_id, action.label); return action.hunt_id }
+  case 'relabel_hunt':  { await relabelHunt(db, censusOf(db), action.hunt_id, action.label); return action.hunt_id }
   }
 }

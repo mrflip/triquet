@@ -6,10 +6,11 @@ import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import { WidgetingsEditor } from './WidgetingsEditor'
+import type { WorkbenchOffersT } from './offers'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
-import type { HuntActionDNA } from '../models/actions'
+import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
@@ -24,7 +25,11 @@ export type QuizManageModalProps = {
   quiz:      QuizT
   /** The library's widgets, which the quiz's widgetings work */
   library:   readonly WidgetT[]
+  /** What the screen offers whoever is working: the quiz's own label, version and layout are left as they are where it is not revisable */
+  offers:    WorkbenchOffersT
   dispatch:  (action: HuntActionDNA) => void
+  /** Carry out a change to the library, from the widgeting editor's door to the widget editor (`useLibraryActions`) */
+  changeLibrary: (action: LibraryActionDNA) => void
   /** Go to another quiz of the realm */
   onOpen:    (quiz: Labelmaker.Labelled) => void
   /** Open the library for editing */
@@ -44,7 +49,7 @@ export type QuizManageModalProps = {
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, and, fenced
  * off at the foot, deleting the quiz -- or, when it is the hunt's last, the quiz and its hunt.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dispatch, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(quiz.label)
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
@@ -122,7 +127,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dis
               label="Label"
               value={draft}
               size="small"
-              disabled={quiz.locked}
+              disabled={! offers.reviseQuiz}
               error={issue !== null}
               helperText={issue ?? "Used in this page's web address."}
               onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
@@ -131,7 +136,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dis
               label="Version"
               value={versionDraft}
               size="small"
-              disabled={quiz.locked}
+              disabled={! offers.reviseQuiz}
               helperText="The line of work this quiz is on, and the branch its history is kept on."
               onChange={(event) => { setVersionDraft(event.target.value); setIssue(null) }}
             />
@@ -140,13 +145,13 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dis
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
             <p className={styles.microcopy}>The grid&apos;s columns in the order they appear. Drag a handle to move one; the gear opens the rest.</p>
-            <ColumnsEditor quiz={quiz} dispatch={dispatch} />
+            <ColumnsEditor quiz={quiz} revisable={offers.reviseLayout} dispatch={dispatch} />
           </section>
 
           <section>
             <Typography variant="h6" component="h3">Widgetings</Typography>
             <p className={styles.microcopy}>The widgets of the library this quiz puts to work, in run order: each one reads what those above it came to. A column shows a widgeting.</p>
-            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} dispatch={dispatch} onEditLibrary={onEditLibrary} />
+            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
           </section>
 
           <section>
@@ -216,7 +221,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dis
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={onApply} variant="contained" disabled={quiz.locked}>Apply</Button>
+        <Button onClick={onApply} variant="contained" disabled={! offers.reviseQuiz}>Apply</Button>
       </DialogActions>
     </Dialog>
   )

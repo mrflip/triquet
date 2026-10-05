@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import { ConfirmDeleteQuestions } from './ConfirmDeleteQuestions'
 import { Footnote } from './Footnote'
 import { LibraryModal } from './LibraryModal'
+import { workbenchOffers } from './offers'
 import { Panels } from './panels/Panels'
 import { QuestionTable, type SortMark } from './QuestionTable'
 import { QuizHeader } from './QuizHeader'
@@ -14,14 +15,15 @@ import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
 import * as QuizMirror from '../state/quiz-mirror'
+import type * as Actor from '../lib/actor'
 import { useAsking, type AskedStep } from '../state/use-asking'
 import { useBots } from '../state/use-bots'
+import { useLibraryActions } from '../state/use-library-actions'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
-import type { IdentT } from '../models/ident'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { HuntHandle } from '../state/use-hunt'
@@ -36,8 +38,8 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
   quiz:  QuizT
   /** The library: the widgets its widgetings work */
   library: readonly WidgetT[]
-  /** Who is working on it */
-  ident: IdentT
+  /** What whoever is working on it holds of themselves on the hunt, with the quiz on screen: who they are, and what decides what the screen offers them */
+  claims: Actor.QuizClaimsT
 }
 
 /**
@@ -46,11 +48,15 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
  * The address decides which quiz that is, and nothing decides the address in return. Anything
  * that changes which quiz is open -- the switcher, a new quiz, a deletion, a relabel -- says so
  * by navigating, and every editing action lands on the quiz the address names.
+ *
+ * What it offers is what the server would accept of whoever is working (`workbenchOffers`): a
+ * locked quiz is read, copied and exported, and its questions and layout are left as they are.
  */
-export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
+export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
   const { asking, ask } = useAsking(dispatch)
   const { unavailableNotice } = useBots()
+  const librarian = useLibraryActions()
   // The arrow marks only what was sorted in this session; the quiz itself remembers the column.
   const [sortMark, setSortMark] = useState<SortMark | null>(null)
   // The chain walk is a toggle rather than a column, so it keeps its own direction.
@@ -64,6 +70,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
   const run = useMemo(() => Runner.runQuiz(Runner.sourceOf(quiz, library, place)), [quiz, library, place])
   const questionIds = useMemo(() => quiz.questions.map((question) => question._id), [quiz])
   const checklist = useChecklist(quiz._id, questionIds)
+  const offers = workbenchOffers(claims)
   // The questions the author has asked to delete, until they confirm or keep them.
   const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
 
@@ -86,7 +93,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
     return step ? unavailableNotice(step.widget) : null
   }
 
-  const batching = checklist.checking && ! quiz.locked
+  const batching = checklist.checking && offers.reviseQuestions
   const doomed = quiz.questions.filter((question) => doomedIds?.includes(question._id))
 
   const onSort = (sortkey: SortMark['sortkey']) => {
@@ -96,7 +103,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
   }
 
   return (
-    <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved}>
+    <main className={clsx(styles.page, 'transitions')} data-unsaved={unsaved || librarian.unsaved}>
       <QuizSwitcher
         quizzes={realm.quizzes}
         openQuiz={quiz}
@@ -123,6 +130,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
         title={quiz.title}
         smithsNote={quiz.smiths_note}
         locked={quiz.locked}
+        revisable={offers.reviseQuiz}
         onRetitle={(title) => { dispatch({ kind: 'retitle_quiz', title }) }}
         onSmithsNote={(smiths_note) => { dispatch({ kind: 'set_smiths_note', smiths_note }) }}
         onManage={() => { setManaging(true) }}
@@ -137,7 +145,9 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
           realm={realm}
           quiz={quiz}
           library={library}
+          offers={offers}
           dispatch={dispatch}
+          changeLibrary={librarian.dispatch}
           onOpen={goTo}
           onEditLibrary={() => { setEditingLibrary(true) }}
           onRetitleHunt={(title) => { dispatch({ kind: 'retitle_hunt', title }) }}
@@ -169,7 +179,8 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
           hunt={hunt}
           library={library}
           quiz={quiz}
-          dispatch={dispatch}
+          changeable={offers.changeLibrary}
+          dispatch={librarian.dispatch}
         />
       )}
       {doomed.length > 0 && (
@@ -191,7 +202,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
         questions={quiz.questions}
         specs={specs}
         run={run}
-        locked={quiz.locked}
+        locked={! offers.reviseQuestions}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
         batching={batching}
         onBatch={(on) => { if (on) { checklist.begin() } else { checklist.end() } }}
@@ -215,7 +226,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
         onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx }) }}
       />
       <Toolbar
-        locked={quiz.locked}
+        locked={! offers.reviseQuestions}
         batching={batching}
         checkedCount={checklist.checked.length}
         onBatch={(on) => { if (on) { checklist.begin() } else { checklist.end() } }}
@@ -234,13 +245,14 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
         quiz={quiz}
         hunt={hunt}
         realm={realm}
-        ident={ident}
+        claims={claims}
+        offers={offers}
         reviews={reviews}
         library={library}
         run={run}
         carryOut={carryOut}
         saveNotice={saveNotice}
-        dispatch={dispatch}
+        changeLibrary={librarian.dispatch}
         onImport={(questions, widgetingActions) => {
           void QuizMirror.markedChange(quiz, 'import', () => {
             for (const action of widgetingActions) { dispatch(action) }

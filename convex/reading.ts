@@ -142,6 +142,35 @@ export async function isWorked(db: Reader, widget_label: string): Promise<boolea
 }
 
 /**
+ * What a write must know of every hunt to keep the data whole, asked of a database that sees them
+ * all: whose a hunt label is, so no two hunts answer to one; and whether any quiz of any hunt works
+ * a widget, so none is left working a widget the library lost. It answers with an id or a yes,
+ * never a row, so a function whose database sees one hunt, or only the library (`policy_rules.ts`),
+ * can hold it.
+ */
+export type CensusT = {
+  /** The hunt answering to `label`, should one: see `huntForLabel` */
+  huntIdForLabel: (label: string) => Promise<Id<'hunts'> | null>
+  /** Whether any widgeting works the widget labelled `widget_label`: see `isWorked` */
+  isWorked:       (widget_label: string) => Promise<boolean>
+}
+
+/**
+ * The census of `db`, a database that sees every hunt.
+ *
+ * @example await censusOf(ctx.db).huntIdForLabel('quiet_otter')  // => the hunt's id, or null
+ */
+export function censusOf(db: Reader): CensusT {
+  return {
+    huntIdForLabel: async (label) => {
+      const hunt = await huntForLabel(db, label)
+      return hunt?._id ?? null
+    },
+    isWorked:       async (widget_label) => await isWorked(db, widget_label),
+  }
+}
+
+/**
  * How far the widget labelled `widget_label` is put to work: by how many widgetings, across how
  * many quizzes, in how many hunts. Counts only. At most `WidgetingsCounted` widgetings are read;
  * past that many, every count is a floor, and says so. A widget nobody works counts nothing.
@@ -241,10 +270,19 @@ export async function questionOf(db: Reader, quiz_id: Id<'quizzes'>, question_id
  */
 export async function layoutRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<LayoutRows | null> {
   const quiz = await db.get('quizzes', quiz_id)
-  if (! quiz) { return null }
+  return quiz && await layoutOf(db, quiz)
+}
+
+/**
+ * The quiz `quiz`, a row already in hand, with its widgetings and columns in their committed
+ * order: as `layoutRowsOf`, reading nothing of the quiz itself.
+ *
+ * @example const { widgetings, columns } = await layoutOf(ctx.db, claims.quiz)
+ */
+export async function layoutOf(db: Reader, quiz: Doc<'quizzes'>): Promise<LayoutRows> {
   const [widgetings, columns] = await Promise.all([
-    widgetingsOf(db, quiz_id),
-    db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id)).take(PA.ColumnsPerQuiz.max),
+    widgetingsOf(db, quiz._id),
+    db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).take(PA.ColumnsPerQuiz.max),
   ])
   return { quiz, widgetings, columns }
 }

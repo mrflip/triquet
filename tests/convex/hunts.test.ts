@@ -19,7 +19,7 @@ import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
-import { huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seen, type Session, type Tester } from '../support/convex'
+import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
 
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
@@ -71,12 +71,10 @@ function failed(question_id: string, widgeting_label: string, err: { message: st
   return recorded(question_id, { widgeting_label, status: 'errored', value: null, message: err.message, result_meta: { response: err.response } })
 }
 
-/** The actions that put an entry widget of `entry_kind` into the library, labelled `label`, and to work in the open quiz under the same label */
-function entryActions(label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): HuntActionDNA[] {
-  return [
-    { kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } },
-    { kind: 'add_widgeting', widgeting: { widget_label: label, label } },
-  ]
+/** Put an entry widget of `entry_kind` into the library, labelled `label`, and to work in `seeded`'s open quiz under the same label */
+async function putEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): Promise<void> {
+  await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } })
+  await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label } })
 }
 
 /** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
@@ -158,7 +156,8 @@ describe("hunts.perform", () => {
   /** A seeded hunt of two questions whose open quiz works the entry widgets `remark` (text) and `points` (a number), and its two questions' ids */
   const withEntries = async () => {
     const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
-    for (const action of [...entryActions('remark'), ...entryActions('points', 'number')]) { await seeded.act(action) }
+    await putEntryToWork(seeded, 'remark')
+    await putEntryToWork(seeded, 'points', 'number')
     const [first, second] = questionIdsOf(await seeded.read())
     return { ...seeded, id: present(first), second: present(second) }
   }
@@ -771,9 +770,9 @@ describe("hunts.perform", () => {
     })
 
     it("leaves the library as it was, even one lacking every widget a classic quiz works", async () => {
-      const { act, read } = await seed(openHunt())
-      await act({ kind: 'delete_widget', label: 'hint_full' })
-      await act({ kind: 'delete_widget', label: 'dumdum' })
+      const { act, actOnLibrary, read } = await seed(openHunt())
+      await actOnLibrary({ kind: 'delete_widget', label: 'hint_full' })
+      await actOnLibrary({ kind: 'delete_widget', label: 'dumdum' })
       const ante = await read()
       await act({ kind: 'new_quiz' })
       const { library } = await read()
@@ -859,7 +858,7 @@ describe("hunts.perform", () => {
       const { act, tt, open } = await seed(huntTitled(['one', 'two']), 0)
       const elsewhere = await tt.run(async (ctx) => {
         const realm_id = await ctx.db.insert('realms', { hunt_id: open.hunt_id, label: 'away', title: '', position: 1 })
-        return await ctx.db.insert('quizzes', { realm_id, title: '', label: 'far_quiz', smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        return await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id, title: '', label: 'far_quiz', smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
       expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.be.null
@@ -934,13 +933,15 @@ describe("hunts.perform", () => {
       expect(await reviewsIn(tt, quiz_id)).to.deep.eq([])
     })
 
-    it("reviews as the ident the session asserted last", async () => {
+    it("reviews as the ident the session asserted last, and turns away a browser still affirming the one before", async () => {
       const { act, read, tt, open, join } = await seed(huntOf(['1', 'a']))
       const alice = await join('alice_reviews', 'reviewer')
       const otherself = await alice.as.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label: 'alice_otherself', title: '' } }) as Id<'idents'>
       await putOn(tt, open.hunt_id, otherself, 'reviewer')
       const quiz_id = openOf(await read())._id
-      await act({ kind: 'open_review', quiz_id }, alice)
+      await expectRefusal(act({ kind: 'open_review', quiz_id }, alice), 'notPermitted')
+      const { action: affirms } = await affirmsOf(tt, { ident_id: otherself }, open)
+      await alice.as.mutation(api.hunts.perform, { affirms, action: { kind: 'open_review', quiz_id } })
       const reviews = await reviewsIn(tt, quiz_id)
       expect(reviews.map((review) => review.ident_id)).to.deep.eq([otherself])
     })
@@ -1206,8 +1207,9 @@ describe("hunts.perform", () => {
 
   describe("import_questions", () => {
     it("types what each question carries into its entry cells: into a question held and one added, and empties one for null", async () => {
-      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
-      for (const action of entryActions('remark')) { await act(action) }
+      const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
+      const { tt, act, read } = seeded
+      await putEntryToWork(seeded, 'remark')
       const [aa, bb] = openOf(await read()).questions
       await act(entering(present(bb)._id, 'remark', 'Was here.'))
       await act({ kind: 'import_questions', questions: [
@@ -1227,8 +1229,9 @@ describe("hunts.perform", () => {
     })
 
     it("refuses, writing nothing, a value not of its entry's kind", async () => {
-      const { act, read } = await seed(huntOf(['1', 'a']))
-      for (const action of entryActions('points', 'number')) { await act(action) }
+      const seeded = await seed(huntOf(['1', 'a']))
+      const { act, read } = seeded
+      await putEntryToWork(seeded, 'points', 'number')
       const ante = await read()
       await refusalOf(act({ kind: 'import_questions', questions: [{ label: firstOf(ante).label, patch: { clueing: 'Imported' }, entered: { points: 'three' } }] }))
       expect(await read()).to.deep.eq(ante)
@@ -1310,9 +1313,9 @@ async function crowded(tablename: 'questions' | 'widgetings' | 'columns', qty: n
         const quiz = present(await ctx.db.get('quizzes', quiz_id))
         await ctx.db.patch('quizzes', quiz_id, { row_ordering: [...quiz.row_ordering, question_id] })
       } else if (tablename === 'widgetings') {
-        await ctx.db.insert('widgetings', { quiz_id, position, widget_label: 'dumdum', label: `w_${String(position)}`, description: '', params: {} })
+        await ctx.db.insert('widgetings', { hunt_id: seeded.open.hunt_id, quiz_id, position, widget_label: 'dumdum', label: `w_${String(position)}`, description: '', params: {} })
       } else {
-        await ctx.db.insert('columns', { quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
+        await ctx.db.insert('columns', { hunt_id: seeded.open.hunt_id, quiz_id, position, label: `c_${String(position)}`, title: '', source: 'question.title', width_px: 80 })
       }
     }
   })
@@ -1347,7 +1350,7 @@ describe("hunts.perform, at the caps", () => {
   })
 
   it("refuses a widget more than the library may hold", async () => {
-    const { act, tt, read } = await seedHunt(openTester(), openHunt())
+    const { actOnLibrary, tt, read } = await seedHunt(openTester(), openHunt())
     await tt.run(async (ctx) => {
       const held = await ctx.db.query('widgets').collect()
       const positions = Array.from({ length: PA.WidgetsInLibrary.max - held.length }, (_unused, idx) => idx + held.length)
@@ -1355,7 +1358,7 @@ describe("hunts.perform, at the caps", () => {
         await ctx.db.insert('widgets', { scope: 'pub', label: `widget_${String(position)}`, title: '', description: '', formulary: 'jsonata', formula: '1', input_formula: '$', config: {}, position })
       }
     })
-    await expectRefusal(act({ kind: 'add_widget', widget: { label: 'one_more', formulary: 'jsonata', formula: '2' } }), 'libraryFull')
+    await expectRefusal(actOnLibrary({ kind: 'add_widget', widget: { label: 'one_more', formulary: 'jsonata', formula: '2' } }), 'libraryFull')
     const { library } = await read()
     expect(library).to.have.lengthOf(PA.WidgetsInLibrary.max)
   })
@@ -1365,7 +1368,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { realm_id: open.realm_id, title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id: open.realm_id, title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')
@@ -1396,24 +1399,26 @@ describe("hunts.perform, refusing", () => {
   })
 
   it("refuses a row its validator will not take, saying where and why", async () => {
-    const { act } = await seedHunt(openTester(), huntOf(['1', 'a']))
-    const err = await refusalOf(act({ kind: 'edit_widget', label: 'dumdum', patch: { config: {} } }))
+    const { actOnLibrary } = await seedHunt(openTester(), huntOf(['1', 'a']))
+    const err = await refusalOf(actOnLibrary({ kind: 'edit_widget', label: 'dumdum', patch: { config: {} } }))
     expect(noticeOf(err)).to.include('config.model_tier «undefined» should be one of quick or careful')
   })
 })
 
 describe("hunts.perform, at the door", () => {
   it("refuses a request with no session, writing nothing", async () => {
-    const { tt, open, read } = await seedHunt(openTester(), openHunt())
+    const { tt, open, read, smith } = await seedHunt(openTester(), openHunt())
     const ante = await read()
-    await expectRefusal(tt.mutation(api.hunts.perform, { open, action: { kind: 'add_question' } }), 'notIdentified')
+    const { action: affirms } = await affirmsOf(tt, smith, open)
+    await expectRefusal(tt.mutation(api.hunts.perform, { affirms, action: { kind: 'add_question' } }), 'notIdentified')
     expect(await read()).to.deep.eq(ante)
   })
 
   it("refuses an action it does not know", async () => {
-    const { open, smith } = await seedHunt(openTester(), openHunt())
+    const { tt, open, smith } = await seedHunt(openTester(), openHunt())
     const action = { kind: 'burn_it_all' } as never
-    await expect(smith.as.mutation(api.hunts.perform, { open, action })).rejects.toThrow(/Validator error/)
+    const { action: affirms } = await affirmsOf(tt, smith, open)
+    await expect(smith.as.mutation(api.hunts.perform, { affirms, action })).rejects.toThrow(/Validator error/)
   })
 })
 
@@ -1534,17 +1539,31 @@ describe("hunts.whole", () => {
 
   it("is null for a hunt that is not there", async () => {
     const { tt, open, smith } = await seedHunt(openTester(), openHunt())
+    const { hunt: affirms } = await affirmsOf(tt, smith, open)
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', open.hunt_id) })
-    expect(await smith.as.query(api.hunts.whole, { hunt_id: open.hunt_id })).to.be.null
+    expect(await smith.as.query(api.hunts.whole, { affirms })).to.be.null
   })
 
-  it("is read whole by anyone on the hunt, and is null, as for one not there, for anyone else", async () => {
+  it("is read whole by a smith of the hunt, and is null, as for one not there, for a reviewer of it and for anyone else", async () => {
     const tt = openTester()
-    const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const { open, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const bob = await join('bob_reviews', 'reviewer')
     const carol = await identified(tt, 'carol_strays')
-    const read = await bob.as.query(api.hunts.whole, { hunt_id: open.hunt_id })
+    const [smiths, bobs, carols] = [await affirmsOf(tt, smith, open), await affirmsOf(tt, bob, open), await affirmsOf(tt, carol, open)]
+    const read = await smith.as.query(api.hunts.whole, { affirms: smiths.hunt })
     expect(read?.label).to.eq('quiet_otter')
-    expect(await carol.as.query(api.hunts.whole, { hunt_id: open.hunt_id })).to.be.null
+    expect(await bob.as.query(api.hunts.whole, { affirms: bobs.hunt })).to.be.null
+    expect(await carol.as.query(api.hunts.whole, { affirms: carols.hunt })).to.be.null
+  })
+
+  it("is null for affirms that are not so: a standing not held, or another's ident", async () => {
+    const tt = openTester()
+    const { open, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const bob = await join('bob_reviews', 'reviewer')
+    const { hunt: affirms } = await affirmsOf(tt, smith, open)
+    const { hunt: bobs } = await affirmsOf(tt, bob, open)
+    expect(await bob.as.query(api.hunts.whole, { affirms: { ...bobs, standing: 'smith' } })).to.be.null
+    expect(await bob.as.query(api.hunts.whole, { affirms })).to.be.null
+    expect(await smith.as.query(api.hunts.whole, { affirms })).to.not.be.null
   })
 })

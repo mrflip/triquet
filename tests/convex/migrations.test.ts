@@ -1,6 +1,7 @@
 import migrationsTest from '@convex-dev/migrations/test'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
+import { censusOf } from '../../convex/reading'
 import { relabelHunt } from '../../convex/writing/hunt_actions'
 import { relabelQuiz } from '../../convex/writing/quiz_actions'
 import { Question } from '../../src/models/question'
@@ -144,8 +145,8 @@ describe("the forced_label migrations", () => {
       const hunt = present(await ctx.db.query('hunts').first())
       const quiz = present(await ctx.db.query('quizzes').first())
       const realm = present(await ctx.db.get('realms', quiz.realm_id))
-      await relabelHunt(ctx.db, hunt._id, 'renamed_hunt')
-      await relabelQuiz(ctx.db, { hunt_id: realm.hunt_id, realm_id: quiz.realm_id, quiz_id: quiz._id }, 'renamed_quiz')
+      await relabelHunt(ctx.db, censusOf(ctx.db), hunt._id, 'renamed_hunt')
+      await relabelQuiz(ctx.db, { hunt_id: realm.hunt_id, realm_id: quiz.realm_id, quiz_id: quiz._id, quiz, realm }, 'renamed_quiz')
     })
     await tt.mutation(internal.migrations.runAll, {})
     await tt.finishAllScheduledFunctions(vi.runAllTimers)

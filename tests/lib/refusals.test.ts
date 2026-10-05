@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
+import * as Approve from '../../src/lib/approve'
 import { failurekindOf, noticeOf, refusalFor, refuse, refusingInvalid } from '../../src/lib/refusals'
 import { AppNotices, RefusalNotices } from '../../src/lib/notices'
 
@@ -48,6 +49,12 @@ describe('refusalFor', () => {
     const data = Z.object({ failurekind: Z.string(), message: Z.string(), ZodError: Z.array(Z.unknown()) }).parse(dataOf(refusal))
     expect([data.failurekind, data.ZodError.length]).to.deep.eq(['invalid', 1])
     expect(data.message).to.include('title')
+  })
+
+  it("makes a policy's denial a refusal of its kind, with its sentence, and nothing of the evidence", () => {
+    const refusal = refusalFor(new Approve.NotApprovedError('quizLocked', { policy: 'add_question' }, { evidence: ['secret claims'] }))
+    expect(refusal).to.be.instanceOf(ConvexError)
+    expect(dataOf(refusal)).to.deep.eq({ failurekind: 'quizLocked', message: RefusalNotices.quizLocked })
   })
 
   it('hands back anything else as it was', () => {

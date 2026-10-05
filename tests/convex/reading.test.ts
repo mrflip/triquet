@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import {
-  cellRowsOf, huntForLabel, huntIdOf, huntIdOfLayoutRow, huntingFor, huntRowsOf, identFor, isWorked, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor,
+  censusOf, cellRowsOf, huntForLabel, huntIdOf, huntIdOfLayoutRow, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor,
   reviewingCopiesOf, usageOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -154,7 +154,7 @@ describe("cellRowsOf", () => {
   })
 })
 
-describe("layoutRowsOf and widgetingsOf", () => {
+describe("layoutRowsOf, layoutOf and widgetingsOf", () => {
   it("read a quiz's widgetings in run order, and its columns, without its questions", async () => {
     const { tt, quiz_id } = await holding(huntHolding([quizWorking(['cc', 'aa', 'bb'])]))
     const layout = present(await tt.run(async (ctx) => await layoutRowsOf(ctx.db, quiz_id)))
@@ -168,6 +168,16 @@ describe("layoutRowsOf and widgetingsOf", () => {
     const { tt, quiz_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
     expect(await tt.run(async (ctx) => await layoutRowsOf(ctx.db, quiz_id))).to.be.null
+  })
+
+  it("read the same layout from a quiz row already in hand, which is handed back as it was", async () => {
+    const { tt, quiz_id } = await holding(huntHolding([quizWorking(['cc', 'aa', 'bb'])]))
+    const [byId, byRow, held] = await tt.run(async (ctx) => {
+      const quiz = present(await ctx.db.get('quizzes', quiz_id))
+      return [await layoutRowsOf(ctx.db, quiz_id), await layoutOf(ctx.db, quiz), quiz]
+    })
+    expect(byRow).to.deep.eq(byId)
+    expect(byRow.quiz).to.deep.eq(held)
   })
 })
 
@@ -198,6 +208,19 @@ describe("the library", () => {
 function working(widget_label: string, labels: readonly string[]): QuizT {
   return { ...Quiz.blank(), widgetings: labels.map((label) => Widgeting.fill({ widget_label, label })) }
 }
+
+describe("censusOf", () => {
+  it("answers whose a hunt label is, and whether a widget is worked, across every hunt, with an id or a yes", async () => {
+    const tt = openTester()
+    const { hunt_id } = await holding({ ...huntHolding([working('dumdum', ['guess'])]), label: 'quiet_otter' }, tt)
+    await holding({ ...huntHolding([Quiz.blank()]), label: 'loud_heron' }, tt)
+    const answers = await tt.run(async (ctx) => {
+      const census = censusOf(ctx.db)
+      return [await census.huntIdForLabel('quiet_otter'), await census.huntIdForLabel('no_such_hunt'), await census.isWorked('dumdum'), await census.isWorked('numnum_hint')]
+    })
+    expect(answers).to.deep.eq([hunt_id, null, true, false])
+  })
+})
 
 describe("usageOf", () => {
   it("counts the widgetings working a widget, the quizzes they are in, and the hunts those are in", async () => {

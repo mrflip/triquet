@@ -1,24 +1,29 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
+import * as Actor from '../lib/actor'
 import * as Alarms from '../lib/alarms'
+import * as Approve from '../lib/approve'
 import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
 import { assembledQuiz, smithsOf, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
-import type { HuntActionDNA, OpenQuizT } from '../models/actions'
-import type { HuntRole } from '../models/hunting'
+import { ActionValidators, type AffirmsDNA, type HuntActionDNA, type QuizAffirmsDNA } from '../models/actions'
+import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
+import { useAffirms } from './use-affirms'
+import { useIdent } from './use-ident'
+import { holdThePage } from './page-hold'
 import { useSession } from './use-session'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
@@ -42,8 +47,13 @@ export type HuntHandle = {
   library:    readonly WidgetT[]
   /** The quiz's reviews this browser's ident may read (its own, and the shared ones), oldest first; empty until the quiz is found */
   reviews:    readonly ReviewedT[]
-  /** What this browser's ident does on the hunt; null when it is not on it, or the hunt has not arrived */
-  role:       HuntRole | null
+  /**
+   * What this browser holds of itself on the hunt, as the server would verify it: who it is, the
+   * hunt, its standing there, and the quiz on screen (null until it has arrived, or once it is
+   * gone). What a view offers is decided from these, by the policies the server decides by
+   * (`Approve`). Null until the hunt and who this browser is are both known.
+   */
+  claims:     Actor.QuizClaimsT | null
   /** Who could put this visitor on the hunt, or make them a smith of it; empty until the hunt has arrived */
   smiths:     readonly SmithT[]
   /** Whether a change dispatched here is still being written */
@@ -119,27 +129,39 @@ function smithsFor(opening: HuntOpeningT | undefined): readonly SmithT[] {
   return smithsOf(opening?.hunt?.members ?? [])
 }
 
-/** The library before it has arrived: one list, so a render that has none hands on the same one */
-const NoWidgets: readonly WidgetT[] = []
-
-/** How many changes this page is writing */
-const Writing = { count: 0 }
-
-/** Asks before the page is left, which would lose a change still being written */
-function askBeforeLeaving(event: BeforeUnloadEvent): void {
-  event.preventDefault()
+/**
+ * What this browser holds of itself on `hunt`, as the server would verify it (`Actor.claimsOn`),
+ * with the quiz on screen as far as a policy reads it.
+ *
+ * @param actor - Who this browser is; null until that is known.
+ * @param hunt - The hunt, as its screen holds it; null when there is none to hold, or it has not arrived.
+ * @param locked - Whether the quiz on screen is locked; null when none is.
+ * @returns The claims; null until both who and which hunt are known.
+ *
+ * @example claimsOf(actor, hunt, false)  // => { ...actor, hunt_id: hunt._id, standing: hunt.role, quiz: { locked: false } }
+ */
+export function claimsOf(actor: Actor.ActorT | null, hunt: Pick<ShallowHuntT, '_id' | 'role'> | null, locked: boolean | null): Actor.QuizClaimsT | null {
+  if (actor === null || hunt === null) { return null }
+  return { ...Actor.claimsOn(actor, hunt._id, hunt), quiz: locked === null ? null : { locked } }
 }
 
 /**
- * Hold the page while a change is written, and let it go once none is. Done at once rather than
- * after the next render, because a change is only a moment in the writing and the author may
- * leave in that moment.
+ * Why the policies refuse `action` from the holder of `claims`, judged as the server will judge it
+ * once it has read it (`ActionValidators.huntAction`); null when they allow it. An action that does
+ * not read as one is left to the server, which refuses it saying what is wrong with it.
+ *
+ * @example denialOf(claims, { kind: 'add_question' })  // => 'quizLocked', for a smith of a locked quiz
+ * @example denialOf(claims, { kind: 'open_review', quiz_id })  // => null, for a reviewer
  */
-function holdThePage(holding: boolean): void {
-  Writing.count += holding ? 1 : -1
-  if (holding && Writing.count === 1) { addEventListener('beforeunload', askBeforeLeaving) }
-  if (! holding && Writing.count === 0) { removeEventListener('beforeunload', askBeforeLeaving) }
+export function denialOf(claims: Actor.QuizClaimsT, action: HuntActionDNA): Approve.Denialkind | null {
+  const read = ActionValidators.huntAction.safeParse(action)
+  if (! read.success) { return null }
+  const verdict = Approve.verdictOn(read.data.kind, claims, read.data)
+  return verdict === Approve.Allow ? null : verdict
 }
+
+/** The library before it has arrived: one list, so a render that has none hands on the same one */
+const NoWidgets: readonly WidgetT[] = []
 
 /** A watch on one question of the open quiz, and how to stop listening to it */
 type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: () => void }
@@ -149,14 +171,20 @@ type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: ()
  * watches rather than renders: the client tells a watch of a change before the change's own
  * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
  * The quiz is its frame and a watch per question it orders, followed as the order changes, with
- * the library its widgetings work; a reading with a question still on its way is not noted.
+ * the library its widgetings work; a reading with a question still on its way is not noted. Each
+ * is the same watch the screen holds, sent the same affirms, so none is opened twice.
+ *
+ * Fed only where the standing affirmed is sent every question whole (`Question.isSentWhole`): a
+ * smith's. A reviewer is not sent the smiths' notes or what the widgetings stored, and a history
+ * made from what they are sent would record those as blanked.
  */
-function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes'> | null): void {
+function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirmsDNA | null): void {
   const convex = useConvex()
   useEffect(() => {
-    if (quiz_id === null || ! ready) { return }
+    if (affirms === null || ! ready || ! Question.isSentWhole(affirms.standing)) { return }
+    const { quiz_id, ...huntAffirms } = affirms
     const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
-    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const frameWatch = convex.watchQuery(api.quizzes.open, { affirms })
     const libraryWatch = convex.watchQuery(api.widgets.library, {})
     const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
     const last: { snapshot: MirrorSnapshot | null } = { snapshot: null }
@@ -186,7 +214,7 @@ function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes
       }
       for (const question_id of ordered) {
         if (questionWatches.has(question_id)) { continue }
-        const watch = convex.watchQuery(api.questions.open, { question_id })
+        const watch = convex.watchQuery(api.questions.open, { question_id, affirms: huntAffirms })
         questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
       }
     }
@@ -197,7 +225,7 @@ function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes
       for (const stop of stops) { stop() }
       for (const watch of questionWatches.values()) { watch.stop() }
     }
-  }, [convex, hunt_label, ready, quiz_id])
+  }, [convex, hunt_label, ready, affirms])
 }
 
 /**
@@ -209,8 +237,9 @@ function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes
  * There is no save button and no save queue: a change goes to the server as soon as it is
  * dispatched, and the screen shows it once the server has it. Leaving the page before then asks
  * first. A change the server refuses writes nothing, and says why in `saveNotice` and in an alarm
- * (`useRaiseAlarm`), which the author sees wherever they are on the page. Every reading
- * of the open quiz, whoever changed it, goes into its history.
+ * (`useRaiseAlarm`), which the author sees wherever they are on the page. One the policies refuse
+ * of the browser's own claims (`denialOf`) is not sent at all, and is said the same way. For a smith, every
+ * reading of the open quiz, whoever changed it, goes into its history.
  *
  * @param labels - The hunt, realm and quiz the address names.
  * @returns The hunt, realm and quiz, a dispatcher, and why anything went wrong.
@@ -231,13 +260,18 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
   const placing = placeIn(askable && opening === undefined ? undefined : hunt, labels, shown?.address === address ? shown.quiz_id : null)
   const quiz_id = placing.quizRow?._id ?? null
-  const quizSeen = useQuiz(quiz_id)
-  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null || ! ready ? 'skip' : { quiz_id })
+  // What this browser affirms of itself with every request about the quiz: see `useAffirms`.
+  const { huntAffirms, quizAffirms } = useAffirms(hunt, quiz_id)
+  const { actor, ident } = useIdent()
+  const quizSeen = useQuiz(huntAffirms, quiz_id)
+  const reviewsSeen = useQuery(api.reviews.forQuiz, quizAffirms === null || ! ready ? 'skip' : { affirms: quizAffirms })
   const library = useQuery(api.widgets.library, ready ? {} : 'skip')
-  useHistoryFeed(labels.hunt, ready, askable ? quiz_id : null)
+  useHistoryFeed(labels.hunt, ready, askable ? quizAffirms : null)
 
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
+  const locked = found.quiz?.locked ?? null
+  const claims = useMemo(() => claimsOf(ident === null ? null : actor, hunt, locked), [actor, ident, hunt, locked])
 
   // Kept as React keeps state derived from a render: set during the render, which React redoes.
   const foundId = found.quiz?._id ?? null
@@ -250,17 +284,29 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   // Read by the dispatcher when it runs rather than when it was made, so it never goes stale.
   // Kept in a layout effect: every layout effect in the tree runs before any passive one, so a
   // screen that dispatches as it mounts (the review, opening itself) finds the quiz it is on.
-  const open: OpenQuizT | null = hunt && found.realm && placing.quizRow ? { hunt_id: hunt._id, realm_id: found.realm._id, quiz_id: placing.quizRow._id } : null
-  const latest = useRef({ open, labels, role: hunt?.role ?? null })
-  useLayoutEffect(() => { latest.current = { open, labels, role: hunt?.role ?? null } })
+  const affirms: AffirmsDNA | null = quizAffirms && found.realm ? { ...quizAffirms, realm_id: found.realm._id } : null
+  const latest = useRef({ affirms, claims, labels })
+  useLayoutEffect(() => { latest.current = { affirms, claims, labels } })
   const convex = useConvex()
 
   const carryOut = useCallback(async (action: HuntActionDNA, { quietly = false }: CarryOutOptions = {}): Promise<boolean> => {
-    const { open: there, labels: place, role } = latest.current
-    if (there === null) {
-      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role })
+    const { affirms: there, claims: held, labels: place } = latest.current
+    const standing = held?.standing ?? null
+    if (there === null || held === null) {
+      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, standing })
       setSaveNotice(AppNotices.changeNotSent)
       if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: AppNotices.changeNotSent, request_id: null }) }
+      return false
+    }
+    // A view offers only what the policies allow, so one refused here is a view that offered what
+    // it should not, or held a draft across a change that took it away (the quiz locked under a
+    // field being typed into): said in the console as a bug, never sent, and the author told what
+    // the server would have told them.
+    const denial = denialOf(held, action)
+    if (denial !== null) {
+      Postmortem.report(`send a change (${action.kind})`, new Approve.NotApprovedError(denial, { policy: action.kind }), { action, ...place, standing })
+      setSaveNotice(RefusalNotices[denial])
+      if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: RefusalNotices[denial], request_id: null }) }
       return false
     }
     const write = async (): Promise<boolean> => {
@@ -269,12 +315,12 @@ export function useHunt(labels: QuizLabels): HuntHandle {
       try {
         // The client sends one browser's changes in the order they were made, and the server
         // carries each out against the rows as they then stand.
-        await perform({ open: there, action })
+        await perform({ affirms: there, action })
         setSaveNotice(null)
         return true
       } catch (err) {
         const { isWebSocketConnected, connectionRetries, inflightMutations } = convex.connectionState()
-        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, role, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
+        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, standing, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
         setSaveNotice(noticeOf(err))
         if (! quietly) { raise(Alarms.of(AppNotices.changeNotKept, err)) }
         return false
@@ -290,5 +336,5 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   const dispatch = useCallback((action: HuntActionDNA) => { void carryOut(action) }, [carryOut])
 
-  return { finding, hunt, ...found, library: library ?? NoWidgets, role: hunt?.role ?? null, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
+  return { finding, hunt, ...found, library: library ?? NoWidgets, claims, smiths: smithsFor(opening), unsaved: writing > 0, saveNotice, dispatch, carryOut, movedTo: finding === 'found' ? placing.movedTo : null }
 }
