@@ -104,3 +104,14 @@ describe('cellOf', () => {
     })
   }
 })
+
+describe('byCode', () => {
+  it("reads the doc block's example: capitals before lowercase, by code unit and not by locale", () => {
+    expect(['b', 'B', 'a'].toSorted(Tsv.byCode)).to.deep.eq(['B', 'a', 'b'])
+  })
+
+  it("is zero for the same text, and sorts a prefix first", () => {
+    expect(Tsv.byCode('leon', 'leon')).to.eq(0)
+    expect(['leon_b', 'leon', 'le'].toSorted(Tsv.byCode)).to.deep.eq(['le', 'leon', 'leon_b'])
+  })
+})

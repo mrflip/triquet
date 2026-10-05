@@ -142,3 +142,35 @@ export function filesOf(placed: readonly Exporting.PlacedBallT[]): FilesT {
 export function huntFiles(snapshot: Exporting.HuntSnapshotT): FilesT {
   return new Map([[ReadmePath, Readme], ...filesOf(Exporting.ballsOf(snapshot))])
 }
+
+/** What differs from one reading of a repository's files to the next: each file new or changed, with its body, and each path gone */
+export type FileChangesT = {
+  written: FilesT
+  removed: readonly string[]
+}
+
+/**
+ * What changed between two readings of a repository's files: each file whose body is new or
+ * differs, and each path the later reading no longer holds, both in path order. What a commit of
+ * only what changed writes and removes.
+ *
+ * @param ante - The files as they stood.
+ * @param post - The files as they stand now.
+ *
+ * @example changesBetween(new Map([['a.json', '1']]), new Map([['a.json', '2'], ['b.json', '3']]))  // => { written: Map { 'a.json' => '2', 'b.json' => '3' }, removed: [] }
+ * @example changesBetween(new Map([['a.json', '1']]), new Map())  // => { written: Map {}, removed: ['a.json'] }
+ */
+export function changesBetween(ante: FilesT, post: FilesT): FileChangesT {
+  const written = post.entries().filter(([path, body]) => ante.get(path) !== body).toArray()
+  const removed = ante.keys().filter((path) => ! post.has(path)).toArray()
+  return { written: new Map(written.toSorted(([aa], [bb]) => Tsv.byCode(aa, bb))), removed: removed.toSorted(Tsv.byCode) }
+}
+
+/**
+ * Whether two readings of a repository's files hold the same files with the same bodies.
+ *
+ * @example isSameFiles(new Map([['a.json', '1']]), new Map([['a.json', '1']]))  // => true
+ */
+export function isSameFiles(ante: FilesT, post: FilesT): boolean {
+  return ante.size === post.size && post.entries().every(([path, body]) => ante.get(path) === body)
+}

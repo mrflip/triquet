@@ -180,6 +180,66 @@ describe('tsvOf', () => {
   })
 })
 
+/** Files by path, from path and body pairs */
+function files(...pairs: [string, string][]): Huntfiles.FilesT {
+  return new Map(pairs)
+}
+
+describe('changesBetween', () => {
+  const ChangeCases: [[Huntfiles.FilesT, Huntfiles.FilesT], Huntfiles.FileChangesT, string][] = [
+    // regular usage:
+    [[files(['a.json', '1']), files(['a.json', '2'], ['b.json', '3'])], { written: files(['a.json', '2'], ['b.json', '3']), removed: [] },  'a changed body and a new file are written'],
+    [[files(['a.json', '1'], ['b.json', '2']), files(['b.json', '2'])], { written: files(), removed: ['a.json'] },                          'a path gone is removed, an unchanged one left alone'],
+    [[files(['b.json', '1'], ['a.json', '1']), files(['z.json', '2'], ['b.json', '3'])], { written: files(['b.json', '3'], ['z.json', '2']), removed: ['a.json'] }, 'both in path order, by code unit'],
+    // trivial cases:
+    [[files(['a.json', '1']), files(['a.json', '1'])], { written: files(), removed: [] },                                                     'nothing for the same files'],
+    [[files(), files()], { written: files(), removed: [] },                                                                                 'nothing for nothing'],
+    [[files(), files(['a.json', ''])], { written: files(['a.json', '']), removed: [] },                                                     'an empty body is a body'],
+    // weird cases:
+    [[files(['a.json', '']), files(['a.json', '1'])], { written: files(['a.json', '1']), removed: [] },                                     'an empty body filled is a change'],
+    [[files(['B.json', '1'], ['a.json', '1']), files()], { written: files(), removed: ['B.json', 'a.json'] },                               'capitals sort before lowercase, not by locale'],
+  ]
+  for (const [[ante, post], changes, description] of ChangeCases) {
+    it(description, () => {
+      const changed = Huntfiles.changesBetween(ante, post)
+      expect([...changed.written]).to.deep.eq([...changes.written])
+      expect(changed.removed).to.deep.eq(changes.removed)
+    })
+  }
+
+  it("reads the doc block's examples", () => {
+    expect(Huntfiles.changesBetween(files(['a.json', '1']), files(['a.json', '2'], ['b.json', '3']))).to.deep.eq({ written: files(['a.json', '2'], ['b.json', '3']), removed: [] })
+    expect(Huntfiles.changesBetween(files(['a.json', '1']), files())).to.deep.eq({ written: files(), removed: ['a.json'] })
+  })
+
+  it("is what a question's edit changes of a hunt's files, and nothing else", () => {
+    const edited = snapshot()
+    const ante = Huntfiles.huntFiles(edited)
+    const princes = present(edited.realms[0]?.quizzes[0])
+    const leon = present(princes.questions[0])
+    const realm = present(edited.realms[0])
+    const post = Huntfiles.huntFiles({ ...edited, realms: [{ ...realm, quizzes: [{ ...princes, questions: [{ ...leon, clueing: 'A new clueing' }, ...princes.questions.slice(1)] }, ...realm.quizzes.slice(1)] }] })
+    const changed = Huntfiles.changesBetween(ante, post)
+    expect(changed.written.keys().toArray()).to.deep.eq(['quizzes/home/princes.tqq.json', 'quizzes/home/princes/questions.qq.json', 'quizzes/home/princes/questions.qq.tsv'])
+    expect(changed.removed).to.deep.eq([])
+  })
+})
+
+describe('isSameFiles', () => {
+  it("reads the doc block's example", () => {
+    expect(Huntfiles.isSameFiles(files(['a.json', '1']), files(['a.json', '1']))).to.be.true
+  })
+
+  it("is false for a body changed, a file added or a file gone, and true whatever the order", () => {
+    expect(Huntfiles.isSameFiles(files(['a.json', '1']), files(['a.json', '2']))).to.be.false
+    expect(Huntfiles.isSameFiles(files(['a.json', '1']), files(['a.json', '1'], ['b.json', '1']))).to.be.false
+    expect(Huntfiles.isSameFiles(files(['a.json', '1'], ['b.json', '1']), files(['a.json', '1']))).to.be.false
+    expect(Huntfiles.isSameFiles(files(['a.json', '1']), files(['b.json', '1']))).to.be.false
+    expect(Huntfiles.isSameFiles(files(['a.json', '1'], ['b.json', '2']), files(['b.json', '2'], ['a.json', '1']))).to.be.true
+    expect(Huntfiles.isSameFiles(files(), files())).to.be.true
+  })
+})
+
 describe('Readme', () => {
   it("holds the line that merges the jsonballs", () => {
     expect(Huntfiles.Readme).to.include(Huntfiles.MergeCommand)

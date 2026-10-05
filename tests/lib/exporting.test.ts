@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import * as Addresses from '../../src/lib/addresses'
 import * as Exporting from '../../src/lib/exporting'
 import * as Importing from '../../src/lib/importing'
+import * as Runner from '../../src/lib/formulary/runner'
 import * as Jsonball from '../../src/lib/jsonball'
 import * as Wheel from '../../src/lib/wheel'
 import { CategoryLabelVals } from '../../src/models/category'
@@ -210,6 +211,12 @@ describe('reviewBall', () => {
     expect(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewer: null })).to.be.null
   })
 
+  it("writes of each reviewing its verdict alone, as a reviewing's row is read: no ids, and not whether the reviewer peeked", () => {
+    const row = { _id: 'r1', _creationTime: 1, review_id: 'rv1', hunt_id: 'h1', quiz_id: 'q1', ident_id: 'i1', peeked: true, question_id: present(princes.questions[0])._id, ...Verdict }
+    const placed = present(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewings: [row] }))
+    expect(_.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones.verdicts.leon')).to.deep.eq(Verdict)
+  })
+
   it("passes over a verdict on a question the quiz no longer holds", () => {
     const review = { ...present(shared), reviewings: [...present(shared).reviewings, { ...Verdict, question_id: 'long-gone' }] }
     const placed = present(Exporting.reviewBall(Place, 'home', princes, review))
@@ -237,6 +244,65 @@ describe('quizBalls', () => {
 
   it("is the quiz and its questions alone for a quiz with no reviews", () => {
     expect(Exporting.quizBalls(Place, 'home', princes, run, []).map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions'])
+  })
+})
+
+describe('huntLevelBalls', () => {
+  it("is the hunt's own ball, its categories' and its members', as their own functions make them", () => {
+    const held = snapshot()
+    const place = Exporting.placeOf(held)
+    expect(Exporting.huntLevelBalls(held)).to.deep.eq([
+      Exporting.huntBall(place, held.hunt), Exporting.categoriesBall(place, held.wheel), Exporting.membersBall(place, held.members),
+    ])
+  })
+
+  it("reads the doc block's example", () => {
+    expect(Exporting.huntLevelBalls(snapshot()).map(({ address }) => address.kind)).to.deep.eq(['hunt', 'categories', 'members'])
+  })
+})
+
+describe('quizBallsIn', () => {
+  const held = snapshot()
+  const realm = present(held.realms[0])
+  const princes = present(realm.quizzes[0])
+  const reviews = present(held.reviews[princes._id])
+
+  it("is the quiz's balls, the quiz run over the library, in its realm, against the hunt's wheel", () => {
+    const run = Runner.runQuiz(Runner.sourceOf(princes, held.library, Runner.placeOf({ ...held.hunt, wheel: held.wheel }, realm)))
+    expect(Exporting.quizBallsIn(held, realm, princes, reviews)).to.deep.eq(Exporting.quizBalls(Exporting.placeOf(held), 'home', princes, run, reviews))
+  })
+
+  it("reads the doc block's example", () => {
+    expect(Exporting.quizBallsIn(held, realm, princes, reviews).map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions', 'review'])
+  })
+
+  it("changes with the library the quiz is run over", () => {
+    const remarkless = held.library.filter((widget) => widget.label !== 'remark')
+    const remarkOf = (library: typeof held.library) => _.get(Exporting.quizBallsIn({ ...held, library }, realm, princes, [])[0]?.ball, 'quizzes.home.princes.questions.leon.remark')
+    expect(remarkOf(held.library)).to.deep.eq({ status: 'ok', value: 'Ask Flip.' })
+    expect(remarkOf(remarkless)).to.not.deep.eq(remarkOf(held.library))
+  })
+})
+
+describe('workedBalls', () => {
+  it("is a ball for each widget of the library any of the quizzes works, at its place in the library, in library order", () => {
+    const balls = Exporting.workedBalls(EntryLibrary, [chainedQuiz()])
+    const worked = new Set(chainedQuiz().widgetings.map((widgeting) => widgeting.widget_label))
+    expect(balls).to.deep.eq(EntryLibrary.flatMap((widget, idx) => (worked.has(widget.label) ? [Exporting.widgetBall(widget, idx)] : [])))
+  })
+
+  it("reads the doc block's example", () => {
+    const labels = Exporting.workedBalls(EntryLibrary, [chainedQuiz()]).map(({ address }) => address.kind === 'widget' && address.widget)
+    expect(labels).to.include.members(['dumdum', 'numnum_clueing'])
+  })
+
+  it("is nothing for no quizzes, or quizzes working nothing", () => {
+    expect(Exporting.workedBalls(EntryLibrary, [])).to.deep.eq([])
+    expect(Exporting.workedBalls(EntryLibrary, [Quiz.blank('Paris', 'paris')])).to.deep.eq([])
+  })
+
+  it("passes over a widgeting of a widget the library lacks", () => {
+    expect(Exporting.workedBalls([], [chainedQuiz()])).to.deep.eq([])
   })
 })
 

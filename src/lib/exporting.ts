@@ -1,3 +1,4 @@
+import * as EST from 'es-toolkit'
 import * as Addresses from './addresses'
 import * as Jsonball from './jsonball'
 import * as Runner from './formulary/runner'
@@ -32,10 +33,10 @@ export type PlacedBallT = {
   ball:    Jsonball.JsonballT
 }
 
-/** One reviewing, as far as its review's ball needs it: which question, by id, and the verdict */
+/** One reviewing, as far as its review's ball needs it: which question, by id, and the verdict; a reviewing's row will do, its other fields left out */
 export type ReviewingSourceT = { question_id: string } & Jsonball.VerdictBodyT
 
-/** One review of a quiz, as far as its ball needs it: who wrote it, how far it has come, and what it says */
+/** One review of a quiz, as far as its ball needs it: who wrote it, how far it has come, and what it says; a review as `reviews.forQuiz` reads it will do */
 export type ReviewSourceT = Pick<ReviewedT, 'reviewer' | 'phase' | 'overall'> & { reviewings: readonly ReviewingSourceT[] }
 
 /** One ident on the hunt, as far as its members' ball needs it */
@@ -194,9 +195,9 @@ export function questionsBall(place: Addresses.InHuntT, realm: string, quiz: Qui
 export function reviewBall(place: Addresses.InHuntT, realm: string, quiz: Pick<QuizT, 'label' | 'questions'>, review: ReviewSourceT): PlacedBallT | null {
   if (review.phase !== 'shared' || review.reviewer === null) { return null }
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
-  const verdicts = Object.fromEntries(review.reviewings.flatMap(({ question_id, ...verdict }): [string, Jsonball.VerdictBodyT][] => {
-    const label = labelForId.get(question_id)
-    return label === undefined ? [] : [[label, verdict]]
+  const verdicts = Object.fromEntries(review.reviewings.flatMap((reviewing): [string, Jsonball.VerdictBodyT][] => {
+    const label = labelForId.get(reviewing.question_id)
+    return label === undefined ? [] : [[label, EST.pick(reviewing, Jsonball.VerdictFieldnames)]]
   }))
   const body: Jsonball.ReviewBodyT = { overall: review.overall, verdicts }
   return placed({ kind: 'review', ...place, realm, quiz: quiz.label, reviewer: review.reviewer.label }, body)
@@ -243,6 +244,45 @@ export function libraryBall(library: readonly WidgetT[]): Jsonball.JsonballT {
 }
 
 /**
+ * The hunt's own balls, apart from its quizzes and widgets: its own fields', its categories' and
+ * its members'. What the hunt-level watch of a mirror's feed writes.
+ *
+ * @example huntLevelBalls(snapshot).map(({ address }) => address.kind)  // => ['hunt', 'categories', 'members']
+ */
+export function huntLevelBalls(snapshot: Pick<HuntSnapshotT, 'hunt' | 'wheel' | 'members'>): PlacedBallT[] {
+  const place = placeOf(snapshot)
+  return [huntBall(place, snapshot.hunt), categoriesBall(place, snapshot.wheel), membersBall(place, snapshot.members)]
+}
+
+/**
+ * Every ball of one quiz of the hunt (`quizBalls`), the quiz run where it sits: over the library,
+ * in its realm, against the hunt's wheel. So a change to the library or the wheel can rewrite it.
+ *
+ * @param snapshot - The hunt, as far as running and placing the quiz needs it.
+ * @param realm - The realm the quiz sits in.
+ * @param quiz - The quiz.
+ * @param reviews - Its reviews, of every phase; only the shared ones are written.
+ *
+ * @example quizBallsIn(snapshot, realm, quiz, reviews).map(({ address }) => address.kind)  // => ['quiz', 'questions', 'review']
+ */
+export function quizBallsIn(snapshot: Pick<HuntSnapshotT, 'hunt' | 'wheel' | 'members' | 'library'>, realm: Pick<RealmT, 'label' | 'title'>, quiz: QuizT, reviews: readonly ReviewSourceT[]): PlacedBallT[] {
+  const { hunt, wheel, library } = snapshot
+  const run = Runner.runQuiz(Runner.sourceOf(quiz, library, Runner.placeOf({ ...hunt, wheel }, realm)))
+  return quizBalls(placeOf(snapshot), realm.label, quiz, run, reviews)
+}
+
+/**
+ * The balls of the library's widgets that any of `quizzes` works, each at its place in the whole
+ * library: which are written depends on every quiz, and where each sits on every widget.
+ *
+ * @example workedBalls(library, quizzes).map(({ address }) => address.kind === 'widget' && address.widget)  // => ['dumdum', 'numnum_clueing', ...]
+ */
+export function workedBalls(library: readonly WidgetT[], quizzes: readonly Pick<QuizT, 'widgetings'>[]): PlacedBallT[] {
+  const worked = new Set(quizzes.flatMap((quiz) => quiz.widgetings.map((widgeting) => widgeting.widget_label)))
+  return library.flatMap((widget, ii) => (worked.has(widget.label) ? [widgetBall(widget, ii)] : []))
+}
+
+/**
  * Every ball of a hunt: its own, its categories', its members', each quiz's and its questions
  * alone, each shared review's, and each widget its quizzes work. The questions alone are among
  * them, though no merge reads them (`Addresses.isMerged`).
@@ -250,19 +290,11 @@ export function libraryBall(library: readonly WidgetT[]): Jsonball.JsonballT {
  * @example ballsOf(snapshot).map(({ address }) => address.kind)  // => ['hunt', 'categories', 'members', 'quiz', 'questions', 'review', 'widget', ...]
  */
 export function ballsOf(snapshot: HuntSnapshotT): PlacedBallT[] {
-  const place = placeOf(snapshot)
-  const { hunt, wheel, library } = snapshot
   const quizzes = snapshot.realms.flatMap((realm) => realm.quizzes.map((quiz) => ({ realm, quiz })))
-  const worked = new Set(quizzes.flatMap(({ quiz }) => quiz.widgetings.map((widgeting) => widgeting.widget_label)))
   return [
-    huntBall(place, hunt),
-    categoriesBall(place, wheel),
-    membersBall(place, snapshot.members),
-    ...quizzes.flatMap(({ realm, quiz }) => {
-      const run = Runner.runQuiz(Runner.sourceOf(quiz, library, Runner.placeOf({ ...hunt, wheel }, realm)))
-      return quizBalls(place, realm.label, quiz, run, snapshot.reviews[quiz._id] ?? [])
-    }),
-    ...library.flatMap((widget, ii) => (worked.has(widget.label) ? [widgetBall(widget, ii)] : [])),
+    ...huntLevelBalls(snapshot),
+    ...quizzes.flatMap(({ realm, quiz }) => quizBallsIn(snapshot, realm, quiz, snapshot.reviews[quiz._id] ?? [])),
+    ...workedBalls(snapshot.library, quizzes.map(({ quiz }) => quiz)),
   ]
 }
 

@@ -56,8 +56,13 @@ export function recordsOf(keyed: Readonly<Record<string, Readonly<Record<string,
   return Object.entries(keyed).map(([label, member]) => ({ ...member, label }))
 }
 
-/** Compare by code unit, not by locale, so the order is the same wherever it is read */
-function byCode(aa: string, bb: string): number {
+/**
+ * Compare by code unit, not by locale, so the order is the same wherever it is read: how a
+ * table's rows and columns, and a repository's paths, are sorted.
+ *
+ * @example ['b', 'B', 'a'].toSorted(byCode)  // => ['B', 'a', 'b']
+ */
+export function byCode(aa: string, bb: string): number {
   if (aa === bb) { return 0 }
   return aa < bb ? -1 : 1
 }

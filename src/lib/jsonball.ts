@@ -74,8 +74,11 @@ export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'l
   columns:    Record<string, ColumnBodyT>
 }
 
+/** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */
+export const VerdictFieldnames = ['get_rate', 'guesses', 'comments', 'minutes', 'keep_it', 'needs_fact_check', 'elimination_candidate'] as const
+
 /** One reviewer's verdict on one question, by the question's label */
-export type VerdictBodyT = Pick<ReviewingRowT, 'get_rate' | 'guesses' | 'comments' | 'minutes' | 'keep_it' | 'needs_fact_check' | 'elimination_candidate'>
+export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]>
 
 /** One shared review of one quiz, by the reviewer's label: what they made of it, and their verdict on each question */
 export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & { verdicts: Record<string, VerdictBodyT> }
