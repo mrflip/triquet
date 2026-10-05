@@ -13,7 +13,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 3 | A hunt's files | landed #127 |
 | 4 | Watches at the grain of the files | landed #128 |
 | 5 | One repository per hunt | landed #129 |
-| 6 | Downloads and the hunts page | underway |
+| 6 | Downloads and the hunts page | landing (lane 1) |
 
 ## What the threads have taught
 
