@@ -4,10 +4,11 @@ The **mirror** (`notes/vocabulary.md`) is moving from one repository per quiz to
 This file is the index of what such a repository holds and where. It is the spec for the
 `hunt_git` sprint, whose plan is `whiteboard/20261005-hunt_git/hunt_git-plan.md`.
 
-**Status (2026-10-05): the files are built; the repository that holds them is not yet.**
-`src/lib/huntfiles.ts` (`Huntfiles`) writes every file below from a hunt's snapshot, and one
-resource's files from that resource alone; the watches that feed it and the repository per hunt
-are threads 4 and 5 of the sprint. Paths follow `notes/decisions/urls.md` (rule 10, with the
+**Status (2026-10-05): the files and the feed that reads them are built; the repository that
+holds them is not yet.** `src/lib/huntfiles.ts` (`Huntfiles`) writes every file below from a
+hunt's snapshot, and one resource's files from that resource alone; `src/state/hunt-feed.ts`
+reads them from watches (*Watching and committing, by file*, below); the repository per hunt is
+thread 5 of the sprint. Paths follow `notes/decisions/urls.md` (rule 10, with the
 realm written `home`), through `src/lib/addresses.ts`. The per-quiz repositories of today
 (`/quizzes/<quiz _id>`, `src/lib/quizgit.ts`) get **no special treatment**: there is no
 migration, and nothing new reads or lists them.
@@ -161,14 +162,32 @@ One hunt, one branch at a time, so a hunt repository is on exactly the branch th
 
 ## Watching and committing, by file
 
-The feed watches **at the grain of the files**, through query functions sized to match: one
-for the hunt-level files (hunt, members, categories, and the list of quizzes), and one per quiz
-for its frame, its questions, and its shared reviews. A change re-runs only the queries whose
-reads it touched, and Convex resends only their results.
+The feed (`watchHunt`, and `useHuntFeed` around it, in `src/state/hunt-feed.ts`) watches **at
+the grain of the files**, for a smith only (`Question.isSentWhole`):
 
-Each watch's result becomes its files without the rest of the hunt: `Exporting`'s ball for each
-resource (`huntBall`, `categoriesBall`, `membersBall`, `widgetBall`, and `quizBalls` for a quiz,
-its questions alone and its shared reviews), handed to `Huntfiles.filesOf`.
+| Watch | Query function | Files it writes |
+|---|---|---|
+| The hunt, and the list of its quizzes | `hunts.open` | `hunt.tqh`, `categories.tqc`, `members.tqm` |
+| The library, whole | `widgets.library` | each `widgets/pub/<label>.tqw` a quiz works (a widget's `position` is its place in the whole library) |
+| Each quiz not on screen, whole | `quizzes.whole` (smiths only) | `<quiz>.tqq`, `<quiz>/questions.qq` |
+| The quiz on screen: its frame, and a watch per question | `quizzes.open`, `questions.open` | the same, through the screen's own subscriptions |
+| Each quiz's reviews | `reviews.forQuiz` | `<quiz>/reviews/<reviewer>.tqr`, shared ones only |
+
+Every watch is sent the affirms the screen sends, so one the screen also holds is one
+subscription, and an author's edit to the quiz on screen arrives as the one question. The feed
+follows the quiz list, opening a quiz's watches as it is listed and closing them as it goes, and
+moves the quiz on screen between the two ways of reading it as the screen moves (`focus`). A
+quiz's files depend on the library and the hunt's wheel as well as the quiz (its run), so a
+change to either makes every quiz's files again; only the bodies that differ are new.
+
+Each part's files are made from its watches alone (`huntPartOf`, `quizPartOf`, `widgetsPartOf`,
+over `Exporting.huntLevelBalls`, `quizBallsIn` and `workedBalls`, handed to `Huntfiles.filesOf`),
+and a reading (`HuntReadingT`) hands on every part, keyed (`hunt`, each quiz's id, `widgets`), and
+all the files together. The first reading comes once every listed quiz has been read whole, and
+says so (`first`); after it, a reading comes at each change that writes a file differently, a part
+unchanged being the same object as before. `Huntfiles.changesBetween` says which files to write
+and which to remove. What it costs on a large hunt is measured in
+`whiteboard/20261005-hunt_git/thread-4-measured.md`.
 
 * **Dirty files, not whole trees.** Each watch maps its result to the files it owns. The
   scheduler keeps, per hunt, the set of files whose body differs from what was last committed.

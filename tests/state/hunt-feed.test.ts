@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
@@ -8,6 +10,7 @@ import * as Huntfiles from '../../src/lib/huntfiles'
 import { widgetFrom, type ReviewedT, type ShallowHuntT } from '../../src/lib/rows'
 import type { HuntActionDNA } from '../../src/models/actions'
 import { Question } from '../../src/models/question'
+import type { JsonT } from '../../src/models/widgeted'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { HuntPartkey, WidgetsPartkey, huntPartOf, quizPartOf, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT } from '../../src/state/hunt-feed'
 import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, wholeHunt, type Identified, type PlaceT, type Seeded } from '../support/convex'
@@ -338,5 +341,136 @@ describe('watchHunt', () => {
     await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
     await standIn.settle()
     expect(readings).to.have.lengthOf(1)
+  })
+})
+
+// --- Measured: what the feed costs on a large hunt. `TQ_MEASURE_FEED=1 pnpm vitest run tests/state/hunt-feed.test.ts`
+// runs it (about five minutes) and writes its table to `MeasuredPath`.
+
+/** Where the measurement's table is written */
+const MeasuredPath = 'data/measurements/hunt-feed.txt'
+
+/** The large hunt's size: quizzes, questions in each, and reviewers who have shared a review of every quiz */
+const Large = { quizzes: 20, questions: 40, reviewers: 2 } as const
+
+/** A clueing of about the length a real one runs to */
+const LongClueing = 'At a glance, the lines below are gibberish; but in a different sense they are quite familiar. Describe WHAT are lost, and name the flock that lost them, as a nursery rhyme would: Lille beau pipe, Ocelot serre chypre, En douzaine aux verres tuf indemne.'
+
+/** What each of a classic quiz's bots recorded for a question, as a real ask leaves it */
+const Recorded: Readonly<Record<string, JsonT>> = {
+  dumdum:         'Little Bo Peep\'s sheep, by the sound of it.',
+  numnum_clueing: { items: [{ text: 'douzaine', value: 12, kind: 'wordish' }, { text: 'un', value: 1, kind: 'wordish' }, { text: 'three', value: 3, kind: 'wordish' }] },
+  numnum_hint:    { items: [{ text: '1997', value: 1997, kind: 'numeral' }, { text: '385', value: 385, kind: 'numeral' }] },
+}
+
+/** A large hunt: `Large.quizzes` classic quizzes of `Large.questions` clued questions, every bot answered for every question, and a shared review of every quiz by each reviewer, a verdict on every question */
+async function largeHunt(): Promise<PeopledT> {
+  const labels = Array.from({ length: Large.questions }, (_unused, idx) => `qn_${String(idx + 1).padStart(3, '0')}`)
+  const quizzes = Array.from({ length: Large.quizzes }, (_unused, idx) => {
+    const quiz = quizOf(`Quiz ${String(idx + 1)}`, `quiz_${String(idx + 1).padStart(2, '0')}`, labels)
+    return { ...quiz, questions: quiz.questions.map((question) => ({ ...question, clueing: LongClueing, hint: 'the progenitors in Viable offspring from a differentiated adult mammalian cell', full_answer: '(Little Bo Peep\'s) Sheep', notes: 'Accept DOLLY and DALI' })) }
+  })
+  const seeded = await seedHunt(openTester(), huntHolding(quizzes), { smith: 'pat_smiths' })
+  const sam = await seeded.join('sam_smiths', 'smith')
+  const reviewers = await Promise.all(Array.from({ length: Large.reviewers }, async (_unused, idx) => await seeded.join(`reviewer_${String(idx + 1)}`, 'reviewer')))
+  await seeded.tt.run(async (ctx) => {
+    const rows = await ctx.db.query('quizzes').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', seeded.open.hunt_id)).collect()
+    for (const quiz of rows) {
+      const widgetings = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect()
+      const bots = widgetings.flatMap((widgeting) => {
+        const value = Recorded[widgeting.label]
+        return value === undefined ? [] : [{ widgeting_id: widgeting._id, value }]
+      })
+      for (const question_id of quiz.row_ordering) {
+        for (const { widgeting_id, value } of bots) {
+          await ctx.db.insert('widgeteds', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, question_id, widgeting_id, status: 'ok', value, message: null, result_meta: { model_tier_applied: 'quick', approx_tokens: 312, truncated: false } })
+        }
+      }
+      for (const reviewer of reviewers) {
+        const review_id = await ctx.db.insert('reviews', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, ident_id: reviewer.ident_id, overall: 'A fair quiz, a little long in the middle.', phase: 'shared' })
+        for (const question_id of quiz.row_ordering) {
+          await ctx.db.insert('reviewings', { hunt_id: quiz.hunt_id, quiz_id: quiz._id, ident_id: reviewer.ident_id, review_id, question_id, get_rate: 40, guesses: 'Sheep?', comments: 'Lovely, but the French is hard going.', minutes: 2, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false })
+        }
+      }
+    }
+  })
+  const seen = await seeded.read()
+  const places = Object.fromEntries(seen.quizzes.map((quiz) => [quiz.label, { ...seeded.open, quiz_id: quiz._id as Id<'quizzes'> }]))
+  const [lee = sam, kim = sam] = reviewers
+  return { ...seeded, sam, lee, kim, hunt_label: seen.hunt.label, places }
+}
+
+/** `sent` as a line of the table: results, kilobytes, and kilobytes by query function */
+function sentLine(sent: Awaited<ReturnType<StandInT['settle']>>): string {
+  const byQuery = Object.entries(sent.byQuery).map(([fnname, counted]) => `${fnname} ${String(counted.results)} / ${(counted.bytes / 1024).toFixed(1)} KB`)
+  return `${String(sent.results)} results, ${(sent.bytes / 1024).toFixed(1)} KB (${byQuery.join('; ')})`
+}
+
+describe.runIf(process.env.TQ_MEASURE_FEED === '1')("the feed, measured on a large hunt", () => {
+  it("prints its subscriptions, what it is sent, and what it works out", { timeout: 600_000 }, async () => {
+    const held = await largeHunt()
+    const lines: string[] = [`A hunt of ${String(Large.quizzes)} quizzes of ${String(Large.questions)} questions, classic layout, every bot answered, ${String(Large.reviewers)} shared reviews of each`]
+    const { standIn, readings } = await fed(held, 'quiz_01')
+    const [first] = readings
+    const subscriptions = standIn.held()
+    const screens = subscriptions.filter((fnname) => fnname !== 'quizzes:whole').length - (Large.quizzes - 1)
+    lines.push(
+      `Subscriptions: ${String(subscriptions.length)} (${String(screens)} of them the screen's own); with every quiz read per question, ${String(2 + (Large.quizzes * (Large.questions + 2)))}`,
+      `Files in the first reading: ${String(first?.files.size)}, ${((first?.files.values().reduce((sum, body) => sum + body.length, 0) ?? 0) / 1024).toFixed(0)} KB`,
+    )
+
+    const { quizzes } = await held.read()
+    const opened = present(quizzes.find((quiz) => quiz.label === 'quiz_01'))
+    const other = present(quizzes.find((quiz) => quiz.label === 'quiz_02'))
+    const fresh = standInFor(held.smith.as)
+    const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
+    const elsewhere: HuntReadingT[] = []
+    watchHunt(fresh.watcher, { hunt_label: held.hunt_label, affirms, focus: opened._id as Id<'quizzes'> }, (each) => { elsewhere.push(each) })
+    lines.push(`First full reading sent: ${sentLine(await fresh.settle())}`)
+    const library = await held.smith.as.query(api.widgets.library, {})
+    const reading = present(first)
+    const realm = present(reading.hunt.realms[0])
+    const read = reading.parts.values().flatMap((part) => (part.kind === 'quiz' ? [part.quiz] : [])).toArray()
+    const begun = performance.now()
+    for (const quiz of read) { quizPartOf(reading.hunt, library, realm, quiz, []) }
+    const quizMs = (performance.now() - begun) / read.length
+    lines.push(`Making one quiz's files (run, balls, JSON and tables): ${quizMs.toFixed(0)} ms; every quiz's, as a change to the library or the wheel asks: ${(quizMs * read.length).toFixed(0)} ms`)
+
+    const burst = async (title: string, edits: number, edit: (idx: number) => Promise<void>) => {
+      const sent = { results: 0, bytes: 0, byQuery: {} as Record<string, { results: number, bytes: number }> }
+      const ante = readings.length
+      for (let ii = 0; ii < edits; ii++) {
+        await edit(ii)
+        const each = await standIn.settle()
+        sent.results += each.results
+        sent.bytes += each.bytes
+        for (const [fnname, counted] of Object.entries(each.byQuery)) {
+          const was = sent.byQuery[fnname] ?? { results: 0, bytes: 0 }
+          sent.byQuery[fnname] = { results: was.results + counted.results, bytes: was.bytes + counted.bytes }
+        }
+      }
+      lines.push(`${title}, ${String(edits)} edits: ${sentLine(sent)}; ${String(readings.length - ante)} readings`)
+    }
+    const openPlace = present(held.places.quiz_01)
+    const otherPlace = present(held.places.quiz_02)
+    await burst('The author, in the quiz on screen', 10, async (idx) => {
+      await actIn(held, held.smith, openPlace, { kind: 'edit_question', question_id: present(opened.questions[idx])._id, patch: { notes: `Checked ${String(idx)}.` } })
+    })
+    await burst('Another smith, in another quiz', 10, async (idx) => {
+      await actIn(held, held.sam, otherPlace, { kind: 'edit_question', question_id: present(other.questions[idx])._id, patch: { notes: `Checked ${String(idx)}.` } })
+    })
+    await burst('A bot answering, in another quiz', 10, async (idx) => {
+      await actIn(held, held.sam, otherPlace, { kind: 'record_widgeted', widgeted: { question_id: present(other.questions[idx])._id, widgeting_label: 'dumdum', status: 'ok', value: `Sheep, ${String(idx)}?` } })
+    })
+    await burst('The hunt retitled', 1, async () => {
+      await actIn(held, held.smith, openPlace, { kind: 'retitle_hunt', title: 'A New Title' })
+    })
+    const question = present(other.questions[0])
+    const one = await held.smith.as.query(api.questions.open, { question_id: question._id, affirms })
+    lines.push(`One question as questions.open sends it: ${(JSON.stringify(one).length / 1024).toFixed(1)} KB; one quiz as quizzes.whole sends it: ${(JSON.stringify(await held.smith.as.query(api.quizzes.whole, { affirms: { ...affirms, quiz_id: other._id } })).length / 1024).toFixed(1)} KB`)
+    mkdirSync(path.dirname(MeasuredPath), { recursive: true })
+    writeFileSync(MeasuredPath, `${lines.join('\n')}\n`)
+    expect(readings.length).to.be.greaterThan(1)
+    expect(elsewhere.map((each) => each.files)).to.deep.eq([first?.files])
   })
 })

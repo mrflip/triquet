@@ -71,9 +71,16 @@ itself, and it never validates what it reads back.
 **One screen hook; components never watch.** A screen's watches live in one hook so they are
 opened, counted and closed in one place, and so a screen has one loading state rather than a
 dozen. A dynamic set of watches (one per question) is made with `useQueries` inside that hook,
-not with a `useQuery` in each row. This is the rule that keeps a grid predictable. The one
+not with a `useQuery` in each row. This is the rule that keeps a grid predictable. One
 exception is the one above: a facet that only one dialog shows is watched by that dialog, through
 a hook of its own under `src/state/`, for as long as it is open.
+
+The other is the mirror's feed (`useHuntFeed`, `src/state/hunt-feed.ts`): a smith's browser keeps
+the hunt's history from every quiz, not only the one on screen, so the feed watches the whole hunt
+beside the screen, through the client's `watchQuery` rather than through React. It sends what the
+screen sends, so a watch they share is one subscription: the quiz on screen it reads through the
+screen's own frame and questions, and every other quiz whole (`quizzes.whole`), one watch each,
+since that quiz's file is the quiz whole and nobody on this screen is editing it.
 
 **"Per row" is fine, in its place.** A watch per question is right because a question is the
 unit an author changes, the count is bounded (a quiz holds at most 999), and the ids come from
