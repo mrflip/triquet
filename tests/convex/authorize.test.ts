@@ -162,6 +162,17 @@ describe("affirmExportHunt", () => {
     }
     expect(outcomes).to.deep.eq(['allow', 'notPermitted', 'notPermitted', 'notIdentified'])
   })
+
+  it("hands a smith the quiz they affirm as read, null once it is gone, and turns away a quiz of another hunt", async () => {
+    const { tt, open, other, alice } = await peopled()
+    const { quiz: affirms } = await affirmsOf(tt, alice, open)
+    const { quiz } = await tt.run(async (ctx) => await affirmExportHunt(ctx.db, affirms, alice.actor))
+    expect(quiz?._id).to.eq(open.quiz_id)
+    expect(await outcomeOf(tt.run(async (ctx) => { await affirmExportHunt(ctx.db, { ...affirms, quiz_id: other.open.quiz_id }, alice.actor) }))).to.eq('notPermitted')
+    await tt.run(async (ctx) => { await ctx.db.delete('quizzes', open.quiz_id) })
+    const { quiz: gone } = await tt.run(async (ctx) => await affirmExportHunt(ctx.db, affirms, alice.actor))
+    expect(gone).to.be.null
+  })
 })
 
 /**
@@ -411,7 +422,7 @@ describe("identings, each session's own", () => {
       'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:whole',
       'idents:current', 'idents:performAccount',
       'questions:open',
-      'quizzes:open',
+      'quizzes:open', 'quizzes:whole',
       'reviews:forQuiz',
       'widgets:library', 'widgets:perform', 'widgets:usage',
     ])
@@ -422,7 +433,7 @@ describe("the database a public function holds", () => {
   it("is scoped to one hunt, by a hunt's builder, or to the library, by the library's, for every public function but those named unscoped, each with why", async () => {
     const found = await publicFunctionsFor()
     const scopedTo = (scope: ReturnType<typeof scopeOf>) => found.filter(([, val]) => scopeOf(val) === scope).map(([fnname]) => fnname)
-    expect(scopedTo('hunt')).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'reviews:forQuiz'])
+    expect(scopedTo('hunt')).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'quizzes:whole', 'reviews:forQuiz'])
     expect(scopedTo('library')).to.deep.eq(['widgets:perform'])
     expect(scopedTo(null)).to.deep.eq(keysOf(Unscoped))
   })

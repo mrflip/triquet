@@ -2,7 +2,7 @@ import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { quizRowsOf, realmsOf, widgetingsOf } from '../../convex/reading'
+import { quizRowsOf, realmsOf, wholeHuntOf, widgetingsOf } from '../../convex/reading'
 import { quizFromSeen } from '../../src/lib/rows'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
@@ -153,5 +153,45 @@ describe("quizzes.open", () => {
     expect(await stranger.as.query(api.quizzes.open, { affirms: affirms.quiz })).to.be.null
     expect(await alice.as.query(api.quizzes.open, { affirms: { ...affirms.quiz, quiz_id: other.open.quiz_id } })).to.be.null
     expect(await alice.as.query(api.quizzes.open, { affirms: affirms.quiz })).to.not.be.null
+  })
+})
+
+describe("quizzes.whole", () => {
+  it("reads a smith the quiz whole, as the export holds it: its fields, its questions with what they stored, its layout", async () => {
+    const widgetings = [Widgeting.fill({ widget_label: 'numnum_clueing', label: 'numnum_clueing' })]
+    const hunt = huntHolding([{ ...Quiz.blank(), smiths_note: 'Theme: princes.', widgetings, questions: ['aa', 'bb'].map((label) => ({ ...Question.blank(), label, notes: `Check ${label}.` })) }])
+    const { tt, sam, smiths, quiz_id, question_ids } = await holding(hunt)
+    await tt.run(async (ctx) => {
+      const [widgeting] = await widgetingsOf(ctx.db, quiz_id)
+      await ctx.db.insert('widgeteds', { hunt_id: present(widgeting).hunt_id, quiz_id, question_id: present(question_ids[0]), widgeting_id: present(widgeting)._id, status: 'ok', value: { items: [] }, message: null, result_meta: {} })
+    })
+    const whole = present(await sam.as.query(api.quizzes.whole, { affirms: smiths.quiz }))
+    const exported = present(present(await tt.run(async (ctx) => await wholeHuntOf(ctx.db, smiths.quiz.hunt_id))).realms[0]).quizzes[0]
+    expect(whole).to.deep.eq(exported)
+    expect(whole.smiths_note).to.eq('Theme: princes.')
+    expect(whole.questions.map((question) => [question._id, question.notes])).to.deep.eq([[question_ids[0], 'Check aa.'], [question_ids[1], 'Check bb.']])
+    expect(present(whole.questions[0]).stored.numnum_clueing?.ok?.value).to.deep.eq({ items: [] })
+  })
+
+  it("reads the quiz as the browser assembles it from quizzes.open and questions.open, for a smith", async () => {
+    const { quiz_id, ...reading } = await holding(threeQuestions())
+    expect(await reading.sam.as.query(api.quizzes.whole, { affirms: reading.smiths.quiz })).to.deep.eq(await opened(reading, quiz_id))
+  })
+
+  it("reads a reviewer nothing, as for a quiz not there: only a smith reads a quiz whole", async () => {
+    const { alice, affirms } = await holding(threeQuestions())
+    expect(await alice.as.query(api.quizzes.whole, { affirms: affirms.quiz })).to.be.null
+  })
+
+  it("reads null for a quiz that is not there, for someone not on its hunt, with no session, or for affirms that are not so", async () => {
+    const { tt, sam, smiths, quiz_id } = await holding(threeQuestions())
+    const stranger = await identified(tt, 'carol_strays')
+    const other = await seedHunt(tt, Hunt.blank('loud_heron'), { smith: 'carol_strays' })
+    expect(await stranger.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, ident_id: stranger.ident_id, standing: 'stranger' } })).to.be.null
+    expect(await tt.query(api.quizzes.whole, { affirms: smiths.quiz })).to.be.null
+    expect(await sam.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, standing: 'reviewer' } })).to.be.null
+    expect(await sam.as.query(api.quizzes.whole, { affirms: { ...smiths.quiz, quiz_id: other.open.quiz_id } })).to.be.null
+    await tt.run(async (ctx) => { await ctx.db.delete('quizzes', quiz_id) })
+    expect(await sam.as.query(api.quizzes.whole, { affirms: smiths.quiz })).to.be.null
   })
 })

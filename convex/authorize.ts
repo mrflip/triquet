@@ -164,13 +164,15 @@ export async function affirmReadHunt<AT extends AffirmableT>(db: Reader, affirms
 
 /**
  * The claims of `actor` on the affirmed hunt, once they may export it, every quiz whole
- * (`Approve.mayExportHunt`): a smith of it.
+ * (`Approve.mayExportHunt`): a smith of it. With a quiz affirmed, that quiz as read, null when it
+ * is gone: what a smith's record of the hunt reads one quiz at a time.
  *
  * @throws `Approve.NotApprovedError` when an affirm is not borne out, or the policy says no.
  *
  * @example const { hunt_id } = await affirmExportHunt(ctx.db, affirms, ctx.actor)
+ * @example const { quiz } = await affirmExportHunt(ctx.db, quizAffirms, ctx.actor)
  */
-export async function affirmExportHunt(db: Reader, affirms: HuntAffirmsT, actor: Actor.ActorT): Promise<ClaimsOf<HuntAffirmsT>> {
+export async function affirmExportHunt<AT extends AffirmableT>(db: Reader, affirms: AT, actor: Actor.ActorT): Promise<ClaimsOf<AT>> {
   const claims = await affirmForHunt(db, affirms, actor, {})
   Approve.must('export_hunt', claims)
   return claims

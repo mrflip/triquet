@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsOf, realmsOf, reviewFor, usageOf,
-  widgetForLabel, widgetingsOf,
+  censusOf, cellRowsOf, huntForLabel, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
+  wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
@@ -93,6 +93,26 @@ describe("huntRowsOf", () => {
     const { tt, hunt_id } = await holding(Hunt.blank())
     await tt.run(async (ctx) => { await ctx.db.delete('hunts', hunt_id) })
     expect(await tt.run(async (ctx) => await huntRowsOf(ctx.db, hunt_id))).to.be.null
+  })
+})
+
+describe("quizRowsFor and wholeQuizOf", () => {
+  it("read a quiz whose row is in hand as quizRowsOf reads it by id", async () => {
+    const quiz = { ...Quiz.blank('Princes'), questions: ['b', 'a'].map((title) => ({ ...Question.blank(), title })) }
+    const { tt, quiz_id } = await holding(huntHolding([quiz]))
+    const [byId, inHand] = await tt.run(async (ctx) => {
+      const row = present(await ctx.db.get('quizzes', quiz_id))
+      return [await quizRowsOf(ctx.db, quiz_id), await quizRowsFor(ctx.db, row)].map((rows) => ({ ...rows, stored: present(rows).stored.keys().toArray() }))
+    })
+    expect(inHand).to.deep.eq(byId)
+  })
+
+  it("read a quiz whole as the whole hunt holds it", async () => {
+    const quiz = { ...Quiz.blank('Princes'), questions: ['b', 'a'].map((title) => ({ ...Question.blank(), title })) }
+    const { tt, hunt_id, quiz_id } = await holding(huntHolding([quiz, Quiz.blank('Paris')]))
+    const [whole, hunt] = await tt.run(async (ctx) => [await wholeQuizOf(ctx.db, present(await ctx.db.get('quizzes', quiz_id))), present(await wholeHuntOf(ctx.db, hunt_id))] as const)
+    expect(whole).to.deep.eq(present(hunt.realms[0]).quizzes[0])
+    expect(whole.questions.map((question) => question.title)).to.deep.eq(['b', 'a'])
   })
 })
 

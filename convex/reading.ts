@@ -159,9 +159,8 @@ export async function wholeHuntOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Hun
   const rows = await huntRowsOf(db, hunt_id)
   if (! rows) { return null }
   const quizzes = rows.realms.flatMap((realm) => realm.quizzes)
-  const whole = await Promise.all(quizzes.map(async (quiz) => await quizRowsOf(db, quiz._id)))
-  const quizFor = new Map<string, QuizT>(whole.filter((each) => each !== null).map((each) => [each.quiz._id, quizFrom(each)]))
-  return huntFrom(rows, quizFor)
+  const whole = await Promise.all(quizzes.map(async (quiz) => await wholeQuizOf(db, quiz)))
+  return huntFrom(rows, new Map<string, QuizT>(whole.map((quiz) => [quiz._id, quiz])))
 }
 
 /** A quiz's widgetings, in run order */
@@ -264,10 +263,28 @@ export async function allStoredOf(db: Reader, questions: readonly Doc<'questions
  * @example (await quizRowsOf(db, quiz_id))?.questions.length
  */
 export async function quizRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<QuizRows | null> {
-  const layout = await layoutRowsOf(db, quiz_id)
-  if (! layout) { return null }
-  const questions = await questionsOf(db, layout.quiz)
+  const quiz = await db.get('quizzes', quiz_id)
+  return quiz && await quizRowsFor(db, quiz)
+}
+
+/**
+ * The rows of `quiz`, a row already in hand: as `quizRowsOf`, reading nothing of the quiz itself.
+ *
+ * @example (await quizRowsFor(ctx.db, claims.quiz)).questions.length
+ */
+export async function quizRowsFor(db: Reader, quiz: Doc<'quizzes'>): Promise<QuizRows> {
+  const [layout, questions] = await Promise.all([layoutOf(db, quiz), questionsOf(db, quiz)])
   return { ...layout, questions, stored: await allStoredOf(db, questions, layout.widgetings) }
+}
+
+/**
+ * `quiz`, a row already in hand, whole, as a smith reads it (`quizFrom`): its fields, its
+ * questions with what they stored, and its widgetings and columns. What the export holds of it.
+ *
+ * @example (await wholeQuizOf(ctx.db, claims.quiz)).questions.length
+ */
+export async function wholeQuizOf(db: Reader, quiz: Doc<'quizzes'>): Promise<QuizT> {
+  return quizFrom(await quizRowsFor(db, quiz))
 }
 
 /** A quiz's reviews, oldest first: the order two reviews by one ident are settled by */
