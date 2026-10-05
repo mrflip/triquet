@@ -12,10 +12,13 @@
   background:    var(--surface);
 }
 
+/* Every box in a cell sets its text in one line height, so a folded row is exactly one line of
+   it: `FoldedRowPx` in QuestionRow is this, plus a box's padding and border above and below. */
 .grid {
   table-layout:    fixed;
   border-collapse: separate;
   border-spacing:  0;
+  line-height:     20px;
 }
 
 .head {
@@ -29,10 +32,19 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-align:     left;
-  padding:        8px var(--cell-pad);
+  /* Set in as far as the text of the boxes below it: the cell's padding, then the box's own */
+  padding:        8px calc(var(--cell-pad) + 6px);
   border-bottom:  1px solid var(--border);
   vertical-align: bottom;
   white-space:    nowrap;
+}
+
+/* The top-left corner: its fold at the top and its batch-mode controls at the foot, however tall
+   the turned headers beside it make the row. A cell's height is a floor, so 1px lets the stack
+   inside it take the row's whole height as 100%. */
+.headCorner {
+  padding-inline: 0;
+  height:         1px;
 }
 
 /* The cell stays horizontal and only its title turns: Safari before 26 ignores writing-mode on a
@@ -82,7 +94,10 @@
   opacity: 0.45;
 }
 
-/* == Fields: text until touched == */
+/* == Fields: text until touched ==
+   Every box in a cell, a field to type into or a readout, insets its text by the same padding
+   and a border (transparent until it means something), and sets it in the page's own face: a
+   string reads as prose wherever it came from. Only JSON is set in the data face (`.json`). */
 
 .field {
   width:         100%;
@@ -97,6 +112,16 @@
   display:       block;
 }
 
+/* A one-line box says it holds more than it shows */
+input.field {
+  text-overflow: ellipsis;
+}
+
+/* A list draws its line by its own lights rather than by line-height: held to one line of the grid's */
+select.field {
+  height: 30px;
+}
+
 .field:hover:not(:disabled) {
   border-color: var(--border);
 }
@@ -107,21 +132,23 @@
   background:   color-mix(in srgb, var(--accent-soft) 45%, transparent);
 }
 
-.fieldData {
-  font-family:    var(--font-data);
-  font-size:      12px;
+/* A number to type: figures of one width, right-aligned as every number in the grid is */
+.fieldNumber {
+  font-variant-numeric: tabular-nums;
+  text-align:           right;
+  appearance:           textfield;
 }
 
-.fieldQnum {
-  font-family: var(--font-data);
-  text-align:  center;
-  appearance:  textfield;
-}
-
-.fieldQnum::-webkit-outer-spin-button,
-.fieldQnum::-webkit-inner-spin-button {
+.fieldNumber::-webkit-outer-spin-button,
+.fieldNumber::-webkit-inner-spin-button {
   appearance: none;
   margin:     0;
+}
+
+/* A line of what a box is, beneath it (a question's label under its title): set in from the cell
+   as the box's text is, by its padding and its border */
+.fieldNote {
+  padding-inline: 6px;
 }
 
 /* == Faces: a field's markdown, drawn over it until it is typed into ==
@@ -224,11 +251,11 @@ textarea.veiled {
   border-top: 1px solid var(--border);
 }
 
-/* == Numbers == */
+/* == What a cell holds, by its type ==
+   A number in figures of one width, right-aligned as the turned headers above them are; text as
+   prose; a list or an object as JSON, in the data face. */
 
 .sum {
-  font-family:      var(--font-data);
-  font-size:        12px;
   font-variant-numeric: tabular-nums;
   text-align:       right;
   white-space:      normal;
@@ -236,14 +263,20 @@ textarea.veiled {
 }
 
 .expressedText {
-  font-family:   var(--font-data);
-  font-size:     12px;
   text-align:    left;
   white-space:   normal;
   overflow-wrap: anywhere;
 }
 
+.json {
+  font-family: var(--font-data);
+  font-size:   12px;
+}
+
 .askWrap { position: relative }
+
+/* The text of a cell wearing the failure's badge stops short of it */
+.askWrap:has(> .errBadge) .askable { padding-right: 24px }
 
 .errBadge {
   position:      absolute;
@@ -330,8 +363,7 @@ textarea.veiled {
   min-height:    44px;
   border-radius: var(--radius-input);
   padding:       4px 5px;
-  font-family:   var(--font-data);
-  font-size:     12px;
+  font:          inherit;
   width:         100%;
   box-sizing:    border-box;
   text-align:    left;
@@ -351,9 +383,8 @@ textarea.veiled {
 }
 
 .readonlyCell {
-  font-family: var(--font-data);
-  font-size:   12px;
-  padding:     4px 5px;
+  padding: 4px 5px;
+  border:  1px solid transparent;
 }
 
 .scrolls {
@@ -482,6 +513,20 @@ textarea.veiled {
 .rowFolded .face,
 .rowFolded .scrolls,
 .rowFolded .field { overflow: hidden }
+
+/* Folded, each box shows the first line of what it holds and an ellipsis, never a second line cut
+   through, and nothing beneath it: the lines under a box (a title's label, an answer's tier) wait
+   for the row to open. */
+.rowFolded .askable { min-height: 0 }
+.rowFolded .metaline { display: none }
+
+.rowFolded :is(.face, .readonlyCell, .askable) > * {
+  display:            -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp:         1;
+  overflow:           hidden;
+}
 
 /* An inset shadow rather than a border, so the row the drop is aimed at does not grow by two
    pixels and nudge every row below it as the pointer passes over. A tr draws no box-shadow of

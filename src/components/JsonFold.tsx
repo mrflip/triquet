@@ -45,6 +45,6 @@ export type JsonTextProps = {
  * @param open - Whether it is pretty-printed.
  */
 export function JsonText({ val, open }: Readonly<JsonTextProps>) {
-  if (! open) { return <span>{UU.jsonify(val)}</span> }
-  return <Box component="pre" sx={{ m: 0, font: 'inherit', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{UU.jsonify(val, { pretty: true })}</Box>
+  if (! open) { return <span className={styles.json}>{UU.jsonify(val)}</span> }
+  return <Box component="pre" className={styles.json} sx={{ m: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{UU.jsonify(val, { pretty: true })}</Box>
 }

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, cellOf, expect, fillRows, reloadOnceSaved, test, valuesOf, waitUntilSaved } from './support'
+import { addColumns, cellOf, expect, fillRows, grid, reloadOnceSaved, rowAt, test, valuesOf, waitUntilSaved } from './support'
 
 /** Fill the first questions with a Q#, a title and a hint */
 async function fillQuiz(page: Page, rows: [string, string, string][]) {
@@ -57,6 +57,19 @@ test('a long hint is previewed as a snippet, with the whole of it on hover', asy
   await chainTo(page, 0, 'apple')
   await expect(butnotCell(page, 0)).toHaveText('BUT NOT the company from Cupertino, founded in…')
   await expect(butnotCell(page, 0)).toHaveAttribute('title', 'BUT NOT the company from Cupertino, founded in 1976')
+})
+
+test('folded, a row is one line: its BUT NOT ends in an ellipsis, and its title drops its label', async ({ page }) => {
+  await chainTo(page, 0, 'apple')
+  await grid(page).getByRole('button', { name: 'Show questions in full' }).click()
+  await expect(rowAt(page, 0)).toHaveAttribute('data-folded')
+  await expect(cellOf(page, 0, 'Title').locator('> div')).toBeHidden()
+  const snippet = butnotCell(page, 0).locator('> div')
+  await expect(snippet).toHaveText('BUT NOT the company from Cupertino, founded in…')
+  await expect(snippet).toHaveCSS('-webkit-line-clamp', '1')
+  // One line of the grid's text, and the row no taller than one line of its boxes and its padding
+  await expect.poll(() => snippet.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThanOrEqual(20)
+  await expect.poll(() => rowAt(page, 0).evaluate((node) => node.getBoundingClientRect().height)).toBeLessThanOrEqual(43)
 })
 
 test('BUT NOT says so before a chain is picked, and when the target has no hint', async ({ page }) => {

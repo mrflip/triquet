@@ -105,7 +105,7 @@ export function PlainField({ committed, onCommit, locked, placeholder, label, ti
   const { draft, onChange, onBlur } = useDraft(committed, onCommit, tidy)
   return (
     <input
-      className={clsx(styles.field, styles.fieldData)}
+      className={styles.field}
       aria-label={label}
       placeholder={placeholder}
       readOnly={locked}
@@ -171,7 +171,7 @@ export function NumberField({ committed, onCommit, locked, placeholder, label, f
     onValueChange:        ({ value: typed }: NumberFormatValues, { event }: SourceInfo) => { if (event) { onChange(typed) } },
   }
   if (bare) {
-    return <NumericFormat {...numeric} className={clsx(styles.field, styles.fieldQnum)} inputMode={inputMode} aria-label={label} readOnly={locked} />
+    return <NumericFormat {...numeric} className={clsx(styles.field, styles.fieldNumber)} inputMode={inputMode} aria-label={label} readOnly={locked} />
   }
   // The label stays up in the outline, so an empty box reads as a box and not as a prompt inside one.
   return <NumericFormat {...numeric} customInput={TextField} label={label} size="small" fullWidth slotProps={{ htmlInput: { inputMode, readOnly: locked }, inputLabel: { shrink: true } }} />

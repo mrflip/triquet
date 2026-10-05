@@ -81,32 +81,34 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
       <table className={styles.grid} aria-label="Questions" style={{ width: `${String(gridWidthPx(specs))}px` }}>
         <thead>
           <tr>
-            <th scope="col" className={styles.head} style={{ width: `${String(GutterWidthPx)}px` }}>
-              <Stack sx={{ alignItems: 'center' }}>
+            <th scope="col" className={clsx(styles.head, styles.headCorner)} style={{ width: `${String(GutterWidthPx)}px` }}>
+              <Stack sx={{ alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
                 <Tooltip title={folds.anyOpen ? 'Fold every question to one line' : 'Show every question in full'}>
                   <FoldButton open={folds.anyOpen} onOpenChange={folds.setAllOpen} label="Show questions in full" controls={bodyId} />
                 </Tooltip>
-                {/* The span lets the tooltip hear the pointer while the button is disabled. */}
-                <Tooltip title={batching ? 'Done selecting' : 'Select questions to delete'}>
-                  <span>
-                    <IconButton
-                      size="small" sx={{ p: 0.25 }} color={batching ? 'primary' : 'default'}
-                      disabled={locked} aria-label="Batch select" aria-pressed={batching}
-                      onClick={() => { onBatch(! batching) }}
-                    >
-                      <ChecklistIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                {batching && (
-                  <Checkbox
-                    size="small" sx={{ p: 0.25 }}
-                    checked={checkedCount > 0 && checkedCount === questions.length}
-                    indeterminate={checkedCount > 0 && checkedCount < questions.length}
-                    slotProps={{ input: { 'aria-label': 'Select all questions' } }}
-                    onChange={(event) => { onCheckAll(event.target.checked) }}
-                  />
-                )}
+                <Stack sx={{ alignItems: 'center' }}>
+                  {/* The span lets the tooltip hear the pointer while the button is disabled. */}
+                  <Tooltip title={batching ? 'Done selecting' : 'Select questions to delete'}>
+                    <span>
+                      <IconButton
+                        size="small" sx={{ p: 0.25 }} color={batching ? 'primary' : 'default'}
+                        disabled={locked} aria-label="Batch select" aria-pressed={batching}
+                        onClick={() => { onBatch(! batching) }}
+                      >
+                        <ChecklistIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  {batching && (
+                    <Checkbox
+                      size="small" sx={{ p: 0.25 }}
+                      checked={checkedCount > 0 && checkedCount === questions.length}
+                      indeterminate={checkedCount > 0 && checkedCount < questions.length}
+                      slotProps={{ input: { 'aria-label': 'Select all questions' } }}
+                      onChange={(event) => { onCheckAll(event.target.checked) }}
+                    />
+                  )}
+                </Stack>
               </Stack>
             </th>
             {specs.map((column) => {

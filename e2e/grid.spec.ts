@@ -1,9 +1,14 @@
 import type { Locator, Page } from '@playwright/test'
-import { addColumns, cellOf, expect, faceOf, foldedRows, grid, reloadOnceSaved, rowAt, test, waitUntilSaved } from './support'
+import { addColumns, addWidgeting, cellOf, expect, faceOf, foldedRows, grid, reloadOnceSaved, rowAt, test, waitUntilSaved } from './support'
 
 /** The triangle in the grid's corner, which folds every row or unfolds them all */
 function foldAll(page: Page): Locator {
   return grid(page).getByRole('button', { name: 'Show questions in full' })
+}
+
+/** Where `located` is drawn on the page */
+async function boxOf(located: Locator): Promise<DOMRect> {
+  return await located.evaluate((node) => node.getBoundingClientRect())
 }
 
 test('a fresh hunt\'s quiz opens with blank questions rather than a void', async ({ page }) => {
@@ -101,11 +106,11 @@ test('the grid opens folded, and entering a text box opens its row alone, which 
   const hint = cellOf(page, 0, 'Hint').getByRole('textbox')
   await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'false')
   await expect(foldedRows(page)).toHaveCount(5)
-  await expect(hint).toHaveCSS('height', '28px')
+  await expect(hint).toHaveCSS('height', '30px')
 
   await cellOf(page, 0, 'Clueing').getByRole('textbox').fill('Which region?')
   await expect(rowAt(page, 0)).not.toHaveAttribute('data-folded')
-  await expect(hint).not.toHaveCSS('height', '28px')
+  await expect(hint).not.toHaveCSS('height', '30px')
   await expect(foldedRows(page)).toHaveCount(4)
   await expect(foldAll(page)).toHaveAttribute('aria-expanded', 'true')
 
@@ -130,6 +135,17 @@ test('the corner folds every row while any is open, and unfolds them all when no
 
   await foldAll(page).click()
   await expect(foldedRows(page)).toHaveCount(5)
+})
+
+test('the corner\'s fold sits at its top and batch mode at its foot, however tall the turned headers make it', async ({ page }) => {
+  // A narrow widgeting's column turns its header on its side, which makes the header row tall.
+  await addWidgeting(page, 'clueing_word_count')
+  const corner = await boxOf(grid(page).getByRole('columnheader').first())
+  const fold = await boxOf(foldAll(page))
+  const batch = await boxOf(grid(page).getByRole('button', { name: 'Batch select' }))
+  expect(corner.height).toBeGreaterThan(100)
+  expect(fold.y - corner.y).toBeLessThan(16)
+  expect((corner.y + corner.height) - (batch.y + batch.height)).toBeLessThan(16)
 })
 
 test('a question added to a folded grid is open', async ({ page }) => {
