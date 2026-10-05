@@ -1,6 +1,7 @@
+import * as PA from './vv/patterns'
+
 /** Deeper than node's own default of 2: these dumps exist to answer "what is actually in there" */
 const DefaultDepth = 4
-const IdentRe      = /^[A-Za-z_$][\w$]*$/
 // Matching control characters is the whole job here: they are what breaks a terminal and what
 // a plain dump renders invisibly. no-control-regex is right in general and wrong here.
 // eslint-disable-next-line no-control-regex
@@ -25,7 +26,7 @@ function quoteStr(str: string): string {
 
 /** A bare key prints as itself; anything else gets quoted, the way node's inspect does it */
 function quoteKey(key: string): string {
-  return IdentRe.test(key) ? key : quoteStr(key)
+  return PA.Jsident.re.test(key) ? key : quoteStr(key)
 }
 
 /**

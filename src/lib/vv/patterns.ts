@@ -63,6 +63,8 @@ export const Camel      = { re: /^[A-Z][A-Za-z0-9]*$/,  msg: 'should be an Upper
 export const Locamel    = { re: /^[a-z][A-Za-z0-9]*$/,  msg: 'should be a lowerFirstLetterCamelCased name' } as const satisfies Patternbag
 export const Varname    = { re: /^[A-Za-z]\w*$/,        msg: 'should be a label and start with a letter' } as const satisfies Patternbag
 export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_underbar_cased name' } as const satisfies Patternbag
+/** A name JavaScript takes bare after a dot: what a key may be to be written `.key`, not `['key']` */
+export const Jsident    = { re: /^[A-Za-z_$][\w$]*$/,  msg: 'should be a JavaScript identifier' } as const satisfies Patternbag
 
 /**
  * A label that is none of `words`: what keeps a name from shadowing one already in use beside it.

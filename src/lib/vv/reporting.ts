@@ -1,6 +1,7 @@
 import * as Z from 'zod'
 import { inspectify } from '../inspectify'
 import { shortenWithEllipsis, smush, toSentence } from '../strings'
+import * as PA from './patterns'
 
 /**
  * The issue as Zod hands it to an error map: every field the check recorded, plus `input`.
@@ -262,7 +263,7 @@ export function pathOf(path: readonly PropertyKey[]): string {
       if (typeof seg === 'number') { return `[${String(seg)}]` }
       const dot = idx === 0 ? '' : '.'
       const segname = String(seg)
-      return /^[A-Za-z_$][\w$]*$/.test(segname) ? `${dot}${segname}` : `${dot}[${display(segname)}]`
+      return PA.Jsident.re.test(segname) ? `${dot}${segname}` : `${dot}[${display(segname)}]`
     })
     .join('')
 }

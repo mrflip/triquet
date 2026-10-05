@@ -13,8 +13,12 @@ export type RefusalT =
   | { failurekind: Refusalkind, message: string }
   | { failurekind: 'invalid', message: string, ZodError: Value[] }
 
-/** A refusal's data, checked, for reading one back out of an error of unknown shape */
-const RefusalShape = Z.object({ failurekind: Z.string(), message: Z.string() })
+/**
+ * A refusal's data, as `refuse` throws it, for reading one back out of an error of unknown shape.
+ * Its kind is any text, not one of `Refusalkind`: a server newer than the browser may refuse for
+ * a reason the browser has not heard of, and its sentence is still the one to show.
+ */
+export const RefusalShape = Z.object({ failurekind: Z.string(), message: Z.string() })
 
 /** The data convex-helpers gives an argument its Zod schema refused */
 const ArgIssueShape   = Z.object({ message: Z.string() })
