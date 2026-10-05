@@ -7,7 +7,7 @@ import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
 import { Question, type QuestionT } from '../models/question'
-import { DefaultQ1Preamble, type QuizT } from '../models/quiz'
+import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { WidgetedHistoryT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
@@ -186,7 +186,6 @@ export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { sta
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
-    q1_preamble: DefaultQ1Preamble,
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
     columns:    columns.map(({ label, title, source, width_px }) => ({ label, title, source, width_px })),
