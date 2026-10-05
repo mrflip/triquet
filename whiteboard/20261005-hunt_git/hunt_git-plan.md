@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: planned.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: thread 0 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -56,7 +56,7 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
    a `position`. Arrays remain only where a value is itself a list (a widgeting's params may
    hold one).
 4. **Quizzes have no stored order**, so a hunt rebuilt from its files lists them by label.
-   (The Coach's open question; see *For the Coach*.)
+   *Settled by the Coach, 2026-10-05: "sorting quizzes by label is a good idea."*
 5. **Modes** replace `?act=`: `!edit` is today's smith presentation, `!playtest` the review
    screen. Thread 1 decides what a bare quiz address does, holding to urls.md rule 4 where the
    app allows it, and records why.
@@ -164,9 +164,6 @@ is rewritten for a hunt repository, `jq` line included. Depends on: 5 and 1.
 
 ## For the Coach
 
-1. **Quiz order** (your open question): quizzes keep no order of their own (they list in the
-   order they were made), and the files key quizzes by label, so a hunt rebuilt from its files
-   lists them by label. Fine as it is? The alternative is a stored `position` on quizzes,
-   which is a schema change and a migration, outside this sprint.
+1. ~~**Quiz order**~~ -- settled: quizzes sort by label (Decision 4). No stored `position`.
 2. The departures under *Decisions taken*: the realm slot, the derived org, keyed collections
    with `position`, and what is left for later.
