@@ -198,10 +198,11 @@ moment they are made.
 A **sprint** is an ordered series of threads issued at once and run without the Coach at the
 wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a plan to
 `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs the threads, each in a worktree of its
-own: a fresh `thread-worker` agent builds it and a `thread-reviewer` agent then runs
-`/code-review` over its commits, keeping the fixes it can stand behind as `fix:` commits; then the
-worker lands it. Threads land on the spine in the order they finish, none merged until the Coach
-returns. The orchestrator's procedure is `.claude/skills/sprint/SKILL.md`; the agents' are
+own: a fresh `thread-worker` agent builds it and a `thread-reviewer` agent then reviews its
+commits, with `/code-review` (which runs in the main checkout, so never with `--fix`) or by hand,
+making the fixes it can stand behind in the worktree as `fix:` commits; then the worker lands
+it. Threads land on the spine in the order they finish, none merged until the Coach returns.
+The orchestrator's procedure is `.claude/skills/sprint/SKILL.md`; the agents' are
 `.claude/agents/thread-worker.md` and `.claude/agents/thread-reviewer.md`. Everything in this
 document binds a sprint's agents as it binds any other: a sprint changes who is watching, not
 what is allowed.
@@ -232,6 +233,8 @@ rebase drops the merge commit and replays only the branch's own commits.
   origin to hold. A bare `--force-with-lease` checks against the remote-tracking ref, which any
   other checkout's `git fetch` moves: in a repository many worktrees share, it protects nothing.
   `--force-if-includes` is no better here, since the reflogs are shared too. Never plain `--force`.
+- A lease refused as `stale info` for a branch origin has deleted (merged PRs' branches are) was
+  taken from a stale remote-tracking ref: `git fetch --prune origin`, then look again.
 - A spine branch may be pushed by anyone (*The spine*); the scripts do it. An unlanded branch is
   pushed only by its own agent.
 
@@ -275,8 +278,9 @@ git branch --merged origin/main                        # local branches safe to 
 git branch -r --merged origin/main                     # remote branches safe to delete
 ```
 
-GitHub deletes head branches automatically on merge. The spine's scripts fetch with `--prune`,
-which removes the stale remote-tracking refs; by hand, `git fetch --prune`.
+GitHub deletes head branches automatically on merge. `fetch.prune` is unset in the container, so
+a bare `git fetch` keeps their remote-tracking refs, stale; `git fetch --prune origin` drops them.
+The spine's scripts fetch with `--prune`.
 
 ## Before discarding anything
 
