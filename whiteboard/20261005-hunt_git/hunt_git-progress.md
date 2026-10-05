@@ -13,7 +13,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 3 | A hunt's files | landed #127 |
 | 4 | Watches at the grain of the files | landed #128 |
 | 5 | One repository per hunt | landed #129 |
-| 6 | Downloads and the hunts page | landing (lane 1) |
+| 6 | Downloads and the hunts page | landed #130 |
 
 ## What the threads have taught
 
@@ -192,3 +192,17 @@ change. Open with the Coach [orchestrator]: the tag scheme [keep; `@ref` can tak
 names]; papaparse uninstalled [fine]; a branch switched on the hunt page commits at the next
 quiz screen's reading [acceptable for now]. `reviews.spec.ts:52` flakes under load (three
 landings today).
+
+### Thread 6: downloads and the hunts page (landed #130)
+
+`Huntgit.listHuntRepos` walks `/hunts`, naming each repository by the label in its tip's
+`hunt.tqh.json` (validated; the hunt's id if unreadable). `HuntRepoList` (MUI) serves both the
+hunts page's fold (hunts the visitor is not on, unlinked, downloadable) and the not-found page's
+list (linked through `Routes.huntPath` only when the visitor is on the hunt). The hunt's own page
+has a History panel to download. Nothing reads `/quizzes`; its helpers are gone. The Full History
+dialog is rewritten for a hunt repository, kept in step with `Huntfiles.MergeCommand`, the
+README's paths and the tag format by `tests/content/full-history.test.ts`.
+
+*Review:* clean at medium. Left, minor: `FullHistoryDownload` and `QuizManageModal` don't catch
+a failed download (predates the sprint); a hunt on the not-found page shows unlinked until the
+hunts list loads; `useHuntRepos` says "Looking…" forever if the listing itself rejects.
