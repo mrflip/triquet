@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import _ from 'es-toolkit/compat'
+import { describe, expect, it, vi } from 'vitest'
 import * as Z from 'zod'
 import type { Id } from '../../convex/_generated/dataModel'
 import { Question, QuestionValidators, RankField, type QuestionDNA } from '../../src/models/question'
@@ -183,11 +184,18 @@ describe('QuestionValidators, field by field', () => {
 describe('QuestionValidators.row', () => {
   const Row = {
     hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
-    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '',
+    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '', created_at: 1_759_700_000_000, updated_at: 1_759_700_100_000,
   }
 
   it('takes a question as the database holds it, its clueing untouched', () => {
     expect(QuestionValidators.row(Row)).to.deep.eq(Row)
+  })
+
+  it("stamps a question given no stamps with the moment it is checked, as the database's writer will again", () => {
+    vi.useFakeTimers({ now: 1_759_800_000_000, toFake: ['Date'] })
+    const { created_at, updated_at } = QuestionValidators.row(_.omit(Row, ['created_at', 'updated_at']))
+    vi.useRealTimers()
+    expect([created_at, updated_at]).to.deep.eq([1_759_800_000_000, 1_759_800_000_000])
   })
 
   const Refused: [object, string][] = [
@@ -195,6 +203,8 @@ describe('QuestionValidators.row', () => {
     [{ quiz_id: 'hamlet' },                  'a quiz that is not a row id'],
     [{ chains_to: '01j0000000000000000000000a' }, 'a chain naming a question by id rather than by label'],
     [{ qnum: 'three' },                      'a question number that is not a number'],
+    [{ created_at: 1.5 },                    'a stamp that is not a whole millisecond'],
+    [{ updated_at: '2026-10-05T00:00:00Z' }, 'a stamp written as a person reads it'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -237,9 +247,9 @@ function alphabetically(fieldnames: readonly string[]): string[] {
 }
 
 describe('Question.sentTo', () => {
-  it("sends a smith every field of a question, what a formula reads and what its widgetings stored", () => {
+  it("sends a smith every field of a question, what a formula reads, what its widgetings stored and its stamps", () => {
     const everyField = Object.keys(Question.blank()).filter((fieldname) => fieldname !== '_id')
-    expect(Question.sentTo.smith).to.deep.eq(alphabetically([...Question.exposed, 'stored']))
+    expect(Question.sentTo.smith).to.deep.eq(alphabetically([...Question.exposed, 'stored', 'created_at', 'updated_at']))
     expect(Question.sentTo.smith).to.deep.eq(alphabetically(everyField))
   })
 

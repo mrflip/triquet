@@ -29,6 +29,18 @@ change to a row shape that rows already written would not fit is a migration on 
 (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps); a local backend is simply
 emptied and pushed again.
 
+## Stamps
+
+The rows a person makes and edits (hunts, quizzes, questions, reviews, reviewings: `StampedTables`
+in `convex/stamping.ts`) carry `created_at` and `updated_at`, epoch milliseconds. They are written
+in one place: every public mutation's database is `stampingWriter`, which gives an inserted row
+both from the moment of the mutation, moves `updated_at` on a patch that changes anything, and
+sets aside whatever stamps a write carries. A row validator gives a row it checks the stamps of the
+moment (`ValidatorKit.stamp`), so writers never name them; an internal mutation writes raw, and
+stamps nothing but what it says. A reader takes a row's stamps through `Stamps.of`
+(`src/lib/stamps.ts`), which reads a row written before stamps as the backfill will stamp it. A
+person reads them as ISO-8601 UTC strings (`Stamps.isoOf`), in the balls and the tables.
+
 ## Denormalized fields
 
 A row carries copies of what policy needs from the rows above it, so that the evidence for a

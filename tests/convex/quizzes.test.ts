@@ -62,12 +62,13 @@ describe("a quiz as the browser assembles it from quizzes.open and questions.ope
     expect(asReviewer.questions[0]).to.deep.include({ full_answer: 'Hamlet', clueing: 'Who?', notes: '', alt_text: '', stored: {} })
   })
 
-  it("reads back a quiz exactly as it was written, apart from its ids", async () => {
+  it("reads back a quiz exactly as it was written, apart from its ids and the stamps its rows were given", async () => {
     const hunt = Hunt.blank()
     const { quiz_id, ...reading } = await holding(hunt)
     const written = present(Hunt.quizzesOf(hunt)[0])
     const back = await opened(reading, quiz_id)
-    const sansIds = (quiz: typeof back) => ({ ...quiz, _id: '', questions: quiz.questions.map((question) => ({ ...question, _id: '' })) })
+    const unstamped = { created_at: null, updated_at: null }
+    const sansIds = (quiz: typeof back) => ({ ...quiz, _id: '', ...unstamped, questions: quiz.questions.map((question) => ({ ...question, _id: '', ...unstamped })) })
     expect(sansIds(back)).to.deep.eq(sansIds(written))
   })
 

@@ -1,6 +1,7 @@
 import * as EST from 'es-toolkit'
 import type * as Z from 'zod'
 import { Validator } from './validator'
+import type { IsoStampsT } from './stamps'
 import type { ColumnT } from '../models/column'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
@@ -38,8 +39,8 @@ export type JsonballT = Record<string, unknown>
  */
 export const PositionField = 'position'
 
-/** The hunt's own fields, which sit at the root of the merged hunt: its title as shown */
-export type HuntBodyT = Pick<HuntT, 'label' | 'title' | 'branch'>
+/** The hunt's own fields, which sit at the root of the merged hunt: its title as shown, and its stamps as a person reads them */
+export type HuntBodyT = Pick<HuntT, 'label' | 'title' | 'branch'> & IsoStampsT
 
 /** One subject category: the slot of the hunt's wheel it holds, or null for one in the pool */
 export type CategoryBodyT = { position: number | null }
@@ -52,10 +53,10 @@ export type WidgetedBodyT = Pick<WidgetedT, 'status' | 'value'>
 
 /**
  * One question, by its label: its place in the quiz, its own fields, its chain by the label of the
- * question it points at, and beside them what each widgeting of the quiz came to, under the
- * widgeting's label.
+ * question it points at, its stamps as a person reads them, and beside them what each widgeting of
+ * the quiz came to, under the widgeting's label.
  */
-export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer'> & {
+export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer'> & IsoStampsT & {
   position:  number
   chains_to: string | null
   [widgeting_label: string]: unknown
@@ -67,8 +68,8 @@ export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 /** One column, by its label: its place in the grid, and its fields */
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
-/** One quiz, by its label: its own fields (its sort memory among them), and its questions, widgetings and columns, each keyed by label */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & {
+/** One quiz, by its label: its own fields (its sort memory among them), its stamps, and its questions, widgetings and columns, each keyed by label */
+export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & IsoStampsT & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
@@ -77,11 +78,11 @@ export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'l
 /** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */
 export const VerdictFieldnames = ['get_rate', 'guesses', 'comments', 'minutes', 'keep_it', 'needs_fact_check', 'elimination_candidate'] as const
 
-/** One reviewer's verdict on one question, by the question's label */
-export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]>
+/** One reviewer's verdict on one question, by the question's label, and its stamps */
+export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]> & IsoStampsT
 
-/** One shared review of one quiz, by the reviewer's label: what they made of it, and their verdict on each question */
-export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & { verdicts: Record<string, VerdictBodyT> }
+/** One shared review of one quiz, by the reviewer's label: what they made of it, its stamps, and their verdict on each question */
+export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & IsoStampsT & { verdicts: Record<string, VerdictBodyT> }
 
 /** One widget of the library, by its scope and label: its place in the library, and its fields */
 export type WidgetBodyT = DistributiveOmit<WidgetT, 'scope' | 'label'> & { position: number }

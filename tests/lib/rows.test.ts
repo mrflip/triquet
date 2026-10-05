@@ -120,7 +120,15 @@ describe('seenQuestionFor', () => {
     expect(seen).to.deep.eq({
       _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear',
       full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', stored: { dumdum: historyOf(FailedSince) },
+      created_at: 2, updated_at: 2,
     })
+  })
+
+  it("sends a smith the question's stamps: its own, or for a row written before rows were stamped, made and last edited when the database made it", () => {
+    const stamped = { ...QuestionRow, created_at: 10, updated_at: 20 }
+    expect(seenQuestionFor(stamped, new Map(), Smith)).to.deep.include({ created_at: 10, updated_at: 20 })
+    expect(seenQuestionFor({ ...QuestionRow, _creationTime: 3.75 }, new Map(), Smith)).to.deep.include({ created_at: 3, updated_at: 3 })
+    expect(seenQuestionFor(stamped, new Map(), Reviewer)).not.to.have.property('created_at')
   })
 
   it('reads the newest row\'s status where the doc block says', () => {

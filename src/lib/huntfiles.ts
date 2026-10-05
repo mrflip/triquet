@@ -96,7 +96,7 @@ field's type, which the \`.json\` beside it holds.
 /**
  * One resource's jsonball as its file holds it: pretty, keys sorted, ending in a newline.
  *
- * @example jsonOf(Exporting.huntBall(place, hunt))  // => '{\n  "branch": "main",\n  "label": "spring_hunt",\n  "title": "Spring Hunt"\n}\n'
+ * @example jsonOf(Exporting.huntBall(place, hunt))  // => '{\n  "branch": "main",\n  "created_at": "2026-10-05T12:00:00.000Z",\n  "label": "spring_hunt",\n  ...'
  */
 export function jsonOf(placed: Exporting.PlacedBallT): string {
   return `${UU.jsonify(placed.ball, { pretty: true })}\n`

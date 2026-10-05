@@ -1,17 +1,22 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Z from 'zod'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import { Review, ReviewValidators, sharedReviewsOf, type ReviewPhase, type ReviewRowT } from '../../src/models/review'
 
 describe('ReviewValidators.row', () => {
-  const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', overall: '', phase: 'empty' } as const
+  /** The moment the tests run at, which a row checked without stamps is stamped with */
+  const Now = 1_759_700_000_000
+  const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', overall: '', phase: 'empty', created_at: Now, updated_at: Now } as const
+
+  beforeEach(() => { vi.useFakeTimers({ now: Now, toFake: ['Date'] }) })
+  afterEach(() => { vi.useRealTimers() })
 
   it('takes a review as the database holds it', () => {
     expect(ReviewValidators.row(Row)).to.deep.eq(Row)
   })
 
-  it('defaults overall to empty and phase to empty', () => {
+  it('defaults overall to empty and phase to empty, and is stamped with the moment it is checked', () => {
     expect(ReviewValidators.row({ hunt_id: Row.hunt_id, quiz_id: Row.quiz_id, ident_id: Row.ident_id })).to.deep.eq(Row)
   })
 

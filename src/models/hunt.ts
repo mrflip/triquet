@@ -11,7 +11,7 @@ import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 /** The branch every hunt starts on, and so the git branch its history begins on */
 export const DefaultBranch = 'main'
 
-export const HuntValidators = Validator(({ obj, arr, label, toplabel, identlabel, titleish, treeid }) => {
+export const HuntValidators = Validator(({ obj, arr, label, toplabel, identlabel, titleish, stamp, treeid }) => {
   const huntLabel = toplabel
     .describe('What the hunt is called in an address, within its org. Minted when the hunt is made, and unique within its org: two hunts of one org minted with one label resolve to the earlier.')
   const orglabel = identlabel
@@ -41,6 +41,10 @@ export const HuntValidators = Validator(({ obj, arr, label, toplabel, identlabel
     branch,
     wheel:        CategoryValidators.wheel.optional()
       .describe('How the hunt arranges the subject categories round its wheel. Absent until someone first arranges them, which reads as the default wheel.'),
+    created_at:   stamp
+      .describe('When it was made, in epoch milliseconds: stamped by the database\'s writer, never by its author.'),
+    updated_at:   stamp
+      .describe('When it was last edited, in epoch milliseconds: the same as `created_at` until its first edit, and moved by every edit after.'),
   })
     .describe('One hunt as the database holds it: its realms are rows of their own.')
 

@@ -15,7 +15,7 @@ import { Widget } from '../../src/models/widget'
 import { Widgeted } from '../../src/models/widgeted'
 import { present } from '../support/present'
 import { runHolding, runOf } from '../support/runs'
-import { EntryLibrary, SpottedItems, Verdict, chainedQuiz, snapshot, storedOk, twoQuizHunt } from '../support/snapshots'
+import { EntryLibrary, ReviewedAtIso, SpottedItems, Verdict, chainedQuiz, snapshot, storedOk, twoQuizHunt } from '../support/snapshots'
 
 /** The hunt every ball here is of */
 const Place: Addresses.InHuntT = { org: 'pat_smith', hunt: 'deep_lake' }
@@ -46,10 +46,14 @@ describe('placeOf', () => {
 })
 
 describe('huntBall', () => {
-  it("is the hunt's own fields, at the root", () => {
-    const placed = Exporting.huntBall(Place, { label: 'spring_hunt', title: 'Spring Hunt', branch: 'main' })
-    expect(placed.ball).to.deep.eq({ branch: 'main', label: 'spring_hunt', title: 'Spring Hunt' })
+  it("is the hunt's own fields, at the root, its stamps as a person reads them", () => {
+    const placed = Exporting.huntBall(Place, { label: 'spring_hunt', title: 'Spring Hunt', branch: 'main', created_at: Date.UTC(2026, 9, 5, 12), updated_at: Date.UTC(2026, 9, 5, 13) })
+    expect(placed.ball).to.deep.eq({ branch: 'main', label: 'spring_hunt', title: 'Spring Hunt', created_at: '2026-10-05T12:00:00.000Z', updated_at: '2026-10-05T13:00:00.000Z' })
     expect(placed.address).to.deep.eq({ kind: 'hunt', ...Place })
+  })
+
+  it("writes no stamps for a hunt built rather than read", () => {
+    expect(Exporting.huntBall(Place, { label: 'spring_hunt', title: 'Spring Hunt', branch: 'main' }).ball).to.deep.include({ created_at: null, updated_at: null })
   })
 })
 
@@ -113,7 +117,7 @@ describe('quizBodyOf', () => {
     const columns = chained.columns.map((column, ii) => (ii === 0 ? { ...column, align: 'right' as const } : column))
     const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
-    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true, last_sortkey: 'column:title' })
+    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true, last_sortkey: 'column:title', created_at: null, updated_at: null })
     expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {} })
     expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
   })
@@ -149,7 +153,16 @@ describe('quizBodyOf', () => {
 
   it("adds nothing beside a question's fields and its position for a quiz with no widgetings", () => {
     const nantes = present(bodyOf({ ...chainedQuiz(), widgetings: [], columns: [] }).questions.nantes)
-    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'title'])
+    expect(_.sortBy(Object.keys(nantes))).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'notes', 'position', 'qnum', 'title', 'updated_at'])
+  })
+
+  it("writes the stamps of the quiz and each question as a person reads them: ISO-8601, in UTC", () => {
+    const chained = chainedQuiz()
+    const [made, edited] = [Date.UTC(2026, 9, 5, 9, 30), Date.UTC(2026, 9, 5, 10, 45, 1, 500)]
+    const quiz = { ...chained, created_at: made, updated_at: made, questions: chained.questions.map((question) => ({ ...question, created_at: made, updated_at: edited })) }
+    const body = bodyOf(quiz)
+    expect([body.created_at, body.updated_at]).to.deep.eq(['2026-10-05T09:30:00.000Z', '2026-10-05T09:30:00.000Z'])
+    expect(_.pick(body.questions.leon, ['created_at', 'updated_at'])).to.deep.eq({ created_at: '2026-10-05T09:30:00.000Z', updated_at: '2026-10-05T10:45:01.500Z' })
   })
 
   it("is empty collections for a quiz holding nothing", () => {
@@ -195,7 +208,7 @@ describe('reviewBall', () => {
   it("is a shared review's overall, and its verdict on each question by label, under its reviewer's label", () => {
     const placed = present(Exporting.reviewBall(Place, 'home', princes, present(shared)))
     expect(placed.address).to.deep.eq({ kind: 'review', ...Place, realm: 'home', quiz: 'princes', reviewer: 'lee_jones' })
-    expect(placed.ball).to.deep.eq({ quizzes: { home: { princes: { reviews: { lee_jones: { overall: 'A fair quiz.', verdicts: { leon: Verdict } } } } } } })
+    expect(placed.ball).to.deep.eq({ quizzes: { home: { princes: { reviews: { lee_jones: { overall: 'A fair quiz.', ...ReviewedAtIso, verdicts: { leon: { ...Verdict, ...ReviewedAtIso } } } } } } } })
   })
 
   it("reads the doc block's example", () => {
@@ -208,10 +221,18 @@ describe('reviewBall', () => {
     expect(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewer: null })).to.be.null
   })
 
-  it("writes of each reviewing its verdict alone, as a reviewing's row is read: no ids, and not whether the reviewer peeked", () => {
-    const row = { _id: 'r1', _creationTime: 1, review_id: 'rv1', hunt_id: 'h1', quiz_id: 'q1', ident_id: 'i1', peeked: true, question_id: present(princes.questions[0])._id, ...Verdict }
+  it("writes of each reviewing its verdict and its stamps, as a reviewing's row is read: no ids, and not whether the reviewer peeked", () => {
+    const stamps = { created_at: Date.UTC(2026, 9, 5), updated_at: Date.UTC(2026, 9, 6) }
+    const row = { _id: 'r1', _creationTime: 1, review_id: 'rv1', hunt_id: 'h1', quiz_id: 'q1', ident_id: 'i1', peeked: true, question_id: present(princes.questions[0])._id, ...Verdict, ...stamps }
     const placed = present(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewings: [row] }))
-    expect(_.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones.verdicts.leon')).to.deep.eq(Verdict)
+    expect(_.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones.verdicts.leon')).to.deep.eq({ ...Verdict, created_at: '2026-10-05T00:00:00.000Z', updated_at: '2026-10-06T00:00:00.000Z' })
+  })
+
+  it("writes the stamps of a row written before rows were stamped as it is read meanwhile: made, and last edited, when the database made it", () => {
+    const unstamped = _.omit(present(shared), ['created_at', 'updated_at'])
+    const placed = present(Exporting.reviewBall(Place, 'home', princes, { ...unstamped, _creationTime: Date.UTC(2026, 9, 1) + 0.25 }))
+    const review: unknown = _.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones')
+    expect(_.pick(review, ['created_at', 'updated_at'])).to.deep.eq({ created_at: '2026-10-01T00:00:00.000Z', updated_at: '2026-10-01T00:00:00.000Z' })
   })
 
   it("passes over a verdict on a question the quiz no longer holds", () => {
@@ -382,7 +403,7 @@ describe('ballsOf', () => {
 describe('wholeOf', () => {
   it("is the hunt's fields at the root, beside its categories, members, quizzes and the widgets they work", () => {
     const whole = Exporting.wholeOf(snapshot())
-    expect(_.sortBy(Object.keys(whole))).to.deep.eq(['branch', 'categories', 'label', 'members', 'pub', 'quizzes', 'title'])
+    expect(_.sortBy(Object.keys(whole))).to.deep.eq(['branch', 'categories', 'created_at', 'label', 'members', 'pub', 'quizzes', 'title', 'updated_at'])
     expect(Object.keys(_.get(whole, 'pub.widgets') as object)).to.include('dumdum')
     expect(Object.keys(_.get(whole, 'quizzes.home') as object)).to.have.members(['princes', 'paris'])
     expect(_.get(whole, 'quizzes.home.princes.reviews.lee_jones.overall')).to.eq('A fair quiz.')
@@ -421,6 +442,12 @@ describe('snapshotOf', () => {
     expect(Exporting.snapshotOf({ org: 'pat_smith', wheel, members }, whole, EntryLibrary)).to.deep.eq({
       hunt: { label: 'deep_lake', title: 'Deep Lake', branch: 'main', org: 'pat_smith' }, wheel, members, realms: whole.realms, library: EntryLibrary, reviews: {},
     })
+  })
+
+  it("carries the stamps of the hunt the screen holds", () => {
+    const { wheel, members } = snapshot()
+    const stamps = { created_at: Date.UTC(2026, 9, 1), updated_at: Date.UTC(2026, 9, 5) }
+    expect(Exporting.snapshotOf({ org: 'pat_smith', ...stamps, wheel, members }, twoQuizHunt(), EntryLibrary).hunt).to.deep.include(stamps)
   })
 
   it("reads the doc block's example", () => {

@@ -9,7 +9,7 @@ import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 /** What a question carries in a formula's bag beside its exposed fields: its place once the quiz is put in Q# order */
 export const RankField = 'rank'
 
-export const QuestionValidators = Validator(({ obj, rec, textish, noteish, titleish, label, zid, treeid }) => {
+export const QuestionValidators = Validator(({ obj, rec, textish, noteish, titleish, label, stamp, timestamp, zid, treeid }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -46,6 +46,10 @@ export const QuestionValidators = Validator(({ obj, rec, textish, noteish, title
     full_answer:   full_answer.default(''),
     stored:        rec(label, WidgetedValidators.history).default({})
       .describe('What each widgeting that stores (an `aibot` one) has recorded for this question, by the widgeting\'s label: its newest row, and its newest `ok` one. A widgeting with nothing recorded here is absent.'),
+    created_at:    timestamp.nullable().default(null)
+      .describe('When the question was made, in epoch milliseconds, as its row is stamped; null for one built rather than read, or read by someone not sent it.'),
+    updated_at:    timestamp.nullable().default(null)
+      .describe('When the question was last edited, in epoch milliseconds, as its row is stamped; null where `created_at` is.'),
   })
     .describe('One question in a quiz. Every field but the id is optional on the way in and defaulted, so a partially-filled question is always a legal question -- the author is drafting, not filling in a form.')
 
@@ -78,6 +82,10 @@ export const QuestionValidators = Validator(({ obj, rec, textish, noteish, title
     full_answer,
     alt_text,
     notes,
+    created_at:   stamp
+      .describe('When it was made, in epoch milliseconds: stamped by the database\'s writer, never by its author.'),
+    updated_at:   stamp
+      .describe('When it was last edited, in epoch milliseconds: the same as `created_at` until its first edit, and moved by every edit after.'),
   })
     .describe('One question as the database holds it: only what the author writes. What its widgetings stored is in rows of their own.')
 
@@ -108,6 +116,8 @@ export class Question implements QuestionT {
   declare notes:         string
   declare full_answer:   string
   declare stored:        Record<string, WidgetedHistoryT>
+  declare created_at:    number | null
+  declare updated_at:    number | null
 
   /**
    * The fields a question shows the outside world, alphabetically: what a formula may read and
@@ -119,13 +129,13 @@ export class Question implements QuestionT {
   /**
    * The fields of a question each standing on its hunt is sent, beside its id, alphabetically: the
    * one place a change to who is sent what lands (`seenQuestionFor`). A smith works the question,
-   * and is sent all of it: its exposed fields, and what its widgetings stored. A reviewer is sent
+   * and is sent all of it: its exposed fields, what its widgetings stored, and its stamps. A reviewer is sent
    * what a review needs: the question as it will be asked, the BUT NOT it chains to, and its
    * answer, which the review screen keeps behind its lock; not the smiths' notes, nor what the
-   * widgetings stored. A stranger to the hunt is sent nothing.
+   * widgetings stored, nor when it was made and edited. A stranger to the hunt is sent nothing.
    */
   static readonly sentTo = {
-    smith:    ['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'stored', 'title'],
+    smith:    ['alt_text', 'chains_to', 'clueing', 'created_at', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'stored', 'title', 'updated_at'],
     reviewer: ['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title'],
     stranger: [],
   } as const satisfies Record<HuntStanding, readonly QuestionFieldname[]>

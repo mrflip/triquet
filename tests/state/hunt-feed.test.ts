@@ -144,13 +144,13 @@ async function filesFromRows(held: PeopledT): Promise<Huntfiles.FilesT> {
       const reviewed = await reviewsOf(ctx.db, quiz._id as Id<'quizzes'>)
       return [quiz._id, await Promise.all(reviewed.map(async (review) => {
         const [ident, reviewings] = await Promise.all([ctx.db.get('idents', review.ident_id), reviewingsOf(ctx.db, review._id)])
-        return { reviewer: ident && { label: ident.label, title: ident.title }, phase: review.phase, overall: review.overall, reviewings }
+        return { reviewer: ident && { label: ident.label, title: ident.title }, phase: review.phase, overall: review.overall, ..._.pick(review, ['_creationTime', 'created_at', 'updated_at']), reviewings }
       }))] as const
     }))
     return [rows, Object.fromEntries(byQuiz)] as const
   })
   const { wheel, members } = present(opening)
-  const files = Huntfiles.huntFiles({ hunt: { ...whole, org: held.orglabel }, wheel, members, realms: whole.realms, library: library.map((row) => widgetFrom(row)), reviews })
+  const files = Huntfiles.huntFiles({ hunt: { ...whole, org: held.orglabel, ..._.pick(opening, ['created_at', 'updated_at']) }, wheel, members, realms: whole.realms, library: library.map((row) => widgetFrom(row)), reviews })
   files.delete(Huntfiles.ReadmePath)
   return files
 }

@@ -15,7 +15,8 @@ function quizRow(tail: string, label: string): Doc<'quizzes'> {
 }
 
 const Hunt: ShallowHuntT = {
-  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', org: 'alice_smiths', title: 'Quiet Otter', branch: 'main', wheel: Wheel.defaultWheel(), members: [], role: 'smith',
+  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', org: 'alice_smiths', title: 'Quiet Otter', branch: 'main', created_at: 1_759_700_000_000, updated_at: 1_759_700_000_000,
+  wheel: Wheel.defaultWheel(), members: [], role: 'smith',
   realms: [{
     _id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>, label: 'home', title: 'Home',
     quizzes:    [quizRow('q01', 'quiet_otter'), quizRow('q02', 'kings'), quizRow('q03', 'quiet_otter')],

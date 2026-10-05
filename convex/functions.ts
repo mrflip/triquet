@@ -10,6 +10,7 @@ import { refusingInvalid } from '../src/lib/refusals'
 import { installErrorMap } from '../src/lib/vv/reporting'
 import { libraryWriter, scopedReader, scopedWriter, type ScopeClaimsT } from './policy_rules'
 import { censusOf, identFor, type CensusT, type Reader } from './reading'
+import { stampingWriter } from './stamping'
 
 /**
  * Who is asking, as every public function's `ctx` carries it.
@@ -82,17 +83,27 @@ const Asking = {
   },
 }
 
+/** As `Asking`, with a database that stamps the rows a person makes and edits (`stampingWriter`) at the moment of the mutation */
+const AskingToWrite = {
+  args:  {},
+  input: async (ctx: { auth: Auth, db: MutationCtx['db'] }) => {
+    installErrorMap()
+    return { ctx: { ...await askerOf(ctx), db: stampingWriter(ctx.db, Date.now()) }, args: {} }
+  },
+}
+
 /**
  * The builders every public function here is made with: Convex's own, taking Zod schemas as
  * `args` (and `returns`), parsed in full before the handler runs, with who is asking on `ctx`
  * (`ctx.actor`, `ctx.user_id`: see `AskerT`). A refused argument reaches the caller as a
- * `ConvexError` whose data is `{ ZodError: [issue, ...] }`, in our words. An internal function
- * has nobody asking.
+ * `ConvexError` whose data is `{ ZodError: [issue, ...] }`, in our words. A mutation's database
+ * stamps the rows a person makes and edits (`stamping.ts`). An internal function has nobody asking,
+ * and writes no stamps but its own.
  *
  * @example export const open = zQuery({ args: { quiz_id: zid('quizzes') }, handler: async (ctx, { quiz_id }) => ... ctx.actor ... })
  */
 export const zQuery            = zCustomQuery(query, Asking)
-export const zMutation         = zCustomMutation(mutation, Asking)
+export const zMutation         = zCustomMutation(mutation, AskingToWrite)
 export const zInternalMutation = zCustomMutation(internalMutation, InOurWords)
 
 // --- A hunt's functions

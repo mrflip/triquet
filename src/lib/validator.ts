@@ -60,6 +60,12 @@ export const ValidatorKit = {
   identlabel: CK.identlabel,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
+  /**
+   * One of a row's stamps (`created_at`, `updated_at`), in epoch milliseconds (`Stamps`). The
+   * database's writer stamps each row it writes (`convex/stamping.ts`), so a row validated on its
+   * way there is stamped now, for the moment.
+   */
+  stamp:     Z.int().positive().default(() => Date.now()),
   //
   num:       Z.number(),
   int:       Z.int(),

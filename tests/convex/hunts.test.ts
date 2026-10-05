@@ -117,10 +117,10 @@ async function reviewsIn(tt: Tester, quiz_id: string) {
   return await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id as Id<'quizzes'>))
 }
 
-/** Every reviewing the rows hold, oldest first, as what was said about which question (what it copies of its review, `expectSound` checks) */
+/** Every reviewing the rows hold, oldest first, as what was said about which question (what it copies of its review, `expectSound` checks, and its stamps are left out) */
 async function reviewingsIn(tt: Tester) {
   const rows = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
-  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'ident_id']))
+  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'ident_id', 'created_at', 'updated_at']))
 }
 
 /** The ids of the open quiz's questions, in order */
@@ -1317,15 +1317,16 @@ describe("hunts.perform", () => {
   })
 })
 
-/** `tree` with every id blanked, for comparing a tree with the one its rows make up */
+/** `tree` with every id and stamp blanked, for comparing a tree with the one its rows make up */
 function sansIds(tree: HuntT) {
+  const unstamped = { created_at: null, updated_at: null }
   return {
     ...tree,
     _id:    '',
     realms: tree.realms.map((realm) => ({
       ...realm,
       _id:     '',
-      quizzes: realm.quizzes.map((quiz) => ({ ...quiz, _id: '', questions: quiz.questions.map((question) => ({ ...question, _id: '' })) })),
+      quizzes: realm.quizzes.map((quiz) => ({ ...quiz, _id: '', ...unstamped, questions: quiz.questions.map((question) => ({ ...question, _id: '', ...unstamped })) })),
     })),
   }
 }
@@ -1599,9 +1600,11 @@ function runOfOpen(seen: Seen): Runner.QuizRun {
   return Runner.runQuiz(source)
 }
 
-/** `seen`'s open quiz as its ball holds it */
+/** `seen`'s open quiz as its ball holds it, its stamps and its questions' blanked: an import makes them afresh */
 function bodyOfOpen(seen: Seen) {
-  return Exporting.quizBodyOf(openOf(seen), runOfOpen(seen))
+  const body = Exporting.quizBodyOf(openOf(seen), runOfOpen(seen))
+  const unstamped = { created_at: null, updated_at: null }
+  return { ...body, ...unstamped, questions: _.mapValues(body.questions, (question) => ({ ...question, ...unstamped })) }
 }
 
 describe("a quiz's export, imported into an empty quiz", () => {
@@ -1621,16 +1624,20 @@ describe("a quiz's export, imported into an empty quiz", () => {
     const exported = await source.read()
     const quiz = openOf(exported)
     const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', quiz, runOfOpen(exported))
+    // Stamps of long ago, which the import does not carry: its questions are made now.
+    const pasted = JSON.stringify(ball).replaceAll(/"(created|updated)_at":"[^"]+"/g, '"$1_at":"2001-01-01T00:00:00.000Z"')
 
     const target = await seedHunt(tt, huntHolding([{ ...Quiz.blank('Empty', 'empty_one'), questions: [] }]))
     const empty = await target.read()
-    const outcome = Importing.importInto(openOf(empty), JSON.stringify(ball), empty.library)
+    const outcome = Importing.importInto(openOf(empty), pasted, empty.library)
     expect(outcome.ok).to.be.true
     for (const action of outcome.actions) { await target.act(action) }
+    const stamps = openOf(await target.read()).questions.flatMap((question) => [question.created_at, question.updated_at])
+    expect(stamps.every((stamp) => stamp !== null && stamp > Date.parse('2001-01-02'))).to.be.true
 
     const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
     expect(got).to.deep.eq(want)
-    expect(_.omit(got, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', locked: false, last_sortkey: 'column:title' })
+    expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({ title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', locked: false, last_sortkey: 'column:title' })
     expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })
     const labelOf = (question_id: string) => present(quiz.questions.find((qn) => qn._id === question_id)).label
@@ -1663,11 +1670,13 @@ describe("a quiz's export, imported into an empty quiz", () => {
 })
 
 describe("hunts.whole", () => {
-  it("reads back a hunt exactly as it was written, apart from its ids", async () => {
+  it("reads back a hunt exactly as it was written, apart from its ids, and with the stamps its rows were given", async () => {
     const hunt = Hunt.blank()
     const { read } = await seedHunt(openTester(), hunt)
     const { hunt: back } = await read()
     expect(sansIds(back)).to.deep.eq(sansIds(hunt))
+    const stamps = Hunt.quizzesOf(back).flatMap((quiz) => [quiz, ...quiz.questions]).flatMap((stamped) => [stamped.created_at, stamped.updated_at])
+    expect(stamps.every((stamp) => typeof stamp === 'number')).to.be.true
   })
 
   it("is null for a hunt that is not there", async () => {

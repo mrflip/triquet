@@ -178,7 +178,7 @@ describe('Quiz.isLocked', () => {
 describe('QuizValidators.row', () => {
   const Row = {
     hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', q1_preamble: 'Read the note![br]', locked: false, last_sortkey: null,
-    row_ordering: ['j97d0qbj35dar1v8edndzckvsx8f828f'],
+    row_ordering: ['j97d0qbj35dar1v8edndzckvsx8f828f'], created_at: 1_759_700_000_000, updated_at: 1_759_700_000_000,
   }
 
   it('takes a quiz as the database holds it, sort memory included', () => {

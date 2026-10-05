@@ -87,7 +87,7 @@ describe('Hunt.exposed', () => {
 })
 
 describe('HuntValidators.row', () => {
-  const Row = { label: 'quiet_otter', orglabel: 'pat_smith', title: 'Quiet Otter', branch: 'main' }
+  const Row = { label: 'quiet_otter', orglabel: 'pat_smith', title: 'Quiet Otter', branch: 'main', created_at: 1_759_700_000_000, updated_at: 1_759_700_000_000 }
 
   it('takes a hunt as the database holds it', () => {
     expect(HuntValidators.row(Row)).to.deep.eq(Row)

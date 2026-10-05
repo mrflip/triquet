@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Z from 'zod'
 import { Reviewing, ReviewingFlags, ReviewingValidators } from '../../src/models/reviewing'
 
@@ -10,10 +10,16 @@ const Ids = {
   question_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa',
 } as const
 
+/** The moment the tests run at, which a row checked without stamps is stamped with */
+const Now = 1_759_700_000_000
+
 const Blank = {
   ...Ids, get_rate: null, guesses: '', comments: '', minutes: null,
-  keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false,
+  keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false, created_at: Now, updated_at: Now,
 } as const
+
+beforeEach(() => { vi.useFakeTimers({ now: Now, toFake: ['Date'] }) })
+afterEach(() => { vi.useRealTimers() })
 
 describe('ReviewingValidators.row', () => {
   it('defaults every verdict to unsaid, and the answer to unseen', () => {
