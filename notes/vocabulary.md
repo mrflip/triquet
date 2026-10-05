@@ -174,8 +174,8 @@ words above.
   scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.
 * **mode** -- how an address opens what it names, as its last segment: `!edit` (the Workbench)
   or `!playtest` (the review screen). The rest of the path names the resource. A quiz's address
-  with no mode opens it playtested, for everyone alike: the address says what is shown, never
-  who is looking. Replaced the **act** of September 2026 (`?act=smith`, `?act=review`), which old
+  with no mode moves to the mode the visitor's role works in: a smith's `!edit`, a reviewer's
+  `!playtest`. Replaced the **act** of September 2026 (`?act=smith`, `?act=review`), which old
   addresses still carry and are moved from. See `notes/decisions/urls.md`.
 * **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them. Each
   is a **role** on a hunt, held by a hunting.

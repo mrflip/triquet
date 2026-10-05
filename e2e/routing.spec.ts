@@ -300,12 +300,23 @@ test.describe('an address naming a quiz', () => {
     await waitUntilSaved(page)
   })
 
-  test('opens playtested when it names no mode, for a smith as for anyone', async ({ page }) => {
+  test('opens in the mode the visitor works in when it names none: a smith to edit, a reviewer to playtest, anyone else told whom to ask', async ({ page, browser }) => {
     const path = quizPathOf(page)
     await loadAfresh(page, path)
-    await expect(page).toHaveURL(`${path}/!playtest`)
-    await expect(page.getByRole('button', { name: 'Share with the smiths' })).toBeVisible()
-    await expect(page.getByLabel('Quiz name')).toBeHidden()
+    await expect(page).toHaveURL(`${path}/!edit`)
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+
+    const reviewer = await otherVisitor(browser)
+    await addMember(page, await assumeIdent(reviewer), 'Reviewer')
+    await reviewer.goto(path)
+    await expect(reviewer).toHaveURL(`${path}/!playtest`)
+    await expect(reviewer.getByRole('button', { name: 'Share with the smiths' })).toBeVisible()
+
+    const stranger = await otherVisitor(browser)
+    await assumeIdent(stranger)
+    await stranger.goto(path)
+    await expect(stranger.getByRole('region', { name: 'Not yet on this hunt' })).toContainText('To be invited, contact its smith')
+    await expect(stranger).toHaveURL(path)
   })
 
   test('opens straight to the quiz it names', async ({ page }) => {
@@ -505,7 +516,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
     await expect(notice).toContainText('You are not yet a member of this hunt.')
-    await expect(notice).toContainText(`(${author}) to please add you`)
+    await expect(notice).toContainText(`(${author}), and give them your ident`)
     await expect(notice).toContainText(`your ident, “${label}”`)
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
     await expect(friend).toHaveURL(link)

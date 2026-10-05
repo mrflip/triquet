@@ -77,7 +77,7 @@ A URL should parse on sight: nouns in the path, one sigil per job, and nothing i
 1. **Path segments are nouns.** Each segment names a thing or a collection. Collections are plural and come from a fixed vocabulary. Acts on a thing are HTTP methods, not segments.
 2. **Modes start with `!`.** A mode is a different screen on the same noun. It is always the last segment, and it is the only non-noun a path may hold.
 3. **Permission boundaries go in the path.** If two views differ in who may see them or in what they load, they are different paths. The query string only adjusts a screen the viewer is already allowed to see.
-4. **The URL names what is shown, never who is looking.** Everyone allowed to open a URL gets the same screen. Nobody is switched into another mode because of their role.dd
+4. **A mode names what is shown, never who is looking.** Everyone allowed to open a URL that names a mode gets the same screen. A quiz's bare address names none, and moves to the mode the visitor's role works in: a smith to `!edit`, a reviewer to `!playtest`; anyone not on the hunt stays, and is told to contact its smith for an invitation. (The Coach's choice, 2026-10-05, reversing the hunt_git sprint's thread 1, which moved everyone to `!playtest`.)
 5. **Permission comes from the record, not from the URL.** Visibility is decided from the quiz's actual realm and state, before any redirect. A locked quiz looks the same as one that does not exist.
 6. **Labels identify; other segments give context.** The quiz label alone finds the quiz. A URL with a stale realm redirects to the current one.
 7. **A version applies to everything below it.** `@` sits on the hunt segment, and links followed inside a versioned view keep that version.

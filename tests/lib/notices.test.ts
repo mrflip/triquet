@@ -38,10 +38,10 @@ describe('identUnknownNotice', () => {
 describe("notOnHuntNotice", () => {
   const Flip = { label: 'flip_kromer', title: 'Flip' }
   const Cases: [Parameters<typeof notOnHuntNotice>[0], string, string][] = [
-    [[Flip],                                                                "Ask Flip (flip_kromer) to please add you",                                  'names the one smith by title and label'],
-    [[Flip, { label: 'ada_lovelace', title: '' }],                          "Ask Flip (flip_kromer) or ada_lovelace to please add you",                  'names a smith with no title by label alone, and any of two'],
-    [[Flip, { label: 'ada_lovelace', title: 'Ada' }, { label: 'grace_h', title: 'grace_h' }], "Ask Flip (flip_kromer), Ada (ada_lovelace), or grace_h to please add you", 'names any of several, a title that is the label once'],
-    [[],                                                                    "Ask a smith of this hunt to please add you",                                'asks a smith of the hunt when none are known'],
+    [[Flip],                                                                "contact its smith, Flip (flip_kromer), and",                                         'names the one smith by title and label'],
+    [[Flip, { label: 'ada_lovelace', title: '' }],                          "contact one of its smiths, Flip (flip_kromer) or ada_lovelace, and",                  'names a smith with no title by label alone, and any of two'],
+    [[Flip, { label: 'ada_lovelace', title: 'Ada' }, { label: 'grace_h', title: 'grace_h' }], "contact one of its smiths, Flip (flip_kromer), Ada (ada_lovelace), or grace_h, and", 'names any of several, a title that is the label once'],
+    [[],                                                                    "contact a smith of this hunt, and",                                                  'asks a smith of the hunt when none are known'],
   ]
   for (const [smiths, says, describes] of Cases) {
     it(describes, () => {
@@ -49,8 +49,8 @@ describe("notOnHuntNotice", () => {
     })
   }
 
-  it("says they are not yet a member, and names the ident a smith would add and where", () => {
-    expect(notOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. Ask Flip (flip_kromer) to please add you: they can put your ident, “ada_lovelace”, on the hunt from the Members panel beneath any of its quizzes, and this page opens for you as soon as they do.')
+  it("says they are not yet a member, to contact the smith for an invitation, and the ident to invite", () => {
+    expect(notOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), and give them your ident, “ada_lovelace”. This page opens for you as soon as they add you.')
   })
 })
 

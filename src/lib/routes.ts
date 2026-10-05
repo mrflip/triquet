@@ -86,8 +86,8 @@ export function categoriesPath(labels: HuntLabels): string {
 }
 
 /**
- * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens
- * playtested, for every visitor alike.
+ * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens in the
+ * mode the visitor's role works in (`Hunting.modeFor`).
  *
  * @example quizPath({ org: 'pat_smith', hunt: 'quiet_otter', realm: 'home', quiz: 'loud_heron' }, 'edit')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit'
  */
