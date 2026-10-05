@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { type Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
-import { expect, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import { actDangerously, expect, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 test('a quiz starts on the main version, and the author can move it to another', async ({ page }) => {
   await openManage(page)
@@ -179,4 +179,28 @@ test('a deletion is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 
   await expect.poll(() => pathsMatching(page, /\.git\/refs\/tags\/main-delete-\d{14}z$/)).toHaveLength(1)
+})
+
+test('a deleted quiz leaves its history on the hunts page, folded away, to download', async ({ page }) => {
+  await newQuiz(page)
+  // Proven committed before the quiz goes, so the hunts page has a repository to find.
+  await expect.poll(() => pathsMatching(page, /\.git\/refs\/heads\/main$/)).toHaveLength(1)
+  await openManage(page)
+  const label = await manageDialog(page).getByRole('textbox', { name: 'Label', exact: true }).inputValue()
+  await actDangerously(page, 'Delete this quiz', label)
+  await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
+
+  await page.goto('/my/hunts')
+  const fold = page.getByRole('button', { name: 'Orphaned histories (1)' })
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('list', { name: 'Orphaned histories' })).toHaveCount(0)
+
+  await fold.click()
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('list', { name: 'Orphaned histories' }).getByRole('button', { name: label }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toBe(`${label}.zip`)
+  const bytes = await readFile(await download.path())
+  const entries = unzipSync(new Uint8Array(bytes))
+  expect(Object.keys(entries)).toContain(`${label}/.git/HEAD`)
 })

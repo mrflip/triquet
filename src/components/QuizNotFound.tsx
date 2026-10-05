@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import NextLink from './NextLink'
 import { Button, Link, Stack } from '@mui/material'
+import * as Alarms from '../lib/alarms'
 import * as Routes from '../lib/routes'
+import { useRaiseAlarm } from '../state/alarms'
 import * as QuizMirror from '../state/quiz-mirror'
+import { useQuizRepos } from '../state/use-quiz-repos'
 import { AppNotices } from '../lib/notices'
+import { describeRepo } from './OrphanedRepos'
 import { Panel } from './panels/Panel'
 import type { RepoSummary } from '../lib/quizgit'
 import type { ShallowHuntT } from '../lib/rows'
@@ -57,18 +60,7 @@ export function QuizNotFound({ labels, hunt }: Readonly<QuizNotFoundProps>) {
 
 /** The history repositories this browser holds, whether or not their quizzes are still here */
 function RepoList({ hunt }: Readonly<{ hunt: ShallowHuntT | null }>) {
-  const [repos, setRepos] = useState<RepoSummary[] | null>(null)
-
-  useEffect(() => {
-    let current = true
-    const load = async () => {
-      const found = await QuizMirror.listQuizRepos()
-      if (current) { setRepos(found) }
-    }
-    void load()
-    return () => { current = false }
-  }, [])
-
+  const repos = useQuizRepos()
   const kept = (repo: RepoSummary) => hunt?.realms.flatMap((realm) => realm.quizzes).find((quiz) => quiz._id === repo.id)
   return (
     <Panel title="History repositories" blurb="Each quiz's history is kept in a git repository in this browser. A deleted quiz leaves its repository behind.">
@@ -84,8 +76,16 @@ function RepoList({ hunt }: Readonly<{ hunt: ShallowHuntT | null }>) {
   )
 }
 
-/** One repository: its quiz, what it last recorded, and a way back to the quiz if it is here */
+/** One repository: its quiz, what it last recorded, a way back to the quiz if it is here, and a download of it either way */
 function RepoRow({ repo, address }: Readonly<{ repo: RepoSummary, address: string | null }>) {
+  const raise = useRaiseAlarm()
+  const onDownload = async () => {
+    try {
+      await QuizMirror.downloadRepo(repo)
+    } catch (err) {
+      raise(Alarms.of(AppNotices.repoNotDownloaded, err))
+    }
+  }
   return (
     <li>
       <strong>{repo.label ?? 'no commits yet'}</strong>
@@ -93,13 +93,7 @@ function RepoRow({ repo, address }: Readonly<{ repo: RepoSummary, address: strin
       {' '}{address
         ? <Button size="small" component={NextLink} href={address}>Open quiz</Button>
         : <span className={styles.microcopy}>not in this hunt</span>}
+      {' '}<Button size="small" onClick={() => { void onDownload() }}>Download</Button>
     </li>
   )
-}
-
-/** A repository's branch and latest commit, on one line */
-function describeRepo(repo: RepoSummary): string {
-  const branch = repo.branch ?? 'no branch'
-  if (repo.committed_at === null) { return branch }
-  return `${branch} · ${repo.message ?? ''} · ${new Date(repo.committed_at).toLocaleString()}`
 }

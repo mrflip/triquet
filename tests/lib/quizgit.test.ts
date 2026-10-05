@@ -551,6 +551,29 @@ describe('zipQuizRepo', () => {
     expect(Object.keys(entries)).to.include(`ours/${OursTsv}`)
     expect(Object.keys(entries).some((filepath) => filepath.startsWith('ours/.git/'))).to.be.true
   })
+
+  it('finds a repository by id alone, and folders it under the label it is handed', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    await commitFresh(quiz)
+    const entries = unzipSync(await Quizgit.zipQuizRepo(suite.fs, { _id: quiz._id, label: 'orphan' }))
+    expect(Object.keys(entries)).to.include(`orphan/${OursTsv}`)
+  })
+})
+
+/** A repository summary for the quiz `id`, with nothing in it that the test is not about */
+function summaryOf(id: string): Quizgit.RepoSummary {
+  return { id, label: id, branch: 'main', message: null, committed_at: null }
+}
+
+describe('orphansAmong', () => {
+  it('keeps the repositories no quiz answers to, in the order given', () => {
+    const repos = ['gone', 'kept', 'lost'].map((id) => summaryOf(id))
+    expect(Quizgit.orphansAmong(repos, new Set(['kept'])).map((repo) => repo.id)).to.deep.eq(['gone', 'lost'])
+  })
+
+  it('finds no orphans where every repository has its quiz', () => {
+    expect(Quizgit.orphansAmong([summaryOf('kept')], new Set(['kept', 'other']))).to.deep.eq([])
+  })
 })
 
 describe('listRepos', () => {

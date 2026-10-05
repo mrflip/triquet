@@ -38,6 +38,7 @@ export const AppNotices = {
   nothingToMilestone:   'No history here yet — make an edit first.',
   noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
   noRepositories:       'No history has been kept in this browser yet.',
+  repoNotDownloaded:    "That history wasn't downloaded",
   deletingHunt:         'To delete a hunt, please delete its quizzes.',
   huntTitleTooLong:     'That name is too long.',
   huntLabelShape:       'Enter a label: letters, digits and single underscores, starting with a letter.',
