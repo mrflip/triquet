@@ -82,7 +82,7 @@ test.describe("a hunt's category wheel", () => {
     await expect(art).toHaveAttribute('data-place', '7')
     await expect(page.getByRole('button', { name: 'TV, in the pool' })).toBeVisible()
 
-    // Back from the pool to the next empty slot: the first, since none has been filled yet.
+    // Back from the pool to the first empty slot.
     await page.getByRole('button', { name: 'TV, in the pool' }).press('Enter')
     await expect(tileOf(page, 'TV')).toHaveAttribute('data-place', '15')
   })
@@ -112,7 +112,7 @@ test.describe("a hunt's category wheel", () => {
     await expect(emptySlotAt(page, 12)).toHaveText('Geogr')
   })
 
-  test("sends a category to the pool by a double-click, and one in the pool to the next empty slot clockwise", async ({ page }) => {
+  test("sends a category to the pool by a double-click, and one in the pool to the first empty slot clockwise, whatever went before", async ({ page }) => {
     await page.goto(Routes.categoriesPath(huntLabelOf(page)))
     for (const title of ['Math & Econ', 'Art', 'TV']) {
       await tileOf(page, title).dblclick()
@@ -122,17 +122,27 @@ test.describe("a hunt's category wheel", () => {
     await expect(emptySlotAt(page, 8)).toBeVisible()
     await expect(emptySlotAt(page, 15)).toBeVisible()
 
-    // TV dragged into the middle hole; the next double-click goes on round from there, not from the top.
+    // TV dragged into the middle hole leaves no trace on where the next double-click goes: the
+    // first hole from the top, then the next one round.
     await dropOn(page, 'tv', emptySlotAt(page, 8))
     await expect(tileOf(page, 'TV')).toHaveAttribute('data-place', '8')
     await page.getByRole('button', { name: 'Art, in the pool' }).dblclick()
-    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '15')
+    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '0')
     await page.getByRole('button', { name: 'Math & Econ, in the pool' }).dblclick()
-    await expect(tileOf(page, 'Math & Econ')).toHaveAttribute('data-place', '0')
+    await expect(tileOf(page, 'Math & Econ')).toHaveAttribute('data-place', '15')
     await expect(page.getByRole('region', { name: 'Pool' })).toContainText('Drag a category here')
 
+    // A tile taken off and put back, then two more taken off: the first goes back to the first hole.
+    await tileOf(page, 'Euro Hist').dblclick()
+    await page.getByRole('button', { name: 'Euro Hist, in the pool' }).dblclick()
+    await expect(tileOf(page, 'Euro Hist')).toHaveAttribute('data-place', '4')
+    await tileOf(page, 'Chem & Bio').dblclick()
+    await tileOf(page, 'World Hist').dblclick()
+    await page.getByRole('button', { name: 'Chem & Bio, in the pool' }).dblclick()
+    await expect(tileOf(page, 'Chem & Bio')).toHaveAttribute('data-place', '2')
+
     await reloadOnceSaved(page)
-    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '15')
+    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '0')
   })
 
   test("selects a category clicked, with a button beside it that sends it where a double-click would", async ({ page }) => {

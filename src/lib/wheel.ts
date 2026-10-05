@@ -83,19 +83,15 @@ export function stepped(wheel: WheelT, label: CategoryLabel, step: number): Whee
 }
 
 /**
- * The first empty slot of `wheel` clockwise after the slot `afterIdx`, wrapping past the top; the
- * first empty slot from the top when `afterIdx` is null. Null when every slot is filled (and so
- * the pool is empty).
+ * The first empty slot of `wheel`, clockwise from the top, or null when every slot is filled (and
+ * so the pool is empty).
  *
- * @example nextEmptyIdxOf([null, 'math_econ', null, ...], 0)  // => 2
- * @example nextEmptyIdxOf([null, 'math_econ', null, ...], 2)  // => 0, having wrapped past the top
- * @example nextEmptyIdxOf([null, 'math_econ', null, ...], null)  // => 0
- * @example nextEmptyIdxOf(defaultWheel(), null)  // => null
+ * @example firstEmptyIdxOf([null, 'math_econ', null, ...])  // => 0
+ * @example firstEmptyIdxOf(defaultWheel())  // => null
  */
-export function nextEmptyIdxOf(wheel: WheelT, afterIdx: number | null): number | null {
-  const startIdx = afterIdx === null ? 0 : afterIdx + 1
-  const clockwise = Array.from({ length: WheelSlotCount }, (_unused, offset) => wrapped(startIdx + offset))
-  return clockwise.find((idx) => wheel[idx] === null) ?? null
+export function firstEmptyIdxOf(wheel: WheelT): number | null {
+  const idx = wheel.indexOf(null)
+  return idx === -1 ? null : idx
 }
 
 /**

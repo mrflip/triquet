@@ -45,11 +45,11 @@ export type CategoryWheelProps = {
  * stored, an empty slot marked with the category the total order would put there, and the pool
  * beneath. A tile dragged onto another slot swaps with whatever is there, so a tile from the pool
  * sends that slot's tile to the pool; dragged into the pool, it leaves its slot empty. A tile on
- * the wheel double-clicked goes to the pool, and one in the pool double-clicked goes to the next
- * empty slot clockwise. A tile clicked or tapped is selected, and shows a button beside it that
+ * the wheel double-clicked goes to the pool, and one in the pool double-clicked goes to the first
+ * empty slot clockwise from the top, so a run of them fills the holes in turn round the wheel. A tile clicked or tapped is selected, and shows a button beside it that
  * sends it where a double-click would, for a touch screen with nothing to drag or double-click
  * with ease; clicking it again or anywhere else lets it go. The arrow keys move a focused tile
- * round the wheel, Delete sends it to the pool, and Enter brings a pool tile to the next empty
+ * round the wheel, Delete sends it to the pool, and Enter brings a pool tile to the first empty
  * slot as a double-click does.
  */
 export function CategoryWheel({ wheel, title, onArrange, outside = [] }: Readonly<CategoryWheelProps>) {
@@ -81,7 +81,7 @@ export function CategoryWheel({ wheel, title, onArrange, outside = [] }: Readonl
         <p id={hintId} className={styles.microcopy}>
           Drag a category onto another slot to swap the two, or into the pool to take it off the
           wheel; each empty slot takes the first category left in the pool. Double-click a category
-          to send it to the pool, or one in the pool to put it in the next empty slot clockwise; or
+          to send it to the pool, or one in the pool to put it in the first empty slot clockwise; or
           tap a category for a button that does the same.
           From the keyboard, the arrow keys move a category round the wheel, Delete sends it to the
           pool, and Enter brings one back from the pool.
@@ -99,9 +99,6 @@ function Board({ wheel, pool, onArrange }: Readonly<{ wheel: WheelT, pool: reado
   // The tile a key just moved, to keep focus on once it is drawn in its new place: moving
   // between the wheel and the pool draws it anew.
   const keyed = useRef<CategoryLabel | null>(null)
-  // The slot a tile from the pool last went to: the next one brought back goes to the empty slot
-  // clockwise after it, so a run of them fills the holes in turn round the wheel.
-  const [filledIdx, setFilledIdx] = useState<number | null>(null)
   // The tile clicked or tapped, which shows the button that sends it on
   const [selected, setSelected] = useState<CategoryLabel | null>(null)
 
@@ -118,12 +115,11 @@ function Board({ wheel, pool, onArrange }: Readonly<{ wheel: WheelT, pool: reado
     const placedWheel = Wheel.placed(wheel, label, onto)
     if (placedWheel === wheel) { return }
     if (placing === 'key') { keyed.current = label }
-    if (onto !== 'pool' && ! wheel.includes(label)) { setFilledIdx(onto) }
     setSelected(null)
     onArrange(placedWheel)
   }
-  const nextEmptyIdx = Wheel.nextEmptyIdxOf(wheel, filledIdx)
-  const nextEmptyPlacekey = nextEmptyIdx === null ? null : String(nextEmptyIdx)
+  const firstEmptyIdx = Wheel.firstEmptyIdxOf(wheel)
+  const firstEmptyPlacekey = firstEmptyIdx === null ? null : String(firstEmptyIdx)
   const tiles: TileSeat[] = [
     ...wheel.flatMap((label, idx) => (label === null ? [] : [{
       label, spot: spotOf(idx, WheelGeometry.ringRadius), placekey: String(idx), sendsTo: PoolPlacekey, where: `slot ${String(idx + 1)}`,
@@ -131,9 +127,9 @@ function Board({ wheel, pool, onArrange }: Readonly<{ wheel: WheelT, pool: reado
       placeForKey: (key: string) => ringKeyPlace(key, idx),
     }])),
     ...pool.map((label, rank) => ({
-      label, spot: poolSpotOf(rank, pool.length), placekey: PoolPlacekey, sendsTo: nextEmptyPlacekey, where: 'in the pool',
+      label, spot: poolSpotOf(rank, pool.length), placekey: PoolPlacekey, sendsTo: firstEmptyPlacekey, where: 'in the pool',
       sendSpot: poolHeadSpotOf(poolSpotOf(rank, pool.length)),
-      placeForKey: (key: string) => poolKeyPlace(key, nextEmptyPlacekey),
+      placeForKey: (key: string) => poolKeyPlace(key, firstEmptyPlacekey),
     })),
   ]
   const chosen = tiles.find((seat) => seat.label === selected)
@@ -183,9 +179,9 @@ function ringKeyPlace(key: string, slotIdx: number): string | null {
   }
 }
 
-/** Where a key sends a tile in the pool: Enter or Space, to the next empty slot, `nextEmptyPlacekey` */
-function poolKeyPlace(key: string, nextEmptyPlacekey: string | null): string | null {
-  return key === 'Enter' || key === ' ' ? nextEmptyPlacekey : null
+/** Where a key sends a tile in the pool: Enter or Space, to the first empty slot, `firstEmptyPlacekey` */
+function poolKeyPlace(key: string, firstEmptyPlacekey: string | null): string | null {
+  return key === 'Enter' || key === ' ' ? firstEmptyPlacekey : null
 }
 
 /** Where one category's tile sits on the editor's board, and where it can be sent from there */
@@ -236,7 +232,7 @@ function Tile({ label, spot, placekey, sendsTo, placeForKey, where, boardkey, se
   )
 }
 
-/** The button beside a selected tile, which sends it where a double-click would: to the pool, or to the next empty slot; none when it can go nowhere */
+/** The button beside a selected tile, which sends it where a double-click would: to the pool, or to the first empty slot; none when it can go nowhere */
 function SendButton({ seat, onPlace }: Readonly<{ seat: TileSeat, onPlace: TileProps['onPlace'] }>) {
   const { sendsTo } = seat
   if (sendsTo === null) { return null }
