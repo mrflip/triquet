@@ -8,8 +8,8 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | Thread | | Status |
 |---|---|---|
 | 0 | One address model | landed #121 |
-| 1 | The URL scheme | underway |
-| 2 | Jsonballs, and Import and Export through them | underway |
+| 1 | The URL scheme | landing (lane 1) |
+| 2 | Jsonballs, and Import and Export through them | in review (lane 2) |
 | 3 | A hunt's files | pending (after 2) |
 | 4 | Watches at the grain of the files | pending (after 3) |
 | 5 | One repository per hunt | pending (after 4) |
