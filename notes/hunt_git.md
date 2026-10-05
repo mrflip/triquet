@@ -4,8 +4,10 @@ The **mirror** (`notes/vocabulary.md`) is moving from one repository per quiz to
 This file is the index of what such a repository holds and where. It is the spec for the
 `hunt_git` sprint, whose plan is `whiteboard/20261005-hunt_git/hunt_git-plan.md`.
 
-**Status: proposed (2026-10-05), not built.** Directory names marked ⟨url⟩ wait on the Coach's
-new URL scheme; the defaults shown follow today's `/h/<hunt>/<realm>/<quiz>`. The per-quiz
+**Status: proposed (2026-10-05), not built.** The URL scheme is now
+`notes/decisions/urls.md`, and **the paths and key paths below are still to be re-aligned with
+it** (its rule 10: drop `~{org}/{hunt}` and add `.json`; its *Serialized files*: the JSON path
+matches the URL path). Directory names marked ⟨url⟩ are the ones that move. The per-quiz
 repositories of today (`/quizzes/<quiz _id>`, `src/lib/quizgit.ts`) get **no special
 treatment**: there is no migration, and nothing new reads or lists them.
 
@@ -72,14 +74,13 @@ the app's tests.
    `quiz.tq.json`, `questions.qq.json` and `questions.qq.tsv`, and any other edit in exactly one
    JSON file and one TSV file.
 2. **JSON** is `UU.jsonify(…, { pretty: true })`, with sorted keys and a trailing newline.
-3. **TSV** is a view of its jsonball's leaf, not part of the merge. It comes in two shapes,
-   both quoted by Papa Parse, with `\n` line endings and a trailing newline:
-   * **A collection** (questions, members, a review's verdicts) is a header line and one row
-     per item. Columns are sorted by keypath and rows by label, so a reorder does not churn the
-     diff (the order is still in the JSON).
-   * **Anything else** (the hunt, a realm, a quiz, a widget) is two columns, `keypath` and
-     `value`, one line per leaf, sorted by keypath. A quiz's widgetings and columns come out as
-     `widgetings.0.params.prompt` and the like.
+3. **TSV** is a view of its jsonball's leaf, not part of the merge, and **every TSV reads the
+   same way** (settled 2026-10-05): a header line, then one row per item, quoted by Papa Parse,
+   with `\n` line endings and a trailing newline. Columns are named by keypath and sorted, and
+   rows are sorted by label, so a reorder does not churn the diff (the order is still in the
+   JSON). A single record (the hunt, a realm, a quiz, a widget) is a header and one row, even
+   where that row is wide: a quiz's widgetings and columns come out as columns named
+   `widgetings.0.params.prompt` and the like.
 4. **Paths follow addresses.** A resource with a page of its own sits at the repository path
    that its URL names below the hunt. One function produces the URL, the path and the jsonball's
    key path, so the three cannot drift (thread 1 of the plan). Renaming a quiz or realm renames
@@ -94,14 +95,14 @@ the app's tests.
 
 | Resource | Rows it is made from | Jsonball, and where its leaf sits | TSV |
 |---|---|---|---|
-| Hunt | `hunts` | `hunt.tq.json`: `{ label, title }` | `hunt.tq.tsv` (keypath/value) |
+| Hunt | `hunts` | `hunt.tq.json`: `{ label, title, branch }` | `hunt.tq.tsv` (one row) |
 | Members | `huntings` | `members.tq.json`: `{ members: { <ident_label>: { title, role } } }` | `members.tq.tsv` (a row per member) |
 | Categories | `hunts.wheel` | `categories.tq.json`: `{ wheel: [ … ] }`, the default wheel written out in full when the hunt has never arranged one | `categories.tq.tsv` (a row per slot) |
-| Realm | `realms` | ⟨url⟩`<realm>/realm.tq.json`: `{ realms: { <realm>: { label, title, position } } }` | `realm.tq.tsv` (keypath/value) |
-| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | ⟨url⟩`<realm>/<quiz>/quiz.tq.json`: `…quizzes: { <quiz>: { label, title, version, locked, smiths_note, q1_preamble, questions, widgetings, columns } }`; questions in quiz order, chains by label, each with every widgeting's status and value | `quiz.tq.tsv` (keypath/value, questions left out) |
+| Realm | `realms` | ⟨url⟩`<realm>/realm.tq.json`: `{ realms: { <realm>: { label, title, position } } }` | `realm.tq.tsv` (one row) |
+| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | ⟨url⟩`<realm>/<quiz>/quiz.tq.json`: `…quizzes: { <quiz>: { label, title, locked, smiths_note, q1_preamble, questions, widgetings, columns } }`; questions in quiz order, chains by label, each with every widgeting's status and value | `quiz.tq.tsv` (one row, questions left out) |
 | Questions, alone | the same questions | `<realm>/<quiz>/questions.qq.json`: a bare list, **not a jsonball, not merged** | `questions.qq.tsv` (today's format, by label) |
 | Reviews | `reviews` + `reviewings`, **shared only** | `<realm>/<quiz>/reviews/<ident_label>.review.tq.json`: `…quizzes: { <quiz>: { reviews: { <ident_label>: { overall, phase, verdicts: { <question label>: { … } } } } } }` | `<ident_label>.review.tq.tsv` (a row per question) |
-| Widgets worked | `widgets` (the library's) | `widget/<scope>/<label>.widget.tq.json`: `{ widgets: { <scope>: { <label>: { … } } } }`, as `Widget.exported` gives it | `<label>.widget.tq.tsv` (keypath/value) |
+| Widgets worked | `widgets` (the library's) | `widget/<scope>/<label>.widget.tq.json`: `{ widgets: { <scope>: { <label>: { … } } } }`, as `Widget.exported` gives it | `<label>.widget.tq.tsv` (one row) |
 
 A `README.md` at the root, written once when the repository is made, says what the repository
 is, how to read it, and the `jq` line above.
@@ -117,34 +118,18 @@ is, how to read it, and the `jq` line above.
   needs of them.
 * **The library apart from what the hunt works**: it belongs to no hunt.
 
-## Branches, versions and tags
+## Branches
 
-**Versions stay branches** (settled 2026-10-05). A hunt's quizzes each have their own version,
-though, and a repository has only one checked-out branch, so the per-quiz rule ("a quiz's
-version names its branch") needs a hunt-sized reading. **Proposed, awaiting the Coach's word:**
+**The branch belongs to the hunt** (settled 2026-10-05). What the code called a quiz's
+`version` is renamed `branch` and moved to the hunt: `notes/decisions/urls.md` has a version
+name the state of the whole hunt (`{hunt}@{ref}`), and the hunt's own page is where it is set.
+One hunt, one branch at a time, so a hunt repository is on exactly the branch the hunt names:
 
-* **A branch per version, holding the quizzes on that version.** Branch `main` is the hunt as
-  its `main` quizzes stand; branch `playtest` is the hunt as its `playtest` quizzes stand.
-* **A commit goes to the branch of each version that moved.** A burst that touched a `main`
-  quiz and a `playtest` quiz makes two commits, one per branch, each with only its own quizzes'
-  changes in it.
-* **Hunt-level files ride on every branch.** Each commit writes the hunt, members, categories,
-  realms and widgets as they now stand, so every branch is a complete hunt for the quizzes on
-  it, and a deep merge of any branch's `.tq.json` files reconstitutes it.
-* **Changing a quiz's version starts or joins a branch, as today.** A new version branches from
-  the old version's tip, then carries the quiz on from there. The old branch keeps the quiz as
-  it last stood on that version, which is the answer to "what was it before the playtest?".
-* **No checkout juggling.** Since nothing reads the working tree, each commit is built straight
-  into its branch (`git.writeTree` and `git.writeCommit` over the branch's tip, then the ref
-  moved). A working tree is checked out only to zip a download, on `main` (or the branch most
-  quizzes are on, when no quiz is on `main`).
-* **Tags carry the quiz**, since a version is shared:
-  `<quiz>/<version>/m-20261005184504z` for a milestone, and `…/import-…` and `…/delete-…`
-  around those changes. Git allows `/` in a tag name, and tools group tags by it.
-
-The alternative is to move `version` from the quiz to the hunt, so that one hunt has one
-branch at a time. That is simpler in git, but it is a change to the data model and a migration
-on production, and it takes away versioning quizzes one at a time.
+* **Changing the hunt's branch starts or joins a git branch, as a quiz's version did.** A new
+  name branches from the current tip, and a name the history has seen checks that branch out
+  again. Every commit goes to the hunt's branch.
+* **Tags must follow the label rule**, since `@{ref}` names them. Their exact shape (today's
+  `<version>-m-<stamp>` has a hyphen) is open until the URL conversation.
 
 ## Watching and committing, by file
 
