@@ -8,9 +8,10 @@ import * as Actor from '../../lib/actor'
 import * as Approve from '../../lib/approve'
 import { AppNotices, RefusalNotices } from '../../lib/notices'
 import * as Routes from '../../lib/routes'
+import * as PA from '../../lib/vv/patterns'
 import type { MemberT } from '../../lib/rows'
 import { HuntRoleTitles, HuntRoleVals, type HuntRole } from '../../models/hunting'
-import { Ident, IdentValidators } from '../../models/ident'
+import { Ident, type LabelFlawT } from '../../models/ident'
 import type { HuntHandle } from '../../state/use-hunt'
 import styles from '../workbench.module.css'
 
@@ -79,29 +80,35 @@ function MemberDoor({ member, claims, carryOut }: Readonly<Pick<MembersPanelProp
 }
 
 /**
- * The row that puts someone on the hunt: their ident label, their role, and a button. A label
- * refused, here, by the policy (one's own: `ownHunting`), or by the server, says why beneath it
- * until it is changed.
+ * The row that puts someone on the hunt: their ident label, their role, and a button. The label is
+ * checked as the front door checks a username (`Ident.flawToSay`): one no typing on would mend is
+ * said at once, one too short once the field is left. A label refused, here, by the policy (one's
+ * own: `ownHunting`), or by the server, says why beneath it until it is changed.
  */
 function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelProps, 'claims' | 'carryOut' | 'saveNotice'>>) {
   const [labelDraft, setLabelDraft] = useState('')
   const [role, setRole] = useState<HuntRole>('reviewer')
   const [issue, setIssue] = useState<string | null>(null)
+  // Whether the field has been left since it was last emptied: a label too short is said only after, as it may still be being typed.
+  const [left, setLeft] = useState(false)
   // Whether the server refused the last add, so its notice belongs beneath the label too.
   const [refused, setRefused] = useState(false)
-  const shown = issue ?? (refused ? saveNotice : null)
+  const said = Ident.flawToSay(labelDraft, left)
+  const shown = issue ?? (said ? FlawNotices[said] : null) ?? (refused ? saveNotice : null)
 
   const onAdd = async () => {
-    const ident_label = Ident.labelFor(labelDraft)
+    const ident_label = labelDraft
     if (ident_label === '') { setIssue(AppNotices.identLabelNeeded); return }
-    if (! IdentValidators.identLabel.safeParse(ident_label).success) { setIssue(AppNotices.identLabelShape); return }
+    if (Ident.flawIn(ident_label) !== null) { setLeft(true); return }
     const addition = { kind: 'add_hunting', ident_label, role } as const
     const verdict = Approve.verdictOn(addition.kind, claims, addition)
     if (verdict !== Approve.Allow) { setIssue(RefusalNotices[verdict]); return }
     setIssue(null)
     const kept = await carryOut(addition, { quietly: true })
     setRefused(! kept)
-    if (kept) { setLabelDraft('') }
+    if (! kept) { return }
+    setLabelDraft('')
+    setLeft(false)
   }
 
   return (
@@ -112,7 +119,9 @@ function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelP
       <TextField
         size="small" label="Ident label" value={labelDraft} sx={{ flex: 1 }}
         helperText={shown ?? ' '} error={shown !== null}
+        slotProps={{ htmlInput: { maxLength: PA.Identlabel.max } }}
         onChange={(event) => { setLabelDraft(event.target.value); setIssue(null); setRefused(false) }}
+        onBlur={() => { setLeft(true) }}
       />
       <TextField select size="small" label="Role" value={role}
         onChange={(event) => { setRole(HuntRoleVals.find((each) => each === event.target.value) ?? 'reviewer') }}>
@@ -122,3 +131,9 @@ function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelP
     </Stack>
   )
 }
+
+/** What the label field says beneath it of each flaw */
+const FlawNotices = {
+  shape:      AppNotices.identLabelShape,
+  unfinished: AppNotices.identLabelUnfinished,
+} as const satisfies Record<LabelFlawT, string>

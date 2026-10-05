@@ -1,4 +1,3 @@
-import _ from 'es-toolkit/compat'
 import type * as Z from 'zod'
 import type * as Actor from '../lib/actor'
 import { Validator } from '../lib/validator'
@@ -30,8 +29,8 @@ export type IdentT    = Pick<IdentRowT, 'label' | 'title'> & { _id: string }
 /** Who a session is, as it is told: the ident it took on last, and the actor the server sees in its requests */
 export type CurrentIdentT = { ident: IdentT, actor: Actor.IdentActorT }
 
-/** Why what a person typed cannot become an ident label: a character no label keeps, or too few to make one */
-export type LabelFlawT = 'shape' | 'length'
+/** Why what a person typed is not an ident label: no typing on would make it one, or it is one still being typed (too short, or ending in an underscore) */
+export type LabelFlawT = 'shape' | 'unfinished'
 
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
@@ -40,37 +39,55 @@ export class Ident implements IdentT {
   declare title: string
 
   /**
-   * What a person typed, as the ident label it asks for: normalized as every label is, and no
-   * longer than an ident label may be. Shorter than the minimum is left short, for the validator
-   * to refuse.
+   * The ident label a name makes: normalized as every label is, and no longer than an ident label
+   * may be. Shorter than the minimum is left short, for the validator to refuse. What the label
+   * field beside a name shows until the label is typed in itself.
    *
-   * @param typed - Whatever was typed into the label box.
+   * @param name - Whatever was typed as a name.
    * @returns A label-shaped string, or `''` when nothing was typed.
    *
    * @example Ident.labelFor('Flip Kromer')  // => 'flip_kromer'
    */
-  static labelFor(typed: string): string {
-    return Labelmaker.normalize(typed, { maxlen: PA.Identlabel.max })
+  static labelFor(name: string): string {
+    return Labelmaker.normalize(name, { maxlen: PA.Identlabel.max })
   }
 
   /**
-   * What keeps what a person typed from becoming an ident label, if anything. `shape` is a
-   * character `labelFor` would drop or stand in for -- anything past letters, numbers, spaces,
-   * hyphens and underscores once accents are dropped, or a first character that is not a letter --
-   * which the label validator never sees, since `labelFor` repairs it. `length` is a label too short
-   * to take, nothing typed included. Too long is never a flaw: `labelFor` stops at the most a label
-   * holds.
+   * What keeps a label, typed as it is, from being an ident label, if anything. Nothing is
+   * repaired: a capital or a space is a flaw, not something to fold away. `shape` is a label no
+   * typing on would make one -- a character no label keeps, a first character that is not a
+   * letter, two underscores in a row, or too many characters. `unfinished` is one typing on could
+   * still finish: too short, nothing typed included, or ending in an underscore.
    *
-   * @param typed - Whatever was typed into the label box.
-   * @returns The flaw, or null when `labelFor(typed)` is an ident label.
+   * @param label - Whatever was typed into a label field.
+   * @returns The flaw, or null when it is an ident label.
    *
-   * @example Ident.flawIn('Flip Kromer')  // => null
-   * @example Ident.flawIn('flip!')        // => 'shape'
-   * @example Ident.flawIn('flip')         // => 'length'
+   * @example Ident.flawIn('flip_kromer')  // => null
+   * @example Ident.flawIn('Flip Kromer')  // => 'shape'
+   * @example Ident.flawIn('flip')         // => 'unfinished'
    */
-  static flawIn(typed: string): LabelFlawT | null {
-    if (typed.trim() !== '' && ! PA.Identtyped.re.test(_.deburr(typed))) { return 'shape' }
-    return IdentValidators.identLabel.safeParse(this.labelFor(typed)).success ? null : 'length'
+  static flawIn(label: string): LabelFlawT | null {
+    if (label.length > PA.Identbegun.max || ! PA.Identbegun.re.test(label)) { return 'shape' }
+    return IdentValidators.identLabel.safeParse(label).success ? null : 'unfinished'
+  }
+
+  /**
+   * The flaw a label field should say of itself now, if any. A `shape` is said at once; an
+   * `unfinished` label only once the field has been left, as it may still be being typed; and an
+   * empty field says nothing, as nobody has typed anything to be told of.
+   *
+   * @param label - Whatever is in the label field.
+   * @param left - Whether the field has been left (where the label follows another field, either of them has).
+   * @returns The flaw to say, or null.
+   *
+   * @example Ident.flawToSay('flip', false)  // => null
+   * @example Ident.flawToSay('flip', true)   // => 'unfinished'
+   * @example Ident.flawToSay('Flip', false)  // => 'shape'
+   */
+  static flawToSay(label: string, left: boolean): LabelFlawT | null {
+    const flaw = this.flawIn(label)
+    if (flaw === 'unfinished') { return left && label !== '' ? flaw : null }
+    return flaw
   }
 
   /**

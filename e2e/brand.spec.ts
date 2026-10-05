@@ -1,3 +1,4 @@
+import { AppNotices } from '../src/lib/notices'
 import { expect, headLinks, test } from './support'
 
 // About the header and the about page, neither of which needs a hunt.
@@ -8,7 +9,7 @@ test.describe('the header', () => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()
-    await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
     await banner.getByRole('link', { name: 'About' }).click()
     await expect(page).toHaveTitle('About — Triquet')
   })
