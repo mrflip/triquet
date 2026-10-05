@@ -31,18 +31,23 @@ neither moves nor strands its history.
 
 ## Jsonballs at their paths
 
-Every `.json` file is a **jsonball rooted at the hunt**: it holds its piece of the hunt nested
-under the keys that lead to it, so that **deep-merging every `.json` in the repository
-reconstitutes the hunt**.
+Every `.tq.json` file is a **jsonball rooted at the hunt**: it holds its piece of the hunt
+nested under the keys that lead to it, so that **deep-merging every `.tq.json` in the
+repository reconstitutes the hunt**.
 
 ```jsonc
-// home/quiet_otter/quiz.tq.json
-{ "realms": { "home": { "quizzes": { "quiet_otter": { "label": "quiet_otter", "title": "…", "widgetings": […], "columns": […] } } } } }
-// home/quiet_otter/questions.qq.json
-{ "realms": { "home": { "quizzes": { "quiet_otter": { "questions": [ … ] } } } } }
+// home/quiet_otter/quiz.tq.json -- the whole quiz, its questions included
+{ "realms": { "home": { "quizzes": { "quiet_otter": { "label": "quiet_otter", "title": "…", "questions": […], "widgetings": […], "columns": […] } } } } }
+// home/quiet_otter/questions.qq.json -- the exception: the questions alone, a bare list, not merged
+[ { "label": "nantes", "clueing": "…", … }, … ]
 ```
 
-**Collections across files are objects keyed by label, not arrays.** A merge cannot know that
+**The one exception is a quiz's questions file**, `questions.qq.json`. It holds the questions a
+second time, on purpose, as a bare list in quiz order, rooted nowhere. That is exactly what the
+Import box already accepts as a bare list of questions, so it can be pasted straight back in.
+Its `.qq.json` extension keeps it out of the merge.
+
+**Collections across files are objects keyed by label, not arrays** (settled 2026-10-05). A merge cannot know that
 two arrays' elements are the same realm, and merge libraries disagree about arrays (es-toolkit
 and lodash merge them by index, `deepmerge` concatenates, `jq`'s `*` replaces). A keyed object
 merges the same way in every tool, and its keys are exactly the labels the file path names. The
@@ -50,18 +55,22 @@ rule that makes this safe: **no array is ever contributed to by two files.** Arr
 inside one file's leaf: a quiz's questions in quiz order, its widgetings, its columns, the
 wheel's slots. The order of collections that are keyed (realms, quizzes) is kept as a
 `position` field where the data has one (realms). Quizzes have none, since their order is the
-order they were made in, so a reconstituted realm lists its quizzes by label.
+order they were made in, so a reconstituted realm lists its quizzes by label. **Open: revisit
+quiz order once the URL scheme is settled** (plan, *For the Coach*).
 
-As a result, `jq -s 'reduce .[] as $f ({}; . * $f)' $(git ls-files '*.json')` rebuilds the
+As a result, `jq -s 'reduce .[] as $f ({}; . * $f)' $(git ls-files '*.tq.json')` rebuilds the
 hunt, at any commit, with no Triquet involved, and `es-toolkit`'s `merge` does the same inside
 the app's tests.
 
 ## The rules every file follows
 
-1. **Every resource is written exactly once, in both formats**: a jsonball, and a `.tsv` beside
-   it with the same stem, legible in a diff. The quiz is one jsonball holding everything about
-   it (its widgetings and columns included) **except its questions**, which are a jsonball of
-   their own. An edit therefore lands in exactly one JSON file and one TSV file.
+1. **Every resource is written once, in both formats**: a jsonball, and a `.tsv` beside it with
+   the same stem, legible in a diff. The quiz is one jsonball holding everything about it,
+   questions included. Its questions are also written alone (`questions.qq.json`, the exception
+   above) beside `questions.qq.tsv`, their legible table, so `quiz.tq.tsv` leaves the questions
+   out rather than repeat them as keypath lines. A question edit therefore diffs in
+   `quiz.tq.json`, `questions.qq.json` and `questions.qq.tsv`, and any other edit in exactly one
+   JSON file and one TSV file.
 2. **JSON** is `UU.jsonify(…, { pretty: true })`, with sorted keys and a trailing newline.
 3. **TSV** is a view of its jsonball's leaf, not part of the merge. It comes in two shapes,
    both quoted by Papa Parse, with `\n` line endings and a trailing newline:
@@ -89,10 +98,10 @@ the app's tests.
 | Members | `huntings` | `members.tq.json`: `{ members: { <ident_label>: { title, role } } }` | `members.tq.tsv` (a row per member) |
 | Categories | `hunts.wheel` | `categories.tq.json`: `{ wheel: [ … ] }`, the default wheel written out in full when the hunt has never arranged one | `categories.tq.tsv` (a row per slot) |
 | Realm | `realms` | ⟨url⟩`<realm>/realm.tq.json`: `{ realms: { <realm>: { label, title, position } } }` | `realm.tq.tsv` (keypath/value) |
-| Quiz | `quizzes`, `widgetings`, `columns` | ⟨url⟩`<realm>/<quiz>/quiz.tq.json`: `…quizzes: { <quiz>: { label, title, version, locked, smiths_note, q1_preamble, widgetings, columns } }` | `quiz.tq.tsv` (keypath/value) |
-| Questions | `questions` + `widgeteds` | `<realm>/<quiz>/questions.qq.json`: `…quizzes: { <quiz>: { questions: [ … ] } }`, in quiz order, chains by label, and each widgeting's status and value | `questions.qq.tsv` (today's format, by label) |
-| Reviews | `reviews` + `reviewings`, **shared only** | `<realm>/<quiz>/reviews/<ident_label>.review.json`: `…quizzes: { <quiz>: { reviews: { <ident_label>: { overall, phase, verdicts: { <question label>: { … } } } } } }` | `<ident_label>.review.tsv` (a row per question) |
-| Widgets worked | `widgets` (the library's) | `widget/<scope>/<label>.tqwidget.json`: `{ widgets: { <scope>: { <label>: { … } } } }`, as `Widget.exported` gives it | `.tqwidget.tsv` (keypath/value) |
+| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | ⟨url⟩`<realm>/<quiz>/quiz.tq.json`: `…quizzes: { <quiz>: { label, title, version, locked, smiths_note, q1_preamble, questions, widgetings, columns } }`; questions in quiz order, chains by label, each with every widgeting's status and value | `quiz.tq.tsv` (keypath/value, questions left out) |
+| Questions, alone | the same questions | `<realm>/<quiz>/questions.qq.json`: a bare list, **not a jsonball, not merged** | `questions.qq.tsv` (today's format, by label) |
+| Reviews | `reviews` + `reviewings`, **shared only** | `<realm>/<quiz>/reviews/<ident_label>.review.tq.json`: `…quizzes: { <quiz>: { reviews: { <ident_label>: { overall, phase, verdicts: { <question label>: { … } } } } } }` | `<ident_label>.review.tq.tsv` (a row per question) |
+| Widgets worked | `widgets` (the library's) | `widget/<scope>/<label>.widget.tq.json`: `{ widgets: { <scope>: { <label>: { … } } } }`, as `Widget.exported` gives it | `<label>.widget.tq.tsv` (keypath/value) |
 
 A `README.md` at the root, written once when the repository is made, says what the repository
 is, how to read it, and the `jq` line above.
@@ -110,11 +119,32 @@ is, how to read it, and the `jq` line above.
 
 ## Branches, versions and tags
 
-Today a quiz's `version` names its repository's branch. A hunt's quizzes each have their own
-version, so **a hunt repository has one branch, `main`**, and `version` is an ordinary field in
-the quiz's jsonball. Tags carry the quiz as a path segment: `<quiz>/<version>/m-20261005184504z`
-for a milestone, and `<quiz>/<version>/import-…` and `…/delete-…` around those changes. Git
-allows `/` in a tag name, and tools group tags by it.
+**Versions stay branches** (settled 2026-10-05). A hunt's quizzes each have their own version,
+though, and a repository has only one checked-out branch, so the per-quiz rule ("a quiz's
+version names its branch") needs a hunt-sized reading. **Proposed, awaiting the Coach's word:**
+
+* **A branch per version, holding the quizzes on that version.** Branch `main` is the hunt as
+  its `main` quizzes stand; branch `playtest` is the hunt as its `playtest` quizzes stand.
+* **A commit goes to the branch of each version that moved.** A burst that touched a `main`
+  quiz and a `playtest` quiz makes two commits, one per branch, each with only its own quizzes'
+  changes in it.
+* **Hunt-level files ride on every branch.** Each commit writes the hunt, members, categories,
+  realms and widgets as they now stand, so every branch is a complete hunt for the quizzes on
+  it, and a deep merge of any branch's `.tq.json` files reconstitutes it.
+* **Changing a quiz's version starts or joins a branch, as today.** A new version branches from
+  the old version's tip, then carries the quiz on from there. The old branch keeps the quiz as
+  it last stood on that version, which is the answer to "what was it before the playtest?".
+* **No checkout juggling.** Since nothing reads the working tree, each commit is built straight
+  into its branch (`git.writeTree` and `git.writeCommit` over the branch's tip, then the ref
+  moved). A working tree is checked out only to zip a download, on `main` (or the branch most
+  quizzes are on, when no quiz is on `main`).
+* **Tags carry the quiz**, since a version is shared:
+  `<quiz>/<version>/m-20261005184504z` for a milestone, and `…/import-…` and `…/delete-…`
+  around those changes. Git allows `/` in a tag name, and tools group tags by it.
+
+The alternative is to move `version` from the quiz to the hunt, so that one hunt has one
+branch at a time. That is simpler in git, but it is a change to the data model and a migration
+on production, and it takes away versioning quizzes one at a time.
 
 ## Watching and committing, by file
 
@@ -125,7 +155,8 @@ whose reads it touched, and Convex resends only their results.
 
 * **Dirty files, not whole trees.** Each watch maps its result to the files it owns. The
   scheduler keeps, per hunt, the set of files whose body differs from what was last committed.
-  A commit writes and `git.add`s only those, and removes the files of anything that went.
+  A commit writes only those blobs into its branch's tree, and drops the files of anything that
+  went.
 * **One clock per hunt.** The first change starts the wait, and later changes do not restart
   it.
 * **Consistency.** The Convex client applies every subscribed query's new result at one
