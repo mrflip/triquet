@@ -11,8 +11,8 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 1 | The URL scheme | landed #125 |
 | 2 | Jsonballs, and Import and Export through them | landed #126 |
 | 3 | A hunt's files | landed #127 |
-| 4 | Watches at the grain of the files | landing (lane 1) |
-| 5 | One repository per hunt | pending (after 4) |
+| 4 | Watches at the grain of the files | landed #128 |
+| 5 | One repository per hunt | underway |
 | 6 | Downloads and the hunts page | pending (after 5 and 1) |
 
 ## What the threads have taught
@@ -137,3 +137,30 @@ minor: dotted column names can collide in a `.tsv` for free-form keys (the `.jso
 the jq test fails rather than skips without jq. Open with the Coach (orchestrator's recommendation
 in brackets): a review's table a row per question [yes]; the quiz's 141-column one-row table
 [keep]; escapes in a spreadsheet [as built].
+
+### Thread 4: watches at the grain of the files (landed #128)
+
+`quizzes.whole` (`convex/quizzes.ts`): one quiz whole, as the export holds it, for smiths only
+(null for any denial). `src/state/hunt-feed.ts`: `watchHunt` and **`useHuntFeed(labels.hunt,
+huntAffirms, quiz_id, onReading)`**, not yet wired in. It watches `hunts.open`, `widgets.library`
+whole, and per quiz `reviews.forQuiz` plus `quizzes.whole` (or, for the quiz on screen, the
+screen's own frame and question watches, shared). **Thread 5's contract is
+`thread-4-watches.md`, *What thread 5 is handed*: read it whole.** In brief:
+* A `HuntReadingT` is `hunt` (`_id` keys the repository, `branch` the commits), `parts` (`'hunt'`,
+  each quiz by `_id`, `'widgets'`), `files` (all but `README.md`), and `first`.
+* `first: true` is the first full reading, the catch-up commit's input; nothing comes before it.
+  Afterwards a reading comes only when a file's body changed; an unchanged part is the same
+  object. `Huntfiles.changesBetween(prev.files, next.files)` says what to write and remove;
+  `Changes.quizChanges` what to say in the message.
+* Only the quiz list removes a quiz's files. Nothing is handed on while the hunt is gone,
+  relabelled (the hook remounts; its `first` reading catches up) or the smith demoted.
+* Measured on 20 quizzes x 40 questions: 82 subscriptions, 2.6 MB first reading, 86 KB per
+  off-screen quiz edit; one quiz's files 38 ms, **every quiz's 760 ms**, which a hunt
+  retitle/relabel, a wheel change or any library change costs. Full table:
+  `thread-4-measured.md`.
+
+*Review:* fixed at medium (`80d3fa5`: a failing watch is reported once, not at every reading).
+Left, minor: **the first reading waits for every listed quiz**, so one quiz whose `quizzes.whole`
+keeps failing holds back the catch-up commit and everything after (thread 5 guards against it).
+Open with the Coach: `quizzes.whole` per off-screen quiz vs per-question watches
+[orchestrator: keep].

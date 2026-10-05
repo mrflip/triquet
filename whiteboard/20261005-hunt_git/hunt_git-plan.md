@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: threads 0-3 landed (#121, #125, #126, #127); thread 4 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-4 landed (#121, #125, #126, #127, #128); thread 5 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -151,6 +151,8 @@ full reading. Milestones, imports and deletions keep working.
 Gloss: `/hunts/<hunt _id>` in the browser's filesystem; the scheduler keyed by hunt, holding
 dirty files; commit messages summarised per quiz; tags following the label rule (urls.md: a
 `@ref` names them); `quizgit.ts` and `quiz-mirror.ts` replaced. Depends on: 4.
+~~Which files changed between readings~~ and ~~the first-full-reading signal~~: pulled forward
+by thread 4 (`Huntfiles.changesBetween`, `HuntReadingT.first`).
 
 ### 6. Downloads and the hunts page
 
