@@ -36,15 +36,15 @@ resources*). Before running anything:
 
 `/code-review` does not run where you stand. Its own description gives it a target -- a PR
 number, a branch, or a path -- and no working directory: it runs in the session's main
-checkout, the Coach's. That checkout stands on the spine's top, which is your thread's base,
-so what is on disk there is the code as it stood *before* the thread. The thread's commits
+checkout, the Coach's. That checkout stands on the spine's top -- your thread's base, or a later
+top if other threads have landed since -- so what is on disk there is never the thread's code. The thread's commits
 reach the skill only through the objects and refs that every checkout shares. Hence:
 
 * **Never pass `--fix`.** It applies findings to the main checkout's working tree. The skill
   must never write to the main checkout: that is the Coach's, and everything uncommitted there
   is theirs.
 * **Spell both ends of the range as SHAs**, `<base-sha>...<tip-sha>`. A `HEAD` there is the main
-  checkout's, the thread's base: an empty range, or the wrong one.
+  checkout's, the spine's top: an empty range, or the wrong one.
 * **A finding is a lead, not a verdict.** The skill read the code around the diff from the
   base, not from the thread. Check each finding against the worktree's files before you believe
   it.
@@ -79,7 +79,9 @@ reach the skill only through the objects and refs that every checkout shares. He
    the worktree is dropped, with a line in your report.
 3. **Prove it.** `pnpm typecheck && pnpm lint && pnpm test`, and `pnpm test:e2e` too unless
    every kept fix sits in `src/lib`, `src/models` or `tests/`; they run on the worktree's own
-   lane. A fix that turns a suite red and whose repair is not obvious is undone, not repaired:
+   lane. Other threads may be running suites beside you: specs your fixes do not touch that time
+   out (Convex "Function execution timed out") are the machine's load -- rerun those files once
+   it falls before calling anything red. Stop only processes you started, by PID. A fix that turns a suite red and whose repair is not obvious is undone, not repaired:
    note it. Never commit red.
 4. **Commit.** `fix:` commits in the log's style, one per independent fix, each message saying
    what was wrong. The branch is yours to append to, never to rewrite: no rebase, no amend of
