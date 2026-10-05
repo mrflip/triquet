@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { MarkdownText } from './markdown'
 import * as Chain from '../../lib/chain'
 import { CellNotices } from '../../lib/notices'
-import type { QuestionT } from '../../models/question'
+import { Question, type QuestionT } from '../../models/question'
 import styles from '../workbench.module.css'
 
 export type ChainPickerProps = {
@@ -16,7 +16,11 @@ export type ChainPickerProps = {
   onChain:   (chains_to: string | null) => void
 }
 
-/** Which question follows this one. Every other question in the quiz, by its title. */
+/**
+ * Which question follows this one. Every other question in the quiz but the archived, by its title
+ * as shown (an alternate's marked as one); an archived one only when it is already the one chained
+ * to, marked as archived.
+ */
 export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
   return (
     <select
@@ -27,9 +31,9 @@ export function ChainPicker({ question, questions, locked, onChain }: Readonly<C
       onChange={(event) => { onChain(event.target.value === '' ? null : event.target.value) }}
     >
       <option value="">{CellNotices.chainUnset}</option>
-      {questions.filter((other) => other._id !== question._id).map((other) => (
+      {questions.filter((other) => other._id !== question._id && (! Question.isArchived(other) || other._id === question.chains_to)).map((other) => (
         <option key={other._id} value={other._id}>
-          {other.title === '' ? CellNotices.chainTargetUnnamed : other.title}
+          {Question.titleShown(other, CellNotices.chainTargetUnnamed)}{Question.isArchived(other) ? ` ${CellNotices.chainTargetArchived}` : ''}
         </option>
       ))}
     </select>

@@ -14,7 +14,7 @@ import { AppNotices } from '../lib/notices'
 import * as Rank from '../lib/rank'
 import { reviewBy, type ReviewedT } from '../lib/rows'
 import type { IdentT } from '../models/ident'
-import type { QuestionT } from '../models/question'
+import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import * as PA from '../lib/vv/patterns'
 import { Reviewing, ReviewingFlags, type PickFlag, type ReviewingPatch } from '../models/reviewing'
@@ -31,8 +31,8 @@ export type ReviewScreenProps = {
 }
 
 /**
- * What a reviewer sees: the smith's note, folded to its first line, when there is one; the quiz's questions,
- * read-only, each with its chained BUT NOT, the reviewer's verdict on it, and its answer behind a
+ * What a reviewer sees: the smith's note, folded to its first line, when there is one; the quiz's questions
+ * but the archived, read-only, an alternate marked as one, each with its chained BUT NOT, the reviewer's verdict on it, and its answer behind a
  * lock; then an overall note, and a button to share it all with the smiths. Once theirs is shared, what the other reviewers have shared
  * appears below it; until then, a line says so.
  *
@@ -48,7 +48,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readon
   }, [dispatch, quiz._id, ident._id])
 
   const own = reviewBy(reviews, ident._id)
-  const questions = useMemo(() => Rank.inRankOrder(quiz.questions), [quiz.questions])
+  const questions = useMemo(() => Rank.inRankOrder(Question.unarchived(quiz.questions)), [quiz.questions])
   const reviewingFor = useMemo(() => new Map((own?.reviewings ?? []).map((reviewing) => [reviewing.question_id as string, reviewing])), [own])
   const { draft, onChange, onBlur } = useDraft(own?.overall ?? '', (overall) => {
     dispatch({ kind: 'set_overall', quiz_id: quiz._id, overall })
@@ -67,7 +67,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readon
               key={question._id}
               quiz_id={quiz._id}
               question={question}
-              chainTarget={questions.find((other) => other._id === question.chains_to) ?? null}
+              chainTarget={quiz.questions.find((other) => other._id === question.chains_to) ?? null}
               reviewing={reviewingFor.get(question._id) ?? null}
               reviewings={own?.reviewings ?? []}
               dispatch={dispatch}
@@ -196,10 +196,12 @@ function ReviewQuestionRow({ quiz_id, question, chainTarget, reviewing, reviewin
   const pickFull = (flag: PickFlag) => Reviewing.pickedElsewhere(reviewings, flag, question._id) >= PA.PicksPerReview.max
 
   return (
-    <Paper variant="outlined" component="section" aria-label={question.title || AppNotices.untitledQuestion} sx={{ p: 2, ...RowAreasSx }}>
+    <Paper variant="outlined" component="section" aria-label={Question.titleShown(question, AppNotices.untitledQuestion)} sx={{ p: 2, ...RowAreasSx }}>
       <Stack spacing={1} sx={{ gridArea: 'question' }}>
         <Box sx={{ display: 'flex', gap: 0.75 }}>
           {question.qnum === '' ? null : <Typography>{question.qnum}.</Typography>}
+          {/* The review shows no titles, so an alternate is marked beside its number, as its title is elsewhere. */}
+          {Question.isSecondary(question) && <Typography sx={{ fontStyle: 'italic', flex: 'none' }}>{Question.AltMark}</Typography>}
           <Typography component="div" className={styles.prose} sx={{ minWidth: 0 }}><MarkdownText text={question.clueing} /></Typography>
         </Box>
         <ButnotFull target={chainTarget} chained={question.chains_to !== null} />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { useId, useMemo } from 'react'
 import { Checkbox, IconButton, Stack, Tooltip, useMediaQuery } from '@mui/material'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import clsx from 'clsx'
@@ -10,7 +10,7 @@ import { QuestionRow, alignClassOf } from './QuestionRow'
 import { useFolds } from './use-folds'
 import { useSettledResize } from './use-settled-resize'
 import type { QuizRun } from '../lib/formulary/runner'
-import type { QuestionPatch, QuestionT } from '../models/question'
+import { Question, type QuestionPatch, type QuestionT } from '../models/question'
 import type { EntryValueT } from '../models/widget'
 import type { Sortkey } from '../models/quiz'
 import styles from './workbench.module.css'
@@ -21,6 +21,7 @@ export type SortMark = {
 }
 
 export type QuestionTableProps = {
+  /** The quiz's questions, in its order: the grid shows all but the archived, and a chain may point at any */
   questions:    QuestionT[]
   /** The quiz's columns, in the order they appear */
   specs:        ColumnSpec[]
@@ -29,7 +30,7 @@ export type QuestionTableProps = {
   locked:       boolean
   /** Grips are offered only while the quiz is in Q# order */
   gripShown:    boolean
-  /** Batch mode: each row shows a checkbox and trash can in place of its grip */
+  /** Batch mode: each row shows a checkbox, and a button to change how it is shown, in place of its grip */
   batching:     boolean
   /** Enter or leave batch mode, from the grid's top-left corner */
   onBatch:      (on: boolean) => void
@@ -37,8 +38,8 @@ export type QuestionTableProps = {
   onCheck:      (question_id: string, on: boolean) => void
   /** Check every question, or none */
   onCheckAll:   (on: boolean) => void
-  /** Asks to delete one question; the asking-first is the caller's */
-  onDelete:     (question_id: string) => void
+  /** Asks to change how one question is shown (its viz); the asking is the caller's */
+  onViz:        (question_id: string) => void
   /** Which column the quiz was last committed to, bold across reloads as a reminder */
   lastSortkey:  Sortkey | null
   /** Which column was sorted in this session, and which way; the only thing an arrow marks */
@@ -54,7 +55,7 @@ export type QuestionTableProps = {
   onEdit:       (question_id: string, patch: QuestionPatch) => void
   /** Put what was typed into one question's cell of the entry widgeting labelled so; null empties it */
   onEnter:      (question_id: string, widgeting_label: string, value: EntryValueT | null) => void
-  /** Told which question moved, and the index it lands on once it has been lifted out */
+  /** Told which question moved, and the index it lands on among those shown once it has been lifted out */
   onMove:       (question_id: string, onto_idx: number) => void
 }
 
@@ -62,17 +63,18 @@ export type QuestionTableProps = {
 const CardLayoutQuery = '(max-width:640px)'
 
 /**
- * The grid: one row per question, scrolling sideways inside its own container.
+ * The grid: one row per question but the archived, scrolling sideways inside its own container.
  *
  * Its top-left corner folds every row to one line, or unfolds them all when none is open; entering
  * a text box opens that row alone. The questions there when it opens start folded, and one added
  * later starts open. It holds this as its own state, so its owner keys it by the quiz. As cards,
  * below 640px, every question shows in full: the corner is not there to unfold them.
  */
-export function QuestionTable({ questions, specs, run, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onDelete, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
+export function QuestionTable({ questions, specs, run, locked, gripShown, batching, onBatch, isChecked, onCheck, onCheckAll, onViz, lastSortkey, sortMark, onSort, onChain, asking, unavailableNotice, onAsk, onEdit, onEnter, onMove }: Readonly<QuestionTableProps>) {
   const resizeToken = useSettledResize()
-  const checkedCount = questions.filter((question) => isChecked(question._id)).length
-  const folds = useFolds(questions.map((question) => question._id))
+  const shown = useMemo(() => Question.unarchived(questions), [questions])
+  const checkedCount = shown.filter((question) => isChecked(question._id)).length
+  const folds = useFolds(shown.map((question) => question._id))
   const carded = useMediaQuery(CardLayoutQuery)
   const bodyId = useId()
 
@@ -88,7 +90,7 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
                 </Tooltip>
                 <Stack sx={{ alignItems: 'center' }}>
                   {/* The span lets the tooltip hear the pointer while the button is disabled. */}
-                  <Tooltip title={batching ? 'Done selecting' : 'Select questions to delete'}>
+                  <Tooltip title={batching ? 'Done selecting' : 'Select questions, to archive them or show them as alternates'}>
                     <span>
                       <IconButton
                         size="small" sx={{ p: 0.25 }} color={batching ? 'primary' : 'default'}
@@ -102,8 +104,8 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
                   {batching && (
                     <Checkbox
                       size="small" sx={{ p: 0.25 }}
-                      checked={checkedCount > 0 && checkedCount === questions.length}
-                      indeterminate={checkedCount > 0 && checkedCount < questions.length}
+                      checked={checkedCount > 0 && checkedCount === shown.length}
+                      indeterminate={checkedCount > 0 && checkedCount < shown.length}
                       slotProps={{ input: { 'aria-label': 'Select all questions' } }}
                       onChange={(event) => { onCheckAll(event.target.checked) }}
                     />
@@ -138,7 +140,7 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
           </tr>
         </thead>
         <tbody id={bodyId}>
-          {questions.map((question, idx) => (
+          {shown.map((question, idx) => (
             <QuestionRow
               key={question._id}
               question={question}
@@ -147,12 +149,12 @@ export function QuestionTable({ questions, specs, run, locked, gripShown, batchi
               gripShown={gripShown}
               checked={batching ? isChecked(question._id) : null}
               onCheck={(on) => { onCheck(question._id, on) }}
-              onDelete={() => { onDelete(question._id) }}
+              onViz={() => { onViz(question._id) }}
               resizeToken={resizeToken}
               folded={! carded && folds.isFolded(question._id)}
               onUnfold={() => { folds.unfold(question._id) }}
               idx={idx}
-              count={questions.length}
+              count={shown.length}
               onMove={onMove}
               onChain={(chains_to) => { onChain(question._id, chains_to) }}
               specs={specs}

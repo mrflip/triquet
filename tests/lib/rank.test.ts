@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import * as Rank from '../../src/lib/rank'
-import { Question, type QuestionT } from '../../src/models/question'
+import { Question, type QuestionT, type QuestionViz } from '../../src/models/question'
 import { present } from '../support/present'
 
 /** A quiz built from `qnum, title` pairs, in the order given */
 function questionsOf(...pairs: [string, string][]): QuestionT[] {
   return pairs.map(([qnum, title]) => ({ ...Question.blank(), qnum, title }))
+}
+
+/** `questions`, each shown as `vizzes` says, in order */
+function shownAs(questions: QuestionT[], ...vizzes: QuestionViz[]): QuestionT[] {
+  return questions.map((question, ii) => ({ ...question, viz: vizzes[ii] ?? 'normal' }))
 }
 
 const qnums = (questions: QuestionT[]) => questions.map((question) => question.qnum)
@@ -95,6 +100,40 @@ describe('renumberByPosition', () => {
   it('numbers from the top, adopting the questions that had no Q#', () => {
     const questions = questionsOf(['9', 'a'], ['', 'b'], ['2', 'c'])
     expect(qnums(Rank.renumberByPosition(questions))).to.deep.eq(['1', '2', '3'])
+  })
+
+  it('passes over an archived question, which keeps its Q# and is not counted', () => {
+    const questions = shownAs(questionsOf(['9', 'a'], ['7', 'b'], ['2', 'c']), 'normal', 'archived', 'secondary')
+    expect(qnums(Rank.renumberByPosition(questions))).to.deep.eq(['1', '7', '2'])
+  })
+})
+
+describe('the viz of the questions ranked', () => {
+  it('puts an alternate after its peer of the same Q#, whatever their titles', () => {
+    const questions = shownAs(questionsOf(['2', 'aardvark'], ['2', 'zebra'], ['1', 'mule']), 'secondary', 'normal', 'normal')
+    expect(answers(Rank.inRankOrder(questions))).to.deep.eq(['mule', 'zebra', 'aardvark'])
+    expect(ranks(questions)).to.deep.eq([3, 2, 1])
+  })
+
+  it('gives an archived question no rank, and takes none from the rest', () => {
+    const questions = shownAs(questionsOf(['1', 'a'], ['2', 'b'], ['3', 'c']), 'normal', 'archived', 'normal')
+    expect(ranks(questions)).to.deep.eq([1, null, 2])
+    expect(qnums(Rank.renumberByRank(questions))).to.deep.eq(['1', '2', '2'])
+  })
+
+  it("places a question dropped among those shown just above the one it was dropped on, archived ones and all", () => {
+    const [aa, archived, bb, cc] = shownAs(questionsOf(['1', 'aa'], ['', 'archived'], ['2', 'bb'], ['3', 'cc']), 'normal', 'archived', 'normal', 'normal')
+    const questions = [present(aa), present(archived), present(bb), present(cc)]
+    expect(Rank.ontoIdxAmong(questions, present(cc)._id, 1)).to.eq(2)
+    expect(Rank.ontoIdxAmong(questions, present(cc)._id, 0)).to.eq(0)
+    expect(Rank.ontoIdxAmong(questions, present(aa)._id, 2)).to.eq(3)
+    const onto_idx = Rank.ontoIdxAmong(questions, present(cc)._id, 1)
+    const moved = Rank.moveQuestion(questions, present(cc)._id, onto_idx)
+    expect(answers(moved)).to.deep.eq(['aa', 'archived', 'cc', 'bb'])
+  })
+
+  it("reads alternatesLast's example", () => {
+    expect([Rank.alternatesLast({ viz: 'secondary' }, { viz: 'normal' }), Rank.alternatesLast({ viz: 'normal' }, { viz: 'normal' })]).to.deep.eq([1, 0])
   })
 })
 

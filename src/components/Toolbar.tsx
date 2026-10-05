@@ -1,6 +1,8 @@
 'use client'
 
 import { Button, Stack } from '@mui/material'
+import { VizChoices } from './ConfirmViz'
+import type { QuestionViz } from '../models/question'
 
 export type ToolbarProps = {
   /** Whether the questions are left as they are: adding, selecting, sorting and renumbering not offered */
@@ -10,24 +12,32 @@ export type ToolbarProps = {
   /** How many questions are checked, in batch mode */
   checkedCount:    number
   onBatch:         (on: boolean) => void
-  /** Asks to delete the checked questions; the asking-first is the caller's */
-  onDeleteChecked: () => void
+  /** Shows the checked questions as `viz` says: archiving asks first, the caller's to ask */
+  onVizChecked:    (viz: QuestionViz) => void
   onAddQuestion:   () => void
   onSortByChain:   () => void
   onRenumber:      () => void
   onEditLibrary:   () => void
 }
 
-/** What the author can do to the quiz as a whole */
-export function Toolbar({ locked, batching, checkedCount, onBatch, onDeleteChecked, onAddQuestion, onSortByChain, onRenumber, onEditLibrary }: Readonly<ToolbarProps>) {
+/** What batch mode offers for the checked questions, in the order its buttons stand */
+const BatchVizzes: readonly QuestionViz[] = ['archived', 'secondary', 'normal']
+
+/** What the author can do to the quiz as a whole, and in batch mode to the questions checked */
+export function Toolbar({ locked, batching, checkedCount, onBatch, onVizChecked, onAddQuestion, onSortByChain, onRenumber, onEditLibrary }: Readonly<ToolbarProps>) {
   return (
     <Stack direction="row" spacing={1} sx={{ my: 2, flexWrap: 'wrap', alignItems: 'center' }}>
       <Button size="small" variant="outlined" disabled={locked} onClick={onAddQuestion}>+ Add question</Button>
       {batching ? (
         <>
-          <Button size="small" variant="contained" color="error" disabled={checkedCount === 0} onClick={onDeleteChecked}>
-            Delete checked ({checkedCount})
-          </Button>
+          {BatchVizzes.map((viz) => {
+            const { actname, Icon, color } = VizChoices[viz]
+            return (
+              <Button key={viz} size="small" variant={viz === 'archived' ? 'contained' : 'outlined'} color={color} startIcon={<Icon />} disabled={checkedCount === 0} onClick={() => { onVizChecked(viz) }}>
+                {viz === 'archived' ? 'Archive selected' : actname} ({checkedCount})
+              </Button>
+            )
+          })}
           <Button size="small" variant="outlined" onClick={() => { onBatch(false) }}>Done selecting</Button>
         </>
       ) : (

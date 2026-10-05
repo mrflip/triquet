@@ -198,6 +198,21 @@ export class Question implements QuestionT {
     return question.viz === 'secondary'
   }
 
+  /** What follows an alternate's title wherever it is shown, the title in italics */
+  static readonly AltMark = '(alt)'
+
+  /**
+   * A question's title as every screen says it: an alternate's followed by `AltMark`; `untitled`
+   * for a question with no title.
+   *
+   * @example Question.titleShown({ title: 'Leon', viz: 'secondary' })  // => 'Leon (alt)'
+   * @example Question.titleShown({ title: '', viz: 'normal' }, 'Untitled question')  // => 'Untitled question'
+   */
+  static titleShown(question: Pick<QuestionT, 'title' | 'viz'>, untitled = ''): string {
+    const title = question.title === '' ? untitled : question.title
+    return this.isSecondary(question) ? `${title} ${this.AltMark}` : title
+  }
+
   /**
    * The questions of `questions` any screen shows, in the order given: all but the archived.
    *

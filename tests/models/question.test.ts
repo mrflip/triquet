@@ -283,6 +283,12 @@ describe('Question viz', () => {
     expect(Question.unarchived([{ viz: 'normal' }, { viz: 'archived' }, { viz: 'secondary' }])).to.deep.eq([{ viz: 'normal' }, { viz: 'secondary' }])
   })
 
+  it("reads titleShown's examples: an alternate's title marked as one, and an untitled question named", () => {
+    expect(Question.titleShown({ title: 'Leon', viz: 'secondary' })).to.eq('Leon (alt)')
+    expect(Question.titleShown({ title: '', viz: 'normal' }, 'Untitled question')).to.eq('Untitled question')
+    expect(Question.titleShown({ title: 'Leon', viz: 'archived' })).to.eq('Leon')
+  })
+
   it("starts every question normal", () => {
     expect([Question.blank().viz, Question.blankRow({ hunt_id: anId as Id<'hunts'>, quiz_id: anId as Id<'quizzes'> }).viz]).to.deep.eq(['normal', 'normal'])
   })
