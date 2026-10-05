@@ -42,10 +42,15 @@ export interface Top {
 
 /** Runs git in `cwd` and hands back what it printed; a failure throws with what git said */
 function git(cwd: string, ...args: string[]): string {
+  return gitExactly(cwd, ...args).trim()
+}
+
+/** What git, run in `cwd`, prints, as printed: for output whose leading space means something, as a status line's does */
+function gitExactly(cwd: string, ...args: string[]): string {
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the installed git, whichever it is, is the one keeping these checkouts
   const ran = spawnSync('git', args, { cwd, encoding: 'utf8' })
   if (ran.status !== 0) { throw new Error(`git ${args.join(' ')}: ${(ran.stderr || ran.stdout).trim()}`) }
-  return ran.stdout.trim()
+  return ran.stdout
 }
 
 /** Whether git, run in `cwd`, succeeds */
@@ -263,7 +268,7 @@ function backOnMain(main: string): string[] {
  * @returns The paths committed, empty when there was nothing to sweep.
  */
 export function sweep(main: string): string[] {
-  const paths = pathsOfStatus(git(main, 'status', '--porcelain', '-z', '--untracked-files=all', '--', ...SweptDirs))
+  const paths = pathsOfStatus(gitExactly(main, 'status', '--porcelain', '-z', '--untracked-files=all', '--', ...SweptDirs))
   if (paths.length === 0) { return [] }
   if (topOf(main).branch === 'main') {
     const taken = (branch: string) => gitOk(main, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`)
@@ -324,7 +329,7 @@ export function removeWorktree(cwd: string): string[] {
   if (root === main) { throw new SpineStop('This is the main checkout, not a worktree.') }
   const busy = busyIn(root)
   if (busy !== undefined) { throw new SpineStop(`This worktree is in the middle of something (${busy}): finish or abort it first.`) }
-  const dirty = pathsOfStatus(git(root, 'status', '--porcelain', '-z', '--untracked-files=all'))
+  const dirty = pathsOfStatus(gitExactly(root, 'status', '--porcelain', '-z', '--untracked-files=all'))
   if (dirty.length > 0) { throw new SpineStop(`This worktree holds uncommitted files, which removing it would lose: ${dirty.join(', ')}. Commit them, or move them, first.`) }
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running this script, whichever it is
   const freed = execFileSync('node', [path.join(root, 'scripts', 'lanes.ts'), 'release'], { cwd: root, encoding: 'utf8' }).trim()

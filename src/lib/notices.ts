@@ -45,6 +45,8 @@ export const AppNotices = {
   deletingHunt:         'To delete a hunt, please delete its quizzes.',
   huntTitleTooLong:     'That name is too long.',
   huntLabelShape:       'Enter a label: letters, digits and single underscores, starting with a letter.',
+  branchShape:          'Enter a branch: letters, digits and single underscores, starting with a letter.',
+  branchHelp:           'A new name starts a branch; an old one goes back to it.',
   huntRelabelMoves:     "Changing this label updates the URL. Old links won't find this page anymore.",
 } as const
 

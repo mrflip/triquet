@@ -8,16 +8,22 @@ import { Quiz, type QuizT } from './quiz'
 import { defaultLayout } from './layout'
 import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 
+/** The branch every hunt starts on, and so the git branch its history begins on */
+export const DefaultBranch = 'main'
+
 export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) => {
   const huntLabel = label
     .describe('What the hunt is called in an address. Minted when the hunt is made, and unique across the app by convention: two hunts minted with one label resolve to the earlier.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
+  const branch = label
+    .describe('Which line of work the hunt is currently on, and the name of the git branch its history is committed to. Shares the `label` shape, which is a strict subset of what git accepts in a ref, so a branch an author can type is always one git will take.')
 
   const hunt = obj({
     _id:          treeid,
     label:        huntLabel,
     title:        title.default(''),
+    branch:       branch.default(DefaultBranch),
     realms:       arr(RealmValidators.realm).min(PA.RealmsPerHunt.min).max(PA.RealmsPerHunt.max)
       .describe(`The hunt's realms, in order, at most ${String(PA.RealmsPerHunt.max)}. Every hunt has \`home\`, and for now nothing else.`),
   })
@@ -29,12 +35,13 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
   const row = obj({
     label:        huntLabel,
     title,
+    branch,
     wheel:        CategoryValidators.wheel.optional()
       .describe('How the hunt arranges the subject categories round its wheel. Absent until someone first arranges them, which reads as the default wheel.'),
   })
     .describe('One hunt as the database holds it: its realms are rows of their own.')
 
-  return { hunt, row }
+  return { hunt, row, branch }
 })
 
 export type HuntDNA = Z.input<typeof HuntValidators.hunt>
@@ -63,6 +70,7 @@ export class Hunt implements HuntT {
   declare _id:    string
   declare label:  string
   declare title:  string
+  declare branch: string
   declare realms: RealmT[]
 
   /**

@@ -39,7 +39,7 @@ export type ExportedQuiz = Omit<QuizT, '_id' | 'questions'> & {
  * A hunt as a smith is handed it: its realms in order, each with its quizzes. The widgets its
  * quizzes work are named by label, and are the library's to export.
  */
-export type ExportedHunt = Pick<HuntT, 'label' | 'title'> & {
+export type ExportedHunt = Pick<HuntT, 'label' | 'title' | 'branch'> & {
   realms: { label: string, title: string, quizzes: ExportedQuiz[] }[]
 }
 
@@ -81,6 +81,7 @@ export function huntExported(hunt: HuntT, library: readonly WidgetT[]): Exported
   return {
     label:  hunt.label,
     title:  hunt.title,
+    branch: hunt.branch,
     realms: hunt.realms.map((realm) => {
       const place = Runner.placeOf(hunt, realm)
       const quizzes = realm.quizzes.map((quiz) => quizExported(quiz, Runner.runQuiz(Runner.sourceOf(quiz, library, place))))

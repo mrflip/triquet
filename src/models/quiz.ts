@@ -16,9 +16,6 @@ export type Sortkey = typeof ChainOrderSortkey | ColumnSortkey
 /** How many blank questions a new quiz opens with, so the grid is never an empty void */
 export const BlankQuestionQty = 5
 
-/** The version every quiz starts on, and so the branch its history begins on */
-export const DefaultVersion = 'main'
-
 /** What every quiz's LL export puts ahead of its first question when going live, until a smith rewrites it */
 export const DefaultQ1Preamble = 'Important: Read the smith\'s note before you play![br][br]'
 
@@ -29,9 +26,6 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
 
   const quizLabel = label
     .describe('A freeform-editable local identifier, generated once at creation. Meant to become the quiz\'s URL route.')
-
-  const version = label
-    .describe('Which line of work the quiz is currently on, and the name of the git branch its history is committed to. Shares the `label` shape, which is a strict subset of what git accepts in a ref, so a version an author can type is always a branch git will take.')
 
   const smiths_note = noteish
     .describe('What the smiths want to say about the quiz as a whole: its theme, its meta, what is left to do. Several paragraphs if need be; kept trimmed.')
@@ -46,7 +40,6 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
     smiths_note:     smiths_note.default(''),
     q1_preamble:     q1_preamble.default(DefaultQ1Preamble),
-    version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
     widgetings:      arr(WidgetingValidators.widgeting).max(PA.WidgetingsPerQuiz.max).default([])
@@ -71,7 +64,6 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     label:           quizLabel,
     smiths_note,
     q1_preamble,
-    version,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
     row_ordering:    arr(zid('questions')).max(PA.QuestionsPerQuiz.max)
@@ -136,7 +128,6 @@ export class Quiz implements QuizT {
   declare label:           string
   declare smiths_note:     string
   declare q1_preamble:     string
-  declare version:         string
   declare questions:       QuestionT[]
   declare widgetings:      WidgetingT[]
   declare columns:         ColumnT[]
@@ -146,8 +137,8 @@ export class Quiz implements QuizT {
   /**
    * The fields a quiz shows the outside world, alphabetically: its label, the
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
-   * are exposed on their own; not the LL export's preamble; and not the housekeeping -- version,
-   * lock, remembered sort.
+   * are exposed on their own; not the LL export's preamble; and not the housekeeping -- lock,
+   * remembered sort.
    */
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
@@ -208,7 +199,7 @@ export class Quiz implements QuizT {
    */
   static blankRow({ hunt_id, realm_id }: Pick<QuizRowT, 'hunt_id' | 'realm_id'>, title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
-      hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', q1_preamble: DefaultQ1Preamble, version: DefaultVersion,
+      hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', q1_preamble: DefaultQ1Preamble,
       locked: false, last_sortkey: null, row_ordering: [],
     })
   }

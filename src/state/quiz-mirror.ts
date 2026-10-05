@@ -67,7 +67,7 @@ export async function enqueue<TT>(work: (fs: Quizgit.GitFs) => Promise<TT>): Pro
 /** Record `latest` in its repository, describing what moved since `baseline`; nothing, if nothing did. With no baseline, open the history if it has none. */
 async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapshot): Promise<void> {
   if (! baseline) {
-    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.library, latest.place))
+    await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.library, latest.place, latest.branch))
     return
   }
   const changes = [
@@ -75,7 +75,7 @@ async function commitBurst(baseline: MirrorSnapshot | null, latest: MirrorSnapsh
     ...Changes.widgetChanges(Quizgit.worked(baseline.quiz, baseline.library), Quizgit.worked(latest.quiz, latest.library)),
   ]
   if (changes.length === 0) { return }
-  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.library, latest.place, changes))
+  await enqueue(async (fs) => await Quizgit.commitQuiz(fs, latest.quiz, latest.library, latest.place, latest.branch, changes))
 }
 
 /**
@@ -128,7 +128,7 @@ function openHistory(latest: MirrorSnapshot): void {
   opened.add(latest.quiz._id)
   const open = async () => {
     try {
-      await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.library, latest.place))
+      await enqueue(async (fs) => await Quizgit.commitFirst(fs, latest.quiz, latest.library, latest.place, latest.branch))
     } catch (err) {
       // A record that misses a commit is a smaller loss than an edit that fails.
       Postmortem.report('start the quiz history', err, { quiz_id: latest.quiz._id })
@@ -156,7 +156,7 @@ export function mirrorQuiz(before: MirrorSnapshot | null, after: MirrorSnapshot)
     openHistory(after)
     return
   }
-  const moved = before.quiz !== after.quiz || before.library !== after.library || ! _.isEqual(before.place, after.place)
+  const moved = before.quiz !== after.quiz || before.library !== after.library || ! _.isEqual(before.place, after.place) || before.branch !== after.branch
   if (moved) { scheduler.note(before, after) }
 }
 
@@ -181,15 +181,16 @@ if (typeof document !== 'undefined') {
  * Mark where `quiz` now stands as a milestone, a point worth coming back to.
  *
  * @param quiz - The quiz being marked.
+ * @param branch - The branch its hunt is on.
  * Any change still being written, and anything still waiting to be committed, is committed first,
  * so the milestone marks what the author is looking at rather than what was true a moment ago.
  *
  * @returns The tag left behind, or null when there was no history here to tag.
  */
-export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
+export async function milestoneQuiz(quiz: QuizT, branch: string): Promise<string | null> {
   await writesLanded()
   await scheduler.flush(quiz._id)
-  return await enqueue(async (fs) => await Quizgit.milestoneQuiz(fs, quiz))
+  return await enqueue(async (fs) => await Quizgit.milestoneQuiz(fs, quiz, branch))
 }
 
 /**
@@ -202,18 +203,19 @@ export async function milestoneQuiz(quiz: QuizT): Promise<string | null> {
  *
  * @param quiz - The quiz being changed.
  * @param markkind - What the change is, which names the tag.
+ * @param branch - The branch its hunt is on, which names the tag too.
  * @param apply - Applies the change; it must dispatch it synchronously, so that it is being written by the time this looks.
  * @returns The tag left behind, or null when there was no history here to tag.
  *
- * @example void QuizMirror.markedChange(quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
+ * @example void QuizMirror.markedChange(quiz, 'delete', hunt.branch, () => { dispatch({ kind: 'delete_questions', question_ids }) })
  */
-export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, apply: () => void): Promise<string | null> {
+export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, branch: string, apply: () => void): Promise<string | null> {
   await writesLanded()
   await scheduler.flush(quiz._id)
   apply()
   await writesLanded()
   await scheduler.flush(quiz._id)
-  return await enqueue(async (fs) => await Quizgit.markChange(fs, quiz, markkind))
+  return await enqueue(async (fs) => await Quizgit.markChange(fs, quiz, markkind, branch))
 }
 
 /** What a download needs of a quiz: its id, which finds the repository, and its label, which names the zip */

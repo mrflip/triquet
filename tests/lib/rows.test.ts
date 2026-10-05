@@ -34,7 +34,7 @@ const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), 
 
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, hunt_id, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
-  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', version: 'main', locked: false, last_sortkey: null, row_ordering: [question_id],
+  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
   _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,

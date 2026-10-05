@@ -171,7 +171,7 @@ type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: ()
  * watches rather than renders: the client tells a watch of a change before the change's own
  * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
  * The quiz is its frame and a watch per question it orders, followed as the order changes, with
- * the library its widgetings work; a reading with a question still on its way is not noted. Each
+ * the library its widgetings work and the branch its hunt is on; a reading with a question still on its way is not noted. Each
  * is the same watch the screen holds, sent the same affirms, so none is opened twice.
  *
  * Fed only where the standing affirmed is sent every question whole (`Question.isSentWhole`): a
@@ -196,7 +196,7 @@ function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirms
         const quiz = frame && assembledQuiz(frame, (question_id) => questionWatches.get(question_id)?.reading())
         const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
         if (! hunt || ! quiz || ! realm || ! library) { return }
-        const snapshot = { quiz, library, place: Runner.placeOf(hunt, realm) }
+        const snapshot = { quiz, library, place: Runner.placeOf(hunt, realm), branch: hunt.branch }
         mirrorQuiz(last.snapshot, snapshot)
         last.snapshot = snapshot
       } catch (err) {

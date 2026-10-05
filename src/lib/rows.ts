@@ -4,7 +4,7 @@ import * as Labelmaker from './labelmaker'
 import type * as Actor from './actor'
 import * as Wheel from './wheel'
 import type { WheelT } from '../models/category'
-import type { HuntT } from '../models/hunt'
+import { DefaultBranch, type HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
 import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
@@ -82,7 +82,7 @@ export type WidgetUsageT = {
 }
 
 /** A quiz's row as a realm lists it: everything but its questions' order, which only the quiz's own screen reads */
-export type ListedQuizT = Omit<Doc<'quizzes'>, 'row_ordering'>
+export type ListedQuizT = Omit<Doc<'quizzes'>, 'row_ordering' | 'version'>
 
 /** A realm as the hunts list and the switcher show it: titled, with its quizzes as rows */
 export type ShallowRealmT = {
@@ -92,11 +92,12 @@ export type ShallowRealmT = {
   quizzes: readonly ListedQuizT[]
 }
 
-/** A hunt as the hunts list shows it: its label, its title, and each realm's quizzes as rows */
+/** A hunt as the hunts list shows it: its label, its title, its branch, and each realm's quizzes as rows */
 export type HuntListingT = {
   _id:    Id<'hunts'>
   label:  string
   title:  string
+  branch: string
   realms: readonly ShallowRealmT[]
 }
 
@@ -186,7 +187,7 @@ export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { sta
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
-    ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
+    ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id', 'version']),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
     columns:    columns.map((row) => _.pick(row, ['label', 'title', 'source', 'width_px', 'align'])),
   }
@@ -269,6 +270,11 @@ export function huntTitleOf(hunt: Pick<Doc<'hunts'>, 'label' | 'title'>): string
   return hunt.title === '' ? Labelmaker.titleize(hunt.label) : hunt.title
 }
 
+/** The branch `hunt` is on: the default, for a hunt written before a hunt had one */
+export function branchOf(hunt: Pick<Doc<'hunts'>, 'branch'>): string {
+  return hunt.branch ?? DefaultBranch
+}
+
 /** A realm's title as the screen shows it: a blank one reads as its label, titleized */
 export function realmTitleOf(realm: Pick<Doc<'realms'>, 'label' | 'title'>): string {
   return realm.title === '' ? Labelmaker.titleize(realm.label) : realm.title
@@ -286,11 +292,12 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
     _id,
     label,
     title:  huntTitleOf(rows.hunt),
+    branch: branchOf(rows.hunt),
     realms: rows.realms.map(({ realm, quizzes }) => ({
       _id:     realm._id,
       label:   realm.label,
       title:   realmTitleOf(realm),
-      quizzes: quizzes.map((quiz) => _.omit(quiz, ['row_ordering'])),
+      quizzes: quizzes.map((quiz) => _.omit(quiz, ['row_ordering', 'version'])),
     })),
   }
 }
@@ -335,6 +342,7 @@ export function huntFrom(rows: HuntRows, quizFor: ReadonlyMap<string, QuizT>): H
     _id,
     label,
     title:  huntTitleOf(rows.hunt),
+    branch: branchOf(rows.hunt),
     realms: rows.realms.map(({ realm, quizzes }) => ({
       _id:     realm._id,
       label:   realm.label,

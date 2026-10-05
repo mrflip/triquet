@@ -274,6 +274,11 @@ export async function addMember(page: Page, label: string, role: 'Smith' | 'Revi
   await expect(members.getByRole('row').filter({ hasText: label })).toContainText(role)
 }
 
+/** The label of the hunt `page`'s address names: its second segment, as in `/h/<hunt>/...` */
+export function huntLabelOf(page: Page): string {
+  return String(new URL(page.url()).pathname.split('/', 3)[2])
+}
+
 /** The address `page` is at, naming no presentation: the page picks by the visitor's role */
 export function quizPathOf(page: Page): string {
   return new URL(page.url()).pathname

@@ -7,7 +7,7 @@ import { Ident } from '../../src/models/ident'
 import { IdentingValidators } from '../../src/models/identing'
 import type { AccountActionT } from '../../src/models/actions'
 import { censusOf, huntForLabel, huntingsFor, huntsOf, identForLabel } from '../reading'
-import { arrangeCategories, relabelHunt, retitleHunt } from './hunt_actions'
+import { arrangeCategories, rebranchHunt, relabelHunt, retitleHunt } from './hunt_actions'
 import { insertHunt, type Writer } from './quiz_writing'
 
 /**
@@ -113,5 +113,6 @@ export async function performAccount(db: Writer, user_id: Id<'users'>, actor: Ac
   case 'retitle_hunt':  { await retitleHunt(db, action.hunt_id, action.title); return action.hunt_id }
   case 'relabel_hunt':  { await relabelHunt(db, censusOf(db), action.hunt_id, action.label); return action.hunt_id }
   case 'arrange_categories': { await arrangeCategories(db, action.hunt_id, action.wheel); return action.hunt_id }
+  case 'rebranch_hunt': { await rebranchHunt(db, action.hunt_id, action.branch); return action.hunt_id }
   }
 }

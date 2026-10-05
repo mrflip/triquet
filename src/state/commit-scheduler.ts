@@ -4,11 +4,12 @@ import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { QuizPlace } from '../lib/formulary/runner'
 
-/** What a repository is written from: the quiz, the library its widgetings work, and where the quiz sits */
+/** What a repository is written from: the quiz, the library its widgetings work, where the quiz sits, and the branch its hunt is on */
 export type MirrorSnapshot = {
   quiz:    QuizT
   library: readonly WidgetT[]
   place:   QuizPlace
+  branch:  string
 }
 
 /** What to do when a quiz's wait is up: record `latest`, which differs from `baseline` by the burst of edits */

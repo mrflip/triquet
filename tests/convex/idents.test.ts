@@ -252,7 +252,7 @@ describe('idents.performAccount: new_hunt', () => {
 })
 
 /** What a smith does to a hunt from outside its quizzes, less the hunt it names */
-type HuntEdit = { kind: 'retitle_hunt', title: string } | { kind: 'relabel_hunt', label: string } | { kind: 'arrange_categories', wheel: WheelT }
+type HuntEdit = { kind: 'retitle_hunt', title: string } | { kind: 'relabel_hunt', label: string } | { kind: 'arrange_categories', wheel: WheelT } | { kind: 'rebranch_hunt', branch: string }
 
 /** A hunt with its smith and a reviewer on it, as the hunts list would find it, and how to edit it from there */
 async function smithed() {
@@ -297,6 +297,49 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
     const hunt = await held()
     expect(hunt.label).to.eq('quiet_otter')
+  })
+})
+
+describe('idents.performAccount: rebranch_hunt', () => {
+  it("lets the hunt's smith put it on another branch, with no quiz open, and everyone on it sees it", async () => {
+    const { hunt_id, smith, bob, perform, held } = await smithed()
+    const before = await held()
+    expect(await perform({ kind: 'rebranch_hunt', branch: 'playtest' })).to.eq(hunt_id)
+    const after = await held()
+    expect([before.branch, after.branch]).to.deep.eq(['main', 'playtest'])
+    for (const by of [smith, bob]) {
+      const opening = await by.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
+      expect(opening.hunt?.branch).to.eq('playtest')
+    }
+  })
+
+  it("refuses a reviewer on the hunt, and a stranger, writing nothing", async () => {
+    const { tt, bob, perform, held } = await smithed()
+    const carol = await identified(tt, 'carol_strays')
+    const ante = await held()
+    const refusals = [
+      await refusedAs(perform({ kind: 'rebranch_hunt', branch: 'mine' }, bob)),
+      await refusedAs(perform({ kind: 'rebranch_hunt', branch: 'mine' }, carol)),
+    ]
+    expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
+    expect(await held()).to.deep.eq(ante)
+  })
+
+  it("refuses a branch git would not take, writing nothing", async () => {
+    const { perform, held } = await smithed()
+    await expect(perform({ kind: 'rebranch_hunt', branch: 'draft two' })).rejects.toThrow()
+    const hunt = await held()
+    expect(hunt.branch).to.eq('main')
+  })
+
+  it("reads a hunt written before hunts had a branch as on main, and gives it one at its next edit", async () => {
+    const { tt, hunt_id, smith, perform, held } = await smithed()
+    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { branch: undefined }) })
+    const opening = await smith.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
+    expect(opening.hunt?.branch).to.eq('main')
+    await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
+    const hunt = await held()
+    expect(hunt.branch).to.eq('main')
   })
 })
 

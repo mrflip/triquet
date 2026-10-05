@@ -108,14 +108,6 @@ export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): P
   await updateQuiz(db, quiz, { label })
 }
 
-/**
- * Put the open quiz on another version. Naming one its history has not seen starts a branch
- * there, not here; the shape of the name is the caller's to check.
- */
-export async function reversionQuiz(db: Writer, open: OpenQuizT, version: string): Promise<void> {
-  await updateQuiz(db, openQuizRow(open), { version })
-}
-
 /** Rewrite the open quiz's smith's note. An empty note is kept as it is: the screen shows its placeholder. */
 export async function setSmithsNote(db: Writer, open: OpenQuizT, smiths_note: string): Promise<void> {
   await updateQuiz(db, openQuizRow(open), { smiths_note })

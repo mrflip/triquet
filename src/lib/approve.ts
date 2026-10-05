@@ -364,7 +364,6 @@ const LibraryPolicies = {
 const ContentPolicies = {
   retitle_quiz:        mayReviseClaimedQuiz,
   relabel_quiz:        mayReviseClaimedQuiz,
-  reversion_quiz:      mayReviseClaimedQuiz,
   set_smiths_note:     mayReviseClaimedQuiz,
   set_q1_preamble:     mayReviseClaimedQuiz,
   edit_question:       mayReviseClaimedQuiz,
@@ -407,6 +406,7 @@ const HuntPolicies = {
   relabel_hunt:   mayChangeHunt,
   delete_hunt:    mayChangeHunt,
   arrange_categories: mayChangeHunt,
+  rebranch_hunt:  mayChangeHunt,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The account actions that name no hunt: of the actor alone */

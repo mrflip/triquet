@@ -1,11 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import * as Routes from '../src/lib/routes'
-import { addMember, assumeIdent, expect, manageDialog, openManage, otherVisitor, reloadOnceSaved, test } from './support'
-
-/** The hunt label the quiz on screen is addressed under */
-function huntLabelOf(page: Page): string {
-  return String(new URL(page.url()).pathname.split('/', 3)[2])
-}
+import { addMember, assumeIdent, expect, huntLabelOf, manageDialog, openManage, otherVisitor, reloadOnceSaved, test } from './support'
 
 /** The tile of the category titled `title`, wherever it sits on the editor's board: its name says where, after the title */
 function tileOf(page: Page, title: string): Locator {

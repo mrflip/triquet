@@ -1,4 +1,8 @@
 
+## Wontfix (fixable, but not devoting resources to fix it)
+
+* Git repos are per-browser: there's no actual full history. Also repos that were accessed from your browser as a different user show up as orphaned and are downloadable.
+
 
 ## From widgets sprint: imported replies, and staleness back
 
@@ -69,3 +73,4 @@ From `0b8079c`:
   - takes the replies an entry carries, and refuses one from a bot not put that text
 
 Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path>`.
+

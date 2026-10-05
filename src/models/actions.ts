@@ -4,6 +4,7 @@ import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
 import { CategoryValidators } from './category'
 import { ColumnValidators } from './column'
+import { HuntValidators } from './hunt'
 import { HuntingValidators } from './hunting'
 import { IdentValidators } from './ident'
 import { ImportValidators } from './import'
@@ -23,7 +24,7 @@ export const LayoutActionKindVals = [
 
 /** The actions that revise the quiz on screen and its questions */
 export const ContentActionKindVals = [
-  'retitle_quiz', 'relabel_quiz', 'reversion_quiz', 'set_smiths_note', 'set_q1_preamble',
+  'retitle_quiz', 'relabel_quiz', 'set_smiths_note', 'set_q1_preamble',
   'edit_question', 'add_question', 'delete_questions', 'sort_questions', 'renumber_qnums', 'move_question',
   'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'import_questions',
 ] as const
@@ -63,7 +64,6 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     ...layoutAction,
     obj({ kind: lit('retitle_quiz'),        title: titleish }),
     obj({ kind: lit('relabel_quiz'),        label }),
-    obj({ kind: lit('reversion_quiz'),      version: label }),
     obj({ kind: lit('set_smiths_note'),     smiths_note: QuizValidators.smiths_note }),
     obj({ kind: lit('set_q1_preamble'),     q1_preamble: QuizValidators.q1_preamble }),
     obj({ kind: lit('edit_question'),       question_id: zid('questions'), patch: QuestionValidators.questionPatch }),
@@ -109,8 +109,9 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('retitle_hunt'),  hunt_id: zid('hunts'), title: titleish }),
     obj({ kind: lit('relabel_hunt'),  hunt_id: zid('hunts'), label }),
     obj({ kind: lit('arrange_categories'), hunt_id: zid('hunts'), wheel: CategoryValidators.wheel }),
+    obj({ kind: lit('rebranch_hunt'), hunt_id: zid('hunts'), branch: HuntValidators.branch }),
   ])
-    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle, relabel or arrange the categories of one they smith.')
+    .describe('What a visitor can do before any quiz is open: become an ident, retitle the one they are, make a hunt, and retitle, relabel, arrange the categories of, or put on another branch one they smith.')
 
   return { huntAffirms, quizAffirms, affirms, huntAction, libraryAction, accountAction }
 })
