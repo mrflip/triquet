@@ -1,6 +1,6 @@
 # Thread 4: Watches at the grain of the files (2026-10-05)
 
-Branch `20261005-watches`, PR pending. Suites: typecheck, lint, vitest (132 files, 3867 tests, 1
+Branch `20261005-watches`, PR pending, stacked on #127. Suites: typecheck, lint, vitest (132 files, 3867 tests, 1
 skipped: the measurement, below) green; e2e untouched by this thread (nothing on screen changed,
 and nothing calls the feed yet), run at landing.
 
@@ -107,6 +107,17 @@ moving a watch's grain, or deciding when thread 5 works out its readings.
 * Raw Export still carries no reviews (thread 2's note). `reviews.forQuiz` per quiz is how the
   feed reads them; the export could read them the same way if wanted.
 
+## Review
+
+Medium review, `fixed`: one commit added (`504fc67`: a failing watch is reported once, not at
+every reading; the Convex client throws a fresh error object at each read, so the identity check
+never matched; now matched by its text, with a test). Minor finding left, recorded as a decision:
+
+* **The first reading waits for every listed quiz**, so a quiz whose `quizzes.whole` keeps
+  failing (or answers null while still listed) holds back the first reading, and with it thread
+  5's catch-up commit and everything after. For thread 5: a quiz that never arrives stops the
+  hunt's history in that tab.
+
 ## For the Coach
 
 * **Minor, open:** `quizzes.whole` trades subscriptions for bytes. On the large hunt: 82
@@ -115,7 +126,8 @@ moving a watch's grain, or deciding when thread 5 works out its readings.
   and 1.9 KB an edit. A bot run over a 40-question column of a quiz someone else has open is
   about 3.4 MB to each such tab, against 80 KB. Built as the plan's draft had it; switching is
   one line in `watchHunt`'s `follow` (read every quiz `live`), should the bytes matter more
-  than the subscriptions.
+  than the subscriptions. *Orchestrator's recommendation:* keep `quizzes.whole`; revisit only if
+  bot runs into quizzes other smiths have open become common.
 * `/convex-reviewer` (applied by hand to the diff): no critical or important findings.
   Suggestion: `quizzes.whole` reads one quiz in one transaction (its questions, and a range of
   stored cells per question and stored widgeting), as the export already does for every quiz at
