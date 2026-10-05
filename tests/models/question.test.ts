@@ -289,6 +289,14 @@ describe('Question viz', () => {
     expect(Question.titleShown({ title: 'Leon', viz: 'archived' })).to.eq('Leon')
   })
 
+  it("reads isBlank's examples, and holds a title its label gives it, but no other, as blank", () => {
+    expect(Question.isBlank(Question.blank())).to.be.true
+    expect(Question.isBlank({ ...Question.blank(), hint: 'BUT NOT a king' })).to.be.false
+    expect(Question.isBlank({ ...Question.blank(), title: '' })).to.be.true
+    expect(Question.isBlank({ ...Question.blank(), title: 'Hamlet' })).to.be.false
+    expect(Question.isBlank({ ...Question.blank(), chains_to: 'lear' })).to.be.false
+  })
+
   it("starts every question normal", () => {
     expect([Question.blank().viz, Question.blankRow({ hunt_id: anId as Id<'hunts'>, quiz_id: anId as Id<'quizzes'> }).viz]).to.deep.eq(['normal', 'normal'])
   })

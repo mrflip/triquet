@@ -1,5 +1,5 @@
 import _ from 'es-toolkit/compat'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
 import { api } from '../../convex/_generated/api'
@@ -1271,6 +1271,56 @@ describe("hunts.perform", () => {
     })
   })
 
+  describe("import_questions, tidying the starters away", () => {
+    // Each write a minute after the last, so a question edited after it was made says so.
+    beforeEach(() => { vi.useFakeTimers({ now: Date.UTC(2026, 9, 5, 9), toFake: ['Date'] }) })
+    afterEach(() => { vi.useRealTimers() })
+
+    it("archives the quiz's untouched blank questions once an import brings one in, and none it named", async () => {
+      const { tt, act, read } = await seed(Hunt.blank('quiet_otter'))
+      const [named, ...starters] = openOf(await read()).questions
+      aMinuteOn()
+      await act({ kind: 'import_questions', questions: [{ label: present(named).label, patch: {}, entered: {} }, { label: 'leon', patch: { clueing: 'Who?' }, entered: {} }] })
+      expect(await shownOf(read)).to.deep.eq([
+        [present(named).label, 'normal'], ...starters.map((starter) => [starter.label, 'archived']), ['leon', 'normal'],
+      ])
+      await expectSound(tt)
+    })
+
+    it("leaves a blank question that has been edited, whatever it was edited to, and one written in", async () => {
+      const { act, read } = await seed(Hunt.blank('quiet_otter'))
+      const [blanked, written] = openOf(await read()).questions
+      aMinuteOn()
+      await act({ kind: 'edit_question', question_id: present(blanked)._id, patch: { clueing: 'Who?' } })
+      await act({ kind: 'edit_question', question_id: present(blanked)._id, patch: { clueing: '' } })
+      await act({ kind: 'edit_question', question_id: present(written)._id, patch: { hint: 'BUT NOT a king' } })
+      aMinuteOn()
+      await act({ kind: 'import_questions', questions: [{ label: 'leon', patch: { clueing: 'Who?' }, entered: {} }] })
+      const shown = await shownOf(read)
+      expect(shown.slice(0, 2)).to.deep.eq([[present(blanked).label, 'normal'], [present(written).label, 'normal']])
+      expect(shown.slice(2, -1).map(([, viz]) => viz)).to.deep.eq(['archived', 'archived', 'archived'])
+    })
+
+    it("leaves a blank question something was typed into the cells of", async () => {
+      const seeded = await seed(Hunt.blank('quiet_otter'))
+      await putEntryToWork(seeded, 'remark')
+      const [typed] = openOf(await seeded.read()).questions
+      await seeded.act(entering(present(typed)._id, 'remark', 'Was here.'))
+      aMinuteOn()
+      await seeded.act({ kind: 'import_questions', questions: [{ label: 'leon', patch: { clueing: 'Who?' }, entered: {} }] })
+      const [first] = await shownOf(seeded.read)
+      expect(first).to.deep.eq([present(typed).label, 'normal'])
+    })
+
+    it("archives nothing when the import brings in no question", async () => {
+      const { act, read } = await seed(Hunt.blank('quiet_otter'))
+      aMinuteOn()
+      await act({ kind: 'import_questions', questions: [] })
+      const shown = await shownOf(read)
+      expect(shown.every(([, viz]) => viz === 'normal')).to.be.true
+    })
+  })
+
   describe("import_questions", () => {
     it("types what each question carries into its entry cells: into a question held and one added, and empties one for null", async () => {
       const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
@@ -1353,6 +1403,16 @@ describe("hunts.perform", () => {
     })
   })
 })
+
+/** The clock moved a minute on, so the next write is a minute after the last */
+function aMinuteOn() {
+  vi.setSystemTime(Date.now() + 60_000)
+}
+
+/** Each of the open quiz's questions' label and viz, in the quiz's order */
+async function shownOf(read: () => Promise<Seen>) {
+  return openOf(await read()).questions.map((question) => [question.label, question.viz])
+}
 
 /** Each of the open quiz's questions' title and viz, in the quiz's order */
 function vizzesOf(seen: Seen) {

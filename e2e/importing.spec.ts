@@ -50,13 +50,14 @@ test('an explicit null clears the field', async ({ page }) => {
   await expect(fieldAt(page, 'Notes', 0)).toHaveValue('')
 })
 
-test('a label nothing here holds is appended, and a chain names its target by label', async ({ page }) => {
+test('a label nothing here holds is appended, a chain names its target by label, and the untouched blank questions are archived', async ({ page }) => {
   await addColumns(page, ['butnot'])
   await runImport(page, [
     { label: await labelAt(page, 0), chains_to: 'nantes_one' },
     { label: 'nantes_one', title: 'Nantes', hint: 'BUT NOT the edict' },
   ])
-  await expect(grid(page).locator('tbody tr')).toHaveCount(6)
+  // The quiz's first question was written in; its four untouched blank ones are put away.
+  await expect(grid(page).locator('tbody tr')).toHaveCount(2)
   await expect(grid(page).locator('tbody tr').first().locator('td[data-colname="BUT NOT"] > div'))
     .toHaveText('BUT NOT the edict')
 })

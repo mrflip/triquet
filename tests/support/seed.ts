@@ -10,7 +10,8 @@ import { SeedWidgets } from '../../src/models/seeds'
 // and compares; these write one into rows. A fixture's ids are its own: the rows get the
 // database's, and a chain is written as the label of the question it names, as the rows hold
 // it. What a question's widgetings stored is not written; a test records it through
-// `record_widgeted`.
+// `record_widgeted`. Each row is stamped as the database's writer stamps one, both stamps from one
+// moment, so a seeded question is untouched until a test edits it.
 
 /**
  * `quiz`, a fixture, written into rows in the realm `place` names: its own row, its questions in
@@ -23,7 +24,8 @@ import { SeedWidgets } from '../../src/models/seeds'
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
   const { title, label, smiths_note, q1_preamble, locked, last_sortkey } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, q1_preamble, locked, last_sortkey, row_ordering: [] }))
+  const stamps = stampedNow()
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, q1_preamble, locked, last_sortkey, row_ordering: [], ...stamps }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
@@ -41,12 +43,19 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
       alt_text,
       notes,
       viz,
+      ...stamps,
     })
     row_ordering.push(await db.insert('questions', row))
   }
   await db.patch('quizzes', quiz_id, { row_ordering })
   await insertLayout(db, { hunt_id, quiz_id }, quiz)
   return quiz_id
+}
+
+/** Both stamps of a row made now, from one moment, as the database's writer gives them */
+function stampedNow(): { created_at: number, updated_at: number } {
+  const now = Date.now()
+  return { created_at: now, updated_at: now }
 }
 
 /** The org a seeded hunt is made in, unless the test says another: its seeded smith's (`seedHunt`) */
@@ -63,7 +72,7 @@ export const SeedOrg = 'seed_smith'
  * @example await seedHuntRows(ctx.db, Hunt.blank('quiet_otter'))
  */
 export async function seedHuntRows(db: Writer, hunt: HuntT, orglabel: string = SeedOrg): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, orglabel, title: hunt.title, branch: hunt.branch }))
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, orglabel, title: hunt.title, branch: hunt.branch, ...stampedNow() }))
   await insertAbsentWidgets(db, SeedWidgets)
   for (const [position, realm] of hunt.realms.entries()) {
     const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title }))

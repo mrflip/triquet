@@ -198,6 +198,19 @@ export class Question implements QuestionT {
     return question.viz === 'secondary'
   }
 
+  /**
+   * Whether nothing has been written into `question`: every field the author writes is blank and
+   * it chains to nothing, its title no more than the one its label gives it.
+   *
+   * @example Question.isBlank(Question.blank())  // => true
+   * @example Question.isBlank({ ...Question.blank(), hint: 'BUT NOT a king' })  // => false
+   */
+  static isBlank(question: Pick<QuestionT, 'label' | 'title' | 'qnum' | 'clueing' | 'hint' | 'chains_to' | 'full_answer' | 'alt_text' | 'notes'>): boolean {
+    const { label, title, qnum, clueing, hint, chains_to, full_answer, alt_text, notes } = question
+    const untitled = title === '' || title === Labelmaker.titleize(label)
+    return untitled && chains_to === null && [qnum, clueing, hint, full_answer, alt_text, notes].every((field) => field === '')
+  }
+
   /** What follows an alternate's title wherever it is shown, the title in italics */
   static readonly AltMark = '(alt)'
 

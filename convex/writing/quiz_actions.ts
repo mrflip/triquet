@@ -5,10 +5,11 @@ import * as Labelmaker from '../../src/lib/labelmaker'
 import * as Rank from '../../src/lib/rank'
 import * as Runner from '../../src/lib/formulary/runner'
 import * as Sortings from '../../src/lib/sortings'
+import * as Stamps from '../../src/lib/stamps'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { quizFrom, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
+import { quizFrom, vizOf, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT, type QuestionViz } from '../../src/models/question'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
@@ -270,6 +271,11 @@ export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: Widget
  * order pasted, and so takes the sort memory they were exported under, `last_sortkey`, when one
  * is given; a quiz that held some keeps its own.
  *
+ * An import that brings in any question tidies away the quiz's untouched starters: each question
+ * it did not name that is blank (`Question.isBlank`), has never been edited (its stamps equal) and
+ * holds nothing typed into its cells is archived, as a new quiz's five blank questions are once a
+ * paste has filled it.
+ *
  * @throws A refusal (`quizGone`, `questionsFull`), or a Zod error when an entered value is not of its entry's kind; nothing is written.
  */
 export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[], last_sortkey?: Sortkey | null): Promise<void> {
@@ -297,8 +303,21 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
   const remembered = last_sortkey !== undefined && rows.length === 0 ? { last_sortkey } : {}
   await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added], ...remembered })
   await enterImported(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
+  if (imported.length > 0) { await archiveStarters(db, rows.filter((row) => ! idFor.has(row.label))) }
   // Read again: its order has just been written, and the renumbering works from that.
   await reorderQuiz(db, revisable(await db.get('quizzes', quiz._id)), { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))
+}
+
+/**
+ * Archive each of `rows` that is an untouched starter: shown, blank, never edited since it was
+ * made, and holding nothing typed into or recorded for its cells.
+ */
+async function archiveStarters(db: Writer, rows: readonly Doc<'questions'>[]): Promise<void> {
+  const candidates = rows.filter((row) => vizOf(row) === 'normal' && Question.isBlank(row) && Stamps.isUntouched(Stamps.of(row)))
+  for (const row of candidates) {
+    const stored = await db.query('widgeteds').withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', row._id)).first()
+    if (! stored) { await updateQuestion(db, row, { viz: 'archived' }) }
+  }
 }
 
 /**
