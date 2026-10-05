@@ -90,10 +90,34 @@ files, 3840 tests, 1 skipped: thread 4's measurement) and the full e2e suite (24
   not; the next commit would carry them. Rare, and they are the hunt's own files from moments
   before; left as is.
 
+## Review
+
+Medium review, `fixed`: one commit added (`9d7c18d`: when a milestone's wait for the feed times
+out, the feeds are settled before the flush, so a reading put off for idle time cannot miss the
+tagged commit). Minor findings left:
+
+* An unreadable quiz relabelled or moved to another realm while this browser was away has its
+  old-label files removed by the catch-up (`keep` matches the current realm and label; files
+  carry no id). It needs a failure on top of a relabel, and the files stay in the history.
+* A first reading on a branch new to the repository is labelled `catch up`, not the take-up
+  message (`hasHistory` reads the branch checked out before `openRepo` switches). Message only.
+* An import or deletion still waits on the git queue (now possibly a whole-hunt catch-up) before
+  it is applied, as `quiz-mirror` did; never on the feed.
+* Tags pass a label's 40-character cap once the branch and quiz labels together run past about
+  21 characters: harmless until `@ref` is parsed (below).
+* The hunts page's fold and `QuizNotFound`'s list lost their e2e coverage: thread 6's.
+* For up to 10 s, a hunt whose affirms change can have two feeds noting into one scheduler entry.
+  Harmless.
+
 ## For the Coach
+
+*Orchestrator's recommendations in brackets.*
+
 
 * The tag scheme (above): names a quiz, runs long, cannot be parsed back. The alternative that
   keeps tags short is `<quiz>_<mark>_<stamp>z` without the branch, at the cost of today's "a
-  milestone names the branch it marks".
+  milestone names the branch it marks". [Keep it; `@ref` can accept git ref names.]
 * `papaparse` is uninstalled (nothing used it once the per-quiz `.qq.tsv` went); `notes/stack.md`
-  keeps it as the choice for spreadsheet TSV/CSV.
+  keeps it as the choice for spreadsheet TSV/CSV. [Fine.]
+* The hunt's own page runs no feed, so a branch switched there is committed when a quiz screen
+  next reads the hunt. [Acceptable for now.]
