@@ -8,34 +8,18 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { libraryOf, reviewingsOf, reviewsOf } from '../../convex/reading'
 import * as Exporting from '../../src/lib/exporting'
 import * as Huntfiles from '../../src/lib/huntfiles'
-import { widgetFrom, type ReviewedT, type ShallowHuntT } from '../../src/lib/rows'
+import { widgetFrom } from '../../src/lib/rows'
 import type { HuntActionDNA, HuntAffirmsDNA } from '../../src/models/actions'
 import { Question } from '../../src/models/question'
 import type { JsonT } from '../../src/models/widgeted'
 import { Quiz, type QuizT } from '../../src/models/quiz'
-import { HuntPartkey, WidgetsPartkey, huntPartOf, quizPartOf, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT, type WatcherT } from '../../src/state/hunt-feed'
+import { HuntPartkey, IdleWaitMs, WidgetsPartkey, huntPartOf, quizPartOf, settleFeeds, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT, type WatcherT } from '../../src/state/hunt-feed'
 import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, wholeHunt, type Identified, type PlaceT, type Seeded } from '../support/convex'
 import { classicLayout } from '../support/layouts'
 import { present } from '../support/present'
 import { snapshot } from '../support/snapshots'
+import { reviewedOf, shallowOf } from '../support/readings'
 import { standInFor, type StandInT } from '../support/watching'
-
-// --- The parts of a reading, from what each watch reads
-
-/** `held` as `hunts.open` shows it to its smith: what the feed's hunt-level watch reads */
-function shallowOf(held: Exporting.HuntSnapshotT): ShallowHuntT {
-  const realms = held.realms.map((realm, ii) => ({ _id: `realm${String(ii)}`, label: realm.label, title: realm.title, quizzes: [] }))
-  const members = held.members.map((member) => ({ ...member, ident_id: `ident_${member.label}` }))
-  return { ...held.hunt, _id: 'hunt', org: Exporting.placeOf(held).org, wheel: held.wheel, members, realms, role: 'smith' } as unknown as ShallowHuntT
-}
-
-/** `held`'s reviews of `quiz` as `reviews.forQuiz` reads them, rows and all */
-function reviewedOf(held: Exporting.HuntSnapshotT, quiz: QuizT): ReviewedT[] {
-  return (held.reviews[quiz._id] ?? []).map((review, ii) => ({
-    ...review, _id: `review${String(ii)}`, _creationTime: ii, hunt_id: 'hunt', quiz_id: quiz._id, ident_id: `ident${String(ii)}`,
-    reviewings: review.reviewings.map((reviewing) => ({ ...reviewing, _id: 'reviewing', _creationTime: 1, hunt_id: 'hunt', quiz_id: quiz._id, ident_id: `ident${String(ii)}`, review_id: `review${String(ii)}`, peeked: true })),
-  })) as unknown as ReviewedT[]
-}
 
 describe('huntPartOf', () => {
   it("is the hunt's own file, its categories' and its members', each as a JSON and a table", () => {
@@ -171,12 +155,16 @@ async function filesFromRows(held: PeopledT): Promise<Huntfiles.FilesT> {
   return files
 }
 
-/** A feed of `held`'s hunt for its smith pat, with the quiz `focus` on screen, settled: the stand-in it watches through, and every reading it handed on */
-async function fed(held: PeopledT, focus: string | null = 'princes'): Promise<{ standIn: StandInT, feed: HuntFeedT, readings: HuntReadingT[] }> {
+/**
+ * A feed of `held`'s hunt for its smith pat, with the quiz `focus` on screen, settled: the stand-in
+ * it watches through, and every reading it handed on. `through` stands between the feed and the
+ * stand-in, where a test wants a watch to read otherwise.
+ */
+async function fed(held: PeopledT, focus: string | null = 'princes', through: (watcher: WatcherT) => WatcherT = (watcher) => watcher): Promise<{ standIn: StandInT, feed: HuntFeedT, readings: HuntReadingT[] }> {
   const standIn = standInFor(held.smith.as)
   const readings: HuntReadingT[] = []
   const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
-  const feed = watchHunt(standIn.watcher, { hunt_label: held.hunt_label, affirms, focus: focus === null ? null : present(held.places[focus]).quiz_id }, (reading) => { readings.push(reading) })
+  const feed = watchHunt(through(standIn.watcher), { hunt_label: held.hunt_label, affirms, focus: focus === null ? null : present(held.places[focus]).quiz_id }, (reading) => { readings.push(reading) })
   await standIn.settle()
   return { standIn, feed, readings }
 }
@@ -367,7 +355,7 @@ describe('watchHunt, with a failing watch', () => {
       await new Promise((resolve) => { setTimeout(resolve, 0) })
     }
     const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
-    watchHunt({ watchQuery } as unknown as WatcherT, { hunt_label: 'hunt', affirms, focus: null }, () => null)
+    const feed = watchHunt({ watchQuery } as unknown as WatcherT, { hunt_label: 'hunt', affirms, focus: null }, () => null)
     await moment()
     await moment()
     await moment()
@@ -377,6 +365,204 @@ describe('watchHunt, with a failing watch', () => {
     state.failing = true
     await moment()
     expect(logged).toHaveBeenCalledTimes(2)
+    feed.stop()
+  })
+})
+
+/**
+ * A watcher whose watches answer only when told: `answer(fnname, result)` gives every watch of
+ * that query function the result and tells it so, as the client would.
+ */
+function scripted(): { watcher: WatcherT, answer: (fnname: string, result: unknown) => void } {
+  const results = new Map<string, unknown>()
+  const listeners = new Map<string, Set<() => void>>()
+  const watchQuery = (query: FunctionReference<'query'>) => {
+    const fnname = getFunctionName(query)
+    return {
+      localQueryResult: () => results.get(fnname),
+      onUpdate: (callback: () => void) => {
+        const told = listeners.get(fnname) ?? new Set()
+        listeners.set(fnname, told.add(callback))
+        return () => { told.delete(callback) }
+      },
+    }
+  }
+  const answer = (fnname: string, result: unknown) => {
+    results.set(fnname, result)
+    const told = listeners.get(fnname) ?? new Set()
+    for (const callback of told) { callback() }
+  }
+  return { watcher: { watchQuery } as unknown as WatcherT, answer }
+}
+
+/** Once the tasks already queued have run: a reading put off for an idle moment, where there is no idle callback, among them */
+async function tick(): Promise<void> {
+  await new Promise((resolve) => { setTimeout(resolve, 0) })
+}
+
+describe('watchHunt, waited on', () => {
+  it("is let go only once every watch it holds has answered, and its reading is handed on", async () => {
+    const held = snapshot()
+    const princes = present(present(held.realms[0]).quizzes[0])
+    const shallow = shallowOf(held)
+    const hunt = { ...shallow, realms: [{ ...present(shallow.realms[0]), quizzes: [{ _id: princes._id, label: princes.label }] }] }
+    const { watcher, answer } = scripted()
+    const readings: HuntReadingT[] = []
+    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const feed = watchHunt(watcher, { hunt_label: hunt.label, affirms, focus: null }, (reading) => { readings.push(reading) })
+    const heard = { read: false }
+    void feed.whenRead().then(() => { heard.read = true })
+
+    answer('hunts:open', { hunt })
+    answer('widgets:library', held.library)
+    await tick()
+    answer('reviews:forQuiz', reviewedOf(held, princes))
+    await tick()
+    expect([heard.read, readings.length]).to.deep.eq([false, 0])
+    answer('quizzes:whole', princes)
+    await tick()
+    expect([heard.read, readings.length]).to.deep.eq([true, 1])
+    feed.stop()
+  })
+
+  it("is let go at once by a feed that has heard from every watch, and by one stopped", async () => {
+    const held = await peopled()
+    const { feed } = await fed(held)
+    await feed.whenRead()
+    const { watcher } = scripted()
+    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    const unheard = watchHunt(watcher, { hunt_label: 'nowhere', affirms, focus: null }, () => null)
+    const waiting = unheard.whenRead()
+    unheard.stop()
+    await expect(waiting).resolves.toBeUndefined()
+    feed.stop()
+  })
+})
+
+/** How `quizzes.whole` answers for one quiz, in place of what it read: by failing, or with nothing */
+type Breakage = { quiz_id: string | null, answer: 'fails' | 'nothing' }
+
+/** A watch as the feed reads one */
+type WatchT = { localQueryResult: () => unknown, onUpdate: (callback: () => void) => () => void }
+
+/** `watcher`, but with `quizzes.whole` for the quiz `broken` names answering as it says, for as long as it names one */
+function breaking(broken: Breakage): (watcher: WatcherT) => WatcherT {
+  return (watcher) => {
+    const watchQuery = (query: FunctionReference<'query'>, args: { affirms?: { quiz_id?: string } }): WatchT => {
+      const watch = (watcher.watchQuery as (query: FunctionReference<'query'>, args: unknown) => WatchT)(query, args)
+      const quiz_id = getFunctionName(query) === getFunctionName(api.quizzes.whole) ? args.affirms?.quiz_id : undefined
+      const localQueryResult = () => {
+        if (quiz_id === undefined || quiz_id !== broken.quiz_id) { return watch.localQueryResult() }
+        if (broken.answer === 'fails') { throw new Error('Too many reads') }
+        return null
+      }
+      return { localQueryResult, onUpdate: (callback) => watch.onUpdate(callback) }
+    }
+    return { watchQuery } as unknown as WatcherT
+  }
+}
+
+describe('watchHunt, with a quiz that cannot be read', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  for (const answer of ['fails', 'nothing'] as const) {
+    it(`hands on the first reading all the same when a quiz's watch ${answer === 'fails' ? 'fails' : 'answers nothing'}, the quiz unread and none of its files`, async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => null)
+      const held = await peopled()
+      const paris = present(held.places.paris).quiz_id
+      const { readings } = await fed(held, 'princes', breaking({ quiz_id: paris, answer }))
+      expect(readings).to.have.lengthOf(1)
+      const [reading] = readings
+      expect(reading?.first).to.be.true
+      expect(reading?.unread).to.deep.eq(new Map([[paris, { realm: 'home', label: 'paris' }]]))
+      expect(reading?.parts.has(paris)).to.be.false
+      expect(reading?.files.keys().filter((path) => path.includes('/paris')).toArray()).to.deep.eq([])
+      expect(reading?.files.has('quizzes/home/kings.tqq.json')).to.be.true
+    })
+  }
+
+  it("lets the quiz join once it can be read, with every file it holds", async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => null)
+    const held = await peopled()
+    const paris = present(held.places.paris).quiz_id
+    const broken: Breakage = { quiz_id: paris, answer: 'fails' }
+    const { standIn, readings } = await fed(held, 'princes', breaking(broken))
+    broken.quiz_id = null
+    await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
+    await standIn.settle()
+    const after = lastOf(readings)
+    expect([after.first, after.unread.size, after.parts.has(paris)]).to.deep.eq([false, 0, true])
+    expect(after.files).to.deep.eq(await filesFromRows(held))
+  })
+
+  it("holds a quiz read before as last read when its watch then fails, and calls it read", async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => null)
+    const held = await peopled()
+    const paris = present(held.places.paris).quiz_id
+    const broken: Breakage = { quiz_id: null, answer: 'fails' }
+    const { standIn, readings } = await fed(held, 'princes', breaking(broken))
+    const before = lastOf(readings)
+    broken.quiz_id = paris
+    await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
+    await standIn.settle()
+    const after = lastOf(readings)
+    expect(after.parts.get(paris)).to.eq(before.parts.get(paris))
+    expect(after.unread.size).to.eq(0)
+  })
+})
+
+/** Idle callbacks, held until a test runs them: each with the most it was asked to wait, and whether it was called off */
+function heldIdle(): { pending: () => (() => void)[], timeouts: () => number[], cancelled: Set<number> } {
+  const asked: { work: () => void, timeout: number }[] = []
+  const cancelled = new Set<number>()
+  vi.stubGlobal('requestIdleCallback', (work: () => void, opts: { timeout: number }) => {
+    asked.push({ work, timeout: opts.timeout })
+    return asked.length
+  })
+  vi.stubGlobal('cancelIdleCallback', (handle: number) => { cancelled.add(handle) })
+  const ran = new Set<number>()
+  const pending = () => asked.flatMap(({ work }, idx) => {
+    const handle = idx + 1
+    if (ran.has(handle) || cancelled.has(handle)) { return [] }
+    ran.add(handle)
+    return [work]
+  })
+  return { pending, timeouts: () => asked.map(({ timeout }) => timeout), cancelled }
+}
+
+describe('watchHunt, when the browser is idle', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it("puts each reading off until the browser is idle, then hands on whatever arrived meanwhile", async () => {
+    const idle = heldIdle()
+    const held = await peopled()
+    const { standIn, readings } = await fed(held)
+    for (let works = idle.pending(); works.length > 0; works = idle.pending()) {
+      expect(readings).to.have.lengthOf(0)
+      for (const work of works) { work() }
+      await standIn.settle()
+    }
+    expect(readings).to.have.lengthOf(1)
+    expect(lastOf(readings).files).to.deep.eq(await filesFromRows(held))
+    expect(new Set(idle.timeouts())).to.deep.eq(new Set([IdleWaitMs]))
+  })
+
+  it("hands on a reading put off at once when settled, calling off its idle callback", async () => {
+    const idle = heldIdle()
+    const held = await peopled()
+    const { standIn, readings } = await fed(held)
+    for (let works = idle.pending(); works.length > 0; works = idle.pending()) {
+      for (const work of works) { work() }
+      await standIn.settle()
+    }
+    await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
+    await standIn.settle()
+    expect(readings).to.have.lengthOf(1)
+    settleFeeds()
+    expect(readings).to.have.lengthOf(2)
+    expect(lastOf(readings).files.get('quizzes/home/princes.tqq.json')).to.include('Princes, again')
+    expect(idle.cancelled.size).to.eq(1)
+    expect(idle.pending()).to.deep.eq([])
   })
 })
 

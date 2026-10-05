@@ -174,3 +174,15 @@ export function changesBetween(ante: FilesT, post: FilesT): FileChangesT {
 export function isSameFiles(ante: FilesT, post: FilesT): boolean {
   return ante.size === post.size && post.entries().every(([path, body]) => ante.get(path) === body)
 }
+
+/**
+ * Whether `path` is one of the files of the quiz `placed` names: its own, its questions alone, or
+ * one of its reviews. A quiz's files are found by its realm and label alone.
+ *
+ * @example isQuizFile('quizzes/home/legends/reviews/lee_jones.tqr.json', { realm: 'home', quiz: 'legends' })  // => true
+ * @example isQuizFile('quizzes/home/legends_two.tqq.json', { realm: 'home', quiz: 'legends' })  // => false
+ */
+export function isQuizFile(path: string, placed: Readonly<Pick<Addresses.InQuizT, 'realm' | 'quiz'>>): boolean {
+  const stem = Addresses.keypathOf({ kind: 'quiz', org: '', hunt: '', ...placed }).join('/')
+  return path.startsWith(`${stem}.`) || path.startsWith(`${stem}/`)
+}

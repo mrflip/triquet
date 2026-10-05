@@ -80,7 +80,9 @@ the hunt's history from every quiz, not only the one on screen, so the feed watc
 beside the screen, through the client's `watchQuery` rather than through React. It sends what the
 screen sends, so a watch they share is one subscription: the quiz on screen it reads through the
 screen's own frame and questions, and every other quiz whole (`quizzes.whole`), one watch each,
-since that quiz's file is the quiz whole and nobody on this screen is editing it.
+since that quiz's file is the quiz whole and nobody on this screen is editing it. One feed serves
+every screen of a hunt, and is kept a moment after the last lets go (`KeepMs`), so moving between
+the hunt's quizzes moves its focus rather than opening every watch afresh.
 
 **"Per row" is fine, in its place.** A watch per question is right because a question is the
 unit an author changes, the count is bounded (a quiz holds at most 999), and the ids come from

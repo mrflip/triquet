@@ -225,6 +225,25 @@ describe('changesBetween', () => {
   })
 })
 
+describe('isQuizFile', () => {
+  const Legends = { realm: 'home', quiz: 'legends' }
+
+  it("reads the doc block's examples", () => {
+    expect(Huntfiles.isQuizFile('quizzes/home/legends/reviews/lee_jones.tqr.json', Legends)).to.be.true
+    expect(Huntfiles.isQuizFile('quizzes/home/legends_two.tqq.json', Legends)).to.be.false
+  })
+
+  it("is each file the quiz's balls are written to, and no other", () => {
+    const held = snapshot()
+    const princes = present(present(held.realms[0]).quizzes[0])
+    const paths = Huntfiles.huntFiles(held).keys().toArray()
+    const realm = present(held.realms[0])
+    const reviews = present(held.reviews[princes._id])
+    const own = Huntfiles.filesOf(Exporting.quizBallsIn(held, realm, princes, reviews))
+    expect(paths.filter((path) => Huntfiles.isQuizFile(path, { realm: 'home', quiz: 'princes' }))).to.have.members(own.keys().toArray())
+  })
+})
+
 describe('isSameFiles', () => {
   it("reads the doc block's example", () => {
     expect(Huntfiles.isSameFiles(files(['a.json', '1']), files(['a.json', '1']))).to.be.true
