@@ -1,3 +1,2 @@
 pnpm-lock.yaml              -diff
 convex/_generated/**        -diff
-HUMAN-whatsup.md            merge=union

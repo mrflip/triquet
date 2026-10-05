@@ -61,7 +61,7 @@ The top three values while writing code are **empathy, safety and readability**.
   `notes/views.md` has the tripwires that mean "stop and ask", the styling rules, and the skills to reach for; it loads itself when work touches a view.
 * Every new piece of code gets a proportional doc block and test suite.
 * Validate at module entrypoints; write confident, paranoia-free code past that boundary.
-* Progress notes, development caveats and open questions go in `HUMAN-whatsup.md` or `/whiteboard` --
+* Progress notes, development caveats and open questions go in `human/` or `/whiteboard` --
   never in doc blocks or code comments.
 * `eslint.config.mjs` is the final authority on formatting. Run the linter; however, if it conflicts with the higher guidelines of
   legibility and productivity, you are approved for `@eslint-disable-line` (`no-param-reassign`, `no-explicit-any`) or `@ts-expect-error` if they are the correct compromise -- apply them but **report it in chat**.
@@ -81,6 +81,13 @@ data and the CLI's `cli.env` in `data/convex-<role>/`. `scripts/convex_dev <role
 when it is not running, pushes `convex/` to it and runs a command beside it; `scripts/convex_reset <role>` empties one.
 If you meet another shared resource -- a port, a cache or output directory,
 a database -- give yourself a parallel one the same way, and add its script to `package.json`.
+
+**Your checkout's root is `git rev-parse --show-toplevel`**, which in a worktree is not
+`/workspace/triquet`. Every path in this repo's documents and in a handoff is relative to that
+root. When a tool wants an absolute path, build it from your own root, never from a path you
+saw elsewhere: an absolute path into another checkout edits that checkout, not yours. Reading
+the main checkout for context is fine; writing to it is not. Hand paths on the same way,
+relative to the root, or prefixed with the root you mean, spelled out.
 
 A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is emptied and pushed again, and production is migrated (`notes/deploy.md`).
 
@@ -121,9 +128,10 @@ a promise to an adopter that their work leaves with them. Nothing reads app stat
 
 Unless marked *(auto-loads)*, these are not loaded for you. Read them when the work touches them.
 
-* `/HUMAN-whatsup.md` -- **from agents, to Coaches.** A conversational scratchpad, not a record of
-  decisions: write to it, don't read it as input. Add your entry at the top, under a level-two
-  header that leads with the date: `## 2026-09-19: Reviewed Changes`.
+* `/human/` -- **from agents, to Coaches.** A conversational scratchpad, not a record of
+  decisions: write to it, don't read it as input. One file per entry,
+  `human/YYYYMMDD-<label>.md`, opening with a level-one header that leads with the date:
+  `# 2026-09-19: Reviewed Changes`. `human/README.md` has the rest.
 * `/STYLE.md`  -- the naming vocabulary (`val`, `ckey`, `keypath`, `bag`, `kind`, `handle` and
   the rest of the tag glossary), brace and indentation rules, quote conventions, doc block
   formatting. These conventions are specific and unguessable -- the inform where to improvise
@@ -185,7 +193,7 @@ Work goes in **threads**: one line of work, one branch, one PR. (A session may i
    judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
 4. **Push, and file the PR** against `main` with `gh pr create` (a push borrows gh's login: see
    git_hygiene's *Filing the PR*), unless *significant* questions hang: then ask
-   in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the proper place (HUMAN-whatsup/whiteboard/chat) as usual. When stacked, write "stacked on #N".
+   in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the proper place (`human/`, whiteboard, chat) as usual. When stacked, write "stacked on #N".
    **Never merge a PR or enable auto-merge**.
 
 - Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`.

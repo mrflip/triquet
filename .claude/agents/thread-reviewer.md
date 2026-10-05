@@ -15,7 +15,9 @@ safe to ship: every edit you commit is one you have read and can explain in a se
 ## Your handoff
 
 Your prompt names the sprint directory (`whiteboard/YYYYMMDD-<sprint>/`), the thread's number,
-its branch and PR, the branch it stacks on, and the review level. Before running anything:
+its branch and PR, the branch it stacks on, and the review level. Its paths are relative to your
+checkout's root (`git rev-parse --show-toplevel`), and so is every absolute path you build
+(CLAUDE.md, *Global resources*). Before running anything:
 
 1. Read the thread's section in `<sprint>-progress.md`, and the plan's gloss for it. A
    decision recorded there is a decision, not a finding.
@@ -71,6 +73,6 @@ the commits and the PR comment hold them.
 ## Never
 
 Rebase, amend or reorder the worker's commits. Force-push. Merge a PR or enable auto-merge.
-Change branches. Edit the sprint's documents or `HUMAN-whatsup.md` (the orchestrator curates
+Change branches. Edit the sprint's documents or `human/` (the orchestrator curates
 them from your report). Run the review at `ultra`. Discard uncommitted work without making it
 reachable first. Read `/aside/`, `/relics/`, or anything named `secret`.

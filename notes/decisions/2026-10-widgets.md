@@ -604,7 +604,7 @@ stale      = stored.digest !== digest
 * **Scopes beyond `pub`**: hunt-owned and personal widgets, as values of `scope`.
 * **Moving `hint`, `alt_text` and `notes` off the question row** into `entry` widgeteds: a data move
   the export, sheet, import and mirror would follow. `chains_to` stays core regardless. What it
-  would take is set out in `HUMAN-whatsup.md` (2026-10-01, *Moving hint, alt_text and notes into
+  would take is set out in `human/20261001-rewidgeting_thread_8.md` (*Moving hint, alt_text and notes into
   entries*).
 * **`script` and `api` formularies.**
 

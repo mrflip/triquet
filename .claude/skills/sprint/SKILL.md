@@ -21,7 +21,7 @@ You orchestrate; you do not build, and you do not review. Between threads you ne
 source, check out branches, or otherwise disturb the working tree -- workers and reviewers
 run in series in the shared checkout, so each one ends standing on the thread's branch and
 the next begins there. Your writes
-are the sprint's documents, `HUMAN-whatsup.md`, and chat -- and the sprint's documents are
+are the sprint's documents, entries under `human/`, and chat -- and the sprint's documents are
 yours to curate, not merely append to (§3). Commit what you write: your document edits go,
 with a `docs:` message, to the branch you stand on, whatever it is, so no worker ever
 inherits your dirt. Beyond the sprint-start `newb` (§1), you neither make nor switch
@@ -59,8 +59,8 @@ Commit both files to the `_start` branch with a `docs:` message. No push, no PR.
 device. When the Claude Docs tools are in the session, load the live guide before your
 first docs call (`guide( items = ["topic.index", "topic.tabs"] )` -- that surface moves
 quickly; work from what it says today, never from memory), then birth one doc named for
-the sprint with a *Plan* tab, a *Progress* tab and a *HUMAN-whatsup* tab mirroring those
-files, and hand the Coach its link once in chat. Any further file the sprint adds to its
+the sprint with a *Plan* tab, a *Progress* tab and a *human* tab mirroring those
+files (the sprint's `human/` entries), and hand the Coach its link once in chat. Any further file the sprint adds to its
 whiteboard directory gets a tab of its own when it appears. The repo files stay the
 source of truth: write the file first, mirror it after; the doc never holds anything the
 repo lacks. No Docs tools in the session: skip the mirror, say so in one line, and carry
@@ -96,6 +96,10 @@ Look-ahead from the orchestrator: <what later threads need from this one, if any
 From the ground-tidy: <anything pre-thread reported worth the worker knowing, if anything>.
 ```
 
+Every path in a handoff is relative to the checkout's root, as above: never paste an absolute
+path, which would point a worker in another checkout back into yours (CLAUDE.md, *Global
+resources*).
+
 The worker owns the branch from there: build, the finishing rebase, push, PR.
 
 When the worker reports `complete`, spawn one `thread-reviewer` (foreground, for the same
@@ -127,7 +131,7 @@ the review is of a finished thread, and follows the resume that finishes it.
    the Coach reads the entire bolus, not a précis -- under one lead line of your own
    (thread, the worker's verdict, PR number, the review's verdict).
 3. **Mirror to the sprint doc.** Add a tab named `Thread N: <label>` holding both reports;
-   bring the *Plan*, *Progress* and *HUMAN-whatsup* tabs up to date with their files; and
+   bring the *Plan*, *Progress* and *human* tabs up to date with their files; and
    add a tab for any file that has appeared in the sprint directory since the last look.
    A Coach with the doc open sees each update land live.
 4. **Tend the documents.** Tick the thread off in the status lines, and revise later
@@ -170,7 +174,7 @@ Default rules, absent other guidance:
   Coach's.
 * **Pause the sprint** -- report in chat, update both documents' status lines and the
   sprint doc, add a
-  `## YYYY-MM-DD: Sprint <name> paused` entry to `HUMAN-whatsup.md` saying exactly where
+  `human/YYYYMMDD-sprint_<name>_paused.md` entry saying exactly where
   things stand, commit and push those document edits (§3's rule), and end your turn --
   when:
   - a worker is `blocked` on a significant question you may not answer;
@@ -189,14 +193,14 @@ Default rules, absent other guidance:
 **YOLO** (the Coach says so, usually at the invocation): be more reluctant to pause, not
 more willing to gamble. Answer judgment calls a competent Coach would consider two-way
 doors, record each prominently (the plan's *Decisions taken in YOLO* list, the chat relay,
-and `HUMAN-whatsup.md` at sprint end), and keep going. Still pause for anything
+and an entry under `human/` at sprint end), and keep going. Still pause for anything
 destructive or hard to reverse, anything touching `main` or production, a guardrail break,
 or a genuinely one-way design call. YOLO never means merging a PR.
 
 ## 5. Wrap up
 
 When the last thread completes (or the sprint pauses for good): set both documents' status
-lines and mirror them to the sprint doc; add a `HUMAN-whatsup.md` entry at the top -- the
+lines and mirror them to the sprint doc; add a `human/YYYYMMDD-sprint_<name>_done.md` entry -- the
 sprint in a paragraph, its PRs in order with "stacked on" notes, YOLO decisions if any,
 and the open questions gathered in one place; commit and push that final document state
 (§3's rule); then give the Coach the closing summary in chat, leading with what shipped,
