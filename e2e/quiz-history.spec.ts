@@ -1,19 +1,22 @@
 import { readFile } from 'node:fs/promises'
 import { type Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
-import { actDangerously, expect, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import * as Routes from '../src/lib/routes'
+import { actDangerously, expect, huntLabelOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test } from './support'
 
-test('a quiz starts on the main version, and the author can move it to another', async ({ page }) => {
-  await openManage(page)
-  await expect(page.getByLabel('Version')).toHaveValue('main')
+test('a hunt starts on the main branch, and a smith can switch it from the hunt\'s page', async ({ page }) => {
+  await page.goto(Routes.huntPath(huntLabelOf(page)))
+  const branch = page.getByRole('textbox', { name: 'Branch' })
+  await expect(branch).toHaveValue('main')
+  await expect(page.getByRole('button', { name: 'Switch branch' })).toBeDisabled()
 
-  await page.getByLabel('Version').fill('draft two')
-  await page.getByRole('button', { name: 'Apply' }).click()
-  await expect(page.getByText('Manage this quiz')).toBeHidden()
-  await waitUntilSaved(page)
+  await branch.fill('draft two')
+  await page.getByRole('button', { name: 'Switch branch' }).click()
+  await expect(branch).toHaveValue('draft_two')
+  await expect(page.getByRole('button', { name: 'Switch branch' })).toBeDisabled()
 
-  await openManage(page)
-  await expect(page.getByLabel('Version')).toHaveValue('draft_two')
+  await page.reload()
+  await expect(page.getByRole('textbox', { name: 'Branch' })).toHaveValue('draft_two')
 })
 
 test('editing a quiz builds a history that a milestone can tag', async ({ page }) => {
@@ -25,12 +28,14 @@ test('editing a quiz builds a history that a milestone can tag', async ({ page }
   await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
 })
 
-test('a milestone names the version it marks', async ({ page }) => {
-  await openManage(page)
-  await page.getByLabel('Version').fill('playtest')
-  await page.getByRole('button', { name: 'Apply' }).click()
-  await waitUntilSaved(page)
+test('a milestone names the branch it marks', async ({ page }) => {
+  const quizPath = `${new URL(page.url()).pathname}${new URL(page.url()).search}`
+  await page.goto(Routes.huntPath(huntLabelOf(page)))
+  await page.getByRole('textbox', { name: 'Branch' }).fill('playtest')
+  await page.getByRole('button', { name: 'Switch branch' }).click()
+  await expect(page.getByRole('button', { name: 'Switch branch' })).toBeDisabled()
 
+  await page.goto(quizPath)
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
   await expect(page.getByRole('status')).toHaveText(/^playtest-m-/)

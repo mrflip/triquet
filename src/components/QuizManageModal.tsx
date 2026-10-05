@@ -27,7 +27,7 @@ export type QuizManageModalProps = {
   quiz:      QuizT
   /** The library's widgets, which the quiz's widgetings work */
   library:   readonly WidgetT[]
-  /** What the screen offers whoever is working: the quiz's own label, version and layout are left as they are where it is not revisable */
+  /** What the screen offers whoever is working: the quiz's own label and layout are left as they are where it is not revisable */
   offers:    WorkbenchOffersT
   dispatch:  (action: HuntActionDNA) => void
   /** Carry out a change to the library, from the widgeting editor's door to the widget editor (`useLibraryActions`) */
@@ -53,7 +53,6 @@ export type QuizManageModalProps = {
  */
 export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(quiz.label)
-  const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
   const [noted, setNoted] = useState<string | null>(null)
   const huntLabel = hunt.label
@@ -100,17 +99,14 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
     if (cleaned === '') { setIssue('Enter a label.'); return }
     const taken = realm.quizzes.some((other) => other._id !== quiz._id && other.label === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
-    const version = Labelmaker.normalize(versionDraft)
-    if (version === '') { setIssue('Enter a version.'); return }
     // The quiz is addressed by its label, so a relabel is also a move: the address follows it
     // once it lands (`useHunt`'s `movedTo`).
     dispatch({ kind: 'relabel_quiz', label: cleaned })
-    dispatch({ kind: 'reversion_quiz', version })
     onClose()
   }
 
   const onMilestone = async () => {
-    const tag = await QuizMirror.milestoneQuiz(quiz)
+    const tag = await QuizMirror.milestoneQuiz(quiz, hunt.branch)
     setNoted(tag ?? AppNotices.nothingToMilestone)
   }
 
@@ -124,25 +120,15 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
       {/* One scrolling region for the whole dialog: each section is as tall as what it holds. */}
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
-          <Stack spacing={1}>
-            <TextField
-              label="Label"
-              value={draft}
-              size="small"
-              disabled={! offers.reviseQuiz}
-              error={issue !== null}
-              helperText={issue ?? "Used in this page's web address."}
-              onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
-            />
-            <TextField
-              label="Version"
-              value={versionDraft}
-              size="small"
-              disabled={! offers.reviseQuiz}
-              helperText="The line of work this quiz is on, and the branch its history is kept on."
-              onChange={(event) => { setVersionDraft(event.target.value); setIssue(null) }}
-            />
-          </Stack>
+          <TextField
+            label="Label"
+            value={draft}
+            size="small"
+            disabled={! offers.reviseQuiz}
+            error={issue !== null}
+            helperText={issue ?? "Used in this page's web address."}
+            onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
+          />
 
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>

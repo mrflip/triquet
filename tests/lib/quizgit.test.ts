@@ -87,14 +87,14 @@ function gitSays(quiz: QuizT, ...args: string[]): string {
   return gitSaysExactly(quiz, ...args).trim()
 }
 
-/** Commit `quiz` as the only thing that has ever happened to it */
-async function commitFresh(quiz: QuizT): Promise<string | null> {
-  return await Quizgit.commitQuiz(suite.fs, quiz, [], Here, Changes.quizChanges(null, quiz))
+/** Commit `quiz` as the only thing that has ever happened to it, on its hunt's branch */
+async function commitFresh(quiz: QuizT, branch = 'main'): Promise<string | null> {
+  return await Quizgit.commitQuiz(suite.fs, quiz, [], Here, branch, Changes.quizChanges(null, quiz))
 }
 
-/** Commit the step from `before` to `after`, as the app itself would */
-async function commitStep(before: QuizT, after: QuizT): Promise<string | null> {
-  return await Quizgit.commitQuiz(suite.fs, after, [], Here, Changes.quizChanges(before, after))
+/** Commit the step from `before` to `after`, as the app itself would, on its hunt's branch */
+async function commitStep(before: QuizT, after: QuizT, branch = 'main'): Promise<string | null> {
+  return await Quizgit.commitQuiz(suite.fs, after, [], Here, branch, Changes.quizChanges(before, after))
 }
 
 beforeEach(() => {
@@ -256,9 +256,9 @@ describe('the widget files', () => {
 
   it("is committed with the quiz, and a commit follows a change to a widget alone", async () => {
     const quiz = shouting([questionOf('quiet_otter', { clueing: 'Who?' })])
-    await Quizgit.commitQuiz(suite.fs, quiz, [shout], Here, Changes.quizChanges(null, quiz))
+    await Quizgit.commitQuiz(suite.fs, quiz, [shout], Here, 'main', Changes.quizChanges(null, quiz))
     const louder = { ...shout, formula: "$uppercase(qn.title) & '!'" }
-    const changed = await Quizgit.commitQuiz(suite.fs, quiz, [louder], Here, Changes.widgetChanges([shout], [louder]))
+    const changed = await Quizgit.commitQuiz(suite.fs, quiz, [louder], Here, 'main', Changes.widgetChanges([shout], [louder]))
     expect(changed).to.be.a('string')
     expect(gitSays(quiz, 'show', `HEAD:${ShoutPath}`)).to.include("& '!'")
     expect(gitSays(quiz, 'log', '-1', '--format=%s')).to.eq('widgets ~shout')
@@ -266,9 +266,9 @@ describe('the widget files', () => {
 
   it("leaves the repository when the quiz stops working it", async () => {
     const before = shouting([questionOf('quiet_otter')])
-    await Quizgit.commitQuiz(suite.fs, before, [shout], Here, Changes.quizChanges(null, before))
+    await Quizgit.commitQuiz(suite.fs, before, [shout], Here, 'main', Changes.quizChanges(null, before))
     const after = { ...before, widgetings: [] }
-    await Quizgit.commitQuiz(suite.fs, after, [shout], Here, Changes.quizChanges(before, after))
+    await Quizgit.commitQuiz(suite.fs, after, [shout], Here, 'main', Changes.quizChanges(before, after))
     expect(gitSays(after, 'ls-files').split('\n')).to.deep.eq([OursTsv, OursJson])
     expect(gitSays(after, 'status', '--porcelain')).to.eq('')
   })
@@ -313,16 +313,16 @@ describe('quizFiles', () => {
 // Every stamp has to survive `git check-ref-format`, which forbids a colon outright:
 const MilestoneTagCases: [string, string, string, string][] = [
   // regular usage:
-  ['main',      '2026-09-18T18:45:04.123Z', 'main-m-20260918184504z',      'a version, an m, and the UTC moment as bare digits: no dashes, colons or t'],
+  ['main',      '2026-09-18T18:45:04.123Z', 'main-m-20260918184504z',      'a branch, an m, and the UTC moment as bare digits: no dashes, colons or t'],
   ['draft_two', '2026-01-01T00:00:00.000Z', 'draft_two-m-20260101000000z', 'midnight keeps its zeroes rather than collapsing'],
   // not-quite-absurd cases:
   ['main',      '2026-12-31T23:59:59.999Z', 'main-m-20261231235959z',      'a moment a millisecond before the year turns does not round up into it'],
 ]
 
 describe('milestoneTagFor', () => {
-  for (const [version, iso, expected, describes] of MilestoneTagCases) {
+  for (const [branch, iso, expected, describes] of MilestoneTagCases) {
     it(describes, () => {
-      expect(Quizgit.milestoneTagFor(version, new Date(iso))).to.eq(expected)
+      expect(Quizgit.milestoneTagFor(branch, new Date(iso))).to.eq(expected)
     })
   }
 
@@ -337,15 +337,15 @@ describe('milestoneTagFor', () => {
 describe('commitFirst', () => {
   it('opens a history that has none, with the quiz as it stands', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here)).to.be.a('string')
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here, 'main')).to.be.a('string')
     expect(gitSays(quiz, 'log', '--oneline')).to.include('+quiz')
     expect(gitSays(quiz, 'status', '--porcelain')).to.eq('')
   })
 
   it('does nothing where the history is already under way, so asking twice leaves one commit', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    await Quizgit.commitFirst(suite.fs, quiz, [], Here)
-    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here)).to.be.null
+    await Quizgit.commitFirst(suite.fs, quiz, [], Here, 'main')
+    expect(await Quizgit.commitFirst(suite.fs, quiz, [], Here, 'main')).to.be.null
     expect(gitSays(quiz, 'rev-list', '--count', 'HEAD')).to.eq('1')
   })
 
@@ -354,7 +354,7 @@ describe('commitFirst', () => {
     const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?' }] }
     await commitFresh(before)
     await commitStep(before, after)
-    expect(await Quizgit.commitFirst(suite.fs, after, [], Here)).to.be.null
+    expect(await Quizgit.commitFirst(suite.fs, after, [], Here, 'main')).to.be.null
     expect(gitSays(after, 'rev-list', '--count', 'HEAD')).to.eq('2')
   })
 })
@@ -365,7 +365,7 @@ describe('markTagFor', () => {
     expect(Quizgit.markTagFor('main', 'delete', new Date('2026-09-18T18:45:04.123Z'))).to.eq('main-delete-20260918184504z')
   })
 
-  it('carries the version, however much it looks like the marker', () => {
+  it('carries the branch, however much it looks like the marker', () => {
     expect(Quizgit.markTagFor('m_two', 'import', new Date('2026-01-01T00:00:00.000Z'))).to.eq('m_two-import-20260101000000z')
   })
 
@@ -417,28 +417,28 @@ describe('commitQuiz', () => {
     expect(touched).to.include('ours.tq.json')
   })
 
-  it('starts on the branch the quiz\'s version names', async () => {
-    const quiz = quizOf([questionOf('quiet_otter')], { version: 'main' })
-    await commitFresh(quiz)
-    expect(gitSays(quiz, 'rev-parse', '--abbrev-ref', 'HEAD')).to.eq('main')
+  it('starts on the branch its hunt is on', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    await commitFresh(quiz, 'playtest')
+    expect(gitSays(quiz, 'rev-parse', '--abbrev-ref', 'HEAD')).to.eq('playtest')
   })
 
-  it('branches when the version changes, leaving the old line of work where it was', async () => {
+  it('branches when the hunt\'s branch changes, leaving the old line of work where it was', async () => {
     const before = quizOf([questionOf('quiet_otter')])
     await commitFresh(before)
-    const after = { ...before, version: 'draft_two', questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?' }] }
-    await commitStep(before, after)
+    const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Who dithers?' }] }
+    await commitStep(before, after, 'draft_two')
 
     expect(gitSays(after, 'rev-parse', '--abbrev-ref', 'HEAD')).to.eq('draft_two')
     expect(gitSays(after, 'log', '--format=%s', 'main')).to.eq('+quiz')
     expect(gitSays(after, 'log', '--format=%s', 'draft_two').split('\n')).to.have.lengthOf(2)
   })
 
-  it('returns to a version it has seen before rather than starting it over', async () => {
+  it('returns to a branch it has seen before rather than starting it over', async () => {
     const onMain = quizOf([questionOf('quiet_otter')])
     await commitFresh(onMain)
-    const onDraft = { ...onMain, version: 'draft_two' }
-    await commitStep(onMain, onDraft)
+    const onDraft = { ...onMain, title: 'Drafted' }
+    await commitStep(onMain, onDraft, 'draft_two')
     const backOnMain = { ...onMain, title: 'Renamed' }
     await commitStep(onMain, backOnMain)
 
@@ -464,25 +464,34 @@ describe('milestoneQuiz', () => {
   it('tags the commit the quiz is sitting on', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
-    const tag = await Quizgit.milestoneQuiz(suite.fs, quiz, new Date('2026-09-18T18:45:04.123Z'))
+    const tag = await Quizgit.milestoneQuiz(suite.fs, quiz, 'main', new Date('2026-09-18T18:45:04.123Z'))
 
     expect(tag).to.eq('main-m-20260918184504z')
     expect(gitSays(quiz, 'tag', '--list')).to.eq('main-m-20260918184504z')
     expect(gitSays(quiz, 'rev-parse', present(tag))).to.eq(gitSays(quiz, 'rev-parse', 'HEAD'))
   })
 
-  it('takes the version from the quiz, so a milestone says which line of work it marked', async () => {
-    const quiz = quizOf([questionOf('quiet_otter')], { version: 'draft_two' })
+  it('starts the branch a hunt was switched to since its last commit, so the milestone marks where it begins', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
-    expect(await Quizgit.milestoneQuiz(suite.fs, quiz, new Date('2026-09-18T18:45:04.123Z'))).to.eq('draft_two-m-20260918184504z')
+    const tag = await Quizgit.milestoneQuiz(suite.fs, quiz, 'playtest', new Date('2026-09-18T18:45:04.123Z'))
+    expect(tag).to.eq('playtest-m-20260918184504z')
+    expect(gitSays(quiz, 'rev-parse', '--abbrev-ref', 'HEAD')).to.eq('playtest')
+    expect(gitSays(quiz, 'rev-parse', present(tag))).to.eq(gitSays(quiz, 'rev-parse', 'main'))
+  })
+
+  it('takes the branch from the hunt, so a milestone says which line of work it marked', async () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    await commitFresh(quiz, 'draft_two')
+    expect(await Quizgit.milestoneQuiz(suite.fs, quiz, 'draft_two', new Date('2026-09-18T18:45:04.123Z'))).to.eq('draft_two-m-20260918184504z')
   })
 
   it('does not clobber an earlier milestone made in the same second', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
     const at = new Date('2026-09-18T18:45:04.123Z')
-    const first = await Quizgit.milestoneQuiz(suite.fs, quiz, at)
-    const second = await Quizgit.milestoneQuiz(suite.fs, quiz, at)
+    const first = await Quizgit.milestoneQuiz(suite.fs, quiz, 'main', at)
+    const second = await Quizgit.milestoneQuiz(suite.fs, quiz, 'main', at)
 
     expect(second).to.eq(`${present(first)}-2`)
     expect(gitSays(quiz, 'tag', '--list').split('\n')).to.have.lengthOf(2)
@@ -495,7 +504,7 @@ describe('markChange', () => {
     const after = { ...before, questions: [{ ...present(before.questions[0]), clueing: 'Imported' }] }
     await commitFresh(before)
     await commitStep(before, after)
-    const tag = await Quizgit.markChange(suite.fs, after, 'import', new Date('2026-09-18T18:45:04.123Z'))
+    const tag = await Quizgit.markChange(suite.fs, after, 'import', 'main', new Date('2026-09-18T18:45:04.123Z'))
 
     expect(tag).to.eq('main-import-20260918184504z')
     const tagged = gitSays(after, 'rev-parse', present(tag))
@@ -507,14 +516,14 @@ describe('markChange', () => {
     const quiz = quizOf([questionOf('quiet_otter')])
     await commitFresh(quiz)
     const at = new Date('2026-09-18T18:45:04.123Z')
-    const first = await Quizgit.markChange(suite.fs, quiz, 'delete', at)
-    const second = await Quizgit.markChange(suite.fs, quiz, 'delete', at)
+    const first = await Quizgit.markChange(suite.fs, quiz, 'delete', 'main', at)
+    const second = await Quizgit.markChange(suite.fs, quiz, 'delete', 'main', at)
     expect(second).to.eq(`${present(first)}-2`)
   })
 
   it('says there was nothing to tag where the quiz has no history yet', async () => {
     const quiz = quizOf([questionOf('quiet_otter')])
-    expect(await Quizgit.markChange(suite.fs, quiz, 'import')).to.be.null
+    expect(await Quizgit.markChange(suite.fs, quiz, 'import', 'main')).to.be.null
   })
 })
 
@@ -522,7 +531,7 @@ describe('zipQuizRepo', () => {
   it('packages a repository that git still recognises once unzipped', async () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?' })])
     await commitFresh(quiz)
-    await Quizgit.milestoneQuiz(suite.fs, quiz, new Date('2026-09-18T18:45:04.123Z'))
+    await Quizgit.milestoneQuiz(suite.fs, quiz, 'main', new Date('2026-09-18T18:45:04.123Z'))
 
     const unpacked = path.join(suite.root, 'unpacked')
     const entries = Object.entries(unzipSync(await Quizgit.zipQuizRepo(suite.fs, quiz)))
@@ -593,15 +602,15 @@ describe('listRepos', () => {
   it('reports the branch the history is on, and the latest commit on it', async () => {
     const quiz = quizOf([questionOf('q1')])
     await commitFresh(quiz)
-    const revised = { ...quiz, questions: [{ ...quiz.questions[0]!, clueing: 'Who now?' }], version: 'draft' }
-    await commitStep(quiz, revised)
+    const revised = { ...quiz, questions: [{ ...quiz.questions[0]!, clueing: 'Who now?' }] }
+    await commitStep(quiz, revised, 'draft')
     const [repo] = await Quizgit.listRepos(suite.fs)
     expect(repo).to.include({ branch: 'draft', message: Changes.shorthandFor(Changes.quizChanges(quiz, revised)) })
   })
 
   it('lists a quiz whose history has only just begun, as a repository with nothing committed', async () => {
     const quiz = quizOf([])
-    await Quizgit.milestoneQuiz(suite.fs, quiz)
+    await Quizgit.milestoneQuiz(suite.fs, quiz, 'main')
     expect(await Quizgit.listRepos(suite.fs)).to.deep.eq([
       { id: quiz._id, label: null, branch: 'main', message: null, committed_at: null },
     ])

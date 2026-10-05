@@ -278,7 +278,9 @@ than one kind of player. Begun by the categories sprint, October 2026
   all of this. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)
-* **version** -- which line of work a quiz is on; also its git branch. A **milestone** is a tag.
+* **branch** -- which line of work a hunt is on, every quiz of it alike; also the git branch its
+  history is committed to, and set on the hunt's own page. A **milestone** is a tag. (Until October
+  2026 each quiz had a **version** of its own instead.)
 
 ## Columns and the bag
 

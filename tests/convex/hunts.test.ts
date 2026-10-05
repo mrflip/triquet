@@ -222,14 +222,6 @@ describe("hunts.perform", () => {
     })
   })
 
-  describe("reversion_quiz", () => {
-    it("puts the open quiz on another version", async () => {
-      const { act, read } = await seed(openHunt())
-      await act({ kind: 'reversion_quiz', version: 'playtest' })
-      expect(openOf(await read()).version).to.eq('playtest')
-    })
-  })
-
   describe("set_smiths_note", () => {
     it("rewrites the open quiz's smith's note, trimmed, keeping its paragraphs", async () => {
       const { act, read } = await seed(openHunt())
@@ -891,7 +883,7 @@ describe("hunts.perform", () => {
       const { act, tt, open } = await seed(huntTitled(['one', 'two']), 0)
       const elsewhere = await tt.run(async (ctx) => {
         const realm_id = await ctx.db.insert('realms', { hunt_id: open.hunt_id, label: 'away', title: '', position: 1 })
-        return await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id, title: '', label: 'far_quiz', smiths_note: '', q1_preamble: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        return await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id, title: '', label: 'far_quiz', smiths_note: '', q1_preamble: '', locked: false, last_sortkey: null, row_ordering: [] })
       })
       await expectRefusal(act({ kind: 'delete_quiz', quiz_id: elsewhere }), 'notInRealm')
       expect(await tt.run(async (ctx) => await ctx.db.get('quizzes', elsewhere))).to.not.be.null
@@ -1401,7 +1393,7 @@ describe("hunts.perform, at the caps", () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.QuizzesPerRealm.max - 1 }, (_unused, idx) => `quiz_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id: open.realm_id, title: '', label, smiths_note: '', q1_preamble: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [] })
+        await ctx.db.insert('quizzes', { hunt_id: open.hunt_id, realm_id: open.realm_id, title: '', label, smiths_note: '', q1_preamble: '', locked: false, last_sortkey: null, row_ordering: [] })
       }
     })
     await expectRefusal(act({ kind: 'new_quiz', label: 'one_more' }), 'quizzesFull')

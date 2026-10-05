@@ -256,10 +256,10 @@ type HuntlessDNA = Extract<AccountActionDNA, { kind: 'assume_ident' | 'retitle_i
 const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_ident', 'retitle_ident', 'new_hunt'])
 
 /** An account action that names a hunt, and is no hunt action's kind */
-type HuntNamingDNA = Extract<AccountActionDNA, { kind: 'arrange_categories' }>
+type HuntNamingDNA = Extract<AccountActionDNA, { kind: 'arrange_categories' | 'rebranch_hunt' }>
 
 /** The kinds of account action that name a hunt, and are no hunt action's kind */
-const HuntNamingKinds: ReadonlySet<string> = new Set<HuntNamingDNA['kind']>(['arrange_categories'])
+const HuntNamingKinds: ReadonlySet<string> = new Set<HuntNamingDNA['kind']>(['arrange_categories', 'rebranch_hunt'])
 
 /** The kinds of action on the library */
 const LibraryKinds: ReadonlySet<string> = new Set<LibraryActionDNA['kind']>(['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'])
@@ -316,7 +316,6 @@ const Matrix = {
   // content:
   retitle_quiz:        [{ kind: 'retitle_quiz', title: 'Princes' },                                                                  Revisers],
   relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Revisers],
-  reversion_quiz:      [{ kind: 'reversion_quiz', version: 'playtest' },                                                             Revisers],
   set_smiths_note:     [{ kind: 'set_smiths_note', smiths_note: 'Theme: princes.' },                                                 Revisers],
   set_q1_preamble:     [{ kind: 'set_q1_preamble', q1_preamble: 'Read the note![br]' },                                              Revisers],
   edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
@@ -347,6 +346,7 @@ const Matrix = {
   relabel_hunt:        [{ kind: 'relabel_hunt', label: 'princes' },                                                                  Smiths],
   delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
   arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
+  rebranch_hunt:       [{ kind: 'rebranch_hunt', hunt_id, branch: 'playtest' },                                                      Smiths],
   // account actions, of the actor alone:
   assume_ident:        [{ kind: 'assume_ident', label: 'alice_smiths', title: 'Alice' },                                             Anyone],
   retitle_ident:       [{ kind: 'retitle_ident', title: 'Alice' },                                                                   Idents],

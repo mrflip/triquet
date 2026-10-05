@@ -30,7 +30,6 @@ const Actions: HuntActionDNA[] = [
   { kind: 'move_column', label: 'qnum', onto_idx: 1 },
   { kind: 'retitle_quiz', title: 'Princes' },
   { kind: 'relabel_quiz', label: 'princes' },
-  { kind: 'reversion_quiz', version: 'playtest' },
   { kind: 'set_smiths_note', smiths_note: 'Theme: princes.\n\nMeta: their initials.' },
   { kind: 'edit_question', question_id, patch: { clueing: 'Who?', chains_to: null } },
   { kind: 'add_question' },
@@ -140,6 +139,13 @@ describe('ActionValidators.accountAction', () => {
     const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
     const action: AccountActionT = { kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] }
     expect(ActionValidators.accountAction(action)).to.deep.eq(action)
+  })
+
+  it("takes putting a hunt on another branch, and refuses a branch that is not a label", () => {
+    const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f82aa' as Id<'hunts'>
+    const action: AccountActionT = { kind: 'rebranch_hunt', hunt_id, branch: 'playtest' }
+    expect(ActionValidators.accountAction(action)).to.deep.eq(action)
+    expect(() => ActionValidators.accountAction({ ...action, branch: 'Play Test' })).to.throw(Z.ZodError)
   })
 
   it("refuses arranging a hunt's categories with one category in two slots", () => {

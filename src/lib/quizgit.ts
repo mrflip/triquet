@@ -166,19 +166,19 @@ export function quizFiles(quiz: QuizT, library: readonly WidgetT[], place: Runne
 }
 
 /**
- * The tag a milestone leaves behind: the version it was marked on, and when.
+ * The tag a milestone leaves behind: the branch it was marked on, and when.
  *
  * The moment is the UTC time as fourteen digits and a `z`, with none of ISO's punctuation -- git
  * forbids a colon in a ref name, and digits alone sort chronologically as plain text.
  *
- * @param version - The quiz's version, which is also its branch.
+ * @param branch - The branch the history is on.
  * @param at - The moment being stamped.
  * @returns A valid, sortable tag name.
  *
  * @example milestoneTagFor('main', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-m-20260918184504z'
  */
-export function milestoneTagFor(version: string, at: Date): string {
-  return `${version}-m-${tagStampOf(at)}z`
+export function milestoneTagFor(branch: string, at: Date): string {
+  return `${branch}-m-${tagStampOf(at)}z`
 }
 
 /** `at` to the second in UTC, digits only, so tags sort as text in the order their moments happened */
@@ -197,15 +197,16 @@ function tagStampOf(at: Date): string {
  * @param quiz - The quiz as it now stands.
  * @param library - The library's widgets; those the quiz works are kept in the same commit.
  * @param place - The hunt and realm it sits in.
- * @returns The new commit's oid, or null when the quiz's branch already had commits.
+ * @param branch - The branch its hunt is on.
+ * @returns The new commit's oid, or null when the branch already had commits.
  *
- * @example await commitFirst(fs, quiz, library, Runner.placeOf(hunt, realm))
+ * @example await commitFirst(fs, quiz, library, Runner.placeOf(hunt, realm), hunt.branch)
  */
-export async function commitFirst(fs: GitFs, quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace): Promise<string | null> {
+export async function commitFirst(fs: GitFs, quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace, branch: string): Promise<string | null> {
   const dir = repopathFor(quiz)
-  await openRepo(fs, dir, quiz.version)
+  await openRepo(fs, dir, branch)
   if (await hasCommits(fs, dir)) { return null }
-  return await commitQuiz(fs, quiz, library, place, Changes.quizChanges(null, quiz))
+  return await commitQuiz(fs, quiz, library, place, branch, Changes.quizChanges(null, quiz))
 }
 
 /** The sweeping changes the history brackets with commits and tags: an import merged in, questions deleted */
@@ -213,12 +214,12 @@ export const MarkkindVals = ['import', 'delete'] as const
 export type Markkind = typeof MarkkindVals[number]
 
 /**
- * The tag a sweeping change leaves behind: the version it landed on, what it was, and when.
+ * The tag a sweeping change leaves behind: the branch it landed on, what it was, and when.
  *
  * Stamped as a milestone's is, so they all sort together by time; the markkind in place of `m`
  * is what tells them apart in a list of tags.
  *
- * @param version - The quiz's version, which is also its branch.
+ * @param branch - The branch the history is on.
  * @param markkind - What the change was.
  * @param at - The moment being stamped.
  * @returns A valid, sortable tag name.
@@ -226,15 +227,15 @@ export type Markkind = typeof MarkkindVals[number]
  * @example markTagFor('main', 'import', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-import-20260918184504z'
  * @example markTagFor('main', 'delete', new Date('2026-09-18T18:45:04.123Z'))  // => 'main-delete-20260918184504z'
  */
-export function markTagFor(version: string, markkind: Markkind, at: Date): string {
-  return `${version}-${markkind}-${tagStampOf(at)}z`
+export function markTagFor(branch: string, markkind: Markkind, at: Date): string {
+  return `${branch}-${markkind}-${tagStampOf(at)}z`
 }
 
 /**
- * Commit `quiz` to its own repository, on the branch its version names.
+ * Commit `quiz` to its own repository, on the branch its hunt is on.
  *
- * Creates the repository on first sight, and the branch the first time a version is used, so an
- * author who renames a version simply starts a branch rather than meeting an error. The
+ * Creates the repository on first sight, and the branch the first time it is used, so an author
+ * who puts the hunt on a new branch simply starts one rather than meeting an error. The
  * repository is a mirror and never the source of truth: the caller is expected to treat a
  * failure here as something to report, not as a reason to lose an edit.
  *
@@ -242,20 +243,21 @@ export function markTagFor(version: string, markkind: Markkind, at: Date): strin
  * @param quiz - The quiz as it now stands.
  * @param library - The library's widgets; those the quiz works are kept in the same commit.
  * @param place - The hunt and realm it sits in.
+ * @param branch - The branch its hunt is on.
  * @param changes - What moved, as `Changes.quizChanges` and `Changes.widgetChanges` reported it.
  * @returns The new commit's oid, or null when nothing changed and nothing was committed.
  *
  * The commit message is the shorthand alone. The quiz itself is in the tree, and a body that
  * repeated it would only be a second copy to drift.
  *
- * @example await commitQuiz(fs, quiz, library, place, quizChanges(before, quiz))
+ * @example await commitQuiz(fs, quiz, library, place, hunt.branch, quizChanges(before, quiz))
  */
-export async function commitQuiz(fs: GitFs, quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace, changes: readonly Changes.Change[]): Promise<string | null> {
+export async function commitQuiz(fs: GitFs, quiz: QuizT, library: readonly WidgetT[], place: Runner.QuizPlace, branch: string, changes: readonly Changes.Change[]): Promise<string | null> {
   const message = Changes.shorthandFor(changes)
   if (message === null) { return null }
 
   const dir = repopathFor(quiz)
-  await openRepo(fs, dir, quiz.version)
+  await openRepo(fs, dir, branch)
   const { written, removed } = await syncTree(fs, dir, quizFiles(quiz, library, place))
 
   for (const filepath of written) { await git.add({ fs, dir, filepath }) }
@@ -264,20 +266,23 @@ export async function commitQuiz(fs: GitFs, quiz: QuizT, library: readonly Widge
 }
 
 /**
- * Mark a milestone: tag `quiz`'s current commit as a moment worth coming back to.
+ * Mark a milestone: tag `quiz`'s current commit, on the branch its hunt is on, as a moment worth
+ * coming back to. A hunt put on a new branch since the last commit starts that branch here, so
+ * the milestone marks where the new line of work begins.
  *
- * A version with no commits behind it yet has nothing to point a tag at, and says so rather than
- * failing: an author can reach this by marking a quiz whose history this browser has never held.
+ * A history with no commits yet has nothing to point a tag at, and says so rather than failing:
+ * an author can reach this by marking a quiz whose history this browser has never held.
  *
  * @param fs - Where the repositories live.
  * @param quiz - The quiz being marked.
+ * @param branch - The branch its hunt is on.
  * @param at - The moment to stamp; now, when omitted.
  * @returns The tag left behind, disambiguated when that second already has one, or null when there was nothing to tag.
  *
- * @example await milestoneQuiz(fs, quiz)  // => 'main-m-20260918184504z'
+ * @example await milestoneQuiz(fs, quiz, hunt.branch)  // => 'main-m-20260918184504z'
  */
-export async function milestoneQuiz(fs: GitFs, quiz: QuizT, at: Date = new Date()): Promise<string | null> {
-  return await tagHead(fs, quiz, milestoneTagFor(quiz.version, at))
+export async function milestoneQuiz(fs: GitFs, quiz: Pick<QuizT, '_id'>, branch: string, at: Date = new Date()): Promise<string | null> {
+  return await tagHead(fs, quiz, branch, milestoneTagFor(branch, at))
 }
 
 /**
@@ -289,19 +294,20 @@ export async function milestoneQuiz(fs: GitFs, quiz: QuizT, at: Date = new Date(
  * @param fs - Where the repositories live.
  * @param quiz - The quiz the change was made to.
  * @param markkind - What the change was.
+ * @param branch - The branch its hunt is on.
  * @param at - The moment to stamp; now, when omitted.
  * @returns The tag left behind, disambiguated when that second already has one, or null when there was nothing to tag.
  *
- * @example await markChange(fs, quiz, 'import')  // => 'main-import-20260918184504z'
+ * @example await markChange(fs, quiz, 'import', hunt.branch)  // => 'main-import-20260918184504z'
  */
-export async function markChange(fs: GitFs, quiz: QuizT, markkind: Markkind, at: Date = new Date()): Promise<string | null> {
-  return await tagHead(fs, quiz, markTagFor(quiz.version, markkind, at))
+export async function markChange(fs: GitFs, quiz: Pick<QuizT, '_id'>, markkind: Markkind, branch: string, at: Date = new Date()): Promise<string | null> {
+  return await tagHead(fs, quiz, branch, markTagFor(branch, markkind, at))
 }
 
-/** Tag the current commit `wanted`, or the first numbered variation of it that is free; null when there is no commit */
-async function tagHead(fs: GitFs, quiz: QuizT, wanted: string): Promise<string | null> {
+/** Tag the current commit on `branch` `wanted`, or the first numbered variation of it that is free; null when there is no commit */
+async function tagHead(fs: GitFs, quiz: Pick<QuizT, '_id'>, branch: string, wanted: string): Promise<string | null> {
   const dir = repopathFor(quiz)
-  await openRepo(fs, dir, quiz.version)
+  await openRepo(fs, dir, branch)
   if (! await hasCommits(fs, dir)) { return null }
   const taken = new Set(await git.listTags({ fs, dir }))
   const ref = untakenTag(wanted, taken)
@@ -427,17 +433,17 @@ function quizLabelIn(filepaths: readonly string[]): string | null {
   return json === undefined ? null : json.slice(json.lastIndexOf('/') + 1, -QuizJsonExt.length)
 }
 
-/** Open `dir` as a repository on branch `version`, creating either the first time it is needed */
-async function openRepo(fs: GitFs, dir: string, version: string): Promise<void> {
+/** Open `dir` as a repository on branch `branch`, creating either the first time it is needed */
+async function openRepo(fs: GitFs, dir: string, branch: string): Promise<void> {
   await mkdirp(fs, dir)
-  await git.init({ fs, dir, defaultBranch: version })
-  const branch = await git.currentBranch({ fs, dir })
-  if (branch === version) { return }
+  await git.init({ fs, dir, defaultBranch: branch })
+  const current = await git.currentBranch({ fs, dir })
+  if (current === branch) { return }
   const branches = await git.listBranches({ fs, dir })
-  if (branches.includes(version)) {
-    await git.checkout({ fs, dir, ref: version })
+  if (branches.includes(branch)) {
+    await git.checkout({ fs, dir, ref: branch })
   } else {
-    await git.branch({ fs, dir, ref: version, checkout: true })
+    await git.branch({ fs, dir, ref: branch, checkout: true })
   }
 }
 

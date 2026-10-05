@@ -5,7 +5,7 @@ import type { MutationCtx } from '../_generated/server'
 import * as Labelmaker from '../../src/lib/labelmaker'
 import type { AffirmsT } from '../../src/models/actions'
 import { ColumnValidators } from '../../src/models/column'
-import { HuntValidators } from '../../src/models/hunt'
+import { DefaultBranch, HuntValidators } from '../../src/models/hunt'
 import { defaultLayout, type Layout } from '../../src/models/layout'
 import { Question, QuestionValidators } from '../../src/models/question'
 import { BlankQuestionQty, Quiz, QuizValidators } from '../../src/models/quiz'
@@ -64,9 +64,9 @@ export function movedTo<RT extends { label: string }>(items: readonly RT[], labe
 // Each update below is held to its row validator whole, as the row would stand afterwards, and
 // then writes only the fields that change; one that changes nothing writes nothing.
 
-/** Revise a hunt's own row */
+/** Revise a hunt's own row, giving it the default branch if it was written before a hunt had one */
 export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<Z.output<typeof HuntValidators.row>>): Promise<void> {
-  const changed = changedFields(held, HuntValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, HuntValidators.row({ branch: DefaultBranch, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
@@ -265,7 +265,7 @@ export async function deleteQuiz(db: Writer, quiz_id: Id<'quizzes'>): Promise<vo
  * @example await insertHunt(ctx.db, 'quiet_otter')
  */
 export async function insertHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, title: Labelmaker.titleize(label) }))
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, title: Labelmaker.titleize(label), branch: DefaultBranch }))
   const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position: 0, label: HomeRealmLabel, title: Labelmaker.titleize(HomeRealmLabel) }))
   await insertQuiz(db, { hunt_id, realm_id }, '', label)
   return hunt_id

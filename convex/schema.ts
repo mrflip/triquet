@@ -26,14 +26,20 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
+// Two more are written by hand while a quiz's `version` becomes its hunt's `branch`
+// (`notes/deploy.md`, *Schema pushes*). A hunt's `branch` is optional here though every write
+// gives one, so that hunts written before it existed still fit until `migrations.ts` backfills
+// them. A quiz's `version`, which no row validator writes any more, is still let through until
+// `migrations.ts` has taken it off every quiz.
+//
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
 
 const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
-const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
+const huntFields        = { ...zodOutputToConvexFields(HuntValidators.row.shape), branch: CVX.optional(CVX.string()) }
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
+const quizFields        = { ...zodOutputToConvexFields(QuizValidators.row.shape), version: CVX.optional(CVX.string()) }
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
   ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),

@@ -68,9 +68,9 @@ describe('quizExported', () => {
   })
 
   it("keeps everything else the quiz holds, its widgetings in run order among it", () => {
-    const quiz = { ...chainedQuiz(), version: 'draft_two', locked: true }
+    const quiz = { ...chainedQuiz(), locked: true }
     const exported = exportedOf(quiz)
-    expect(exported).to.deep.include({ title: 'Princes', label: 'princes', version: 'draft_two', locked: true })
+    expect(exported).to.deep.include({ title: 'Princes', label: 'princes', locked: true })
     expect(exported.widgetings).to.deep.eq(quiz.widgetings)
     expect(present(exported.questions[1])).to.deep.include({ label: 'nantes', title: 'Nantes' })
     expect([exported, present(exported.questions[1])].map((each) => Object.hasOwn(each, 'forced_label'))).to.deep.eq([false, false])
@@ -146,9 +146,9 @@ describe('huntExported', () => {
     const hunt = Hunt.blank('deep_lake')
     const exported = Exporting.huntExported(hunt, SeedWidgets)
     expect(idPaths(exported)).to.deep.eq([])
-    expect(exported).to.deep.include({ label: 'deep_lake', title: 'Deep Lake' })
+    expect(exported).to.deep.include({ label: 'deep_lake', title: 'Deep Lake', branch: 'main' })
     expect(exported.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.label)])).to.deep.eq([['home', ['deep_lake']]])
-    expect(_.sortBy(Object.keys(exported))).to.deep.eq(['label', 'realms', 'title'])
+    expect(_.sortBy(Object.keys(exported))).to.deep.eq(['branch', 'label', 'realms', 'title'])
   })
 
   it("reads the doc block's example", () => {

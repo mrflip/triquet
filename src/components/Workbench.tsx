@@ -189,7 +189,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           onClose={() => { setDoomedIds(null) }}
           onConfirm={() => {
             const question_ids = doomed.map((question) => question._id)
-            void QuizMirror.markedChange(quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
+            void QuizMirror.markedChange(quiz, 'delete', hunt.branch, () => { dispatch({ kind: 'delete_questions', question_ids }) })
             setDoomedIds(null)
             checklist.end()
           }}
@@ -254,7 +254,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         saveNotice={saveNotice}
         changeLibrary={librarian.dispatch}
         onImport={(questions, widgetingActions) => {
-          void QuizMirror.markedChange(quiz, 'import', () => {
+          void QuizMirror.markedChange(quiz, 'import', hunt.branch, () => {
             for (const action of widgetingActions) { dispatch(action) }
             dispatch({ kind: 'import_questions', questions })
           })

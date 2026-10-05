@@ -8,7 +8,7 @@ import * as Approve from '../lib/approve'
  * Who may be put on or taken off the hunt turns on who, and the members panel asks of each.
  */
 export type WorkbenchOffersT = {
-  /** Retitle the quiz and write its smith's note (the header); relabel and reversion it (the gear); write its Q1 preamble (LL Export) */
+  /** Retitle the quiz and write its smith's note (the header); relabel it (the gear); write its Q1 preamble (LL Export) */
   reviseQuiz:      boolean
   /** Edit, add, delete, move, sort, renumber and chain its questions, and ask the bots of them (the grid and the toolbar) */
   reviseQuestions: boolean

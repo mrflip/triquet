@@ -22,8 +22,8 @@ function schedulerOf(seconds: number, landed: Landed[], commit?: (was: MirrorSna
     seconds,
     commit: commit ?? recordInto(landed),
   })
-  // These tests are about quizzes; the library that rides along is empty, and every quiz sits in one place.
-  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, library: [], place: Here }, { quiz: after, library: [], place: Here }) } }
+  // These tests are about quizzes; the library that rides along is empty, and every quiz sits in one place on one branch.
+  return { ...scheduler, note: (before: QuizT | null, after: QuizT) => { scheduler.note(before && { quiz: before, library: [], place: Here, branch: 'main' }, { quiz: after, library: [], place: Here, branch: 'main' }) } }
 }
 
 const titled = (quiz: QuizT, title: string): QuizT => ({ ...quiz, title })
@@ -175,8 +175,8 @@ describe('createCommitScheduler, carrying the library', () => {
     const quiz = Quiz.blank('One')
     const shout = Widget.fill({ label: 'shout', formulary: 'jsonata', formula: '$uppercase(qn.title)' })
     const whisper = Widget.fill({ label: 'whisper', formulary: 'jsonata', formula: '$lowercase(qn.title)' })
-    scheduler.note({ quiz, library: [], place: Here }, { quiz, library: [shout], place: Here })
-    scheduler.note({ quiz, library: [shout], place: Here }, { quiz, library: [shout, whisper], place: Here })
+    scheduler.note({ quiz, library: [], place: Here, branch: 'main' }, { quiz, library: [shout], place: Here, branch: 'main' })
+    scheduler.note({ quiz, library: [shout], place: Here, branch: 'main' }, { quiz, library: [shout, whisper], place: Here, branch: 'main' })
     await sec(2)
     expect(seen).to.deep.eq([[0, 2]])
   })

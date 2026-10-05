@@ -57,6 +57,23 @@ export async function arrangeCategories(db: Writer, hunt_id: Id<'hunts'>, wheel:
 }
 
 /**
+ * Put `hunt_id` on the branch `branch`: the line of work every quiz of the hunt is on, and the git
+ * branch its history is committed to. Naming one its history has not seen starts that branch
+ * there, in the browser, not here. Refused for a hunt that is gone.
+ *
+ * @param db - The mutation's database.
+ * @param hunt_id - Which hunt.
+ * @param branch - Its new branch, already validated.
+ *
+ * @example await rebranchHunt(db, hunt_id, 'playtest')
+ */
+export async function rebranchHunt(db: Writer, hunt_id: Id<'hunts'>, branch: string): Promise<void> {
+  const held = await db.get('hunts', hunt_id)
+  if (! held) { refuse('huntGone') }
+  await updateHunt(db, held, { branch })
+}
+
+/**
  * Delete `hunt_id` along with its last quiz, and everything they hold: the quiz's questions, its
  * widgetings and what they stored, the reviews and their verdicts; its realms; and everyone's
  * place on it. The library's widgets stay, being every hunt's. The idents themselves stay. A hunt is deleted only once it is down to one quiz, so that

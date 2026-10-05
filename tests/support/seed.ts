@@ -22,8 +22,8 @@ import { SeedWidgets } from '../../src/models/seeds'
  * @example await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank('Princes'))
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
-  const { title, label, smiths_note, q1_preamble, version, locked, last_sortkey } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, q1_preamble, version, locked, last_sortkey, row_ordering: [] }))
+  const { title, label, smiths_note, q1_preamble, locked, last_sortkey } = quiz
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, q1_preamble, locked, last_sortkey, row_ordering: [] }))
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
@@ -58,7 +58,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
  * @example await seedHuntRows(ctx.db, Hunt.blank('quiet_otter'))
  */
 export async function seedHuntRows(db: Writer, hunt: HuntT): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, title: hunt.title }))
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, title: hunt.title, branch: hunt.branch }))
   await insertAbsentWidgets(db, SeedWidgets)
   for (const [position, realm] of hunt.realms.entries()) {
     const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title }))
