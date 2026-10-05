@@ -253,11 +253,13 @@ export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: Widget
  * at the end, titled from its label unless the patch says otherwise. What each types into its
  * entry cells is upserted there. Nothing is deleted, and Q#s are then renumbered by rank, as the
  * Import panel promises. A chain names its target by label: one naming no question the quiz will
- * hold, or the question itself, is no chain.
+ * hold, or the question itself, is no chain. A quiz that held no questions takes them in the
+ * order pasted, and so takes the sort memory they were exported under, `last_sortkey`, when one
+ * is given; a quiz that held some keeps its own.
  *
  * @throws A refusal (`quizGone`, `questionsFull`), or a Zod error when an entered value is not of its entry's kind; nothing is written.
  */
-export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[]): Promise<void> {
+export async function importQuestions(db: Writer, open: OpenQuizT, imported: readonly ImportedQuestionT[], last_sortkey?: Sortkey | null): Promise<void> {
   const quiz = openQuizRow(open)
   const rows = await questionsOf(db, quiz)
   const held = new Map(rows.map((row) => [row.label, row]))
@@ -279,7 +281,8 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
       idFor.set(label, question_id)
     }
   }
-  await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added] })
+  const remembered = last_sortkey !== undefined && rows.length === 0 ? { last_sortkey } : {}
+  await updateQuiz(db, quiz, { row_ordering: [...quiz.row_ordering, ...added], ...remembered })
   await enterImported(db, { hunt_id: open.hunt_id, quiz_id: quiz._id }, imported, idFor)
   // Read again: its order has just been written, and the renumbering works from that.
   await reorderQuiz(db, revisable(await db.get('quizzes', quiz._id)), { stored: false }, (tree) => ({ questions: Rank.renumberByRank(tree.questions) }))

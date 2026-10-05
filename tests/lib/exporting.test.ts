@@ -108,12 +108,14 @@ describe('quizBodyOf', () => {
     expect(_.map(bodyOf(dangling).questions, 'chains_to')).to.deep.eq([null, null])
   })
 
-  it("keeps the quiz's own fields and each widgeting's and column's, leaving out its sort memory", () => {
-    const quiz = { ...chainedQuiz(), locked: true, smiths_note: 'Kings and lions.', last_sortkey: 'column:title' as const }
+  it("keeps every field the quiz stores and each widgeting's and column's, its sort memory and a column's alignment among them", () => {
+    const chained = chainedQuiz()
+    const columns = chained.columns.map((column, ii) => (ii === 0 ? { ...column, align: 'right' as const } : column))
+    const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
-    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true })
+    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true, last_sortkey: 'column:title' })
     expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {} })
-    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100 })
+    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
   })
 
   it("puts what each widgeting came to beside the question's own fields, the worked-out ones and an entry's included", () => {

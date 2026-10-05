@@ -9,6 +9,7 @@ import type { ImportedQuestionT } from '../../src/models/import'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget, type WidgetT } from '../../src/models/widget'
 import { Widgeting } from '../../src/models/widgeting'
+import { Column, type ColumnAlign } from '../../src/models/column'
 import { present } from '../support/present'
 
 /** A quiz from `qnum, label, clueing` triples */
@@ -437,6 +438,134 @@ describe('importInto', () => {
       expect(outcome.questions).to.deep.eq([])
       expect(outcome.ok).to.be.false
     })
+  })
+})
+
+/** A quiz of `leon` laid out with `columns`, given as label, source, width (and alignment) */
+function laidOut(...columns: [string, string, number, ColumnAlign?][]): QuizT {
+  return { ...quizOf(['1', 'leon', 'Which region?']), widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'remark' })], columns: columns.map(([label, source, width_px, align]) => Column.fill({ label, title: label, source, width_px, ...(align && { align }) })) }
+}
+
+/** What importing `leon` and `columns`, keyed as an export keys them, into `quiz` comes to */
+function withColumns(quiz: QuizT, columns: Record<string, unknown>, widgetings: Record<string, unknown> = {}): Importing.ImportOutcome {
+  return read(quiz, { questions: { leon: { position: 0 } }, widgetings, columns })
+}
+
+describe('importInto: columns', () => {
+  it("makes the quiz's columns the paste's: adding, revising, reordering, and removing the one it lacks", () => {
+    const quiz = laidOut(['title', 'question.title', 100], ['hint', 'question.hint', 330], ['notes', 'question.notes', 220])
+    const outcome = withColumns(quiz, {
+      clueing: { position: 0, title: 'Clueing', source: 'question.clueing', width_px: 330 },
+      hint:    { position: 1, title: 'Hint!', source: 'question.hint', width_px: 200, align: 'right' },
+      title:   { position: 2, title: 'title', source: 'question.title', width_px: 100 },
+    })
+    expect(outcome.ok).to.be.true
+    expect(outcome.columnActions).to.deep.eq([
+      { kind: 'delete_column', label: 'notes' },
+      { kind: 'add_column', column: { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 }, onto_idx: 0 },
+      { kind: 'edit_column', label: 'hint', patch: { title: 'Hint!', width_px: 200, align: 'right' } },
+      { kind: 'move_column', label: 'hint', onto_idx: 1 },
+    ])
+    expect(outcome.columnLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['notes', 'removed'], ['clueing', 'added'], ['hint', 'revised'], ['title', 'kept']])
+  })
+
+  it("sends nothing for columns the quiz already holds as pasted", () => {
+    const quiz = laidOut(['title', 'question.title', 100, 'center'], ['remark', 'remark', 160])
+    const outcome = withColumns(quiz, { title: { position: 0, title: 'title', source: 'question.title', width_px: 100, align: 'center' }, remark: { position: 1, title: 'remark', source: 'remark', width_px: 160 } })
+    expect([outcome.columnActions, outcome.columnLog.map((entry) => entry.outcome)]).to.deep.eq([[], ['kept', 'kept']])
+  })
+
+  it("takes a column off and puts it back where the paste leaves its alignment unset, since nothing else unsets one", () => {
+    const outcome = withColumns(laidOut(['title', 'question.title', 100, 'right']), { title: { position: 0, title: 'title', source: 'question.title', width_px: 100 } })
+    expect(outcome.columnActions).to.deep.eq([
+      { kind: 'delete_column', label: 'title' },
+      { kind: 'add_column', column: { label: 'title', title: 'title', source: 'question.title', width_px: 100 }, onto_idx: 0 },
+    ])
+  })
+
+  it("skips a column showing a widgeting the quiz will not have, and then removes none", () => {
+    const quiz = laidOut(['title', 'question.title', 100], ['notes', 'question.notes', 220])
+    const outcome = withColumns(quiz, { guess: { position: 0, title: 'Guess', source: 'nowhere', width_px: 160 }, title: { position: 1, title: 'title', source: 'question.title', width_px: 100 } })
+    expect(outcome.ok).to.be.false
+    expect(outcome.columnLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['guess', 'skipped'], ['title', 'kept']])
+    expect(outcome.columnActions).to.deep.eq([])
+  })
+
+  it("shows a widgeting the same import adds", () => {
+    const outcome = withColumns(laidOut(), { points: { position: 0, title: 'Points', source: 'points', width_px: 80 } }, { points: { position: 0, widget_label: 'points' } })
+    expect(outcome.columnActions.map((action) => action.kind)).to.deep.eq(['add_column'])
+  })
+
+  it("skips a column that does not validate, naming it", () => {
+    const outcome = withColumns(laidOut(['title', 'question.title', 100]), { wide: { position: 0, title: 'Wide', source: 'question.notes', width_px: 9000 } })
+    expect(outcome.columnLog.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['wide', 'skipped']])
+  })
+
+  it("leaves the columns alone for a paste holding none: the questions alone, a bare list, an export from before columns were", () => {
+    const quiz = laidOut(['title', 'question.title', 100])
+    for (const pasted of [{ questions: { leon: {} } }, [{ label: 'leon' }], { questions: [{ label: 'leon' }], columns: [] }]) {
+      const outcome = read(quiz, pasted)
+      expect([outcome.columnActions, outcome.columnLog], JSON.stringify(pasted)).to.deep.eq([[], []])
+    }
+  })
+
+  it("counts the columns in the summary", () => {
+    const outcome = withColumns(laidOut(['notes', 'question.notes', 220]), { title: { position: 0, title: 'Title', source: 'question.title', width_px: 100 } })
+    expect(outcome.summary).to.include('columns 1 added, 0 revised, 1 removed, 0 skipped')
+  })
+})
+
+describe("importInto: the quiz's own fields", () => {
+  it("carries the title, smith's note and Q1 preamble the paste holds, and says so", () => {
+    const outcome = read(laidOut(), { title: 'Legends', smiths_note: 'Lions.', q1_preamble: 'Read on.', questions: { leon: {} } })
+    expect(outcome.fieldActions).to.deep.eq([
+      { kind: 'retitle_quiz', title: 'Legends' },
+      { kind: 'set_smiths_note', smiths_note: 'Lions.' },
+      { kind: 'set_q1_preamble', q1_preamble: 'Read on.' },
+    ])
+    expect(outcome.summary).to.include("carried its title, smith's note, Q1 preamble")
+  })
+
+  it("leaves a field the paste lacks as it is, keeps one it holds as the quiz has it, and clears a note set to null", () => {
+    const quiz = { ...laidOut(), title: 'Legends', smiths_note: 'Lions.' }
+    const outcome = read(quiz, { title: 'Legends', smiths_note: null, questions: { leon: {} } })
+    expect(outcome.fieldActions).to.deep.eq([{ kind: 'set_smiths_note', smiths_note: '' }])
+    expect(outcome.fieldLog.map((entry) => [entry.fieldname, entry.outcome])).to.deep.eq([['title', 'kept'], ['smiths_note', 'carried']])
+  })
+
+  it("skips a note that will not read", () => {
+    const outcome = read(laidOut(), { smiths_note: 12, questions: { leon: {} } })
+    expect([outcome.ok, outcome.fieldLog.map((entry) => entry.outcome), outcome.fieldActions]).to.deep.eq([false, ['skipped'], []])
+  })
+
+  it("never carries the lock", () => {
+    const outcome = read(laidOut(), { locked: true, questions: { leon: {} } })
+    expect(outcome.actions.map((action) => action.kind)).to.deep.eq(['import_questions'])
+  })
+
+  it("hands the sort memory on with the questions for a quiz that holds none, and keeps a quiz's own that holds some", () => {
+    const pasted = { last_sortkey: 'column:clueing', questions: { leon: {} } }
+    const into = read({ ...laidOut(), questions: [] }, pasted)
+    const kept = read(laidOut(), pasted)
+    expect(into.actions.at(-1)).to.deep.include({ kind: 'import_questions', last_sortkey: 'column:clueing' })
+    expect(kept.actions.at(-1)).to.not.have.property('last_sortkey')
+    expect(kept.fieldLog.map((entry) => entry.outcome)).to.deep.eq(['kept'])
+  })
+})
+
+describe('importInto: what it sends', () => {
+  it("sends the quiz's fields, then its widgetings, then its columns, then its questions", () => {
+    const outcome = read(laidOut(['title', 'question.title', 100]), {
+      title:      'Legends',
+      questions:  { leon: { position: 0 } },
+      widgetings: { points: { position: 0, widget_label: 'points' } },
+      columns:    { points: { position: 0, title: 'Points', source: 'points', width_px: 80 } },
+    })
+    expect(outcome.actions.map((action) => action.kind)).to.deep.eq(['retitle_quiz', 'add_widgeting', 'delete_column', 'add_column', 'import_questions'])
+  })
+
+  it("sends nothing when it reads nothing", () => {
+    expect(read(laidOut(), 'not json at all').actions).to.deep.eq([])
   })
 })
 

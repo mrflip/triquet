@@ -1598,7 +1598,7 @@ function bodyOfOpen(seen: Seen) {
 }
 
 describe("a quiz's export, imported into an empty quiz", () => {
-  it("reproduces it: its questions in order with all they hold, their chains, its widgetings in run order, and what its entries hold", async () => {
+  it("reproduces it whole: its own fields, its questions in order with all they hold, their chains, its widgetings in run order, what its entries hold, and its columns as laid out", async () => {
     const tt = openTester()
     const source = await seedHunt(tt, huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
     await putEntryToWork(source, 'remark')
@@ -1606,6 +1606,11 @@ describe("a quiz's export, imported into an empty quiz", () => {
     await source.act({ kind: 'edit_question', question_id: present(leon), patch: { clueing: 'Which region?', hint: 'BUT NOT a lion', notes: 'keep me', full_answer: 'León' } })
     await source.act({ kind: 'set_chain', question_id: present(leon), chains_to: present(nantes) })
     await source.act({ kind: 'enter_widgeted', entered: { question_id: present(leon), widgeting_label: 'remark', value: 'Ask Flip.' } })
+    await source.act({ kind: 'set_smiths_note', smiths_note: 'Kings and lions.' })
+    await source.act({ kind: 'set_q1_preamble', q1_preamble: 'Read the note first.' })
+    await source.act({ kind: 'add_column', column: { label: 'remark', title: 'Remark', source: 'remark', width_px: 140, align: 'center' }, onto_idx: 1 })
+    await source.act({ kind: 'edit_column', label: 'qnum', patch: { width_px: 44, align: 'right' } })
+    await source.act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
     const exported = await source.read()
     const quiz = openOf(exported)
     const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', quiz, runOfOpen(exported))
@@ -1614,14 +1619,38 @@ describe("a quiz's export, imported into an empty quiz", () => {
     const empty = await target.read()
     const outcome = Importing.importInto(openOf(empty), JSON.stringify(ball), empty.library)
     expect(outcome.ok).to.be.true
-    for (const action of outcome.widgetingActions) { await target.act(action) }
-    await target.act({ kind: 'import_questions', questions: present(outcome.questions) })
+    for (const action of outcome.actions) { await target.act(action) }
 
     const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
-    expect(got.questions).to.deep.eq(want.questions)
-    expect(got.widgetings).to.deep.eq(want.widgetings)
-    const [aa, bb] = openOf(exported).questions
-    expect(got.questions[present(aa).label]).to.deep.include({ clueing: 'Which region?', chains_to: present(bb).label, remark: { status: 'ok', value: 'Ask Flip.' } })
+    expect(got).to.deep.eq(want)
+    expect(_.omit(got, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', locked: false, last_sortkey: 'column:title' })
+    expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
+    expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })
+    const labelOf = (question_id: string) => present(quiz.questions.find((qn) => qn._id === question_id)).label
+    const [leonLabel, nantesLabel] = [labelOf(present(leon)), labelOf(present(nantes))]
+    expect(got.questions[leonLabel]).to.deep.include({ clueing: 'Which region?', chains_to: nantesLabel, remark: { status: 'ok', value: 'Ask Flip.' } })
+    expect(Object.values(got.questions).toSorted((aa, bb) => aa.position - bb.position).map((qn) => qn.title)).to.deep.eq(['c', 'b', 'a'])
+    await expectSound(tt)
+  })
+
+  it("lays a quiz holding questions out as the export is, keeping its own questions, widgetings and sort memory", async () => {
+    const tt = openTester()
+    const source = await seedHunt(tt, huntOf(['1', 'a']))
+    await source.act({ kind: 'delete_column', label: 'notes' })
+    await source.act({ kind: 'move_column', label: 'qnum', onto_idx: 0 })
+    const exported = await source.read()
+    const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', openOf(exported), runOfOpen(exported))
+
+    const target = await seedHunt(tt, huntOf(['1', 'z']))
+    await target.act({ kind: 'sort_questions', sortkey: 'column:clueing', descending: false })
+    const before = await target.read()
+    const outcome = Importing.importInto(openOf(before), JSON.stringify(ball), before.library)
+    for (const action of outcome.actions) { await target.act(action) }
+
+    const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
+    expect(got.columns).to.deep.eq(want.columns)
+    expect(got.last_sortkey).to.eq('column:clueing')
+    expect(Object.keys(got.questions)).to.have.lengthOf(2)
     await expectSound(tt)
   })
 })

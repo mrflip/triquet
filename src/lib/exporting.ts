@@ -121,13 +121,14 @@ export function membersBall(place: Addresses.InHuntT, members: readonly MemberSo
  */
 export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT {
   return {
-    title:       quiz.title,
-    smiths_note: quiz.smiths_note,
-    q1_preamble: quiz.q1_preamble,
-    locked:      quiz.locked,
-    questions:   questionsBodyOf(quiz, run),
-    widgetings:  Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params }) => ({ widget_label, description, params })),
-    columns:     Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
+    title:        quiz.title,
+    smiths_note:  quiz.smiths_note,
+    q1_preamble:  quiz.q1_preamble,
+    locked:       quiz.locked,
+    last_sortkey: quiz.last_sortkey,
+    questions:    questionsBodyOf(quiz, run),
+    widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params }) => ({ widget_label, description, params })),
+    columns:      Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
   }
 }
 

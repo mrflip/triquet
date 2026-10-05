@@ -95,6 +95,23 @@ test('a quiz exported and pasted straight back is unchanged', async ({ page }) =
   await expect(grid(page).locator('tbody tr')).toHaveCount(5)
 })
 
+test("a pasted quiz brings its title, smith's note and columns along, laying the grid out as it was", async ({ page }) => {
+  await runImport(page, {
+    title:       'Brought along',
+    smiths_note: 'Lions and kings.',
+    questions:   { [await labelAt(page, 0)]: { position: 0 } },
+    columns:     {
+      clueing: { position: 0, title: 'Clue', source: 'question.clueing', width_px: 300, align: 'right' },
+      title:   { position: 1, title: 'Name', source: 'question.title', width_px: 120 },
+    },
+  })
+  await expect(page.getByLabel('Quiz name')).toHaveValue('Brought along')
+  await expect(page.getByRole('textbox', { name: 'Smith\'s note', exact: true })).toHaveValue('Lions and kings.')
+  await expect(grid(page).getByRole('columnheader', { name: 'Clue', exact: true })).toBeVisible()
+  await expect(grid(page).getByRole('columnheader', { name: 'Hint', exact: true })).toBeHidden()
+  await expect(grid(page).getByRole('columnheader')).toHaveCount(3)
+})
+
 test('importing is refused while the quiz is locked', async ({ page }) => {
   await fillImport(page, '[{"label":"anyone","clueing":"Sneaked in"}]')
   await page.getByRole('button', { name: 'Lock quiz' }).click()

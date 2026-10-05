@@ -87,7 +87,7 @@ describe('PositionField', () => {
 
 describe('quizzesIn', () => {
   it("reads a bare list as the questions of one quiz", () => {
-    expect(Jsonball.quizzesIn([{ label: 'leon' }])).to.deep.eq({ shape: 'list', quizzes: [{ label: null, title: null, questions: [{ label: 'leon' }], widgetings: [] }] })
+    expect(Jsonball.quizzesIn([{ label: 'leon' }])).to.deep.eq({ shape: 'list', quizzes: [{ label: null, title: null, fields: {}, questions: [{ label: 'leon' }], widgetings: [], columns: null }] })
   })
 
   it("reads the questions alone as one quiz, keyed questions in order, each labelled by its key", () => {
@@ -98,7 +98,7 @@ describe('quizzesIn', () => {
   it("reads one quiz unwrapped, with its questions and widgetings in a list or keyed", () => {
     const listed = Jsonball.quizzesIn({ label: 'legends', title: 'Legends', questions: [{ label: 'leon' }], widgetings: [{ label: 'dumdum', widget_label: 'dumdum' }] })
     const keyed = Jsonball.quizzesIn({ title: 'Legends', questions: { leon: { position: 0 } }, widgetings: { dumdum: { position: 0, widget_label: 'dumdum' } } })
-    expect(listed).to.deep.eq({ shape: 'quiz', quizzes: [{ label: 'legends', title: 'Legends', questions: [{ label: 'leon' }], widgetings: [{ label: 'dumdum', widget_label: 'dumdum' }] }] })
+    expect(listed).to.deep.eq({ shape: 'quiz', quizzes: [{ label: 'legends', title: 'Legends', fields: {}, questions: [{ label: 'leon' }], widgetings: [{ label: 'dumdum', widget_label: 'dumdum' }], columns: null }] })
     expect(keyed?.quizzes[0]?.widgetings).to.deep.eq([{ position: 0, widget_label: 'dumdum', label: 'dumdum' }])
   })
 
@@ -121,7 +121,7 @@ describe('quizzesIn', () => {
     const realms = Jsonball.quizzesIn({ realms: [{ quizzes: [{ label: 'minted_once', forced_label: 'legends' }, { label: 'princes' }] }] })
     const workspace = Jsonball.quizzesIn({ quizzes: [{ title: 'Legends', questions: [] }] })
     expect(realms?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['legends', 'princes'])
-    expect(workspace).to.deep.eq({ shape: 'hunt', quizzes: [{ label: null, title: 'Legends', questions: [], widgetings: [] }] })
+    expect(workspace).to.deep.eq({ shape: 'hunt', quizzes: [{ label: null, title: 'Legends', fields: {}, questions: [], widgetings: [], columns: null }] })
   })
 
   it("names a chain by its target's label where an older export named its id, and none where the id names nothing here", () => {
@@ -138,7 +138,16 @@ describe('quizzesIn', () => {
   })
 
   it("reads a quiz's review alone as a quiz holding no questions", () => {
-    expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { reviews: { lee_jones: { overall: '' } } } } } })?.quizzes).to.deep.eq([{ label: 'legends', title: null, questions: [], widgetings: [] }])
+    expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { reviews: { lee_jones: { overall: '' } } } } } })?.quizzes).to.deep.eq([{ label: 'legends', title: null, fields: {}, questions: [], widgetings: [], columns: null }])
+  })
+
+  it("reads a quiz's own fields and its columns, keyed or in a list, in order, and an empty list of columns as none", () => {
+    const keyed = Jsonball.quizzesIn({ title: 'Legends', smiths_note: 'Lions.', q1_preamble: null, last_sortkey: 'chain_order', locked: true, questions: {}, columns: { hint: { position: 1, title: 'Hint' }, title: { position: 0 } } })
+    const listed = Jsonball.quizzesIn({ questions: [], columns: [{ label: 'title' }] })
+    const empty = Jsonball.quizzesIn({ questions: [], columns: [] })
+    expect(keyed?.quizzes[0]?.fields).to.deep.eq({ smiths_note: 'Lions.', q1_preamble: null, last_sortkey: 'chain_order' })
+    expect(keyed?.quizzes[0]?.columns).to.deep.eq([{ position: 0, label: 'title' }, { position: 1, title: 'Hint', label: 'hint' }])
+    expect([listed?.quizzes[0]?.columns, empty?.quizzes[0]?.columns]).to.deep.eq([[{ label: 'title' }], null])
   })
 
   it("reads a ball holding no quiz as none", () => {

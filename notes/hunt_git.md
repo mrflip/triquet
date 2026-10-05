@@ -58,7 +58,7 @@ as Raw Export emits it.
 
 ```jsonc
 // quizzes/home/legends.tqq.json -- the whole quiz, its questions included
-{ "quizzes": { "home": { "legends": { "title": "…", "locked": false, "questions": { "leon": { "position": 0, … } }, "widgetings": { … }, "columns": { … } } } } }
+{ "quizzes": { "home": { "legends": { "title": "…", "locked": false, "last_sortkey": "column:title", "questions": { "leon": { "position": 0, … } }, "widgetings": { … }, "columns": { … } } } } }
 // quizzes/home/legends/questions.qq.json -- the exception: the questions alone, rooted at the quiz, not merged
 { "questions": { "leon": { "position": 0, "qnum": "1", "clueing": "…", "chains_to": "nantes", "dumdum": { "status": "ok", "value": … } }, … } }
 ```
@@ -138,7 +138,7 @@ against the real git and jq. `es-toolkit`'s `merge` does the same inside the app
 | Hunt | `hunts` | `hunt.tqh.json`: `{ label, title, branch }` at the root | `hunt.tqh.tsv` (one row) |
 | Categories | `hunts.wheel` | `categories.tqc.json`: `{ categories: { <label>: { position } } }`, every category, `position: null` for one in the pool | `categories.tqc.tsv` (a row per category) |
 | Members | `huntings` | `members.tqm.json`: `{ members: { <ident_label>: { title, role } } }` | `members.tqm.tsv` (a row per member) |
-| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | `quizzes/<realm>/<quiz>.tqq.json`: `{ quizzes: { <realm>: { <quiz>: { title, smiths_note, q1_preamble, locked, questions, widgetings, columns } } } }`; each collection keyed by label with `position`, chains by label, each question with every widgeting's `{ status, value }` beside its fields | `<quiz>.tqq.tsv` (one row, questions left out) |
+| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | `quizzes/<realm>/<quiz>.tqq.json`: `{ quizzes: { <realm>: { <quiz>: { title, smiths_note, q1_preamble, locked, last_sortkey, questions, widgetings, columns } } } }`; each collection keyed by label with `position`, chains by label, each question with every widgeting's `{ status, value }` beside its fields | `<quiz>.tqq.tsv` (one row, questions left out) |
 | Questions, alone | the same questions | `quizzes/<realm>/<quiz>/questions.qq.json`: `{ questions: { … } }`, rooted at the quiz, **not merged** | `questions.qq.tsv` (a row per question) |
 | Review | `reviews` + `reviewings`, **shared only** | `quizzes/<realm>/<quiz>/reviews/<ident_label>.tqr.json`: `…<quiz>: { reviews: { <ident_label>: { overall, verdicts: { <question label>: { … } } } } }` | `<ident_label>.tqr.tsv` (a row per question) |
 | Widget worked | `widgets` (the library's) | `widgets/<scope>/<label>.tqw.json`: `{ widgets: { <scope>: { <label>: { position, … } } } }`, as `Widget.exported` gives it, `position` its place in the library | `<label>.tqw.tsv` (one row) |
@@ -149,8 +149,9 @@ every hunt and never changes with one: written once, when the repository is made
 
 ### Left out, on purpose
 
-* **Ids**, `hunt_id`/`quiz_id` copies, `row_ordering` (the questions' `position`s carry it),
-  and `last_sortkey`: these are bookkeeping, not content.
+* **Ids**, `hunt_id`/`quiz_id` copies, and `row_ordering` (the questions' `position`s carry
+  it): these are bookkeeping, not content. Every other field a quiz, a column or a widgeting
+  stores is written, its sort memory (`last_sortkey`) and a column's alignment among them.
 * **Widgeted history**: only the latest outcome per cell goes in, its `status` and `value`
   (`Exporting.quizBodyOf`). The repository's own history is the record of change.
 * **Draft reviews**, a review's `phase` and a reviewing's `peeked`, and reviews whose reviewer
@@ -162,6 +163,24 @@ every hunt and never changes with one: written once, when the repository is made
 * **Idents, identings, users, sessions**: these are accounts. Members carries what the hunt
   needs of them.
 * **The library apart from what the hunt works**: it belongs to no hunt.
+
+## Reading a ball back in
+
+The quiz's Import reads any of these balls, any merge of them, and every older export's shape
+(`Importing.importInto`, whose doc block is the rule). It carries the whole quiz; into a quiz
+that already holds things, each part does this (decided 2026-10-05, hunt_git thread 7):
+
+| Part | Into a quiz holding its own |
+|---|---|
+| Questions | Merged by label: a field the paste holds replaces, a null clears, an absent one stays; a new label is added at the end. None is removed. |
+| Widgetings | Merged by label: one the quiz lacks is added (last, in the paste's order), one it holds has its description and params replaced. None is removed (its cells hold what was asked and typed), and the quiz's run order stands. |
+| Columns | **Replaced**: the quiz's columns become the paste's, each added or revised (title, source, width, alignment) and put in the paste's order, and one the paste lacks removed, unless a pasted column could not be read. A paste holding no columns (the questions alone, a bare list, an export from before columns were exported) leaves them. |
+| Title, smith's note, Q1 preamble | Replaced where the paste holds one (a null note clears it), kept where it does not. |
+| Sort memory | Kept by the quiz, unless it held no questions: then its order is the paste's, and so is its memory. |
+| Lock | Never read: an import neither locks nor unlocks. |
+
+Importing a quiz's export into an empty quiz reproduces it whole (`tests/convex/hunts.test.ts`,
+*a quiz's export, imported into an empty quiz*).
 
 ## Branches
 

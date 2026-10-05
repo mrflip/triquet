@@ -253,10 +253,9 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         carryOut={carryOut}
         saveNotice={saveNotice}
         changeLibrary={librarian.dispatch}
-        onImport={(questions, widgetingActions) => {
+        onImport={(actions) => {
           void HuntMirror.markedChange(hunt, quiz, 'import', () => {
-            for (const action of widgetingActions) { dispatch(action) }
-            dispatch({ kind: 'import_questions', questions })
+            for (const action of actions) { dispatch(action) }
           })
         }}
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}

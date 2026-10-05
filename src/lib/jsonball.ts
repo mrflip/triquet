@@ -67,8 +67,8 @@ export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 /** One column, by its label: its place in the grid, and its fields */
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
-/** One quiz, by its label: its own fields, and its questions, widgetings and columns, each keyed by label */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked'> & {
+/** One quiz, by its label: its own fields (its sort memory among them), and its questions, widgetings and columns, each keyed by label */
+export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
@@ -159,10 +159,14 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     label:        label.optional(),
     forced_label: label.nullable().optional(),
     title:        titleish.nullable().optional(),
+    smiths_note:  unk.optional(),
+    q1_preamble:  unk.optional(),
+    last_sortkey: unk.optional(),
     questions:    collection.default([]),
     widgetings:   collection.default([]),
+    columns:      collection.optional(),
   })
-    .describe('One quiz as a paste holds it: its label and title, which pick it out of several, and its questions and widgetings, in a list or keyed by label. Its columns, lock and the rest describe how someone else was working, not what it holds, and are not read. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
+    .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble and sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
 
   const ball = obj({ quizzes: rec(str, rec(str, quiz)) })
     .describe('Quizzes by realm and label, as a quiz\'s ball holds one, and a merged hunt every one: what Raw Export emits.')
@@ -190,11 +194,19 @@ export type PastedQuizT = {
   label:      string | null
   /** Its title, or null when the paste gives none */
   title:      string | null
+  /** Its own fields beside its title, as pasted, each only when the paste holds it: its smith's note, its Q1 preamble, its sort memory */
+  fields:     Partial<Record<PastedFieldname, unknown>>
   /** Its questions in order, each as pasted, read one by one; each from a keyed collection carries its key as its `label` */
   questions:  unknown[]
   /** Its widgetings in run order, as pasted, read the same way */
   widgetings: unknown[]
+  /** Its columns in order, as pasted, read the same way; null when the paste holds none, so says nothing of how the grid is laid out */
+  columns:    unknown[] | null
 }
+
+/** A quiz's own fields, beside its title, that a paste may carry */
+export const PastedFieldnames = ['smiths_note', 'q1_preamble', 'last_sortkey'] as const
+export type PastedFieldname = typeof PastedFieldnames[number]
 
 /** What a paste holds, as far as a quiz's Import reads it: the quizzes it holds, and the shape it was read as */
 export type PastedT = { shape: PastedShape, quizzes: PastedQuizT[] }
@@ -214,7 +226,7 @@ export type PastedT = { shape: PastedShape, quizzes: PastedQuizT[] }
  * @example quizzesIn('legends')  // => null
  */
 export function quizzesIn(raw: unknown): PastedT | null {
-  if (isList(raw)) { return { shape: 'list', quizzes: [{ label: null, title: null, questions: [...raw], widgetings: [] }] } }
+  if (isList(raw)) { return { shape: 'list', quizzes: [{ label: null, title: null, fields: {}, questions: [...raw], widgetings: [], columns: null }] } }
   if (! EST.isPlainObject(raw)) { return null }
   const read = readQuizzes(raw)
   return read && { shape: read.shape, quizzes: read.quizzes.map(([key, quiz]) => pastedQuizOf(quiz, key)) }
@@ -238,13 +250,20 @@ function readQuizzes(raw: Record<string, unknown>): { shape: PastedShape, quizze
   return { shape: 'hunt', quizzes: Object.values(data.quizzes).flatMap((realm) => Object.entries(realm)) }
 }
 
-/** A pasted quiz as its questions and widgetings in order, and the label it answered to: an older export's override, the label it carries, or the key it sat under */
+/**
+ * A pasted quiz as its own fields, its questions, widgetings and columns in order, and the label it
+ * answered to: an older export's override, the label it carries, or the key it sat under. An empty
+ * list of columns, as exports made before columns were exported hold, says nothing of the grid.
+ */
 function pastedQuizOf(quiz: PastedQuizRawT, key: string | null): PastedQuizT {
+  const columns = quiz.columns === undefined ? [] : listedOf(quiz.columns)
   return {
     label:      quiz.forced_label ?? quiz.label ?? key,
     title:      quiz.title ?? null,
+    fields:     Object.fromEntries(PastedFieldnames.flatMap((fieldname) => (quiz[fieldname] === undefined ? [] : [[fieldname, quiz[fieldname]]]))),
     questions:  chainedByLabel(listedOf(quiz.questions)),
     widgetings: listedOf(quiz.widgetings),
+    columns:    columns.length === 0 ? null : columns,
   }
 }
 

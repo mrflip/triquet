@@ -12,7 +12,6 @@ import * as Sheets from '../../lib/sheets'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
 import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
-import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
 import { useWholeHunt } from '../../state/use-whole-hunt'
@@ -28,8 +27,8 @@ export type ExportImportPanelProps = {
   run:       QuizRun
   /** Carry out a change to the library, from the Library tab's import (`useLibraryActions`) */
   changeLibrary: (action: LibraryActionDNA) => void
-  /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
-  onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
+  /** Fold what the Import tab read into the quiz: its own fields, its widgetings, its columns, then its questions, as actions in order */
+  onImport:  (actions: readonly HuntActionDNA[]) => void
   /** Rewrite the quiz's Q1 preamble, from the LL Export tab */
   onQ1Preamble: (q1_preamble: string) => void
 }
@@ -50,12 +49,12 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     offers.exportHunt && {
       label:   'Raw Export',
-      blurb:   'Every quiz of this hunt, not just this one, with its categories, its members and the widgets its quizzes work, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz\'s questions back, or through the Library tab to bring its widgets back. Any change on screen takes the box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
+      blurb:   'Every quiz of this hunt, not just this one, with its categories, its members and the widgets its quizzes work, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz back, or through the Library tab to bring its widgets back. Any change on screen takes the box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
       content: <RawExport hunt={hunt} exporting={exporting} library={library} />,
     },
     {
       label:   'Import',
-      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted.',
+      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared, and no question or widgeting is ever deleted. A quiz\'s title and notes come along, and its columns become this quiz\'s.',
       content: <ImportForm quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} />,
     },
     {

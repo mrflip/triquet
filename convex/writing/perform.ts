@@ -47,7 +47,7 @@ export async function perform(db: Writer, census: CensusT, claims: PerformClaims
   case 'sort_by_chain_order': { await Quiz.sortByChainOrder(db, claims, action.descending); return }
   case 'record_widgeted':     { await Quiz.recordWidgeted(db, claims, action.widgeted); return }
   case 'enter_widgeted':      { await Quiz.enterWidgeted(db, claims, action.entered); return }
-  case 'import_questions':    { await Quiz.importQuestions(db, claims, action.questions); return }
+  case 'import_questions':    { await Quiz.importQuestions(db, claims, action.questions, action.last_sortkey); return }
   case 'new_quiz':            { await Quiz.newQuiz(db, claims, action.label); return }
   case 'delete_quiz':         { await Quiz.deleteQuizFrom(db, claims, named); return }
   case 'set_lock':            { await Quiz.setLock(db, named, action.locked); return }
