@@ -127,6 +127,10 @@ jobs:
       - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
         shell: bash
       - uses: actions/checkout@v7
+      # The checkout belongs to the runner's own user, outside the container, and git refuses a
+      # repository someone else owns until told it is safe: scripts/lanes.ts asks git where the
+      # checkout is.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
