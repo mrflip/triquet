@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: threads 0-4 landed (#121, #125, #126, #127, #128); thread 5 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-5 landed (#121, #125, #126, #127, #128, #129); thread 6 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -160,8 +160,8 @@ by thread 4 (`Huntfiles.changesBetween`, `HuntReadingT.first`).
 hunt's page and the quiz's gear. On the hunts page, the folded list shows the hunt repositories
 this browser holds for hunts you are not on.
 
-Gloss: `FullHistoryDownload`, the gear's *Download as git*, `OrphanedRepos` and
-`QuizNotFound`'s list read `/hunts`; `/quizzes` is not read at all. `src/content/full-history.md`
+Gloss: ~~`FullHistoryDownload`, the gear's *Download as git*~~ (pulled forward by thread 5),
+`OrphanedRepos` and `QuizNotFound`'s list read `/hunts`; `/quizzes` is not read at all. `src/content/full-history.md`
 is rewritten for a hunt repository, `jq` line included. Depends on: 5 and 1.
 
 ## For the Coach

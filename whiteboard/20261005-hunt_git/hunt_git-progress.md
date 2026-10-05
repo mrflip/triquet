@@ -12,8 +12,8 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 2 | Jsonballs, and Import and Export through them | landed #126 |
 | 3 | A hunt's files | landed #127 |
 | 4 | Watches at the grain of the files | landed #128 |
-| 5 | One repository per hunt | landing (lane 1) |
-| 6 | Downloads and the hunts page | pending (after 5 and 1) |
+| 5 | One repository per hunt | landed #129 |
+| 6 | Downloads and the hunts page | underway |
 
 ## What the threads have taught
 
@@ -164,3 +164,31 @@ Left, minor: **the first reading waits for every listed quiz**, so one quiz whos
 keeps failing holds back the catch-up commit and everything after (thread 5 guards against it).
 Open with the Coach: `quizzes.whole` per off-screen quiz vs per-question watches
 [orchestrator: keep].
+
+### Thread 5: one repository per hunt (landed #129)
+
+Each hunt's history is one repository at `/hunts/<hunt _id>` (`Huntgit.RepoRoot`), on
+`hunt.branch`: `src/lib/huntgit.ts` (for `quizgit.ts`), `src/state/hunt-mirror.ts` (for
+`quiz-mirror.ts`), `src/state/hunt-commits.ts` (files and message, a line per quiz), the
+scheduler keyed by hunt. `useHunt` runs `useHuntFeed(…, HuntMirror.noteReading)`. Commits write
+only blobs that differ from the tip; the catch-up commits a tab's first reading whole, or
+nothing. A quiz that can't be read is `HuntReadingT.unread` and keeps its files at the tip.
+Readings are built at idle time; one feed per hunt is kept 10 s across quiz switches. Milestones,
+imports and deletions wait up to 5 s for every watch before tagging. Tags:
+`<branch>_<quiz>_<mark>_<stamp>z` (marks `m`, `import`, `delete`). `papaparse` and `exposure.ts`
+are gone.
+
+**Thread 6's handoff is `thread-5-for-thread-6.md`: read it whole.** Pulled forward from thread
+6: the gear's *Download as git* and *Download Full History* zip the hunt's repository as
+`<hunt label>.zip` (`HuntMirror.downloadHuntRepo`). Left: a download on the hunt page; the hunts
+page's fold and `QuizNotFound`'s list (still on `/quizzes`), with their e2e coverage; the
+history's content and notices that still say "quiz".
+
+*Review:* fixed at medium (`a6105d9`: a milestone that waits out its read settles the feeds
+first). Left, minor: an unreadable quiz relabelled while away loses its old-label files from the
+tip (history keeps them); a new branch's first commit says "catch up"; import/deletion wait on
+the git queue as before; tags can pass 40 characters; two feeds for up to 10 s on an affirms
+change. Open with the Coach [orchestrator]: the tag scheme [keep; `@ref` can take git ref
+names]; papaparse uninstalled [fine]; a branch switched on the hunt page commits at the next
+quiz screen's reading [acceptable for now]. `reviews.spec.ts:52` flakes under load (three
+landings today).
