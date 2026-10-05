@@ -10,8 +10,8 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 0 | One address model | landed #121 |
 | 1 | The URL scheme | landed #125 |
 | 2 | Jsonballs, and Import and Export through them | landed #126 |
-| 3 | A hunt's files | landing (lane 1) |
-| 4 | Watches at the grain of the files | pending (after 3) |
+| 3 | A hunt's files | landed #127 |
+| 4 | Watches at the grain of the files | underway |
 | 5 | One repository per hunt | pending (after 4) |
 | 6 | Downloads and the hunts page | pending (after 5 and 1) |
 
@@ -111,3 +111,29 @@ from; a review's verdicts need the quiz's question ids to name questions by labe
 *Review:* flagged at medium. Fixed: a fixture for the 2026-09-27 hunt-with-ids export shape.
 Decided by the Coach: keep the `position` reservation, check production before merging. Left:
 the `forced_label` re-import clash (pre-existing).
+
+### Thread 3: a hunt's files (landed #127)
+
+`src/lib/huntfiles.ts` (`Huntfiles`): `huntFiles(snapshot)` is the README plus every ball of
+`Exporting.ballsOf` as `.json` and `.tsv` at `Addresses.filepathOf`; **`filesOf(balls)` writes any
+set of balls' files from those balls alone**. `src/lib/tsv.ts` (`Tsv`) is the one table writer:
+sorted dotted keypath columns, rows sorted by `label`, cells escaped (`\t \n \r \\`), lists
+and empty objects as compact JSON. The README names no hunt (it never changes) and carries
+`MergeCommand`: `jq -s 'reduce .[] as $ball ({}; . * $ball)' $(git ls-files '*.tq?.json')`.
+Bodies are byte-identical for an unchanged resource. `notes/hunt_git.md` is rewritten as built.
+
+For threads 4 and 5, each watch result maps to files on its own:
+* `filesOf([Exporting.huntBall(place, hunt)])`, likewise `categoriesBall`, `membersBall`,
+  `widgetBall(widget, position)`; a quiz is `filesOf(Exporting.quizBalls(place, realm, quiz, run,
+  reviews))`.
+* **A quiz's files depend on more than the quiz**: its `run` is built from the library and the
+  hunt's wheel, so a change to either rewrites every quiz's `.tqq` files.
+* **Watch the library whole, not per widget**: a widget's `position` is its place in the whole
+  library, and which widgets are written depends on every quiz's widgetings.
+* `git status --porcelain` lines begin with a space: `trimEnd()`, never `trim()`.
+
+*Review:* fixed at medium (`a3c1848`: a header's column names are escaped like its cells). Left,
+minor: dotted column names can collide in a `.tsv` for free-form keys (the `.json` keeps both);
+the jq test fails rather than skips without jq. Open with the Coach (orchestrator's recommendation
+in brackets): a review's table a row per question [yes]; the quiz's 141-column one-row table
+[keep]; escapes in a spreadsheet [as built].

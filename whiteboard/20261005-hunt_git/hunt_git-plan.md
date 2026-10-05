@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: threads 0-2 landed (#121, #125, #126); thread 3 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-3 landed (#121, #125, #126, #127); thread 4 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
