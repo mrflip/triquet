@@ -1,7 +1,7 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 4 and 5 underway, side by side, each in its own worktree and lane. Threads 1-3
+`/sprint`. **Status:** thread 5 landed (#110); thread 4 reviewed, landing next; thread 6 in review. Threads 1-3
 done: 1 and 2 merged via #99, 1b merged as #105; 3 is #108, on the spine, open. **At once:** up to 3
 threads (round two).
 
@@ -234,6 +234,16 @@ else left, **Q# centered**. Whether a fresh column writes its default or leaves 
 is the worker's call, recorded. Thread 3's open question (Q# right-aligned under a left header)
 is answered by this: Q# starts centered, header with it.
 
+
+### Thread 6: reviews and the spine, in worktrees
+
+> improve the guidance for the sprint plan to account for the worktree issue
+
+*Orchestrator:* added mid-round. The worktree issue: `/code-review` runs in the main checkout, not
+the reviewer's worktree (thread 5's review), plus two spine traps this sprint met (`fetch.prune`
+unset; the sweep trim bug). Guidance in `.claude/agents/thread-reviewer.md` and the sprint skill;
+the worker added `restack`'s `--prune` in `scripts/spine.ts`, with a test, so it is reviewed.
+Until it lands, reviewers in this sprint review by hand and never pass `--fix`.
 
 ## For the Coach
 
