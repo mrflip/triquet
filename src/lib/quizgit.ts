@@ -337,12 +337,12 @@ function untakenTag(wanted: string, taken: ReadonlySet<string>): string {
  * every other command work on it without this tool being involved at all.
  *
  * @param fs - Where the repositories live.
- * @param quiz - The quiz to package.
+ * @param quiz - The quiz to package: its id finds the repository, and its label names the folder inside the zip.
  * @returns The zip's bytes, ready to hand to a download.
  *
  * @example new Blob([await zipQuizRepo(fs, quiz)], { type: 'application/zip' })
  */
-export async function zipQuizRepo(fs: GitFs, quiz: QuizT): Promise<Uint8Array> {
+export async function zipQuizRepo(fs: GitFs, quiz: Readonly<Pick<QuizT, '_id' | 'label'>>): Promise<Uint8Array> {
   const dir = repopathFor(quiz)
   const stem = quiz.label
   const filepaths = await allFiles(fs, dir)
@@ -386,6 +386,20 @@ export async function listRepos(fs: GitFs): Promise<RepoSummary[]> {
     if (summary) { found.push(summary) }
   }
   return _.orderBy(found, [(repo) => repo.committed_at ?? 0], ['desc'])
+}
+
+/**
+ * The repositories among `repos` that no quiz in `quizIds` answers to: those of quizzes since
+ * deleted, or of quizzes this browser can no longer see.
+ *
+ * @param repos - The repositories, as `listRepos` found them.
+ * @param quizIds - The ids of every quiz still to be had.
+ * @returns The rest of `repos`, in the order given.
+ *
+ * @example orphansAmong(await listRepos(fs), new Set([quiz._id]))  // => every repository but quiz's
+ */
+export function orphansAmong(repos: readonly RepoSummary[], quizIds: ReadonlySet<string>): RepoSummary[] {
+  return repos.filter((repo) => ! quizIds.has(repo.id))
 }
 
 /** `id`'s repository in brief, or null when the directory is not a repository */

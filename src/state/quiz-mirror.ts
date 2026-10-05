@@ -216,6 +216,9 @@ export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, appl
   return await enqueue(async (fs) => await Quizgit.markChange(fs, quiz, markkind))
 }
 
+/** What a download needs of a quiz: its id, which finds the repository, and its label, which names the zip */
+type Zippable = Readonly<Pick<QuizT, '_id' | 'label'>>
+
 /**
  * `quiz`'s whole repository, zipped and ready to hand to a download.
  *
@@ -225,7 +228,7 @@ export async function markedChange(quiz: QuizT, markkind: Quizgit.Markkind, appl
  *
  * @returns The zip's bytes, or null where this browser keeps no history.
  */
-export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
+export async function quizRepoZip(quiz: Zippable): Promise<Uint8Array | null> {
   await writesLanded()
   await scheduler.flush(quiz._id)
   return await enqueue(async (fs) => await Quizgit.zipQuizRepo(fs, quiz))
@@ -237,11 +240,24 @@ export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
  * @param quiz - The quiz to package.
  * @returns Whether a download was offered; false where this browser keeps no history.
  */
-export async function downloadQuizRepo(quiz: QuizT): Promise<boolean> {
+export async function downloadQuizRepo(quiz: Zippable): Promise<boolean> {
   const zipped = await quizRepoZip(quiz)
   if (! zipped) { return false }
   Downloading.offerDownload(`${quiz.label}.zip`, zipped, 'application/zip')
   return true
+}
+
+/**
+ * Hand the browser one repository `listQuizRepos` found to download, whether or not its quiz is
+ * still here: named for the quiz its latest commit holds, or for its id when it has none.
+ *
+ * @param repo - The repository, as listed.
+ * @returns Whether a download was offered; false where this browser keeps no history.
+ *
+ * @example await downloadRepo(repos[0])  // offers 'quiet_otter.zip'
+ */
+export async function downloadRepo(repo: Quizgit.RepoSummary): Promise<boolean> {
+  return await downloadQuizRepo({ _id: repo.id, label: repo.label ?? repo.id })
 }
 
 /**

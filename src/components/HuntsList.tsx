@@ -19,6 +19,7 @@ import { useHuntsList } from '../state/use-hunts-list'
 import { useIdent } from '../state/use-ident'
 import { HuntEditModal } from './HuntEditModal'
 import NextLink from './NextLink'
+import { OrphanedRepos } from './OrphanedRepos'
 import { useDraft } from './use-draft'
 import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
@@ -52,7 +53,8 @@ const QuizSigils = {
  * The hunts this visitor is on, a row of a table each, so that each hunt's title, their role there
  * and its doors line up down the page, with its quizzes to open; and a way to make another, which
  * they are then the smith of. A quiz opens in the presentation their role is shown. A hunt that
- * could not be made raises an alarm.
+ * could not be made raises an alarm. Beneath, folded away, the histories this browser kept for
+ * quizzes no longer among them, to download.
  *
  * A visitor who has not said who they are is sent to say so first, and brought back.
  */
@@ -119,6 +121,7 @@ export function HuntsList() {
           </TableContainer>
         )}
       </Panel>
+      <OrphanedRepos hunts={hunts} />
     </main>
   )
 }
