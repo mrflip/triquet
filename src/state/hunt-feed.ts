@@ -302,17 +302,22 @@ export function useHuntFeed(hunt_label: string | null, affirms: HuntAffirmsDNA |
 /**
  * A watch on `query` with `args`, telling `onUpdate` of each new result. A result the query threw
  * is reported and read as not yet arrived, so one failing watch holds its part as last read rather
- * than stopping the feed.
+ * than stopping the feed. A failure is reported once, until it says something else or the watch
+ * reads cleanly again.
  */
 function watched<QT extends FunctionReference<'query'>>(client: WatcherT, query: QT, args: FunctionArgs<QT>, onUpdate: () => void, hunt_label: string): WatchedT<FunctionReturnType<QT>> {
   const watch = client.watchQuery(query, args)
-  const seen = { failure: null as unknown }
+  const seen = { failure: null as string | null }
   const result = () => {
     try {
-      return watch.localQueryResult()
+      const read = watch.localQueryResult()
+      seen.failure = null
+      return read
     } catch (err) {
-      if (err !== seen.failure) { Postmortem.report('read a watch for the hunt\'s history', err, { hunt: hunt_label }) }
-      seen.failure = err
+      // The client throws a new error at every read of one failed result, so a failure is known by what it says.
+      const failure = String(err)
+      if (failure !== seen.failure) { Postmortem.report('read a watch for the hunt\'s history', err, { hunt: hunt_label }) }
+      seen.failure = failure
       return
     }
   }

@@ -1,18 +1,19 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import _ from 'es-toolkit/compat'
-import { describe, expect, it } from 'vitest'
+import { getFunctionName, type FunctionReference } from 'convex/server'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { libraryOf, reviewingsOf, reviewsOf } from '../../convex/reading'
 import * as Exporting from '../../src/lib/exporting'
 import * as Huntfiles from '../../src/lib/huntfiles'
 import { widgetFrom, type ReviewedT, type ShallowHuntT } from '../../src/lib/rows'
-import type { HuntActionDNA } from '../../src/models/actions'
+import type { HuntActionDNA, HuntAffirmsDNA } from '../../src/models/actions'
 import { Question } from '../../src/models/question'
 import type { JsonT } from '../../src/models/widgeted'
 import { Quiz, type QuizT } from '../../src/models/quiz'
-import { HuntPartkey, WidgetsPartkey, huntPartOf, quizPartOf, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT } from '../../src/state/hunt-feed'
+import { HuntPartkey, WidgetsPartkey, huntPartOf, quizPartOf, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT, type WatcherT } from '../../src/state/hunt-feed'
 import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, wholeHunt, type Identified, type PlaceT, type Seeded } from '../support/convex'
 import { classicLayout } from '../support/layouts'
 import { present } from '../support/present'
@@ -341,6 +342,41 @@ describe('watchHunt', () => {
     await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
     await standIn.settle()
     expect(readings).to.have.lengthOf(1)
+  })
+})
+
+describe('watchHunt, with a failing watch', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it("reports the failure once, though the client throws a new error at every read, and again once it fails anew", async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => null)
+    const state = { failing: true }
+    const updates: (() => void)[] = []
+    // As the Convex client does, a failed result throws a new error each time it is read.
+    const watchQuery = (query: FunctionReference<'query'>) => ({
+      localQueryResult: () => {
+        if (state.failing && getFunctionName(query) === 'hunts:open') { throw new Error('Too many reads') }
+      },
+      onUpdate: (callback: () => void) => {
+        updates.push(callback)
+        return _.noop
+      },
+    })
+    const moment = async () => {
+      for (const update of updates) { update() }
+      await new Promise((resolve) => { setTimeout(resolve, 0) })
+    }
+    const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
+    watchHunt({ watchQuery } as unknown as WatcherT, { hunt_label: 'hunt', affirms, focus: null }, () => null)
+    await moment()
+    await moment()
+    await moment()
+    expect(logged).toHaveBeenCalledOnce()
+    state.failing = false
+    await moment()
+    state.failing = true
+    await moment()
+    expect(logged).toHaveBeenCalledTimes(2)
   })
 })
 
