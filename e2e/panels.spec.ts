@@ -1,3 +1,4 @@
+import * as Huntfiles from '../src/lib/huntfiles'
 import { addWidgeting, addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
@@ -214,7 +215,8 @@ test('the quiet note beside it explains, in a dialog, how to see the history', a
   await section.getByRole('button', { name: '(How to see Full History)' }).click()
 
   const help = page.getByRole('dialog', { name: 'How to see Full History' })
-  await expect(help.getByText(/which a computer can expand into a file tree/)).toBeVisible()
+  await expect(help.getByText(/which a computer can expand into a folder holding every part of the hunt/)).toBeVisible()
+  await expect(help.getByText(Huntfiles.MergeCommand)).toBeVisible()
   await expect(help.getByText(/I don't know how to install Fork/)).toBeVisible()
 
   await help.getByRole('button', { name: 'Close' }).click()

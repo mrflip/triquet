@@ -11,9 +11,23 @@ reads them from watches; `src/state/hunt-mirror.ts` commits them, after a wait
 written and named by `src/state/hunt-commits.ts` (*Watching and committing, by file*, below).
 Paths follow `notes/decisions/urls.md` (rule 10, with the realm written `home`), through
 `src/lib/addresses.ts`. The per-quiz repositories of before (`/quizzes/<quiz _id>`) get **no
-special treatment**: there is no migration, and nothing writes them. Until the sprint's thread 6,
-the hunts page's folded list and a missing quiz's page still list them
-(`Huntgit.listQuizRepos`), as the only place they can be found.
+special treatment**: there is no migration, and nothing writes or reads them; a browser that held
+them still holds them, unlisted.
+
+## Downloading, and finding a history again
+
+A hunt's history downloads as `<hunt label>.zip` (`HuntMirror.downloadHuntRepo`), from the hunt's
+own page, the quiz's gear (*Download as git*) and the Full History tab, each with a pointer to
+what one does with it (`src/content/full-history.md`). Anything waiting to be committed is
+committed first. The hunt's own page runs no feed, so its download is the history as this
+browser last recorded it.
+
+Every repository this browser holds is listed by walking `/hunts` (`Huntgit.listHuntRepos`), each
+named by the `label` in its `hunt.tqh.json` at the tip, since the directory is only the hunt's
+id: on the hunts page, folded away, those of hunts the visitor is not on (`OrphanedRepos`: a
+deleted hunt's, or one another visitor of this browser works on); and on a missing quiz's page,
+every one (`QuizNotFound`), a hunt the visitor is on linking to its page. A repository of a hunt
+the visitor is not on has no page to link to, and is named by its label alone.
 
 ## What stays the same
 
