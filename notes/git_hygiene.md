@@ -92,8 +92,9 @@ pnpm worktree <branchlabel>
 Run it from any checkout of the repository. It holds the spine, replays it onto `origin/main` if
 origin has moved, sweeps the Coach's notes, cuts `YYYYMMDD-<branchlabel>` from the top into
 `~/worktrees/triquet/<branchlabel>`, claims the worktree a lane, and installs its packages. It
-prints the worktree's root: work from there, and build every absolute path from it (CLAUDE.md,
-*Global resources*). A worktree starts from committed history, so nothing anyone left lying in
+prints the worktree's root: work from there, beginning every shell command with `cd <root> && `
+(the shell goes back to the main checkout between commands), and build every absolute path from
+it (CLAUDE.md, *Global resources*). A worktree starts from committed history, so nothing anyone left lying in
 another checkout is in your way.
 
 ### Milestones

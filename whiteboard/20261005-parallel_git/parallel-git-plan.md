@@ -1,7 +1,8 @@
 # Parallel workers, one spine
 
-2026-10-05. Status: **decided; being built** in three threads stacked on #101 (*Rollout*). Until
-each lands, `notes/git_hygiene.md` as it stands governs.
+2026-10-05. Status: **built**: #103 (lanes), #104 (the spine and its docs), and the parallel
+sprint, stacked in that order. `notes/git_hygiene.md` is now the reference; this plan is the
+record of how it was decided.
 
 ## The shape
 
