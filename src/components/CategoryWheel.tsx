@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Box, Paper, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import * as Wheel from '../lib/wheel'
@@ -44,9 +44,10 @@ export type CategoryWheelProps = {
  * Read-only, it shows the total order: every slot filled. As an editor it shows the wheel as
  * stored, an empty slot marked with the category the total order would put there, and the pool
  * beneath. A tile dragged onto another slot swaps with whatever is there, so a tile from the pool
- * sends that slot's tile to the pool; dragged into the pool, it leaves its slot empty. The arrow
- * keys move a focused tile round the wheel, Delete sends it to the pool, and Enter brings a pool
- * tile to the first empty slot.
+ * sends that slot's tile to the pool; dragged into the pool, it leaves its slot empty. A tile on
+ * the wheel double-clicked goes to the pool, and one in the pool double-clicked goes to the next
+ * empty slot clockwise. The arrow keys move a focused tile round the wheel, Delete sends it to
+ * the pool, and Enter brings a pool tile to the next empty slot as a double-click does.
  */
 export function CategoryWheel({ wheel, title, onArrange, outside = [] }: Readonly<CategoryWheelProps>) {
   const hintId = useId()
@@ -76,9 +77,10 @@ export function CategoryWheel({ wheel, title, onArrange, outside = [] }: Readonl
       {editing && (
         <p id={hintId} className={styles.microcopy}>
           Drag a category onto another slot to swap the two, or into the pool to take it off the
-          wheel; each empty slot takes the first category left in the pool. From the keyboard, the
-          arrow keys move a category round the wheel, Delete sends it to the pool, and Enter brings
-          one back from the pool.
+          wheel; each empty slot takes the first category left in the pool. Double-click a category
+          to send it to the pool, or one in the pool to put it in the next empty slot clockwise.
+          From the keyboard, the arrow keys move a category round the wheel, Delete sends it to the
+          pool, and Enter brings one back from the pool.
         </p>
       )}
     </Box>
@@ -93,6 +95,9 @@ function Board({ wheel, pool, onArrange }: Readonly<{ wheel: WheelT, pool: reado
   // The tile a key just moved, to keep focus on once it is drawn in its new place: moving
   // between the wheel and the pool draws it anew.
   const keyed = useRef<CategoryLabel | null>(null)
+  // The slot a tile from the pool last went to: the next one brought back goes to the empty slot
+  // clockwise after it, so a run of them fills the holes in turn round the wheel.
+  const [filledIdx, setFilledIdx] = useState<number | null>(null)
 
   useEffect(() => {
     if (keyed.current === null) { return }
@@ -100,25 +105,28 @@ function Board({ wheel, pool, onArrange }: Readonly<{ wheel: WheelT, pool: reado
     keyed.current = null
   }, [wheel])
 
-  const place = (piecekey: string, placekey: string, placing: Placing) => {
+  const place = (piecekey: string, placekey: string, placing: Placing | 'doubleClick') => {
     const label = CategoryLabelVals.find((each) => each === piecekey)
     if (label === undefined) { return }
-    const placedWheel = Wheel.placed(wheel, label, placekey === PoolPlacekey ? 'pool' : Number(placekey))
+    const onto = placekey === PoolPlacekey ? 'pool' : Number(placekey)
+    const placedWheel = Wheel.placed(wheel, label, onto)
     if (placedWheel === wheel) { return }
     if (placing === 'key') { keyed.current = label }
+    if (onto !== 'pool' && ! wheel.includes(label)) { setFilledIdx(onto) }
     onArrange(placedWheel)
   }
-  const firstEmptyIdx = Wheel.firstEmptyIdxOf(wheel)
+  const nextEmptyIdx = Wheel.nextEmptyIdxOf(wheel, filledIdx)
+  const nextEmptyPlacekey = nextEmptyIdx === null ? null : String(nextEmptyIdx)
 
   return (
     <Box ref={stage}>
       <Pool count={pool.length} boardkey={boardkey} />
       {wheel.map((label, idx) => (label === null
         ? <EmptySlot key={`slot-${String(idx)}`} slotIdx={idx} filling={order[idx] ?? null} boardkey={boardkey} />
-        : <Tile key={label} label={label} spot={spotOf(idx, WheelGeometry.ringRadius)} placekey={String(idx)} boardkey={boardkey} onPlace={place} placeForKey={(key) => ringKeyPlace(key, idx)} where={`slot ${String(idx + 1)}`} />
+        : <Tile key={label} label={label} spot={spotOf(idx, WheelGeometry.ringRadius)} placekey={String(idx)} boardkey={boardkey} onPlace={place} placeForKey={(key) => ringKeyPlace(key, idx)} doubleClickPlace={PoolPlacekey} where={`slot ${String(idx + 1)}`} />
       ))}
       {pool.map((label, rank) => (
-        <Tile key={label} label={label} spot={poolSpotOf(rank, pool.length)} placekey={PoolPlacekey} boardkey={boardkey} onPlace={place} placeForKey={(key) => poolKeyPlace(key, firstEmptyIdx)} where="in the pool" />
+        <Tile key={label} label={label} spot={poolSpotOf(rank, pool.length)} placekey={PoolPlacekey} boardkey={boardkey} onPlace={place} placeForKey={(key) => poolKeyPlace(key, nextEmptyPlacekey)} doubleClickPlace={nextEmptyPlacekey} where="in the pool" />
       ))}
     </Box>
   )
@@ -138,24 +146,26 @@ function ringKeyPlace(key: string, slotIdx: number): string | null {
   }
 }
 
-/** Where a key sends a tile in the pool: Enter or Space, to the first empty slot */
-function poolKeyPlace(key: string, firstEmptyIdx: number | null): string | null {
-  return firstEmptyIdx !== null && (key === 'Enter' || key === ' ') ? String(firstEmptyIdx) : null
+/** Where a key sends a tile in the pool: Enter or Space, to the next empty slot, `nextEmptyPlacekey` */
+function poolKeyPlace(key: string, nextEmptyPlacekey: string | null): string | null {
+  return key === 'Enter' || key === ' ' ? nextEmptyPlacekey : null
 }
 
 type TileProps = {
-  label:       CategoryLabel
-  spot:        Spot
-  placekey:    string
-  boardkey:    string
-  onPlace:     (piecekey: string, placekey: string, placing: Placing) => void
-  placeForKey: (key: string) => string | null
+  label:            CategoryLabel
+  spot:             Spot
+  placekey:         string
+  boardkey:         string
+  onPlace:          (piecekey: string, placekey: string, placing: Placing | 'doubleClick') => void
+  placeForKey:      (key: string) => string | null
+  /** The place a double-click sends the tile to; null when it sends it nowhere */
+  doubleClickPlace: string | null
   /** Where the tile sits, as a screen reader is told */
-  where:       string
+  where:            string
 }
 
-/** One category's tile in the editor: dragged, dropped on, and moved by the keys */
-function Tile({ label, spot, placekey, boardkey, onPlace, placeForKey, where }: Readonly<TileProps>) {
+/** One category's tile in the editor: dragged, dropped on, moved by the keys, and sent on by a double-click */
+function Tile({ label, spot, placekey, boardkey, onPlace, placeForKey, doubleClickPlace, where }: Readonly<TileProps>) {
   const { pieceRef, dragging, over, onPieceKeyDown } = usePiece({ boardkey, piecekey: label, placekey, disabled: false, onPlace, placeForKey })
   return (
     <Paper
@@ -168,6 +178,7 @@ function Tile({ label, spot, placekey, boardkey, onPlace, placeForKey, where }: 
       data-category={label}
       data-place={placekey}
       onKeyDown={onPieceKeyDown}
+      onDoubleClick={() => { if (doubleClickPlace !== null) { onPlace(label, doubleClickPlace, 'doubleClick') } }}
       sx={{ ...tileSx(spot), cursor: 'grab', opacity: dragging ? 0.4 : 1, ...(over && OverSx), '&:focus-visible': FocusSx }}
     >
       {Category.titleOf(label)}

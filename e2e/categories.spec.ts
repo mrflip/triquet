@@ -81,7 +81,7 @@ test.describe("a hunt's category wheel", () => {
     await expect(art).toHaveAttribute('data-place', '7')
     await expect(page.getByRole('button', { name: 'TV, in the pool' })).toBeVisible()
 
-    // Back from the pool to the first empty slot.
+    // Back from the pool to the next empty slot: the first, since none has been filled yet.
     await page.getByRole('button', { name: 'TV, in the pool' }).press('Enter')
     await expect(tileOf(page, 'TV')).toHaveAttribute('data-place', '15')
   })
@@ -109,6 +109,29 @@ test.describe("a hunt's category wheel", () => {
     await reloadOnceSaved(page)
     await expect(tileOf(page, 'Theater')).toHaveAttribute('data-place', '3')
     await expect(emptySlotAt(page, 12)).toHaveText('Geogr')
+  })
+
+  test("sends a category to the pool by a double-click, and one in the pool to the next empty slot clockwise", async ({ page }) => {
+    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    for (const title of ['Math & Econ', 'Art', 'TV']) {
+      await tileOf(page, title).dblclick()
+      await expect(page.getByRole('button', { name: `${title}, in the pool` })).toBeVisible()
+    }
+    await expect(emptySlotAt(page, 0)).toBeVisible()
+    await expect(emptySlotAt(page, 8)).toBeVisible()
+    await expect(emptySlotAt(page, 15)).toBeVisible()
+
+    // TV dragged into the middle hole; the next double-click goes on round from there, not from the top.
+    await dropOn(page, 'tv', emptySlotAt(page, 8))
+    await expect(tileOf(page, 'TV')).toHaveAttribute('data-place', '8')
+    await page.getByRole('button', { name: 'Art, in the pool' }).dblclick()
+    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '15')
+    await page.getByRole('button', { name: 'Math & Econ, in the pool' }).dblclick()
+    await expect(tileOf(page, 'Math & Econ')).toHaveAttribute('data-place', '0')
+    await expect(page.getByRole('region', { name: 'Pool' })).toContainText('Drag a category here')
+
+    await reloadOnceSaved(page)
+    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '15')
   })
 
   test("sets Masie, Artie and Poppy at the triangle's corners, each knowing best what sits beside them", async ({ page }) => {
