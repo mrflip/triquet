@@ -1,4 +1,11 @@
 
+## Known Bugs
+
+* Tune layout at small scales (eg "The site header overlaps itself at 360 px.")
+* A failed history download tells the person nothing (`FullHistoryDownload`, and the gear's
+  *Download as git* in `QuizManageModal`): `HuntRepoList`'s alarm is the pattern to copy.
+
+
 ## Wontfix (fixable, but not devoting resources to fix it)
 
 * Git repos are per-browser: there's no actual full history. Also repos that were accessed from your browser as a different user show up as orphaned and are downloadable.
