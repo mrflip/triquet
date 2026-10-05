@@ -8,7 +8,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | Thread | | Status |
 |---|---|---|
 | 0 | One address model | landed #121 |
-| 1 | The URL scheme | landing (lane 1) |
+| 1 | The URL scheme | landed #125 |
 | 2 | Jsonballs, and Import and Export through them | in review (lane 2) |
 | 3 | A hunt's files | pending (after 2) |
 | 4 | Watches at the grain of the files | pending (after 3) |
@@ -53,3 +53,27 @@ For thread 2:
 For thread 3: `notes/decisions/urls.md` still writes the realm as `a` (Decision 1 says `home`).
 
 *Review:* clean at medium, no fixes. Four minor findings, each handed on above.
+
+### Thread 1: the URL scheme (landed #125)
+
+Pages live under `src/app/(synced)/[org]/...`: `/~org`, `/~org/hunt`, `/~org/hunt/quizzes`,
+`/~org/hunt/categories`, and `/~org/hunt/quizzes/<realm>/<quiz>[/!edit|/!playtest]`. A page reads
+its address with `useAddressed` (`src/components/use-address.ts`, from `usePathname()`, never
+Next's params); `useCanonical` moves every stale form (old `/h/`, `/c/`, `?act=`, a wrong org, a
+stale realm, a relabelled quiz) to the current one. `/my/hunts` stays the landing page.
+
+For thread 6 and anyone writing a link:
+* **Write addresses only with `Routes.huntPath({ org, hunt })` and
+  `Routes.quizPath({ org, hunt, realm, quiz }, mode)`.** Every hunt listing carries `org`
+  (`HuntListingT.org`, made server-side by `orgFor(members)` in `rows.ts`).
+* Modes replace acts: `Hunting.modeFor` (smith to `edit`, reviewer to `playtest`) and
+  `Hunting.mayOpen` replace `actFor`/`mayAct`.
+* e2e: `huntOf(page)` gives what `Routes.*Path` wants; `huntLabelOf(page)` alone no longer does.
+* A bare quiz address moves everyone to `!playtest` (urls.md rule 4).
+
+**Open with the Coach:** the org's derivation (earliest current smith, or earliest member); and
+the bare address, which for a smith opens an empty, unshared `reviews` row on mount (one per
+smith per quiz; never reaches the repo). If unwanted, the fix is `ReviewScreen` opening the
+review on first write: a small change after this sprint.
+
+*Review:* clean at medium, no fixes, no findings left.
