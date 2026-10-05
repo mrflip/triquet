@@ -36,14 +36,16 @@ export const list = zQuery({
 /**
  * The hunt of the org `orglabel` answering to `hunt_label` (`huntInOrg`), for the asking actor; for
  * an old address, which names no org (`orglabel` null), the earliest answering to the label
- * whatever its org (`huntForLabel`). Someone on it is shown it as a quiz's screen holds it: its
- * realms with their quizzes' rows, who is on it, its org, and their own role. Someone not on it is
- * shown only that, and its smiths, who could add them. Says so when no hunt answers.
+ * whatever its org (`huntForLabel`). A browser still running the app from before hunts had orgs
+ * sends no `orglabel` at all, and is answered as an old address is. Someone on it is shown it as a
+ * quiz's screen holds it: its realms with their quizzes' rows, who is on it, its org, and their
+ * own role. Someone not on it is shown only that, and its smiths, who could add them. Says so when
+ * no hunt answers.
  */
 export const open = zQuery({
-  args:    { orglabel: identlabel.nullable(), hunt_label: label },
+  args:    { orglabel: identlabel.nullable().optional(), hunt_label: label },
   handler: async (ctx, { orglabel, hunt_label }): Promise<HuntOpeningT> => {
-    const hunt = orglabel === null ? await huntForLabel(ctx.db, hunt_label) : await huntInOrg(ctx.db, orglabel, hunt_label)
+    const hunt = orglabel === null || orglabel === undefined ? await huntForLabel(ctx.db, hunt_label) : await huntInOrg(ctx.db, orglabel, hunt_label)
     if (! hunt) { return { why: 'noSuchHunt', hunt: null } }
     const [members, claims] = await Promise.all([membersOf(ctx.db, hunt._id), claimsFor(ctx.db, hunt._id, ctx.actor)])
     if (! Approve.may('read_hunt', claims)) { return { why: 'notOnHunt', hunt: null, smiths: smithsOf(members) } }

@@ -1572,6 +1572,13 @@ describe("hunts.open", () => {
     expect(hunt.org).to.eq(SeedOrg)
   })
 
+  it("answers a browser that sends no org, as the app did before hunts had one, as an old address", async () => {
+    const tt = openTester()
+    const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const opening = await smith.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
+    expect(present(opening.hunt).org).to.eq(SeedOrg)
+  })
+
   it("names a hunt that stores no org yet by its earliest member, whatever their role, under any org", async () => {
     const tt = openTester()
     const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'pat_smiths' })
