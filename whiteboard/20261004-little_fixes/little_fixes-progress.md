@@ -8,9 +8,9 @@ their sections below the table, newest first.
 | Thread | Name                         | Branch | PR | Status  |
 | ------ | ---------------------------- | ------ | -- | ------- |
 | 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
-| 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; review rides with 1b |
+| 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
 | 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete |
-| 3      | quiz mode: grid and widgets  |        |    | pending |
+| 3      | quiz mode: grid and widgets  |        |    | underway |
 
 ## Thread 1b: the ident gate, the Coach's follow-up (2026-10-05)
 
@@ -54,6 +54,11 @@ Screenshots (`screenshots/`, `-before` and `-after`, light and dark at 1100px; r
 review the look): `thread1b-short-typing-*` (`flip`, still focused), `thread1b-short-left-*`
 (after blur), `thread1b-badchar-*` (`flip!`), `thread1b-switch-own-*` (own label on the
 switch path).
+* *Review:* `clean`, at medium, over `origin/main...HEAD`. It probed `Ident.flawIn` against
+  `labelFor` with inputs the tests skip (combining accents, `İ`, `ß`, `Æø`, tabs, runs of `_`/`-`)
+  and found them consistent. Minor, left: `AppNotices.usernameLength` says "6 letters and
+  numbers" though underscores count (`abc de` passes) -- wording only; `MembersPanel` could use
+  `Ident.flawIn` (out of scope, as the worker said).
 
 ## Thread 2: the hunts page lines up (2026-10-05)
 
@@ -97,6 +102,11 @@ Branch `20261005-hunts_aligned`, PR #99, stacked on #96. Suites: typecheck and l
 
 Screenshots: `screenshots/thread2-hunts-*-{before,after}.png` -- light-1100, dark-1100, light-700,
 light-390, dark-390.
+* *Review:* `clean`, at medium, run after the merge over `55dddac...a4c1165` (#99's commits on
+  main), its comment on #105. Minor, left: under 720px a hunt with no quizzes gets an empty
+  padded row beneath it (cosmetic; hide that row when there are none, if the Coach minds);
+  `Ident.byline` calls `this.atLabel`, so it would break passed detached (`.map(Ident.byline)`)
+  -- no caller does.
 
 ## Thread 1: the ident gate (2026-10-05)
 

@@ -1,9 +1,9 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 1b underway (the Coach's follow-up to thread 1). Threads 1 and 2 merged to main by the
-Coach via #99 (#96 closed); thread 2 not yet reviewed -- its review rides with thread 1b. The sprint runs
-in the worktree `.claude/worktrees/little_fixes`.
+`/sprint`. **Status:** thread 3 underway. Threads 1 and 2 merged to main by the Coach via #99 (#96 closed);
+thread 1b complete and reviewed (#105, follows #99); thread 2 reviewed late, clean. The sprint runs in
+the worktree `.claude/worktrees/little_fixes`.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -162,7 +162,13 @@ Likely files: `QuestionTable.tsx` (header row: the fold and batch-mode controls)
    shows the widget's description, truncated to one line. Shrinking, hide in order: description
    first, then label, then the status sentence (theme breakpoints).
 
-*Look-ahead.* Last thread; nothing downstream. Reuse thread 2's alignment idiom if it fits.
+*Look-ahead.* Last thread; nothing downstream.
+
+*Orchestrator:* thread 2 settled the idiom for bullet 5 -- read its *Discoveries -- for thread 3*
+in the progress document: keep the widgets panel's Accordion, line the summary up with
+fixed-width boxes as `ColumnsEditor`'s rows do, and hide by container query (`RoomFor`,
+`hiddenUntil`), not a Table. Its three `sx` traps apply to the grid too. The sprint runs in a
+worktree: work in it, run `git status` before any path-naming checkout or restore.
 
 ## For the Coach
 
