@@ -86,3 +86,18 @@ skipped: thread 4's measurement) green; e2e green in lane 1 (252). One commit pe
   - Old links whose org was a hunt's earliest *smith* where that differs from its earliest
     *member* (a maker demoted or departed) now name the wrong org; after the backfill they find
     no hunt. Rare; say if you'd rather such links redirect.
+
+## Review
+
+Medium review, `fixed`: one commit added (`8b3a708`: `hunts.open` accepts a missing `orglabel`,
+read as null, so a tab still running the previous app keeps working through a deploy; one test).
+Minor findings left for the Coach:
+
+* **A whole-hunt paste into a quiz matching none of its quizzes** (by label or title) takes the
+  first quiz, as it always has; since this thread that also carries its title, smith's note and
+  Q1 preamble, and removes columns the pasted quiz lacks. Summarized, and kept in the history.
+  The reviewer suggests carrying the quiz's own fields and columns only on a label or title
+  match, or from a single-quiz paste.
+* **A column whose alignment the paste unsets is deleted and re-added**; the server's delete
+  clears `last_sortkey` when it named that column, so a quiz with questions can lose its sort
+  memory, unlogged. A fix wants a way to unset alignment.
