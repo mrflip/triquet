@@ -6,6 +6,7 @@ import * as Routes from '../lib/routes'
 import { Hunting } from '../models/hunting'
 import { useHunt } from '../state/use-hunt'
 import { useIdent } from '../state/use-ident'
+import { useShowHunt } from '../state/shown-hunt'
 import { NotOnHunt } from './NotOnHunt'
 import { OpeningNotice } from './SyncNotices'
 import { QuizNotFound } from './QuizNotFound'
@@ -34,6 +35,7 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
   const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(labels)
+  useShowHunt(hunt)
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }

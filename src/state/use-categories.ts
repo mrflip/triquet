@@ -1,54 +1,23 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation } from 'convex/react'
 import type { OptimisticLocalStore } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import * as Alarms from '../lib/alarms'
 import { AppNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
-import { smithsOf, type HuntOpeningT, type ShallowHuntT, type SmithT } from '../lib/rows'
-import { ValidatorKit } from '../lib/validator'
 import type { AccountActionDNA } from '../models/actions'
 import type { WheelT } from '../models/category'
-import type { HuntRole } from '../models/hunting'
 import { useRaiseAlarm } from './alarms'
+import { useHuntOpening, type HuntOpeningHandle } from './use-hunt-opening'
 import { useSession } from './use-session'
 
-/**
- * Where finding the hunt an address names stands: still looking, looked and it is not there,
- * there but not this visitor's to see, or found
- */
-export type HuntFinding = 'waiting' | 'missing' | 'refused' | 'found'
-
-export type CategoriesHandle = {
-  /** Whether the hunt has been found, is not there to find, or is not this visitor's to see */
-  finding:  HuntFinding
-  /** The hunt, with its wheel; null until it is found */
-  hunt:     ShallowHuntT | null
-  /** What this browser's ident does on the hunt; null when it is not on it, or the hunt has not arrived */
-  role:     HuntRole | null
-  /** Who could put this visitor on the hunt; empty until the hunt has arrived */
-  smiths:   readonly SmithT[]
+export type CategoriesHandle = HuntOpeningHandle & {
   /** Whether a rearrangement is still being written */
   unsaved:  boolean
   /** Arrange the hunt's categories as `wheel`, shown at once and written behind the screen; one not kept raises an alarm and is taken back */
   arrange:  (wheel: WheelT) => void
-}
-
-/**
- * Where finding the hunt stands, from what the server said of it.
- *
- * @param askable - Whether the address's label could name a hunt at all.
- * @param opening - What the server said of the hunt; undefined until it has.
- *
- * @example findingOf(true, { why: 'notOnHunt', hunt: null, smiths: [] })  // => 'refused'
- */
-export function findingOf(askable: boolean, opening: HuntOpeningT | undefined): HuntFinding {
-  if (! askable) { return 'missing' }
-  if (opening === undefined) { return 'waiting' }
-  if (opening.why === 'notOnHunt') { return 'refused' }
-  return opening.why === 'noSuchHunt' ? 'missing' : 'found'
 }
 
 /**
@@ -85,12 +54,8 @@ export function useCategories(hunt_label: string): CategoriesHandle {
   const raise = useRaiseAlarm()
   const [writing, setWriting] = useState(0)
   const performAccount = useMutation(api.idents.performAccount).withOptimisticUpdate(showArranged)
-
-  // A label that cannot be one names no hunt, and is not asked about.
-  const askable = ValidatorKit.label.safeParse(hunt_label).success
-  const opening = useQuery(api.hunts.open, askable && ready ? { hunt_label } : 'skip')
-  const hunt = opening?.hunt ?? null
-  const hunt_id = hunt?._id ?? null
+  const opened = useHuntOpening(hunt_label)
+  const hunt_id = opened.hunt?._id ?? null
 
   const arrange = useCallback((wheel: WheelT) => {
     if (hunt_id === null || ! ready) { return }
@@ -109,6 +74,5 @@ export function useCategories(hunt_label: string): CategoriesHandle {
     void write()
   }, [hunt_id, ready, hunt_label, performAccount, raise])
 
-  const smiths = opening?.why === 'notOnHunt' ? opening.smiths : smithsOf(hunt?.members ?? [])
-  return { finding: findingOf(askable, opening), hunt, role: hunt?.role ?? null, smiths, unsaved: writing > 0, arrange }
+  return { ...opened, unsaved: writing > 0, arrange }
 }

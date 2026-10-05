@@ -12,7 +12,9 @@ import * as Wheel from '../lib/wheel'
 import type { WheelT } from '../models/category'
 import { useCategories } from '../state/use-categories'
 import { useIdent } from '../state/use-ident'
+import { useShowHunt } from '../state/shown-hunt'
 import { CategoryWheel } from './CategoryWheel'
+import { NoSuchHunt } from './HuntRoute'
 import NextLink from './NextLink'
 import { NotOnHunt } from './NotOnHunt'
 import { Panel } from './panels/Panel'
@@ -36,6 +38,7 @@ export function CategoriesRoute({ huntLabel }: Readonly<CategoriesRouteProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
   const { finding, hunt, smiths, unsaved, arrange } = useCategories(huntLabel)
+  useShowHunt(hunt)
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
@@ -47,15 +50,7 @@ export function CategoriesRoute({ huntLabel }: Readonly<CategoriesRouteProps>) {
 
   if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
   if (finding === 'refused') { return <NotOnHunt labels={null} ident={ident} claims={null} smiths={smiths} /> }
-  if (! hunt) {
-    return (
-      <main className={styles.page}>
-        <Panel title="No such hunt" blurb={`There is no hunt labelled “${huntLabel}”.`}>
-          <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
-        </Panel>
-      </main>
-    )
-  }
+  if (! hunt) { return <NoSuchHunt huntLabel={huntLabel} /> }
   const arranging = Approve.mayOffer('arrange_categories', Actor.claimsOn(actor, hunt._id, hunt))
   return <CategoriesScreen hunt={hunt} onArrange={arranging ? arrange : null} unsaved={unsaved} />
 }

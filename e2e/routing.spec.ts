@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
+import * as Routes from '../src/lib/routes'
 import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
@@ -193,6 +194,65 @@ test.describe('the hunts', () => {
     await page.getByRole('link', { name: title }).click()
     await expect(page).toHaveURL(new RegExp(`/h/${huntLabel}/home/`))
     await expect(page.getByLabel('Quiz name')).toHaveValue(title)
+  })
+})
+
+/** The strip across the top of the page, where the logo and the hunt the page is about sit */
+function whereYouAre(page: Page) {
+  return page.getByRole('navigation', { name: 'Where you are' })
+}
+
+test.describe('a hunt', () => {
+  test('is named in the header on its quiz and its categories, and opens its own page from there', async ({ page }) => {
+    const identLabel = await startHunt(page)
+    const label = huntLabelOf(page)
+    const huntTitle = freshTitle('Headed hunt')
+    await openManage(page)
+    await manageDialog(page).getByRole('textbox', { name: 'Hunt name' }).fill(huntTitle)
+    await manageDialog(page).getByRole('button', { name: 'Rename' }).click()
+    await waitUntilSaved(page)
+    await expect(whereYouAre(page).getByRole('link', { name: huntTitle })).toBeVisible()
+
+    await page.goto(Routes.categoriesPath(label))
+    await whereYouAre(page).getByRole('link', { name: huntTitle }).click()
+    await expect(page).toHaveURL(Routes.huntPath(label))
+    await expect(whereYouAre(page).getByRole('link', { name: huntTitle })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { name: 'Quizzes' })).toBeVisible()
+    await expect(page.getByRole('table', { name: 'Members of this hunt' }).getByRole('row').filter({ hasText: identLabel })).toContainText('Smith')
+
+    await page.getByRole('link', { name: 'The category wheel' }).click()
+    await expect(page).toHaveURL(Routes.categoriesPath(label))
+    await page.goto(Routes.huntPath(label))
+    await page.getByRole('region', { name: 'Quizzes' }).getByRole('link').first().click()
+    await expect(page).toHaveURL(new RegExp(String.raw`/h/${label}/home/${label}\?act=smith$`))
+
+    // A page about no hunt names none.
+    await page.getByRole('link', { name: 'About' }).click()
+    await expect(page).toHaveURL('/about')
+    await expect(whereYouAre(page).getByRole('link')).toHaveCount(1)
+  })
+
+  test('opens its own page from its title in the hunts list', async ({ page }) => {
+    await startHunt(page)
+    const label = huntLabelOf(page)
+    await loadAfresh(page, '/my/hunts')
+    // A fresh ident is on this hunt alone.
+    await page.getByRole('rowheader').getByRole('link').click()
+    await expect(page).toHaveURL(Routes.huntPath(label))
+    await expect(page.getByRole('heading', { name: 'Quizzes' })).toBeVisible()
+  })
+
+  test('says so for a hunt there is not, and tells a stranger who to ask', async ({ page, browser }) => {
+    await startHunt(page)
+    const label = huntLabelOf(page)
+    await page.goto(Routes.huntPath('no_such_hunt_here'))
+    await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
+    await expect(whereYouAre(page).getByRole('link')).toHaveCount(1)
+
+    const stranger = await otherVisitor(browser)
+    await assumeIdent(stranger)
+    await stranger.goto(Routes.huntPath(label))
+    await expect(stranger.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
   })
 })
 
