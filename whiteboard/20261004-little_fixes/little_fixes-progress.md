@@ -19,7 +19,19 @@ this file. Learned (now in the sprint skill, the agent definitions and git_hygie
 * *Review, thread 4:* `clean`, by hand. Left: a long name starting with a digit makes a
   25-character username (`Labelmaker.repaired` cuts before prefixing `z`; older bug this thread
   first reaches); Enter in a cleared username field is blocked by `required` (`noValidate` would
-  submit). Both put to the Coach.
+  submit). The Coach: **wontfix** for Enter (only while the cleared field has focus; recorded on
+  #111); the 25-character username is fixed by thread 7.
+* *Review, thread 6:* `clean`, by hand. `restack`'s `--prune` is safe. Left: the reviewer guidance
+  assumes the main checkout stands on the thread's base (in a parallel sprint, a later top --
+  rules still hold); `restack` now silently leaves out a spine branch origin deleted unmerged.
+* *Review, thread 7:* `clean`, by hand. Rename complete; `normalize` unchanged for every caller
+  but the intended fix (and a long digit-first label that used to throw now comes back valid).
+* **Paused (thread 7's landing):** `origin/main` gained `c9f204b` (in #112), which makes the
+  same `--prune` fix as thread 6's `6d23477` and more, in `scripts/spine.ts` and its test; the
+  spine's replay onto main conflicts there and was undone. The Coach's call.
+* **Resumed:** the Coach merged #113 (and #110, #111 beneath it) with the overlap resolved. Every
+  spine commit was then on main, so the main checkout went back to `main`, and the sprint's docs
+  were swept onto a fresh spine.
 
 ## Status
 
@@ -29,9 +41,10 @@ this file. Learned (now in the sprint skill, the agent definitions and git_hygie
 | 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
 | 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete, reviewed (clean) |
 | 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | on the spine, open; reviewed (clean) |
-| 4      | name is title, label beside  | `20261005-name_title_label` |    | reviewed (clean); landing next |
-| 6      | reviews in worktrees         | `20261005-review_in_worktree` |    | in review |
-| 5      | column alignment             | `20261005-column_align` | #110 | landed #110; reviewed (clean) |
+| 4      | name is title, label beside  | `20261005-name_title_label` | #111 | merged via #113; reviewed (clean) |
+| 6      | reviews in worktrees         | `20261005-review_in_worktree` | #113 | merged (#113, the Coach resolved its overlap with c9f204b); reviewed (clean) |
+| 7      | PA.Userlabel, Labelmaker bag | `20261005-userlabel` |    | landing, after the Coach's fix |
+| 5      | column alignment             | `20261005-column_align` | #110 | merged via #113; reviewed (clean) |
 
 ## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
 
