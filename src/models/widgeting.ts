@@ -1,5 +1,6 @@
 import * as Z from 'zod'
 import { Validator } from '../lib/validator'
+import { PositionField } from '../lib/jsonball'
 import * as Labelmaker from '../lib/labelmaker'
 import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
@@ -9,10 +10,10 @@ import type { WidgetT } from './widget'
 
 /**
  * The labels no widgeting may take, because a question already answers to each in the bag, in a
- * column's source or in an export: its exposed fields, its rank, the views
- * of it, and the questions themselves.
+ * column's source or in an export: its exposed fields, its rank, its place in a jsonball, the
+ * views of it, and the questions themselves.
  */
-export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, ...QuestionViewVals, QuestionWidgetLabel]
+export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, PositionField, ...QuestionViewVals, QuestionWidgetLabel]
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels)
 

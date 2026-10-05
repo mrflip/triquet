@@ -397,5 +397,13 @@ lines between them, and these are here so they are findable beside the rest.
   `tq/widget/pub/<label>.tqwidget.json` (until widgets replace them, the hunt's expressions at
   `tq/hunt/<hunt>/<hunt>.tqexpressions.json`). The history follows the quiz: a relabel is a new
   label on the same thing, an edit new content for it.
+* **jsonball** -- one resource of a hunt (the hunt's own fields, its categories, its members, a
+  quiz, a shared review, a widget) as JSON nested under the key path its address gives it
+  (`{ quizzes: { home: { legends: { ... } } } }`), so that deep-merging any set of them is that
+  much of the hunt. Every collection in one is keyed by label, its members carrying `position`
+  where order matters; no list is shared between balls. **Raw Export** is every ball of the hunt
+  merged; the library's export is every widget's. The **questions alone** (`{ questions: { ... } }`)
+  are a ball rooted at their quiz rather than the hunt, never merged, for pasting into any quiz.
+  `src/lib/jsonball.ts` owns the shapes; `Exporting` builds the balls, `Importing` reads them back.
 * **meta** -- the second-layer puzzle a quiz can hide. The reason widgets exist.
 * **Coach**, **agent** -- the humans and the AI on this project. See `CLAUDE.md`.

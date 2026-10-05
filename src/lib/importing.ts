@@ -1,8 +1,9 @@
 import type * as Z from 'zod'
 import { mintId } from './ids'
+import * as Jsonball from './jsonball'
 import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
-import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportQuizT, type ImportedQuestionT } from '../models/import'
+import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
 import type { QuizT } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
@@ -52,6 +53,11 @@ export type ImportOutcome = {
 
 /**
  * `pasted` read against `quiz`, as the questions to send.
+ *
+ * The paste may be any jsonball or merge of them (Raw Export, a quiz's ball, its questions alone),
+ * any shape an older export had, or a bare list of questions (`Jsonball.quizzesIn`); holding
+ * several quizzes, the one matching this quiz is read. Questions and widgetings keyed by label are
+ * read in order of their `position`.
  *
  * Questions are matched to existing ones **by label**: the one name that survives both the
  * author rewriting a question's title and a round trip through another tool. An export made while
@@ -243,13 +249,14 @@ function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, entries: 
 }
 
 type PayloadReading =
-  | { ok: true, quiz: ImportQuizT, reading: string }
+  | { ok: true, quiz: Jsonball.PastedQuizT, reading: string }
   | { ok: false, summary: string }
 
 /**
- * The pasted text read as whichever of the three accepted shapes it is.
+ * The pasted text read as whichever shape it is (`Jsonball.quizzesIn`): a bare list of questions,
+ * one quiz, or quizzes by realm, from any ball, any merge of them, or any older export.
  *
- * Given a whole hunt, it takes the quiz matching the open one by label, failing that by name,
+ * Given several quizzes, it takes the one matching the open quiz by label, failing that by name,
  * failing that the first one -- and says which reading it took, so the author is never guessing.
  */
 function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
@@ -260,49 +267,35 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
     return { ok: false, summary: "That isn't readable as JSON, so nothing was changed. Your text is still here." }
   }
 
-  const hunt = ImportValidators.importHunt.safeParse(raw)
-  if (hunt.success) {
-    const quizzes = hunt.data.realms.flatMap((realm) => realm.quizzes)
-    const chosen = quizFromExport(quizzes, openQuiz)
-    if (! chosen) { return { ok: false, summary: 'That hunt holds no quizzes, so nothing was changed.' } }
-    return {
-      ok:      true,
-      quiz:    chosen,
-      reading: `Read as a whole hunt of ${String(quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
-    }
+  const read = Jsonball.quizzesIn(raw)
+  if (read === null) { return { ok: false, summary: "That isn't a shape this tool recognises, so nothing was changed. Your text is still here." } }
+  if (read.shape === 'none') { return { ok: false, summary: 'That holds no quiz and no questions, so nothing was changed. Your text is still here.' } }
+  if (read.shape !== 'hunt') {
+    const [quiz = EmptyQuiz] = read.quizzes
+    return { ok: true, quiz, reading: `Read as ${read.shape === 'list' ? 'a bare list' : 'one quiz'} of ${String(quiz.questions.length)} question(s).` }
   }
-
-  const quiz = ImportValidators.importQuiz.safeParse(raw)
-  if (quiz.success) {
-    return { ok: true, quiz: quiz.data, reading: `Read as one quiz of ${String(quiz.data.questions.length)} question(s).` }
+  const chosen = quizFromExport(read.quizzes, openQuiz)
+  if (! chosen) { return { ok: false, summary: 'That holds no quizzes, so nothing was changed.' } }
+  return {
+    ok:      true,
+    quiz:    chosen,
+    reading: `Read as a hunt of ${String(read.quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
   }
-
-  const bare = ImportValidators.importPayload.safeParse(raw)
-  if (bare.success && Array.isArray(bare.data)) {
-    return { ok: true, quiz: { questions: bare.data, widgetings: [] }, reading: `Read as a bare list of ${String(bare.data.length)} question(s).` }
-  }
-
-  return { ok: false, summary: "That isn't a shape this tool recognises, so nothing was changed. Your text is still here." }
 }
 
+/** A paste's quiz when it holds none */
+const EmptyQuiz: Jsonball.PastedQuizT = { label: null, title: null, questions: [], widgetings: [] }
+
 /** How the quiz was picked out of a pasted export, for the log */
-function howChosen(chosen: ImportQuizT, openQuiz: QuizT): string {
-  if (labelOfPasted(chosen) === openQuiz.label) { return 'matched this quiz by label' }
+function howChosen(chosen: Jsonball.PastedQuizT, openQuiz: QuizT): string {
+  if (chosen.label === openQuiz.label) { return 'matched this quiz by label' }
   return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
 }
 
-/** The label a pasted quiz answered to (its `forced_label`, in an export made while one could be set), or null when it carries none */
-function labelOfPasted(quiz: ImportQuizT): string | null {
-  return quiz.forced_label ?? quiz.label ?? null
-}
-
-/**
- * An export's quiz chosen against the one on screen: by label, then by name, failing both the
- * first.
- */
-export function quizFromExport(quizzes: readonly ImportQuizT[], openQuiz: QuizT): ImportQuizT | undefined {
+/** An export's quiz chosen against the one on screen: by label, then by name, failing both the first */
+function quizFromExport(quizzes: readonly Jsonball.PastedQuizT[], openQuiz: QuizT): Jsonball.PastedQuizT | undefined {
   const { label } = openQuiz
-  return quizzes.find((quiz) => labelOfPasted(quiz) === label)
+  return quizzes.find((quiz) => quiz.label === label)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
     ?? quizzes[0]
 }
@@ -388,10 +381,10 @@ export type LibraryImportOutcome = {
  * is removed.
  *
  * @param library - The library as it stands.
- * @param pasted - Whatever is in the library's Import box: `{ widgets: [...] }`, or a bare list of widgets.
+ * @param pasted - Whatever is in the library's Import box: the library's export, any ball holding widgets, an older library export, or a bare list of widgets (`Jsonball.widgetsIn`).
  * @returns The widgets to send, a one-line summary, and a line per pasted widget.
  *
- * @example libraryImported(library, '{"widgets":[{"label":"shout","formulary":"jsonata","formula":"$uppercase(qn.title)"}]}').log[0]?.outcome  // => 'added'
+ * @example libraryImported(library, '{"widgets":{"pub":{"shout":{"formulary":"jsonata","formula":"$uppercase(qn.title)"}}}}').log[0]?.outcome  // => 'added'
  */
 export function libraryImported(library: readonly WidgetT[], pasted: string): LibraryImportOutcome {
   let raw: unknown
@@ -400,8 +393,8 @@ export function libraryImported(library: readonly WidgetT[], pasted: string): Li
   } catch {
     return { ok: false, summary: "That isn't readable as JSON, so nothing was changed. Your text is still here.", log: [], widgets: null }
   }
-  const listed = Array.isArray(raw) ? raw : (raw as { widgets?: unknown } | null)?.widgets
-  if (! Array.isArray(listed)) { return { ok: false, summary: "That isn't a library export, so nothing was changed. Your text is still here.", log: [], widgets: null } }
+  const listed = Jsonball.widgetsIn(raw)
+  if (listed === null) { return { ok: false, summary: 'That holds no widgets, so nothing was changed. Your text is still here.', log: [], widgets: null } }
 
   const heldFor = new Map(library.map((widget) => [widget.label, widget]))
   const read = listed.map((each): { widget: WidgetT | null, entry: LibraryLogEntry } => {

@@ -138,10 +138,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
   const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
     .describe('One widget as the database holds it: its fields, and its place in the library.')
 
-  const library = obj({ widgets: widget.array().max(PA.WidgetsInLibrary.max) })
-    .describe('The library, as it is exported and imported on its own: every widget, in library order, without its place.')
-
-  return { jsonataConfig, aibotConfig, entryConfig, entryText, entryNumber, entryLabelish, entryTitleish, widgetLabel, widget, widgetPatch, row, library }
+  return { jsonataConfig, aibotConfig, entryConfig, entryText, entryNumber, entryLabelish, entryTitleish, widgetLabel, widget, widgetPatch, row }
 })
 
 export type JsonataConfigT = Z.output<typeof WidgetValidators.jsonataConfig>
@@ -172,8 +169,6 @@ export const EntryValueFor: Readonly<Record<EntryKind, Z.ZodType<EntryValueT>>> 
 }
 export type WidgetPatch    = Z.output<typeof WidgetValidators.widgetPatch>
 export type WidgetRowT     = Z.output<typeof WidgetValidators.row>
-export type LibraryDNA     = Z.input<typeof WidgetValidators.library>
-export type LibraryT       = Z.output<typeof WidgetValidators.library>
 
 /** A reusable definition in the library */
 // A class of statics, as a model is, with no instance fields to declare: a widget is a union.

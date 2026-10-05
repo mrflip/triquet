@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Importing from '../../src/lib/importing'
 import { classicLayout } from '../support/layouts'
@@ -83,7 +85,7 @@ describe('importInto', () => {
         ],
       }), SeedWidgets)
       expect(patchFor(present(outcome.questions), 'leon').clueing).to.eq('Right one')
-      expect(outcome.summary).to.include('whole hunt of 2 quiz(zes); matched this quiz by name')
+      expect(outcome.summary).to.include('Read as a hunt of 2 quiz(zes); matched this quiz by name')
     })
 
     it('matches the open quiz by label before name', () => {
@@ -435,6 +437,66 @@ describe('importInto', () => {
       expect(outcome.questions).to.deep.eq([])
       expect(outcome.ok).to.be.false
     })
+  })
+})
+
+/** The text of the older export `filename`, as someone kept it */
+function olderExport(filename: string): string {
+  return fs.readFileSync(path.join(import.meta.dirname, '../../fixtures/exports', filename), 'utf8')
+}
+
+/** The quiz `princes` as it stands now: `leon`, chaining nowhere yet, and `nantes`, working the entry `remark` */
+function princesNow(): QuizT {
+  return { ...quizOf(['1', 'leon', 'Old clueing'], ['2', 'nantes', 'Old clueing']), title: 'Princes', label: 'princes', widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'remark' })] }
+}
+
+describe('older exports', () => {
+  const OlderExports = [
+    ['hunt-2026-10-04.json',      'Read as a hunt of 2 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt of realms in a list, its questions beside what each widgeting came to'],
+    ['quiz-2026-10-04.json',      'Read as one quiz of 2 question(s).',                                            "one quiz, as a quiz's own history kept it"],
+    ['hunt-2026-09-27.json',      'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt whose labels could be overridden'],
+    ['workspace-2026-09-26.json', 'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a workspace of quizzes, chains naming ids'],
+  ] as const
+
+  for (const [filename, reading, story] of OlderExports) {
+    it(`still imports ${story}`, () => {
+      const outcome = Importing.importInto(princesNow(), olderExport(filename), EntryLibrary)
+      expect(outcome.summary).to.include(reading)
+      expect(outcome.log.map((entry) => [entry.label, entry.outcome])).to.deep.eq([['leon', 'merged'], ['nantes', 'merged']])
+      expect(patchFor(present(outcome.questions), 'leon')).to.deep.include({ clueing: 'Which region has 300 lions and twelve kings?', full_answer: 'León', notes: 'keep me' })
+      expect(patchFor(present(outcome.questions), 'nantes')).to.deep.include({ hint: 'BUT NOT the edict', chains_to: null })
+    })
+  }
+
+  it("keeps each chain, by label, from an export that named its target by label or by id", () => {
+    for (const [filename] of OlderExports) {
+      const outcome = Importing.importInto(princesNow(), olderExport(filename), EntryLibrary)
+      expect(patchFor(present(outcome.questions), 'leon').chains_to, filename).to.eq('nantes')
+    }
+  })
+
+  it("loses a chain whose id names no question the export holds, rather than the question", () => {
+    const pasted = { quizzes: [{ label: 'princes', questions: [{ id: 'aaa', label: 'leon', chains_to: 'long-gone' }] }] }
+    const outcome = Importing.importInto(princesNow(), JSON.stringify(pasted), EntryLibrary)
+    expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq(['merged'])
+    expect(patchFor(present(outcome.questions), 'leon').chains_to).to.be.null
+  })
+
+  it("types what an entry held back into its cell, from the export that carried it", () => {
+    const outcome = Importing.importInto(princesNow(), olderExport('hunt-2026-10-04.json'), EntryLibrary)
+    expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.' })
+  })
+
+  it("reads the oldest export of all for its labels and its question text", () => {
+    const outcome = Importing.importInto(quizOf(['1', 'sheep', 'Old']), fs.readFileSync(path.join(import.meta.dirname, '../../fixtures/sample-import.json'), 'utf8'), SeedWidgets)
+    expect(outcome.summary).to.include('Read as a hunt of 2 quiz(zes)')
+    expect(patchFor(present(outcome.questions), 'sheep').clueing).to.include('At a glance, the lines below are gibberish')
+  })
+
+  it("still imports the library's export of widgets in a list", () => {
+    const outcome = Importing.libraryImported(SeedWidgets, olderExport('library-2026-10-04.json'))
+    expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq([...SeedWidgets.map(() => 'kept'), 'added'])
+    expect(outcome.widgets?.map((widget) => widget.label)).to.deep.eq(['remark'])
   })
 })
 

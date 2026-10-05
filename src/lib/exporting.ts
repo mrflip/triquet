@@ -1,14 +1,18 @@
-import _ from 'es-toolkit/compat'
+import * as Addresses from './addresses'
+import * as Jsonball from './jsonball'
 import * as Runner from './formulary/runner'
+import type { MemberT, ReviewedT } from './rows'
+import { CategoryLabelVals, type WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
-import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
+import type { RealmT } from '../models/realm'
 import { Widget, type WidgetT } from '../models/widget'
-import type { WidgetedT } from '../models/widgeted'
 
 /**
- * What a smith is handed of their work: the hunt and its quizzes as the Export box shows them and
- * as each quiz's history keeps them, with every thing named by its label and no ids anywhere.
+ * What a smith is handed of their work, as jsonballs (`Jsonball`): each resource of the hunt at
+ * the key path its address gives it (`Addresses`), every thing named by its label and no ids
+ * anywhere. Raw Export is every ball of the hunt merged; the library's export is every widget's;
+ * the hunt's repository is each ball written to its own file.
  *
  * Ids are the database's, and mean nothing outside it. Smiths export, edit by hand, re-import,
  * and carry questions from one draft or one quiz to another; labels are how they say which is
@@ -17,93 +21,256 @@ import type { WidgetedT } from '../models/widgeted'
  * question it points at by label.
  */
 
-/** What one widgeting came to for one question, as a smith is handed it: its exposed fields */
-export type ExportedWidgeted = Pick<WidgetedT, 'status' | 'value'>
+/** A resource's jsonball, and the address it is the ball of: where its piece of the hunt sits, and where its file goes */
+export type PlacedBallT = {
+  address: Addresses.FiledAddressT
+  ball:    Jsonball.JsonballT
+}
+
+/** One reviewing, as far as its review's ball needs it: which question, by id, and the verdict */
+export type ReviewingSourceT = { question_id: string } & Jsonball.VerdictBodyT
+
+/** One review of a quiz, as far as its ball needs it: who wrote it, how far it has come, and what it says */
+export type ReviewSourceT = Pick<ReviewedT, 'reviewer' | 'phase' | 'overall'> & { reviewings: readonly ReviewingSourceT[] }
+
+/** One ident on the hunt, as far as its members' ball needs it */
+export type MemberSourceT = Pick<MemberT, 'label' | 'title' | 'role'>
+
+/** Everything a hunt's balls are made from */
+export type HuntSnapshotT = {
+  /** The hunt's own fields, its title as shown */
+  hunt:    Pick<HuntT, 'label' | 'title' | 'branch'>
+  /** How it arranges its categories */
+  wheel:   WheelT
+  /** Who is on it, in the order they joined it: the first smith among them names its org */
+  members: readonly MemberSourceT[]
+  /** Its realms, each with every quiz whole */
+  realms:  readonly Pick<RealmT, 'label' | 'title' | 'quizzes'>[]
+  /** The library, which its quizzes are run over; the widgets they work are among its balls */
+  library: readonly WidgetT[]
+  /** Each quiz's reviews, by the quiz's id; only the shared ones are written */
+  reviews: Readonly<Record<string, readonly ReviewSourceT[]>>
+}
 
 /**
- * A question as a smith is handed it: no id, its chain by the label of the question it points
- * at, and beside its own fields what every widgeting of the quiz came to, under the widgeting's
- * label, the worked-out ones included.
+ * The hunt a snapshot is of, as its addresses name it: its org (the earliest smith's label, or
+ * empty for a hunt with no smith, which nothing should leave: no ball or file hangs on the org)
+ * and its label.
+ *
+ * @example placeOf(snapshot)  // => { org: 'pat_smith', hunt: 'spring_hunt' }
  */
-export type ExportedQuestion = Omit<QuestionT, '_id' | 'chains_to' | 'stored'> & {
-  chains_to: string | null
-  [widgeting_label: string]: unknown
+export function placeOf(snapshot: Pick<HuntSnapshotT, 'hunt' | 'members'>): Addresses.InHuntT {
+  return { org: Addresses.orgOf(snapshot.members) ?? '', hunt: snapshot.hunt.label }
 }
 
-/** A quiz as a smith is handed it */
-export type ExportedQuiz = Omit<QuizT, '_id' | 'questions'> & {
-  questions: ExportedQuestion[]
+/** `body` placed at `address`'s key path */
+function placed(address: Addresses.FiledAddressT, body: Jsonball.JsonballT): PlacedBallT {
+  return { address, ball: Jsonball.ballAt(Addresses.keypathOf(address), body) }
 }
 
 /**
- * A hunt as a smith is handed it: its realms in order, each with its quizzes. The widgets its
- * quizzes work are named by label, and are the library's to export.
+ * The hunt's own ball: its label, title and branch, at the root of the merged hunt.
+ *
+ * @example huntBall(place, hunt).ball  // => { branch: 'main', label: 'spring_hunt', title: 'Spring Hunt' }
  */
-export type ExportedHunt = Pick<HuntT, 'label' | 'title' | 'branch'> & {
-  realms: { label: string, title: string, quizzes: ExportedQuiz[] }[]
+export function huntBall(place: Addresses.InHuntT, hunt: HuntSnapshotT['hunt']): PlacedBallT {
+  const body: Jsonball.HuntBodyT = { label: hunt.label, title: hunt.title, branch: hunt.branch }
+  return placed({ kind: 'hunt', ...place }, body)
 }
 
 /**
- * `quiz` with its ids gone: each question's chain named by the label of the question it
- * points at (a chain to a question the quiz does not hold named as none), and what each of its
- * widgetings came to beside its own fields.
+ * The hunt's categories: every category by its label, with the slot of the wheel it holds, or
+ * null for one in the pool.
+ *
+ * @example categoriesBall(place, Wheel.defaultWheel()).ball.categories.math_econ  // => { position: 0 }
+ */
+export function categoriesBall(place: Addresses.InHuntT, wheel: WheelT): PlacedBallT {
+  const body: Record<string, Jsonball.CategoryBodyT> = Object.fromEntries(CategoryLabelVals.map((label) => {
+    const slot = wheel.indexOf(label)
+    return [label, { position: slot === -1 ? null : slot }]
+  }))
+  return placed({ kind: 'categories', ...place }, body)
+}
+
+/**
+ * Who is on the hunt: each member by their ident label, with what they are called and their role.
+ *
+ * @example membersBall(place, members).ball.members.pat_smith  // => { role: 'smith', title: 'Pat Smith' }
+ */
+export function membersBall(place: Addresses.InHuntT, members: readonly MemberSourceT[]): PlacedBallT {
+  const body: Record<string, Jsonball.MemberBodyT> = Object.fromEntries(members.map(({ label, title, role }) => [label, { title, role }]))
+  return placed({ kind: 'members', ...place }, body)
+}
+
+/**
+ * `quiz` with its ids gone: its questions keyed by label in quiz order, each with its chain named
+ * by the label of the question it points at (a chain to a question the quiz does not hold named as
+ * none) and what each of the quiz's widgetings came to beside its own fields; its widgetings and
+ * columns keyed by label in their order. What a quiz's ball holds at its key path.
  *
  * @param quiz - The quiz.
  * @param run - The quiz, run: what its widgetings came to.
- * @returns The quiz as a smith is handed it.
  *
- * @example quizExported(quiz, run).questions[0]?.chains_to  // => 'nantes'
- * @example quizExported(quiz, run).questions[0]?.clueing_full  // => { status: 'ok', value: 312 }
+ * @example quizBodyOf(quiz, run).questions.leon?.chains_to  // => 'nantes'
+ * @example quizBodyOf(quiz, run).questions.leon?.clueing_full  // => { status: 'ok', value: 312 }
  */
-export function quizExported(quiz: QuizT, run: Runner.QuizRun): ExportedQuiz {
+export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT {
+  return {
+    title:       quiz.title,
+    smiths_note: quiz.smiths_note,
+    q1_preamble: quiz.q1_preamble,
+    locked:      quiz.locked,
+    questions:   questionsBodyOf(quiz, run),
+    widgetings:  Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params }) => ({ widget_label, description, params })),
+    columns:     Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
+  }
+}
+
+/** A quiz's questions as its ball holds them: keyed by label, in quiz order */
+function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun): Record<string, Jsonball.QuestionBodyT> {
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
-  return {
-    ..._.omit(quiz, ['_id', 'questions']),
-    questions: quiz.questions.map((question) => ({
-      ..._.omit(question, ['_id', 'chains_to', 'stored']),
-      chains_to: question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
-      ...Object.fromEntries(quiz.widgetings.map(({ label }) => [label, exposedOf(Runner.widgetedOf(run, label, question._id))])),
-    })),
-  }
+  return Jsonball.keyedOf(quiz.questions, (question) => question.label, (question) => ({
+    qnum:        question.qnum,
+    clueing:     question.clueing,
+    hint:        question.hint,
+    title:       question.title,
+    alt_text:    question.alt_text,
+    notes:       question.notes,
+    full_answer: question.full_answer,
+    chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
+    ...Object.fromEntries(quiz.widgetings.map(({ label }) => [label, widgetedBodyOf(run, label, question._id)])),
+  }))
+}
+
+/** What one widgeting came to for one question, its exposed fields only */
+function widgetedBodyOf(run: Runner.QuizRun, label: string, question_id: string): Jsonball.WidgetedBodyT {
+  const { status, value } = Runner.widgetedOf(run, label, question_id)
+  return { status, value }
 }
 
 /**
- * `hunt` with its ids gone, down to every question, each quiz run over `library`: what the
- * Export box shows.
+ * One quiz's ball, whole: its fields, questions, widgetings and columns.
  *
- * @param hunt - The hunt, every quiz whole.
- * @param library - The library's widgets, which its quizzes' widgetings work.
- * @returns The hunt as a smith is handed it.
+ * @param place - Its hunt.
+ * @param realm - The label of the realm it sits in.
+ * @param quiz - The quiz.
+ * @param run - The quiz, run.
  *
- * @example huntExported(hunt, library).realms[0]?.quizzes[0]?.title
+ * @example quizBall(place, 'home', quiz, run).address  // => { kind: 'quiz', org, hunt, realm: 'home', quiz: 'legends' }
  */
-export function huntExported(hunt: HuntT, library: readonly WidgetT[]): ExportedHunt {
-  return {
-    label:  hunt.label,
-    title:  hunt.title,
-    branch: hunt.branch,
-    realms: hunt.realms.map((realm) => {
-      const place = Runner.placeOf(hunt, realm)
-      const quizzes = realm.quizzes.map((quiz) => quizExported(quiz, Runner.runQuiz(Runner.sourceOf(quiz, library, place))))
-      return { label: realm.label, title: realm.title, quizzes }
+export function quizBall(place: Addresses.InHuntT, realm: string, quiz: QuizT, run: Runner.QuizRun): PlacedBallT {
+  return placed({ kind: 'quiz', ...place, realm, quiz: quiz.label }, quizBodyOf(quiz, run))
+}
+
+/**
+ * One quiz's questions alone, as its quiz's ball holds them, but rooted at the quiz rather than
+ * the hunt (`{ questions: { ... } }`): it names no quiz, so it pastes into any quiz's Import. It
+ * is not merged, since its quiz's ball holds the same.
+ *
+ * @example questionsBall(place, 'home', quiz, run).ball  // => { questions: { leon: { position: 0, ... }, ... } }
+ */
+export function questionsBall(place: Addresses.InHuntT, realm: string, quiz: QuizT, run: Runner.QuizRun): PlacedBallT {
+  return { address: { kind: 'questions', ...place, realm, quiz: quiz.label }, ball: { questions: questionsBodyOf(quiz, run) } }
+}
+
+/**
+ * One shared review of a quiz: what the reviewer made of it, and their verdict on each question
+ * of the quiz, by the question's label. Null for a review not shared, which the smiths may not
+ * read, or one whose reviewer is gone, who has no label to file it under.
+ *
+ * @param place - Its hunt.
+ * @param realm - The label of the realm its quiz sits in.
+ * @param quiz - The quiz reviewed: its label, and its questions' labels.
+ * @param review - The review.
+ *
+ * @example reviewBall(place, 'home', quiz, review)?.ball.quizzes.home.legends.reviews.lee_jones.overall  // => 'A fair quiz.'
+ */
+export function reviewBall(place: Addresses.InHuntT, realm: string, quiz: Pick<QuizT, 'label' | 'questions'>, review: ReviewSourceT): PlacedBallT | null {
+  if (review.phase !== 'shared' || review.reviewer === null) { return null }
+  const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
+  const verdicts = Object.fromEntries(review.reviewings.flatMap(({ question_id, ...verdict }): [string, Jsonball.VerdictBodyT][] => {
+    const label = labelForId.get(question_id)
+    return label === undefined ? [] : [[label, verdict]]
+  }))
+  const body: Jsonball.ReviewBodyT = { overall: review.overall, verdicts }
+  return placed({ kind: 'review', ...place, realm, quiz: quiz.label, reviewer: review.reviewer.label }, body)
+}
+
+/**
+ * One widget of the library: its fields, and its place in the library.
+ *
+ * @param widget - The widget.
+ * @param position - Its place in the library, counting from zero.
+ *
+ * @example widgetBall(dumdum, 0).ball  // => { widgets: { pub: { dumdum: { position: 0, formulary: 'aibot', ... } } } }
+ */
+export function widgetBall(widget: WidgetT, position: number): PlacedBallT {
+  const { scope, label, ...fields } = Widget.exported(widget)
+  const body: Jsonball.WidgetBodyT = { ...fields, position }
+  return placed({ kind: 'widget', scope, widget: label }, body)
+}
+
+/**
+ * The library, apart from any hunt: every widget's ball, merged. What its Import reads back.
+ *
+ * @example Object.keys(libraryBall(library).widgets.pub)  // => ['answer_reversed', 'dumdum', ...]
+ */
+export function libraryBall(library: readonly WidgetT[]): Jsonball.JsonballT {
+  return Jsonball.merged([{ widgets: {} }, ...library.map((widget, ii) => widgetBall(widget, ii).ball)])
+}
+
+/**
+ * Every ball of a hunt: its own, its categories', its members', each quiz's and its questions
+ * alone, each shared review's, and each widget its quizzes work. The questions alone are among
+ * them, though no merge reads them (`Addresses.isMerged`).
+ *
+ * @example ballsOf(snapshot).map(({ address }) => address.kind)  // => ['hunt', 'categories', 'members', 'quiz', 'questions', 'review', 'widget', ...]
+ */
+export function ballsOf(snapshot: HuntSnapshotT): PlacedBallT[] {
+  const place = placeOf(snapshot)
+  const { hunt, wheel, library } = snapshot
+  const quizzes = snapshot.realms.flatMap((realm) => realm.quizzes.map((quiz) => ({ realm, quiz })))
+  const worked = new Set(quizzes.flatMap(({ quiz }) => quiz.widgetings.map((widgeting) => widgeting.widget_label)))
+  return [
+    huntBall(place, hunt),
+    categoriesBall(place, wheel),
+    membersBall(place, snapshot.members),
+    ...quizzes.flatMap(({ realm, quiz }) => {
+      const run = Runner.runQuiz(Runner.sourceOf(quiz, library, Runner.placeOf({ ...hunt, wheel }, realm)))
+      const reviews = (snapshot.reviews[quiz._id] ?? []).map((review) => reviewBall(place, realm.label, quiz, review))
+      return [quizBall(place, realm.label, quiz, run), questionsBall(place, realm.label, quiz, run), ...reviews.filter((review) => review !== null)]
     }),
-  }
+    ...library.flatMap((widget, ii) => (worked.has(widget.label) ? [widgetBall(widget, ii)] : [])),
+  ]
 }
-
-/** A widgeted's exposed fields */
-function exposedOf(widgeted: WidgetedT): ExportedWidgeted {
-  return { status: widgeted.status, value: widgeted.value }
-}
-
-/** The library as it is handed over on its own: every widget, in library order */
-export type ExportedLibrary = { widgets: WidgetT[] }
 
 /**
- * The library, apart from any hunt: every widget's fields, without its place, in the order the
- * library lists them. What its Import reads back.
+ * The hunt as one jsonball: every ball of it that a merge reads, merged. What Raw Export emits.
  *
- * @example libraryExported(library).widgets.map((widget) => widget.label)  // => ['dumdum', 'numnum_clueing', ...]
+ * @example wholeOf(snapshot).quizzes.home.legends.title  // => 'Legends'
  */
-export function libraryExported(library: readonly WidgetT[]): ExportedLibrary {
-  return { widgets: library.map((widget) => Widget.exported(widget)) }
+export function wholeOf(snapshot: HuntSnapshotT): Jsonball.JsonballT {
+  return Jsonball.merged(ballsOf(snapshot).filter(({ address }) => Addresses.isMerged(address)).map(({ ball }) => ball))
+}
+
+/**
+ * What the Export box makes the hunt from: the hunt as the screen holds it (its wheel, who is on
+ * it), every quiz whole as read for the export, and the library. It carries no reviews: the
+ * export reads none.
+ *
+ * @param hunt - The hunt, as the screen holds it.
+ * @param whole - The hunt, every quiz whole.
+ * @param library - The library's widgets.
+ *
+ * @example wholeOf(snapshotOf(hunt, whole, library)).label  // => 'spring_hunt'
+ */
+export function snapshotOf(hunt: Pick<HuntSnapshotT, 'wheel' | 'members'>, whole: HuntT, library: readonly WidgetT[]): HuntSnapshotT {
+  return {
+    hunt:    { label: whole.label, title: whole.title, branch: whole.branch },
+    wheel:   hunt.wheel,
+    members: hunt.members,
+    realms:  whole.realms,
+    library,
+    reviews: {},
+  }
 }

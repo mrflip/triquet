@@ -160,7 +160,7 @@ export function quizFiles(quiz: QuizT, library: readonly WidgetT[], place: Runne
   const run = Runner.runQuiz(Runner.sourceOf(quiz, library, place))
   return new Map([
     [paths.tsv, questionsTsv(quiz, run)],
-    [paths.json, `${UU.jsonify(Exporting.quizExported(quiz, run), { pretty: true })}\n`],
+    [paths.json, `${UU.jsonify(Exporting.quizBodyOf(quiz, run), { pretty: true })}\n`],
     ...worked(quiz, library).map((widget) => [widgetPathFor(widget), `${UU.jsonify(widget, { pretty: true })}\n`] as const),
   ])
 }

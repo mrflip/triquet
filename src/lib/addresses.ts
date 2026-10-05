@@ -159,8 +159,9 @@ export function filepathOf(address: FiledAddressT, format: Format = 'json'): str
 }
 
 /**
- * Whether a resource's jsonball is one of those that deep-merge into the hunt. The questions
- * alone are not: they repeat what the quiz's ball holds.
+ * Whether a resource's jsonball is one of those a merge reads: every one but the questions alone,
+ * which repeat what the quiz's ball holds. A widget's ball merges with the rest of its hunt's,
+ * for the widgets the hunt works, and with the other widgets' into the library.
  *
  * @example isMerged({ kind: 'categories', org: 'pat_smith', hunt: 'spring_hunt' })  // => true
  * @example isMerged({ kind: 'questions', org: 'pat_smith', hunt: 'spring_hunt', realm: 'home', quiz: 'legends' })  // => false

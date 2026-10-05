@@ -336,6 +336,31 @@ export async function preparedExport(page: Page): Promise<string> {
   return await exportBox.inputValue()
 }
 
+/** One quiz as Raw Export holds it, flattened for a spec to read: its realm and label, its title, and its questions in order, each with its label */
+export type ExportedQuizT = {
+  realm:     string
+  label:     string
+  title:     string
+  questions: (Record<string, unknown> & { label: string })[]
+}
+
+/**
+ * Every quiz of a Raw Export, realm by realm, each with its questions put in order by their
+ * `position`: the merged hunt's `quizzes`, keyed by realm and label, read as a list.
+ *
+ * @param exported - The export, as the box holds it.
+ */
+export function exportedQuizzes(exported: string): ExportedQuizT[] {
+  type Body = { title: string, questions: Record<string, Record<string, unknown> & { position: number }> }
+  const hunt = JSON.parse(exported) as { quizzes: Record<string, Record<string, Body>> }
+  return Object.entries(hunt.quizzes).flatMap(([realm, quizzes]) => Object.entries(quizzes).map(([label, quiz]) => ({
+    realm,
+    label,
+    title:     quiz.title,
+    questions: Object.entries(quiz.questions).map(([qnlabel, question]) => ({ ...question, label: qnlabel })).toSorted((aa, bb) => aa.position - bb.position),
+  })))
+}
+
 /**
  * Make a new quiz and wait until the browser has arrived at it.
  *

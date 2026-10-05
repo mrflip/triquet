@@ -1,0 +1,357 @@
+{
+  "columns": [
+    {
+      "label": "title",
+      "source": "question.title",
+      "title": "Title",
+      "width_px": 100
+    },
+    {
+      "label": "clueing",
+      "source": "question.clueing",
+      "title": "Clueing",
+      "width_px": 330
+    },
+    {
+      "label": "hint",
+      "source": "question.hint",
+      "title": "Hint",
+      "width_px": 330
+    },
+    {
+      "label": "chains_to",
+      "source": "question.chains_to",
+      "title": "Chains to",
+      "width_px": 120
+    },
+    {
+      "label": "butnot",
+      "source": "question.butnot",
+      "title": "BUT NOT",
+      "width_px": 180
+    },
+    {
+      "label": "qnum",
+      "source": "question.qnum",
+      "title": "Q#",
+      "width_px": 60
+    },
+    {
+      "label": "clueing_plus_rank",
+      "source": "clueing_plus_rank",
+      "title": "Clueing + Rank",
+      "width_px": 78
+    },
+    {
+      "label": "clueing_full",
+      "source": "clueing_full",
+      "title": "Clueing Full Sum",
+      "width_px": 78
+    },
+    {
+      "label": "clueing_numeral",
+      "source": "clueing_numeral",
+      "title": "Clueing Numeral Sum",
+      "width_px": 78
+    },
+    {
+      "label": "butnot_full",
+      "source": "butnot_full",
+      "title": "BUT NOT Full Sum",
+      "width_px": 78
+    },
+    {
+      "label": "butnot_numeral",
+      "source": "butnot_numeral",
+      "title": "BUT NOT Numeral Sum",
+      "width_px": 78
+    },
+    {
+      "label": "hint_full",
+      "source": "hint_full",
+      "title": "Hint Full Sum",
+      "width_px": 78
+    },
+    {
+      "label": "hint_numeral",
+      "source": "hint_numeral",
+      "title": "Hint Numeral Sum",
+      "width_px": 78
+    },
+    {
+      "label": "clueing_plus_butnot_full",
+      "source": "clueing_plus_butnot_full",
+      "title": "Clueing+BUT NOT Full",
+      "width_px": 78
+    },
+    {
+      "label": "alt_text",
+      "source": "question.alt_text",
+      "title": "Alt Text",
+      "width_px": 220
+    },
+    {
+      "label": "notes",
+      "source": "question.notes",
+      "title": "Notes",
+      "width_px": 220
+    },
+    {
+      "label": "full_answer",
+      "source": "question.full_answer",
+      "title": "Full Answer",
+      "width_px": 220
+    },
+    {
+      "label": "clueing_ishes",
+      "source": "numnum_clueing",
+      "title": "Clueing ishes",
+      "width_px": 170
+    },
+    {
+      "label": "butnot_ishes",
+      "source": "butnot_ishes",
+      "title": "BUT NOT ishes",
+      "width_px": 170
+    },
+    {
+      "label": "hint_ishes",
+      "source": "numnum_hint",
+      "title": "Hint Ishes",
+      "width_px": 170
+    },
+    {
+      "label": "guess",
+      "source": "dumdum",
+      "title": "Quick-model guess",
+      "width_px": 160
+    }
+  ],
+  "label": "princes",
+  "last_sortkey": null,
+  "locked": false,
+  "q1_preamble": "Important: Read the smith's note before you play![br][br]",
+  "questions": [
+    {
+      "alt_text": "",
+      "butnot_full": {
+        "status": "missing",
+        "value": null
+      },
+      "butnot_ishes": {
+        "status": "missing",
+        "value": null
+      },
+      "butnot_numeral": {
+        "status": "missing",
+        "value": null
+      },
+      "chains_to": "nantes",
+      "clueing": "Which region has 300 lions and twelve kings?",
+      "clueing_full": {
+        "status": "ok",
+        "value": 312
+      },
+      "clueing_numeral": {
+        "status": "ok",
+        "value": 300
+      },
+      "clueing_plus_butnot_full": {
+        "status": "missing",
+        "value": null
+      },
+      "clueing_plus_rank": {
+        "status": "ok",
+        "value": 313
+      },
+      "dumdum": {
+        "status": "missing",
+        "value": null
+      },
+      "full_answer": "León",
+      "hint": "",
+      "hint_full": {
+        "status": "missing",
+        "value": null
+      },
+      "hint_numeral": {
+        "status": "missing",
+        "value": null
+      },
+      "label": "leon",
+      "notes": "keep me",
+      "numnum_clueing": {
+        "status": "ok",
+        "value": {
+          "items": [
+            {
+              "kind": "numeral",
+              "text": "300",
+              "value": 300
+            },
+            {
+              "kind": "wordish",
+              "text": "twelve",
+              "value": 12
+            }
+          ]
+        }
+      },
+      "numnum_hint": {
+        "status": "missing",
+        "value": null
+      },
+      "qnum": "1",
+      "remark": {
+        "status": "ok",
+        "value": "Ask Flip."
+      },
+      "title": "Leon"
+    },
+    {
+      "alt_text": "",
+      "butnot_full": {
+        "status": "missing",
+        "value": null
+      },
+      "butnot_ishes": {
+        "status": "missing",
+        "value": null
+      },
+      "butnot_numeral": {
+        "status": "missing",
+        "value": null
+      },
+      "chains_to": null,
+      "clueing": "Which city signed the edict?",
+      "clueing_full": {
+        "status": "missing",
+        "value": null
+      },
+      "clueing_numeral": {
+        "status": "missing",
+        "value": null
+      },
+      "clueing_plus_butnot_full": {
+        "status": "missing",
+        "value": null
+      },
+      "clueing_plus_rank": {
+        "status": "missing",
+        "value": null
+      },
+      "dumdum": {
+        "status": "missing",
+        "value": null
+      },
+      "full_answer": "Nantes",
+      "hint": "BUT NOT the edict",
+      "hint_full": {
+        "status": "missing",
+        "value": null
+      },
+      "hint_numeral": {
+        "status": "missing",
+        "value": null
+      },
+      "label": "nantes",
+      "notes": "",
+      "numnum_clueing": {
+        "status": "missing",
+        "value": null
+      },
+      "numnum_hint": {
+        "status": "missing",
+        "value": null
+      },
+      "qnum": "2",
+      "remark": {
+        "status": "missing",
+        "value": null
+      },
+      "title": "Nantes"
+    }
+  ],
+  "smiths_note": "A quiz of princes.",
+  "title": "Princes",
+  "widgetings": [
+    {
+      "description": "",
+      "label": "dumdum",
+      "params": {},
+      "widget_label": "dumdum"
+    },
+    {
+      "description": "",
+      "label": "numnum_clueing",
+      "params": {},
+      "widget_label": "numnum_clueing"
+    },
+    {
+      "description": "",
+      "label": "numnum_hint",
+      "params": {},
+      "widget_label": "numnum_hint"
+    },
+    {
+      "description": "",
+      "label": "butnot_ishes",
+      "params": {},
+      "widget_label": "butnot_ishes"
+    },
+    {
+      "description": "",
+      "label": "clueing_plus_rank",
+      "params": {},
+      "widget_label": "clueing_plus_rank"
+    },
+    {
+      "description": "",
+      "label": "clueing_full",
+      "params": {},
+      "widget_label": "clueing_full"
+    },
+    {
+      "description": "",
+      "label": "clueing_numeral",
+      "params": {},
+      "widget_label": "clueing_numeral"
+    },
+    {
+      "description": "",
+      "label": "butnot_full",
+      "params": {},
+      "widget_label": "butnot_full"
+    },
+    {
+      "description": "",
+      "label": "butnot_numeral",
+      "params": {},
+      "widget_label": "butnot_numeral"
+    },
+    {
+      "description": "",
+      "label": "hint_full",
+      "params": {},
+      "widget_label": "hint_full"
+    },
+    {
+      "description": "",
+      "label": "hint_numeral",
+      "params": {},
+      "widget_label": "hint_numeral"
+    },
+    {
+      "description": "",
+      "label": "clueing_plus_butnot_full",
+      "params": {},
+      "widget_label": "clueing_plus_butnot_full"
+    },
+    {
+      "description": "What the smiths say",
+      "label": "remark",
+      "params": {},
+      "widget_label": "remark"
+    }
+  ]
+}

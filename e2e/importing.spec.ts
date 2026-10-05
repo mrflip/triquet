@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, expect, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, expect, exportedQuizzes, grid, preparedExport, showTab, test, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -26,10 +26,7 @@ function fieldAt(page: Page, name: string, rowIdx: number) {
 
 /** The label of the question at `rowIdx` of the quiz titled "Quiz one", as the Raw Export box has the hunt */
 async function labelAt(page: Page, rowIdx: number): Promise<string> {
-  const exported = JSON.parse(await preparedExport(page)) as {
-    realms: { quizzes: { title: string, questions: { label: string }[] }[] }[]
-  }
-  const quiz = exported.realms.flatMap((realm) => realm.quizzes).find((each) => each.title === 'Quiz one')
+  const quiz = exportedQuizzes(await preparedExport(page)).find((each) => each.title === 'Quiz one')
   return quiz?.questions[rowIdx]?.label ?? ''
 }
 

@@ -290,7 +290,7 @@ describe('quizFiles', () => {
 
   it('holds the whole quiz as JSON, which the TSV alone could never give back, as a smith is handed it', () => {
     const quiz = quizOf([questionOf('quiet_otter', { clueing: 'Who dithers?', hint: 'BUT NOT a stoat', qnum: '3' })])
-    const exported = Exporting.quizExported(quiz, runOf(quiz, [], Here))
+    const exported = Exporting.quizBodyOf(quiz, runOf(quiz, [], Here))
     expect(JSON.parse(jsonOf(quiz))).to.deep.eq(structuredClone(exported))
   })
 

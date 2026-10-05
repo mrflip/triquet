@@ -4,7 +4,7 @@ import * as PA from '../lib/vv/patterns'
 import { QuestionValidators } from './question'
 import { WidgetedValidators } from './widgeted'
 
-export const ImportValidators = Validator(({ obj, arr, rec, titleish, label, union, zod }) => {
+export const ImportValidators = Validator(({ obj, arr, rec, label }) => {
   const importQuestion = obj({
     label:         label.optional(),
     forced_label:  label.nullable().optional(),
@@ -18,29 +18,6 @@ export const ImportValidators = Validator(({ obj, arr, rec, titleish, label, uni
     full_answer:   QuestionValidators.full_answer.nullable().optional(),
   })
     .describe('One question as it arrives from an import. Every field is nullable and nothing is required, because the three states carry three different instructions: a field ABSENT means "leave whatever is already there", a field set to NULL means "clear it", and a field with a value means "take this". The label is the key a question is matched on, and is never itself revised; an export made while a label could be overridden carries the override as `forced_label`, which is the key in its place where it is set. A chain names the label of the question it points at. Unknown keys are dropped rather than rejected, so a file carrying extra bookkeeping from somewhere else still imports cleanly; what a widgeting came to is among them, since a worked-out value is worked out again and an asked one is recorded by asking. An entry widgeting\'s value, which a person typed, is read apart from these fields, under its label.')
-
-  // The shape is read loosely first and each question validated on its own afterwards, so one
-  // bad question is skipped and logged rather than blocking the whole import.
-  const looseQuestions = arr(zod.unknown()).default([])
-
-  const importQuiz = obj({
-    label:        label.optional(),
-    forced_label: label.nullable().optional(),
-    title:        titleish.nullable().optional(),
-    questions:    looseQuestions,
-    widgetings:   arr(zod.unknown()).default([])
-      .describe('The widgetings the pasted quiz works, read one by one, so one that will not do is skipped and logged.'),
-  })
-    .describe('One quiz as it arrives from an import. Its questions are merged, and its widgetings, each by label; a pasted quiz\'s own columns, lock state and sort memory are ignored, because those describe how someone ELSE was working, not what this quiz contains.')
-
-  const importRealm = obj({ quizzes: arr(importQuiz).min(1) })
-  const importHunt = obj({
-    realms: arr(importRealm).min(1),
-  })
-    .describe('A whole hunt, as the Export box hands it over: its quizzes are read realm by realm, and everything else about it is ignored.')
-
-  const importPayload = union([importHunt, importQuiz, looseQuestions])
-    .describe('What the Import box accepts: a whole exported hunt, a single quiz, or a bare list of questions. The author should be able to paste back anything the Export box hands them, or a fragment they trimmed by hand, without first having to reshape it.')
 
   const importPatch = obj({
     qnum:        QuestionValidators.qnum.optional(),
@@ -71,13 +48,10 @@ export const ImportValidators = Validator(({ obj, arr, rec, titleish, label, uni
     })
     .describe('Everything one import changes, one entry per label.')
 
-  return { importQuestion, importQuiz, importHunt, importPayload, importPatch, importedQuestion, importedQuestions }
+  return { importQuestion, importPatch, importedQuestion, importedQuestions }
 })
 
 export type ImportQuestionT    = Z.output<typeof ImportValidators.importQuestion>
-export type ImportQuizT        = Z.output<typeof ImportValidators.importQuiz>
-export type ImportHuntT        = Z.output<typeof ImportValidators.importHunt>
-export type ImportPayloadT     = Z.output<typeof ImportValidators.importPayload>
 export type ImportPatchT       = Z.output<typeof ImportValidators.importPatch>
 export type ImportedQuestionT  = Z.output<typeof ImportValidators.importedQuestion>
 export type ImportedQuestionDNA = Z.input<typeof ImportValidators.importedQuestion>
