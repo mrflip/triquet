@@ -100,14 +100,6 @@ jobs:
   # to the end, so one failure never hides another.
   e2e:
     runs-on: ubuntu-26.04
-    # Playwright's own image, with its browsers and all they need already in it, so no shard
-    # installs them. Its tag is the @playwright/test version installed, and
-    # tests/e2e/ci-image.test.ts keeps the two the same. It runs as root, so a step can apt-get;
-    # Playwright runs Chromium unsandboxed anyway. --ipc=host is Playwright's advice for Chromium
-    # in a container, whose shared memory is otherwise too small for it.
-    container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
-      options: --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -127,10 +119,6 @@ jobs:
       - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
         shell: bash
       - uses: actions/checkout@v7
-      # The checkout belongs to the runner's own user, outside the container, and git refuses a
-      # repository someone else owns until told it is safe: scripts/lanes.ts asks git where the
-      # checkout is.
-      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -138,15 +126,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The Convex backend binary scripts/convex_backend pins, kept between runs.
-      - id: backend
-        uses: actions/cache@v6
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/convex/binaries
           key: convex-backend-${{ runner.os }}-${{ hashFiles('scripts/convex_backend') }}
-      # The image has curl but not unzip, which scripts/convex_backend needs to unpack a backend
-      # it downloads.
-      - if: steps.backend.outputs.cache-hit != 'true'
-        run: apt-get update && apt-get install --yes --no-install-recommends unzip
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
       # The html report holds each failure's trace, screenshot and log; `pnpm exec playwright
       # show-report` opens it once downloaded and unzipped.

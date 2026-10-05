@@ -207,8 +207,9 @@ Settled; reach for these before writing the equivalent.
   `next build` and the Playwright suite, run against the optimized build. All gate a merge;
   agent-authored PRs go through the same gates as anyone's. Few jobs, several checks to each,
   since the account's twenty runners are shared by every pull request a spine push sets going:
-  `lint-typecheck`, `test-generated-build` (the two the ruleset requires), and six e2e shards
-  in Playwright's own image (`mcr.microsoft.com/playwright`, tagged with the version installed).
+  `lint-typecheck`, `test-generated-build` (the two the ruleset requires), and six e2e shards.
+  Playwright's own image for the shards was tried in Oct 2026 and dropped: pulling it took as long
+  as installing the browser, and it brought quirks of its own (root, git's ownership check).
 
 ### Testing
 
