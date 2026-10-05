@@ -1,7 +1,7 @@
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
 import { specsFor, type Resolved } from './columns'
-import type { QuestionT } from '../models/question'
+import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import { Widgeted } from '../models/widgeted'
 
@@ -41,21 +41,23 @@ export function cellTextOf(source: Resolved, { question, target, run }: Readonly
  * It has the columns the grid shows -- made from the same list -- but in alphabetical order by
  * column label, so that reordering the grid, or adding a column, moves only what it must, and
  * the paste stays where a spreadsheet's own formulas expect it. Rows are always in **rank
- * order**, whatever the grid is currently sorted or dragged into.
+ * order**, whatever the grid is currently sorted or dragged into, and leave the archived questions
+ * out, as the grid does; a chain to one still shows its label and its hint.
  *
  * @param quiz - The quiz.
  * @param run - The quiz, run (`Runner.runQuiz`): what its widgetings came to.
- * @returns The header and one line per question, tab-separated; empty for a quiz with no questions.
+ * @returns The header and one line per question, tab-separated; empty for a quiz with no questions but the archived.
  *
  * @example sheetsExport(quiz, Runner.runQuiz(Runner.sourceOf(quiz, library, place))).split('\n')[0]  // => 'alt_text\tbutnot\t...'
  */
 export function sheetsExport(quiz: QuizT, run: Runner.QuizRun): string {
-  if (quiz.questions.length === 0) { return '' }
+  const shown = Question.unarchived(quiz.questions)
+  if (shown.length === 0) { return '' }
   const specs = specsFor(quiz).toSorted((aa, bb) => aa.header.localeCompare(bb.header))
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
 
   const header = specs.map((spec) => spec.header)
-  const rows = Rank.inRankOrder(quiz.questions).map((question) => {
+  const rows = Rank.inRankOrder(shown).map((question) => {
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
     return specs.map((spec) => cellTextOf(spec.source, { question, target, run }))
   })

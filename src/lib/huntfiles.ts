@@ -41,7 +41,7 @@ const ReadmeRows: readonly [Addresses.FiledAddressT, string][] = [
   [{ kind: 'categories', ...Sample },                          'Every subject category, with the slot of the wheel it holds (none for one in the pool).'],
   [{ kind: 'members', ...Sample },                             'Who is on the hunt, by their label, with their role.'],
   [{ kind: 'quiz', ...Sample },                                'One quiz, whole: its own fields, its questions, its widgetings and its columns.'],
-  [{ kind: 'questions', ...Sample },                           'The same quiz\'s questions alone, to paste into any quiz\'s Import. Not merged.'],
+  [{ kind: 'questions', ...Sample },                           'The same quiz\'s questions alone, but the archived, to paste into any quiz\'s Import. Not merged.'],
   [{ kind: 'review', ...Sample, reviewer: '<reviewer>' },      'One shared review of the quiz: its overall view, and a verdict on each question.'],
   [{ kind: 'widget', scope: 'pub', widget: '<widget>' },       'A widget of the library the hunt\'s quizzes work.'],
 ]

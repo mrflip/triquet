@@ -191,6 +191,15 @@ describe('questionsBall', () => {
     expect(Addresses.isMerged(placed.address)).to.be.false
   })
 
+  it("leaves the archived questions out, which its quiz's ball holds with their viz, each question placed among those it holds", () => {
+    const chained = chainedQuiz()
+    const quiz = { ...chained, questions: chained.questions.map((question, ii) => (ii === 0 ? { ...question, viz: 'archived' as const } : question)) }
+    const run = runOf(quiz, EntryLibrary)
+    expect(Exporting.questionsBall(Place, 'home', quiz, run).body).to.have.all.keys('nantes')
+    expect(_.get(Exporting.questionsBall(Place, 'home', quiz, run).body, 'nantes.position')).to.eq(0)
+    expect(Exporting.quizBall(Place, 'home', quiz, run).body).to.have.nested.property('questions.leon.viz', 'archived')
+  })
+
   it("reads back through Import as one quiz, into any quiz holding those labels", () => {
     const quiz = chainedQuiz()
     const { ball } = Exporting.questionsBall(Place, 'home', quiz, runOf(quiz, EntryLibrary))

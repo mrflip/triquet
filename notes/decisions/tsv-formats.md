@@ -35,6 +35,21 @@ single record:
 * As built: `Tsv.textOf` writes every table, and `Huntfiles`' `WholesFor` names, per kind of
   table, where a value is one cell of JSON.
 
+### What the tables hold
+
+A table holds what its ball holds, no more and no less (October 2026, hunt_git thread 8):
+
+* **A quiz's table, and anything larger, holds every question, the archived among them**, each
+  with its `viz` (`normal`, `secondary` or `archived`) beside its own fields: the quiz is
+  serialized whole, so nothing is lost by archiving.
+* **The questions alone (`questions.qq.tsv`) leave the archived out**, and so does their ball,
+  `questions.qq.json`, so the two stay one shape: the questions alone are what a person pastes
+  into another quiz, and an archived question is put away from everything handed on. Each
+  question's `position` counts among those the file holds.
+* **Stamps** (`created_at`, `updated_at`: when a hunt, quiz, question, review or verdict was made
+  and last edited) are string cells, ISO-8601 in UTC, ending in `Z`: `2026-10-05T09:30:00.000Z`.
+  One unknown (a thing built rather than read) is an empty cell.
+
 ### A cell, by the field's type
 
 | Type | Written as | Example |
@@ -91,6 +106,8 @@ reading back**.
 
 * Its columns are the grid's own (what each column shows, by its label), ordered by header
   label, so reordering the grid moves nothing in the paste.
-* Its rows are the questions **in rank order**, whatever the grid is sorted or dragged into.
+* Its rows are the questions **in rank order**, whatever the grid is sorted or dragged into,
+  **the archived left out**, as the grid leaves them; an alternate (`secondary`) is a row like
+  any other.
 * A cell is the text the grid shows. A line break becomes a literal `<br/>`, which also
   survives into a rich-text cell; a tab becomes a space (`pasteSafe`). Neither reverses.

@@ -6,7 +6,7 @@ Clicking "Download Full History" delivers a single file named for the hunt and e
 * `categories.tqc.json`: every subject category, with the slot of the wheel it holds.
 * `members.tqm.json`: who is on the hunt, by their label, with their role.
 * `quizzes/<realm>/<quiz>.tqq.json`: one quiz, whole: its own fields, its questions, its widgetings and its columns.
-* `quizzes/<realm>/<quiz>/questions.qq.json`: the same quiz's questions alone, to paste into any quiz's Import.
+* `quizzes/<realm>/<quiz>/questions.qq.json`: the same quiz's questions alone, but the archived, to paste into any quiz's Import.
 * `quizzes/<realm>/<quiz>/reviews/<reviewer>.tqr.json`: one shared review of the quiz.
 * `pub/widgets/<widget>.tqw.json`: a widget of the library the hunt's quizzes work.
 

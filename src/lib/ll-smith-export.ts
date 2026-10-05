@@ -1,6 +1,6 @@
 import * as LLBBCode from './ll-bbcode'
 import * as Rank from './rank'
-import type { QuestionT } from '../models/question'
+import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 
 /** What sits between a question's clueing and the BUT NOT shown with it */
@@ -18,10 +18,21 @@ const ParagraphBreak = ' [br]  [br] '
 /**
  * What the export does on its way out. `plain` leaves the questions as they are; `playtesting`
  * puts the whole smith's note ahead of the first question, since the playtesting form has nowhere
- * else for it; `go_live` puts the quiz's `q1_preamble` there instead.
+ * else for it; `go_live` puts the quiz's `q1_preamble` there instead, and leaves the alternates out.
  */
 export const ExportModes = ['plain', 'playtesting', 'go_live'] as const
 export type ExportMode = typeof ExportModes[number]
+
+/**
+ * The questions the export holds in `mode`: never the archived; going live, not the alternates
+ * (secondary questions) either, which the playtest weighs against their peers. An alternate carries
+ * no mark of being one.
+ *
+ * @example exportedIn(quiz.questions, 'go_live')  // => the normal questions alone
+ */
+export function exportedIn(questions: readonly QuestionT[], mode: ExportMode): QuestionT[] {
+  return Question.unarchived(questions).filter((question) => mode !== 'go_live' || ! Question.isSecondary(question))
+}
 
 /**
  * The quiz in the league's import format: one record per question, in **rank order**, each
@@ -30,7 +41,9 @@ export type ExportMode = typeof ExportModes[number]
  * `fieldTextOf`. The alt text is not among them: the league's sheet skips that column.
  *
  * Numbering follows Renumber: a question's rank is its place in Q# order, whatever Q# it was
- * given, and a question with no Q# has no rank, so it comes last with its number left blank.
+ * given, and a question with no Q# has no rank, so it comes last with its number left blank. The
+ * questions left out (`exportedIn`: the archived, and going live the alternates) are left out of
+ * the numbering too, so the records count from 1 with no gaps; a chain to one still shows its hint.
  *
  * The mode may put something ahead of the first record's body (`leadOf`): the first question is
  * the one with the lowest-ranked Q#, or the first unranked one when no question has a Q#.
@@ -44,9 +57,10 @@ export type ExportMode = typeof ExportModes[number]
  */
 export function recordsOf(quiz: QuizT, mode: ExportMode = 'plain'): string {
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
-  const ranks = Rank.ranksOf(quiz.questions)
+  const exported = exportedIn(quiz.questions, mode)
+  const ranks = Rank.ranksOf(exported)
   const lead = leadOf(quiz, mode)
-  return Rank.inRankOrder(quiz.questions).map((question, idx) => {
+  return Rank.inRankOrder(exported).map((question, idx) => {
     const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
     return recordOf(question, { target, rank: ranks.get(question._id) ?? null, lead: idx === 0 ? lead : '' }) + RecordEnd
   }).join('')

@@ -7,6 +7,7 @@ import * as Stamps from './stamps'
 import type { MemberT, ReviewedT, ShallowHuntT } from './rows'
 import { CategoryLabelVals, type WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
+import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { RealmT } from '../models/realm'
 import { Widget, WidgetScopeVals, type WidgetT } from '../models/widget'
@@ -113,10 +114,11 @@ export function membersBall(place: Addresses.InHuntT, members: readonly MemberSo
 }
 
 /**
- * `quiz` with its ids gone: its questions keyed by label in quiz order, each with its chain named
- * by the label of the question it points at (a chain to a question the quiz does not hold named as
- * none) and what each of the quiz's widgetings came to beside its own fields; its widgetings and
- * columns keyed by label in their order. What a quiz's ball holds at its key path.
+ * `quiz` with its ids gone: its questions keyed by label in quiz order, the archived among them,
+ * each with its viz, its chain named by the label of the question it points at (a chain to a
+ * question the quiz does not hold named as none) and what each of the quiz's widgetings came to
+ * beside its own fields; its widgetings and columns keyed by label in their order. What a quiz's
+ * ball holds at its key path.
  *
  * @param quiz - The quiz.
  * @param run - The quiz, run: what its widgetings came to.
@@ -138,10 +140,14 @@ export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT
   }
 }
 
-/** A quiz's questions as its ball holds them: keyed by label, in quiz order */
-function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun): Record<string, Jsonball.QuestionBodyT> {
+/**
+ * A quiz's questions as its ball holds them: keyed by label, in quiz order, each chain named by the
+ * label of the question it points at among them all. `questions` says which are written: every one,
+ * unless told otherwise.
+ */
+function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun, questions: readonly QuizT['questions'][number][] = quiz.questions): Record<string, Jsonball.QuestionBodyT> {
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
-  return Jsonball.keyedOf(quiz.questions, (question) => question.label, (question) => ({
+  return Jsonball.keyedOf(questions, (question) => question.label, (question) => ({
     qnum:        question.qnum,
     clueing:     question.clueing,
     hint:        question.hint,
@@ -177,14 +183,15 @@ export function quizBall(place: Addresses.InHuntT, realm: string, quiz: QuizT, r
 }
 
 /**
- * One quiz's questions alone, as its quiz's ball holds them, but rooted at the quiz rather than
- * the hunt (`{ questions: { ... } }`): it names no quiz, so it pastes into any quiz's Import. It
- * is not merged, since its quiz's ball holds the same.
+ * One quiz's questions alone, as its quiz's ball holds them but for the archived, rooted at the quiz
+ * rather than the hunt (`{ questions: { ... } }`): it names no quiz, so it pastes into any quiz's
+ * Import. It is not merged, since its quiz's ball holds the same, and the archived besides. Each
+ * question's place is among those it holds.
  *
  * @example questionsBall(place, 'home', quiz, run).ball  // => { questions: { leon: { position: 0, ... }, ... } }
  */
 export function questionsBall(place: Addresses.InHuntT, realm: string, quiz: QuizT, run: Runner.QuizRun): PlacedBallT {
-  const body = questionsBodyOf(quiz, run)
+  const body = questionsBodyOf(quiz, run, Question.unarchived(quiz.questions))
   return { address: { kind: 'questions', ...place, realm, quiz: quiz.label }, body, ball: { questions: body } }
 }
 

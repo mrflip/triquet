@@ -128,6 +128,13 @@ describe('sheetsExport', () => {
     expect(table[1]).to.deep.eq(['stressed', 'desserts'])
   })
 
+  it('leaves the archived questions out, and is empty for a quiz of nothing else', () => {
+    const table = exported([{ ...Question.blank(), qnum: '1', clueing: 'Shown' }, { ...Question.blank(), qnum: '2', clueing: 'Put away', viz: 'archived' }])
+    expect(table).to.have.lengthOf(2)
+    expect(cellOf(table, 'clueing', 0)).to.eq('Shown')
+    expect(exported([{ ...Question.blank(), viz: 'archived' }])).to.deep.eq([])
+  })
+
   it('has as many fields in every line as in the header', () => {
     const table = exported([{ ...Question.blank(), clueing: 'two\nlines', notes: 'a\tb' }, Question.blank()])
     const widths = table.map((fields) => fields.length)
