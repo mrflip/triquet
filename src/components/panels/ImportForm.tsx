@@ -1,22 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, TextField } from '@mui/material'
 import clsx from 'clsx'
+import * as PendingImports from '../pending-imports'
 import * as Importing from '../../lib/importing'
-import type { ColumnLogEntry, FieldLogEntry, ImportLogEntry, WidgetingLogEntry } from '../../lib/importing'
+import type { ElsewhereT } from '../../lib/importing'
 import type { HuntActionDNA } from '../../models/actions'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
 import styles from '../workbench.module.css'
 
 export type ImportFormProps = {
+  /** The hunt the quiz belongs to: where a paste sent from another of its quizzes waits */
+  hunt_id:  string
   quiz:     QuizT
   /** The library, whose widgets a pasted widgeting must name */
   library:  readonly WidgetT[]
   locked:   boolean
   /** Fold what was read into the quiz: its own fields, its widgetings, its columns, then its questions, as actions in order */
   onImport: (actions: readonly HuntActionDNA[]) => void
+  /** Send a paste read as a hunt none of whose quizzes matches this one to the quiz it belongs to (`ElsewhereT`), to be read there */
+  onElsewhere: (elsewhere: ElsewhereT, pasted: string) => void
 }
 
 /**
@@ -28,29 +33,49 @@ export type ImportFormProps = {
  * Results are reported twice -- a one-line summary next to the button, and a scrollable log
  * with a line per question and a nested line per validation issue. The same detail goes to the
  * browser console for anyone who wants to dig.
+ *
+ * A hunt pasted here whose quizzes match none of this one is sent on to the quiz of its first
+ * quiz's label (`onElsewhere`), whose own Import reads it the moment it is on screen
+ * (`PendingImports`).
  */
-export function ImportForm({ quiz, library, locked, onImport }: Readonly<ImportFormProps>) {
+export function ImportForm({ hunt_id, quiz, library, locked, onImport, onElsewhere }: Readonly<ImportFormProps>) {
   const [pasted, setPasted] = useState('')
-  const [summary, setSummary] = useState<{ text: string, ok: boolean } | null>(null)
-  const [log, setLog] = useState<ImportLogEntry[]>([])
-  const [widgetingLog, setWidgetingLog] = useState<WidgetingLogEntry[]>([])
-  const [columnLog, setColumnLog] = useState<ColumnLogEntry[]>([])
-  const [fieldLog, setFieldLog] = useState<FieldLogEntry[]>([])
+  // A paste sent here from another quiz's Import is read as this quiz opens, and what it came to
+  // shows from the first.
+  const pendingKey = PendingImports.keyOf(hunt_id, quiz.label)
+  const [arrival] = useState(() => {
+    const pending = locked ? null : PendingImports.peek(pendingKey)
+    return pending && Importing.importInto(quiz, pending.pasted, library, { take: pending.take })
+  })
+  const [shown, setShown] = useState<Importing.ImportOutcome | null>(arrival)
+  const { summary = null, ok = false, log = [], widgetingLog = [], columnLog = [], fieldLog = [] } = shown ?? {}
 
   const runImport = () => {
     const outcome = Importing.importInto(quiz, pasted, library)
-    setSummary({ text: outcome.summary, ok: outcome.ok })
-    setLog(outcome.log)
-    setWidgetingLog(outcome.widgetingLog)
-    setColumnLog(outcome.columnLog)
-    setFieldLog(outcome.fieldLog)
-    console.warn('Triquet import:', outcome.summary, outcome.log, outcome.widgetingLog, outcome.columnLog, outcome.fieldLog)
+    setShown(outcome)
+    reported(outcome)
+    if (outcome.elsewhere) {
+      onElsewhere(outcome.elsewhere, pasted)
+      setPasted('')
+      return
+    }
     if (outcome.questions === null) { return }
     onImport(outcome.actions)
     // Only a run that actually merged something clears the box; anything else leaves the text
     // exactly where it is, so the author can fix it and retry rather than re-pasting a big blob.
     setPasted('')
   }
+
+  // What the paste sent here came to is folded in once: the ref keeps a remounted effect (React's
+  // strict mode) from sending it twice.
+  const sentHere = useRef(false)
+  useEffect(() => {
+    if (! arrival || sentHere.current) { return }
+    sentHere.current = true
+    PendingImports.clear(pendingKey)
+    reported(arrival)
+    if (arrival.questions !== null) { onImport(arrival.actions) }
+  }, [arrival, onImport, pendingKey])
 
   return (
     <>
@@ -69,7 +94,7 @@ export function ImportForm({ quiz, library, locked, onImport }: Readonly<ImportF
       <div className={styles.panelRow}>
         <Button size="small" variant="contained" disabled={locked || pasted.trim() === ''} onClick={runImport}>Import</Button>
         {summary === null ? null : (
-          <span className={clsx(styles.microcopy, summary.ok ? styles.good : styles.bad)} role="status">{summary.text}</span>
+          <span className={clsx(styles.microcopy, ok ? styles.good : styles.bad)} role="status">{summary}</span>
         )}
       </div>
       {log.length === 0 ? null : (
@@ -105,4 +130,9 @@ export function ImportForm({ quiz, library, locked, onImport }: Readonly<ImportF
       )}
     </>
   )
+}
+
+/** What an import came to, in the console too, for anyone who wants to dig */
+function reported(outcome: Importing.ImportOutcome): void {
+  console.warn('Triquet import:', outcome.summary, outcome.log, outcome.widgetingLog, outcome.columnLog, outcome.fieldLog)
 }

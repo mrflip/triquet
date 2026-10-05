@@ -122,6 +122,23 @@ describe('quizzesIn', () => {
     const workspace = Jsonball.quizzesIn({ quizzes: [{ title: 'Legends', questions: [] }] })
     expect(realms?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['legends', 'princes'])
     expect(workspace).to.deep.eq({ shape: 'hunt', quizzes: [{ label: null, title: 'Legends', fields: {}, questions: [], widgetings: [], columns: null }] })
+    expect(realms?.shape).to.eq('hunt')
+  })
+
+  it("reads quizzes by realm as one quiz's ball when they are one quiz with nothing beside, and as a hunt otherwise", () => {
+    const legends = { home: { legends: { title: 'Legends' } } }
+    const Cases: [unknown, string, string][] = [
+      [{ quizzes: legends },                                                        'ball', "a quiz's own ball"],
+      [{ label: 'spring_hunt', branch: 'main', quizzes: legends },                  'hunt', "a Raw Export of a hunt of one quiz, the hunt's fields at its root"],
+      [{ quizzes: { home: { ...legends.home, princes: { title: 'Princes' } } } },   'hunt', 'two quizzes, with nothing beside'],
+      [{ quizzes: legends, pub: { widgets: {} } },                                  'hunt', 'one quiz beside the widgets its hunt works'],
+    ]
+    for (const [raw, shape, describes] of Cases) { expect(Jsonball.quizzesIn(raw)?.shape, describes).to.eq(shape) }
+  })
+
+  it("reads the doc block's shape examples", () => {
+    expect(Jsonball.quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.shape).to.eq('ball')
+    expect(Jsonball.quizzesIn({ label: 'spring_hunt', quizzes: { home: { legends: { title: 'Legends' } } } })?.shape).to.eq('hunt')
   })
 
   it("names a chain by its target's label where an older export named its id, and none where the id names nothing here", () => {

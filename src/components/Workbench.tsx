@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { ConfirmViz } from './ConfirmViz'
+import * as PendingImports from './pending-imports'
 import { Footnote } from './Footnote'
 import { LibraryModal } from './LibraryModal'
 import { workbenchOffers } from './offers'
@@ -274,6 +275,21 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           void HuntMirror.markedChange(hunt, quiz, 'import', () => {
             for (const action of actions) { dispatch(action) }
           })
+        }}
+        onImportElsewhere={({ label, take }, pasted) => {
+          // Labels are unique within the hunt's realm, so the paste's quiz is the quiz of its label
+          // here: gone to, or made first. Its Import reads the paste once it is on screen.
+          const target = label ?? Labelmaker.freshLabelFor(realm.quizzes)
+          const key = PendingImports.keyOf(hunt._id, target)
+          PendingImports.hold(key, { pasted, take })
+          if (realm.quizzes.some((each) => each.label === target)) {
+            router.push(pathFor(target))
+            return
+          }
+          const make = async () => {
+            if (await carryOut({ kind: 'new_quiz', label: target })) { router.push(pathFor(target)) } else { PendingImports.clear(key) }
+          }
+          void make()
         }}
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
       />

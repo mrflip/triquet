@@ -148,8 +148,12 @@ export function listedOf(collection: readonly unknown[] | Readonly<Record<string
   return EST.sortBy(members, [placeOf]).map(([label, member]) => (EST.isPlainObject(member) ? { ...member, label } : member))
 }
 
-/** How a paste was read: a bare list of questions, one quiz unwrapped, quizzes by realm, or a ball that holds no quiz */
-export const PastedShapeVals = ['list', 'quiz', 'hunt', 'none'] as const
+/**
+ * How a paste was read: a bare list of questions; one quiz unwrapped; one quiz's ball (quizzes by
+ * realm holding exactly one quiz, and nothing beside); a hunt (quizzes by realm holding several, or
+ * the hunt's own fields beside them, or an older export of every quiz); or a ball that holds no quiz
+ */
+export const PastedShapeVals = ['list', 'quiz', 'ball', 'hunt', 'none'] as const
 export type PastedShape = typeof PastedShapeVals[number]
 
 export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, label, titleish }) => {
@@ -219,13 +223,18 @@ export type PastedT = { shape: PastedShape, quizzes: PastedQuizT[] }
  * The quizzes a paste holds, in whatever shape it arrived: a bare list of questions; one quiz
  * unwrapped (a quiz's own history file, or the questions alone, `{ questions: { ... } }`); quizzes
  * by realm and label (a quiz's ball, a merged hunt, or a hunt or workspace from an older export);
- * or another ball, which holds none. Null for what is no such shape.
+ * or another ball, which holds none. Null for what is no such shape. Quizzes by realm and label are
+ * one quiz's ball (`ball`) when they are one quiz and the paste holds nothing beside them, and a
+ * hunt (`hunt`) otherwise: a Raw Export carries the hunt's own fields at its root, whatever it
+ * holds. An older export of every quiz, in lists, is a hunt.
  *
  * @param raw - The paste, parsed.
  *
  * @example quizzesIn([{ label: 'leon' }])?.shape  // => 'list'
  * @example quizzesIn({ questions: { leon: { position: 0 } } })?.quizzes[0]?.questions  // => [{ position: 0, label: 'leon' }]
  * @example quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.quizzes[0]?.label  // => 'legends'
+ * @example quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.shape  // => 'ball'
+ * @example quizzesIn({ label: 'spring_hunt', quizzes: { home: { legends: { title: 'Legends' } } } })?.shape  // => 'hunt'
  * @example quizzesIn({ categories: {} })?.shape  // => 'none'
  * @example quizzesIn('legends')  // => null
  */
@@ -233,7 +242,17 @@ export function quizzesIn(raw: unknown): PastedT | null {
   if (isList(raw)) { return { shape: 'list', quizzes: [{ label: null, title: null, fields: {}, questions: [...raw], widgetings: [], columns: null }] } }
   if (! EST.isPlainObject(raw)) { return null }
   const read = readQuizzes(raw)
-  return read && { shape: read.shape, quizzes: read.quizzes.map(([key, quiz]) => pastedQuizOf(quiz, key)) }
+  if (! read) { return null }
+  const quizzes = read.quizzes.map(([key, quiz]) => pastedQuizOf(quiz, key))
+  return { shape: read.shape === 'hunt' && isOneQuizBall(raw, quizzes) ? 'ball' : read.shape, quizzes }
+}
+
+/** The key under which a ball holds its quizzes, by realm and label */
+const QuizHolderKeys = new Set(['quizzes'])
+
+/** Whether quizzes read by realm are one quiz's ball: keyed by realm and label (not an older export's lists), one quiz, and nothing of a hunt's own beside it */
+function isOneQuizBall(raw: Record<string, unknown>, quizzes: readonly PastedQuizT[]): boolean {
+  return EST.isPlainObject(raw.quizzes) && quizzes.length === 1 && Object.keys(raw).every((key) => QuizHolderKeys.has(key))
 }
 
 /** The quizzes of a pasted object, each with the key it sat under, by the shape it is in; null when it holds a shape that will not read */
