@@ -74,13 +74,20 @@ The top three values while writing code are **empathy, safety and readability**.
 
 You should be running in a container; check `$TQ_IS_SANDBOXED` is "true" to verify.
 
-**Use `pnpm dev:agent` (port 3001)** and similar: `pnpm build:agent`** (served 3004 by
-`pnpm start:agent`), `pnpm test:e2e` (port 3002). Each role has a local Convex backend of its
-own (`scripts/convex_backend <dev|agent|e2e|e2e-agent>`): port `34xx`, HTTP actions on `35xx`,
-data and the CLI's `cli.env` in `data/convex-<role>/`. `scripts/convex_dev <role>` starts it
-when it is not running, pushes `convex/` to it and runs a command beside it; `scripts/convex_reset <role>` empties one.
-If you meet another shared resource -- a port, a cache or output directory,
-a database -- give yourself a parallel one the same way, and add its script to `package.json`.
+**Use `pnpm dev:agent`** and similar: `pnpm build:agent` (served by `pnpm start:agent`),
+`pnpm test:e2e:agent`. Each role has a web port, a local Convex backend of its own
+(`scripts/convex_backend <role>`, HTTP actions beside it) and its data and the CLI's `cli.env` in
+`data/convex-<role>/`. `scripts/convex_dev <role>` starts the backend when it is not running,
+pushes `convex/` to it and runs a command beside it; `scripts/convex_reset <role>` empties one.
+
+**Every checkout has a lane** (`pnpm lane`): 0 in the main checkout, on the ports the project
+has always used (agent 3001 and 3401, e2e-agent 3003 and 3403), and 1-9 in a worktree, claimed the
+first time anything asks. Each role's ports move up ten per lane (`scripts/lanes.ts`), so the
+same commands in a worktree find that worktree's own servers and backends, and its data lives
+inside it. Never pass a port or a Convex URL by hand; never touch another lane's backend. In the
+main checkout, the `dev` and `e2e` roles are the Coach's. If you meet another shared resource --
+a port, a cache or output directory, a database -- give yourself a parallel one the same way,
+and add its script to `package.json`.
 
 **Your checkout's root is `git rev-parse --show-toplevel`**, which in a worktree is not
 `/workspace/triquet`. Every path in this repo's documents and in a handoff is relative to that

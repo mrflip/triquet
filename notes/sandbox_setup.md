@@ -13,3 +13,8 @@ notes/sandbox_setup.md
   another. To look at one from the Mac, forward 3001 and 3401 together from VS Code's Ports panel,
   one sandbox at a time -- the page finds its Convex backend at `127.0.0.1:3401`, so a remapped
   pair would talk to the wrong sandbox's data. (Each role's backend is on its own 34xx port.)
+* Agents' worktrees live in the container only, under `~/worktrees/triquet/`: nothing there is
+  visible from the Mac, and a container rebuild loses whatever was uncommitted in them (commits
+  are in the shared repository from the moment they are made). Each has a lane of its own
+  (`pnpm lane` in it), and its ports are the main checkout's plus ten per lane: lane 2's
+  `dev:agent` is on 3021 with its backend on 3421, to forward as a pair like any other.
