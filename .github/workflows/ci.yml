@@ -12,9 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
-# Every `run` step heads and closes its log with the time and how far into the job it is
-# (scripts/ci_step), counted from the JOB_STARTED each job's first step notes. A step before the
-# checkout has no scripts/ to run in, and says `shell: bash` for itself.
+# Every `run` step heads and closes its log with the time, how long it took and how far into the
+# job it is (scripts/ci_step), counted from the JOB_STARTED each job's first step notes; each job's
+# last step says how long all its steps took. A step before the checkout has no scripts/ to run
+# in, and says `shell: bash` for itself, as does the last, which is only the tally.
 defaults:
   run:
     shell: bash scripts/ci_step {0}
@@ -58,6 +59,10 @@ jobs:
             git log --oneline --no-walk $merges
             exit 1
           fi
+      - name: How long it all took
+        if: ${{ always() }}
+        shell: bash
+        run: bash scripts/ci_step --total
 
   # The unit tests, then the build, both on the checkout as committed; then a check that
   # convex/_generated/ is as the functions regenerate it. It is committed, and a push regenerates
@@ -92,6 +97,10 @@ jobs:
         run: scripts/convex_dev e2e true
       - if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
         run: git diff --exit-code --stat convex/_generated
+      - name: How long it all took
+        if: ${{ always() }}
+        shell: bash
+        run: bash scripts/ci_step --total
 
   # The suite split six ways, each shard on a runner of its own, against the optimized build
   # (`next build`, then `next start`) rather than the dev server: the mode the app is deployed in,
@@ -142,3 +151,7 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
+      - name: How long it all took
+        if: ${{ always() }}
+        shell: bash
+        run: bash scripts/ci_step --total
