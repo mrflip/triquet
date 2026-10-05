@@ -35,14 +35,14 @@ Example: `/~pat/spring_hunt@go_live/quizzes/a/legends/!playtest` (note: includes
 
 * Each serialized file matches its url path.
 * Within the file, the json path matches the url path.
+* In addition to the regular jsonball files, there is a questions json file suitable for pasting the question contents across quizzes
   - Deep-merging the jsonball files within a repo reconstitutes the hunt, which is not itself serialized
+  - in `/~org/hunt/categories.tqc.json`:              `{ "categories": { "categorylabel": { ... } }   }`
+  - in `/~org/hunt/quizzes/{a}/{quizlabel}.tqq.json`: `{ "quizzes": { "{a}": { "{quizlabel}": { ... } } } }`
 * Each file type has a short pre-extension: .xx.json
 * Files are exported as:
   - json, pretty-printed, with keys alphabetized. No array fields
   - tsv, with columns sorted alphabetically by label, and rows sorted by label
-* In addition to the regular jsonball files, there is a questions json file suitable for pasting the question contents across quizzes
-
-{ "categories: { }   }
 
 ## Decisions
 
