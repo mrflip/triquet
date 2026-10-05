@@ -11,6 +11,8 @@ their sections below the table, newest first.
 | 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
 | 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete, reviewed (clean) |
 | 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | complete, reviewed (clean) |
+| 4      | name is title, label beside  |        |    | planned; waits on the spine merge |
+| 5      | column alignment             |        |    | planned; waits on the spine merge |
 
 ## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
 
