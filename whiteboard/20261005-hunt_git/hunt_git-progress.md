@@ -9,8 +9,8 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 |---|---|---|
 | 0 | One address model | landed #121 |
 | 1 | The URL scheme | landed #125 |
-| 2 | Jsonballs, and Import and Export through them | landing (lane 2) |
-| 3 | A hunt's files | pending (after 2) |
+| 2 | Jsonballs, and Import and Export through them | landed #126 |
+| 3 | A hunt's files | underway |
 | 4 | Watches at the grain of the files | pending (after 3) |
 | 5 | One repository per hunt | pending (after 4) |
 | 6 | Downloads and the hunts page | pending (after 5 and 1) |
@@ -77,3 +77,37 @@ smith per quiz; never reaches the repo). If unwanted, the fix is `ReviewScreen` 
 review on first write: a small change after this sprint.
 
 *Review:* clean at medium, no fixes, no findings left.
+
+### Thread 2: jsonballs, and Import and Export through them (landed #126)
+
+`src/lib/jsonball.ts` owns the shapes, the placing at key paths, the merge (es-toolkit `merge`)
+and the reading of anything pasted (`quizzesIn`, `widgetsIn`). `src/lib/exporting.ts` builds each
+resource's ball as `{ address, ball }` (`PlacedBallT`), with `HuntSnapshotT`, `ballsOf`,
+`wholeOf`, `libraryBall`, `snapshotOf`, `placeOf`. Raw Export is every ball merged; the Library
+tab exports `{ widgets: { pub: { <label>: … } } }`. Import reads any ball or merge of balls, the
+questions alone, a bare list, and every older export (fixtures in `fixtures/exports/`). **The
+shapes as built are in `thread-2-jsonballs.md`, *The shapes*: they, not `notes/hunt_git.md`, are
+what thread 3 writes.**
+
+* Questions alone: `{ questions: { <label>: … } }`, the quiz's own value, pasting into any quiz.
+* Realms are not written (every hunt holds only `home`); no `realms` kind in `Addresses`.
+* A question's widget values sit beside its fields (`"dumdum": { status, value }`), so
+  **`position` is now a reserved widgeting label** (`src/models/widgeting.ts`). The Coach decided
+  to keep it and check production for a widgeting so labelled before #126 merges. `forced_label`
+  and `id` still clash on re-import, as they always did.
+* Import still ignores a pasted quiz's columns, title, note and lock (open with the Coach).
+
+For thread 3:
+* `Exporting.ballsOf(snapshot)` is `huntFiles` less the writing: each `PlacedBallT`'s address
+  gives `Addresses.filepathOf`, the ball is the JSON. A TSV falls out of each ball's leaf: a keyed
+  collection is a row per key (a `label` column from the key), a single record one row.
+* `Exporting.placeOf` names the org `Addresses.orgOf(members) ?? ''`; #125's `orgFor`
+  (`src/lib/rows.ts`) falls back on the earliest member. *Orchestrator:* use `orgFor`, so the
+  files and the URLs never disagree.
+
+For thread 4: `HuntSnapshotT` (with `ReviewSourceT`, `MemberSourceT`) is what the balls are made
+from; a review's verdicts need the quiz's question ids to name questions by label.
+
+*Review:* flagged at medium. Fixed: a fixture for the 2026-09-27 hunt-with-ids export shape.
+Decided by the Coach: keep the `position` reservation, check production before merging. Left:
+the `forced_label` re-import clash (pre-existing).
