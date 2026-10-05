@@ -17,15 +17,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 role="${1:-}"
-# The role's web server, as package.json's scripts have it.
 case "$role" in
-  dev)       web_port=3000 ;;
-  agent)     web_port=3001 ;;
-  e2e)       web_port=3002 ;;
-  e2e-agent) web_port=3003 ;;
-  e2e-built) web_port=3005 ;;
+  dev | agent | e2e | e2e-agent | e2e-built) ;;
   *) echo "Usage: scripts/convex_auth_keys <dev|agent|e2e|e2e-agent|e2e-built>" >&2; exit 1 ;;
 esac
+# The role's web server, in this checkout's lane (scripts/lanes.ts).
+read -r web_port _ <<< "$(node scripts/lanes.ts ports "$role")"
 clienv="data/convex-${role}/cli.env"
 if [[ ! -s "$clienv" ]]; then
   echo "No ${clienv}: start the ${role} backend first (scripts/convex_backend ${role})." >&2

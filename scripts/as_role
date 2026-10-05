@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Runs a command as one role in this checkout's lane (scripts/lanes.ts): with PORT,
+# NEXT_PUBLIC_CONVEX_URL, CONVEX_ROLE and TRIQUET_LANE set for that role, over whatever Doppler
+# gave. package.json's servers and suites run this way, so the same `pnpm test:e2e:agent` in a
+# worktree finds that worktree's own ports and backend.
+#
+#   scripts/doppledo dev_e2e scripts/as_role e2e-agent playwright test
+#
+# Usage: scripts/as_role <dev|agent|e2e|e2e-agent|agent-built|e2e-built> <command> [arguments...]
+set -euo pipefail
+
+usage="Usage: scripts/as_role <dev|agent|e2e|e2e-agent|agent-built|e2e-built> <command> [arguments...]"
+if [[ $# -lt 2 ]]; then echo "$usage" >&2; exit 1; fi
+role="$1"
+shift
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+assignments="$(node "${root}/scripts/lanes.ts" env "$role")"
+# NAME=value lines, read one at a time rather than evaluated.
+while IFS='=' read -r envname val; do
+  export "${envname}=${val}"
+done <<< "$assignments"
+exec "$@"
