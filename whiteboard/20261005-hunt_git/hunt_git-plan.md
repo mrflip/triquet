@@ -26,8 +26,8 @@ Beyond CLAUDE.md and its auto-loads:
 `notes/git_hygiene.md` (*A thread, start to finish*, *Sprints*) and
 `.claude/agents/thread-worker.md`. Particular to this sprint:
 
-* The old per-quiz repositories under `/quizzes` are **never rewritten or deleted**. They stay
-  listed and downloadable.
+* The old per-quiz repositories under `/quizzes` get no special treatment: no migration, and
+  nothing new reads them.
 * The mirror stays fire-and-forget. A failure to commit is reported (`Postmortem.report`) and
   never fails an edit.
 * Nothing reads app state back from a repository.
@@ -46,88 +46,83 @@ rather than inventing paths that thread 1 would then move. This probably touches
 `src/lib/routes.ts`, the route directories under `src/app/(synced)/`, every `Routes.*Path`
 caller, and the e2e specs that assert URLs (`NewHuntUrl` in `e2e/support.ts`, `routing.spec.ts`).
 **Look-ahead:** export a `repoPathOf(resource)` (name to taste) beside the URL builders: one
-segment list, with the URL and the path both made from it. Thread 2 consumes it. If the Coach's
+label path, from which the URL, the repository path and the jsonball's key path are all made. Thread 2 consumes it. If the Coach's
 scheme gives a resource no page (members, columns, widgetings), the spec's file name under its
 parent's directory stands.
 
 ### 2. A hunt's files, pure
 
 *Proposed text:* Write the files a hunt's repository holds, as `notes/hunt_git.md` indexes them:
-every resource once, as JSON and as TSV, at the path its address names. Pure functions only. No
-filesystem, no wiring.
+each resource once, as a jsonball rooted at the hunt and as a TSV, at the path its address
+names. Pure functions only. No filesystem, no wiring.
 
-Gloss: a new `src/lib/huntgit.ts`, or `quizgit.ts` grown and renamed. Its heart is
-`huntFiles(snapshot) → Map<path, body>`, plus two TSV writers (`recordTsv` for keypath/value,
-`collectionTsv` for header and rows) that every resource shares. `questionsTsv` stays as it is
-and becomes the questions resource. For keypath flattening, look in es-toolkit (`flattenObject`)
-before writing a walker. Tests follow `quizgit.test.ts`: a snapshot in, an exact path set out,
-each body checked, and a TSV round-trip through Papa Parse.
-**Look-ahead:** the snapshot type defined here is what thread 3's query returns. Shape it as the
-query will most naturally send it (the hunt whole, members, the wheel, shared reviews by quiz),
-so thread 3 adds no conversion step.
+Gloss: a new `src/lib/huntgit.ts`, holding one function per resource from its query's result
+to its files (thread 3's watches call these one by one), and `huntFiles` over them all for the
+catch-up commit. Two TSV writers are shared by every resource: `recordTsv` (keypath/value) and
+`collectionTsv` (header and rows). `questionsTsv` stays as it is. For keypath flattening, look
+in es-toolkit (`flattenObject`) before writing a walker. **The defining test:** es-toolkit's
+`merge` over every jsonball reconstitutes the snapshot (labels in place of ids), and no array
+is contributed to by two files. Tests also check an exact path set, each body, and a TSV
+round-trip through Papa Parse.
+**Look-ahead:** each per-resource function takes exactly what thread 3's query for that grain
+returns, so there is no conversion step between them.
 
-### 3. A feed that sees the whole hunt
+### 3. Watches at the grain of the files
 
-*Proposed text:* Feed the mirror from the whole hunt, not just the quiz on screen, for a smith:
-every quiz, the members, the categories, and the shared reviews. Changes from any browser count.
+*Proposed text:* Feed the mirror from the whole hunt, for a smith, through watches at the
+grain of the files: the hunt-level files, and per quiz its frame, its questions and its shared
+reviews. Changes from any browser count.
 
-Gloss: the choice to make is how to watch. **Recommended:** add a smith-only query function,
-`hunts.mirror` (the name is the worker's to settle with `notes/queries_hooks_and_subscriptions.md`),
-that returns thread 2's snapshot. Watch it once per tab, in place of the per-question watches
-`useHistoryFeed` keeps today. It is the simplest thing that sees everything, and `hunts.whole`
-already does most of the reading. Its cost is that Convex resends the whole result on every
-change, so the thread's **first step is to measure** the payload for a large fixture hunt over a
-burst of edits, and put the numbers in the progress document. If they are bad, the fallback is
-to keep watching the open quiz and the hunt as today, and make a one-shot fetch of
-`hunts.mirror` when the commit is due. Remote edits to other quizzes would then land in the next
-commit or the next catch-up, rather than prompting one. Touches `convex/hunts.ts` (and
-`convex/_generated/`, regenerated and committed), `convex/authorize.ts` (the affirm),
-`src/state/use-hunt.ts`, and tests in `tests/convex/`. Name `/convex-reviewer` before marking it
-ready.
+Gloss: the query functions, sized to the files: a hunt-level one (hunt, members, wheel, realms,
+quiz list), and per quiz the frame (`quizzes.open` may already serve), the questions whole in
+one result rather than a watch per question, and the shared reviews with their verdicts. Settle
+the names with `notes/queries_hooks_and_subscriptions.md`, and reuse what the screens already
+watch where the shapes match. The feed follows the quiz list as `useHistoryFeed` follows
+`row_ordering` today, opening and closing per-quiz watches. **Measure** subscription count and
+payload for a large fixture hunt over a burst of edits, and put the numbers in the progress
+document. Touches `convex/` (and `convex/_generated/`, regenerated and committed),
+`convex/authorize.ts`, `src/state/use-hunt.ts` (or a hook of its own beside it), and tests in
+`tests/convex/`. Name `/convex-reviewer` before marking it ready.
 
-### 4. One repository per hunt
+### 4. One repository per hunt, by label
 
-*Proposed text:* Keep each hunt's history in one repository, written from thread 2's files and
-fed by thread 3. Add a catch-up commit when a tab first reads a hunt. Milestones, imports and
-deletions keep working.
+*Proposed text:* Keep each hunt's history in one repository at `/hunts/<hunt label>`, on
+`main`, committing only the files that changed, with a catch-up commit on a tab's first full
+reading. A hunt relabelled here moves its repository. Milestones, imports and deletions keep
+working, with tags that name the quiz.
 
-Gloss: `/hunts/<hunt _id>`, on the one branch `main` (pending the Coach's word on versions). The
-scheduler is keyed by hunt id instead of quiz id. Commit messages are the per-quiz summary lines
-from the spec. Tags take the form `<quiz>/<version>/…`. `markedChange` and `milestoneQuiz` flush
-the hunt. `openHistory` becomes the catch-up commit: write the tree, and commit only if it
-differs from HEAD. That fixes today's gap, where edits made while this browser was away ride
-along, mislabelled, in the next local commit, or are never committed. The e2e specs in
-`quiz-history.spec.ts` that read refs and tags change to match.
+Gloss: the scheduler is keyed by hunt label and holds a dirty-file set, not a pair of
+snapshots. `GitFs` gains `rename`. Commit messages are the per-quiz summary lines from the spec.
+Tags take the form `<quiz>/<version>/…`. `markedChange` and `milestoneQuiz` flush the hunt.
+`openHistory` becomes the catch-up commit (`git.hashBlob` against HEAD's tree). The per-quiz
+code in `quizgit.ts` and `quiz-mirror.ts` is replaced, not kept beside the new code. The e2e
+specs in `quiz-history.spec.ts` that read refs and tags change to match.
 
 ### 5. Downloads and the hunts page
 
 *Proposed text:* Download a hunt's whole history from the hunt (the hunts list and the quiz's
-gear), named for the hunt. On the hunts page, the folded list shows the legacy per-quiz histories
-and the hunt histories of hunts you are not on, each downloadable.
+gear), named for the hunt. On the hunts page, the folded list shows the hunt repositories this
+browser holds for hunts you are not on, each downloadable.
 
 Gloss: `FullHistoryDownload` and `QuizManageModal`'s *Download as git* download the hunt's
-repository. `OrphanedRepos` (PR #102) lists two kinds of repository with the same row:
-`listRepos` gains a sibling for `/hunts`. `content/full-history.md` is rewritten for a hunt
-repository. This thread could run before thread 4 only partly, so keep it stacked.
+repository. `OrphanedRepos` (PR #102) lists `/hunts` repositories whose label is not one of
+your hunts'. `/quizzes` is not read at all. `content/full-history.md` is rewritten for a hunt
+repository, `jq` line included.
 
 ## For the Coach
 
-1. **Quiz file: the whole quiz, or the quiz without its questions?** You asked for "the quiz as
-   a file, and also the questions alone". The spec currently reads that as no duplication:
-   `quiz.tq.json` holds the quiz's own fields, and questions, widgetings and columns each have a
-   file of their own, so every edit lands in exactly one place. The other reading is that
-   `quiz.tq.json` stays the whole quiz as Import reads it today, with the questions also written
-   on their own. That keeps one-file restore at the cost of a questions edit diffing in two
-   places. Under the split reading, restoring a quiz from its history means Import learning to
-   read a quiz directory, which is a follow-up and not part of this sprint.
-2. **Versions stop being branches.** One branch, `main`, per hunt repository. `version` becomes
-   a field, and tags carry the quiz: `<quiz>/<version>/m-<stamp>`. Is that OK, or should versions
-   keep meaning something to git?
-3. **How the feed watches** (thread 3): one whole-hunt watch, measured first, with a commit-time
-   fetch as the fallback. Is it OK to let the measurement decide?
-4. **Reviews: shared only.** A smith's browser is the only one that keeps history, and it records
-   the reviews a smith may read. Reviewers' own drafts are never recorded anywhere.
-5. **Single-record TSV as keypath/value lines.** Rather than a one-row table that is too wide to
-   diff. Is that OK?
-6. **The URL scheme** is thread 1's text, and the paths in `notes/hunt_git.md` marked ⟨url⟩
-   follow it.
+Settled on 2026-10-05: no special treatment for the per-quiz repositories; scoped by label;
+the quiz as one jsonball, with its questions as a jsonball of their own; jsonballs rooted at
+the hunt, so that a deep merge reconstitutes it; watches and commits at the grain of the files.
+
+1. **Collections as keyed objects, not arrays** (`{ realms: { home: { quizzes: { … } } } }`).
+   That is a refinement of your sketch: it is what lets any merge tool reconstitute the hunt
+   without knowing that elements are matched by label. Quizzes have no stored order, so a
+   reconstituted realm lists them by label. Is that OK?
+2. **Versions stop being branches.** One branch, `main`. `version` becomes a field, and tags
+   carry the quiz: `<quiz>/<version>/m-<stamp>`. Is that OK?
+3. **Reviews: shared only.** Only a smith's browser keeps history, and it records the reviews a
+   smith may read.
+4. **Anything else as keypath/value TSV lines**, rather than a one-row table too wide to diff.
+5. **The URL scheme** is thread 1's text. The paths marked ⟨url⟩ in `notes/hunt_git.md` follow
+   it.
