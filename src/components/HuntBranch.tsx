@@ -46,7 +46,7 @@ export function HuntBranch({ hunt, editable }: Readonly<HuntBranchProps>) {
           helperText={issue ?? AppNotices.branchHelp}
           onChange={(event) => { setDraft(event.target.value); setIssue(null) }}
         />
-        {editable && <Button type="submit" size="small" variant="outlined" disabled={busy || branch === hunt.branch} sx={{ mt: 0.5 }}>Switch branch</Button>}
+        {editable && <Button type="submit" size="small" variant="outlined" disabled={busy || branch === hunt.branch} sx={{ mt: 0.5, flexShrink: 0, whiteSpace: 'nowrap' }}>Switch branch</Button>}
       </Stack>
     </Box>
   )
