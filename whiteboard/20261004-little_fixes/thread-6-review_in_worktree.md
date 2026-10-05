@@ -1,6 +1,6 @@
 # Thread 6: the review runs from outside the worktree (2026-10-05)
 
-Branch `20261005-review_in_worktree`, PR pending (filled in at landing). Suites: typecheck and
+Branch `20261005-review_in_worktree`, PR filed at landing; see the report. Suites: typecheck and
 lint clean; `pnpm test` 126 files, 3540 tests. e2e runs at landing.
 
 * **Built**:
