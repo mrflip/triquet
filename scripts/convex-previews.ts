@@ -4,6 +4,8 @@
  * team's deployment limit until it is deleted: by the plan's retention (five days) if nothing
  * sooner.
  *
+ *   node scripts/convex-previews.ts [list]                   every preview, oldest first: made, expires, branch, label
+ *   node scripts/convex-previews.ts drop-oldest [count]      the <count> (5) oldest previews are deleted now, then `list`
  *   node scripts/convex-previews.ts prune  <branch>          the branch's preview is deleted now
  *   node scripts/convex-previews.ts expire <branch> [hours]  the branch's preview is deleted <hours> (36) from now
  *   node scripts/convex-previews.ts after-vercel-build       on a Vercel preview build, `expire` for its branch; elsewhere, nothing
@@ -13,13 +15,19 @@
  * puts the janitor's in its place:
  *
  *   ./scripts/doppledo dev_aijanitor ./scripts/convex_preview node scripts/convex-previews.ts prune 20260929-failure_logging
+ *
+ * which `pnpm previews` spells shorter: `pnpm previews drop-oldest 3`.
  */
+import { Console } from 'node:console'
 import { z } from 'zod'
 
 const ApiBase = 'https://api.convex.dev/v1'
 
 /** Hours a preview lives past its latest build, unless told otherwise. */
 export const DefaultLifetimeHours = 36
+
+/** Previews `drop-oldest` deletes, unless told otherwise. */
+export const DefaultDropCount = 5
 
 /** A preview deploy key, and the team and project it names. */
 export interface PreviewKey {
@@ -33,6 +41,7 @@ const DeploymentRow = z.object({
   name:              z.string(),
   deploymentType:    z.string(),
   previewIdentifier: z.string().nullish(),
+  createTime:        z.number().optional(),
   expiresAt:         z.number().nullish(),
 })
 export type DeploymentRow = z.infer<typeof DeploymentRow>
@@ -40,6 +49,16 @@ export type DeploymentRow = z.infer<typeof DeploymentRow>
 const ProjectRow = z.object({ id: z.number() })
 
 const LifetimeHours = z.coerce.number().positive()
+
+const DropCount = z.coerce.number().int().positive()
+
+/** One preview as `list` shows it: one line of its table. */
+export interface PreviewLine {
+  made:    string
+  expires: string
+  branch:  string
+  label:   string
+}
 
 /** A process's environment, or as much of one as a caller cares to give. */
 export type EnvBag = Record<string, string | undefined>
@@ -72,6 +91,38 @@ export function previewKeyOf(deploykey: string | undefined): PreviewKey {
  */
 export function previewFor(deployments: readonly DeploymentRow[], branch: string): DeploymentRow | undefined {
   return deployments.find((row) => row.deploymentType === 'preview' && row.previewIdentifier === branch)
+}
+
+/**
+ * A project's preview deployments, the oldest made first.
+ *
+ * @param deployments - Every deployment the key can see.
+ * @returns The previews alone; one whose making time is unknown sorts first, as oldest.
+ *
+ * @example previewsByAge(rows).map((row) => row.name)  // => ['utmost-dog-883', 'uncommon-lark-139', ...]
+ */
+export function previewsByAge(deployments: readonly DeploymentRow[]): DeploymentRow[] {
+  return deployments.filter((row) => row.deploymentType === 'preview').toSorted((aa, bb) => (aa.createTime ?? 0) - (bb.createTime ?? 0))
+}
+
+/**
+ * The line of `list`'s table for one preview: times to the minute, in UTC.
+ *
+ * @example previewLine({ name: 'utmost-dog-883', deploymentType: 'preview', previewIdentifier: '20260930-chai_in_vitest', createTime: Date.UTC(2026, 8, 30, 11, 44), expiresAt: null })
+ *   // => { made: '2026-09-30 11:44', expires: '-', branch: '20260930-chai_in_vitest', label: 'utmost-dog-883' }
+ */
+export function previewLine(row: DeploymentRow): PreviewLine {
+  return {
+    made:    minuteOf(row.createTime),
+    expires: minuteOf(row.expiresAt),
+    branch:  row.previewIdentifier ?? '-',
+    label:   row.name,
+  }
+}
+
+/** A timestamp (ms) to the minute, in UTC, or a dash for none. */
+function minuteOf(stamp: number | null | undefined): string {
+  return stamp ? new Date(stamp).toISOString().slice(0, 16).replace('T', ' ') : '-'
 }
 
 /**
@@ -122,6 +173,26 @@ export async function expire(pkey: PreviewKey, branch: string, hours: number): P
   return { deployname: preview.name, expiresAt }
 }
 
+/** The project's previews, the oldest made first. */
+export async function listPreviews(pkey: PreviewKey): Promise<DeploymentRow[]> {
+  return previewsByAge(await deploymentsOf(pkey))
+}
+
+/**
+ * Deletes the `count` oldest previews, data and all, one at a time.
+ *
+ * @returns The previews deleted, oldest first: fewer than `count` when there are fewer.
+ */
+export async function dropOldest(pkey: PreviewKey, count: number): Promise<DeploymentRow[]> {
+  const previews = await listPreviews(pkey)
+  const doomed   = previews.slice(0, count)
+  for (const preview of doomed) {
+    await callApi(pkey, 'POST', `/deployments/${preview.name}/delete`)
+    process.stdout.write(`Deleted ${preview.previewIdentifier ?? '(no branch)'}'s preview, ${preview.name}.\n`)
+  }
+  return doomed
+}
+
 /** Every deployment in the key's project that the key can see: its previews. */
 async function deploymentsOf(pkey: PreviewKey): Promise<DeploymentRow[]> {
   const project = ProjectRow.parse(await callApi(pkey, 'GET', `/teams/${pkey.teamslug}/projects/${pkey.projectslug}`))
@@ -140,8 +211,8 @@ async function callApi(pkey: PreviewKey, method: string, path: string, body?: ob
   return text ? JSON.parse(text) : undefined
 }
 
-/** The command line: one of the three commands in the module's doc block. */
-async function main([command, branch, hoursArg]: string[], env: EnvBag): Promise<void> {
+/** The command line: one of the commands in the module's doc block. */
+async function main([command = 'list', subject, hoursArg]: string[], env: EnvBag): Promise<void> {
   if (command === 'after-vercel-build') {
     const building = vercelPreviewBranch(env)
     if (! building) { return }
@@ -153,8 +224,19 @@ async function main([command, branch, hoursArg]: string[], env: EnvBag): Promise
     }
     return
   }
+  if (command === 'list' || command === 'drop-oldest') {
+    const pkey = previewKeyOf(env.CONVEX_DEPLOY_KEY)
+    if (command === 'drop-oldest') {
+      await dropOldest(pkey, DropCount.parse(subject ?? DefaultDropCount))
+    }
+    const previews = await listPreviews(pkey)
+    new Console(process.stdout).table(previews.map((row) => previewLine(row)))
+    process.stdout.write(`${String(previews.length)} previews.\n`)
+    return
+  }
+  const branch = subject
   if (! (branch && (command === 'prune' || command === 'expire'))) {
-    throw new Error('Usage: node scripts/convex-previews.ts <prune <branch> | expire <branch> [hours] | after-vercel-build>')
+    throw new Error('Usage: node scripts/convex-previews.ts <[list] | drop-oldest [count] | prune <branch> | expire <branch> [hours] | after-vercel-build>')
   }
   const pkey = previewKeyOf(env.CONVEX_DEPLOY_KEY)
   if (command === 'prune') {

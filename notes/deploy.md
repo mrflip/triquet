@@ -252,8 +252,11 @@ we hit on 2026-09-30):
   key of its own, synced from Doppler to GitHub Actions, which reaches the project's previews
   and cannot see production (`notes/env_vars_tokens_and_keys.md`). Run that
   workflow by hand, naming a branch, for one that never had a pull request.
-* By hand: `./scripts/doppledo dev_aijanitor ./scripts/convex_preview node
-  scripts/convex-previews.ts <prune <branch> | expire <branch> [hours]>`.
+* By hand, under the janitor's Doppler config: `pnpm previews` lists every preview, oldest
+  first (made, expires, branch, label); `pnpm previews drop-oldest [count]` deletes the
+  `count` (5) oldest and lists what is left; `pnpm previews <prune <branch> | expire <branch>
+  [hours]>` acts on one branch's. Reach for `drop-oldest` when the deployment limit is hit
+  before the 36 hours are up: a sprint can open thirty previews in a day.
 
 Nothing seeds a preview: `--preview-run` can name a function to run after the push, once
 there is something worth seeding with.
