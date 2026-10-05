@@ -2,18 +2,18 @@
 
 History on main is semi-linear: each PR branch is rebased onto current main and lands as a merge commit. Procedures and reasoning follow the summary below.
 
-These rules are about the history you push. Locally, use git however it helps: checkpoint commits,
-scratch branches and replays to unwind a hairy change. Tidy the result before it leaves
-your machine.
-
-- Don't merge main into a branch you push, and never use GitHub's "Update branch" in merge mode. To catch up: `git fetch origin && git rebase --update-refs origin/main`.
-- A pushed branch contains no merge commits; the `semi-linear` CI check rejects them.
-- Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`, and never force-push a branch another agent owns.
+- **The spine** is the one stack of landed branches, checked out in the main checkout at its top: what the Coach watches and merges. It is shared; a branch not yet landed is its agent's alone. See *The spine*.
+- **Agents write only in worktrees of their own**, cut from the spine's top with `pnpm worktree <label>`. The main checkout is the Coach's: read it freely, never write to it except by landing.
+- A line of work is a thread: a worktree, commits at milestones, `pnpm land`, a PR, `pnpm worktree --remove`. See *A thread, start to finish*.
+- Don't merge main into a branch, and never use GitHub's "Update branch" in merge mode. A pushed branch contains no merge commits; the `semi-linear` CI check rejects them.
+- Force-push only with an explicit lease: `--force-with-lease=<branch>:<the commit you expect origin to hold>`. Never plain `--force`. The spine's scripts do this for you.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
 - Never merge a PR or enable auto-merge. Coach merges.
 - Every commit lands in main individually: each should pass tests, and messages follow the existing log style.
-- A line of work is a thread: a tidy of the stack onto origin/main, `newb`, commits at milestones, a rebase onto origin/main at the end, a PR. See *A thread, start to finish*.
-- An ordered series of threads issued at once and run back to back by agents is a sprint. See *Sprints*.
+- An ordered series of threads issued at once and run by agents is a sprint. See *Sprints*.
+
+Inside your own worktree, use git however it helps: checkpoint commits, scratch branches, replays
+to unwind a hairy change. Tidy the result before you land it.
 
 
 ## The shape we keep
@@ -44,39 +44,57 @@ Why this shape:
 
 Enforcement: the `semi-linear` CI check rejects any PR branch that contains a merge commit. The main ruleset requires branches to be up to date with `main` before merging and allows the "merge commit" method only.
 
+## The spine
+
+```
+origin/main <- B1 <- B2 <- ... <- Bn          the spine: checked out in the main checkout, at Bn
+                                \
+                                 <- W         a thread's branch, in its own worktree, not yet landed
+```
+
+* **The spine** is `origin/main..Bn`: every landed branch, stacked in the order they landed, with
+  the main checkout standing on the top. Each branch on it passed typecheck, lint, the unit tests
+  and e2e on top of exactly what lies beneath it.
+* **The spine is shared; an unlanded branch is private.** Any agent may sweep onto the spine,
+  replay it onto `origin/main`, and push its branches. A branch still in a worktree is its
+  agent's alone. Anything on the spine is ready to push and PR: a push carries along commits from
+  branches beneath that the pusher may know nothing about, which is fine, since they are green and
+  straight to main. Once the Coach merges, each PR holds only its own thread's commits again.
+* **Agents write only in worktrees.** That goes for a session working beside the Coach as much
+  as a sprint's workers. Each worktree has a lane of its own: ports, Convex backends and data
+  (CLAUDE.md, *Global resources*). The main checkout is the Coach's, and agents read it freely
+  (the Coach's uncommitted edits there are often the best context going) but never write to it.
+  Its files change in exactly two ways: a landing switches it up to a new top, and a restack
+  replays it onto `origin/main`.
+* **The Coach's notes come along.** Whatever is uncommitted in the main checkout's `whiteboard/`,
+  `human/` and `notes/` is swept onto the top by the next cut, landing or `pnpm sweep`, as
+  `docs: swept from the main checkout`. A stray file there gets committed rather than stalling
+  anyone. The Coach's other uncommitted edits are theirs: carried along when the main checkout
+  switches, autostashed when it is replayed, never committed by an agent.
+* **One at a time.** Sweeping, replaying and folding in each hold the spine for the seconds they
+  take (a lock in the repository's shared git directory); tests never run under the hold.
+
+`scripts/spine.ts` does all of this. `pnpm restack` replays the spine onto `origin/main` by hand
+(cuts and landings do it whenever origin has moved), and `pnpm sweep` sweeps without landing.
+
+
 ## A thread, start to finish
 
-A thread is one line of work: one branch, one PR, and a session may hold several. You may commit, push the thread's branch, and
-open its PR without asking first.
+A thread is one line of work: one branch, one PR, one worktree, and a session may hold several.
+You may commit, land and push the thread's branch, and open its PR, without asking first.
 
 ### Starting
 
-On a clean tree, before the first edit:
-
 ```
-git fetch origin
-git rebase --update-refs origin/main
-pnpm newb <branchlabel>
+pnpm worktree <branchlabel>
 ```
 
-The rebase tidies the stack you stand on (see *Stacks*): every unmerged branch beneath HEAD,
-whoever made it, replayed onto `origin/main` in its current order, each branch pointer moving with
-its commits. Branches that have merged drop out, because merge commits keep SHAs. Standing on `main`
-or on a merged branch, it fast-forwards you to `origin/main`. Either way you end up on fresh ground.
-
-This is a local tidy. Origin's copies of the branches beneath you now differ from yours, which is
-fine: push only the branches you own. Should a lower branch have been rewritten on origin in the
-meantime, its commits conflict on replay; that is a stop-and-ask, not a repair.
-
-- If the rebase refuses to start (uncommitted changes) or conflicts, `git rebase --abort`, run
-  `newb` where you stand, and tell the Coach what you found.
-- If you stand on an unmerged branch, the new thread is stacked on it. Note that branch's PR number
-  for the description.
-- Carrying on with the current thread needs no new branch.
-
-`pnpm newb <branchlabel>` branches `YYYYMMDD-<branchlabel>` from HEAD and carries the working tree
-along, uncommitted changes and all. Its upstream is set, so the first plain `git push` creates the
-remote branch.
+Run it from any checkout of the repository. It holds the spine, replays it onto `origin/main` if
+origin has moved, sweeps the Coach's notes, cuts `YYYYMMDD-<branchlabel>` from the top into
+`~/worktrees/triquet/<branchlabel>`, claims the worktree a lane, and installs its packages. It
+prints the worktree's root: work from there, and build every absolute path from it (CLAUDE.md,
+*Global resources*). A worktree starts from committed history, so nothing anyone left lying in
+another checkout is in your way.
 
 ### Milestones
 
@@ -86,26 +104,42 @@ working order, not a count of edits. What you push shouldn't stop mid-refactor (
 are fine, folded in before pushing), and unrelated changes are better in separate commits. A large `convex/_generated/` regeneration goes in a commit of its own. For the
 occasional deliberate commit with failing tests, see *Commits*.
 
-### Finishing: the rebase
+### Finishing: landing
 
 ```
-git fetch origin
-git rebase --update-refs origin/main
-pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
+pnpm land
 ```
 
-Fix the straightforward conflicts yourself:
+Run it in your worktree, with everything committed. It lands your branch on the spine:
 
-- `pnpm-lock.yaml`: take main's version, then run `pnpm install`.
+1. Holding the spine: replay it onto `origin/main` if origin has moved, and sweep.
+2. Rebase your branch onto the top. On a conflict it stops, the rebase in progress and the spine
+   untouched (below).
+3. `pnpm typecheck && pnpm lint && pnpm test`. Red stops it.
+4. If the top moved meanwhile (someone else landed), back to 2.
+5. `pnpm test:e2e`, on your lane. Red stops it.
+6. Holding the spine: if the top moved, back to 2. Otherwise switch the main checkout onto your
+   branch and push it.
+
+From there CI is the next test. Five trips back to 2 and it gives up: land again shortly.
+
+If the main checkout won't switch, because a file your branch changes holds the Coach's
+uncommitted edit, the landing stops with nothing changed and names the file. Tell the Coach;
+never stash, commit or overwrite their edit.
+
+A rebase conflict: fix the straightforward ones yourself, `git rebase --continue`, and land
+again.
+
+- `pnpm-lock.yaml`: take the top's version, then run `pnpm install`.
 - `convex/_generated/`: push to your backend again (`scripts/convex_dev agent`) and take what it writes.
 - Edits that sit side by side without contradicting each other.
 - Merges in docs or import lists.
-- Tests that main broke in plainly mechanical ways, such as a rename.
+- Tests that the spine broke in plainly mechanical ways, such as a rename.
 
 Stop and ask for anything that takes judgment:
 
 - Both sides changed the same logic, or the schema.
-- Main changed something the thread depends on.
+- The spine changed something the thread depends on.
 - Resolving would mean dropping a change from either side.
 - The suite fails after the rebase and the cause isn't obvious.
 
@@ -127,14 +161,13 @@ Delete the tag once the PR merges.
 
 ### Filing the PR
 
-Push: plain `git push` the first time, and `git push --force-with-lease --force-if-includes` after
-any later rebase. Then run `gh pr create --base main`.
+`pnpm land` has pushed the branch. Run `gh pr create --base main`, from your worktree.
 
 - **Title**: plain language, saying what changed.
 - **Body**: follow recent PRs (#35 is a good model):
   - What changed, in short paragraphs or bullets with **bold lead-ins**.
   - A **Tests:** line naming the suites run and their counts.
-  - "Stacked on #N" or "Follows #N" where either applies.
+  - "Stacked on #N", naming the PR of the branch you landed on (the landing says which), or "Follows #N".
   - An *Open questions* list when minor questions remain. Put them in chat too, and in
     an entry under `human/` or the thread's `/whiteboard` directory where CLAUDE.md asks for that.
     A PR description is easy to miss.
@@ -143,71 +176,78 @@ A *significant* question is one whose answer would change the code in the PR. As
 before filing, rather than filing and hoping.
 
 `git fetch` over HTTPS works without credentials, and `gh` uses its own login. `git push` needs
-credentials, and in the container the configured helper (`gcm-core`) is missing. Borrow gh's
-login for the one push, without changing any config:
+credentials, and in the container the configured helper (`gcm-core`) is missing. The spine's
+scripts borrow gh's login for each push; to push by hand, do the same, without changing any
+config:
 
 ```
 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push
 ```
 
+### Cleaning up
+
+Once the PR is filed: `pnpm worktree --remove`, from the worktree. It refuses while anything is
+uncommitted there, and frees the lane. The branch lives on in the spine. Only uncommitted work
+dies with a worktree, or with the container: commits are in the shared repository from the
+moment they are made.
+
+
 ## Sprints
 
-A **sprint** is an ordered series of threads issued at once and run back to back without the
-Coach at the wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a
-plan to `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs each thread in turn: a
-`pre-thread` agent does *Starting* (the tidy and the `newb`, repairing only the
-straightforward conflicts), a fresh `thread-worker` agent owns the branch from there --
-build, the finishing rebase, push, PR -- and a `thread-reviewer` agent then runs `/code-review`
-over the thread's own commits, keeping the fixes it can stand behind as `fix:` commits appended
-to the same branch and PR, never rewriting the worker's. Each thread is stacked on the one
-before, none merged until the Coach returns. The running handoff is `<sprint>-progress.md`
-beside the plan: every worker reads both before touching code and appends its section on
-finishing, and it is newer than the plan wherever they disagree. The orchestrator's procedure
-and its stop-or-continue rules are `.claude/skills/sprint/SKILL.md`; the agents' are
-`.claude/agents/pre-thread.md`, `.claude/agents/thread-worker.md` and
-`.claude/agents/thread-reviewer.md`. Everything in this document binds a sprint's agents as it
-binds any other: a sprint changes who is watching, not what is allowed.
+A **sprint** is an ordered series of threads issued at once and run without the Coach at the
+wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a plan to
+`whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs the threads, each in a worktree of its
+own: a fresh `thread-worker` agent builds it and a `thread-reviewer` agent then runs
+`/code-review` over its commits, keeping the fixes it can stand behind as `fix:` commits; then the
+worker lands it. Threads land on the spine in the order they finish, none merged until the Coach
+returns. The orchestrator's procedure is `.claude/skills/sprint/SKILL.md`; the agents' are
+`.claude/agents/thread-worker.md` and `.claude/agents/thread-reviewer.md`. Everything in this
+document binds a sprint's agents as it binds any other: a sprint changes who is watching, not
+what is allowed.
+
 
 ## Catching up with main
 
-```
-git fetch origin
-git rebase --update-refs origin/main
-git push --force-with-lease --force-if-includes
-```
+Nothing to do by hand: every cut and landing replays the spine onto `origin/main` when origin has
+moved, as it does once the Coach merges, and `pnpm restack` does it on demand. Merged branches drop
+off the bottom (merge commits keep their SHAs), what is left is replayed with
+`git rebase --update-refs --autostash origin/main`, and every spine branch origin has is pushed
+with an explicit lease, so its PR stays current and merging the top of a sprint marks every PR
+beneath it merged. A replay that conflicts is undone and stops: that is the Coach's call.
 
-If you did merge main in by accident, `git rebase origin/main` fixes it. A plain rebase drops the merge commit and replays only the branch's own commits.
+Your own unlanded branch picks up the change at its landing's rebase.
+
+If you did merge main into your branch by accident, `git rebase origin/main` fixes it. A plain
+rebase drops the merge commit and replays only the branch's own commits.
+
 
 ## Force-pushing
 
-- Always use `--force-with-lease --force-if-includes`, never plain `--force`. The lease refuses the push if someone else pushed to the branch since you last fetched.
-- Only force-push branches you own. If you branched off another agent's branch, you own only your branch. Say "stacked on #N" in your PR description.
+- Always with an explicit lease, `--force-with-lease=<branch>:<sha>`, naming the commit you expect
+  origin to hold. A bare `--force-with-lease` checks against the remote-tracking ref, which any
+  other checkout's `git fetch` moves: in a repository many worktrees share, it protects nothing.
+  `--force-if-includes` is no better here, since the reflogs are shared too. Never plain `--force`.
+- A spine branch may be pushed by anyone (*The spine*); the scripts do it. An unlanded branch is
+  pushed only by its own agent.
+
 
 ## Stacks
 
-A stack is a branch built on another unmerged branch: A <- B <- C. *Your stack* is every unmerged
-branch beneath where you stand, whoever made it, in the order it currently stands.
+A stack is a branch built on another unmerged branch. The spine is this repository's one stack,
+and the scripts keep it straight. By hand:
 
 - Open every PR in a stack against `main`. Upper PRs will show the lower PRs' commits in their diff until those lower PRs land, and that's fine.
-- Always rebase from the **top**, with `--update-refs`: every branch pointer inside the stack moves
-  with its commits. Rebasing a lower branch alone strands the ones above it on the old commits, and
-  a later rebase of the top replays those stale copies: a cactus.
-
-  ```
-  git switch C
-  git rebase --update-refs origin/main          # moves A's and B's pointers too
-  git push --force-with-lease --force-if-includes origin C   # and B, if B is yours
-  ```
-
-- To add to a lower branch, commit there, then `git switch C && git rebase --update-refs B`.
+- Rebase a stack only from the **top**, with `--update-refs`, so every branch pointer inside it
+  moves with its commits. Rebasing a lower branch alone strands the ones above it on the old
+  commits, and a later rebase of the top replays those stale copies: a cactus. Never rebase the
+  spine by hand while anyone else might be landing: `pnpm restack` holds it first.
 - A branch checked out in another worktree is skipped by `--update-refs` and stays where it was.
-- Rebase when `main` has moved under you: at a thread's start and finish, or after a merge beneath
-  you. Not on a timer.
 
 Two ways to land a stack:
 
 1. **As a unit (preferred when it's ready together).** Merge only the top PR. GitHub sees the lower PRs' head commits in `main` with unchanged SHAs and marks those PRs merged automatically. You get one bubble containing all of the stack's commits.
-2. **One PR at a time.** Merge A. Then rebase from C as above, which moves B and C onto the new tip, push, and merge B. Repeat. You get one bubble per PR, at the cost of a restack per merge.
+2. **One PR at a time.** Merge the bottom PR, then `pnpm restack`, which moves the rest onto the new tip and pushes them; merge the next. Repeat. You get one bubble per PR, at the cost of a restack per merge.
+
 
 ## Merging (Coach only)
 
@@ -240,3 +280,5 @@ does not. Before a command that throws changes away (`reset --hard`, `restore`, 
 put a branch on it. If you can't tell what it would discard, stop and ask.
 
 Anything that touches `main` directly: stop and ask Coach.
+
+Never in the main checkout: everything uncommitted there is the Coach's.

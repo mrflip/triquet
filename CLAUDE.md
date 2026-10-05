@@ -185,25 +185,24 @@ Enough to keep you out of trouble on a small edit. STYLE.md is the real source.
 
 History on main is semi-linear. Read `notes/git_hygiene.md` before any complicated operation (eg a rebase that touches more than one branch), or when your guidance on git is requested, or if performing operations on the github repo.
 
-Work goes in **threads**: one line of work, one branch, one PR. (A session may involve several threads.) An ordered series of threads issued at once is a **sprint**, run by the `/sprint` orchestrator through `thread-worker` agents: `notes/git_hygiene.md`, *Sprints*. Within a thread you have standing permission to commit, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps. These rules govern the history you push: locally, commit, branch and replay however helps, and tidy up before pushing.
+Work goes in **threads**: one line of work, one branch, one PR, one worktree. (A session may involve several threads.) An ordered series of threads issued at once is a **sprint**, run by the `/sprint` orchestrator through `thread-worker` agents: `notes/git_hygiene.md`, *Sprints*. Within a thread you have standing permission to commit, land, push its branch, and open its PR without asking. `git_hygiene` has more details on each of these steps.
 
-1. **Start** a new line of work by tidying the stack you stand on: `git fetch origin && git rebase
-   --update-refs origin/main`. That replays every unmerged branch beneath you (yours or not) onto main,
-   in order; merged ones drop out. Then `pnpm newb <branchlabel>`, which branches `YYYYMMDD-<branchlabel>`
-   from where you stand. Push only branches you own. If the rebase refuses (uncommitted changes) or
-   conflicts, abort it, `newb` where you stand, and tell the Coach. Continuing the current thread needs
-   no new branch.
+**The spine** is the one stack of landed branches, checked out in the main checkout at its top: what the Coach watches and merges. It is shared, and any agent may sweep it, replay it onto `origin/main` and push its branches; a branch not yet landed is its own agent's. **Agents write only in worktrees of their own**: the main checkout is the Coach's, to read freely and never write to except by landing.
+
+1. **Start** with `pnpm worktree <branchlabel>`, which cuts `YYYYMMDD-<branchlabel>` from the spine's top into a worktree of
+   its own, with a lane and its packages, and prints its root. Work from that root. Continuing the current thread needs no new worktree.
 2. **Commit at natural milestones**: a set of related changes, with the app working again (typecheck,
    lint and the tests near your change pass). Not mid-refactor, not on a timer. Separate commits are preferred.
-3. **Finish** with `git fetch origin && git rebase --update-refs origin/main`, then the full suite: `pnpm typecheck
-   && pnpm lint && pnpm test && pnpm test:e2e`. Repair what is straightforward; if a conflict needs a
-   judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
-4. **Push, and file the PR** against `main` with `gh pr create` (a push borrows gh's login: see
-   git_hygiene's *Filing the PR*), unless *significant* questions hang: then ask
-   in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the proper place (`human/`, whiteboard, chat) as usual. When stacked, write "stacked on #N".
-   **Never merge a PR or enable auto-merge**.
+   Inside your worktree, commit, branch and replay however helps, and tidy up before landing.
+3. **Finish** with `pnpm land`, in the worktree: it rebases onto the top, runs typecheck, lint, the unit tests and e2e,
+   and folds your branch onto the spine and pushes it. On a rebase conflict, repair what is straightforward and land again;
+   if a conflict needs a judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
+4. **File the PR** against `main` with `gh pr create`, unless *significant* questions hang: then ask
+   in chat first. Add smaller open questions in the description -- but make sure they *also* appear in the proper place (`human/`, whiteboard, chat) as usual. Write "stacked on #N" for the branch you landed on.
+   **Never merge a PR or enable auto-merge**. Then `pnpm worktree --remove`.
 
-- Push rebased branches with `git push --force-with-lease --force-if-includes`. Never plain `--force`.
+- Force-push only with an explicit lease, `--force-with-lease=<branch>:<sha>`. Never plain `--force`.
+- Never stash, commit, discard or overwrite anything uncommitted in the main checkout but the swept `whiteboard/`, `human/` and `notes/`: it is the Coach's.
 
 <!-- convex-ai-start -->
 This project uses [Convex](https://convex.dev) as its backend.
