@@ -95,10 +95,25 @@ The questions alone: `{ "questions": { …as in the quiz's ball… } }`.
 * The per-quiz history (`quizgit`) writes the new body, so each quiz's next commit rewrites its
   `.tq.json` once. Thread 5 retires it anyway.
 
+## Review
+
+Medium review, one commit added (`e0b9f45`: a fixture for the 2026-09-27 hunt-with-ids export,
+proving its id chains import by label).
+
+* **Significant, decided by the Coach: keep the `position` reservation.** It sits on
+  `WidgetingValidators.row`, and `updateWidgeting` re-validates the whole row, so in a quiz
+  already holding a widgeting labelled `position`, editing it, or removing or moving any other
+  widgeting so its position shifts, is refused; Raw Export would overwrite its value with the
+  question's position; a re-import would type the index into a number entry's cells. The Coach
+  will read production's widgetings for a label of `position` (and `forced_label`, `id`) and
+  relabel any hits **before the PR merges**.
+* **Minor, left:** a widgeting labelled `forced_label` makes a re-import refuse every question
+  (widgeteds sit beside question fields). Pre-existing, not a regression.
+
 ## For the Coach
 
-* **`position` is now a reserved widgeting label.** A production widgeting labelled `position`
-  (unlikely) would refuse its next edit until relabelled. No migration: it is Zod only.
+* **Merge only after the production check** of widgetings labelled `position` comes back empty,
+  or its hits are relabelled (*Review*, above).
 * Should Raw Export also be offered for one quiz alone, to someone who may not export the hunt?
   `Exporting.quizBall` exists; the panel offers only the hunt, as before.
 * Should Import also carry a pasted quiz's columns (and title, note)? It never has.
