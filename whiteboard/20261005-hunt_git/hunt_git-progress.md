@@ -15,6 +15,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 5 | One repository per hunt | landed #129 |
 | 6 | Downloads and the hunts page | landed #130 |
 | 7 | The Coach's follow-ups | landed #133 |
+| 8 | The Coach's second follow-ups | underway |
 
 ## What the threads have taught
 

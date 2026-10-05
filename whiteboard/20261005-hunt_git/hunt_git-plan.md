@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: done. Threads 0-7 landed (#121, #125, #126, #127, #128, #129, #130, #133); the `orglabel` tighten waits on the production backfill.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-7 landed (#121, #125, #126, #127, #128, #129, #130, #133); thread 8 (the Coach's second follow-ups) underway; the `orglabel` tighten waits on the production backfill.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -197,3 +197,33 @@ address by role; quiz lists by label; Import carrying the whole quiz; the TSV ru
 { … } } }`; off-screen quiz watches opened once the page is loaded and idle. **This thread makes
 a schema change** (the widen), against the sprint's earlier ground rule, at the Coach's word.
 Depends on: 6.
+
+### 8. The Coach's second follow-ups (one PR)
+
+*Coach's text:* "'Pasting a whole-hunt export into a quiz that matches none of its quizzes by
+label or title takes the first quiz' This should instead make a new quiz in that hunt with that
+label -- labels only have to be unique within the hunt (and realm, but there's only one realm).
+Do we validate that the realm can only have the default name? if not add as part of this push."
+-- "Do we have updated at and created at fields? If not, add them, always in UTC if it's not
+already. Add a field `viz` that takes values "archived", "secondary", "normal" -- start
+everything at normal.
+* Secondary questions are shown by having ` (alt)` appended to the title, and the title
+  italicized. In a tiebreaker sort, they are sorted last.
+* Archived questions apear on neither smith, nor playtester, nor taker screens. They both appear
+  in a section near the end of the quiz modal, with the title and a snippet of the clueing. An
+  archived question has a trashcan that deletes with no confirmation.
+* In batch mode, make the trash can icon instead signify visibility, and offer the options
+  (archive, secondary, normal) in the modal confirm that we have now (no delete). Below, offer
+  buttons to Archive Selected (modal confirm, says to un-archive in the gearbox), Make Secondary,
+  or Make Normal. Use conventional icons and colors.
+On an import of one or more successful questions, archive questions with blank fields and equal
+create & update times. Omit archived questions from the special questions tsv export and the
+questions git tsv. Include them when serializing a quiz or anything larger. LL exports -- Omit
+Archived questions from the LL export. Omit Archived and Secondary ones when exporting the weird
+LL "Go live" bulk format; include both when exporting for playtest. Don't add an annotation to
+the alt questions."
+
+Gloss: a schema widen (question `viz`; `created_at`/`updated_at` where rows lack them), with a
+backfill folded into the same production run as thread 7's; the realm label pinned to `home` in
+the validator; Import making a new quiz for an unmatched whole-hunt paste; the views, batch mode,
+exports and files as the Coach lists. Depends on: 7.
