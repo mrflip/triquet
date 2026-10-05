@@ -18,6 +18,34 @@ describe('Ident.labelFor', () => {
   }
 })
 
+describe('Ident.flawIn', () => {
+  const Cases = [
+    // regular usage:
+    ["Flip Kromer",                  null,     'takes words, which become a label'],
+    ["flip-kromer_2",                null,     'takes hyphens, underscores and numbers after the first letter'],
+    ["Ünïcödé Pérson",               null,     'takes accented letters, which lose their accents'],
+    ["the_quite_long_name_indeed",   null,     'takes too many characters, since the label stops at the most it holds'],
+    // too short:
+    ["flip",                         'length', 'finds a label of fewer than six characters too short'],
+    ["fl ip",                        'length', 'counts the label, not the keystrokes'],
+    ["",                             'length', 'finds nothing typed too short, not misshapen'],
+    [" ".repeat(3),                  'length', 'finds only spaces too short, not misshapen'],
+    // a character no label keeps:
+    ["flip!",                        'shape',  'refuses punctuation, which the label would drop'],
+    ["flip.kromer",                  'shape',  'refuses a dot, which the label would stand an underscore in for'],
+    ["1flipper",                     'shape',  'refuses a number first, which the label would put a letter before'],
+    ["_flipper",                     'shape',  'refuses an underscore first'],
+    ["flip 🤔 kromer",               'shape',  'refuses an emoji'],
+    ["田中 kromer",                  'shape',  'refuses a letter with no plain-letter spelling'],
+    ["ab!",                          'shape',  'says a misshapen character before saying too short'],
+  ] as const
+  for (const [typed, flaw, describes] of Cases) {
+    it(describes, () => {
+      expect(Ident.flawIn(typed)).to.eq(flaw)
+    })
+  }
+})
+
 describe('Ident.byline', () => {
   it('names an ident by its title, then its label written @label', () => {
     expect(Ident.byline({ label: 'mrflip', title: 'Mrflip' })).to.eq('Mrflip (@mrflip)')
