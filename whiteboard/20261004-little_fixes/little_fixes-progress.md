@@ -9,8 +9,51 @@ their sections below the table, newest first.
 | ------ | ---------------------------- | ------ | -- | ------- |
 | 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
 | 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; review rides with 1b |
-| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` |  | underway |
+| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete |
 | 3      | quiz mode: grid and widgets  |        |    | pending |
+
+## Thread 1b: the ident gate, the Coach's follow-up (2026-10-05)
+
+Branch `20261005-ident_gate_again`, PR #105, follows #99. Suites: typecheck and lint clean;
+`pnpm test` 124 files, 3477 tests; `pnpm test:e2e:agent` 226 passed.
+
+* **Built**:
+  - `src/components/IdentGate.tsx`: on the switch path, typing the held ident's label turns the
+    primary into "Keep being <Title> (@label)". It and Enter go to `onward` without calling
+    the server, and the cancel button is hidden meanwhile.
+  - A too-short label is said (red, `AppNotices.usernameLength`) only after the field has been
+    left once (a `left` flag set on blur). A bad character is said at once
+    (`AppNotices.usernameShape`). The button is disabled for either.
+  - `Ident.flawIn(typed)` (`src/models/ident.ts`) returns `'shape' | 'length' | null`.
+    `PA.Identtyped` (`src/lib/vv/patterns.ts`) is the typed-text pattern it tests, after
+    `deburr`: letters, numbers, spaces, hyphens and underscores, starting with a letter.
+  - Tests: 15 cases in `tests/models/ident.test.ts`. In `e2e/routing.spec.ts`, the too-short
+    spec is rewritten, and the bad-character and own-name specs are new.
+* **Decisions taken**:
+  - **Where the split lives.** The label validator already distinguishes the two
+    (zod issue codes), but never sees a bad character: `Ident.labelFor` repairs every one
+    (`flip!` becomes `flip`, `1flip` becomes `z1flip`, an emoji is dropped). So the shape check
+    runs on the typed text, as a pattern beside `Identlabel`. The length check stays the label
+    validator's. The model change is about 15 lines.
+  - **"Unacceptable" means** a character that `labelFor` would drop or substitute beyond
+    case-folding and space/hyphen-to-underscore. That includes `.` and `'`, which used to pass
+    silently (an open question in the PR).
+  - **The cancel is hidden** while the primary says "Keep being", rather than showing two
+    buttons that say the same thing.
+  - **Nothing typed** is a `length` flaw, so it is never red, even after blur.
+* **Discoveries**:
+  - The worktree's `agent` backend held rows from before main's `q1_preamble` field. It was
+    refused on push and emptied with `scripts/convex_reset agent`; it is shared with the main
+    checkout through the symlink.
+  - The worktree has no `data/convex-e2e` link, so the finishing e2e run used `pnpm test:e2e:agent`.
+  - `MembersPanel`'s add-a-member field could use `Ident.flawIn` too; it was left alone.
+* **For the Coach**: should apostrophes and dots turn red, or pass quietly as underscores? Either
+  way it is a one-character change to `PA.Identtyped`.
+
+Screenshots (`screenshots/`, `-before` and `-after`, light and dark at 1100px; read them to
+review the look): `thread1b-short-typing-*` (`flip`, still focused), `thread1b-short-left-*`
+(after blur), `thread1b-badchar-*` (`flip!`), `thread1b-switch-own-*` (own label on the
+switch path).
 
 ## Thread 2: the hunts page lines up (2026-10-05)
 
