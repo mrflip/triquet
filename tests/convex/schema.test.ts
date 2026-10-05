@@ -205,4 +205,21 @@ describe("every table and its row validator", () => {
       expect(() => RowValidators[tablename].parse(notJson)).to.throw(Z.ZodError)
     })
   }
+
+  // Checks the bridge does not carry, made by the row validator alone: the table takes a row an
+  // older write may hold, so no push is refused for it, while every write now is held to them.
+  const ValidatorOnly = [
+    ['realms',     { label: 'away' },     "a realm labelled other than home"],
+    ['widgetings', { label: 'position' }, "a widgeting under a label its question's fields take"],
+  ] as const
+
+  for (const [tablename, overrides, title] of ValidatorOnly) {
+    it(`take ${title}, leaving the row validator to refuse it`, async () => {
+      const tt = openTester()
+      const samples = await samplesIn(tt)
+      const held = { ...samples[tablename], ...overrides }
+      await tt.run(async (ctx) => { await ctx.db.insert(tablename, held as never) })
+      expect(() => RowValidators[tablename].parse(held)).to.throw(Z.ZodError)
+    })
+  }
 })

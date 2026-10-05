@@ -14,7 +14,7 @@ import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
 import { huntHolding, identified, openTester, putOn, signedIn, type Tester } from '../support/convex'
-import { seedHuntRows } from '../support/seed'
+import { seedHuntRows, seedQuizRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
 async function holding(hunt: HuntT, tt: Tester = openTester(), orglabel?: string): Promise<{ tt: Tester, hunt_id: Id<'hunts'>, quiz_id: Id<'quizzes'> }> {
@@ -122,15 +122,12 @@ describe("orglabelOf", () => {
 
 describe("huntRowsOf", () => {
   it("reads the hunt's own row, and its realms in order with their quizzes' rows", async () => {
-    const hunt = Hunt.fill({
-      _id:    mintId(),
-      label:  'two_realms',
-      realms: [
-        { _id: mintId(), label: 'home', quizzes: [Quiz.blank('At home')] },
-        { _id: mintId(), label: 'away', quizzes: [Quiz.blank('Away one'), Quiz.blank('Away two')] },
-      ],
+    const { tt, hunt_id } = await holding(Hunt.fill({ _id: mintId(), label: 'two_realms', realms: [{ _id: mintId(), quizzes: [Quiz.blank('At home')] }] }))
+    // A second realm, which no write makes for now (every realm is home), but which the reads can hold.
+    await tt.run(async (ctx) => {
+      const realm_id = await ctx.db.insert('realms', { hunt_id, label: 'away', title: '', position: 1 })
+      for (const title of ['Away one', 'Away two']) { await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank(title)) }
     })
-    const { tt, hunt_id } = await holding(hunt)
     const rows = present(await tt.run(async (ctx) => await huntRowsOf(ctx.db, hunt_id)))
     expect(rows.realms.map(({ realm, quizzes }) => [realm.label, quizzes.map((quiz) => quiz.title)])).to.deep.eq([
       ['home', ['At home']],

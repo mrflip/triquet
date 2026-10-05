@@ -8,8 +8,11 @@ import { QuizValidators, type QuizT } from './quiz'
 export const HomeRealmLabel = 'home'
 
 export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid, treeid }) => {
-  const realmLabel = label
-    .describe('What the realm is called in an address, unique among its hunt\'s realms. Every hunt has `home`.')
+  // Pinned by a refinement rather than a literal (nor a type predicate, which would narrow the type
+  // the same way), so the schema derived from the row stays a string and no push can refuse a
+  // realm row already written (`notes/deploy.md`, *Schema pushes*).
+  const realmLabel = label.refine((val): boolean => val === HomeRealmLabel, `should be ${HomeRealmLabel}, the one realm a hunt has for now`)
+    .describe('What the realm is called in an address, unique among its hunt\'s realms. Every hunt has `home`, and for now no other.')
   const title = titleish
     .describe('What the realm is called on screen; a blank one displays as its label titleized.')
 
