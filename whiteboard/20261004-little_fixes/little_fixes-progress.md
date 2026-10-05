@@ -43,6 +43,10 @@ Suites: typecheck and lint clean; `pnpm test` 123 files, 3283 tests; `pnpm test:
 * **For the Coach**: two small open questions, also in the PR: logging in as the ident you
   already are is offered and is a no-op (could disable, or become "Keep being"); and the shape
   error shows from the first keystroke, as the plan asked, rather than on blur.
+* *Review:* `fixed`, at medium. Kept 161ca84: "Keep being" is now `disabled={busy}` like the
+  submit -- pressing it while a log-in was in flight sent you to the hunts as the old ident, and
+  then the log-in landed anyway. No findings left; the two Coach questions above are questions,
+  not findings.
 
 Screenshots (`screenshots/`, each `-before` and `-after`; read them to review the look):
 `thread1-login-short-dark-1100` (an invalid label), `thread1-login-typed-light-1100` (a valid

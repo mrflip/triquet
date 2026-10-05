@@ -1,7 +1,7 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** planned.
+`/sprint`. **Status:** thread 2 underway. Thread 1 complete and reviewed (#96).
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -85,6 +85,11 @@ records why). The quizzes listed per hunt are a ragged list by nature: keep them
 more space between them. The thinking face (🤔) marks a quiz that is **not locked** (vocabulary:
 *locked* -- frozen against edits) -- i.e. still being worked on. It needs an accessible label or
 a `title`, and it is a sigil, so it sits beside the quiz's name, not in its own column.
+
+*Orchestrator:* thread 1 added `Ident.byline(ident)` (`src/models/ident.ts`), the app's first
+"Title (@label)" form, and its "Keep being" button lands here. The hunts page's own line still
+says "You are <title> (label)." -- switch it to `Ident.byline` so the two pages agree; that is a
+one-line change in the file this thread is already restyling.
 
 *Look-ahead.* Thread 3's widgets panel also wants "elements that line up" plus responsive
 column-hiding. If thread 2 lands on a table/grid pattern that suits both, say so in the progress
