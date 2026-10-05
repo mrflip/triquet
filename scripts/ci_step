@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# The shell each `run` step of .github/workflows/ci.yml runs in (its `defaults.run.shell`). Runs
+# the step as GitHub's own bash would, and marks in the log where the step starts and ends: the
+# time, and how far into the job, counted from the JOB_STARTED the job's first step notes.
+# GitHub's log viewer can show each line's time as well (its gear menu, "Show timestamps"), but
+# never how far into the job a line came.
+#
+# Usage: bash scripts/ci_step <step's script>
+set -uo pipefail
+
+mark() {
+  local now elapsed
+  now="$(date +%s)"
+  elapsed=$(( now - ${JOB_STARTED:-$now} ))
+  printf '⏱ %s %s UTC, %dm%02ds into the job\n' "$1" "$(date -u -d "@$now" +%T)" $(( elapsed / 60 )) $(( elapsed % 60 ))
+}
+
+mark started
+bash --noprofile --norc -eo pipefail "$1"
+status=$?
+mark ended
+exit "$status"

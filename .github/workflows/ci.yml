@@ -12,29 +12,42 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# Every `run` step heads and closes its log with the time and how far into the job it is
+# (scripts/ci_step), counted from the JOB_STARTED each job's first step notes. A step before the
+# checkout has no scripts/ to run in, and says `shell: bash` for itself.
+defaults:
+  run:
+    shell: bash scripts/ci_step {0}
+
+# Few jobs, each doing several checks: a pull request's run takes eight runners at once, and the
+# account has twenty, which a push of the spine shares among every pull request on it. Within a
+# job every check runs whatever an earlier one found, so one failure never hides another, and
+# the job fails if any did. The two quick jobs are the ones the ruleset requires; they take about
+# as long as each other, and less than the slowest e2e shard.
 jobs:
-  typecheck:
+  # Lint first, as the likelier of the two to fail for a reason worth reading, then typecheck, then
+  # keep a pull request's history semi-linear (notes/git_hygiene.md): its branch may hold no merge
+  # commit. The whole history is fetched for that, a few seconds at this size.
+  lint-typecheck:
     runs-on: ubuntu-26.04
     steps:
+      - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+        shell: bash
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version-file: .tool-versions
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-
-  # Also keeps a pull request's history semi-linear (notes/git_hygiene.md): its branch may hold
-  # no merge commit. The whole history is fetched for that, a few seconds at this size.
-  lint:
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+      - id: install
+        run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm typecheck
       - name: Reject merge commits in the branch
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -45,60 +58,40 @@ jobs:
             git log --oneline --no-walk $merges
             exit 1
           fi
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
 
-  test:
+  # The unit tests, then the build, both on the checkout as committed; then a check that
+  # convex/_generated/ is as the functions regenerate it. It is committed, and a push regenerates
+  # it, so this pushes to a local backend of its own (the binary cached as the e2e job caches it)
+  # and diffs. Last, because the push rewrites those files in place.
+  test-generated-build:
     runs-on: ubuntu-26.04
     steps:
+      - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+        shell: bash
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version-file: .tool-versions
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - id: install
+        run: pnpm install --frozen-lockfile
       - run: pnpm test
-
-  build:
-    runs-on: ubuntu-26.04
-    # Baked into the page at build, never connected to: any URL will do.
-    env:
-      NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-
-  # convex/_generated/ is committed, and a push regenerates it: a checkout whose functions or
-  # schema changed without it fails here. Codegen needs a running deployment, so the job pushes
-  # to a local backend of its own (the binary cached as the e2e job caches it) and diffs.
-  generated:
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .tool-versions
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v6
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm build
+        # Baked into the page at build, never connected to: any URL will do.
+        env:
+          NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3402
+      - if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        uses: actions/cache@v6
         with:
           path: ~/.cache/convex/binaries
           key: convex-backend-${{ runner.os }}-${{ hashFiles('scripts/convex_backend') }}
-      - run: scripts/convex_dev e2e true
-      - run: git diff --exit-code --stat convex/_generated
+      - id: generate
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: scripts/convex_dev e2e true
+      - if: ${{ !cancelled() && steps.generate.outcome == 'success' }}
+        run: git diff --exit-code --stat convex/_generated
 
   # The suite split six ways, each shard on a runner of its own, against the optimized build
   # (`next build`, then `next start`) rather than the dev server: the mode the app is deployed in,
@@ -107,6 +100,14 @@ jobs:
   # to the end, so one failure never hides another.
   e2e:
     runs-on: ubuntu-26.04
+    # Playwright's own image, with its browsers and all they need already in it, so no shard
+    # installs them. Its tag is the @playwright/test version installed, and
+    # tests/e2e/ci-image.test.ts keeps the two the same. It runs as root, so a step can apt-get;
+    # Playwright runs Chromium unsandboxed anyway. --ipc=host is Playwright's advice for Chromium
+    # in a container, whose shared memory is otherwise too small for it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -123,6 +124,8 @@ jobs:
       NEXT_DIST_DIR: .next-e2e
       TRIQUET_E2E_SERVER: built
     steps:
+      - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+        shell: bash
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
@@ -131,11 +134,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The Convex backend binary scripts/convex_backend pins, kept between runs.
-      - uses: actions/cache@v6
+      - id: backend
+        uses: actions/cache@v6
         with:
           path: ~/.cache/convex/binaries
           key: convex-backend-${{ runner.os }}-${{ hashFiles('scripts/convex_backend') }}
-      - run: pnpm exec playwright install --with-deps chromium
+      # The image has curl but not unzip, which scripts/convex_backend needs to unpack a backend
+      # it downloads.
+      - if: steps.backend.outputs.cache-hit != 'true'
+        run: apt-get update && apt-get install --yes --no-install-recommends unzip
       - run: pnpm exec playwright test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
       # The html report holds each failure's trace, screenshot and log; `pnpm exec playwright
       # show-report` opens it once downloaded and unzipped.

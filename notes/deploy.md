@@ -208,7 +208,7 @@ script sets) wins over it, so it does no harm; it is not this project's way of c
 anything.
 
 `convex/_generated/` is committed. A push regenerates it; commit what it writes, a large
-regeneration in a commit of its own. CI's `generated` job pushes to a backend of its own and fails
+regeneration in a commit of its own. CI's `test-generated-build` job pushes to a backend of its own and fails
 on any difference.
 
 ### Asking a real bot while debugging
