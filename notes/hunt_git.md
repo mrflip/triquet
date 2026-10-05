@@ -20,15 +20,14 @@ treatment**: there is no migration, and nothing new reads or lists them.
 
 ## Scoped by label
 
-Everything is named by label, never by id: the repository, its directories, its files, the keys
-inside the JSON, a chain's target, a widgeting's widget, a member. No file carries a row id.
+Everything a person sees is named by label, never by id: the repository's directories, its
+files, the keys inside the JSON, a chain's target, a widgeting's widget, a member, its tags,
+and the zip it downloads as (`<hunt label>.zip`, unpacking to a `<hunt label>/` folder). No file
+carries a row id.
 
-The repository root is `/hunts/<hunt label>`. Relabelling a hunt in this tab moves the
-directory (LightningFS `rename`, in the mirror's queue). One consequence is accepted: a hunt
-relabelled in another browser, while this one is away, leaves this browser's repository under
-the old label. It is then listed with the repositories of hunts you are not on, and can still be
-downloaded. A new hunt minted with a label an old repository still holds continues that
-history. The label is the identity.
+Where the repository sits in the browser's own filesystem is not user-facing, and it is keyed
+by the hunt's id, `/hunts/<hunt _id>`, so that relabelling a hunt, here or in another browser,
+neither moves nor strands its history.
 
 ## Jsonballs at their paths
 
@@ -75,9 +74,10 @@ the app's tests.
 4. **Paths follow addresses.** A resource with a page of its own sits at the repository path
    that its URL names below the hunt. One function produces the URL, the path and the jsonball's
    key path, so the three cannot drift (thread 1 of the plan). Renaming a quiz or realm renames
-   its files. In the downloaded repository, real git reads that as a rename by similarity.
-   isomorphic-git follows only renames that leave the contents byte-identical (`log` with
-   `follow`), and the app reads no history back, so that difference does not matter yet.
+   its files, which real git follows as a rename by similarity once the repository is downloaded.
+   That is all that is asked of renames: the repository is a backup, a history and a download,
+   not a database. (isomorphic-git follows only renames that leave a file's contents
+   byte-identical, and the app reads no history back, so nothing here leans on it.)
 5. **A deletion is a commit that removes the files.** The history keeps them, so a deleted quiz
    no longer leaves an orphaned repository behind.
 

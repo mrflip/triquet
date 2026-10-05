@@ -84,15 +84,15 @@ document. Touches `convex/` (and `convex/_generated/`, regenerated and committed
 `convex/authorize.ts`, `src/state/use-hunt.ts` (or a hook of its own beside it), and tests in
 `tests/convex/`. Name `/convex-reviewer` before marking it ready.
 
-### 4. One repository per hunt, by label
+### 4. One repository per hunt
 
-*Proposed text:* Keep each hunt's history in one repository at `/hunts/<hunt label>`, on
-`main`, committing only the files that changed, with a catch-up commit on a tab's first full
-reading. A hunt relabelled here moves its repository. Milestones, imports and deletions keep
-working, with tags that name the quiz.
+*Proposed text:* Keep each hunt's history in one repository, on `main`, committing only the
+files that changed, with a catch-up commit on a tab's first full reading. Milestones, imports
+and deletions keep working, with tags that name the quiz.
 
-Gloss: the scheduler is keyed by hunt label and holds a dirty-file set, not a pair of
-snapshots. `GitFs` gains `rename`. Commit messages are the per-quiz summary lines from the spec.
+Gloss: the repository sits at `/hunts/<hunt _id>` in the browser's filesystem (not user-facing;
+the id keeps a relabel from moving or stranding it). The scheduler is keyed by hunt id and holds
+a dirty-file set, not a pair of snapshots. Commit messages are the per-quiz summary lines from the spec.
 Tags take the form `<quiz>/<version>/…`. `markedChange` and `milestoneQuiz` flush the hunt.
 `openHistory` becomes the catch-up commit (`git.hashBlob` against HEAD's tree). The per-quiz
 code in `quizgit.ts` and `quiz-mirror.ts` is replaced, not kept beside the new code. The e2e
@@ -105,15 +105,17 @@ gear), named for the hunt. On the hunts page, the folded list shows the hunt rep
 browser holds for hunts you are not on, each downloadable.
 
 Gloss: `FullHistoryDownload` and `QuizManageModal`'s *Download as git* download the hunt's
-repository. `OrphanedRepos` (PR #102) lists `/hunts` repositories whose label is not one of
-your hunts'. `/quizzes` is not read at all. `content/full-history.md` is rewritten for a hunt
+repository. `OrphanedRepos` (PR #102) lists `/hunts` repositories whose id is not one of your
+hunts', each by the hunt label its `hunt.tq.json` holds. `/quizzes` is not read at all. `content/full-history.md` is rewritten for a hunt
 repository, `jq` line included.
 
 ## For the Coach
 
 Settled on 2026-10-05: no special treatment for the per-quiz repositories; scoped by label;
 the quiz as one jsonball, with its questions as a jsonball of their own; jsonballs rooted at
-the hunt, so that a deep merge reconstitutes it; watches and commits at the grain of the files.
+the hunt, so that a deep merge reconstitutes it; watches and commits at the grain of the files;
+renames need only be followed by the real git CLI, and the browser filesystem's own paths are
+not user-facing.
 
 1. **Collections as keyed objects, not arrays** (`{ realms: { home: { quizzes: { … } } } }`).
    That is a refinement of your sketch: it is what lets any merge tool reconstitute the hunt
