@@ -23,6 +23,7 @@ import type { EstimatesDNA } from '../../src/models/estimate'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
+import { SeedOrg } from '../support/seed'
 
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
@@ -1495,9 +1496,9 @@ describe("hunts.list", () => {
   })
 })
 
-/** The hunt `hunt_label` as the session `by` is shown it, which must be shown */
-async function shown(hunt_label: string, by: Session) {
-  const opening = await by.as.query(api.hunts.open, { hunt_label })
+/** The hunt `hunt_label` of the org `orglabel` (the seeded smith's, by default) as the session `by` is shown it, which must be shown */
+async function shown(hunt_label: string, by: Session, orglabel: string | null = SeedOrg) {
+  const opening = await by.as.query(api.hunts.open, { orglabel, hunt_label })
   return present(opening.hunt)
 }
 
@@ -1541,14 +1542,47 @@ describe("hunts.open", () => {
     await join('bob_reviews', 'reviewer')
     const carol = await identified(tt, 'carol_strays')
     const refused = { why: 'notOnHunt', hunt: null, smiths: [{ label: 'seed_smith', title: 'Seed Smith' }, { label: 'alice_smiths', title: 'Alice Smiths' }] }
-    expect(await carol.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })).to.deep.eq(refused)
-    expect(await tt.query(api.hunts.open, { hunt_label: 'quiet_otter' })).to.deep.eq(refused)
+    expect(await carol.as.query(api.hunts.open, { orglabel: SeedOrg, hunt_label: 'quiet_otter' })).to.deep.eq(refused)
+    expect(await tt.query(api.hunts.open, { orglabel: SeedOrg, hunt_label: 'quiet_otter' })).to.deep.eq(refused)
   })
 
-  it("says so for a label no hunt answers to", async () => {
+  it("says so for a label no hunt of the org answers to, though another org's does", async () => {
     const tt = openTester()
     const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
-    expect(await smith.as.query(api.hunts.open, { hunt_label: 'loud_heron' })).to.deep.eq({ why: 'noSuchHunt', hunt: null })
+    expect(await smith.as.query(api.hunts.open, { orglabel: SeedOrg, hunt_label: 'loud_heron' })).to.deep.eq({ why: 'noSuchHunt', hunt: null })
+    expect(await smith.as.query(api.hunts.open, { orglabel: 'other_org', hunt_label: 'quiet_otter' })).to.deep.eq({ why: 'noSuchHunt', hunt: null })
+  })
+
+  it("names the org the hunt stores, whoever is on it now", async () => {
+    const tt = openTester()
+    const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const alice = await join('alice_smiths', 'smith')
+    await tt.run(async (ctx) => {
+      const maker = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).first()
+      if (maker) { await ctx.db.delete('huntings', maker._id) }
+    })
+    const hunt = await shown('quiet_otter', alice)
+    expect(hunt.org).to.eq(SeedOrg)
+  })
+
+  it("finds the earliest hunt answering to the label, whatever its org, for an old address that names none", async () => {
+    const tt = openTester()
+    const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
+    const hunt = await shown('quiet_otter', smith, null)
+    expect(hunt.org).to.eq(SeedOrg)
+  })
+
+  it("names a hunt that stores no org yet by its earliest member, whatever their role, under any org", async () => {
+    const tt = openTester()
+    const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'pat_smiths' })
+    const alice = await join('alice_smiths', 'smith')
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('hunts', open.hunt_id, { orglabel: undefined })
+      const maker = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).first()
+      if (maker) { await ctx.db.patch('huntings', maker._id, { role: 'reviewer' }) }
+    })
+    const found = [await shown('quiet_otter', alice, 'pat_smiths'), await shown('quiet_otter', alice, 'kim_parks')]
+    expect(found.map((hunt) => hunt.org)).to.deep.eq(['pat_smiths', 'pat_smiths'])
   })
 })
 

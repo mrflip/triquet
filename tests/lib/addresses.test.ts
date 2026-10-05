@@ -127,22 +127,6 @@ describe("Addresses.isMerged", () => {
   })
 })
 
-describe("Addresses.orgOf", () => {
-  const OrgCases = [
-    // regular usage:
-    [[{ label: 'pat_smith', role: 'smith' }, { label: 'lee_jones', role: 'smith' }],    "pat_smith", 'is the earliest smith, of several'],
-    [[{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }], "pat_smith", 'passes over a reviewer who joined first'],
-    // trivial cases:
-    [[],                                                                                 null,        'is null for a hunt with nobody on it'],
-    [[{ label: 'lee_jones', role: 'reviewer' }],                                         null,        'is null for a hunt with no smith'],
-  ] as const
-  for (const [members, org, story] of OrgCases) {
-    it(story, () => {
-      expect(Addresses.orgOf(members)).to.eq(org)
-    })
-  }
-})
-
 describe("Addresses.locationFrom", () => {
   it("reads a quiz opened in a mode", () => {
     expect(Addresses.locationFrom('/~pat_smith/spring_hunt/quizzes/home/legends/!edit')).to.deep.eq({ address: Every.quiz, mode: 'edit' })

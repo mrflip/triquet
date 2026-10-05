@@ -90,10 +90,12 @@ export function HuntsList({ org }: Readonly<HuntsListProps>) {
 
   const onNew = async () => {
     // The label is settled here rather than in the action, because the address this is about
-    // to go to has to name it. Only this visitor's own hunts are listed, so a hunt of someone
-    // else's may already answer to it: then another is tried, and only the last refusal is said.
+    // to go to has to name it. It need only be unique within the visitor's own org, but only the
+    // hunts they are on are listed, so one of their org they have left may already answer to it:
+    // then another is tried, and only the last refusal is said.
+    const ownOrg = listed.filter((hunt) => hunt.org === ident.label)
     for (let attempt = 1; attempt <= NewHuntAttemptsMax; attempt += 1) {
-      const label = Labelmaker.freshLabelFor(listed)
+      const label = Labelmaker.freshLabelFor(ownOrg)
       const outcome = await act({ kind: 'new_hunt', label })
       if (outcome.kept) {
         // Its maker is its first smith, and so its org.

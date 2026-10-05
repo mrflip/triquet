@@ -181,10 +181,11 @@ const NoWidgets: readonly WidgetT[] = []
  * of the browser's own claims (`denialOf`) is not sent at all, and is said the same way. For a smith, every
  * reading of the hunt, whoever changed it, goes into its history (`useHuntFeed`, `HuntMirror`).
  *
+ * @param orglabel - The org the address names; null for an old address, which names none.
  * @param labels - The hunt, realm and quiz the address names.
  * @returns The hunt, realm and quiz, a dispatcher, and why anything went wrong.
  */
-export function useHunt(labels: QuizLabels): HuntHandle {
+export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle {
   const { ready } = useSession()
   const perform = useMutation(api.hunts.perform)
   const raise = useRaiseAlarm()
@@ -193,10 +194,10 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   // A label that cannot be one names no hunt, and is not asked about.
   const askable = ValidatorKit.label.safeParse(labels.hunt).success
-  const opening = useQuery(api.hunts.open, askable && ready ? { hunt_label: labels.hunt } : 'skip')
+  const opening = useQuery(api.hunts.open, askable && ready ? { orglabel, hunt_label: labels.hunt } : 'skip')
   const hunt = opening?.hunt ?? null
   // The quiz last found at this address, so a relabel does not lose it: see `placeIn`.
-  const address = `${labels.hunt}/${labels.realm}/${labels.quiz}`
+  const address = `${orglabel ?? ''}/${labels.hunt}/${labels.realm}/${labels.quiz}`
   const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
   const placing = placeIn(askable && opening === undefined ? undefined : hunt, labels, shown?.address === address ? shown.quiz_id : null)
   const quiz_id = placing.quizRow?._id ?? null
@@ -206,7 +207,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const quizSeen = useQuiz(huntAffirms, quiz_id)
   const reviewsSeen = useQuery(api.reviews.forQuiz, quizAffirms === null || ! ready ? 'skip' : { affirms: quizAffirms })
   const library = useQuery(api.widgets.library, ready ? {} : 'skip')
-  useHuntFeed(askable ? labels.hunt : null, huntAffirms, quiz_id, HuntMirror.noteReading)
+  useHuntFeed(orglabel, askable ? labels.hunt : null, huntAffirms, quiz_id, HuntMirror.noteReading)
 
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }

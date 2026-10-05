@@ -40,18 +40,19 @@ export function findingOf(askable: boolean, opening: HuntOpeningT | undefined): 
 }
 
 /**
- * The hunt labelled `hunt_label`, live, as a screen about the whole hunt holds it: its quizzes,
- * its wheel, who is on it and this visitor's role. Someone not on the hunt is shown none of it,
- * only who could add them.
+ * The hunt of the org `orglabel` labelled `hunt_label`, live, as a screen about the whole hunt
+ * holds it: its quizzes, its wheel, who is on it and this visitor's role. Someone not on the hunt
+ * is shown none of it, only who could add them.
  *
+ * @param orglabel - The org the address names; null for an old address, which names none.
  * @param hunt_label - The hunt the address names.
  * @returns The hunt, and where finding it stands.
  */
-export function useHuntOpening(hunt_label: string): HuntOpeningHandle {
+export function useHuntOpening(orglabel: string | null, hunt_label: string): HuntOpeningHandle {
   const { ready } = useSession()
   // A label that cannot be one names no hunt, and is not asked about.
   const askable = ValidatorKit.label.safeParse(hunt_label).success
-  const opening = useQuery(api.hunts.open, askable && ready ? { hunt_label } : 'skip')
+  const opening = useQuery(api.hunts.open, askable && ready ? { orglabel, hunt_label } : 'skip')
   const hunt = opening?.hunt ?? null
   const smiths = opening?.why === 'notOnHunt' ? opening.smiths : smithsOf(hunt?.members ?? [])
   return { finding: findingOf(askable, opening), hunt, role: hunt?.role ?? null, smiths }

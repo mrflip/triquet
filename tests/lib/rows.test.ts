@@ -240,16 +240,17 @@ describe('the titles', () => {
 const Members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
 
 describe('orgFor', () => {
-  it("is the hunt's earliest smith, passing over a reviewer who joined first", () => {
-    expect(orgFor([{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }, { label: 'kim_smiths', role: 'smith' }])).to.eq('pat_smith')
+  it("is the org the hunt stores, whoever is on it", () => {
+    expect(orgFor({ orglabel: 'pat_smith' }, [{ label: 'lee_jones' }, { label: 'pat_smith' }])).to.eq('pat_smith')
+    expect(orgFor({ orglabel: 'pat_smith' }, [])).to.eq('pat_smith')
   })
 
-  it("falls back on the earliest member of a hunt with no smith", () => {
-    expect(orgFor([{ label: 'lee_jones', role: 'reviewer' }, { label: 'kim_jones', role: 'reviewer' }])).to.eq('lee_jones')
+  it("falls back on the earliest member, whatever their role, for a hunt that stores none", () => {
+    expect(orgFor({}, [{ label: 'lee_jones' }, { label: 'pat_smith' }])).to.eq('lee_jones')
   })
 
-  it("refuses a hunt with nobody on it", () => {
-    expect(() => orgFor([])).to.throw(/no org/)
+  it("refuses a hunt that stores no org with nobody on it", () => {
+    expect(() => orgFor({}, [])).to.throw(/no org/)
   })
 })
 

@@ -40,13 +40,8 @@ function leafPaths(val: unknown, path: readonly string[] = []): string[] {
 const bodyOf = (quiz: QuizT) => Exporting.quizBodyOf(quiz, runOf(quiz, EntryLibrary))
 
 describe('placeOf', () => {
-  it("is the hunt's org, its earliest smith, and its label", () => {
+  it("is the hunt's org, as the hunt holds it, and its label", () => {
     expect(Exporting.placeOf(snapshot())).to.deep.eq({ org: 'pat_smith', hunt: 'deep_lake' })
-  })
-
-  it("names the org as the hunt's URLs do: its earliest member, for a hunt with no smith", () => {
-    const members = snapshot().members.map((member) => ({ ...member, role: 'reviewer' as const }))
-    expect(Exporting.placeOf({ hunt: snapshot().hunt, members })).to.deep.eq({ org: 'lee_jones', hunt: 'deep_lake' })
   })
 })
 
@@ -417,17 +412,17 @@ describe('wholeOf', () => {
 })
 
 describe('snapshotOf', () => {
-  it("is the hunt read whole, with the wheel and members the screen holds, and no reviews", () => {
+  it("is the hunt read whole, with the org, wheel and members the screen holds, and no reviews", () => {
     const whole = twoQuizHunt()
     const { wheel, members } = snapshot()
-    expect(Exporting.snapshotOf({ wheel, members }, whole, EntryLibrary)).to.deep.eq({
-      hunt: { label: 'deep_lake', title: 'Deep Lake', branch: 'main' }, wheel, members, realms: whole.realms, library: EntryLibrary, reviews: {},
+    expect(Exporting.snapshotOf({ org: 'pat_smith', wheel, members }, whole, EntryLibrary)).to.deep.eq({
+      hunt: { label: 'deep_lake', title: 'Deep Lake', branch: 'main', org: 'pat_smith' }, wheel, members, realms: whole.realms, library: EntryLibrary, reviews: {},
     })
   })
 
   it("reads the doc block's example", () => {
     const { wheel, members } = snapshot()
-    const snap = Exporting.snapshotOf({ wheel, members }, twoQuizHunt(), EntryLibrary)
+    const snap = Exporting.snapshotOf({ org: 'pat_smith', wheel, members }, twoQuizHunt(), EntryLibrary)
     expect(Exporting.wholeOf(snap).label).to.eq('deep_lake')
   })
 })

@@ -42,7 +42,7 @@ export type QuizRouteProps = {
 export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
-  const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(labels)
+  const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(org, labels)
   useShowHunt(hunt)
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
     return <NotOnHunt playtestPath={now && Routes.quizPath(now, 'playtest')} ident={ident} claims={claims} smiths={smiths} />
   }
   if (finding === 'waiting') { return <OpeningNotice notice={saveNotice} /> }
-  if (! hunt || ! realm || ! quiz || ! claims) { return <QuizNotFound labels={labels} hunt={hunt} /> }
+  if (! hunt || ! realm || ! quiz || ! claims) { return <QuizNotFound org={org} labels={labels} hunt={hunt} /> }
   // On its way to the playtest, or from an old address to the quiz's own.
   if (mode === null || org === null) { return <OpeningNotice notice={saveNotice} /> }
   if (mode === 'playtest') {

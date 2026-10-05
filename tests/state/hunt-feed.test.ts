@@ -99,7 +99,7 @@ function quizOf(title: string, label: string, labels: readonly string[]): QuizT 
 }
 
 /** A seeded hunt and who is on it: its smith pat, a second smith sam, lee with a shared review of princes, kim with a draft one */
-type PeopledT = Seeded & { sam: Identified, lee: Identified, kim: Identified, hunt_label: string, places: Record<string, PlaceT> }
+type PeopledT = Seeded & { sam: Identified, lee: Identified, kim: Identified, orglabel: string, hunt_label: string, places: Record<string, PlaceT> }
 
 /**
  * A hunt of three quizzes (princes, paris, kings), princes open, with two smiths and two
@@ -120,7 +120,7 @@ async function peopled(): Promise<PeopledT> {
   await seeded.act({ kind: 'set_overall', quiz_id, overall: 'A fair quiz.' }, lee)
   await seeded.act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, lee)
   await seeded.act({ kind: 'set_overall', quiz_id, overall: 'Unfinished.' }, kim)
-  return { ...seeded, sam, lee, kim, hunt_label: seen.hunt.label, places }
+  return { ...seeded, sam, lee, kim, orglabel: seeded.smith.label, hunt_label: seen.hunt.label, places }
 }
 
 /** Carry out `action` as `by` from the quiz at `place`, as their browser would affirm it */
@@ -136,7 +136,7 @@ async function actIn(held: PeopledT, by: Identified, place: PlaceT, action: Hunt
  */
 async function filesFromRows(held: PeopledT): Promise<Huntfiles.FilesT> {
   const whole = await wholeHunt(held.tt, held.open.hunt_id)
-  const { hunt: opening } = await held.smith.as.query(api.hunts.open, { hunt_label: whole.label })
+  const { hunt: opening } = await held.smith.as.query(api.hunts.open, { orglabel: held.orglabel, hunt_label: whole.label })
   const quizzes = whole.realms.flatMap((realm) => realm.quizzes)
   const [library, reviews] = await held.tt.run(async (ctx) => {
     const rows = await libraryOf(ctx.db)
@@ -150,7 +150,7 @@ async function filesFromRows(held: PeopledT): Promise<Huntfiles.FilesT> {
     return [rows, Object.fromEntries(byQuiz)] as const
   })
   const { wheel, members } = present(opening)
-  const files = Huntfiles.huntFiles({ hunt: whole, wheel, members, realms: whole.realms, library: library.map((row) => widgetFrom(row)), reviews })
+  const files = Huntfiles.huntFiles({ hunt: { ...whole, org: held.orglabel }, wheel, members, realms: whole.realms, library: library.map((row) => widgetFrom(row)), reviews })
   files.delete(Huntfiles.ReadmePath)
   return files
 }
@@ -164,7 +164,7 @@ async function fed(held: PeopledT, focus: string | null = 'princes', through: (w
   const standIn = standInFor(held.smith.as)
   const readings: HuntReadingT[] = []
   const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
-  const feed = watchHunt(through(standIn.watcher), { hunt_label: held.hunt_label, affirms, focus: focus === null ? null : present(held.places[focus]).quiz_id }, (reading) => { readings.push(reading) })
+  const feed = watchHunt(through(standIn.watcher), { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: focus === null ? null : present(held.places[focus]).quiz_id }, (reading) => { readings.push(reading) })
   await standIn.settle()
   return { standIn, feed, readings }
 }
@@ -292,7 +292,7 @@ describe('watchHunt', () => {
     const held = await peopled()
     const { standIn, readings } = await fed(held)
     const before = lastOf(readings)
-    const { hunt } = await held.smith.as.query(api.hunts.open, { hunt_label: held.hunt_label })
+    const { hunt } = await held.smith.as.query(api.hunts.open, { orglabel: held.orglabel, hunt_label: held.hunt_label })
     const { wheel } = present(hunt)
     await held.smith.as.mutation(api.idents.performAccount, { action: { kind: 'arrange_categories', hunt_id: held.open.hunt_id, wheel: wheel.toReversed() } })
     await standIn.settle()
@@ -317,7 +317,7 @@ describe('watchHunt', () => {
     const standIn = standInFor(held.lee.as)
     const readings: HuntReadingT[] = []
     const { hunt: affirms } = await affirmsOf(held.tt, held.lee, held.open)
-    watchHunt(standIn.watcher, { hunt_label: held.hunt_label, affirms, focus: null }, (reading) => { readings.push(reading) })
+    watchHunt(standIn.watcher, { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: null }, (reading) => { readings.push(reading) })
     await standIn.settle()
     expect(readings).to.deep.eq([])
   })
@@ -355,7 +355,7 @@ describe('watchHunt, with a failing watch', () => {
       await new Promise((resolve) => { setTimeout(resolve, 0) })
     }
     const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
-    const feed = watchHunt({ watchQuery } as unknown as WatcherT, { hunt_label: 'hunt', affirms, focus: null }, () => null)
+    const feed = watchHunt({ watchQuery } as unknown as WatcherT, { orglabel: 'pat_smith', hunt_label: 'hunt', affirms, focus: null }, () => null)
     await moment()
     await moment()
     await moment()
@@ -409,7 +409,7 @@ describe('watchHunt, waited on', () => {
     const { watcher, answer } = scripted()
     const readings: HuntReadingT[] = []
     const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
-    const feed = watchHunt(watcher, { hunt_label: hunt.label, affirms, focus: null }, (reading) => { readings.push(reading) })
+    const feed = watchHunt(watcher, { orglabel: hunt.org, hunt_label: hunt.label, affirms, focus: null }, (reading) => { readings.push(reading) })
     const heard = { read: false }
     void feed.whenRead().then(() => { heard.read = true })
 
@@ -431,7 +431,7 @@ describe('watchHunt, waited on', () => {
     await feed.whenRead()
     const { watcher } = scripted()
     const affirms = { ident_id: 'ident', hunt_id: 'hunt', standing: 'smith' } as unknown as HuntAffirmsDNA
-    const unheard = watchHunt(watcher, { hunt_label: 'nowhere', affirms, focus: null }, () => null)
+    const unheard = watchHunt(watcher, { orglabel: 'pat_smith', hunt_label: 'nowhere', affirms, focus: null }, () => null)
     const waiting = unheard.whenRead()
     unheard.stop()
     await expect(waiting).resolves.toBeUndefined()
@@ -619,7 +619,7 @@ async function largeHunt(): Promise<PeopledT> {
   const seen = await seeded.read()
   const places = Object.fromEntries(seen.quizzes.map((quiz) => [quiz.label, { ...seeded.open, quiz_id: quiz._id as Id<'quizzes'> }]))
   const [lee = sam, kim = sam] = reviewers
-  return { ...seeded, sam, lee, kim, hunt_label: seen.hunt.label, places }
+  return { ...seeded, sam, lee, kim, orglabel: seeded.smith.label, hunt_label: seen.hunt.label, places }
 }
 
 /** `sent` as a line of the table: results, kilobytes, and kilobytes by query function */
@@ -647,7 +647,7 @@ describe.runIf(process.env.TQ_MEASURE_FEED === '1')("the feed, measured on a lar
     const fresh = standInFor(held.smith.as)
     const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
     const elsewhere: HuntReadingT[] = []
-    watchHunt(fresh.watcher, { hunt_label: held.hunt_label, affirms, focus: opened._id as Id<'quizzes'> }, (each) => { elsewhere.push(each) })
+    watchHunt(fresh.watcher, { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: opened._id as Id<'quizzes'> }, (each) => { elsewhere.push(each) })
     lines.push(`First full reading sent: ${sentLine(await fresh.settle())}`)
     const library = await held.smith.as.query(api.widgets.library, {})
     const reading = present(first)

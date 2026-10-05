@@ -2,7 +2,7 @@ import * as EST from 'es-toolkit'
 import * as Addresses from './addresses'
 import * as Jsonball from './jsonball'
 import * as Runner from './formulary/runner'
-import { orgFor, type MemberT, type ReviewedT } from './rows'
+import type { MemberT, ReviewedT, ShallowHuntT } from './rows'
 import { CategoryLabelVals, type WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
@@ -44,11 +44,11 @@ export type MemberSourceT = Pick<MemberT, 'label' | 'title' | 'role'>
 
 /** Everything a hunt's balls are made from */
 export type HuntSnapshotT = {
-  /** The hunt's own fields, its title as shown */
-  hunt:    Pick<HuntT, 'label' | 'title' | 'branch'>
+  /** The hunt's own fields, its title as shown, and the org it is addressed under */
+  hunt:    Pick<HuntT, 'label' | 'title' | 'branch'> & { org: string }
   /** How it arranges its categories */
   wheel:   WheelT
-  /** Who is on it, in the order they joined it: the first smith among them names its org */
+  /** Who is on it, in the order they joined it */
   members: readonly MemberSourceT[]
   /** Its realms, each with every quiz whole */
   realms:  readonly Pick<RealmT, 'label' | 'title' | 'quizzes'>[]
@@ -59,14 +59,13 @@ export type HuntSnapshotT = {
 }
 
 /**
- * The hunt a snapshot is of, as its addresses name it: its org, named as its URLs name it
- * (`orgFor`: the earliest smith, or the earliest member of a hunt with no smith), and its label.
- * No ball or file hangs on the org.
+ * The hunt a snapshot is of, as its addresses name it: its org and its label. No ball or file
+ * hangs on the org.
  *
  * @example placeOf(snapshot)  // => { org: 'pat_smith', hunt: 'spring_hunt' }
  */
-export function placeOf(snapshot: Pick<HuntSnapshotT, 'hunt' | 'members'>): Addresses.InHuntT {
-  return { org: orgFor(snapshot.members), hunt: snapshot.hunt.label }
+export function placeOf(snapshot: Pick<HuntSnapshotT, 'hunt'>): Addresses.InHuntT {
+  return { org: snapshot.hunt.org, hunt: snapshot.hunt.label }
 }
 
 /** `body` placed at `address`'s key path */
@@ -79,7 +78,7 @@ function placed(address: Addresses.FiledAddressT, body: Jsonball.JsonballT): Pla
  *
  * @example huntBall(place, hunt).ball  // => { branch: 'main', label: 'spring_hunt', title: 'Spring Hunt' }
  */
-export function huntBall(place: Addresses.InHuntT, hunt: HuntSnapshotT['hunt']): PlacedBallT {
+export function huntBall(place: Addresses.InHuntT, hunt: Pick<HuntSnapshotT['hunt'], 'label' | 'title' | 'branch'>): PlacedBallT {
   const body: Jsonball.HuntBodyT = { label: hunt.label, title: hunt.title, branch: hunt.branch }
   return placed({ kind: 'hunt', ...place }, body)
 }
@@ -312,15 +311,15 @@ export function wholeOf(snapshot: HuntSnapshotT): Jsonball.JsonballT {
  * it), every quiz whole as read for the export, and the library. It carries no reviews: the
  * export reads none.
  *
- * @param hunt - The hunt, as the screen holds it.
+ * @param hunt - The hunt, as the screen holds it: its org, its wheel, who is on it.
  * @param whole - The hunt, every quiz whole.
  * @param library - The library's widgets.
  *
  * @example wholeOf(snapshotOf(hunt, whole, library)).label  // => 'spring_hunt'
  */
-export function snapshotOf(hunt: Pick<HuntSnapshotT, 'wheel' | 'members'>, whole: HuntT, library: readonly WidgetT[]): HuntSnapshotT {
+export function snapshotOf(hunt: Pick<ShallowHuntT, 'org'> & Pick<HuntSnapshotT, 'wheel' | 'members'>, whole: HuntT, library: readonly WidgetT[]): HuntSnapshotT {
   return {
-    hunt:    { label: whole.label, title: whole.title, branch: whole.branch },
+    hunt:    { label: whole.label, title: whole.title, branch: whole.branch, org: hunt.org },
     wheel:   hunt.wheel,
     members: hunt.members,
     realms:  whole.realms,

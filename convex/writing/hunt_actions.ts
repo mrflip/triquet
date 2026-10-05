@@ -1,7 +1,7 @@
 import type { Id } from '../_generated/dataModel'
 import type { WheelT } from '../../src/models/category'
 import { refuse } from '../../src/lib/refusals'
-import { huntingsOf, realmsOf, type CensusT } from '../reading'
+import { huntingsOf, orglabelOf, realmsOf, type CensusT } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
 
 /**
@@ -22,20 +22,21 @@ export async function retitleHunt(db: Writer, hunt_id: Id<'hunts'>, title: strin
 }
 
 /**
- * Give `hunt_id` the label `label`, which every address of its quizzes names it by; the label it
- * had answers to nothing afterwards. Refused when some other hunt already answers to the label,
- * and for a hunt that is gone.
+ * Give `hunt_id` the label `label`, which every address of its quizzes names it by within its org;
+ * the label it had answers to nothing afterwards. Its org stays as it is. Refused when some other
+ * hunt of its org already answers to the label (`huntInOrg`), and for a hunt that is gone.
  *
  * @param db - The mutation's database.
- * @param census - Whose each hunt label is, across every hunt.
+ * @param census - Whose each hunt label is, in each org.
  * @param hunt_id - Which hunt.
  * @param label - Its new label, already validated.
  *
  * @example await relabelHunt(db, census, open.hunt_id, 'autumn_hunt')
  */
 export async function relabelHunt(db: Writer, census: CensusT, hunt_id: Id<'hunts'>, label: string): Promise<void> {
-  const [held, holder_id] = await Promise.all([db.get('hunts', hunt_id), census.huntIdForLabel(label)])
+  const held = await db.get('hunts', hunt_id)
   if (! held) { refuse('huntGone') }
+  const holder_id = await census.huntIdInOrg(await orglabelOf(db, held), label)
   if (holder_id !== null && holder_id !== hunt_id) { refuse('labelTaken') }
   await updateHunt(db, held, { label })
 }

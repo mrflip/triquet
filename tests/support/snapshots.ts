@@ -57,7 +57,7 @@ export function snapshot(): Exporting.HuntSnapshotT {
   const hunt = twoQuizHunt()
   const princes = present(hunt.realms[0]?.quizzes[0])
   return {
-    hunt:    { label: hunt.label, title: hunt.title, branch: hunt.branch },
+    hunt:    { label: hunt.label, title: hunt.title, branch: hunt.branch, org: 'pat_smith' },
     wheel:   Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool'),
     members: [{ label: 'lee_jones', title: 'Lee', role: 'reviewer' }, { label: 'pat_smith', title: 'Pat', role: 'smith' }],
     realms:  hunt.realms,

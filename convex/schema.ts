@@ -26,12 +26,16 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
+// One more is written by hand while a hunt gains its org (`notes/deploy.md`, *Schema pushes*): a
+// hunt's `orglabel` is optional here though every write gives one, so that hunts written before it
+// existed still fit until `migrations.ts` backfills them.
+//
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
 
 const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
-const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
+const huntFields        = { ...zodOutputToConvexFields(HuntValidators.row.shape), orglabel: CVX.optional(CVX.string()) }
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
 const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
@@ -63,8 +67,8 @@ export default defineSchema({
   idents:      defineTable(identFields).index('by_label', ['label']),
   /** One time a session asserted a username: its newest is the ident it is now */
   identings:   defineTable(identingFields).index('by_user_id', ['user_id']),
-  /** A hunt: the unit of address and of membership. Its realms hold its quizzes. */
-  hunts:       defineTable(huntFields).index('by_label', ['label']),
+  /** A hunt: the unit of address and of membership, found by its label within its org (or, from an old address, by its label alone). Its realms hold its quizzes. */
+  hunts:       defineTable(huntFields).index('by_label', ['label']).index('by_orglabel_and_label', ['orglabel', 'label']),
   /** A division of a hunt, holding quizzes, kept in the order its hunt lists them */
   realms:      defineTable(realmFields).index('by_hunt_id_and_position', ['hunt_id', 'position']),
   /** A reusable definition in the library every hunt shares, kept in the order the library lists them */

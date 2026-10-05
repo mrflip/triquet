@@ -11,9 +11,11 @@ import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 /** The branch every hunt starts on, and so the git branch its history begins on */
 export const DefaultBranch = 'main'
 
-export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) => {
+export const HuntValidators = Validator(({ obj, arr, label, identlabel, titleish, treeid }) => {
   const huntLabel = label
-    .describe('What the hunt is called in an address. Minted when the hunt is made, and unique across the app by convention: two hunts minted with one label resolve to the earlier.')
+    .describe('What the hunt is called in an address, within its org. Minted when the hunt is made, and unique within its org: two hunts of one org minted with one label resolve to the earlier.')
+  const orglabel = identlabel
+    .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the ident label of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')
   const branch = label
@@ -34,6 +36,7 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
 
   const row = obj({
     label:        huntLabel,
+    orglabel,
     title,
     branch,
     wheel:        CategoryValidators.wheel.optional()
@@ -41,7 +44,7 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
   })
     .describe('One hunt as the database holds it: its realms are rows of their own.')
 
-  return { hunt, row, branch }
+  return { hunt, row, branch, orglabel }
 })
 
 export type HuntDNA = Z.input<typeof HuntValidators.hunt>

@@ -16,7 +16,7 @@ import { refuse } from '../../src/lib/refusals'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
-import { libraryOf } from '../reading'
+import { libraryOf, orglabelOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
@@ -64,9 +64,10 @@ export function movedTo<RT extends { label: string }>(items: readonly RT[], labe
 // Each update below is held to its row validator whole, as the row would stand afterwards, and
 // then writes only the fields that change; one that changes nothing writes nothing.
 
-/** Revise a hunt's own row */
+/** Revise a hunt's own row, storing its org if it was written before a hunt stored one (`orglabelOf`) */
 export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<Z.output<typeof HuntValidators.row>>): Promise<void> {
-  const changed = changedFields(held, HuntValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const orglabel = await orglabelOf(db, held)
+  const changed = changedFields(held, HuntValidators.row({ ..._.omit(held, SystemFields), orglabel, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
@@ -254,18 +255,19 @@ export async function deleteQuiz(db: Writer, quiz_id: Id<'quizzes'>): Promise<vo
 }
 
 /**
- * Insert a fresh hunt under `label`: its own row, its home realm, and one blank quiz of the same
- * label there. It seeds nothing: the library is every hunt's, and seeded once.
+ * Insert a fresh hunt under `label` in the org `orglabel`: its own row, its home realm, and one
+ * blank quiz of the same label there. It seeds nothing: the library is every hunt's, and seeded once.
  *
  * @param db - The mutation's database.
  * @param label - The hunt's label, already validated.
+ * @param orglabel - The org it is made in: its maker's ident label.
  * @returns The hunt's row id.
  * @throws When a row is not valid; the mutation writes nothing.
  *
- * @example await insertHunt(ctx.db, 'quiet_otter')
+ * @example await insertHunt(ctx.db, 'quiet_otter', 'pat_smith')
  */
-export async function insertHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, title: Labelmaker.titleize(label), branch: DefaultBranch }))
+export async function insertHunt(db: Writer, label: string, orglabel: string): Promise<Id<'hunts'>> {
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, orglabel, title: Labelmaker.titleize(label), branch: DefaultBranch }))
   const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position: 0, label: HomeRealmLabel, title: Labelmaker.titleize(HomeRealmLabel) }))
   await insertQuiz(db, { hunt_id, realm_id }, '', label)
   return hunt_id

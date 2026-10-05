@@ -276,10 +276,12 @@ describe("updateWidget", () => {
 })
 
 describe("insertHunt", () => {
-  it("writes a fresh hunt: its row titled from its label, a home realm, and one blank quiz under the hunt's label, laid out as a new quiz is", async () => {
+  it("writes a fresh hunt: its row titled from its label, in its org, a home realm, and one blank quiz under the hunt's label, laid out as a new quiz is", async () => {
     const tt = openTester()
-    const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron'))
+    const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron', 'pat_smith'))
     const back = await wholeHunt(tt, hunt_id)
+    const row = await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id))
+    expect(row?.orglabel).to.eq('pat_smith')
     const [realm] = back.realms
     const [quiz] = present(realm).quizzes
     expect([back.label, back.title, present(realm).label, present(realm).title])
@@ -290,7 +292,7 @@ describe("insertHunt", () => {
 
   it("seeds nothing: the library of a fresh deployment stays empty", async () => {
     const tt = openTester()
-    await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron'))
+    await tt.run(async (ctx) => await insertHunt(ctx.db, 'loud_heron', 'pat_smith'))
     expect(await libraryIn(tt)).to.deep.eq([])
   })
 })

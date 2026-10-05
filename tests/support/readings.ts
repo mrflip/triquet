@@ -14,7 +14,7 @@ import { present } from './present'
 export function shallowOf(held: Exporting.HuntSnapshotT, hunt_id = 'hunt'): ShallowHuntT {
   const realms = held.realms.map((realm, ii) => ({ _id: `realm${String(ii)}`, label: realm.label, title: realm.title, quizzes: [] }))
   const members = held.members.map((member) => ({ ...member, ident_id: `ident_${member.label}` }))
-  return { ...held.hunt, _id: hunt_id, org: Exporting.placeOf(held).org, wheel: held.wheel, members, realms, role: 'smith' } as unknown as ShallowHuntT
+  return { ...held.hunt, _id: hunt_id, wheel: held.wheel, members, realms, role: 'smith' } as unknown as ShallowHuntT
 }
 
 /** `held`'s reviews of `quiz` as `reviews.forQuiz` reads them, rows and all */

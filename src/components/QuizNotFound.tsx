@@ -6,13 +6,15 @@ import * as Routes from '../lib/routes'
 import { Hunting } from '../models/hunting'
 import { useHuntRepos } from '../state/use-hunt-repos'
 import { useHuntsList } from '../state/use-hunts-list'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, noSuchHuntNotice } from '../lib/notices'
 import { HuntRepoList } from './HuntRepoList'
 import { Panel } from './panels/Panel'
 import type { ShallowHuntT } from '../lib/rows'
 import styles from './workbench.module.css'
 
 export type QuizNotFoundProps = {
+  /** The org the address names; null for an old address, which names none */
+  org:    string | null
   /** What the address asked for */
   labels: Routes.QuizLabels
   /** The hunt the address names, when there is one; null when there is no such hunt */
@@ -33,11 +35,11 @@ function addressOf(hunt: ShallowHuntT, quiz: QuizRow): string {
  * it named when that hunt is here, the way back to every hunt, and -- separately, since a deleted
  * quiz leaves its files in its hunt's history -- every hunt's history repository this browser holds.
  */
-export function QuizNotFound({ labels, hunt }: Readonly<QuizNotFoundProps>) {
+export function QuizNotFound({ org, labels, hunt }: Readonly<QuizNotFoundProps>) {
   const asked = `${labels.hunt}/${labels.realm}/${labels.quiz}`
   return (
     <main className={styles.page}>
-      <Panel title="No such quiz" blurb={hunt ? `The hunt “${hunt.title}” has no quiz at “${asked}”.` : `There is no hunt labelled “${labels.hunt}”.`}>
+      <Panel title="No such quiz" blurb={hunt ? `The hunt “${hunt.title}” has no quiz at “${asked}”.` : noSuchHuntNotice(org, labels.hunt)}>
         <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
       </Panel>
       {hunt && (

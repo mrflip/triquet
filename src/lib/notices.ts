@@ -120,6 +120,17 @@ export function identUnknownNotice(label: string): string {
   return `No ident is labelled "${label}". They need to visit the app and choose it first.`
 }
 
+/**
+ * What an address says when no hunt answers to it: the org it named, and the hunt's label (an old
+ * address names no org).
+ *
+ * @example noSuchHuntNotice('pat_smith', 'spring_hunt')  // => 'There is no hunt labelled “spring_hunt” in ~pat_smith.'
+ * @example noSuchHuntNotice(null, 'spring_hunt')  // => 'There is no hunt labelled “spring_hunt”.'
+ */
+export function noSuchHuntNotice(org: string | null, huntLabel: string): string {
+  return org === null ? `There is no hunt labelled “${huntLabel}”.` : `There is no hunt labelled “${huntLabel}” in ~${org}.`
+}
+
 /** Any of several names, as a sentence says them: "Flip, Ada, or Grace" */
 const EitherOf = new Intl.ListFormat('en', { type: 'disjunction' })
 

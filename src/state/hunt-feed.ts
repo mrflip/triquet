@@ -95,6 +95,8 @@ export type HuntFeedT = {
 
 /** What a feed is of: the hunt the screen opened, what the browser affirms of itself on it, and the quiz on screen */
 export type FeedSetupT = {
+  /** The org the address names; null for an old address, which names none (`hunts.open`) */
+  orglabel:   string | null
   hunt_label: string
   affirms:    HuntAffirmsDNA
   focus:      Id<'quizzes'> | null
@@ -199,10 +201,10 @@ export async function feedsRead(): Promise<void> {
  * @param onReading - Handed each reading.
  * @returns The feed: to change the quiz on screen, to have its news now, and to stop.
  *
- * @example const feed = watchHunt(convex, { hunt_label, affirms, focus: quiz_id }, (reading) => { scheduler.note(reading) })
+ * @example const feed = watchHunt(convex, { orglabel, hunt_label, affirms, focus: quiz_id }, (reading) => { scheduler.note(reading) })
  */
 export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (reading: HuntReadingT) => void): HuntFeedT {
-  const { hunt_label, affirms } = setup
+  const { orglabel, hunt_label, affirms } = setup
   const state = { focused: setup.focus, stopped: false, cancel: null as (() => void) | null, last: null as HuntReadingT | null }
   const quizzes = new Map<Id<'quizzes'>, QuizWatchesT>()
   // Whoever waits for the feed to hear from every watch (`whenRead`).
@@ -213,7 +215,7 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     if (state.cancel !== null || state.stopped) { return }
     state.cancel = whenIdle(() => { note() })
   }
-  const opening = watched(client, api.hunts.open, { hunt_label }, soon, hunt_label)
+  const opening = watched(client, api.hunts.open, { orglabel, hunt_label }, soon, hunt_label)
   const library = watched(client, api.widgets.library, {}, soon, hunt_label)
 
   const sourceFor = (sourcekind: Sourcekind, quiz_id: Id<'quizzes'>): QuizSourceT => (sourcekind === 'live'
@@ -399,7 +401,7 @@ type KeptFeedT = {
 const keptFeeds = new Map<string, KeptFeedT>()
 
 /**
- * The feed of the hunt `hunt_label`, for a smith of it (`watchHunt`): `onReading` is handed the
+ * The feed of the hunt of the org `orglabel` labelled `hunt_label`, for a smith of it (`watchHunt`): `onReading` is handed the
  * hunt's files once it has been read whole, and again at every change, whoever made it. Runs only
  * for a browser whose standing is sent every question whole; for anyone else, and until the
  * session and the affirms are known, it watches nothing. The quiz on screen is read through the
@@ -409,12 +411,13 @@ const keptFeeds = new Map<string, KeptFeedT>()
  * of its quizzes to another moves the feed's focus rather than starting it over (which would read
  * the hunt whole again, and hand on another first reading).
  *
+ * @param orglabel - The org the screen's address names; null for an old address, which names none.
  * @param hunt_label - The hunt the screen opened; null for none.
  * @param affirms - What this browser affirms of itself on the hunt (`useAffirms`); null until known.
  * @param open_quiz_id - The quiz on screen; null for none.
  * @param onReading - Handed each reading; the latest one given is the one called.
  */
-export function useHuntFeed(hunt_label: string | null, affirms: HuntAffirmsDNA | null, open_quiz_id: Id<'quizzes'> | null, onReading: (reading: HuntReadingT) => void): void {
+export function useHuntFeed(orglabel: string | null, hunt_label: string | null, affirms: HuntAffirmsDNA | null, open_quiz_id: Id<'quizzes'> | null, onReading: (reading: HuntReadingT) => void): void {
   const convex = useConvex()
   const { ready } = useSession()
   const latest = useRef({ onReading, open_quiz_id })
@@ -423,8 +426,8 @@ export function useHuntFeed(hunt_label: string | null, affirms: HuntAffirmsDNA |
 
   useEffect(() => {
     if (hunt_label === null || affirms === null || ! ready || ! Question.isSentWhole(affirms.standing)) { return }
-    const feedkey = JSON.stringify([hunt_label, affirms.ident_id, affirms.hunt_id, affirms.standing])
-    const kept = keptFeeds.get(feedkey) ?? keepFeed(feedkey, convex, { hunt_label, affirms, focus: latest.current.open_quiz_id })
+    const feedkey = JSON.stringify([orglabel, hunt_label, affirms.ident_id, affirms.hunt_id, affirms.standing])
+    const kept = keptFeeds.get(feedkey) ?? keepFeed(feedkey, convex, { orglabel, hunt_label, affirms, focus: latest.current.open_quiz_id })
     if (kept.letGo !== null) { clearTimeout(kept.letGo) }
     kept.letGo = null
     kept.holders += 1
@@ -440,7 +443,7 @@ export function useHuntFeed(hunt_label: string | null, affirms: HuntAffirmsDNA |
         keptFeeds.delete(feedkey)
       }, KeepMs)
     }
-  }, [convex, hunt_label, affirms, ready])
+  }, [convex, orglabel, hunt_label, affirms, ready])
 
   useEffect(() => { feed.current?.focus(open_quiz_id) }, [open_quiz_id])
 }

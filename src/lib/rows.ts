@@ -1,6 +1,5 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
-import * as Addresses from './addresses'
 import * as Labelmaker from './labelmaker'
 import type * as Actor from './actor'
 import * as Wheel from './wheel'
@@ -97,7 +96,7 @@ export type ShallowRealmT = {
 export type HuntListingT = {
   _id:    Id<'hunts'>
   label:  string
-  /** The org its address names (`orgFor`): worked out from who is on it, and stored nowhere */
+  /** The org its address names, and its label is unique within: the hunt's `orglabel` (`orgFor`) */
   org:    string
   title:  string
   branch: string
@@ -279,18 +278,20 @@ export function realmTitleOf(realm: Pick<Doc<'realms'>, 'label' | 'title'>): str
 }
 
 /**
- * The org a hunt is addressed under, from who is on it: its earliest smith (`Addresses.orgOf`).
- * A hunt with no smith, which the policies never leave, falls back on its earliest member, so
- * its address never goes missing from under the members who can still open it.
+ * The org a hunt is addressed under: the one it stores (`orglabel`), or, for a hunt written before
+ * hunts stored one, its earliest member's ident label, as `migrations:backfillHuntOrglabels` will
+ * store it. The fallback goes once every hunt has its own (`notes/deploy.md`, *Schema pushes*).
  *
+ * @param hunt - The hunt's row, as far as its org.
  * @param members - Who is on the hunt, in the order they joined it.
- * @throws When nobody is on the hunt: nobody can be shown it, so nothing asks.
+ * @throws For a hunt that stores no org and has nobody on it: nobody can be shown it, so nothing asks.
  *
- * @example orgFor([{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }])  // => 'pat_smith'
+ * @example orgFor({ orglabel: 'pat_smith' }, [{ label: 'lee_jones' }])  // => 'pat_smith'
+ * @example orgFor({}, [{ label: 'lee_jones' }, { label: 'pat_smith' }])  // => 'lee_jones'
  */
-export function orgFor(members: readonly Pick<MemberT, 'label' | 'role'>[]): string {
-  const org = Addresses.orgOf(members) ?? members[0]?.label
-  if (org === undefined) { throw new Error('A hunt with nobody on it is addressed under no org') }
+export function orgFor(hunt: Pick<Doc<'hunts'>, 'orglabel'>, members: readonly Pick<MemberT, 'label'>[]): string {
+  const org = hunt.orglabel ?? members[0]?.label
+  if (org === undefined) { throw new Error('A hunt with nobody on it, and no org of its own, is addressed under no org') }
   return org
 }
 
@@ -299,17 +300,17 @@ export function orgFor(members: readonly Pick<MemberT, 'label' | 'role'>[]): str
  * each titled and holding its quizzes' rows in the order they were made.
  *
  * @param rows - The hunt's own rows.
- * @param members - Who is on the hunt, in the order they joined, from whom its org is worked out.
+ * @param members - Who is on the hunt, in the order they joined: its org, for a hunt that stores none (`orgFor`).
  * @returns The listing.
  *
  * @example huntListingOf(rows, members).realms[0].quizzes.length
  */
-export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: readonly Pick<MemberT, 'label' | 'role'>[]): HuntListingT {
+export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: readonly Pick<MemberT, 'label'>[]): HuntListingT {
   const { _id, label } = rows.hunt
   return {
     _id,
     label,
-    org:    orgFor(members),
+    org:    orgFor(rows.hunt, members),
     title:  huntTitleOf(rows.hunt),
     branch: rows.hunt.branch,
     realms: rows.realms.map(({ realm, quizzes }) => ({

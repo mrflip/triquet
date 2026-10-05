@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Box, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, noSuchHuntNotice } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT } from '../lib/rows'
 import { HuntRoleTitles } from '../models/hunting'
@@ -47,7 +47,7 @@ function pathOf(screen: HuntRouteProps['screen'], labels: Routes.HuntLabels): st
 export function HuntRoute({ org, huntLabel, screen }: Readonly<HuntRouteProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
-  const { finding, hunt, smiths } = useHuntOpening(huntLabel)
+  const { finding, hunt, smiths } = useHuntOpening(org, huntLabel)
   useShowHunt(hunt)
   useCanonical(org === null ? null : pathOf(screen, { org, hunt: huntLabel }), hunt && pathOf(screen, { org: hunt.org, hunt: hunt.label }))
 
@@ -61,15 +61,15 @@ export function HuntRoute({ org, huntLabel, screen }: Readonly<HuntRouteProps>) 
 
   if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
   if (finding === 'refused') { return <NotOnHunt playtestPath={null} ident={ident} claims={null} smiths={smiths} /> }
-  if (! hunt) { return <NoSuchHunt huntLabel={huntLabel} /> }
+  if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   return screen === 'hunt' ? <HuntScreen hunt={hunt} actor={actor} /> : <QuizzesScreen hunt={hunt} />
 }
 
-/** What an address naming a hunt says when there is no hunt by that label, with the way back to the visitor's hunts */
-export function NoSuchHunt({ huntLabel }: Readonly<Pick<HuntRouteProps, 'huntLabel'>>) {
+/** What an address naming a hunt says when its org has no hunt by that label, with the way back to the visitor's hunts */
+export function NoSuchHunt({ org, huntLabel }: Readonly<Pick<HuntRouteProps, 'org' | 'huntLabel'>>) {
   return (
     <main className={styles.page}>
-      <Panel title="No such hunt" blurb={`There is no hunt labelled “${huntLabel}”.`}>
+      <Panel title="No such hunt" blurb={noSuchHuntNotice(org, huntLabel)}>
         <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
       </Panel>
     </main>

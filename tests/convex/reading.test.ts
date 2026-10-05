@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
+  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, orglabelOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
   wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -17,8 +17,8 @@ import { huntHolding, identified, openTester, putOn, signedIn, type Tester } fro
 import { seedHuntRows } from '../support/seed'
 
 /** A fresh deployment holding `hunt`, and its first quiz's id */
-async function holding(hunt: HuntT, tt: Tester = openTester()): Promise<{ tt: Tester, hunt_id: Id<'hunts'>, quiz_id: Id<'quizzes'> }> {
-  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
+async function holding(hunt: HuntT, tt: Tester = openTester(), orglabel?: string): Promise<{ tt: Tester, hunt_id: Id<'hunts'>, quiz_id: Id<'quizzes'> }> {
+  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt, orglabel))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   return { tt, hunt_id, quiz_id: present(present(home).quizzes[0])._id }
 }
@@ -67,6 +67,56 @@ describe("huntForLabel", () => {
   it("finds nothing for a label no hunt answers to", async () => {
     const { tt } = await holding(Hunt.blank('quiet_otter'))
     expect(await tt.run(async (ctx) => await huntForLabel(ctx.db, 'loud_heron'))).to.be.null
+  })
+
+  it("finds the earliest answering to the label, whatever its org", async () => {
+    const first = await holding(Hunt.blank('twice_made'), openTester(), 'lee_jones')
+    await holding(Hunt.blank('twice_made'), first.tt, 'pat_smith')
+    const found = await first.tt.run(async (ctx) => await huntForLabel(ctx.db, 'twice_made'))
+    expect(found?._id).to.eq(first.hunt_id)
+  })
+})
+
+/** Take the org off the hunt `hunt_id`, as a hunt written before hunts stored one stands */
+async function unfiled(tt: Tester, hunt_id: Id<'hunts'>): Promise<void> {
+  await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { orglabel: undefined }) })
+}
+
+describe("huntInOrg", () => {
+  it("finds a hunt by its org and its label, apart from another org's of the same label", async () => {
+    const lees = await holding(Hunt.blank('spring_hunt'), openTester(), 'lee_jones')
+    const pats = await holding(Hunt.blank('spring_hunt'), lees.tt, 'pat_smith')
+    const found = await lees.tt.run(async (ctx) => [await huntInOrg(ctx.db, 'lee_jones', 'spring_hunt'), await huntInOrg(ctx.db, 'pat_smith', 'spring_hunt')])
+    expect(found.map((hunt) => hunt?._id)).to.deep.eq([lees.hunt_id, pats.hunt_id])
+  })
+
+  it("finds nothing in an org with no hunt of that label", async () => {
+    const { tt } = await holding(Hunt.blank('spring_hunt'), openTester(), 'lee_jones')
+    expect(await tt.run(async (ctx) => await huntInOrg(ctx.db, 'pat_smith', 'spring_hunt'))).to.be.null
+  })
+
+  it("finds a hunt that stores no org yet, for any org, behind one that does", async () => {
+    const old = await holding(Hunt.blank('spring_hunt'), openTester(), 'lee_jones')
+    await unfiled(old.tt, old.hunt_id)
+    const pats = await holding(Hunt.blank('spring_hunt'), old.tt, 'pat_smith')
+    const found = await old.tt.run(async (ctx) => [await huntInOrg(ctx.db, 'kim_parks', 'spring_hunt'), await huntInOrg(ctx.db, 'pat_smith', 'spring_hunt')])
+    expect(found.map((hunt) => hunt?._id)).to.deep.eq([old.hunt_id, pats.hunt_id])
+  })
+})
+
+describe("orglabelOf", () => {
+  it("is the org a hunt stores", async () => {
+    const { tt, hunt_id } = await holding(Hunt.blank('spring_hunt'), openTester(), 'lee_jones')
+    expect(await tt.run(async (ctx) => await orglabelOf(ctx.db, present(await ctx.db.get('hunts', hunt_id))))).to.eq('lee_jones')
+  })
+
+  it("is its earliest member's, for a hunt that stores none", async () => {
+    const { tt, hunt_id } = await holding(Hunt.blank('spring_hunt'), openTester(), 'lee_jones')
+    await unfiled(tt, hunt_id)
+    const [first, second] = [await identified(tt, 'kim_parks'), await identified(tt, 'pat_smith')]
+    await putOn(tt, hunt_id, first.ident_id, 'reviewer')
+    await putOn(tt, hunt_id, second.ident_id, 'smith')
+    expect(await tt.run(async (ctx) => await orglabelOf(ctx.db, present(await ctx.db.get('hunts', hunt_id))))).to.eq('kim_parks')
   })
 })
 
@@ -231,15 +281,18 @@ function working(widget_label: string, labels: readonly string[]): QuizT {
 }
 
 describe("censusOf", () => {
-  it("answers whose a hunt label is, and whether a widget is worked, across every hunt, with an id or a yes", async () => {
+  it("answers whose a hunt label is in an org, and whether a widget is worked, across every hunt, with an id or a yes", async () => {
     const tt = openTester()
-    const { hunt_id } = await holding({ ...huntHolding([working('dumdum', ['guess'])]), label: 'quiet_otter' }, tt)
+    const { hunt_id } = await holding({ ...huntHolding([working('dumdum', ['guess'])]), label: 'quiet_otter' }, tt, 'pat_smith')
     await holding({ ...huntHolding([Quiz.blank()]), label: 'loud_heron' }, tt)
     const answers = await tt.run(async (ctx) => {
       const census = censusOf(ctx.db)
-      return [await census.huntIdForLabel('quiet_otter'), await census.huntIdForLabel('no_such_hunt'), await census.isWorked('dumdum'), await census.isWorked('numnum_hint')]
+      return [
+        await census.huntIdInOrg('pat_smith', 'quiet_otter'), await census.huntIdInOrg('lee_jones', 'quiet_otter'), await census.huntIdInOrg('pat_smith', 'no_such_hunt'),
+        await census.isWorked('dumdum'), await census.isWorked('numnum_hint'),
+      ]
     })
-    expect(answers).to.deep.eq([hunt_id, null, true, false])
+    expect(answers).to.deep.eq([hunt_id, null, null, true, false])
   })
 })
 

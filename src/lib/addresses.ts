@@ -8,7 +8,6 @@
  * (`quizzes/home/legends.tqq.json`). The library's widgets hang from `/lib` in place of a hunt.
  * `notes/decisions/urls.md` is the scheme.
  */
-import type { HuntRole } from '../models/hunting'
 import { WidgetScopeVals, type WidgetScope } from '../models/widget'
 import * as PA from './vv/patterns'
 
@@ -85,23 +84,6 @@ const HuntStem = 'hunt'
 export type LocationT = {
   address: AddressT
   mode:    Mode | null
-}
-
-/** One who is on a hunt, as far as naming its org needs: who, and in what role */
-type MemberLikeT = { label: string, role: HuntRole }
-
-/**
- * The org a hunt is addressed under: the ident label of its earliest smith, its maker. Null for a
- * hunt with no smith, which nothing should leave.
- *
- * @param members - Who is on the hunt, in the order they joined it.
- *
- * @example orgOf([{ label: 'pat_smith', role: 'smith' }, { label: 'lee_jones', role: 'smith' }])  // => 'pat_smith'
- * @example orgOf([{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }])  // => 'pat_smith'
- * @example orgOf([])  // => null
- */
-export function orgOf(members: readonly MemberLikeT[]): string | null {
-  return members.find((member) => member.role === 'smith')?.label ?? null
 }
 
 /**

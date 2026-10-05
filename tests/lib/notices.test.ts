@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { botUnavailableNotice, identUnknownNotice, notASmithNotice, notOnHuntNotice } from '../../src/lib/notices'
+import { botUnavailableNotice, identUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice } from '../../src/lib/notices'
 
 describe('botUnavailableNotice', () => {
   const Cases: [[string, string], string, string][] = [
@@ -16,6 +16,16 @@ describe('botUnavailableNotice', () => {
 
   it('is a sentence for a person, not a code or a stack trace', () => {
     expect(botUnavailableNotice('Dumdum', 'claude')).not.to.match(/ANTHROPIC|_KEY|error/i)
+  })
+})
+
+describe('noSuchHuntNotice', () => {
+  it("names the org the address named, and the hunt's label", () => {
+    expect(noSuchHuntNotice('pat_smith', 'spring_hunt')).to.eq('There is no hunt labelled “spring_hunt” in ~pat_smith.')
+  })
+
+  it("names the label alone for an old address, which names no org", () => {
+    expect(noSuchHuntNotice(null, 'spring_hunt')).to.eq('There is no hunt labelled “spring_hunt”.')
   })
 })
 

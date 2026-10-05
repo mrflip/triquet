@@ -425,7 +425,7 @@ test.describe('an address naming a quiz that is not there', () => {
   test('says there is no such hunt, once the server has had its say', async ({ page }) => {
     await assumeIdent(page)
     await page.goto(Routes.quizPath({ org: 'nobody_here', hunt: 'no_such_hunt_here', realm: 'home', quiz: 'asdf' }, 'edit'))
-    await expect(page.getByText('There is no hunt labelled “no_such_hunt_here”.')).toBeVisible()
+    await expect(page.getByText('There is no hunt labelled “no_such_hunt_here” in ~nobody_here.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Your hunts' })).toBeVisible()
   })
 })
@@ -459,16 +459,17 @@ test.describe('an address in another form than its own', () => {
     await expect(page.getByRole('heading', { name: /^Categories of / })).toBeVisible()
   })
 
-  test("moves to the hunt's own org from another, and to a quiz's own realm from a stale one", async ({ page }) => {
+  test("moves to a quiz's own realm from a stale one, and finds no hunt of its label in another org", async ({ page }) => {
     const hunt = huntOf(page)
     const own = Routes.quizPath({ ...hunt, realm: 'home', quiz: hunt.hunt }, 'edit')
-    await loadAfresh(page, Routes.quizPath({ ...hunt, org: 'nobody_here', realm: 'home', quiz: hunt.hunt }, 'edit'))
-    await expect(page).toHaveURL(own)
     await loadAfresh(page, Routes.quizPath({ ...hunt, realm: 'gone_away', quiz: hunt.hunt }, 'edit'))
     await expect(page).toHaveURL(own)
     await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+    await loadAfresh(page, Routes.quizPath({ ...hunt, org: 'nobody_here', realm: 'home', quiz: hunt.hunt }, 'edit'))
+    await expect(page.getByText(`There is no hunt labelled “${hunt.hunt}” in ~nobody_here.`)).toBeVisible()
     await loadAfresh(page, Routes.categoriesPath({ ...hunt, org: 'nobody_here' }))
-    await expect(page).toHaveURL(Routes.categoriesPath(hunt))
+    await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
+    await expect(page).toHaveURL(Routes.categoriesPath({ ...hunt, org: 'nobody_here' }))
   })
 
   test("lists a hunt's quizzes at its quizzes' address", async ({ page }) => {

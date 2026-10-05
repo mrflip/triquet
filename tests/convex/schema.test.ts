@@ -57,7 +57,9 @@ const RowValidators: Record<TableNames, RowValidator> = {
 const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'], columns: ['align'] }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {}
+const Backfilling: Partial<Record<TableNames, string[]>> = {
+  hunts: ['orglabel'],
+}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
 const Retiring: Partial<Record<TableNames, string[]>> = {}
@@ -88,7 +90,7 @@ type Samples = Record<TableNames, Record<string, unknown>>
 async function samplesIn(tt: Tester): Promise<Samples> {
   return await tt.run(async (ctx) => {
     const insert = async <TN extends TableNames>(tablename: TN, row: Record<string, unknown>): Promise<Id<TN>> => await ctx.db.insert(tablename, row as never)
-    const hunt = HuntValidators.row({ label: 'quiet_otter', title: 'Quiet Otter', branch: 'playtest', wheel: [null, ...CategoryLabelVals.slice(1)] })
+    const hunt = HuntValidators.row({ label: 'quiet_otter', orglabel: 'flip_kromer', title: 'Quiet Otter', branch: 'playtest', wheel: [null, ...CategoryLabelVals.slice(1)] })
     const hunt_id = await insert('hunts', hunt)
     const realm = RealmValidators.row({ hunt_id, label: 'home', title: '', position: 0 })
     const realm_id = await insert('realms', realm)

@@ -57,7 +57,7 @@ export const Unscoped = {
   "idents:current":        "Who the session is: asked before any hunt is in play",
   "idents:performAccount": "A username, or a hunt from the hunts list, before any quiz is open: a hunt it names is asked of the actor's claims on it (`claimsFor`)",
   "hunts:list":            "The hunts the actor is on, read through the actor's own huntings: many hunts, none affirmed",
-  "hunts:open":            "Finds a hunt by its label and tells the browser its standing there, which is what the browser goes on to affirm",
+  "hunts:open":            "Finds a hunt by its org and label (or, from an old address, its label alone) and tells the browser its standing there, which is what the browser goes on to affirm",
   "widgets:library":       "The library belongs to no hunt: every hunt sees the same one",
   "widgets:usage":         "Counts the widgetings of every hunt, and hands back counts only (`Approve.mayCountUsage`)",
 } as const satisfies Record<string, string>

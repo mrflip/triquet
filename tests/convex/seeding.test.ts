@@ -21,7 +21,7 @@ type OldQuiz = { label: string, sources: readonly string[], widgetings?: readonl
 /** A hunt labelled `label`, one realm `home` holding `quizzes`, written raw; the ids of its quizzes, by label */
 async function oldHunt(tt: Tester, label: string, quizzes: readonly OldQuiz[]): Promise<Record<string, Id<'quizzes'>>> {
   return await tt.run(async (ctx) => {
-    const hunt_id = await ctx.db.insert('hunts', { label, title: '', branch: 'main' })
+    const hunt_id = await ctx.db.insert('hunts', { label, orglabel: 'pat_smith', title: '', branch: 'main' })
     const realm_id = await ctx.db.insert('realms', { hunt_id, label: 'home', title: '', position: 0 })
     const ids: Record<string, Id<'quizzes'>> = {}
     for (const quiz of quizzes) {
@@ -103,7 +103,7 @@ describe("seeding.seedWidgets", () => {
 
   it("leaves a quiz made new, laid out with the starter columns, alone", async () => {
     const tt = openTester()
-    const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'quiet_otter'))
+    const hunt_id = await tt.run(async (ctx) => await insertHunt(ctx.db, 'quiet_otter', 'pat_smith'))
     const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
     const quiz_id = present(present(home).quizzes[0])._id
     const done = await seedWidgets(tt)

@@ -17,8 +17,8 @@ const BoxRows = 10
 const UnpreparedMinHeight = 200
 
 export type RawExportProps = {
-  /** The hunt as the screen holds it: its wheel, and who is on it */
-  hunt:      Pick<ShallowHuntT, 'wheel' | 'members'>
+  /** The hunt as the screen holds it: its org, its wheel, and who is on it */
+  hunt:      Pick<ShallowHuntT, 'org' | 'wheel' | 'members'>
   /** The hunt, read when asked for */
   exporting: WholeHuntAsk
   /** The library's widgets, which the hunt's quizzes are run over */

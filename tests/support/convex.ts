@@ -126,13 +126,13 @@ export async function putOn(tt: Tester, hunt_id: Id<'hunts'>, ident_id: Id<'iden
 
 /**
  * `hunt`, written into rows in `tt`, with one smith on it (the ident labelled `opts.smith`,
- * `seed_smith` by default) and the quiz at `opts.openIdx` of its first realm open. The library is
+ * `seed_smith` by default), who made it and so names its org, and the quiz at `opts.openIdx` of its first realm open. The library is
  * given whichever seed widgets it lacks, so a fixture's widgetings of them work.
  *
  * @example const { act, read } = await seedHunt(openTester(), Hunt.blank())
  */
 export async function seedHunt(tt: Tester, hunt: HuntT, { openIdx = 0, smith: smithlabel = 'seed_smith' }: SeedOpts = {}): Promise<Seeded> {
-  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt))
+  const hunt_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, hunt, smithlabel))
   const [home] = await tt.run(async (ctx) => await realmsOf(ctx.db, hunt_id))
   const realm = present(home, 'the seeded realm')
   const open = { hunt_id, realm_id: realm.realm._id, quiz_id: present(realm.quizzes[openIdx], 'the quiz to open')._id }
