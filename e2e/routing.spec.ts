@@ -29,12 +29,13 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(${label})`)).toBeVisible()
   })
 
-  test('refuses a label too short to be an ident\'s, saying why', async ({ page }) => {
+  test('will not log in as a label too short to be an ident\'s, saying why', async ({ page }) => {
     await page.goto('/')
+    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
+    await expect(page.getByText(/An ident label is 6 to 24/)).toBeHidden()
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill('flip')
-    await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page.getByText(/An ident label is 6 to 24/)).toBeVisible()
-    await expect(page).toHaveURL((url) => url.pathname === '/')
+    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
   })
 
   test('makes an ident of what was typed, titled after its label', async ({ page }) => {
@@ -42,7 +43,7 @@ test.describe('the front door', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label.replaceAll('_', ' ').toUpperCase())
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(${label})`)).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue(Labelmaker.titleize(label))
@@ -53,9 +54,18 @@ test.describe('the front door', () => {
     await page.getByRole('link', { name: 'Be someone else' }).click()
     const other = freshIdentLabel()
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(${other})`)).toBeVisible()
+  })
+
+  test('lets a visitor about to become someone else keep being who they are', async ({ page }) => {
+    const label = await assumeIdent(page)
+    await page.getByRole('link', { name: 'Be someone else' }).click()
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
+    await page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+    await expect(page.getByText(`(${label})`)).toBeVisible()
   })
 
   test('turns a second browser away from a username the first holds, saying what to do, and lets it choose another', async ({ page, browser }) => {
@@ -67,14 +77,14 @@ test.describe('the front door', () => {
     const elsewhere = await otherVisitor(browser)
     await elsewhere.goto('/')
     await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
-    await elsewhere.getByRole('button', { name: 'Continue' }).click()
+    await elsewhere.getByRole('button', { name: `Log in as ${label}` }).click()
     const gate = elsewhere.getByRole('region', { name: AppNotices.identGateTitle })
     await expect(gate.getByRole('alert')).toHaveText(RefusalNotices.usernameClaimed)
     await expect(elsewhere).toHaveURL((url) => url.pathname === '/')
 
     const other = freshIdentLabel()
     await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
-    await elsewhere.getByRole('button', { name: 'Continue' }).click()
+    await elsewhere.getByRole('button', { name: `Log in as ${other}` }).click()
     await expect(elsewhere).toHaveURL(/\/my\/hunts$/)
     await expect(elsewhere.getByText(`(${other})`)).toBeVisible()
     await loadAfresh(page, '/my/hunts')
@@ -87,8 +97,9 @@ test.describe('the hunts', () => {
   test('are shown only to someone who has said who they are, who is brought back after', async ({ page }) => {
     await page.goto('/my/hunts')
     await expect(page).toHaveURL(/\/\?then=%2Fmy%2Fhunts$/)
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
-    await page.getByRole('button', { name: 'Continue' }).click()
+    const label = freshIdentLabel()
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
   })
 
@@ -280,7 +291,7 @@ test.describe('a link handed to a friend', () => {
     await friend.goto(link)
     await expect(friend.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
     await friend.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
-    await friend.getByRole('button', { name: 'Continue' }).click()
+    await friend.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
     await expect(notice).toContainText('You are not yet a member of this hunt.')

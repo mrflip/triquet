@@ -18,6 +18,13 @@ describe('Ident.labelFor', () => {
   }
 })
 
+describe('Ident.byline', () => {
+  it('names an ident by its title, then its label written @label', () => {
+    expect(Ident.byline({ label: 'mrflip', title: 'Mrflip' })).to.eq('Mrflip (@mrflip)')
+    expect(Ident.byline({ label: 'flip_kromer', title: 'The First' })).to.eq('The First (@flip_kromer)')
+  })
+})
+
 describe('Ident.fill', () => {
   const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr'
 

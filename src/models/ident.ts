@@ -50,6 +50,19 @@ export class Ident implements IdentT {
   }
 
   /**
+   * An ident as it is named on screen in full: its title, then its label written `@label`, which
+   * marks it as the username someone types rather than a word of prose.
+   *
+   * @param ident - The ident to name.
+   * @returns Its title and its label.
+   *
+   * @example Ident.byline({ label: 'mrflip', title: 'Mrflip' })  // => 'Mrflip (@mrflip)'
+   */
+  static byline(ident: Pick<IdentT, 'label' | 'title'>): string {
+    return `${ident.title} (@${ident.label})`
+  }
+
+  /**
    * An ident's row, validated, with a blank title defaulting to its label titleized.
    *
    * @param dna - The label, already normalized; what to call it, where blank means "use the label"; and the session claiming it.
