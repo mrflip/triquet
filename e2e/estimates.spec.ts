@@ -6,9 +6,9 @@ function categoryList(page: Page, rowIdx: number, nth: number) {
   return cellOf(page, rowIdx, 'Categories').getByRole('combobox', { name: `Categories, ${String(nth)}: category` })
 }
 
-/** The list of difficulties of the pill numbered `nth` in the Categories cell of the row at `rowIdx` */
-function difficultyList(page: Page, rowIdx: number, nth: number) {
-  return cellOf(page, rowIdx, 'Categories').getByRole('combobox', { name: `Categories, ${String(nth)}: difficulty` })
+/** The difficulty face of the pill numbered `nth` in the Categories cell of the row at `rowIdx`: its name ends with the difficulty */
+function difficultyFace(page: Page, rowIdx: number, nth: number) {
+  return cellOf(page, rowIdx, 'Categories').getByRole('button', { name: `Categories, ${String(nth)}: difficulty` })
 }
 
 /** The "+" of the Categories cell of the row at `rowIdx` */
@@ -43,8 +43,26 @@ test.beforeEach(async ({ page }) => {
 test('a category estimate is pills, each picked from a list, kept as they are picked', async ({ page }) => {
   // A question nobody has placed shows one blank pill, and no "+" while it is blank.
   await expect(categoryList(page, 0, 1)).toHaveText('(blank)')
-  await expect(difficultyList(page, 0, 1)).toHaveText('medium')
+  await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Categories, 1: difficulty, medium')
   await expect(addButton(page, 0)).toHaveCount(0)
+
+  // The difficulty is a face, which a click moves on round the three.
+  const face = difficultyFace(page, 0, 1)
+  await expect(face).toHaveText('🤔')
+  await face.click()
+  await expect(face).toHaveText('😈')
+  await expect(face).toHaveAccessibleName('Categories, 1: difficulty, hard')
+  await face.click()
+  await expect(face).toHaveText('🍰')
+  await face.click()
+  await expect(face).toHaveText('🤔')
+
+  // The categories are listed alphabetically.
+  await categoryList(page, 0, 1).click()
+  await expect(page.getByRole('listbox').getByRole('option').nth(1)).toHaveText('Art')
+  await expect(page.getByRole('listbox').getByRole('option').nth(2)).toHaveText('Biz & Tech')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('listbox')).toHaveCount(0)
 
   await pick(page, categoryList(page, 0, 1), 'Art')
   await addButton(page, 0).click()
@@ -56,12 +74,13 @@ test('a category estimate is pills, each picked from a list, kept as they are pi
   await expect(choices.filter({ hasText: /^Art$/ })).toHaveCount(0)
   await expect(choices.last()).toHaveText('(remove)')
   await choices.filter({ hasText: /^TV$/ }).click()
-  await pick(page, difficultyList(page, 0, 2), 'hard')
+  await difficultyFace(page, 0, 2).click()
+  await expect(difficultyFace(page, 0, 2)).toHaveAccessibleName('Categories, 2: difficulty, hard')
 
   await reloadOnceSaved(page)
   await expect(categoryList(page, 0, 1)).toHaveText('Art')
   await expect(categoryList(page, 0, 2)).toHaveText('TV')
-  await expect(difficultyList(page, 0, 2)).toHaveText('hard')
+  await expect(difficultyFace(page, 0, 2)).toHaveText('😈')
   await expect(categoryList(page, 1, 1)).toHaveText('(blank)')
 
   // "(remove)" takes a pill away; a lone pill made blank is no category in particular, at its difficulty.
@@ -73,7 +92,7 @@ test('a category estimate is pills, each picked from a list, kept as they are pi
   await page.getByRole('listbox').getByRole('option', { name: '(blank)' }).click()
   await reloadOnceSaved(page)
   await expect(categoryList(page, 0, 1)).toHaveText('(blank)')
-  await expect(difficultyList(page, 0, 1)).toHaveText('hard')
+  await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Categories, 1: difficulty, hard')
 })
 
 test("columns can show Masie's chance and the personas' average, worked out from the pills", async ({ page }) => {
@@ -82,7 +101,10 @@ test("columns can show Masie's chance and the personas' average, worked out from
   // Nobody placed it: everyone is halfway, at medium.
   await expect(cellOf(page, 0, 'Masie')).toHaveText('53%')
   await pick(page, categoryList(page, 0, 1), 'Art')
-  await pick(page, difficultyList(page, 0, 1), 'easy')
+  // From medium, round past hard to easy.
+  await difficultyFace(page, 0, 1).click()
+  await difficultyFace(page, 0, 1).click()
+  await expect(difficultyFace(page, 0, 1)).toHaveText('🍰')
   await expect(cellOf(page, 0, 'Masie')).toHaveText('69%')
   await expect(cellOf(page, 0, 'Average')).toHaveText('76%')
 })

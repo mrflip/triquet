@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { addable, choicesFor, estimatesFrom, pillsOf, type PillT } from '../../../src/components/cells/use-pills'
-import * as Wheel from '../../../src/lib/wheel'
+import { CategoryLabelsByTitle } from '../../../src/models/category'
 import type { EstimatesT } from '../../../src/models/estimate'
 
-const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
 const tv: PillT = { category: 'tv', difficulty: 'hard' }
 const art: PillT = { category: 'art', difficulty: 'medium' }
 const blankEasy: PillT = { category: null, difficulty: 'easy' }
@@ -37,16 +36,16 @@ describe("estimatesFrom", () => {
 })
 
 describe("choicesFor", () => {
-  it("offers every category in the total order to a lone pill", () => {
-    expect(choicesFor([blankHard], 0, DefaultOrder)).to.deep.eq(DefaultOrder)
+  it("offers every category, alphabetically by title, to a lone pill", () => {
+    expect(choicesFor([blankHard], 0)).to.deep.eq(CategoryLabelsByTitle)
+    expect(choicesFor([blankHard], 0)[0]).to.eq('art')
   })
   it("leaves out the categories other pills hold, but keeps the pill's own", () => {
-    const choices = choicesFor([tv, art, blankEasy], 1, DefaultOrder)
+    const choices = choicesFor([tv, art, blankEasy], 1)
     expect([choices.includes('tv'), choices.includes('art'), choices.length]).to.deep.eq([false, true, 23])
   })
-  it("follows the order it is given", () => {
-    const order = Wheel.orderOf(Wheel.placed(Wheel.defaultWheel(), 'tv', 0))
-    expect(choicesFor([blankHard], 0, order).slice(0, 2)).to.deep.eq(['tv', 'gen_sci'])
+  it("keeps the alphabetical order with some left out", () => {
+    expect(choicesFor([tv, art, blankEasy], 2).slice(0, 2)).to.deep.eq(['biz_tech', 'chem_bio'])
   })
 })
 

@@ -176,7 +176,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
     const widget = Runner.stepOf(run, label)?.widget ?? null
     if (widget?.formulary === 'entry') {
-      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} order={run.frame.order} onEnter={(value) => { onEnter(label, value) }} />
+      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} />
     }
     if (widget === null || formularyFor(widget).refresh !== 'click') {
       return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
-import { Category, CategoryLabelVals, CategoryTitles, CategoryValidators, WheelSlotCount } from '../../src/models/category'
+import { Category, CategoryLabelsByTitle, CategoryLabelVals, CategoryTitles, CategoryValidators, WheelSlotCount } from '../../src/models/category'
 
 const DefaultWheel = [...CategoryLabelVals]
 
@@ -12,6 +12,15 @@ describe("the category catalogue", () => {
 
   it("names each category by a label of its own", () => {
     expect(new Set(CategoryLabelVals).size).to.eq(CategoryLabelVals.length)
+  })
+})
+
+describe("CategoryLabelsByTitle", () => {
+  it("holds every category once, alphabetically by title", () => {
+    expect(new Set(CategoryLabelsByTitle)).to.deep.eq(new Set(CategoryLabelVals))
+    expect(CategoryLabelsByTitle).to.have.lengthOf(CategoryLabelVals.length)
+    expect(CategoryLabelsByTitle.slice(0, 4)).to.deep.eq(['art', 'biz_tech', 'chem_bio', 'classic_film'])
+    expect(CategoryLabelsByTitle.at(-1)).to.eq('world_hist')
   })
 })
 
