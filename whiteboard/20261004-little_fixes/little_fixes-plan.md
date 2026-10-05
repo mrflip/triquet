@@ -1,7 +1,9 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 2 underway. Thread 1 complete and reviewed (#96).
+`/sprint`. **Status:** thread 3 underway. Threads 1 and 2 merged to main by the Coach via #99 (#96 closed);
+thread 1b complete and reviewed (#105, follows #99); thread 2 reviewed late, clean. The sprint runs in
+the worktree `.claude/worktrees/little_fixes`.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -73,6 +75,24 @@ submit says "Continue" and the current ident shows as microcopy.
 *Look-ahead.* Thread 2 restyles the hunts page the Cancel lands on; nothing here should depend
 on its layout.
 
+### Thread 1b: the ident gate, the Coach's follow-up
+
+*Orchestrator:* added after threads 1 and 2 merged. The Coach, on #96's open questions:
+
+> if I type in my own name again yes have it change to say "keep being".
+> If it's not much extra code, I'd prefer that the length validation not scold me by turning red
+> until blur; the button should remain disabled; but that entering an unacceptable character does
+> turn the field red.
+
+*Gloss.* `src/components/IdentGate.tsx` again, on `20261005-ident_gate_again` from main. On the
+switch path, a typed label equal to the held ident's turns the primary into "Keep being <Title>
+(@label)" (doing what the cancel does); the separate cancel button may then be redundant -- the
+worker decides and records. Validation splits in two: a *shape* failure (an unacceptable
+character) shows red at once; a *length* failure only after blur, the button disabled either way.
+If the validator does not already tell the two apart, separating them belongs with the validator,
+not in the view. The thread's review also covers thread 2's merged commits (#99), which merged
+before it could be reviewed.
+
 ### Thread 2: the hunts page lines up
 
 > on the hunts page: make the elements line up vertically, by using a table or as you judge. The
@@ -142,7 +162,13 @@ Likely files: `QuestionTable.tsx` (header row: the fold and batch-mode controls)
    shows the widget's description, truncated to one line. Shrinking, hide in order: description
    first, then label, then the status sentence (theme breakpoints).
 
-*Look-ahead.* Last thread; nothing downstream. Reuse thread 2's alignment idiom if it fits.
+*Look-ahead.* Last thread; nothing downstream.
+
+*Orchestrator:* thread 2 settled the idiom for bullet 5 -- read its *Discoveries -- for thread 3*
+in the progress document: keep the widgets panel's Accordion, line the summary up with
+fixed-width boxes as `ColumnsEditor`'s rows do, and hide by container query (`RoomFor`,
+`hiddenUntil`), not a Table. Its three `sx` traps apply to the grid too. The sprint runs in a
+worktree: work in it, run `git status` before any path-naming checkout or restore.
 
 ## For the Coach
 

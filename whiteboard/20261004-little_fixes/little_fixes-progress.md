@@ -7,9 +7,106 @@ their sections below the table, newest first.
 
 | Thread | Name                         | Branch | PR | Status  |
 | ------ | ---------------------------- | ------ | -- | ------- |
-| 1      | the ident gate               | `20261005-ident_gate` | #96 | complete |
-| 2      | the hunts page lines up      |        |    | pending |
-| 3      | quiz mode: grid and widgets  |        |    | pending |
+| 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
+| 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
+| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete |
+| 3      | quiz mode: grid and widgets  |        |    | underway |
+
+## Thread 1b: the ident gate, the Coach's follow-up (2026-10-05)
+
+Branch `20261005-ident_gate_again`, PR #105, follows #99. Suites: typecheck and lint clean;
+`pnpm test` 124 files, 3477 tests; `pnpm test:e2e:agent` 226 passed.
+
+* **Built**:
+  - `src/components/IdentGate.tsx`: on the switch path, typing the held ident's label turns the
+    primary into "Keep being <Title> (@label)". It and Enter go to `onward` without calling
+    the server, and the cancel button is hidden meanwhile.
+  - A too-short label is said (red, `AppNotices.usernameLength`) only after the field has been
+    left once (a `left` flag set on blur). A bad character is said at once
+    (`AppNotices.usernameShape`). The button is disabled for either.
+  - `Ident.flawIn(typed)` (`src/models/ident.ts`) returns `'shape' | 'length' | null`.
+    `PA.Identtyped` (`src/lib/vv/patterns.ts`) is the typed-text pattern it tests, after
+    `deburr`: letters, numbers, spaces, hyphens and underscores, starting with a letter.
+  - Tests: 15 cases in `tests/models/ident.test.ts`. In `e2e/routing.spec.ts`, the too-short
+    spec is rewritten, and the bad-character and own-name specs are new.
+* **Decisions taken**:
+  - **Where the split lives.** The label validator already distinguishes the two
+    (zod issue codes), but never sees a bad character: `Ident.labelFor` repairs every one
+    (`flip!` becomes `flip`, `1flip` becomes `z1flip`, an emoji is dropped). So the shape check
+    runs on the typed text, as a pattern beside `Identlabel`. The length check stays the label
+    validator's. The model change is about 15 lines.
+  - **"Unacceptable" means** a character that `labelFor` would drop or substitute beyond
+    case-folding and space/hyphen-to-underscore. That includes `.` and `'`, which used to pass
+    silently (an open question in the PR).
+  - **The cancel is hidden** while the primary says "Keep being", rather than showing two
+    buttons that say the same thing.
+  - **Nothing typed** is a `length` flaw, so it is never red, even after blur.
+* **Discoveries**:
+  - The worktree's `agent` backend held rows from before main's `q1_preamble` field. It was
+    refused on push and emptied with `scripts/convex_reset agent`; it is shared with the main
+    checkout through the symlink.
+  - The worktree has no `data/convex-e2e` link, so the finishing e2e run used `pnpm test:e2e:agent`.
+  - `MembersPanel`'s add-a-member field could use `Ident.flawIn` too; it was left alone.
+* **For the Coach**: should apostrophes and dots turn red, or pass quietly as underscores? Either
+  way it is a one-character change to `PA.Identtyped`.
+
+Screenshots (`screenshots/`, `-before` and `-after`, light and dark at 1100px; read them to
+review the look): `thread1b-short-typing-*` (`flip`, still focused), `thread1b-short-left-*`
+(after blur), `thread1b-badchar-*` (`flip!`), `thread1b-switch-own-*` (own label on the
+switch path).
+* *Review:* `clean`, at medium, over `origin/main...HEAD`. It probed `Ident.flawIn` against
+  `labelFor` with inputs the tests skip (combining accents, `İ`, `ß`, `Æø`, tabs, runs of `_`/`-`)
+  and found them consistent. Minor, left: `AppNotices.usernameLength` says "6 letters and
+  numbers" though underscores count (`abc de` passes) -- wording only; `MembersPanel` could use
+  `Ident.flawIn` (out of scope, as the worker said).
+
+## Thread 2: the hunts page lines up (2026-10-05)
+
+*Orchestrator:* written by the orchestrator from the worker's report, by the Coach's leave: the
+worker's own write of this section was refused (see *Incident*).
+
+Branch `20261005-hunts_aligned`, PR #99, stacked on #96. Suites: typecheck and lint clean;
+`pnpm test` 123 files, 3284 tests; `pnpm test:e2e` 221 passed.
+
+* **Built**: `src/components/HuntsList.tsx` -- each hunt is a row of a small MUI `Table` (as
+  `MembersPanel`'s): Hunt (row header), Your role, the gear, Categories, Quizzes; cells share a
+  baseline. Quizzes flow and wrap in their cell, 24px apart (was 8px). Under 720px of table
+  width the Quizzes column hides and each hunt's quizzes take a full-width line beneath it: a
+  container query on `TableContainer` with a `RoomFor` constant, as `ColumnsEditor` does; both
+  layouts render and CSS shows one. Each quiz link starts with 🤔 (unlocked, "Still being worked
+  on") or 🔒 (locked), a `span role="img"` with that phrase as `aria-label` and `title`. The
+  "You are" line shows `(@label)` and wraps when narrow; the title there is edited in place, so
+  it takes the new `Ident.atLabel` (`src/models/ident.ts`) rather than `Ident.byline` whole, and
+  `byline` now uses `atLabel` too. e2e: `routing.spec.ts` matches `(@label)` and finds hunts as
+  `row`/`rowheader`; one new spec checks the sigils and that two hunts' Categories links line up.
+* **Decisions taken**: a lock sigil (🔒) for locked quizzes alongside the asked-for 🤔, so every
+  quiz carries one; the sigil sits inside the link; 720px as the fold point. The last two are
+  taste calls the worker flags for the Coach.
+* **Discoveries -- for thread 3**: reuse the container-query hiding, **not** the Table. A
+  widgeting row is an Accordion that opens to formula boxes and a copy button, which do not
+  belong in table cells. Keep the Accordion; line its summary up with fixed-width boxes, as
+  `ColumnsEditor`'s rows do; hide fields with `containerType: 'inline-size'` on the list, a
+  `RoomFor` constant, and `{ display: { '@': 'none', [RoomFor.x]: 'block' } }` (`ColumnsEditor`'s
+  `hiddenUntil`). Three `sx` traps: a Table's `'& th, & td'` rule outranks a cell's own `sx`; a
+  container-query value of `undefined` does not restore the base value, so give both; table
+  cells are border-box, so `minWidth` includes padding.
+* **Incident**: a session of the Coach's (`validation_tighten`) was editing uncommitted in the
+  same checkout. Testing an e2e failure its edits caused, the worker ran `git checkout 7f4d46b --
+  src e2e tests` and back, overwriting six of its files (`src/lib/vv/checks/numbers.ts`,
+  `src/lib/vv/kit.ts`, `src/lib/vv/patterns.ts`, `src/models/question.ts`, and two tests). The
+  Coach has been told and is recovering them. **The sprint now runs in its own worktree,
+  `.claude/worktrees/little_fixes`**; the main checkout is the other session's. Every later
+  worker: run `git status` before any checkout or restore that names paths.
+* **For the Coach**: the 720px threshold and the sigil inside the link are taste calls. The agent
+  backend (port 3401) holds an ident `hunt_shooter` with three demo hunts made for screenshots.
+
+Screenshots: `screenshots/thread2-hunts-*-{before,after}.png` -- light-1100, dark-1100, light-700,
+light-390, dark-390.
+* *Review:* `clean`, at medium, run after the merge over `55dddac...a4c1165` (#99's commits on
+  main), its comment on #105. Minor, left: under 720px a hunt with no quizzes gets an empty
+  padded row beneath it (cosmetic; hide that row when there are none, if the Coach minds);
+  `Ident.byline` calls `this.atLabel`, so it would break passed detached (`.map(Ident.byline)`)
+  -- no caller does.
 
 ## Thread 1: the ident gate (2026-10-05)
 

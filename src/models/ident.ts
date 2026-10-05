@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import type * as Z from 'zod'
 import type * as Actor from '../lib/actor'
 import { Validator } from '../lib/validator'
@@ -29,6 +30,9 @@ export type IdentT    = Pick<IdentRowT, 'label' | 'title'> & { _id: string }
 /** Who a session is, as it is told: the ident it took on last, and the actor the server sees in its requests */
 export type CurrentIdentT = { ident: IdentT, actor: Actor.IdentActorT }
 
+/** Why what a person typed cannot become an ident label: a character no label keeps, or too few to make one */
+export type LabelFlawT = 'shape' | 'length'
+
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
   declare _id:    string
@@ -47,6 +51,26 @@ export class Ident implements IdentT {
    */
   static labelFor(typed: string): string {
     return Labelmaker.normalize(typed, { maxlen: PA.Identlabel.max })
+  }
+
+  /**
+   * What keeps what a person typed from becoming an ident label, if anything. `shape` is a
+   * character `labelFor` would drop or stand in for -- anything past letters, numbers, spaces,
+   * hyphens and underscores once accents are dropped, or a first character that is not a letter --
+   * which the label validator never sees, since `labelFor` repairs it. `length` is a label too short
+   * to take, nothing typed included. Too long is never a flaw: `labelFor` stops at the most a label
+   * holds.
+   *
+   * @param typed - Whatever was typed into the label box.
+   * @returns The flaw, or null when `labelFor(typed)` is an ident label.
+   *
+   * @example Ident.flawIn('Flip Kromer')  // => null
+   * @example Ident.flawIn('flip!')        // => 'shape'
+   * @example Ident.flawIn('flip')         // => 'length'
+   */
+  static flawIn(typed: string): LabelFlawT | null {
+    if (typed.trim() !== '' && ! PA.Identtyped.re.test(_.deburr(typed))) { return 'shape' }
+    return IdentValidators.identLabel.safeParse(this.labelFor(typed)).success ? null : 'length'
   }
 
   /**

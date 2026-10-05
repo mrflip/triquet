@@ -29,12 +29,26 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
-  test('will not log in as a label too short to be an ident\'s, saying why', async ({ page }) => {
+  test('will not log in as a label too short to be an ident\'s, saying so once the field is left', async ({ page }) => {
     await page.goto('/')
+    const box = page.getByRole('textbox', { name: 'Username', exact: true })
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
-    await expect(page.getByText(/An ident label is 6 to 24/)).toBeHidden()
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill('flip')
-    await expect(page.getByText(/An ident label is 6 to 24/)).toBeVisible()
+    await box.fill('flip')
+    await expect(box).toHaveValue('flip')
+    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
+    // Not yet: the render that holds 'flip' has said nothing, while the field is still being typed in.
+    await expect(page.getByText(AppNotices.usernameLength)).toBeHidden()
+    await box.blur()
+    await expect(page.getByText(AppNotices.usernameLength)).toBeVisible()
+    await expect(box).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  test('says at once of a character no username keeps', async ({ page }) => {
+    await page.goto('/')
+    const box = page.getByRole('textbox', { name: 'Username', exact: true })
+    await box.fill('flip_kromer!')
+    await expect(page.getByText(AppNotices.usernameShape)).toBeVisible()
+    await expect(box).toHaveAttribute('aria-invalid', 'true')
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
   })
 
@@ -64,6 +78,18 @@ test.describe('the front door', () => {
     await page.getByRole('link', { name: 'Be someone else' }).click()
     await page.getByRole('textbox', { name: 'Username', exact: true }).fill(freshIdentLabel())
     await page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
+    await expect(page.getByText(`(@${label})`)).toBeVisible()
+  })
+
+  test('offers a visitor who types their own username to keep being who they are, in place of logging in', async ({ page }) => {
+    const label = await assumeIdent(page)
+    await page.getByRole('link', { name: 'Be someone else' }).click()
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label.replaceAll('_', ' ').toUpperCase())
+    const keep = page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` })
+    await expect(keep).toHaveCount(1)
+    await expect(page.getByRole('button', { name: /^Log in/ })).toHaveCount(0)
+    await page.getByRole('textbox', { name: 'Username', exact: true }).press('Enter')
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
