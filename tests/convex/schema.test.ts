@@ -49,8 +49,12 @@ const RowValidators: Record<TableNames, RowValidator> = {
   widgeteds:   WidgetedValidators.row,
 }
 
-/** The fields a row may lack for good, their absence meaning what the code reading them says: a hunt nobody has arranged reads as the default wheel */
-const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'] }
+/**
+ * The fields a row may lack for good, their absence meaning what the code reading them says: a
+ * hunt nobody has arranged reads as the default wheel, and a column nobody has aligned centers
+ * Q# and lets every other cell set itself
+ */
+const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'], columns: ['align'] }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
 const Backfilling: Partial<Record<TableNames, string[]>> = {}

@@ -1,10 +1,9 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** threads 4 and 5 planned, waiting on the Coach to merge the spine stack (#103 lanes <-
-#104 spine <- #106 parallel sprints <- #107 cwd rule). They run under those rules once main has them
-(`pnpm worktree`, `pnpm land`, a lane per worktree); nothing is spawned before. Threads 1-3 done:
-1 and 2 merged via #99; 1b is #105, 3 is #108, both open, reviewed clean.
+`/sprint`. **Status:** thread 5 landed (#110); thread 4 reviewed, landing next; thread 6 in review. Threads 1-3
+done: 1 and 2 merged via #99, 1b merged as #105; 3 is #108, on the spine, open. **At once:** up to 3
+threads (round two).
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -177,12 +176,20 @@ worktree: work in it, run `git status` before any path-naming checkout or restor
 Settled without a thread: a hunt cannot lack quizzes, so the narrow hunts page's empty row cannot
 happen (drop it); `statusLine` unused is noted, not to be investigated now.
 
-**Under the spine rules.** Once #103-#107 merge, every thread starts with `pnpm worktree <label>`
+*Orchestrator:* the spine stack merged; main's `notes/git_hygiene.md`, CLAUDE.md and the agent
+definitions now govern, superseding round one's ground rules. Each round-two worker writes its
+section to `thread-<N>-<label>.md` beside this plan, never to the progress document (which is now
+the orchestrator's alone), and reports `ready` when built; it lands only when told.
+
+**Under the spine rules.** Every thread starts with `pnpm worktree <label>`
 (its own worktree and lane, cut from the spine's top), works from that root with `cd <root> && `
 on every command, finishes with `pnpm land`, then files its PR and `pnpm worktree --remove`.
 Workers read `notes/git_hygiene.md` and CLAUDE.md *as merged*, and `.claude/agents/thread-worker.md`
-as it then stands; they supersede this plan's older ground rules wherever they differ. Threads 4
-and 5 touch different files and may run side by side if the merged sprint skill allows it.
+as it now stands; they supersede this plan's older ground rules wherever they differ.
+**Dependencies:** thread 4 depends on nothing (#105 is merged); thread 5 builds on thread 3's grid
+typesetting, which is on the spine (#108), so it depends on nothing unlanded either. They touch
+different corners (the gate and `MembersPanel` vs. `ColumnsEditor`, the column model and the grid's
+cells), so they run side by side.
 
 ### Thread 4: the name field is the title; the label beside it follows until edited
 
@@ -227,6 +234,16 @@ else left, **Q# centered**. Whether a fresh column writes its default or leaves 
 is the worker's call, recorded. Thread 3's open question (Q# right-aligned under a left header)
 is answered by this: Q# starts centered, header with it.
 
+
+### Thread 6: reviews and the spine, in worktrees
+
+> improve the guidance for the sprint plan to account for the worktree issue
+
+*Orchestrator:* added mid-round. The worktree issue: `/code-review` runs in the main checkout, not
+the reviewer's worktree (thread 5's review), plus two spine traps this sprint met (`fetch.prune`
+unset; the sweep trim bug). Guidance in `.claude/agents/thread-reviewer.md` and the sprint skill;
+the worker added `restack`'s `--prune` in `scripts/spine.ts`, with a test, so it is reviewed.
+Until it lands, reviewers in this sprint review by hand and never pass `--fix`.
 
 ## For the Coach
 

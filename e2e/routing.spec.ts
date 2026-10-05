@@ -20,7 +20,7 @@ function freshTitle(stem: string): string {
 test.describe('the front door', () => {
   test('asks a visitor who has not said who they are', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
   })
 
   test('sends a visitor who has said on to their hunts', async ({ page }) => {
@@ -30,37 +30,69 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
-  test('will not log in as a label too short to be an ident\'s, saying so once the field is left', async ({ page }) => {
+  test('will not log in as a username too short to be an ident\'s, saying so once the field is left', async ({ page }) => {
     await page.goto('/')
+    const name = page.getByRole('textbox', { name: 'Your name' })
     const box = page.getByRole('textbox', { name: 'Username', exact: true })
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
-    await box.fill('flip')
+    await name.fill('Flip')
     await expect(box).toHaveValue('flip')
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
-    // Not yet: the render that holds 'flip' has said nothing, while the field is still being typed in.
-    await expect(page.getByText(AppNotices.usernameLength)).toBeHidden()
-    await box.blur()
-    await expect(page.getByText(AppNotices.usernameLength)).toBeVisible()
+    // Not yet: the render that holds 'flip' has said nothing, while the name is still being typed.
+    await expect(page.getByText(AppNotices.usernameUnfinished)).toBeHidden()
+    await name.blur()
+    await expect(page.getByText(AppNotices.usernameUnfinished)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
   })
 
-  test('says at once of a character no username keeps', async ({ page }) => {
+  test('takes any name, and says at once of a username no typing on would mend', async ({ page }) => {
     await page.goto('/')
     const box = page.getByRole('textbox', { name: 'Username', exact: true })
-    await box.fill('flip_kromer!')
+    await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
+    await expect(box).toHaveValue('flip_the_kromer')
+    await expect(page.getByRole('button', { name: 'Log in as flip_the_kromer' })).toBeEnabled()
+    await box.fill('Flip_Kromer')
     await expect(page.getByText(AppNotices.usernameShape)).toBeVisible()
     await expect(box).toHaveAttribute('aria-invalid', 'true')
     await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeDisabled()
   })
 
-  test('makes an ident of what was typed, titled after its label', async ({ page }) => {
+  test('makes the username follow the name until it is typed in itself, and again once it is emptied', async ({ page }) => {
+    await page.goto('/')
+    const name = page.getByRole('textbox', { name: 'Your name' })
+    const box = page.getByRole('textbox', { name: 'Username', exact: true })
+    await name.fill('Flip Kromer')
+    await expect(box).toHaveValue('flip_kromer')
+    await box.fill('mrflip')
+    await name.fill('Philip Kromer')
+    await expect(box).toHaveValue('mrflip')
+    await box.fill('')
+    // Emptied, it follows again: blank while it is being cleared, the name's username once the name changes or the field is left.
+    await expect(page.getByRole('button', { name: 'Log in as philip_kromer' })).toBeVisible()
+    await box.blur()
+    await expect(box).toHaveValue('philip_kromer')
+    await name.fill('Phil Kromer')
+    await expect(box).toHaveValue('phil_kromer')
+  })
+
+  test('makes an ident titled with the name typed, labelled with the username', async ({ page }) => {
     const label = freshIdentLabel()
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label.replaceAll('_', ' ').toUpperCase())
+    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await page.getByRole('textbox', { name: 'Your name' }).fill('Flip (the) Kromer!')
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
     await page.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByText(`(@${label})`)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('Flip (the) Kromer!')
+  })
+
+  test('titles an ident after its username when no name is typed', async ({ page }) => {
+    const label = freshIdentLabel()
+    await page.goto('/')
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
+    await page.getByRole('button', { name: `Log in as ${label}` }).click()
+    await expect(page).toHaveURL(/\/my\/hunts$/)
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue(Labelmaker.titleize(label))
   })
 
@@ -83,10 +115,12 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(@${label})`)).toBeVisible()
   })
 
-  test('offers a visitor who types their own username to keep being who they are, in place of logging in', async ({ page }) => {
+  test('offers a visitor whose name makes their own username to keep being who they are, in place of logging in', async ({ page }) => {
     const label = await assumeIdent(page)
     await page.getByRole('link', { name: 'Be someone else' }).click()
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label.replaceAll('_', ' ').toUpperCase())
+    // The hunts page has a "Your name" field too: wait for the gate's.
+    await expect(page.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
+    await page.getByRole('textbox', { name: 'Your name' }).fill(label.replaceAll('_', ' ').toUpperCase())
     const keep = page.getByRole('button', { name: `Keep being ${Labelmaker.titleize(label)} (@${label})` })
     await expect(keep).toHaveCount(1)
     await expect(page.getByRole('button', { name: /^Log in/ })).toHaveCount(0)
@@ -399,7 +433,7 @@ test.describe('a link handed to a friend', () => {
     const friend = await otherVisitor(browser)
     const label = freshIdentLabel()
     await friend.goto(link)
-    await expect(friend.getByRole('heading', { name: 'Enter your username (6+ letters, a-z) to join' })).toBeVisible()
+    await expect(friend.getByRole('heading', { name: AppNotices.identGateTitle })).toBeVisible()
     await friend.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
     await friend.getByRole('button', { name: `Log in as ${label}` }).click()
     await expect(friend).toHaveURL(link)
@@ -506,6 +540,20 @@ test.describe('a link handed to a friend', () => {
     await members.getByLabel('Ident label').fill(label)
     await members.getByRole('button', { name: 'Add' }).click()
     await expect(members.getByText(`No ident is labelled "${label}". They need to visit the app and choose it first.`)).toBeVisible()
+  })
+
+  test('checks the label a smith types as the front door checks a username', async ({ page }) => {
+    await startHunt(page)
+    const members = page.getByRole('region', { name: 'Members' })
+    const box = members.getByLabel('Ident label')
+    await box.fill('Flip Kromer')
+    await expect(members.getByText(AppNotices.identLabelShape)).toBeVisible()
+    await expect(box).toHaveAttribute('aria-invalid', 'true')
+    await box.fill('flip')
+    await expect(members.getByText(AppNotices.identLabelUnfinished)).toBeHidden()
+    await members.getByRole('button', { name: 'Add' }).click()
+    await expect(members.getByText(AppNotices.identLabelUnfinished)).toBeVisible()
+    await expect(box).toHaveAttribute('aria-invalid', 'true')
   })
 
   test('offers a smith no way to take themselves off, and says why beside the field when they try to put themselves on', async ({ page }) => {

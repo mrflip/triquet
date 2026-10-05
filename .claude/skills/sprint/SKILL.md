@@ -26,6 +26,14 @@ not merely append to (§3). `pnpm sweep` commits what you wrote onto the spine's
 and landing sweeps too. You run `pnpm worktree` to cut each thread's ground (§2), and the worker
 owns the worktree from there.
 
+**Stage before you sweep**, until `scripts/spine.ts` reads `git status` untrimmed
+(`human/20261005-spine_sweep_trims_status.md`). A sweep fails -- and with it every cut and
+landing, since each sweeps first -- when the first changed path under `whiteboard/`, `human/` or
+`notes/` is modified but unstaged (` M path`): the trim eats the leading space, and `git add` is
+asked for `hiteboard/...`. So before each `pnpm sweep`, each cut, and each resume of a worker to
+land, run `git add -- whiteboard human notes` in the main checkout: exactly what the sweep would
+commit anyway.
+
 ## 1. Plan
 
 Pick a short `sprint_name` from the work (the Coach's word for it if they gave one). In the main
@@ -112,12 +120,16 @@ the same reasons) unless the review level is `none` or the thread's diff holds n
 ```
 Review of thread <N> of sprint <sprint_name>. Sprint directory: whiteboard/<YYYYMMDD-sprint_name>/.
 Worktree: <root>; begin every shell command with `cd <root> && `. Branch: <branch>. Review level: <level>.
-Review the thread's own commits, from its base (`git config branch.<branch>.spinebase`) to
-HEAD, per your agent definition.
+Review the thread's own commits, <base-sha>...<tip-sha>, per your agent definition. /code-review
+runs in the main checkout, not your worktree: never pass it --fix, and verify each finding
+against the worktree's files.
 ```
 
-The reviewer keeps the fixes it can stand behind as `fix:` commits in the worktree, and
-reports; anything it may not decide comes back `flagged` for §4.
+Spell the range out as two SHAs: the base is `git -C <root> config branch.<branch>.spinebase`,
+the tip `git -C <root> rev-parse HEAD`. The skill resolves them from the refs every checkout
+shares, but stands in the main checkout, where `HEAD` is the thread's base and the thread's files
+are not on disk. The reviewer makes the fixes it can stand behind by hand in the worktree, keeps
+them as `fix:` commits, and reports; anything it may not decide comes back `flagged` for §4.
 
 **Land.** Resume the worker (SendMessage, same agent, so its context survives) with "Land
 it", and anything from the review it should know. It runs `pnpm land`, repairs what is
@@ -168,8 +180,8 @@ Default rules, absent other guidance:
   handled like a worker's blocking question. If the fix is a two-way door and you are in
   YOLO, resume the worker with the finding as a directive; it builds on the branch as it now
   stands, reviewer's commits and all, and reports `ready` again. Then spawn a second reviewer
-  over the new commits only (`<tip the first reviewer left>...HEAD`). Never a third: what is
-  still open after that is the Coach's. Otherwise the finding is the Coach's: the thread waits,
+  over the new commits only (`<tip the first reviewer left>...<the new tip>`, both SHAs). Never
+  a third: what is still open after that is the Coach's. Otherwise the finding is the Coach's: the thread waits,
   unlanded, in its worktree.
 * **Resume** a `blocked` worker (SendMessage, same agent, so its context survives) when
   you can supply what it lacks: an answer the plan or progress document already holds, or

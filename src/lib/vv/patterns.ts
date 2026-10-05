@@ -56,8 +56,8 @@ export const Plain        = { re: /^[A-Za-z0-9 ]*$/, msg: 'should have only plai
 export const Label      = { re: /^[a-z](_?[a-z0-9])+$/, min: 2, max: 40, msg: 'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
 /** An ident's label: label-shaped, and long enough to be a name someone chose rather than an initial */
 export const Identlabel = { re: /^[a-z](_?[a-z0-9])+$/, min: 6, max: 24, msg: 'should be 6 to 24 plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row' } as const satisfies Patternbag
-/** A username as typed, accents already dropped: what `Identlabel` is made from without losing a character, since spaces and hyphens become underscores and case is folded */
-export const Identtyped = { re: /^\s*[a-z][a-z0-9\s_-]*$/i, msg: 'should be only letters, numbers, spaces, hyphens and underscores, with a letter first' } as const satisfies Patternbag
+/** An ident's label as far as it has been typed: empty, or what typing on could still make an `Identlabel` -- every character one it keeps, with at most a trailing underscore or too few characters between it and done */
+export const Identbegun = { re: /^(?:[a-z](?:_?[a-z0-9])*_?)?$/, max: Identlabel.max, msg: 'should be plain lowercase letters/_/numbers, with a letter first and no __ in a row' } as const satisfies Patternbag
 export const Dashlabel  = { re: /^[a-z][a-z0-9_-]*$/,   min: 1, max: 25, msg: 'should have only plain lowercase letters/_/-/numbers with a letter first' } as const satisfies Patternbag
 export const Handleish  = { re: /^[a-z][a-z0-9_]*$/,    min: 1, max: 36, msg: 'should have only lowercase plain letters/_/numbers with a letter first' } as const satisfies Patternbag
 export const Keyish     = { re: /^[\w\-.:/+]*$/,        min: 1, max: 90, msg: 'should be letters, numbers, .-_/:' } as const satisfies Patternbag

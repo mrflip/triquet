@@ -1,7 +1,24 @@
 # Sprint `little_fixes`: progress
 
-The running handoff. Newer than `little_fixes-plan.md` wherever they disagree. Workers append
-their sections below the table, newest first.
+The running handoff. Newer than `little_fixes-plan.md` wherever they disagree. Round one's
+workers appended their sections below, newest first; from round two each worker writes
+`thread-<N>-<label>.md` beside this file, and this document is the orchestrator's alone.
+
+*Orchestrator, round two:* threads 4-6 keep their sections in `thread-<N>-<label>.md` beside
+this file. Learned so far:
+* **Review by hand in a worktree.** `/code-review` runs in the main checkout, never the worktree;
+  never `--fix`. Thread 6 rewrites the reviewer's guidance for it.
+* **Land one at a time.** Two e2e suites at once pushed the load to 50 and timed specs out; a
+  landing's red e2e under load passed untouched once the load fell.
+* **A merged spine branch leaves a stale tracking ref** (`fetch.prune` is unset here); `pnpm land`
+  is refused "stale info" until `git fetch --prune origin`. Thread 6 makes `restack` prune.
+* **Stage before you sweep** (`git add -- whiteboard human notes`): the sweep trim bug.
+* *Review, thread 5:* `clean`, by hand. Left: an unset column's mark shows the header's side, not
+  its values'; no way back to unset -- both the worker's questions for the Coach, on #110.
+* *Review, thread 4:* `clean`, by hand. Left: a long name starting with a digit makes a
+  25-character username (`Labelmaker.repaired` cuts before prefixing `z`; older bug this thread
+  first reaches); Enter in a cleared username field is blocked by `required` (`noValidate` would
+  submit). Both put to the Coach.
 
 ## Status
 
@@ -10,9 +27,10 @@ their sections below the table, newest first.
 | 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
 | 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
 | 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete, reviewed (clean) |
-| 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | complete, reviewed (clean) |
-| 4      | name is title, label beside  |        |    | planned; waits on the spine merge |
-| 5      | column alignment             |        |    | planned; waits on the spine merge |
+| 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | on the spine, open; reviewed (clean) |
+| 4      | name is title, label beside  | `20261005-name_title_label` |    | reviewed (clean); landing next |
+| 6      | reviews in worktrees         | `20261005-review_in_worktree` |    | in review |
+| 5      | column alignment             | `20261005-column_align` | #110 | landed #110; reviewed (clean) |
 
 ## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
 

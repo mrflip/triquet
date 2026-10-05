@@ -60,7 +60,9 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
    calls straightforward and land again; a conflict or failure that takes judgment about
    which behaviour wins is a `blocked`, handled as git_hygiene says (tag, resolve-or-abort,
    report). The main checkout refusing to switch means the Coach has an uncommitted edit in
-   your way: that is a `blocked` too, naming the file.
+   your way: that is a `blocked` too, naming the file. So is a sweep that fails asking `git add`
+   for a path missing its first letter (`hiteboard/...`): the orchestrator stages the main
+   checkout's notes, which you may not, and resumes you.
 4. **File the PR** against `main`, per git_hygiene's *Filing the PR*: title, body shaped like
    recent PRs, a **Tests:** line, "stacked on #N" for the branch you landed on (the landing
    says which).

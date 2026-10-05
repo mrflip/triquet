@@ -51,7 +51,7 @@ export function EstimatesCell({ widgeted, order, label, locked, heightPx, onEnte
   const { pills, place, pitch, remove, add } = usePills(Estimates.estimatesOf(widgeted), onEnter)
   const removable = pills.length > 1
   return (
-    <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.5, alignItems: 'center', maxHeight: `${String(heightPx)}px`, overflowY: 'auto', py: 0.25 }}>
+    <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.5, alignItems: 'center', justifyContent: 'var(--col-justify, flex-start)', maxHeight: `${String(heightPx)}px`, overflowY: 'auto', py: 0.25 }}>
       {pills.map((pill, idx) => {
         const nth = `${label}, ${String(idx + 1)}`
         return (

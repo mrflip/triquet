@@ -51,11 +51,33 @@ describe('Column.fill', () => {
   it('refuses a title past 82 characters', () => {
     expect(() => Column.fill({ ...base, title: 'x'.repeat(83) })).to.throw(Z.ZodError)
   })
+
+  const Aligns: [unknown, boolean, string][] = [
+    ['left',    true,  'aligned left'],
+    ['center',  true,  'centered'],
+    ['right',   true,  'aligned right'],
+    ['justify', false, 'justified, which a grid cell is never'],
+    ['',        false, 'aligned nowhere'],
+    [null,      false, 'an alignment of null, where absent is meant'],
+  ]
+  for (const [align, ok, describes] of Aligns) {
+    it(`${ok ? 'takes' : 'refuses'} a column ${describes}`, () => {
+      expect(ColumnValidators.column.safeParse({ ...base, align }).success).to.eq(ok)
+    })
+  }
+
+  it('leaves an alignment never given absent, rather than filling one in', () => {
+    expect(Column.fill(base)).to.not.have.property('align')
+  })
 })
 
 describe('ColumnValidators.columnPatch', () => {
   it('leaves absent keys absent', () => {
     expect(ColumnValidators.columnPatch({ title: 'Renamed' })).to.deep.eq({ title: 'Renamed' })
+  })
+
+  it('takes an alignment alone', () => {
+    expect(ColumnValidators.columnPatch({ align: 'center' })).to.deep.eq({ align: 'center' })
   })
 })
 
@@ -134,6 +156,11 @@ describe('ColumnValidators.row', () => {
     expect(ColumnValidators.row(Row)).to.deep.eq(Row)
   })
 
+  it('takes a column with an alignment, and one without', () => {
+    expect(ColumnValidators.row({ ...Row, align: 'right' })).to.deep.eq({ ...Row, align: 'right' })
+    expect(ColumnValidators.row(Row)).to.not.have.property('align')
+  })
+
   const Refused: [object, string][] = [
     [{ quiz_id: 'clueing' },         'a quiz that is not a row id'],
     [{ hunt_id: undefined },         'no hunt'],
@@ -141,6 +168,7 @@ describe('ColumnValidators.row', () => {
     [{ source: 'question' },         'the questions\' own widget, which has no value'],
     [{ position: -1 },               'a place before the first'],
     [{ position: 100 },              'a place past as many columns as a quiz may hold'],
+    [{ align: 'middle' },            'an alignment there is not'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {

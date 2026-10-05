@@ -449,6 +449,30 @@ test('what a column shows and its width are changed in place, and kept', async (
   await expect(row.getByRole('textbox', { name: 'Width (px)' })).toHaveValue('250')
 })
 
+test('Q# starts centered, and a column\'s alignment steps on from its mark, header and cells alike, and is kept', async ({ page }) => {
+  const head = (colname: string) => grid(page).getByRole('columnheader', { name: colname, exact: true })
+  const firstBox = (colname: string) => grid(page).getByRole('textbox', { name: colname, exact: true }).first()
+  await expect(head('Q#')).toHaveCSS('text-align', 'center')
+  await expect(firstBox('Q#')).toHaveCSS('text-align', 'center')
+  await expect(firstBox('Title')).toHaveCSS('text-align', 'left')
+
+  await openManage(page)
+  const row = manageDialog(page).getByRole('group', { name: 'Column Title' })
+  await expect(manageDialog(page).getByRole('group', { name: 'Column Q#' }).getByRole('button', { name: 'Alignment of Q#: center' })).toBeVisible()
+  await row.getByRole('button', { name: 'Alignment of Title: left' }).click()
+  await row.getByRole('button', { name: 'Alignment of Title: center' }).click()
+  await expect(row.getByRole('button', { name: 'Alignment of Title: right' })).toBeVisible()
+  await closeManage(page)
+  await expect(head('Title')).toHaveCSS('text-align', 'right')
+  await expect(firstBox('Title')).toHaveCSS('text-align', 'right')
+
+  await reloadOnceSaved(page)
+  await expect(firstBox('Title')).toHaveCSS('text-align', 'right')
+  await openManage(page)
+  await row.getByRole('button', { name: 'Alignment of Title: right' }).click()
+  await expect(row.getByRole('button', { name: 'Alignment of Title: left' })).toBeVisible()
+})
+
 test('the input a formula reads is folded to one line each, and opens to a pretty-printed box', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
   await page.getByLabel('Quiz name').click()

@@ -96,10 +96,12 @@ words above.
   same session visit after visit. A session says nothing of who someone is; its username does.
 * **username** -- what the screen calls an ident's label: what a person types to become an ident.
 * **ident** -- who someone is in the app, named by a global label a person types to become it: 6 to
-  24 characters of the label alphabet, normalised from what was typed. Held by the session that
-  claimed it (`user_id`), and asserted by no other: no password, but no taking on another's
-  either. One made before sessions held usernames is unclaimed (`user_id` null) until a session
-  asserts it. Has a `title` for display. Never deleted, and its label never changes.
+  24 characters of the label alphabet, made from the name typed beside it until it is typed in
+  itself. Held by the session that claimed it (`user_id`), and asserted by no other: no password,
+  but no taking on another's either. One made before sessions held usernames is unclaimed
+  (`user_id` null) until a session asserts it. Has a `title` for display: the name typed at the
+  front door, or its label titleized; retitling it never relabels it. Never deleted, and its label
+  never changes.
 * **identing** -- one session asserting one ident, by the session's `user_id`. The session's
   newest identing is its current ident; that row, not browser storage, is what "logged in" means.
 * **actor** -- who a request is from, as a tagged value built once per request and handed to
@@ -280,10 +282,12 @@ than one kind of player. Begun by the categories sprint, October 2026
 
 ## Columns and the bag
 
-* **column** -- what the grid shows: a `label`, a `title`, a `width_px` and a `source`. Kept apart
-  from widgetings on purpose: a widgeting *has* a value, a column *shows* one. Removing a column
-  keeps its widgeting; removing a widgeting takes its columns. Columns have a label space of their
-  own per quiz, and the TSV's headers are column labels.
+* **column** -- what the grid shows: a `label`, a `title`, a `width_px`, a `source`, and perhaps
+  an `align` (left, center or right; absent, Q# is centered and every other cell sets itself, a
+  number to the right and anything else to the left). Kept apart from widgetings on purpose: a
+  widgeting *has* a value, a column *shows* one. Removing a column keeps its widgeting; removing a
+  widgeting takes its columns. Columns have a label space of their own per quiz, and the TSV's
+  headers are column labels.
 * **source** -- what a column shows: `question.<field>`, `question.<view>`, a widgeting's
   label, or `<widgeting>.<part>`: one **part** of what a widgeting came to, which only a
   category-estimate entry offers (`estimates`, `masie`, `artie`, `poppy`, `average`), worked out on

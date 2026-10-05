@@ -1,4 +1,4 @@
-import { sortkeyOf, sourceOf, type ColumnT, type QuestionField, type QuestionView, type WidgetingPart } from '../models/column'
+import { ColumnAlignVals, sortkeyOf, sourceOf, type ColumnAlign, type ColumnT, type QuestionField, type QuestionView, type WidgetingPart } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
 import type { Sortkey } from '../models/quiz'
 
@@ -22,6 +22,11 @@ export type ColumnSpec = {
   source:   Resolved
   widthPx:  number
   headkind: Headkind
+  /**
+   * Where the header and every cell set their text; null leaves each to its own: a header along
+   * the row to the left and a turned one to the right, a number to the right and text to the left
+   */
+  align:    ColumnAlign | null
   /** Present when the header can be clicked to commit the quiz to this column's order */
   sortkey?: Sortkey
 }
@@ -53,8 +58,42 @@ function sortable(source: Resolved): boolean {
 }
 
 /** How a column's header is drawn: a narrow widgeting's rotated into it, everything else along the row */
-function headkindOf(source: Resolved, widthPx: number): Headkind {
+function headkindOf(source: Pick<Resolved, 'kind'>, widthPx: number): Headkind {
   return source.kind === 'widgeting' && widthPx <= 100 ? 'vertical' : 'plain'
+}
+
+/**
+ * Where a column sets its header and its cells: where it says, or Q# centered; null for any other
+ * column that says nothing, whose header and cells each set themselves.
+ *
+ * @example alignOf({ ...column, align: 'right' })      // => 'right'
+ * @example alignOf({ ...column, source: 'question.qnum' })  // => 'center'
+ * @example alignOf({ ...column, source: 'question.title' }) // => null
+ */
+export function alignOf(column: Pick<ColumnT, 'source' | 'align'>): ColumnAlign | null {
+  return column.align ?? (column.source === 'question.qnum' ? 'center' : null)
+}
+
+/**
+ * Where a column's header sits: where the column says, Q# centered, a turned header to the right
+ * over the numbers below it, any other to the left. It is what the column editor shows.
+ *
+ * @example headAlignOf({ label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60 })       // => 'center'
+ * @example headAlignOf({ label: 'sum', title: 'Sum', source: 'dumdum', width_px: 78 })              // => 'right'
+ * @example headAlignOf({ label: 'notes', title: 'Notes', source: 'question.notes', width_px: 220 })  // => 'left'
+ */
+export function headAlignOf(column: ColumnT): ColumnAlign {
+  return alignOf(column) ?? (headkindOf(sourceOf(column.source), column.width_px) === 'vertical' ? 'right' : 'left')
+}
+
+/**
+ * The alignment a click on a column's moves it to: left, then center, then right, then left again.
+ *
+ * @example alignAfter('left')   // => 'center'
+ * @example alignAfter('right')  // => 'left'
+ */
+export function alignAfter(align: ColumnAlign): ColumnAlign {
+  return ColumnAlignVals[(ColumnAlignVals.indexOf(align) + 1) % ColumnAlignVals.length] ?? 'left'
 }
 
 /**
@@ -74,6 +113,7 @@ export function specFor(column: ColumnT, widgetings: readonly WidgetingT[]): Col
     source,
     widthPx:  column.width_px,
     headkind: headkindOf(source, column.width_px),
+    align:    alignOf(column),
     ...(sortable(source) && { sortkey: sortkeyOf(column) }),
   }
 }

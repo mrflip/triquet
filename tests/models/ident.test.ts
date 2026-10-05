@@ -8,12 +8,13 @@ describe('Ident.labelFor', () => {
     ["Flip Kromer",          "flip_kromer",                  'makes words a label'],
     ["  flip  ",             "flip",                         'trims, leaving a label too short for the validator to take'],
     ["Ünïcödé Pérson",       "unicode_person",               'deburrs'],
+    ["Philip (flip) Kromer", "philip_flip_kromer",           'drops punctuation, as a name may hold any'],
     ["the_quite_long_name_indeed", "the_quite_long_name_inde", 'stops at 24 characters'],
     ["",                     "",                             'hands back nothing for nothing'],
   ] as const
-  for (const [typed, label, describes] of Cases) {
+  for (const [name, label, describes] of Cases) {
     it(describes, () => {
-      expect(Ident.labelFor(typed)).to.eq(label)
+      expect(Ident.labelFor(name)).to.eq(label)
     })
   }
 })
@@ -21,27 +22,50 @@ describe('Ident.labelFor', () => {
 describe('Ident.flawIn', () => {
   const Cases = [
     // regular usage:
-    ["Flip Kromer",                  null,     'takes words, which become a label'],
-    ["flip-kromer_2",                null,     'takes hyphens, underscores and numbers after the first letter'],
-    ["Ünïcödé Pérson",               null,     'takes accented letters, which lose their accents'],
-    ["the_quite_long_name_indeed",   null,     'takes too many characters, since the label stops at the most it holds'],
-    // too short:
-    ["flip",                         'length', 'finds a label of fewer than six characters too short'],
-    ["fl ip",                        'length', 'counts the label, not the keystrokes'],
-    ["",                             'length', 'finds nothing typed too short, not misshapen'],
-    [" ".repeat(3),                  'length', 'finds only spaces too short, not misshapen'],
-    // a character no label keeps:
-    ["flip!",                        'shape',  'refuses punctuation, which the label would drop'],
-    ["flip.kromer",                  'shape',  'refuses a dot, which the label would stand an underscore in for'],
-    ["1flipper",                     'shape',  'refuses a number first, which the label would put a letter before'],
-    ["_flipper",                     'shape',  'refuses an underscore first'],
-    ["flip 🤔 kromer",               'shape',  'refuses an emoji'],
-    ["田中 kromer",                  'shape',  'refuses a letter with no plain-letter spelling'],
-    ["ab!",                          'shape',  'says a misshapen character before saying too short'],
+    ["flip_kromer",                  null,         'takes an ident label'],
+    ["flip_kromer_2",                null,         'takes numbers and single underscores after the first letter'],
+    ["x".repeat(24),                 null,         'takes as many characters as a label holds'],
+    // still being typed:
+    ["flip",                         'unfinished', 'finds a label of fewer than six characters unfinished'],
+    ["",                             'unfinished', 'finds nothing typed unfinished, not misshapen'],
+    ["flip_kromer_",                 'unfinished', 'finds a trailing underscore unfinished, as typing on would mend it'],
+    // no typing on mends it:
+    ["Flip_Kromer",                  'shape',      'refuses a capital, rather than folding it away'],
+    ["flip kromer",                  'shape',      'refuses a space, rather than making it an underscore'],
+    [" flip_kromer",                 'shape',      'refuses a space around it, rather than trimming it'],
+    ["flip-kromer",                  'shape',      'refuses a hyphen'],
+    ["flip__kromer",                 'shape',      'refuses two underscores in a row'],
+    ["1flipper",                     'shape',      'refuses a number first'],
+    ["_flipper",                     'shape',      'refuses an underscore first'],
+    ["flïp_kromer",                  'shape',      'refuses an accented letter'],
+    ["x".repeat(25),                 'shape',      'refuses more characters than a label holds'],
+    ["fl!",                          'shape',      'says a misshapen character before saying unfinished'],
   ] as const
-  for (const [typed, flaw, describes] of Cases) {
+  for (const [label, flaw, describes] of Cases) {
     it(describes, () => {
-      expect(Ident.flawIn(typed)).to.eq(flaw)
+      expect(Ident.flawIn(label)).to.eq(flaw)
+    })
+  }
+
+  it('finds no flaw in any label a name makes but a short one', () => {
+    const names = ['Flip Kromer', 'Philip (flip) Kromer', 'Ünïcödé Pérson', '1st Flipper', 'the quite long name indeed', '田中 Kromer', '🤔🤔🤔']
+    expect(names.map((name) => Ident.flawIn(Ident.labelFor(name)))).to.deep.eq([null, null, null, null, null, null, 'unfinished'])
+  })
+})
+
+describe('Ident.flawToSay', () => {
+  const Cases = [
+    ["Flip",        false, 'shape',      'says a misshapen label at once'],
+    ["Flip",        true,  'shape',      'says a misshapen label once left'],
+    ["flip",        false, null,         'keeps quiet of an unfinished label while it is being typed'],
+    ["flip",        true,  'unfinished', 'says an unfinished label once the field is left'],
+    ["flip_",       true,  'unfinished', 'says a trailing underscore once the field is left'],
+    ["",            true,  null,         'never says anything of an empty field'],
+    ["flip_kromer", true,  null,         'says nothing of a label'],
+  ] as const
+  for (const [label, left, flaw, describes] of Cases) {
+    it(describes, () => {
+      expect(Ident.flawToSay(label, left)).to.eq(flaw)
     })
   }
 })

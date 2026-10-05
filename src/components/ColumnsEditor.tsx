@@ -1,7 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Box, Button, Dialog, DialogActions, DialogContent, IconButton, MenuItem, Stack, TextField } from '@mui/material'
+import { Box, Button, Dialog, DialogActions, DialogContent, IconButton, MenuItem, Stack, TextField, Tooltip } from '@mui/material'
+import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter'
+import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft'
+import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
 import { NumberField } from './cells/fields'
@@ -10,7 +13,8 @@ import { useDraft } from './use-draft'
 import { hiddenUntil } from './room'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Estimates from '../lib/estimates'
-import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals, WidthPxMax, namesFor, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../models/column'
+import { alignAfter, headAlignOf } from '../lib/columns'
+import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals, WidthPxMax, namesFor, widgetingSourceOf, type ColumnAlign, type ColumnPatch, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { HuntActionDNA } from '../models/actions'
@@ -31,10 +35,17 @@ type Editing = { kind: 'column', label: string } | { kind: 'new' } | null
 /** How wide a new column starts */
 const NewColumnWidthPx = 180
 
+/** The familiar mark of each alignment, from a word processor's toolbar */
+const AlignIcons: Readonly<Record<ColumnAlign, React.ReactNode>> = {
+  left:   <FormatAlignLeftIcon fontSize="small" />,
+  center: <FormatAlignCenterIcon fontSize="small" />,
+  right:  <FormatAlignRightIcon fontSize="small" />,
+}
+
 /**
  * How wide the columns list must be for a row to show each of its lesser fields, as MUI's
  * container-query shorthand. The label goes first as it narrows, then what the column shows, then
- * its width; the title and the gear always stay.
+ * its width; the title, the alignment and the gear always stay.
  */
 const RoomFor = { label: '@800', source: '@620', width: '@400' } as const
 
@@ -53,9 +64,9 @@ function sourcesOf(quiz: QuizT, library: readonly WidgetT[]) {
 
 /**
  * A quiz's columns: every one listed in the order the grid shows them, dragged into a new order by
- * its handle, with its title, what it shows and its width to change in place, its label beside
- * those, and a gear that opens the rest. The list measures its own width, not the window's, to
- * decide which of those there is room for.
+ * its handle, with its title, what it shows, its width and its alignment to change in place, its
+ * label beside those, and a gear that opens the rest. The list measures its own width, not the
+ * window's, to decide which of those there is room for.
  */
 export function ColumnsEditor({ quiz, library, revisable, dispatch }: Readonly<ColumnsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
@@ -96,9 +107,9 @@ type ColumnRowProps = {
 }
 
 /**
- * One column: its handle, its title to type into, what it shows to pick, its width, its label,
- * and its gear. The lesser of those give way as the list narrows (`RoomFor`). A title or width is
- * kept when its field loses focus, a pick at once.
+ * One column: its handle, its title to type into, what it shows to pick, its width, its
+ * alignment, its label, and its gear. The lesser of those give way as the list narrows
+ * (`RoomFor`). A title or width is kept when its field loses focus, a pick or a click at once.
  */
 function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readonly<ColumnRowProps>) {
   const [issue, setIssue] = useState<string | null>(null)
@@ -109,9 +120,10 @@ function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readon
     dispatch({ kind: 'edit_column', label: column.label, patch: checked.data })
   }
   const titleDraft = useDraft(column.title, (title) => { commit({ title }) })
+  const columnName = column.title || column.label
 
   return (
-    <Stack spacing={0.5} role="group" aria-label={`Column ${column.title || column.label}`}>
+    <Stack spacing={0.5} role="group" aria-label={`Column ${columnName}`}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
         <Box sx={{ pt: 1 }}>{handle}</Box>
         <TextField
@@ -131,11 +143,42 @@ function ColumnRow({ column, sources, handle, locked, dispatch, onEdit }: Readon
             onCommit={(width_px) => { if (width_px !== null) { commit({ width_px }) } }}
           />
         </Box>
+        <AlignButton column={column} columnName={columnName} locked={locked} onAlign={(align) => { commit({ align }) }} />
         <Box className={styles.microcopy} sx={{ ...hiddenUntil(RoomFor.label), width: 160, flexShrink: 0, pt: 1, overflowWrap: 'anywhere' }}>{column.label}</Box>
-        <IconButton size="small" aria-label={`Edit column ${column.title || column.label}`} onClick={onEdit} sx={{ mt: 0.5 }}>⚙</IconButton>
+        <IconButton size="small" aria-label={`Edit column ${columnName}`} onClick={onEdit} sx={{ mt: 0.5 }}>⚙</IconButton>
       </Stack>
       {issue !== null && <p className={styles.microcopy} role="alert">{issue}</p>}
     </Stack>
+  )
+}
+
+type AlignButtonProps = {
+  column:     ColumnT
+  /** What the column is called on screen */
+  columnName: string
+  locked:     boolean
+  /** Told the alignment a click moves the column to */
+  onAlign:    (align: ColumnAlign) => void
+}
+
+/**
+ * A column's alignment, as the mark of where its header sits; a click moves it on to the next:
+ * left, center, right, and round again. A column that has never been set shows where it sits
+ * unset (`headAlignOf`), and says so.
+ */
+function AlignButton({ column, columnName, locked, onAlign }: Readonly<AlignButtonProps>) {
+  const align = headAlignOf(column)
+  const next = alignAfter(align)
+  const unset = column.align === undefined ? ', as it sits unset' : ''
+  return (
+    <Tooltip title={`Aligned ${align}${unset}. Click to align ${next}.`}>
+      {/* The span lets the tooltip hear the pointer while the button is disabled. */}
+      <span>
+        <IconButton size="small" aria-label={`Alignment of ${columnName}: ${align}`} disabled={locked} sx={{ mt: 0.5 }} onClick={() => { onAlign(next) }}>
+          {AlignIcons[align]}
+        </IconButton>
+      </span>
+    </Tooltip>
   )
 }
 
