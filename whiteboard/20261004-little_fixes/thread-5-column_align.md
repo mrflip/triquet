@@ -1,8 +1,7 @@
 # Thread 5: the column editor sets each column's alignment (2026-10-05)
 
 Branch `20261005-column_align`, PR not yet filed (reported `ready`; lands when told). Suites:
-typecheck and lint clean; `pnpm test` 126 files, 3562 tests; `pnpm test:e2e` on lane 2: see the
-report (the column-editor specs, the new one included, passed 8 of 8 on their own).
+typecheck and lint clean; `pnpm test` 126 files, 3562 tests; `pnpm test:e2e` (lane 2) 232 passed.
 
 * **Built**:
   - *The field.* `align` on a column (`src/models/column.ts`): `'left' | 'center' | 'right'`
