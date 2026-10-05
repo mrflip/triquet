@@ -2,15 +2,10 @@ import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
-
-/** The hunt label an address names */
-function huntLabelOf(page: Page): string {
-  return String(new URL(page.url()).pathname.split('/', 3)[2])
-}
 
 /** A title no other spec gives a quiz, so a spec finds its own quiz by title */
 function freshTitle(stem: string): string {
