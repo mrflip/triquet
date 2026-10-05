@@ -205,7 +205,11 @@ Settled; reach for these before writing the equivalent.
   syncs, not the CLI; CI runs `playwright test` directly.
 * **GitHub Actions** (`.github/workflows/ci.yml`): `tsc --noEmit`, `eslint`, `vitest run`,
   `next build` and the Playwright suite, run against the optimized build. All gate a merge;
-  agent-authored PRs go through the same gates as anyone's.
+  agent-authored PRs go through the same gates as anyone's. Few jobs, several checks to each,
+  since the account's twenty runners are shared by every pull request a spine push sets going:
+  `lint-typecheck`, `test-generated-build` (the two the ruleset requires), and six e2e shards.
+  Playwright's own image for the shards was tried in Oct 2026 and dropped: pulling it took as long
+  as installing the browser, and it brought quirks of its own (root, git's ownership check).
 
 ### Testing
 
@@ -283,6 +287,10 @@ agrees to another.
   several worktrees landing onto one shared checkout, and Graphite and spr want merge flows of
   their own that fight the semi-linear ladder. The design is
   `whiteboard/20261005-parallel_git/parallel-git-plan.md`.
+* **CI's steps are timed by a script of our own, `scripts/ci_step`.** Asked for by a Coach Oct
+  2026. It is the shell every `run` step runs in, and marks each step's start and end with the
+  time and how far into the job. GitHub's log viewer shows times but not elapsed; `ts` (moreutils)
+  would stamp every line, but no runner image has it, and installing it costs each job an apt-get.
 
 ## Later, i.e when we get there
 
