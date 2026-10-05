@@ -72,6 +72,12 @@ export const PreextForKind = {
   questions:  'qq',
 } as const satisfies Record<FiledAddressT['kind'], string>
 
+/**
+ * The git pathspec that finds every file a merge reads, at any depth (git's `*` crosses `/`): a
+ * jsonball with a `tq` pre-extension, which the questions alone have not.
+ */
+export const MergedPathspec = '*.tq?.json'
+
 /** The stem of the hunt's own file, whose key path is the root and so names no file of its own */
 const HuntStem = 'hunt'
 

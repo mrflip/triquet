@@ -6,47 +6,18 @@ import * as Importing from '../../src/lib/importing'
 import * as Jsonball from '../../src/lib/jsonball'
 import * as Wheel from '../../src/lib/wheel'
 import { CategoryLabelVals } from '../../src/models/category'
-import { Hunt, type HuntT } from '../../src/models/hunt'
-import { classicHunt, classicLayout } from '../support/layouts'
+import { classicHunt } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
 import { Widgeted } from '../../src/models/widgeted'
-import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runHolding, runOf } from '../support/runs'
-
-/** A stored row of what a widgeting came to: `ok` holding `value`, or `errored` for `why` */
-const storedOk = (value: unknown) => ({ status: 'ok' as const, value, message: null, result_meta: {}, _creationTime: 1000 })
-const storedErrored = (why: string) => ({ status: 'errored' as const, value: null, message: why, result_meta: {}, _creationTime: 2000 })
-
-/** The number spotter's reply to a clueing holding 300 and twelve */
-const SpottedItems = { items: [{ text: '300', value: 300, kind: 'numeral' }, { text: 'twelve', value: 12, kind: 'wordish' }] }
+import { EntryLibrary, SpottedItems, Verdict, chainedQuiz, snapshot, storedOk, twoQuizHunt } from '../support/snapshots'
 
 /** The hunt every ball here is of */
 const Place: Addresses.InHuntT = { org: 'pat_smith', hunt: 'deep_lake' }
-
-/** The library, with the entry `remark` (text) */
-const EntryLibrary = [...SeedWidgets, Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } })]
-
-/**
- * A quiz working the default widgetings and the entry `remark`, whose first question, `leon`,
- * chains to its second, `nantes`. Leon's clueing was read by the number spotter, its quick guess
- * failed, and its remark is typed.
- */
-function chainedQuiz(): QuizT {
-  const nantes = { ...Question.blank(), qnum: '2', label: 'nantes', title: 'Nantes' }
-  const stored: QuestionT['stored'] = {
-    numnum_clueing: { newest: storedOk(SpottedItems), ok: storedOk(SpottedItems) },
-    dumdum:         { newest: storedErrored('Overloaded'), ok: null },
-    remark:         { newest: storedOk('Ask Flip.'), ok: storedOk('Ask Flip.') },
-  } as QuestionT['stored']
-  const leon = { ...Question.blank(), qnum: '1', label: 'leon', title: 'Leon', chains_to: nantes._id, stored }
-  const layout = classicLayout()
-  const widgetings = [...layout.widgetings, Widgeting.fill({ widget_label: 'remark', label: 'remark' })]
-  return { ...Quiz.blank('Princes', 'princes'), ...layout, widgetings, questions: [leon, nantes] }
-}
 
 /** Every key naming an id (`id`, `_id`, or one ending `_id`) anywhere inside `val`, by its path */
 function idPaths(val: unknown, path = ''): string[] {
@@ -67,40 +38,14 @@ function leafPaths(val: unknown, path: readonly string[] = []): string[] {
 /** `quiz`'s body, run over the library holding its entry */
 const bodyOf = (quiz: QuizT) => Exporting.quizBodyOf(quiz, runOf(quiz, EntryLibrary))
 
-/** A hunt of two quizzes, `princes` (chained, widgeted, typed into) and `paris` (blank) */
-function twoQuizHunt(): HuntT {
-  const hunt = Hunt.blank('deep_lake')
-  const realm = present(hunt.realms[0])
-  return { ...hunt, realms: [{ ...realm, quizzes: [chainedQuiz(), Quiz.blank('Paris', 'paris')] }] }
-}
-
-/** Lee's verdict on Leon */
-const Verdict = { get_rate: 40, guesses: 'Leon?', comments: 'Lovely.', minutes: 2, keep_it: true, needs_fact_check: false, elimination_candidate: false }
-
-/** Everything the two-quiz hunt's balls are made from: a wheel with TV in the pool, two members, and Lee's shared review and Kim's draft of `princes` */
-function snapshot(): Exporting.HuntSnapshotT {
-  const hunt = twoQuizHunt()
-  const princes = present(hunt.realms[0]?.quizzes[0])
-  return {
-    hunt:    { label: hunt.label, title: hunt.title, branch: hunt.branch },
-    wheel:   Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool'),
-    members: [{ label: 'lee_jones', title: 'Lee', role: 'reviewer' }, { label: 'pat_smith', title: 'Pat', role: 'smith' }],
-    realms:  hunt.realms,
-    library: EntryLibrary,
-    reviews: { [princes._id]: [
-      { reviewer: { label: 'lee_jones', title: 'Lee' }, phase: 'shared', overall: 'A fair quiz.', reviewings: [{ question_id: present(princes.questions[0])._id, ...Verdict }] },
-      { reviewer: { label: 'kim_park', title: 'Kim' }, phase: 'draft', overall: 'Unfinished', reviewings: [] },
-    ] },
-  }
-}
-
 describe('placeOf', () => {
   it("is the hunt's org, its earliest smith, and its label", () => {
     expect(Exporting.placeOf(snapshot())).to.deep.eq({ org: 'pat_smith', hunt: 'deep_lake' })
   })
 
-  it("names no org for a hunt with no smith", () => {
-    expect(Exporting.placeOf({ hunt: snapshot().hunt, members: [] })).to.deep.eq({ org: '', hunt: 'deep_lake' })
+  it("names the org as the hunt's URLs do: its earliest member, for a hunt with no smith", () => {
+    const members = snapshot().members.map((member) => ({ ...member, role: 'reviewer' as const }))
+    expect(Exporting.placeOf({ hunt: snapshot().hunt, members })).to.deep.eq({ org: 'lee_jones', hunt: 'deep_lake' })
   })
 })
 
@@ -272,6 +217,29 @@ describe('reviewBall', () => {
   })
 })
 
+describe('quizBalls', () => {
+  const held = snapshot()
+  const princes = present(held.realms[0]?.quizzes[0])
+  const run = runOf(princes, EntryLibrary)
+
+  it("is the quiz's own ball, its questions alone, and each shared review's, the drafts left out", () => {
+    const balls = Exporting.quizBalls(Place, 'home', princes, run, present(held.reviews[princes._id]))
+    expect(balls.map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions', 'review'])
+    expect(balls[2]?.address).to.deep.include({ reviewer: 'lee_jones' })
+  })
+
+  it("is each ball as its own function makes it", () => {
+    const [shared] = present(held.reviews[princes._id])
+    expect(Exporting.quizBalls(Place, 'home', princes, run, [present(shared)])).to.deep.eq([
+      Exporting.quizBall(Place, 'home', princes, run), Exporting.questionsBall(Place, 'home', princes, run), Exporting.reviewBall(Place, 'home', princes, present(shared)),
+    ])
+  })
+
+  it("is the quiz and its questions alone for a quiz with no reviews", () => {
+    expect(Exporting.quizBalls(Place, 'home', princes, run, []).map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions'])
+  })
+})
+
 describe('widgetBall', () => {
   it("is the widget's fields and its place in the library, by scope and label", () => {
     const dumdum = present(SeedWidgets.find((widget) => widget.label === 'dumdum'))
@@ -322,6 +290,13 @@ describe('ballsOf', () => {
       if (! Addresses.isMerged(address)) { continue }
       const keypath = Addresses.keypathOf(address)
       const body = keypath.length === 0 ? ball : _.get(ball, keypath) as Jsonball.JsonballT
+      expect(Jsonball.ballAt(keypath, body), address.kind).to.deep.eq(ball)
+    }
+  })
+
+  it("carries each ball's body, what it holds at its key path (the questions alone, under `questions`)", () => {
+    for (const { address, body, ball } of Exporting.ballsOf(snapshot())) {
+      const keypath = address.kind === 'questions' ? ['questions'] : Addresses.keypathOf(address)
       expect(Jsonball.ballAt(keypath, body), address.kind).to.deep.eq(ball)
     }
   })

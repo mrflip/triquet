@@ -1,7 +1,7 @@
 import * as Addresses from './addresses'
 import * as Jsonball from './jsonball'
 import * as Runner from './formulary/runner'
-import type { MemberT, ReviewedT } from './rows'
+import { orgFor, type MemberT, type ReviewedT } from './rows'
 import { CategoryLabelVals, type WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
@@ -21,9 +21,14 @@ import { Widget, type WidgetT } from '../models/widget'
  * question it points at by label.
  */
 
-/** A resource's jsonball, and the address it is the ball of: where its piece of the hunt sits, and where its file goes */
+/**
+ * A resource's jsonball, and the address it is the ball of: where its piece of the hunt sits, and
+ * where its file goes. Its body is the piece itself, what the ball holds at the end of its key
+ * path (or, for the questions alone, under `questions`): what its table is made from.
+ */
 export type PlacedBallT = {
   address: Addresses.FiledAddressT
+  body:    Jsonball.JsonballT
   ball:    Jsonball.JsonballT
 }
 
@@ -53,19 +58,19 @@ export type HuntSnapshotT = {
 }
 
 /**
- * The hunt a snapshot is of, as its addresses name it: its org (the earliest smith's label, or
- * empty for a hunt with no smith, which nothing should leave: no ball or file hangs on the org)
- * and its label.
+ * The hunt a snapshot is of, as its addresses name it: its org, named as its URLs name it
+ * (`orgFor`: the earliest smith, or the earliest member of a hunt with no smith), and its label.
+ * No ball or file hangs on the org.
  *
  * @example placeOf(snapshot)  // => { org: 'pat_smith', hunt: 'spring_hunt' }
  */
 export function placeOf(snapshot: Pick<HuntSnapshotT, 'hunt' | 'members'>): Addresses.InHuntT {
-  return { org: Addresses.orgOf(snapshot.members) ?? '', hunt: snapshot.hunt.label }
+  return { org: orgFor(snapshot.members), hunt: snapshot.hunt.label }
 }
 
 /** `body` placed at `address`'s key path */
 function placed(address: Addresses.FiledAddressT, body: Jsonball.JsonballT): PlacedBallT {
-  return { address, ball: Jsonball.ballAt(Addresses.keypathOf(address), body) }
+  return { address, body, ball: Jsonball.ballAt(Addresses.keypathOf(address), body) }
 }
 
 /**
@@ -170,7 +175,8 @@ export function quizBall(place: Addresses.InHuntT, realm: string, quiz: QuizT, r
  * @example questionsBall(place, 'home', quiz, run).ball  // => { questions: { leon: { position: 0, ... }, ... } }
  */
 export function questionsBall(place: Addresses.InHuntT, realm: string, quiz: QuizT, run: Runner.QuizRun): PlacedBallT {
-  return { address: { kind: 'questions', ...place, realm, quiz: quiz.label }, ball: { questions: questionsBodyOf(quiz, run) } }
+  const body = questionsBodyOf(quiz, run)
+  return { address: { kind: 'questions', ...place, realm, quiz: quiz.label }, body, ball: { questions: body } }
 }
 
 /**
@@ -194,6 +200,23 @@ export function reviewBall(place: Addresses.InHuntT, realm: string, quiz: Pick<Q
   }))
   const body: Jsonball.ReviewBodyT = { overall: review.overall, verdicts }
   return placed({ kind: 'review', ...place, realm, quiz: quiz.label, reviewer: review.reviewer.label }, body)
+}
+
+/**
+ * Every ball of one quiz, made from that quiz alone: its own, its questions alone, and each of its
+ * reviews that is shared.
+ *
+ * @param place - Its hunt.
+ * @param realm - The label of the realm it sits in.
+ * @param quiz - The quiz.
+ * @param run - The quiz, run.
+ * @param reviews - Its reviews, of every phase; only the shared ones are written.
+ *
+ * @example quizBalls(place, 'home', quiz, run, reviews).map(({ address }) => address.kind)  // => ['quiz', 'questions', 'review']
+ */
+export function quizBalls(place: Addresses.InHuntT, realm: string, quiz: QuizT, run: Runner.QuizRun, reviews: readonly ReviewSourceT[]): PlacedBallT[] {
+  const shared = reviews.map((review) => reviewBall(place, realm, quiz, review)).filter((review) => review !== null)
+  return [quizBall(place, realm, quiz, run), questionsBall(place, realm, quiz, run), ...shared]
 }
 
 /**
@@ -237,8 +260,7 @@ export function ballsOf(snapshot: HuntSnapshotT): PlacedBallT[] {
     membersBall(place, snapshot.members),
     ...quizzes.flatMap(({ realm, quiz }) => {
       const run = Runner.runQuiz(Runner.sourceOf(quiz, library, Runner.placeOf({ ...hunt, wheel }, realm)))
-      const reviews = (snapshot.reviews[quiz._id] ?? []).map((review) => reviewBall(place, realm.label, quiz, review))
-      return [quizBall(place, realm.label, quiz, run), questionsBall(place, realm.label, quiz, run), ...reviews.filter((review) => review !== null)]
+      return quizBalls(place, realm.label, quiz, run, snapshot.reviews[quiz._id] ?? [])
     }),
     ...library.flatMap((widget, ii) => (worked.has(widget.label) ? [widgetBall(widget, ii)] : [])),
   ]
