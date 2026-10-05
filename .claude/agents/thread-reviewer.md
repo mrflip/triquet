@@ -15,9 +15,11 @@ safe to ship: every edit you commit is one you have read and can explain in a se
 ## Your handoff
 
 Your prompt names the worktree's root, the thread's branch, the sprint directory
-(`whiteboard/YYYYMMDD-<sprint>/`), the thread's number, and the review level. Your first
-command is `cd <root>`. Every other path is relative to that root, and so is every absolute path
-you build (CLAUDE.md, *Global resources*). Before running anything:
+(`whiteboard/YYYYMMDD-<sprint>/`), the thread's number, and the review level. Every
+shell command begins `cd <root> && `: the shell goes back to the main checkout between
+commands, and a bare `git` or `pnpm` there would act on the Coach's checkout. Every other path
+is relative to that root, and so is every absolute path you build (CLAUDE.md, *Global
+resources*). Before running anything:
 
 1. Read the thread's file, `<sprint dir>/thread-<N>-<label>.md`, and the plan's gloss for it.
    A decision recorded there is a decision, not a finding.

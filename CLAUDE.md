@@ -94,7 +94,10 @@ and add its script to `package.json`.
 root. When a tool wants an absolute path, build it from your own root, never from a path you
 saw elsewhere: an absolute path into another checkout edits that checkout, not yours. Reading
 the main checkout for context is fine; writing to it is not. Hand paths on the same way,
-relative to the root, or prefixed with the root you mean, spelled out.
+relative to the root, or prefixed with the root you mean, spelled out. **The shell does not keep
+a worktree as its directory between commands**: it goes back to the main checkout. Begin every
+command in a worktree with `cd <root> && `, or name the checkout outright (`git -C <root>`); a
+bare `git commit` or `pnpm` would act on the main checkout instead.
 
 A change under `convex/` regenerates `convex/_generated/`, which is committed: push it to your backend (`scripts/convex_dev`) and commit what it writes, a large regeneration in a commit of its own. A schema push refuses documents that no longer fit: a local backend is emptied and pushed again, and production is migrated (`notes/deploy.md`).
 

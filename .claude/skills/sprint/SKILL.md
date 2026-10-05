@@ -91,7 +91,7 @@ as it finishes. The prompt is the whole handoff:
 ```
 Thread <N> of sprint <sprint_name>. Sprint directory: whiteboard/<YYYYMMDD-sprint_name>/.
 Your worktree: <root>, on branch <branch>, lane <lane>, cut for you from the spine's top.
-Your first command is `cd <root>`; every path here is relative to it. Mode: <normal | YOLO:
+Begin every shell command with `cd <root> && `; every path here is relative to it. Mode: <normal | YOLO:
 prefer your recorded best judgment over blocking on minor calls>.
 Read <sprint_name>-plan.md and <sprint_name>-progress.md before touching code, then build
 this thread per your agent definition, and report `ready` when it is built and committed:
@@ -111,7 +111,7 @@ the same reasons) unless the review level is `none` or the thread's diff holds n
 
 ```
 Review of thread <N> of sprint <sprint_name>. Sprint directory: whiteboard/<YYYYMMDD-sprint_name>/.
-Worktree: <root>; your first command is `cd <root>`. Branch: <branch>. Review level: <level>.
+Worktree: <root>; begin every shell command with `cd <root> && `. Branch: <branch>. Review level: <level>.
 Review the thread's own commits, from its base (`git config branch.<branch>.spinebase`) to
 HEAD, per your agent definition.
 ```

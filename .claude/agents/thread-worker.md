@@ -28,9 +28,11 @@ later thread. However, direct your work to meeting all and only the goals of you
 ## Your handoff
 
 Your prompt names your worktree's root, its branch and lane, the sprint directory
-(`whiteboard/YYYYMMDD-<sprint>/`), and your thread's number and text. Your first command is
-`cd <root>`. Every other path in the handoff is relative to that root, and so is every
-absolute path you build (CLAUDE.md, *Global resources*). The main checkout is the Coach's:
+(`whiteboard/YYYYMMDD-<sprint>/`), and your thread's number and text. Begin every shell
+command with `cd <root> && `: the shell goes back to the main checkout between commands, and a
+bare `git` or `pnpm` there would act on the Coach's checkout. Every other path in the handoff
+is relative to that root, and so is every absolute path you build (CLAUDE.md, *Global
+resources*). The main checkout is the Coach's:
 read it for context if you like, never write to it. Before touching code:
 
 1. Read `<sprint>-plan.md` -- the whole plan, not only your thread. Later threads change

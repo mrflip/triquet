@@ -13,8 +13,9 @@ needed; do not invent one.
    the Coach's notes, cuts `YYYYMMDD-<label>` from the top into a worktree with a lane of its
    own, and installs its packages (`notes/git_hygiene.md`, *Starting*).
 3. Report what it printed: anything it replayed or swept, the worktree's root, the branch and
-   what it was cut from, and the lane. Work on the thread happens from that root, with every
-   absolute path built from it (CLAUDE.md, *Global resources*).
+   what it was cut from, and the lane. Work on the thread happens from that root: every shell
+   command begins `cd <root> && `, and every absolute path is built from it (CLAUDE.md, *Global
+   resources*).
 
 If it stops, report its message as it stands: a stop means the Coach's call, or a label to
 change.
