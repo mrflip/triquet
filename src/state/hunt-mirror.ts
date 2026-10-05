@@ -147,9 +147,8 @@ async function caughtUp(hunt: Readonly<Pick<ShallowHuntT, '_id'>>, heard: 'settl
     const timer = setTimeout(() => { waited.resolve(null) }, ReadWaitMs)
     await Promise.race([feedsRead(), waited.promise])
     clearTimeout(timer)
-  } else {
-    settleFeeds()
   }
+  settleFeeds()
   await scheduler.flush(hunt._id)
 }
 
