@@ -8,7 +8,9 @@ commit. Nothing is published by hand.
 
 If a task may touch on convex or vercel, load the appropriate skills
 
-Merge, and Vercel does the rest. The one thing that can stop a release is the schema (below).
+Merge, and Vercel does the rest, backfills included. The one thing that can stop a release is the
+schema (below), and the one thing to watch for when merging is a pull request titled
+`(Serial Deploy: …)` (*Serial Deploy*, below).
 
 **What is live** is said at `/stats`, linked from nowhere: the commit the build came from, the pull
 request its merge names (number, title, description) and the commits it brought in, when it was
@@ -22,13 +24,18 @@ effort, and a shallow clone may list no commits.
 * **Vercel** runs `pnpm build:vercel` for every build, production or preview:
 
   ```
-  convex deploy --cmd 'node scripts/convex-previews.ts after-vercel-build && pnpm run build'
+  convex deploy --cmd 'node scripts/convex-previews.ts after-vercel-build && pnpm run build' \
+      --preview-run migrations:runAll \
+    && node scripts/convex-migrations.ts after-vercel-build
   ```
 
-  `convex deploy` pushes `convex/` (schema, functions, indexes) to the deployment that
-  `CONVEX_DEPLOY_KEY` names, then runs `pnpm build` with `NEXT_PUBLIC_CONVEX_URL` set to that
-  deployment's URL, which the build bakes into the pages. A production key deploys to production;
-  a preview key makes (or reuses) a preview deployment named for the branch. Without a key the
+  `convex deploy` runs `pnpm build` with `NEXT_PUBLIC_CONVEX_URL` set to the URL of the
+  deployment that `CONVEX_DEPLOY_KEY` names, which the build bakes into the pages, and then, if
+  the build passed, pushes `convex/` (schema, functions, indexes) to it. A production key deploys
+  to production; a preview key makes (or reuses) a preview deployment named for the branch. Once
+  the push has landed, the backfills run: on a preview, `--preview-run` starts them; on
+  production, `scripts/convex-migrations.ts` starts them and waits for them to finish
+  (*Schema pushes*, below). Without a key the
   build fails before it starts; without the URL, the page says so instead of opening
   (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route, beside
   `ENABLE_ANTHROPIC_BOT=allow`, which switches the route on (`Approve.mayAskAnthropicBot`):
@@ -74,6 +81,7 @@ effort, and a shallow clone may list no commits.
 | Components, state, lib, models | Vercel builds; nothing else |
 | A function in `convex/`, or `convex/authorize.ts` | `convex deploy` pushes it with the build; the new functions serve as soon as the push lands, a moment before the new pages |
 | A row validator in `models/`, and so a table in `convex/schema.ts` (a field added, removed, renamed or reshaped; an index) | the push **validates every document the deployment holds** against the new schema, and refuses if any fails (below) |
+| A backfill in `convex/migrations.ts` | it runs once the push lands, and the build waits for it; the title says `(Serial Deploy: …)`: merge up to it, and wait (*Serial Deploy*, below) |
 | `convex/_generated/` | commit what the push writes; CI refuses a checkout whose generated code is stale |
 
 **Schema pushes.** Convex checks every existing document against the schema being pushed, and
@@ -86,20 +94,59 @@ knows it):
 1. **Widen.** The schema accepts the old rows and the new: the field is optional in
    `convex/schema.ts` (written by hand there, over the row validator, which stays strict so every
    write gives it), and code that reads it copes with its absence. A backfill in
-   `convex/migrations.ts` writes it into the old rows (a `runAll` runner lists them when there are
-   several). `tests/convex/schema.test.ts` lists the field under `Backfilling`.
-2. **Backfill.** Once the first is merged and deployed:
-   `./scripts/doppledo dev_aijanitor npx convex run migrations:run '{"fn": "migrations:<name>"}'`,
-   after the same with `"dryRun": true` to see what it would do.
-   `npx convex run --component migrations lib:getStatus` says how far each got.
+   `convex/migrations.ts` writes it into the old rows, and joins the end of `Backfills` there (a
+   test refuses a backfill missing from it). `tests/convex/schema.test.ts` lists the field under
+   `Backfilling`. The pull request's title ends `(Serial Deploy: <chain>)` (below).
+2. **Backfill: the deploy does it.** Once `convex deploy` has pushed, `scripts/convex-migrations.ts`
+   starts `migrations:runAll`, which runs every backfill in `Backfills` in order and skips each one
+   already finished, then waits (up to five minutes) for `migrations:outstanding` to come back
+   empty. The build log ends `Backfills: every one has finished.`, or warns naming each backfill
+   still running or stopped. A warning never fails the build: the new functions already serve, and
+   a failed build would only part the pages from them. A backfill that throws stops the series,
+   and those after it in `Backfills` wait until it is fixed and deployed again. To look later, or
+   to start them by hand:
+   `./scripts/doppledo prd_janitor npx convex run migrations:outstanding` (and `migrations:runAll`).
 3. **Tighten.** The second pull request makes the field required again, drops the fallback and
-   the backfill, and empties `Backfilling`. Its push checks every row, so it lands only once the
-   backfill is complete. It also adds the migration to the ledger below, since the backfill it
-   drops is still needed by any backend that has not run it.
+   the backfill (from `Backfills` too), and empties `Backfilling`. Its push checks every row, so
+   it lands only once the backfill is complete: merged too soon, its build fails and production
+   keeps serving the widened version, and redeploying once the backfill is done lands it. It also
+   adds the migration to the ledger below, since the backfill it drops is still needed by any
+   backend that has not run it.
 
-Rehearse on a copy first: `npx convex export --path <zip>` from production (read-only; it also
-leaves a snapshot in the dashboard to restore from), `npx convex import --replace-all` into a
-local role, then the three steps against that role.
+**Serial Deploy.** A widening's production deploy must finish, backfill and all, before anything
+stacked above it reaches `main`. Vercel builds only the newest commit of a push, so a tightening
+merged in the same push as its widening is built alone: its schema is refused, since no backfill
+has run, and the backfill never runs, since the widening's commit is never deployed and the
+tightening's no longer holds it. Production keeps serving safely, but stuck, until the widening
+is deployed by itself. So a pull request that adds a backfill to `Backfills`, or changes one, says
+so at the end of its title:
+
+```
+Hunts remember the branch their quizzes were on (Serial Deploy: hunt_branches)
+```
+
+It means: **merge up to and including this pull request, wait for its production deploy to finish
+(its build log says `Backfills: every one has finished.`), then merge what is stacked above it.**
+The name is the migration chain: related backfills, run in pull-request order. In a sprint it is
+the sprint's name; outside one, the thread's label. Every pull request of a chain that adds a
+backfill carries the same name. The tightening carries no marker, since nothing waits on it, and
+says in its body which chain it ends: `Tightens Serial Deploy: hunt_branches`.
+
+Two chains may interleave: each widening is its own stop, so nothing lands unready. Recovery is
+harder, though: every backfill runs in one series, so a failure in one chain holds back the other
+chain's backfills, and both chains' tightenings are refused until it is fixed. Where it costs
+nothing, merge one chain through its tightening before the next chain's first widening.
+
+Two ordinary `convex/` changes merged in separate pushes close together are not covered: if Vercel
+builds them at once, Convex keeps whichever pushed last, which may be the older. That is tolerated
+for now; redeploy `main` if it happens.
+
+Rehearse a backfill on a copy first, since nobody runs it by hand on production any more: `npx convex export --path
+<zip>` from production (read-only; it also leaves a snapshot in the dashboard to restore from),
+`npx convex import --replace-all` into a local role, push the widening to it, and run
+`migrations:run '{"fn": "migrations:<name>", "dryRun": true}'` to see what it would do, then
+`node scripts/convex-migrations.ts run`, each through `scripts/convex_dev <role>` (as under
+*Catching up*, below). Push the tightening last: it lands only if every row now fits.
 
 A field whose absence has a meaning of its own needs none of this: it is optional in its row
 validator for good, every reader says what its absence means, and `tests/convex/schema.test.ts`
@@ -111,7 +158,9 @@ its rows are worth keeping: then catch it up (below). A preview deployment is ma
 branch and kept across its pushes; delete it in the dashboard and the next push makes another.
 
 **The migration ledger.** Every backfill ever written, and every table cleared by hand rather
-than migrated, oldest first, with the commit on `main` that needed it. Any commit from a backfill's
+than migrated, oldest first, with the commit on `main` that needed it. Production's deploys run
+each backfill themselves now (`20261005-deploy_migrations` on); `Run` is for catching up a backend
+that missed one, and for the clearings, which are still a Coach's steps. Any commit from a backfill's
 up to the tightening one still holds the backfill; a clearing has no code to hold, only the steps
 below the table.
 
