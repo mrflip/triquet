@@ -11,9 +11,9 @@ import * as UU from './useful'
  * of its questions, its widgetings, its keys) moves a line: the order is the jsonball's to keep,
  * in its `position`s.
  *
- * **One line is one row, always.** A cell's tab, line break or carriage return is written as
- * `\t`, `\n` or `\r`, and its backslash as `\\`, so a diff of the table shows one changed line per
- * changed row, and the text reads back exactly. A cell holding a list, or an empty object, holds
+ * **One line is one row, always.** A cell's tab, line break or carriage return (or a column
+ * name's) is written as `\t`, `\n` or `\r`, and its backslash as `\\`, so a diff of the table shows
+ * one changed line per changed row, and the text reads back exactly. A cell holding a list, or an empty object, holds
  * it as compact JSON; one holding nothing (null, or a field the row lacks) is empty.
  */
 
@@ -40,7 +40,7 @@ const EscapeFor: Readonly<Record<string, string>> = { '\\': String.raw`\\`, '\t'
 export function textOf(records: readonly RecordT[]): string {
   const rows = records.toSorted((aa, bb) => byCode(aa.label, bb.label)).map((record) => leavesOf(record))
   const header = [...new Set([LabelColumn, ...rows.flatMap((row) => Object.keys(row))])].toSorted(byCode)
-  const lines = [header, ...rows.map((row) => header.map((column) => cellOf(row[column])))]
+  const lines = [header.map((column) => escaped(column)), ...rows.map((row) => header.map((column) => cellOf(row[column])))]
   return lines.map((cells) => `${cells.join('\t')}\n`).join('')
 }
 

@@ -38,6 +38,11 @@ describe('textOf', () => {
     expect(linesOf(text).map((cells) => cells.length)).to.deep.eq([2, 2, 2])
   })
 
+  it("keeps the header to one line, whatever a key holds", () => {
+    const text = Tsv.textOf([{ label: 'leon', value: { 'two\nlines': 1, 'a\ttab': 2 } }])
+    expect(linesOf(text)).to.deep.eq([['label', String.raw`value.a\ttab`, String.raw`value.two\nlines`], ['leon', '2', '1']])
+  })
+
   it("is the same text for the same rows, however their keys were built", () => {
     expect(Tsv.textOf([{ label: 'leon', title: 't', hint: 'h' }])).to.eq(Tsv.textOf([{ hint: 'h', title: 't', label: 'leon' }]))
   })
