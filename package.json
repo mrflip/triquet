@@ -36,6 +36,7 @@
     "test:e2e:built": "scripts/doppledo dev_e2e env PORT=3005 CONVEX_ROLE=e2e-built NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3405 NEXT_DIST_DIR=.next-e2e-built TRIQUET_E2E_SERVER=built playwright test",
     "convex:backend": "scripts/convex_backend",
     "convex:reset": "scripts/convex_reset",
+    "previews": "scripts/doppledo dev_aijanitor scripts/convex_preview node scripts/convex-previews.ts",
     "newb": "scripts/newb"
   },
   "dependencies": {
