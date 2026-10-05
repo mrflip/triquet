@@ -166,6 +166,13 @@ const mergeRebased = (world: WorldT, deleted: boolean) => {
   return world.git(world.main, 'rev-parse', `origin/${Today}-alpha`)
 }
 
+/** Stands the main checkout on `leftover` at origin/main, tracking a branch of its own name origin no longer has: a merged spine branch's state */
+const standOnMergedBranch = (world: WorldT) => {
+  world.git(world.main, 'switch', '--quiet', '--create', 'leftover', 'origin/main')
+  world.git(world.main, 'config', 'branch.leftover.remote', 'origin')
+  world.git(world.main, 'config', 'branch.leftover.merge', 'refs/heads/leftover')
+}
+
 describe('node scripts/spine.ts, in a repository with worktrees', () => {
   let world: WorldT
   beforeEach(() => {
@@ -386,16 +393,25 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       expect(world.git(world.main, 'ls-remote', 'origin', `${Today}-alpha`)).to.contain(pushedBefore)
     })
 
-    it('goes back to main when it already stands on origin/main on another branch', () => {
-      world.git(world.main, 'switch', '--quiet', '--create', 'leftover')
+    it('goes back to main when it already stands on origin/main, on a branch origin has deleted', () => {
+      standOnMergedBranch(world)
       const ran = world.spine(world.main, ['restack'])
       expect(ran.said.trim()).to.eq('The whole spine has merged: the main checkout stands on main again, and leftover is done.')
       expect(world.top()).to.eq('main')
     })
 
+    it('leaves the Coach on a branch they cut by hand, though it stands on origin/main', () => {
+      world.git(world.main, 'switch', '--quiet', '--create', 'mine')
+      expect(world.spine(world.main, ['restack']).said.trim()).to.eq('The spine already stands on origin/main.')
+      expect(world.top()).to.eq('mine')
+      world.git(world.main, 'switch', '--quiet', '--create', 'mine_too', 'origin/main')
+      world.spine(world.main, ['restack'])
+      expect(world.top()).to.eq('mine_too')
+    })
+
     it('stays put when local main holds commits origin lacks', () => {
       world.commit(world.main, 'local.txt', 'local\n')
-      world.git(world.main, 'switch', '--quiet', '--create', 'leftover', 'origin/main')
+      standOnMergedBranch(world)
       expect(world.spine(world.main, ['restack']).said).to.contain('local main holds commits origin/main lacks')
       expect(world.top()).to.eq('leftover')
     })

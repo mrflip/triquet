@@ -245,19 +245,27 @@ function replay(main: string, top: Top): string[] {
 }
 
 /**
- * Puts the main checkout back on `main`, fast-forwarded, when it stands exactly on `origin/main`
- * on some other branch: the whole spine has merged, and that branch's PR with it. Switching
- * between two names for one commit changes no file, so the Coach's uncommitted edits stay put.
- * A local `main` holding commits origin lacks is left alone, and says so.
+ * Puts the main checkout back on `main`, fast-forwarded, when the whole spine has merged: it
+ * stands exactly on `origin/main`, on a spine branch origin has since deleted, as it does on
+ * merging that branch's PR. Any other branch there is the Coach's, and stays: one they cut by
+ * hand tracks no branch of its own name on origin. Switching between two names for one commit
+ * changes no file, so the Coach's uncommitted edits stay put. A local `main` holding commits
+ * origin lacks is left alone, and says so.
  */
 function backOnMain(main: string): string[] {
   const top = topOf(main)
-  if (top.branch === 'main' || top.sha !== git(main, 'rev-parse', 'origin/main')) { return [] }
+  if (top.branch === 'main' || top.sha !== git(main, 'rev-parse', 'origin/main') || ! isGoneFromOrigin(main, top.branch)) { return [] }
   if (gitOk(main, 'rev-parse', '--verify', '--quiet', 'refs/heads/main') && ! gitOk(main, 'merge-base', '--is-ancestor', 'main', 'origin/main')) {
     return [`The whole spine has merged, but local main holds commits origin/main lacks: the main checkout stays on ${top.branch}. Tell the Coach.`]
   }
   git(main, 'switch', '--quiet', '--force-create', 'main', 'origin/main')
   return [`The whole spine has merged: the main checkout stands on main again, and ${top.branch} is done.`]
+}
+
+/** Whether `branch` tracks a branch of its own name on origin, as a landed one does, that origin no longer has (after a pruning fetch) */
+function isGoneFromOrigin(main: string, branch: string): boolean {
+  const tracks = gitOk(main, 'config', `branch.${branch}.merge`) && git(main, 'config', `branch.${branch}.merge`) === `refs/heads/${branch}`
+  return tracks && ! gitOk(main, 'rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`)
 }
 
 /**

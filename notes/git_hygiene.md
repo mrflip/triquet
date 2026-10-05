@@ -218,8 +218,10 @@ with an explicit lease, so its PR stays current and merging the top of a sprint 
 beneath it merged. A replay that conflicts is undone and stops: that is the Coach's call.
 
 A branch merged under new SHAs (its PR rebased on GitHub first) is emptied by the replay rather
-than dropped, and is not pushed: its PR has merged. Once the whole spine has merged, the main
-checkout goes back to `main`, fast-forwarded, and the next landing starts the spine afresh.
+than dropped, and is not pushed: its PR has merged. Once the whole spine has merged (the main
+checkout stands on `origin/main`, on a spine branch origin has deleted), the main checkout goes
+back to `main`, fast-forwarded, and the next landing starts the spine afresh. A branch the Coach
+cut there by hand is theirs, and stays.
 
 Your own unlanded branch picks up the change at its landing's rebase.
 
