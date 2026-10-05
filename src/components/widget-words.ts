@@ -1,5 +1,7 @@
+import type { StatusCounts } from '../lib/formulary/runner'
 import type { WidgetUsageT } from '../lib/rows'
 import type { EntryKind, Formularykind } from '../models/widget'
+import { WidgetedStatusVals, type WidgetedStatus } from '../models/widgeted'
 
 /** How each formulary is spoken of on screen: one of its widgets, several, and what one does */
 export const FormularyWords: Readonly<Record<Formularykind, { noun: string, group: string, gist: string }>> = {
@@ -15,6 +17,46 @@ export const EntryKindWords: Readonly<Record<EntryKind, string>> = {
   labelish:  'A label: lowercase letters, digits and single underscores',
   titleish:  'A title: one line',
   estimates: "Category estimates: the subject categories a question draws on, each at a difficulty, and Masie, Artie and Poppy's chances at it",
+}
+
+/**
+ * What a widgeting's cells are called on screen, by their widgeted's status: an `ok` cell is
+ * *current*, a `missing` one *blank*. (A *stale* cell, once staleness returns, is an `ok` cell
+ * that is not current, and is said between the two.)
+ */
+export const StatusWords: Readonly<Record<WidgetedStatus, string>> = {
+  ok:      'current',
+  errored: 'errored',
+  missing: 'blank',
+}
+
+/** What `statusLine` says when a quiz has no questions, so no cells to count */
+export const NoCellsLine = 'no questions yet'
+
+/** What `statusLine` puts between its counts */
+export const StatusJoint = ' • '
+
+/**
+ * Each status some of a widgeting's cells have, counted and said, current first and blank last:
+ * the phrases of `statusLine`, for a view that marks one of them out.
+ *
+ * @example statusPhrases({ ok: 3, errored: 1, missing: 0 })  // => [{ status: 'ok', said: '3 current' }, { status: 'errored', said: '1 errored' }]
+ */
+export function statusPhrases(counts: StatusCounts): { status: WidgetedStatus, said: string }[] {
+  return WidgetedStatusVals.filter((status) => counts[status] > 0).map((status) => ({ status, said: `${String(counts[status])} ${StatusWords[status]}` }))
+}
+
+/**
+ * How a widgeting's cells stand, in a sentence: each status counted, current first and blank
+ * last, a status no cell has left out.
+ *
+ * @example statusLine({ ok: 3, errored: 1, missing: 6 })   // => '3 current • 1 errored • 6 blank'
+ * @example statusLine({ ok: 0, errored: 0, missing: 12 })  // => '12 blank'
+ * @example statusLine({ ok: 0, errored: 0, missing: 0 })   // => 'no questions yet'
+ */
+export function statusLine(counts: StatusCounts): string {
+  const phrases = statusPhrases(counts)
+  return phrases.length === 0 ? NoCellsLine : phrases.map((phrase) => phrase.said).join(StatusJoint)
 }
 
 /**

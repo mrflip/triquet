@@ -1,17 +1,29 @@
 'use client'
 
-import { Accordion, AccordionDetails, AccordionSummary, Chip, Stack } from '@mui/material'
+import { Fragment } from 'react'
+import { Accordion, AccordionDetails, AccordionSummary, Box, Stack } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import _ from 'es-toolkit/compat'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { CopyButton } from '../CopyButton'
-import { EntryKindWords, FormularyWords } from '../widget-words'
+import { hiddenUntil } from '../room'
+import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, statusPhrases } from '../widget-words'
 import { Formularies } from '../../lib/formulary/formularies'
 import * as Runner from '../../lib/formulary/runner'
 import * as Rank from '../../lib/rank'
 import type { QuizT } from '../../models/quiz'
 import styles from '../workbench.module.css'
+
+/**
+ * How wide the list of widgetings must be for a folded one to show each of its lesser fields, as
+ * MUI's container-query shorthand. Its description goes first as it narrows, then the widget it
+ * works, then how its cells stand; its own label always stays.
+ */
+const RoomFor = { description: '@900', widget: '@720', status: '@520' } as const
+
+/** How wide a folded widgeting's fields are, so each lines up with the one above it */
+const WidthFor = { label: 190, widget: 190, status: 230 } as const
 
 export type WidgetsPanelProps = {
   quiz: QuizT
@@ -20,10 +32,12 @@ export type WidgetsPanelProps = {
 }
 
 /**
- * The quiz's widgetings in run order, each folded to its label, the widget it works and how many
- * of its cells are ok, errored and missing; open, the widget's formula or prompt exactly as it
+ * The quiz's widgetings in run order, each folded to a line of fields that line up down the list:
+ * its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
+ * description. Open, the descriptions in full, the widget's formula or prompt exactly as it
  * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help --
- * or, for an entry, what kind of value is typed into it.
+ * or, for an entry, what kind of value is typed into it. The list measures its own width, not the
+ * window's, to decide which fields there is room for (`RoomFor`).
  */
 export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
   // The advice is shown a real question: the lowest-numbered, as the widget editor's preview starts on.
@@ -35,7 +49,7 @@ export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
       wide
     >
       {run.steps.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet: add one from the gear, under Widgetings.</p>}
-      <div>
+      <Box sx={{ containerType: 'inline-size' }}>
         {run.steps.map((step) => (
           <WidgetingFold
             key={step.widgeting.label}
@@ -44,8 +58,24 @@ export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
             sampleOf={() => (sample ? Runner.bagsAt(run, step.widgeting).get(sample._id) ?? null : null)}
           />
         ))}
-      </div>
+      </Box>
     </Panel>
+  )
+}
+
+/** How a widgeting's cells stand, as `statusLine` says it, with a count of failures in the colour of one */
+function StatusSentence({ counts }: Readonly<{ counts: Runner.StatusCounts }>) {
+  const phrases = statusPhrases(counts)
+  if (phrases.length === 0) { return <>{NoCellsLine}</> }
+  return (
+    <>
+      {phrases.map(({ status, said }, idx) => (
+        <Fragment key={status}>
+          {idx > 0 ? StatusJoint : ''}
+          <Box component="span" sx={status === 'errored' ? { color: 'error.main' } : undefined}>{said}</Box>
+        </Fragment>
+      ))}
+    </>
   )
 }
 
@@ -56,22 +86,36 @@ type WidgetingFoldProps = {
   sampleOf: () => Runner.QuizBag | null
 }
 
-/** One widgeting, folded to a line, opening to its widget's formula or prompt */
+/**
+ * One widgeting, folded to a line, opening to its widget's formula or prompt. Folded, the line
+ * ends in a one-line snippet of its description (the widgeting's own, or failing that its
+ * widget's), which gives way to the descriptions in full as it opens.
+ */
 function WidgetingFold({ step, counts, sampleOf }: Readonly<WidgetingFoldProps>) {
   const { widgeting, widget } = step
   const summaryId = `widgeting-${widgeting.label}-summary`
   const noun = widget ? FormularyWords[widget.formulary].noun : 'widget'
+  const description = widgeting.description || (widget?.description ?? '')
   return (
     <Accordion disableGutters slotProps={{ transition: { unmountOnExit: true } }}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />} id={summaryId} aria-controls={`widgeting-${widgeting.label}-details`}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.5 }}>
-          <strong>{widgeting.label}</strong>
-          <span className={styles.microcopy}>{widget ? `${noun} ${widget.label}` : `works ${widgeting.widget_label}, which the library no longer holds`}</span>
-          <Stack direction="row" spacing={0.5} role="group" aria-label={`Cells of ${widgeting.label}`}>
-            <Chip size="small" variant="outlined" color="success" label={`${String(counts.ok)} ok`} />
-            <Chip size="small" variant="outlined" color={counts.errored > 0 ? 'error' : 'default'} label={`${String(counts.errored)} errored`} />
-            <Chip size="small" variant="outlined" label={`${String(counts.missing)} missing`} />
-          </Stack>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />} id={summaryId} aria-controls={`widgeting-${widgeting.label}-details`}
+        sx={{ '& .MuiAccordionSummary-content': { minWidth: 0 }, '&.Mui-expanded [data-snippet]': { visibility: 'hidden' } }}
+      >
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'baseline', flex: 1, minWidth: 0 }}>
+          <Box component="strong" sx={{ width: WidthFor.label, flexShrink: 0, overflowWrap: 'anywhere' }}>{widgeting.label}</Box>
+          <Box className={styles.microcopy} sx={{ ...hiddenUntil(RoomFor.widget), width: WidthFor.widget, flexShrink: 0, overflowWrap: 'anywhere' }}>
+            {widget ? `${noun} ${widget.label}` : `works ${widgeting.widget_label}, which the library no longer holds`}
+          </Box>
+          <Box role="group" aria-label={`Cells of ${widgeting.label}`} sx={{ ...hiddenUntil(RoomFor.status), width: WidthFor.status, flexShrink: 0, fontSize: 13 }}>
+            <StatusSentence counts={counts} />
+          </Box>
+          <Box
+            data-snippet className={styles.microcopy}
+            sx={{ ...hiddenUntil(RoomFor.description), flex: 1, minWidth: 0, maxWidth: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {description}
+          </Box>
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
