@@ -3,7 +3,7 @@ import type { OptimisticLocalStore } from 'convex/browser'
 import type { Id } from '../../convex/_generated/dataModel'
 import type { HuntOpeningT, ShallowHuntT } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
-import { findingOf, showArranged } from '../../src/state/use-categories'
+import { showArranged } from '../../src/state/use-categories'
 
 const hunt_id = 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>
 const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8h02' as Id<'hunts'>
@@ -22,21 +22,6 @@ function storeHolding(openings: { args: { hunt_label: string }, value: HuntOpeni
   } as unknown as OptimisticLocalStore
   return { store, written }
 }
-
-describe("findingOf", () => {
-  const FindingCases: [boolean, HuntOpeningT | undefined, string, string][] = [
-    [true,  undefined,                                          'waiting', 'the server has not answered yet'],
-    [true,  { why: null, hunt: shallowHunt(hunt_id) },          'found',   'the visitor is on the hunt'],
-    [true,  { why: 'notOnHunt', hunt: null, smiths: [] },       'refused', 'the visitor is not on the hunt'],
-    [true,  { why: 'noSuchHunt', hunt: null },                  'missing', 'no hunt answers to the label'],
-    [false, undefined,                                          'missing', 'the address names something that cannot be a label, so nothing was asked'],
-  ]
-  for (const [askable, opening, expected, describes] of FindingCases) {
-    it(`is ${expected} when ${describes}`, () => {
-      expect(findingOf(askable, opening)).to.eq(expected)
-    })
-  }
-})
 
 describe("showArranged", () => {
   const wheel = Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool')

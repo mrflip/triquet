@@ -9,6 +9,12 @@ describe("Routes.categoriesPath", () => {
   })
 })
 
+describe("Routes.huntPath", () => {
+  it("puts a hunt at /h/<hunt>", () => {
+    expect(Routes.huntPath('quiet_otter')).to.eq('/h/quiet_otter')
+  })
+})
+
 describe('Routes.quizPath', () => {
   it('puts a quiz at /h/<hunt>/<realm>/<quiz>', () => {
     expect(Routes.quizPath(Labels)).to.eq('/h/quiet_otter/home/loud_heron')

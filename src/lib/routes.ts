@@ -42,6 +42,15 @@ export function aboutPath(): string {
 }
 
 /**
+ * Where the hunt labelled `hunt` lives: its quizzes, its categories and who is on it.
+ *
+ * @example huntPath('quiet_otter')  // => '/h/quiet_otter'
+ */
+export function huntPath(hunt: string): string {
+  return `/h/${hunt}`
+}
+
+/**
  * Where the quiz `labels` names lives, presented as `act`; without one, the page picks.
  *
  * @example quizPath({ hunt: 'quiet_otter', realm: 'home', quiz: 'quiet_otter' }, 'smith')  // => '/h/quiet_otter/home/quiet_otter?act=smith'

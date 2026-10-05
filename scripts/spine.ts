@@ -196,15 +196,22 @@ function refuseBusy(main: string): void {
 
 /**
  * Replays the spine onto `origin/main` when origin has moved past it, as it does once the Coach
- * merges, and pushes every spine branch origin has, each with an explicit lease. The Coach's
- * uncommitted edits are autostashed; a conflict undoes the replay and stops.
+ * merges, and pushes every spine branch origin still has and the replay left holding commits of
+ * its own, each with an explicit lease. The Coach's uncommitted edits are autostashed; a conflict
+ * undoes the replay and stops. Once the whole spine has merged, the main checkout goes back to
+ * `main`, and the next landing starts the spine afresh.
  *
  * @returns Lines saying what was done, empty when the spine was already on `origin/main`.
  */
 export function restack(main: string): string[] {
-  git(main, 'fetch', '--quiet', 'origin')
+  git(main, 'fetch', '--quiet', '--prune', 'origin')
   const top = topOf(main)
-  if (gitOk(main, 'merge-base', '--is-ancestor', 'origin/main', top.sha)) { return [] }
+  const replayed = gitOk(main, 'merge-base', '--is-ancestor', 'origin/main', top.sha) ? [] : replay(main, top)
+  return [...replayed, ...backOnMain(main)]
+}
+
+/** Replays the spine, which origin/main has moved past, onto it: the body of restack() */
+function replay(main: string, top: Top): string[] {
   if (top.branch === 'main') {
     git(main, 'merge', '--quiet', '--ff-only', '--autostash', 'origin/main')
     return ['The main checkout stood on main: fast-forwarded it to origin/main.']
@@ -220,14 +227,32 @@ export function restack(main: string): string[] {
     throw new SpineStop(`Replaying the spine onto origin/main conflicted, and was undone: the Coach's call.\n${(err as Error).message}`)
   }
   const stashed = git(main, 'stash', 'list').split('\n').filter(Boolean).length > stashesBefore
-  for (const [branch, sha] of leases) {
+  // A branch whose every commit main already had is empty now: pushing it would only point its PR at main.
+  const pushing = leases.filter(([branch]) => ! gitOk(main, 'merge-base', '--is-ancestor', branch, 'origin/main'))
+  for (const [branch, sha] of pushing) {
     git(main, ...PushArgs, `--force-with-lease=${branch}:${sha}`, 'origin', branch)
   }
   return [
     `Replayed the spine (${spine.join(', ')}) onto origin/main.`,
     ...(stashed ? ['The Coach\'s uncommitted edits did not go back cleanly after the replay: they are kept in `git stash list`. Tell the Coach.'] : []),
-    ...(leases.length > 0 ? [`Pushed ${leases.map(([branch]) => branch).join(', ')}.`] : []),
+    ...(pushing.length > 0 ? [`Pushed ${pushing.map(([branch]) => branch).join(', ')}.`] : []),
   ]
+}
+
+/**
+ * Puts the main checkout back on `main`, fast-forwarded, when it stands exactly on `origin/main`
+ * on some other branch: the whole spine has merged, and that branch's PR with it. Switching
+ * between two names for one commit changes no file, so the Coach's uncommitted edits stay put.
+ * A local `main` holding commits origin lacks is left alone, and says so.
+ */
+function backOnMain(main: string): string[] {
+  const top = topOf(main)
+  if (top.branch === 'main' || top.sha !== git(main, 'rev-parse', 'origin/main')) { return [] }
+  if (gitOk(main, 'rev-parse', '--verify', '--quiet', 'refs/heads/main') && ! gitOk(main, 'merge-base', '--is-ancestor', 'main', 'origin/main')) {
+    return [`The whole spine has merged, but local main holds commits origin/main lacks: the main checkout stays on ${top.branch}. Tell the Coach.`]
+  }
+  git(main, 'switch', '--quiet', '--force-create', 'main', 'origin/main')
+  return [`The whole spine has merged: the main checkout stands on main again, and ${top.branch} is done.`]
 }
 
 /**
@@ -389,11 +414,16 @@ export function land(cwd: string): string[] {
       return true
     })
     if (folded) {
-      return [...notes, ...pushed(main, branch), `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (stacked on ${top.branch}'s), then remove this worktree.`]
+      return [...notes, ...pushed(main, branch), `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (${stackingOn(top)}), then remove this worktree.`]
     }
     notes.push(`The top moved during e2e: rebasing again (attempt ${String(attempt + 1)}).`)
   }
   throw new SpineStop(`The top moved ${String(MaxAttempts)} times while ${branch} was landing: the spine is too busy. Land again shortly, or report.`)
+}
+
+/** What a branch landed on `top` says its PR is stacked on */
+function stackingOn(top: Top): string {
+  return top.branch === 'main' ? 'stacked on nothing: it starts the spine' : `stacked on ${top.branch}'s`
 }
 
 /** Switches the main checkout onto `branch`, freeing it from the worktree first; a refusal puts the worktree back and stops */

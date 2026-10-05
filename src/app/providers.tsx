@@ -8,12 +8,14 @@ import { ConvexAuthProvider } from '@convex-dev/auth/react'
 import { AlarmSnackbar } from '../components/AlarmSnackbar'
 import { SyncUnconfigured } from '../components/SyncNotices'
 import { AlarmsProvider } from '../state/alarms'
+import { ShownHuntProvider } from '../state/shown-hunt'
 import { convexUrl } from '../state/convex-url'
 import { theme } from './theme'
 
 /**
- * MUI's styling and theme, which everything on the page draws in, the header included; and the
- * page's one alarm, which any screen can raise a failure to (`useRaiseAlarm`).
+ * MUI's styling and theme, which everything on the page draws in, the header included; the
+ * page's one alarm, which any screen can raise a failure to (`useRaiseAlarm`); and which hunt the
+ * page is about, which the header names (`useShowHunt`).
  */
 export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -21,7 +23,9 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AlarmsProvider>
-          {children}
+          <ShownHuntProvider>
+            {children}
+          </ShownHuntProvider>
           <AlarmSnackbar />
         </AlarmsProvider>
       </ThemeProvider>

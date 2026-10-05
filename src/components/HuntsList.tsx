@@ -163,7 +163,7 @@ type HuntRowProps = {
 }
 
 /**
- * One hunt, as a row: its title, the visitor's role on it, a gear to edit it for whoever may (a
+ * One hunt, as a row: its title, which opens the hunt's own page, the visitor's role on it, a gear to edit it for whoever may (a
  * smith), its categories, and a link to each of its quizzes. The quizzes sit in a column of their
  * own while the table has room for them beside the rest (`RoomFor`), and on a line of their own
  * beneath it, across the whole table, when not; either way they flow on and wrap.
@@ -174,7 +174,9 @@ function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
   return (
     <>
       <TableRow>
-        <TableCell component="th" scope="row" sx={{ ...RuledWhileBeside, fontWeight: 600, width: { '@': '100%', [RoomFor.quizzesBeside]: 'auto' }, minWidth: { [RoomFor.quizzesBeside]: '12rem' } }}>{hunt.title}</TableCell>
+        <TableCell component="th" scope="row" sx={{ ...RuledWhileBeside, fontWeight: 600, width: { '@': '100%', [RoomFor.quizzesBeside]: 'auto' }, minWidth: { [RoomFor.quizzesBeside]: '12rem' } }}>
+          <Link component={NextLink} href={Routes.huntPath(hunt.label)} color="inherit" underline="hover">{hunt.title}</Link>
+        </TableCell>
         <TableCell sx={{ ...RuledWhileBeside, whiteSpace: 'nowrap' }}><span className={styles.microcopy}>{HuntRoleTitles[hunt.role]}</span></TableCell>
         <TableCell sx={RuledWhileBeside} padding="none">
           {editable && (
@@ -201,7 +203,7 @@ function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
 }
 
 /** A link to each of a hunt's quizzes, each marked locked or still being worked on, flowing on and wrapping */
-function QuizLinks({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
+export function QuizLinks({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
   return (
     <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 0.5 }}>
       {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (

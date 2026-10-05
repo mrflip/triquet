@@ -137,14 +137,31 @@ describe("Wheel.stepped", () => {
   })
 })
 
-describe("Wheel.firstEmptyIdxOf", () => {
-  it("finds the first empty slot from the top", () => {
-    expect(Wheel.firstEmptyIdxOf(holed(20, 7))).to.eq(7)
-    expect(Wheel.firstEmptyIdxOf(SpikeWheel)).to.eq(9)
+describe("Wheel.nextEmptyIdxOf", () => {
+  it("finds the first empty slot from the top, after no slot at all", () => {
+    expect(Wheel.nextEmptyIdxOf(holed(20, 7), null)).to.eq(7)
+    expect(Wheel.nextEmptyIdxOf(SpikeWheel, null)).to.eq(9)
+    expect(Wheel.nextEmptyIdxOf(holed(0, 2), null)).to.eq(0)
+  })
+
+  it("finds the next empty slot clockwise after the one given", () => {
+    expect(Wheel.nextEmptyIdxOf(holed(0, 2), 0)).to.eq(2)
+    expect(Wheel.nextEmptyIdxOf(holed(20, 7), 7)).to.eq(20)
+    expect(Wheel.nextEmptyIdxOf(holed(20, 7), 10)).to.eq(20)
+  })
+
+  it("wraps past the top", () => {
+    expect(Wheel.nextEmptyIdxOf(holed(0, 2), 2)).to.eq(0)
+    expect(Wheel.nextEmptyIdxOf(holed(20, 7), 23)).to.eq(7)
+  })
+
+  it("comes back round to the slot given when it is the only empty one", () => {
+    expect(Wheel.nextEmptyIdxOf(holed(5), 5)).to.eq(5)
   })
 
   it("is null when every slot is held", () => {
-    expect(Wheel.firstEmptyIdxOf(Wheel.defaultWheel())).to.be.null
+    expect(Wheel.nextEmptyIdxOf(Wheel.defaultWheel(), null)).to.be.null
+    expect(Wheel.nextEmptyIdxOf(Wheel.defaultWheel(), 4)).to.be.null
   })
 })
 
