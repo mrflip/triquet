@@ -13,7 +13,7 @@ workers appended their sections below, newest first; from round two each worker 
 | 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete, reviewed (clean) |
 | 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | on the spine, open; reviewed (clean) |
 | 4      | name is title, label beside  |        |    | underway |
-| 5      | column alignment             |        |    | underway |
+| 5      | column alignment             | `20261005-column_align` |    | in review |
 
 ## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
 
