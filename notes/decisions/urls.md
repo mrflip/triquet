@@ -5,7 +5,8 @@ Oct 5, 2026 · @Philip F Kromer
 ## Scheme
 
 Every URL is an org, a hunt with an optional version, a path of nouns, and an optional mode.
-(Org, at current, means the ident label)
+(An org, for now, is an ident label: a hunt stores its maker's as its `orglabel`, copied when it is
+made and never changed.)
 
 ```
 /~{org}                                      an org's hunts
@@ -52,7 +53,8 @@ The database is the system of record, and the URL names things by label within a
 
 | Topic              | Decision                                                                                                                      | Reason                                                                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Orgs               | `~{org}` is the top-level scope. Every username is its own org.                                                               | Hunt names are chosen within an org, not guessed against a global namespace. The sigil keeps the root free for the app's own routes.     |
+| Orgs               | `~{org}` is the top-level scope. Every username is its own org. A hunt stores its org (`orglabel`): its maker's ident label, copied when it is made, never changed. | Hunt names are chosen within an org, not guessed against a global namespace. The sigil keeps the root free for the app's own routes.     |
+| Hunt labels        | A hunt label is unique within its org, not across the app: `hunts.open` finds a hunt by org and label. An old address (`/h/{hunt}`), naming no org, finds the earliest hunt of its label. | Takes hunt labels out of a global namespace into one under the namer's control. (The Coach, 2026-10-05.)                                  |
 | Org sigil          | Only `~` is emitted.                                                 | `~` is the one sigil that never needs encoding. The alias covers keyboards that lack it.                                                 |
 | Labels             | Every label matches `/^[a-z](_?[a-z0-9])+$/`.                                                                                 | Lowercase only, so no case collisions. At least two characters, single underscores, and a linear-time match.                             |
 | quizzes            | A quiz label is unique across its hunt.                                                                                       | A bare label always identifies one quiz, so references survive a move.                                                                   |

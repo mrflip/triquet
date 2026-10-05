@@ -163,12 +163,18 @@ words above.
   (`emptyIfDenied`).
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
-  global, and exports on its own. Its label is global; should two share one, the earlier-made wins.
-* **org** -- the scope a hunt is addressed under, the `~pat_smith` of `/~pat_smith/spring_hunt`:
-  for now an ident label, its earliest smith's (its maker's), worked out from its huntings and
-  stored nowhere (`orgFor` in `src/lib/rows.ts`). Hunt labels are still global, so the org is
-  context, as the realm is: an address naming another org moves to the hunt's own.
-  `/~<org>` lists that org's hunts. See `notes/decisions/urls.md`.
+  global, and exports on its own. Its label is unique within its org; should two of one org share
+  one, the earlier-made wins.
+* **org** -- the scope a hunt is addressed under and its label is unique within, the `~pat_smith`
+  of `/~pat_smith/spring_hunt`: for now always an ident label, so every username is its own org.
+  A hunt names its org in its **orglabel** (`hunts.orglabel`), its maker's ident label, copied
+  when it was made and never changed: not when its maker is retitled, leaves, or changes role. A
+  hunt written before hunts stored one reads as under its earliest member's (`orgFor` in
+  `src/lib/rows.ts`) until `migrations:backfillHuntOrglabels` has run. The address's slot is
+  `org` (`Routes.HuntLabels`, `HuntListingT.org`); the stored field is `orglabel`. An address
+  naming another org finds no hunt there; an old one (`/h/<hunt>`), naming none, finds the
+  earliest hunt of its label and moves to its org. `/~<org>` lists that org's hunts. See
+  `notes/decisions/urls.md`.
 * **realm** -- a division of a hunt, holding quizzes; the segment after `quizzes/`. Every hunt
   starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
   scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.
