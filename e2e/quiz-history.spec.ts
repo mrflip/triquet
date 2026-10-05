@@ -2,10 +2,10 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { type Page } from '@playwright/test'
+import type { Download, Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test } from './support'
+import { actDangerously, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 /** The label of the quiz `page` is on, from its address */
 function quizLabelOf(page: Page): string {
@@ -25,6 +25,14 @@ function unzipped(bytes: Uint8Array): string {
   return into
 }
 
+/** A downloaded history, unzipped, as the real git sees it: a function asking git about the repository in `folder` */
+async function gitOfDownload(download: Download, folder: string): Promise<(...args: string[]) => string> {
+  const bytes = readFileSync(await download.path())
+  const repo = path.join(unzipped(new Uint8Array(bytes)), folder)
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the git anyone has installed reading what the app wrote is the point
+  return (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trimEnd()
+}
+
 /**
  * The open hunt's history, downloaded from the gear and unzipped, as the real git sees it: a
  * function asking git about it, with the trailing newline taken off.
@@ -34,11 +42,8 @@ async function downloadedHistory(page: Page): Promise<(...args: string[]) => str
   const downloading = page.waitForEvent('download')
   await manageDialog(page).getByRole('button', { name: 'Download as git' }).click()
   const download = await downloading
-  const bytes = readFileSync(await download.path())
   await page.keyboard.press('Escape')
-  const repo = path.join(unzipped(new Uint8Array(bytes)), huntOf(page).hunt)
-  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the git anyone has installed reading what the app wrote is the point
-  return (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trimEnd()
+  return await gitOfDownload(download, huntOf(page).hunt)
 }
 
 /** What the real git says about the open hunt's history, downloaded afresh: for `expect.poll` */
@@ -100,6 +105,47 @@ test('the history downloads from the gear as a zip named for the hunt', async ({
   await page.getByRole('button', { name: 'Download as git' }).click()
   const download = await downloading
   expect(download.suggestedFilename()).toBe(`${huntOf(page).hunt}.zip`)
+})
+
+test("the history downloads from the hunt's own page too, named for the hunt", async ({ page }) => {
+  const tag = await milestone(page)
+  const labels = huntOf(page)
+  await page.goto(Routes.huntPath(labels))
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('region', { name: 'History' }).getByRole('button', { name: 'Download Full History' }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toBe(`${labels.hunt}.zip`)
+  const git = await gitOfDownload(download, labels.hunt)
+  expect(git('tag', '--list')).toBe(tag)
+})
+
+test('a deleted hunt leaves its history on the hunts page, folded away, to download', async ({ page }) => {
+  const { hunt } = huntOf(page)
+  // The milestone proves the hunt committed before it goes, so the hunts page has a repository to find.
+  const tag = await milestone(page)
+  await waitUntilSaved(page)
+  await openManage(page)
+  await actDangerously(page, 'Delete this quiz and its hunt', hunt)
+  await expect(page).toHaveURL(/\/my\/hunts$/)
+
+  const fold = page.getByRole('button', { name: 'Orphaned histories (1)' })
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('list', { name: 'Orphaned histories' })).toHaveCount(0)
+  await fold.click()
+  const orphans = page.getByRole('list', { name: 'Orphaned histories' })
+  // There is no hunt to go to: it is named by its label alone.
+  await expect(orphans.getByRole('listitem')).toContainText(hunt)
+  await expect(orphans.getByRole('link')).toHaveCount(0)
+  // On a phone, the list wraps rather than scrolling sideways.
+  await page.setViewportSize({ width: 360, height: 740 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+
+  const downloading = page.waitForEvent('download')
+  await orphans.getByRole('button', { name: `Download ${hunt}` }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toBe(`${hunt}.zip`)
+  const git = await gitOfDownload(download, hunt)
+  expect(git('tag', '--list')).toBe(tag)
 })
 
 test('the history survives a reload, because it lives in the browser and not in the page', async ({ page }) => {

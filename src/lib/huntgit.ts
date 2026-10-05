@@ -1,7 +1,9 @@
 import * as git from 'isomorphic-git'
 import { zipSync } from 'fflate'
 import _ from 'es-toolkit/compat'
+import * as Addresses from './addresses'
 import * as Huntfiles from './huntfiles'
+import { Validator } from './validator'
 
 /*
  * A hunt's git repository in the browser (`notes/hunt_git.md`): one per hunt, on the branch the
@@ -214,100 +216,97 @@ export async function markTip(fs: GitFs, hunt: Readonly<RepoKeyT>, branch: strin
  * @example new Blob([await zipHuntRepo(fs, hunt)], { type: 'application/zip' })
  */
 export async function zipHuntRepo(fs: GitFs, hunt: Readonly<RepoKeyT & { label: string }>): Promise<Uint8Array> {
-  return await zipRepo(fs, repopathFor(hunt), hunt.label)
-}
-
-/** Every file of the repository at `dir`, `.git` and all, zipped under the folder `stem` */
-async function zipRepo(fs: GitFs, dir: string, stem: string): Promise<Uint8Array> {
+  const dir = repopathFor(hunt)
   const filepaths = await listFiles(fs, dir, '')
   const entries: Record<string, Uint8Array> = {}
   for (const filepath of filepaths) {
-    entries[`${stem}/${filepath}`] = await fs.promises.readFile(`${dir}/${filepath}`)
+    entries[`${hunt.label}/${filepath}`] = await fs.promises.readFile(`${dir}/${filepath}`)
   }
   return zipSync(entries)
 }
 
-// --- The per-quiz repositories of before (`/quizzes`): read for the hunts page's list alone
 
-/** Where the per-quiz repositories of before live, one directory per quiz id. Nothing writes there now. */
-export const QuizReposRoot = '/quizzes'
+// --- Every hunt's repository this browser holds: for the hunts page and a missing quiz's page
 
-/** The whole-quiz file a per-quiz repository named its quiz by */
-const QuizJsonExt = '.tq.json'
+/** Where a hunt's own fields are written, its label among them: the one file a listing reads */
+const HuntFilepath = Addresses.filepathOf({ kind: 'hunt', org: '', hunt: '' })
 
-/** One per-quiz repository as it stands on disk, whether or not any quiz still answers to it */
-export type RepoSummary = {
-  /** The id of the quiz the repository belongs to: its directory's name */
-  id:          string
-  /** The quiz's label in its latest commit, or null when nothing has been committed */
-  label:       string | null
-  /** The branch checked out, or null when it has none yet */
-  branch:      string | null
-  /** The latest commit's message, or null when nothing has been committed */
-  message:     string | null
-  /** When the latest commit was made, in epoch milliseconds, or null when nothing has been committed */
-  committed_at: number | null
+/** What a listing reads of a hunt's own file, checked, since it is read back off the browser's disk */
+const HuntFileValidators = Validator(({ obj, label }) => ({ hunt: obj({ label }) }))
+
+/** One hunt's repository as this browser holds it, whether or not the visitor is still on the hunt */
+export type HuntRepoT = RepoKeyT & {
+  /** The hunt's label in its own file at the tip (`hunt.tqh.json`); its id, where that holds none */
+  label:        string
+  /** The branch checked out */
+  branch:       string | null
+  /** The first line of the latest commit's message */
+  message:      string
+  /** When the latest commit was made, in epoch milliseconds */
+  committed_at: number
 }
 
 /**
- * Every per-quiz repository of before the filesystem holds, newest work first.
+ * Every hunt's repository this browser holds that has anything committed, newest work first.
  *
- * Independent of the database on purpose: a deleted quiz left its repository behind, and this is
- * where it can still be found. A directory that is not a repository is left out.
+ * Independent of the database on purpose: a deleted hunt leaves its repository behind, as does a
+ * hunt the visitor is no longer on, and this is where it can still be found. A directory that is
+ * not a repository, or holds no commit, is left out.
  *
  * @param fs - Where the repositories live.
  * @returns One summary per repository; empty when there are none.
  *
- * @example (await listQuizRepos(fs)).map((repo) => repo.label)  // => ['quiet_otter']
+ * @example (await listHuntRepos(fs)).map((repo) => repo.label)  // => ['spring_hunt']
  */
-export async function listQuizRepos(fs: GitFs): Promise<RepoSummary[]> {
-  const ids = await readdirOrNothing(fs, QuizReposRoot)
-  const found: RepoSummary[] = []
-  for (const id of ids) {
-    const summary = await summarizeQuizRepo(fs, id)
+export async function listHuntRepos(fs: GitFs): Promise<HuntRepoT[]> {
+  const ids = await readdirOrNothing(fs, RepoRoot)
+  const found: HuntRepoT[] = []
+  for (const _id of ids) {
+    const summary = await summarizeHuntRepo(fs, _id)
     if (summary) { found.push(summary) }
   }
-  return _.orderBy(found, [(repo) => repo.committed_at ?? 0], ['desc'])
+  return _.orderBy(found, [(repo) => repo.committed_at], ['desc'])
 }
 
 /**
- * The repositories among `repos` that no quiz in `quizIds` answers to: those of quizzes since
- * deleted, or of quizzes this browser can no longer see.
+ * The repositories among `repos` that no hunt of `huntIds` answers to: those of hunts since
+ * deleted, or of hunts the visitor is not on.
  *
- * @param repos - The repositories, as `listQuizRepos` found them.
- * @param quizIds - The ids of every quiz still to be had.
+ * @param repos - The repositories, as `listHuntRepos` found them.
+ * @param huntIds - The ids of every hunt the visitor is on.
  * @returns The rest of `repos`, in the order given.
  *
- * @example orphansAmong(await listQuizRepos(fs), new Set([quiz._id]))  // => every repository but quiz's
+ * @example orphansAmong(await listHuntRepos(fs), new Set(hunts.map((hunt) => hunt._id)))
  */
-export function orphansAmong(repos: readonly RepoSummary[], quizIds: ReadonlySet<string>): RepoSummary[] {
-  return repos.filter((repo) => ! quizIds.has(repo.id))
+export function orphansAmong(repos: readonly HuntRepoT[], huntIds: ReadonlySet<string>): HuntRepoT[] {
+  return repos.filter((repo) => ! huntIds.has(repo._id))
 }
 
-/**
- * A per-quiz repository of before as a zip, in a folder named `repo.label` (or its id, when it has none).
- *
- * @example new Blob([await zipQuizRepo(fs, repo)], { type: 'application/zip' })
- */
-export async function zipQuizRepo(fs: GitFs, repo: Readonly<Pick<RepoSummary, 'id' | 'label'>>): Promise<Uint8Array> {
-  return await zipRepo(fs, `${QuizReposRoot}/${repo.id}`, repo.label ?? repo.id)
-}
-
-/** `id`'s repository in brief, or null when the directory is not a repository */
-async function summarizeQuizRepo(fs: GitFs, id: string): Promise<RepoSummary | null> {
-  const dir = `${QuizReposRoot}/${id}`
+/** `_id`'s repository in brief, or null when the directory is not a repository or holds no commit */
+async function summarizeHuntRepo(fs: GitFs, _id: string): Promise<HuntRepoT | null> {
+  const dir = repopathFor({ _id })
   try {
+    if (! await hasCommits(fs, dir)) { return null }
     const branch = (await git.currentBranch({ fs, dir })) ?? null
-    if (! await hasCommits(fs, dir)) { return { id, label: null, branch, message: null, committed_at: null } }
     const [latest] = await git.log({ fs, dir, depth: 1 })
-    const filepaths = await git.listFiles({ fs, dir, ref: 'HEAD' })
-    const json = filepaths.find((filepath) => filepath.endsWith(QuizJsonExt))
+    if (! latest) { return null }
     return {
-      id, branch,
-      label:        json === undefined ? null : json.slice(json.lastIndexOf('/') + 1, -QuizJsonExt.length),
-      message:      latest?.commit.message.trim() ?? null,
-      committed_at: latest ? latest.commit.committer.timestamp * 1000 : null,
+      _id, branch,
+      label:        await tipLabel(fs, dir, latest.oid) ?? _id,
+      message:      latest.commit.message.trim().split('\n', 1)[0] ?? '',
+      committed_at: latest.commit.committer.timestamp * 1000,
     }
+  } catch {
+    return null
+  }
+}
+
+/** The hunt's label as the commit `oid` holds it, or null where that commit holds no hunt file fit to read */
+async function tipLabel(fs: GitFs, dir: string, oid: string): Promise<string | null> {
+  try {
+    const { blob } = await git.readBlob({ fs, dir, oid, filepath: HuntFilepath })
+    const parsed = HuntFileValidators.hunt.safeParse(JSON.parse(new TextDecoder().decode(blob)))
+    return parsed.success ? parsed.data.label : null
   } catch {
     return null
   }

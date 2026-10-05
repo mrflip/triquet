@@ -2,7 +2,7 @@ import nodeFs from 'node:fs'
 import path from 'node:path'
 import _ from 'es-toolkit/compat'
 import { unzipSync } from 'fflate'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Huntfiles from '../../src/lib/huntfiles'
 import * as Huntgit from '../../src/lib/huntgit'
 import * as PA from '../../src/lib/vv/patterns'
@@ -196,64 +196,81 @@ describe('zipHuntRepo', () => {
   })
 })
 
-// --- The per-quiz repositories of before
+// --- Every hunt's repository this browser holds
 
-/** A per-quiz repository of before, as the app once wrote it, for the quiz `id` labelled `label`: one commit, made by the real git */
-function legacyRepo(id: string, label: string, message: string): void {
-  const dir = path.join(here().root, Huntgit.QuizReposRoot, id)
-  const filepath = `tq/hunt/deep_lake/realm/home/quiz/${label}.tq.json`
-  nodeFs.mkdirSync(path.join(dir, path.dirname(filepath)), { recursive: true })
-  nodeFs.writeFileSync(path.join(dir, filepath), '{}\n')
-  gitIn(dir, ['init', '--quiet', '--initial-branch=main'])
-  gitIn(dir, ['add', '.'])
-  gitIn(dir, ['-c', 'user.name=Triquet', '-c', 'user.email=triquet@localhost', 'commit', '--quiet', '-m', message])
+/** The hunt that is not `Hunt`, for the listings */
+const OtherHunt = { _id: 'hunt_two', label: 'high_moor' }
+
+/** Commit `bag` as `hunt` whole, at the moment `at` */
+async function commitAt(hunt: Readonly<Huntgit.RepoKeyT>, bag: Readonly<Record<string, string>>, at: string, message = 'start'): Promise<void> {
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date(at) })
+  try {
+    await Huntgit.commitWhole(here().fs, hunt, 'main', filesOf(bag), { keep: () => false, message })
+  } finally {
+    vi.useRealTimers()
+  }
 }
 
-/** A repository summary for the quiz `id`, with nothing in it that the test is not about */
-function summaryOf(id: string): Huntgit.RepoSummary {
-  return { id, label: id, branch: 'main', message: null, committed_at: null }
+/** A repository summary for the hunt `_id`, with nothing in it that the test is not about */
+function summaryOf(_id: string): Huntgit.HuntRepoT {
+  return { _id, label: _id, branch: 'main', message: 'start', committed_at: 0 }
 }
 
-describe('listQuizRepos', () => {
+describe('listHuntRepos', () => {
   it("finds nothing where no history was kept", async () => {
-    expect(await Huntgit.listQuizRepos(here().fs)).to.deep.eq([])
+    expect(await Huntgit.listHuntRepos(here().fs)).to.deep.eq([])
   })
 
-  it("summarises each repository: its quiz, branch and latest commit", async () => {
-    legacyRepo('quiz_one', 'quiet_otter', '+quiz')
-    const [repo] = await Huntgit.listQuizRepos(here().fs)
-    expect(repo).to.include({ id: 'quiz_one', label: 'quiet_otter', branch: 'main', message: '+quiz' })
-    expect(repo?.committed_at).to.be.closeTo(Date.now(), 60_000)
+  it("summarises each repository: its hunt by the label at the tip, its branch, and its latest commit's first line", async () => {
+    await commitAt(Hunt, Start, '2026-10-05T12:00:00Z')
+    await commitAt(Hunt, { ...Start, 'hunt.tqh.json': '{"label":"deeper_lake"}\n' }, '2026-10-05T12:01:00Z', '~hunt\n\nhunt: ~label')
+    expect(await Huntgit.listHuntRepos(here().fs)).to.deep.eq([
+      { _id: 'hunt_one', label: 'deeper_lake', branch: 'main', message: '~hunt', committed_at: Date.parse('2026-10-05T12:01:00Z') },
+    ])
   })
 
-  it("leaves out a directory that is not a repository, and the hunts' repositories", async () => {
-    nodeFs.mkdirSync(path.join(here().root, Huntgit.QuizReposRoot, 'stray'), { recursive: true })
-    await commitAll(Start)
-    expect(await Huntgit.listQuizRepos(here().fs)).to.deep.eq([])
+  it("lists the newest work first", async () => {
+    await commitAt(Hunt, Start, '2026-10-05T12:00:00Z')
+    await commitAt(OtherHunt, { 'hunt.tqh.json': '{"label":"high_moor"}\n' }, '2026-10-05T13:00:00Z')
+    const repos = await Huntgit.listHuntRepos(here().fs)
+    expect(repos.map((repo) => repo.label)).to.deep.eq(['high_moor', 'deep_lake'])
+  })
+
+  it("names a repository by its hunt's id where the tip holds no hunt file fit to read", async () => {
+    await commitAt(Hunt, { 'quizzes/home/legends.tqq.json': '{}\n' }, '2026-10-05T12:00:00Z')
+    await commitAt(OtherHunt, { 'hunt.tqh.json': '{"label":"Not A Label"}\n' }, '2026-10-05T12:00:00Z')
+    const repos = await Huntgit.listHuntRepos(here().fs)
+    expect(repos.map((repo) => repo.label)).to.have.members(['hunt_one', 'hunt_two'])
+  })
+
+  it("leaves out a directory that is not a repository, one with nothing committed, and the per-quiz repositories of before", async () => {
+    nodeFs.mkdirSync(path.join(here().root, Huntgit.RepoRoot, 'stray'), { recursive: true })
+    const empty = path.join(here().root, Huntgit.repopathFor(OtherHunt))
+    nodeFs.mkdirSync(empty, { recursive: true })
+    gitIn(empty, ['init', '--quiet', '--initial-branch=main'])
+    const legacy = path.join(here().root, 'quizzes', 'quiz_one')
+    nodeFs.mkdirSync(legacy, { recursive: true })
+    gitIn(legacy, ['init', '--quiet', '--initial-branch=main'])
+    expect(await Huntgit.listHuntRepos(here().fs)).to.deep.eq([])
   })
 })
 
 describe('orphansAmong', () => {
-  it("keeps the repositories no quiz answers to, in the order given", () => {
-    const repos = ['gone', 'kept', 'lost'].map((id) => summaryOf(id))
-    expect(Huntgit.orphansAmong(repos, new Set(['kept'])).map((repo) => repo.id)).to.deep.eq(['gone', 'lost'])
+  it("keeps the repositories no hunt answers to, in the order given", () => {
+    const repos = ['gone', 'kept', 'lost'].map((_id) => summaryOf(_id))
+    expect(Huntgit.orphansAmong(repos, new Set(['kept'])).map((repo) => repo._id)).to.deep.eq(['gone', 'lost'])
   })
 
-  it("finds no orphans where every repository has its quiz", () => {
+  it("finds no orphans where every repository has its hunt", () => {
     expect(Huntgit.orphansAmong([summaryOf('kept')], new Set(['kept', 'other']))).to.deep.eq([])
   })
 })
 
-/** Every path in the zip of the quiz `quiz_one`'s repository, foldered under `label` */
-async function pathsIn(label: string | null): Promise<string[]> {
-  const zipped = await Huntgit.zipQuizRepo(here().fs, { id: 'quiz_one', label })
-  return Object.keys(unzipSync(zipped))
-}
-
-describe('zipQuizRepo', () => {
-  it("folders a repository of before under its quiz's label, or its id when it has none", async () => {
-    legacyRepo('quiz_one', 'quiet_otter', '+quiz')
-    expect(await pathsIn('quiet_otter')).to.include('quiet_otter/.git/HEAD')
-    expect(await pathsIn(null)).to.include('quiz_one/.git/HEAD')
+describe('zipHuntRepo, of a listed repository', () => {
+  it("folders it under the label the listing gives it", async () => {
+    await commitAt(Hunt, { ...Start, 'hunt.tqh.json': '{"label":"deeper_lake"}\n' }, '2026-10-05T12:00:00Z')
+    const [repo] = await Huntgit.listHuntRepos(here().fs)
+    const zipped = await Huntgit.zipHuntRepo(here().fs, present(repo, 'a listed repository'))
+    expect(Object.keys(unzipSync(zipped))).to.include('deeper_lake/.git/HEAD')
   })
 })

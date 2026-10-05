@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
-import { addMember, assumeIdent, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -389,6 +389,37 @@ test.describe('an address naming a quiz that is not there', () => {
     await expect(page.getByText(`has no quiz at “${hunt}/home/asdf”.`)).toBeVisible()
     await page.getByRole('link', { name: 'Quiz one' }).click()
     await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+  })
+
+  test('lists every hunt history this browser holds: a hunt the visitor is on linked to its page, any other by its label alone', async ({ page }) => {
+    await startHunt(page)
+    const first = huntOf(page)
+    // The milestone proves the hunt committed, so there is a repository to list.
+    await openManage(page)
+    await page.getByRole('button', { name: 'Mark a milestone' }).click()
+    await expect(page.getByRole('status')).toHaveText(/^main_/)
+    await closeManage(page)
+
+    await loadAfresh(page, Routes.quizPath({ ...first, realm: 'home', quiz: 'nothing' }, 'edit'))
+    const repos = page.getByRole('list', { name: 'History repositories' })
+    await expect(repos.getByRole('link', { name: first.hunt })).toHaveAttribute('href', Routes.huntPath(first))
+    await expect(repos.getByRole('button', { name: `Download ${first.hunt}` })).toBeVisible()
+
+    // Another visitor of this browser, who is not on the hunt, finds it folded away on their hunts page.
+    await page.goto(Routes.huntsPath())
+    await page.getByRole('link', { name: 'Be someone else' }).click()
+    const other = freshIdentLabel()
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
+    await page.getByRole('button', { name: `Log in as ${other}` }).click()
+    await expect(page.getByText(`(@${other})`)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Orphaned histories (1)' })).toBeVisible()
+
+    // And by its label alone where a quiz is not found: there is no page of it they could open.
+    await page.goto(Routes.quizPath({ org: 'nobody_here', hunt: 'no_such_hunt_here', realm: 'home', quiz: 'asdf' }, 'edit'))
+    const theirs = page.getByRole('list', { name: 'History repositories' })
+    await expect(theirs.getByRole('listitem').filter({ hasText: first.hunt })).toContainText('main')
+    await expect(theirs.getByRole('link')).toHaveCount(0)
+    await expect(theirs.getByRole('button', { name: `Download ${first.hunt}` })).toBeVisible()
   })
 
   test('says there is no such hunt, once the server has had its say', async ({ page }) => {

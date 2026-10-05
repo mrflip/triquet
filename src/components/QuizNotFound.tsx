@@ -2,16 +2,13 @@
 
 import NextLink from './NextLink'
 import { Button, Link, Stack } from '@mui/material'
-import * as Alarms from '../lib/alarms'
 import * as Routes from '../lib/routes'
 import { Hunting } from '../models/hunting'
-import { useRaiseAlarm } from '../state/alarms'
-import * as HuntMirror from '../state/hunt-mirror'
-import { useQuizRepos } from '../state/use-quiz-repos'
+import { useHuntRepos } from '../state/use-hunt-repos'
+import { useHuntsList } from '../state/use-hunts-list'
 import { AppNotices } from '../lib/notices'
-import { describeRepo } from './OrphanedRepos'
+import { HuntRepoList } from './HuntRepoList'
 import { Panel } from './panels/Panel'
-import type { RepoSummary } from '../lib/huntgit'
 import type { ShallowHuntT } from '../lib/rows'
 import styles from './workbench.module.css'
 
@@ -34,7 +31,7 @@ function addressOf(hunt: ShallowHuntT, quiz: QuizRow): string {
 /**
  * What the page says when its address names no quiz: what it asked for, the quizzes of the hunt
  * it named when that hunt is here, the way back to every hunt, and -- separately, since a deleted
- * quiz leaves its history behind -- every history repository this browser holds.
+ * quiz leaves its files in its hunt's history -- every hunt's history repository this browser holds.
  */
 export function QuizNotFound({ labels, hunt }: Readonly<QuizNotFoundProps>) {
   const asked = `${labels.hunt}/${labels.realm}/${labels.quiz}`
@@ -54,47 +51,23 @@ export function QuizNotFound({ labels, hunt }: Readonly<QuizNotFoundProps>) {
           </Stack>
         </Panel>
       )}
-      <RepoList hunt={hunt} />
+      <RepoList />
     </main>
   )
 }
 
-/** The history repositories this browser holds, whether or not their quizzes are still here */
-function RepoList({ hunt }: Readonly<{ hunt: ShallowHuntT | null }>) {
-  const repos = useQuizRepos()
-  const kept = (repo: RepoSummary) => hunt?.realms.flatMap((realm) => realm.quizzes).find((quiz) => quiz._id === repo.id)
+/**
+ * Every hunt's history repository this browser holds, whether or not the visitor is still on the
+ * hunt: a hunt they are on links to its page, and a deleted quiz's files are in its hunt's history.
+ */
+function RepoList() {
+  const repos = useHuntRepos()
+  const hunts = useHuntsList()
   return (
-    <Panel title="History repositories" blurb="Each quiz's history is kept in a git repository in this browser. A deleted quiz leaves its repository behind.">
+    <Panel title="History repositories" blurb="Each hunt's history is kept in a git repository in this browser, a deleted quiz's files among it. A hunt you are on links to its page; the rest are of hunts deleted, or that you are not on.">
       {repos === null && <p className={styles.microcopy}>Looking&hellip;</p>}
       {repos?.length === 0 && <p className={styles.microcopy}>{AppNotices.noRepositories}</p>}
-      <ul className={styles.repoList}>
-        {repos?.map((repo) => {
-          const quiz = kept(repo)
-          return <RepoRow key={repo.id} repo={repo} address={hunt && quiz ? addressOf(hunt, quiz) : null} />
-        })}
-      </ul>
+      {repos && repos.length > 0 && <HuntRepoList repos={repos} hunts={hunts ?? []} naming="History repositories" />}
     </Panel>
-  )
-}
-
-/** One repository: its quiz, what it last recorded, a way back to the quiz if it is here, and a download of it either way */
-function RepoRow({ repo, address }: Readonly<{ repo: RepoSummary, address: string | null }>) {
-  const raise = useRaiseAlarm()
-  const onDownload = async () => {
-    try {
-      await HuntMirror.downloadQuizRepo(repo)
-    } catch (err) {
-      raise(Alarms.of(AppNotices.repoNotDownloaded, err))
-    }
-  }
-  return (
-    <li>
-      <strong>{repo.label ?? 'no commits yet'}</strong>
-      {' '}<span className={styles.microcopy}>{describeRepo(repo)}</span>
-      {' '}{address
-        ? <Button size="small" component={NextLink} href={address}>Open quiz</Button>
-        : <span className={styles.microcopy}>not in this hunt</span>}
-      {' '}<Button size="small" onClick={() => { void onDownload() }}>Download</Button>
-    </li>
   )
 }

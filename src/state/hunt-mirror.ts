@@ -19,7 +19,7 @@ import type { QuizT } from '../models/quiz'
 
 /**
  * Where this browser keeps its histories, alongside but separate from the database itself. Named
- * for the per-quiz repositories it first held, which are still found there (`listQuizRepos`).
+ * for the per-quiz repositories it first held, which may still sit there, read by nothing.
  */
 export const MirrorFsName = 'triquet-quizzes'
 
@@ -140,7 +140,7 @@ export const ReadWaitMs = 5000
  * heard of in full only once the watch of the new question, opened as the change was heard, has
  * answered.
  */
-async function caughtUp(hunt: Readonly<Pick<ShallowHuntT, '_id'>>, heard: 'settled' | 'read'): Promise<void> {
+async function caughtUp(hunt: Readonly<Huntgit.RepoKeyT>, heard: 'settled' | 'read'): Promise<void> {
   await Promise.allSettled(writing)
   if (heard === 'read') {
     const waited = Promise.withResolvers<null>()
@@ -213,28 +213,33 @@ export async function markedChange(hunt: HuntKeyT, quiz: Readonly<Pick<QuizT, 'l
   return await enqueue(async (fs) => await Huntgit.markTip(fs, hunt, hunt.branch, quiz.label, markkind))
 }
 
+/** What a hunt's history is found and named by when it is packaged: its id, and its label */
+type ZippedKeyT = Readonly<Pick<Huntgit.HuntRepoT, '_id' | 'label'>>
+
 /**
  * `hunt`'s whole repository, zipped and ready to hand to a download. Any change still being
  * written, and anything still waiting to be committed, is committed first, so the download is the
  * hunt as it stands.
  *
- * @param hunt - The hunt to package.
- * @returns The zip's bytes, or null where this browser keeps no history.
+ * @param hunt - The hunt to package: its id finds the repository, and its label names the folder inside the zip.
+ * @returns The zip's bytes, or null where this browser keeps no history of the hunt.
  */
-export async function huntRepoZip(hunt: HuntKeyT): Promise<Uint8Array | null> {
+export async function huntRepoZip(hunt: ZippedKeyT): Promise<Uint8Array | null> {
   await caughtUp(hunt, 'read')
-  return await enqueue(async (fs) => await Huntgit.zipHuntRepo(fs, hunt))
+  return await enqueue(async (fs) => await Huntgit.hasHistory(fs, hunt) ? await Huntgit.zipHuntRepo(fs, hunt) : null)
 }
 
 /**
- * Hand the browser `hunt`'s whole history to download, as a zip named for the hunt.
+ * Hand the browser `hunt`'s whole history to download, as a zip named for the hunt: from the
+ * hunt's own page, the quiz's gear, or the list of every history this browser holds, a hunt the
+ * visitor is no longer on among them.
  *
- * @param hunt - The hunt to package.
- * @returns Whether a download was offered; false where this browser keeps no history.
+ * @param hunt - The hunt to package: as it is listed, or as its repository names it (`listHuntRepos`).
+ * @returns Whether a download was offered; false where this browser keeps no history of the hunt.
  *
  * @example await downloadHuntRepo(hunt)  // offers 'spring_hunt.zip'
  */
-export async function downloadHuntRepo(hunt: HuntKeyT): Promise<boolean> {
+export async function downloadHuntRepo(hunt: ZippedKeyT): Promise<boolean> {
   const zipped = await huntRepoZip(hunt)
   if (! zipped) { return false }
   Downloading.offerDownload(`${hunt.label}.zip`, zipped, 'application/zip')
@@ -242,27 +247,12 @@ export async function downloadHuntRepo(hunt: HuntKeyT): Promise<boolean> {
 }
 
 /**
- * Every per-quiz repository of before this browser holds, including those of quizzes since deleted.
+ * Every hunt's repository this browser holds, with anything committed: those of hunts the visitor
+ * is on, and those of hunts since deleted, or that they are no longer on.
  *
  * @returns One summary per repository, newest work first; empty where this browser keeps no history.
  */
-export async function listQuizRepos(): Promise<Huntgit.RepoSummary[]> {
-  const repos = await enqueue(async (fs) => await Huntgit.listQuizRepos(fs))
+export async function listHuntRepos(): Promise<Huntgit.HuntRepoT[]> {
+  const repos = await enqueue(async (fs) => await Huntgit.listHuntRepos(fs))
   return repos ?? []
-}
-
-/**
- * Hand the browser one per-quiz repository of before to download, whether or not its quiz is still
- * here: named for the quiz its latest commit holds, or for its id when it has none.
- *
- * @param repo - The repository, as listed.
- * @returns Whether a download was offered; false where this browser keeps no history.
- *
- * @example await downloadQuizRepo(repos[0])  // offers 'quiet_otter.zip'
- */
-export async function downloadQuizRepo(repo: Huntgit.RepoSummary): Promise<boolean> {
-  const zipped = await enqueue(async (fs) => await Huntgit.zipQuizRepo(fs, repo))
-  if (! zipped) { return false }
-  Downloading.offerDownload(`${repo.label ?? repo.id}.zip`, zipped, 'application/zip')
-  return true
 }

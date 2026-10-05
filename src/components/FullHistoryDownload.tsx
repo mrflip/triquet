@@ -10,9 +10,9 @@ import type { ShallowHuntT } from '../lib/rows'
 import styles from './workbench.module.css'
 
 /**
- * A way to take the hunt's whole history with you, on the Full History tab: a download of it as a
- * git repository, and beside it a quiet pointer to what one does with such a thing, which opens
- * as a dialog rather than sending the author away from their work.
+ * A way to take the hunt's whole history with you, on the Full History tab and the hunt's own
+ * page: a download of it as a git repository, and beside it a quiet pointer to what one does with
+ * such a thing, which opens as a dialog rather than sending the author away from their work.
  *
  * @param hunt - The hunt whose history is downloaded.
  */
@@ -27,7 +27,7 @@ export function FullHistoryDownload({ hunt }: Readonly<{ hunt: ShallowHuntT }>) 
 
   return (
     <>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 1 }}>
+      <Stack direction="row" useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.5, mt: 1 }}>
         <Button size="small" variant="outlined" onClick={() => { void onDownload() }}>Download Full History</Button>
         <Link component="button" variant="caption" color="text.secondary" underline="hover" onClick={() => { setHelping(true) }}>
           (<em>How to see Full History</em>)
