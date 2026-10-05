@@ -136,7 +136,7 @@ any later rebase. Then run `gh pr create --base main`.
   - A **Tests:** line naming the suites run and their counts.
   - "Stacked on #N" or "Follows #N" where either applies.
   - An *Open questions* list when minor questions remain. Put them in chat too, and in
-    `HUMAN-whatsup.md` or the thread's `/whiteboard` directory where CLAUDE.md asks for that.
+    an entry under `human/` or the thread's `/whiteboard` directory where CLAUDE.md asks for that.
     A PR description is easy to miss.
 
 A *significant* question is one whose answer would change the code in the PR. Ask those in chat

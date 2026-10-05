@@ -151,7 +151,7 @@ version; `tests/lib/zod-patch.test.ts` fails loudly if it did not apply.
 
 **Do not use doc blocks or code comments for progress/development notes, for detailed caveats or
 information dumps, or anything else that will become irrelevant later.** Instead, use
-`HUMAN-whatsup.md` like a working-group's whiteboard, or a file in this repo's `/notes` folder
+`human/` like a working-group's whiteboard, or a file in this repo's `/notes` folder
 whenever that seems more suitable.
 
 Write documentation in proportion to how much the code will be used, and how much there is to

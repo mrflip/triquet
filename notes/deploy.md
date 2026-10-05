@@ -265,7 +265,7 @@ there is something worth seeding with.
 
 * **Coaches** hold `prd_janitor`, deploy production (ordinarily by merging), and run the healthcheck
   against it.
-* **Agents** never cause a deploy to production or run using a human's config.  Their world is the local roles. An agent that finds production needs something says so in `HUMAN-whatsup.md`.
+* **Agents** never cause a deploy to production or run using a human's config.  Their world is the local roles. An agent that finds production needs something says so in an entry under `human/`.
   - Agents may, when granted permission, use the `dev_aijanitor` role: it has significantly upgraded privileges and access to the production machines.
 
 ## Resetting

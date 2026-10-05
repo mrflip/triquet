@@ -25,7 +25,7 @@ Storage is [Convex](https://convex.dev): the rows live in a Convex deployment, t
 
 Please review STYLE.md for our coding guidelines, and the files in notes/ for more.
 There's good stuff in AGENTS.md / CLAUDE.md if you're an AI, and maybe even if you aren't.
-`HUMAN-whatsup.md` holds the current working notes: judgement calls made, open questions, and what was deliberately left out.
+`human/` holds the current working notes, one file per entry: judgement calls made, open questions, and what was deliberately left out.
 
 ## Library first
 
