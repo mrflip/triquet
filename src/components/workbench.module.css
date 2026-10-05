@@ -557,6 +557,8 @@ textarea.veiled {
   align-items:           start;
   gap:                   20px;
   margin-top:            28px;
+  /* Measured, so a panel can ask whether the row has room for two of its columns */
+  container-type:        inline-size;
 }
 
 .panel {
@@ -569,6 +571,14 @@ textarea.veiled {
 /* A panel whose content is too broad for one column of the grid above takes the whole row. */
 .panelWide {
   grid-column: 1 / -1;
+}
+
+/* A panel that wants twice a column takes two, once the row holds two columns (two of 320px and
+   the gap between): spanning two in a row of one would add a column the row has no room for. */
+@container (min-width: 660px) {
+  .panelDouble {
+    grid-column: span 2;
+  }
 }
 
 /* Backup material to be copied out wholesale, not prose to be read: denser, so more of it is

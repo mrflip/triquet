@@ -141,6 +141,11 @@ Settled; reach for these before writing the equivalent.
   same numbers beside it. `@mui/x-charts`, which would take the theme natively, was the other
   candidate; the Coach asked for the most popular. Added Oct 2026 by the categories sprint, under
   the rule above.
+* **d3-array** (3.x) for the statistics and scales a chart needs that Recharts does not hand
+  over: `quantile` and `ticks` set the category spread's radar scale
+  (`components/panels/spread-chart.ts`). It was already installed beneath Recharts; it is listed
+  directly so the import is ours to rely on. Reach for it before writing a percentile, a nice
+  tick step, a bisect or a bin. Added Oct 2026 under the rule above.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
   typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed

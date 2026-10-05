@@ -238,6 +238,9 @@ importers:
       convex-helpers:
         specifier: 0.1.124
         version: 0.1.124(@standard-schema/spec@1.1.0)(convex@1.46.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)(zod@4.6.5(patch_hash=4257e25055480d003dce2ef007782e0a617241d00a999e51d9e4262958cc3c6e))
+      d3-array:
+        specifier: ^3.2.4
+        version: 3.2.4
       es-toolkit:
         specifier: ^1.52.0
         version: 1.52.0
@@ -305,6 +308,9 @@ importers:
       '@stylistic/eslint-plugin':
         specifier: ^5.10.0
         version: 5.10.0(eslint@10.10.0(supports-color@7.2.0))
+      '@types/d3-array':
+        specifier: ^3.2.2
+        version: 3.2.2
       '@types/mdx':
         specifier: ^2.0.14
         version: 2.0.14

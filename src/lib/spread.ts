@@ -9,7 +9,12 @@
  * neighbours either side, so the smoothed spread adds up to the same number of questions. A
  * question whose only estimate is of no category in particular counts in neither, and is
  * counted apart.
+ *
+ * Beside the counts go the personas' chances: for each category, how Masie, Artie and Poppy do
+ * at the questions that draw on it, each question weighted by its share there; and the same over
+ * the whole quiz.
  */
+import * as Personas from './personas'
 import * as Wheel from './wheel'
 import type { CategoryLabel } from '../models/category'
 import type { EstimatesT } from '../models/estimate'
@@ -30,6 +35,8 @@ export type SpreadPointT = {
   count:    number
   /** The same shares, each spread over the category and its neighbours by `SmoothingWeights` */
   smoothed: number
+  /** Each persona's chance at the questions drawing on the category, and the three's average, each question weighted by its share; null where none does */
+  chances:  Personas.PersonaChancesT | null
 }
 
 /** A quiz's spread: one point per category in the total order, and how many questions came into it */
@@ -40,6 +47,8 @@ export type SpreadT = {
   placedCount:   number
   /** The questions whose only estimate is of no category in particular, which count in neither */
   unplacedCount: number
+  /** Each persona's chance over every question of the quiz, placed or not, and the three's average; null for a quiz of no questions */
+  chances:       Personas.PersonaChancesT | null
 }
 
 /** A part of a question given to one category */
@@ -52,19 +61,37 @@ export type ShareT = { category: CategoryLabel, share: number }
  * @param questionEstimates - Each question's estimates, as stored: an estimate of no category in particular included.
  * @returns A point for every category in `order`, and how many questions counted and did not.
  *
- * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[8]  // => { category: 'art', count: 1, smoothed: 0.5 }
+ * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[8]  // => { category: 'art', count: 1, smoothed: 0.5, chances: { ... } }
+ * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[8].chances?.artie  // => 0.9, Art beside Artie
+ * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[15].chances  // => null, no question drawing on TV
  * @example spreadOf(defaultOrder, [[{ category: null, difficulty: 'medium' }]]).unplacedCount  // => 1
  */
 export function spreadOf(order: readonly CategoryLabel[], questionEstimates: Iterable<EstimatesT>): SpreadT {
-  const shareLists = [...questionEstimates].map((estimates) => sharesOf(estimates))
-  const shares = shareLists.flat()
+  const questions = [...questionEstimates].map((estimates) => ({ shares: sharesOf(estimates), chances: Personas.chancesOf(order, estimates) }))
+  const shares = questions.flatMap((question) => question.shares)
   const counts = tallied(shares)
   const smootheds = tallied(shares.flatMap((share) => smoothedOf(order, share)))
+  const chanceOf = (category: CategoryLabel) => meanChancesOf(questions.flatMap(({ shares: held, chances }) => held.filter((share) => share.category === category).map(({ share }) => ({ weight: share, chances }))))
   return {
-    points:        order.map((category) => ({ category, count: counts.get(category) ?? 0, smoothed: smootheds.get(category) ?? 0 })),
-    placedCount:   shareLists.filter((list) => list.length > 0).length,
-    unplacedCount: shareLists.filter((list) => list.length === 0).length,
+    points:        order.map((category) => ({ category, count: counts.get(category) ?? 0, smoothed: smootheds.get(category) ?? 0, chances: chanceOf(category) })),
+    placedCount:   questions.filter((question) => question.shares.length > 0).length,
+    unplacedCount: questions.filter((question) => question.shares.length === 0).length,
+    chances:       meanChancesOf(questions.map(({ chances }) => ({ weight: 1, chances }))),
   }
+}
+
+/**
+ * The weighted mean of several questions' chances, persona by persona; null when there are none
+ * to take the mean of.
+ *
+ * @example meanChancesOf([{ weight: 1, chances: { masie: 0.4, artie: 0.6, poppy: 0.5, average: 0.5 } }, { weight: 3, chances: { masie: 0.8, artie: 0.6, poppy: 0.5, average: 0.63 } }]).masie  // => 0.7
+ * @example meanChancesOf([])  // => null
+ */
+export function meanChancesOf(weighted: readonly { weight: number, chances: Personas.PersonaChancesT }[]): Personas.PersonaChancesT | null {
+  const total = weighted.reduce((sum, { weight }) => sum + weight, 0)
+  if (total === 0) { return null }
+  const meanOf = (key: keyof Personas.PersonaChancesT) => weighted.reduce((sum, { weight, chances }) => sum + (weight * chances[key]), 0) / total
+  return { masie: meanOf('masie'), artie: meanOf('artie'), poppy: meanOf('poppy'), average: meanOf('average') }
 }
 
 /**

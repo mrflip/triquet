@@ -3,6 +3,7 @@
  * tiles round its rim. Lengths are in pixels of the chart as drawn; proportions are fractions of
  * its shorter side, so the drawing keeps its shape at any size.
  */
+import { quantile, ticks } from 'd3-array'
 import type * as Spread from '../../lib/spread'
 
 /**
@@ -13,25 +14,63 @@ import type * as Spread from '../../lib/spread'
 export const SpreadLayout = {
   tileRadius: 0.42,
   tileSide:   0.085,
-  /** The plot's radius, as Recharts takes it: a share of half the shorter side, leaving the tiles their ring */
+  /** The plot's radius, as a share of half the shorter side: its edge just inside the tiles' ring */
+  plotShare:  0.69,
+  /** The same, as Recharts takes it */
   plotRadius: '69%',
 } as const
 
-/** How many rings the scale marks out from the middle, at most */
-const RingCountMax = 4
+/**
+ * How far past the plot's edge a value is drawn before it is held there, as a multiple of the
+ * edge's count: out to the outer edge of the tiles' ring, and no further, so nothing runs off
+ * the chart.
+ */
+export const DrawnReachMax = (SpreadLayout.tileRadius + (SpreadLayout.tileSide / 2)) / (SpreadLayout.plotShare / 2)
+
+/** Which share of the categories' smoothed counts falls within the plot's edge: the rest reach out among the tiles */
+const ScaledQuantile = 0.75
+
+/** The plot's edge never stands for fewer questions than this, so a quiz of a handful is not blown up past its tiles */
+const ScaleTopMin = 1
+
+/** About how many rings the scale marks out from the middle */
+const RingCountAbout = 4
+
+/** The radar's scale: the count its plot's edge stands for, just inside the ring of tiles, and the counts its rings mark */
+export type RadiusScaleT = { top: number, ticks: number[] }
 
 /**
- * The counts the radar's rings mark, from the middle out: whole questions, at least one, and no
- * more than four rings, the last at or past the largest count.
+ * The radar's scale for `spread`: its edge at the 75th percentile of the categories' smoothed
+ * counts, so the bulk of the smoothed line fills the plot and the busiest categories reach out
+ * among the tiles, but never at fewer than one question; its rings at round counts within it.
  *
- * @example radiusTicksOf(spread)  // => [0, 1, 2], when no category counts more than 2 questions
- * @example radiusTicksOf(spread)  // => [0, 3, 6, 9, 12], when the largest count is 10.5
+ * @example radiusScaleOf(spread)  // => { top: 2.5, ticks: [0, 0.5, 1, 1.5, 2, 2.5] }, when the smoothed counts' 75th percentile is 2.5
+ * @example radiusScaleOf(spread)  // => { top: 1, ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] }, for a quiz of a few questions
  */
-export function radiusTicksOf(spread: Spread.SpreadT): number[] {
-  const largest = Math.max(1, ...spread.points.map(({ count }) => count))
-  const step = Math.ceil(largest / RingCountMax)
-  const ringCount = Math.ceil(largest / step)
-  return Array.from({ length: ringCount + 1 }, (_unused, ii) => ii * step)
+export function radiusScaleOf(spread: Spread.SpreadT): RadiusScaleT {
+  const typical = quantile(spread.points, ScaledQuantile, ({ smoothed }) => smoothed) ?? 0
+  const top = Math.max(typical, ScaleTopMin)
+  return { top, ticks: ticks(0, top, RingCountAbout) }
+}
+
+/**
+ * `value` as the radar draws it on `scale`: as it is, out to the outer edge of the tiles' ring,
+ * and held there past it.
+ *
+ * @example drawnOf(1, { top: 2, ticks }) // => 1
+ * @example drawnOf(10, { top: 2, ticks })  // => 2.68, the outer edge of the tiles
+ */
+export function drawnOf(value: number, scale: RadiusScaleT): number {
+  return Math.min(value, scale.top * DrawnReachMax)
+}
+
+/**
+ * Whether `value` is past where the radar can draw it on `scale`, and is held at the edge of the tiles.
+ *
+ * @example isOffScale(10, { top: 2, ticks })  // => true
+ */
+export function isOffScale(value: number, scale: RadiusScaleT): boolean {
+  return value > scale.top * DrawnReachMax
 }
 
 /** A category's tile on the rim: its centre, its side, and the size of its title */

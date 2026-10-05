@@ -1,33 +1,59 @@
 import { describe, expect, it } from 'vitest'
-import { radiusTicksOf, SpreadLayout, tileOf } from '../../../src/components/panels/spread-chart'
+import { DrawnReachMax, drawnOf, isOffScale, radiusScaleOf, SpreadLayout, tileOf } from '../../../src/components/panels/spread-chart'
 import * as Spread from '../../../src/lib/spread'
 import * as Wheel from '../../../src/lib/wheel'
 import { WheelSlotCount, type CategoryLabel } from '../../../src/models/category'
 
 const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
 
-/** A spread whose largest count is `largest`, in Art */
-function spreadPeakingAt(largest: number): Spread.SpreadT {
-  const points = DefaultOrder.map((category: CategoryLabel) => ({ category, count: category === 'art' ? largest : 0, smoothed: 0 }))
-  return { points, placedCount: Math.ceil(largest), unplacedCount: 0 }
+/** A spread whose categories' smoothed counts are `smootheds`, the rest of the categories at nothing */
+function spreadSmoothedAs(smootheds: readonly number[]): Spread.SpreadT {
+  const points = DefaultOrder.map((category: CategoryLabel, idx) => ({ category, count: 0, smoothed: smootheds[idx] ?? 0, chances: null }))
+  return { points, placedCount: 0, unplacedCount: 0, chances: null }
 }
 
-describe("radiusTicksOf", () => {
-  const RadiusTicksCases: [number, number[], string][] = [
-    // regular usage:
-    [1.5,  [0, 1, 2],          'a fractional peak rounds up to the next whole question'],
-    [4,    [0, 1, 2, 3, 4],    'up to four questions, a ring for each'],
-    [10.5, [0, 3, 6, 9, 12],   'past four, the rings step by whole questions so there are four at most'],
-    [8,    [0, 2, 4, 6, 8],    'a peak that falls on a ring ends there'],
-    // trivial cases:
-    [0,    [0, 1],             'an empty spread still marks one ring, so the chart has a scale'],
-    [0.25, [0, 1],             'a peak under one question marks one ring'],
-  ]
-  for (const [largest, expected, describes] of RadiusTicksCases) {
-    it(describes, () => {
-      expect(radiusTicksOf(spreadPeakingAt(largest))).to.deep.eq(expected)
-    })
-  }
+/** `count` categories alike at `smoothed` */
+function evenly(count: number, smoothed: number): number[] {
+  return Array.from({ length: count }, () => smoothed)
+}
+
+describe("radiusScaleOf", () => {
+  it("puts the plot's edge at the 75th percentile of the smoothed counts", () => {
+    // Eighteen categories at 1 and six at 4: three in four are at 1 or less, so the edge sits between.
+    const scale = radiusScaleOf(spreadSmoothedAs([...evenly(18, 1), ...evenly(6, 4)]))
+    expect(scale.top).to.be.closeTo(1.75, 1e-12)
+  })
+  it("marks round counts within the edge", () => {
+    const fewer = spreadSmoothedAs(evenly(24, 2.5))
+    const more = spreadSmoothedAs(evenly(24, 10))
+    expect(radiusScaleOf(fewer).ticks).to.deep.eq([0, 0.5, 1, 1.5, 2, 2.5])
+    expect(radiusScaleOf(more).ticks).to.deep.eq([0, 2, 4, 6, 8, 10])
+  })
+  it("never puts the edge at fewer than one question, so a handful of questions is not blown up", () => {
+    const scale = radiusScaleOf(spreadSmoothedAs([0.5, 0.16, 0.09]))
+    expect(scale.top).to.eq(1)
+    expect(scale.ticks).to.deep.eq([0, 0.2, 0.4, 0.6, 0.8, 1])
+  })
+  it("gives an empty spread a scale of one question", () => {
+    expect(radiusScaleOf(spreadSmoothedAs([])).top).to.eq(1)
+  })
+})
+
+describe("drawnOf and isOffScale", () => {
+  const Scale = { top: 2, ticks: [0, 1, 2] }
+  it("reaches to the outer edge of the tiles' ring, past the plot's edge", () => {
+    expect(DrawnReachMax).to.be.closeTo((SpreadLayout.tileRadius + (SpreadLayout.tileSide / 2)) / (SpreadLayout.plotShare / 2), 1e-12)
+    expect(DrawnReachMax).to.be.above(1)
+  })
+  it("draws a value within reach as it is", () => {
+    expect(drawnOf(1, Scale)).to.eq(1)
+    expect(drawnOf(2.5, Scale)).to.eq(2.5)
+    expect(isOffScale(2.5, Scale)).to.be.false
+  })
+  it("holds a value past the tiles at their edge, and says it is off the scale", () => {
+    expect(drawnOf(10, Scale)).to.be.closeTo(2.68, 0.01)
+    expect(isOffScale(10, Scale)).to.be.true
+  })
 })
 
 describe("tileOf", () => {
