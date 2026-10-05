@@ -401,5 +401,23 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       expect(world.top()).to.eq(`${Today}-beta`)
       expect(world.git(world.main, 'log', '--format=%s', 'origin/main..HEAD')).to.eq('feat: beta.txt')
     })
+
+    it('forgets a branch origin deleted on merging it, rather than leasing a push against it', () => {
+      const alpha = world.cut('alpha')
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.spine(alpha, ['land'])
+      // The Coach merges alpha's PR, and origin deletes its branch; then notes are swept onto it.
+      const elsewhere = path.join(world.scratch, 'elsewhere')
+      world.git(world.scratch, 'clone', '--quiet', path.join(world.scratch, 'origin.git'), elsewhere)
+      world.git(elsewhere, 'merge', '--quiet', '--no-ff', '--message', 'Merge alpha', `origin/${Today}-alpha`)
+      world.git(elsewhere, 'push', '--quiet', 'origin', 'main', `:${Today}-alpha`)
+      fs.mkdirSync(path.join(world.main, 'notes'))
+      fs.writeFileSync(path.join(world.main, 'notes', 'idea.md'), 'an idea\n')
+      world.spine(world.main, ['sweep'])
+      const ran = world.spine(world.main, ['restack'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(world.git(world.main, 'for-each-ref', `refs/remotes/origin/${Today}-alpha`)).to.eq('')
+      expect(world.git(world.main, 'log', '--format=%s', 'origin/main..HEAD')).to.eq('docs: swept from the main checkout')
+    })
   })
 })
