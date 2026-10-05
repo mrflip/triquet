@@ -2,30 +2,53 @@
 
 Oct 5, 2026 · @Philip F Kromer
 
+Brought up to date with what the hunt_git sprint built (threads 0 to 8, October 2026). Where this
+page says *as built*, `src/lib/addresses.ts` (`Addresses`) and `src/lib/routes.ts` (`Routes`, the
+one writer of an address) are the code.
+
 ## Scheme
 
 Every URL is an org, a hunt with an optional version, a path of nouns, and an optional mode.
 (An org, for now, is an ident label: a hunt stores its maker's as its `orglabel`, copied when it is
 made and never changed.)
 
+As built, each served by a page:
+
 ```
-/~{org}                                      an org's hunts
+/~{org}                                      an org's hunts (those the visitor is on)
 /~{org}/{hunt}                               hunt home
-/~{org}/{hunt}/quizzes                       all quizzes
-/~{org}/{hunt}/quizzes/home/{quiz}           a quiz
-/~{org}/{hunt}/quizzes/home/{quiz}.json      its raw record (future)
-/~{org}/{hunt}/quizzes/home/{quiz}/!{mode}   !edit, !playtest, !{view}
-/~{org}/{hunt}/images/{image}                shared images
-/~{org}/{hunt}/categories/{category}         difficulty categories
-/pub/widgets/{widget}                        construction widgets, in their scope (`pub`)
-/pub/widgets/{widget}.json                   a widget's raw record (no page serves it yet)
+/~{org}/{hunt}/quizzes                       all quizzes, by label
+/~{org}/{hunt}/quizzes/home/{quiz}           a quiz: moves to the mode the visitor works in (rule 4)
+/~{org}/{hunt}/quizzes/home/{quiz}/!{mode}   !edit (a smith's), !playtest (a reviewer's)
+/~{org}/{hunt}/categories                    the hunt's wheel of categories
+/my/hunts                                    the visitor's own hunts, whosever: the app's landing page
 ```
 
-Example: `/~pat/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: includes future proposals)
+Named by the address model, and written as files (*Key paths and files*, below), but served by no
+page yet:
+
+```
+/~{org}/{hunt}/members                               who is on the hunt
+/~{org}/{hunt}/quizzes/home/{quiz}/questions         a quiz's questions alone
+/~{org}/{hunt}/quizzes/home/{quiz}/reviews/{ident}   one reviewer's shared review of it
+/pub/widgets/{widget}                                a widget of the library, in its scope (`pub`)
+{any of these but an org}.json                       the raw record: the address's last label ending in `.json`
+```
+
+Future, with room left in the model for each:
+
+```
+/~{org}/{hunt}@{ref}/…, /~{org}/{hunt}@!{sha}/…    the hunt at a named ref, or at a commit
+/~{org}/{hunt}/quizzes/home/{quiz}/!{view}         a user-created view
+/~{org}/{hunt}/images/{image}                      shared images
+/~{org}/{hunt}/categories/{category}               one category
+```
+
+Example: `/~pat_smith/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: includes future proposals; an org is an ident's label, 6 to 24 characters)
 
 | Part                  | In the example | Meaning                                          |
 | --------------------- | -------------- | ------------------------------------------------ |
-| `~{org}`              | `~pat`         | The org that owns the hunt                       |
+| `~{org}`              | `~pat_smith`   | The org that owns the hunt                       |
 | `{hunt}`              | `spring_hunt`  | The hunt, named within its org                   |
 | `@{ref}` or `@!{sha}` | `@go_live`     | future: the hunt at a named ref or at a commit   |
 | `quizzes`             | `quizzes`      | A collection, from a fixed vocabulary            |
@@ -45,7 +68,49 @@ Example: `/~pat/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: inclu
 * Files are exported as:
   - json, pretty-printed, with keys alphabetized. No array fields
   - tsv, with columns sorted alphabetically by label, and rows sorted by label
-* As built: `notes/hunt_git.md` is the index of every file, its shape and its table
+* As built: *Key paths and files*, below, and `notes/hunt_git.md`, the index of every file, its shape and its table
+
+## Key paths and files
+
+**One key path makes all three.** Every resource has a key path (`Addresses.keypathOf`): the nouns
+and labels below its hunt, or for a widget from its scope down. Its URL, its file in the hunt's
+repository and where its piece sits in a jsonball are each made from that one list, so the three
+cannot drift apart.
+
+| Resource | Key path | URL | File (rule 10) |
+|---|---|---|---|
+| hunt | `[]`, the root | `/~pat_smith/spring_hunt` | `hunt.tqh.json` |
+| categories | `categories` | `…/categories` | `categories.tqc.json` |
+| members | `members` | `…/members` | `members.tqm.json` |
+| quiz | `quizzes.home.legends` | `…/quizzes/home/legends` | `quizzes/home/legends.tqq.json` |
+| questions alone | `quizzes.home.legends.questions` | `…/quizzes/home/legends/questions` | `quizzes/home/legends/questions.qq.json` |
+| review | `quizzes.home.legends.reviews.lee_jones` | `…/quizzes/home/legends/reviews/lee_jones` | `quizzes/home/legends/reviews/lee_jones.tqr.json` |
+| widget | `pub.widgets.dumdum` | `/pub/widgets/dumdum` | `pub/widgets/dumdum.tqw.json` |
+| the list of quizzes | `quizzes` | `…/quizzes` | none: each quiz is a file |
+| an org | none | `/~pat_smith` | none: an org holds hunts, and is part of none |
+
+* **The URL** is the hunt's prefix (`/~{org}/{hunt}`; none for a widget, whose key path starts at
+  its scope) and the key path, joined by `/`, then a `/!{mode}` when one is asked for, or `.json`
+  on the last label for the raw record (`Addresses.urlOf`, `recordUrlOf`; read back by
+  `locationFrom`).
+* **The JSON key path** is where the resource's piece of the hunt sits in its jsonball: the ball is
+  the body nested under the key path (`Jsonball.ballAt`), so the quiz's file is
+  `{ "quizzes": { "home": { "legends": { … } } } }` and the hunt's own fields sit at the root.
+  Deep-merging every merged ball (`*.tq?.json`) is the hunt, exactly as Raw Export emits it. Every
+  collection is an object keyed by label, never an array, each member carrying its `position`
+  where order matters; no body repeats the label its key gives it.
+* **The questions alone are the one exception.** Their URL and file follow their key path, but
+  their ball is rooted at the quiz, not nested under the key path (`{ "questions": { … } }`), so it
+  names no quiz and pastes into any quiz's Import; its `.qq` pre-extension keeps it out of the
+  merge, since the quiz's ball holds the same questions (and the archived besides).
+* **A widget's key path starts at its scope**, so its ball is `{ "pub": { "widgets": { "dumdum":
+  { … } } } }`: it merges with its hunt's balls (for the widgets the hunt's quizzes work), and with
+  every other widget's into the library, whose export is the same shape.
+* **The repository path** is rule 10: the URL's path less `~{org}/{hunt}`, plus the resource's
+  pre-extension (`.tqh`, `.tqc`, `.tqm`, `.tqq`, `.tqr`, `.tqw`; `.qq` for the questions alone) and
+  its format, `.json` or the `.tsv` table beside it (`Addresses.filepathOf`). `notes/hunt_git.md`,
+  *The index*, lists every file, what it is made from, its shape and its table; this page does not
+  repeat it.
 
 ## Decisions
 
@@ -54,12 +119,12 @@ The database is the system of record, and the URL names things by label within a
 | Topic              | Decision                                                                                                                      | Reason                                                                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Orgs               | `~{org}` is the top-level scope. Every username is its own org. A hunt stores its org (`orglabel`): its maker's ident label, copied when it is made, never changed. | Hunt names are chosen within an org, not guessed against a global namespace. The sigil keeps the root free for the app's own routes.     |
-| Hunt labels        | A hunt label is unique within its org, not across the app: `hunts.open` finds a hunt by org and label. An old address (`/h/{hunt}`), naming no org, finds the earliest hunt of its label. | Takes hunt labels out of a global namespace into one under the namer's control. (The Coach, 2026-10-05.)                                  |
+| Hunt labels        | A hunt label is unique within its org, not across the app: `hunts.open` finds a hunt by org and label. An address naming another org than the hunt's finds no hunt there, and says so, rather than moving. An old address (`/h/{hunt}`), naming no org, finds the earliest hunt of its label. | Takes hunt labels out of a global namespace into one under the namer's control. (The Coach, 2026-10-05.)                                  |
 | Org sigil          | Only `~` is emitted.                                                 | `~` is the one sigil that never needs encoding. The alias covers keyboards that lack it.                                                 |
 | Labels             | Every label matches `/^[a-z](_?[a-z0-9])+$/`.                                                                                 | Lowercase only, so no case collisions. At least two characters, single underscores, and a linear-time match.                             |
 | quizzes            | A quiz label is unique across its hunt.                                                                                       | A bare label always identifies one quiz, so references survive a move.                                                                   |
-| Realms             | One realm, `home`, its own label. Its slot stays in the path. (Sketched as `a`, which the label rule refuses: the hunt_git sprint's Decision 1.) | The URL shape will not change when realms return.                                                                                        |
-| Modes              | A trailing `!{mode}` segment: `!edit`, `!playtest`, or a user-created `!{view}`. Built-in names are reserved from user views. | Modes get their own namespace and cannot collide with a noun.                                                                            |
+| Realms             | One realm, `home`, its own label. Its slot stays in the path. (Sketched as `a`, which the label rule refuses: the hunt_git sprint's Decision 1.) The realm validators refuse any other label, by a check the database's schema does not carry. | The URL shape will not change when realms return.                                                                                        |
+| Modes              | A trailing `!{mode}` segment: `!edit`, `!playtest`, or a user-created `!{view}`. Built-in names are reserved from user views. As built, `!edit` and `!playtest` alone; any other is not found. | Modes get their own namespace and cannot collide with a noun.                                                                            |
 | Versions           | `{hunt}@{ref}` for a named ref, `{hunt}@!{sha}` for a commit. Named refs follow the label rule.                               | A version names the state of the whole hunt, so every link below it stays in that version. The `!` keeps a tag from being read as a SHA. |
 | Hunt resources     | `images/` and `categories/` sit beside `quizzes/`.                                                                            | One fixed vocabulary of collections under the hunt.                                                                                      |
 | Widgets            | The library's widgets sit under their scope at the root: `/pub/widgets/{widget}`, its file `pub/widgets/{widget}.tqw.json`, its jsonball `{ "pub": { "widgets": { … } } }`. | A widget belongs to no hunt; its scope stands where an org and hunt stand, so rule 10 holds for it too. (The Coach, 2026-10-05.)          |
@@ -70,9 +135,30 @@ The database is the system of record, and the URL names things by label within a
 
 The in-browser git repo is ancillary to the database: an export format with superpowers, kept because diffing back is so valuable.
 
-- **One repo per hunt.** `~{org}/{hunt}` is the repo's address, so transferring a hunt renames a repo and leaves its contents alone.
-- **URLs map to files.** `/~{org}/{hunt}/quizzes/home/{quiz}` is `quizzes/home/{quiz}.tqq.json` inside that repo.
-- **Records only.** Results and media binaries stay out of the repo.
+- **One repo per hunt.** `~{org}/{hunt}` is the repo's address, so transferring a hunt renames a repo and leaves its contents alone. As built, the browser keeps it by the hunt's id (`/hunts/<hunt _id>`), so a relabel neither moves nor strands it, and it downloads as `<hunt label>.zip`.
+- **URLs map to files.** `/~{org}/{hunt}/quizzes/home/{quiz}` is `quizzes/home/{quiz}.tqq.json` inside that repo (rule 10).
+- **Records only.** Results and media binaries stay out of the repo: of what a widgeting came to, only each cell's latest `status` and `value`.
+
+### Addresses that move, and addresses that lead nowhere
+
+As built (`useCanonical`, `Routes.movedPath`). A move replaces the address rather than pushing
+one, so going back skips the form it moved from, and the query and fragment come along.
+
+- **Old addresses keep working**, because people have links and bookmarks: `/h/{hunt}`,
+  `/h/{hunt}/{realm}/{quiz}` and `/c/{hunt}/categories`, from before orgs, find the earliest hunt
+  of the label and move to its present form; an old quiz address's `?act=smith` becomes `!edit`
+  and `?act=review` `!playtest`.
+- **A stale realm, or a quiz's old label,** moves to where the quiz is now (rule 6): the quiz's
+  label finds it, and a quiz relabelled while open is followed to its new label.
+- **A wrong org finds no hunt** (`noSuchHuntNotice`: "There is no hunt labelled … in ~org"),
+  rather than moving to the hunt's own: the org is a namespace. Until the production backfill of
+  `orglabel` has run, a hunt that stores no org still answers under any org and moves to the one
+  it is shown under.
+- **A bare quiz address** moves by role (rule 4); anyone not on the hunt stays, and is told whom
+  to ask.
+- **Not found:** an address of no resource the model knows, an org with no `~` or one too short to
+  be an ident's label, a mode the app does not have, and a raw record (`.json`), which no page
+  serves yet.
 
 ## Rules
 
@@ -87,7 +173,7 @@ A URL should parse on sight: nouns in the path, one sigil per job, and nothing i
 7. **A version applies to everything below it.** `@` sits on the hunt segment, and links followed inside a versioned view keep that version.
 8. **Structure characters never appear in labels.** Labels are word characters only, so a URL splits into its parts without a lookup.
 9. **One canonical form.** Emit `~`, lowercase labels and literal sigils. Sigils live in the URL template and only labels are interpolated.
-10. **URL to file is mechanical.** Drop the `~{org}/{hunt}` prefix and add the resource's pre-extension and `.json` (`Addresses.filepathOf`).
+10. **URL to file is mechanical.** Drop the `~{org}/{hunt}` prefix and add the resource's pre-extension and `.json` (`Addresses.filepathOf`). A widget, under its scope rather than a hunt, keeps its whole path: `/pub/widgets/dumdum` is `pub/widgets/dumdum.tqw.json`. Every file is listed in `notes/hunt_git.md`, *The index*.
 
 ### Sigils
 
