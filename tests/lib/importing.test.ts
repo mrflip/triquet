@@ -452,10 +452,11 @@ function princesNow(): QuizT {
 
 describe('older exports', () => {
   const OlderExports = [
-    ['hunt-2026-10-04.json',      'Read as a hunt of 2 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt of realms in a list, its questions beside what each widgeting came to'],
-    ['quiz-2026-10-04.json',      'Read as one quiz of 2 question(s).',                                            "one quiz, as a quiz's own history kept it"],
-    ['hunt-2026-09-27.json',      'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt whose labels could be overridden'],
-    ['workspace-2026-09-26.json', 'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a workspace of quizzes, chains naming ids'],
+    ['hunt-2026-10-04.json',          'Read as a hunt of 2 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt of realms in a list, its questions beside what each widgeting came to'],
+    ['quiz-2026-10-04.json',          'Read as one quiz of 2 question(s).',                                             "one quiz, as a quiz's own history kept it"],
+    ['hunt-2026-09-27.json',          'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt whose labels could be overridden'],
+    ['hunt-with-ids-2026-09-27.json', 'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a hunt carrying ids, chains naming them'],
+    ['workspace-2026-09-26.json',     'Read as a hunt of 1 quiz(zes); matched this quiz by label, with 2 question(s).', 'a workspace of quizzes, chains naming ids'],
   ] as const
 
   for (const [filename, reading, story] of OlderExports) {

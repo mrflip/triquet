@@ -6,6 +6,8 @@ was emitted. Never edit one to fit the code: an export already in someone's hand
 
 * `workspace-2026-09-26.json`: the workspace era, quizzes in a list, ids beside labels and a
   chain by its target's id.
+* `hunt-with-ids-2026-09-27.json`: the first hours of hunts, the hunt as the screen held it, ids
+  beside labels and a chain by its target's id.
 * `hunt-2026-09-27.json`: a hunt of realms in a list, labels overridable (`forced_label`), with
   its expressions.
 * `hunt-2026-10-04.json`: a hunt of realms in a list, each question beside what every widgeting
