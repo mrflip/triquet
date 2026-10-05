@@ -119,7 +119,7 @@ function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelP
       <TextField
         size="small" label="Ident label" value={labelDraft} sx={{ flex: 1 }}
         helperText={shown ?? ' '} error={shown !== null}
-        slotProps={{ htmlInput: { maxLength: PA.Identlabel.max } }}
+        slotProps={{ htmlInput: { maxLength: PA.Userlabel.max } }}
         onChange={(event) => { setLabelDraft(event.target.value); setIssue(null); setRefused(false) }}
         onBlur={() => { setLeft(true) }}
       />
