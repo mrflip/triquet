@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: done. Threads 0-6 landed (#121, #125, #126, #127, #128, #129, #130).** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-6 landed (#121, #125, #126, #127, #128, #129, #130); thread 7 (the Coach's follow-ups) underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -169,3 +169,31 @@ is rewritten for a hunt repository, `jq` line included. Depends on: 5 and 1.
 1. ~~**Quiz order**~~ -- settled: quizzes sort by label (Decision 4). No stored `position`.
 2. The departures under *Decisions taken*: the realm slot, the derived org, keyed collections
    with `position`, and what is left for later.
+
+### 7. The Coach's follow-ups (one PR)
+
+*Coach's text:* "Yes fix the scheme to have `orglabel`, taken from its creator /
+earliest-member-at-creation-time. It's not important to have the label track the creator or
+anyone on the list. What's important is that it takes it out of a global namespace into one
+that's under the control of the namer." -- "Bare quiz link would open edit for smith, playtest
+for reviewer, and a plain 'contact the smith for invitation' display otherwise." -- "App's quiz
+list sorts by label." -- "yes carry widgetings and columns, title, note and styling" -- on the
+TSVs: "no extraneous insertion of `question.` in front of anything, expanding structured fields
+down to the level that *we* control their validation and non-union type (json-encoded according
+to our type scheme; non-union means 'string, number, array, or bag')" -- "Move the url to
+/pub/widgets/{widgetlabel} and /pub/widgets/{widgetlabel}.json ... Go with `{ "pub": {
+"widgets": { "widgetlabel": { widget } } } }` for now" -- on the watch grain: "I'd be fine with
+it being up to minutes. It would be nice to have it refresh on page load (nicer still if it only
+did so at low priority after the page was loaded and responsive) and nice to have it refresh at
+unload (but not if it complicated high-priority writes of active user data). To be clear: don't
+write more code if we're not already refreshing other quizzes at some deterministic point such as
+load." -- "Yes make the changes incorporating ^^ feedback, and other ones implied by my feedback.
+You can do it as one PR."
+
+Gloss: a stored `orglabel` on the hunt row (widen now, backfill, tighten in a later PR once the
+Coach has run the backfill on production), hunt labels unique within their org; the bare quiz
+address by role; quiz lists by label; Import carrying the whole quiz; the TSV rules of
+`notes/decisions/tsv-formats.md`; widgets at `/pub/widgets/<label>`, balls `{ pub: { widgets:
+{ … } } }`; off-screen quiz watches opened once the page is loaded and idle. **This thread makes
+a schema change** (the widen), against the sprint's earlier ground rule, at the Coach's word.
+Depends on: 6.
