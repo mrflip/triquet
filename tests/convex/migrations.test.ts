@@ -80,12 +80,23 @@ describe("migrations.backfillHuntBranches", () => {
 })
 
 describe("migrations.retireQuizVersions", () => {
-  it("takes the version off every quiz, and changes nothing when run again", async () => {
+  it("takes the version off every quiz whose hunt has a branch, and changes nothing when run again", async () => {
     const { tt, oldHunt } = deployment()
     await oldHunt(['playtest', undefined])
+    await migrate(tt, 'migrations:backfillHuntBranches')
     await migrate(tt, 'migrations:retireQuizVersions')
     await migrate(tt, 'migrations:retireQuizVersions')
     expect(await versionsIn(tt)).to.deep.eq([null, null])
+  })
+
+  it("refuses, unfinished, while a quiz's hunt has no branch to stand for its version, and runs once it has", async () => {
+    const { tt, oldHunt } = deployment()
+    await oldHunt(['playtest'])
+    await migrate(tt, 'migrations:retireQuizVersions')
+    expect(await versionsIn(tt)).to.deep.eq(['playtest'])
+    await migrate(tt, 'migrations:backfillHuntBranches')
+    await migrate(tt, 'migrations:retireQuizVersions')
+    expect([await branchesIn(tt), await versionsIn(tt)]).to.deep.eq([['playtest'], [null]])
   })
 })
 

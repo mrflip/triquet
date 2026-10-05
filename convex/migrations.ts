@@ -46,11 +46,20 @@ function branchOf(versions: readonly (string | undefined)[]): string {
   return tied.includes(DefaultBranch) ? DefaultBranch : tied.toSorted((left, right) => left.localeCompare(right))[0] ?? DefaultBranch
 }
 
-/** Take `version` off every quiz still holding it, once its hunt has a branch to stand for it */
+/**
+ * Take `version` off every quiz still holding it, once its hunt has a branch to stand for it.
+ *
+ * Refuses a quiz whose hunt has none yet, rather than skipping it: the migrations component
+ * counts a run that skipped as finished and never runs it again, and the version is the only
+ * record of the branch the hunt was on. Run before `backfillHuntBranches`, it fails, unfinished,
+ * having taken nothing off; run the backfill, then this again.
+ */
 export const retireQuizVersions = migrations.define({
   table:      'quizzes',
   migrateOne: async (ctx, quiz) => {
     if (quiz.version === undefined) { return }
+    const hunt = await ctx.db.get('hunts', quiz.hunt_id)
+    if (hunt !== null && hunt.branch === undefined) { throw new Error(`Quiz ${quiz.label} keeps its version: its hunt ${hunt.label} has no branch yet. Run migrations:backfillHuntBranches first.`) }
     await ctx.db.patch('quizzes', quiz._id, { version: undefined })
   },
 })
