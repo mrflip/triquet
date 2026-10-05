@@ -43,7 +43,7 @@ this file. Learned (now in the sprint skill, the agent definitions and git_hygie
 | 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | on the spine, open; reviewed (clean) |
 | 4      | name is title, label beside  | `20261005-name_title_label` | #111 | merged via #113; reviewed (clean) |
 | 6      | reviews in worktrees         | `20261005-review_in_worktree` | #113 | merged (#113, the Coach resolved its overlap with c9f204b); reviewed (clean) |
-| 7      | PA.Userlabel, Labelmaker bag | `20261005-userlabel` |    | landing, after the Coach's fix |
+| 7      | PA.Userlabel, Labelmaker bag | `20261005-userlabel` | #116 | landed #116; reviewed (clean) |
 | 5      | column alignment             | `20261005-column_align` | #110 | merged via #113; reviewed (clean) |
 
 ## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
