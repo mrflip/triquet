@@ -1,0 +1,87 @@
+{ "questions": [
+  {
+    "chains_to": "fugitives",
+    "clueing": "READ THE SMITH'S NOTE — it is ESSENTIAL you understand the structure of the quiz and how the hints that make it enjoyable work\n\nThe array of science YouTubers in the image is paying homage to a notable Irish physicist, whose character later raps \"And no one uses my quaternions, But just you wait, just you wait\". **What's his name, man?**",
+    "hint": "the driver with the most all-time Formula One Grand Prix wins",
+    "label": "graffitist",
+    "qnum": "1"
+  },
+  {
+    "chains_to": "alsip",
+    "clueing": "At a glance, the lines below are gibberish; but in a different sense they're quite familiar. Describe **WHAT are lost**...\n\n> Lille' beau pipe\n> Ocelot serre chypre\n> En *douzaine* aux verres tuf indemne\n> Livre de melons un dé huile qu'aux mômes\n> Eau à guigne d'air telle baie indemne",
+    "hint": "the progenitors in \"Viable offspring derived from fetal and adult mammalian cells\" (Wilmut, Schnieke et al., Nature 1997 Feb 27;385(6619):810-3)",
+    "label": "gibberish",
+    "qnum": "2"
+  },
+  {
+    "chains_to": "cvn_80",
+    "clueing": "\"千里之行，始于足下\". Ha! 老子 had a Lǐ hardly 438 yards long, what's he know? Me, I'm an inchworm, and one quarter-inch step each second feels 老 slow. Oh, 足下, my 足 sure ache — **would you tell me how long this whole journey will take**?",
+    "hint": "titlewise, Richard Henry Dana Jr's period in the fo'c's'le (the equivalent of fifty-six RFK crises plus two Ivan Denisoviches, or 10% of a Jane Addams' Hull-House)",
+    "label": "inchworm",
+    "qnum": "3"
+  },
+  {
+    "chains_to": "falkirk",
+    "clueing": "The story excerpted here was included in *Fugitives*, a hasty posthumous biography:\n\n> They class them as cold-blooded fugitives,\n> They say they are heartless and mean,\n> But I say this with pride:\n> That I once knew [REDACTED]\n> When he was honest and upright and clean\n\n**Name the author of the autobiographical poem**...",
+    "hint": "the animated voice behind Joseph Smith, Brian Boitano, and Stan Marsh",
+    "label": "fugitives",
+    "qnum": "4"
+  },
+  {
+    "chains_to": "go_to_texas",
+    "clueing": "**What name** will be borne by CVN-80, the third of the Gerald R. Ford-class aircraft carriers? That storied name is also contemplated for a future vessel with hull number NCC-1701...",
+    "hint": "the business — larger than the inverse unit and the Latin bird together — that operates more than 9,500 locations, about three dozen each around ATLanta, Dallas-Fort Worth, DENver, and CHIcago",
+    "label": "cvn_80",
+    "qnum": "5"
+  },
+  {
+    "chains_to": "graffitist",
+    "clueing": "Among the six seals (pictured) at the Texas State Capitol, the historical region blazoned «rampant gules» here joined in union with one neighbor («embattled Or») in 1230, then another in 1479 — **name any of those three regions**...",
+    "hint": "the first name of *The Professional* (nor a type of olive-oil-based soap, let alone the woman married(?) to Prince Arthur in 1501)",
+    "label": "rampant",
+    "qnum": "6"
+  },
+  {
+    "chains_to": "rampant",
+    "clueing": "In 1896 — one hundred thirty years ago last week — Edward and Mary Fitzgerald named their child for Edward's distant cousin, a lawyer/poet born over a century earlier. Give **all four parts of their son's name**...",
+    "hint": "the bridge",
+    "label": "same_name",
+    "qnum": "7"
+  },
+  {
+    "chains_to": "oops_bridge",
+    "clueing": "\"The Troubles\" went from perpetual discord to active conflict in 1968 and ended (exactly one Doomsday before April 10 of this year) on **what day of the week**...",
+    "hint": "the regal triskaidekaphile whose TV career began in a certain neighborhood in 1954 and continues on a different one today",
+    "label": "troubles",
+    "qnum": "8"
+  },
+  {
+    "chains_to": "gibberish",
+    "clueing": "The Falkirk Wheel and its two associated locks enable boat passage between the Union Canal and the canal connecting the Firth of Forth with **what second Firth**?",
+    "hint": "her partner's (redacted) first name",
+    "label": "falkirk",
+    "qnum": "9"
+  },
+  {
+    "chains_to": "troubles",
+    "clueing": "A congressperson, on losing re-election in 1835, declared to his constituents \"you may all go to hell and I will go to Texas\". They may or may not have, but he did, perishing the next year in San Antonio. **Name the Tennessean**...",
+    "hint": "Tubbs' Ferrari-driving vice-squad partner",
+    "label": "go_to_texas",
+    "qnum": "10"
+  },
+  {
+    "chains_to": "same_name",
+    "clueing": "**Name the container ship** (sister of the MV Cezanne) that collapsed a Baltimore bridge in 2024...",
+    "hint": "the first name of the theme park co-owner whose Imagination Library has gifted more than 300 million free books worldwide",
+    "label": "oops_bridge",
+    "qnum": "11"
+  },
+  {
+    "chains_to": "inchworm",
+    "clueing": "On a map, Alsip is in Illinois, Coni is in Azerbaijan, and Gage is a small town in Oklahoma. On a certain ordered list, they start at #13, #27, and #31, respectively. **What county** — a gambling destination and election-night worryspot — occupies #17–19?",
+    "hint": "the point guard drafted first overall by the Indiana Fever in 2024",
+    "label": "alsip",
+    "qnum": "12"
+  }
+]
+}

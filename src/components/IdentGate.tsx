@@ -15,60 +15,63 @@ import styles from './workbench.module.css'
 /**
  * The front door: say who you are by typing an ident's label (a username, on screen), and become
  * that ident -- a new one titled after its label, which its owner can retitle from their hunts, or
- * one this browser already holds. A username another browser holds is refused, saying what to do
- * instead, and the visitor may try another at once. There is no password: the browser's session
- * is what holds a username.
+ * one this browser already holds. The button says which label it will log in as, as it will be
+ * claimed, and stays shut until what is typed is one; the field says why once something is typed.
+ * A username another browser holds is refused, saying what to do instead, and the visitor may try
+ * another at once. There is no password: the browser's session is what holds a username.
  *
  * A visitor who has already said is sent on at once: to where the address's `then` points, when
  * a link sent them here, and to their hunts otherwise. `?switch` keeps them here, to become
- * someone else.
+ * someone else, or to keep being who they are and go back.
  */
 export function IdentGate() {
   const router = useRouter()
   const params = useSearchParams()
-  const then = Routes.thenFrom(params.get('then'))
+  const onward = Routes.thenFrom(params.get('then')) ?? Routes.huntsPath()
   const switching = params.has('switch')
   const { ident, loaded } = useIdent()
   const { act, busy, notice } = useAccountActions()
   const [labelDraft, setLabelDraft] = useState('')
-  const [issue, setIssue] = useState<string | null>(null)
   // Sends once: the ident arriving by sync after this one was typed must not send twice.
   const sent = useRef(false)
 
   useEffect(() => {
     if (! loaded || ! ident || switching || sent.current) { return }
     sent.current = true
-    router.replace(then ?? Routes.huntsPath())
-  }, [loaded, ident, switching, then, router])
+    router.replace(onward)
+  }, [loaded, ident, switching, onward, router])
 
   if (! loaded || (ident && ! switching)) {
     return <OpeningNotice notice={null} waiting={AppNotices.opening} />
   }
 
+  const label = Ident.labelFor(labelDraft)
+  const fits = IdentValidators.identLabel.safeParse(label).success
+  const misfit = labelDraft !== '' && ! fits
+
   const onSubmit = async () => {
-    const label = Ident.labelFor(labelDraft)
-    if (label === '') { setIssue(AppNotices.identLabelNeeded); return }
-    if (! IdentValidators.identLabel.safeParse(label).success) { setIssue(AppNotices.identLabelShape); return }
-    setIssue(null)
+    if (! fits) { return }
     const { kept } = await act({ kind: 'assume_ident', label, title: '' })
-    if (kept && switching) { router.replace(then ?? Routes.huntsPath()) }
+    if (kept && switching) { router.replace(onward) }
   }
 
   return (
     <main className={styles.page}>
       <Panel title={AppNotices.identGateTitle} blurb="If nobody goes by it yet, it becomes yours, held by this browser. There is no password.">
-        {ident && <p className={styles.microcopy}>You are {ident.title} ({ident.label}) now.</p>}
         <Stack
           component="form" spacing={1.5} sx={{ maxWidth: 420, mt: 1 }}
           onSubmit={(event) => { event.preventDefault(); void onSubmit() }}
         >
           <TextField
             size="small" label="Username" value={labelDraft} autoFocus required
-            helperText={issue ?? (labelDraft === '' ? ' ' : `You will be “${Ident.labelFor(labelDraft)}”.`)}
-            error={issue !== null}
-            onChange={(event) => { setLabelDraft(event.target.value); setIssue(null) }}
+            helperText={misfit ? AppNotices.identLabelShape : ' '}
+            error={misfit}
+            onChange={(event) => { setLabelDraft(event.target.value) }}
           />
-          <Button type="submit" variant="contained" disabled={busy}>Continue</Button>
+          <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {ident && <Button disabled={busy} onClick={() => { router.replace(onward) }}>Keep being {Ident.byline(ident)}</Button>}
+            <Button type="submit" variant="contained" disabled={busy || ! fits}>{fits ? `Log in as ${label}` : 'Log in'}</Button>
+          </Stack>
           {notice !== null && <p className={styles.microcopy} role="alert">{notice}</p>}
         </Stack>
       </Panel>
