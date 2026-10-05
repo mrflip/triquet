@@ -11,7 +11,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
     .describe('What the reviewer guessed on the way to an answer, freeform.')
   const comments = textish
     .describe('What the reviewer made of the question: the one field of a reviewing that may run long.')
-  const minutes = num.nonnegative().nullable()
+  const minutes = num.min(PA.Minutes.min).max(PA.Minutes.max).nullable()
     .describe('About how many minutes the reviewer spent on it, fractions allowed; null when they have not said.')
   const keep_it = bool
     .describe('The reviewer would keep this question as it is: one of their top 3. Never raised alongside elimination_candidate.')

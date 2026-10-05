@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { AskFailedT } from './contract'
 import type { AskFailurekind } from '../notices'
 import * as Approve from '../approve'
+import * as PA from '../vv/patterns'
 
 /**
  * Why an ask failed, as a kind rather than as a sentence.
@@ -35,7 +36,7 @@ export function failurekindFor(err: unknown): AskFailurekind {
  */
 export function failureReplyFor(err: unknown): AskFailedT {
   const thrown = err instanceof Error ? err : null
-  const status = err instanceof Anthropic.APIError && typeof err.status === 'number' && err.status >= 0 ? err.status : undefined
+  const status = err instanceof Anthropic.APIError && typeof err.status === 'number' && err.status >= PA.Httpstatus.min && err.status <= PA.Httpstatus.max ? err.status : undefined
   return {
     ok:          false,
     failurekind: failurekindFor(err),

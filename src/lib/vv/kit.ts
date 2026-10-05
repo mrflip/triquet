@@ -24,6 +24,8 @@ export const Kit = {
   jsset:    Z.set,
   custom:   Z.custom,
   lazy:     Z.lazy,
+  /** Two schemas and the way between them, both directions: what a value is sent as, and what it means */
+  codec:    Z.codec,
   //
   /** Any string at all */
   str:      Z.string(),
@@ -42,6 +44,6 @@ export const Kit = {
 export type KitT = typeof Kit
 
 export const {
-  obj, strictObj, arr, oneof, union, discrim, lit, bag, tuple, jsmap, jsset, custom, lazy,
+  obj, strictObj, arr, oneof, union, discrim, lit, bag, tuple, jsmap, jsset, custom, lazy, codec,
   str, num, int, bool, bigint, jsdate, anything, unk, znever,
 } = Kit

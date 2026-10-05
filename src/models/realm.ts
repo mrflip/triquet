@@ -27,7 +27,7 @@ export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid
       .describe('The hunt this realm belongs to.'),
     label:    realmLabel,
     title,
-    position: uint
+    position: uint.max(PA.RealmsPerHunt.max)
       .describe('The realm\'s place among its hunt\'s realms, counting from zero.'),
   })
     .describe('One realm as the database holds it: its quizzes are rows of their own.')

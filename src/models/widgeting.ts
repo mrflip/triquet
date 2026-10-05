@@ -52,7 +52,7 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
     label:    widgetingLabel,
     description,
     params,
-    position: uint
+    position: uint.max(PA.WidgetingsPerQuiz.max)
       .describe('Its place in its quiz\'s run order, counting from zero.'),
   })
     .describe('One widgeting as the database holds it.')

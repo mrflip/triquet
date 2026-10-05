@@ -54,7 +54,7 @@ export const WidthPxMin = 30
 export const WidthPxMax = 800
 
 const QuestionSourcePattern = String.raw`${QuestionWidgetLabel}\.(${[...QuestionFieldVals, ...QuestionViewVals].join('|')})`
-const WidgetingSourcePattern = String.raw`(?!${QuestionWidgetLabel}\.)${PA.Label.re.source.replace(/^\^/, '').replace(/\$$/, '')}(\.(${WidgetingPartVals.join('|')}))?`
+const WidgetingSourcePattern = String.raw`(?!${QuestionWidgetLabel}\.)[a-z]\w*(\.(${WidgetingPartVals.join('|')}))?`
 const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${WidgetingSourcePattern})$`)
 
 export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uint, zid }) => {
@@ -62,6 +62,10 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, the label of a widgeting, or a widgeting\'s label and one of its parts')
     .refine((val) => val !== QuestionWidgetLabel, 'the questions have no value of their own; name one of their fields')
+    .refine((val) => label.safeParse(widgetingLabelOf(val) ?? QuestionWidgetLabel).success, {
+      message: `names a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters`,
+      when:    (payload) => payload.issues.length === 0,
+    })
     .describe(`What the column shows: \`question.title\` and the like for a question's own field, \`question.butnot\` for a view of it, a widgeting's label for what it came to, or \`<widgeting>.<part>\` for one part of what a category-estimate entry came to (${WidgetingPartVals.join(', ')}).`)
 
   const column = obj({
@@ -88,7 +92,7 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     quiz_id:  zid('quizzes')
       .describe('The quiz this column belongs to.'),
     ...column.shape,
-    position: uint
+    position: uint.max(PA.ColumnsPerQuiz.max)
       .describe('The column\'s place among its quiz\'s columns, counting from zero.'),
   })
     .describe('One column as the database holds it.')

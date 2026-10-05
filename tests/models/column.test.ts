@@ -30,6 +30,10 @@ describe('Column.fill', () => {
     ['categories.masie.more', false, 'a part of a part'],
     ['question.masie',        false, 'a part of the questions themselves'],
     ['.masie',                false, 'a part of no widgeting'],
+    ['a'.repeat(41),          false, 'a widgeting by a label longer than any label may be'],
+    [`${'a'.repeat(41)}.masie`, false, 'a part of a widgeting whose label is longer than any may be'],
+    ['dum__dum',              false, 'a widgeting by a label with two underscores in a row'],
+    ['dumdum_',               false, 'a widgeting by a label ending in an underscore'],
   ]
   for (const [source, ok, describes] of Sources) {
     it(`${ok ? 'takes' : 'refuses'} ${describes}`, () => {
@@ -136,6 +140,7 @@ describe('ColumnValidators.row', () => {
     [{ width_px: 29 },               'a width narrower than any column may be'],
     [{ source: 'question' },         'the questions\' own widget, which has no value'],
     [{ position: -1 },               'a place before the first'],
+    [{ position: 100 },              'a place past as many columns as a quiz may hold'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {

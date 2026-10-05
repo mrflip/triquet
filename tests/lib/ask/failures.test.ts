@@ -31,6 +31,12 @@ describe('failureReplyFor', () => {
     expect(reply.detail?.status).to.eq(429)
   })
 
+  it("leaves out a status that is no HTTP status, which the reply could not carry", () => {
+    const reply = failureReplyFor(new Anthropic.APIError(0, { type: 'error' }, 'no status', new Headers()))
+    expect(reply.detail).not.to.have.property('status')
+    expect(AskContract.askReply.safeParse(reply).success).to.be.true
+  })
+
   it("carries the polite sentence of a declined approval, and none of the request behind it", () => {
     const reply = failureReplyFor(new Approve.NotApprovedError('botsOff', { policy: 'ask_anthropic_bot' }, { evidence: ['off'] }))
     expect(reply).to.deep.eq({ ok: false, failurekind: 'notPermitted', detail: { name: 'NotApprovedError', message: RefusalNotices.botsOff } })

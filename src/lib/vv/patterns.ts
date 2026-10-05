@@ -63,6 +63,8 @@ export const Camel      = { re: /^[A-Z][A-Za-z0-9]*$/,  msg: 'should be an Upper
 export const Locamel    = { re: /^[a-z][A-Za-z0-9]*$/,  msg: 'should be a lowerFirstLetterCamelCased name' } as const satisfies Patternbag
 export const Varname    = { re: /^[A-Za-z]\w*$/,        msg: 'should be a label and start with a letter' } as const satisfies Patternbag
 export const Snake      = { re: /^[a-z][a-z0-9_]*$/,    msg: 'should be a lower_underbar_cased name' } as const satisfies Patternbag
+/** A name JavaScript takes bare after a dot: what a key may be to be written `.key`, not `['key']` */
+export const Jsident    = { re: /^[A-Za-z_$][\w$]*$/,  msg: 'should be a JavaScript identifier' } as const satisfies Patternbag
 
 /**
  * A label that is none of `words`: what keeps a name from shadowing one already in use beside it.
@@ -128,8 +130,24 @@ export const Byte     = { min: 0, max: 255 } as const
 export const Lat      = { min: -90, max: 90 } as const
 export const Lng      = { min: -180, max: 180 } as const
 export const Portnum  = { min: 0, max: 65_535 } as const
+/** An HTTP response's status code */
+export const Httpstatus = { min: 100, max: 599 } as const
+/** Minutes a person says they spent on one thing: past this it is a typo, not a long think */
+export const Minutes  = { min: 0, max: 999 } as const
 /** A money amount in the smallest unit, capped where a mistake stops looking like a typo */
 export const Ubux     = { min: -1e12, max: 1e12 } as const
+
+//
+// == [Numberlike strings] == a number written as plain text: digits, an optional sign, an
+// optional decimal point. No exponent, no grouping, no spaces. Lengths leave room for a safe
+// integer's 16 digits, and 16 more past the point; how large the number may be is the check's
+// business, against the numeric bounds above.
+//
+
+export const Intstr  = { re: /^[+-]?\d+$/,          max: 17, msg: 'should be a whole number, written as plain digits' } as const satisfies Patternbag
+export const Uintstr = { re: /^\d+$/,               max: 16, msg: 'should be a whole number, zero or more, written as plain digits' } as const satisfies Patternbag
+export const Numstr  = { re: /^[+-]?\d+(\.\d+)?$/,  max: 34, msg: 'should be a number, written as plain digits with an optional decimal point' } as const satisfies Patternbag
+export const Unumstr = { re: /^\d+(\.\d+)?$/,       max: 33, msg: 'should be a number, zero or more, written as plain digits with an optional decimal point' } as const satisfies Patternbag
 
 //
 // == [Collection sizes] ==

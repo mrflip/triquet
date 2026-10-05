@@ -132,7 +132,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
     title,
     description,
     input_formula,
-    position:      uint
+    position:      uint.max(PA.WidgetsInLibrary.max)
       .describe('The widget\'s place in the order the library lists them, counting from zero.'),
   }
   const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])

@@ -1,6 +1,7 @@
 import { ConvexError } from 'convex/values'
 import * as Z from 'zod'
 import { CoreError, type Story } from './errors'
+import { RefusalShape } from './refusals'
 import type * as TY from './types'
 import * as UU from './useful'
 
@@ -50,8 +51,6 @@ const RequestIdRe    = /\[Request ID: ([^\]]+)\] ?/
 /** The line the Convex client closes its errors with */
 const CalledBy       = 'Called by client'
 
-/** A refusal's data, as `refuse` throws it */
-const RefusalShape    = Z.object({ failurekind: Z.string(), message: Z.string() })
 /** One issue Zod found, as a refusal carries it */
 const IssuePathShape  = Z.array(Z.union([Z.string(), Z.number()]))
 const IssueShape      = Z.object({ message: Z.string(), path: IssuePathShape.optional() })

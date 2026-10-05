@@ -135,6 +135,14 @@ describe('POST /api/ask', () => {
     })
   }
 
+  it("refuses a request that is not JSON at all, saying so, asking nobody", async () => {
+    enableAsking()
+    const answer = await POST(new Request('http://localhost/api/ask', { method: 'POST', body: '{"prompt":' }))
+    expect(answer.status).to.eq(400)
+    expect(await answer.json()).to.deep.eq({ ok: false, failurekind: 'unreadable', detail: { name: 'SyntaxError', message: 'The request was not JSON.' } })
+    expect(fetched).not.toHaveBeenCalled()
+  })
+
   it("answers a failure with its kind, and logs what the SDK threw on the server", async () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', 'allow')
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-not-a-real-key')

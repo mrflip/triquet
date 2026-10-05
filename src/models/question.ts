@@ -2,19 +2,20 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
+import * as CK from '../lib/vv/checks/numbers'
 import type { HuntStanding } from '../lib/actor'
 import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 
 /** What a question carries in a formula's bag beside its exposed fields: its place once the quiz is put in Q# order */
 export const RankField = 'rank'
 
-export const QuestionValidators = Validator(({ obj, rec, str, textish, noteish, titleish, label, zid, treeid }) => {
+export const QuestionValidators = Validator(({ obj, rec, textish, noteish, titleish, label, zid, treeid }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
   // every other field's default along and quietly wipe what the author had.
-  const qnum = str.regex(/^(\d+(\.\d+)?)?$/)
-    .describe('The author\'s own question number, kept as text on purpose. Blank means unranked and sorts last. Decimals are a feature, not an accident: typing 3.1 means "put this between whatever is 3 and 4 right now" without renumbering anything else. Duplicates and gaps are both legal.')
+  const qnum = CK.unumstrOrBlank
+    .describe('The author\'s own question number, kept as text on purpose: one written as a number is kept as the text it reads as. Blank means unranked and sorts last. Decimals are a feature, not an accident: typing 3.1 means "put this between whatever is 3 and 4 right now" without renumbering anything else. Duplicates and gaps are both legal.')
   const clueing = textish
     .describe('The question as it will be asked. Markdown-ish emphasis, quoted verse, and non-Latin scripts all appear in real quizzes and must survive untouched; the tool never rewrites this text, not even to trim it.')
   const hint = textish
