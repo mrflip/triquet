@@ -245,6 +245,21 @@ describe("hunts.perform", () => {
     })
   })
 
+  describe("set_q1_preamble", () => {
+    it("rewrites the open quiz's LL preamble, trimmed", async () => {
+      const { act, read } = await seed(openHunt())
+      await act({ kind: 'set_q1_preamble', q1_preamble: '  See the note.[br]\n' })
+      expect(openOf(await read()).q1_preamble).to.eq('See the note.[br]')
+    })
+
+    it("refuses while the quiz is locked", async () => {
+      const { act, read } = await seed(openHunt(true))
+      const ante = await read()
+      await expectRefusal(act({ kind: 'set_q1_preamble', q1_preamble: 'See the note.' }), 'quizLocked')
+      expect(await read()).to.deep.eq(ante)
+    })
+  })
+
   describe("add_question", () => {
     it("appends a blank question to the end", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))

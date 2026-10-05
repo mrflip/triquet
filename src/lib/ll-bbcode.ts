@@ -6,6 +6,9 @@ import * as Markdown from './markdown'
 /** What a quote marker is written as, and what an indented line starts with */
 const Indent = ' '.repeat(4)
 
+/** A line break, however the text was typed */
+const LineBreak = /\r\n|\r|\n/g
+
 type MdRoot = ReturnType<typeof fromMarkdown>
 type MdNode = MdRoot | MdRoot['children'][number]
 
@@ -24,7 +27,21 @@ type Splice = { beg: number, end: number, text: string }
  * @example translate('$$5 | $10')                 // => '$$5 | $10'
  */
 export function translate(text: string): string {
-  return markdownToBbcode(text).replaceAll(/\r\n|\r|\n/g, ' [br] ')
+  return markdownToBbcode(text).replaceAll(LineBreak, ' [br] ')
+}
+
+/**
+ * Text as the league's site shows it, keeping its lines: as `translate`, but each line break
+ * becomes `[br]` at the end of its line, and the line break stays. For material pasted into one
+ * of the site's own text boxes, where a line break is welcome and the source should stay readable.
+ *
+ * @param text - Markdown-ish text, as the author wrote it.
+ * @returns The text in BBCode, line for line.
+ *
+ * @example translateKeepingLines('hi\nthere\n\nand *down*')  // => 'hi[br]\nthere[br]\n[br]\nand [i]down[/i]'
+ */
+export function translateKeepingLines(text: string): string {
+  return markdownToBbcode(text).replaceAll(LineBreak, '[br]\n')
 }
 
 /**

@@ -79,3 +79,18 @@ describe('translate', () => {
     })
   }
 })
+
+const KeepingLinesCases: [string, string, string][] = [
+  ["hi\nthere\n\n\nand downunder", "hi[br]\nthere[br]\n[br]\n[br]\nand downunder", 'each line break becomes [br] at the end of its line, and stays'],
+  ["**Who** wrote\r\n*Hamlet*?",    "[b]Who[/b] wrote[br]\n[i]Hamlet[/i]?",            'emphasis is translated, and a CRLF reads as one line break'],
+  ["one line",                      "one line",                                       'a single line is just translated'],
+  ["",                              "",                                               'empty text stays empty'],
+]
+
+describe('translateKeepingLines', () => {
+  for (const [text, expected, blurb] of KeepingLinesCases) {
+    it(blurb, () => {
+      expect(LLBBCode.translateKeepingLines(text)).to.eq(expected)
+    })
+  }
+})

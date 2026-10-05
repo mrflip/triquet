@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
@@ -6,7 +7,7 @@ import {
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
 import * as Runner from '../../src/lib/formulary/runner'
-import { Quiz } from '../../src/models/quiz'
+import { DefaultQ1Preamble, Quiz } from '../../src/models/quiz'
 import { Widgeted } from '../../src/models/widgeted'
 import { runOf } from '../support/runs'
 
@@ -34,7 +35,7 @@ const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), 
 
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, hunt_id, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
-  smiths_note: 'Theme: princes.', version: 'main', locked: false, last_sortkey: null, row_ordering: [question_id],
+  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', version: 'main', locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
   _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
@@ -89,6 +90,11 @@ describe('quizFrom', () => {
 
   it('carries the smith\'s note', () => {
     expect(quizFrom(rows).smiths_note).to.eq('Theme: princes.')
+  })
+
+  it('carries the LL preamble, and gives a quiz written before it had one the default', () => {
+    const unprefaced = { ...rows, quiz: _.omit(QuizRow, ['q1_preamble']) }
+    expect([quizFrom(rows).q1_preamble, quizFrom(unprefaced).q1_preamble]).to.deep.eq(['Read the note![br]', DefaultQ1Preamble])
   })
 
   it('carries the quiz\'s widgetings, each without its ids or place', () => {

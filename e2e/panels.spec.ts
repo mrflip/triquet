@@ -19,12 +19,21 @@ test('the export and import tabs come in order, Spreadsheet first and showing', 
   await expect(page.getByRole('textbox', { name: 'Copy for Sheets' })).toBeVisible()
 })
 
-test('the export is read only when asked, and a change on screen empties it again', async ({ page }) => {
-  const exportBox = page.getByRole('textbox', { name: 'Raw Export' })
+test('the export is read only when asked, and a change on screen withdraws it for the Prepare button again', async ({ page }) => {
+  const section = page.getByRole('tabpanel', { name: 'Raw Export' })
+  await expect(section.getByRole('button', { name: 'Prepare export' })).toBeHidden()
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which county?')
   await page.getByLabel('Quiz name').click()
-  await expect(exportBox).toHaveValue('')
+  await expect(section.getByRole('textbox', { name: 'Raw Export' })).toBeHidden()
+  await expect(section.getByRole('button', { name: 'Copy' })).toBeHidden()
   expect(await preparedExport(page)).toContain('Which county?')
+})
+
+test('Refresh export, beside Copy, reads the hunt again', async ({ page }) => {
+  const section = page.getByRole('tabpanel', { name: 'Raw Export' })
+  await section.getByRole('button', { name: 'Refresh export' }).click()
+  await expect(section.getByRole('textbox', { name: 'Raw Export' })).toHaveValue(/"title":"Quiz one"/)
+  await expect(section.getByRole('button', { name: 'Refresh export' })).toBeEnabled()
 })
 
 test('an export prepared on its tab is still there after a visit to another', async ({ page }) => {
@@ -102,15 +111,52 @@ test('a formula\'s counts follow what its cells come to', async ({ page }) => {
 test('LL Export holds the quiz in the league\'s format, one record per question', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which **region**?\nOf | Spain')
   await page.getByLabel('Quiz name').click()
-  await showTab(page, 'LL Export')
-  await expect(page.getByRole('textbox', { name: 'LL Export' })).toHaveValue(/\|Which \[b\]region\[\/b\]\? \[br\] Of ¦ Spain\|\|\$\$/)
+  const section = await showTab(page, 'LL Export')
+  await section.getByRole('combobox', { name: 'LL Export mode' }).selectOption({ label: 'Plain' })
+  await expect(section.getByRole('textbox', { name: 'LL Export' })).toHaveValue(/\|Which \[b\]region\[\/b\]\? \[br\] Of ¦ Spain\|\|\$\$/)
 })
 
-test('LL Export also holds the smith\'s note in BBCode, its dollars and pipes as written, in a box of its own', async ({ page }) => {
+test('LL Export also holds the smith\'s note in BBCode, its lines kept and its dollars and pipes as written, in a box of its own', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Smith\'s note', exact: true }).fill('Theme: *princes*.\n\nMeta: $$ | initials.')
   await page.getByLabel('Quiz name').click()
   const section = await showTab(page, 'LL Export')
-  await expect(section.getByRole('textbox', { name: 'LL Smith\'s note' })).toHaveValue('Theme: [i]princes[/i]. [br]  [br] Meta: $$ | initials.')
+  await expect(section.getByRole('textbox', { name: 'LL Smith\'s note' })).toHaveValue('Theme: [i]princes[/i].[br]\n[br]\nMeta: $$ | initials.')
+})
+
+test('LL Export\'s mode, going live at first, puts the Q1 preamble or the smith\'s note ahead of the first question', async ({ page }) => {
+  await page.getByRole('textbox', { name: 'Smith\'s note', exact: true }).fill('Theme: *princes*.')
+  await page.getByLabel('Quiz name').click()
+  const section = await showTab(page, 'LL Export')
+  const records = section.getByRole('textbox', { name: 'LL Export' })
+  const mode = section.getByRole('combobox', { name: 'LL Export mode' })
+  const preamble = section.getByLabel('Q1 preamble')
+  await expect(mode).toHaveValue('go_live')
+  await expect(preamble).toHaveValue('Important: Read the smith\'s note before you play![br][br]')
+  await expect(records).toHaveValue(/^\|Important: Read the smith's note before you play!\[br\]\[br\]Which region\?\|\|\$\$/)
+
+  await mode.selectOption({ label: 'Playtesting' })
+  await expect(records).toHaveValue(/^\|Theme: \[i\]princes\[\/i\]\. \[br\] {2}\[br\] Which region\?\|\|\$\$/)
+  await expect(preamble).toBeHidden()
+
+  await mode.selectOption({ label: 'Plain' })
+  await expect(records).toHaveValue(/^\|Which region\?\|\|\$\$/)
+
+  await mode.selectOption({ label: 'Go live' })
+  await preamble.fill('See the note![br]')
+  await page.getByLabel('Quiz name').click()
+  await expect(records).toHaveValue(/^\|See the note!\[br\]Which region\?\|\|\$\$/)
+  await mode.selectOption({ label: 'Plain' })
+  // The preamble is kept with the quiz; the mode is not, and goes live again.
+  await page.reload()
+  const reloaded = await showTab(page, 'LL Export')
+  await expect(reloaded.getByRole('combobox', { name: 'LL Export mode' })).toHaveValue('go_live')
+  await expect(reloaded.getByLabel('Q1 preamble')).toHaveValue('See the note![br]')
+})
+
+test('the info button beside the LL Export mode explains each mode', async ({ page }) => {
+  const section = await showTab(page, 'LL Export')
+  await section.getByRole('button', { name: 'About the LL Export modes' }).hover()
+  await expect(page.getByRole('tooltip')).toContainText('lowest-ranked Q#')
 })
 
 test('every read-only export box has a Copy button', async ({ page }) => {
@@ -120,14 +166,14 @@ test('every read-only export box has a Copy button', async ({ page }) => {
   }
 })
 
-test('Download Full History hands over the quiz\'s history as a zip, from either tab that offers it', async ({ page }) => {
-  for (const tabname of ['Full History', 'Raw Export']) {
-    const section = await showTab(page, tabname)
-    const downloading = page.waitForEvent('download')
-    await section.getByRole('button', { name: 'Download Full History' }).click()
-    const download = await downloading
-    expect(download.suggestedFilename()).toMatch(/\.zip$/)
-  }
+test('Download Full History hands over the quiz\'s history as a zip, from its own tab alone', async ({ page }) => {
+  const rawSection = await showTab(page, 'Raw Export')
+  await expect(rawSection.getByRole('button', { name: 'Download Full History' })).toHaveCount(0)
+  const section = await showTab(page, 'Full History')
+  const downloading = page.waitForEvent('download')
+  await section.getByRole('button', { name: 'Download Full History' }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toMatch(/\.zip$/)
 })
 
 test('the quiet note beside it explains, in a dialog, how to see the history', async ({ page }) => {

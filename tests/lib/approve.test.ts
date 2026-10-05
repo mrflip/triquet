@@ -318,6 +318,7 @@ const Matrix = {
   relabel_quiz:        [{ kind: 'relabel_quiz', label: 'princes' },                                                                  Revisers],
   reversion_quiz:      [{ kind: 'reversion_quiz', version: 'playtest' },                                                             Revisers],
   set_smiths_note:     [{ kind: 'set_smiths_note', smiths_note: 'Theme: princes.' },                                                 Revisers],
+  set_q1_preamble:     [{ kind: 'set_q1_preamble', q1_preamble: 'Read the note![br]' },                                              Revisers],
   edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
   add_question:        [{ kind: 'add_question' },                                                                                    Revisers],
   delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Revisers],

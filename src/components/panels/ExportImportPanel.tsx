@@ -1,18 +1,14 @@
 'use client'
 
-import { Button } from '@mui/material'
 import { FullHistoryDownload } from '../FullHistoryDownload'
 import { ImportForm } from './ImportForm'
+import { LeagueExport } from './LeagueExport'
 import { LibraryForm } from './LibraryForm'
+import { RawExport } from './RawExport'
 import { ReadonlyBox } from './ReadonlyBox'
 import { TabbedPanel } from './TabbedPanel'
 import type { WorkbenchOffersT } from '../offers'
-import * as Exporting from '../../lib/exporting'
-import * as LLBBCode from '../../lib/ll-bbcode'
-import * as LLSmithExport from '../../lib/ll-smith-export'
 import * as Sheets from '../../lib/sheets'
-import * as UU from '../../lib/useful'
-import { AppNotices } from '../../lib/notices'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
 import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
@@ -20,14 +16,13 @@ import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
 import { useWholeHunt } from '../../state/use-whole-hunt'
-import styles from '../workbench.module.css'
 
 export type ExportImportPanelProps = {
   quiz:      QuizT
   hunt:      ShallowHuntT
   /** The library's widgets, which the quizzes are run over and the Library tab hands out */
   library:   readonly WidgetT[]
-  /** What the screen offers whoever is looking: the whole hunt's export, Import and the library's import each only where it is */
+  /** What the screen offers whoever is looking: the whole hunt's export, Import, the library's import and the Q1 preamble's field each only where it is */
   offers:    WorkbenchOffersT
   /** The quiz, run: what the sheet's worked-out columns show */
   run:       QuizRun
@@ -35,6 +30,8 @@ export type ExportImportPanelProps = {
   changeLibrary: (action: LibraryActionDNA) => void
   /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
+  /** Rewrite the quiz's Q1 preamble, from the LL Export tab */
+  onQ1Preamble: (q1_preamble: string) => void
 }
 
 /**
@@ -43,7 +40,7 @@ export type ExportImportPanelProps = {
  * its own, the quiz's full history, and the league's own import format, with the smith's note in
  * the league's BBCode.
  */
-export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport }: Readonly<ExportImportPanelProps>) {
+export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport, onQ1Preamble }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
   const tabs = [
     {
@@ -53,17 +50,8 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     offers.exportHunt && {
       label:   'Raw Export',
-      blurb:   'Every quiz of this hunt, not just this one, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz\'s questions back. Any change on screen empties the box again, so what it holds is never behind you.',
-      content: (
-        <>
-          <div className={styles.panelRow}>
-            <Button size="small" variant="outlined" disabled={exporting.asking} onClick={exporting.prepare}>Prepare export</Button>
-            {exporting.failed ? <span className={styles.microcopy} role="status">{AppNotices.exportUnread}</span> : null}
-          </div>
-          <ReadonlyBox label="Raw Export" text={exporting.whole ? UU.jsonify(Exporting.huntExported(exporting.whole, library)) : ''} rows={10} dense />
-          <FullHistoryDownload quiz={quiz} />
-        </>
-      ),
+      blurb:   'Every quiz of this hunt, not just this one, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz\'s questions back. Any change on screen takes the box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
+      content: <RawExport exporting={exporting} library={library} />,
     },
     {
       label:   'Import',
@@ -82,14 +70,8 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     {
       label:   'LL Export',
-      blurb:   'The league\'s own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦.',
-      content: (
-        <>
-          <ReadonlyBox label="LL Export" text={LLSmithExport.recordsOf(quiz)} rows={6} dense />
-          <p className={styles.microcopy}>The smith&apos;s note, with its bold, italics and line breaks written the same way.</p>
-          <ReadonlyBox label="LL Smith's note" text={LLBBCode.translate(quiz.smiths_note)} rows={3} dense />
-        </>
-      ),
+      blurb:   'The league\'s own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦. The mode can put the smith\'s note, or the Q1 preamble, ahead of the first question.',
+      content: <LeagueExport quiz={quiz} revisable={offers.reviseQuiz} onQ1Preamble={onQ1Preamble} />,
     },
   ]
   return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs.filter((tab) => tab !== false)} />
