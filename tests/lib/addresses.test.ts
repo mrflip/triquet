@@ -216,6 +216,10 @@ describe("Addresses.orgFrom", () => {
   it("reads anything else as none", () => {
     expect([Addresses.orgFrom('pat_smith'), Addresses.orgFrom('~'), Addresses.orgFrom('~Pat'), Addresses.orgFrom(null), Addresses.orgFrom(undefined)]).to.deep.eq([null, null, null, null, null])
   })
+
+  it("reads a label of no ident's length as none", () => {
+    expect([Addresses.orgFrom('~pat'), Addresses.orgFrom(`~${'pat_smith'.repeat(3)}`), Addresses.orgFrom('~pat_sm')]).to.deep.eq([null, null, 'pat_sm'])
+  })
 })
 
 describe("Addresses.modeFrom", () => {

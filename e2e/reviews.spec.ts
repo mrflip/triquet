@@ -6,14 +6,14 @@ test.use({ startAt: null })
 
 /**
  * A second visitor, put on the hunt `smith` has open as a reviewer, who follows a link naming
- * no presentation and lands on the review.
+ * no mode and lands on the playtest.
  */
 async function enterReview(smith: Page, browser: Browser): Promise<Page> {
   const reviewer = await otherVisitor(browser)
   const label = await assumeIdent(reviewer)
   await addMember(smith, label, 'Reviewer')
   await reviewer.goto(quizPathOf(smith))
-  await expect(reviewer).toHaveURL(/\?act=review$/)
+  await expect(reviewer).toHaveURL(/\/!playtest$/)
   return reviewer
 }
 
@@ -109,7 +109,7 @@ test.describe('a review', () => {
     const reviewer = await otherVisitor(browser)
     const label = await assumeIdent(reviewer)
     await addMember(page, label, 'Reviewer')
-    await reviewer.goto(`${quizPathOf(page)}?act=review`)
+    await reviewer.goto(`${quizPathOf(page)}/!playtest`)
 
     await reviewer.getByLabel('Overall').fill('Arrived by a pasted link.')
     await reviewer.getByLabel('Overall').blur()

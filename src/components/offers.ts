@@ -4,7 +4,7 @@ import * as Approve from '../lib/approve'
 /**
  * What the smith's screen offers its author beyond reading, each decided by the policy of the
  * action it sends (`Approve`), so the screen offers exactly what the server would accept. Changing
- * the hunt and its quizzes is not here: the screen is shown only to whoever may (`Hunting.mayAct`).
+ * the hunt and its quizzes is not here: the screen is shown only to whoever may (`Hunting.mayOpen`).
  * Who may be put on or taken off the hunt turns on who, and the members panel asks of each.
  */
 export type WorkbenchOffersT = {

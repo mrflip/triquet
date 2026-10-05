@@ -1,21 +1,29 @@
 /**
  * The addresses this app answers to.
  *
- * One place writes the shape of a URL, so a route that moves moves once. The path names a
- * resource; the query names how to present it (`act`), so a link one person pastes to another
- * opens the right view for whoever opens it.
+ * One place writes the shape of a URL, so a route that moves moves once. What a hunt holds is
+ * addressed as `Addresses` names it (`notes/decisions/urls.md`): the path names a resource by
+ * label, in its org and hunt, and a last `!mode` segment how it is opened, so a link one person
+ * pastes to another opens the same screen for whoever opens it. The app's own pages (the front
+ * door, the hunts, About) sit at the root beside the orgs.
+ *
+ * Addresses from before (`/h/<hunt>/<realm>/<quiz>?act=smith`, `/h/<hunt>`, `/c/<hunt>/categories`)
+ * still open, and move to their present form once the hunt they name says its org.
  */
+import * as Addresses from './addresses'
 
-/** How a quiz can be presented: worked on by a smith, or reviewed */
-export const ActVals = ['smith', 'review'] as const
-export type Act = typeof ActVals[number]
+/** How a resource is opened: `edit` (a smith works on it) or `playtest` (it is reviewed) */
+export type Mode = Addresses.Mode
 
-/** Which quiz an address names: by hunt, realm and quiz label */
-export type QuizLabels = {
-  hunt:  string
-  realm: string
-  quiz:  string
-}
+/** Which hunt an address names: by its org and its label */
+export type HuntLabels = Addresses.InHuntT
+
+/**
+ * Which quiz an address names, by the labels that find it: its hunt's, its realm's and its own. A
+ * hunt's label is unique across the app, so its org is not needed to find it; an address names
+ * that too (`HuntLabels & QuizLabels`).
+ */
+export type QuizLabels = Omit<Addresses.InQuizT, 'org'>
 
 /**
  * The login screen, sending the visitor on to `then` once they have said who they are.
@@ -31,7 +39,7 @@ export function switchIdentPath(): string {
   return '/?switch'
 }
 
-/** The hunts the visitor can open */
+/** The hunts the visitor is on, whosever they are */
 export function huntsPath(): string {
   return '/my/hunts'
 }
@@ -42,41 +50,79 @@ export function aboutPath(): string {
 }
 
 /**
- * Where the hunt labelled `hunt` lives: its quizzes, its categories and who is on it.
+ * Where an org's hunts are listed: those of them the visitor is on.
  *
- * @example huntPath('quiet_otter')  // => '/h/quiet_otter'
+ * @example orgPath('pat_smith')  // => '/~pat_smith'
  */
-export function huntPath(hunt: string): string {
-  return `/h/${hunt}`
+export function orgPath(org: string): string {
+  return Addresses.urlOf({ kind: 'org', org })
 }
 
 /**
- * Where the quiz `labels` names lives, presented as `act`; without one, the page picks.
+ * Where a hunt lives: its quizzes, its categories and who is on it.
  *
- * @example quizPath({ hunt: 'quiet_otter', realm: 'home', quiz: 'quiet_otter' }, 'smith')  // => '/h/quiet_otter/home/quiet_otter?act=smith'
+ * @example huntPath({ org: 'pat_smith', hunt: 'quiet_otter' })  // => '/~pat_smith/quiet_otter'
  */
-export function quizPath(labels: QuizLabels, act?: Act): string {
-  const path = `/h/${labels.hunt}/${labels.realm}/${labels.quiz}`
-  return act === undefined ? path : `${path}?act=${act}`
+export function huntPath(labels: HuntLabels): string {
+  return Addresses.urlOf({ kind: 'hunt', ...labels })
 }
 
 /**
- * Where the hunt labelled `hunt` arranges its subject categories round its wheel.
+ * Where every quiz of a hunt is listed.
  *
- * @example categoriesPath('quiet_otter')  // => '/c/quiet_otter/categories'
+ * @example quizzesPath({ org: 'pat_smith', hunt: 'quiet_otter' })  // => '/~pat_smith/quiet_otter/quizzes'
  */
-export function categoriesPath(hunt: string): string {
-  return `/c/${hunt}/categories`
+export function quizzesPath(labels: HuntLabels): string {
+  return Addresses.urlOf({ kind: 'quizzes', ...labels })
 }
 
 /**
- * `act` read from an address, or null when it names no presentation.
+ * Where a hunt arranges its subject categories round its wheel.
  *
- * @example actFrom('review')  // => 'review'
- * @example actFrom('admin')  // => null
+ * @example categoriesPath({ org: 'pat_smith', hunt: 'quiet_otter' })  // => '/~pat_smith/quiet_otter/categories'
  */
-export function actFrom(raw: string | null): Act | null {
-  return ActVals.find((act) => act === raw) ?? null
+export function categoriesPath(labels: HuntLabels): string {
+  return Addresses.urlOf({ kind: 'categories', ...labels })
+}
+
+/**
+ * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens
+ * playtested, for every visitor alike.
+ *
+ * @example quizPath({ org: 'pat_smith', hunt: 'quiet_otter', realm: 'home', quiz: 'loud_heron' }, 'edit')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit'
+ */
+export function quizPath(labels: HuntLabels & QuizLabels, mode?: Mode): string {
+  return Addresses.urlOf({ kind: 'quiz', ...labels }, mode)
+}
+
+/** The mode each presentation an old address asked for (`?act=`) is now */
+const ModeForAct = { smith: 'edit', review: 'playtest' } as const satisfies Record<string, Mode>
+
+/**
+ * The mode an old address's `?act=` asked for; null when it asked for none it knew.
+ *
+ * @example modeFromAct('review')  // => 'playtest'
+ * @example modeFromAct('admin')  // => null
+ */
+export function modeFromAct(raw: string | null): Mode | null {
+  return Object.entries(ModeForAct).find(([act]) => act === raw)?.[1] ?? null
+}
+
+/**
+ * An address moved to `path`, carrying along what the query and fragment it moves from say of
+ * the screen (`notes/decisions/urls.md`: neither changes what is addressed), but for an old
+ * address's `act`, which `path` now says as its mode.
+ *
+ * @param path - Where the address moves to.
+ * @param from - The query (`?...`, or empty) and fragment (`#...`, or empty) of the address it moves from.
+ *
+ * @example movedPath('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit', { search: '?act=smith', hash: '#q3' })  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit#q3'
+ */
+export function movedPath(path: string, from: { search: string, hash: string }): string {
+  const params = new URLSearchParams(from.search)
+  params.delete('act')
+  const query = params.size === 0 ? '' : `?${params.toString()}`
+  return `${path}${query}${from.hash}`
 }
 
 /**
@@ -84,7 +130,7 @@ export function actFrom(raw: string | null): Act | null {
  * site, and nowhere otherwise. A link that could send a visitor off-site after logging in is a
  * trap, so anything with a scheme or a host is refused.
  *
- * @example thenFrom('/h/quiet_otter/home/quiet_otter?act=review')  // => '/h/quiet_otter/home/quiet_otter?act=review'
+ * @example thenFrom('/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!playtest'
  * @example thenFrom('https://elsewhere.example/')  // => null
  * @example thenFrom('//elsewhere.example/')  // => null
  */

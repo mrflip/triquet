@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import * as Routes from '../src/lib/routes'
-import { addMember, assumeIdent, expect, huntLabelOf, manageDialog, openManage, otherVisitor, reloadOnceSaved, test } from './support'
+import { addMember, assumeIdent, expect, huntOf, manageDialog, openManage, otherVisitor, reloadOnceSaved, test } from './support'
 
 /** The tile of the category titled `title`, wherever it sits on the editor's board: its name says where, after the title */
 function tileOf(page: Page, title: string): Locator {
@@ -53,7 +53,7 @@ test.describe("a hunt's category wheel", () => {
   test("opens from the quiz's gear on the default wheel, for its smith to arrange", async ({ page }) => {
     await openManage(page)
     await manageDialog(page).getByRole('link', { name: "Arrange the hunt's categories" }).click()
-    await expect(page).toHaveURL(Routes.categoriesPath(huntLabelOf(page)))
+    await expect(page).toHaveURL(Routes.categoriesPath(huntOf(page)))
     await expect(page.getByRole('heading', { name: /^Categories of / })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Category wheel' }).getByRole('button')).toHaveCount(24)
     await expect(tileOf(page, 'Math & Econ')).toHaveAttribute('data-place', '0')
@@ -61,7 +61,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("moves a category round the wheel and into the pool from the keyboard, and keeps it", async ({ page }) => {
-    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await page.goto(Routes.categoriesPath(huntOf(page)))
     const art = tileOf(page, 'Art')
     await art.focus()
     await art.press('ArrowRight')
@@ -88,7 +88,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("swaps two categories dragged onto each other, and fills empty slots from the pool, lowest first", async ({ page }) => {
-    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await page.goto(Routes.categoriesPath(huntOf(page)))
     await dropOn(page, 'tv', tileOf(page, 'Gen Sci'))
     await expect(tileOf(page, 'TV')).toHaveAttribute('data-place', '1')
     await expect(tileOf(page, 'Gen Sci')).toHaveAttribute('data-place', '15')
@@ -113,7 +113,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("sends a category to the pool by a double-click, and one in the pool to the first empty slot clockwise, whatever went before", async ({ page }) => {
-    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await page.goto(Routes.categoriesPath(huntOf(page)))
     for (const title of ['Math & Econ', 'Art', 'TV']) {
       await tileOf(page, title).dblclick()
       await expect(page.getByRole('button', { name: `${title}, in the pool` })).toBeVisible()
@@ -146,7 +146,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("selects a category clicked, with a button beside it that sends it where a double-click would", async ({ page }) => {
-    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await page.goto(Routes.categoriesPath(huntOf(page)))
     await tileOf(page, 'Art').click()
     await expect(carriedTile(page, 'art')).toHaveAttribute('data-selected', '')
     const toPool = page.getByRole('button', { name: 'Move Art to the pool' })
@@ -168,7 +168,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("sets Masie, Artie and Poppy at the triangle's corners, each knowing best what sits beside them", async ({ page }) => {
-    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await page.goto(Routes.categoriesPath(huntOf(page)))
     const masie = page.getByRole('group', { name: 'Masie' })
     await expect(masie).toContainText('Best: Math & Econ')
     await expect(masie).toContainText('Worst: Theater')
@@ -182,7 +182,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("shows a reviewer the total order, read-only, and a stranger who to ask", async ({ page, browser }) => {
-    const path = Routes.categoriesPath(huntLabelOf(page))
+    const path = Routes.categoriesPath(huntOf(page))
     const reviewer = await otherVisitor(browser)
     const label = await assumeIdent(reviewer)
     await addMember(page, label, 'Reviewer')
@@ -211,7 +211,7 @@ test.describe("a hunt's category wheel", () => {
   })
 
   test("says so for a hunt there is not", async ({ page }) => {
-    await page.goto(Routes.categoriesPath('no_such_hunt_here'))
+    await page.goto(Routes.categoriesPath({ org: 'nobody_here', hunt: 'no_such_hunt_here' }))
     await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
   })
 })
@@ -220,7 +220,7 @@ test.describe("a hunt's category wheel, on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
   test("sends a category to the pool and back by a double-tap, or by a tap and the button beside it", async ({ page }) => {
-    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await page.goto(Routes.categoriesPath(huntOf(page)))
     await doubleTap(tileOf(page, 'TV'))
     await expect(page.getByRole('button', { name: 'TV, in the pool' })).toBeVisible()
     await doubleTap(page.getByRole('button', { name: 'TV, in the pool' }))

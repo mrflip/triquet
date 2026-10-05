@@ -75,7 +75,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
 
   /** Where the quiz of this realm labelled `label` is worked on */
-  const pathFor = (label: string) => Routes.quizPath({ hunt: hunt.label, realm: realm.label, quiz: label }, 'smith')
+  const pathFor = (label: string) => Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: label }, 'edit')
 
   /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
   const goTo = (target: Labelmaker.Labelled) => {
@@ -155,7 +155,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
             // Followed once it has landed, and not at all when it was refused (the label taken):
             // until then no hunt answers to the new address.
             const relabel = async () => {
-              if (await carryOut({ kind: 'relabel_hunt', label })) { router.replace(Routes.quizPath({ hunt: label, realm: realm.label, quiz: quiz.label }, 'smith')) }
+              if (await carryOut({ kind: 'relabel_hunt', label })) { router.replace(Routes.quizPath({ org: hunt.org, hunt: label, realm: realm.label, quiz: quiz.label }, 'edit')) }
             }
             void relabel()
           }}

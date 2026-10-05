@@ -13,8 +13,8 @@ import { perform as performAction } from './writing/perform'
 const { label, zod } = ValidatorKit
 
 /**
- * The hunts the asking actor is on, as the hunts list shows them, each with its role there, in
- * the order they were made. None for an actor who has asserted no username. It spans hunts, and
+ * The hunts the asking actor is on, as the hunts list shows them, each with its role there and
+ * the org it is addressed under, in the order they were made. None for an actor who has asserted no username. It spans hunts, and
  * so holds the whole database (`Unscoped` in `authorize.ts`), needing no rule: it reads the
  * actor's own huntings, and only the hunts those name.
  */
@@ -25,7 +25,9 @@ export const list = zQuery({
     const huntings = Actor.isAnonymous(actor) ? [] : await huntingsFor(ctx.db, actor.ident_id)
     const listed = await Promise.all(huntings.map(async ({ hunt_id, role }) => {
       const hunt = await ctx.db.get('hunts', hunt_id)
-      return hunt && { made: hunt._creationTime, listing: { ...huntListingOf({ hunt, realms: await realmsOf(ctx.db, hunt_id) }), role } }
+      if (! hunt) { return null }
+      const [realms, members] = await Promise.all([realmsOf(ctx.db, hunt_id), membersOf(ctx.db, hunt_id)])
+      return { made: hunt._creationTime, listing: { ...huntListingOf({ hunt, realms }, members), role } }
     }))
     return _.sortBy(listed.filter((each) => each !== null), 'made').map(({ listing }) => listing)
   },

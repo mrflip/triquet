@@ -1,5 +1,6 @@
 import { test as base, expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
+import type * as Routes from '../src/lib/routes'
 import { QuestionSourceTitles, type QuestionField, type QuestionView } from '../src/models/column'
 
 /** Where the fixture's page begins by default: a fresh ident's fresh hunt, open on its quiz */
@@ -239,8 +240,8 @@ export async function assumeIdent(page: Page, label = freshIdentLabel()): Promis
   return label
 }
 
-/** Where a new hunt's quiz is worked on: its hunt and quiz share a label, in the realm `home` */
-export const NewHuntUrl = /\/h\/([a-z0-9_]+)\/home\/\1\?act=smith$/
+/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home` */
+export const NewHuntUrl = /\/~[a-z0-9_]+\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/
 
 /** Make a hunt from the hunts list, and wait until its quiz is on screen */
 export async function newHunt(page: Page): Promise<void> {
@@ -274,14 +275,20 @@ export async function addMember(page: Page, label: string, role: 'Smith' | 'Revi
   await expect(members.getByRole('row').filter({ hasText: label })).toContainText(role)
 }
 
-/** The label of the hunt `page`'s address names: its second segment, as in `/h/<hunt>/...` */
+/** The label of the hunt `page`'s address names: its second segment, as in `/~<org>/<hunt>/...` */
 export function huntLabelOf(page: Page): string {
-  return String(new URL(page.url()).pathname.split('/', 3)[2])
+  return huntOf(page).hunt
 }
 
-/** The address `page` is at, naming no presentation: the page picks by the visitor's role */
+/** The hunt `page`'s address names, by its org and label: its first two segments, as in `/~<org>/<hunt>/...` */
+export function huntOf(page: Page): Routes.HuntLabels {
+  const [, org = '', hunt = ''] = new URL(page.url()).pathname.split('/', 3)
+  return { org: org.replace(/^~/, ''), hunt }
+}
+
+/** The address of the quiz `page` is at, naming no mode: it opens playtested, for anyone */
 export function quizPathOf(page: Page): string {
-  return new URL(page.url()).pathname
+  return new URL(page.url()).pathname.replace(/\/![a-z]+$/, '')
 }
 
 /**

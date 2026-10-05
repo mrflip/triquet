@@ -38,7 +38,7 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
 
 /** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
 export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onQ1Preamble }: Readonly<PanelsProps>) {
-  const labels = { hunt: hunt.label, realm: realm.label, quiz: quiz.label }
+  const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />

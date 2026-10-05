@@ -20,9 +20,12 @@ import { NotOnHunt } from './NotOnHunt'
 import { Panel } from './panels/Panel'
 import { personaAdornmentsOf } from './PersonaCard'
 import { OpeningNotice } from './SyncNotices'
+import { useCanonical } from './use-address'
 import styles from './workbench.module.css'
 
 export type CategoriesRouteProps = {
+  /** The org the address names; null for an old address, which names none */
+  org:       string | null
   /** The hunt the address names */
   huntLabel: string
 }
@@ -32,13 +35,15 @@ export type CategoriesRouteProps = {
  * everyone else on it reads.
  *
  * A visitor who has not said who they are is sent to say so, and brought back here. A visitor not
- * on the hunt is told which smiths to ask; an address naming no hunt says so.
+ * on the hunt is told which smiths to ask; an address naming no hunt says so. An address naming
+ * another org than the hunt's, or none, moves to the hunt's own (`useCanonical`).
  */
-export function CategoriesRoute({ huntLabel }: Readonly<CategoriesRouteProps>) {
+export function CategoriesRoute({ org, huntLabel }: Readonly<CategoriesRouteProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
   const { finding, hunt, smiths, unsaved, arrange } = useCategories(huntLabel)
   useShowHunt(hunt)
+  useCanonical(org === null ? null : Routes.categoriesPath({ org, hunt: huntLabel }), hunt && Routes.categoriesPath({ org: hunt.org, hunt: hunt.label }))
 
   useEffect(() => {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
@@ -49,7 +54,7 @@ export function CategoriesRoute({ huntLabel }: Readonly<CategoriesRouteProps>) {
   }, [hunt])
 
   if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
-  if (finding === 'refused') { return <NotOnHunt labels={null} ident={ident} claims={null} smiths={smiths} /> }
+  if (finding === 'refused') { return <NotOnHunt playtestPath={null} ident={ident} claims={null} smiths={smiths} /> }
   if (! hunt) { return <NoSuchHunt huntLabel={huntLabel} /> }
   const arranging = Approve.mayOffer('arrange_categories', Actor.claimsOn(actor, hunt._id, hunt))
   return <CategoriesScreen hunt={hunt} onArrange={arranging ? arrange : null} unsaved={unsaved} />

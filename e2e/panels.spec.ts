@@ -48,7 +48,7 @@ test('Raw Export emits the whole hunt as compact JSON', async ({ page }) => {
   const text = await exportBox.inputValue()
   const hunt = JSON.parse(text) as { label: string, realms: { label: string, quizzes: { title: string }[] }[] }
   expect(hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])).toEqual([['home', ['Quiz one']]])
-  await expect(page).toHaveURL(new RegExp(`/h/${hunt.label}/`))
+  await expect(page).toHaveURL(new RegExp(`/~[a-z0-9_]+/${hunt.label}/`))
   // Compact, not pretty-printed: backup material, not prose.
   expect(text).not.toContain('\n')
   // Everything by label: ids are the database's, and mean nothing to a smith.

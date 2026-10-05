@@ -15,7 +15,7 @@ function quizRow(tail: string, label: string): Doc<'quizzes'> {
 }
 
 const Hunt: ShallowHuntT = {
-  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', title: 'Quiet Otter', branch: 'main', wheel: Wheel.defaultWheel(), members: [], role: 'smith',
+  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', org: 'alice_smiths', title: 'Quiet Otter', branch: 'main', wheel: Wheel.defaultWheel(), members: [], role: 'smith',
   realms: [{
     _id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>, label: 'home', title: 'Home',
     quizzes:    [quizRow('q01', 'quiet_otter'), quizRow('q02', 'kings'), quizRow('q03', 'quiet_otter')],
@@ -32,15 +32,21 @@ describe('placeIn', () => {
     expect(placeIn(Hunt, { realm: 'home', quiz: 'quiet_otter' }, null).quizRow?._id).to.eq(Hunt.realms[0]?.quizzes[0]?._id)
   })
 
-  const Missing: [Parameters<typeof placeIn>[1], string][] = [
-    [{ realm: 'home', quiz: 'nobody' },  'by a label no quiz answers to'],
-    [{ realm: 'away', quiz: 'kings' },   'in a realm the hunt does not have'],
-  ]
-  for (const [labels, describes] of Missing) {
-    it(`finds nothing ${describes}`, () => {
-      expect(placeIn(Hunt, labels, null)).to.deep.eq({ finding: 'missing', realm: null, quizRow: null, movedTo: null })
-    })
-  }
+  it('finds nothing by a label no quiz answers to', () => {
+    expect(placeIn(Hunt, { realm: 'home', quiz: 'nobody' }, null)).to.deep.eq({ finding: 'missing', realm: null, quizRow: null, movedTo: null })
+  })
+
+  it('places the quiz in the realm it is in, when the realm named is stale', () => {
+    const placing = placeIn(Hunt, { realm: 'away', quiz: 'kings' }, null)
+    expect([placing.finding, placing.realm?.label, placing.quizRow?.label, placing.movedTo]).to.deep.eq(['placed', 'home', 'kings', null])
+  })
+
+  it('searches the realm named first, should another realm hold a quiz of the same label', () => {
+    const away = { _id: 'j97d0qbj35dar1v8edndzckvsx8f8r02' as Id<'realms'>, label: 'away', title: 'Away', quizzes: [quizRow('q04', 'kings')] }
+    const twoRealms = { ...Hunt, realms: [...Hunt.realms, away] }
+    expect([placeIn(twoRealms, { realm: 'away', quiz: 'kings' }, null).quizRow?._id, placeIn(twoRealms, { realm: 'home', quiz: 'kings' }, null).quizRow?._id])
+      .to.deep.eq([away.quizzes[0]?._id, Hunt.realms[0]?.quizzes[1]?._id])
+  })
 
   it('finds nothing in a hunt there is none of, and is still waiting while the hunt is on its way', () => {
     expect([placeIn(null, { realm: 'home', quiz: 'kings' }, null).finding, placeIn(undefined, { realm: 'home', quiz: 'kings' }, null).finding]).to.deep.eq(['missing', 'waiting'])

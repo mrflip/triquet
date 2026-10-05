@@ -3,7 +3,7 @@ import * as Z from 'zod'
 import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../../src/lib/actor'
 import { Hunting, HuntingValidators, HuntRoleVals } from '../../src/models/hunting'
-import { ActVals } from '../../src/lib/routes'
+import { ModeVals } from '../../src/lib/addresses'
 
 const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', ident_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12fa', ident_label: 'flip_kromer', ident_title: 'Flip', role: 'smith' } as const
 
@@ -30,13 +30,13 @@ describe('HuntingValidators.row', () => {
   }
 })
 
-describe('Hunting.actFor', () => {
-  it('shows a smith the workbench and a reviewer the review', () => {
-    expect(HuntRoleVals.map((role) => Hunting.actFor(role))).to.deep.eq(['smith', 'review'])
+describe('Hunting.modeFor', () => {
+  it('opens the workbench for a smith and the playtest for a reviewer', () => {
+    expect(HuntRoleVals.map((role) => Hunting.modeFor(role))).to.deep.eq(['edit', 'playtest'])
   })
 })
 
-describe('Hunting.mayAct', () => {
+describe('Hunting.mayOpen', () => {
   const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr' as Id<'users'>
   const hunt_id = 'k17ah9c4r1hm0z5y1ad0bbn7wn7fn9x1' as Id<'hunts'>
   const Alice = Actor.asIdent(user_id, { _id: 'j97d0qbj35dar1v8edndzckvsx8f828f' as Id<'idents'>, label: 'alice_smiths' })
@@ -47,15 +47,15 @@ describe('Hunting.mayAct', () => {
     anonymous: Actor.claimsOn(Actor.anonymous, hunt_id, null),
   } as const
 
-  it('shows a smith either presentation, a reviewer only the review, and nobody else either', () => {
-    const table = Object.values(ClaimsAs).map((claims) => ActVals.map((act) => Hunting.mayAct(claims, act)))
-    expect(ActVals).to.deep.eq(['smith', 'review'])
+  it('shows a smith either mode, a reviewer only the playtest, and nobody else either', () => {
+    const table = Object.values(ClaimsAs).map((claims) => ModeVals.map((mode) => Hunting.mayOpen(claims, mode)))
+    expect(ModeVals).to.deep.eq(['edit', 'playtest'])
     expect(table).to.deep.eq([[true, true], [false, true], [false, false], [false, false]])
   })
 
-  it('shows each role the presentation it is sent to', () => {
+  it("shows each role the mode the app's links open for it", () => {
     for (const role of HuntRoleVals) {
-      expect(Hunting.mayAct(ClaimsAs[role], Hunting.actFor(role))).to.be.true
+      expect(Hunting.mayOpen(ClaimsAs[role], Hunting.modeFor(role))).to.be.true
     }
   })
 })

@@ -4,6 +4,7 @@ import NextLink from './NextLink'
 import { Button, Link, Stack } from '@mui/material'
 import * as Alarms from '../lib/alarms'
 import * as Routes from '../lib/routes'
+import { Hunting } from '../models/hunting'
 import { useRaiseAlarm } from '../state/alarms'
 import * as QuizMirror from '../state/quiz-mirror'
 import { useQuizRepos } from '../state/use-quiz-repos'
@@ -24,10 +25,10 @@ export type QuizNotFoundProps = {
 /** A quiz of `hunt`, as its realm lists it */
 type QuizRow = ShallowHuntT['realms'][number]['quizzes'][number]
 
-/** Where `quiz` of `hunt` lives, worked on */
+/** Where `quiz` of `hunt` lives, opened in the mode the visitor's role works in */
 function addressOf(hunt: ShallowHuntT, quiz: QuizRow): string {
   const realm = hunt.realms.find((each) => each.quizzes.includes(quiz)) ?? hunt.realms[0]
-  return Routes.quizPath({ hunt: hunt.label, realm: realm?.label ?? '', quiz: quiz.label })
+  return Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm?.label ?? '', quiz: quiz.label }, Hunting.modeFor(hunt.role))
 }
 
 /**

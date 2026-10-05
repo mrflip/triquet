@@ -17,10 +17,10 @@ export const ModeVals = ['edit', 'playtest'] as const
 export type Mode = typeof ModeVals[number]
 
 /** A resource of one hunt: the hunt, named within its org */
-type InHuntT = { org: string, hunt: string }
+export type InHuntT = { org: string, hunt: string }
 
 /** A resource of one quiz: its hunt, and the realm and label that name it there */
-type InQuizT = InHuntT & { realm: string, quiz: string }
+export type InQuizT = InHuntT & { realm: string, quiz: string }
 
 /**
  * A resource the app can name, by label throughout. `kind` says which:
@@ -248,15 +248,17 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
 }
 
 /**
- * The org an address's first segment names: the label after its `~`; null when it names none.
+ * The org an address's first segment names: the ident label after its `~`; null when it names
+ * none, as a label too short or too long to be an ident's does not.
  *
  * @example orgFrom('~pat_smith')  // => 'pat_smith'
  * @example orgFrom('pat_smith')  // => null
+ * @example orgFrom('~pat')  // => null
  */
 export function orgFrom(raw: string | null | undefined): string | null {
   if (! raw?.startsWith('~')) { return null }
   const org = raw.slice(1)
-  return isLabel(org) ? org : null
+  return isIdentlabel(org) ? org : null
 }
 
 /**
@@ -273,4 +275,9 @@ export function modeFrom(raw: string | null | undefined): Mode | null {
 /** Whether `str` is a label: what every slot of an address holds besides its sigils and nouns */
 function isLabel(str: string): boolean {
   return PA.Label.re.test(str)
+}
+
+/** Whether `str` is an ident's label, as an org is: a label, and of an ident's length */
+function isIdentlabel(str: string): boolean {
+  return PA.Identlabel.re.test(str) && str.length >= PA.Identlabel.min && str.length <= PA.Identlabel.max
 }

@@ -10,7 +10,7 @@ const other_id = 'j97d0qbj35dar1v8edndzckvsx8f8h02' as Id<'hunts'>
 
 /** A hunt as its screens hold it, with nothing in it */
 function shallowHunt(_id: Id<'hunts'>): ShallowHuntT {
-  return { _id, label: 'quiet_otter', title: 'Quiet Otter', branch: 'main', realms: [], wheel: Wheel.defaultWheel(), members: [], role: 'smith' }
+  return { _id, label: 'quiet_otter', org: 'alice_smiths', title: 'Quiet Otter', branch: 'main', realms: [], wheel: Wheel.defaultWheel(), members: [], role: 'smith' }
 }
 
 /** A stand-in for the client's watched results: every opening it holds, and what was written back */
