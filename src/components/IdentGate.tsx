@@ -69,7 +69,7 @@ export function IdentGate() {
             onChange={(event) => { setLabelDraft(event.target.value) }}
           />
           <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {ident && <Button onClick={() => { router.replace(onward) }}>Keep being {Ident.byline(ident)}</Button>}
+            {ident && <Button disabled={busy} onClick={() => { router.replace(onward) }}>Keep being {Ident.byline(ident)}</Button>}
             <Button type="submit" variant="contained" disabled={busy || ! fits}>{fits ? `Log in as ${label}` : 'Log in'}</Button>
           </Stack>
           {notice !== null && <p className={styles.microcopy} role="alert">{notice}</p>}
