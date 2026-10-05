@@ -1,5 +1,8 @@
 # Addresses: the path names the resource, the query the presentation (Sept 2026)
 
+*Superseded October 2026 by `urls.md`: `/~<org>/<hunt>/quizzes/<realm>/<quiz>/!<mode>`. The
+addresses below still open, and move to their new form.*
+
 **Decision.** A quiz lives at `/h/<hunt>/<realm>/<quiz>`, three labels, each scoped by the one
 before it: hunt labels are global, realm labels unique within a hunt, quiz labels within a
 realm. How the quiz is shown is a query parameter, `?act=smith` (the Workbench) or `?act=review`
