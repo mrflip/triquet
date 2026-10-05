@@ -1,4 +1,3 @@
-import * as Labelmaker from './labelmaker'
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
 import { specsFor, type Resolved } from './columns'
@@ -23,7 +22,7 @@ type CellContext = {
 export function cellTextOf(source: Resolved, { question, target, run }: Readonly<CellContext>): string {
   switch (source.kind) {
   case 'field': {
-    if (source.field === 'chains_to') { return target ? Labelmaker.effectiveLabelOf(target) : '' }
+    if (source.field === 'chains_to') { return target ? target.label : '' }
     return question[source.field]
   }
   case 'view': {

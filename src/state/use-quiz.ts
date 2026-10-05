@@ -6,7 +6,7 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { assembledQuiz, type SeenQuestionT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
-import { useBrowserKey } from './browser-key'
+import { useSession } from './use-session'
 
 /** A question's reading as `useQueries` hands it over: the reading, undefined on its way, null when gone, or what the query threw */
 type QuestionReading = SeenQuestionT | null | undefined | Error
@@ -30,13 +30,13 @@ function readingOf(reading: QuestionReading): SeenQuestionT | null | undefined {
  * @returns The quiz; undefined until it is first read whole, null when there is no such quiz or it is not this ident's to read.
  */
 export function useQuiz(quiz_id: Id<'quizzes'> | null): QuizT | null | undefined {
-  const browser_key = useBrowserKey()
-  const frame = useQuery(api.quizzes.open, quiz_id === null || browser_key === null ? 'skip' : { quiz_id, browser_key })
+  const { ready } = useSession()
+  const frame = useQuery(api.quizzes.open, quiz_id === null || ! ready ? 'skip' : { quiz_id })
   // Keyed by the order's contents: a frame redelivered for a change to its widgetings keeps its subscriptions.
   const orderKey = frame?.row_ordering.join(' ') ?? ''
-  const queries = useMemo(() => (browser_key === null ? {} : Object.fromEntries(orderKey.split(' ').filter(Boolean).map((question_id) => (
-    [question_id, { query: api.questions.open, args: { question_id, browser_key } }]
-  )))), [orderKey, browser_key])
+  const queries = useMemo(() => (ready ? Object.fromEntries(orderKey.split(' ').filter(Boolean).map((question_id) => (
+    [question_id, { query: api.questions.open, args: { question_id } }]
+  ))) : {}), [orderKey, ready])
   const readings = useQueries(queries) as Record<string, QuestionReading>
   const assembled = useMemo(() => frame && assembledQuiz(frame, (question_id) => readingOf(readings[question_id])), [frame, readings])
 

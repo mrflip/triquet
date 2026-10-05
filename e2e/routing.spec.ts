@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
+import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, loadAfresh, manageDialog, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
@@ -57,12 +58,8 @@ test.describe('the front door', () => {
     await expect(page.getByText(`(${other})`)).toBeVisible()
   })
 
-  test('makes one who types an ident someone else made and retitled into that ident, under its new title', async ({ page, browser }) => {
-    const label = freshIdentLabel()
-    await page.goto('/')
-    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await expect(page).toHaveURL(/\/my\/hunts$/)
+  test('turns a second browser away from a username the first holds, saying what to do, and lets it choose another', async ({ page, browser }) => {
+    const label = await assumeIdent(page)
     await page.getByRole('textbox', { name: 'Your name' }).fill('The First')
     await page.getByRole('textbox', { name: 'Your name' }).blur()
     await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('The First')
@@ -71,8 +68,18 @@ test.describe('the front door', () => {
     await elsewhere.goto('/')
     await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(label)
     await elsewhere.getByRole('button', { name: 'Continue' }).click()
-    await expect(elsewhere.getByRole('textbox', { name: 'Your name' })).toHaveValue('The First')
-    await expect(elsewhere.getByText(`(${label})`)).toBeVisible()
+    const gate = elsewhere.getByRole('region', { name: AppNotices.identGateTitle })
+    await expect(gate.getByRole('alert')).toHaveText(RefusalNotices.usernameClaimed)
+    await expect(elsewhere).toHaveURL((url) => url.pathname === '/')
+
+    const other = freshIdentLabel()
+    await elsewhere.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
+    await elsewhere.getByRole('button', { name: 'Continue' }).click()
+    await expect(elsewhere).toHaveURL(/\/my\/hunts$/)
+    await expect(elsewhere.getByText(`(${other})`)).toBeVisible()
+    await loadAfresh(page, '/my/hunts')
+    await expect(page.getByText(`(${label})`)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Your name' })).toHaveValue('The First')
   })
 })
 

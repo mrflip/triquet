@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { AskContract, type AskReplyT, type AskRequestT } from '../../../lib/ask/contract'
 import { ModelForTier } from '../../../lib/ask/models'
-import * as Approval from '../../../lib/approval'
+import * as Approve from '../../../lib/approve'
 import * as Credentials from '../../../lib/credentials'
 import * as Postmortem from '../../../lib/postmortem'
 import { approxTokensFor } from '../../../lib/ask/tokens'
@@ -31,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
   const ask = parsed.data
 
   try {
-    Approval.need(null, { act: 'anthropic_bot' }, { servicelabel: ask.servicelabel, model_tier: ask.model_tier, prompt_chars: ask.prompt.length })
+    Approve.must('ask_anthropic_bot', process.env.ENABLE_ANTHROPIC_BOT)
     if (! Credentials.has(ask.servicelabel)) { return replied({ ok: false, failurekind: 'unavailable' }) }
     const client = new Anthropic({ apiKey: Credentials.get(ask.servicelabel) })
     return replied(vetReply(await answerAsk(client, ask)))

@@ -65,7 +65,7 @@ export async function setReviewing(db: Writer, quiz_id: Id<'quizzes'>, ident_id:
   if (held) {
     await updateReviewing(db, held, settled)
   } else {
-    await db.insert('reviewings', ReviewingValidators.row({ ...Reviewing.blank(review._id, question_id), ...settled }))
+    await db.insert('reviewings', ReviewingValidators.row({ ...Reviewing.blank(review, question_id), ...settled }))
   }
   if (review.phase === 'empty') { await updateReview(db, review, { phase: 'draft' }) }
 }
@@ -94,7 +94,7 @@ export async function peekAnswer(db: Writer, quiz_id: Id<'quizzes'>, ident_id: I
   if (held) {
     await updateReviewing(db, held, { peeked: true })
   } else {
-    await db.insert('reviewings', ReviewingValidators.row({ ...Reviewing.blank(review._id, question_id), peeked: true }))
+    await db.insert('reviewings', ReviewingValidators.row({ ...Reviewing.blank(review, question_id), peeked: true }))
   }
 }
 

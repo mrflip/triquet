@@ -21,7 +21,7 @@ import type { Writer } from './quiz_writing'
  *
  * @param db - The mutation's database.
  * @param open - The quiz on the author's screen, where an action on "the quiz" lands.
- * @param ident_id - Who is acting; only a review or hunting action reads it.
+ * @param ident_id - Who is acting; only a review action reads it.
  * @param action - What the author did, validated.
  * @throws A refusal, or a Zod error when a row the action comes to is not valid; nothing is written.
  *
@@ -60,8 +60,8 @@ export async function perform(db: Writer, open: OpenQuizT, ident_id: Id<'idents'
   case 'set_review_phase':    { await Review.setReviewPhase(db, action.quiz_id, ident_id, action.phase); return }
   case 'set_reviewing':       { await Review.setReviewing(db, action.quiz_id, ident_id, action.question_id, action.patch); return }
   case 'peek_answer':         { await Review.peekAnswer(db, action.quiz_id, ident_id, action.question_id); return }
-  case 'add_hunting':         { await Hunting.addHunting(db, open.hunt_id, ident_id, action.ident_label, action.role); return }
-  case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, ident_id, action.ident_id); return }
+  case 'add_hunting':         { await Hunting.addHunting(db, open.hunt_id, action.ident_label, action.role); return }
+  case 'remove_hunting':      { await Hunting.removeHunting(db, open.hunt_id, action.ident_id); return }
   case 'retitle_hunt':        { await Hunt.retitleHunt(db, open.hunt_id, action.title); return }
   case 'relabel_hunt':        { await Hunt.relabelHunt(db, open.hunt_id, action.label); return }
   case 'delete_hunt':         { await Hunt.deleteHunt(db, open.hunt_id) }

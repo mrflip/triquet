@@ -111,10 +111,9 @@ export function display(label: string): string {
   return _.kebabCase(label)
 }
 
-/** Anything carrying a generated label and an optional author override */
+/** Anything carrying a label */
 export type Labelled = {
-  label:        string
-  forced_label: string | null
+  label: string
 }
 
 /**
@@ -130,21 +129,16 @@ export type Labelled = {
  * @example freshLabelFor(realm.quizzes)  // => 'quiet_otter', say
  */
 export function freshLabelFor(entities: readonly Labelled[]): string {
-  return localBlankLabel(new Set(entities.map((entity) => effectiveLabelOf(entity))), mintId())
-}
-
-/** The label actually in force: the author's override when there is one, else the generated one */
-export function effectiveLabelOf(entity: Readonly<Labelled>): string {
-  return entity.forced_label ?? entity.label
+  return localBlankLabel(new Set(entities.map((entity) => entity.label)), mintId())
 }
 
 /**
- * Which of `entities` currently answers to `label`, by whichever label is in force for each.
+ * Which of `entities` answers to `label`.
  *
  * @param entities - Quizzes, or questions, or anything else `Labelled`.
  * @param label - The label being looked up, exactly as it must match.
  * @returns The matching entity, or undefined when nothing answers to it.
  */
 export function entityForLabel<EE extends Labelled>(entities: readonly EE[], label: string): EE | undefined {
-  return entities.find((entity) => effectiveLabelOf(entity) === label)
+  return entities.find((entity) => entity.label === label)
 }

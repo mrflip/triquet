@@ -4,7 +4,6 @@ import LightningFS from '@isomorphic-git/lightning-fs'
 import _ from 'es-toolkit/compat'
 import * as Changes from '../lib/changes'
 import * as Downloading from '../lib/downloading'
-import * as Labelmaker from '../lib/labelmaker'
 import * as Postmortem from '../lib/postmortem'
 import * as Quizgit from '../lib/quizgit'
 import { createCommitScheduler, type MirrorSnapshot } from './commit-scheduler'
@@ -241,7 +240,7 @@ export async function quizRepoZip(quiz: QuizT): Promise<Uint8Array | null> {
 export async function downloadQuizRepo(quiz: QuizT): Promise<boolean> {
   const zipped = await quizRepoZip(quiz)
   if (! zipped) { return false }
-  Downloading.offerDownload(`${Labelmaker.effectiveLabelOf(quiz)}.zip`, zipped, 'application/zip')
+  Downloading.offerDownload(`${quiz.label}.zip`, zipped, 'application/zip')
   return true
 }
 

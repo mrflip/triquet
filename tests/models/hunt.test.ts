@@ -23,11 +23,6 @@ describe('Hunt.fill', () => {
     expect(hunt.title).to.eq('Autumn Hunt')
   })
 
-  it('titles itself after its override when it has one', () => {
-    const hunt = Hunt.fill(homeHolding([Quiz.blank()], { forced_label: 'loud_heron' }))
-    expect(hunt.title).to.eq('Loud Heron')
-  })
-
   it('holds 99 realms, and refuses a hundredth', () => {
     const realms = Array.from({ length: 100 }, (_unused, idx) => ({ _id: mintId(), label: `realm_${String(idx)}`, quizzes: [Quiz.blank()] }))
     expect(Hunt.fill({ _id: mintId(), label: 'quiet_otter', realms: realms.slice(0, 99) }).realms).to.have.lengthOf(99)
@@ -101,11 +96,10 @@ describe('Hunt.exposed', () => {
 })
 
 describe('HuntValidators.row', () => {
-  const Row = { label: 'quiet_otter', forced_label: null, title: 'Quiet Otter' }
+  const Row = { label: 'quiet_otter', title: 'Quiet Otter' }
 
   it('takes a hunt as the database holds it', () => {
     expect(HuntValidators.row(Row)).to.deep.eq(Row)
-    expect(HuntValidators.row({ ...Row, forced_label: 'autumn' }).forced_label).to.eq('autumn')
   })
 
   it('refuses a label that is not one', () => {

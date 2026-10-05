@@ -5,9 +5,9 @@ import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { present } from '../support/present'
 
-/** A blank question answering to `forced_label`, with any fields worth setting on top */
-function questionOf(forced_label: string, fields: Partial<QuestionT> = {}): QuestionT {
-  return { ...Question.blank(), forced_label, ...fields }
+/** A blank question answering to `label`, with any fields worth setting on top */
+function questionOf(label: string, fields: Partial<QuestionT> = {}): QuestionT {
+  return { ...Question.blank(), label, ...fields }
 }
 
 /** A quiz holding exactly `questions`, everything else left as a fresh quiz has it */
@@ -43,8 +43,8 @@ describe('quizChanges', () => {
 
   it('names a question by the label it answers to now, not the one it had', () => {
     const before = quizOf([questionOf('quiet_otter', { clueing: 'Who?' })])
-    const after = { ...before, questions: [{ ...present(before.questions[0]), forced_label: 'brave_ox', clueing: 'Who now?' }] }
-    expect(linesOf(before, after)).to.deep.eq(['brave_ox ~clueing ~forced_label'])
+    const after = { ...before, questions: [{ ...present(before.questions[0]), label: 'brave_ox', clueing: 'Who now?' }] }
+    expect(linesOf(before, after)).to.deep.eq(['brave_ox ~clueing ~label'])
   })
 
   it('reads a wholly separate quiz as one question leaving and another arriving', () => {

@@ -15,7 +15,6 @@ describe('Quiz.fill', () => {
       questions:       [],
       locked:          false,
       last_sortkey:    null,
-      forced_label:    null,
       widgetings:      [],
       columns:         [],
     })
@@ -171,7 +170,7 @@ describe('Quiz.blank', () => {
 
 describe('QuizValidators.row', () => {
   const Row = {
-    realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', forced_label: null, smiths_note: '', version: 'main', locked: false, last_sortkey: null,
+    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', version: 'main', locked: false, last_sortkey: null,
     row_ordering: ['j97d0qbj35dar1v8edndzckvsx8f828f'],
   }
 
@@ -182,6 +181,7 @@ describe('QuizValidators.row', () => {
 
   const Refused: [object, string][] = [
     [{ realm_id: 'princes' },                'a realm that is not a row id'],
+    [{ hunt_id: undefined },                 'no hunt'],
     [{ label: 'Princes' },                   'a label that is not one'],
     [{ title: 'x'.repeat(83) },              'a title past 82 characters'],
     [{ last_sortkey: 'column:Clueing' },     'a sort memory naming a column that is not a label'],

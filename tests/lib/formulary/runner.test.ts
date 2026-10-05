@@ -112,7 +112,7 @@ describe('the standard sum widgetings', () => {
   })
 
   it('borrow the chained-to question\'s hint for the BUT NOT widgetings, followed by the label in force', () => {
-    const target = { ...Question.blank(), qnum: '2', forced_label: 'the_film', stored: { numnum_hint: extracted([numeral('1994', 1994), wordish('twelve', 12)]) } }
+    const target = { ...Question.blank(), qnum: '2', label: 'the_film', stored: { numnum_hint: extracted([numeral('1994', 1994), wordish('twelve', 12)]) } }
     const question = { ...Question.blank(), qnum: '1', chains_to: target._id, stored: { numnum_hint: extracted([numeral('7', 7)]) } }
     expect(sumOf([question, target], question, 'butnot_full')).to.deep.eq(Widgeted.ok(2006))
     expect(sumOf([question, target], question, 'butnot_numeral')).to.deep.eq(Widgeted.ok(1994))
@@ -403,9 +403,9 @@ describe('widgetedFrom', () => {
 })
 
 describe('bagsAt', () => {
-  const target = { ...Question.blank(), qnum: '2', title: 'The film', forced_label: 'the_film' }
+  const target = { ...Question.blank(), qnum: '2', title: 'The film', label: 'the_film' }
   const question = { ...Question.blank(), qnum: '1', title: 'The book', chains_to: target._id }
-  const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', questions: [question, target] }
+  const quiz = { ...Quiz.blank('Bag'), label: 'my_quiz', questions: [question, target] }
   const bags = Runner.bagsAt(runOf(quiz), { label: 'col', params: { size: 3 } })
   const bag = present(bags.get(question._id))
 
@@ -447,10 +447,10 @@ describe('bagsAt', () => {
 
 describe('what a bag exposes of a question', () => {
   const recorded = {
-    ...Question.blank(), qnum: '1', title: 'Leon', forced_label: 'leon_q',
+    ...Question.blank(), qnum: '1', title: 'Leon', label: 'leon_q',
     stored: { dumdum: { newest: storedRow('errored', 9), ok: storedRow('ok', 5, { guess: 'Lyon', explanation: '' }) } },
   }
-  const quiz = { ...Quiz.blank('Bag'), forced_label: 'my_quiz', locked: true, questions: [recorded], widgetings: widgetingsOf(['dumdum', 'dumdum']) }
+  const quiz = { ...Quiz.blank('Bag'), label: 'my_quiz', locked: true, questions: [recorded], widgetings: widgetingsOf(['dumdum', 'dumdum']) }
   const { qn, quiz: quizBag, hunt, realm } = present(Runner.bagsAt(runOf(quiz), { label: 'col', params: {} }).get(recorded._id))
 
   it('gives a question only its exposed fields, with the label in force and the rank, and each earlier widgeting under its label', () => {
@@ -469,11 +469,9 @@ describe('what a bag exposes of a question', () => {
 
 describe('placeOf', () => {
   const Cases: [Parameters<typeof Runner.placeOf>, Runner.QuizPlace, string][] = [
-    [[{ label: 'deep_lake', forced_label: null,    title: '' },          { label: 'home',   title: '' }],
+    [[{ label: 'deep_lake', title: '' },          { label: 'home',   title: '' }],
       { hunt: { label: 'deep_lake', title: 'Deep Lake' },  realm: { label: 'home',   title: 'Home' } },          'blank titles read as the labels titleized'],
-    [[{ label: 'deep_lake', forced_label: 'tarn',  title: '' },          { label: 'home',   title: '' }],
-      { hunt: { label: 'tarn',      title: 'Tarn' },       realm: { label: 'home',   title: 'Home' } },          "the hunt's forced label is the one in force, and titles a blank title"],
-    [[{ label: 'deep_lake', forced_label: 'tarn',  title: 'Lakeside' },  { label: 'finals', title: 'The Finals' }],
+    [[{ label: 'tarn',      title: 'Lakeside' },  { label: 'finals', title: 'The Finals' }],
       { hunt: { label: 'tarn',      title: 'Lakeside' },   realm: { label: 'finals', title: 'The Finals' } },    'titles of their own are kept as they are'],
   ]
   for (const [[hunt, realm], expected, blurb] of Cases) {
@@ -483,7 +481,7 @@ describe('placeOf', () => {
   }
 
   it('leaves out everything a hunt or realm holds besides its exposed fields', () => {
-    const hunt = { _id: 'hunt_id', label: 'deep_lake', forced_label: null, title: 'Deep Lake', realms: [] }
+    const hunt = { _id: 'hunt_id', label: 'deep_lake', title: 'Deep Lake', realms: [] }
     const realm = { _id: 'realm_id', label: 'home', title: 'Home', quizzes: [] }
     expect(Runner.placeOf(hunt, realm)).to.deep.eq({ hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' } })
   })

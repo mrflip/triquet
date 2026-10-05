@@ -21,17 +21,17 @@ type OldQuiz = { label: string, sources: readonly string[], widgetings?: readonl
 /** A hunt labelled `label`, one realm `home` holding `quizzes`, written raw; the ids of its quizzes, by label */
 async function oldHunt(tt: Tester, label: string, quizzes: readonly OldQuiz[]): Promise<Record<string, Id<'quizzes'>>> {
   return await tt.run(async (ctx) => {
-    const hunt_id = await ctx.db.insert('hunts', { label, forced_label: null, title: '' })
+    const hunt_id = await ctx.db.insert('hunts', { label, title: '' })
     const realm_id = await ctx.db.insert('realms', { hunt_id, label: 'home', title: '', position: 0 })
     const ids: Record<string, Id<'quizzes'>> = {}
     for (const quiz of quizzes) {
-      const quiz_id = await ctx.db.insert('quizzes', Quiz.blankRow(realm_id, '', quiz.label))
+      const quiz_id = await ctx.db.insert('quizzes', Quiz.blankRow({ hunt_id, realm_id }, '', quiz.label))
       for (const [position, source] of quiz.sources.entries()) {
-        await ctx.db.insert('columns', { quiz_id, label: `col_${String(position)}`, title: '', source, width_px: 80, position })
+        await ctx.db.insert('columns', { hunt_id, quiz_id, label: `col_${String(position)}`, title: '', source, width_px: 80, position })
       }
       const widgetings = quiz.widgetings ?? []
       for (const [position, widget_label] of widgetings.entries()) {
-        await ctx.db.insert('widgetings', { quiz_id, widget_label, label: widget_label, description: '', params: {}, position })
+        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label, label: widget_label, description: '', params: {}, position })
       }
       ids[quiz.label] = quiz_id
     }
@@ -120,16 +120,12 @@ describe("seeding.seedWidgets", () => {
     expect(await layoutOf(tt, present(worked))).to.deep.eq({ widgetings: ['dumdum'], sources })
   })
 
-  it("says each quiz it gave widgetings, across hunts, as hunt/realm/quiz by the labels in force", async () => {
+  it("says each quiz it gave widgetings, across hunts, as hunt/realm/quiz by their labels", async () => {
     const tt = openTester()
     await oldHunt(tt, 'quiet_otter', [{ label: 'princes', sources: ['clueing_full'] }, { label: 'lean', sources: ['question.title'] }])
     await oldHunt(tt, 'loud_heron', [{ label: 'kings', sources: ['question.butnot_ishes'] }])
-    await tt.run(async (ctx) => {
-      const heron = present(await ctx.db.query('hunts').withIndex('by_label', (cvx) => cvx.eq('label', 'loud_heron')).first())
-      await ctx.db.patch('hunts', heron._id, { forced_label: 'heron_hunt' })
-    })
     const { quizzes } = await seedWidgets(tt)
-    expect(quizzes).to.deep.eq(['quiet_otter/home/princes', 'heron_hunt/home/kings'])
+    expect(quizzes).to.deep.eq(['quiet_otter/home/princes', 'loud_heron/home/kings'])
   })
 
   it("is harmless to run again: the second run adds nothing, changes nothing, and says so", async () => {

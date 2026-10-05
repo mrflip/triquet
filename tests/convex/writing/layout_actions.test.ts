@@ -9,6 +9,7 @@ import type { WidgetedRecordingDNA } from '../../../src/models/widgeted'
 import { present } from '../../support/present'
 import { huntHolding, openOf, openTester, refusedAs, seedHunt, type Seeded, type Seen } from '../../support/convex'
 import { classicHunt } from '../../support/layouts'
+import { expectSound } from '../../support/soundness'
 
 /** A fresh hunt with its quiz laid out as every new quiz was before they started lean */
 function standard(locked = false): HuntT {
@@ -94,9 +95,10 @@ describe("add_widgeting", () => {
   })
 
   it("can work one widget twice, under two labels", async () => {
-    const { act, read } = await withWidgeting()
+    const { tt, act, read } = await withWidgeting()
     await act({ kind: 'add_widgeting', widgeting: { ...Backward, label: 'backward_again' } })
     expect(quizOf(await read()).widgetings.slice(-2).map((widgeting) => [widgeting.widget_label, widgeting.label])).to.deep.eq([['answer_reversed', 'backward'], ['answer_reversed', 'backward_again']])
+    await expectSound(tt)
   })
 
   it("refuses a label a sibling has, and a widget the library does not hold, leaving the hunt as it was", async () => {
@@ -169,11 +171,12 @@ describe("edit_widgeting", () => {
 
 describe("delete_widgeting", () => {
   it("removes the widgeting, and the columns that showed it, and no others", async () => {
-    const { act, read } = await seed()
+    const { tt, act, read } = await seed()
     await act({ kind: 'delete_widgeting', label: 'hint_full' })
     const after = await read()
     expect(widgetingsOf(after)).to.deep.eq(StandardWidgetings.filter((label) => label !== 'hint_full'))
     expect(columnsOf(after)).to.deep.eq(StandardColumns.filter((label) => label !== 'hint_full'))
+    await expectSound(tt)
   })
 
   it("takes what it stored with it, and leaves what its siblings stored", async () => {
@@ -182,6 +185,7 @@ describe("delete_widgeting", () => {
     await seeded.act({ kind: 'delete_widgeting', label: 'dumdum' })
     expect(await widgetedCounts(seeded)).to.deep.eq({ numnum_clueing: 1 })
     expect(columnsOf(await seeded.read())).to.not.include('guess')
+    await expectSound(seeded.tt)
   })
 
   it("leaves the widget it worked in the library", async () => {
@@ -243,9 +247,10 @@ describe("add_column", () => {
   const column = { label: 'notes_again', title: 'Notes again', source: 'question.notes', width_px: 200 }
 
   it("adds a column to the end", async () => {
-    const { act, read } = await seed()
+    const { tt, act, read } = await seed()
     await act({ kind: 'add_column', column })
     expect(columnsOf(await read())).to.deep.eq([...StandardColumns, 'notes_again'])
+    await expectSound(tt)
   })
 
   it("adds it at an index when given one, the rest keeping their order", async () => {

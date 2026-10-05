@@ -106,15 +106,23 @@ Everything under `convex/` is tested in `tests/convex/`, path for path, under `c
 Vitest's `convex` project (the edge runtime). `tests/support/convex.ts` has `openTester()` (a
 fresh, empty deployment in this process: no test sees another's rows), `huntHolding`,
 `seedHunt(tt, hunt, { openIdx, smith })` (the hunt written with one smith on it; `open`, `act`
-through `hunts.perform` as that smith unless given another browser, `join(label, role)` to put
+through `hunts.perform` as that smith unless given another session, `join(label, role)` to put
 another ident on it, and `read`, the hunt as its rows make it up), `openOf(seen)`, `wholeHunt`
-(read past authorization), `putOn` and `identified(tt, label)` (a fresh browser key that has
-taken on an ident, on no hunt: a stranger). Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex
+(read past authorization), `putOn`, and the sessions a test calls as: `identified(tt, label)` (the
+session holding the username `label`, signed in fresh unless one already holds it in `tt`, on no
+hunt: a stranger; `as` is its tester, `actor` what the server sees), `signedIn(tt)` (a session that
+has asserted no username), and the bare `tt` (no session at all); `callerOf` takes any of them.
+Reach past the functions with `tt.run(async (ctx) => ...)`, which must hand back a Convex
 value (no `Map`). Ids in an action must be ids: a malformed one is refused at Convex's door, so a
 test of "an id of no question here" uses a real question of another hunt. `_creationTime` never
 ties under convex-test, so no test pauses between writes. Action tests seed a hunt tree as a
 fixture, act, and compare trees; row ids are never asserted on, except where the key itself is
-under test.
+under test. A test of a write that deletes or relinks rows ends with `expectSound(tt)`
+(`tests/support/soundness.ts`): it reads every table back and fails on anything that no longer
+holds together (an id naming no row, a quiz's `row_ordering` that is not its questions, a dangling
+chain or column source, two siblings under one label, a copy of a parent's field that is missing
+or no longer its parent's). Each check is a named entry in
+`SoundnessChecks`; a new kind of integrity is a new entry there.
 
 The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to the functions is
 React's and Convex's client's, and the e2e suite drives them. Anything pure inside one (`placeIn`
@@ -176,7 +184,7 @@ means the build mode only: the keys, settings and backend are the suite's own, a
 afresh every run and refuses to start while anything holds its port, so an earlier build is never
 tested in its place. CI runs the suite against the build too, on the `e2e` role's port, backend
 and build directory, with `TRIQUET_E2E_SERVER=built` choosing the server: the mode travels apart
-from the role. A spec must pass under both servers. Each spec's fresh browser context is a fresh browser key, with a fresh ident and a
+from the role. A spec must pass under both servers. Each spec's fresh browser context is a fresh anonymous session, with a fresh ident and a
 fresh hunt, of which that ident is the smith. Specs share one database, and a hunt is shown only
 to those on it, so find rows and pages by your own labels and titles, never by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
 a smith puts them on the hunt through the members panel (`addMember`) before they can open it.

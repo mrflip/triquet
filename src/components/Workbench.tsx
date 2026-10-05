@@ -68,11 +68,11 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
   const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
 
   /** Where the quiz of this realm labelled `label` is worked on */
-  const pathFor = (label: string) => Routes.quizPath({ hunt: Labelmaker.effectiveLabelOf(hunt), realm: realm.label, quiz: label }, 'smith')
+  const pathFor = (label: string) => Routes.quizPath({ hunt: hunt.label, realm: realm.label, quiz: label }, 'smith')
 
   /** Go to `target`: with the address deciding what is on screen, that is what opening a quiz is */
   const goTo = (target: Labelmaker.Labelled) => {
-    router.push(pathFor(Labelmaker.effectiveLabelOf(target)))
+    router.push(pathFor(target.label))
   }
 
   /** The widgeting labelled `label` and its widget, when it is asked from the cell */
@@ -145,7 +145,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
             // Followed once it has landed, and not at all when it was refused (the label taken):
             // until then no hunt answers to the new address.
             const relabel = async () => {
-              if (await carryOut({ kind: 'relabel_hunt', label })) { router.replace(Routes.quizPath({ hunt: label, realm: realm.label, quiz: Labelmaker.effectiveLabelOf(quiz) }, 'smith')) }
+              if (await carryOut({ kind: 'relabel_hunt', label })) { router.replace(Routes.quizPath({ hunt: label, realm: realm.label, quiz: quiz.label }, 'smith')) }
             }
             void relabel()
           }}
@@ -156,7 +156,7 @@ export function Workbench({ hunt, realm, quiz, library, ident, reviews, dispatch
             const left = realm.quizzes.filter((each) => each._id !== quiz._id)
             const neighbour = left[Math.min(idx, left.length - 1)]
             dispatch({ kind: 'delete_quiz', quiz_id: quiz._id })
-            if (neighbour) { router.replace(pathFor(Labelmaker.effectiveLabelOf(neighbour))) }
+            if (neighbour) { router.replace(pathFor(neighbour.label)) }
           }}
           onDeleteHunt={() => {
             void carryOut({ kind: 'delete_hunt' }).then((kept) => { if (kept) { router.replace(Routes.huntsPath()) } })

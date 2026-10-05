@@ -1,28 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import { huntForLabel, identForLabel, realmsOf } from '../../convex/reading'
+import { RefusalNotices } from '../../src/lib/notices'
+import { failurekindOf, noticeOf } from '../../src/lib/refusals'
 import { Hunt } from '../../src/models/hunt'
 import { HomeRealmLabel } from '../../src/models/realm'
-import { BlankQuestionQty } from '../../src/models/quiz'
+import { BlankQuestionQty, Quiz } from '../../src/models/quiz'
 import { mintId } from '../../src/lib/ids'
 import * as PA from '../../src/lib/vv/patterns'
 import { present } from '../support/present'
-import { identified, openTester, refusedAs, seedHunt, wholeHunt, type Tester } from '../support/convex'
+import { callerOf, huntHolding, identified, openTester, putOn, refusedAs, seedHunt, signedIn, wholeHunt, type Session, type Tester } from '../support/convex'
+import { expectSound } from '../support/soundness'
 
-/** Take on the ident labelled `label` as the browser `browser_key`, through the public function */
-async function assume(tt: Tester, browser_key: string, label: string, title = '') {
-  return await tt.mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title }, browser_key })
+/** Assert the username `label` as the session `by` (the bare tester for no session), through the public function */
+async function assume(by: Session | Tester, label: string, title = '') {
+  return await callerOf(by).mutation(api.idents.performAccount, { action: { kind: 'assume_ident', label, title } })
 }
 
-/** Retitle the ident the browser `browser_key` is now, through the public function */
-async function retitle(tt: Tester, browser_key: string, title: string) {
-  return await tt.mutation(api.idents.performAccount, { action: { kind: 'retitle_ident', title }, browser_key })
+/** Retitle the ident the session `by` is now, through the public function */
+async function retitle(by: Session | Tester, title: string) {
+  return await callerOf(by).mutation(api.idents.performAccount, { action: { kind: 'retitle_ident', title } })
 }
 
-/** Make a hunt labelled `label` through the public function, as the browser `browser_key`, or as a fresh ident's browser */
-async function makeHunt(tt: Tester, label: string, browser_key?: string) {
-  const maker = browser_key === undefined ? await identified(tt, `maker_${mintId().slice(-8)}`) : { browser_key }
-  return await tt.mutation(api.idents.performAccount, { action: { kind: 'new_hunt', label }, browser_key: maker.browser_key })
+/** Make a hunt labelled `label` through the public function, as the session `by`, or as a fresh ident's session */
+async function makeHunt(tt: Tester, label: string, by?: Session | Tester) {
+  const maker = by ?? await identified(tt, `maker_${mintId().slice(-8)}`)
+  return await callerOf(maker).mutation(api.idents.performAccount, { action: { kind: 'new_hunt', label } })
 }
 
 /** Every row of a table, for the tests that count them */
@@ -30,93 +33,160 @@ async function allOf<TN extends 'idents' | 'identings' | 'hunts' | 'huntings'>(t
   return await tt.run(async (ctx) => await ctx.db.query(tablename).collect())
 }
 
+/** What `pending` rejected with; fails the test when it went through */
+async function rejectionOf(pending: Promise<unknown>): Promise<unknown> {
+  try {
+    await pending
+  } catch (err) {
+    return err
+  }
+  throw new Error('expected a refusal, and the call went through')
+}
+
+/** The ident answering to `label`, which must be there */
+async function identLabelled(tt: Tester, label: string) {
+  return present(await tt.run(async (ctx) => await identForLabel(ctx.db, label)), `the ident ${label}`)
+}
+
 describe('idents.performAccount: assume_ident', () => {
-  it('makes an ident nobody goes by yet, titled as asked, and records this browser taking it on', async () => {
+  it('makes an ident nobody goes by yet, titled as asked and held by this session, and records the session taking it on', async () => {
     const tt = openTester()
-    const browser_key = mintId()
-    const ident_id = await assume(tt, browser_key, 'flip_kromer', 'Flip')
-    const ident = present(await tt.run(async (ctx) => await identForLabel(ctx.db, 'flip_kromer')))
+    const session = await signedIn(tt)
+    const ident_id = await assume(session, 'flip_kromer', 'Flip')
+    const ident = await identLabelled(tt, 'flip_kromer')
     const identings = await allOf(tt, 'identings')
-    expect([ident._id, ident.title]).to.deep.eq([ident_id, 'Flip'])
-    expect(identings.map((row) => [row.browser_key, row.ident_id])).to.deep.eq([[browser_key, ident_id]])
+    expect([ident._id, ident.title, ident.user_id]).to.deep.eq([ident_id, 'Flip', session.user_id])
+    expect(identings.map((row) => [row.user_id, row.ident_id])).to.deep.eq([[session.user_id, ident_id]])
   })
 
   it('titles a new ident after its label when no title is given', async () => {
     const tt = openTester()
-    await assume(tt, mintId(), 'quiet_otter', '  ')
-    const ident = present(await tt.run(async (ctx) => await identForLabel(ctx.db, 'quiet_otter')))
+    await assume(await signedIn(tt), 'quiet_otter', '  ')
+    const ident = await identLabelled(tt, 'quiet_otter')
     expect(ident.title).to.eq('Quiet Otter')
   })
 
-  it('becomes the ident someone else already made, rather than making a second', async () => {
+  it('takes on again an ident this session holds, rather than making a second', async () => {
     const tt = openTester()
-    const first = await assume(tt, mintId(), 'shared_ident', 'First')
-    const again = await assume(tt, mintId(), 'shared_ident', 'Second')
+    const session = await signedIn(tt)
+    const first = await assume(session, 'flip_kromer', 'Flip')
+    const again = await assume(session, 'flip_kromer', 'Ignored')
+    const [idents, identings] = [await allOf(tt, 'idents'), await allOf(tt, 'identings')]
+    expect([again, idents.map((row) => row.title), identings.length]).to.deep.eq([first, ['Flip'], 2])
+  })
+
+  it('claims an ident nobody holds yet, made before usernames were held, whether its holder is null or missing', async () => {
+    const tt = openTester()
+    await tt.run(async (ctx) => {
+      await ctx.db.insert('idents', { label: 'old_timer', title: 'Old Timer', user_id: null })
+      await ctx.db.insert('idents', { label: 'older_timer', title: 'Older Timer' })
+    })
+    const session = await signedIn(tt)
+    await assume(session, 'old_timer')
+    await assume(session, 'older_timer')
     const idents = await allOf(tt, 'idents')
-    expect([again, idents.map((row) => row.title)]).to.deep.eq([first, ['First']])
+    expect(idents.map((row) => row.user_id)).to.deep.eq([session.user_id, session.user_id])
+  })
+
+  it('refuses a username another session holds, saying what to do instead, and writes nothing', async () => {
+    const tt = openTester()
+    const [mine, theirs] = [await signedIn(tt), await signedIn(tt)]
+    await assume(mine, 'flip_kromer', 'Flip')
+    const ante = await identLabelled(tt, 'flip_kromer')
+    const err = await rejectionOf(assume(theirs, 'flip_kromer', 'Not Flip'))
+    expect([failurekindOf(err), noticeOf(err)]).to.deep.eq(['usernameClaimed', RefusalNotices.usernameClaimed])
+    expect(noticeOf(err)).to.match(/different one.*create an account on the device/)
+    expect(await identLabelled(tt, 'flip_kromer')).to.deep.eq(ante)
+    const identings = await allOf(tt, 'identings')
+    expect(identings.map((row) => row.user_id)).to.deep.eq([mine.user_id])
+  })
+
+  it('leaves one holder when a second session asserts a new username the first just took', async () => {
+    const tt = openTester()
+    const [mine, theirs] = [await signedIn(tt), await signedIn(tt)]
+    const pending = [assume(mine, 'fresh_name'), assume(theirs, 'fresh_name')]
+    const outcomes = await Promise.allSettled(pending)
+    expect(outcomes.map((outcome) => outcome.status)).to.have.members(['fulfilled', 'rejected'])
+    const idents = await allOf(tt, 'idents')
+    expect(idents.map((row) => row.label)).to.deep.eq(['fresh_name'])
+  })
+
+  it('lets one session hold two usernames, the newer being who it is now', async () => {
+    const tt = openTester()
+    const session = await signedIn(tt)
+    await assume(session, 'flip_kromer')
+    await assume(session, 'quiet_otter')
+    const idents = await allOf(tt, 'idents')
+    expect(idents.map((row) => row.user_id)).to.deep.eq([session.user_id, session.user_id])
+    expect(await session.as.query(api.idents.current, {})).to.deep.include({ label: 'quiet_otter' })
   })
 
   it('refuses a label too short to be an ident\'s, writing nothing', async () => {
     const tt = openTester()
-    await expect(assume(tt, mintId(), 'flip', 'Flip')).rejects.toThrow(/should have «6» or more/)
+    await expect(assume(await signedIn(tt), 'flip', 'Flip')).rejects.toThrow(/should have «6» or more/)
     expect(await allOf(tt, 'identings')).to.deep.eq([])
   })
 
-  it('refuses a browser key that is not one', async () => {
+  it('refuses a request with no session, writing nothing', async () => {
     const tt = openTester()
-    await expect(assume(tt, 'my_laptop', 'flip_kromer')).rejects.toThrow(/uuid|UUID/)
-    expect(await allOf(tt, 'identings')).to.deep.eq([])
+    expect(await refusedAs(assume(tt, 'flip_kromer'))).to.eq('notSignedIn')
+    expect([await allOf(tt, 'idents'), await allOf(tt, 'identings')]).to.deep.eq([[], []])
+  })
+
+  it('refuses a session Convex Auth no longer holds, as for no session at all', async () => {
+    const tt = openTester()
+    const session = await signedIn(tt)
+    await tt.run(async (ctx) => {
+      const [held] = await ctx.db.query('authSessions').collect()
+      await ctx.db.delete('authSessions', present(held)._id)
+    })
+    expect(await refusedAs(assume(session, 'flip_kromer'))).to.eq('notSignedIn')
   })
 })
 
 describe('idents.current', () => {
-  it('is the ident the browser took on last', async () => {
+  it('is the ident the session asserted last, and never says which session holds it', async () => {
     const tt = openTester()
-    const browser_key = mintId()
-    await assume(tt, browser_key, 'flip_kromer', 'Flip')
-    await assume(tt, browser_key, 'quiet_otter', 'Otter')
-    expect(await tt.query(api.idents.current, { browser_key })).to.deep.include({ label: 'quiet_otter', title: 'Otter' })
+    const session = await signedIn(tt)
+    await assume(session, 'flip_kromer', 'Flip')
+    await assume(session, 'quiet_otter', 'Otter')
+    const current = present(await session.as.query(api.idents.current, {}))
+    expect(current).to.deep.include({ label: 'quiet_otter', title: 'Otter' })
+    expect(current).to.not.have.any.keys('user_id')
   })
 
-  it('is null for a browser that has never said who it is', async () => {
+  it('is null for a session that has asserted no username, and for a request with no session', async () => {
     const tt = openTester()
-    await assume(tt, mintId(), 'flip_kromer')
-    expect(await tt.query(api.idents.current, { browser_key: mintId() })).to.be.null
-  })
-
-  it('finds an ident this browser never made, since the server holds every one', async () => {
-    const tt = openTester()
-    await assume(tt, mintId(), 'flip_kromer', 'Flip on a laptop')
-    const phone = mintId()
-    await assume(tt, phone, 'flip_kromer', 'Flip on a phone')
-    expect(await tt.query(api.idents.current, { browser_key: phone })).to.deep.include({ title: 'Flip on a laptop' })
+    await identified(tt, 'flip_kromer')
+    const session = await signedIn(tt)
+    expect([await session.as.query(api.idents.current, {}), await tt.query(api.idents.current, {})]).to.deep.eq([null, null])
   })
 })
 
 describe('idents.performAccount: retitle_ident', () => {
-  it('retitles the ident this browser is, keeping its label', async () => {
+  it('retitles the ident this session is, keeping its label', async () => {
     const tt = openTester()
-    const browser_key = mintId()
-    const ident_id = await assume(tt, browser_key, 'quiet_otter')
-    expect(await retitle(tt, browser_key, 'Otto')).to.eq(ident_id)
+    const otter = await identified(tt, 'quiet_otter')
+    expect(await retitle(otter, 'Otto')).to.eq(otter.ident_id)
     const idents = await allOf(tt, 'idents')
     expect(idents.map((row) => [row.label, row.title])).to.deep.eq([['quiet_otter', 'Otto']])
   })
 
-  it('is seen by every browser that is that ident', async () => {
+  it("rewrites the title every hunting of the ident holds, on every hunt it is on, and no one else's", async () => {
     const tt = openTester()
-    const [mine, theirs] = [mintId(), mintId()]
-    await assume(tt, mine, 'quiet_otter')
-    await assume(tt, theirs, 'quiet_otter')
-    await retitle(tt, theirs, 'Otto')
-    const ident = await tt.query(api.idents.current, { browser_key: mine })
-    expect(ident?.title).to.eq('Otto')
+    const one = await seedHunt(tt, huntHolding([Quiz.blank()]), { smith: 'quiet_otter' })
+    const two = await seedHunt(tt, huntHolding([Quiz.blank()]), { smith: 'loud_heron' })
+    await putOn(tt, two.open.hunt_id, one.smith.ident_id, 'reviewer')
+    await retitle(one.smith, 'Otto')
+    const huntings = await allOf(tt, 'huntings')
+    expect(huntings.map((row) => [row.ident_label, row.ident_title])).to.deep.eq([['quiet_otter', 'Otto'], ['loud_heron', 'Loud Heron'], ['quiet_otter', 'Otto']])
+    await expectSound(tt)
   })
 
-  it('refuses a browser that has not said who it is, writing nothing', async () => {
+  it('refuses a session that has asserted no username, or a request with no session, writing nothing', async () => {
     const tt = openTester()
-    const pending = retitle(tt, mintId(), 'Otto')
-    expect(await refusedAs(pending)).to.eq('notIdentified')
+    const session = await signedIn(tt)
+    expect([await refusedAs(retitle(session, 'Otto')), await refusedAs(retitle(tt, 'Otto'))]).to.deep.eq(['notIdentified', 'notSignedIn'])
     expect(await allOf(tt, 'idents')).to.deep.eq([])
   })
 })
@@ -133,18 +203,19 @@ describe('idents.performAccount: new_hunt', () => {
       .to.deep.eq(['loud_heron', HomeRealmLabel, 'loud_heron', hunt.title, BlankQuestionQty])
   })
 
-  it('puts the ident the browser is now on the hunt it made, as its smith', async () => {
+  it('puts the ident the session is now on the hunt it made, as its smith, its hunting holding its label and title', async () => {
     const tt = openTester()
     const alice = await identified(tt, 'alice_smiths')
-    const hunt_id = await makeHunt(tt, 'loud_heron', alice.browser_key)
+    const hunt_id = await makeHunt(tt, 'loud_heron', alice)
     const huntings = await allOf(tt, 'huntings')
-    expect(huntings.map((row) => [row.hunt_id, row.ident_id, row.role])).to.deep.eq([[hunt_id, alice.ident_id, 'smith']])
+    expect(huntings.map((row) => [row.hunt_id, row.ident_id, row.ident_label, row.ident_title, row.role])).to.deep.eq([[hunt_id, alice.ident_id, 'alice_smiths', 'Alice Smiths', 'smith']])
+    await expectSound(tt)
   })
 
-  it('refuses a browser that has not said who it is, writing nothing', async () => {
+  it('refuses a session that has asserted no username, or a request with no session, writing nothing', async () => {
     const tt = openTester()
-    const pending = makeHunt(tt, 'loud_heron', mintId())
-    expect(await refusedAs(pending)).to.eq('notIdentified')
+    const session = await signedIn(tt)
+    expect([await refusedAs(makeHunt(tt, 'loud_heron', session)), await refusedAs(makeHunt(tt, 'loud_heron', tt))]).to.deep.eq(['notIdentified', 'notSignedIn'])
     expect([await allOf(tt, 'hunts'), await allOf(tt, 'huntings')]).to.deep.eq([[], []])
   })
 
@@ -160,7 +231,7 @@ describe('idents.performAccount: new_hunt', () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntsInApp.max }, (_unused, idx) => `hunt_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('hunts', { label, forced_label: null, title: '' })
+        await ctx.db.insert('hunts', { label, title: '' })
       }
     })
     expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
@@ -182,7 +253,7 @@ async function smithed() {
   const tt = openTester()
   const { open: { hunt_id }, smith, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'alice_smiths' })
   const bob = await join('bob_reviews', 'reviewer')
-  const perform = async (edit: HuntEdit, browser_key = smith.browser_key) => await tt.mutation(api.idents.performAccount, { action: { ...edit, hunt_id }, browser_key })
+  const perform = async (edit: HuntEdit, by: Session | Tester = smith) => await callerOf(by).mutation(api.idents.performAccount, { action: { ...edit, hunt_id } })
   const held = async () => present(await tt.run(async (ctx) => await ctx.db.get('hunts', hunt_id)))
   return { tt, hunt_id, bob, perform, held }
 }
@@ -193,7 +264,7 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     expect(await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })).to.eq(hunt_id)
     expect(await perform({ kind: 'relabel_hunt', label: 'autumn_hunt' })).to.eq(hunt_id)
     const hunt = await held()
-    expect([hunt.title, hunt.forced_label]).to.deep.eq(['The Autumn Hunt', 'autumn_hunt'])
+    expect([hunt.title, hunt.label]).to.deep.eq(['The Autumn Hunt', 'autumn_hunt'])
   })
 
   it('refuses a reviewer on the hunt, and a stranger, writing nothing', async () => {
@@ -201,16 +272,16 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     const carol = await identified(tt, 'carol_strays')
     const ante = await held()
     const refusals = [
-      await refusedAs(perform({ kind: 'retitle_hunt', title: 'Mine now' }, bob.browser_key)),
-      await refusedAs(perform({ kind: 'relabel_hunt', label: 'mine_now' }, carol.browser_key)),
+      await refusedAs(perform({ kind: 'retitle_hunt', title: 'Mine now' }, bob)),
+      await refusedAs(perform({ kind: 'relabel_hunt', label: 'mine_now' }, carol)),
     ]
     expect(refusals).to.deep.eq(['notPermitted', 'notPermitted'])
     expect(await held()).to.deep.eq(ante)
   })
 
-  it('refuses a browser that has not said who it is', async () => {
-    const { perform } = await smithed()
-    const pending = perform({ kind: 'retitle_hunt', title: 'Mine now' }, mintId())
+  it('refuses a session that has asserted no username', async () => {
+    const { tt, perform } = await smithed()
+    const pending = perform({ kind: 'retitle_hunt', title: 'Mine now' }, await signedIn(tt))
     expect(await refusedAs(pending)).to.eq('notIdentified')
   })
 
@@ -219,6 +290,6 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     await makeHunt(tt, 'taken_label')
     expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
     const hunt = await held()
-    expect(hunt.forced_label).to.be.null
+    expect(hunt.label).to.eq('quiet_otter')
   })
 })

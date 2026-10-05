@@ -19,7 +19,7 @@ import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
-import { useBrowserKey } from './browser-key'
+import { useSession } from './use-session'
 import { mirrorQuiz, trackWrite } from './quiz-mirror'
 import { useQuiz } from './use-quiz'
 
@@ -76,7 +76,7 @@ export type Placing =
 
 /**
  * Where the realm and quiz `labels` name sit in `hunt`: placed, missing, or not known until the
- * hunt arrives. A quiz answers to the label in force for it; should two, the earlier made.
+ * hunt arrives. A quiz answers to its label; should two, the earlier made.
  *
  * The quiz last found at this address is still placed when it answers to another label now
  * (relabelled, here or by someone else), with the label it answers to, so the address can follow
@@ -98,7 +98,7 @@ export function placeIn(hunt: ShallowHuntT | null | undefined, labels: Pick<Quiz
   const quizRow = Labelmaker.entityForLabel(realm.quizzes, labels.quiz)
   if (quizRow) { return { finding: 'placed', realm, quizRow, movedTo: null } }
   const moved = realm.quizzes.find((row) => row._id === shown)
-  return moved ? { finding: 'placed', realm, quizRow: moved, movedTo: Labelmaker.effectiveLabelOf(moved) } : { finding: 'missing', ...none }
+  return moved ? { finding: 'placed', realm, quizRow: moved, movedTo: moved.label } : { finding: 'missing', ...none }
 }
 
 /**
@@ -151,13 +151,13 @@ type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: ()
  * The quiz is its frame and a watch per question it orders, followed as the order changes, with
  * the library its widgetings work; a reading with a question still on its way is not noted.
  */
-function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id: Id<'quizzes'> | null): void {
+function useHistoryFeed(hunt_label: string, ready: boolean, quiz_id: Id<'quizzes'> | null): void {
   const convex = useConvex()
   useEffect(() => {
-    if (quiz_id === null || browser_key === null) { return }
-    const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label, browser_key })
-    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id, browser_key })
-    const libraryWatch = convex.watchQuery(api.widgets.library, { browser_key })
+    if (quiz_id === null || ! ready) { return }
+    const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
+    const frameWatch = convex.watchQuery(api.quizzes.open, { quiz_id })
+    const libraryWatch = convex.watchQuery(api.widgets.library, {})
     const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
     const last: { snapshot: MirrorSnapshot | null } = { snapshot: null }
     const note = () => {
@@ -186,7 +186,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
       }
       for (const question_id of ordered) {
         if (questionWatches.has(question_id)) { continue }
-        const watch = convex.watchQuery(api.questions.open, { question_id, browser_key })
+        const watch = convex.watchQuery(api.questions.open, { question_id })
         questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
       }
     }
@@ -197,7 +197,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
       for (const stop of stops) { stop() }
       for (const watch of questionWatches.values()) { watch.stop() }
     }
-  }, [convex, hunt_label, browser_key, quiz_id])
+  }, [convex, hunt_label, ready, quiz_id])
 }
 
 /**
@@ -216,7 +216,7 @@ function useHistoryFeed(hunt_label: string, browser_key: string | null, quiz_id:
  * @returns The hunt, realm and quiz, a dispatcher, and why anything went wrong.
  */
 export function useHunt(labels: QuizLabels): HuntHandle {
-  const browser_key = useBrowserKey()
+  const { ready } = useSession()
   const perform = useMutation(api.hunts.perform)
   const raise = useRaiseAlarm()
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
@@ -224,7 +224,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   // A label that cannot be one names no hunt, and is not asked about.
   const askable = ValidatorKit.label.safeParse(labels.hunt).success
-  const opening = useQuery(api.hunts.open, askable && browser_key !== null ? { hunt_label: labels.hunt, browser_key } : 'skip')
+  const opening = useQuery(api.hunts.open, askable && ready ? { hunt_label: labels.hunt } : 'skip')
   const hunt = opening?.hunt ?? null
   // The quiz last found at this address, so a relabel does not lose it: see `placeIn`.
   const address = `${labels.hunt}/${labels.realm}/${labels.quiz}`
@@ -232,9 +232,9 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const placing = placeIn(askable && opening === undefined ? undefined : hunt, labels, shown?.address === address ? shown.quiz_id : null)
   const quiz_id = placing.quizRow?._id ?? null
   const quizSeen = useQuiz(quiz_id)
-  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null || browser_key === null ? 'skip' : { quiz_id, browser_key })
-  const library = useQuery(api.widgets.library, browser_key === null ? 'skip' : { browser_key })
-  useHistoryFeed(labels.hunt, browser_key, askable ? quiz_id : null)
+  const reviewsSeen = useQuery(api.reviews.forQuiz, quiz_id === null || ! ready ? 'skip' : { quiz_id })
+  const library = useQuery(api.widgets.library, ready ? {} : 'skip')
+  useHistoryFeed(labels.hunt, ready, askable ? quiz_id : null)
 
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
@@ -251,14 +251,14 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   // Kept in a layout effect: every layout effect in the tree runs before any passive one, so a
   // screen that dispatches as it mounts (the review, opening itself) finds the quiz it is on.
   const open: OpenQuizT | null = hunt && found.realm && placing.quizRow ? { hunt_id: hunt._id, realm_id: found.realm._id, quiz_id: placing.quizRow._id } : null
-  const latest = useRef({ open, browser_key, labels, role: hunt?.role ?? null })
-  useLayoutEffect(() => { latest.current = { open, browser_key, labels, role: hunt?.role ?? null } })
+  const latest = useRef({ open, labels, role: hunt?.role ?? null })
+  useLayoutEffect(() => { latest.current = { open, labels, role: hunt?.role ?? null } })
   const convex = useConvex()
 
   const carryOut = useCallback(async (action: HuntActionDNA, { quietly = false }: CarryOutOptions = {}): Promise<boolean> => {
-    const { open: there, browser_key: key, labels: place, role: acting } = latest.current
-    if (there === null || key === null) {
-      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role: acting, identified: key !== null })
+    const { open: there, labels: place, role } = latest.current
+    if (there === null) {
+      console.warn('Triquet: a change was not sent — the quiz is not open here yet', { action, ...place, role })
       setSaveNotice(AppNotices.changeNotSent)
       if (! quietly) { raise({ headline: AppNotices.changeNotKept, notice: AppNotices.changeNotSent, request_id: null }) }
       return false
@@ -269,12 +269,12 @@ export function useHunt(labels: QuizLabels): HuntHandle {
       try {
         // The client sends one browser's changes in the order they were made, and the server
         // carries each out against the rows as they then stand.
-        await perform({ open: there, action, browser_key: key })
+        await perform({ open: there, action })
         setSaveNotice(null)
         return true
       } catch (err) {
         const { isWebSocketConnected, connectionRetries, inflightMutations } = convex.connectionState()
-        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, role: acting, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
+        Postmortem.report(`keep a change (${action.kind})`, err, { action, ...place, role, connection: { isWebSocketConnected, connectionRetries, inflightMutations } })
         setSaveNotice(noticeOf(err))
         if (! quietly) { raise(Alarms.of(AppNotices.changeNotKept, err)) }
         return false

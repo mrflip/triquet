@@ -1,6 +1,5 @@
 import type { Id } from '../../convex/_generated/dataModel'
 import { insertAbsentWidgets, insertLayout, type QuizPlace, type Writer } from '../../convex/writing/quiz_writing'
-import * as Labelmaker from '../../src/lib/labelmaker'
 import { HuntValidators, type HuntT } from '../../src/models/hunt'
 import { QuestionValidators } from '../../src/models/question'
 import { QuizValidators, type QuizT } from '../../src/models/quiz'
@@ -23,22 +22,21 @@ import { SeedWidgets } from '../../src/models/seeds'
  * @example await seedQuizRows(ctx.db, { hunt_id, realm_id }, Quiz.blank('Princes'))
  */
 export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace, quiz: QuizT): Promise<Id<'quizzes'>> {
-  const { title, label, forced_label, smiths_note, version, locked, last_sortkey } = quiz
-  const quiz_id = await db.insert('quizzes', QuizValidators.row({ realm_id, title, label, forced_label, smiths_note, version, locked, last_sortkey, row_ordering: [] }))
-  const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
+  const { title, label, smiths_note, version, locked, last_sortkey } = quiz
+  const quiz_id = await db.insert('quizzes', QuizValidators.row({ hunt_id, realm_id, title, label, smiths_note, version, locked, last_sortkey, row_ordering: [] }))
+  const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
-    const { label: questionLabel, forced_label: questionForced, title: questionTitle, qnum, clueing, hint, full_answer, alt_text, notes } = question
+    const { label: questionLabel, title: questionTitle, qnum, clueing, hint, full_answer, alt_text, notes } = question
     const row = QuestionValidators.row({
       hunt_id,
       quiz_id,
-      label:        questionLabel,
-      forced_label: questionForced,
-      title:        questionTitle,
+      label:     questionLabel,
+      title:     questionTitle,
       qnum,
       clueing,
       hint,
-      chains_to:    question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
+      chains_to: question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
       full_answer,
       alt_text,
       notes,
@@ -46,7 +44,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
     row_ordering.push(await db.insert('questions', row))
   }
   await db.patch('quizzes', quiz_id, { row_ordering })
-  await insertLayout(db, quiz_id, quiz)
+  await insertLayout(db, { hunt_id, quiz_id }, quiz)
   return quiz_id
 }
 
@@ -60,7 +58,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
  * @example await seedHuntRows(ctx.db, Hunt.blank('quiet_otter'))
  */
 export async function seedHuntRows(db: Writer, hunt: HuntT): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, forced_label: hunt.forced_label, title: hunt.title }))
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, title: hunt.title }))
   await insertAbsentWidgets(db, SeedWidgets)
   for (const [position, realm] of hunt.realms.entries()) {
     const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title }))

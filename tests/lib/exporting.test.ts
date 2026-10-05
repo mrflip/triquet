@@ -20,11 +20,11 @@ const SpottedItems = { items: [{ text: '300', value: 300, kind: 'numeral' }, { t
 
 /**
  * A quiz working the default widgetings, whose first question, `leon`, chains to its second,
- * `nantes`, held under a forced label. Leon's clueing was read by the number spotter, and its
+ * `nantes`. Leon's clueing was read by the number spotter, and its
  * quick guess failed.
  */
 function chainedQuiz(): QuizT {
-  const nantes = { ...Question.blank(), label: 'nantes_gen', forced_label: 'nantes', title: 'Nantes' }
+  const nantes = { ...Question.blank(), label: 'nantes', title: 'Nantes' }
   const stored: QuestionT['stored'] = {
     numnum_clueing: { newest: storedOk(SpottedItems), ok: storedOk(SpottedItems) },
     dumdum:         { newest: storedErrored('Overloaded'), ok: null },
@@ -72,7 +72,8 @@ describe('quizExported', () => {
     const exported = exportedOf(quiz)
     expect(exported).to.deep.include({ title: 'Princes', label: 'princes', version: 'draft_two', locked: true })
     expect(exported.widgetings).to.deep.eq(quiz.widgetings)
-    expect(present(exported.questions[1])).to.deep.include({ label: 'nantes_gen', forced_label: 'nantes', title: 'Nantes' })
+    expect(present(exported.questions[1])).to.deep.include({ label: 'nantes', title: 'Nantes' })
+    expect([exported, present(exported.questions[1])].map((each) => Object.hasOwn(each, 'forced_label'))).to.deep.eq([false, false])
   })
 
   it("puts what each widgeting came to beside the question's own fields, the worked-out ones included", () => {
@@ -145,9 +146,9 @@ describe('huntExported', () => {
     const hunt = Hunt.blank('deep_lake')
     const exported = Exporting.huntExported(hunt, SeedWidgets)
     expect(idPaths(exported)).to.deep.eq([])
-    expect(exported).to.deep.include({ label: 'deep_lake', forced_label: null, title: 'Deep Lake' })
+    expect(exported).to.deep.include({ label: 'deep_lake', title: 'Deep Lake' })
     expect(exported.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.label)])).to.deep.eq([['home', ['deep_lake']]])
-    expect(_.sortBy(Object.keys(exported))).to.deep.eq(['forced_label', 'label', 'realms', 'title'])
+    expect(_.sortBy(Object.keys(exported))).to.deep.eq(['label', 'realms', 'title'])
   })
 
   it("reads the doc block's example", () => {

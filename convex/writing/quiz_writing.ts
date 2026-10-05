@@ -3,7 +3,6 @@ import type * as Z from 'zod'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import * as Labelmaker from '../../src/lib/labelmaker'
-import type { QuizRows } from '../../src/lib/rows'
 import type { OpenQuizT } from '../../src/models/actions'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
@@ -17,13 +16,19 @@ import { refuse } from '../../src/lib/refusals'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
-import { libraryOf, reviewsOf } from '../reading'
+import { huntIdOf, huntIdOfLayoutRow, libraryOf, reviewingCopiesOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
 
 /** Where a quiz belongs: its hunt, and the realm of it that holds the quiz */
 export type QuizPlace = Pick<OpenQuizT, 'hunt_id' | 'realm_id'>
+
+/** Where a quiz's widgetings and columns belong: the quiz, and its hunt */
+export type LayoutPlace = Pick<OpenQuizT, 'hunt_id' | 'quiz_id'>
+
+/** The question a stored cell is in, as far as its rows copy it: its id, its quiz and its hunt */
+export type CellQuestion = Pick<Doc<'questions'>, '_id' | 'hunt_id' | 'quiz_id'>
 
 /** The fields of a document the database owns */
 const SystemFields = ['_id', '_creationTime'] as const
@@ -50,7 +55,9 @@ export function movedTo<RT extends { label: string }>(items: readonly RT[], labe
 }
 
 // Each update below is held to its row validator whole, as the row would stand afterwards, and
-// then writes only the fields that change; one that changes nothing writes nothing.
+// then writes only the fields that change; one that changes nothing writes nothing. A row written
+// before it carried its copies of its parents' fields (`notes/convex.md`, *Denormalized fields*)
+// is given them as it is updated, read from its parent, until `migrations.ts` has backfilled it.
 
 /** Revise a hunt's own row */
 export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<Z.output<typeof HuntValidators.row>>): Promise<void> {
@@ -60,7 +67,8 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
 
 /** Revise a quiz's own row */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const hunt_id = await huntIdOf(db, held) ?? refuse('realmGone')
+  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 
@@ -86,13 +94,15 @@ export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: Widg
 
 /** Revise a widgeting's row */
 export async function updateWidgeting(db: Writer, held: Doc<'widgetings'>, patch: Partial<Z.output<typeof WidgetingValidators.row>>): Promise<void> {
-  const changed = changedFields(held, WidgetingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const hunt_id = await huntIdOfLayoutRow(db, held) ?? refuse('quizGone')
+  const changed = changedFields(held, WidgetingValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('widgetings', held._id, changed) }
 }
 
 /** Revise a column's row */
 export async function updateColumn(db: Writer, held: Doc<'columns'>, patch: Partial<Z.output<typeof ColumnValidators.row>>): Promise<void> {
-  const changed = changedFields(held, ColumnValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const hunt_id = await huntIdOfLayoutRow(db, held) ?? refuse('quizGone')
+  const changed = changedFields(held, ColumnValidators.row({ ..._.omit(held, SystemFields), hunt_id, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('columns', held._id, changed) }
 }
 
@@ -104,14 +114,16 @@ export async function updateReview(db: Writer, held: Doc<'reviews'>, patch: Part
 
 /** Revise a reviewing's row */
 export async function updateReviewing(db: Writer, held: Doc<'reviewings'>, patch: Partial<Z.output<typeof ReviewingValidators.row>>): Promise<void> {
-  const changed = changedFields(held, ReviewingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const copies = await reviewingCopiesOf(db, held) ?? refuse('reviewNotOpened')
+  const changed = changedFields(held, ReviewingValidators.row({ ..._.omit(held, SystemFields), ...copies, ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('reviewings', held._id, changed) }
 }
 
-/** Record what one widgeting came to for one question, as the newest row in its cell */
-export async function insertWidgeted(db: Writer, question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>, widgeted: WidgetedRecordT): Promise<void> {
+/** Record what one widgeting came to for `question`, as the newest row in its cell */
+export async function insertWidgeted(db: Writer, question: CellQuestion, widgeting_id: Id<'widgetings'>, widgeted: WidgetedRecordT): Promise<void> {
   const { status, value, message, result_meta } = widgeted
-  await db.insert('widgeteds', WidgetedValidators.row({ question_id, widgeting_id, status, value, message, result_meta }))
+  const { _id: question_id, hunt_id, quiz_id } = question
+  await db.insert('widgeteds', WidgetedValidators.row({ hunt_id, quiz_id, question_id, widgeting_id, status, value, message, result_meta }))
 }
 
 /**
@@ -120,12 +132,13 @@ export async function insertWidgeted(db: Writer, question_id: Id<'questions'>, w
  * read. Should a cell somehow hold two rows, the newest is revised, as the newest is what it shows.
  *
  * @param db - The mutation's database.
- * @param question_id - The question the cell is in.
+ * @param question - The question the cell is in.
  * @param widgeting_id - The entry widgeting whose cell it is.
  * @param value - What was typed, already held to the widget's entry kind; null for nothing.
  * @throws A Zod error when the row it comes to is not valid; nothing is written.
  */
-export async function upsertWidgeted(db: Writer, question_id: Id<'questions'>, widgeting_id: Id<'widgetings'>, value: EntryValueT | null): Promise<void> {
+export async function upsertWidgeted(db: Writer, question: CellQuestion, widgeting_id: Id<'widgetings'>, value: EntryValueT | null): Promise<void> {
+  const { _id: question_id, hunt_id, quiz_id } = question
   const held = await db.query('widgeteds')
     .withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', question_id).eq('widgeting_id', widgeting_id))
     .order('desc')
@@ -134,7 +147,7 @@ export async function upsertWidgeted(db: Writer, question_id: Id<'questions'>, w
     if (held) { await db.delete('widgeteds', held._id) }
     return
   }
-  const row = WidgetedValidators.row({ question_id, widgeting_id, status: 'ok', value, message: null, result_meta: {} })
+  const row = WidgetedValidators.row({ hunt_id, quiz_id, question_id, widgeting_id, status: 'ok', value, message: null, result_meta: {} })
   if (held) {
     await db.replace('widgeteds', held._id, row)
   } else {
@@ -181,16 +194,16 @@ export async function insertAbsentWidgets(db: Writer, widgets: readonly WidgetT[
  * Insert a quiz's widgetings and columns, in the order given.
  *
  * @param db - The mutation's database.
- * @param quiz_id - The quiz they belong to.
+ * @param place - The quiz they belong to, and its hunt.
  * @param layout - Its widgetings and columns.
  * @throws When a row is not valid; the mutation writes nothing.
  */
-export async function insertLayout(db: Writer, quiz_id: Id<'quizzes'>, layout: Layout): Promise<void> {
+export async function insertLayout(db: Writer, { hunt_id, quiz_id }: LayoutPlace, layout: Layout): Promise<void> {
   for (const [position, widgeting] of layout.widgetings.entries()) {
-    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, quiz_id, position }))
+    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id, quiz_id, position }))
   }
   for (const [position, column] of layout.columns.entries()) {
-    await db.insert('columns', ColumnValidators.row({ quiz_id, position, ...column }))
+    await db.insert('columns', ColumnValidators.row({ hunt_id, quiz_id, position, ...column }))
   }
 }
 
@@ -209,30 +222,34 @@ export async function insertLayout(db: Writer, quiz_id: Id<'quizzes'>, layout: L
  * @example await insertQuiz(ctx.db, { hunt_id, realm_id }, '', 'quiet_otter')
  */
 export async function insertQuiz(db: Writer, place: QuizPlace, title: string, label: string | undefined): Promise<Id<'quizzes'>> {
-  const quiz_id = await db.insert('quizzes', Quiz.blankRow(place.realm_id, title, label))
+  const quiz_id = await db.insert('quizzes', Quiz.blankRow(place, title, label))
   const row_ordering: Id<'questions'>[] = []
   for (let ii = 0; ii < BlankQuestionQty; ii += 1) {
     row_ordering.push(await db.insert('questions', Question.blankRow({ hunt_id: place.hunt_id, quiz_id })))
   }
   await db.patch('quizzes', quiz_id, { row_ordering })
-  await insertLayout(db, quiz_id, defaultLayout())
+  await insertLayout(db, { hunt_id: place.hunt_id, quiz_id }, defaultLayout())
   return quiz_id
 }
 
 /**
- * Delete a quiz and everything that hangs from it: its questions with what their widgetings
- * stored and their reviewings, its widgetings and columns, and its reviews.
+ * Delete a quiz and everything that hangs from it: every question naming it, whether or not the
+ * quiz lists it, with what their widgetings stored and their reviewings; its widgetings with what
+ * they stored; its columns; and its reviews. Each is found through its quiz's index.
  *
  * @param db - The mutation's database.
- * @param held - The quiz's rows.
+ * @param quiz_id - Which quiz.
  */
-export async function deleteQuiz(db: Writer, held: QuizRows): Promise<void> {
-  for (const question of held.questions) { await deleteQuestion(db, question._id) }
-  for (const widgeting of held.widgetings) { await db.delete('widgetings', widgeting._id) }
-  for (const column of held.columns) { await db.delete('columns', column._id) }
-  const reviews = await reviewsOf(db, held.quiz._id)
-  for (const review of reviews) { await db.delete('reviews', review._id) }
-  await db.delete('quizzes', held.quiz._id)
+export async function deleteQuiz(db: Writer, quiz_id: Id<'quizzes'>): Promise<void> {
+  const questions = db.query('questions').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const question of questions) { await deleteQuestion(db, question._id) }
+  const widgetings = db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const widgeting of widgetings) { await deleteWidgeting(db, widgeting._id) }
+  const columns = db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const column of columns) { await db.delete('columns', column._id) }
+  const reviews = db.query('reviews').withIndex('by_quiz_id', (cvx) => cvx.eq('quiz_id', quiz_id))
+  for await (const review of reviews) { await db.delete('reviews', review._id) }
+  await db.delete('quizzes', quiz_id)
 }
 
 /**
@@ -247,7 +264,7 @@ export async function deleteQuiz(db: Writer, held: QuizRows): Promise<void> {
  * @example await insertHunt(ctx.db, 'quiet_otter')
  */
 export async function insertHunt(db: Writer, label: string): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, forced_label: null, title: Labelmaker.titleize(label) }))
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label, title: Labelmaker.titleize(label) }))
   const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position: 0, label: HomeRealmLabel, title: Labelmaker.titleize(HomeRealmLabel) }))
   await insertQuiz(db, { hunt_id, realm_id }, '', label)
   return hunt_id

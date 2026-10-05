@@ -91,7 +91,7 @@ describe('sortkeyOf and columnLabelOf', () => {
 })
 
 describe('ColumnValidators.row', () => {
-  const Row = { quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 }
+  const Row = { hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 }
 
   it('takes a column as the database holds it', () => {
     expect(ColumnValidators.row(Row)).to.deep.eq(Row)
@@ -99,6 +99,7 @@ describe('ColumnValidators.row', () => {
 
   const Refused: [object, string][] = [
     [{ quiz_id: 'clueing' },         'a quiz that is not a row id'],
+    [{ hunt_id: undefined },         'no hunt'],
     [{ width_px: 29 },               'a width narrower than any column may be'],
     [{ source: 'question' },         'the questions\' own widget, which has no value'],
     [{ position: -1 },               'a place before the first'],

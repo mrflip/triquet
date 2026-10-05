@@ -4,25 +4,25 @@ import type { ShallowHuntT } from '../../src/lib/rows'
 import { placeIn } from '../../src/state/use-hunt'
 
 /** A quiz's row as a realm lists it */
-function quizRow(tail: string, label: string, forced_label: string | null = null): Doc<'quizzes'> {
+function quizRow(tail: string, label: string): Doc<'quizzes'> {
   return {
     _id: `j97d0qbj35dar1v8edndzckvsx8f8${tail}` as Id<'quizzes'>, _creationTime: 1, realm_id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>,
-    title: '', label, forced_label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [],
+    title: '', label, smiths_note: '', version: 'main', locked: false, last_sortkey: null, row_ordering: [],
   }
 }
 
 const Hunt: ShallowHuntT = {
-  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', forced_label: null, title: 'Quiet Otter', members: [], role: 'smith',
+  _id: 'j97d0qbj35dar1v8edndzckvsx8f8h01' as Id<'hunts'>, label: 'quiet_otter', title: 'Quiet Otter', members: [], role: 'smith',
   realms: [{
     _id: 'j97d0qbj35dar1v8edndzckvsx8f8r01' as Id<'realms'>, label: 'home', title: 'Home',
-    quizzes:    [quizRow('q01', 'quiet_otter'), quizRow('q02', 'princes', 'kings'), quizRow('q03', 'quiet_otter')],
+    quizzes:    [quizRow('q01', 'quiet_otter'), quizRow('q02', 'kings'), quizRow('q03', 'quiet_otter')],
   }],
 }
 
 describe('placeIn', () => {
   it('places the quiz the labels name in its realm', () => {
     const placing = placeIn(Hunt, { realm: 'home', quiz: 'kings' }, null)
-    expect([placing.finding, placing.realm?.label, placing.quizRow?.label, placing.movedTo]).to.deep.eq(['placed', 'home', 'princes', null])
+    expect([placing.finding, placing.realm?.label, placing.quizRow?.label, placing.movedTo]).to.deep.eq(['placed', 'home', 'kings', null])
   })
 
   it('takes the earlier made, should two quizzes answer to one label', () => {
@@ -30,7 +30,6 @@ describe('placeIn', () => {
   })
 
   const Missing: [Parameters<typeof placeIn>[1], string][] = [
-    [{ realm: 'home', quiz: 'princes' }, 'by a label an override has replaced'],
     [{ realm: 'home', quiz: 'nobody' },  'by a label no quiz answers to'],
     [{ realm: 'away', quiz: 'kings' },   'in a realm the hunt does not have'],
   ]

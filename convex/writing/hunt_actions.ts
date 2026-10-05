@@ -1,6 +1,6 @@
 import type { Id } from '../_generated/dataModel'
 import { refuse } from '../../src/lib/refusals'
-import { huntForLabel, huntingsOf, quizRowsOf, realmsOf } from '../reading'
+import { huntForLabel, huntingsOf, realmsOf } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
 
 /**
@@ -21,9 +21,9 @@ export async function retitleHunt(db: Writer, hunt_id: Id<'hunts'>, title: strin
 }
 
 /**
- * Give `hunt_id` the label `label`, which every address of its quizzes names it by. The label it
- * was minted with is kept underneath, so relabelling back to it clears the override. Refused when
- * some other hunt already answers to the label, and for a hunt that is gone.
+ * Give `hunt_id` the label `label`, which every address of its quizzes names it by; the label it
+ * had answers to nothing afterwards. Refused when some other hunt already answers to the label,
+ * and for a hunt that is gone.
  *
  * @param db - The mutation's database.
  * @param hunt_id - Which hunt.
@@ -35,7 +35,9 @@ export async function relabelHunt(db: Writer, hunt_id: Id<'hunts'>, label: strin
   const [held, taken] = await Promise.all([db.get('hunts', hunt_id), huntForLabel(db, label)])
   if (! held) { refuse('huntGone') }
   if (taken && taken._id !== hunt_id) { refuse('labelTaken') }
-  await updateHunt(db, held, { forced_label: label === held.label ? null : label })
+  await updateHunt(db, held, { label })
+  // A retiring override still on the row would win back over this label when it is folded in.
+  if (held.forced_label !== undefined) { await db.patch('hunts', held._id, { forced_label: undefined }) }
 }
 
 /**
@@ -54,10 +56,7 @@ export async function deleteHunt(db: Writer, hunt_id: Id<'hunts'>): Promise<void
   const [realms, huntings] = await Promise.all([realmsOf(db, hunt_id), huntingsOf(db, hunt_id)])
   if (realms.flatMap(({ quizzes }) => quizzes).length > 1) { refuse('huntNotEmptied') }
   for (const { realm, quizzes } of realms) {
-    for (const quiz of quizzes) {
-      const rows = await quizRowsOf(db, quiz._id)
-      if (rows) { await deleteQuiz(db, rows) }
-    }
+    for (const quiz of quizzes) { await deleteQuiz(db, quiz._id) }
     await db.delete('realms', realm._id)
   }
   for (const hunting of huntings) { await db.delete('huntings', hunting._id) }

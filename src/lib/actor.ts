@@ -1,0 +1,128 @@
+import type { Id } from '../../convex/_generated/dataModel'
+import type { HuntRole } from '../models/hunting'
+
+/** Who a request is from, before they have asserted a username, signed in or not */
+export type AnonymousActorT = { kind: 'anonymous' }
+
+/** Who a request is from, once their session has asserted a username: the session's user, and the ident it took on last */
+export type IdentActorT = {
+  kind:        'ident'
+  user_id:     Id<'users'>
+  ident_id:    Id<'idents'>
+  ident_label: string
+}
+
+/**
+ * Who a request is from, built once per request on the server and handed to every function as
+ * `ctx.actor`: a tagged value, so that "nobody has said who they are" is a state with a name
+ * rather than a null that might compare equal to another.
+ */
+export type ActorT = AnonymousActorT | IdentActorT
+
+/** The actor of a request that has asserted no username: there is only one */
+export const anonymous: AnonymousActorT = Object.freeze({ kind: 'anonymous' })
+
+/**
+ * The actor of a session that has asserted a username: the ident it took on last.
+ *
+ * @param user_id - The session's user.
+ * @param ident - The ident it took on last.
+ *
+ * @example Actor.asIdent(user_id, { _id: ident_id, label: 'flip_kromer' })  // => { kind: 'ident', user_id, ident_id, ident_label: 'flip_kromer' }
+ */
+export function asIdent(user_id: Id<'users'>, ident: { _id: Id<'idents'>, label: string }): IdentActorT {
+  return { kind: 'ident', user_id, ident_id: ident._id, ident_label: ident.label }
+}
+
+/**
+ * Whether `actor` has asserted no username: a request with no session, or one whose session has
+ * not yet taken on an ident.
+ *
+ * @example if (Actor.isAnonymous(ctx.actor)) { return null }
+ */
+export function isAnonymous(actor: ActorT): actor is AnonymousActorT {
+  return actor.kind === 'anonymous'
+}
+
+/** An actor's place on one hunt: a smith or reviewer there, by its hunting, or a stranger to it */
+export const HuntStandingVals = ['smith', 'reviewer', 'stranger'] as const
+export type HuntStanding = typeof HuntStandingVals[number]
+
+/**
+ * What the server has verified of an actor on one hunt, and what a policy decides from: who they
+ * are, which hunt, and their standing there. An actor who has asserted no username is a stranger
+ * to every hunt.
+ */
+export type HuntClaimsT = ActorT & { hunt_id: Id<'hunts'>, standing: HuntStanding }
+
+/** Claims on a hunt held by one of its members: their standing is their role */
+export type MemberClaimsT = HuntClaimsT & { standing: HuntRole }
+
+/** An ident named by an action: by its id, or by the label it chose */
+export type IdentRefT = { ident_id: Id<'idents'> } | { ident_label: string }
+
+/**
+ * The claims of `actor` on `hunt_id`, from its hunting there.
+ *
+ * @param actor - Who is asking.
+ * @param hunt_id - Which hunt.
+ * @param hunting - The actor's hunting on it; null when it has none, as for an actor who has asserted no username.
+ *
+ * @example Actor.claimsOn(actor, hunt_id, { role: 'reviewer' })  // => { ...actor, hunt_id, standing: 'reviewer' }
+ * @example Actor.claimsOn(Actor.anonymous, hunt_id, null)        // => { kind: 'anonymous', hunt_id, standing: 'stranger' }
+ */
+export function claimsOn(actor: ActorT, hunt_id: Id<'hunts'>, hunting: { role: HuntRole } | null): HuntClaimsT {
+  return { ...actor, hunt_id, standing: hunting?.role ?? 'stranger' }
+}
+
+/**
+ * Whether `claims` are a smith's of their hunt.
+ *
+ * @example if (Actor.isSmith(claims)) { return Allow }
+ */
+export function isSmith(claims: HuntClaimsT): boolean {
+  return claims.standing === 'smith'
+}
+
+/**
+ * Whether `claims` are a reviewer's of their hunt.
+ *
+ * @example if (Actor.isReviewer(claims)) { ... }
+ */
+export function isReviewer(claims: HuntClaimsT): boolean {
+  return claims.standing === 'reviewer'
+}
+
+/**
+ * Whether `claims` are a member's of their hunt, in either role.
+ *
+ * @example if (Actor.isMember(claims)) { return Allow }
+ */
+export function isMember(claims: HuntClaimsT): claims is MemberClaimsT {
+  return claims.standing !== 'stranger'
+}
+
+/**
+ * The role a member holds on their hunt.
+ *
+ * @throws For a stranger to the hunt, who holds none: a caller asks only once a policy has let a member through.
+ *
+ * @example Actor.roleOf(claims)  // => 'reviewer'
+ */
+export function roleOf(claims: HuntClaimsT): HuntRole {
+  if (! isMember(claims)) { throw new Error('A stranger to a hunt holds no role on it') }
+  return claims.standing
+}
+
+/**
+ * Whether `target` names the ident `actor` is, by id or by label. Nobody is an actor who has
+ * asserted no username.
+ *
+ * @example Actor.isOneself(actor, { ident_label: actor.ident_label })  // => true
+ * @example Actor.isOneself(actor, { ident_id: someone_else_id })        // => false
+ */
+export function isOneself(actor: ActorT, target: IdentRefT): boolean {
+  if (isAnonymous(actor))   { return false }
+  if ('ident_id' in target) { return target.ident_id === actor.ident_id }
+  return target.ident_label === actor.ident_label
+}

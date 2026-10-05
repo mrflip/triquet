@@ -63,6 +63,10 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
   const storedFields = { status, value, message, result_meta }
 
   const row = obj({
+    hunt_id:      zid('hunts')
+      .describe('The hunt its question belongs to, copied from the question when the row is written.'),
+    quiz_id:      zid('quizzes')
+      .describe('The quiz its question belongs to, copied from the question when the row is written.'),
     question_id:  zid('questions')
       .describe('The question it is for.'),
     widgeting_id: zid('widgetings')

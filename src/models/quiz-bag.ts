@@ -14,7 +14,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
   const bagQuestion = exposedQuestion
     .extend({
       label:         label
-        .describe('The question\'s label, the one in force: what `chains_to` in another question refers to.'),
+        .describe('The question\'s label: what `chains_to` in another question refers to.'),
       chains_to:     label.nullable()
         .describe('The label of the question this one chains to, or null. Look it up with `qns[label = $$.qn.chains_to]`.'),
       [RankField]:   uint.min(1).nullable()
@@ -27,7 +27,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
   const bagQuiz = QuizValidators.row.pick(maskOf(Quiz.exposed))
     .extend({
       label: label
-        .describe('The quiz\'s label, the one in force: the last part of its address.'),
+        .describe('The quiz\'s label: the last part of its address.'),
       title: titleish
         .describe('What the author calls the quiz.'),
     })
@@ -36,7 +36,7 @@ export const QuizBagValidators = Validator(({ obj, arr, num, str, bool, uint, la
   const bagHunt = HuntValidators.row.pick(maskOf(Hunt.exposed))
     .extend({
       label: label
-        .describe('The hunt\'s label, the one in force: the first part of the quiz\'s address.'),
+        .describe('The hunt\'s label: the first part of the quiz\'s address.'),
       title: titleish
         .describe('What the hunt is called on screen; never blank, since a hunt with no title of its own shows its label titleized.'),
     })

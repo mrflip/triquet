@@ -68,9 +68,11 @@ describe('WidgetedValidators.widgeted', () => {
 
 const QuestionId = 'k57a2tq9b3d1a1z6e0w6m9c4hd7r9x2s'
 const WidgetingId = 'k97bcq0xz8wb4j3v5r2nqg1y6d7r9x2s'
+const QuizId = 'k17bcq0xz8wb4j3v5r2nqg1y6d7r9x2s'
+const HuntId = 'k27bcq0xz8wb4j3v5r2nqg1y6d7r9x2s'
 
 describe('WidgetedValidators.row', () => {
-  const Ok = { question_id: QuestionId, widgeting_id: WidgetingId, status: 'ok' as const, value: { items: [] }, message: null, result_meta: { approx_tokens: 12 } }
+  const Ok = { hunt_id: HuntId, quiz_id: QuizId, question_id: QuestionId, widgeting_id: WidgetingId, status: 'ok' as const, value: { items: [] }, message: null, result_meta: { approx_tokens: 12 } }
   const Errored = { ...Ok, status: 'errored' as const, value: null, message: 'The model would not say.', result_meta: { response: 'nope' } }
 
   it("takes an ok row and an errored row as the database holds them", () => {
@@ -97,6 +99,8 @@ describe('WidgetedValidators.row', () => {
     [{ ...Ok, result_meta: { response: 'x'.repeat(40_000) } }, 'a result_meta whose JSON runs past 40,000 characters'],
     // ids:
     [{ ...Ok, widgeting_id: 'dumdum' },                       'a widgeting named by label rather than id'],
+    [{ ...Ok, quiz_id: undefined },                           'no quiz'],
+    [{ ...Ok, hunt_id: undefined },                           'no hunt'],
   ]
   for (const [row, describes] of Refused) {
     it(`refuses ${describes}`, () => {

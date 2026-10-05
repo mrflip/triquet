@@ -2,6 +2,37 @@
 It does not represent authoritative decisions: it is a conversational scratchpad. Agents should not use this as input, but are encouraged to write to it.
 Agents: add at the top of the document, add a level two header;  Put the date before your title, following the examples seen here:
 
+## 2026-10-04: A lint rule against the policy guardrails (dbpolicy thread 2, PR #81)
+
+* **`unicorn/prefer-combined-guards` contradicts `notes/policy_approve.md`.** The rule wants two
+  guards in a row that return the same value merged with `||`; the note asks for one guard per
+  line, each beside its rule, and no compound booleans. Thread 2 disables the rule, with a reason,
+  for all of `src/lib/approve.ts`, around `Review.isActiveOwner`'s guards, and on one line of
+  `affirmPerform`. Threads 5 and 6 will write more guard lists. Your call: switch it off for
+  policy code in `eslint.config.mjs`, or keep disabling it where it bites.
+* **A smith asking for the role they already hold is now refused** (`ownHunting`), where it used
+  to be a silent no-op: the "not oneself" check is policy now and runs before the membership is
+  read. Say if you would rather the no-op came back.
+
+## 2026-10-04: Sessions replace the browser key (dbpolicy thread 1, PR #79)
+
+* **Before it deploys**, production (and the defaults for preview deployments) needs Convex Auth's
+  `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL`, a key pair minted for it alone; then clear
+  `identings` by hand, merge, and run `migrations:backfillIdentClaims`. The steps are in
+  `notes/deploy.md`, *Sessions*. Without the keys nobody can sign in, so nobody can get past the
+  username box.
+* **A username now belongs to the browser that claimed it.** Existing idents are unclaimed, and
+  the first browser to type one takes it: that is how people get theirs back, and how someone else
+  could get there first. A browser that clears its site data loses its username until there is a
+  sign-in. Another browser typing a held username is told to choose another, or to create an
+  account on the device it was claimed from (which cannot be done yet).
+* **Session lifetime is a choice I made**: ten years, or a year unvisited (`convex/auth.ts`).
+  Convex Auth's default ends every session after thirty days, which would strand everyone's
+  username monthly. Say if you want something else.
+* **`CLAUDE.md`** still lists "the browser key" among `src/state/`'s contents; it should say "the
+  session (`use-session`)". Left for you, since agents don't edit it on an agent's word.
+* **Thread 10** should also tighten `idents.user_id`, which the plan's list leaves out.
+
 ## 2026-10-04: Production stuck behind `bulk_ishes_last`; a widen and a tighten to free it
 
 * **Why main won't deploy.** Since #73, every production build is refused at the schema push:
@@ -32,6 +63,17 @@ Agents: add at the top of the document, add a level two header;  Put the date be
   `notes/views.md` says when a view asks its container and when the window.
 * **Possibly flaky:** `expressions.spec.ts` › *the prompt for a chatbot is copied…* failed once
   in a full e2e run, then passed 3 of 3 on its own.
+## 2026-10-03: Association census, authorization review, integrity plan, sprint draft
+
+Four documents in `whiteboard/20261003-dbpolicy/` (start with its `README.md`), uncommitted
+because the checkout stands on your `20261001-quiz_review` branch. The short of it: the defence
+against an edited client is real (one mutation, server-side rules, Zod at the door), with four
+gaps worth closing in order: reviewers receive every field including `full_answer` and bot
+guesses (hidden only by `AnswerLock`); any smith of any hunt may edit the shared library; the
+action's `open` context is client-asserted and verified by three reads where one denormalized
+`quizzes.hunt_id` would do; `/api/ask` checks no identity. Quiz label uniqueness within a realm is
+checked only in the browser. The README lists eight questions for you and the assumptions I made.
+
 ## 2026-10-01: Sprint rewidgeting done -- eight threads, eight PRs open, a hand deploy
 
 * **The sprint.** Bots and expressions are one family on the data layer: a global library of

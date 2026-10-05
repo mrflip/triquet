@@ -64,7 +64,7 @@ describe("planWidgetingEdit, editing a widgeting", () => {
     })
   })
 
-  for (const label of ['question', 'title', 'rank', 'butnot', 'forced_label']) {
+  for (const label of ['question', 'title', 'rank', 'butnot']) {
     it(`refuses ${label}, which a question already answers to, beside the label`, () => {
       const plan = planWidgetingEdit(untouched({ label }), library, quiz)
       expect(plan.ok).to.be.false

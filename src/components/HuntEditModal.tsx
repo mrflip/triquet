@@ -25,7 +25,7 @@ export type HuntEditModalProps = {
  * the server refuses one (a label another hunt answers to).
  */
 export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
-  const huntLabel = Labelmaker.effectiveLabelOf(hunt)
+  const huntLabel = hunt.label
   const { act, busy, notice } = useAccountActions()
   const [titleDraft, setTitleDraft] = useState(hunt.title)
   const [labelDraft, setLabelDraft] = useState(huntLabel)

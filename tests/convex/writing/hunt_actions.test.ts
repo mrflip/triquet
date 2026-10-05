@@ -5,6 +5,7 @@ import { classicLayout } from '../../support/layouts'
 import { Question } from '../../../src/models/question'
 import { Quiz } from '../../../src/models/quiz'
 import { present } from '../../support/present'
+import { expectSound } from '../../support/soundness'
 import { expectRefusal, huntHolding, openOf, openTester, seedHunt, type Tester } from '../../support/convex'
 
 /** A hunt of two quizzes, the first holding two questions, laid out with the default widgetings and columns */
@@ -43,13 +44,13 @@ describe("hunts.perform: retitle_hunt", () => {
     const ante = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
     await act({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
     const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
-    expect([hunt.title, hunt.label, hunt.forced_label]).to.deep.eq(['The Autumn Hunt', ante.label, ante.forced_label])
+    expect([hunt.title, hunt.label]).to.deep.eq(['The Autumn Hunt', ante.label])
   })
 
   it("refuses a reviewer, as not theirs to change", async () => {
     const { act, join } = await seedHunt(openTester(), huntOfTwo())
     const reviewer = await join('bob_reviews', 'reviewer')
-    await expectRefusal(act({ kind: 'retitle_hunt', title: 'The Autumn Hunt' }, reviewer.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'retitle_hunt', title: 'The Autumn Hunt' }, reviewer), 'notPermitted')
   })
 })
 
@@ -61,13 +62,19 @@ describe("hunts.perform: relabel_hunt", () => {
     expect([await answersTo(tt, 'autumn_hunt'), await answersTo(tt, minted)]).to.deep.eq([open.hunt_id, null])
   })
 
-  it("clears the override when relabelled back to the label it was minted with", async () => {
+  it("can be relabelled back to the label it was made with", async () => {
     const { tt, act, open } = await seedHunt(openTester(), huntOfTwo())
     const minted = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id))).label
     await act({ kind: 'relabel_hunt', label: 'autumn_hunt' })
     await act({ kind: 'relabel_hunt', label: minted })
-    const hunt = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
-    expect([hunt.forced_label, await answersTo(tt, minted)]).to.deep.eq([null, open.hunt_id])
+    expect([await answersTo(tt, minted), await answersTo(tt, 'autumn_hunt')]).to.deep.eq([open.hunt_id, null])
+  })
+
+  it("takes the label the hunt already has, changing nothing", async () => {
+    const { tt, act, open } = await seedHunt(openTester(), huntOfTwo())
+    const ante = present(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id)))
+    await act({ kind: 'relabel_hunt', label: ante.label })
+    expect(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id))).to.deep.eq(ante)
   })
 
   it("refuses a label another hunt answers to, writing nothing", async () => {
@@ -82,7 +89,7 @@ describe("hunts.perform: relabel_hunt", () => {
   it("refuses a reviewer, as not theirs to change", async () => {
     const { act, join } = await seedHunt(openTester(), huntOfTwo())
     const reviewer = await join('bob_reviews', 'reviewer')
-    await expectRefusal(act({ kind: 'relabel_hunt', label: 'autumn_hunt' }, reviewer.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'relabel_hunt', label: 'autumn_hunt' }, reviewer), 'notPermitted')
   })
 
   it("works on a locked quiz, since the hunt is not the quiz", async () => {
@@ -100,8 +107,8 @@ describe("hunts.perform: delete_hunt", () => {
     const doomed = await seedHunt(tt, huntOfOne())
     const question_id = present(openOf(await doomed.read()).questions[0])._id as Id<'questions'>
     const reviewer = await doomed.join('bob_reviews', 'reviewer')
-    await doomed.act({ kind: 'open_review', quiz_id: doomed.open.quiz_id }, reviewer.browser_key)
-    await doomed.act({ kind: 'set_reviewing', quiz_id: doomed.open.quiz_id, question_id, patch: { keep_it: true } }, reviewer.browser_key)
+    await doomed.act({ kind: 'open_review', quiz_id: doomed.open.quiz_id }, reviewer)
+    await doomed.act({ kind: 'set_reviewing', quiz_id: doomed.open.quiz_id, question_id, patch: { keep_it: true } }, reviewer)
     await doomed.act({ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: { guess: 'Hamlet', explanation: '' } } })
     const { widgeteds } = await rowCounts(tt)
     expect(widgeteds).to.eq(1)
@@ -112,6 +119,7 @@ describe("hunts.perform: delete_hunt", () => {
     expect(idents.map((ident) => ident.label)).to.include.members(['seed_smith', 'bob_reviews'])
     const { quizzes } = await spared.read()
     expect(quizzes.map((quiz) => quiz.title)).to.deep.eq(['Quiz one', 'Quiz two'])
+    await expectSound(tt)
   })
 
   it("refuses while the hunt holds another quiz, deleting nothing", async () => {
@@ -125,7 +133,7 @@ describe("hunts.perform: delete_hunt", () => {
   it("refuses a reviewer, deleting nothing", async () => {
     const { tt, act, join, open } = await seedHunt(openTester(), huntOfOne())
     const reviewer = await join('bob_reviews', 'reviewer')
-    await expectRefusal(act({ kind: 'delete_hunt' }, reviewer.browser_key), 'notPermitted')
+    await expectRefusal(act({ kind: 'delete_hunt' }, reviewer), 'notPermitted')
     const realms = await tt.run(async (ctx) => await realmsOf(ctx.db, open.hunt_id))
     expect(realms).to.have.lengthOf(1)
   })

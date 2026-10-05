@@ -7,7 +7,7 @@ import * as Postmortem from '../lib/postmortem'
 import type { ShallowHuntT } from '../lib/rows'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
-import { useBrowserKey } from './browser-key'
+import { useSession } from './use-session'
 
 /** The Export box's hunt: what was read, whether a read is on its way, and how to ask for one */
 export type WholeHuntAsk = {
@@ -41,7 +41,7 @@ type Outcome = Screen & { whole: HuntT | null }
  */
 export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): WholeHuntAsk {
   const convex = useConvex()
-  const browser_key = useBrowserKey()
+  const { ready } = useSession()
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [asking, setAsking] = useState(false)
 
@@ -49,7 +49,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
     const ask = async () => {
       setAsking(true)
       try {
-        const whole = browser_key === null ? null : await convex.query(api.hunts.whole, { hunt_id: hunt._id, browser_key })
+        const whole = ready ? await convex.query(api.hunts.whole, { hunt_id: hunt._id }) : null
         setOutcome({ hunt, openQuiz, whole })
       } catch (err) {
         Postmortem.report('read the whole hunt for the export', err, { hunt_id: hunt._id })
@@ -59,7 +59,7 @@ export function useWholeHunt(hunt: Pick<ShallowHuntT, '_id'>, openQuiz: QuizT): 
       }
     }
     void ask()
-  }, [convex, browser_key, hunt, openQuiz])
+  }, [convex, ready, hunt, openQuiz])
 
   const current = outcome?.hunt === hunt && outcome.openQuiz === openQuiz ? outcome : null
   return { whole: current?.whole ?? null, asking, failed: current !== null && current.whole === null, prepare }

@@ -9,10 +9,10 @@ import type { WidgetT } from './widget'
 
 /**
  * The labels no widgeting may take, because a question already answers to each in the bag, in a
- * column's source or in an export: its exposed fields, its label's override, its rank, the views
+ * column's source or in an export: its exposed fields, its rank, the views
  * of it, and the questions themselves.
  */
-export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, 'forced_label', RankField, ...QuestionViewVals, QuestionWidgetLabel]
+export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, ...QuestionViewVals, QuestionWidgetLabel]
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels)
 
@@ -44,6 +44,8 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
     .describe('The fields of one widgeting being revised. A key absent means "leave whatever is already there". The widget it works is not among them: a widgeting of another widget is another widgeting.')
 
   const row = obj({
+    hunt_id:  zid('hunts')
+      .describe('The hunt its quiz belongs to, copied from the quiz when the widgeting is made.'),
     quiz_id:  zid('quizzes')
       .describe('The quiz it belongs to.'),
     widget_label,

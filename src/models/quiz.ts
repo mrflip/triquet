@@ -26,8 +26,6 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
 
   const quizLabel = label
     .describe('A freeform-editable local identifier, generated once at creation. Meant to become the quiz\'s URL route.')
-  const forced_label = label.nullable()
-    .describe('An author-chosen label overriding the generated one, or null to keep the generated one.')
 
   const version = label
     .describe('Which line of work the quiz is currently on, and the name of the git branch its history is committed to. Shares the `label` shape, which is a strict subset of what git accepts in a ref, so a version an author can type is always a branch git will take.')
@@ -40,7 +38,6 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     title:           titleish.default('')
       .describe('What the author calls this quiz. Shown in the switcher, in the browser tab title, and as the heading; an empty title displays as "Untitled quiz" without ever being rewritten to that on disk.'),
     label:           quizLabel.default(() => Labelmaker.localBlankLabel(new Set(), mintId())),
-    forced_label:    forced_label.default(null),
     smiths_note:     smiths_note.default(''),
     version:         version.default(DefaultVersion),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
@@ -59,11 +56,12 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     .describe('One trivia quiz. Chain integrity and column labels are checked here rather than on the question or the column, because each is only meaningful relative to its siblings.')
 
   const row = obj({
+    hunt_id:         zid('hunts')
+      .describe('The hunt its realm belongs to, copied from the realm when the quiz is made: a quiz never moves between hunts.'),
     realm_id:        zid('realms')
       .describe('The realm this quiz belongs to.'),
     title:           titleish,
     label:           quizLabel,
-    forced_label,
     smiths_note,
     version,
     locked:          bool,
@@ -128,7 +126,6 @@ export class Quiz implements QuizT {
   declare _id:              string
   declare title:           string
   declare label:           string
-  declare forced_label:    string | null
   declare smiths_note:     string
   declare version:         string
   declare questions:       QuestionT[]
@@ -138,7 +135,7 @@ export class Quiz implements QuizT {
   declare last_sortkey:    Sortkey | null
 
   /**
-   * The fields a quiz shows the outside world, alphabetically: its label (the one in force), the
+   * The fields a quiz shows the outside world, alphabetically: its label, the
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
    * are exposed on their own; and not the housekeeping -- version, lock, remembered sort.
    */
@@ -180,19 +177,19 @@ export class Quiz implements QuizT {
   }
 
   /**
-   * A fresh quiz's own row for `realm_id`, holding no questions yet: what `insertQuiz` writes
-   * first, before the questions that need its id.
+   * A fresh quiz's own row in the realm `place` names, holding no questions yet: what `insertQuiz`
+   * writes first, before the questions that need its id.
    *
-   * @param realm_id - The realm it belongs to.
+   * @param place - The realm it belongs to, and that realm's hunt.
    * @param title - What to call it; blank means its label, titleized.
    * @param label - The label it starts under; one is generated when omitted.
    * @returns The row to insert.
    *
-   * @example Quiz.blankRow(realm_id, '', 'princes').title  // => 'Princes'
+   * @example Quiz.blankRow({ hunt_id, realm_id }, '', 'princes').title  // => 'Princes'
    */
-  static blankRow(realm_id: QuizRowT['realm_id'], title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
+  static blankRow({ hunt_id, realm_id }: Pick<QuizRowT, 'hunt_id' | 'realm_id'>, title = '', label: string = Labelmaker.localBlankLabel(new Set(), mintId())): QuizRowT {
     return QuizValidators.row({
-      realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, forced_label: null, smiths_note: '', version: DefaultVersion,
+      hunt_id, realm_id, title: title === '' ? Labelmaker.titleize(label) : title, label, smiths_note: '', version: DefaultVersion,
       locked: false, last_sortkey: null, row_ordering: [],
     })
   }

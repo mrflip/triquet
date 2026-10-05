@@ -45,12 +45,12 @@ export type QuizManageModalProps = {
  * off at the foot, deleting the quiz -- or, when it is the hunt's last, the quiz and its hunt.
  */
 export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dispatch, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
-  const [draft, setDraft] = useState(Labelmaker.effectiveLabelOf(quiz))
+  const [draft, setDraft] = useState(quiz.label)
   const [versionDraft, setVersionDraft] = useState(quiz.version)
   const [issue, setIssue] = useState<string | null>(null)
   const [noted, setNoted] = useState<string | null>(null)
-  const huntLabel = Labelmaker.effectiveLabelOf(hunt)
-  const quizLabel = Labelmaker.effectiveLabelOf(quiz)
+  const huntLabel = hunt.label
+  const quizLabel = quiz.label
   const [huntTitleDraft, setHuntTitleDraft] = useState(hunt.title)
   const [huntTitleIssue, setHuntTitleIssue] = useState<string | null>(null)
   const [huntLabelDraft, setHuntLabelDraft] = useState(huntLabel)
@@ -91,7 +91,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, dis
   const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
-    const taken = realm.quizzes.some((other) => other._id !== quiz._id && Labelmaker.effectiveLabelOf(other) === cleaned)
+    const taken = realm.quizzes.some((other) => other._id !== quiz._id && other.label === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     const version = Labelmaker.normalize(versionDraft)
     if (version === '') { setIssue('Enter a version.'); return }

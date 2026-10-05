@@ -35,7 +35,6 @@ describe('Question.fill', () => {
       qnum:          '',
       clueing:       '',
       hint:          '',
-      forced_label:  null,
       chains_to:     null,
       alt_text:      '',
       notes:         '',
@@ -175,7 +174,7 @@ describe('QuestionValidators, field by field', () => {
 
 describe('QuestionValidators.row', () => {
   const Row = {
-    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', forced_label: null, title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
+    hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
     hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '',
   }
 

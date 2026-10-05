@@ -31,6 +31,7 @@ export const ValidatorKit = {
   union:     Z.union,
   discrim:   Z.discriminatedUnion,
   lit:       Z.literal,
+  unk:       Z.unknown(),
   rec:       Z.record,
   //
   /** Generic string, no constraints beyond being one */

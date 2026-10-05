@@ -19,13 +19,20 @@ describe('Ident.labelFor', () => {
 })
 
 describe('Ident.fill', () => {
+  const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr'
+
   it('titles an ident after its label when it is given no title', () => {
-    expect(Ident.fill({ label: 'flip_kromer', title: '' })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer' })
-    expect(Ident.fill({ label: 'flip_kromer', title: ' '.repeat(3) })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer' })
+    expect(Ident.fill({ label: 'flip_kromer', title: '', user_id })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer', user_id })
+    expect(Ident.fill({ label: 'flip_kromer', title: ' '.repeat(3), user_id })).to.deep.eq({ label: 'flip_kromer', title: 'Flip Kromer', user_id })
   })
 
   it('keeps a title it is given, trimmed', () => {
-    expect(Ident.fill({ label: 'flip_kromer', title: ' Flip ' })).to.deep.eq({ label: 'flip_kromer', title: 'Flip' })
+    expect(Ident.fill({ label: 'flip_kromer', title: ' Flip ', user_id })).to.deep.eq({ label: 'flip_kromer', title: 'Flip', user_id })
+  })
+
+  it('holds the session that claimed it, or nobody', () => {
+    expect(Ident.fill({ label: 'flip_kromer', title: 'Flip', user_id: null }).user_id).to.be.null
+    expect(() => Ident.fill({ label: 'flip_kromer', title: 'Flip' } as never)).to.throw(Z.ZodError)
   })
 
   const Refused = [
@@ -35,7 +42,7 @@ describe('Ident.fill', () => {
   ] as const
   for (const [label, describes] of Refused) {
     it(`refuses ${describes}`, () => {
-      expect(() => Ident.fill({ label, title: 'Flip' })).to.throw(Z.ZodError)
+      expect(() => Ident.fill({ label, title: 'Flip', user_id: null })).to.throw(Z.ZodError)
     })
   }
 })
@@ -48,15 +55,15 @@ describe('IdentValidators.identLabel', () => {
 })
 
 describe('IdentingValidators.row', () => {
-  const browser_key = '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9'
+  const user_id = 'm57a2835q9kp1gefja107b9bfh8fnpvr'
   const ident_id = 'j97d0qbj35dar1v8edndzckvsx8f828f'
 
-  it('names the browser, and the ident it took on by its row id', () => {
-    expect(IdentingValidators.row({ browser_key, ident_id })).to.deep.eq({ browser_key, ident_id })
+  it('names the session, and the ident it took on, each by its row id', () => {
+    expect(IdentingValidators.row({ user_id, ident_id })).to.deep.eq({ user_id, ident_id })
   })
 
-  it('refuses a browser key that is not a UUID, or no browser key at all', () => {
-    expect(() => IdentingValidators.row({ browser_key: 'flip_kromer', ident_id })).to.throw(Z.ZodError)
+  it('refuses a session that is not a row id, or no session at all', () => {
+    expect(() => IdentingValidators.row({ user_id: 'flip_kromer', ident_id })).to.throw(Z.ZodError)
     expect(() => IdentingValidators.row({ ident_id } as never)).to.throw(Z.ZodError)
   })
 })

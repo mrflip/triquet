@@ -3,10 +3,10 @@ import { membersOf } from '../../../convex/reading'
 import { failurekindOf, noticeOf } from '../../../src/lib/refusals'
 import { identUnknownNotice } from '../../../src/lib/notices'
 import * as PA from '../../../src/lib/vv/patterns'
-import { mintId } from '../../../src/lib/ids'
 import { Hunt } from '../../../src/models/hunt'
 import { Quiz } from '../../../src/models/quiz'
-import { expectRefusal, huntHolding, identified, openTester, seedHunt, type Seeded } from '../../support/convex'
+import { expectRefusal, huntHolding, identified, openTester, seedHunt, signedIn, type Seeded } from '../../support/convex'
+import { expectSound } from '../../support/soundness'
 
 /**
  * A fresh hunt with alice on it as its smith, and how to act as her: what every case begins
@@ -15,7 +15,7 @@ import { expectRefusal, huntHolding, identified, openTester, seedHunt, type Seed
 async function smithed(locked = false) {
   const seeded = await seedHunt(openTester(), locked ? huntHolding([{ ...Quiz.blank('Quiz one'), locked }]) : Hunt.blank(), { smith: 'alice_smiths' })
   const alice = seeded.smith
-  const asAlice = async (action: Parameters<Seeded['act']>[0]) => { await seeded.act(action, alice.browser_key) }
+  const asAlice = async (action: Parameters<Seeded['act']>[0]) => { await seeded.act(action, alice) }
   return { ...seeded, alice, asAlice }
 }
 
@@ -41,6 +41,7 @@ describe('hunts.perform: add_hunting', () => {
     await identified(seeded.tt, 'bob_reviews')
     await seeded.asAlice({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' })
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith'], ['bob_reviews', 'reviewer']])
+    await expectSound(seeded.tt)
   })
 
   it('replaces the role of an ident already on the hunt, rather than putting them on twice', async () => {
@@ -70,16 +71,16 @@ describe('hunts.perform: add_hunting', () => {
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
-  it('leaves one\'s own role alone when asked for the role one has', async () => {
+  it('refuses one\'s own place even when asked for the role one has: nobody touches their own hunting', async () => {
     const seeded = await smithed()
-    await seeded.asAlice({ kind: 'add_hunting', ident_label: 'alice_smiths', role: 'smith' })
+    await expectRefusal(seeded.asAlice({ kind: 'add_hunting', ident_label: 'alice_smiths', role: 'smith' }), 'ownHunting')
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
-  it('refuses a browser that has not said who it is', async () => {
+  it('refuses a session that has asserted no username', async () => {
     const seeded = await smithed()
     await identified(seeded.tt, 'bob_reviews')
-    await expectRefusal(seeded.act({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' }, mintId()), 'notIdentified')
+    await expectRefusal(seeded.act({ kind: 'add_hunting', ident_label: 'bob_reviews', role: 'reviewer' }, await signedIn(seeded.tt)), 'notIdentified')
   })
 
   it('works while the open quiz is locked: who is on the hunt is not the quiz\'s', async () => {
@@ -126,8 +127,8 @@ describe('hunts.perform: remove_hunting', () => {
     expect(await membersIn(seeded)).to.deep.eq([['alice_smiths', 'smith']])
   })
 
-  it('refuses a browser that has not said who it is', async () => {
+  it('refuses a session that has asserted no username', async () => {
     const seeded = await smithed()
-    await expectRefusal(seeded.act({ kind: 'remove_hunting', ident_id: seeded.alice.ident_id }, mintId()), 'notIdentified')
+    await expectRefusal(seeded.act({ kind: 'remove_hunting', ident_id: seeded.alice.ident_id }, await signedIn(seeded.tt)), 'notIdentified')
   })
 })

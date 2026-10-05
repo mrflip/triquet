@@ -78,7 +78,7 @@ describe('cellTextOf', () => {
   }
 
   it('writes a field as the question holds it, and the chain as the target\'s label', () => {
-    const target = { ...Question.blank(), forced_label: 'the_film', hint: 'BUT NOT the film' }
+    const target = { ...Question.blank(), label: 'the_film', hint: 'BUT NOT the film' }
     const chained = { ...Question.blank(), clueing: 'Who?', chains_to: target._id }
     expect(Sheets.cellTextOf({ kind: 'field', field: 'clueing' }, { question: chained, target, run })).to.eq('Who?')
     expect(Sheets.cellTextOf({ kind: 'field', field: 'chains_to' }, { question: chained, target, run })).to.eq('the_film')
@@ -149,7 +149,7 @@ describe('sheetsExport', () => {
   })
 
   it('names the chained-to question by label, and carries its hint as the BUT NOT column', () => {
-    const target = { ...Question.blank(), qnum: '2', forced_label: 'the_film', hint: 'BUT NOT the film' }
+    const target = { ...Question.blank(), qnum: '2', label: 'the_film', hint: 'BUT NOT the film' }
     const question = { ...Question.blank(), qnum: '1', hint: 'BUT NOT my own hint', chains_to: target._id }
     const table = exported([question, target])
     expect(cellOf(table, 'chains_to', 0)).to.eq('the_film')

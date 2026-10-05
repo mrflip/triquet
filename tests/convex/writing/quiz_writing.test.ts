@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { libraryOf, quizRowsOf, realmsOf, reviewsOf } from '../../../convex/reading'
 import {
-  changedFields, deleteQuiz, deleteWidgeting, insertAbsentWidgets, insertHunt, insertQuiz, repositioned, updateQuestion, updateQuiz, updateReview, updateWidget,
+  changedFields, deleteQuiz, deleteWidgeting, insertAbsentWidgets, insertHunt, insertQuiz, repositioned, updateColumn, updateQuestion, updateQuiz, updateReview, updateReviewing,
+  updateWidget, updateWidgeting,
 } from '../../../convex/writing/quiz_writing'
 import type { QuizRows } from '../../../src/lib/rows'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
@@ -15,6 +16,7 @@ import { classicLayout } from '../../support/layouts'
 import { present } from '../../support/present'
 import { huntHolding, identified, openTester, wholeHunt, type Tester } from '../../support/convex'
 import { seedHuntRows } from '../../support/seed'
+import { expectSound } from '../../support/soundness'
 
 /** A fresh deployment holding `hunt`, and ways to read back its first quiz */
 async function holding(hunt: HuntT) {
@@ -130,6 +132,29 @@ describe("the update helpers", () => {
     const [after] = await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id))
     expect([after?.overall, after?.phase, after?.ident_id]).to.deep.eq(['Went well.', 'draft', ident_id])
   })
+
+  it("give a row written before it held its copies of its parents' fields those copies, read from its parent", async () => {
+    const { tt, hunt_id, quiz_id, rows } = await holding(huntHolding([{ ...Quiz.blank('Princes'), ...classicLayout(), questions: [Question.blank()] }]))
+    const { ident_id } = await identified(tt, 'alice_reviews')
+    await tt.run(async (ctx) => {
+      const held = present(await quizRowsOf(ctx.db, quiz_id))
+      const [widgeting, column, question] = [present(held.widgetings[0]), present(held.columns[0]), present(held.questions[0])]
+      const review_id = await ctx.db.insert('reviews', { hunt_id, quiz_id, ident_id, overall: '', phase: 'draft' })
+      const reviewing_id = await ctx.db.insert('reviewings', { review_id, question_id: question._id, get_rate: null, guesses: '', comments: '', minutes: null, keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false })
+      await ctx.db.patch('quizzes', quiz_id, { hunt_id: undefined })
+      await ctx.db.patch('widgetings', widgeting._id, { hunt_id: undefined })
+      await ctx.db.patch('columns', column._id, { hunt_id: undefined })
+      await updateQuiz(ctx.db, present(await ctx.db.get('quizzes', quiz_id)), { title: 'Kings' })
+      await updateWidgeting(ctx.db, present(await ctx.db.get('widgetings', widgeting._id)), { description: 'Revised.' })
+      await updateColumn(ctx.db, present(await ctx.db.get('columns', column._id)), { width_px: 120 })
+      await updateReviewing(ctx.db, present(await ctx.db.get('reviewings', reviewing_id)), { get_rate: 40 })
+    })
+    const held = await rows()
+    const [reviewing] = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
+    expect([held.quiz.hunt_id, held.widgetings[0]?.hunt_id, held.columns[0]?.hunt_id]).to.deep.eq([hunt_id, hunt_id, hunt_id])
+    expect([reviewing?.hunt_id, reviewing?.quiz_id, reviewing?.ident_id, reviewing?.get_rate]).to.deep.eq([hunt_id, quiz_id, ident_id, 40])
+    await expectSound(tt)
+  })
 })
 
 describe("insertQuiz", () => {
@@ -175,7 +200,7 @@ describe("insertQuiz", () => {
 describe("deleteQuiz", () => {
   it("deletes the quiz and every row that hangs from it", async () => {
     const quiz = { ...Quiz.blank('', 'princes'), ...classicLayout(), questions: [{ ...Question.blank(), clueing: 'Who?' }] }
-    const { tt, hunt_id, quiz_id, revise } = await holding(huntHolding([quiz]))
+    const { tt, hunt_id, quiz_id } = await holding(huntHolding([quiz, Quiz.blank('', 'kings')]))
     const { ident_id } = await identified(tt, 'alice_reviews')
     await tt.run(async (ctx) => {
       const { questions, widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
@@ -184,9 +209,24 @@ describe("deleteQuiz", () => {
     })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([1, 1, 12, 21, 1, 1])
     const library = await libraryIn(tt)
-    await revise(async (db, rows) => { await deleteQuiz(db, rows) })
+    await tt.run(async (ctx) => { await deleteQuiz(ctx.db, quiz_id) })
     expect(await heldCounts(tt, quiz_id)).to.deep.eq([0, 0, 0, 0, 0, 0])
     expect(await libraryIn(tt)).to.deep.eq(library)
+    await expectSound(tt)
+  })
+
+  it("deletes a question naming the quiz that the quiz does not list, and what was stored for it", async () => {
+    const { tt, hunt_id, quiz_id } = await holding(huntHolding([{ ...Quiz.blank('', 'princes'), ...classicLayout() }, Quiz.blank('', 'kings')]))
+    await tt.run(async (ctx) => {
+      const { widgetings } = present(await quizRowsOf(ctx.db, quiz_id))
+      const stray = await ctx.db.insert('questions', Question.blankRow({ hunt_id, quiz_id }, 'stray'))
+      await ctx.db.insert('widgeteds', { question_id: stray, widgeting_id: present(widgetings[0])._id, status: 'ok', value: { guess: 'Leon', explanation: '' }, message: null, result_meta: {} })
+    })
+    const [quizzes, questions] = await heldCounts(tt, quiz_id)
+    expect([quizzes, questions]).to.deep.eq([1, BlankQuestionQty + 1])
+    await tt.run(async (ctx) => { await deleteQuiz(ctx.db, quiz_id) })
+    expect(await heldCounts(tt, quiz_id)).to.deep.eq([0, 0, 0, 0, 0, 0])
+    await expectSound(tt)
   })
 })
 

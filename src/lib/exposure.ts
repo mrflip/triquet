@@ -1,4 +1,3 @@
-import * as Labelmaker from './labelmaker'
 import * as Runner from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
 import { Question, type QuestionT } from '../models/question'
@@ -60,7 +59,7 @@ export function tableOf(quiz: Pick<QuizT, 'widgetings' | 'questions'>, run: Runn
   const columns = exposedColumnsOf(quiz)
   const questionForId = new Map(quiz.questions.map((question) => [question._id, question]))
   const rows = quiz.questions
-    .toSorted((aa, bb) => byCode(Labelmaker.effectiveLabelOf(aa), Labelmaker.effectiveLabelOf(bb)))
+    .toSorted((aa, bb) => byCode(aa.label, bb.label))
     .map((question) => {
       const target = question.chains_to === null ? null : questionForId.get(question.chains_to) ?? null
       return columns.map((each) => each.textOf({ question, target, run }))
@@ -73,10 +72,10 @@ function column(owner: string, field: string, textOf: ExposedColumn['textOf']): 
   return { owner, field, header: `${owner}.${field}`, textOf }
 }
 
-/** A question's own field as text: its label the one in force, and its chain named by the target's label */
+/** A question's own field as text: its label, and its chain named by the target's label */
 function questionText(field: typeof Question.exposed[number], { question, target }: Readonly<Context>): string {
-  if (field === 'label') { return Labelmaker.effectiveLabelOf(question) }
-  if (field === 'chains_to') { return target ? Labelmaker.effectiveLabelOf(target) : '' }
+  if (field === 'label') { return question.label }
+  if (field === 'chains_to') { return target ? target.label : '' }
   return question[field]
 }
 

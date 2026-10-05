@@ -66,6 +66,8 @@ export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uin
     .describe('The fields of one column being revised. A key absent means "leave whatever is already there".')
 
   const row = obj({
+    hunt_id:  zid('hunts')
+      .describe('The hunt its quiz belongs to, copied from the quiz when the column is made.'),
     quiz_id:  zid('quizzes')
       .describe('The quiz this column belongs to.'),
     ...column.shape,

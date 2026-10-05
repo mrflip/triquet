@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '../../../../src/app/api/ask/route'
-import { ApprovalNotices } from '../../../../src/lib/notices'
+import { RefusalNotices } from '../../../../src/lib/notices'
 
 /** A prompt, asked of the route as the browser sends one once it has filled in a widget's template */
 function askOf(prompt: string, model_tier = 'quick', max_tokens = 256): Request {
@@ -67,7 +67,7 @@ describe('POST /api/ask', () => {
     vi.stubEnv('ENABLE_ANTHROPIC_BOT', undefined)
     vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-not-a-real-key')
     const answer = await POST(askOf(Guessing))
-    expect(await answer.json()).to.deep.eq({ ok: false, failurekind: 'notPermitted', detail: { name: 'NotApprovedError', message: ApprovalNotices.anthropic_bot } })
+    expect(await answer.json()).to.deep.eq({ ok: false, failurekind: 'notPermitted', detail: { name: 'NotApprovedError', message: RefusalNotices.botsOff } })
     expect(fetched).not.toHaveBeenCalled()
   })
 

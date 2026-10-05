@@ -1,5 +1,4 @@
 import _ from 'es-toolkit/compat'
-import * as Labelmaker from './labelmaker'
 import * as Runner from './formulary/runner'
 import type { HuntT } from '../models/hunt'
 import type { QuestionT } from '../models/question'
@@ -40,12 +39,12 @@ export type ExportedQuiz = Omit<QuizT, '_id' | 'questions'> & {
  * A hunt as a smith is handed it: its realms in order, each with its quizzes. The widgets its
  * quizzes work are named by label, and are the library's to export.
  */
-export type ExportedHunt = Pick<HuntT, 'label' | 'forced_label' | 'title'> & {
+export type ExportedHunt = Pick<HuntT, 'label' | 'title'> & {
   realms: { label: string, title: string, quizzes: ExportedQuiz[] }[]
 }
 
 /**
- * `quiz` with its ids gone: each question's chain named by the label in force of the question it
+ * `quiz` with its ids gone: each question's chain named by the label of the question it
  * points at (a chain to a question the quiz does not hold named as none), and what each of its
  * widgetings came to beside its own fields.
  *
@@ -57,7 +56,7 @@ export type ExportedHunt = Pick<HuntT, 'label' | 'forced_label' | 'title'> & {
  * @example quizExported(quiz, run).questions[0]?.clueing_full  // => { status: 'ok', value: 312 }
  */
 export function quizExported(quiz: QuizT, run: Runner.QuizRun): ExportedQuiz {
-  const labelForId = new Map(quiz.questions.map((question) => [question._id, Labelmaker.effectiveLabelOf(question)]))
+  const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   return {
     ..._.omit(quiz, ['_id', 'questions']),
     questions: quiz.questions.map((question) => ({
@@ -80,10 +79,9 @@ export function quizExported(quiz: QuizT, run: Runner.QuizRun): ExportedQuiz {
  */
 export function huntExported(hunt: HuntT, library: readonly WidgetT[]): ExportedHunt {
   return {
-    label:        hunt.label,
-    forced_label: hunt.forced_label,
-    title:        hunt.title,
-    realms:       hunt.realms.map((realm) => {
+    label:  hunt.label,
+    title:  hunt.title,
+    realms: hunt.realms.map((realm) => {
       const place = Runner.placeOf(hunt, realm)
       const quizzes = realm.quizzes.map((quiz) => quizExported(quiz, Runner.runQuiz(Runner.sourceOf(quiz, library, place))))
       return { label: realm.label, title: realm.title, quizzes }

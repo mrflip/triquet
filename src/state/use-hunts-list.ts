@@ -3,7 +3,7 @@
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { ListedHuntT } from '../lib/rows'
-import { useBrowserKey } from './browser-key'
+import { useSession } from './use-session'
 
 /**
  * The hunts this browser's ident is on, each with its realms and their quizzes and the ident's
@@ -12,6 +12,6 @@ import { useBrowserKey } from './browser-key'
  * @returns The hunts, in the order they were made; null until the server has answered.
  */
 export function useHuntsList(): readonly ListedHuntT[] | null {
-  const browser_key = useBrowserKey()
-  return useQuery(api.hunts.list, browser_key === null ? 'skip' : { browser_key }) ?? null
+  const { ready } = useSession()
+  return useQuery(api.hunts.list, ready ? {} : 'skip') ?? null
 }

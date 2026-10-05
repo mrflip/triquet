@@ -25,7 +25,7 @@ describe('exposedColumnsOf', () => {
   })
 
   it('leaves out what is not exposed: the id, the label override, and what the widgetings stored on the question', () => {
-    expect(headers).to.not.include.members(['question.id', 'question._id', 'question.forced_label', 'question.stored'])
+    expect(headers).to.not.include.members(['question.id', 'question._id', 'question.stored'])
   })
 
   it('has each widgeting\'s status and value under its label, whatever its formulary, and never its costs or failures', () => {
@@ -76,7 +76,7 @@ describe('exposedColumnsOf', () => {
 
 describe('tableOf', () => {
   it('has one row per question, ordered by label whatever order the quiz holds them in', () => {
-    const [ante, post] = [{ ...Question.blank(), forced_label: 'alpha', title: 'A' }, { ...Question.blank(), forced_label: 'beta', title: 'B' }]
+    const [ante, post] = [{ ...Question.blank(), label: 'alpha', title: 'A' }, { ...Question.blank(), label: 'beta', title: 'B' }]
     const { header, rows } = tableOf(quizOf([post, ante]))
     const col = header.indexOf('question.title')
     expect(rows.map((row) => row[col])).to.deep.eq(['A', 'B'])
@@ -88,8 +88,8 @@ describe('tableOf', () => {
   })
 
   it('names a chain by the target\'s label, and a label by the one in force', () => {
-    const target = { ...Question.blank(), forced_label: 'the_film' }
-    const question = { ...Question.blank(), forced_label: 'the_book', chains_to: target._id }
+    const target = { ...Question.blank(), label: 'the_film' }
+    const question = { ...Question.blank(), label: 'the_book', chains_to: target._id }
     const { header, rows } = tableOf(quizOf([question, target]))
     const chain = header.indexOf('question.chains_to')
     const label = header.indexOf('question.label')

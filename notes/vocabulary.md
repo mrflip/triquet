@@ -84,12 +84,41 @@ words above.
 
 ## Who and where
 
+* **session** -- a Convex Auth sign-in, anonymous for now: what a browser is to the server. It
+  gives a `users` row id (`user_id`), and is kept in the browser's storage, so a browser is the
+  same session visit after visit. A session says nothing of who someone is; its username does.
+* **username** -- what the screen calls an ident's label: what a person types to become an ident.
 * **ident** -- a persona in the app, named by a global label a person types to become it: 6 to
-  24 characters of the label alphabet, normalised from what was typed. No password: anyone may
-  assume any ident, for now. Has a `title` for display. Never changed or deleted.
-* **identing** -- one browser taking on one ident, named by the browser's key. The browser's
+  24 characters of the label alphabet, normalised from what was typed. Held by the session that
+  claimed it (`user_id`), and asserted by no other: no password, but no taking on another's
+  either. One made before sessions held usernames is unclaimed (`user_id` null) until a session
+  asserts it. Has a `title` for display. Never deleted, and its label never changes.
+* **identing** -- one session asserting one ident, by the session's `user_id`. The session's
   newest identing is its current ident; that row, not browser storage, is what "logged in" means.
-  (Later, a cred will be the thing an identing hangs off.)
+* **actor** -- who a request is from, as a tagged value built once per request and handed to
+  every function as `ctx.actor` (`src/lib/actor.ts`): `{ kind: 'anonymous' }` when no username
+  has been asserted (signed in or not), or `{ kind: 'ident', user_id, ident_id, ident_label }`.
+  A tagged value rather than `null`, so that "anonymous" is a state with a name
+  (`Actor.isAnonymous`). A variable, field or parameter named `actor` is the whole tagged value;
+  one that holds an id or a label of the one acting is named for what it holds (`ident_id`,
+  `user_id`, `ident_label`), and `acting_ident_id` where it must be told apart from another ident
+  in the same scope.
+* **standing** -- an actor's place on one hunt: `'smith'` or `'reviewer'` by its hunting, or
+  `'stranger'` (`Actor.HuntStandingVals`). A named value rather than a null role, so that "not on
+  the hunt" is a state with a name. An actor who has asserted no username is a stranger to every
+  hunt.
+* **claims** -- what the server has verified of an actor on one hunt, handed to a policy:
+  `ActorT & { hunt_id, standing }` (`Actor.HuntClaimsT`, built by `Actor.claimsOn`). Code handed
+  claims trusts them. Named `claims`, the whole object, never one of its fields.
+* **policy**, **verdict** -- a policy is a non-async `may…` function in `src/lib/approve.ts`
+  (`mayReadReview`, `mayChangeMembership`) that decides from the evidence it is handed and reads
+  nothing, so the browser and the server run the same one. Its verdict is `'allow'` or the refusal
+  kind that says why not (`notIdentified`, `notPermitted`, `ownHunting`). `Approve.may(key, …)`
+  answers yes or no, `Approve.must(key, …)` throws when no, and `Approve.verdictOn(key, …)` says
+  which; the key is an action's kind or the name of a read (`read_hunt`).
+* **affirm…** -- an async function in `convex/authorize.ts` (`affirmPerform`,
+  `affirmReadReviews`) that gathers the evidence a policy needs, builds the claims, and hands them
+  to `Approve`. It decides nothing itself.
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
   global, and exports on its own. Its label is global; should two share one, the earlier-made wins.
@@ -152,9 +181,11 @@ words above.
   idents and hunts have no parent, so theirs are global.
   Labels are what URLs, formulas, exports, git paths and column sources use, because people
   export, edit and re-import -- so many things refer by label where an id would be easier.
-* **forced_label** / **effective label** -- a generated label (`quiet_otter`) can be overridden by
-  an author-chosen `forced_label`; whichever is in force is the effective label, and the only
-  one the outside world sees. `Labelmaker` is the facility for all of this.
+  A label is minted when its row is made (`quiet_otter`), and is the row's one label: relabelling
+  a hunt or a quiz replaces it, and a question's stays as minted. `Labelmaker` is the facility for
+  all of this. (Until October 2026 a row could also hold a `forced_label` overriding the minted
+  one, "the effective label"; that pair is retired, and only an import of an older export still
+  reads a `forced_label`.)
 * **version** -- which line of work a quiz is on; also its git branch. A **milestone** is a tag.
 
 ## Columns and the bag

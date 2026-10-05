@@ -1,5 +1,4 @@
 import _ from 'es-toolkit/compat'
-import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
@@ -150,10 +149,10 @@ function questionChanges(before: QuizT, after: QuizT): Change[] {
 
   const gone = before.questions
     .filter((question) => ! nowById.has(question._id))
-    .map((question): Change => ({ scope: Labelmaker.effectiveLabelOf(question), fieldkey: null, changekind: 'dropped' }))
+    .map((question): Change => ({ scope: question.label, fieldkey: null, changekind: 'dropped' }))
 
   const here = after.questions.flatMap((question): Change[] => {
-    const scope = Labelmaker.effectiveLabelOf(question)
+    const scope = question.label
     const was = wasById.get(question._id)
     if (! was) { return [{ scope, fieldkey: null, changekind: 'added' }] }
     return fieldChanges(scope, was, question)
