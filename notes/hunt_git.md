@@ -102,21 +102,27 @@ against the real git and jq. `es-toolkit`'s `merge` does the same inside the app
    `questions.qq.tsv`, and any other edit one JSON file and one table.
 2. **JSON** is `UU.jsonify(ball, { pretty: true })`, keys sorted at every depth, with a trailing
    newline (`Huntfiles.jsonOf`).
-3. **Every TSV reads the same way** (`src/lib/tsv.ts`, settled 2026-10-05): a header line of
-   column names, then a line per row, `\n` line endings and a trailing newline. A row is a record
-   flattened to its leaves, each column named by its dotted key path
-   (`widgetings.dumdum.position`); columns are sorted, and rows sorted by their `label` column,
-   which every table has, so that a reorder does not churn the diff (the order is still in the
-   JSON's `position`s). Sorting is by code unit, never by locale. A collection is a row per
-   member, labelled by its key; a single thing (the hunt, a quiz, a widget) is a header and one
-   row, however wide. A review is a row per question it gave a verdict on, its `overall` left to
-   its JSON.
-4. **One line is one row.** A cell's tab, line break and carriage return are written `\t`, `\n`
-   and `\r`, and its backslash `\\`, so no field breaks a row and the text reads back exactly.
-   Nothing is quoted: a `"` is just a character. A list, or an empty object, is a cell of compact
-   JSON; a null, or a field a row lacks, an empty cell. (This differs on purpose from Copy for
-   Sheets, `src/lib/sheets.ts`, which writes a break as `<br/>` and a tab as a space for a paste
-   into a spreadsheet: that is lossy, and the repository's tables are for reading diffs.)
+3. **Every TSV reads the same way** (`src/lib/tsv.ts`; the rules are
+   `notes/decisions/tsv-formats.md`): a header line of column names, then a line per row, `\n`
+   line endings and a trailing newline. A row is a record flattened to its leaves, each column
+   named by its dotted key path with no prefix added (`columns.title.width_px`, a question's
+   `clueing` and `dumdum.status`); a bag opens only down to the level whose shape our schema fixes
+   and which is not a union, so what a widgeting came to (its `value`), a widgeting's `params`
+   and a widget's `config` are each one cell of JSON (`Huntfiles`' `WholesFor`). Columns are
+   sorted, and rows sorted by their `label` column, which every table has, so that a reorder does
+   not churn the diff (the order is still in the JSON's `position`s). Sorting is by code unit,
+   never by locale. A collection is a row per member, labelled by its key; a single thing (the
+   hunt, a quiz, a widget) is a header and one row, however wide. A review is a row per question
+   it gave a verdict on, its `overall` left to its JSON.
+4. **One line is one row.** A string cell is written as JSON encodes a string, without the quotes
+   and without escaping `"`: a backslash, tab, line break, carriage return or other control
+   character is its escape (`\\`, `\t`, `\n`, `\r`, `\u0001`), and everything else, `"` and
+   non-ASCII included, is itself. A number is its decimal text and a boolean `true` or `false`,
+   never escaped; a list, or a bag not opened, is compact JSON, not escaped again; null, a field
+   the row lacks and an empty string are an empty cell. A column's name is escaped as a string
+   cell is. (This differs on purpose from Copy for Sheets, `src/lib/sheets.ts`, which writes a
+   break as `<br/>` and a tab as a space for a paste into a spreadsheet: that is lossy, and the
+   repository's tables are for reading diffs.)
 5. **Paths follow addresses.** A resource sits at the repository path its URL names below the
    hunt, plus its pre-extension (`Addresses.filepathOf`): one key path makes the URL, the path
    and the jsonball's nesting, so the three cannot drift (`whiteboard/20261005-hunt_git/thread-0-addresses.md`,

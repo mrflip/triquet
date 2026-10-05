@@ -80,10 +80,17 @@ slots; the library) each member carries its \`position\`.
 
 Every \`.tsv\` reads the same way: a header line of column names, sorted, then a line per row,
 sorted by \`label\`. A collection is a row per member; a single thing (the hunt, a quiz, a widget)
-is one row. A nested field's column is named by its path (\`widgetings.dumdum.position\`). A tab,
-line break or backslash inside a cell is written \`\\t\`, \`\\n\` or \`\\\\\`, so one line is always one
-row. A quiz's table leaves its questions to the questions' own, and a review's is a row per
-question it gave a verdict on.
+is one row. A nested field's column is named by its path (\`columns.title.width_px\`,
+\`dumdum.status\`), down to where a value's shape is not fixed: what a widgeting came to (its
+\`value\`), a widgeting's \`params\` and a widget's \`config\` are each one cell of JSON. A quiz's
+table leaves its questions to the questions' own, and a review's is a row per question it gave a
+verdict on.
+
+One line is always one row. A text cell is written as JSON writes a string, without the quotes
+and without escaping \`"\`: a backslash, tab or line break inside it is \`\\\\\`, \`\\t\` or \`\\n\`. A
+number is written as it is, a yes or no as \`true\` or \`false\`, a list as compact JSON, and
+nothing (null, a missing field, an empty text) as an empty cell. Reading a cell back takes the
+field's type, which the \`.json\` beside it holds.
 `
 
 /**
@@ -99,11 +106,28 @@ export function jsonOf(placed: Exporting.PlacedBallT): string {
  * One resource's table: a row per member of a collection (its categories, its members, a quiz's
  * questions alone, a review's verdicts by question), or one row of a single thing (the hunt, a
  * quiz with its questions left to their own table, a widget), labelled as its address labels it.
+ * Each bag opens into columns down to where our schema stops fixing its shape (`WholesFor`).
  *
  * @example tsvOf(Exporting.membersBall(place, members))  // => 'label\trole\ttitle\npat_smith\tsmith\tPat\n'
  */
 export function tsvOf(placed: Exporting.PlacedBallT): string {
-  return Tsv.textOf(recordsOf(placed))
+  return Tsv.textOf(recordsOf(placed), WholesFor[placed.address.kind])
+}
+
+/**
+ * Where each kind of table holds a value whose shape our schema does not fix, or fixes only as a
+ * union, as one cell of JSON: what a widgeting came to for a question (its `value`), a
+ * widgeting's `params`, and a widget's `config` (whose shape is its formulary's). Every bag above
+ * these opens into columns.
+ */
+const WholesFor: Readonly<Record<Addresses.FiledAddressT['kind'], readonly Tsv.WholePatternT[]>> = {
+  hunt:       [],
+  categories: [],
+  members:    [],
+  quiz:       [['widgetings', '*', 'params']],
+  questions:  [['*', 'value']],
+  review:     [],
+  widget:     [['config']],
 }
 
 /** The rows of one resource's table */

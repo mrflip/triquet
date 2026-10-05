@@ -29,7 +29,11 @@ single record:
   (whatever its widget answered), a widgeting's `params`, a widget's `config` (its shape
   depends on its formulary). No prefix is added to anything: a question's own fields are
   `clueing`, `qnum`, not `question.clueing`.
+* **An empty bag has nothing to open into**, so it is one cell, `{}`: a quiz with no widgetings
+  writes `widgetings` so.
 * **A header name is escaped as a string cell is**, so no key can break the header row.
+* As built: `Tsv.textOf` writes every table, and `Huntfiles`' `WholesFor` names, per kind of
+  table, where a value is one cell of JSON.
 
 ### A cell, by the field's type
 

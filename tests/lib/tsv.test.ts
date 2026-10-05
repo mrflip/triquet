@@ -8,8 +8,8 @@ function linesOf(text: string): string[][] {
 
 describe('textOf', () => {
   it("reads the doc block's examples", () => {
-    expect(Tsv.textOf([{ label: 'nantes', qnum: '2' }, { label: 'leon', qnum: '1', dumdum: { status: 'ok' } }]))
-      .to.eq('dumdum.status\tlabel\tqnum\nok\tleon\t1\n\tnantes\t2\n')
+    expect(Tsv.textOf([{ label: 'nantes', qnum: '2' }, { label: 'leon', qnum: '1', dumdum: { status: 'ok', value: 'Leon?' } }], [['*', 'value']]))
+      .to.eq('dumdum.status\tdumdum.value\tlabel\tqnum\nok\t"Leon?"\tleon\t1\n\t\tnantes\t2\n')
     expect(Tsv.textOf([])).to.eq('label\n')
   })
 
@@ -36,6 +36,23 @@ describe('textOf', () => {
     const text = Tsv.textOf([{ label: 'leon', notes: 'two\nlines\r\nand\ta tab' }, { label: 'nantes', notes: 'plain' }])
     expect(text.split('\n')).to.have.lengthOf(4)
     expect(linesOf(text).map((cells) => cells.length)).to.deep.eq([2, 2, 2])
+  })
+
+  it("opens a bag into columns, but for a value where a pattern says it is whole, which is one cell of JSON", () => {
+    const records = [{ label: 'leon', dumdum: { status: 'ok', value: { guess: 'Hamlet' } }, remark: { status: 'ok', value: 'Fine.' } }, { label: 'nantes', dumdum: { status: 'missing', value: null } }]
+    expect(linesOf(Tsv.textOf(records, [['*', 'value']]))).to.deep.eq([
+      ['dumdum.status', 'dumdum.value', 'label', 'remark.status', 'remark.value'],
+      ['ok', '{"guess":"Hamlet"}', 'leon', 'ok', '"Fine."'],
+      ['missing', '', 'nantes', '', ''],
+    ])
+  })
+
+  it("names a whole by its key path from the row, any key matching `*`", () => {
+    const records = [{ label: 'princes', widgetings: { remark: { position: 0, params: { level: 3 } } } }]
+    expect(linesOf(Tsv.textOf(records, [['widgetings', '*', 'params']]))).to.deep.eq([
+      ['label', 'widgetings.remark.params', 'widgetings.remark.position'],
+      ['princes', '{"level":3}', '0'],
+    ])
   })
 
   it("keeps the header to one line, whatever a key holds", () => {
@@ -88,12 +105,18 @@ const CellTestCases = [
   [["a", "b"],             '["a","b"]',             'a list, as compact JSON'],
   [[],                     "[]",                    'an empty list, as compact JSON'],
   [{},                     "{}",                    'an empty object, as compact JSON'],
-  [[{ b: 1, a: "x\ty" }],  String.raw`[{"a":"x\\ty","b":1}]`, 'a list of objects, keys sorted, its escapes escaped again'],
+  [[{ b: 1, a: "x\ty" }],  String.raw`[{"a":"x\ty","b":1}]`, 'a list of objects, keys sorted, as JSON writes it and not escaped again'],
+  // as JSON escapes a string, its quotes aside:
+  ["\u{1}\b\f",           String.raw`\u0001\b\f`,  'any other control character, as JSON writes it'],
+  ["León “300”",           "León “300”",            'anything else, non-ASCII included, as itself'],
+  [String.raw`a\"b`,       String.raw`a\\"b`,       'a backslash before a quote, doubled, and the quote as itself'],
+  [1e21,                   "1e+21",                 'a large number, as JavaScript writes it, unescaped'],
 ] as const
 
 describe('cellOf', () => {
   it("reads the doc block's examples", () => {
     expect(Tsv.cellOf('two\nlines')).to.eq(String.raw`two\nlines`)
+    expect(Tsv.cellOf('say "hi"')).to.eq('say "hi"')
     expect(Tsv.cellOf(['a', 'b'])).to.eq('["a","b"]')
     expect(Tsv.cellOf(null)).to.eq('')
   })

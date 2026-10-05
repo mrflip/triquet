@@ -147,11 +147,19 @@ describe('tsvOf', () => {
     expect(rowsOf(tsvAt('quizzes/home/princes.tqq.tsv'))[0]).to.deep.include({ 'label': 'princes', 'title': 'Princes', 'widgetings.remark.params': '{}' })
   })
 
-  it("writes the questions alone as a row each, by label, with what each widgeting came to", () => {
+  it("writes the questions alone as a row each, by label, no prefix on its fields, and what each widgeting came to as its status and one cell of JSON", () => {
     const rows = rowsOf(tsvAt('quizzes/home/princes/questions.qq.tsv'))
     expect(rows.map((row) => row.label)).to.deep.eq(['leon', 'nantes'])
-    expect(rows[0]).to.deep.include({ 'chains_to': 'nantes', 'position': '0', 'remark.status': 'ok', 'remark.value': 'Ask Flip.', 'dumdum.status': 'errored', 'dumdum.value': '' })
-    expect(rows[0]?.['numnum_clueing.value.items']).to.match(/^\[\{"kind":"numeral"/)
+    expect(rows[0]).to.deep.include({ 'chains_to': 'nantes', 'position': '0', 'remark.status': 'ok', 'remark.value': '"Ask Flip."', 'dumdum.status': 'errored', 'dumdum.value': '' })
+    expect(rows[0]?.['numnum_clueing.value']).to.match(/^\{"items":\[\{"kind":"numeral"/)
+    expect(Object.keys(present(rows[0])).filter((column) => column.startsWith('numnum_clueing.value.'))).to.deep.eq([])
+  })
+
+  it("writes a widgeting's params whole, as one cell of JSON, however much they hold", () => {
+    const quiz = chainedQuiz()
+    const widgetings = quiz.widgetings.map((widgeting) => (widgeting.label === 'remark' ? { ...widgeting, params: { level: 3, words: ['but'] } } : widgeting))
+    const placed = Exporting.quizBall(Place, 'home', { ...quiz, widgetings }, runOf(quiz, EntryLibrary))
+    expect(rowsOf(Huntfiles.tsvOf(placed))[0]).to.deep.include({ 'widgetings.remark.params': '{"level":3,"words":["but"]}' })
   })
 
   it("writes a quiz with no questions' questions as a header alone", () => {
@@ -168,7 +176,7 @@ describe('tsvOf', () => {
   it("writes a widget as one row, labelled by its label", () => {
     const rows = rowsOf(tsvAt('widgets/pub/remark.tqw.tsv'))
     expect(rows).to.have.lengthOf(1)
-    expect(rows[0]).to.deep.include({ 'label': 'remark', 'formulary': 'entry', 'config.entry_kind': 'text', 'position': String(EntryLibrary.length - 1) })
+    expect(rows[0]).to.deep.include({ 'label': 'remark', 'formulary': 'entry', 'config': '{"entry_kind":"text"}', 'position': String(EntryLibrary.length - 1) })
   })
 
   it("keeps a question's line breaks and tabs inside its one line", () => {
