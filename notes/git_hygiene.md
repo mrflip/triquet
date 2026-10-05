@@ -216,6 +216,10 @@ off the bottom (merge commits keep their SHAs), what is left is replayed with
 with an explicit lease, so its PR stays current and merging the top of a sprint marks every PR
 beneath it merged. A replay that conflicts is undone and stops: that is the Coach's call.
 
+A branch merged under new SHAs (its PR rebased on GitHub first) is emptied by the replay rather
+than dropped, and is not pushed: its PR has merged. Once the whole spine has merged, the main
+checkout goes back to `main`, fast-forwarded, and the next landing starts the spine afresh.
+
 Your own unlanded branch picks up the change at its landing's rebase.
 
 If you did merge main into your branch by accident, `git rebase origin/main` fixes it. A plain
@@ -271,7 +275,8 @@ git branch --merged origin/main                        # local branches safe to 
 git branch -r --merged origin/main                     # remote branches safe to delete
 ```
 
-GitHub deletes head branches automatically on merge. `fetch.prune` removes the stale remote-tracking refs.
+GitHub deletes head branches automatically on merge. The spine's scripts fetch with `--prune`,
+which removes the stale remote-tracking refs; by hand, `git fetch --prune`.
 
 ## Before discarding anything
 
