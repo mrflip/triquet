@@ -5,7 +5,6 @@ import * as PA from '../../lib/vv/patterns'
 import { NumberField, PlainField, StretchField } from './fields'
 import { EstimatesCell } from './estimates'
 import { Widgeted, type WidgetedT } from '../../models/widgeted'
-import type { CategoryLabel } from '../../models/category'
 import type { EntryKind, EntryValueT } from '../../models/widget'
 
 export type EntryCellProps = {
@@ -18,8 +17,6 @@ export type EntryCellProps = {
   locked:     boolean
   /** The height the row settled on, which a text entry stretches to without having a say in it */
   heightPx:   number
-  /** The hunt's total order of categories, which a category-estimate cell lists them in */
-  order:      readonly CategoryLabel[]
   /** Told what the cell now holds once the box loses focus: the value typed, or null when it was emptied */
   onEnter:    (value: EntryValueT | null) => void
 }
@@ -31,7 +28,7 @@ export type EntryCellProps = {
  * the box is left. An emptied box is sent as null, which leaves the cell `missing`. Category
  * estimates are pills, each change sent as it is made. It never asks anything of anyone.
  */
-export function EntryCell({ entry_kind, widgeted, label, locked, heightPx, order, onEnter }: Readonly<EntryCellProps>) {
+export function EntryCell({ entry_kind, widgeted, label, locked, heightPx, onEnter }: Readonly<EntryCellProps>) {
   const text = Widgeted.textOf(widgeted)
   const enterText = (typed: string) => { onEnter(typed.trim() === '' ? null : typed) }
   switch (entry_kind) {
@@ -49,7 +46,7 @@ export function EntryCell({ entry_kind, widgeted, label, locked, heightPx, order
     return <PlainField label={label} committed={text} locked={locked} onCommit={enterText} tidy={(typed) => typed.trim()} maxLength={PA.Titleish.max} />
   }
   case 'estimates': {
-    return <EstimatesCell widgeted={widgeted} order={order} label={label} locked={locked} heightPx={heightPx} onEnter={onEnter} />
+    return <EstimatesCell widgeted={widgeted} label={label} locked={locked} heightPx={heightPx} onEnter={onEnter} />
   }
   }
 }

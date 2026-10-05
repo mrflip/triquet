@@ -41,6 +41,12 @@ export const CategoryTitles = {
   physics_eng:     'Physics & Eng',
 } as const satisfies Record<CategoryLabel, string>
 
+/**
+ * Every subject category's label, alphabetically by the title its tile shows: the order a list
+ * of them to pick from is in, where the wheel's order would mean nothing to the reader.
+ */
+export const CategoryLabelsByTitle: readonly CategoryLabel[] = CategoryLabelVals.toSorted((aa, bb) => CategoryTitles[aa].localeCompare(CategoryTitles[bb]))
+
 /** How many slots a wheel has: one for each category */
 export const WheelSlotCount = CategoryLabelVals.length
 

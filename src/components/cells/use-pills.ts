@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import * as UU from '../../lib/useful'
 import { DifficultyDefault, Estimate, type Difficulty, type EstimatesT } from '../../models/estimate'
-import type { CategoryLabel } from '../../models/category'
+import { CategoryLabelsByTitle, type CategoryLabel } from '../../models/category'
 
 /**
  * One pill of a category-estimate cell: a category, or blank, and a difficulty. Unlike the
@@ -35,14 +35,15 @@ export function estimatesFrom(pills: readonly PillT[]): EstimatesT {
 }
 
 /**
- * The categories the pill at `idx` may be given, in the hunt's total order: its own, and every one
+ * The categories the pill at `idx` may be given, alphabetically by title: its own, and every one
  * no other pill holds, since a question estimates each category once.
  *
- * @example choicesFor([{ category: 'tv', difficulty: 'hard' }, { category: null, difficulty: 'medium' }], 1, order).includes('tv')  // => false
+ * @example choicesFor([{ category: 'tv', difficulty: 'hard' }, { category: null, difficulty: 'medium' }], 1).includes('tv')  // => false
+ * @example choicesFor([{ category: null, difficulty: 'medium' }], 0)[0]  // => 'art'
  */
-export function choicesFor(pills: readonly PillT[], idx: number, order: readonly CategoryLabel[]): CategoryLabel[] {
+export function choicesFor(pills: readonly PillT[], idx: number): CategoryLabel[] {
   const heldElsewhere = new Set(pills.flatMap((pill, jj) => (jj !== idx && pill.category !== null ? [pill.category] : [])))
-  return order.filter((label) => ! heldElsewhere.has(label))
+  return CategoryLabelsByTitle.filter((label) => ! heldElsewhere.has(label))
 }
 
 /**
