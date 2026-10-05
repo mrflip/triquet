@@ -51,6 +51,19 @@ Branch `20261005-hunt_downloads`, PR pending, stacked on #129. Suites: typecheck
   - **Repositories with nothing committed are not listed**: there is nothing in them to download.
 * **Discoveries**:
   - The site header overlaps the visitor's label and the hunt's crumb at 360 px (pre-existing,
-    seen in a screenshot of the hunt page; not this thread's).
+    seen in a screenshot of the hunt page; a follow-up, not this thread's).
 * **For the Coach**: nothing new. Thread 5's questions stand (the tag scheme; the hunt page's
   branch switch committed at the next quiz screen's reading).
+
+## Review
+
+Medium review, clean: no fixes, no significant findings. Minor findings left for the sprint's
+follow-ups:
+
+* `FullHistoryDownload`'s `onDownload` and `QuizManageModal`'s (`:114`) have no try/catch, so a
+  failed zip is an unhandled rejection and the author is told nothing. Predates the thread;
+  `HuntRepoList`'s `raise(Alarms.of(AppNotices.repoNotDownloaded, err))` is the pattern to copy.
+* On `QuizNotFound`, the list renders before `useHuntsList()` has answered, so a hunt the visitor
+  is on shows unlinked for a moment. Cosmetic.
+* `useHuntRepos` has no catch: if `listHuntRepos` itself rejects (`flushFs` or the queue throwing),
+  the not-found page says "Looking…" forever. As `useQuizRepos` did before.
