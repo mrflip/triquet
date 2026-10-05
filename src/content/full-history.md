@@ -8,7 +8,7 @@ Clicking "Download Full History" delivers a single file named for the hunt and e
 * `quizzes/<realm>/<quiz>.tqq.json`: one quiz, whole: its own fields, its questions, its widgetings and its columns.
 * `quizzes/<realm>/<quiz>/questions.qq.json`: the same quiz's questions alone, to paste into any quiz's Import.
 * `quizzes/<realm>/<quiz>/reviews/<reviewer>.tqr.json`: one shared review of the quiz.
-* `widgets/pub/<widget>.tqw.json`: a widget of the library the hunt's quizzes work.
+* `pub/widgets/<widget>.tqw.json`: a widget of the library the hunt's quizzes work.
 
 **The whole hunt, at any timepoint.** Every `.json` file but the questions alone is a piece of the hunt, nested under the labels that lead to it, so merging them all gives the hunt whole, just as Raw Export does. With the free tool `jq` installed, this line, run inside the folder, prints the hunt as it stood at whichever timepoint the folder is set to:
 

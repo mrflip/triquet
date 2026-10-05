@@ -69,7 +69,7 @@ describe('widgetsPartOf', () => {
 
   it("reads the doc block's example", () => {
     const held = snapshot()
-    expect(widgetsPartOf(held.library, present(held.realms[0]).quizzes).files.has('widgets/pub/dumdum.tqw.json')).to.be.true
+    expect(widgetsPartOf(held.library, present(held.realms[0]).quizzes).files.has('pub/widgets/dumdum.tqw.json')).to.be.true
   })
 
   it("is no files for quizzes working nothing", () => {

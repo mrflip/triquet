@@ -16,7 +16,8 @@ Every URL is an org, a hunt with an optional version, a path of nouns, and an op
 /~{org}/{hunt}/quizzes/home/{quiz}/!{mode}   !edit, !playtest, !{view}
 /~{org}/{hunt}/images/{image}                shared images
 /~{org}/{hunt}/categories/{category}         difficulty categories
-/lib/widgets/{widget}                        construction widgets
+/pub/widgets/{widget}                        construction widgets, in their scope (`pub`)
+/pub/widgets/{widget}.json                   a widget's raw record (no page serves it yet)
 ```
 
 Example: `/~pat/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: includes future proposals)
@@ -58,8 +59,9 @@ The database is the system of record, and the URL names things by label within a
 | Realms             | One realm, `home`, its own label. Its slot stays in the path. (Sketched as `a`, which the label rule refuses: the hunt_git sprint's Decision 1.) | The URL shape will not change when realms return.                                                                                        |
 | Modes              | A trailing `!{mode}` segment: `!edit`, `!playtest`, or a user-created `!{view}`. Built-in names are reserved from user views. | Modes get their own namespace and cannot collide with a noun.                                                                            |
 | Versions           | `{hunt}@{ref}` for a named ref, `{hunt}@!{sha}` for a commit. Named refs follow the label rule.                               | A version names the state of the whole hunt, so every link below it stays in that version. The `!` keeps a tag from being read as a SHA. |
-| Hunt resources     | `images/`, `widgets/` and `categories/` sit beside `quizzes/`.                                                                | One fixed vocabulary of collections under the hunt.                                                                                      |
-| Raw record         | Adding `.json` to a quiz URL serves the record itself.                                                                        | The same address gives the app view and the data.                                                                                        |
+| Hunt resources     | `images/` and `categories/` sit beside `quizzes/`.                                                                            | One fixed vocabulary of collections under the hunt.                                                                                      |
+| Widgets            | The library's widgets sit under their scope at the root: `/pub/widgets/{widget}`, its file `pub/widgets/{widget}.tqw.json`, its jsonball `{ "pub": { "widgets": { … } } }`. | A widget belongs to no hunt; its scope stands where an org and hunt stand, so rule 10 holds for it too. (The Coach, 2026-10-05.)          |
+| Raw record         | Adding `.json` to a resource's URL names the record itself (`Addresses.recordUrlOf`): the address model writes and reads it for any resource, and no page serves one yet. | The same address gives the app view and the data.                                                                                        |
 | Query and fragment | The query string adjusts the screen being shown (filter, sort). The fragment marks a position within a quiz.                  | Neither one changes which thing is addressed.                                                                                            |
 
 ### Git export
@@ -93,7 +95,7 @@ A URL should parse on sight: nouns in the path, one sigil per job, and nothing i
 | `@`     | After the hunt label       | A version follows (FUTURE)  |
 | `!`     | Start of the last segment  | A mode follows              |
 | `!`     | Right after `@`            | The version is a commit SHA |
-| `.json` | End of a quiz label        | The raw record              |
+| `.json` | End of the last label      | The raw record              |
 
 ## Parked
 

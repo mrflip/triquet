@@ -149,7 +149,7 @@ export function quizPartOf(hunt: ShallowHuntT, library: readonly WidgetT[], real
 /**
  * The widgets' part of the hunt's files: each widget of the library that any of `quizzes` works.
  *
- * @example widgetsPartOf(library, [quiz]).files.has('widgets/pub/dumdum.tqw.json')  // => true, for a quiz working dumdum
+ * @example widgetsPartOf(library, [quiz]).files.has('pub/widgets/dumdum.tqw.json')  // => true, for a quiz working dumdum
  */
 export function widgetsPartOf(library: readonly WidgetT[], quizzes: readonly Pick<QuizT, 'widgetings'>[]): FedPartT {
   return { kind: 'widgets', files: Huntfiles.filesOf(Exporting.workedBalls(library, quizzes)) }

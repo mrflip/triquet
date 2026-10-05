@@ -8,7 +8,7 @@ import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { ReviewRowT } from '../models/review'
 import type { ReviewingRowT } from '../models/reviewing'
-import type { WidgetT } from '../models/widget'
+import { WidgetScopeVals, type WidgetT } from '../models/widget'
 import type { WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
 
@@ -179,10 +179,13 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     .describe('Every quiz in a list, as Raw Export emitted it before there were hunts.')
 
   const scopedWidgets = rec(str, rec(str, unk))
-  const library = obj({ widgets: union([arr(unk), scopedWidgets]) })
-    .describe('Widgets in a list, as the library\'s export emitted them until October 2026; or keyed by scope and label, as a widget\'s ball holds one and the library\'s every one.')
+  const oldLibrary = obj({ widgets: union([arr(unk), scopedWidgets]) })
+    .describe('Widgets in a list, as the library\'s export emitted them until October 2026; or under `widgets`, keyed by scope and then label, as a widget\'s ball and the library\'s held them that month.')
 
-  return { collection, quiz, ball, realmsHunt, workspace, library }
+  const scopeWidgets = obj({ widgets: rec(str, unk) })
+    .describe('One scope\'s widgets, keyed by label: what a widget\'s ball holds under its scope (`{ pub: { widgets: { ... } } }`), and the library\'s every one.')
+
+  return { collection, quiz, ball, realmsHunt, workspace, oldLibrary, scopeWidgets }
 })
 
 /** One quiz as a paste holds it, read loosely */
@@ -287,23 +290,34 @@ function chainedByLabel(questions: readonly unknown[]): unknown[] {
 
 /**
  * The widgets a paste holds, each as pasted for the library's Import to read: a bare list of
- * widgets, an older library export (`{ widgets: [...] }`), or any ball holding widgets keyed by
- * scope and label (a widget's, the library's, a merged hunt's), scope by scope in library order,
- * each carrying its scope and label. Null when the paste holds no widgets at all.
+ * widgets; any ball holding widgets under their scope and keyed by label (a widget's, the
+ * library's, a merged hunt's: `{ pub: { widgets: { ... } } }`), scope by scope in library order,
+ * each carrying its scope and label; or an older library export (`{ widgets: [...] }`, or
+ * `{ widgets: { pub: { ... } } }`). Null when the paste holds no widgets at all.
  *
  * @param raw - The paste, parsed.
  *
- * @example widgetsIn({ widgets: { pub: { shout: { position: 0, formulary: 'jsonata', formula: '1' } } } })  // => [{ position: 0, formulary: 'jsonata', formula: '1', scope: 'pub', label: 'shout' }]
+ * @example widgetsIn({ pub: { widgets: { shout: { position: 0, formulary: 'jsonata', formula: '1' } } } })  // => [{ position: 0, formulary: 'jsonata', formula: '1', scope: 'pub', label: 'shout' }]
  * @example widgetsIn([{ label: 'shout' }])  // => [{ label: 'shout' }]
  * @example widgetsIn({ quizzes: {} })  // => null
  */
 export function widgetsIn(raw: unknown): unknown[] | null {
   if (isList(raw)) { return [...raw] }
-  const parsed = PastedValidators.library.safeParse(raw)
+  if (! EST.isPlainObject(raw)) { return null }
+  const scoped = WidgetScopeVals.flatMap((scope) => {
+    const parsed = PastedValidators.scopeWidgets.safeParse(raw[scope])
+    return parsed.success ? [[scope, parsed.data.widgets] as const] : []
+  })
+  if (scoped.length > 0) { return scopedListed(scoped) }
+  const parsed = PastedValidators.oldLibrary.safeParse(raw)
   if (! parsed.success) { return null }
   const { widgets } = parsed.data
-  if (Array.isArray(widgets)) { return widgets }
-  return Object.entries(widgets).flatMap(([scope, held]) => listedOf(held).map((each) => (EST.isPlainObject(each) ? { ...each, scope } : each)))
+  return Array.isArray(widgets) ? widgets : scopedListed(Object.entries(widgets))
+}
+
+/** Widgets keyed by label under each scope, as one list, scope by scope in library order, each carrying its scope and label */
+function scopedListed(scoped: readonly (readonly [string, Readonly<Record<string, unknown>>])[]): unknown[] {
+  return scoped.flatMap(([scope, held]) => listedOf(held).map((each) => (EST.isPlainObject(each) ? { ...each, scope } : each)))
 }
 
 /** Whether `val` is a list */

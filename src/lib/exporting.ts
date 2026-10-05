@@ -7,7 +7,7 @@ import { CategoryLabelVals, type WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { QuizT } from '../models/quiz'
 import type { RealmT } from '../models/realm'
-import { Widget, type WidgetT } from '../models/widget'
+import { Widget, WidgetScopeVals, type WidgetT } from '../models/widget'
 
 /**
  * What a smith is handed of their work, as jsonballs (`Jsonball`): each resource of the hunt at
@@ -226,7 +226,7 @@ export function quizBalls(place: Addresses.InHuntT, realm: string, quiz: QuizT, 
  * @param widget - The widget.
  * @param position - Its place in the library, counting from zero.
  *
- * @example widgetBall(dumdum, 0).ball  // => { widgets: { pub: { dumdum: { position: 0, formulary: 'aibot', ... } } } }
+ * @example widgetBall(dumdum, 0).ball  // => { pub: { widgets: { dumdum: { position: 0, formulary: 'aibot', ... } } } }
  */
 export function widgetBall(widget: WidgetT, position: number): PlacedBallT {
   const { scope, label, ...fields } = Widget.exported(widget)
@@ -237,10 +237,11 @@ export function widgetBall(widget: WidgetT, position: number): PlacedBallT {
 /**
  * The library, apart from any hunt: every widget's ball, merged. What its Import reads back.
  *
- * @example Object.keys(libraryBall(library).widgets.pub)  // => ['answer_reversed', 'dumdum', ...]
+ * @example Object.keys(libraryBall(library).pub.widgets)  // => ['answer_reversed', 'dumdum', ...]
  */
 export function libraryBall(library: readonly WidgetT[]): Jsonball.JsonballT {
-  return Jsonball.merged([{ widgets: {} }, ...library.map((widget, ii) => widgetBall(widget, ii).ball)])
+  const scopes = WidgetScopeVals.map((scope) => Jsonball.ballAt([scope, 'widgets'], {}))
+  return Jsonball.merged([...scopes, ...library.map((widget, ii) => widgetBall(widget, ii).ball)])
 }
 
 /**

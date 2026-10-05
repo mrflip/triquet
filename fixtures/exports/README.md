@@ -14,5 +14,7 @@ was emitted. Never edit one to fit the code: an export already in someone's hand
   came to, the widgets named by label.
 * `quiz-2026-10-04.json`: one quiz of that hunt, as a quiz's own history kept it.
 * `library-2026-10-04.json`: the library, its widgets in a list.
+* `library-2026-10-05.json`: the library, its widgets keyed by scope and then label under
+  `widgets` (`{ widgets: { pub: { ... } } }`), each with its `position`.
 * `../sample-import.json`: an export older than all of these, its fields camel-cased; only its
   labels and question text still read.

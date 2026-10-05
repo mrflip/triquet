@@ -147,7 +147,7 @@ against the real git and jq. `es-toolkit`'s `merge` does the same inside the app
 | Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | `quizzes/<realm>/<quiz>.tqq.json`: `{ quizzes: { <realm>: { <quiz>: { title, smiths_note, q1_preamble, locked, last_sortkey, questions, widgetings, columns } } } }`; each collection keyed by label with `position`, chains by label, each question with every widgeting's `{ status, value }` beside its fields | `<quiz>.tqq.tsv` (one row, questions left out) |
 | Questions, alone | the same questions | `quizzes/<realm>/<quiz>/questions.qq.json`: `{ questions: { … } }`, rooted at the quiz, **not merged** | `questions.qq.tsv` (a row per question) |
 | Review | `reviews` + `reviewings`, **shared only** | `quizzes/<realm>/<quiz>/reviews/<ident_label>.tqr.json`: `…<quiz>: { reviews: { <ident_label>: { overall, verdicts: { <question label>: { … } } } } }` | `<ident_label>.tqr.tsv` (a row per question) |
-| Widget worked | `widgets` (the library's) | `widgets/<scope>/<label>.tqw.json`: `{ widgets: { <scope>: { <label>: { position, … } } } }`, as `Widget.exported` gives it, `position` its place in the library | `<label>.tqw.tsv` (one row) |
+| Widget worked | `widgets` (the library's) | `<scope>/widgets/<label>.tqw.json` (`pub/widgets/dumdum.tqw.json`, at the path of its address, `/pub/widgets/dumdum`): `{ <scope>: { widgets: { <label>: { position, … } } } }`, as `Widget.exported` gives it, `position` its place in the library | `<label>.tqw.tsv` (one row, its `config` one cell of JSON) |
 
 A `README.md` at the root (`Huntfiles.Readme`) says what the repository is, what each file
 holds, how the tables read, and the `jq` line above. It names no hunt, so it is the same for
@@ -217,7 +217,7 @@ the grain of the files**, for a smith only (`Question.isSentWhole`):
 | Watch | Query function | Files it writes |
 |---|---|---|
 | The hunt, and the list of its quizzes | `hunts.open` | `hunt.tqh`, `categories.tqc`, `members.tqm` |
-| The library, whole | `widgets.library` | each `widgets/pub/<label>.tqw` a quiz works (a widget's `position` is its place in the whole library) |
+| The library, whole | `widgets.library` | each `pub/widgets/<label>.tqw` a quiz works (a widget's `position` is its place in the whole library) |
 | Each quiz not on screen, whole | `quizzes.whole` (smiths only) | `<quiz>.tqq`, `<quiz>/questions.qq` |
 | The quiz on screen: its frame, and a watch per question | `quizzes.open`, `questions.open` | the same, through the screen's own subscriptions |
 | Each quiz's reviews | `reviews.forQuiz` | `<quiz>/reviews/<reviewer>.tqr`, shared ones only |

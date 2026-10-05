@@ -5,8 +5,8 @@
  * All three come from one key path (`keypathOf`), the nouns and labels below the hunt
  * (`['quizzes', 'home', 'legends']`), so they cannot drift apart: the address puts the hunt in
  * front (`/~pat/spring_hunt/quizzes/home/legends`), and the file adds its pre-extension behind
- * (`quizzes/home/legends.tqq.json`). The library's widgets hang from `/lib` in place of a hunt.
- * `notes/decisions/urls.md` is the scheme.
+ * (`quizzes/home/legends.tqq.json`). The library's widgets hang from their scope in place of a
+ * hunt (`/pub/widgets/dumdum`). `notes/decisions/urls.md` is the scheme.
  */
 import { WidgetScopeVals, type WidgetScope } from '../models/widget'
 import * as PA from './vv/patterns'
@@ -31,7 +31,7 @@ export type InQuizT = InHuntT & { realm: string, quiz: string }
  * * `quiz`: one quiz, whole.
  * * `questions`: one quiz's questions alone, to paste across quizzes.
  * * `review`: one reviewer's review of one quiz, by their ident label.
- * * `widget`: one widget of the library.
+ * * `widget`: one widget of the library, in its scope (`pub`).
  */
 export type AddressT =
   | { kind: 'org', org: string }
@@ -80,20 +80,25 @@ export const MergedPathspec = '*.tq?.json'
 /** The stem of the hunt's own file, whose key path is the root and so names no file of its own */
 const HuntStem = 'hunt'
 
-/** A resource read from an address: what it names, and the mode it is opened in, or null when it names none */
+/** A resource read from an address: what it names, the mode it is opened in, and whether it names its raw record, or null when it names none */
 export type LocationT = {
   address: AddressT
   mode:    Mode | null
+  /** Whether the address names the resource's raw record (`recordUrlOf`), which opens in no mode */
+  raw:     boolean
 }
 
+/** What an address's last label ends in to name its resource's raw record rather than the resource */
+const RawSuffix = '.json'
+
 /**
- * The key path of a resource: the nouns and labels below its hunt, or below the library for a
- * widget. It is where the resource's piece of the hunt sits in a jsonball (the hunt's own fields
- * at the root), and the address and the file are made from it.
+ * The key path of a resource: the nouns and labels below its hunt, or for a widget its scope and
+ * the nouns and labels below it. It is where the resource's piece of the hunt sits in a jsonball
+ * (the hunt's own fields at the root), and the address and the file are made from it.
  *
  * @example keypathOf({ kind: 'quiz', org: 'pat_smith', hunt: 'spring_hunt', realm: 'home', quiz: 'legends' })  // => ['quizzes', 'home', 'legends']
  * @example keypathOf({ kind: 'hunt', org: 'pat_smith', hunt: 'spring_hunt' })  // => []
- * @example keypathOf({ kind: 'widget', scope: 'pub', widget: 'dumdum' })  // => ['widgets', 'pub', 'dumdum']
+ * @example keypathOf({ kind: 'widget', scope: 'pub', widget: 'dumdum' })  // => ['pub', 'widgets', 'dumdum']
  */
 export function keypathOf(address: KeyedAddressT): string[] {
   switch (address.kind) {
@@ -104,7 +109,7 @@ export function keypathOf(address: KeyedAddressT): string[] {
   case 'quiz':       { return ['quizzes', address.realm, address.quiz] }
   case 'questions':  { return ['quizzes', address.realm, address.quiz, 'questions'] }
   case 'review':     { return ['quizzes', address.realm, address.quiz, 'reviews', address.reviewer] }
-  case 'widget':     { return ['widgets', address.scope, address.widget] }
+  case 'widget':     { return [address.scope, 'widgets', address.widget] }
   }
 }
 
@@ -114,7 +119,7 @@ export function keypathOf(address: KeyedAddressT): string[] {
  * @example urlOf({ kind: 'quiz', org: 'pat_smith', hunt: 'spring_hunt', realm: 'home', quiz: 'legends' }, 'playtest')  // => '/~pat_smith/spring_hunt/quizzes/home/legends/!playtest'
  * @example urlOf({ kind: 'hunt', org: 'pat_smith', hunt: 'spring_hunt' })  // => '/~pat_smith/spring_hunt'
  * @example urlOf({ kind: 'org', org: 'pat_smith' })  // => '/~pat_smith'
- * @example urlOf({ kind: 'widget', scope: 'pub', widget: 'dumdum' })  // => '/lib/widgets/pub/dumdum'
+ * @example urlOf({ kind: 'widget', scope: 'pub', widget: 'dumdum' })  // => '/pub/widgets/dumdum'
  */
 export function urlOf(address: AddressT, mode?: Mode): string {
   const keypath = address.kind === 'org' ? [] : keypathOf(address)
@@ -122,11 +127,21 @@ export function urlOf(address: AddressT, mode?: Mode): string {
   return '/' + [...rootOf(address), ...keypath, ...tail].join('/')
 }
 
-/** The segments an address starts with: its org and hunt, or the library */
+/**
+ * The address of a resource's raw record, which no page serves: its address, its last label ending
+ * in `.json`.
+ *
+ * @example recordUrlOf({ kind: 'widget', scope: 'pub', widget: 'dumdum' })  // => '/pub/widgets/dumdum.json'
+ */
+export function recordUrlOf(address: KeyedAddressT): string {
+  return `${urlOf(address)}${RawSuffix}`
+}
+
+/** The segments an address starts with: its org and hunt; nothing for a widget, whose key path starts at its scope */
 function rootOf(address: AddressT): string[] {
   switch (address.kind) {
   case 'org':    { return [`~${address.org}`] }
-  case 'widget': { return ['lib'] }
+  case 'widget': { return [] }
   default:       { return [`~${address.org}`, address.hunt] }
   }
 }
@@ -159,23 +174,32 @@ export function isMerged(address: FiledAddressT): boolean {
 }
 
 /**
- * The resource an address names, and the mode it opens it in; null when it names none. Reads only
- * the address's canonical form, with labels lowercase: an address that does not parse leads
+ * The resource an address names, the mode it opens it in, and whether it names the resource's raw
+ * record (a last label ending in `.json`, which takes no mode); null when it names none. Reads
+ * only the address's canonical form, with labels lowercase: an address that does not parse leads
  * nowhere. A query string or a fragment is ignored, as is a trailing slash, and an escaped
  * character reads as itself (`%7E` as `~`).
  *
- * @example locationFrom('/~pat_smith/spring_hunt/quizzes/home/legends/!edit')  // => { address: { kind: 'quiz', org: 'pat_smith', hunt: 'spring_hunt', realm: 'home', quiz: 'legends' }, mode: 'edit' }
- * @example locationFrom('/~pat_smith/spring_hunt')  // => { address: { kind: 'hunt', org: 'pat_smith', hunt: 'spring_hunt' }, mode: null }
+ * @example locationFrom('/~pat_smith/spring_hunt/quizzes/home/legends/!edit')  // => { address: { kind: 'quiz', org: 'pat_smith', hunt: 'spring_hunt', realm: 'home', quiz: 'legends' }, mode: 'edit', raw: false }
+ * @example locationFrom('/~pat_smith/spring_hunt')  // => { address: { kind: 'hunt', org: 'pat_smith', hunt: 'spring_hunt' }, mode: null, raw: false }
+ * @example locationFrom('/pub/widgets/dumdum.json')  // => { address: { kind: 'widget', scope: 'pub', widget: 'dumdum' }, mode: null, raw: true }
  * @example locationFrom('/h/spring_hunt')  // => null
  */
 export function locationFrom(raw: string): LocationT | null {
   const segs = segmentsFrom(raw)
   if (segs === null) { return null }
-  const hasMode = segs.at(-1)?.startsWith('!') ?? false
-  const mode    = hasMode ? modeFrom(segs.at(-1)) : null
-  if (hasMode && mode === null) { return null }
-  const address = addressFrom(hasMode ? segs.slice(0, -1) : segs)
-  return address && { address, mode }
+  const last = segs.at(-1) ?? ''
+  if (last.startsWith('!')) {
+    const mode = modeFrom(last)
+    const address = mode && addressFrom(segs.slice(0, -1))
+    return address && { address, mode, raw: false }
+  }
+  if (last.endsWith(RawSuffix)) {
+    const address = addressFrom([...segs.slice(0, -1), last.slice(0, -RawSuffix.length)])
+    return address && address.kind !== 'org' ? { address, mode: null, raw: true } : null
+  }
+  const address = addressFrom(segs)
+  return address && { address, mode: null, raw: false }
 }
 
 /** An address's path as its segments, unescaped, or null when it is not a path or holds an empty segment */
@@ -191,10 +215,11 @@ function segmentsFrom(raw: string): string[] | null {
   }
 }
 
-/** The resource a path's segments name, its mode taken off; null when they name none */
+/** The resource a path's segments name, its mode or raw suffix taken off; null when they name none */
 function addressFrom(segs: readonly string[]): AddressT | null {
   const [head = '', ...rest] = segs
-  if (head === 'lib') { return widgetFrom(rest) }
+  const scope = WidgetScopeVals.find((each) => each === head)
+  if (scope !== undefined) { return widgetFrom(scope, rest) }
   const org = orgFrom(head)
   if (org === null) { return null }
   const [hunt, ...keypath] = rest
@@ -202,12 +227,11 @@ function addressFrom(segs: readonly string[]): AddressT | null {
   return isLabel(hunt) ? huntResourceFrom({ org, hunt }, keypath) : null
 }
 
-/** The library's resource a key path names, or null */
-function widgetFrom(keypath: readonly string[]): AddressT | null {
-  const [noun, scope, widget, ...extra] = keypath
-  const known = WidgetScopeVals.find((each) => each === scope)
-  if (noun !== 'widgets' || known === undefined || widget === undefined || ! isLabel(widget) || extra.length > 0) { return null }
-  return { kind: 'widget', scope: known, widget }
+/** The resource of the library's scope `scope` that the rest of a key path names, or null */
+function widgetFrom(scope: WidgetScope, keypath: readonly string[]): AddressT | null {
+  const [noun, widget, ...extra] = keypath
+  if (noun !== 'widgets' || widget === undefined || ! isLabel(widget) || extra.length > 0) { return null }
+  return { kind: 'widget', scope, widget }
 }
 
 /** The resource of a hunt a key path names, or null */

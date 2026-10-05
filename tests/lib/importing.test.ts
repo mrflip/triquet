@@ -623,10 +623,12 @@ describe('older exports', () => {
     expect(patchFor(present(outcome.questions), 'sheep').clueing).to.include('At a glance, the lines below are gibberish')
   })
 
-  it("still imports the library's export of widgets in a list", () => {
-    const outcome = Importing.libraryImported(SeedWidgets, olderExport('library-2026-10-04.json'))
-    expect(outcome.log.map((entry) => entry.outcome)).to.deep.eq([...SeedWidgets.map(() => 'kept'), 'added'])
-    expect(outcome.widgets?.map((widget) => widget.label)).to.deep.eq(['remark'])
+  it("still imports the library's export of widgets in a list, and of widgets keyed by scope under `widgets`", () => {
+    for (const filename of ['library-2026-10-04.json', 'library-2026-10-05.json']) {
+      const outcome = Importing.libraryImported(SeedWidgets, olderExport(filename))
+      expect(outcome.log.map((entry) => entry.outcome), filename).to.deep.eq([...SeedWidgets.map(() => 'kept'), 'added'])
+      expect(outcome.widgets?.map((widget) => widget.label), filename).to.deep.eq(['remark'])
+    }
   })
 })
 

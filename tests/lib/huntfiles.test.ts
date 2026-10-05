@@ -58,14 +58,14 @@ describe('huntFiles', () => {
     expect(Huntfiles.huntFiles(snapshot()).keys().take(5).toArray()).to.deep.eq(['README.md', 'hunt.tqh.json', 'hunt.tqh.tsv', 'categories.tqc.json', 'categories.tqc.tsv'])
   })
 
-  it("names the paths the address model names: the questions alone beside their quiz, a review under it, a widget under the library", () => {
+  it("names the paths the address model names: the questions alone beside their quiz, a review under it, a widget under its scope", () => {
     const paths = Huntfiles.huntFiles(snapshot()).keys().toArray()
     expect(paths).to.include.members([
       'members.tqm.json', 'members.tqm.tsv',
       'quizzes/home/princes.tqq.json', 'quizzes/home/princes.tqq.tsv',
       'quizzes/home/princes/questions.qq.json', 'quizzes/home/princes/questions.qq.tsv',
       'quizzes/home/princes/reviews/lee_jones.tqr.json', 'quizzes/home/princes/reviews/lee_jones.tqr.tsv',
-      'quizzes/home/paris.tqq.json', 'widgets/pub/remark.tqw.json', 'widgets/pub/dumdum.tqw.tsv',
+      'quizzes/home/paris.tqq.json', 'pub/widgets/remark.tqw.json', 'pub/widgets/dumdum.tqw.tsv',
     ])
     expect(paths.filter((filepath) => filepath.includes('kim_park'))).to.deep.eq([])
   })
@@ -174,7 +174,7 @@ describe('tsvOf', () => {
   })
 
   it("writes a widget as one row, labelled by its label", () => {
-    const rows = rowsOf(tsvAt('widgets/pub/remark.tqw.tsv'))
+    const rows = rowsOf(tsvAt('pub/widgets/remark.tqw.tsv'))
     expect(rows).to.have.lengthOf(1)
     expect(rows[0]).to.deep.include({ 'label': 'remark', 'formulary': 'entry', 'config': '{"entry_kind":"text"}', 'position': String(EntryLibrary.length - 1) })
   })

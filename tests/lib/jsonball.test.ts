@@ -151,7 +151,7 @@ describe('quizzesIn', () => {
   })
 
   it("reads a ball holding no quiz as none", () => {
-    for (const ball of [{ categories: {} }, { members: { pat_smith: {} } }, { widgets: { pub: {} } }, { label: 'spring_hunt' }, {}]) {
+    for (const ball of [{ categories: {} }, { members: { pat_smith: {} } }, { pub: { widgets: {} } }, { label: 'spring_hunt' }, {}]) {
       expect(Jsonball.quizzesIn(ball), JSON.stringify(ball)).to.deep.eq({ shape: 'none', quizzes: [] })
     }
   })
@@ -164,9 +164,13 @@ describe('quizzesIn', () => {
 })
 
 describe('widgetsIn', () => {
-  it("reads widgets keyed by scope and label in library order, each carrying its scope and label", () => {
-    expect(Jsonball.widgetsIn({ widgets: { pub: { shout: { position: 0, formulary: 'jsonata', formula: '1' } } } })).to.deep.eq([{ position: 0, formulary: 'jsonata', formula: '1', scope: 'pub', label: 'shout' }])
-    expect(Jsonball.widgetsIn({ widgets: { pub: { zebra: { position: 1 }, shout: { position: 0 } } } })?.map((widget) => (widget as { label: string }).label)).to.deep.eq(['shout', 'zebra'])
+  it("reads widgets under their scope, keyed by label, in library order, each carrying its scope and label", () => {
+    expect(Jsonball.widgetsIn({ pub: { widgets: { shout: { position: 0, formulary: 'jsonata', formula: '1' } } } })).to.deep.eq([{ position: 0, formulary: 'jsonata', formula: '1', scope: 'pub', label: 'shout' }])
+    expect(Jsonball.widgetsIn({ pub: { widgets: { zebra: { position: 1 }, shout: { position: 0 } } } })?.map((widget) => (widget as { label: string }).label)).to.deep.eq(['shout', 'zebra'])
+  })
+
+  it("reads the library's export of early October 2026, its widgets keyed by scope under `widgets`", () => {
+    expect(Jsonball.widgetsIn({ widgets: { pub: { zebra: { position: 1 }, shout: { position: 0 } } } })).to.deep.eq([{ position: 0, scope: 'pub', label: 'shout' }, { position: 1, scope: 'pub', label: 'zebra' }])
   })
 
   it("reads a bare list, and an older library export's list, as they stand", () => {
@@ -175,11 +179,11 @@ describe('widgetsIn', () => {
   })
 
   it("reads the widgets out of a merged hunt, passing over the rest of it", () => {
-    expect(Jsonball.widgetsIn({ label: 'spring_hunt', quizzes: {}, widgets: { pub: { dumdum: { position: 3 } } } })).to.deep.eq([{ position: 3, scope: 'pub', label: 'dumdum' }])
+    expect(Jsonball.widgetsIn({ label: 'spring_hunt', quizzes: {}, pub: { widgets: { dumdum: { position: 3 } } } })).to.deep.eq([{ position: 3, scope: 'pub', label: 'dumdum' }])
   })
 
   it("is null for a paste holding no widgets", () => {
-    for (const raw of [{ quizzes: {} }, { widgetings: [] }, null, 'shout', { widgets: 'shout' }]) {
+    for (const raw of [{ quizzes: {} }, { widgetings: [] }, null, 'shout', { widgets: 'shout' }, { pub: 'shout' }, { pub: { widgets: [] } }]) {
       expect(Jsonball.widgetsIn(raw), JSON.stringify(raw)).to.be.null
     }
   })

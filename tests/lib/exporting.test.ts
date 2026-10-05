@@ -308,24 +308,24 @@ describe('widgetBall', () => {
     const dumdum = present(SeedWidgets.find((widget) => widget.label === 'dumdum'))
     const placed = Exporting.widgetBall(dumdum, 0)
     const { scope, label, ...fields } = Widget.exported(dumdum)
-    expect(placed.ball).to.deep.eq({ widgets: { [scope]: { [label]: { ...fields, position: 0 } } } })
+    expect(placed.ball).to.deep.eq({ [scope]: { widgets: { [label]: { ...fields, position: 0 } } } })
     expect(placed.address).to.deep.eq({ kind: 'widget', scope: 'pub', widget: 'dumdum' })
   })
 })
 
 describe('libraryBall', () => {
-  it("is every widget, keyed by scope and label, each with its place in library order", () => {
-    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'widgets.pub') as Record<string, Jsonball.WidgetBodyT>
+  it("is every widget under its scope, keyed by label, each with its place in library order", () => {
+    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'pub.widgets') as Record<string, Jsonball.WidgetBodyT>
     expect(_.sortBy(Object.keys(pub), (label) => pub[label]?.position)).to.deep.eq(SeedWidgets.map((widget) => widget.label))
   })
 
   it("reads the doc block's example", () => {
-    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'widgets.pub') as object
+    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'pub.widgets') as object
     expect(Object.keys(pub)).to.include.members(['answer_reversed', 'dumdum'])
   })
 
   it("is an empty collection for an empty library", () => {
-    expect(Exporting.libraryBall([])).to.deep.eq({ widgets: {} })
+    expect(Exporting.libraryBall([])).to.deep.eq({ pub: { widgets: {} } })
   })
 
   it("reads back through the library's Import as unchanged", () => {
@@ -372,7 +372,7 @@ describe('ballsOf', () => {
   })
 
   it("writes the widgets the quizzes work, at their place in the library, and no others", () => {
-    const placed = Exporting.ballsOf(snapshot()).flatMap(({ address, ball }) => (address.kind === 'widget' ? [[address.widget, _.get(ball, ['widgets', 'pub', address.widget, 'position']) as unknown]] : []))
+    const placed = Exporting.ballsOf(snapshot()).flatMap(({ address, ball }) => (address.kind === 'widget' ? [[address.widget, _.get(ball, ['pub', 'widgets', address.widget, 'position']) as unknown]] : []))
     const worked = chainedQuiz().widgetings.map((widgeting) => widgeting.widget_label)
     expect(placed.map(([label]) => label)).to.have.members(worked)
     expect(placed).to.deep.include(['remark', EntryLibrary.length - 1])
@@ -382,7 +382,8 @@ describe('ballsOf', () => {
 describe('wholeOf', () => {
   it("is the hunt's fields at the root, beside its categories, members, quizzes and the widgets they work", () => {
     const whole = Exporting.wholeOf(snapshot())
-    expect(_.sortBy(Object.keys(whole))).to.deep.eq(['branch', 'categories', 'label', 'members', 'quizzes', 'title', 'widgets'])
+    expect(_.sortBy(Object.keys(whole))).to.deep.eq(['branch', 'categories', 'label', 'members', 'pub', 'quizzes', 'title'])
+    expect(Object.keys(_.get(whole, 'pub.widgets') as object)).to.include('dumdum')
     expect(Object.keys(_.get(whole, 'quizzes.home') as object)).to.have.members(['princes', 'paris'])
     expect(_.get(whole, 'quizzes.home.princes.reviews.lee_jones.overall')).to.eq('A fair quiz.')
   })
