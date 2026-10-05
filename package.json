@@ -38,7 +38,11 @@
     "convex:reset": "scripts/convex_reset",
     "previews": "scripts/doppledo dev_aijanitor scripts/convex_preview node scripts/convex-previews.ts",
     "newb": "scripts/newb",
-    "lane": "node scripts/lanes.ts lane"
+    "lane": "node scripts/lanes.ts lane",
+    "worktree": "node scripts/spine.ts worktree",
+    "land": "node scripts/spine.ts land",
+    "sweep": "node scripts/spine.ts sweep",
+    "restack": "node scripts/spine.ts restack"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
