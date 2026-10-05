@@ -9,8 +9,89 @@ their sections below the table, newest first.
 | ------ | ---------------------------- | ------ | -- | ------- |
 | 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
 | 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; reviewed late (clean) |
-| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete |
-| 3      | quiz mode: grid and widgets  |        |    | underway |
+| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` | #105 | complete, reviewed (clean) |
+| 3      | quiz mode: grid and widgets  | `20261005-quiz_grid_tidy` | #108 | complete, reviewed (clean) |
+| 4      | name is title, label beside  |        |    | planned; waits on the spine merge |
+| 5      | column alignment             |        |    | planned; waits on the spine merge |
+
+## Thread 3: quiz mode -- the grid and the widgets panel (2026-10-05)
+
+Branch `20261005-quiz_grid_tidy`, PR #108, stacked on #105. Suites: typecheck and lint clean;
+`pnpm test` 124 files, 3485 tests; `pnpm test:e2e` 228 passed. The two panel specs added after
+that run went into the widgets commit, and `panels.spec.ts` alone passed 23.
+
+* **Built**:
+  - *Values typeset by type* (`workbench.module.css`, `cells/fields.tsx`, `cells/chain.tsx`,
+    `JsonFold.tsx`). String values are in the page face: Title, labelish and titleish entries,
+    the chain picker, BUT NOT, formula strings and asked cells. Numbers use `tabular-nums` and
+    sit right-aligned (`.sum`, and `.fieldNumber`, renamed from `.fieldQnum`, for Q# and number
+    entries). Only JSON is monospace: `.json`, worn by `JsonText` itself. `.fieldData` is gone.
+  - *One inset* for every box in a cell: 4px/5px padding plus a 1px border, now on
+    `.readonlyCell` too. The label under a title gets the same inset (`.fieldNote`), and so do
+    the headers (`.head` padding is `cell-pad + 6px`). The grid sets `line-height: 20px`.
+  - *Folded rows are one line*: `FoldedRowPx` is 30, which is 20 plus 5 above and below.
+    `.rowFolded` clamps each box's children to one line with an ellipsis. It hides every
+    `.metaline` (the title's label, an asked cell's tier line) and drops `.askable`'s 44px
+    minimum. `select.field` is held to 30px (it was 31, and that made folded rows 44 tall).
+    `input.field` ellipsizes. `ButnotPreview` wraps its text in a div so the clamp reaches it.
+  - *Corner* (`QuestionTable.tsx`, `.headCorner`): the cell has `height: 1px` so its stack can
+    take the whole row's height. The fold sits at the top, batch select and select-all at the foot.
+  - *Widgets panel* (`panels/WidgetsPanel.tsx`): each summary is a row of fixed-width boxes
+    (`WidthFor`): label 190, widget 190, status 230, then the description snippet, flexible and
+    ellipsized. The snippet uses the widgeting's description, or else the widget's, and is
+    `visibility: hidden` while the row is open. A container query on the list (`RoomFor`) shows
+    the description from 900, the widget from 720, the status from 520; the label always shows.
+    `StatusSentence` colours the errored phrase `error.main`.
+  - `statusLine`, `statusPhrases`, `StatusWords`, `NoCellsLine`, `StatusJoint` in
+    `widget-words.ts`, with tests. `hiddenUntil` moved to `src/components/room.ts`, shared with
+    `ColumnsEditor`.
+  - e2e: new specs in `chaining.spec.ts` (a folded row is one line), `grid.spec.ts` (the
+    corner) and `panels.spec.ts` (narrowing; the snippet giving way). The counts' text and the
+    30px fold height are updated.
+* **Decisions taken**:
+  - **No column has a "type"**: a jsonata widget declares none. So a readout is typeset by its
+    value (number, text, or list/object as JSON), and an entry by its `entry_kind`.
+  - **Numbers right-aligned, Q# included**, for one rule. Q# now sits right under a left "Q#"
+    header (open question in the PR).
+  - **Status words**: `ok` is *current* and `missing` is *blank*, on screen only. Neither clashes
+    with an existing widget meaning: *current* is used elsewhere only for "current ident", and
+    *blank* is already the everyday word for an empty field or pill. The vocabulary records it.
+    *Stale* has no count, since staleness is off (`whiteboard/20261003-widgets_todo.md`).
+    `StatusWords` says where it will slot in.
+  - **"Hide the label" (bullet 5) means the widget it works** ("prompt numnum_clueing"). The
+    widgeting's own label is the row's name and always stays.
+  - **No questions** says "no questions yet" rather than an empty status.
+* **Deviations**: the header inset and the ⚠-badge room (`.askWrap:has(> .errBadge)`) were not
+  asked for. The first lines headers up with the text below them. The second came up because
+  body-face text collided with the badge.
+* **Style inventory** (what each look meant, and what became of it). Kept, because each signifies
+  something:
+  - `.muted`: blank dash, failure, notices.
+  - `.metaline`: label, ask tier and tokens, retry hint.
+  - `.askable:disabled` opacity: unaskable or locked.
+  - `.gripLocked`, `ErrBadge`, the estimate pills' difficulty colours.
+  - The red errored count, which moved from the Chip to the sentence.
+
+  Restyled, because the look said only where a value came from: `.fieldData` (Title, chain),
+  and the 12px monospace on `.sum`, `.expressedText`, `.readonlyCell` and `.askable`.
+* **Discoveries**:
+  - **`pnpm test:e2e` empties `test-results/`.** Scratch scripts kept there die with it, so keep
+    them in the scratchpad and import Playwright by absolute path.
+  - The agent backend now holds idents `grid_shooter_*`, with demo hunts built from
+    `whiteboard/20261001-review/20261001-questions.json` for the screenshots.
+  - A select ignores `line-height`; only an explicit height holds it to the grid's line.
+* **For the Coach**: the Q# alignment, and the left-sitting blank dash in number columns
+  (pre-existing: a formula column cannot know it holds numbers). Both are in the PR.
+
+Screenshots (`screenshots/thread3-*-{before,after}.png`; read them to review the look):
+`grid-folded-dark-1400`, `grid-folded-right-light-1400` (the widget columns), `grid-open-dark-1400`,
+`grid-folded-light-900`, `widgets-light-1400` and `widgets-dark-1400` (one row open),
+`widgets-light-640` and `widgets-light-420` (narrowing).
+* *Review:* `clean`, at medium; the full `pnpm test:e2e` then passed 230, the two late panel
+  specs included. Minor, left: `statusLine` (`widget-words.ts`) is exported and tested but no
+  view calls it -- `StatusSentence` repeats its join to colour the errored phrase, while both
+  doc blocks name `statusLine` as the way; `hiddenUntil` in its new `room.ts` has no unit test
+  of its own (it had none before; e2e narrowing specs cover it).
 
 ## Thread 1b: the ident gate, the Coach's follow-up (2026-10-05)
 

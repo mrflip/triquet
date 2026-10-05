@@ -7,6 +7,7 @@ import { ConfirmRemove } from './ConfirmRemove'
 import { NumberField } from './cells/fields'
 import { SortableList } from './SortableList'
 import { useDraft } from './use-draft'
+import { hiddenUntil } from './room'
 import * as Labelmaker from '../lib/labelmaker'
 import * as Estimates from '../lib/estimates'
 import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals, WidthPxMax, namesFor, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../models/column'
@@ -36,11 +37,6 @@ const NewColumnWidthPx = 180
  * its width; the title and the gear always stay.
  */
 const RoomFor = { label: '@800', source: '@620', width: '@400' } as const
-
-/** An `sx` fragment that keeps a field out of the row until the list is `room` wide */
-function hiddenUntil(room: string) {
-  return { display: { '@': 'none', [room]: 'block' } }
-}
 
 /** What a column of `quiz` can show, each with the group it is listed under: a category-estimate widgeting's parts beneath it */
 function sourcesOf(quiz: QuizT, library: readonly WidgetT[]) {

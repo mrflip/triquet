@@ -46,7 +46,11 @@ this section, lists the words they replace while code still holds them.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
   no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An
-  `ok` of null is shown, written and sorted as nothing too, but keeps its status.
+  `ok` of null is shown, written and sorted as nothing too, but keeps its status. On screen a
+  widgeting's cells are counted as **current**, **errored** and **blank** (`StatusWords`, in
+  `src/components/widget-words.ts`): `ok` reads *current* because a *stale* cell, once staleness
+  returns, is an `ok` one that is not; `missing` reads *blank*, as an empty field does. The code
+  and the rows keep `ok` and `missing`.
 * **err** -- a failure on a widgeted: on `errored` the failure itself, on `ok` a newer failure
   riding along on an older value, which it never replaces. Shown as one badge.
 * **stale** -- derived, never discarded: a stored widgeted whose input is no longer what it was

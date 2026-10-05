@@ -20,7 +20,7 @@ export type ChainPickerProps = {
 export function ChainPicker({ question, questions, locked, onChain }: Readonly<ChainPickerProps>) {
   return (
     <select
-      className={clsx(styles.field, styles.fieldData)}
+      className={styles.field}
       aria-label="Chains to"
       disabled={locked}
       value={question.chains_to ?? ''}
@@ -55,7 +55,7 @@ export function ButnotPreview({ target, chained, heightPx }: Readonly<ButnotPrev
       style={{ maxHeight: `${String(heightPx)}px` }}
       title={notice === null ? target?.hint : undefined}
     >
-      {notice ?? Chain.chainSnippet(target?.hint ?? '')}
+      <div>{notice ?? Chain.chainSnippet(target?.hint ?? '')}</div>
     </div>
   )
 }

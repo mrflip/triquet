@@ -70,7 +70,7 @@ test('the Widgets panel counts what has been typed, and says what the entry take
   await entryBox(page, 0, 'Points').fill('-2.5')
   await leaveBox(page)
   const panel = page.getByRole('region', { name: 'Widgets' })
-  await expect(panel.getByRole('group', { name: 'Cells of points' })).toHaveText(/^1 ok\s*0 errored\s*\d+ missing$/)
+  await expect(panel.getByRole('group', { name: 'Cells of points' })).toHaveText(/^1 current • \d+ blank$/)
   await panel.getByRole('button', { name: /^points/ }).click()
   await expect(panel).toContainText('Typed into its cells, one value per question. A number.')
   await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toHaveCount(0)

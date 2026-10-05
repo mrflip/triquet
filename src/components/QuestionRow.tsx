@@ -32,8 +32,8 @@ const WideReadoutPx = 150
 /** Shortest a row may be, so an empty quiz still reads as a grid */
 export const RowFloorPx = 56
 
-/** The height a folded row gives every cell: one line of the grid's own box */
-export const FoldedRowPx = 28
+/** The height a folded row gives every cell: one line of the grid's own box, its 20px line and 5px of padding and border above and below */
+export const FoldedRowPx = 30
 
 export type QuestionRowProps = {
   question:    QuestionT
@@ -82,8 +82,9 @@ export type QuestionRowProps = {
  * height for both, capped; the notes columns (and text entries) are stretched to that same height
  * but never get a say in it, and the widgetings' columns are capped at it and scroll.
  *
- * Folded, every box is one line high and clips what it holds, and the boxes go on measuring
- * themselves, so the row opens straight to the height it would have had.
+ * Folded, every box is one line high and shows the first line of what it holds, ending in an
+ * ellipsis, and the lines beneath a box (the title's label) are put away. The boxes go on
+ * measuring themselves, so the row opens straight to the height it would have had.
  */
 export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
@@ -127,7 +128,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       return (
         <>
           <PlainField label="Title" committed={question.title} locked={locked} onCommit={(title) => { commit({ title }) }} />
-          <div className={styles.metaline}>{question.label}</div>
+          <div className={clsx(styles.metaline, styles.fieldNote)}>{question.label}</div>
         </>
       )
     }

@@ -1,9 +1,10 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 3 underway. Threads 1 and 2 merged to main by the Coach via #99 (#96 closed);
-thread 1b complete and reviewed (#105, follows #99); thread 2 reviewed late, clean. The sprint runs in
-the worktree `.claude/worktrees/little_fixes`.
+`/sprint`. **Status:** threads 4 and 5 planned, waiting on the Coach to merge the spine stack (#103 lanes <-
+#104 spine <- #106 parallel sprints <- #107 cwd rule). They run under those rules once main has them
+(`pnpm worktree`, `pnpm land`, a lane per worktree); nothing is spawned before. Threads 1-3 done:
+1 and 2 merged via #99; 1b is #105, 3 is #108, both open, reviewed clean.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -169,6 +170,63 @@ in the progress document: keep the widgets panel's Accordion, line the summary u
 fixed-width boxes as `ColumnsEditor`'s rows do, and hide by container query (`RoomFor`,
 `hiddenUntil`), not a Table. Its three `sx` traps apply to the grid too. The sprint runs in a
 worktree: work in it, run `git status` before any path-naming checkout or restore.
+
+## Round two (Coach, 2026-10-05, after the first round's PRs)
+
+*Orchestrator:* the Coach's answers to round one's open questions, and two threads from them.
+Settled without a thread: a hunt cannot lack quizzes, so the narrow hunts page's empty row cannot
+happen (drop it); `statusLine` unused is noted, not to be investigated now.
+
+**Under the spine rules.** Once #103-#107 merge, every thread starts with `pnpm worktree <label>`
+(its own worktree and lane, cut from the spine's top), works from that root with `cd <root> && `
+on every command, finishes with `pnpm land`, then files its PR and `pnpm worktree --remove`.
+Workers read `notes/git_hygiene.md` and CLAUDE.md *as merged*, and `.claude/agents/thread-worker.md`
+as it then stands; they supersede this plan's older ground rules wherever they differ. Threads 4
+and 5 touch different files and may run side by side if the merged sprint skill allows it.
+
+### Thread 4: the name field is the title; the label beside it follows until edited
+
+> When people are entering their name, let them type anything they want (becoming the title), but
+> show the label form to the right. If they click to edit the label, show red if it doesn't fit
+> label standards. If they make a change to the label, it stops auto-updating. if they clear the
+> field, it resets to auto-updating. After this, the label is decoupled from the titile whether
+> they edited it or not.
+>
+> change 6 letters and numbers to 6 characters
+>
+> [reuse `Ident.flawIn` in MembersPanel:] yes for reusing, unless my behavior above makes it not
+> make sens
+
+*Gloss.* `src/components/IdentGate.tsx` again (on top of #105's version). Two fields side by side:
+**name** (free text, any characters, becomes the ident's title) and **label**, which shows
+`Ident.labelFor(name)` and follows the name as it is typed -- until the label field itself is
+changed, when it stops following; emptying the label field makes it follow again. The label field
+is red when it does not meet the label standard (`IdentValidators.identLabel`), shown once the user
+is editing it; the auto-derived label always fits. The submit says "Log in as <label>" and sends
+both (`assume_ident` already takes `label` and `title` separately: no server change expected). The
+1b behaviours carry over, keyed on the label: your own label turns the primary into "Keep being".
+"After this, decoupled": once the ident exists, retitling never relabels -- check that is already
+so, and say so. This retires 1b's typed-text shape check (`PA.Identtyped`, `Ident.flawIn`'s
+`'shape'`) if nothing else needs it -- the name field takes anything now; remove what becomes dead
+rather than leave it. `AppNotices.usernameLength`: "6 characters", not "6 letters and numbers".
+`MembersPanel`'s add-member field takes a label, not a name: give it the label field's check (the
+same function the gate's label field uses), at the same moment the gate shows red.
+
+### Thread 5: the column editor sets each column's alignment
+
+> Add the standard left-justified editor sigil to the column editor. Each click toggles to the
+> next one. start Q# centered
+
+*Gloss.* In `src/components/ColumnsEditor.tsx`, each column row gets the familiar
+text-alignment icon (MUI's `FormatAlignLeft` / `FormatAlignCenter` / `FormatAlignRight`, left
+justified in its row); a click cycles left -> center -> right -> left, and the grid's cells and
+header follow it. It is stored on the column row beside `width_px`: an **optional** field
+(`align`) is a widen, so no backfill and no migration (`notes/deploy.md`, *Schema pushes* -- the
+worker confirms). Absent means the default by kind: numbers right (thread 3's rule), everything
+else left, **Q# centered**. Whether a fresh column writes its default or leaves the field absent
+is the worker's call, recorded. Thread 3's open question (Q# right-aligned under a left header)
+is answered by this: Q# starts centered, header with it.
+
 
 ## For the Coach
 
