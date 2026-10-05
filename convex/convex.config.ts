@@ -16,7 +16,7 @@ import { v as CVX } from 'convex/values'
  */
 const app = defineApp({
   env: {
-    TRIQUET_CLEARABLE: CVX.optional(CVX.string()),
+    TRIQUET_CLEARABLE: CVX.optional(CVX.literal('yes')),
     JWT_PRIVATE_KEY:   CVX.optional(CVX.string()),
     JWKS:              CVX.optional(CVX.string()),
     SITE_URL:          CVX.optional(CVX.string()),

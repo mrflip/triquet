@@ -192,7 +192,7 @@ changes with `--watch`, and runs the command with `NEXT_PUBLIC_CONVEX_URL` namin
 A backend the script started stops with the command; one that was already running is left alone.
 
 `scripts/convex_reset <role>` empties a role's backend, every row of every table, through
-`testing:clearAll`, which a backend refuses unless `TRIQUET_CLEARABLE` is set on it. Only the
+`testing:clearAll`, which a backend refuses unless `TRIQUET_CLEARABLE` is `yes` on it. Only the
 local scripts set it, and only on `127.0.0.1`; production never has it.
 
 `scripts/convex_healthcheck <role>` asks whether a role's backend answers and whether it holds
