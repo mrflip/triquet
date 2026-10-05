@@ -122,9 +122,30 @@ test("the category spread counts the questions round the wheel, smoothed beside 
   // Art has one question and half of another; smoothed, it keeps half of that, and lends Classical Music 16%.
   await panel.getByRole('button', { name: 'As a table' }).click()
   const table = panel.getByRole('table', { name: 'Category spread' })
-  await expect(table.locator('tr[data-category="art"]').getByRole('cell')).toHaveText(['Art', '1.5', '0.75'])
-  await expect(table.locator('tr[data-category="tv"]').getByRole('cell')).toHaveText(['TV', '0.5', '0.25'])
-  await expect(table.locator('tr[data-category="classical_music"]').getByRole('cell')).toHaveText(['Classical Music', '0', '0.24'])
+  const cellsOf = (category: string) => table.locator(`tr[data-category="${category}"]`).getByRole('cell')
+  const leadingCells = (category: string) => async () => {
+    const texts = await cellsOf(category).allTextContents()
+    return texts.slice(0, 4)
+  }
+  await expect.poll(leadingCells('art')).toEqual(['9', 'Art', '1.5', '0.75'])
+  await expect.poll(leadingCells('tv')).toEqual(['16', 'TV', '0.5', '0.25'])
+  await expect.poll(leadingCells('classical_music')).toEqual(['10', 'Classical Music', '0', '0.24'])
+  // Each persona's chance at the questions drawing on a category, and the three's average; a dash where none does.
+  await expect(cellsOf('art').nth(4)).toHaveText(/^\d+%$/)
+  await expect(cellsOf('classical_music').nth(4)).toHaveText('—')
+  await expect(cellsOf('classical_music').nth(7)).toHaveText('—')
+  await expect(table.getByRole('row', { name: /^Whole quiz/ })).toContainText('%')
+
+  // Sorted by questions, most first; again, least first, the categories no question draws on in the wheel's order.
+  await table.getByRole('button', { name: 'Questions' }).click()
+  await expect(table.getByRole('columnheader', { name: 'Questions' })).toHaveAttribute('aria-sort', 'descending')
+  await expect(table.locator('tbody tr').first()).toHaveAttribute('data-category', 'art')
+  await expect(table.locator('tbody tr').nth(1)).toHaveAttribute('data-category', 'tv')
+  await table.getByRole('button', { name: 'Questions' }).click()
+  await expect(table.locator('tbody tr').first()).toHaveAttribute('data-category', 'math_econ')
+  await table.getByRole('button', { name: 'Category' }).click()
+  await expect(table.locator('tbody tr').first()).toHaveAttribute('data-category', 'art')
+  await expect(table.locator('tbody tr').nth(1)).toHaveAttribute('data-category', 'biz_tech')
 
   // A click widens the chart to the whole row of panels, in the page; Enter narrows it again.
   const chart = panel.getByRole('button', { name: 'Category spread chart, full width' })

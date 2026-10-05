@@ -1,17 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Accordion, AccordionDetails, AccordionSummary, Box, ButtonBase, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Box, ButtonBase, Table, TableBody, TableCell, TableFooter, TableHead, TableRow, TableSortLabel } from '@mui/material'
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import { Legend, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Text, Tooltip, usePlotArea, type DotItemDotProps } from 'recharts'
 import { Panel } from './Panel'
 import * as SpreadChart from './spread-chart'
+import * as SpreadTable from './spread-table'
 import * as Estimates from '../../lib/estimates'
 import type { QuizRun } from '../../lib/formulary/runner'
+import type { PersonaChancesT } from '../../lib/personas'
 import * as Spread from '../../lib/spread'
 import { Category, WheelSlotCount } from '../../models/category'
+import { Persona, PersonaLabelVals } from '../../models/persona'
 import styles from '../workbench.module.css'
 
 export type SpreadPanelProps = {
@@ -19,9 +22,9 @@ export type SpreadPanelProps = {
   run: QuizRun
 }
 
-/** How the chart is sized: at rest, as tall as its column is wide, with room for the legend; widened to the whole row of panels, a fixed height */
+/** How the chart is sized: at rest, as tall as its two columns are wide, with room for the legend, up to a height; widened to the whole row of panels, a fixed height */
 const ChartSizeSx = {
-  resting: { aspectRatio: '1 / 1.08', maxHeight: 560 },
+  resting: { aspectRatio: '1 / 1.08', maxHeight: 680 },
   wide:    { height: 680 },
 } as const
 
@@ -34,7 +37,10 @@ const CountFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 /**
  * The quiz's spread round the category wheel, as a radar: how many questions draw on each
  * category, and the same smoothed over each category's neighbours. The wheel is the chart's own
- * rim, its categories as tiles clockwise from the top in the hunt's total order.
+ * rim, its categories as tiles clockwise from the top in the hunt's total order. The plot's edge,
+ * just inside the tiles, stands for the 75th percentile of the smoothed counts
+ * (`SpreadChart.radiusScaleOf`), so the busiest categories reach out among the tiles. The panel
+ * takes two columns of the row of panels where there is room for two.
  *
  * Clicking the chart, or pressing Enter on it, widens the panel to the whole row and the chart
  * with it; again narrows it back. Every number the chart draws is also in a table, folded
@@ -55,9 +61,10 @@ export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
     )
   }
   const spread = Spread.spreadOf(run.frame.order, quizEstimates.estimates.values())
+  const scale = SpreadChart.radiusScaleOf(spread)
 
   return (
-    <Panel title="Category spread" blurb={Blurb} wide={wide}>
+    <Panel title="Category spread" blurb={Blurb} wide={wide} double>
       <p className={styles.microcopy}>
         {questionsWords(spread.placedCount)} placed, from the estimates under <strong>{quizEstimates.widgeting.label}</strong>.
         Click the chart, or press Enter on it, to {wide ? 'narrow it again' : 'widen it to the whole row'}.
@@ -80,32 +87,52 @@ export function SpreadPanel({ run }: Readonly<SpreadPanelProps>) {
           '& svg *:focus': { outline: 'none' },
         }}
       >
-        <SpreadRadar spread={spread} />
+        <SpreadRadar spread={spread} scale={scale} />
         <Box aria-hidden sx={{ position: 'absolute', top: 4, right: 4, color: 'text.secondary', display: 'flex' }}>
           {wide ? <CloseFullscreenIcon fontSize="small" /> : <OpenInFullIcon fontSize="small" />}
         </Box>
       </ButtonBase>
       <p className={styles.microcopy}>
-        {unplacedWords(spread.unplacedCount)}
+        The plot&apos;s edge, just inside the tiles, stands for {questionsWords(scale.top)}: three
+        categories in four have no more than that once smoothed. A hollow dot is a count past the
+        tiles, held at their edge; the table has it. {unplacedWords(spread.unplacedCount)}
       </p>
-      <SpreadTable spread={spread} />
+      <SpreadTableFold spread={spread} />
     </Panel>
   )
 }
 
-/** The radar itself: the count and the smoothed count, round a rim of the wheel's tiles */
-function SpreadRadar({ spread }: Readonly<{ spread: Spread.SpreadT }>) {
-  const rows = spread.points.map((point) => ({ ...point, title: Category.titleOf(point.category) }))
-  const ticks = SpreadChart.radiusTicksOf(spread)
+/** One category as the radar draws it: its point, its title, and its two counts as drawn, held at the tiles' edge */
+type RadarRow = Spread.SpreadPointT & { title: string, countDrawn: number, smoothedDrawn: number, offScale: boolean }
+
+/** Whether what Recharts hands a tooltip or a dot is one of the radar's rows */
+function isRadarRow(row: unknown): row is RadarRow {
+  return typeof row === 'object' && row !== null && 'countDrawn' in row
+}
+
+/**
+ * The radar itself: the count and the smoothed count, round a rim of the wheel's tiles. A value
+ * past the tiles' outer edge is drawn there, a count so held as a hollow dot; the tooltip and the
+ * table say what it is.
+ */
+function SpreadRadar({ spread, scale }: Readonly<{ spread: Spread.SpreadT, scale: SpreadChart.RadiusScaleT }>) {
+  const rows: RadarRow[] = spread.points.map((point) => ({
+    ...point,
+    title:         Category.titleOf(point.category),
+    countDrawn:    SpreadChart.drawnOf(point.count, scale),
+    smoothedDrawn: SpreadChart.drawnOf(point.smoothed, scale),
+    offScale:      SpreadChart.isOffScale(point.count, scale),
+  }))
+  const { top, ticks } = scale
   return (
     <RadarChart responsive data={rows} outerRadius={SpreadChart.SpreadLayout.plotRadius} accessibilityLayer={false} style={{ width: '100%', height: '100%' }}>
       <PolarGrid gridType="circle" stroke="var(--border)" />
       <PolarAngleAxis dataKey="title" tick={(props: TickProps) => <TileTick {...props} />} tickLine={false} axisLine={{ stroke: 'var(--border)' }} />
       {/* Its numbers sit between the first two slots, clear of either tile's spoke */}
-      <PolarRadiusAxis angle={90 - (180 / WheelSlotCount)} domain={[0, ticks.at(-1) ?? 1]} ticks={ticks} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 10 }} tickFormatter={(num: number) => CountFormat.format(num)} />
+      <PolarRadiusAxis angle={90 - (180 / WheelSlotCount)} domain={[0, top]} allowDataOverflow ticks={ticks} axisLine={false} tick={{ fill: 'var(--muted)', fontSize: 10 }} tickFormatter={(num: number) => CountFormat.format(num)} />
       <Radar
         name="Smoothed"
-        dataKey="smoothed"
+        dataKey="smoothedDrawn"
         stroke="var(--series-b)"
         strokeWidth={2}
         fill="var(--series-b)"
@@ -115,7 +142,7 @@ function SpreadRadar({ spread }: Readonly<{ spread: Spread.SpreadT }>) {
       />
       <Radar
         name="Questions"
-        dataKey="count"
+        dataKey="countDrawn"
         stroke="var(--series-a)"
         strokeWidth={2}
         fill="none"
@@ -124,7 +151,12 @@ function SpreadRadar({ spread }: Readonly<{ spread: Spread.SpreadT }>) {
         isAnimationActive={false}
       />
       <Tooltip
-        formatter={(num) => (typeof num === 'number' ? CountFormat.format(num) : num)}
+        // What a line truly comes to, not where it is drawn, which past the tiles is held at their edge
+        formatter={(num, name, item) => {
+          const row: unknown = item.payload
+          if (! isRadarRow(row)) { return String(num ?? '') }
+          return CountFormat.format(name === 'Smoothed' ? row.smoothed : row.count)
+        }}
         contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12 }}
         labelStyle={{ color: 'var(--ink)', fontWeight: 600 }}
         itemStyle={{ color: 'var(--ink)' }}
@@ -134,9 +166,17 @@ function SpreadRadar({ spread }: Readonly<{ spread: Spread.SpreadT }>) {
   )
 }
 
-/** A category's count on the radar, ringed in the surface's colour so it reads where lines cross; none where nothing counts, which would only pile up in the middle */
-function CountDot({ cx, cy, value }: Readonly<DotItemDotProps>) {
+/**
+ * A category's count on the radar, ringed in the surface's colour so it reads where lines cross;
+ * hollow where the count is past the tiles' edge and held there; none where nothing counts,
+ * which would only pile up in the middle.
+ */
+function CountDot({ cx, cy, value, payload }: Readonly<DotItemDotProps>) {
   if (typeof value !== 'number' || value <= 0) { return null }
+  const row: unknown = payload
+  if (isRadarRow(row) && row.offScale) {
+    return <circle cx={cx} cy={cy} r={4.5} fill="var(--surface)" stroke="var(--series-a)" strokeWidth={2} />
+  }
   return <circle cx={cx} cy={cy} r={4} fill="var(--series-a)" stroke="var(--surface)" strokeWidth={2} />
 }
 
@@ -161,31 +201,77 @@ function TileTick({ payload }: Readonly<TickProps>) {
   )
 }
 
-/** Every number the chart draws, a row for each category in the total order: the table a chart is read from without seeing it */
-function SpreadTable({ spread }: Readonly<{ spread: Spread.SpreadT }>) {
+/** The table's columns: what each heading says, and whether it holds a number, set to the right */
+const SpreadColumnHeads = {
+  slot:     { title: '#',         numeric: true },
+  category: { title: 'Category',  numeric: false },
+  count:    { title: 'Questions', numeric: true },
+  smoothed: { title: 'Smoothed',  numeric: true },
+  masie:    { title: Persona.titleOf('masie'), numeric: true },
+  artie:    { title: Persona.titleOf('artie'), numeric: true },
+  poppy:    { title: Persona.titleOf('poppy'), numeric: true },
+  average:  { title: 'All three', numeric: true },
+} as const satisfies Record<SpreadTable.SpreadColumn, { title: string, numeric: boolean }>
+
+/** What a chance shows: a whole percentage, or a dash where no question draws on the category */
+function chanceText(chances: PersonaChancesT | null, key: keyof PersonaChancesT): string {
+  return chances === null ? '—' : Estimates.chanceTextOf(chances[key])
+}
+
+/**
+ * Every number the chart draws, a row for each category, with each persona's chance at the
+ * questions drawing on it and the three's average: the table a chart is read from without seeing
+ * it. It starts in the wheel's order and sorts by any column, a click on its heading turning it
+ * the other way. Its foot gives the chances over the whole quiz.
+ */
+function SpreadTableFold({ spread }: Readonly<{ spread: Spread.SpreadT }>) {
+  const [sort, setSort] = useState(SpreadTable.SpreadSortDefault)
+  const rows = SpreadTable.sortedRows(spread, sort)
+  const direction = sort.descending ? 'desc' : 'asc'
   return (
     <Accordion disableGutters slotProps={{ transition: { unmountOnExit: true } }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />} id="spread-table-summary" aria-controls="spread-table-details">
         As a table
       </AccordionSummary>
-      <AccordionDetails id="spread-table-details">
-        <Table size="small" aria-label="Category spread" sx={{ '& td, & th': { px: 1 }, '& td:not(:first-of-type)': { fontVariantNumeric: 'tabular-nums' } }}>
+      <AccordionDetails id="spread-table-details" sx={{ overflowX: 'auto' }}>
+        <Table size="small" aria-label="Category spread" sx={{ '& td, & th': { px: 0.5 }, '& th': { whiteSpace: 'nowrap' }, '& .MuiTableSortLabel-icon': { mx: 0.125 }, '& td:not(:nth-of-type(2))': { fontVariantNumeric: 'tabular-nums' } }}>
           <TableHead>
             <TableRow>
-              <TableCell>Category</TableCell>
-              <TableCell align="right">Questions</TableCell>
-              <TableCell align="right">Smoothed</TableCell>
+              {SpreadTable.SpreadColumnVals.map((column) => {
+                const { title, numeric } = SpreadColumnHeads[column]
+                const active = sort.column === column
+                return (
+                  <TableCell key={column} align={numeric ? 'right' : 'left'} sortDirection={active ? direction : false}>
+                    <TableSortLabel active={active} direction={active ? direction : 'asc'} onClick={() => { setSort((was) => SpreadTable.sortOnClick(was, column)) }}>
+                      {title}
+                    </TableSortLabel>
+                  </TableCell>
+                )
+              })}
             </TableRow>
           </TableHead>
           <TableBody>
-            {spread.points.map(({ category, count, smoothed }) => (
+            {rows.map(({ point: { category, count, smoothed, chances }, slotIdx }) => (
               <TableRow key={category} data-category={category}>
+                <TableCell align="right">{slotIdx + 1}</TableCell>
                 <TableCell>{Category.titleOf(category)}</TableCell>
                 <TableCell align="right">{CountFormat.format(count)}</TableCell>
                 <TableCell align="right">{CountFormat.format(smoothed)}</TableCell>
+                {PersonaLabelVals.map((personalabel) => <TableCell key={personalabel} align="right">{chanceText(chances, personalabel)}</TableCell>)}
+                <TableCell align="right">{chanceText(chances, 'average')}</TableCell>
               </TableRow>
             ))}
           </TableBody>
+          <TableFooter>
+            <TableRow data-category="">
+              <TableCell />
+              <TableCell>Whole quiz</TableCell>
+              <TableCell align="right">{CountFormat.format(spread.placedCount)}</TableCell>
+              <TableCell />
+              {PersonaLabelVals.map((personalabel) => <TableCell key={personalabel} align="right">{chanceText(spread.chances, personalabel)}</TableCell>)}
+              <TableCell align="right">{chanceText(spread.chances, 'average')}</TableCell>
+            </TableRow>
+          </TableFooter>
         </Table>
       </AccordionDetails>
     </Accordion>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as Personas from '../../src/lib/personas'
 import * as Spread from '../../src/lib/spread'
 import * as Wheel from '../../src/lib/wheel'
 import type { CategoryLabel } from '../../src/models/category'
@@ -66,9 +67,9 @@ describe("spreadOf", () => {
   })
   it("counts a question of one category wholly there, and half of it once smoothed", () => {
     const spread = Spread.spreadOf(DefaultOrder, [[{ category: 'art', difficulty: 'easy' }]])
-    expect(pointAt(spread, 'art')).to.deep.eq({ category: 'art', count: 1, smoothed: 0.5 })
-    expect(pointAt(spread, 'classical_music')).to.deep.eq({ category: 'classical_music', count: 0, smoothed: 0.16 })
-    expect(pointAt(spread, 'world_hist')).to.deep.eq({ category: 'world_hist', count: 0, smoothed: 0.09 })
+    expect(pointAt(spread, 'art')).to.include({ category: 'art', count: 1, smoothed: 0.5 })
+    expect(pointAt(spread, 'classical_music')).to.include({ category: 'classical_music', count: 0, smoothed: 0.16 })
+    expect(pointAt(spread, 'world_hist')).to.include({ category: 'world_hist', count: 0, smoothed: 0.09 })
     expect(pointAt(spread, 'tv')?.smoothed).to.eq(0)
   })
   it("sums shares from many questions, neighbours' spill included", () => {
@@ -99,8 +100,46 @@ describe("spreadOf", () => {
     const spread = Spread.spreadOf(DefaultOrder, [])
     expect([spread.placedCount, spread.unplacedCount, totalOf(spread, 'count'), totalOf(spread, 'smoothed')]).to.deep.eq([0, 0, 0, 0])
   })
+  it("gives each category the personas' chances at the questions drawing on it, and none where nothing does", () => {
+    const easyArt: EstimatesT = [{ category: 'art', difficulty: 'easy' }]
+    const spread = Spread.spreadOf(DefaultOrder, [easyArt])
+    expect(pointAt(spread, 'art')?.chances).to.deep.eq(Personas.chancesOf(DefaultOrder, easyArt))
+    expect(pointAt(spread, 'art')?.chances?.artie).to.eq(0.9)
+    expect(pointAt(spread, 'tv')?.chances).to.be.null
+  })
+  it("weights each question's chances in a category by its share there", () => {
+    const easyArt: EstimatesT = [{ category: 'art', difficulty: 'easy' }]
+    const artAndTv: EstimatesT = [{ category: 'art', difficulty: 'hard' }, { category: 'tv', difficulty: 'hard' }]
+    const spread = Spread.spreadOf(DefaultOrder, [easyArt, artAndTv])
+    const expected = (Personas.chancesOf(DefaultOrder, easyArt).masie + (Personas.chancesOf(DefaultOrder, artAndTv).masie * 0.5)) / 1.5
+    expect(pointAt(spread, 'art')?.chances?.masie).to.be.closeTo(expected, 1e-12)
+    expect(pointAt(spread, 'tv')?.chances).to.deep.eq(Personas.chancesOf(DefaultOrder, artAndTv))
+  })
+  it("gives the whole quiz's chances over every question, one of no category in particular included", () => {
+    const easyArt: EstimatesT = [{ category: 'art', difficulty: 'easy' }]
+    const spread = Spread.spreadOf(DefaultOrder, [easyArt, Neutral])
+    const expected = (Personas.chancesOf(DefaultOrder, easyArt).average + Personas.chancesOf(DefaultOrder, Neutral).average) / 2
+    expect(spread.chances?.average).to.be.closeTo(expected, 1e-12)
+    expect(Spread.spreadOf(DefaultOrder, []).chances).to.be.null
+  })
   it("reads any iterable of estimates, such as a map's values", () => {
     const byQuestion = new Map<string, EstimatesT>([['q1', [{ category: 'tv', difficulty: 'easy' }]], ['q2', Neutral]])
     expect(Spread.spreadOf(DefaultOrder, byQuestion.values()).placedCount).to.eq(1)
+  })
+})
+
+describe("meanChancesOf", () => {
+  const Low = { masie: 0.4, artie: 0.6, poppy: 0.5, average: 0.5 }
+  const High = { masie: 0.8, artie: 0.6, poppy: 0.5, average: 0.63 }
+  it("takes the weighted mean, persona by persona", () => {
+    const mean = Spread.meanChancesOf([{ weight: 1, chances: Low }, { weight: 3, chances: High }])
+    expect(mean?.masie).to.be.closeTo(0.7, 1e-12)
+    expect(mean?.artie).to.be.closeTo(0.6, 1e-12)
+  })
+  it("is the chances themselves for one question", () => {
+    expect(Spread.meanChancesOf([{ weight: 0.5, chances: Low }])).to.deep.eq(Low)
+  })
+  it("is null with nothing to take the mean of", () => {
+    expect(Spread.meanChancesOf([])).to.be.null
   })
 })
