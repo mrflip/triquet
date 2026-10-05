@@ -7,8 +7,9 @@ their sections below the table, newest first.
 
 | Thread | Name                         | Branch | PR | Status  |
 | ------ | ---------------------------- | ------ | -- | ------- |
-| 1      | the ident gate               | `20261005-ident_gate` | #96 | complete |
-| 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | complete; review pending |
+| 1      | the ident gate               | `20261005-ident_gate` | #96 | merged via #99 |
+| 2      | the hunts page lines up      | `20261005-hunts_aligned` | #99 | merged by the Coach; review rides with 1b |
+| 1b     | the ident gate, follow-up    | `20261005-ident_gate_again` |  | underway |
 | 3      | quiz mode: grid and widgets  |        |    | pending |
 
 ## Thread 2: the hunts page lines up (2026-10-05)

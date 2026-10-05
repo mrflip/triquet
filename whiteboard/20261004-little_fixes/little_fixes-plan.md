@@ -1,7 +1,9 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 2 built (#99), review pending; thread 1 reopened for the Coach's feedback. Thread 1 complete and reviewed (#96). The sprint runs in the worktree `.claude/worktrees/little_fixes`.
+`/sprint`. **Status:** thread 1b underway (the Coach's follow-up to thread 1). Threads 1 and 2 merged to main by the
+Coach via #99 (#96 closed); thread 2 not yet reviewed -- its review rides with thread 1b. The sprint runs
+in the worktree `.claude/worktrees/little_fixes`.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -72,6 +74,24 @@ submit says "Continue" and the current ident shows as microcopy.
 
 *Look-ahead.* Thread 2 restyles the hunts page the Cancel lands on; nothing here should depend
 on its layout.
+
+### Thread 1b: the ident gate, the Coach's follow-up
+
+*Orchestrator:* added after threads 1 and 2 merged. The Coach, on #96's open questions:
+
+> if I type in my own name again yes have it change to say "keep being".
+> If it's not much extra code, I'd prefer that the length validation not scold me by turning red
+> until blur; the button should remain disabled; but that entering an unacceptable character does
+> turn the field red.
+
+*Gloss.* `src/components/IdentGate.tsx` again, on `20261005-ident_gate_again` from main. On the
+switch path, a typed label equal to the held ident's turns the primary into "Keep being <Title>
+(@label)" (doing what the cancel does); the separate cancel button may then be redundant -- the
+worker decides and records. Validation splits in two: a *shape* failure (an unacceptable
+character) shows red at once; a *length* failure only after blur, the button disabled either way.
+If the validator does not already tell the two apart, separating them belongs with the validator,
+not in the view. The thread's review also covers thread 2's merged commits (#99), which merged
+before it could be reviewed.
 
 ### Thread 2: the hunts page lines up
 
