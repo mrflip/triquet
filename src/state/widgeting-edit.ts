@@ -1,4 +1,5 @@
 import * as Labelmaker from '../lib/labelmaker'
+import * as Estimates from '../lib/estimates'
 import { Column } from '../models/column'
 import { ReservedWidgetingLabels, WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
@@ -11,6 +12,9 @@ export const NewColumnWidthPx: Readonly<Record<Formularykind, number>> = {
   aibot:   170,
   entry:   170,
 }
+
+/** How wide the column a new category-estimate widgeting brings is: room for two pills side by side */
+export const EstimatesColumnWidthPx = 360
 
 /** Everything the widgeting editor holds while it is open: a widgeting's own fields, and which widget it works */
 export type WidgetingEdit = {
@@ -57,7 +61,7 @@ export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readon
     return refused(first?.message ?? 'That widgeting will not do.', first?.path[0] === 'label')
   }
   if (edit.widgeting !== null) { return { ok: true, actions: editWidgetingActions(edit.widgeting, checked.data) } }
-  const width_px = NewColumnWidthPx[widget?.formulary ?? 'jsonata']
+  const width_px = widget && Estimates.isEstimating(widget) ? EstimatesColumnWidthPx : NewColumnWidthPx[widget?.formulary ?? 'jsonata']
   return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }, newColumnFor(quiz, checked.data.label, width_px)] }
 }
 

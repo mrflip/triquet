@@ -121,6 +121,88 @@ plan). The sprint's other questions for you are in `whiteboard/20261003-dbpolicy
 * **`CLAUDE.md`** still lists "the browser key" among `src/state/`'s contents; it should say "the
   session (`use-session`)". Left for you, since agents don't edit it on an agent's word.
 * **Thread 10** should also tighten `idents.user_id`, which the plan's list leaves out.
+## 2026-10-04: Sprint categories done -- four threads, four PRs open
+
+* **The sprint.** A hunt now has a *wheel* of 24 subject categories (fixed titles, from your
+  Wuxing spike), arranged by drag or key at `/c/<hunt>/categories`; Masie, Artie and Poppy sit at
+  slots 0, 8 and 16 and get a question by how far its categories sit from them; a quiz can work a
+  *category estimate* entry (pills of category and difficulty) whose columns show each persona's
+  chance and their average; and a *Category spread* panel draws the quiz's questions as a radar
+  round the wheel, raw and smoothed, widening in the page on a click. Plan and handoff:
+  `whiteboard/20261004-categories/`. Live mirror: the *Sprint: categories* Claude Doc.
+* **The PRs, stacked in order** (land the top, #94, to take them all, or one at a time):
+  #85 categories, the wheel and its editor <- #87 personas <- #91 the estimate entry and column
+  parts <- #94 the spread panel and Recharts. #85 also carries your unmerged `chore: redact notes`
+  (`20261004-redact`) and the sprint's plan commit beneath it.
+* **Deploy**: every schema change is additive (an optional hunt `wheel`, a fifth `entry_kind`, a
+  wider column source), so no migration. Run `seeding:seedWidgets` on production after #91 lands,
+  for the seeded `categories` widget (thread 3's entry below).
+* **Reviews**: all four threads at medium; one `fix:` kept (#91: the pills cell could wait forever
+  for a superseded write). Nothing significant left open.
+* **YOLO decisions, yours to overturn** (the plan's *Decisions taken in YOLO*): the wheel stored
+  with its holes, total order derived by your fill rule; personas at slots, not categories; the
+  chance curve linear between plateaus (best within one slot, worst within one of opposite), so
+  null lands exactly halfway; a new pill's difficulty is medium; column hooks as
+  `<widgeting>.<part>` sources, persona parts worked out on render; Recharts for the chart; the
+  route exactly `/c/<hunt>/categories`.
+* **Open questions, gathered** (detail in each thread's progress section and entries below):
+  - Recharts or `@mui/x-charts`? Only `SpreadPanel.tsx` imports Recharts.
+  - The new chart colours `seriesA`/`seriesB` (thread 4's entry below).
+  - A hunt `wheel` optional for good (`Absentable`), or backfilled and required?
+  - Should the wheel ride the hunt's Export? Today the Export box works chances against the
+    default wheel.
+  - The five decision notes now in `aside/` while CLAUDE.md, `stack.md` and `convex.md` point at
+    `notes/decisions/`: bring back, or repoint?
+  - A refused pills write leaves the cell on the unsaved value (a follow-up: `onCommit` reporting
+    the mutation's outcome through `Workbench`'s `dispatch`).
+  - Small things to confirm: the all-blank cell written rather than deleted; "(blank)" wording;
+    difficulty by chip colour; persona cards naming one category each way; "Every question names a
+    category." on an empty quiz; tiny tiles at rest in a 340px column.
+  - Unconfirmed in a browser: at slots 8 and 16 a persona card may cover a tile's outer corner
+    (that corner then can't be grabbed for a drag).
+  - Adding a category later needs a migration: stored wheels are exactly 24 slots over the enum.
+
+## 2026-10-04: Categories thread 4 -- chart colours that are not the brand's swatches, and Recharts installed
+
+* **Two new palette tokens, `seriesA` and `seriesB`** (`src/app/palette.ts`), for a chart's
+  lines: the brand's purple and verdigris made vivid enough to chart (light `#614092` and
+  `#008c7a`, dark `#9274c3` and `#37a69a`). The theme's own `primary`/`secondary` failed the
+  dataviz validator. In dark mode, bermuda and the lifted verdigris are indistinguishable to a
+  deuteranope (ΔE 3.1), and every brand accent reads as grey on a chart (OKLCH chroma under 0.10).
+  The new pair passes every check in both modes. Say if you would rather the brand bend
+  differently.
+* **Recharts 3.10 is in `package.json`**, per the plan's YOLO decision 6 and listed in
+  `notes/stack.md`. `@mui/x-charts` stays the alternative. Only `SpreadPanel.tsx` imports
+  Recharts, so swapping is a one-file change if you prefer MUI's.
+
+## 2026-10-04: Categories thread 3 -- a new seed widget wants a seeding run on production
+
+* **Run `seeding:seedWidgets` on production after #91 deploys.** The library gains a seeded
+  category-estimate entry, `categories`. Seeding is by hand (`notes/deploy.md`, step 4 of the
+  rewidgeting procedure: `./scripts/doppledo prd_janitor npx convex run seeding:seedWidgets`),
+  and it adds only what is absent, so it is safe to run. Until it runs, a smith can still make the
+  widget in the library (Entry kind: *Category estimates*); nothing breaks either way. The schema
+  change itself is additive (a fifth `entry_kind`), with no migration.
+* **The wheel and the export, again.** Thread 1 asked whether the wheel belongs in the hunt's
+  export. It now matters a little more: a formula reading a persona's chance
+  (`qn.categories.masie`) is worked out for the Export box against the default wheel, since
+  `HuntT` carries none, while the grid, the server's sort and the history mirror use the hunt's
+  own wheel.
+
+## 2026-10-04: Categories thread 1 -- a field that is optional for good, and a decision note behind the curtain
+
+* **A hunt's `wheel` is optional forever, not optional-until-backfilled.** Until now every row
+  field was required, bar those mid-migration (`Backfilling`, `Retiring` in
+  `tests/convex/schema.test.ts`). The wheel is absent on every hunt until someone arranges it,
+  and absence reads as the default wheel, so it needs no migration on production. The schema test
+  gains a third list, `Absentable`, and `notes/deploy.md` (*Schema pushes*) says when a field
+  belongs there. Say if you would rather every new hunt be written with the default wheel and the
+  field backfilled and tightened instead.
+* **`notes/decisions/2026-09-drag-and-drop.md` lives in `aside/` now** (moved by `af677fb`), along
+  with the client-first, convex, path-routing and resource-urls decisions, while `CLAUDE.md`,
+  `notes/stack.md` and `notes/convex.md` still point at `notes/decisions/`. Agents may not read
+  `aside/`, so the drag-and-drop note was not updated: the wheel's extension is a new note,
+  `notes/decisions/2026-10-drag-and-drop-boards.md`. Worth bringing the five back, or repointing.
 
 ## 2026-10-04: Production stuck behind `bulk_ishes_last`; a widen and a tighten to free it
 

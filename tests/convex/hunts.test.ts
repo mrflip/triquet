@@ -16,6 +16,7 @@ import { classicLayout } from '../support/layouts'
 import { Question } from '../../src/models/question'
 import type { HuntActionDNA } from '../../src/models/actions'
 import type { JsonT, WidgetedRecordingDNA } from '../../src/models/widgeted'
+import type { EstimatesDNA } from '../../src/models/estimate'
 import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
@@ -71,13 +72,13 @@ function failed(question_id: string, widgeting_label: string, err: { message: st
 }
 
 /** Put an entry widget of `entry_kind` into the library, labelled `label`, and to work in `seeded`'s open quiz under the same label */
-async function putEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' = 'text'): Promise<void> {
+async function putEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' | 'estimates' = 'text'): Promise<void> {
   await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } })
   await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label } })
 }
 
 /** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
-function entering(question_id: string, widgeting_label: string, value: string | number | null): HuntActionDNA {
+function entering(question_id: string, widgeting_label: string, value: string | number | EstimatesDNA | null): HuntActionDNA {
   return { kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }
 }
 
@@ -635,6 +636,24 @@ describe("hunts.perform", () => {
       await refusalOf(act(entering(id, 'remark', 3)))
       const blank = ' '.repeat(3)
       await refusalOf(act(entering(id, 'remark', blank)))
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("keeps a question's category estimates as the cell's one row, each difficulty medium unless said", async () => {
+      const { act, actOnLibrary, read, id } = await withEntries()
+      await putEntryToWork({ act, actOnLibrary }, 'cats', 'estimates')
+      await act(entering(id, 'cats', [{ category: 'tv', difficulty: 'hard' }, { category: 'art' }]))
+      await act(entering(id, 'cats', [{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'easy' }]))
+      expect(cellOf(await read(), 'cats')?.newest.value).to.deep.eq([{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'easy' }])
+    })
+
+    it("refuses estimates that name a category twice, or set no category in particular beside one", async () => {
+      const { act, actOnLibrary, read, id } = await withEntries()
+      await putEntryToWork({ act, actOnLibrary }, 'cats', 'estimates')
+      const ante = await read()
+      await refusalOf(act(entering(id, 'cats', [{ category: 'tv' }, { category: 'tv', difficulty: 'hard' }])))
+      await refusalOf(act(entering(id, 'cats', [{ category: null }, { category: 'tv' }])))
+      await refusalOf(act(entering(id, 'remark', [{ category: 'tv' }])))
       expect(await read()).to.deep.eq(ante)
     })
 

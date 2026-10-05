@@ -17,8 +17,13 @@ describe('resolve', () => {
   it('finds a question field, a view, and a widgeting by its label, whatever widget it works', () => {
     expect(resolve('question.clueing', widgetings)).to.deep.eq({ kind: 'field', field: 'clueing' })
     expect(resolve('question.butnot', widgetings)).to.deep.eq({ kind: 'view', view: 'butnot' })
-    expect(resolve('total', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2] })
-    expect(resolve('numnum_hint', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[1] })
+    expect(resolve('total', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2], part: null })
+    expect(resolve('numnum_hint', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[1], part: null })
+  })
+
+  it('finds one part of a widgeting, and nothing for a part of a widgeting the quiz does not have', () => {
+    expect(resolve('total.masie', widgetings)).to.deep.eq({ kind: 'widgeting', widgeting: widgetings[2], part: 'masie' })
+    expect(resolve('gone.masie', widgetings)).to.be.null
   })
 
   it('finds a field with no widgetings at all', () => {

@@ -81,9 +81,11 @@ don't trust a recalled version number, including one recalled by an agent.
 * pnpm
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every
-  drag, wired up only in `useReorderable` (`src/components/use-reorder.ts`). Do **not** take
-  `-react-drop-indicator`. Every grip also answers the arrow keys.
-  See `notes/decisions/2026-09-drag-and-drop.md`.
+  drag, wired up only in `src/components/use-reorder.ts`: `useReorderable` for a list reordered
+  by its grips, and `usePiece` and `usePlace` for a board of places that pieces are dragged
+  between (the category wheel and its pool). Do **not** take `-react-drop-indicator`. Every grip
+  and every piece also answers the keys. See `notes/decisions/2026-09-drag-and-drop.md`, and
+  `notes/decisions/2026-10-drag-and-drop-boards.md` for the board.
 
 ### Routing
 
@@ -131,6 +133,14 @@ Settled; reach for these before writing the equivalent.
   does here. **Not `remark-gfm`**: its strikethrough takes a single `~`, and trivia is full of
   `~50 years`. Added Sept 2026 at a Coach's request, settling the display half of the rich-text
   question under Discuss.
+* **Recharts** (3.x) for charts: the most-downloaded React charting library, declarative
+  components over SVG, peer-compatible with React 19. Its first use is the category spread's radar
+  (`components/panels/SpreadPanel.tsx`). Colour a series from the palette's `seriesA` and
+  `seriesB` tokens (`src/app/palette.ts`, validated for both modes and for colour-blind readers),
+  never a hex at the call site, and keep text in the ink tokens. Every chart gets a table of the
+  same numbers beside it. `@mui/x-charts`, which would take the theme natively, was the other
+  candidate; the Coach asked for the most popular. Added Oct 2026 by the categories sprint, under
+  the rule above.
 * **Fontsource** (`@fontsource/zilla-slab`, `work-sans`, `jetbrains-mono`) for the three
   typefaces, whose woff2 files `src/app/fonts.ts` hands to `next/font/local`. Never
   `next/font/google`: it downloads the fonts at build time, and a bad answer from Google failed

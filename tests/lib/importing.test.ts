@@ -421,6 +421,14 @@ describe('importInto', () => {
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Second.', points: 1 })
     })
 
+    it("types a question's category estimates into a category-estimate cell, as the export writes them, and refuses ones naming a category twice", () => {
+      const quiz = { ...enteredQuiz(), widgetings: [...enteredQuiz().widgetings, Widgeting.fill({ widget_label: 'categories', label: 'cats' })] }
+      const estimates = [{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'easy' }]
+      const outcome = read(quiz, [{ label: 'leon', cats: { status: 'ok', value: estimates } }, { label: 'nantes', cats: [{ category: 'tv' }, { category: 'tv' }] }])
+      expect(enteredFor(outcome, 'leon')).to.deep.eq({ cats: estimates })
+      expect(outcome.log.map((entry) => [entry.outcome, entry.issues.map((issue) => issue.fieldpath)])).to.deep.eq([['merged', []], ['skipped', ['cats']]])
+    })
+
     it("skips a question whose entry holds what its kind does not take, naming the entry", () => {
       const outcome = read(enteredQuiz(), [{ label: 'leon', clueing: 'Reworded', points: 'three' }, { label: 'nantes', remark: { status: 'errored', value: null } }])
       expect(outcome.log.map((entry) => [entry.outcome, entry.issues.map((issue) => issue.fieldpath)])).to.deep.eq([['skipped', ['points']], ['skipped', ['remark']]])
@@ -472,7 +480,7 @@ describe('libraryImported', () => {
   it("keeps every widget of its own export pasted straight back", () => {
     const outcome = Importing.libraryImported(SeedWidgets, JSON.stringify({ widgets: SeedWidgets.map((widget) => Widget.exported(widget)) }))
     expect(outcome.log.every((entry) => entry.outcome === 'kept')).to.be.true
-    expect(outcome.summary).to.eq('Read 17 widget(s): 0 added, 0 revised, 17 unchanged, 0 skipped.')
+    expect(outcome.summary).to.eq(`Read ${String(SeedWidgets.length)} widget(s): 0 added, 0 revised, ${String(SeedWidgets.length)} unchanged, 0 skipped.`)
   })
 
   it("skips and logs a widget whose formulary differs from the one held", () => {

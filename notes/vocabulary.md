@@ -37,8 +37,8 @@ this section, lists the words they replace while code still holds them.
   template with `{{placeholders}}` for `aibot`.
 * **config** -- a widget's formulary-specific settings: `servicelabel`, `model_tier` and
   `max_tokens` for `aibot`; `entry_kind` for `entry`; nothing for `jsonata`.
-* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label) or
-  `titleish` (one line). Fixed once the widget is made, as its formulary is; together they are its
+* **entry kind** -- what an `entry` widget's cells take: `text`, `number`, `labelish` (a label),
+  `titleish` (one line) or `estimates` (a question's category estimates, *Categories*). Fixed once the widget is made, as its formulary is; together they are its
   **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
   no row and reads `missing`.
 * **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
@@ -78,7 +78,8 @@ words above.
 * **botting** -- as a widget, what a widgeting of an `aibot` widget was; as a row in `bottings`,
   what a stored widgeted was. Its `done`/`error` status became `ok`/`errored`.
 * **slot** -- a (bot, textkind) pair and the question field that showed it (`BotSlots`). Gone with
-  the fields: replies sit under widgeting labels.
+  the fields: replies sit under widgeting labels. The word now means a place on the category
+  wheel (*Categories*, below).
 * **last_err** -- a failed ask riding along on a cell. Now `err`.
 * **job** -- which of the ask route's three fixed asks a request was (`guess`, `ishes`,
   `bulk_ishes`). The route now takes a rendered prompt.
@@ -90,7 +91,7 @@ words above.
   gives a `users` row id (`user_id`), and is kept in the browser's storage, so a browser is the
   same session visit after visit. A session says nothing of who someone is; its username does.
 * **username** -- what the screen calls an ident's label: what a person types to become an ident.
-* **ident** -- a persona in the app, named by a global label a person types to become it: 6 to
+* **ident** -- who someone is in the app, named by a global label a person types to become it: 6 to
   24 characters of the label alphabet, normalised from what was typed. Held by the session that
   claimed it (`user_id`), and asserted by no other: no password, but no taking on another's
   either. One made before sessions held usernames is unclaimed (`user_id` null) until a session
@@ -196,6 +197,54 @@ words above.
 * **rank** -- a question's 1-based place once the quiz is put in Q# order; null without a Q#.
   Rank is derived and dense where Q# is typed and loose. Exports are always in rank order.
 
+## Categories
+
+What a question draws on, and how a hunt arranges them so that a question can be pitched at more
+than one kind of player. Begun by the categories sprint, October 2026
+(`whiteboard/20261004-categories/`).
+
+* **category** -- a subject area a question draws on: Math & Econ, TV, Classic Lit and the rest.
+  Twenty-four, fixed in code for now (`src/models/category.ts`), each named by a label
+  (`math_econ`, `tv`) and titled as its tile shows it. Its **default index** is its place in the
+  default order, 0 to 23.
+* **wheel** -- a hunt's categories arranged round a ring: 24 **slots**, clockwise from the top,
+  each holding a category or empty. Stored on the hunt with its holes (`wheel`); a hunt nobody
+  has arranged has none, which reads as the **default wheel**, every category in its default
+  slot. Neighbours on the wheel are kin; opposite slots are as far apart as two can be.
+* **pool** -- the categories no slot holds. The editor shows it beneath the wheel; a category is
+  dragged there to take it off the wheel. There are always as many in the pool as slots empty.
+* **total order** -- the wheel with every empty slot filled: walking the slots from the first,
+  each empty one takes the lowest-numbered category left in the pool. Always every category,
+  once each, and the only thing anything downstream reads (`Wheel.orderOf`); the holes are the
+  editor's business alone.
+* **ring distance** -- how many slots apart two slots are, the short way round: 0 to 12
+  (`Wheel.ringDistance`). **Neighbours** are the slots within a reach either side
+  (`Wheel.around`), or the categories the total order puts there (`Wheel.neighboursOf`).
+* **persona** -- one of three imagined players, **Masie**, **Artie** and **Poppy**, who sit
+  outside the wheel at the triangle's corners: slots 0, 8 and 16, which hold Math & Econ, Art and
+  Pop Music on the default wheel (`src/models/persona.ts`). A persona keeps their slot whatever is
+  put in it, so arranging the wheel changes what they know. Not an ident: nobody becomes one.
+* **estimate** -- one guess at what a question draws on: a category, or null for **no category
+  in particular**, and a **difficulty**, `easy`, `medium` (the default) or `hard`
+  (`src/models/estimate.ts`). A question's estimates list each category once, or are a lone
+  estimate of no category.
+* **category-estimate entry** -- an `entry` widget of kind `estimates` (the seeded one is
+  `categories`): each cell is a row of **pills**, one per category the question draws on, each a
+  category (or blank) and a difficulty. Blank pills come to nothing; a cell whose every pill is
+  blank, or that nobody has filled in, reads as one estimate of no category in particular. Its
+  widgeting offers **parts** (below, *Columns*); `Estimates.quizEstimatesOf` reads every
+  question's estimates under a quiz's first one.
+* **spread** -- how a quiz's questions fall round the wheel (`Spread.spreadOf`): each
+  category's **count**, every question counting once, split evenly across the categories its
+  estimates name, and the **smoothed** count, each share spread 9/16/50/16/9 percent over the
+  category and its two neighbours either side. A question of no category in particular counts in
+  neither and is told apart. Drawn as a radar in the *Category spread* panel below the grid.
+* **chance** -- how likely a persona is to get a question, 0 to 1 (`Personas.chanceOf`): their
+  best for its difficulty within one slot of their own, their worst within one slot of the
+  opposite, evenly between by ring distance, and halfway for no category in particular. Over a
+  question's estimates, got if any one gets it, each independently (`Personas.chanceOfAll`). Not
+  a get rate, which is a reviewer's own guess at themselves.
+
 ## Chains
 
 * **chain**, `chains_to` -- the question that follows this one. Solving this one hands the player
@@ -229,8 +278,11 @@ words above.
   from widgetings on purpose: a widgeting *has* a value, a column *shows* one. Removing a column
   keeps its widgeting; removing a widgeting takes its columns. Columns have a label space of their
   own per quiz, and the TSV's headers are column labels.
-* **source** -- what a column shows: `question.<field>`, `question.<view>`, or a widgeting's
-  label. `question` names the questions' own fields here, and no widgeting may be labelled it.
+* **source** -- what a column shows: `question.<field>`, `question.<view>`, a widgeting's
+  label, or `<widgeting>.<part>`: one **part** of what a widgeting came to, which only a
+  category-estimate entry offers (`estimates`, `masie`, `artie`, `poppy`, `average`), worked out on
+  render from the hunt's total order and stored nowhere. A formula reads the same parts on the
+  widgeted, `qn.<label>.masie`. `question` names the questions' own fields here, and no widgeting may be labelled it.
 * **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `quiz`, `qns`, `qn`,
   `qn_label`, `quiz_label`, and the running widgeting's `params` and `widgeting_label`. No ids;
   everything by label. It is **flat**: each earlier widgeting's widgeted sits at `qn.<label>`,

@@ -25,7 +25,8 @@ export const current = zQuery({
 
 /**
  * Carry out what a visitor did before opening any quiz: assert a username, retitle it, make a
- * hunt, or retitle or relabel a hunt they smith (`authorize`). See `writing/account_actions`.
+ * hunt, or retitle, relabel or arrange the categories of a hunt they smith (`authorize`). See
+ * `writing/account_actions`.
  *
  * @returns The ident taken on or retitled, or the hunt made or changed.
  * @throws A `ConvexError` whose data is a refusal (`lib/refusals`: `notSignedIn` for a request

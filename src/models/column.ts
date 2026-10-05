@@ -2,6 +2,7 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
+import { PersonaLabelVals, PersonaTitles } from './persona'
 
 /** What a column's source calls the questions' own fields: `question.title`. No widgeting may be labelled this. */
 export const QuestionWidgetLabel = 'question'
@@ -27,25 +28,41 @@ export const QuestionSourceTitles: Readonly<Record<QuestionField | QuestionView,
   butnot:      'BUT NOT',
 }
 
-/** What a column shows: a question field, a view of a question, or what a widgeting came to */
+/**
+ * The parts a column may show of a widgeting that offers them, as `<widgeting>.<part>`: a
+ * category-estimate entry's list of estimates, each persona's chance at the question, and the
+ * three's average.
+ */
+export const WidgetingPartVals = ['estimates', ...PersonaLabelVals, 'average'] as const
+export type WidgetingPart = typeof WidgetingPartVals[number]
+
+/** The header a column showing one part of a widgeting goes by unless retitled */
+export const WidgetingPartTitles: Readonly<Record<WidgetingPart, string>> = {
+  estimates: 'Estimates',
+  ...PersonaTitles,
+  average:   'Average',
+}
+
+/** What a column shows: a question field, a view of a question, or what a widgeting came to, whole or one part of it */
 export type Source =
   | { kind: 'field', field: QuestionField }
   | { kind: 'view', view: QuestionView }
-  | { kind: 'widgeting', label: string }
+  | { kind: 'widgeting', label: string, part: WidgetingPart | null }
 
 /** The smallest and largest a column may be, in pixels */
 export const WidthPxMin = 30
 export const WidthPxMax = 800
 
 const QuestionSourcePattern = String.raw`${QuestionWidgetLabel}\.(${[...QuestionFieldVals, ...QuestionViewVals].join('|')})`
-const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${PA.Label.re.source.replace(/^\^/, '').replace(/\$$/, '')})$`)
+const WidgetingSourcePattern = String.raw`(?!${QuestionWidgetLabel}\.)${PA.Label.re.source.replace(/^\^/, '').replace(/\$$/, '')}(\.(${WidgetingPartVals.join('|')}))?`
+const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${WidgetingSourcePattern})$`)
 
 export const ColumnValidators = Validator(({ obj, str, titleish, label, int, uint, zid }) => {
   const columnLabel = label
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
-  const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, or the label of a widgeting')
+  const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, the label of a widgeting, or a widgeting\'s label and one of its parts')
     .refine((val) => val !== QuestionWidgetLabel, 'the questions have no value of their own; name one of their fields')
-    .describe('What the column shows: `question.title` and the like for a question\'s own field, `question.butnot` for a view of it, or a widgeting\'s label for what it came to.')
+    .describe(`What the column shows: \`question.title\` and the like for a question's own field, \`question.butnot\` for a view of it, a widgeting's label for what it came to, or \`<widgeting>.<part>\` for one part of what a category-estimate entry came to (${WidgetingPartVals.join(', ')}).`)
 
   const column = obj({
     label:    columnLabel,
@@ -107,14 +124,18 @@ export class Column implements ColumnT {
  * What a source string names.
  *
  * @param source - A validated column source.
- * @returns A question field, a view of a question, or a widgeting by label.
+ * @returns A question field, a view of a question, or a widgeting by label, whole or one part of it.
  *
- * @example sourceOf('question.clueing')  // => { kind: 'field', field: 'clueing' }
- * @example sourceOf('dumdum')             // => { kind: 'widgeting', label: 'dumdum' }
+ * @example sourceOf('question.clueing')     // => { kind: 'field', field: 'clueing' }
+ * @example sourceOf('dumdum')                // => { kind: 'widgeting', label: 'dumdum', part: null }
+ * @example sourceOf('categories.masie')      // => { kind: 'widgeting', label: 'categories', part: 'masie' }
  */
 export function sourceOf(source: string): Source {
   const prefix = `${QuestionWidgetLabel}.`
-  if (! source.startsWith(prefix)) { return { kind: 'widgeting', label: source } }
+  if (! source.startsWith(prefix)) {
+    const [label = source, partname] = source.split('.', 2)
+    return { kind: 'widgeting', label, part: WidgetingPartVals.find((each) => each === partname) ?? null }
+  }
   const fieldname = source.slice(prefix.length)
   const view = QuestionViewVals.find((each) => each === fieldname)
   if (view) { return { kind: 'view', view } }
@@ -122,15 +143,38 @@ export function sourceOf(source: string): Source {
 }
 
 /**
+ * The source string of a column showing the widgeting labelled `label`, whole, or one part of it.
+ *
+ * @example widgetingSourceOf('categories', null)     // => 'categories'
+ * @example widgetingSourceOf('categories', 'poppy')  // => 'categories.poppy'
+ */
+export function widgetingSourceOf(label: string, part: WidgetingPart | null): string {
+  return part === null ? label : `${label}.${part}`
+}
+
+/**
+ * The label of the widgeting `source` shows, whole or one part of it; null when it shows a
+ * question's own field or view.
+ *
+ * @example widgetingLabelOf('categories.average')  // => 'categories'
+ * @example widgetingLabelOf('question.title')      // => null
+ */
+export function widgetingLabelOf(source: string): string | null {
+  const named = sourceOf(source)
+  return named.kind === 'widgeting' ? named.label : null
+}
+
+/**
  * The label and title a new column showing `source` takes when the author gives neither: a
  * question's field or view under its own name and usual header, a widgeting under its label,
- * titleized.
+ * titleized, and one part of a widgeting under both their names, headed by the part's.
  *
  * @param source - A validated column source.
  * @returns The label and the title.
  *
  * @example namesFor('question.chains_to')  // => { label: 'chains_to', title: 'Chains to' }
  * @example namesFor('clueing_full')        // => { label: 'clueing_full', title: 'Clueing Full' }
+ * @example namesFor('categories.masie')    // => { label: 'categories_masie', title: 'Masie' }
  */
 export function namesFor(source: string): { label: string, title: string } {
   const named = sourceOf(source)
@@ -142,6 +186,7 @@ export function namesFor(source: string): { label: string, title: string } {
     return { label: named.view, title: QuestionSourceTitles[named.view] }
   }
   case 'widgeting': {
+    if (named.part !== null) { return { label: `${named.label}_${named.part}`, title: WidgetingPartTitles[named.part] } }
     return { label: named.label, title: Labelmaker.titleize(named.label) }
   }
   }

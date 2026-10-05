@@ -156,6 +156,14 @@ entry's column no inputs (only a `click` widgeting has any).
 * **Reading** needs nothing new: `allStoredOf` reads every formulary that stores, the runner
   projects the one row as any stored cell's history, and the value reaches later widgetings'
   bags at `qn.<label>` as `{ status, value, err }`.
+* **Category estimates** (the categories sprint, thread 3, `whiteboard/20261004-categories/`): a
+  fifth kind, `estimates`, the first whose value is a list (`EstimateValidators.estimates`; the
+  seeded widget is `categories`). Its cell is pills (`cells/estimates.tsx`), each change written as
+  it is made. Its widgeting offers **parts** to columns, as the source `<widgeting>.<part>`
+  (`estimates`, `masie`, `artie`, `poppy`, `average`): worked out on render (`Estimates.partsOf`,
+  against the total order the run's place now carries), never stored, and carried on the widgeted
+  in the bag beside `status` and `value`, so a later formula reads `qn.<label>.masie`. A part of
+  any other widgeting is refused (`partUnoffered`).
 
 ### The row shapes
 

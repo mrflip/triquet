@@ -3,6 +3,7 @@
 import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
 import { ReviewsPanel } from './ReviewsPanel'
+import { SpreadPanel } from './SpreadPanel'
 import { WidgetsPanel } from './WidgetsPanel'
 import type { WorkbenchOffersT } from '../offers'
 import type * as Actor from '../../lib/actor'
@@ -33,12 +34,14 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
 }
 
-/** The titled sections below the grid: what reviewers said, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
+/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
 export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport }: Readonly<PanelsProps>) {
   const labels = { hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <div className={styles.panels}>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />
+
+      <SpreadPanel run={run} />
 
       <MembersPanel members={hunt.members} claims={claims} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
 

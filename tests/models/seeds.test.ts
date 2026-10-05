@@ -36,8 +36,13 @@ function seed(label: string): WidgetT {
 }
 
 describe('SeedWidgets', () => {
-  it("is seventeen widgets, per the doc", () => {
-    expect(SeedWidgets).to.have.lengthOf(17)
+  it("is eighteen widgets, per the doc", () => {
+    expect(SeedWidgets).to.have.lengthOf(18)
+  })
+
+  it("holds the category-estimate entry, whose description names the parts a column can show", () => {
+    expect(seed('categories').config).to.deep.eq({ entry_kind: 'estimates' })
+    expect(seed('categories').description).to.contain('qn.categories.masie')
   })
 
   it("is each a valid widget, unchanged by filling it again", () => {

@@ -1,5 +1,7 @@
 import _ from 'es-toolkit/compat'
 import * as Rank from '../rank'
+import * as Estimates from '../estimates'
+import * as Wheel from '../wheel'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { formularyFor, type InputOutcome } from './formularies'
 import { Hunt, type HuntT } from '../../models/hunt'
@@ -7,17 +9,22 @@ import { Question, RankField, type QuestionT } from '../../models/question'
 import { Quiz, type QuizT } from '../../models/quiz'
 import { Realm, type RealmT } from '../../models/realm'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedErrT, type WidgetedHistoryT, type WidgetedStatus, type WidgetedT } from '../../models/widgeted'
+import type { CategoryLabel, WheelT } from '../../models/category'
+import type { WidgetingPart } from '../../models/column'
 import type { WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
 
 /**
  * Where a quiz sits: its hunt and its realm, each as the outside world sees it -- the label in
- * force and the title as shown. What a formula reads as `hunt` and `realm`, and where the quiz's
- * history keeps its files.
+ * force and the title as shown -- and the hunt's categories in their total order. What a formula
+ * reads as `hunt` and `realm`, where the quiz's history keeps its files, and what its category
+ * estimates are read against.
  */
 export type QuizPlace = {
   hunt:  Pick<HuntT, typeof Hunt.exposed[number]>
   realm: Pick<RealmT, typeof Realm.exposed[number]>
+  /** The hunt's total order of categories (`Wheel.orderOf`), which Masie, Artie and Poppy's chances are read against */
+  order: readonly CategoryLabel[]
 }
 
 /**
@@ -28,7 +35,7 @@ export type QuizPlace = {
  * question carries its `rank`, and the widgeted of every widgeting before this one under that
  * widgeting's label.
  */
-export type QuizBag = QuizPlace & {
+export type QuizBag = Pick<QuizPlace, 'hunt' | 'realm'> & {
   /** The quiz's own exposed fields, without its questions and its widgetings */
   quiz:            Record<string, unknown>
   /** Every question in the quiz, in the quiz's order */
@@ -66,6 +73,8 @@ export type QuizRun = {
   steps:     readonly RunStep[]
   /** Every widgeting's widgeted, for every question */
   widgeteds: ByWidgeting<WidgetedT>
+  /** For each category-estimate widgeting, what each question's estimates come to; null for a cell that failed */
+  parts:     ByWidgeting<Estimates.EstimatePartsT | null>
   /** For each widgeting asked from the cell, what each question's ask would be put */
   inputs:    ByWidgeting<InputOutcome>
   /** The questions as each widgeting's bag holds them, by its label */
@@ -105,6 +114,7 @@ export function runQuiz(source: RunSource): QuizRun {
   const { quiz } = source
   const frame = frameOf(quiz, source.place)
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
+  const parts = new Map<string, ReadonlyMap<string, Estimates.EstimatePartsT | null>>()
   const inputs = new Map<string, ReadonlyMap<string, InputOutcome>>()
   const qnsAt = new Map<string, readonly Record<string, unknown>[]>()
   let qns = baseQns(quiz)
@@ -115,9 +125,11 @@ export function runQuiz(source: RunSource): QuizRun {
     const column = columnOf(step, bags, quiz.questions, source.storedOf)
     widgeteds.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.widgeteds[idx] ?? Widgeted.missing])))
     if (column.inputs) { inputs.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.inputs?.[idx] ?? { status: 'missing' }]))) }
-    qns = withWidgeteds(qns, label, column.widgeteds)
+    const cellParts = Estimates.isEstimating(step.widget) ? column.widgeteds.map((widgeted) => Estimates.partsOf(frame.order, widgeted)) : null
+    if (cellParts) { parts.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, cellParts[idx] ?? null]))) }
+    qns = withWidgeteds(qns, label, column.widgeteds, cellParts)
   }
-  return { steps: source.steps, widgeteds, inputs, qnsAt, qnsAfter: qns, frame }
+  return { steps: source.steps, widgeteds, parts, inputs, qnsAt, qnsAfter: qns, frame }
 }
 
 /**
@@ -142,12 +154,26 @@ export function sourceOf(quiz: QuizT, library: readonly WidgetT[], place: QuizPl
 }
 
 /**
- * One question's widgeted for one widgeting, or `missing` when the run has no such cell.
+ * One question's widgeted for one widgeting, or for one part of it, or `missing` when the run has
+ * no such cell. A part of a category-estimate widgeting is `ok` with its value, whether or not
+ * anything was typed (an empty cell draws on no category in particular), and fails as the cell
+ * does; a part of any other widgeting is `missing`.
  *
- * @example widgetedOf(run, 'numnum_clueing', question._id).status  // => 'ok'
+ * @param run - The quiz, run.
+ * @param label - The widgeting's label.
+ * @param question_id - The question's id.
+ * @param part - One part of what the widgeting came to, or null for the whole of it.
+ *
+ * @example widgetedOf(run, 'numnum_clueing', question._id).status    // => 'ok'
+ * @example widgetedOf(run, 'categories', question._id, 'masie')      // => { status: 'ok', value: 0.525, err: null }
  */
-export function widgetedOf(run: QuizRun, label: string, question_id: string): WidgetedT {
-  return run.widgeteds.get(label)?.get(question_id) ?? Widgeted.missing
+export function widgetedOf(run: QuizRun, label: string, question_id: string, part: WidgetingPart | null = null): WidgetedT {
+  const widgeted = run.widgeteds.get(label)?.get(question_id) ?? Widgeted.missing
+  if (part === null) { return widgeted }
+  const cells = run.parts.get(label)
+  if (! cells) { return Widgeted.missing }
+  const parts = cells.get(question_id)
+  return parts ? Widgeted.ok(parts[part]) : widgeted
 }
 
 /**
@@ -216,19 +242,21 @@ export function widgetedFrom(history: WidgetedHistoryT | null): WidgetedT {
 
 /**
  * Where a quiz sits, as its formulas and its history are told: the hunt's and the realm's
- * exposed fields, each title as shown, never blank.
+ * exposed fields, each title as shown, never blank; and the total order of the hunt's wheel, the
+ * default one for a hunt that holds none.
  *
- * @param hunt - The quiz's hunt, as a row or a screen holds it.
+ * @param hunt - The quiz's hunt, as a row or a screen holds it, with its wheel when it has one.
  * @param realm - The realm it sits in.
  * @returns Its place.
  *
  * @example placeOf({ label: 'deep_lake', title: '' }, { label: 'home', title: '' })
- *   // => { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' } }
+ *   // => { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' }, order: ['math_econ', 'gen_sci', ...] }
  */
-export function placeOf(hunt: Pick<HuntT, 'label' | 'title'>, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
+export function placeOf(hunt: Pick<HuntT, 'label' | 'title'> & { wheel?: WheelT }, realm: Pick<RealmT, 'label' | 'title'>): QuizPlace {
   return {
     hunt:  { ..._.pick(hunt, Hunt.exposed), title: huntTitleOf(hunt) },
     realm: { ..._.pick(realm, Realm.exposed), title: realmTitleOf(realm) },
+    order: Wheel.orderOf(hunt.wheel ?? Wheel.defaultWheel()),
   }
 }
 
@@ -243,6 +271,7 @@ function frameOf(quiz: QuizT, place: QuizPlace): BagFrame {
   return {
     hunt:         place.hunt,
     realm:        place.realm,
+    order:        place.order,
     quiz:         { ..._.pick(quiz, Quiz.exposed), label: quiz_label },
     quiz_label,
     question_ids: quiz.questions.map((question) => question._id),
@@ -289,10 +318,12 @@ function baseQns(quiz: QuizT): Record<string, unknown>[] {
 /**
  * `qns` with each question's widgeted for one widgeting added under its label: new objects, so
  * the bags already handed out keep the questions as they were. No widgeting's label is one a
- * question already answers to (`ReservedWidgetingLabels`), so nothing is shadowed.
+ * question already answers to (`ReservedWidgetingLabels`), so nothing is shadowed. A
+ * category-estimate widgeting's widgeted carries its parts beside its status and value, so a
+ * formula reads `qn.<label>.masie`.
  */
-function withWidgeteds(qns: readonly Record<string, unknown>[], label: string, widgeteds: readonly WidgetedT[]): Record<string, unknown>[] {
-  return qns.map((qn, idx) => ({ ...qn, [label]: widgeteds[idx] ?? Widgeted.missing }))
+function withWidgeteds(qns: readonly Record<string, unknown>[], label: string, widgeteds: readonly WidgetedT[], parts: readonly (Estimates.EstimatePartsT | null)[] | null): Record<string, unknown>[] {
+  return qns.map((qn, idx) => ({ ...qn, [label]: { ...widgeteds[idx] ?? Widgeted.missing, ...parts?.[idx] } }))
 }
 
 /** One widgeting's cells, in the quiz's order: their widgeteds, and the inputs of a widgeting asked from the cell */

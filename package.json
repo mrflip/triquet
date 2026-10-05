@@ -74,6 +74,7 @@
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-number-format": "^5.4.5",
+    "recharts": "^3.10.1",
     "rehype-sanitize": "^6.0.0",
     "remark-breaks": "^4.0.0",
     "safe-stable-stringify": "^2.5.0",

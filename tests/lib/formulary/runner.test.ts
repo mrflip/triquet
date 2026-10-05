@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Runner from '../../../src/lib/formulary/runner'
+import * as Wheel from '../../../src/lib/wheel'
 import { Widget, type WidgetT } from '../../../src/models/widget'
 import { classicLayout } from '../../support/layouts'
 import { Question, type QuestionT } from '../../../src/models/question'
@@ -331,6 +332,54 @@ describe('the typed widgetings', () => {
   })
 })
 
+describe('the category-estimate widgetings', () => {
+  const placed = loneQuestion({ stored: { cats: answered([{ category: 'art', difficulty: 'easy' }]) } })
+  const blank = loneQuestion({})
+  const quiz = { ...Quiz.blank('Estimated'), questions: [placed, blank], widgetings: widgetingsOf(['cats', 'categories'], ['loved', 'loved_by'], ['remark', 'remarks']) }
+  const library = [
+    Widget.fill({ label: 'categories', formulary: 'entry', config: { entry_kind: 'estimates' } }),
+    jsonataWidget('loved_by', "qn.cats.artie > qn.cats.masie ? 'Artie' : 'Masie'"),
+    Widget.fill({ label: 'remarks', formulary: 'entry', config: { entry_kind: 'text' } }),
+  ]
+  const run = runOf(quiz, library)
+
+  it('are projected from the estimates typed, as any entry is', () => {
+    expect(Runner.widgetedOf(run, 'cats', placed._id)).to.deep.eq(Widgeted.ok([{ category: 'art', difficulty: 'easy' }]))
+    expect(Runner.widgetedOf(run, 'cats', blank._id)).to.deep.eq(Widgeted.missing)
+  })
+
+  it("offer each persona's chance and their average as parts, read against the hunt's total order", () => {
+    const parts = (['masie', 'artie', 'poppy', 'average'] as const).map((part) => Runner.widgetedOf(run, 'cats', placed._id, part).value)
+    expect(parts.map((chance) => Number(chance).toFixed(2))).to.deep.eq(['0.69', '0.90', '0.69', '0.76'])
+  })
+
+  it('offer the estimates as a part, a cell nobody filled in drawing on no category in particular, at medium', () => {
+    expect(Runner.widgetedOf(run, 'cats', placed._id, 'estimates')).to.deep.eq(Widgeted.ok([{ category: 'art', difficulty: 'easy' }]))
+    expect(Runner.widgetedOf(run, 'cats', blank._id, 'estimates')).to.deep.eq(Widgeted.ok([{ category: null, difficulty: 'medium' }]))
+    expect(Runner.widgetedOf(run, 'cats', blank._id, 'poppy')).to.deep.eq(Widgeted.ok(0.525))
+  })
+
+  it('carry their parts in the bag beside status and value, so a later formula reads them', () => {
+    expect(Runner.widgetedOf(run, 'loved', placed._id)).to.deep.eq(Widgeted.ok('Artie'))
+    const [bagged] = Runner.bagsAt(run, { label: 'remark', params: {} }).get(placed._id)?.qns ?? []
+    expect(bagged?.cats).to.deep.include({ status: 'ok', estimates: [{ category: 'art', difficulty: 'easy' }], artie: 0.9 })
+  })
+
+  it('have no parts for any other widgeting to give', () => {
+    expect(Runner.widgetedOf(run, 'remark', placed._id, 'masie')).to.deep.eq(Widgeted.missing)
+    expect(run.parts.has('remark')).to.be.false
+    const [bagged] = Runner.bagsAt(run, { label: 'remark', params: {} }).get(placed._id)?.qns ?? []
+    expect(bagged?.loved).to.deep.eq(Widgeted.ok('Artie'))
+  })
+
+  it('follow the wheel: whoever sits beside a category knows it best', () => {
+    const wheel = Wheel.placed(Wheel.defaultWheel(), 'art', 0)
+    const rearranged = runOf(quiz, library, Runner.placeOf({ label: 'deep_lake', title: '', wheel }, { label: 'home', title: '' }))
+    expect(Runner.widgetedOf(rearranged, 'cats', placed._id, 'masie')).to.deep.eq(Widgeted.ok(0.9))
+    expect(Runner.widgetedOf(rearranged, 'loved', placed._id)).to.deep.eq(Widgeted.ok('Masie'))
+  })
+})
+
 describe('sourceOf', () => {
   const recorded = loneQuestion({ stored: { asked: answered('hi') } })
   const blank = loneQuestion({})
@@ -468,7 +517,8 @@ describe('what a bag exposes of a question', () => {
 })
 
 describe('placeOf', () => {
-  const Cases: [Parameters<typeof Runner.placeOf>, Runner.QuizPlace, string][] = [
+  const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
+  const Cases: [Parameters<typeof Runner.placeOf>, Omit<Runner.QuizPlace, 'order'>, string][] = [
     [[{ label: 'deep_lake', title: '' },          { label: 'home',   title: '' }],
       { hunt: { label: 'deep_lake', title: 'Deep Lake' },  realm: { label: 'home',   title: 'Home' } },          'blank titles read as the labels titleized'],
     [[{ label: 'tarn',      title: 'Lakeside' },  { label: 'finals', title: 'The Finals' }],
@@ -476,13 +526,19 @@ describe('placeOf', () => {
   ]
   for (const [[hunt, realm], expected, blurb] of Cases) {
     it(blurb, () => {
-      expect(Runner.placeOf(hunt, realm)).to.deep.eq(expected)
+      expect(Runner.placeOf(hunt, realm)).to.deep.eq({ ...expected, order: DefaultOrder })
     })
   }
 
   it('leaves out everything a hunt or realm holds besides its exposed fields', () => {
     const hunt = { _id: 'hunt_id', label: 'deep_lake', title: 'Deep Lake', realms: [] }
     const realm = { _id: 'realm_id', label: 'home', title: 'Home', quizzes: [] }
-    expect(Runner.placeOf(hunt, realm)).to.deep.eq({ hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' } })
+    expect(Runner.placeOf(hunt, realm)).to.deep.eq({ hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' }, order: DefaultOrder })
+  })
+
+  it("reads the hunt's categories in the total order of its wheel, holes filled from the pool", () => {
+    const wheel = Wheel.placed(Wheel.placed(Wheel.defaultWheel(), 'theater', 0), 'tv', 'pool')
+    const { order } = Runner.placeOf({ label: 'deep_lake', title: '', wheel }, { label: 'home', title: '' })
+    expect([order[0], order[12], order[15], order.length]).to.deep.eq(['theater', 'math_econ', 'tv', 24])
   })
 })

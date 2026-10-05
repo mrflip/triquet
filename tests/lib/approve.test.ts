@@ -4,6 +4,7 @@ import * as Actor from '../../src/lib/actor'
 import * as Approve from '../../src/lib/approve'
 import { AuthorizationError } from '../../src/lib/errors'
 import { RefusalNotices } from '../../src/lib/notices'
+import { CategoryLabelVals } from '../../src/models/category'
 import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT } from '../../src/models/actions'
 import type { ReviewPhase, ReviewRowT } from '../../src/models/review'
 
@@ -254,6 +255,12 @@ type HuntlessDNA = Extract<AccountActionDNA, { kind: 'assume_ident' | 'retitle_i
 /** The kinds of account action that name no hunt */
 const HuntlessKinds: ReadonlySet<string> = new Set<HuntlessDNA['kind']>(['assume_ident', 'retitle_ident', 'new_hunt'])
 
+/** An account action that names a hunt, and is no hunt action's kind */
+type HuntNamingDNA = Extract<AccountActionDNA, { kind: 'arrange_categories' }>
+
+/** The kinds of account action that name a hunt, and are no hunt action's kind */
+const HuntNamingKinds: ReadonlySet<string> = new Set<HuntNamingDNA['kind']>(['arrange_categories'])
+
 /** The kinds of action on the library */
 const LibraryKinds: ReadonlySet<string> = new Set<LibraryActionDNA['kind']>(['add_widget', 'edit_widget', 'delete_widget', 'move_widget', 'import_widgets'])
 
@@ -262,14 +269,19 @@ function isHuntless(dna: ActionDNA): dna is HuntlessDNA {
   return HuntlessKinds.has(dna.kind)
 }
 
+/** Whether `dna` is an account action that names a hunt, and is no hunt action's kind */
+function isHuntNaming(dna: ActionDNA): dna is HuntNamingDNA {
+  return HuntNamingKinds.has(dna.kind)
+}
+
 /** Whether `dna` is an action on the library */
 function isOnLibrary(dna: ActionDNA): dna is LibraryActionDNA {
   return LibraryKinds.has(dna.kind)
 }
 
 /** `dna` validated, as the server holds an action */
-function actionOf(dna: HuntActionDNA | LibraryActionDNA | HuntlessDNA): ActionT {
-  if (isHuntless(dna)) { return ActionValidators.accountAction(dna) }
+function actionOf(dna: HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA): ActionT {
+  if (isHuntless(dna) || isHuntNaming(dna)) { return ActionValidators.accountAction(dna) }
   if (isOnLibrary(dna)) { return ActionValidators.libraryAction(dna) }
   return ActionValidators.huntAction(dna)
 }
@@ -333,11 +345,12 @@ const Matrix = {
   retitle_hunt:        [{ kind: 'retitle_hunt', title: 'Princes' },                                                                  Smiths],
   relabel_hunt:        [{ kind: 'relabel_hunt', label: 'princes' },                                                                  Smiths],
   delete_hunt:         [{ kind: 'delete_hunt' },                                                                                     Smiths],
+  arrange_categories:  [{ kind: 'arrange_categories', hunt_id, wheel: [null, ...CategoryLabelVals.slice(1)] },                          Smiths],
   // account actions, of the actor alone:
   assume_ident:        [{ kind: 'assume_ident', label: 'alice_smiths', title: 'Alice' },                                             Anyone],
   retitle_ident:       [{ kind: 'retitle_ident', title: 'Alice' },                                                                   Idents],
   new_hunt:            [{ kind: 'new_hunt', label: 'loud_heron' },                                                                   Idents],
-} as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA, { kind: KK }>, VerdictRowT] }
+} as const satisfies { [KK in ActionKind]: readonly [Extract<HuntActionDNA | LibraryActionDNA | HuntlessDNA | HuntNamingDNA, { kind: KK }>, VerdictRowT] }
 
 describe('the matrix: every action kind, as each standing, and as a smith of a locked quiz', () => {
   for (const [kind, [dna, expected]] of Object.entries(Matrix)) {

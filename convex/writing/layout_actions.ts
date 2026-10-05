@@ -2,7 +2,8 @@ import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
 import type { LayoutRows } from '../../src/lib/rows'
-import { ColumnValidators, sortkeyOf, sourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
+import * as Estimates from '../../src/lib/estimates'
+import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../../src/models/widgeting'
 import type { LayoutActionT } from '../../src/models/actions'
 import { widgetForLabel } from '../reading'
@@ -28,10 +29,16 @@ function labelTaken(rows: LayoutRows, label: string): boolean {
   return rows.widgetings.some((widgeting) => widgeting.label === label)
 }
 
-/** Whether `source` names something the quiz can show */
-function showable(rows: LayoutRows, source: string): boolean {
+/**
+ * Refuse a column `source` that names nothing the quiz can show: a widgeting it does not have, or
+ * a part of a widgeting whose widget offers none.
+ */
+async function refuseUnshowable(db: Writer, rows: LayoutRows, source: string): Promise<void> {
   const named = sourceOf(source)
-  return named.kind !== 'widgeting' || rows.widgetings.some((widgeting) => widgeting.label === named.label)
+  if (named.kind !== 'widgeting') { return }
+  const widgeting = rows.widgetings.find((each) => each.label === named.label)
+  if (! widgeting) { refuse('sourceUnshowable') }
+  if (named.part !== null && ! Estimates.isEstimating(await widgetForLabel(db, widgeting.widget_label))) { refuse('partUnoffered') }
 }
 
 /**
@@ -49,7 +56,8 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
 
 /**
  * Revise a widgeting of the open quiz. A rename onto a label a sibling has is refused, and
- * carries the columns that show the widgeting with it; what it stored stays with it.
+ * carries the columns that show the widgeting, whole or a part of it, with it; what it stored
+ * stays with it.
  */
 export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, patch: WidgetingPatch): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -58,7 +66,8 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
     if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { refuse('labelTaken') }
     await updateWidgeting(db, held, { ...patch })
     for (const column of rows.columns) {
-      if (column.source === label) { await updateColumn(db, column, { source: renamedOnto }) }
+      const named = sourceOf(column.source)
+      if (named.kind === 'widgeting' && named.label === label) { await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, named.part) }) }
     }
   })
 }
@@ -82,7 +91,7 @@ export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string
     const held = rows.widgetings.find((widgeting) => widgeting.label === label)
     if (! held) { return }
     await deleteWidgetingRows(db, held._id)
-    await deleteColumns(db, rows, (column) => column.source === label)
+    await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
     await repositioned(rows.widgetings.filter((widgeting) => widgeting._id !== held._id), async (row, position) => { await updateWidgeting(db, row, { position }) })
   })
 }
@@ -102,7 +111,7 @@ export async function moveWidgeting(db: Writer, open: OpenQuizT, label: string, 
 export async function addColumn(db: Writer, open: OpenQuizT, column: ColumnT, onto_idx?: number): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     if (rows.columns.some((other) => other.label === column.label)) { refuse('labelTaken') }
-    if (! showable(rows, column.source)) { refuse('sourceUnshowable') }
+    await refuseUnshowable(db, rows, column.source)
     if (rows.columns.length >= PA.ColumnsPerQuiz.max) { refuse('columnsFull') }
     const at = onto_idx === undefined ? rows.columns.length : Math.max(0, Math.min(onto_idx, rows.columns.length))
     for (const [idx, held] of rows.columns.entries()) {
@@ -122,7 +131,7 @@ export async function editColumn(db: Writer, open: OpenQuizT, label: string, pat
     const held = columnIn(rows, label)
     const renamedOnto = patch.label ?? label
     if (renamedOnto !== label && rows.columns.some((other) => other.label === renamedOnto)) { refuse('labelTaken') }
-    if (patch.source !== undefined && ! showable(rows, patch.source)) { refuse('sourceUnshowable') }
+    if (patch.source !== undefined) { await refuseUnshowable(db, rows, patch.source) }
     await updateColumn(db, held, { ...patch })
     if (rows.quiz.last_sortkey === sortkeyOf({ label })) { await updateQuiz(db, rows.quiz, { last_sortkey: sortkeyOf({ label: renamedOnto }) }) }
   })

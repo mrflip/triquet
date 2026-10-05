@@ -3,6 +3,7 @@ import { Validator } from '../lib/validator'
 import { mintId } from '../lib/ids'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
+import { CategoryValidators } from './category'
 import { Quiz, type QuizT } from './quiz'
 import { defaultLayout } from './layout'
 import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
@@ -28,6 +29,8 @@ export const HuntValidators = Validator(({ obj, arr, label, titleish, treeid }) 
   const row = obj({
     label:        huntLabel,
     title,
+    wheel:        CategoryValidators.wheel.optional()
+      .describe('How the hunt arranges the subject categories round its wheel. Absent until someone first arranges them, which reads as the default wheel.'),
   })
     .describe('One hunt as the database holds it: its realms are rows of their own.')
 

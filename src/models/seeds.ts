@@ -184,13 +184,22 @@ const ButnotIshesDNA: WidgetDNA = {
   formula:     `${ButnotHint}.value`,
 }
 
+/** The category-estimate entry: which subject categories a question draws on, and what that makes of Masie, Artie and Poppy's chances */
+const CategoriesDNA: WidgetDNA = {
+  label:       'categories',
+  title:       'Categories',
+  description: "Which subject categories a question draws on, each at a difficulty: a pill for each. Columns can show the list, or Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`categories.masie` and the like); a formula reads them as `qn.categories.masie`.",
+  formulary:   'entry',
+  config:      { entry_kind: 'estimates' },
+}
+
 /**
- * The library's seeds: the three prompts, the eight sums, five small text calculations, and the
- * BUT NOT ishes. Seventeen, in the order the library lists them.
+ * The library's seeds: the three prompts, the eight sums, five small text calculations, the
+ * BUT NOT ishes, and the category-estimate entry. Eighteen, in the order the library lists them.
  *
  * @example SeedWidgets.find((widget) => widget.label === 'numnum_hint')?.formulary  // => 'aibot'
  */
-export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs].map((dna) => Widget.fill(dna))
+export const SeedWidgets: readonly WidgetT[] = [...AibotSeedDNAs, ButnotIshesDNA, ...SumSeedDNAs, ...TextSeedDNAs, CategoriesDNA].map((dna) => Widget.fill(dna))
 
 /**
  * The widgetings a quiz is given when its columns name any of them, in run order, each labelled

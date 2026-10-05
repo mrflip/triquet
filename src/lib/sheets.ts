@@ -29,7 +29,7 @@ export function cellTextOf(source: Resolved, { question, target, run }: Readonly
     return target?.hint ?? ''
   }
   case 'widgeting': {
-    return Widgeted.textOf(Runner.widgetedOf(run, source.widgeting.label, question._id))
+    return Widgeted.textOf(Runner.widgetedOf(run, source.widgeting.label, question._id, source.part))
   }
   }
 }

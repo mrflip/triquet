@@ -1,15 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, Stack, TextField, Typography } from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, Link, Stack, TextField, Typography } from '@mui/material'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
+import NextLink from './NextLink'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
 import * as Labelmaker from '../lib/labelmaker'
 import * as QuizMirror from '../state/quiz-mirror'
 import { AppNotices } from '../lib/notices'
+import * as Routes from '../lib/routes'
 import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
@@ -145,7 +147,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
           <section>
             <Typography variant="h6" component="h3">Columns</Typography>
             <p className={styles.microcopy}>The grid&apos;s columns in the order they appear. Drag a handle to move one; the gear opens the rest.</p>
-            <ColumnsEditor quiz={quiz} revisable={offers.reviseLayout} dispatch={dispatch} />
+            <ColumnsEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
           </section>
 
           <section>
@@ -195,7 +197,10 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
                 <Button variant="outlined" onClick={onRelabelHuntClick} disabled={Labelmaker.normalize(huntLabelDraft) === huntLabel}>Relabel</Button>
               </Stack>
             </Stack>
-            <p className={styles.microcopy}>{AppNotices.deletingHunt}</p>
+            <p className={styles.microcopy}>
+              <Link component={NextLink} href={Routes.categoriesPath(huntLabel)}>Arrange the hunt&apos;s categories</Link>
+              {' '}round its wheel. {AppNotices.deletingHunt}
+            </p>
           </section>
 
           <section>
