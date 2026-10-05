@@ -177,9 +177,11 @@ in a comment what the window is and why it is long enough.
 
 The suite runs only as `pnpm test:e2e`, under Doppler's `dev_e2e` (its own port, build
 directory and Convex backend, emptied as the suite starts); Playwright refuses to start locally
-otherwise. `pnpm test:e2e:agent` is the same on a port and backend of an agent's own.
+otherwise. `pnpm test:e2e:agent` is the same on a port and backend of an agent's own. In a
+worktree every role's port and backend are its lane's (`scripts/lanes.ts`), and the guard wants
+exactly those.
 `pnpm test:e2e:built` runs it against the optimized build (`next build`, then `next start`) in
-place of the dev server, on the `e2e-built` role (port 3005): the mode the app is deployed in,
+place of the dev server, on the `e2e-built` role (port 3005 in the main checkout): the mode the app is deployed in,
 with none of React's dev-only doubled effects, which once hid a review that never opened. It
 means the build mode only: the keys, settings and backend are the suite's own, as ever. It builds
 afresh every run and refuses to start while anything holds its port, so an earlier build is never

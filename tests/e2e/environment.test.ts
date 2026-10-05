@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as Environment from '../../e2e/environment'
 
-/** What CI gives the suite, and what Doppler's dev_e2e config gives it but for DOPPLER_CONFIG */
+/** What CI gives the suite, and what `pnpm test:e2e` gives it in the main checkout but for DOPPLER_CONFIG */
 const Fit = { PORT: '3002', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3402', NEXT_DIST_DIR: '.next-e2e' }
 const InCI = { ...Fit, CI: 'true' }
 const Local = { ...Fit, DOPPLER_CONFIG: 'dev_e2e' }
@@ -24,25 +24,34 @@ describe('Environment.complaintsAbout', () => {
     expect(Environment.complaintsAbout({ ...InCI, TRIQUET_E2E_SERVER: 'built' })).to.deep.eq([])
   })
 
+  it('has nothing to say about a worktree\'s run, on its lane\'s port and backend', () => {
+    expect(Environment.complaintsAbout({ ...Local, TRIQUET_LANE: '1', PORT: '3012', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3412' })).to.deep.eq([])
+    expect(Environment.complaintsAbout({ ...Local, TRIQUET_LANE: '3', PORT: '3033', CONVEX_ROLE: 'e2e-agent', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3433', NEXT_DIST_DIR: '.next-e2e-agent' })).to.deep.eq([])
+  })
+
   const ComplaintCases: [Record<string, string | undefined>, string, string][] = [
     // where it runs:
     [{ ...Fit },                                    "Run the e2e suite with `pnpm test:e2e`, under Doppler's dev_e2e config", 'outside CI and outside Doppler'],
     [{ ...Fit, DOPPLER_CONFIG: 'dev_claude' },      "Run the e2e suite with `pnpm test:e2e`, under Doppler's dev_e2e config", 'under the agents\' Doppler config'],
     // settings left to next.config's defaults, which are a human's:
-    [{ ...InCI, PORT: undefined },                  "PORT is not set: Doppler's dev_e2e config gives it one, and so does the CI workflow", 'no web port'],
-    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: '' },       "NEXT_PUBLIC_CONVEX_URL is not set: Doppler's dev_e2e config gives it one, and so does the CI workflow", 'a blank database'],
-    [{ ...InCI, NEXT_DIST_DIR: undefined },         "NEXT_DIST_DIR is not set: Doppler's dev_e2e config gives it one, and so does the CI workflow", 'no build directory'],
+    [{ ...InCI, PORT: undefined },                  "PORT is not set: `pnpm test:e2e` gives it one, and so does the CI workflow", 'no web port'],
+    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: '' },       "NEXT_PUBLIC_CONVEX_URL is not set: `pnpm test:e2e` gives it one, and so does the CI workflow", 'a blank database'],
+    [{ ...InCI, NEXT_DIST_DIR: undefined },         "NEXT_DIST_DIR is not set: `pnpm test:e2e` gives it one, and so does the CI workflow", 'no build directory'],
     // settings another session holds:
-    [{ ...InCI, PORT: '3001' },                     "PORT=3001 is already another session's",           'the agents\' web port'],
-    [{ ...InCI, PORT: '3004' },                     "PORT=3004 is already another session's",           'the agents\' built server\'s port'],
-    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3400' }, "NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3400 is already another session's", 'the human\'s database'],
+    [{ ...InCI, PORT: '3001' },                     'PORT=3001 is not the e2e port in lane 0, 3002',   'the agents\' web port'],
+    [{ ...InCI, PORT: '3004' },                     'PORT=3004 is not the e2e port in lane 0, 3002',   'the agents\' built server\'s port'],
+    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3400' }, 'NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3400 is not the e2e backend in lane 0, http://127.0.0.1:3402: the suite empties the database it runs against', 'the human\'s database'],
     [{ ...InCI, NEXT_DIST_DIR: '.next' },           "NEXT_DIST_DIR=.next is already another session's", 'the human\'s build directory'],
+    // another lane's:
+    [{ ...InCI, TRIQUET_LANE: '1', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3412' }, 'PORT=3002 is not the e2e port in lane 1, 3012',   'the main checkout\'s port, from a worktree'],
+    [{ ...InCI, TRIQUET_LANE: '1', PORT: '3012' },  'NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3402 is not the e2e backend in lane 1, http://127.0.0.1:3412: the suite empties the database it runs against', 'the main checkout\'s database, from a worktree'],
+    [{ ...InCI, TRIQUET_LANE: 'ten' },              'TRIQUET_LANE=ten is not a lane: 0 to 9',          'a lane that is not one'],
     // settings that make no sense:
     [{ ...InCI, PORT: 'OOPS_PORT' },                'PORT=OOPS_PORT is not a port',                    'a placeholder left in place of a port'],
     [{ ...InCI, PORT: '3002.5' },                   'PORT=3002.5 is not a port',                       'a port with a fraction'],
     [{ ...InCI, PORT: '80' },                       'PORT=80 is not a port',                           'a port only root may listen on'],
-    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: 'https://quiet-otter-123.convex.cloud' }, "NEXT_PUBLIC_CONVEX_URL=https://quiet-otter-123.convex.cloud is not the e2e backend, http://127.0.0.1:3402: the suite empties the database it runs against", 'a real database'],
-    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3403' }, "NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3403 is not the e2e backend, http://127.0.0.1:3402: the suite empties the database it runs against", 'another role\'s backend'],
+    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: 'https://quiet-otter-123.convex.cloud' }, "NEXT_PUBLIC_CONVEX_URL=https://quiet-otter-123.convex.cloud is not the e2e backend in lane 0, http://127.0.0.1:3402: the suite empties the database it runs against", 'a real database'],
+    [{ ...InCI, NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3403' }, "NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3403 is not the e2e backend in lane 0, http://127.0.0.1:3402: the suite empties the database it runs against", 'another role\'s backend'],
     [{ ...InCI, CONVEX_ROLE: 'agent' },             'CONVEX_ROLE=agent is not one of e2e, e2e-agent, e2e-built', 'a role that is not the suite\'s'],
     [{ ...InCI, TRIQUET_E2E_SERVER: 'prod' },       'TRIQUET_E2E_SERVER=prod is not one of dev, built', 'a server the suite does not know how to start'],
   ]

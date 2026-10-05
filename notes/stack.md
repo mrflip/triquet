@@ -269,6 +269,15 @@ agrees to another.
   PR merged after a rebase, or a draft of a commit that landed reworded, is invisible to them.
   The script finds those by `git cherry` and by subject line, and keeps each as an annotated tag
   saying what it was. The manual is `notes/housekeeping.md`.
+* **Parallel checkouts are scripts of our own: `scripts/lanes.ts` now, and the worktree and
+  landing scripts beside it.** Approved by a Coach Oct 2026. Lanes give every checkout its own
+  ports from one table, stable across runs because a Convex backend's URL is baked into its
+  `cli.env`, its auth keys' `SITE_URL` and every build; a free-port finder (`get-port`) would hand
+  out a different one each time. The stack tools (git-town, git-branchless, git-machete,
+  Graphite) restack branches, which `git rebase --update-refs` already does; none coordinates
+  several worktrees landing onto one shared checkout, and Graphite and spr want merge flows of
+  their own that fight the semi-linear ladder. The design is
+  `whiteboard/20261005-parallel_git/parallel-git-plan.md`.
 
 ## Later, i.e when we get there
 

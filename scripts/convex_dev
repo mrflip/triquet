@@ -14,7 +14,8 @@
 #      widgets, and the default widgetings for a quiz laid out before there were any. Production is
 #      seeded by hand the same way (notes/deploy.md).
 #   5. With --watch, keeps pushing convex/ as it changes, for as long as the command runs.
-#   6. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend.
+#   6. Runs the command with NEXT_PUBLIC_CONVEX_URL naming the backend, and PORT the role's web
+#      port: both as scripts/lanes.ts has them for this checkout's lane.
 #
 # Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--seed] [--watch] <command> [arguments...]
 #   eg   scripts/doppledo dev_claude scripts/convex_dev agent --watch next dev
@@ -23,15 +24,12 @@ cd "$(dirname "$0")/.."
 
 usage="Usage: scripts/convex_dev <dev|agent|e2e|e2e-agent|e2e-built> [--reset] [--seed] [--watch] <command> [arguments...]"
 role="${1:-}"
-# The backend's port for each role, as scripts/convex_backend has it.
 case "$role" in
-  dev)       port=3400 ;;
-  agent)     port=3401 ;;
-  e2e)       port=3402 ;;
-  e2e-agent) port=3403 ;;
-  e2e-built) port=3405 ;;
+  dev | agent | e2e | e2e-agent | e2e-built) ;;
   *) echo "$usage" >&2; exit 1 ;;
 esac
+# The role's web and backend ports in this checkout's lane, as scripts/convex_backend has them.
+read -r web_port port _ <<< "$(node scripts/lanes.ts ports "$role")"
 shift
 reset=no
 seed=no
@@ -105,6 +103,7 @@ if [[ "$watch" == yes ]]; then
 fi
 
 export NEXT_PUBLIC_CONVEX_URL="$url"
+export PORT="$web_port"
 "$@" &
 children+=("$!")
 wait "$!"

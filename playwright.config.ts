@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 import * as Environment from './e2e/environment'
 
-// Locally the suite runs under Doppler's `dev_e2e` config (`pnpm test:e2e`), which gives it a port,
-// build directory and Convex backend of its own; anywhere else it could land on someone's dev server.
+// Locally the suite runs under Doppler's `dev_e2e` config (`pnpm test:e2e`), with a port, build
+// directory and Convex backend of its own in its checkout's lane (scripts/as_role); anywhere else
+// it could land on someone's dev server.
 // Checked here because nothing later runs before the web server starts.
 const complaints = Environment.complaintsAbout(process.env)
 if (complaints.length > 0) {

@@ -5,6 +5,7 @@
  * human's port or data directory has already done its damage by the time any spec could object.
  * `environment.setup.ts` prints `listing` so a run's log says what it ran under.
  */
+import * as Lanes from '../scripts/lanes'
 
 /** The variables that decide where the suite serves, builds and keeps its database, and what it talks to */
 const RelevantNames = /^(CI|PORT|DOPPLER_|NEXT_|CONVEX_|TRIQUET_|ANTHROPIC_)/
@@ -12,28 +13,20 @@ const RelevantNames = /^(CI|PORT|DOPPLER_|NEXT_|CONVEX_|TRIQUET_|ANTHROPIC_)/
 /** Variables whose values are never shown, only whether they are set */
 const SensitiveNames = /secret|pw|pass|tok|key|auth/i
 
-/**
- * The suite's own settings, each with the values other sessions on this machine already hold:
- * a human's `pnpm dev` and an agent's `pnpm dev:agent`. Next falls back to the human's when a
- * variable is unset, so each must be given.
- */
-const TakenBy: Record<string, readonly string[]> = {
-  PORT:                   ['3000', '3001', '3004'],
-  NEXT_PUBLIC_CONVEX_URL: ['http://127.0.0.1:3400', 'http://127.0.0.1:3401'],
-  NEXT_DIST_DIR:          ['.next', '.next-agent', '.next-agent-build'],
-}
+/** The suite's own settings, each of which Next would otherwise take from a human's defaults */
+const SettingNames = ['PORT', 'NEXT_PUBLIC_CONVEX_URL', 'NEXT_DIST_DIR'] as const
+
+/** The build directories other sessions in a checkout already use: a human's `pnpm dev`, and an agent's `pnpm dev:agent` and `pnpm build:agent` */
+const TakenDistDirs: ReadonlySet<string> = new Set(['.next', '.next-agent', '.next-agent-build'])
 
 /**
- * The Convex backends the suite may run against, by role (`CONVEX_ROLE`, `e2e` when unset): each
- * a local backend of its own (`scripts/convex_backend`), which the suite empties as it starts.
+ * The roles the suite may run as (`CONVEX_ROLE`, `e2e` when unset): each with a port and a local
+ * Convex backend of its own in every lane (`scripts/lanes.ts`), and the suite empties that
+ * backend as it starts.
  */
-export const BackendUrlFor = {
-  "e2e":       'http://127.0.0.1:3402',
-  "e2e-agent": 'http://127.0.0.1:3403',
-  "e2e-built": 'http://127.0.0.1:3405',
-} as const
+export const E2eRoles = ['e2e', 'e2e-agent', 'e2e-built'] as const
 
-export type E2eRole = keyof typeof BackendUrlFor
+export type E2eRole = typeof E2eRoles[number]
 
 /** The role whose backend the suite runs against: `CONVEX_ROLE`, or `e2e` */
 export function roleOf(env: Env): string {
@@ -64,41 +57,54 @@ type Env = Readonly<Record<string, string | undefined>>
 /**
  * Everything wrong with `env` as a place to run the e2e suite, one sentence each.
  *
- * Outside CI it must be Doppler's `dev_e2e` config. Anywhere, the web server and its build
- * directory need a port and directory no other session uses, and the database must be the
- * role's own local Convex backend, which the suite empties. The server is one it knows how to
- * start (`ServerCommandFor`).
+ * Outside CI it must be Doppler's `dev_e2e` config. Anywhere, the web server must listen on the
+ * role's own port in the checkout's lane (`TRIQUET_LANE`, 0 when unset), build into a directory
+ * no other session uses, and talk to the role's own local Convex backend in that lane, which the
+ * suite empties. The server is one it knows how to start (`ServerCommandFor`).
  *
  * @param env - The environment to judge, ordinarily `process.env`.
  * @returns The complaints, empty when the suite may run.
  *
  * @example complaintsAbout({ CI: 'true', PORT: '3002', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3402', NEXT_DIST_DIR: '.next-e2e' })  // => []
- * @example complaintsAbout({ CI: 'true', PORT: '3000', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3402', NEXT_DIST_DIR: '.next-e2e' })  // => ['PORT=3000 is already another session\'s']
+ * @example complaintsAbout({ CI: 'true', PORT: '3001', NEXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3402', NEXT_DIST_DIR: '.next-e2e' })  // => ['PORT=3001 is not the e2e port in lane 0, 3002']
  */
 export function complaintsAbout(env: Env): string[] {
-  const settingComplaints = Object.entries(TakenBy).flatMap(([envname, taken]) => {
+  const blankComplaints = SettingNames.flatMap((envname) => {
     const val = env[envname]
-    if (! val) { return [`${envname} is not set: Doppler's dev_e2e config gives it one, and so does the CI workflow`] }
-    if (taken.includes(val)) { return [`${envname}=${val} is already another session's`] }
-    return []
+    return val ? [] : [`${envname} is not set: \`pnpm test:e2e\` gives it one, and so does the CI workflow`]
   })
   return [
     ...((! env.CI && env.DOPPLER_CONFIG !== 'dev_e2e') ? ['Run the e2e suite with `pnpm test:e2e`, under Doppler\'s dev_e2e config'] : []),
-    ...settingComplaints,
+    ...blankComplaints,
+    ...((env.NEXT_DIST_DIR && TakenDistDirs.has(env.NEXT_DIST_DIR)) ? [`NEXT_DIST_DIR=${env.NEXT_DIST_DIR} is already another session's`] : []),
     ...((env.PORT && ! isPort(env.PORT)) ? [`PORT=${env.PORT} is not a port`] : []),
-    ...backendComplaints(env),
+    ...laneComplaints(env),
     ...serverComplaints(env),
   ]
 }
 
-/** What is wrong with the database `env` would run the suite against */
-function backendComplaints(env: Env): string[] {
+/** What is wrong with the port and database `env` would run the suite on, for its role and lane */
+function laneComplaints(env: Env): string[] {
   const role = roleOf(env)
-  if (! Object.hasOwn(BackendUrlFor, role)) { return [`CONVEX_ROLE=${role} is not one of ${Object.keys(BackendUrlFor).join(', ')}`] }
-  const url = BackendUrlFor[role as E2eRole]
+  if (! isE2eRole(role)) { return [`CONVEX_ROLE=${role} is not one of ${E2eRoles.join(', ')}`] }
+  let lane: number
+  try {
+    lane = Lanes.givenLaneOf(env) ?? 0
+  } catch (err) {
+    return [(err as Error).message]
+  }
+  const ports = Lanes.portsOf(role, lane)
+  const url = `http://127.0.0.1:${String(ports.backend)}`
   const given = env.NEXT_PUBLIC_CONVEX_URL
-  if (! given || TakenBy.NEXT_PUBLIC_CONVEX_URL?.includes(given)) { return [] }
-  return given === url ? [] : [`NEXT_PUBLIC_CONVEX_URL=${given} is not the ${role} backend, ${url}: the suite empties the database it runs against`]
+  return [
+    ...((env.PORT && isPort(env.PORT) && env.PORT !== String(ports.web)) ? [`PORT=${env.PORT} is not the ${role} port in lane ${String(lane)}, ${String(ports.web)}`] : []),
+    ...((given && given !== url) ? [`NEXT_PUBLIC_CONVEX_URL=${given} is not the ${role} backend in lane ${String(lane)}, ${url}: the suite empties the database it runs against`] : []),
+  ]
+}
+
+/** Whether `role` is one the suite may run as */
+function isE2eRole(role: string): role is E2eRole {
+  return (E2eRoles as readonly string[]).includes(role)
 }
 
 /** What is wrong with the way `env` would have the suite serve the app */
@@ -118,7 +124,7 @@ function serverComplaints(env: Env): string[] {
  * @example listing({ PORT: '3002', CONVEX_DEPLOY_KEY: 'hunter2', HOME: '/root' })  // => { PORT: '3002', CONVEX_DEPLOY_KEY: '(set, not shown)', NEXT_DIST_DIR: '(unset)', ... }
  */
 export function listing(env: Env): Record<string, string> {
-  const names = new Set([...Object.keys(TakenBy), ...Object.keys(env).filter((envname) => RelevantNames.test(envname))])
+  const names = new Set([...SettingNames, ...Object.keys(env).filter((envname) => RelevantNames.test(envname))])
   return Object.fromEntries([...names].map((envname) => [envname, shownValOf(env, envname)]))
 }
 

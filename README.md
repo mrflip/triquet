@@ -44,6 +44,8 @@ Use these standard commands:
     scripts/convex_reset dev                # empty your backend, every row of every table
     scripts/convex_healthcheck dev          # does it answer, and does it hold this checkout's functions?
     pnpm run newb <label>                   # new branch named YYYYMMDD-<label>
+    pnpm worktree <label>                   # an agent's thread: a worktree of its own, cut from the spine
+    pnpm land                               # ...and its branch, landed on the spine (notes/git_hygiene.md)
 
 How a change reaches production, and what a schema change means for a deployment:
 `notes/deploy.md`.
@@ -53,9 +55,10 @@ and `pnpm build:agent` (served on 3004 by `pnpm start:agent`) instead of `pnpm d
 `pnpm build`, so they never collide with a dev
 server you already have running. `pnpm dev:agent:botkey` is `dev:agent` with asking Claude
 switched on (`notes/deploy.md`, *Asking a real bot while debugging*). Next.js refuses to start a second dev server in the same
-directory. Each dev script runs under a Doppler config that gives it its own port and build
-directory: your default config for `pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for
-`pnpm test:e2e`. The e2e suite always runs the app with a stand-in API key and a backend of its
+directory. Each dev script runs under a Doppler config of its own (your default config for
+`pnpm dev`, `dev_claude` for `dev:agent`, `dev_e2e` for `pnpm test:e2e`) and on its role's own
+port and build directory. A git worktree's ports are moved up by its lane (`pnpm lane`,
+`scripts/lanes.ts`), so several checkouts can run their servers and suites at once. The e2e suite always runs the app with a stand-in API key and a backend of its
 own, emptied as it starts, and refuses to run locally outside `dev_e2e`. CI runs `playwright
 test` directly, with GitHub's environment; Vercel supplies its own.
 

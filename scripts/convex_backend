@@ -4,11 +4,11 @@
 # deployments are one per checkout: a second, named by its own env file, reuses the first one's
 # data and port.)
 #
-# Each role has fixed ports, 34xx for the backend and 35xx for its HTTP actions, with xx the
-# role's web port's own (dev 3000, agent 3001, e2e 3002, e2e-agent 3003, e2e-built 3005;
-# 3004 is `pnpm start:agent`'s, which has no backend of its own), and a directory of its
-# own, data/convex-<role>/, holding the database, its file storage, the instance secret minted
-# on the first start, and cli.env: the URL and admin key the Convex CLI needs to push to it.
+# Each role has its own ports, 34xx for the backend and 35xx for its HTTP actions, as
+# scripts/lanes.ts has them for this checkout's lane (in the main checkout: dev 3400, agent 3401,
+# e2e 3402, e2e-agent 3403, e2e-built 3405), and a directory of its own, data/convex-<role>/,
+# holding the database, its file storage, the instance secret minted on the first start, and
+# cli.env: the URL and admin key the Convex CLI needs to push to it.
 #
 #   ./node_modules/.bin/convex dev --once --typecheck disable --env-file data/convex-agent/cli.env
 #
@@ -28,18 +28,13 @@ backend_version="precompiled-2026-09-21-0cf49cb"
 
 role="${1:-}"
 case "$role" in
-  dev)       xx=00 ;;
-  agent)     xx=01 ;;
-  e2e)       xx=02 ;;
-  e2e-agent) xx=03 ;;
-  e2e-built) xx=05 ;;
+  dev | agent | e2e | e2e-agent | e2e-built) ;;
   *)
     echo "Usage: scripts/convex_backend <dev|agent|e2e|e2e-agent|e2e-built>" >&2
     exit 1
     ;;
 esac
-port="34${xx}"
-site_port="35${xx}"
+read -r _ port site_port <<< "$(node scripts/lanes.ts ports "$role")"
 datadir="data/convex-${role}"
 instance_name="triquet-${role}"
 
