@@ -43,6 +43,12 @@ async function dropOn(page: Page, label: string, target: Locator): Promise<void>
   await source.dispatchEvent('dragend', { dataTransfer, clientX, clientY })
 }
 
+/** Tap `target` twice in quick succession, as a finger double-taps */
+async function doubleTap(target: Locator): Promise<void> {
+  await target.tap()
+  await target.tap()
+}
+
 test.describe("a hunt's category wheel", () => {
   test("opens from the quiz's gear on the default wheel, for its smith to arrange", async ({ page }) => {
     await openManage(page)
@@ -129,6 +135,28 @@ test.describe("a hunt's category wheel", () => {
     await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '15')
   })
 
+  test("selects a category clicked, with a button beside it that sends it where a double-click would", async ({ page }) => {
+    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await tileOf(page, 'Art').click()
+    await expect(carriedTile(page, 'art')).toHaveAttribute('data-selected', '')
+    const toPool = page.getByRole('button', { name: 'Move Art to the pool' })
+    await expect(toPool).toHaveText('To the pool')
+    // A click anywhere else lets it go, and so does a second click on it.
+    await page.getByRole('heading', { name: /^Categories of / }).click()
+    await expect(toPool).toBeHidden()
+    await tileOf(page, 'Art').click()
+    await tileOf(page, 'Art').click()
+    await expect(toPool).toBeHidden()
+
+    await tileOf(page, 'Art').click()
+    await toPool.click()
+    await expect(page.getByRole('button', { name: 'Art, in the pool' })).toBeVisible()
+    await page.getByRole('button', { name: 'Art, in the pool' }).click()
+    await page.getByRole('button', { name: 'Move Art to slot 9' }).click()
+    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '8')
+    await expect(page.getByRole('button', { name: /^Move / })).toHaveCount(0)
+  })
+
   test("sets Masie, Artie and Poppy at the triangle's corners, each knowing best what sits beside them", async ({ page }) => {
     await page.goto(Routes.categoriesPath(huntLabelOf(page)))
     const masie = page.getByRole('group', { name: 'Masie' })
@@ -175,5 +203,24 @@ test.describe("a hunt's category wheel", () => {
   test("says so for a hunt there is not", async ({ page }) => {
     await page.goto(Routes.categoriesPath('no_such_hunt_here'))
     await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
+  })
+})
+
+test.describe("a hunt's category wheel, on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  test("sends a category to the pool and back by a double-tap, or by a tap and the button beside it", async ({ page }) => {
+    await page.goto(Routes.categoriesPath(huntLabelOf(page)))
+    await doubleTap(tileOf(page, 'TV'))
+    await expect(page.getByRole('button', { name: 'TV, in the pool' })).toBeVisible()
+    await doubleTap(page.getByRole('button', { name: 'TV, in the pool' }))
+    await expect(tileOf(page, 'TV')).toHaveAttribute('data-place', '15')
+
+    await tileOf(page, 'Art').tap()
+    await page.getByRole('button', { name: 'Move Art to the pool' }).tap()
+    await expect(page.getByRole('button', { name: 'Art, in the pool' })).toBeVisible()
+    await page.getByRole('button', { name: 'Art, in the pool' }).tap()
+    await page.getByRole('button', { name: 'Move Art to slot 9' }).tap()
+    await expect(tileOf(page, 'Art')).toHaveAttribute('data-place', '8')
   })
 })
