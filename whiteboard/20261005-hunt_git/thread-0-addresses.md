@@ -93,7 +93,22 @@ URL; the model does not say which a route serves.
   move to modes touches it. The old act maps onto the new mode as `smith` to `edit` and
   `review` to `playtest`.
 
+## Review, carried forward
+
+The review found nothing to fix. Its minor findings fall to later threads:
+
+* **Labels are checked by shape, not length**: a slot passes `PA.Label.re`, not Label's 2-40 or
+  Identlabel's 6-24. Thread 1 may want Identlabel's bounds on the org.
+* **`orgFrom` and `modeFrom` take a segment as given**, unescaped by the caller, where
+  `locationFrom` unescapes its own. Thread 1: confirm Next's params arrive unescaped.
+* **`isMerged` is true for a widget**, whose ball merges into the library rather than the hunt.
+  Thread 2's call whether that wants saying, or a second predicate.
+* **`notes/decisions/urls.md` still writes the realm as `a`**: thread 3's docs pass.
+
 ## For the Coach
+
+Both open, put to the Coach by the orchestrator, who recommends keeping the scope and deriving the
+org from the earliest member whatever their role (thread 1 would make that change).
 
 * The widget URL keeps its scope (*Deviations*): fine, or should the scope stay out of the URL
   and live only in the files?
