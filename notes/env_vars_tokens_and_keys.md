@@ -33,16 +33,22 @@ which syncs them onward; none is ever in the repo.
 * **Vercel access token**: acts as the account that made it, within the scope chosen when it is
   made. Ours is scoped to the `mrflips-projects` team alone.
 
-Three repository secrets, for `.github/workflows/preview.yml`, which asks Vercel for a pull
-request's preview. Their values live in Doppler and sync to GitHub Actions, as
-`CONVEX_PREVIEW_PRUNER_KEY` does; a Coach adds them. The workflow names any that is missing and
+A repository secret and two repository variables, for `.github/workflows/preview.yml`, which
+asks Vercel for a pull request's preview. Their values live in Doppler and sync to GitHub Actions,
+as `CONVEX_PREVIEW_PRUNER_KEY` does; a Coach adds them. The workflow names any that is missing and
 stops.
 
-* `VERCEL_TOKEN`: the team-scoped access token, made for this alone so it can be revoked alone.
-  Never in Vercel's own environment or an app config.
-* `VERCEL_PROJECT_ID`: the `triquet` project's ID (`prj_...`, on its settings' *General* page).
-* `VERCEL_TEAM_ID`: the team's ID (`team_...`, on the team's settings). Neither ID is secret, but
-  they travel beside the token, where the workflow reads them.
+GitHub Actions keeps secrets (`secrets.X`: encrypted, masked in logs) and variables (`vars.X`:
+plain text) apart, and a name read from the wrong one is simply empty. Doppler's sync sends a
+masked value to the secrets and an unmasked one to the variables, so the workflow reads each
+from the side its masking puts it on.
+
+* `VERCEL_TOKEN`: a secret, masked in Doppler. The team-scoped access token, made for this alone
+  so it can be revoked alone. Never in Vercel's own environment or an app config.
+* `VERCEL_PROJECT_ID`: a variable, unmasked. The `triquet` project's ID (`prj_...`, on its
+  settings' *General* page).
+* `VERCEL_TEAM_ID`: a variable, unmasked. The team's ID (`team_...`, on the team's settings).
+  Neither ID is secret, and left unmasked they stay legible in the workflow's logs.
 
 ## Planned
 
