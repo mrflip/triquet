@@ -100,7 +100,7 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 ## Threads
 
 Wave one, side by side: 1, 2 and 3. Then 4 (after 1); 5 (after 1, 2, 3, 4) beside 6 (after 1 and
-4); 7 after 1-6; 8 after 7; 10 after 8; 9 after 10. Then *History at the end*. Resuming: 11, 7, 8, 10, 9.
+4); 7 after 1-6; 8 after 7; 10 after 8; 9 after 10. Then *History at the end*. Resuming: 13 and 11 and 10 side by side; 12 after 11; 7 after 10, 11, 12; then 8, 9.
 
 ### 1. Widen the recap fields (Coach's 3rd)
 
@@ -301,12 +301,50 @@ the questions as they stand at its place; a question widgeting runs per question
 quiz widgeting before it. The gear may keep two lists or show one with a tier mark: the worker's
 call, recorded. No schema change. Depends on: 6. Runs before 7, so the security review sees it.
 
+### 12. The Coach's follow-ups on templates and the recap (2026-10-06, while paused)
+
+Gloss: the *Coach's answers* below marked thread 12: the recap's blank placeholder, `correct_pct`
+alone, images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
+`qns` (visible only). Depends on: 11 (both touch the bag). Runs before 7.
+
+### 13. Reviews that cannot touch the main checkout (2026-10-06, while paused)
+
+Gloss: `/code-review` takes no working directory and runs in the session's main checkout, where it
+once checked out a commit to try code. Make `.claude/agents/thread-reviewer.md` forbid it any
+checkout, switch, stash or reset there, and probe only in the thread's worktree; and record in the
+definition that a review run from inside the worktree (if the skill ever takes a directory) is
+preferred. Documents only. Depends on: nothing.
+
 ### Coach's answers while paused (2026-10-06)
 
 * **Author BBCode breaking the recap's frame: wontfix.** It may be on purpose, and the smith
   previews before posting.
 * **A clueing opening `1984. ...`:** send the number through (whatever it is, not just 1), so the
   copy-paster knows how to correct it. Goes to thread 10.
+* **`mdast-util-definitions`: yes** (thread 10). **Underline: bbjank only** (thread 10; `ll-bbcode.ts`
+  keeps `__text__` as bold). **Fix the dangling client-first pointer** in `CLAUDE.md` and
+  `notes/stack.md` (thread 10).
+* **Recap placeholder:** a blank question recap writes the league form's
+  `{Add Optional Text For Q<n> Here or Delete}` (real number) in the recap note; nothing is stored in
+  the row (a stored default would make every question look written-into, and go stale on
+  renumbering). Thread 12. *(Orchestrator's reading of "start it with a default, following the
+  example; if it's not a problem for it to be blank, let it be blank"; the Coach may overrule.)*
+* **Correct Answer %: only a column labelled `correct_pct`** (thread 12).
+* **Images everywhere, not only templated fields**, https only, held small by CSS in the grid's
+  cells (a max height, re-measuring the row on load); no size syntax extension for now (thread 12).
+* **Panels uniform:** already so; every panel folds, and the widen arrow appears only where widening
+  changes anything. No work.
+* **Categories join the bag** (thread 12).
+* **Archived questions:** `quiz.questions` holds every question; the questions bag (`qns`) holds only
+  the visible ones (alternates included). Each question carries `archived`, so a template can still
+  skip with `{{#quiz.questions}}{{^archived}}..{{/archived}}{{/quiz.questions}}`. Thread 12 checks
+  whether any seeded formula reads archived questions through `qns` before changing it for formulas
+  as well as templates, and records what it found.
+* **`/code-review` and the main checkout:** the Coach asks for a workspace of the reviewer's own.
+  Thread 13.
+* **Fixtures:** `fixtures/bbjank-verifier.md` and `fixtures/bbjank-verifier.bbjank.txt`, with a
+  smoke test that the one converts to the other, covering every question this sprint raised
+  (thread 10).
 
 ## History at the end
 
