@@ -247,19 +247,32 @@ export async function addColumns(page: Page, fields: readonly (QuestionField | Q
   await closeManage(page)
 }
 
+/** How Convex's HTTP API names a mutation that collided with others on every one of its own retries */
+const CollisionCode = 'OptimisticConcurrencyControlFailure'
+
 /**
  * Have the backend make a hunt for the ident labelled `label`, laid out as `layout` says, and open
  * its quiz: the fixture's way in, for a page whose session already holds that ident.
  *
  * Making a hunt reads every hunt (the app caps how many it holds), so two made at once collide,
  * and Convex gives up on one after retrying it a few times; with every worker making a hunt a
- * test, that happens. A write that collided wrote nothing, so it is tried again, for a while.
+ * test, that happens. A write that collided wrote nothing, so it is tried again, for a while. Any
+ * other refusal (a widget the library lacks, say) fails the test at once.
  */
 async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promise<void> {
-  const made = { address: '' }
+  const made: { address: string, refusal: Error | null } = { address: '', refusal: null }
   await expect(async () => {
-    made.address = Z.string().startsWith('/').parse(await runAsAdmin('testing:makeHunt', { ident: label, widgetings: layout.widgetings ?? [], columns: layout.columns ?? [] }))
+    try {
+      made.address = Z.string().startsWith('/').parse(await runAsAdmin('testing:makeHunt', { ident: label, widgetings: layout.widgetings ?? [], columns: layout.columns ?? [] }))
+    } catch (err) {
+      if (! String(err).includes(CollisionCode)) {
+        made.refusal = err as Error
+        return
+      }
+      throw err
+    }
   }, 'the backend should make a hunt').toPass({ intervals: [100, 250, 500, 1000], timeout: 10_000 })
+  if (made.refusal !== null) { throw made.refusal }
   await page.goto(made.address)
   await expect(grid(page)).toBeVisible()
 }
