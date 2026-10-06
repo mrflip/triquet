@@ -126,9 +126,8 @@ interface CornerRule {
  * `e2e/support.ts`, the configuration, the harness scripts, and anything new) reaches the whole
  * suite, as do a few files every screen leans on (`use-draft`, `use-session`, `offers.ts`,
  * `postmortem`, `cells/fields` and `cells/markdown`). A component used in two corners names the spec
- * files of both. A spec file named here need not exist yet (`stats` and `failing-pages` are being
- * written beside this map): `pnpm e2e --touched` skips one that is not there, and a corner left with
- * none reaches the whole suite.
+ * files of both. A spec file named here need not exist yet: `pnpm e2e --touched` skips one that is
+ * not there, and a corner left with none reaches the whole suite.
  */
 export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the error boundary', specs: ['failing-pages'], paths: ['src/app/(synced)/error.tsx', 'src/components/PageFailed.tsx'] },

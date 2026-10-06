@@ -167,6 +167,12 @@ about; a spec that must stub a route before the first load, or is about the way 
 `test.use({ startAt: null })` and goes there itself (`startHunt(page)` is the fixture's way in). A helper two specs need lives in support
 with a doc block; a helper one spec needs lives at the top of that spec.
 
+**One smoke test a spec file.** Exactly one test of each spec file carries `{ tag: '@smoke' }`
+(the option, never words in its title): the one that walks furthest through what the file covers,
+so `pnpm e2e:smoke` crosses every corner once (`notes/git_hygiene.md`, *Running only the corner*).
+A new spec file tags its one when it is written, and goes into `SpecCorners` in `scripts/spine.ts`,
+in the corner it covers; the unit tests of the map fail until both are done.
+
 **Stub the network at the route.** `stubAsk` (`page.route('**/api/ask', ...)`) stands in for
 the players, so nothing here ever spends model usage. Start `waitForEvent('download')` before
 the click.

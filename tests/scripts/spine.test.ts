@@ -192,7 +192,7 @@ describe('Spine.SpecCorners', () => {
   const tracked = execFileSync('git', ['ls-files'], { cwd: RepoRoot, encoding: 'utf8' }).split('\n').filter(Boolean)
   const specnames = tracked.flatMap((filepath) => /^e2e\/([^/]+)\.spec\.ts$/.exec(filepath)?.slice(1, 2) ?? [])
   const named = new Set(Spine.SpecCorners.flatMap(({ specs }) => specs))
-  /** Spec files being written beside the map, in the sprint that made it */
+  /** Spec files the map names ahead of their being written */
   const NotYetWritten = new Set(['stats', 'failing-pages'])
 
   it('names only paths the tree holds, so a rename cannot leave a corner looking at nothing', () => {
