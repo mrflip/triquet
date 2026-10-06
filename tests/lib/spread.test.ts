@@ -107,13 +107,34 @@ describe("spreadOf", () => {
     expect(pointAt(spread, 'art')?.chances?.artie).to.eq(0.9)
     expect(pointAt(spread, 'tv')?.chances).to.be.null
   })
-  it("weights each question's chances in a category by its share there", () => {
+  it("reads a category's chances from its own estimate alone, so a question's other categories lend it nothing", () => {
+    // A hard Classic Lit question that also draws on easy Math & Econ, beside Masie.
+    const devil: EstimatesT = [{ category: 'classic_lit', difficulty: 'hard' }, { category: 'math_econ', difficulty: 'easy' }]
+    const spread = Spread.spreadOf(DefaultOrder, [devil])
+    const classicLit = pointAt(spread, 'classic_lit')?.chances
+    expect(classicLit?.masie).to.be.closeTo(0.06, 1e-12)
+    expect(classicLit?.artie).to.be.closeTo(0.54, 1e-12)
+    expect(classicLit?.poppy).to.be.closeTo(0.3, 1e-12)
+    expect(classicLit?.average).to.be.closeTo(0.3, 1e-12)
+    // The whole question, as the grid has it, is got if either category gets it.
+    expect(spread.chances).to.deep.eq(Personas.chancesOf(DefaultOrder, devil))
+  })
+  it("takes each of a category's questions once in its chances, whatever else they draw on", () => {
     const easyArt: EstimatesT = [{ category: 'art', difficulty: 'easy' }]
     const artAndTv: EstimatesT = [{ category: 'art', difficulty: 'hard' }, { category: 'tv', difficulty: 'hard' }]
     const spread = Spread.spreadOf(DefaultOrder, [easyArt, artAndTv])
-    const expected = (Personas.chancesOf(DefaultOrder, easyArt).masie + (Personas.chancesOf(DefaultOrder, artAndTv).masie * 0.5)) / 1.5
+    const expected = (Personas.chanceOf('masie', DefaultOrder, { category: 'art', difficulty: 'easy' }) + Personas.chanceOf('masie', DefaultOrder, { category: 'art', difficulty: 'hard' })) / 2
     expect(pointAt(spread, 'art')?.chances?.masie).to.be.closeTo(expected, 1e-12)
-    expect(pointAt(spread, 'tv')?.chances).to.deep.eq(Personas.chancesOf(DefaultOrder, artAndTv))
+  })
+  it("tallies a category's questions by difficulty, each question once", () => {
+    const spread = Spread.spreadOf(DefaultOrder, [
+      [{ category: 'art', difficulty: 'easy' }],
+      [{ category: 'art', difficulty: 'hard' }, { category: 'tv', difficulty: 'hard' }],
+      [{ category: 'art', difficulty: 'hard' }],
+    ])
+    expect(pointAt(spread, 'art')?.tally).to.deep.eq({ easy: 1, medium: 0, hard: 2 })
+    expect(pointAt(spread, 'tv')?.tally).to.deep.eq({ easy: 0, medium: 0, hard: 1 })
+    expect(pointAt(spread, 'games')?.tally).to.deep.eq({ easy: 0, medium: 0, hard: 0 })
   })
   it("gives the whole quiz's chances over every question, one of no category in particular included", () => {
     const easyArt: EstimatesT = [{ category: 'art', difficulty: 'easy' }]

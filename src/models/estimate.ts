@@ -6,6 +6,9 @@ import { CategoryValidators, WheelSlotCount, type CategoryLabel } from './catego
 export const DifficultyVals = ['easy', 'medium', 'hard'] as const
 export type Difficulty = typeof DifficultyVals[number]
 
+/** Each difficulty as a face, wherever the screen shows one: a slice of cake, a puzzled frown, a devil */
+export const DifficultyGlyphs = { easy: '🍰', medium: '🤔', hard: '😈' } as const satisfies Record<Difficulty, string>
+
 /** The difficulty an estimate is given when none is said */
 export const DifficultyDefault: Difficulty = 'medium'
 
