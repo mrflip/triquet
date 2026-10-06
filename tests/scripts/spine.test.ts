@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import * as E2eLog from '../../scripts/e2e-log'
 import * as Spine from '../../scripts/spine'
 
 const SpineScript = path.resolve(import.meta.dirname, '../../scripts/spine.ts')
@@ -43,6 +44,23 @@ describe('Spine.isLabel', () => {
     expect(Spine.isLabel('9lives')).to.be.false
     expect(Spine.isLabel('double__underscore')).to.be.false
   })
+})
+
+describe('Spine.isDocsOnly', () => {
+  const DocsCases: [string[], boolean, string][] = [
+    [['notes/stack.md', 'whiteboard/20261006-x/shot.png'], true,  'notes, and anything at all under whiteboard/'],
+    [['human/20261006-x.md', 'README.md'],                 true,  'human/ entries and a top-level document'],
+    [['.claude/agents/thread-worker.md'],                  true,  "an agent's definition, which is a document"],
+    [[],                                                   true,  'a branch changing nothing'],
+    [['src/content/about.md'],                             false, 'app content the build compiles, though it is markdown'],
+    [['notes/stack.md', 'scripts/spine.ts'],               false, 'a document beside code'],
+    [['human.ts'],                                         false, 'a file only named like a docs directory'],
+  ]
+  for (const [filepaths, expected, blurb] of DocsCases) {
+    it(blurb, () => {
+      expect(Spine.isDocsOnly(filepaths)).to.eq(expected)
+    })
+  }
 })
 
 describe('Spine.withSpineHeld', () => {
@@ -86,8 +104,25 @@ const isolatedEnv = (home: string) => ({
   TRIQUET_LANE:        '',
   TQ_WORKTREES:        path.join(home, 'worktrees'),
   TRIQUET_LAND_CHECKS: 'true',
-  TRIQUET_LAND_E2E:    'true',
+  TRIQUET_JUSTIFY:     'true',
+  TRIQUET_E2E:         `node ${path.join(home, 'fake-e2e.mjs')}`,
 })
+
+/**
+ * A stand-in for the e2e suite: it writes a Playwright JSON report where `pnpm e2e` asks for one,
+ * a spec called `works` in each file FAKE_RAN names (a.spec.ts and b.spec.ts unless it names
+ * others), failing in each file FAKE_FAILING names, and exits red if any failed. FAKE_BROKEN
+ * exits red with no report, as a run whose web server never started does.
+ */
+const FakeE2e = `import fs from 'node:fs'
+if (process.env.FAKE_BROKEN) { process.exit(1) }
+const listed = (envname, fallback) => (process.env[envname] ?? fallback).split(',').filter(Boolean)
+const ran = listed('FAKE_RAN', 'a.spec.ts,b.spec.ts')
+const failing = listed('FAKE_FAILING', '').filter((file) => ran.includes(file))
+const suites = ran.map((file) => ({ title: file, file, specs: [{ title: 'works', file, tests: [{ status: failing.includes(file) ? 'unexpected' : 'expected', expectedStatus: 'passed' }] }] }))
+fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({ suites }))
+process.exit(failing.length > 0 ? 1 : 0)
+`
 
 interface WorldT {
   scratch: string
@@ -99,6 +134,10 @@ interface WorldT {
   commit:  (cwd: string, filename: string, body: string) => void
   /** Cuts a worktree for `label` and returns its root */
   cut:     (label: string) => string
+  /** Justifies the branch at `root`, proves it by e2e, and bids: the land's exit status and what it printed */
+  bid:     (root: string, env?: Record<string, string>) => { status: number | null, said: string }
+  /** Every line of the e2e log */
+  logged:  () => E2eLog.Entry[]
   /** The branch the main checkout stands on */
   top:     () => string
 }
@@ -124,6 +163,7 @@ const makeWorld = (scratch: string): WorldT => {
     git(cwd, 'add', filename)
     git(cwd, 'commit', '--quiet', '--message', `feat: ${filename}`)
   }
+  fs.writeFileSync(path.join(scratch, 'fake-e2e.mjs'), FakeE2e)
   const origin = path.join(scratch, 'origin.git')
   const main = path.join(scratch, 'main')
   git(scratch, 'init', '--quiet', '--bare', '--initial-branch', 'main', origin)
@@ -142,7 +182,15 @@ const makeWorld = (scratch: string): WorldT => {
     return path.join(scratch, 'worktrees', label)
   }
   const top = () => git(main, 'symbolic-ref', '--short', 'HEAD')
-  return { scratch, main, git, spine, commit, cut, top }
+  const bid = (root: string, extra: Record<string, string> = {}) => {
+    for (const step of [['justify'], ['e2e']]) {
+      const ran = spine(root, step, extra)
+      expect(ran.status, ran.said).to.eq(0)
+    }
+    return spine(root, ['land'], extra)
+  }
+  const logged = () => E2eLog.read(E2eLog.logfileOf(path.join(scratch, 'worktrees')))
+  return { scratch, main, git, spine, commit, cut, top, bid, logged }
 }
 
 /**
@@ -153,7 +201,7 @@ const makeWorld = (scratch: string): WorldT => {
 const mergeRebased = (world: WorldT, deleted: boolean) => {
   const alpha = world.cut('alpha')
   world.commit(alpha, 'alpha.txt', 'alpha\n')
-  expect(world.spine(alpha, ['land']).status).to.eq(0)
+  expect(world.bid(alpha).status).to.eq(0)
   const elsewhere = path.join(world.scratch, 'elsewhere')
   world.git(world.scratch, 'clone', '--quiet', path.join(world.scratch, 'origin.git'), elsewhere)
   world.commit(elsewhere, 'other.txt', 'other\n')
@@ -194,6 +242,17 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       expect(execFileSync('node', [path.join(root, 'scripts', 'lanes.ts'), 'lane'], { cwd: root, encoding: 'utf8', env: isolatedEnv(world.scratch) }).trim()).to.eq('1')
     })
 
+    it("seeds the e2e build cache from the main checkout's, which its first run finds seeded and its next warm", () => {
+      fs.mkdirSync(path.join(world.main, '.next-e2e', 'dev', 'cache', 'turbopack'), { recursive: true })
+      fs.writeFileSync(path.join(world.main, '.next-e2e', 'dev', 'cache', 'turbopack', 'blob'), 'compiled\n')
+      fs.writeFileSync(path.join(world.main, '.gitignore'), '.next-e2e/\n')
+      const root = world.cut('alpha')
+      expect(fs.readFileSync(path.join(root, '.next-e2e', 'dev', 'cache', 'turbopack', 'blob'), 'utf8')).to.eq('compiled\n')
+      world.spine(root, ['e2e'])
+      world.spine(root, ['e2e'])
+      expect(world.logged().map(({ cache }) => cache)).to.deep.eq(['seeded', 'warm'])
+    })
+
     it('refuses a label that is not one, and a branch that exists', () => {
       expect(world.spine(world.main, ['worktree', 'Bad-Label', '--no-install']).said).to.contain('is not a label')
       world.cut('alpha')
@@ -223,7 +282,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
     it('folds a branch in: the main checkout stands on it, and origin has it', () => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')
-      const ran = world.spine(root, ['land'])
+      const ran = world.bid(root)
       expect(ran.status, ran.said).to.eq(0)
       expect(ran.said).to.contain(`Landed ${Today}-alpha on main`)
       expect(world.top()).to.eq(`${Today}-alpha`)
@@ -237,8 +296,8 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       const beta = world.cut('beta')
       world.commit(alpha, 'alpha.txt', 'alpha\n')
       world.commit(beta, 'beta.txt', 'beta\n')
-      expect(world.spine(alpha, ['land']).status).to.eq(0)
-      const ran = world.spine(beta, ['land'])
+      expect(world.bid(alpha).status).to.eq(0)
+      const ran = world.bid(beta)
       expect(ran.status, ran.said).to.eq(0)
       expect(world.top()).to.eq(`${Today}-beta`)
       expect(world.git(world.main, 'log', '--format=%s', 'main..HEAD').split('\n')).to.deep.eq(['feat: beta.txt', 'feat: alpha.txt'])
@@ -249,42 +308,80 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       const beta = world.cut('beta')
       world.commit(alpha, 'shared.txt', 'alpha\n')
       world.commit(beta, 'shared.txt', 'beta\n')
-      expect(world.spine(alpha, ['land']).status).to.eq(0)
-      const stopped = world.spine(beta, ['land'])
+      expect(world.bid(alpha).status).to.eq(0)
+      const stopped = world.bid(beta)
       expect(stopped.status).to.eq(1)
       expect(stopped.said).to.contain('conflicted; the spine is untouched')
       expect(world.top()).to.eq(`${Today}-alpha`)
       fs.writeFileSync(path.join(beta, 'shared.txt'), 'alpha, then beta\n')
       world.git(beta, 'add', 'shared.txt')
       world.git(beta, '-c', 'core.editor=true', 'rebase', '--continue')
-      const ran = world.spine(beta, ['land'])
+      const ran = world.bid(beta)
       expect(ran.status, ran.said).to.eq(0)
       expect(world.git(world.main, 'log', '--format=%s', 'main..HEAD').split('\n')).to.deep.eq(['feat: shared.txt', 'feat: shared.txt'])
       expect(fs.readFileSync(path.join(world.main, 'shared.txt'), 'utf8')).to.eq('alpha, then beta\n')
     })
 
-    it('stops when the checks fail, leaving the spine alone', () => {
+    it("stops when the tests fail under the hold, leaving the spine alone", () => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')
-      const ran = world.spine(root, ['land'], { TRIQUET_LAND_CHECKS: 'false' })
+      const ran = world.bid(root, { TRIQUET_LAND_CHECKS: 'false' })
       expect(ran.status).to.eq(1)
-      expect(ran.said).to.contain('The checks failed')
+      expect(ran.said).to.contain('The tests failed').and.contain('The spine is untouched')
+      expect(world.top()).to.eq('main')
+      const commondir = world.git(world.main, 'rev-parse', '--path-format=absolute', '--git-common-dir')
+      expect(fs.existsSync(path.join(commondir, 'triquet-spine.lock'))).to.be.false
+    })
+
+    it("refuses a branch never justified, or changed since it was", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      expect(world.spine(root, ['land']).said).to.contain('has not been justified')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      expect(world.spine(root, ['e2e']).status).to.eq(0)
+      world.commit(root, 'alpha.txt', 'alpha, amended\n')
+      const ran = world.spine(root, ['land'])
+      expect(ran.status).to.eq(1)
+      expect(ran.said).to.contain('has changed since it was justified')
       expect(world.top()).to.eq('main')
     })
 
-    it('stops when e2e fails, leaving the spine alone', () => {
+    it("refuses a branch changing code with no e2e proof", () => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')
-      const ran = world.spine(root, ['land'], { TRIQUET_LAND_E2E: 'false' })
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      const ran = world.spine(root, ['land'])
       expect(ran.status).to.eq(1)
-      expect(ran.said).to.contain('The e2e suite failed')
-      expect(world.top()).to.eq('main')
+      expect(ran.said).to.contain('has no e2e proof')
+    })
+
+    it("lands documents and notes with no e2e proof, still justified and tested", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'notes/idea.md', 'an idea\n')
+      world.commit(root, 'whiteboard/20261006-x/shot.png', 'not really a png\n')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      const ran = world.spine(root, ['land'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('no e2e proof needed')
+      expect(world.top()).to.eq(`${Today}-alpha`)
+    })
+
+    it("catches up under the hold when the top moved after the proof, keeping a justify the rebase did not change", () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      for (const step of [['justify'], ['e2e']]) { expect(world.spine(beta, step).status).to.eq(0) }
+      expect(world.bid(alpha).status).to.eq(0)
+      const ran = world.spine(beta, ['land'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain(`The top had moved: rebased onto ${Today}-alpha`).and.contain('No flakes to report')
+      expect(world.git(world.main, 'log', '--format=%s', 'main..HEAD').split('\n')).to.deep.eq(['feat: beta.txt', 'feat: alpha.txt'])
     })
 
     it('refuses a worktree holding uncommitted changes', () => {
       const root = world.cut('alpha')
       fs.writeFileSync(path.join(root, 'draft.txt'), 'half done\n')
-      expect(world.spine(root, ['land']).said).to.contain('commit them, then land')
+      expect(world.spine(root, ['land']).said).to.contain('commit them first')
     })
 
     it('sweeps the Coach\'s notes onto the spine, on a branch of their own when it stood on main, and leaves other strays alone', () => {
@@ -293,7 +390,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       fs.mkdirSync(path.join(world.main, 'whiteboard'))
       fs.writeFileSync(path.join(world.main, 'whiteboard', 'plan.md'), '# the plan\n')
       fs.writeFileSync(path.join(world.main, 'stray.txt'), 'mine\n')
-      const ran = world.spine(root, ['land'])
+      const ran = world.bid(root)
       expect(ran.status, ran.said).to.eq(0)
       expect(ran.said).to.contain('Swept from the main checkout: whiteboard/plan.md')
       expect(world.git(world.main, 'log', '--format=%s', 'main..HEAD').split('\n')).to.deep.eq(['feat: alpha.txt', 'docs: swept from the main checkout'])
@@ -305,7 +402,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       const root = world.cut('alpha')
       world.commit(root, 'shared.txt', 'alpha\n')
       fs.writeFileSync(path.join(world.main, 'shared.txt'), 'the Coach, mid-thought\n')
-      const ran = world.spine(root, ['land'])
+      const ran = world.bid(root)
       expect(ran.status).to.eq(1)
       expect(ran.said).to.contain('would not switch')
       expect(world.top()).to.eq('main')
@@ -317,7 +414,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')
       fs.writeFileSync(path.join(world.main, 'shared.txt'), 'the Coach, mid-thought\n')
-      expect(world.spine(root, ['land']).status).to.eq(0)
+      expect(world.bid(root).status).to.eq(0)
       expect(world.top()).to.eq(`${Today}-alpha`)
       expect(fs.readFileSync(path.join(world.main, 'shared.txt'), 'utf8')).to.eq('the Coach, mid-thought\n')
     })
@@ -326,8 +423,8 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
       world.commit(alpha, 'alpha.txt', 'alpha\n')
       world.commit(beta, 'beta.txt', 'beta\n')
-      world.spine(alpha, ['land'])
-      world.spine(beta, ['land'])
+      world.bid(alpha)
+      world.bid(beta)
       // The Coach merges alpha's PR, and something else lands on main too.
       const elsewhere = path.join(world.scratch, 'elsewhere')
       world.git(world.scratch, 'clone', '--quiet', path.join(world.scratch, 'origin.git'), elsewhere)
@@ -336,11 +433,197 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       world.git(elsewhere, 'push', '--quiet', 'origin', 'main')
       const gamma = world.cut('gamma')
       world.commit(gamma, 'gamma.txt', 'gamma\n')
-      const ran = world.spine(gamma, ['land'])
+      const ran = world.bid(gamma)
       expect(ran.status, ran.said).to.eq(0)
       expect(world.git(world.main, 'log', '--format=%s', 'origin/main..HEAD').split('\n')).to.deep.eq(['feat: gamma.txt', 'feat: beta.txt'])
       expect(world.git(world.main, 'rev-parse', `origin/${Today}-beta`)).to.eq(world.git(world.main, 'rev-parse', `${Today}-beta`))
       expect(world.git(world.main, 'merge-base', '--is-ancestor', 'origin/main', `${Today}-beta`)).to.eq('')
+    })
+  })
+
+  describe('catchup', () => {
+    it("rebases the branch onto a top that moved, and records its new base", () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'alpha.txt', 'alpha\n')
+      world.commit(beta, 'beta.txt', 'beta\n')
+      expect(world.bid(alpha).status).to.eq(0)
+      const ran = world.spine(beta, ['catchup'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain(`Rebased ${Today}-beta onto ${Today}-alpha`).and.contain('justify it again')
+      const top = world.git(world.main, 'rev-parse', 'HEAD')
+      expect(world.git(beta, 'config', `branch.${Today}-beta.spinebase`)).to.eq(top)
+      expect(world.git(beta, 'log', '--format=%s', 'main..HEAD').split('\n')).to.deep.eq(['feat: beta.txt', 'feat: alpha.txt'])
+      expect(world.top()).to.eq(`${Today}-alpha`)
+    })
+
+    it("says so when the branch stands on the top already", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.spine(root, ['catchup'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('stands on the top already')
+    })
+
+    it("sweeps the Coach's notes onto the top, and brings them along", () => {
+      const root = world.cut('alpha')
+      fs.mkdirSync(path.join(world.main, 'notes'))
+      fs.writeFileSync(path.join(world.main, 'notes', 'idea.md'), 'an idea\n')
+      const ran = world.spine(root, ['catchup'])
+      expect(ran.said).to.contain('Swept from the main checkout: notes/idea.md')
+      expect(fs.readFileSync(path.join(root, 'notes', 'idea.md'), 'utf8')).to.eq('an idea\n')
+    })
+
+    it("stops on a conflict with the rebase left for the worker, and the spine alone", () => {
+      const [alpha, beta] = [world.cut('alpha'), world.cut('beta')]
+      world.commit(alpha, 'shared.txt', 'alpha\n')
+      world.commit(beta, 'shared.txt', 'beta\n')
+      expect(world.bid(alpha).status).to.eq(0)
+      const ran = world.spine(beta, ['catchup'])
+      expect(ran.status).to.eq(1)
+      expect(ran.said).to.contain('conflicted; the spine is untouched')
+      const gitdir = world.git(beta, 'rev-parse', '--absolute-git-dir')
+      expect(fs.existsSync(path.join(gitdir, 'rebase-merge'))).to.be.true
+      expect(world.top()).to.eq(`${Today}-alpha`)
+    })
+
+    it("refuses a worktree holding uncommitted changes, and the main checkout", () => {
+      const root = world.cut('alpha')
+      fs.writeFileSync(path.join(root, 'draft.txt'), 'half done\n')
+      expect(world.spine(root, ['catchup']).said).to.contain('commit them first')
+      expect(world.spine(world.main, ['catchup']).said).to.contain('happens from a worktree')
+    })
+  })
+
+  describe('justify', () => {
+    it("records the branch's patch-id when green over committed work", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.spine(root, ['justify'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain(`Justified ${Today}-alpha`)
+      expect(world.git(root, 'config', `branch.${Today}-alpha.justified`)).to.match(/^[\da-f]{40}$/)
+    })
+
+    it("records nothing over uncommitted changes", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      fs.writeFileSync(path.join(root, 'draft.txt'), 'half done\n')
+      const ran = world.spine(root, ['justify'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('nothing is recorded')
+      expect(world.spine(root, ['land']).said).to.contain('commit them first')
+      fs.rmSync(path.join(root, 'draft.txt'))
+      expect(world.spine(root, ['land']).said).to.contain('has not been justified')
+    })
+
+    it("stops red, recording nothing", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.spine(root, ['justify'], { TRIQUET_JUSTIFY: 'false' })
+      expect(ran.status).to.eq(1)
+      expect(ran.said).to.contain('Justify failed')
+      expect(world.spine(root, ['land']).said).to.contain('has not been justified')
+    })
+  })
+
+  describe('e2e', () => {
+    it("proves a branch whose full run is green, and logs the run", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.spine(root, ['e2e'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('2 passed, 0 failed').and.contain(`Proved ${Today}-alpha`)
+      const [provedOn] = world.git(root, 'config', `branch.${Today}-alpha.proved`).split(' ', 1)
+      expect(provedOn).to.eq(world.git(root, 'config', `branch.${Today}-alpha.spinebase`))
+      const [entry] = world.logged()
+      expect(entry).to.include({ branch: `${Today}-alpha`, kind: 'full', committed: true, cache: 'cold', status: 0, proved: true, lane: 1 })
+      expect(entry?.counts).to.include({ passed: 2, failed: 0 })
+    })
+
+    it("holds what a full run failed until it passes alone, calls it a flake, and has the bid name it", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      const red = world.spine(root, ['e2e'], { FAKE_FAILING: 'b.spec.ts' })
+      expect(red.status).to.eq(1)
+      expect(red.said).to.contain('1 passed, 1 failed').and.contain('Outstanding').and.contain('b.spec.ts › works')
+      expect(world.spine(root, ['land']).said).to.contain('has no e2e proof')
+      const rerun = world.spine(root, ['e2e', '--last-failed', '--workers=1'], { FAKE_RAN: 'b.spec.ts' })
+      expect(rerun.status, rerun.said).to.eq(0)
+      expect(rerun.said).to.contain('A flake: b.spec.ts › works').and.contain('Proved')
+      expect(world.logged().map(({ kind, cleared }) => [kind, cleared])).to.deep.eq([['full', []], ['rerun', [{ spec: 'b.spec.ts › works', how: 'flake' }]]])
+      const ran = world.spine(root, ['land'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain("Flakes, for the PR's Tests: line: b.spec.ts › works.")
+    })
+
+    it("calls a spec repaired when the code changed before it passed", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      world.spine(root, ['e2e'], { FAKE_FAILING: 'a.spec.ts' })
+      world.commit(root, 'alpha.txt', 'alpha, repaired\n')
+      const ran = world.spine(root, ['e2e', 'e2e/a.spec.ts'], { FAKE_RAN: 'a.spec.ts' })
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('Repaired: a.spec.ts › works').and.contain('Proved')
+      expect(world.logged().at(-1)).to.include({ kind: 'chosen', proved: true })
+    })
+
+    it("keeps outstanding what a rerun fails again, and what a chosen spec newly fails", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      world.spine(root, ['e2e'], { FAKE_FAILING: 'a.spec.ts' })
+      const ran = world.spine(root, ['e2e', '--last-failed'], { FAKE_RAN: 'a.spec.ts,c.spec.ts', FAKE_FAILING: 'a.spec.ts,c.spec.ts' })
+      expect(ran.status).to.eq(1)
+      expect(world.logged().at(-1)?.still).to.deep.eq(['a.spec.ts › works', 'c.spec.ts › works'])
+    })
+
+    it("proves nothing by a rerun with no full run behind it", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.spine(root, ['e2e', '--last-failed'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('No finished full run')
+      expect(world.spine(root, ['e2e', '--last-failed']).said).not.to.contain('Proved')
+    })
+
+    it("proves nothing by a run that broke before its specs finished", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      const ran = world.spine(root, ['e2e'], { FAKE_BROKEN: '1' })
+      expect(ran.status).to.eq(1)
+      expect(ran.said).to.contain('0 passed').and.contain('proves nothing')
+      expect(world.spine(root, ['e2e', '--last-failed']).said).to.contain('No finished full run')
+    })
+
+    it("counts toward no proof over uncommitted changes, though it is logged", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      fs.writeFileSync(path.join(root, 'draft.txt'), 'half done\n')
+      const ran = world.spine(root, ['e2e'])
+      expect(ran.said).to.contain('counts toward no proof')
+      expect(world.logged().at(-1)).to.include({ committed: false, proved: false })
+      fs.rmSync(path.join(root, 'draft.txt'))
+      world.spine(root, ['justify'])
+      expect(world.spine(root, ['land']).said).to.contain('has no e2e proof')
+    })
+
+    it("takes the proof back when a later full run fails", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      world.spine(root, ['justify'])
+      world.spine(root, ['e2e'])
+      world.spine(root, ['e2e'], { FAKE_FAILING: 'a.spec.ts' })
+      expect(world.spine(root, ['land']).said).to.contain('has no e2e proof')
+    })
+
+    it("summarises the log", () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'alpha.txt', 'alpha\n')
+      world.spine(root, ['e2e'], { FAKE_FAILING: 'a.spec.ts' })
+      world.spine(root, ['e2e', '--last-failed'], { FAKE_RAN: 'a.spec.ts' })
+      const ran = world.spine(root, ['e2e-log'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('2 runs logged').and.contain('(flakes): 1')
     })
   })
 
@@ -352,7 +635,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
     it('commits the Coach\'s notes onto the top it stands on', () => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')
-      world.spine(root, ['land'])
+      world.bid(root)
       fs.mkdirSync(path.join(world.main, 'notes'))
       fs.writeFileSync(path.join(world.main, 'notes', 'idea.md'), 'an idea\n')
       expect(world.spine(world.main, ['sweep']).said.trim()).to.eq('Swept from the main checkout: notes/idea.md.')
@@ -363,7 +646,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
     it('sweeps a note already committed and edited since, whose status line starts with a space', () => {
       const root = world.cut('alpha')
       world.commit(root, 'notes/idea.md', 'an idea\n')
-      world.spine(root, ['land'])
+      world.bid(root)
       fs.writeFileSync(path.join(world.main, 'notes', 'idea.md'), 'a better idea\n')
       expect(world.spine(world.main, ['sweep']).said.trim()).to.eq('Swept from the main checkout: notes/idea.md.')
       expect(world.git(world.main, 'show', 'HEAD:notes/idea.md')).to.eq('a better idea')
@@ -420,7 +703,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
       mergeRebased(world, true)
       const beta = world.cut('beta')
       world.commit(beta, 'beta.txt', 'beta\n')
-      const ran = world.spine(beta, ['land'])
+      const ran = world.bid(beta)
       expect(ran.status, ran.said).to.eq(0)
       expect(ran.said).to.contain('stacked on nothing')
       expect(world.top()).to.eq(`${Today}-beta`)
@@ -430,7 +713,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', () => {
     it('forgets a branch origin deleted on merging it, rather than leasing a push against it', () => {
       const alpha = world.cut('alpha')
       world.commit(alpha, 'alpha.txt', 'alpha\n')
-      world.spine(alpha, ['land'])
+      world.bid(alpha)
       // The Coach merges alpha's PR, and origin deletes its branch; then notes are swept onto it.
       const elsewhere = path.join(world.scratch, 'elsewhere')
       world.git(world.scratch, 'clone', '--quiet', path.join(world.scratch, 'origin.git'), elsewhere)
