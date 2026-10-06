@@ -90,3 +90,17 @@ answer on the stamping writer, stamps by trigger and the notes that go with it.
   - Dashboard edits bypass the trigger.
   - The rebase incident set `core.bare = true` on the main repository (now fixed by the Coach).
   - The first commit to each hunt's history after the deploy will rewrite every file once.
+
+## Review
+
+Medium review, `fixed`: one commit added (`c3e90a9`: a paste sent on to a locked quiz is let go,
+saying so (`AppNotices.importSentToLocked`), rather than held to be read once the quiz is
+unlocked; an e2e in `importing.spec.ts`). Minor findings left for the Coach:
+
+* **Starters written before stamps.** `archiveStarters` reads a question the trigger never saw
+  as untouched, by design (a backfill is no edit). But until `backfillQuestionViz` has run, a
+  sort, renumber or drag writes `viz: 'normal'` to each question lacking one, which moves its
+  `updated_at`, so an import afterwards will not archive those starters. It lasts only until
+  `runAll`, and the blank and no-stored-cells checks still guard it.
+* **The `as never` cast** in `convex/stamping.ts` (`change.id` typed as a plain string): typing
+  the change with convex-helpers' own per-table change type would remove it.
