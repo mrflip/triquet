@@ -70,6 +70,23 @@ by label* (the bullet that follows "open PR #66"), and *Deferred*, *Staleness*.
 3. **Stale, by digest.** The `digest` column, and `stale` on `WidgetedT`, as *Deferred* sets out.
    A carried row has no digest, so it reads as stale until asked again, as #66 promised.
 
+## From recap sprint, thread 2: markdown to bbjank
+
+`src/lib/bbjank.ts` (`toBbjank`). Left, as not worth a hero's effort yet:
+
+* **Untried on the boards**: a heading written as `[b]..[/b]`, a thematic break as a line of 40
+  dashes, `[img]` inside `[url]`, and an image's `[list](alt)[/list]` caption landing inside the
+  `[url]` of a (non-YouTube) link around it. Paste one of each and see.
+* A code block inside a list item has its lines set in two spaces, like the item's other further
+  lines: harmless if the board trims leading spaces in `[code]`, wrong if it keeps them.
+* A YouTube embed in the middle of a paragraph leaves the space before it at the end of its line.
+* A quote's `{AS: name}` holding emphasis (`{AS: **Q1**}`) is no name: the quote is a `[list]` with
+  the marker kept as text. Only a plain-text name is read.
+* No underline from markdown: the plan refused `<u>`, and nothing in the parser falls out for it.
+  BBCode typed in the text passes through as typed, so `[u]..[/u]` underlines.
+* Not handled, written as their text: footnotes, tables, task lists (none of those extensions is
+  loaded).
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
