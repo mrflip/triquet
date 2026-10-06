@@ -2,12 +2,20 @@
  * Ties Claude Code sessions to branches and pull requests, from the transcripts Claude Code keeps
  * (`~/.claude/projects/<project>/<session>.jsonl`, and a sprint's workers beside them in
  * `<session>/subagents/`). Give it a branch (its label, or its whole name) or a PR number, and it
- * lists the sessions that worked on it, the likeliest first, under the title the sidebar shows;
- * give it nothing, and it lists every session with the PRs and worktrees it touched.
+ * lists the sessions that worked on it, the likeliest first, under the title the sidebar shows.
  *
- *   node scripts/session-branches.ts                          every session, newest first
- *   node scripts/session-branches.ts userlabel                sessions that worked on 20261005-userlabel
- *   node scripts/session-branches.ts 20261005-userlabel 132   a branch and a PR number, together
+ * Three ways to print them. `--rename`, the default, prints the `/rename` that would name a session
+ * for the worktrees and PRs it touched, in the order it met them (`/rename e2e_practices #93
+ * git_attic #97 | PR merge and deploy order`): paste it into that session. Run inside a session
+ * and asked nothing, it names that session (`$CLAUDE_CODE_SESSION_ID`); otherwise it names every
+ * session it finds, each after a `# session <id>` comment line. `--table` prints a table: asked
+ * nothing, every session, newest first, with the PRs and worktrees it touched; asked a branch or
+ * PR, the evidence for each. `--json` prints everything it knows.
+ *
+ *   node scripts/session-branches.ts                          this session's /rename (outside one: every session's)
+ *   node scripts/session-branches.ts userlabel                the /rename of each session that worked on 20261005-userlabel
+ *   node scripts/session-branches.ts --table                  every session, newest first
+ *   node scripts/session-branches.ts --table 20261005-userlabel 132   the evidence for a branch and a PR number, together
  *   node scripts/session-branches.ts --json 116               the same, as JSON
  *
  * What counts as evidence, strongest first:
@@ -24,7 +32,7 @@
  * (and on the Mac, where `--projects` is not needed): a session whose transcript is elsewhere
  * cannot be found from here. Names a session by what `/rename` set, else what Claude titled it.
  *
- * Options: `--projects <dir>` (default `$CLAUDE_CONFIG_DIR/projects`, else `~/.claude/projects`),
+ * Options: `--rename`, `--table`, `--json` (one of them), `--projects <dir>` (default `$CLAUDE_CONFIG_DIR/projects`, else `~/.claude/projects`),
  * `--all-projects` (every project there, not only those whose directory names `triquet`).
  * `notes/housekeeping.md`, *Finding the session that owns a branch*, has the rest.
  */
@@ -86,6 +94,8 @@ export interface SessionFacts {
   prs:        number[]
   /** Labels of the worktrees it cut or entered, sorted */
   worktrees:  string[]
+  /** Those worktrees' labels and the PRs it linked (as `#116`), in the order it first met each */
+  seen:       string[]
   /** Evidence for each term asked about, in the order asked; empty when none was */
   evidence:   Evidence[]
 }
@@ -97,11 +107,12 @@ interface Tally {
   lastSeen:    string | null
   prs:         Set<number>
   worktrees:   Set<string>
+  seen:        Set<string>
   asked:       { term: Term, evidence: Evidence }[]
 }
 
 /** The label that follows `pnpm worktree`, or a worktrees directory, in transcript text */
-const WorktreeLabelPattern = /(?:worktrees\/(?:triquet\/)?|pnpm worktree )([a-z][a-z0-9_]*)/g
+const WorktreeLabelPattern = /(?:worktrees\/(?:triquet\/)?|pnpm worktree )([a-z][a-z0-9_]+)/g
 
 /** A branch is `YYYYMMDD-<label>` */
 const DatestampPattern = /^\d{8}-/
@@ -161,7 +172,10 @@ function noteTerm(term: Term, evidence: Evidence, line: string, entry: z.infer<t
 /** Adds what a line says of the session itself: when, the PRs it linked, its titles */
 function noteSession(entry: z.infer<typeof TranscriptLine>, isMain: boolean, tally: Tally): void {
   if (entry.timestamp !== undefined && (tally.lastSeen === null || entry.timestamp > tally.lastSeen)) { tally.lastSeen = entry.timestamp }
-  if (entry.type === 'pr-link' && entry.prNumber !== undefined) { tally.prs.add(entry.prNumber) }
+  if (entry.type === 'pr-link' && entry.prNumber !== undefined) {
+    tally.prs.add(entry.prNumber)
+    tally.seen.add(`#${String(entry.prNumber)}`)
+  }
   if (isMain && entry.customTitle !== undefined) { tally.customTitle = entry.customTitle }
   if (isMain && entry.aiTitle !== undefined) { tally.aiTitle = entry.aiTitle }
 }
@@ -171,7 +185,10 @@ function read(line: string, isMain: boolean, tally: Tally): void {
   if (line.trim() === '') { return }
   const entry = parseLine(line)
   const labels = line.matchAll(WorktreeLabelPattern).map((match) => match[1] ?? '').filter((label) => label !== '' && label !== 'triquet').toArray()
-  for (const label of labels) { tally.worktrees.add(label) }
+  for (const label of labels) {
+    tally.worktrees.add(label)
+    tally.seen.add(label)
+  }
   for (const { term, evidence } of tally.asked) { noteTerm(term, evidence, line, entry, labels) }
   if (entry !== null) { noteSession(entry, isMain, tally) }
 }
@@ -192,7 +209,7 @@ export function factsOf(
   mtime: Date,
 ): SessionFacts {
   const asked = terms.map((term) => ({ term, evidence: { term: headingOf(term), titled: false, linked: false, worktree: false, checkout: 0, mentions: 0 } }))
-  const tally: Tally = { customTitle: null, aiTitle: null, lastSeen: null, prs: new Set(), worktrees: new Set(), asked }
+  const tally: Tally = { customTitle: null, aiTitle: null, lastSeen: null, prs: new Set(), worktrees: new Set(), seen: new Set(), asked }
   for (const file of files) {
     for (const line of file.lines) { read(line, file.isMain, tally) }
   }
@@ -204,6 +221,7 @@ export function factsOf(
     lastActive: tally.lastSeen ?? mtime.toISOString(),
     prs:        [...tally.prs].toSorted((left, right) => left - right),
     worktrees:  [...tally.worktrees].toSorted((left, right) => left.localeCompare(right)),
+    seen:       [...tally.seen],
     evidence:   tally.asked.map((each) => each.evidence),
   }
 }
@@ -247,10 +265,10 @@ export const isEvidence = (evidence: Evidence): boolean => (
 const byRecency = (left: SessionFacts, right: SessionFacts): number => right.lastActive.localeCompare(left.lastActive)
 
 /** What a session shows of one kind of evidence, over all the terms asked about */
-type Pick = (evidence: Evidence) => number
+type EvidencePick = (evidence: Evidence) => number
 
 /** The kinds of evidence, strongest first: a title, a link, a worktree, then the checkout's lines, then mentions */
-const Picks: Pick[] = [
+const Picks: EvidencePick[] = [
   (evidence) => Number(evidence.titled),
   (evidence) => Number(evidence.linked),
   (evidence) => Number(evidence.worktree),
@@ -345,22 +363,67 @@ export function tableOf(rows: readonly Record<string, string>[]): string {
   return [lineOf(heads), ...rows.map((row) => lineOf(heads.map((head) => row[head] ?? '')))].join('\n')
 }
 
+/** The longest name `renameOf` gives a session */
+export const MaxNameLength = 250
+
+/** What separates the worktrees and PRs in a session's name from the title it had */
+const NameSeparator = ' | '
+
+/**
+ * The `/rename` that names a session for the worktrees and PRs it touched, and keeps its title.
+ *
+ * The worktrees and PRs come in the order the session first met them, so a PR follows the branch
+ * it was for; each PR ends a group, and a group is set off by an extra space. Then ` | `, and the
+ * title the session had: the whole of it, or only what follows the ` | ` when it has one already,
+ * so naming a session twice does not stack the names. No dates or times. Past
+ * `MaxNameLength` characters the name is cut short, ending in `…`.
+ *
+ * @param session - The session's facts.
+ * @returns The command, or null when the session has touched no worktree or PR to name it for.
+ *
+ * @example renameOf({ seen: ['e2e_practices', '#93', 'git_attic', '#97'], title: 'PR merge', ... })
+ * // => '/rename e2e_practices #93  git_attic #97 | PR merge'
+ */
+export function renameOf(session: Pick<SessionFacts, 'seen' | 'title'>): string | null {
+  if (session.seen.length === 0) { return null }
+  const groups = session.seen.map((token) => (token.startsWith('#') ? `${token}  ` : `${token} `)).join('').trimEnd()
+  const separated = session.title.indexOf(NameSeparator)
+  const title = separated === -1 ? session.title : session.title.slice(separated + NameSeparator.length)
+  const name = title === '(untitled)' ? groups : `${groups}${NameSeparator}${title}`
+  const fitted = name.length > MaxNameLength ? `${name.slice(0, MaxNameLength - 1)}…` : name
+  return `/rename ${fitted}`
+}
+
 /** Claude Code's projects directory: where `CLAUDE_CONFIG_DIR` points, else `~/.claude` */
 export function defaultProjectsDir(env: Readonly<Record<string, string | undefined>>): string {
   return path.join(env.CLAUDE_CONFIG_DIR ?? path.join(os.homedir(), '.claude'), 'projects')
 }
 
-/** Runs the command line: prints the table, or JSON for `--json` */
+/** The sessions to name: the one this is run in when nothing is asked, else every session found */
+function sessionsToName(sessions: readonly SessionFacts[], terms: readonly Term[], env: Readonly<Record<string, string | undefined>>): SessionFacts[] {
+  const own = env.CLAUDE_CODE_SESSION_ID
+  if (own === undefined || own === '' || terms.length > 0) { return sessions.filter((session) => session.seen.length > 0) }
+  const found = sessions.find((session) => session.id === own)
+  if (found === undefined) { throw new Error(`No transcript of this session (${own}) under the projects directory`) }
+  return found.seen.length > 0 ? [found] : []
+}
+
+/** Runs the command line: prints the names, the table, or JSON */
 function main(argv: string[], env: Readonly<Record<string, string | undefined>>): void {
   const { values, positionals } = parseArgs({
     args:    argv,
     options: {
+      rename:          { type: 'boolean', default: false },
+      table:           { type: 'boolean', default: false },
       json:            { type: 'boolean', default: false },
       projects:        { type: 'string' },
       'all-projects':  { type: 'boolean', default: false },
     },
     allowPositionals: true,
   })
+  if ([values.rename, values.table, values.json].filter(Boolean).length > 1) {
+    throw new Error('Choose one of --rename (the default), --table and --json')
+  }
   const terms = positionals.map((arg) => termOf(arg))
   const projectsdir = values.projects ?? defaultProjectsDir(env)
   if (! fs.existsSync(projectsdir)) {
@@ -375,7 +438,20 @@ function main(argv: string[], env: Readonly<Record<string, string | undefined>>)
     process.stdout.write(`No session here mentions ${terms.map((term) => term.text).join(', ')}. Its transcript may be on another machine.\n`)
     return
   }
-  process.stdout.write(`${tableOf(sessions.map((session) => rowOf(session)))}\n`)
+  if (values.table) {
+    process.stdout.write(`${tableOf(sessions.map((session) => rowOf(session)))}\n`)
+    return
+  }
+  const named = sessionsToName(sessions, terms, env)
+  if (named.length === 0) {
+    process.stdout.write('Nothing to name: no worktree cut and no PR linked.\n')
+    return
+  }
+  const own = terms.length === 0 && named.length === 1 && named[0]?.id === env.CLAUDE_CODE_SESSION_ID
+  for (const session of named) {
+    if (! own) { process.stdout.write(`# session ${session.id.slice(0, 8)}\n`) }
+    process.stdout.write(`${renameOf(session) ?? ''}\n`)
+  }
 }
 
 if (import.meta.main) {

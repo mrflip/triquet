@@ -136,6 +136,18 @@ describe('factsOf', () => {
     expect(facts.worktrees).to.deep.equal(['landing_flow', 'little_fixes', 'session_branches'])
   })
 
+  it('lists worktrees and PRs in the order the session first met them, each once', () => {
+    const facts = factsFrom([
+      lineOf({ type: 'user', message: 'pnpm worktree userlabel' }),
+      lineOf({ type: 'pr-link', prNumber: 116 }),
+      lineOf({ type: 'user', message: 'cd /home/node/worktrees/triquet/landing_flow && git status' }),
+      lineOf({ type: 'user', message: 'back in worktrees/triquet/userlabel' }),
+      lineOf({ type: 'pr-link', prNumber: 99 }),
+      lineOf({ type: 'pr-link', prNumber: 116 }),
+    ], [], [[lineOf({ type: 'user', message: 'pnpm worktree workers_own' })]])
+    expect(facts.seen).to.deep.equal(['userlabel', '#116', 'landing_flow', '#99', 'workers_own'])
+  })
+
   it('finds each kind of evidence for a term, kept apart for each term asked', () => {
     const facts = factsFrom([
       lineOf({ type: 'pr-link', prNumber: 116, prUrl: 'https://github.com/mrflip/triquet/pull/116' }),
@@ -171,6 +183,45 @@ describe('factsOf', () => {
     expect(facts.title).to.equal('Still read')
     expect(facts.prs).to.deep.equal([])
     expect(facts.evidence[0]?.checkout).to.equal(0)
+  })
+})
+
+describe('renameOf', () => {
+  const RenameCases: [string[], string, string | null, string][] = [
+    // regular usage:
+    [['e2e_practices', '#93', 'git_attic', '#97', 'landing_flow', 'session_branches', '#149'], 'PR merge and deploy order',
+      '/rename e2e_practices #93  git_attic #97  landing_flow session_branches #149 | PR merge and deploy order', 'worktrees and their PRs in order, a PR closing each group, then the title'],
+    [['userlabel', '#116'], 'Form validation styling', '/rename userlabel #116 | Form validation styling', 'one branch and its PR'],
+    // the title has been through this before:
+    [['userlabel', '#116'], 'userlabel | Form validation styling', '/rename userlabel #116 | Form validation styling', 'what follows an earlier pipe is the title, so renaming twice does not stack'],
+    [['userlabel', '#116'], 'a | b | c', '/rename userlabel #116 | b | c', 'only the first pipe divides: what follows it is kept whole'],
+    [['userlabel'], 'bare|pipe and a | b', '/rename userlabel | b', 'a pipe with no spaces round it is not the separator'],
+    // trivial cases:
+    [['#116'], 'Form validation styling', '/rename #116 | Form validation styling', 'a PR alone'],
+    [['userlabel'], 'Form validation styling', '/rename userlabel | Form validation styling', 'a worktree alone, no extra space before the pipe'],
+    [['userlabel', '#116'], '(untitled)', '/rename userlabel #116', 'a session with no title is named for its work alone'],
+    [[], 'Form validation styling', null, 'a session that touched no worktree or PR has nothing to be named for'],
+    // weird cases:
+    [['#1', '#2'], 'T', '/rename #1  #2 | T', 'PRs with no worktree between them each end a group'],
+  ]
+  for (const [seen, title, expected, blurb] of RenameCases) {
+    it(`names ${blurb}`, () => {
+      expect(SessionBranches.renameOf({ seen, title })).to.equal(expected)
+    })
+  }
+
+  it('cuts a name longer than the limit short, ending in an ellipsis, and leaves one at the limit alone', () => {
+    const atLimit = SessionBranches.renameOf({ seen: ['userlabel'], title: 'x'.repeat(SessionBranches.MaxNameLength - ' | '.length - 'userlabel'.length) })
+    expect(atLimit?.slice('/rename '.length)).to.have.lengthOf(SessionBranches.MaxNameLength)
+    expect(atLimit?.endsWith('x')).to.be.true
+    const over = SessionBranches.renameOf({ seen: ['userlabel'], title: 'x'.repeat(SessionBranches.MaxNameLength) })
+    expect(over?.slice('/rename '.length)).to.have.lengthOf(SessionBranches.MaxNameLength)
+    expect(over?.endsWith('x…')).to.be.true
+  })
+
+  it('puts no date or time in a name, though the session has them', () => {
+    const facts = factsFrom([lineOf({ type: 'pr-link', prNumber: 116, timestamp: '2026-10-06T05:00:00.000Z' })], [])
+    expect(SessionBranches.renameOf(facts)).to.equal('/rename #116')
   })
 })
 
@@ -309,15 +360,22 @@ describe('the command line', () => {
       lineOf({ type: 'custom-title', customTitle: '20261005-userlabel' }),
       lineOf({ type: 'pr-link', prNumber: 116, timestamp: '2026-10-06T05:00:00.000Z' }),
     ].join('\n'))
+    fs.writeFileSync(path.join(projectdir, 'plain-0000.jsonl'), lineOf({ type: 'ai-title', aiTitle: 'Just talking', timestamp: '2026-10-05T05:00:00.000Z' }))
   })
   afterEach(() => {
     fs.rmSync(projectsdir, { recursive: true, force: true })
   })
 
-  const run = (...args: string[]) => execFileSync(process.execPath, [Script, '--projects', projectsdir, ...args], { encoding: 'utf8', stdio: 'pipe' })
+  /** Runs the script as the session `own`, or as no session at all (the default): what a person's shell is */
+  const runAs = (own: string, ...args: string[]) => execFileSync(
+    process.execPath,
+    [Script, '--projects', projectsdir, ...args],
+    { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, CLAUDE_CODE_SESSION_ID: own } },
+  )
+  const run = (...args: string[]) => runAs('', ...args)
 
   it('prints a table of the sessions that worked on a PR', () => {
-    expect(run('#116')).to.equal([
+    expect(run('--table', '#116')).to.equal([
       'session   active            title               #116',
       'abcdef12  2026-10-06 05:00  20261005-userlabel  PR linked',
       '',
@@ -325,11 +383,38 @@ describe('the command line', () => {
   })
 
   it('prints every session, with its PRs and worktrees, when nothing is asked', () => {
-    expect(run()).to.equal([
+    expect(run('--table')).to.equal([
       'session   active            title               prs   worktrees',
       'abcdef12  2026-10-06 05:00  20261005-userlabel  #116',
+      'plain-00  2026-10-05 05:00  Just talking',
       '',
     ].join('\n'))
+  })
+
+  it("prints the /rename for the session it is run in, and only that one, when nothing is asked", () => {
+    expect(runAs('abcdef12-0000')).to.equal('/rename #116 | 20261005-userlabel\n')
+  })
+
+  it('prints every session it can name, each after a comment saying which, when run outside a session', () => {
+    expect(run()).to.equal('# session abcdef12\n/rename #116 | 20261005-userlabel\n')
+  })
+
+  it('prints the /rename of each session that worked on a term, whoever is asking', () => {
+    expect(runAs('somebody-else', '116')).to.equal('# session abcdef12\n/rename #116 | 20261005-userlabel\n')
+    expect(run('--rename', '116')).to.equal('# session abcdef12\n/rename #116 | 20261005-userlabel\n')
+  })
+
+  it('says there is nothing to name for a session that has touched no worktree or PR', () => {
+    expect(runAs('plain-0000')).to.equal('Nothing to name: no worktree cut and no PR linked.\n')
+  })
+
+  it('fails, saying why, when the session it is run in has no transcript', () => {
+    expect(() => runAs('not-a-session')).to.throw(/No transcript of this session \(not-a-session\)/)
+  })
+
+  it('fails, saying why, when asked for two ways of printing', () => {
+    expect(() => run('--table', '--json')).to.throw(/Choose one of --rename/)
+    expect(() => run('--rename', '--table')).to.throw(/Choose one of --rename/)
   })
 
   it('prints JSON for --json', () => {
