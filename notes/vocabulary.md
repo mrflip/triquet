@@ -205,8 +205,9 @@ words above.
 * **recap** -- the note posted to the league's message board once a quiz has been played: what is
   said ahead of the questions, each question with its answer, and what is said after. Its **head**
   (`recap_head`) and **tail** (`recap_tail`) are the quiz's, always templated, and not seen by
-  formulas; a question's own `recap` is what the recap says of it, below its answer, and a formula
-  reads it as `qn.recap`.
+  formulas; a question's own `recap` is what the recap says of it, below its answer (the grid's
+  Recap column), and a formula reads it as `qn.recap`. The Recap panel writes the whole note in
+  bbjank (`lib/recap.ts`).
 * **templated** -- the sources a quiz nominates for templating, named as a column names what it
   shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
   `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per

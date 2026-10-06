@@ -106,6 +106,21 @@ gear's *Templates*. Left, as not worth a hero's effort yet:
 * `lib/ask/prompts.ts` and `lib/templating.ts` each check a template's parse and raw tags; one could
   lend the other its check.
 
+## From recap sprint, thread 5: the recap panel
+
+`src/lib/recap.ts` (`bbjankOf`), `components/panels/RecapPanel.tsx`. Left, as not worth a hero's
+effort yet:
+
+* **A stored, editable recap template** (the plan's Decision 6): the recap's frame (the quote per
+  question, `Answer:`, `Correct Answer %:`) is fixed in code. A template would be mustache over
+  bbjank, with each question's fields already converted in its bag.
+* An answer opening with a list marker (`1. ...`, `- ...`) is read as a list, inside the spoiler.
+* `Correct Answer %:` reads only a column labelled `correct_pct`, `pct_correct` and the like
+  (`Recap.CorrectPctRE`); nothing in the app records the share yet.
+* The league's own form writes `{Add Optional Text For Qn Here or Delete}` where a question has no
+  recap; ours writes nothing there.
+* The note's box is `ReadonlyBox`'s dense face, which wraps mid-word (`word-break: break-all`).
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and
