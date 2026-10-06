@@ -60,7 +60,7 @@ export const Unscoped = {
   "hunts:open":            "Finds a hunt by its org and label (or, from an old address, its label alone) and tells the browser its standing there, which is what the browser goes on to affirm",
   "widgets:library":       "The library belongs to no hunt: every hunt sees the same one",
   "widgets:usage":         "Counts the widgetings of every hunt, and hands back counts only (`Approve.mayCountUsage`)",
-  "stats:backfills":       "How far each backfill has run: the migrations component's state, of no hunt, names and counts only",
+  "stats:backfills":       "How far each backfill has run: the migrations component's state, of no hunt, names and counts only, for an admin (`Approve.mayReadBackfills`)",
 } as const satisfies Record<string, string>
 
 /** Affirms of any shape `affirmForHunt` checks: of a hunt, and perhaps a quiz of it, and that quiz's realm */

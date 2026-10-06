@@ -224,6 +224,11 @@ export function mayReadLibrary(actor: Actor.ActorT): VerdictT {
  * @example Approve.mayChangeLibrary(actor)  // => 'allow', for an admin
  */
 export function mayChangeLibrary(actor: Actor.ActorT): VerdictT {
+  return adminVerdict(actor) // Nobody who has asserted no username; an admin; nobody else
+}
+
+/** The verdict of a policy that is an admin's alone: nobody who has asserted no username, an admin (`Actor.isAdmin`), and nobody else */
+function adminVerdict(actor: Actor.ActorT): VerdictT {
   if (Actor.isAnonymous(actor)) { return 'notIdentified' } // Nobody who has asserted no username
   if (Actor.isAdmin(actor))     { return Allow }           // An admin
   return 'notPermitted'                                    // Nobody else
@@ -240,6 +245,21 @@ export function mayChangeLibrary(actor: Actor.ActorT): VerdictT {
  */
 export function mayCountUsage(actor: Actor.ActorT): VerdictT {
   return mayChangeLibrary(actor) // Whoever may change the library (`mayChangeLibrary`)
+}
+
+/**
+ * Whether `actor` may read how far each backfill has run on the deployment (the stats page). The
+ * counts say roughly how many rows the deployment holds, of every hunt, so they are an admin's.
+ * In order:
+ *
+ * * Nobody who has asserted no username
+ * * An admin (`Actor.isAdmin`)
+ * * Nobody else
+ *
+ * @example Approve.mayReadBackfills(actor)  // => 'allow', for an admin
+ */
+export function mayReadBackfills(actor: Actor.ActorT): VerdictT {
+  return adminVerdict(actor) // Nobody who has asserted no username; an admin; nobody else
 }
 
 /**
@@ -326,6 +346,7 @@ type EvidenceT = {
   read_library:      [actor: Actor.ActorT]
   change_library:    [actor: Actor.ActorT]
   count_usage:       [actor: Actor.ActorT]
+  read_backfills:    [actor: Actor.ActorT]
   ask_anthropic_bot: [switchval: string | undefined]
 }
 
@@ -424,6 +445,7 @@ const ReadPolicies = {
   read_review:       mayReadReview,
   read_library:      mayReadLibrary,
   count_usage:       mayCountUsage,
+  read_backfills:    mayReadBackfills,
   ask_anthropic_bot: mayAskAnthropicBot,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
