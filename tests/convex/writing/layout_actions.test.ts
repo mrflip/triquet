@@ -1,7 +1,7 @@
 import _ from 'es-toolkit/compat'
 import { describe, expect, it } from 'vitest'
 import { BlankJsonataDraft, draftOf, planNewWidget, planWidgetEdit, type JsonataDraft } from '../../../src/state/widget-edit'
-import { planWidgetingEdit } from '../../../src/state/widgeting-edit'
+import { planWidgetingEdit } from '../../../src/lib/widgeting-edit'
 import * as Wheel from '../../../src/lib/wheel'
 import { Question } from '../../../src/models/question'
 import { Hunt, type HuntT } from '../../../src/models/hunt'
