@@ -8,8 +8,8 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | Thread | Label | Status |
 |---|---|---|
 | 1 | Widen the recap fields | underway |
-| 2 | Markdown to bbjank | underway |
-| 3 | Panels fold and expand | landing |
+| 2 | Markdown to bbjank | in review |
+| 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | pending |
 | 5 | The recap panel | pending |
 | 6 | Quiz-level widgetings and entries | pending |
@@ -19,7 +19,22 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 
 ## What the threads have taught
 
-*Orchestrator:* nothing yet.
+* **Panels (thread 3, #161).** `Panel` has a fold triangle (everywhere) and, inside `PanelsRow`
+  (the row under the quiz grid), a widen arrow. A new panel gets both by using `Panel` inside
+  `Panels.tsx`; pass `wide` only if it must always span the row (then no arrow). `SpreadPanel`'s
+  own toggle is gone; `widened`/`onWidenedChange` let a panel follow its width.
+  *Review:* clean. Left, minor: every panel's buttons share one name ("Show this panel", "Widen this
+  panel to the whole row"), so a screen reader's button list repeats; `Stack` spacing may eat
+  `.panelHeading`'s 4px bottom margin. Both in #161's open questions.
+* **bbjank (thread 2, in review).** For thread 5: keep `{AS: Qn}` on the clueing's first line (alone
+  on its line, a following `1. ...` reads as an ordered list); prefix *every* line of a multi-line
+  clueing with `> ` after `Markdown.forScreen`, rather than relying on lazy continuation. The
+  `~~**ANSWER**~~` spoiler path is solid. bbjank's link and image protocols (http/https; https)
+  are its own, not `Markdown.Allowlist`'s: thread 4 widens the allowlist for images, thread 7 decides
+  whether they share one source.
+
+*Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
+as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
 
 ## Migration chain `recap`
 
