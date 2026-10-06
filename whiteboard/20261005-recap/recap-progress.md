@@ -10,7 +10,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 1 | Widen the recap fields | landed #163 |
 | 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
-| 4 | Field templates | underway |
+| 4 | Field templates | landing |
 | 5 | The recap panel | pending |
 | 6 | Quiz-level widgetings and entries | pending |
 | 7 | Security review | pending |
@@ -54,6 +54,25 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   write to it and cover the question's `recap` in the bag (the Coach's pre-merge check,
   `human/20261006-recap_widen.md`; a hit needs a relabelling migration); an old export from such a
   quiz has its questions skipped at import, logged.
+
+* **Templates (thread 4, in review).** `src/lib/templating.ts`: `fill(template, bag)` -> `{ markdown,
+  issue }`, never throws; `bagOf(run, question_id | null)` is the one bag builder (formula's bag
+  minus `params`/`widgeting_label`, questions after every widgeting ran; `null` for quiz texts);
+  `filledQuiz(quiz, run)`. A widgeted fills in as its value. Mustache reads only the bag's own keys
+  (custom `Context`), with lookup and output budgets. Images only in templated fields
+  (`TemplatedRenderOptions`, https only). Thread 5: `Templating.fill(text, Templating.bagOf(run,
+  null)).markdown` for recap head and tail, `bagOf(run, question._id)` or `filledQuiz` per
+  question, then `Bbjank.toBbjank`. Thread 6: quiz widgeteds placed in `run.frame.quiz` reach
+  templates as `quiz.<label>` with no change; else widen `bagOf`. Round-trip exports keep the source
+  as typed. To TODO: the review screen shows templated fields unfilled; `ll-bbcode.ts` has no image
+  rule; categories not in the bag.
+  *Review:* fixed two: the fill's length guard counted lookups, not filled text (`{{qns}}` repeated
+  built the list's JSON per tag: ~500 ms and V8's string limit on one cell), now counted as it fills;
+  mustache's shared template cache kept every keystroke's draft, now templating has its own writer,
+  cleared after each use. Left, minor: two quick ticks in the Templates section can lose the first
+  (whole-list action, no optimistic state); a long literal section repeats up to the pass budget
+  before the length check; `{{#qns}}` walks archived questions too (**thread 5: leave archived
+  questions out of the recap**); image tests lack entity-encoded and backslash cases (hold by hand).
 
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
