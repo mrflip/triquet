@@ -8,7 +8,7 @@
  * for the PRs it linked and the worktrees it cut, each in the order it met them (`/rename #93 #97
  * e2e_practices git_attic | PR merge and deploy order`): paste it into that session. Run inside a
  * session and asked nothing, it names that session (`$CLAUDE_CODE_SESSION_ID`); otherwise it names
- * every session it finds, each after a `# session <id>` comment line. `--table` prints a table: asked
+ * every session it finds, a line each, newest first. `--table` prints a table: asked
  * nothing, every session, newest first, with the PRs and worktrees it touched; asked a branch or
  * PR, the evidence for each. `--json` prints everything it knows.
  *
@@ -448,11 +448,7 @@ function main(argv: string[], env: Readonly<Record<string, string | undefined>>)
     process.stdout.write('Nothing to name: no worktree cut and no PR linked.\n')
     return
   }
-  const own = terms.length === 0 && named.length === 1 && named[0]?.id === env.CLAUDE_CODE_SESSION_ID
-  for (const session of named) {
-    if (! own) { process.stdout.write(`# session ${session.id.slice(0, 8)}\n`) }
-    process.stdout.write(`${renameOf(session) ?? ''}\n`)
-  }
+  for (const session of named) { process.stdout.write(`${renameOf(session) ?? ''}\n`) }
 }
 
 if (import.meta.main) {

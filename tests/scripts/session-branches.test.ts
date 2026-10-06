@@ -396,13 +396,13 @@ describe('the command line', () => {
     expect(runAs('abcdef12-0000')).to.equal('/rename #116 | 20261005-userlabel\n')
   })
 
-  it('prints every session it can name, each after a comment saying which, when run outside a session', () => {
-    expect(run()).to.equal('# session abcdef12\n/rename #116 | 20261005-userlabel\n')
+  it('prints the /rename of every session it can name, a line each, when run outside a session', () => {
+    expect(run()).to.equal('/rename #116 | 20261005-userlabel\n')
   })
 
   it('prints the /rename of each session that worked on a term, whoever is asking', () => {
-    expect(runAs('somebody-else', '116')).to.equal('# session abcdef12\n/rename #116 | 20261005-userlabel\n')
-    expect(run('--rename', '116')).to.equal('# session abcdef12\n/rename #116 | 20261005-userlabel\n')
+    expect(runAs('somebody-else', '116')).to.equal('/rename #116 | 20261005-userlabel\n')
+    expect(run('--rename', '116')).to.equal('/rename #116 | 20261005-userlabel\n')
   })
 
   it('says there is nothing to name for a session that has touched no worktree or PR', () => {

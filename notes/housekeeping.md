@@ -73,7 +73,7 @@ Three ways to print:
 
   Run inside a session with nothing asked, it names that session (`$CLAUDE_CODE_SESSION_ID`), and
   the line is ready to paste. Run anywhere else, or asked a branch or PR, it names every session it
-  finds, each line after a `# session <id>` comment. The title it had is kept whole, unless it has a
+  finds, a line each. The title it had is kept whole, unless it has a
   ` | ` already: then only what follows that is kept, so naming a session twice does not stack the
   names. No dates or times go in. A name is cut at 250 characters, ending in `…`. A session
   that has cut no worktree and linked no PR has nothing to be named for and is left out.
