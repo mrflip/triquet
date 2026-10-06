@@ -100,12 +100,13 @@ function parse(source: string): MT.Root {
 /**
  * `text` with its indents read as quotes, as the screen reads them (`Markdown.forScreen`): four
  * spaces a quote level, each line quoted as deep as it is indented. A list's lines and a fenced
- * code block's are left as they are, their indents being markdown's own. Also the lines
- * `forScreen` put in to close a deeper quote, counting from 1, which are no blank line of the author's.
+ * code block's are left as they are, their indents being markdown's own, and an HTML block's, which
+ * is written as typed. Also the lines `forScreen` put in to close a deeper quote, counting from 1,
+ * which are no blank line of the author's.
  */
 function quotedByIndent(text: string): { source: string, closers: Set<number> } {
   const owned = parse(text).children
-    .filter((node) => node.type === 'list' || (node.type === 'code' && isFenced(node, text)))
+    .filter((node) => node.type === 'list' || node.type === 'html' || (node.type === 'code' && isFenced(node, text)))
     .map((node) => linesOf(node))
   const isOwned = (lineIdx: number) => owned.some(({ beg, end }) => beg <= lineIdx + 1 && lineIdx + 1 <= end)
   // Runs of lines, each wholly markdown's own or wholly the author's indents.

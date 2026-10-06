@@ -93,6 +93,7 @@ const BbjankCases: [string, string, string][] = [
   ["![](data:image/png;base64,AAAA)",   "",                                                 'a data: image with no alt text comes to nothing'],
   ["<script>alert(1)</script>",         "<script>alert(1)</script>",                        'a script is written as the characters typed'],
   ["<div>\n**hi**\n</div>",             "<div>\n**hi**\n</div>",                            'an HTML block is its text, markdown inside it untouched'],
+  ["<div>\n    set in\n</div>",         "<div>\n    set in\n</div>",                        "an HTML block's indents are its text, not quotes"],
   ["a <img src=x onerror=alert(1)> b",  "a <img src=x onerror=alert(1)> b",                 'inline HTML is its text'],
   // trivial cases:
   ["",                                  "",                                                 'nothing is nothing'],
