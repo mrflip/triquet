@@ -8,7 +8,7 @@ import { PersonaLabelVals, PersonaTitles } from './persona'
 export const QuestionWidgetLabel = 'question'
 
 /** The question fields a column can show and edit */
-export const QuestionFieldVals = ['title', 'clueing', 'hint', 'chains_to', 'qnum', 'alt_text', 'notes', 'full_answer'] as const
+export const QuestionFieldVals = ['title', 'clueing', 'hint', 'chains_to', 'qnum', 'alt_text', 'notes', 'full_answer', 'recap'] as const
 export type QuestionField = typeof QuestionFieldVals[number]
 
 /** Read-only things a column can show that are worked out from a question and the one it chains to */
@@ -25,6 +25,7 @@ export const QuestionSourceTitles: Readonly<Record<QuestionField | QuestionView,
   alt_text:    'Alt Text',
   notes:       'Notes',
   full_answer: 'Full Answer',
+  recap:       'Recap',
   butnot:      'BUT NOT',
 }
 

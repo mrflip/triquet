@@ -176,6 +176,9 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     case 'full_answer': {
       return <StretchField label="Full Answer" committed={question.full_answer} locked={locked} onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx} bag={fieldBag('full_answer')} />
     }
+    case 'recap': {
+      return <StretchField label="Recap" committed={question.recap} locked={locked} onCommit={(recap) => { commit({ recap }) }} heightPx={heightPx} bag={fieldBag('recap')} />
+    }
     }
   }
 

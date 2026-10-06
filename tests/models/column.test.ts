@@ -12,6 +12,7 @@ describe('Column.fill', () => {
   const Sources: [string, boolean, string][] = [
     ['question.title',        true,  'a question field'],
     ['question.full_answer',  true,  'a question field with an underscore'],
+    ['question.recap',        true,  "a question's recap, which the recap note sets below its answer"],
     ['question.butnot',       true,  'a view of a question'],
     ['question.butnot_ishes', false, 'the BUT NOT ishes as a view, which they no longer are'],
     ['butnot_ishes',          true,  'the BUT NOT ishes as the widgeting they now are'],
@@ -118,6 +119,7 @@ describe('namesFor', () => {
     // the rest:
     ["question.hint",      { label: "hint",         title: "Hint" },         'the hint, opted into on a lean quiz'],
     ["question.alt_text",  { label: "alt_text",     title: "Alt Text" },     'the alt text, its header as the grid always had it'],
+    ["question.recap",     { label: "recap",        title: "Recap" },        "the question's recap"],
     ["question.butnot",    { label: "butnot",       title: "BUT NOT" },      'the view of the chained-to hint, in capitals as always'],
     ["categories.masie",   { label: "categories_masie", title: "Masie" },    "a part of a widgeting, under both their names and headed by the part's"],
     ["cats.average",       { label: "cats_average", title: "Average" },      "the personas' average"],
