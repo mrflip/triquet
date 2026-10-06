@@ -39,7 +39,8 @@ export function HuntEditModal({ hunt, onClose }: Readonly<HuntEditModalProps>) {
     const titleOk = HuntValidators.row.shape.title.safeParse(title).success
     const labelOk = HuntValidators.row.shape.label.safeParse(label).success
     setTitleIssue(titleOk ? null : AppNotices.huntTitleTooLong)
-    setLabelIssue(labelOk ? null : AppNotices.huntLabelShape)
+    const labelRefusal = Labelmaker.isReserved(label) ? AppNotices.labelReserved : AppNotices.huntLabelShape
+    setLabelIssue(labelOk ? null : labelRefusal)
     if (! (titleOk && labelOk)) { return }
     // The label goes first, as the one the server may refuse; the title then waits for a retry.
     const changes: AccountActionDNA[] = [

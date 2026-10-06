@@ -46,6 +46,7 @@ export const AppNotices = {
   huntTitleTooLong:     'That name is too long.',
   huntLabelShape:       'Enter a label: letters, digits and single underscores, starting with a letter.',
   branchShape:          'Enter a branch: letters, digits and single underscores, starting with a letter.',
+  labelReserved:        'That word is kept for the tool\'s own use. Add to it, as my_label or label_2.',
   branchHelp:           'A new name starts a branch; an old one goes back to it.',
   huntRelabelMoves:     "Changing this label updates the URL. Old links won't find this page anymore.",
 } as const
