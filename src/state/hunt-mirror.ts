@@ -126,7 +126,8 @@ export function trackWrite(work: Promise<unknown>): void {
 
 /**
  * The longest the history waits, before it marks a moment, for the hunt's feed to hear from every
- * watch it holds, in milliseconds: past it, the moment is marked with what has been heard.
+ * watch it holds and fetch what moved, in milliseconds: past it, the moment is marked with what
+ * has been heard.
  */
 export const ReadWaitMs = 5000
 
@@ -136,9 +137,9 @@ export const ReadWaitMs = 5000
  * is made to hand on what it has put off.
  *
  * Settled (`settleFeeds`), the feed hands on what it has heard. Read (`feedsRead`), it waits as
- * well to hear from every watch it holds, up to `ReadWaitMs`: a change that adds a question is
- * heard of in full only once the watch of the new question, opened as the change was heard, has
- * answered.
+ * well to hear from every watch it holds, and fetches again each quiz not on screen whose signal
+ * has moved, up to `ReadWaitMs`: a change that adds a question is heard of in full only once the
+ * watch of the new question, opened as the change was heard, has answered.
  */
 async function caughtUp(hunt: Readonly<Huntgit.RepoKeyT>, heard: 'settled' | 'read'): Promise<void> {
   await Promise.allSettled(writing)
