@@ -30,6 +30,8 @@ const BbjankCases: [string, string, string][] = [
   ["> {AS: **Q1**}text",                "[list]{AS: [b]Q1[/b]}text[/list]",                 'a name with emphasis in it is no name: the quote is a list, the marker kept'],
   ["> one\n>\n> two",                   "[list]one\n\ntwo[/list]",                          'a blank line within a quote is kept'],
   ["   > three spaces",                 "[list]three spaces[/list]",                        'a quote marker indented less than four spaces is a quote'],
+  ["before\n\n>\n\nafter",              "before\n\nafter",                                  'an empty quote is nothing, not an empty list tag'],
+  ["> [r]: https://a.com\n\nafter",     "after",                                            'a quote holding only a definition is nothing'],
   // indents:
   ["You indent:\n    first level\n        second level", "You indent:\n[list]first level\n[list]second level[/list][/list]", 'eight spaces are two quote levels'],
   ["    first\n        second\n      six spaces\nback out",

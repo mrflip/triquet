@@ -182,14 +182,18 @@ function blockOf(node: FlowNode, ctx: Context): string {
 
 /**
  * A quote: `[quote="who"]` when it opens with `{AS: who}` (the marker taken off), otherwise a
- * `[list]`, which the board shows indented. A quote within a quote is a `[list]` within it.
+ * `[list]`, which the board shows indented. A quote within a quote is a `[list]` within it. An
+ * unnamed quote that comes to nothing (a link definition alone, or no text) is nothing.
  */
 function quoteOf(quote: MT.Blockquote, ctx: Context): string {
   const [first, ...rest] = quote.children
   const paragraph = first?.type === 'paragraph' ? first : undefined
   const [opener, ...after] = paragraph?.children ?? []
   const named = opener?.type === 'text' ? QuoteAsRE.exec(opener.value) : null
-  if (! named || ! paragraph || opener?.type !== 'text') { return `[list]${blocksOf(quote.children, ctx)}[/list]` }
+  if (! named || ! paragraph || opener?.type !== 'text') {
+    const inner = blocksOf(quote.children, ctx)
+    return inner ? `[list]${inner}[/list]` : ''
+  }
   const shorn: MT.Paragraph = { ...paragraph, children: [{ ...opener, value: opener.value.slice(named[0].length) }, ...after] }
   return `[quote="${tagArgOf(named[1] ?? '')}"]${blocksOf([shorn, ...rest], ctx)}[/quote]`
 }
