@@ -42,7 +42,8 @@
     "worktree": "node scripts/spine.ts worktree",
     "land": "node scripts/spine.ts land",
     "sweep": "node scripts/spine.ts sweep",
-    "restack": "node scripts/spine.ts restack"
+    "restack": "node scripts/spine.ts restack",
+    "automerge": "tsx scripts/automerge.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

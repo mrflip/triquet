@@ -261,7 +261,17 @@ Two ways to land a stack:
 
 ## Merging (Coach only)
 
-Agents don't merge PRs. The only way into `main` is a merge commit on an up-to-date branch that passes CI. Do not enable auto-merges.
+Agents don't merge PRs. The only way into `main` is a merge commit on an up-to-date branch that passes CI. Agents never enable auto-merge either.
+
+The Coach's trivial case is `pnpm automerge <PR#>` (`scripts/automerge.ts`). It replays the PR's line onto `origin/main`: the open PRs beneath it and above it, by `restack` when they are the spine. It pushes them with leases, then sets the PR to merge once main's required checks pass. Run it again for the next PR once one merges. It stops, pushing nothing, on anything a person should look at:
+
+- a conflict;
+- a schema change, a new backfill, a `(Serial Deploy …)` title, or a description that says "before merging";
+- a draft, a fork, or a base other than `main`;
+- two stacks on one PR, or a line partly on the spine;
+- a `main` whose ruleset requires no checks, where auto-merge would merge before CI ran.
+
+`--dry-run` says what it would do.
 
 ## Commits
 

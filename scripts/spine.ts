@@ -41,7 +41,7 @@ export interface Top {
 }
 
 /** Runs git in `cwd` and hands back what it printed; a failure throws with what git said */
-function git(cwd: string, ...args: string[]): string {
+export function git(cwd: string, ...args: string[]): string {
   return gitExactly(cwd, ...args).trim()
 }
 
@@ -54,13 +54,13 @@ function gitExactly(cwd: string, ...args: string[]): string {
 }
 
 /** Whether git, run in `cwd`, succeeds */
-function gitOk(cwd: string, ...args: string[]): boolean {
+export function gitOk(cwd: string, ...args: string[]): boolean {
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- as in git() above
   return spawnSync('git', args, { cwd, encoding: 'utf8' }).status === 0
 }
 
 /** git push, borrowing gh's login for the one push (`notes/git_hygiene.md`, *Filing the PR*) */
-const PushArgs = ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--quiet']
+export const PushArgs = ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--quiet']
 
 /**
  * The main checkout's root, from `git worktree list --porcelain`, which lists it first.
@@ -172,7 +172,7 @@ function holderOf(lockdir: string): { pid: number, purpose: string } | undefined
 }
 
 /** The checkout at `cwd`: its root, the main checkout's, and the repository's shared git directory */
-function checkoutAt(cwd: string): { root: string, main: string, commondir: string } {
+export function checkoutAt(cwd: string): { root: string, main: string, commondir: string } {
   return {
     root:      git(cwd, 'rev-parse', '--show-toplevel'),
     main:      mainCheckoutOf(git(cwd, 'worktree', 'list', '--porcelain')),
@@ -194,7 +194,7 @@ function busyIn(root: string): string | undefined {
 }
 
 /** Stops if the main checkout is in the middle of something: that is the Coach's, to finish */
-function refuseBusy(main: string): void {
+export function refuseBusy(main: string): void {
   const busy = busyIn(main)
   if (busy !== undefined) { throw new SpineStop(`The main checkout is in the middle of something (${busy}): the Coach's to finish before anything lands.`) }
 }
