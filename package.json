@@ -47,6 +47,7 @@
     "e2e": "node scripts/spine.ts e2e",
     "e2e:rerun": "node scripts/spine.ts e2e --last-failed --workers=1",
     "e2e:log": "node scripts/spine.ts e2e-log",
+    "e2e:smoke": "node scripts/spine.ts e2e --grep @smoke",
     "land": "node scripts/spine.ts land",
     "sweep": "node scripts/spine.ts sweep",
     "restack": "node scripts/spine.ts restack",

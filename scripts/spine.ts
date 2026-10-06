@@ -8,13 +8,15 @@
  *   node scripts/spine.ts catchup                           this worktree's branch, rebased onto the top
  *   node scripts/spine.ts justify                           typecheck, lint and the unit tests, side by side; green, the branch's patch-id recorded
  *   node scripts/spine.ts e2e [<playwright args>]           the e2e suite, logged; the branch's proof recorded once every spec of a full run has passed
+ *   node scripts/spine.ts e2e --touched                     the corner of the suite the branch's changes reach (SpecCorners), logged; a proof scoped to it
  *   node scripts/spine.ts e2e-log                           the e2e log, summarised
  *   node scripts/spine.ts land                              the bid: a proved branch caught up, typechecked and tested, folded in and pushed, under one hold
  *   node scripts/spine.ts sweep                             the main checkout's whiteboard/, human/ and notes/, committed onto the top
  *   node scripts/spine.ts restack                           the spine, replayed onto origin/main if origin has moved, and pushed
  *   node scripts/spine.ts top                               the top's branch
  *
- * package.json spells each `pnpm <command>`, and `pnpm e2e:rerun` is `e2e --last-failed --workers=1`.
+ * package.json spells each `pnpm <command>`, `pnpm e2e:rerun` is `e2e --last-failed --workers=1`, and
+ * `pnpm e2e:smoke` is `e2e --grep @smoke`, one test of each spec file: a quick signal, never a proof.
  * Worktrees live under TQ_WORKTREES (`~/worktrees/triquet`). Each suite these run is a shell
  * command an environment variable may replace: TRIQUET_JUSTIFY (typecheck, lint and test through
  * `pnpm run --no-bail`, which runs them side by side and lets each finish), TRIQUET_E2E
@@ -92,7 +94,89 @@ const HousekeepingScripts: ReadonlySet<string> = new Set([
   'scripts/session-branches.ts',
 ])
 
-const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [<playwright args>] | e2e-log | land [--skip-e2e <reason>] | sweep | restack | top'
+/** The spec files of the grid's corner: the specs that drive the questions' rows */
+const GridSpecs = ['grid', 'chaining', 'ordering', 'archiving', 'ishes', 'estimates', 'entries'] as const
+
+/** The spec files of the gear's corner: the specs about its dialogs (the heavy specs walk them in setup, and these cover every path they take) */
+const GearSpecs = ['widgets', 'prompts', 'entries', 'quizzes'] as const
+
+/** The spec files of the panels below the grid */
+const PanelSpecs = ['panels', 'sheets', 'importing', 'entries'] as const
+
+/** The spec files of putting a question to a bot, and of the routes that do it */
+const AskingSpecs = ['asking', 'bots', 'failures', 'prompts', 'ishes', 'client-first'] as const
+
+/** The spec files of the way in, the addresses and the pages they open */
+const RoutingSpecs = ['routing', 'brand', 'failing-pages'] as const
+
+/** The spec files of the quiz history the browser keeps */
+const HistorySpecs = ['quiz-history', 'panels'] as const
+
+/** A corner of the e2e suite: the paths in it, each a file or a prefix the path starts with, and the spec files (by name, as under `e2e/`) that would notice a change there */
+interface CornerRule {
+  corner: string
+  paths:  readonly string[]
+  specs:  readonly string[]
+}
+
+/**
+ * The path-to-spec map: which spec files would notice a change to a path, read from every spec and
+ * checked against the imports. A path takes the first rule it matches, so the particular come
+ * before the general; a path no rule names (`src/models/`, `convex/`, `src/lib/rows.ts`,
+ * `e2e/support.ts`, the configuration, the harness scripts, and anything new) reaches the whole
+ * suite, as do a few files every screen leans on (`use-draft`, `use-session`, `offers.ts`,
+ * `postmortem`, `cells/fields` and `cells/markdown`). A component used in two corners names the spec
+ * files of both. A spec file named here need not exist yet (`stats` and `failing-pages` are being
+ * written beside this map): `pnpm e2e --touched` skips one that is not there, and a corner left with
+ * none reaches the whole suite.
+ */
+export const SpecCorners: readonly CornerRule[] = [
+  { corner: 'the error boundary', specs: ['failing-pages'], paths: ['src/app/(synced)/error.tsx', 'src/components/PageFailed.tsx'] },
+  { corner: 'the stats page',     specs: ['stats'],         paths: ['src/app/(synced)/stats/', 'src/components/Stats.tsx', 'src/state/use-stats.ts', 'convex/stats.ts', 'src/lib/build-stamp.ts'] },
+  { corner: 'the alarms',         specs: ['alarms'],        paths: ['src/components/AlarmSnackbar.tsx'] },
+  // Reviews
+  { corner: 'reviews',                   specs: ['reviews'],                                 paths: ['src/components/ReviewScreen.tsx', 'src/components/panels/ReviewsPanel.tsx', 'src/components/cells/answer-lock.tsx', 'convex/reviews.ts', 'convex/writing/review_actions.ts'] },
+  { corner: 'reviews, as rows and files', specs: ['reviews', ...PanelSpecs, 'quiz-history'], paths: ['src/models/review.ts', 'src/models/reviewing.ts'] },
+  // The quiz history
+  { corner: 'the hunt histories listed', specs: ['quiz-history', 'routing'],                 paths: ['src/components/HuntRepoList.tsx', 'src/components/OrphanedRepos.tsx', 'src/state/use-hunt-repos.ts'] },
+  { corner: 'the history git',           specs: [...HistorySpecs, 'routing'],                paths: ['src/lib/huntgit.ts'] },
+  { corner: 'the quiz history',          specs: HistorySpecs,                                paths: ['src/state/hunt-mirror.ts', 'src/state/hunt-commits.ts', 'src/state/commit-scheduler.ts', 'src/state/hunt-feed.ts', 'src/state/hunt-fetching.ts', 'src/lib/huntfiles', 'src/components/FullHistoryDownload.tsx', 'src/components/HuntBranch.tsx', 'src/content/full-history.md'] },
+  // The categories
+  { corner: 'the category wheel',        specs: ['categories'],                              paths: ['src/components/CategoryWheel.tsx', 'src/components/PersonaCard.tsx', 'src/components/wheel-geometry.ts', 'src/state/use-categories.ts'] },
+  { corner: "the categories' page",      specs: ['categories', ...RoutingSpecs],             paths: ['src/components/CategoriesRoute.tsx', 'src/state/use-hunt-opening.ts'] },
+  { corner: 'the category spread',       specs: ['estimates', 'panels'],                     paths: ['src/components/panels/SpreadPanel.tsx', 'src/components/panels/spread-', 'src/lib/spread.ts'] },
+  // Asking
+  { corner: 'asking',                    specs: AskingSpecs,                                 paths: ['src/lib/ask/', 'src/lib/bots/', 'src/app/api/', 'src/state/use-asking', 'src/state/use-bots', 'src/lib/formulary/aibot.ts'] },
+  // The gear
+  { corner: "the gear's quiz dialog",    specs: [...GearSpecs, 'archiving', 'categories', 'quiz-history'], paths: ['src/components/QuizManageModal.tsx'] },
+  { corner: 'the gear and the Widgets panel', specs: [...GearSpecs, ...PanelSpecs],          paths: ['src/components/widget-words.ts', 'src/components/room.ts'] },
+  { corner: 'the copy buttons',          specs: [...GearSpecs, ...PanelSpecs, 'routing'],    paths: ['src/components/CopyButton.tsx'] },
+  { corner: 'the folded JSON',           specs: [...GearSpecs, 'ishes', 'failures'],         paths: ['src/components/JsonFold.tsx'] },
+  { corner: 'the gear',                  specs: GearSpecs,                                   paths: ['src/components/WidgetEditor.tsx', 'src/components/WidgetingsEditor.tsx', 'src/components/ColumnsEditor.tsx', 'src/components/LibraryModal.tsx', 'src/components/DangerZone.tsx', 'src/components/PreviewPicker.tsx', 'src/components/JsonataFields.tsx', 'src/components/AibotFields.tsx', 'src/components/EntryFields.tsx', 'src/components/SortableList.tsx', 'src/components/ConfirmRemove.tsx', 'src/components/use-preview-bag.ts', 'src/state/widget-edit.ts', 'src/state/widgeting-edit.ts', 'src/state/use-widget-usage.ts', 'src/state/use-library-actions.ts', 'src/state/use-other-quiz.ts'] },
+  // The panels
+  { corner: 'the members panel',         specs: ['routing'],                                 paths: ['src/components/panels/MembersPanel.tsx'] },
+  { corner: 'the panels, as a whole',    specs: [...PanelSpecs, 'reviews', 'routing', 'estimates'], paths: ['src/components/panels/Panels.tsx'] },
+  { corner: 'the panels',                specs: PanelSpecs,                                  paths: ['src/components/panels/ExportImportPanel.tsx', 'src/components/panels/ImportForm.tsx', 'src/components/panels/LeagueExport.tsx', 'src/components/panels/LibraryForm.tsx', 'src/components/panels/RawExport.tsx', 'src/components/panels/ReadonlyBox.tsx', 'src/components/panels/TabbedPanel.tsx', 'src/components/panels/WidgetsPanel.tsx', 'src/components/pending-imports.ts', 'src/state/use-whole-hunt.ts'] },
+  // The grid
+  { corner: 'the chain cell',            specs: [...GridSpecs, 'reviews'],                   paths: ['src/components/cells/chain.tsx'] },
+  { corner: "the cells' readouts",       specs: [...GridSpecs, ...AskingSpecs, 'widgets'],   paths: ['src/components/cells/readouts.tsx'] },
+  { corner: 'the error badge',           specs: ['failures'],                                paths: ['src/components/cells/ErrBadge.tsx'] },
+  { corner: 'the entry cells',           specs: ['entries', 'estimates'],                    paths: ['src/components/cells/entry.tsx', 'src/components/cells/estimates.tsx', 'src/components/cells/use-pills.ts'] },
+  { corner: 'the fold buttons',          specs: [...GridSpecs, 'quizzes', 'reviews'],        paths: ['src/components/FoldButton.tsx'] },
+  { corner: 'dragging into order',       specs: ['ordering', 'categories', 'widgets'],       paths: ['src/components/use-reorder.ts'] },
+  { corner: 'batch mode',                specs: ['archiving'],                               paths: ['src/components/ConfirmViz.tsx', 'src/components/use-checklist.ts'] },
+  { corner: "a question's title",        specs: ['archiving', 'reviews'],                    paths: ['src/components/QuestionTitle.tsx'] },
+  { corner: "the quiz's header",         specs: ['quizzes', 'grid'],                         paths: ['src/components/QuizHeader.tsx'] },
+  { corner: 'the quiz switcher',         specs: ['quizzes', 'routing'],                      paths: ['src/components/QuizSwitcher.tsx'] },
+  { corner: 'the grid',                  specs: GridSpecs,                                   paths: ['src/components/QuestionRow.tsx', 'src/components/QuestionTable.tsx', 'src/components/use-folds.ts', 'src/components/use-settled-resize.ts'] },
+  // The way in, the addresses and the pages
+  { corner: 'the brand',                 specs: ['brand'],                                   paths: ['src/components/Logo.tsx', 'src/components/About.tsx', 'src/app/about/', 'src/content/about.md', 'src/app/manifest.ts', 'src/app/apple-icon.png', 'src/app/favicon.ico', 'public/'] },
+  { corner: 'the quiz page',             specs: [...RoutingSpecs, 'reviews'],                paths: ['src/components/QuizRoute.tsx'] },
+  { corner: 'the hunts',                 specs: [...RoutingSpecs, 'quiz-history'],           paths: ['src/components/HuntsList.tsx', 'src/components/HuntRoute.tsx', 'src/state/use-account-actions.ts'] },
+  { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/', 'src/lib/routes.ts', 'src/components/IdentGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx', 'src/components/SiteHeader.tsx', 'src/components/use-address.ts', 'src/state/use-ident.ts', 'src/state/use-hunts-list.ts', 'src/state/shown-hunt.tsx'] },
+]
+
+const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | land [--skip-e2e <reason>] | sweep | restack | top'
 
 /** A stop that needs the agent or the Coach: its message says what happened and what to do */
 export class SpineStop extends Error {}
@@ -554,6 +638,76 @@ export function e2eWatched(filepaths: readonly string[]): string[] {
   return filepaths.filter((filepath) =>  DocsOnlyRules.every((rule) => !rule(filepath)) &&  UnwatchedRules.every((rule) => !rule(filepath)))
 }
 
+/** Where a changed path reaches in the e2e suite: a name for what it reached, as `pnpm e2e --touched` prints it, and the spec files that would notice it, or the whole suite */
+export interface Reach {
+  corner: string
+  specs:  readonly string[] | 'all'
+}
+
+/** The spec file a spec's name names */
+function specfileOf(specname: string): string {
+  return `e2e/${specname}.spec.ts`
+}
+
+/**
+ * Where a changed path reaches in the e2e suite: nothing, for a document or a path e2e cannot
+ * notice; its own file, for a spec; the spec files of the first corner of `SpecCorners` it falls
+ * in, those that exist; and otherwise, or when none of its corner's spec files exist yet, the
+ * whole suite.
+ *
+ * @param exists - Whether a spec file (`e2e/<name>.spec.ts`) is there to run.
+ *
+ * @example reachOf('src/components/QuizSwitcher.tsx', () => true)  // => { corner: 'the quiz switcher', specs: ['e2e/quizzes.spec.ts', 'e2e/routing.spec.ts'] }
+ * @example reachOf('convex/schema.ts', () => true)                  // => { corner: 'the whole suite', specs: 'all' }
+ */
+export function reachOf(filepath: string, exists: (specfile: string) => boolean): Reach {
+  if (e2eWatched([filepath]).length === 0) { return { corner: 'nothing e2e notices', specs: [] } }
+  if (/^e2e\/[^/]+\.spec\.ts$/.test(filepath)) {
+    return exists(filepath) ? { corner: 'its own spec', specs: [filepath] } : { corner: 'the whole suite, for a spec removed', specs: 'all' }
+  }
+  const rule = SpecCorners.find(({ paths }) => paths.some((prefix) => filepath.startsWith(prefix)))
+  if (rule === undefined) { return { corner: 'the whole suite', specs: 'all' } }
+  const specs = [...new Set(rule.specs)].map((specname) => specfileOf(specname)).filter((specfile) => exists(specfile))
+  return specs.length === 0 ? { corner: `the whole suite, as ${rule.corner} has no spec file yet`, specs: 'all' } : { corner: rule.corner, specs }
+}
+
+/**
+ * The spec files the paths among `filepaths` that reach a corner would be noticed by, sorted: the
+ * union of their reaches (`reachOf`), and none when no path is one e2e notices. A path reaching the
+ * whole suite adds nothing here: `reachingWhole` names those.
+ *
+ * @example scopeOf(['src/components/QuizSwitcher.tsx', 'tests/lib/useful.test.ts'], () => true)  // => ['e2e/quizzes.spec.ts', 'e2e/routing.spec.ts']
+ */
+export function scopeOf(filepaths: readonly string[], exists: (specfile: string) => boolean): string[] {
+  const specfiles = filepaths.flatMap((filepath) => {
+    const { specs } = reachOf(filepath, exists)
+    return specs === 'all' ? [] : specs
+  })
+  return [...new Set(specfiles)].toSorted((aa, bb) => aa.localeCompare(bb))
+}
+
+/**
+ * The paths among `filepaths` that reach the whole suite (`reachOf`).
+ *
+ * @example reachingWhole(['src/components/QuizSwitcher.tsx', 'convex/schema.ts'], () => true)  // => ['convex/schema.ts']
+ */
+export function reachingWhole(filepaths: readonly string[], exists: (specfile: string) => boolean): string[] {
+  return filepaths.filter((filepath) => reachOf(filepath, exists).specs === 'all')
+}
+
+/**
+ * The paths among `filepaths` that reach outside `scope`, the spec files a touched run proved:
+ * those reaching the whole suite, or any spec file it did not run.
+ *
+ * @example outsideScope(['src/components/QuizSwitcher.tsx', 'src/components/Logo.tsx'], ['e2e/quizzes.spec.ts', 'e2e/routing.spec.ts'], () => true)  // => ['src/components/Logo.tsx']
+ */
+export function outsideScope(filepaths: readonly string[], scope: readonly string[], exists: (specfile: string) => boolean): string[] {
+  return filepaths.filter((filepath) => {
+    const { specs } = reachOf(filepath, exists)
+    return specs === 'all' || specs.some((specfile) => ! scope.includes(specfile))
+  })
+}
+
 /**
  * Rebases `branch` onto `top` unless it stands there already, recording its new base. A conflict
  * stops with the rebase in progress in the worktree, the agent's to repair or abort; the spine is
@@ -630,20 +784,86 @@ function readTally(tallyfile: string): E2eLog.Tally | undefined {
   return fs.existsSync(tallyfile) ? JSON.parse(fs.readFileSync(tallyfile, 'utf8')) as E2eLog.Tally : undefined
 }
 
+/** A run of the e2e suite, chosen: its kind, Playwright's arguments, and a touched run's spec files */
+interface SuiteRun {
+  kind:   E2eLog.RunKind
+  args:   readonly string[]
+  scope?: readonly string[]
+}
+
 /**
- * Runs the e2e suite on the checkout's lane, or the part of it `args` asks Playwright for, and
- * writes a line to the e2e log. Over committed work alone, it keeps the branch's tally: a full run
- * starts it afresh, and a rerun or chosen specs clear what they pass. Once every spec of a full
- * run has passed, there or alone since, the branch is proved: `branch.<b>.proved` holds the top it
- * was proved on and its patch-id then.
+ * Runs the e2e suite on the checkout's lane, or the part of it `args` asks for, and writes a line
+ * to the e2e log. `--touched` runs the corner of the suite the branch's changes reach
+ * (`touchedPlan`), or the whole of it when any path reaches that. Over committed work alone, it
+ * keeps the branch's tally: a full or touched run starts it afresh, and a rerun or chosen specs
+ * clear what they pass. Once every spec of a full or touched run has passed, there or alone since,
+ * the branch is proved: `branch.<b>.proved` holds the top it was proved on and its patch-id then,
+ * and a touched run's tally holds the spec files its proof is scoped to.
  *
- * @param args - Playwright's arguments: none for the whole suite, `--last-failed` for a rerun, or specs.
+ * @param args - none for the whole suite, `--touched` for the branch's corner, or Playwright's: `--last-failed` for a rerun, specs, `--grep @smoke`.
  * @returns Lines saying how the run went and where the proof stands; a red run stops.
  */
 export function e2e(cwd: string, args: readonly string[]): string[] {
   const { root, main } = checkoutAt(cwd)
+  const { said, run } = args.includes('--touched') ? touchedPlan(root, main, args) : { said: [], run: { kind: runKindOf(args), args } }
+  if (run === undefined) { return said }
+  // Said before the suite starts, so a worker who disagrees with the corner chosen can stop it.
+  if (said.length > 0) { process.stdout.write(`${said.join('\n')}\n`) }
+  return runSuite(root, main, run)
+}
+
+/**
+ * What `pnpm e2e --touched` runs: the spec files the paths the branch changes since its base
+ * reach (`scopeOf`), as a touched run; the whole suite, as a full run, when any path reaches it;
+ * nothing when no path is one e2e notices.
+ *
+ * @returns Lines saying which corner each path chose, and the run, if there is one.
+ */
+function touchedPlan(root: string, main: string, args: readonly string[]): { said: string[], run?: SuiteRun } {
+  if (args.length > 1) { throw new SpineStop('`pnpm e2e --touched` takes nothing else: it chooses the spec files itself.') }
+  const { branch, base } = standingOf(root, main)
+  const changed = changedPaths(root, base, branch)
+  const exists = specExistsIn(root)
+  const width = Math.max(0, ...changed.map((filepath) => filepath.length))
+  const said = [
+    changed.length === 0 ? `${branch} changes nothing since its base.` : `Where each path ${branch} changes reaches in the e2e suite (SpecCorners, in scripts/spine.ts):`,
+    ...changed.map((filepath) => `  ${filepath.padEnd(width)}  ${reachSaid(reachOf(filepath, exists))}`),
+  ]
+  const whole = reachingWhole(changed, exists)
+  const reaching = whole.length === 1 ? 'A path reaches' : `${String(whole.length)} paths reach`
+  if (whole.length > 0) { return { said: [...said, `${reaching} the whole suite, so the whole suite runs, as a full run.`], run: { kind: 'full', args: [] } } }
+  const scope = scopeOf(changed, exists)
+  if (scope.length === 0) {
+    const advice = isDocsOnly(changed) ? 'It needs no e2e proof to land.' : 'If e2e cannot tell you anything here, `pnpm land --skip-e2e "<why>"` (notes/git_hygiene.md, *When e2e is not worth running*).'
+    return { said: [...said, `No path is one e2e runs on or exercises, so no spec runs. ${advice}`] }
+  }
+  return { said: [...said, `Running its corner, ${String(scope.length)} spec files, for a proof scoped to them: ${specnamesOf(scope)}.`], run: { kind: 'touched', args: scope, scope } }
+}
+
+/** Whether a spec file is there to run in the checkout at `root` */
+function specExistsIn(root: string): (specfile: string) => boolean {
+  return (specfile) => fs.existsSync(path.join(root, specfile))
+}
+
+/** A path's reach, as `pnpm e2e --touched` prints it */
+function reachSaid({ corner, specs }: Reach): string {
+  return specs === 'all' || specs.length === 0 ? corner : `${corner}: ${specnamesOf(specs)}`
+}
+
+/** What a proof's scope adds to a line about it: nothing for a full proof, and for a scoped one its spec files' names between `before` and `after` */
+function scopedSaid(scope: readonly string[] | undefined, before: string, after: string): string {
+  return scope === undefined ? '' : before + specnamesOf(scope) + after
+}
+
+/** Spec files by their names, as under `e2e/` without `.spec.ts`: `grid, chaining` */
+function specnamesOf(specfiles: readonly string[]): string {
+  return specfiles.map((specfile) => path.basename(specfile, '.spec.ts')).join(', ')
+}
+
+/** Runs the suite as `run` says, logs it, and keeps the branch's tally and proof: the body of e2e() */
+function runSuite(root: string, main: string, run: SuiteRun): string[] {
+  const { kind, args, scope } = run
   const ante = standingOf(root, main)
-  const kind = runKindOf(args)
   const reportfile = path.join(git(root, 'rev-parse', '--absolute-git-dir'), 'triquet-e2e-report.json')
   fs.rmSync(reportfile, { force: true })
   const cache = cacheStateOf(root)
@@ -654,13 +874,15 @@ export function e2e(cwd: string, args: readonly string[]): string[] {
   const seconds = Math.round((Date.now() - began) / 1000)
   const [, loadAfter = 0] = os.loadavg()
   fs.rmSync(path.join(root, E2eDistDir, SeedMarker), { force: true })
-  const outcomes = fs.existsSync(reportfile) ? E2eLog.outcomesOf(JSON.parse(fs.readFileSync(reportfile, 'utf8')) as Pick<JSONReport, 'suites'>) : []
+  const report = fs.existsSync(reportfile) ? JSON.parse(fs.readFileSync(reportfile, 'utf8')) as Pick<JSONReport, 'suites'> : { suites: [] }
+  const outcomes = E2eLog.outcomesOf(report)
+  const testSeconds = E2eLog.testSecondsOf(report)
   const post = standingOf(root, main)
   const committed = ante.committed && post.committed && ante.head === post.head
   const tallyfile = tallyfileOf(root)
   const prior = readTally(tallyfile)
-  const run = { kind, branch: ante.branch, top: ante.base, patchid: ante.patchid, status, outcomes }
-  const { tally, cleared } = committed ? E2eLog.tallied(prior, run) : { tally: prior, cleared: [] }
+  const record = { kind, branch: ante.branch, top: ante.base, patchid: ante.patchid, status, outcomes, ...(scope !== undefined && { scope }) }
+  const { tally, cleared } = committed ? E2eLog.tallied(prior, record) : { tally: prior, cleared: [] }
   const proved = committed && E2eLog.isProved(tally)
   if (committed && tally !== undefined) {
     fs.writeFileSync(tallyfile, `${JSON.stringify(tally)}\n`)
@@ -674,11 +896,11 @@ export function e2e(cwd: string, args: readonly string[]): string[] {
   const failures = E2eLog.failuresOf(outcomes)
   E2eLog.append(E2eLog.logfileOf(worktreesHome()), {
     at, branch: ante.branch, lane: Lanes.laneHere(process.env, root), kind, args: [...args], committed,
-    load: { before: loadBefore, after: loadAfter }, cores: os.availableParallelism(), cache, seconds, status,
+    load: { before: loadBefore, after: loadAfter }, cores: os.availableParallelism(), cache, seconds, test_seconds: testSeconds, status,
     counts, failures, cleared, still: tally?.outstanding ?? [], proved,
   })
   const lines = [
-    `e2e, ${kind}: ${String(counts.passed + counts.flaky)} passed, ${String(counts.failed)} failed, ${String(counts.unrun)} not run, in ${String(seconds)} s (load ${loadBefore.toFixed(1)} as it began; build cache ${cache}).`,
+    `e2e, ${kind}: ${String(counts.passed + counts.flaky)} passed, ${String(counts.failed)} failed, ${String(counts.unrun)} not run, in ${String(seconds)} s, ${String(testSeconds)} test-seconds (load ${loadBefore.toFixed(1)} as it began; build cache ${cache}).`,
     ...e2eNotes({ kind, committed, prior, tally, cleared, proved, branch: ante.branch }),
   ]
   if (status !== 0) { throw new SpineStop(lines.join('\n')) }
@@ -695,13 +917,13 @@ function runKindOf(args: readonly string[]): E2eLog.RunKind {
 function e2eNotes(said: { kind: E2eLog.RunKind, committed: boolean, prior: E2eLog.Tally | undefined, tally: E2eLog.Tally | undefined, cleared: readonly E2eLog.Cleared[], proved: boolean, branch: string }): string[] {
   const { kind, committed, prior, tally, cleared, proved, branch } = said
   if (! committed) { return ['The worktree held uncommitted changes, so this run counts toward no proof: commit, then run again.'] }
-  const building = kind === 'full' || (prior?.branch === branch && prior.complete)
-  if (! building) { return [`No finished full run of ${branch} to build on: \`pnpm e2e\` first.`] }
+  const building = kind === 'full' || kind === 'touched' || (prior?.branch === branch && prior.complete)
+  if (! building) { return [`No finished full or touched run of ${branch} to build on: \`pnpm e2e\` (or \`pnpm e2e --touched\`) first.`] }
   const flakes = E2eLog.flakesOf(tally)
   return [
     ...cleared.map(({ spec, how }) => (how === 'flake' ? `A flake: ${spec} failed in the full run and passed alone, unchanged.` : `Repaired: ${spec}.`)),
     ...(tally?.complete === false ? ['The run broke before its specs could finish, so it proves nothing: see its output, and run it again.'] : []),
-    ...(proved ? [`Proved ${branch} on ${(tally?.top ?? '').slice(0, 8)}.`] : []),
+    ...(proved ? [`Proved ${branch} on ${(tally?.top ?? '').slice(0, 8)}${scopedSaid(tally?.scope, ', over its corner alone (', '): a bid takes it while every path the branch changes stays inside')}.`] : []),
     ...(proved && flakes.length > 0 ? [`Name these flakes in the PR's Tests: line: ${flakes.join('; ')}.`] : []),
     ...(! proved && tally?.complete ? ['Outstanding, to repair alone (`pnpm e2e:rerun`, or `pnpm e2e <spec file>`):', ...tally.outstanding.map((spec) => `  ${spec}`)] : []),
   ]
@@ -709,9 +931,11 @@ function e2eNotes(said: { kind: E2eLog.RunKind, committed: boolean, prior: E2eLo
 
 /**
  * What a bid needs of the branch before it takes the hold: a justify at its present patch-id,
- * and an e2e proof unless it changes only documents and notes. Refuses without them, and says,
- * when it does, whether e2e could notice any path the branch changes. A bid may say why e2e has
- * nothing to tell it (`skipE2e`) and go without a proof; a proof it has stands over the reason.
+ * and an e2e proof unless it changes only documents and notes. A proof scoped to a corner (`pnpm
+ * e2e --touched`) stands while every path the branch changes still reaches inside it; a path that
+ * reaches further leaves the branch as unproved as no proof would. Refuses without a proof, and
+ * says, when it does, whether e2e could notice any path the branch changes. A bid may say why e2e
+ * has nothing to tell it (`skipE2e`) and go without a proof; a proof it has stands over the reason.
  *
  * @returns Lines for the bid to pass on, naming the flakes the PR's Tests: line names.
  */
@@ -725,9 +949,17 @@ function proofOf(root: string, main: string, branch: string, skipE2e?: string): 
   const proved = configOf(root, `branch.${branch}.proved`)
   if (proved === undefined) { return skippingE2e(branch, changed, skipE2e) }
   const [provedOn = '', provedAt = ''] = proved.split(' ', 2)
-  const flakes = E2eLog.flakesOf(readTally(tallyfileOf(root)))
+  const tally = readTally(tallyfileOf(root))
+  const flakes = E2eLog.flakesOf(tally)
+  const scope = tally?.scope
+  if (scope !== undefined) {
+    const outside = outsideScope(changed, scope, specExistsIn(root))
+    const beyond = `${branch}'s e2e proof is scoped to its corner (${specnamesOf(scope)}), and ${outside.join(', ')} ${outside.length === 1 ? 'reaches' : 'reach'} beyond it`
+    if (skipE2e === undefined && outside.length > 0) { throw new SpineStop(`${beyond}: \`pnpm e2e --touched\` again, or \`pnpm e2e\`, then bid again.`) }
+    if (outside.length > 0) { return [`${beyond}.`, ...skippingE2e(branch, changed, skipE2e)] }
+  }
   return [
-    `e2e proved on ${provedOn.slice(0, 8)}${provedAt === patchid ? '' : ", before the branch's latest changes"}.`,
+    `e2e proved on ${provedOn.slice(0, 8)}${scopedSaid(scope, ', over its corner (', '), which still holds every path the branch changes')}${provedAt === patchid ? '' : ", before the branch's latest changes"}.`,
     flakes.length === 0 ? 'No flakes to report.' : `Flakes, for the PR's Tests: line: ${flakes.join('; ')}.`,
   ]
 }
