@@ -77,3 +77,12 @@ test among them); the full e2e runs at landing.
   once `sonarjs/no-clear-text-protocols`), on cases that feed a plain-http image address on
   purpose. `notes/stack.md`'s mustache entry names the second importer; `notes/vocabulary.md`'s
   *templated* entry says what filling in is.
+* **Review** (`fixed`): bf0c200 counts what tags fill in against `FilledMax` as it fills, so a
+  whole list filled again and again is stopped early; 8462415 gives templating a mustache writer
+  of its own, its cache emptied after each fill and check. Left open, minor, and in the PR:
+  - Two quick ticks in *Templates* can lose the first: each sends the whole list from the last
+    server state. A per-source action, or local pending state, would fix it.
+  - A long literal section can still repeat up to the pass budget before the final length check:
+    bounded, not stopped early.
+  - `{{#qns}}` walks archived questions too, as formulas do.
+  - The image tests could add entity-encoded and backslash addresses (checked by hand; they hold).
