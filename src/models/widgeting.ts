@@ -2,22 +2,23 @@ import * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import { PositionField } from '../lib/jsonball'
 import * as Labelmaker from '../lib/labelmaker'
+import { StampFieldnames } from '../lib/stamps'
 import * as UU from '../lib/useful'
 import * as PA from '../lib/vv/patterns'
 import { QuestionViewVals, QuestionWidgetLabel } from './column'
-import { Question, RankField } from './question'
+import { Question, RankField, VizField } from './question'
 import type { WidgetT } from './widget'
 
 /**
  * The labels no widgeting may take, because a question already answers to each in the bag, in a
- * column's source or in an export: its exposed fields, its rank, its place in a jsonball, the
- * views of it, and the questions themselves.
+ * column's source or in an export: its exposed fields, its rank, its place, viz and stamps in a
+ * jsonball, the views of it, and the questions themselves.
  */
-export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, PositionField, ...QuestionViewVals, QuestionWidgetLabel]
+export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, RankField, PositionField, VizField, ...StampFieldnames, ...QuestionViewVals, QuestionWidgetLabel]
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels)
 
-export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, uint, zid }) => {
+export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, uint, stamps, zid }) => {
   // Each field is named once, bare, then defaulted in the widgeting and made optional in its patch.
   const widgetingLabel = label.regex(Reserved.re, Reserved.msg)
     .describe('What the widgeting is called within its quiz, unique there and none of the names a question already answers to. Columns, the bag and exports name it by this.')
@@ -55,6 +56,7 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
     params,
     position: uint.max(PA.WidgetingsPerQuiz.max)
       .describe('Its place in its quiz\'s run order, counting from zero.'),
+    ...stamps,
   })
     .describe('One widgeting as the database holds it.')
 

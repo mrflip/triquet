@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { authTables } from '@convex-dev/auth/server'
 import type { Id, TableNames as AllTableNames } from '../../convex/_generated/dataModel'
 import schema from '../../convex/schema'
+import { StampedTables } from '../../convex/stamping'
 import { CategoryLabelVals } from '../../src/models/category'
 import { ColumnValidators } from '../../src/models/column'
 import { HuntValidators } from '../../src/models/hunt'
@@ -49,16 +50,25 @@ const RowValidators: Record<TableNames, RowValidator> = {
   widgeteds:   WidgetedValidators.row,
 }
 
+/** A row's stamps, which the trigger writes once the row has landed (`convex/stamping.ts`), so that a row goes in without them */
+const Stamps = ['created_at', 'updated_at']
+
 /**
  * The fields a row may lack for good, their absence meaning what the code reading them says: a
  * hunt nobody has arranged reads as the default wheel, and a column nobody has aligned centers
- * Q# and lets every other cell set itself
+ * Q# and lets every other cell set itself; and every stamped row's stamps, a row the trigger has
+ * not seen reading as made and last edited when the database made it (`Stamps.of`)
  */
-const Absentable: Partial<Record<TableNames, string[]>> = { hunts: ['wheel'], columns: ['align'] }
+const Absentable: Partial<Record<TableNames, string[]>> = {
+  ...Object.fromEntries(StampedTables.map((tablename) => [tablename, Stamps])),
+  hunts:   ['wheel', ...Stamps],
+  columns: ['align', ...Stamps],
+}
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
 const Backfilling: Partial<Record<TableNames, string[]>> = {
-  hunts: ['orglabel'],
+  hunts:     ['orglabel'],
+  questions: ['viz'],
 }
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
@@ -166,7 +176,7 @@ describe("every table and its row validator", () => {
 
       it("require every field, bar those absentable, being backfilled or retired", () => {
         const optional = shapes.flatMap((fields) => Object.keys(fields).filter((fieldname) => fields[fieldname]?.isOptional === 'optional'))
-        expect(optional.toSorted(alphabetically)).to.deep.eq([...(Absentable[tablename] ?? []), ...(Backfilling[tablename] ?? []), ...retiring].toSorted(alphabetically))
+        expect(_.uniq(optional).toSorted(alphabetically)).to.deep.eq([...(Absentable[tablename] ?? []), ...(Backfilling[tablename] ?? []), ...retiring].toSorted(alphabetically))
       })
 
       it("take a row the row validator makes", async () => {
@@ -203,6 +213,23 @@ describe("every table and its row validator", () => {
       }
       const notJson = { ...samples[tablename], [fieldname]: holding(new Date()) }
       expect(() => RowValidators[tablename].parse(notJson)).to.throw(Z.ZodError)
+    })
+  }
+
+  // Checks the bridge does not carry, made by the row validator alone: the table takes a row an
+  // older write may hold, so no push is refused for it, while every write now is held to them.
+  const ValidatorOnly = [
+    ['realms',     { label: 'away' },     "a realm labelled other than home"],
+    ['widgetings', { label: 'position' }, "a widgeting under a label its question's fields take"],
+  ] as const
+
+  for (const [tablename, overrides, title] of ValidatorOnly) {
+    it(`take ${title}, leaving the row validator to refuse it`, async () => {
+      const tt = openTester()
+      const samples = await samplesIn(tt)
+      const held = { ...samples[tablename], ...overrides }
+      await tt.run(async (ctx) => { await ctx.db.insert(tablename, held as never) })
+      expect(() => RowValidators[tablename].parse(held)).to.throw(Z.ZodError)
     })
   }
 })

@@ -91,10 +91,10 @@ describe("questions.open", () => {
     expect(present(await alice.as.query(api.questions.open, { question_id, affirms }))).to.deep.include({ chains_to: 'bb' })
   })
 
-  it("reads a reviewer what a review needs, the answer among it, and not the notes or what was stored", async () => {
+  it("reads a reviewer what a review needs, the answer and how it is shown among it, and not the notes or what was stored", async () => {
     const { question_id, alice, affirms } = await holding()
     expect(await alice.as.query(api.questions.open, { question_id, affirms })).to.deep.eq({
-      _id: question_id, label: 'aa', title: 'Danish prince', qnum: '', clueing: 'Who?', hint: 'Not a king.', chains_to: 'bb', full_answer: 'Hamlet',
+      _id: question_id, label: 'aa', title: 'Danish prince', qnum: '', clueing: 'Who?', hint: 'Not a king.', chains_to: 'bb', full_answer: 'Hamlet', viz: 'normal',
     })
   })
 

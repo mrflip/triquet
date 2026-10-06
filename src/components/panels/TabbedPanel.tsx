@@ -16,6 +16,8 @@ export type TabbedPanelProps = {
   title: string
   blurb: string
   tabs:  readonly PanelTab[]
+  /** The label of the tab shown first; the first tab when none is named, or the one named is not there */
+  shownFirst?: string
 }
 
 /**
@@ -24,8 +26,8 @@ export type TabbedPanelProps = {
  *
  * A hidden tab stays mounted, so what is typed or prepared in one survives a visit to another.
  */
-export function TabbedPanel({ title, blurb, tabs }: Readonly<TabbedPanelProps>) {
-  const [shownIdx, setShownIdx] = useState(0)
+export function TabbedPanel({ title, blurb, tabs, shownFirst }: Readonly<TabbedPanelProps>) {
+  const [shownIdx, setShownIdx] = useState(() => Math.max(0, tabs.findIndex((tab) => tab.label === shownFirst)))
   const idBase = useId()
   const tabId = (idx: number) => `${idBase}-tab-${String(idx)}`
   const sectionId = (idx: number) => `${idBase}-section-${String(idx)}`

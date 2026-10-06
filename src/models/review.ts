@@ -6,7 +6,7 @@ import { Validator } from '../lib/validator'
 export const ReviewPhaseVals = ['empty', 'draft', 'shared'] as const
 export type ReviewPhase = typeof ReviewPhaseVals[number]
 
-export const ReviewValidators = Validator(({ obj, oneof, noteish, zid }) => {
+export const ReviewValidators = Validator(({ obj, oneof, noteish, stamps, zid }) => {
   const phase = oneof(ReviewPhaseVals)
     .describe('How far the review has come. Nothing moves it back to `empty` once anything has been written; sharing and withdrawing move it between `draft` and `shared` only.')
   const overall = noteish
@@ -21,6 +21,7 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, zid }) => {
       .describe('Who is reviewing it.'),
     overall:  overall.default(''),
     phase:    phase.default('empty'),
+    ...stamps,
   })
     .describe('One ident\'s review of one quiz. Hidden from the smiths until shared: it is live once shared, not a snapshot.')
 
@@ -28,6 +29,9 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, zid }) => {
 })
 
 export type ReviewRowT = Z.output<typeof ReviewValidators.row>
+
+/** What a policy reads of a review: its hunt, its writer and its phase */
+export type ReviewPolicyT = Pick<ReviewRowT, 'hunt_id' | 'ident_id' | 'phase'>
 
 /**
  * The reviews of `reviews` that are shared: what the smiths' panel shows. (Whether a review
@@ -50,6 +54,8 @@ export class Review implements ReviewRowT {
   declare ident_id: ReviewRowT['ident_id']
   declare overall:  ReviewRowT['overall']
   declare phase:    ReviewPhase
+  declare created_at: number
+  declare updated_at: number
 
   /**
    * Whether `review` is shared: visible beyond its writer.

@@ -1,6 +1,7 @@
 import * as EST from 'es-toolkit'
 import type * as Z from 'zod'
 import { Validator } from './validator'
+import type { IsoStampsT } from './stamps'
 import type { ColumnT } from '../models/column'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
@@ -38,8 +39,8 @@ export type JsonballT = Record<string, unknown>
  */
 export const PositionField = 'position'
 
-/** The hunt's own fields, which sit at the root of the merged hunt: its title as shown */
-export type HuntBodyT = Pick<HuntT, 'label' | 'title' | 'branch'>
+/** The hunt's own fields, which sit at the root of the merged hunt: its title as shown, and its stamps as a person reads them */
+export type HuntBodyT = Pick<HuntT, 'label' | 'title' | 'branch'> & IsoStampsT
 
 /** One subject category: the slot of the hunt's wheel it holds, or null for one in the pool */
 export type CategoryBodyT = { position: number | null }
@@ -51,11 +52,11 @@ export type MemberBodyT = { title: string, role: HuntRole }
 export type WidgetedBodyT = Pick<WidgetedT, 'status' | 'value'>
 
 /**
- * One question, by its label: its place in the quiz, its own fields, its chain by the label of the
- * question it points at, and beside them what each widgeting of the quiz came to, under the
- * widgeting's label.
+ * One question, by its label: its place in the quiz, its own fields (how it is shown among them),
+ * its chain by the label of the question it points at, its stamps as a person reads them, and beside them what each widgeting of
+ * the quiz came to, under the widgeting's label.
  */
-export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer'> & {
+export type QuestionBodyT = Pick<QuestionT, 'qnum' | 'clueing' | 'hint' | 'title' | 'alt_text' | 'notes' | 'full_answer' | 'viz'> & IsoStampsT & {
   position:  number
   chains_to: string | null
   [widgeting_label: string]: unknown
@@ -67,8 +68,8 @@ export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 /** One column, by its label: its place in the grid, and its fields */
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
-/** One quiz, by its label: its own fields (its sort memory among them), and its questions, widgetings and columns, each keyed by label */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & {
+/** One quiz, by its label: its own fields (its sort memory among them), its stamps, and its questions, widgetings and columns, each keyed by label */
+export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & IsoStampsT & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
@@ -77,11 +78,11 @@ export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'l
 /** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */
 export const VerdictFieldnames = ['get_rate', 'guesses', 'comments', 'minutes', 'keep_it', 'needs_fact_check', 'elimination_candidate'] as const
 
-/** One reviewer's verdict on one question, by the question's label */
-export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]>
+/** One reviewer's verdict on one question, by the question's label, and its stamps */
+export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]> & IsoStampsT
 
-/** One shared review of one quiz, by the reviewer's label: what they made of it, and their verdict on each question */
-export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & { verdicts: Record<string, VerdictBodyT> }
+/** One shared review of one quiz, by the reviewer's label: what they made of it, its stamps, and their verdict on each question */
+export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & IsoStampsT & { verdicts: Record<string, VerdictBodyT> }
 
 /** One widget of the library, by its scope and label: its place in the library, and its fields */
 export type WidgetBodyT = DistributiveOmit<WidgetT, 'scope' | 'label'> & { position: number }
@@ -147,8 +148,12 @@ export function listedOf(collection: readonly unknown[] | Readonly<Record<string
   return EST.sortBy(members, [placeOf]).map(([label, member]) => (EST.isPlainObject(member) ? { ...member, label } : member))
 }
 
-/** How a paste was read: a bare list of questions, one quiz unwrapped, quizzes by realm, or a ball that holds no quiz */
-export const PastedShapeVals = ['list', 'quiz', 'hunt', 'none'] as const
+/**
+ * How a paste was read: a bare list of questions; one quiz unwrapped; one quiz's ball (quizzes by
+ * realm holding exactly one quiz, and nothing beside); a hunt (quizzes by realm holding several, or
+ * the hunt's own fields beside them, or an older export of every quiz); or a ball that holds no quiz
+ */
+export const PastedShapeVals = ['list', 'quiz', 'ball', 'hunt', 'none'] as const
 export type PastedShape = typeof PastedShapeVals[number]
 
 export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, label, titleish }) => {
@@ -218,13 +223,18 @@ export type PastedT = { shape: PastedShape, quizzes: PastedQuizT[] }
  * The quizzes a paste holds, in whatever shape it arrived: a bare list of questions; one quiz
  * unwrapped (a quiz's own history file, or the questions alone, `{ questions: { ... } }`); quizzes
  * by realm and label (a quiz's ball, a merged hunt, or a hunt or workspace from an older export);
- * or another ball, which holds none. Null for what is no such shape.
+ * or another ball, which holds none. Null for what is no such shape. Quizzes by realm and label are
+ * one quiz's ball (`ball`) when they are one quiz and the paste holds nothing beside them, and a
+ * hunt (`hunt`) otherwise: a Raw Export carries the hunt's own fields at its root, whatever it
+ * holds. An older export of every quiz, in lists, is a hunt.
  *
  * @param raw - The paste, parsed.
  *
  * @example quizzesIn([{ label: 'leon' }])?.shape  // => 'list'
  * @example quizzesIn({ questions: { leon: { position: 0 } } })?.quizzes[0]?.questions  // => [{ position: 0, label: 'leon' }]
  * @example quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.quizzes[0]?.label  // => 'legends'
+ * @example quizzesIn({ quizzes: { home: { legends: { title: 'Legends' } } } })?.shape  // => 'ball'
+ * @example quizzesIn({ label: 'spring_hunt', quizzes: { home: { legends: { title: 'Legends' } } } })?.shape  // => 'hunt'
  * @example quizzesIn({ categories: {} })?.shape  // => 'none'
  * @example quizzesIn('legends')  // => null
  */
@@ -232,7 +242,17 @@ export function quizzesIn(raw: unknown): PastedT | null {
   if (isList(raw)) { return { shape: 'list', quizzes: [{ label: null, title: null, fields: {}, questions: [...raw], widgetings: [], columns: null }] } }
   if (! EST.isPlainObject(raw)) { return null }
   const read = readQuizzes(raw)
-  return read && { shape: read.shape, quizzes: read.quizzes.map(([key, quiz]) => pastedQuizOf(quiz, key)) }
+  if (! read) { return null }
+  const quizzes = read.quizzes.map(([key, quiz]) => pastedQuizOf(quiz, key))
+  return { shape: read.shape === 'hunt' && isOneQuizBall(raw, quizzes) ? 'ball' : read.shape, quizzes }
+}
+
+/** The key under which a ball holds its quizzes, by realm and label */
+const QuizHolderKeys = new Set(['quizzes'])
+
+/** Whether quizzes read by realm are one quiz's ball: keyed by realm and label (not an older export's lists), one quiz, and nothing of a hunt's own beside it */
+function isOneQuizBall(raw: Record<string, unknown>, quizzes: readonly PastedQuizT[]): boolean {
+  return EST.isPlainObject(raw.quizzes) && quizzes.length === 1 && Object.keys(raw).every((key) => QuizHolderKeys.has(key))
 }
 
 /** The quizzes of a pasted object, each with the key it sat under, by the shape it is in; null when it holds a shape that will not read */

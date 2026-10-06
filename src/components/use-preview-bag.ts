@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import * as Runner from '../lib/formulary/runner'
 import * as Rank from '../lib/rank'
 import type { ShallowHuntT } from '../lib/rows'
-import type { QuestionT } from '../models/question'
+import { Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import { useOtherQuiz } from '../state/use-other-quiz'
@@ -47,7 +47,7 @@ export function usePreviewBag(hunt: ShallowHuntT, library: readonly WidgetT[], o
   const picked = quiz_id === openQuiz._id ? null : quizzes.find((row) => row._id === quiz_id) ?? null
   const other = useOtherQuiz(hunt, picked?._id ?? null)
   const quiz: QuizT | null = picked ? other : openQuiz
-  const ranked = useMemo(() => Rank.inRankOrder(quiz?.questions ?? []), [quiz])
+  const ranked = useMemo(() => Rank.inRankOrder(Question.unarchived(quiz?.questions ?? [])), [quiz])
   const question = ranked.find((held) => held._id === question_id) ?? ranked[0]
   const realm = quiz && hunt.realms.find((held) => held.quizzes.some((row) => row._id === quiz._id))
   const bags = useMemo((): ReadonlyMap<string, Runner.QuizBag> => {

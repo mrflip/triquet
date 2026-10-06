@@ -10,7 +10,9 @@ import { SeedWidgets } from '../../src/models/seeds'
 // and compares; these write one into rows. A fixture's ids are its own: the rows get the
 // database's, and a chain is written as the label of the question it names, as the rows hold
 // it. What a question's widgetings stored is not written; a test records it through
-// `record_widgeted`.
+// `record_widgeted`. Written raw, the rows carry no stamps, as rows the stamping trigger has never
+// seen: each reads as made, and not edited, when the database made it (`Stamps.of`), until a test
+// edits it through a mutation.
 
 /**
  * `quiz`, a fixture, written into rows in the realm `place` names: its own row, its questions in
@@ -27,7 +29,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   const row_ordering: Id<'questions'>[] = []
   for (const question of quiz.questions) {
-    const { label: questionLabel, title: questionTitle, qnum, clueing, hint, full_answer, alt_text, notes } = question
+    const { label: questionLabel, title: questionTitle, qnum, clueing, hint, full_answer, alt_text, notes, viz } = question
     const row = QuestionValidators.row({
       hunt_id,
       quiz_id,
@@ -40,6 +42,7 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
       full_answer,
       alt_text,
       notes,
+      viz,
     })
     row_ordering.push(await db.insert('questions', row))
   }

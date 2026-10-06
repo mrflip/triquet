@@ -11,7 +11,7 @@ describe('ReviewValidators.row', () => {
     expect(ReviewValidators.row(Row)).to.deep.eq(Row)
   })
 
-  it('defaults overall to empty and phase to empty', () => {
+  it('defaults overall to empty and phase to empty, and leaves the stamps to the database', () => {
     expect(ReviewValidators.row({ hunt_id: Row.hunt_id, quiz_id: Row.quiz_id, ident_id: Row.ident_id })).to.deep.eq(Row)
   })
 

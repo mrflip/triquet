@@ -60,6 +60,18 @@ export const ValidatorKit = {
   identlabel: CK.identlabel,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
+  /**
+   * A row's stamps, to spread into its row validator: when it was made and last edited, in epoch
+   * milliseconds (`Stamps`). Written by the database's trigger once a write lands
+   * (`convex/stamping.ts`), never by a writer, so a row goes in without them and they are optional
+   * for good.
+   */
+  stamps:    {
+    created_at: Z.int().positive().optional()
+      .describe('When the row was made, in epoch milliseconds: the whole millisecond of its `_creationTime`, written by the database\'s trigger and never changed after.'),
+    updated_at: Z.int().positive().optional()
+      .describe('When the row was last written, in epoch milliseconds: the same as `created_at` until its first edit, and the moment of each edit after.'),
+  },
   //
   num:       Z.number(),
   int:       Z.int(),

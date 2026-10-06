@@ -15,6 +15,7 @@ const Blank = {
   keep_it: false, needs_fact_check: false, elimination_candidate: false, peeked: false,
 } as const
 
+
 describe('ReviewingValidators.row', () => {
   it('defaults every verdict to unsaid, and the answer to unseen', () => {
     expect(ReviewingValidators.row(Ids)).to.deep.eq(Blank)

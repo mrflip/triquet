@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/prefer-combined-guards -- one guard per rule, each beside its rule, as notes/policy_approve.md asks */
 import type { AccountActionT, HuntActionT, LibraryActionT, QuizRevisionKind } from '../models/actions'
 import { Quiz, type QuizRowT } from '../models/quiz'
-import { Review, type ReviewRowT } from '../models/review'
+import { Review, type ReviewPolicyT } from '../models/review'
 import { Validator } from './validator'
 import * as Actor from './actor'
 import { AuthorizationError, type Story } from './errors'
@@ -163,7 +163,7 @@ export function mayWriteReview(claims: Actor.HuntClaimsT): VerdictT {
  *
  * @example Approve.mayReadReview(review, claims, ownReview)  // => 'allow', for a reviewer whose own is shared too
  */
-export function mayReadReview(review: ReviewRowT, claims: Actor.HuntClaimsT, ownReview: ReviewRowT | null): VerdictT {
+export function mayReadReview(review: ReviewPolicyT, claims: Actor.HuntClaimsT, ownReview: ReviewPolicyT | null): VerdictT {
   if (Actor.isAnonymous(claims))            { return 'notIdentified' } // Nobody who has asserted no username
   if (review.hunt_id !== claims.hunt_id)    { return 'notPermitted' }  // Claims on another hunt say nothing of this one
   if (Review.isActiveOwner(review, claims)) { return Allow }           // One's own review, while one is on its hunt
@@ -322,7 +322,7 @@ type EvidenceT = {
 } & {
   read_hunt:         [claims: Actor.HuntClaimsT]
   export_hunt:       [claims: Actor.HuntClaimsT]
-  read_review:       [review: ReviewRowT, claims: Actor.HuntClaimsT, ownReview: ReviewRowT | null]
+  read_review:       [review: ReviewPolicyT, claims: Actor.HuntClaimsT, ownReview: ReviewPolicyT | null]
   read_library:      [actor: Actor.ActorT]
   change_library:    [actor: Actor.ActorT]
   count_usage:       [actor: Actor.ActorT]
@@ -369,6 +369,7 @@ const ContentPolicies = {
   edit_question:       mayReviseClaimedQuiz,
   add_question:        mayReviseClaimedQuiz,
   delete_questions:    mayReviseClaimedQuiz,
+  set_viz:             mayReviseClaimedQuiz,
   sort_questions:      mayReviseClaimedQuiz,
   renumber_qnums:      mayReviseClaimedQuiz,
   move_question:       mayReviseClaimedQuiz,

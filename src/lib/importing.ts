@@ -58,9 +58,32 @@ export type FieldLogEntry = {
   reason:    string | null
 }
 
+/**
+ * Where a hunt's quiz goes when the hunt is pasted into a quiz matching none of its quizzes: the
+ * quiz of the hunt answering to its label, made for it when there is none, where the paste is
+ * imported again, taking that quiz (`ImportOptionsT.take`)
+ */
+export type ElsewhereT = {
+  /** The pasted quiz's label, which names the quiz it goes to; null when the paste names none, and a fresh one is wanted */
+  label: string | null
+  /** Which of the paste's quizzes it is, by its place among them */
+  take:  number
+}
+
+/** How a paste is read beyond what it holds */
+export type ImportOptionsT = {
+  /**
+   * Which of the paste's quizzes to import, by its place among them, whatever this quiz's label and
+   * title: the one another quiz's Import sent here (`ElsewhereT`)
+   */
+  take?: number
+}
+
 export type ImportOutcome = {
   /** True when everything validated; false when anything was skipped or nothing could be read */
   ok:            boolean
+  /** Where the paste goes instead, when it is a hunt none of whose quizzes matches this one; null when it is read here */
+  elsewhere:     ElsewhereT | null
   /** The one-line result shown next to the button */
   summary:       string
   /** A line per question, and a nested line per validation issue */
@@ -87,9 +110,12 @@ export type ImportOutcome = {
  * `pasted` read against `quiz`, as the questions to send.
  *
  * The paste may be any jsonball or merge of them (Raw Export, a quiz's ball, its questions alone),
- * any shape an older export had, or a bare list of questions (`Jsonball.quizzesIn`); holding
- * several quizzes, the one matching this quiz is read. Questions and widgetings keyed by label are
- * read in order of their `position`.
+ * any shape an older export had, or a bare list of questions (`Jsonball.quizzesIn`). One quiz (a
+ * quiz's ball, its questions alone, a bare list) is read into this quiz, whatever it is called. A
+ * hunt is read for its quiz matching this one, by label and failing that by title; matching none,
+ * nothing is read here, and the outcome says where its first quiz goes instead (`elsewhere`): to
+ * the quiz of the hunt answering to its label, made for it if need be, as labels are unique within
+ * a hunt. Questions and widgetings keyed by label are read in order of their `position`.
  *
  * Questions are matched to existing ones **by label**: the one name that survives both the
  * author rewriting a question's title and a round trip through another tool. An export made while
@@ -126,13 +152,16 @@ export type ImportOutcome = {
  * @param quiz - The quiz on screen.
  * @param pasted - Whatever is in the Import box.
  * @param library - The library's widgets, which a pasted widgeting must name.
- * @returns The questions and widgeting actions to send, a one-line summary, and a line per pasted question and widgeting.
+ * @param options - Which of the paste's quizzes to read, when another quiz's Import sent it here.
+ * @returns The questions and widgeting actions to send, a one-line summary, and a line per pasted question and widgeting; or where the paste goes instead.
  *
  * @example importInto(quiz, '[{"label":"quiet_otter","clueing":"Which region?"}]', library)
+ * @example importInto(quiz, rawExportOfAnotherHunt, library).elsewhere  // => { label: 'legends', take: 0 }
  */
-export function importInto(quiz: QuizT, pasted: string, library: readonly WidgetT[]): ImportOutcome {
-  const nothing = { log: [], questions: null, widgetingLog: [], widgetingActions: [], columnLog: [], columnActions: [], fieldLog: [], fieldActions: [], actions: [] }
-  const payload = readPayload(pasted, quiz)
+export function importInto(quiz: QuizT, pasted: string, library: readonly WidgetT[], options: ImportOptionsT = {}): ImportOutcome {
+  const nothing = { elsewhere: null, log: [], questions: null, widgetingLog: [], widgetingActions: [], columnLog: [], columnActions: [], fieldLog: [], fieldActions: [], actions: [] }
+  const payload = readPayload(pasted, quiz, options)
+  if (payload.ok === 'elsewhere') { return { ...nothing, ok: true, summary: payload.summary, elsewhere: payload.elsewhere } }
   if (! payload.ok) { return { ok: false, summary: payload.summary, ...nothing } }
 
   const incoming = payload.quiz.questions
@@ -157,6 +186,7 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
 
   return {
     ok:               skipped === 0 && ! anySkipped,
+    elsewhere:        null,
     summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${widgetingSummary(widgetings.log)}${columnSummary(columns.log)}${fieldSummary(fields.log)} — see log below. Renumbered Q# by rank.`,
     log:              merge.log,
     questions,
@@ -455,16 +485,19 @@ function readOneQuestion(merge: MergeState, held: ReadonlySet<string>, entries: 
 
 type PayloadReading =
   | { ok: true, quiz: Jsonball.PastedQuizT, reading: string }
+  | { ok: 'elsewhere', elsewhere: ElsewhereT, summary: string }
   | { ok: false, summary: string }
 
 /**
  * The pasted text read as whichever shape it is (`Jsonball.quizzesIn`): a bare list of questions,
  * one quiz, or quizzes by realm, from any ball, any merge of them, or any older export.
  *
- * Given several quizzes, it takes the one matching the open quiz by label, failing that by name,
- * failing that the first one -- and says which reading it took, so the author is never guessing.
+ * One quiz is taken whatever it is called. Of a hunt's, it takes the one `options.take` names; else
+ * the one matching the open quiz by label, failing that by name; failing both, it reads none here,
+ * and sends the first to the quiz of its own label. It says which reading it took, so the author is
+ * never guessing.
  */
-function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
+function readPayload(pasted: string, openQuiz: QuizT, options: ImportOptionsT): PayloadReading {
   let raw: unknown
   try {
     raw = JSON.parse(pasted)
@@ -475,17 +508,38 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
   const read = Jsonball.quizzesIn(raw)
   if (read === null) { return { ok: false, summary: "That isn't a shape this tool recognises, so nothing was changed. Your text is still here." } }
   if (read.shape === 'none') { return { ok: false, summary: 'That holds no quiz and no questions, so nothing was changed. Your text is still here.' } }
+  const taken = options.take === undefined ? undefined : read.quizzes[options.take]
+  if (taken) {
+    return { ok: true, quiz: taken, reading: `Read its quiz ${quizNamed(taken)}, sent here from another quiz's Import, with ${String(taken.questions.length)} question(s).` }
+  }
   if (read.shape !== 'hunt') {
     const [quiz = EmptyQuiz] = read.quizzes
-    return { ok: true, quiz, reading: `Read as ${read.shape === 'list' ? 'a bare list' : 'one quiz'} of ${String(quiz.questions.length)} question(s).` }
+    return { ok: true, quiz, reading: `Read as ${ShapeTitles[read.shape]} of ${String(quiz.questions.length)} question(s).` }
   }
+  const counted = `Read as a hunt of ${String(read.quizzes.length)} quiz(zes)`
   const chosen = quizFromExport(read.quizzes, openQuiz)
-  if (! chosen) { return { ok: false, summary: 'That holds no quizzes, so nothing was changed.' } }
-  return {
-    ok:      true,
-    quiz:    chosen,
-    reading: `Read as a hunt of ${String(read.quizzes.length)} quiz(zes); ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).`,
+  if (! chosen) {
+    const [first] = read.quizzes
+    if (! first) { return { ok: false, summary: 'That holds no quizzes, so nothing was changed.' } }
+    return {
+      ok:        'elsewhere',
+      elsewhere: { label: first.label, take: 0 },
+      summary:   `${counted}; none matches this quiz, so its first, ${quizNamed(first)}, goes to the quiz of its own label in this hunt: opening it.`,
+    }
   }
+  return { ok: true, quiz: chosen, reading: `${counted}; ${howChosen(chosen, openQuiz)}, with ${String(chosen.questions.length)} question(s).` }
+}
+
+/** What the summary calls a shape holding one quiz */
+const ShapeTitles: Readonly<Record<Exclude<Jsonball.PastedShape, 'hunt' | 'none'>, string>> = {
+  list: 'a bare list',
+  quiz: 'one quiz',
+  ball: "one quiz's ball",
+}
+
+/** A pasted quiz as the summary names it: by its label, or its title, or as untitled */
+function quizNamed(quiz: Jsonball.PastedQuizT): string {
+  return `“${quiz.label ?? quiz.title ?? 'untitled'}”`
 }
 
 /** A paste's quiz when it holds none */
@@ -493,16 +547,14 @@ const EmptyQuiz: Jsonball.PastedQuizT = { label: null, title: null, fields: {}, 
 
 /** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: Jsonball.PastedQuizT, openQuiz: QuizT): string {
-  if (chosen.label === openQuiz.label) { return 'matched this quiz by label' }
-  return (chosen.title ?? '') === openQuiz.title ? 'matched this quiz by name' : 'took the first quiz'
+  return chosen.label === openQuiz.label ? 'matched this quiz by label' : 'matched this quiz by name'
 }
 
-/** An export's quiz chosen against the one on screen: by label, then by name, failing both the first */
+/** An export's quiz chosen against the one on screen: by label, then by name; none when neither matches */
 function quizFromExport(quizzes: readonly Jsonball.PastedQuizT[], openQuiz: QuizT): Jsonball.PastedQuizT | undefined {
   const { label } = openQuiz
   return quizzes.find((quiz) => quiz.label === label)
     ?? quizzes.find((quiz) => (quiz.title ?? '') === openQuiz.title)
-    ?? quizzes[0]
 }
 
 /**

@@ -62,3 +62,13 @@
   quizzes carries the first quiz's title, notes and columns [carry them only on a label or title
   match, or a single-quiz paste]; a column re-added for its alignment can clear the quiz's sort
   memory; an export imported into a brand-new quiz lands after its five starter questions.
+* **2026-10-06: thread 8 landed as #140** (stacked on #138, since #133 and those beneath it
+  merged): question `viz`, `created_at`/`updated_at` stamped by convex-helpers Triggers, the
+  realm pinned to `home`, an unmatched whole-hunt paste going to its own quiz, archived and
+  secondary questions in the views and exports, and `notes/decisions/urls.md` holding the URL,
+  key-path and file rules. **Before merging #140:** check production for widgetings labelled
+  `position`, `viz`, `created_at` or `updated_at` (the command in #140's body; look it over first,
+  it hasn't been run against production). **After merging:** one `migrations:runAll` on
+  production, dry run first, covers thread 7's and thread 8's backfills; then one tighten PR
+  (`orglabel`, `viz`). The first history commit after deploy rewrites every hunt's files once.
+

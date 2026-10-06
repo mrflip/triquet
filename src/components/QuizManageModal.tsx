@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, Link, Stack, TextField, Typography } from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, IconButton, Link, List, ListItem, ListItemText, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
+import UnarchiveOutlinedIcon from '@mui/icons-material/UnarchiveOutlined'
 import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
@@ -14,6 +16,7 @@ import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { HuntActionDNA, LibraryActionDNA } from '../models/actions'
 import { HuntValidators } from '../models/hunt'
+import { Question, type QuestionT } from '../models/question'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
@@ -44,14 +47,17 @@ export type QuizManageModalProps = {
   onDeleteQuiz:  () => void
   /** Delete this quiz, the hunt's last, with the hunt, and go back to the hunts list */
   onDeleteHunt:  () => void
+  /** Delete one question of this quiz, an archived one, at once */
+  onDeleteQuestion: (question_id: string) => void
 }
 
 /**
  * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
- * a quick way to open any other quiz in the realm by name, the hunt's title and label, and, fenced
- * off at the foot, deleting the quiz -- or, when it is the hunt's last, the quiz and its hunt.
+ * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
+ * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
+ * -- or, when it is the hunt's last, the quiz and its hunt.
  */
-export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt }: Readonly<QuizManageModalProps>) {
+export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, offers, dispatch, changeLibrary, onOpen, onEditLibrary, onRetitleHunt, onRelabelHunt, onDeleteQuiz, onDeleteHunt, onDeleteQuestion }: Readonly<QuizManageModalProps>) {
   const [draft, setDraft] = useState(quiz.label)
   const [issue, setIssue] = useState<string | null>(null)
   const [noted, setNoted] = useState<string | null>(null)
@@ -207,6 +213,13 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
             </Stack>
           </section>
 
+          <ArchivedQuestions
+            questions={quiz.questions.filter((question) => Question.isArchived(question))}
+            revisable={offers.reviseQuestions}
+            onUnarchive={(question_id) => { dispatch({ kind: 'set_viz', question_ids: [question_id], viz: 'normal' }) }}
+            onDelete={onDeleteQuestion}
+          />
+
           <DangerZone
             acts={[deleting]}
           />
@@ -217,5 +230,65 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
         <Button onClick={onApply} variant="contained" disabled={! offers.reviseQuiz}>Apply</Button>
       </DialogActions>
     </Dialog>
+  )
+}
+
+type ArchivedQuestionsProps = {
+  /** The quiz's archived questions, in its order */
+  questions:   readonly QuestionT[]
+  /** Whether the questions may be changed: un-archived or deleted */
+  revisable:   boolean
+  onUnarchive: (question_id: string) => void
+  onDelete:    (question_id: string) => void
+}
+
+/**
+ * The quiz's archived questions, which no other screen shows: each by its title and the start of
+ * its clueing, with a button to bring it back to the grid and one to delete it, which asks nothing
+ * first.
+ */
+function ArchivedQuestions({ questions, revisable, onUnarchive, onDelete }: Readonly<ArchivedQuestionsProps>) {
+  return (
+    <section>
+      <Typography variant="h6" component="h3">Archived questions</Typography>
+      <p className={styles.microcopy}>
+        Put away from the grid, the playtest and the exports, but kept with the quiz. Un-archive one
+        to bring it back to the grid; deleting one is at once, and for good.
+      </p>
+      {questions.length === 0 ? <p className={styles.microcopy}>{AppNotices.noArchivedQuestions}</p> : (
+        <List dense disablePadding aria-label="Archived questions">
+          {questions.map((question) => {
+            const named = Question.titleShown(question, question.label)
+            return (
+              <ListItem
+                key={question._id}
+                disableGutters
+                secondaryAction={(
+                  <Stack direction="row">
+                    <Tooltip title="Un-archive: back to the grid">
+                      <span>
+                        <IconButton aria-label={`Un-archive ${named}`} disabled={! revisable} onClick={() => { onUnarchive(question._id) }}>
+                          <UnarchiveOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Delete, at once and for good">
+                      <span>
+                        <IconButton aria-label={`Delete ${named}`} color="error" disabled={! revisable} onClick={() => { onDelete(question._id) }}>
+                          <DeleteOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                )}
+                sx={{ pr: 10 }}
+              >
+                <ListItemText primary={named} secondary={question.clueing.replaceAll(/\s+/g, ' ').trim()} slotProps={{ secondary: { noWrap: true } }} />
+              </ListItem>
+            )
+          })}
+        </List>
+      )}
+    </section>
   )
 }

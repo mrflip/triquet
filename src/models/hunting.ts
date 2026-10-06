@@ -12,7 +12,7 @@ export type HuntRole = typeof HuntRoleVals[number]
 /** Each role as the screen names it */
 export const HuntRoleTitles = { smith: 'Smith', reviewer: 'Reviewer' } as const satisfies Record<HuntRole, string>
 
-export const HuntingValidators = Validator(({ obj, oneof, zid }) => {
+export const HuntingValidators = Validator(({ obj, oneof, stamps, zid }) => {
   const role = oneof(HuntRoleVals)
     .describe('What the ident does on the hunt: a smith makes its quizzes and says who else is on it; a reviewer playtests them.')
 
@@ -26,6 +26,7 @@ export const HuntingValidators = Validator(({ obj, oneof, zid }) => {
     ident_title: IdentValidators.title
       .describe('What who is on it is called, copied from the ident: retitling an ident rewrites it on every hunting the ident has.'),
     role,
+    ...stamps,
   })
     .describe('One ident\'s place on one hunt: at most one per hunt and ident, its role replaced rather than a second made.')
 

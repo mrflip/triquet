@@ -57,16 +57,24 @@ it, so that **deep-merging every `*.tq?.json` in the repository reconstitutes th
 as Raw Export emits it.
 
 ```jsonc
-// quizzes/home/legends.tqq.json -- the whole quiz, its questions included
-{ "quizzes": { "home": { "legends": { "title": "…", "locked": false, "last_sortkey": "column:title", "questions": { "leon": { "position": 0, … } }, "widgetings": { … }, "columns": { … } } } } }
-// quizzes/home/legends/questions.qq.json -- the exception: the questions alone, rooted at the quiz, not merged
-{ "questions": { "leon": { "position": 0, "qnum": "1", "clueing": "…", "chains_to": "nantes", "dumdum": { "status": "ok", "value": … } }, … } }
+// quizzes/home/legends.tqq.json -- the whole quiz, its questions included, the archived among them
+{ "quizzes": { "home": { "legends": { "title": "…", "locked": false, "last_sortkey": "column:title", "created_at": "2026-10-05T09:30:00.000Z", "updated_at": "…", "questions": { "leon": { "position": 0, "viz": "normal", … } }, "widgetings": { … }, "columns": { … } } } } }
+// quizzes/home/legends/questions.qq.json -- the exception: the questions alone, but the archived, rooted at the quiz, not merged
+{ "questions": { "leon": { "position": 0, "qnum": "1", "clueing": "…", "chains_to": "nantes", "viz": "normal", "created_at": "…", "updated_at": "…", "dumdum": { "status": "ok", "value": … } }, … } }
 ```
 
 **The one exception is a quiz's questions alone**, `questions.qq.json`, beside the quiz's own
 file in a directory named for it. It holds the questions a second time, on purpose, as the
 quiz's ball holds them but rooted at the quiz, naming no quiz, so it pastes straight into any
-quiz's Import. Its `.qq` pre-extension keeps it out of the `*.tq?.json` merge.
+quiz's Import. Its `.qq` pre-extension keeps it out of the `*.tq?.json` merge. It leaves the
+archived questions out, as every export handed on does, and so does its table; the quiz's own
+ball keeps them, each with its `viz`, so the merge is the quiz whole.
+
+**Stamps** (`created_at`, `updated_at`) are written as ISO-8601 in UTC wherever a row carries
+them: the hunt's own, each quiz's and question's, each shared review's and verdict's. Since they
+move with every edit of their row, they change a file whenever anything else in it does; the
+first commit after they arrived changed every file once. A commit message names what an edit
+changed and never the stamps (`Changes`).
 
 **No arrays: every collection is an object keyed by label** (settled 2026-10-05). A merge cannot
 know that two arrays' elements are the same thing, and merge libraries disagree about arrays
@@ -141,12 +149,12 @@ against the real git and jq. `es-toolkit`'s `merge` does the same inside the app
 
 | Resource | Rows it is made from | Jsonball, and where its piece sits | TSV |
 |---|---|---|---|
-| Hunt | `hunts` | `hunt.tqh.json`: `{ label, title, branch }` at the root | `hunt.tqh.tsv` (one row) |
+| Hunt | `hunts` | `hunt.tqh.json`: `{ label, title, branch, created_at, updated_at }` at the root | `hunt.tqh.tsv` (one row) |
 | Categories | `hunts.wheel` | `categories.tqc.json`: `{ categories: { <label>: { position } } }`, every category, `position: null` for one in the pool | `categories.tqc.tsv` (a row per category) |
 | Members | `huntings` | `members.tqm.json`: `{ members: { <ident_label>: { title, role } } }` | `members.tqm.tsv` (a row per member) |
-| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | `quizzes/<realm>/<quiz>.tqq.json`: `{ quizzes: { <realm>: { <quiz>: { title, smiths_note, q1_preamble, locked, last_sortkey, questions, widgetings, columns } } } }`; each collection keyed by label with `position`, chains by label, each question with every widgeting's `{ status, value }` beside its fields | `<quiz>.tqq.tsv` (one row, questions left out) |
-| Questions, alone | the same questions | `quizzes/<realm>/<quiz>/questions.qq.json`: `{ questions: { … } }`, rooted at the quiz, **not merged** | `questions.qq.tsv` (a row per question) |
-| Review | `reviews` + `reviewings`, **shared only** | `quizzes/<realm>/<quiz>/reviews/<ident_label>.tqr.json`: `…<quiz>: { reviews: { <ident_label>: { overall, verdicts: { <question label>: { … } } } } }` | `<ident_label>.tqr.tsv` (a row per question) |
+| Quiz | `quizzes`, `questions` + `widgeteds`, `widgetings`, `columns` | `quizzes/<realm>/<quiz>.tqq.json`: `{ quizzes: { <realm>: { <quiz>: { title, smiths_note, q1_preamble, locked, last_sortkey, created_at, updated_at, questions, widgetings, columns } } } }`; each collection keyed by label with `position`, chains by label, every question (the archived too) with its `viz` and stamps, and every widgeting's `{ status, value }` beside its fields | `<quiz>.tqq.tsv` (one row, questions left out) |
+| Questions, alone | the same questions, **but the archived** | `quizzes/<realm>/<quiz>/questions.qq.json`: `{ questions: { … } }`, rooted at the quiz, **not merged**, each `position` among those it holds | `questions.qq.tsv` (a row per question) |
+| Review | `reviews` + `reviewings`, **shared only** | `quizzes/<realm>/<quiz>/reviews/<ident_label>.tqr.json`: `…<quiz>: { reviews: { <ident_label>: { overall, created_at, updated_at, verdicts: { <question label>: { …, created_at, updated_at } } } } }` | `<ident_label>.tqr.tsv` (a row per question) |
 | Widget worked | `widgets` (the library's) | `<scope>/widgets/<label>.tqw.json` (`pub/widgets/dumdum.tqw.json`, at the path of its address, `/pub/widgets/dumdum`): `{ <scope>: { widgets: { <label>: { position, … } } } }`, as `Widget.exported` gives it, `position` its place in the library | `<label>.tqw.tsv` (one row, its `config` one cell of JSON) |
 
 A `README.md` at the root (`Huntfiles.Readme`) says what the repository is, what each file
@@ -173,12 +181,16 @@ every hunt and never changes with one: written once, when the repository is made
 ## Reading a ball back in
 
 The quiz's Import reads any of these balls, any merge of them, and every older export's shape
-(`Importing.importInto`, whose doc block is the rule). It carries the whole quiz; into a quiz
+(`Importing.importInto`, whose doc block is the rule). One quiz (a quiz's ball, its questions
+alone, a bare list) is read into the quiz it is pasted into. A hunt (Raw Export, a merge of
+several quizzes' balls) is read for its quiz matching that one, by label and then by title; a
+hunt matching neither sends its first quiz to the quiz of its label in the hunt, made for it if
+need be, which reads it as it opens (hunt_git thread 8). It carries the whole quiz; into a quiz
 that already holds things, each part does this (decided 2026-10-05, hunt_git thread 7):
 
 | Part | Into a quiz holding its own |
 |---|---|
-| Questions | Merged by label: a field the paste holds replaces, a null clears, an absent one stays; a new label is added at the end. None is removed. |
+| Questions | Merged by label: a field the paste holds replaces, a null clears, an absent one stays; a new label is added at the end. None is removed. A question's `viz` is carried (null making it normal); its stamps are not: an import's writes are stamped as they are made. Once a question comes in, the quiz's untouched blank questions (blank, never edited, nothing in their cells) are archived. |
 | Widgetings | Merged by label: one the quiz lacks is added (last, in the paste's order), one it holds has its description and params replaced. None is removed (its cells hold what was asked and typed), and the quiz's run order stands. |
 | Columns | **Replaced**: the quiz's columns become the paste's, each added or revised (title, source, width, alignment) and put in the paste's order, and one the paste lacks removed, unless a pasted column could not be read. A paste holding no columns (the questions alone, a bare list, an export from before columns were exported) leaves them. |
 | Title, smith's note, Q1 preamble | Replaced where the paste holds one (a null note clears it), kept where it does not. |

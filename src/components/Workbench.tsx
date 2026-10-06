@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { ConfirmDeleteQuestions } from './ConfirmDeleteQuestions'
+import { ConfirmViz } from './ConfirmViz'
+import * as PendingImports from './pending-imports'
 import { Footnote } from './Footnote'
 import { LibraryModal } from './LibraryModal'
 import { workbenchOffers } from './offers'
@@ -22,8 +23,10 @@ import { useLibraryActions } from '../state/use-library-actions'
 import { qnumSortkeyOf, specsFor } from '../lib/columns'
 import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
+import * as Rank from '../lib/rank'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT, ShallowRealmT } from '../lib/rows'
+import { Question, type QuestionViz } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { HuntHandle } from '../state/use-hunt'
@@ -51,6 +54,9 @@ export type WorkbenchProps = Pick<HuntHandle, 'dispatch' | 'carryOut' | 'unsaved
  *
  * What it offers is what the server would accept of whoever is working (`workbenchOffers`): a
  * locked quiz is read, copied and exported, and its questions and layout are left as they are.
+ *
+ * The grid shows every question but the archived, which the gear lists; batch mode archives
+ * questions, or shows them as alternates (secondary) or normal again.
  */
 export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatch, carryOut, unsaved, saveNotice }: Readonly<WorkbenchProps>) {
   const router = useRouter()
@@ -68,11 +74,12 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   const specs = useMemo(() => specsFor(quiz), [quiz])
   const place = useMemo(() => Runner.placeOf(hunt, realm), [hunt, realm])
   const run = useMemo(() => Runner.runQuiz(Runner.sourceOf(quiz, library, place)), [quiz, library, place])
-  const questionIds = useMemo(() => quiz.questions.map((question) => question._id), [quiz])
+  const shown = useMemo(() => Question.unarchived(quiz.questions), [quiz])
+  const questionIds = useMemo(() => shown.map((question) => question._id), [shown])
   const checklist = useChecklist(quiz._id, questionIds)
   const offers = workbenchOffers(claims)
-  // The questions the author has asked to delete, until they confirm or keep them.
-  const [doomedIds, setDoomedIds] = useState<readonly string[] | null>(null)
+  // The questions the author has asked to show otherwise, and the choices offered, until they choose or keep them as they are.
+  const [vizzing, setVizzing] = useState<{ ids: readonly string[], offered: readonly QuestionViz[] } | null>(null)
 
   /** Where the quiz of this realm labelled `label` is worked on */
   const pathFor = (label: string) => Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: label }, 'edit')
@@ -94,7 +101,13 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
   }
 
   const batching = checklist.checking && offers.reviseQuestions
-  const doomed = quiz.questions.filter((question) => doomedIds?.includes(question._id))
+  const vizzed = shown.filter((question) => vizzing?.ids.includes(question._id))
+
+  /** Show the questions `question_ids` as `viz` says; an archived question leaves the grid, and so the selection ends */
+  const setViz = (question_ids: readonly string[], viz: QuestionViz) => {
+    dispatch({ kind: 'set_viz', question_ids, viz })
+    if (viz === 'archived') { checklist.end() }
+  }
 
   const onSort = (sortkey: SortMark['sortkey']) => {
     const descending = sortMark?.sortkey === sortkey ? ! sortMark.descending : false
@@ -171,6 +184,9 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           onDeleteHunt={() => {
             void carryOut({ kind: 'delete_hunt' }).then((kept) => { if (kept) { router.replace(Routes.huntsPath()) } })
           }}
+          onDeleteQuestion={(question_id) => {
+            void HuntMirror.markedChange(hunt, quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids: [question_id] }) })
+          }}
         />
       )}
       {editingLibrary && (
@@ -183,15 +199,14 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           dispatch={librarian.dispatch}
         />
       )}
-      {doomed.length > 0 && (
-        <ConfirmDeleteQuestions
-          doomed={doomed}
-          onClose={() => { setDoomedIds(null) }}
-          onConfirm={() => {
-            const question_ids = doomed.map((question) => question._id)
-            void HuntMirror.markedChange(hunt, quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
-            setDoomedIds(null)
-            checklist.end()
+      {vizzing && vizzed.length > 0 && (
+        <ConfirmViz
+          questions={vizzed}
+          offered={vizzing.offered}
+          onClose={() => { setVizzing(null) }}
+          onChoose={(viz) => {
+            setViz(vizzed.map((question) => question._id), viz)
+            setVizzing(null)
           }}
         />
       )}
@@ -209,7 +224,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         isChecked={checklist.isChecked}
         onCheck={checklist.toggle}
         onCheckAll={checklist.checkAll}
-        onDelete={(question_id) => { setDoomedIds([question_id]) }}
+        onViz={(question_id) => { setVizzing({ ids: [question_id], offered: ['archived', 'secondary', 'normal'] }) }}
         lastSortkey={quiz.last_sortkey}
         sortMark={sortMark}
         onSort={onSort}
@@ -223,14 +238,17 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         }}
         onEdit={(question_id, patch) => { dispatch({ kind: 'edit_question', question_id, patch }) }}
         onEnter={(question_id, widgeting_label, value) => { dispatch({ kind: 'enter_widgeted', entered: { question_id, widgeting_label, value } }) }}
-        onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx }) }}
+        onMove={(question_id, onto_idx) => { dispatch({ kind: 'move_question', question_id, onto_idx: Rank.ontoIdxAmong(quiz.questions, question_id, onto_idx) }) }}
       />
       <Toolbar
         locked={! offers.reviseQuestions}
         batching={batching}
         checkedCount={checklist.checked.length}
         onBatch={(on) => { if (on) { checklist.begin() } else { checklist.end() } }}
-        onDeleteChecked={() => { setDoomedIds(checklist.checked) }}
+        onVizChecked={(viz) => {
+          // Archiving asks first, saying where the archived questions go; the others are undone as easily as done.
+          if (viz === 'archived') { setVizzing({ ids: checklist.checked, offered: ['archived'] }) } else { setViz(checklist.checked, viz) }
+        }}
         onAddQuestion={() => { dispatch({ kind: 'add_question' }) }}
         onRenumber={() => { dispatch({ kind: 'renumber_qnums' }) }}
         onEditLibrary={() => { setEditingLibrary(true) }}
@@ -257,6 +275,21 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           void HuntMirror.markedChange(hunt, quiz, 'import', () => {
             for (const action of actions) { dispatch(action) }
           })
+        }}
+        onImportElsewhere={({ label, take }, pasted) => {
+          // Labels are unique within the hunt's realm, so the paste's quiz is the quiz of its label
+          // here: gone to, or made first. Its Import reads the paste once it is on screen.
+          const target = label ?? Labelmaker.freshLabelFor(realm.quizzes)
+          const key = PendingImports.keyOf(hunt._id, target)
+          PendingImports.hold(key, { pasted, take })
+          if (realm.quizzes.some((each) => each.label === target)) {
+            router.push(pathFor(target))
+            return
+          }
+          const make = async () => {
+            if (await carryOut({ kind: 'new_quiz', label: target })) { router.push(pathFor(target)) } else { PendingImports.clear(key) }
+          }
+          void make()
         }}
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
       />

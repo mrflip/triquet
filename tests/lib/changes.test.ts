@@ -41,6 +41,13 @@ describe('quizChanges', () => {
     expect(Changes.quizChanges(quiz, { ...quiz, questions: [...quiz.questions] })).to.deep.eq([])
   })
 
+  it("names nothing for stamps alone, which every edit moves: only what the edit changed", () => {
+    const quiz = quizOf([questionOf('quiet_otter')])
+    const [question] = quiz.questions
+    const edited = { ...quiz, updated_at: 2, questions: [{ ...present(question), clueing: 'Who?', created_at: 1, updated_at: 2 }] }
+    expect(Changes.shorthandFor(Changes.quizChanges(quiz, edited))).to.eq('quiet_otter +clueing')
+  })
+
   it('names a question by the label it answers to now, not the one it had', () => {
     const before = quizOf([questionOf('quiet_otter', { clueing: 'Who?' })])
     const after = { ...before, questions: [{ ...present(before.questions[0]), label: 'brave_ox', clueing: 'Who now?' }] }

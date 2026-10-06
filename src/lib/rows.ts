@@ -2,13 +2,14 @@ import _ from 'es-toolkit/compat'
 import type { MigrationStatus } from '@convex-dev/migrations'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from './labelmaker'
+import * as Stamps from './stamps'
 import * as Tsv from './tsv'
 import type * as Actor from './actor'
 import * as Wheel from './wheel'
 import type { WheelT } from '../models/category'
 import type { HuntT } from '../models/hunt'
 import type { HuntRole } from '../models/hunting'
-import { Question, type QuestionT } from '../models/question'
+import { DefaultViz, Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { WidgetedHistoryT } from '../models/widgeted'
@@ -34,8 +35,8 @@ export type QuizRows = {
   stored:     ReadonlyMap<string, StoredRows>
 }
 
-/** Everything a question's own query could send of it: its row, and what its stored widgetings recorded */
-type SendableQuestionT = Doc<'questions'> & Pick<QuestionT, 'stored'>
+/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`) and shown as it will be (`vizOf`), and what its stored widgetings recorded */
+type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT | 'viz'> & Stamps.StampsT & Pick<QuestionT, 'stored' | 'viz'>
 
 /** A question as its own query sends it to someone of `SS` on its hunt: its id, and the fields that standing is sent (`Question.sentTo`) */
 export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuestionT, '_id' | (typeof Question.sentTo)[SS][number]>
@@ -52,7 +53,18 @@ export type SeenQuestionT = { [SS in Actor.HuntStanding]: SeenQuestionAsT<SS> }[
  * it: blank, as in a fresh question. Only a smith is sent every field (`Question.sentTo`), and only
  * a smith's screens show the rest.
  */
-const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', stored: {} }
+const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', viz: DefaultViz, stored: {}, created_at: null, updated_at: null }
+
+/**
+ * How a question's row says it is shown: its own viz, or for a row written before questions had
+ * one, as the backfill will give it (`migrations:backfillQuestionViz`): normal.
+ *
+ * @example vizOf({ viz: 'archived' })  // => 'archived'
+ * @example vizOf({})                   // => 'normal'
+ */
+export function vizOf(row: Pick<Doc<'questions'>, 'viz'>): QuestionT['viz'] {
+  return row.viz ?? DefaultViz
+}
 
 /** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgetings and columns */
 export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
@@ -112,7 +124,7 @@ export type ShallowRealmT = {
   quizzes: readonly ListedQuizT[]
 }
 
-/** A hunt as the hunts list shows it: its label and the org it is addressed under, its title, its branch, and each realm's quizzes as rows */
+/** A hunt as the hunts list shows it: its label and the org it is addressed under, its title, its branch, its stamps, and each realm's quizzes as rows */
 export type HuntListingT = {
   _id:    Id<'hunts'>
   label:  string
@@ -120,6 +132,9 @@ export type HuntListingT = {
   org:    string
   title:  string
   branch: string
+  /** When the hunt was made, and its own row last edited (`Stamps.of`) */
+  created_at: number
+  updated_at: number
   realms: readonly ShallowRealmT[]
 }
 
@@ -198,18 +213,20 @@ const Whole = { standing: 'smith' } as const
  * @example 'notes' in seenQuestionFor(row, new Map(), claims)                 // => false, for a reviewer
  */
 export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
-  const sendable: SendableQuestionT = { ...row, stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
+  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), viz: vizOf(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
   return _.pick(sendable, ['_id', ...Question.sentTo[standing]])
 }
 
 /**
- * A quiz without its questions, from its own row and its widgetings' and columns' rows in order.
+ * A quiz without its questions, from its own row (stamped, `Stamps.of`) and its widgetings' and
+ * columns' rows in order.
  *
  * @example frameOf(quiz, widgetings, columns).row_ordering.length
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
+    ...Stamps.of(quiz),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
     columns:    columns.map((row) => _.pick(row, ['label', 'title', 'source', 'width_px', 'align'])),
   }
@@ -359,7 +376,7 @@ export function orgFor(hunt: Pick<Doc<'hunts'>, 'orglabel'>, members: readonly P
 }
 
 /**
- * A hunt as the hunts list shows it: titled, addressed under its org, with its realms in order,
+ * A hunt as the hunts list shows it: titled, addressed under its org, stamped, with its realms in order,
  * each titled and holding its quizzes' rows by label, in code-unit order, as the hunt's files
  * sort them: every list of quizzes the app shows is in this order.
  *
@@ -377,6 +394,7 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: 
     org:    orgFor(rows.hunt, members),
     title:  huntTitleOf(rows.hunt),
     branch: rows.hunt.branch,
+    ...Stamps.of(rows.hunt),
     realms: rows.realms.map(({ realm, quizzes }) => ({
       _id:     realm._id,
       label:   realm.label,

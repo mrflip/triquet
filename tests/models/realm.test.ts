@@ -12,7 +12,11 @@ describe('Realm.fill', () => {
   })
 
   it('keeps a title it is given', () => {
-    expect(Realm.fill({ _id: mintId(), label: 'away', title: 'Far Away', quizzes: [Quiz.blank()] }).title).to.eq('Far Away')
+    expect(Realm.fill({ _id: mintId(), title: 'Far Away', quizzes: [Quiz.blank()] }).title).to.eq('Far Away')
+  })
+
+  it("refuses any realm but home, the one a hunt has for now", () => {
+    expect(() => Realm.fill({ _id: mintId(), label: 'away', quizzes: [Quiz.blank()] })).to.throw(Z.ZodError)
   })
 
   it(`holds ${String(PA.QuizzesPerRealm.max)} quizzes, and refuses one more`, () => {
@@ -42,6 +46,7 @@ describe('RealmValidators.row', () => {
   const Refused: [object, string][] = [
     [{ hunt_id: 'home' },   'a hunt that is not a row id'],
     [{ label: 'Home' },     'a label that is not one'],
+    [{ label: 'away' },     'a label other than home'],
     [{ position: -1 },      'a place before the first'],
   ]
   for (const [overrides, describes] of Refused) {

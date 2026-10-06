@@ -4,10 +4,11 @@ import { Divider, Stack, Table, TableBody, TableCell, TableContainer, TableHead,
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { Panel } from './Panel'
 import { MarkdownText } from '../cells/markdown'
+import { QuestionTitle } from '../QuestionTitle'
 import { AppNotices } from '../../lib/notices'
 import * as Rank from '../../lib/rank'
 import type { ReviewedT } from '../../lib/rows'
-import type { QuestionT } from '../../models/question'
+import { Question, type QuestionT } from '../../models/question'
 import { sharedReviewsOf } from '../../models/review'
 import { ReviewingFlags } from '../../models/reviewing'
 import styles from '../workbench.module.css'
@@ -28,14 +29,14 @@ const SmithsBlurb = 'What reviewers have made of this quiz. Nothing appears here
 
 /**
  * What reviewers have shared about the open quiz, read-only: one block per reviewer, with their
- * overall note and a table of their verdict on each question they wrote about, in rank order,
+ * overall note and a table of their verdict on each question they wrote about but the archived, in rank order,
  * their words rendered from markdown.
  * The smiths see it below the grid; a reviewer sees the others' below their own, once theirs is
  * shared.
  */
 export function ReviewsPanel({ reviews, questions, title = 'Reviews', blurb = SmithsBlurb }: Readonly<ReviewsPanelProps>) {
   const shared = sharedReviewsOf(reviews)
-  const ranked = Rank.inRankOrder(questions)
+  const ranked = Rank.inRankOrder(Question.unarchived(questions))
 
   return (
     <Panel title={title} blurb={blurb} wide={shared.length > 0}>
@@ -81,7 +82,7 @@ function ReviewingsTable({ reviewings, ranked }: Readonly<{ reviewings: readonly
         <TableBody>
           {rows.map(({ question, reviewing }) => (
             <TableRow key={reviewing._id}>
-              <TableCell>{question.title || AppNotices.untitledQuestion}</TableCell>
+              <TableCell><QuestionTitle question={question} /></TableCell>
               <TableCell align="right">{reviewing.get_rate === null ? '–' : `${String(reviewing.get_rate)}%`}</TableCell>
               <TableCell align="right">{reviewing.minutes ?? '–'}</TableCell>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>

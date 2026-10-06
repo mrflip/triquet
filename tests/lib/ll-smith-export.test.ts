@@ -134,6 +134,33 @@ describe('recordsOf', () => {
     expect(LLSmithExport.recordsOf(quizOf([]))).to.eq('')
   })
 
+  it("leaves the archived questions out in every mode, numbering the rest from 1 with no gaps", () => {
+    const questions = [qn({ qnum: '1', clueing: 'First' }), qn({ qnum: '2', clueing: 'Put away', viz: 'archived' }), qn({ qnum: '3', clueing: 'Third' })]
+    for (const mode of LLSmithExport.ExportModes) {
+      expect(LLSmithExport.recordsOf({ ...quizOf(questions), smiths_note: '', q1_preamble: '' }, mode), mode).to.eq('1|First||$$2|Third||$$')
+    }
+  })
+
+  it("keeps the alternates when playtesting, unmarked, and after their peers of one Q#; and leaves them out going live", () => {
+    const questions = [qn({ qnum: '1', title: 'aa', clueing: 'Alternate', viz: 'secondary' }), qn({ qnum: '1', title: 'zz', clueing: 'First' }), qn({ qnum: '2', clueing: 'Second' })]
+    const quiz = { ...quizOf(questions), smiths_note: '', q1_preamble: '' }
+    expect(LLSmithExport.recordsOf(quiz, 'playtesting')).to.eq('1|First||$$2|Alternate||$$3|Second||$$')
+    expect(LLSmithExport.recordsOf(quiz, 'plain')).to.eq('1|First||$$2|Alternate||$$3|Second||$$')
+    expect(LLSmithExport.recordsOf(quiz, 'go_live')).to.eq('1|First||$$2|Second||$$')
+  })
+
+  it("still shows the BUT NOT of a chain to a question left out", () => {
+    const putAway = qn({ qnum: '2', clueing: 'Put away', hint: 'Not that one', viz: 'archived' })
+    const first = qn({ qnum: '1', clueing: 'First', chains_to: putAway._id })
+    expect(LLSmithExport.recordsOf(quizOf([first, putAway]))).to.eq('1|First [br]  [br] ...BUT NOT... [br]  [br] Not that one||$$')
+  })
+
+  it("reads exportedIn's example: going live, the normal questions alone", () => {
+    const questions = [qn({ viz: 'normal' }), qn({ viz: 'secondary' }), qn({ viz: 'archived' })]
+    expect(LLSmithExport.exportedIn(questions, 'go_live').map((question) => question.viz)).to.deep.eq(['normal'])
+    expect(LLSmithExport.exportedIn(questions, 'playtesting').map((question) => question.viz)).to.deep.eq(['normal', 'secondary'])
+  })
+
   it('is plain unless told otherwise', () => {
     const quiz = { ...quizOf([qn({ qnum: '1', clueing: 'First' })]), smiths_note: 'Theme.' }
     expect(LLSmithExport.recordsOf(quiz)).to.eq(LLSmithExport.recordsOf(quiz, 'plain'))

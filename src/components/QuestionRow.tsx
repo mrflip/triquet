@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { Checkbox, IconButton } from '@mui/material'
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
+import { Box, Checkbox, IconButton } from '@mui/material'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import clsx from 'clsx'
 import { GutterWidthPx, type ColumnSpec } from '../lib/columns'
 import { openOnEntry } from './FoldButton'
@@ -17,7 +17,7 @@ import type { WidgetingT } from '../models/widgeting'
 import type { EntryValueT } from '../models/widget'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { useReorderable } from './use-reorder'
-import type { QuestionPatch, QuestionT } from '../models/question'
+import { Question, type QuestionPatch, type QuestionT } from '../models/question'
 import styles from './workbench.module.css'
 
 /** Names the grid as a list to drag within, so its rows and the editors' never mix */
@@ -49,11 +49,11 @@ export type QuestionRowProps = {
   questions:   QuestionT[]
   locked:      boolean
   gripShown:   boolean
-  /** Whether this question is checked, in batch mode, where its trash can shows too; null outside it, where its grip shows instead */
+  /** Whether this question is checked, in batch mode, where the button to change how it is shown shows too; null outside it, where its grip shows instead */
   checked:     boolean | null
   onCheck:     (on: boolean) => void
-  /** Asks to delete this question; the asking-first is the caller's */
-  onDelete:    () => void
+  /** Asks to change how this question is shown (its viz); the asking is the caller's */
+  onViz:       () => void
   resizeToken: number
   /** Whether the row is folded, each of its boxes one line high until a text box in it is entered */
   folded:      boolean
@@ -84,7 +84,8 @@ export type QuestionRowProps = {
 
 /**
  * One question, across every column, after a gutter holding its grip -- or, in batch mode, its
- * checkbox and trash can.
+ * checkbox and the button that changes how it is shown. An alternate's title is in italics, with
+ * `(alt)` after it.
  *
  * The Clueing and Hint boxes grow with their own content and the taller of the two sets the
  * height for both, capped; the notes columns (and text entries) are stretched to that same height
@@ -94,7 +95,7 @@ export type QuestionRowProps = {
  * ellipsis, and the lines beneath a box (the title's label) are put away. The boxes go on
  * measuring themselves, so the row opens straight to the height it would have had.
  */
-export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onDelete, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onViz, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
@@ -133,9 +134,16 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const fieldBody = (field: QuestionField): React.JSX.Element => {
     switch (field) {
     case 'title': {
+      const field = <PlainField label="Title" committed={question.title} locked={locked} onCommit={(title) => { commit({ title }) }} />
       return (
         <>
-          <PlainField label="Title" committed={question.title} locked={locked} onCommit={(title) => { commit({ title }) }} />
+          {Question.isSecondary(question) ? (
+            // The box inherits its font, so the alternate's title is in italics as it is typed.
+            <Box sx={{ display: 'flex', alignItems: 'baseline', fontStyle: 'italic', '& input': { minWidth: 0 } }}>
+              {field}
+              <Box component="span" sx={{ flex: 'none', pr: 0.75 }}>{Question.AltMark}</Box>
+            </Box>
+          ) : field}
           <div className={clsx(styles.metaline, styles.fieldNote)}>{question.label}</div>
         </>
       )
@@ -228,8 +236,8 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
                 slotProps={{ input: { 'aria-label': `Select ${questionName}` } }}
                 onChange={(event) => { onCheck(event.target.checked) }}
               />
-              <IconButton size="small" sx={{ p: 0.25 }} aria-label={`Delete ${questionName}`} onClick={onDelete}>
-                <DeleteOutlinedIcon fontSize="small" />
+              <IconButton size="small" sx={{ p: 0.25 }} aria-label={`Change how ${questionName} is shown`} onClick={onViz}>
+                <VisibilityOutlinedIcon fontSize="small" />
               </IconButton>
             </>
           ) : gripShown && (

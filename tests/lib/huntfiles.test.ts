@@ -13,7 +13,7 @@ import { CategoryLabelVals } from '../../src/models/category'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { present } from '../support/present'
 import { runOf } from '../support/runs'
-import { EntryLibrary, chainedQuiz, snapshot } from '../support/snapshots'
+import { EntryLibrary, ReviewedAtIso, chainedQuiz, snapshot } from '../support/snapshots'
 
 /** The hunt every ball here is of */
 const Place: Addresses.InHuntT = { org: 'pat_smith', hunt: 'deep_lake' }
@@ -101,8 +101,9 @@ describe('filesOf', () => {
 
 describe('jsonOf', () => {
   it("reads the doc block's example", () => {
-    const placed = Exporting.huntBall(Place, { label: 'spring_hunt', title: 'Spring Hunt', branch: 'main' })
-    expect(Huntfiles.jsonOf(placed)).to.eq('{\n  "branch": "main",\n  "label": "spring_hunt",\n  "title": "Spring Hunt"\n}\n')
+    const stamp = Date.UTC(2026, 9, 5, 12)
+    const placed = Exporting.huntBall(Place, { label: 'spring_hunt', title: 'Spring Hunt', branch: 'main', created_at: stamp, updated_at: stamp })
+    expect(Huntfiles.jsonOf(placed)).to.eq('{\n  "branch": "main",\n  "created_at": "2026-10-05T12:00:00.000Z",\n  "label": "spring_hunt",\n  "title": "Spring Hunt",\n  "updated_at": "2026-10-05T12:00:00.000Z"\n}\n')
   })
 
   it("is the ball, pretty, with its keys sorted at every depth", () => {
@@ -125,7 +126,7 @@ describe('tsvOf', () => {
   })
 
   it("writes the hunt as one row of its own fields", () => {
-    expect(linesOf(tsvAt('hunt.tqh.tsv'))).to.deep.eq([['branch', 'label', 'title'], ['main', 'deep_lake', 'Deep Lake']])
+    expect(linesOf(tsvAt('hunt.tqh.tsv'))).to.deep.eq([['branch', 'created_at', 'label', 'title', 'updated_at'], ['main', '', 'deep_lake', 'Deep Lake', '']])
   })
 
   it("writes the categories as a row each, by label, with its slot or none", () => {
@@ -170,7 +171,7 @@ describe('tsvOf', () => {
 
   it("writes a review as a row for each question it gave a verdict on", () => {
     const rows = rowsOf(tsvAt('quizzes/home/princes/reviews/lee_jones.tqr.tsv'))
-    expect(rows).to.deep.eq([{ comments: 'Lovely.', elimination_candidate: 'false', get_rate: '40', guesses: 'Leon?', keep_it: 'true', label: 'leon', minutes: '2', needs_fact_check: 'false' }])
+    expect(rows).to.deep.eq([{ comments: 'Lovely.', elimination_candidate: 'false', get_rate: '40', guesses: 'Leon?', keep_it: 'true', label: 'leon', minutes: '2', needs_fact_check: 'false', ...ReviewedAtIso }])
   })
 
   it("writes a widget as one row, labelled by its label", () => {

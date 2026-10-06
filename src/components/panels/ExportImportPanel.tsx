@@ -7,10 +7,12 @@ import { LibraryForm } from './LibraryForm'
 import { RawExport } from './RawExport'
 import { ReadonlyBox } from './ReadonlyBox'
 import { TabbedPanel } from './TabbedPanel'
+import * as PendingImports from '../pending-imports'
 import type { WorkbenchOffersT } from '../offers'
 import * as Sheets from '../../lib/sheets'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
+import type { ElsewhereT } from '../../lib/importing'
 import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
@@ -29,6 +31,8 @@ export type ExportImportPanelProps = {
   changeLibrary: (action: LibraryActionDNA) => void
   /** Fold what the Import tab read into the quiz: its own fields, its widgetings, its columns, then its questions, as actions in order */
   onImport:  (actions: readonly HuntActionDNA[]) => void
+  /** Send a hunt pasted into the Import tab, none of whose quizzes matches this one, to the quiz it belongs to */
+  onImportElsewhere: (elsewhere: ElsewhereT, pasted: string) => void
   /** Rewrite the quiz's Q1 preamble, from the LL Export tab */
   onQ1Preamble: (q1_preamble: string) => void
 }
@@ -37,10 +41,12 @@ export type ExportImportPanelProps = {
  * Every way to take the work somewhere else, and the one way to bring it back, as tabs of one
  * panel: a spreadsheet paste, the raw JSON of the whole hunt, Import, the library of widgets on
  * its own, the quiz's full history, and the league's own import format, with the smith's note in
- * the league's BBCode.
+ * the league's BBCode. A quiz opened to read a paste sent from another quiz's Import opens on the
+ * Import tab, saying what it read.
  */
-export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport, onQ1Preamble }: Readonly<ExportImportPanelProps>) {
+export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibrary, onImport, onImportElsewhere, onQ1Preamble }: Readonly<ExportImportPanelProps>) {
   const exporting = useWholeHunt(hunt, quiz)
+  const sentHere = PendingImports.peek(PendingImports.keyOf(hunt._id, quiz.label)) !== null
   const tabs = [
     {
       label:   'Spreadsheet',
@@ -54,8 +60,8 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     {
       label:   'Import',
-      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared, and no question or widgeting is ever deleted. A quiz\'s title and notes come along, and its columns become this quiz\'s.',
-      content: <ImportForm quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} />,
+      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared, and no question or widgeting is ever deleted. A quiz\'s title and notes come along, and its columns become this quiz\'s. A whole hunt whose quizzes match none of this one goes to the quiz of its first quiz\'s label, made for it if need be. Once a question comes in, the untouched blank ones are archived.',
+      content: <ImportForm hunt_id={hunt._id} quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} onElsewhere={onImportElsewhere} />,
     },
     {
       label:   'Library',
@@ -73,5 +79,5 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
       content: <LeagueExport quiz={quiz} revisable={offers.reviseQuiz} onQ1Preamble={onQ1Preamble} />,
     },
   ]
-  return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs.filter((tab) => tab !== false)} />
+  return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs.filter((tab) => tab !== false)} shownFirst={sentHere ? 'Import' : undefined} />
 }

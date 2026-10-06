@@ -19,7 +19,7 @@ export const BlankQuestionQty = 5
 /** What every quiz's LL export puts ahead of its first question when going live, until a smith rewrites it */
 export const DefaultQ1Preamble = 'Important: Read the smith\'s note before you play![br][br]'
 
-export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, noteish, label, bool, zid, treeid }) => {
+export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, noteish, label, bool, stamps, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -49,6 +49,10 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     locked:          bool.default(false)
       .describe('When true this quiz accepts no edits at all -- a finished draft sent out for playtesting, kept readable and copyable but frozen against accidental change.'),
     last_sortkey:    sortkey.nullable().default(null),
+    created_at:      timestamp.nullable().default(null)
+      .describe('When the quiz was made, in epoch milliseconds, as its row is stamped; null for one built rather than read.'),
+    updated_at:      timestamp.nullable().default(null)
+      .describe('When the quiz\'s own row was last edited (its fields, or its questions\' order), in epoch milliseconds; null where `created_at` is.'),
   })
     .check((context) => {
       for (const issue of integrityIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) }
@@ -68,6 +72,7 @@ export const QuizValidators = Validator(({ obj, arr, lit, union, zod, titleish, 
     last_sortkey:    sortkey.nullable(),
     row_ordering:    arr(zid('questions')).max(PA.QuestionsPerQuiz.max)
       .describe('The quiz\'s questions in their committed order, by row id: the order is the quiz\'s, not the questions\'. Every question of the quiz is here once.'),
+    ...stamps,
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgetings and columns in rows of their own.')
 
@@ -133,6 +138,8 @@ export class Quiz implements QuizT {
   declare columns:         ColumnT[]
   declare locked:          boolean
   declare last_sortkey:    Sortkey | null
+  declare created_at:      number | null
+  declare updated_at:      number | null
 
   /**
    * The fields a quiz shows the outside world, alphabetically: its label, the

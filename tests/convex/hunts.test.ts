@@ -1,5 +1,5 @@
 import _ from 'es-toolkit/compat'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Z from 'zod'
 import { ConvexError } from 'convex/values'
 import { api } from '../../convex/_generated/api'
@@ -117,10 +117,10 @@ async function reviewsIn(tt: Tester, quiz_id: string) {
   return await tt.run(async (ctx) => await reviewsOf(ctx.db, quiz_id as Id<'quizzes'>))
 }
 
-/** Every reviewing the rows hold, oldest first, as what was said about which question (what it copies of its review, `expectSound` checks) */
+/** Every reviewing the rows hold, oldest first, as what was said about which question (what it copies of its review, `expectSound` checks, and its stamps are left out) */
 async function reviewingsIn(tt: Tester) {
   const rows = await tt.run(async (ctx) => await ctx.db.query('reviewings').collect())
-  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'ident_id']))
+  return rows.map((row) => _.omit(row, ['_id', '_creationTime', 'review_id', 'hunt_id', 'quiz_id', 'ident_id', 'created_at', 'updated_at']))
 }
 
 /** The ids of the open quiz's questions, in order */
@@ -494,6 +494,43 @@ describe("hunts.perform", () => {
       const doomed = firstOf(await read())
       await expectRefusal(act({ kind: 'delete_questions', question_ids: [doomed._id] }), 'quizLocked')
       expect(openOf(await read()).questions).to.have.length(BlankQuestionQty)
+    })
+  })
+
+  describe("set_viz", () => {
+    it("shows the named questions as it says, leaving the rest, the order and the Q#s alone", async () => {
+      const { tt, act, read } = await seed(huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+      const [first, , third] = openOf(await read()).questions
+      await act({ kind: 'set_viz', question_ids: [present(first)._id, present(third)._id], viz: 'archived' })
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'archived'], ['b', 'normal'], ['c', 'archived']])
+      await act({ kind: 'set_viz', question_ids: [present(third)._id], viz: 'secondary' })
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'archived'], ['b', 'normal'], ['c', 'secondary']])
+      expect(qnumsOf(await read())).to.deep.eq(['1', '2', '3'])
+      await expectSound(tt)
+    })
+
+    it("brings an archived question back as normal", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const { _id: id } = firstOf(await read())
+      await act({ kind: 'set_viz', question_ids: [id], viz: 'archived' })
+      await act({ kind: 'set_viz', question_ids: [id], viz: 'normal' })
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'normal']])
+    })
+
+    it("passes over an id that names no question of the quiz", async () => {
+      const { act, read } = await seed(huntOf(['1', 'a']))
+      const elsewhere = await seed(huntOf(['1', 'z']))
+      await act({ kind: 'set_viz', question_ids: [firstOf(await elsewhere.read())._id], viz: 'archived' })
+      expect([vizzesOf(await read()), vizzesOf(await elsewhere.read())]).to.deep.eq([[['a', 'normal']], [['z', 'normal']]])
+    })
+
+    it("refuses a reviewer, and refuses while the quiz is locked", async () => {
+      const { asAlice, first, read } = await reviewed()
+      await expectRefusal(asAlice({ kind: 'set_viz', question_ids: [first], viz: 'archived' }), 'notPermitted')
+      expect(vizzesOf(await read())).to.deep.eq([['a', 'normal'], ['b', 'normal']])
+      const locked = await seed(openHunt(true))
+      const doomed = firstOf(await locked.read())
+      await expectRefusal(locked.act({ kind: 'set_viz', question_ids: [doomed._id], viz: 'archived' }), 'quizLocked')
     })
   })
 
@@ -1234,6 +1271,56 @@ describe("hunts.perform", () => {
     })
   })
 
+  describe("import_questions, tidying the starters away", () => {
+    // Each write a minute after the last, so a question edited after it was made says so.
+    beforeEach(() => { vi.useFakeTimers({ now: Date.UTC(2026, 9, 5, 9), toFake: ['Date'] }) })
+    afterEach(() => { vi.useRealTimers() })
+
+    it("archives the quiz's untouched blank questions once an import brings one in, and none it named", async () => {
+      const { tt, act, read } = await seed(Hunt.blank('quiet_otter'))
+      const [named, ...starters] = openOf(await read()).questions
+      aMinuteOn()
+      await act({ kind: 'import_questions', questions: [{ label: present(named).label, patch: {}, entered: {} }, { label: 'leon', patch: { clueing: 'Who?' }, entered: {} }] })
+      expect(await shownOf(read)).to.deep.eq([
+        [present(named).label, 'normal'], ...starters.map((starter) => [starter.label, 'archived']), ['leon', 'normal'],
+      ])
+      await expectSound(tt)
+    })
+
+    it("leaves a blank question that has been edited, whatever it was edited to, and one written in", async () => {
+      const { act, read } = await seed(Hunt.blank('quiet_otter'))
+      const [blanked, written] = openOf(await read()).questions
+      aMinuteOn()
+      await act({ kind: 'edit_question', question_id: present(blanked)._id, patch: { clueing: 'Who?' } })
+      await act({ kind: 'edit_question', question_id: present(blanked)._id, patch: { clueing: '' } })
+      await act({ kind: 'edit_question', question_id: present(written)._id, patch: { hint: 'BUT NOT a king' } })
+      aMinuteOn()
+      await act({ kind: 'import_questions', questions: [{ label: 'leon', patch: { clueing: 'Who?' }, entered: {} }] })
+      const shown = await shownOf(read)
+      expect(shown.slice(0, 2)).to.deep.eq([[present(blanked).label, 'normal'], [present(written).label, 'normal']])
+      expect(shown.slice(2, -1).map(([, viz]) => viz)).to.deep.eq(['archived', 'archived', 'archived'])
+    })
+
+    it("leaves a blank question something was typed into the cells of", async () => {
+      const seeded = await seed(Hunt.blank('quiet_otter'))
+      await putEntryToWork(seeded, 'remark')
+      const [typed] = openOf(await seeded.read()).questions
+      await seeded.act(entering(present(typed)._id, 'remark', 'Was here.'))
+      aMinuteOn()
+      await seeded.act({ kind: 'import_questions', questions: [{ label: 'leon', patch: { clueing: 'Who?' }, entered: {} }] })
+      const [first] = await shownOf(seeded.read)
+      expect(first).to.deep.eq([present(typed).label, 'normal'])
+    })
+
+    it("archives nothing when the import brings in no question", async () => {
+      const { act, read } = await seed(Hunt.blank('quiet_otter'))
+      aMinuteOn()
+      await act({ kind: 'import_questions', questions: [] })
+      const shown = await shownOf(read)
+      expect(shown.every(([, viz]) => viz === 'normal')).to.be.true
+    })
+  })
+
   describe("import_questions", () => {
     it("types what each question carries into its entry cells: into a question held and one added, and empties one for null", async () => {
       const seeded = await seed(huntOf(['1', 'a'], ['2', 'b']))
@@ -1317,15 +1404,31 @@ describe("hunts.perform", () => {
   })
 })
 
-/** `tree` with every id blanked, for comparing a tree with the one its rows make up */
+/** The clock moved a minute on, so the next write is a minute after the last */
+function aMinuteOn() {
+  vi.setSystemTime(Date.now() + 60_000)
+}
+
+/** Each of the open quiz's questions' label and viz, in the quiz's order */
+async function shownOf(read: () => Promise<Seen>) {
+  return openOf(await read()).questions.map((question) => [question.label, question.viz])
+}
+
+/** Each of the open quiz's questions' title and viz, in the quiz's order */
+function vizzesOf(seen: Seen) {
+  return openOf(seen).questions.map((question) => [question.title, question.viz])
+}
+
+/** `tree` with every id and stamp blanked, for comparing a tree with the one its rows make up */
 function sansIds(tree: HuntT) {
+  const unstamped = { created_at: null, updated_at: null }
   return {
     ...tree,
     _id:    '',
     realms: tree.realms.map((realm) => ({
       ...realm,
       _id:     '',
-      quizzes: realm.quizzes.map((quiz) => ({ ...quiz, _id: '', questions: quiz.questions.map((question) => ({ ...question, _id: '' })) })),
+      quizzes: realm.quizzes.map((quiz) => ({ ...quiz, _id: '', ...unstamped, questions: quiz.questions.map((question) => ({ ...question, _id: '', ...unstamped })) })),
     })),
   }
 }
@@ -1599,18 +1702,21 @@ function runOfOpen(seen: Seen): Runner.QuizRun {
   return Runner.runQuiz(source)
 }
 
-/** `seen`'s open quiz as its ball holds it */
+/** `seen`'s open quiz as its ball holds it, its stamps and its questions' blanked: an import makes them afresh */
 function bodyOfOpen(seen: Seen) {
-  return Exporting.quizBodyOf(openOf(seen), runOfOpen(seen))
+  const body = Exporting.quizBodyOf(openOf(seen), runOfOpen(seen))
+  const unstamped = { created_at: null, updated_at: null }
+  return { ...body, ...unstamped, questions: _.mapValues(body.questions, (question) => ({ ...question, ...unstamped })) }
 }
 
 describe("a quiz's export, imported into an empty quiz", () => {
-  it("reproduces it whole: its own fields, its questions in order with all they hold, their chains, its widgetings in run order, what its entries hold, and its columns as laid out", async () => {
+  it("reproduces it whole: its own fields, its questions in order with all they hold (how each is shown among it), their chains, its widgetings in run order, what its entries hold, and its columns as laid out", async () => {
     const tt = openTester()
     const source = await seedHunt(tt, huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
     await putEntryToWork(source, 'remark')
     const [leon, nantes] = questionIdsOf(await source.read())
     await source.act({ kind: 'edit_question', question_id: present(leon), patch: { clueing: 'Which region?', hint: 'BUT NOT a lion', notes: 'keep me', full_answer: 'León' } })
+    await source.act({ kind: 'set_viz', question_ids: [present(nantes)], viz: 'secondary' })
     await source.act({ kind: 'set_chain', question_id: present(leon), chains_to: present(nantes) })
     await source.act({ kind: 'enter_widgeted', entered: { question_id: present(leon), widgeting_label: 'remark', value: 'Ask Flip.' } })
     await source.act({ kind: 'set_smiths_note', smiths_note: 'Kings and lions.' })
@@ -1621,16 +1727,20 @@ describe("a quiz's export, imported into an empty quiz", () => {
     const exported = await source.read()
     const quiz = openOf(exported)
     const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', quiz, runOfOpen(exported))
+    // Stamps of long ago, which the import does not carry: its questions are made now.
+    const pasted = JSON.stringify(ball).replaceAll(/"(created|updated)_at":"[^"]+"/g, '"$1_at":"2001-01-01T00:00:00.000Z"')
 
     const target = await seedHunt(tt, huntHolding([{ ...Quiz.blank('Empty', 'empty_one'), questions: [] }]))
     const empty = await target.read()
-    const outcome = Importing.importInto(openOf(empty), JSON.stringify(ball), empty.library)
+    const outcome = Importing.importInto(openOf(empty), pasted, empty.library)
     expect(outcome.ok).to.be.true
     for (const action of outcome.actions) { await target.act(action) }
+    const stamps = openOf(await target.read()).questions.flatMap((question) => [question.created_at, question.updated_at])
+    expect(stamps.every((stamp) => stamp !== null && stamp > Date.parse('2001-01-02'))).to.be.true
 
     const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
     expect(got).to.deep.eq(want)
-    expect(_.omit(got, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', locked: false, last_sortkey: 'column:title' })
+    expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({ title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', locked: false, last_sortkey: 'column:title' })
     expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })
     const labelOf = (question_id: string) => present(quiz.questions.find((qn) => qn._id === question_id)).label
@@ -1663,11 +1773,13 @@ describe("a quiz's export, imported into an empty quiz", () => {
 })
 
 describe("hunts.whole", () => {
-  it("reads back a hunt exactly as it was written, apart from its ids", async () => {
+  it("reads back a hunt exactly as it was written, apart from its ids, and with the stamps its rows were given", async () => {
     const hunt = Hunt.blank()
     const { read } = await seedHunt(openTester(), hunt)
     const { hunt: back } = await read()
     expect(sansIds(back)).to.deep.eq(sansIds(hunt))
+    const stamps = Hunt.quizzesOf(back).flatMap((quiz) => [quiz, ...quiz.questions]).flatMap((stamped) => [stamped.created_at, stamped.updated_at])
+    expect(stamps.every((stamp) => typeof stamp === 'number')).to.be.true
   })
 
   it("is null for a hunt that is not there", async () => {

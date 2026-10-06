@@ -2,7 +2,7 @@ import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
 
-export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish, bool, zid }) => {
+export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish, bool, stamps, zid }) => {
   // Each field is named once, without its default, and then defaulted in the row and made
   // optional in the patch: see the patch pattern in `notes/guidelines.md`.
   const get_rate = uint.max(100).nullable()
@@ -41,6 +41,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
     needs_fact_check:      needs_fact_check.default(false),
     elimination_candidate: elimination_candidate.default(false),
     peeked:                peeked.default(false),
+    ...stamps,
   })
     .describe('One review\'s verdict on one question: at most one per review and question, made the first time the reviewer writes to that question.')
 
@@ -98,6 +99,8 @@ export class Reviewing implements ReviewingRowT {
   declare needs_fact_check:      boolean
   declare elimination_candidate: boolean
   declare peeked:                boolean
+  declare created_at:            number
+  declare updated_at:            number
 
   /**
    * The reviewing a review has of a question before the reviewer has said anything about it,

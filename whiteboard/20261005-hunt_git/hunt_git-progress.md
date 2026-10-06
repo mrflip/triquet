@@ -15,7 +15,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 5 | One repository per hunt | landed #129 |
 | 6 | Downloads and the hunts page | landed #130 |
 | 7 | The Coach's follow-ups | landed #133 |
-| 8 | The Coach's second follow-ups | underway |
+| 8 | The Coach's second follow-ups | landed #140 |
 
 ## What the threads have taught
 
@@ -226,3 +226,23 @@ idle.
 during a deploy). Left, minor: a whole-hunt paste into an unmatched quiz carries the first quiz's
 fields and columns [orchestrator: carry them only on a label or title match, or a single-quiz
 paste]; a re-added column can clear the quiz's sort memory.
+
+### Thread 8: the Coach's second follow-ups (landed #140)
+
+Questions carry `viz` (`normal`, `secondary`, `archived`; a widen, tightened with `orglabel`).
+Secondary shows as italic `(alt)` and sorts last on a tie; archived leaves every screen but the
+gear's, which can un-archive or delete it; batch mode archives, secondaries or normals instead of
+deleting. Rows carry `created_at`/`updated_at`, stamped by convex-helpers Triggers
+(`convex/stamping.ts`, wired through `convex/functions.ts`; an ESLint rule keeps raw `mutation`
+imports out): `created_at` from `_creationTime` and immutable, equal to `updated_at` until the
+first edit; optional in the schema for good. An import that brings in a question archives the
+quiz's untouched blank starters. A whole-hunt paste matching no quiz goes to (or creates) the quiz
+with its first quiz's label. Archived questions leave Copy for Sheets, `questions.qq.*` and every
+LL export; going live also drops secondary ones. The realm label is pinned to `home` in the
+validators. `notes/decisions/urls.md` now holds the URL, key-path and file rules.
+
+*Review:* fixed at medium (a paste sent to a locked quiz is let go, not held). Left, minor:
+starter archiving can misjudge pre-stamp questions until the backfill runs; an `as never` cast in
+`convex/stamping.ts`. **Incident:** running the unit suite under `git rebase --exec` let the
+script tests act on the real repository (they set `core.bare = true`; the Coach fixed it):
+`thread-8-rebase-exec.md`.

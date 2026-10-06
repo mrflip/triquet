@@ -12,6 +12,7 @@ import { EntryKindWords, FormularyWords, NoCellsLine, StatusJoint, statusPhrases
 import { Formularies } from '../../lib/formulary/formularies'
 import * as Runner from '../../lib/formulary/runner'
 import * as Rank from '../../lib/rank'
+import { Question } from '../../models/question'
 import type { QuizT } from '../../models/quiz'
 import styles from '../workbench.module.css'
 
@@ -41,7 +42,7 @@ export type WidgetsPanelProps = {
  */
 export function WidgetsPanel({ quiz, run }: Readonly<WidgetsPanelProps>) {
   // The advice is shown a real question: the lowest-numbered, as the widget editor's preview starts on.
-  const [sample] = Rank.inRankOrder(quiz.questions)
+  const [sample] = Rank.inRankOrder(Question.unarchived(quiz.questions))
   return (
     <Panel
       title="Widgets"

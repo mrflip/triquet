@@ -6,7 +6,7 @@ import { AuthorizationError } from '../../src/lib/errors'
 import { RefusalNotices } from '../../src/lib/notices'
 import { CategoryLabelVals } from '../../src/models/category'
 import { ActionValidators, QuizRevisionKindVals, type AccountActionDNA, type AccountActionT, type HuntActionDNA, type HuntActionT, type LibraryActionDNA, type LibraryActionT } from '../../src/models/actions'
-import type { ReviewPhase, ReviewRowT } from '../../src/models/review'
+import type { ReviewPhase, ReviewPolicyT } from '../../src/models/review'
 
 /** Whatever `attempt` throws, or null when it does not */
 function failureOf(attempt: () => unknown): unknown {
@@ -50,8 +50,8 @@ const ClaimsAs: Record<Column, Actor.QuizClaimsT> = {
 }
 
 /** A review of the quiz, by `ident_id`, in `phase` */
-function reviewBy(ident_id: Id<'idents'>, phase: ReviewPhase, of_hunt_id = hunt_id): ReviewRowT {
-  return { hunt_id: of_hunt_id, quiz_id, ident_id, overall: '', phase }
+function reviewBy(ident_id: Id<'idents'>, phase: ReviewPhase, of_hunt_id = hunt_id): ReviewPolicyT {
+  return { hunt_id: of_hunt_id, ident_id, phase }
 }
 
 describe('Approve.mayReadHunt', () => {
@@ -125,7 +125,7 @@ describe('Approve.mayWriteReview', () => {
 })
 
 describe('Approve.mayReadReview', () => {
-  const Cases: [ReviewRowT, Standing, ReviewRowT | null, Approve.VerdictT, string][] = [
+  const Cases: [ReviewPolicyT, Standing, ReviewPolicyT | null, Approve.VerdictT, string][] = [
     // one case per guard, in order:
     [reviewBy(alice_id, 'draft'),                 'anonymous', null,                           'notIdentified', 'nobody who has asserted no username'],
     [reviewBy(alice_id, 'draft', other_hunt_id),  'smith',     null,                           'notPermitted',  "claims on another hunt say nothing of this one, not even of one's own"],
@@ -321,6 +321,7 @@ const Matrix = {
   edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
   add_question:        [{ kind: 'add_question' },                                                                                    Revisers],
   delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Revisers],
+  set_viz:             [{ kind: 'set_viz', question_ids: [question_id], viz: 'archived' },                                           Revisers],
   sort_questions:      [{ kind: 'sort_questions', sortkey: 'column:qnum', descending: false },                                       Revisers],
   renumber_qnums:      [{ kind: 'renumber_qnums' },                                                                                  Revisers],
   move_question:       [{ kind: 'move_question', question_id, onto_idx: 0 },                                                         Revisers],

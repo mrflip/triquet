@@ -29,6 +29,31 @@ change to a row shape that rows already written would not fit is a migration on 
 (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps); a local backend is simply
 emptied and pushed again.
 
+## Stamps
+
+Every row of ours the app writes (`StampedTables` in `convex/stamping.ts`: every table but
+`identings`, whose rows are appended and never edited) carries `created_at` and `updated_at`, epoch
+milliseconds, for forensics. They are written in one place, by a trigger (convex-helpers'
+`Triggers`): every mutation `convex/functions.ts` builds, public or internal, holds a database
+wrapped by `triggers.wrapDB`, and an ESLint rule (`triquet/convex-mutations-through-triggers`)
+keeps Convex's own `mutation` and `internalMutation` out of every other file but the migrations.
+As each write lands, the trigger writes through the database beneath it (which runs no trigger):
+
+* **`created_at`** is the whole millisecond of the row's `_creationTime`, filled in at a row's
+  first write if it has none, and **never changed**: a write that would change it is refused, as
+  the bug it is. A write that leaves it out (a replace) keeps the row's.
+* **`updated_at`** equals `created_at` on an insert, so a row nobody has edited has its stamps
+  equal (Import's tidying of untouched starters reads that), and is the moment of the mutation at
+  every later write.
+
+A writer never names a stamp, and an import never carries a pasted one. The row validators hold
+them optional, and so does the schema, **for good**: a row is inserted without them and stamped
+once it has landed. What the trigger never sees: a write from the Convex dashboard, and the
+migrations' backfills, which write raw so that a backfill is no edit. A reader takes a row's stamps
+through `Stamps.of` (`src/lib/stamps.ts`), which reads a row the trigger never saw as made, and not
+edited, when the database made it. A person reads them as ISO-8601 UTC strings (`Stamps.isoOf`)
+in the balls and tables of the hunt, its quizzes and questions, and its reviews and verdicts.
+
 ## Denormalized fields
 
 A row carries copies of what policy needs from the rows above it, so that the evidence for a

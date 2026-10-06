@@ -1,4 +1,5 @@
 import _ from 'es-toolkit/compat'
+import * as Stamps from './stamps'
 import * as UU from './useful'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
@@ -29,8 +30,8 @@ export const OrderFieldkey = 'order'
 /** How long a commit subject may run before it is cut down to a count */
 export const SubjectMax = 72
 
-/** Fields whose movement is never worth recording: identity, and the questions handled apart */
-const UninterestingFieldkeys = new Set(['_id', 'questions'])
+/** Fields whose movement is never worth recording: identity, the stamps (which every edit moves), and the questions handled apart */
+const UninterestingFieldkeys = new Set<string>(['_id', ...Stamps.StampFieldnames, 'questions'])
 
 export type Change = {
   /** `quiz` for the quiz's own fields, otherwise the question's label as it now stands */

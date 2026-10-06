@@ -17,8 +17,8 @@ export type SortValueOf = (question: QuestionT) => SortValue
  *
  * Questions with no value for the sorted column sink to the bottom in *both* directions: "no
  * Hint Full Sum yet" is not a small number, it is an absence, and it belongs at the end either
- * way. Ties are settled by where the questions already sit, so a sort never shuffles
- * indistinguishable rows. Text sorts case-insensitively and locale-aware.
+ * way. Ties are settled by putting an alternate (a secondary question) after its peers, and then
+ * by where the questions already sit, so a sort never shuffles indistinguishable rows. Text sorts case-insensitively and locale-aware.
  *
  * @param questions - The quiz's questions, in their committed display order.
  * @param valueOf - How the sorted column reads one question.
@@ -34,11 +34,12 @@ export function sortQuestions(questions: readonly QuestionT[], valueOf: SortValu
   return questions.toSorted((aa, bb) => {
     const aaVal = valueOf(aa)
     const bbVal = valueOf(bb)
-    if (isAbsent(aaVal) && isAbsent(bbVal)) { return seatOf(aa) - seatOf(bb) }
+    const tiebreak = () => Rank.alternatesLast(aa, bb) || seatOf(aa) - seatOf(bb)
+    if (isAbsent(aaVal) && isAbsent(bbVal)) { return tiebreak() }
     if (isAbsent(aaVal)) { return 1 }
     if (isAbsent(bbVal)) { return -1 }
     const order = compareValues(aaVal, bbVal)
-    if (order === 0) { return seatOf(aa) - seatOf(bb) }
+    if (order === 0) { return tiebreak() }
     return descending ? -order : order
   })
 }

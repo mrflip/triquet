@@ -26,9 +26,12 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
-// One more is written by hand while a hunt gains its org (`notes/deploy.md`, *Schema pushes*): a
-// hunt's `orglabel` is optional here though every write gives one, so that hunts written before it
-// existed still fit until `migrations.ts` backfills them.
+// More are written by hand while rows gain them (`notes/deploy.md`, *Schema pushes*), each
+// optional here though every write gives one, so that rows written before it existed still fit
+// until `migrations.ts` backfills them: a hunt's `orglabel`, and a question's `viz`.
+//
+// A row's stamps (`created_at`, `updated_at`) are optional for good, in the row validators too:
+// the trigger writes them once a row has landed (`stamping.ts`), so a row goes in without them.
 //
 // The tables of Convex Auth (`users`, `authSessions`, `authAccounts` and the rest) are its own,
 // spread in as it ships them and written only by it: no row validator of ours derives them.
@@ -49,7 +52,7 @@ const widgetedFields    = {
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
 }
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
-const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
+const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), viz: CVX.optional(zodOutputToConvex(QuestionValidators.viz)) }
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)

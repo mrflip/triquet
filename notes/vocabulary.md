@@ -215,8 +215,24 @@ words above.
   *shown* beside whichever other question chains to this one.
 * **qnum** (Q#) -- the author's own question number, kept as text. Blank, gappy, duplicated and
   decimal are all legal; `3.1` means "between 3 and 4" without renumbering anything.
-* **rank** -- a question's 1-based place once the quiz is put in Q# order; null without a Q#.
-  Rank is derived and dense where Q# is typed and loose. Exports are always in rank order.
+* **rank** -- a question's 1-based place once the quiz is put in Q# order; null without a Q#,
+  and for an archived question, which takes none from the rest. Rank is derived and dense where
+  Q# is typed and loose. Exports are always in rank order; a tie of Q# puts an alternate last.
+* **viz** -- how a question is shown: `normal`, as every question starts; `secondary`; or
+  `archived`. Set in batch mode, or from the gear (`set_viz`). Not "visibility" or "status".
+  - **secondary**, an **alternate** -- a question offered beside its peers, as a spare: its title
+    in italics with `(alt)` after it wherever it is shown, and after its peers in every tiebreak
+    (`Rank.alternatesLast`). Playtested, and left out of the LL export going live.
+  - **archived** -- put away: on no screen but the gear's *Archived questions*, where it is
+    un-archived or deleted (the only way a question is deleted); in no export handed on (Copy for
+    Sheets, the questions alone, the LL export), but kept in the quiz's own ball and table, with
+    its viz. An import that brings in a question archives the quiz's untouched blank questions.
+* **stamps** (`created_at`, `updated_at`) -- when a row was made and last edited, in epoch
+  milliseconds; equal until its first edit. Every table of ours but the identings carries them,
+  written by the database's trigger alone (`convex/stamping.ts`), never typed or imported. The
+  balls and tables write a hunt's, quiz's, question's, review's and verdict's for people, as
+  ISO-8601 in UTC (`2026-10-05T09:30:00.000Z`). A question **untouched** since it was made has
+  equal stamps.
 
 ## Categories
 

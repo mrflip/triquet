@@ -115,6 +115,39 @@ describe('importInto', () => {
       expect(outcome.summary).to.include('matched this quiz by label')
     })
 
+    it("sends a whole hunt none of whose quizzes matches this one elsewhere: its first quiz, to the quiz of its label, reading nothing here", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({
+        label:   'spring_hunt',
+        quizzes: { home: { legends: { title: 'Legends', questions: { leon: { clueing: 'Theirs' } } }, princes: { title: 'Princes', questions: {} } } },
+      }), SeedWidgets)
+      expect(outcome.elsewhere).to.deep.eq({ label: 'legends', take: 0 })
+      expect([outcome.questions, outcome.actions]).to.deep.eq([null, []])
+      expect(outcome.summary).to.include('Read as a hunt of 2 quiz(zes); none matches this quiz, so its first, “legends”, goes to the quiz of its own label')
+    })
+
+    it("sends a Raw Export of a hunt of one quiz elsewhere too, as the hunt's own fields at its root say it is one", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({ label: 'spring_hunt', branch: 'main', quizzes: { home: { legends: { questions: { leon: {} } } } } }), SeedWidgets)
+      expect(outcome.elsewhere).to.deep.eq({ label: 'legends', take: 0 })
+    })
+
+    it("reads one quiz's ball into this quiz, whatever it is called", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const outcome = Importing.importInto(quiz, JSON.stringify({ quizzes: { home: { legends: { title: 'Legends', questions: { leon: { clueing: 'Theirs' } } } } } }), SeedWidgets)
+      expect(outcome.elsewhere).to.be.null
+      expect(patchFor(present(outcome.questions), 'leon').clueing).to.eq('Theirs')
+      expect(outcome.summary).to.include("Read as one quiz's ball of 1 question(s).")
+    })
+
+    it("reads the quiz it is told to take, sent from another quiz's Import, whatever this one is called", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      const pasted = JSON.stringify({ label: 'spring_hunt', quizzes: { home: { legends: { questions: { leon: { clueing: 'Legends' } } }, princes: { questions: { leon: { clueing: 'Princes' } } } } } })
+      const outcome = Importing.importInto(quiz, pasted, SeedWidgets, { take: 1 })
+      expect(patchFor(present(outcome.questions), 'leon').clueing).to.eq('Princes')
+      expect(outcome.summary).to.include("Read its quiz “princes”, sent here from another quiz's Import")
+    })
+
     it('says which reading it took and how many questions it found', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       const outcome = Importing.importInto(quiz, JSON.stringify([{ label: 'leon' }, { label: 'nantes' }]), SeedWidgets)
@@ -164,6 +197,22 @@ describe('importInto', () => {
     it('clears a field set explicitly to null', () => {
       const quiz = quizOf(['1', 'leon', 'Which region?'])
       expect(patchFor(imported(quiz, [{ label: 'leon', clueing: null }]), 'leon')).to.deep.eq({ clueing: '' })
+    })
+
+    it("carries how a question is shown, null making it normal", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'], ['2', 'nantes', 'Another'])
+      const questions = imported(quiz, [{ label: 'leon', viz: 'archived' }, { label: 'nantes', viz: null }])
+      expect([patchFor(questions, 'leon'), patchFor(questions, 'nantes')]).to.deep.eq([{ viz: 'archived' }, { viz: 'normal' }])
+    })
+
+    it("skips a question shown in a way this tool does not know", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(outcomesOf(quiz, [{ label: 'leon', viz: 'hidden' }])).to.deep.eq(['skipped'])
+    })
+
+    it("passes over when a question was made and edited: it is stamped as the import writes it", () => {
+      const quiz = quizOf(['1', 'leon', 'Which region?'])
+      expect(patchFor(imported(quiz, [{ label: 'leon', created_at: '2001-01-01T00:00:00.000Z', updated_at: '2001-01-01T00:00:00.000Z' }]), 'leon')).to.deep.eq({})
     })
 
     it("passes over what a widgeting came to, which is worked out again or recorded by asking rather than pasted", () => {
@@ -617,9 +666,12 @@ describe('older exports', () => {
     expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.' })
   })
 
-  it("reads the oldest export of all for its labels and its question text", () => {
-    const outcome = Importing.importInto(quizOf(['1', 'sheep', 'Old']), fs.readFileSync(path.join(import.meta.dirname, '../../fixtures/sample-import.json'), 'utf8'), SeedWidgets)
-    expect(outcome.summary).to.include('Read as a hunt of 2 quiz(zes)')
+  it("reads the oldest export of all for its labels and its question text, sending its first quiz, which matches none here, to a quiz of its own", () => {
+    const oldest = fs.readFileSync(path.join(import.meta.dirname, '../../fixtures/sample-import.json'), 'utf8')
+    const sent = Importing.importInto(quizOf(['1', 'sheep', 'Old']), oldest, SeedWidgets)
+    expect(sent.summary).to.include('Read as a hunt of 2 quiz(zes); none matches this quiz')
+    expect(sent.elsewhere).to.deep.eq({ label: null, take: 0 })
+    const outcome = Importing.importInto(quizOf(['1', 'sheep', 'Old']), oldest, SeedWidgets, { take: 0 })
     expect(patchFor(present(outcome.questions), 'sheep').clueing).to.include('At a glance, the lines below are gibberish')
   })
 

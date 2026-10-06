@@ -52,6 +52,10 @@ export function twoQuizHunt(): HuntT {
 /** Lee's verdict on Leon */
 export const Verdict = { get_rate: 40, guesses: 'Leon?', comments: 'Lovely.', minutes: 2, keep_it: true, needs_fact_check: false, elimination_candidate: false }
 
+/** When Lee and Kim wrote their reviews, and each verdict in them: as stamps, and as a ball writes them */
+export const ReviewedAt = { created_at: Date.UTC(2026, 9, 5, 9), updated_at: Date.UTC(2026, 9, 5, 10) }
+export const ReviewedAtIso = { created_at: '2026-10-05T09:00:00.000Z', updated_at: '2026-10-05T10:00:00.000Z' }
+
 /** Everything the two-quiz hunt's balls are made from: a wheel with TV in the pool, two members, and Lee's shared review and Kim's draft of `princes` */
 export function snapshot(): Exporting.HuntSnapshotT {
   const hunt = twoQuizHunt()
@@ -63,8 +67,8 @@ export function snapshot(): Exporting.HuntSnapshotT {
     realms:  hunt.realms,
     library: EntryLibrary,
     reviews: { [princes._id]: [
-      { reviewer: { label: 'lee_jones', title: 'Lee' }, phase: 'shared', overall: 'A fair quiz.', reviewings: [{ question_id: present(princes.questions[0])._id, ...Verdict }] },
-      { reviewer: { label: 'kim_park', title: 'Kim' }, phase: 'draft', overall: 'Unfinished', reviewings: [] },
+      { reviewer: { label: 'lee_jones', title: 'Lee' }, phase: 'shared', overall: 'A fair quiz.', ...ReviewedAt, reviewings: [{ question_id: present(princes.questions[0])._id, ...Verdict, ...ReviewedAt }] },
+      { reviewer: { label: 'kim_park', title: 'Kim' }, phase: 'draft', overall: 'Unfinished', ...ReviewedAt, reviewings: [] },
     ] },
   }
 }

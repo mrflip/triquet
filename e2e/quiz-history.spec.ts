@@ -281,9 +281,13 @@ test('a deletion is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Title' }).first().fill('hamlet')
   await page.getByLabel('Quiz name').click()
 
+  // A question is deleted from the gear's archived questions, once it has been archived.
   await page.getByRole('button', { name: 'Batch select' }).click()
-  await page.getByRole('button', { name: 'Delete hamlet', exact: true }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Change how hamlet is shown', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Archive' }).click()
+  await openManage(page)
+  await manageDialog(page).getByRole('button', { name: 'Delete hamlet' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Cancel' }).click()
 
   await expect.poll(() => gitSays(page, 'tag', '--list')).toMatch(new RegExp(String.raw`^main_${quizLabelOf(page)}_delete_\d{14}z$`))
 })

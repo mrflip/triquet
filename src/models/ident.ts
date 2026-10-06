@@ -4,7 +4,7 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const IdentValidators = Validator(({ obj, identlabel, titleish, zid }) => {
+export const IdentValidators = Validator(({ obj, identlabel, titleish, stamps, zid }) => {
   const identLabel = identlabel
     .describe('What a person types to become this ident (their username), and what others add them to a hunt by. Unique across the app: a new one is made inside the write that looks it up, so two sessions asserting one new label at once make one ident between them.')
   const title = titleish.min(1)
@@ -16,6 +16,7 @@ export const IdentValidators = Validator(({ obj, identlabel, titleish, zid }) =>
     label: identLabel,
     title,
     user_id,
+    ...stamps,
   })
     .describe('One ident: a persona in the app, a username held by the session that claimed it.')
 

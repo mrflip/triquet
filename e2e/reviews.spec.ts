@@ -49,6 +49,23 @@ test.describe('a review', () => {
     await expect(page.getByText('Played well, one clue felt loose.')).toBeVisible()
   })
 
+  test("shows a reviewer no archived question, and an alternate marked as one", async ({ page, browser }) => {
+    await startHunt(page)
+    await fillRows(page, [{ Title: 'hamlet', Clueing: 'Which prince was Danish?' }, { Title: 'othello', Clueing: 'Which general was Moorish?' }, { Title: 'macbeth', Clueing: 'Which king was Scottish?' }])
+    await page.getByRole('button', { name: 'Batch select' }).click()
+    await page.getByRole('button', { name: 'Change how othello is shown', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Archive' }).click()
+    await page.getByRole('button', { name: 'Batch select' }).click()
+    await page.getByRole('button', { name: 'Change how macbeth is shown', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Make secondary' }).click()
+    await waitUntilSaved(page)
+
+    const reviewer = await enterReview(page, browser)
+    await expect(reviewer.getByText('Which prince was Danish?')).toBeVisible()
+    await expect(reviewer.getByRole('region', { name: 'macbeth (alt)' })).toContainText('Which king was Scottish?')
+    await expect(reviewer.getByText('Which general was Moorish?')).toHaveCount(0)
+  })
+
   test("shows the reviewer the smith's note folded to a line, unfolding by its triangle to paragraphs and all, and nothing where there is none", async ({ page, browser }) => {
     await startHunt(page)
     const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })

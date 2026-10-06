@@ -30,6 +30,11 @@ const byAnswer = (question: QuestionT) => question.title
 const byQnumOrNull = (question: QuestionT) => (question.qnum === '' ? null : Number(question.qnum))
 
 describe('sortQuestions', () => {
+  it('puts an alternate after its peers of the same value, and after its peers with none, before falling back on where they sit', () => {
+    const questions = questionsOf(['', 'apple'], ['', 'apple'], ['', ''], ['', ''], ['', 'banana']).map((question, ii) => ({ ...question, label: `q${String(ii)}`, viz: ii % 2 === 0 ? 'secondary' as const : 'normal' as const }))
+    expect(Sortings.sortQuestions(questions, byAnswer, false).map((question) => question.label)).to.deep.eq(['q1', 'q0', 'q4', 'q3', 'q2'])
+  })
+
   it('orders by what the column reads', () => {
     const questions = questionsOf(['', 'cherry'], ['', 'apple'], ['', 'banana'])
     expect(answers(Sortings.sortQuestions(questions, byAnswer, false))).to.deep.eq(['apple', 'banana', 'cherry'])
