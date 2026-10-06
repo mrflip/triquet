@@ -523,6 +523,43 @@ describe('watchHunt, waited on', () => {
     await expect(waiting).resolves.toBeUndefined()
     feed.stop()
   })
+
+  it("fetches what moved since each wait began, though a wait given up on still lingers", async () => {
+    const held = await peopled()
+    const kings = present(held.places.kings)
+    const gate = { shut: false, hung: Promise.withResolvers<null>() }
+    const hanging = (watcher: WatcherT): WatcherT => {
+      const query = async (fn: FunctionReference<'query'>, args: { affirms?: { quiz_id?: string } }): Promise<unknown> => {
+        const isKings = getFunctionName(fn) === getFunctionName(api.quizzes.whole) && args.affirms?.quiz_id === kings.quiz_id
+        if (isKings && gate.shut) { return await gate.hung.promise }
+        return await (watcher.query as (fn: FunctionReference<'query'>, args: unknown) => Promise<unknown>)(fn, args)
+      }
+      return { watchQuery: watcher.watchQuery, query } as unknown as WatcherT
+    }
+    const { standIn, feed, readings, clock } = await fed(held, 'princes', hanging)
+    await actIn(held, held.sam, kings, { kind: 'retitle_quiz', title: 'Kings of England' })
+    await standIn.settle()
+    gate.shut = true
+    // Given up on, as the history gives up after `ReadWaitMs`: the fetch of kings never answers.
+    void feed.whenRead()
+    await standIn.settle()
+    // Paris is fetched in its time, after that wait began, then changes again.
+    const paris = present(held.places.paris)
+    await actIn(held, held.sam, paris, { kind: 'retitle_quiz', title: 'Paris, France' })
+    await standIn.settle()
+    clock.advance(Pace.fetchEveryMs)
+    await standIn.settle()
+    feed.settle()
+    expect(lastOf(readings).files.get('quizzes/home/paris.tqq.json')).to.include('Paris, France')
+    await actIn(held, held.sam, paris, { kind: 'retitle_quiz', title: 'Paris, Texas' })
+    await standIn.settle()
+    void feed.whenRead()
+    await standIn.settle()
+    feed.settle()
+    expect(lastOf(readings).files.get('quizzes/home/paris.tqq.json')).to.include('Paris, Texas')
+    feed.stop()
+    gate.hung.resolve(null)
+  })
 })
 
 /** How a fetch of `quizzes.whole` answers for one quiz, in place of what it read: by failing, or with nothing */

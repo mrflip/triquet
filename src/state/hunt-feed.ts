@@ -408,7 +408,8 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     whenRead: async () => {
       if (state.stopped) { return }
       openAll()
-      if (waiters.size === 0) { state.waitedSince = clock.now() }
+      // From each wait on: one given up on by its caller lingers, and must not hold the next to its own moment.
+      state.waitedSince = clock.now()
       const read = Promise.withResolvers<null>()
       waiters.add(() => { read.resolve(null) })
       state.cancel?.()
