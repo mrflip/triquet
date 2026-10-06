@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, addWidgetings, cellOf, expect, stubAsk, test, waitUntilSaved } from './support'
+import { cellOf, expect, stubAsk, test, waitUntilSaved } from './support'
 
 const ThreeSpans = [
   { text: '#17-19', value: 36, kind: 'numeral' },
@@ -12,8 +12,12 @@ async function stubIshes(page: Page, items: unknown[]) {
   await stubAsk(page, { ok: true, value: { items }, truncated: false, model_tier_applied: 'careful', approx_tokens: 120 })
 }
 
+/** The widgets every test here puts to work: the clueing's number spotter, and the sums that read it */
+const ClueingSums = ['numnum_clueing', 'clueing_full', 'clueing_numeral', 'clueing_plus_rank'] as const
+
+test.use({ layout: { widgetings: ClueingSums } })
+
 test.beforeEach(async ({ page }) => {
-  await addWidgetings(page, ['numnum_clueing', 'clueing_full', 'clueing_numeral', 'clueing_plus_rank'])
   await page.getByRole('textbox', { name: 'Q#' }).first().fill('1')
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')
@@ -74,23 +78,25 @@ test('editing the clueing leaves the sums as they were until it is asked again',
   await expect(cellOf(page, 0, 'Numnum Clueing')).toContainText('#17-19')
 })
 
-test('BUT NOT ishes mirrors the chained-to hint rather than computing its own', async ({ page }) => {
-  await addWidgetings(page, ['numnum_hint', 'butnot_ishes', 'butnot_full', 'hint_full'])
-  await addColumns(page, ['hint', 'chains_to'])
-  await page.getByRole('textbox', { name: 'Title' }).nth(1).fill('damson')
-  await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(1).fill('BUT NOT the 1994 film')
-  await page.getByLabel('Quiz name').click()
-  await page.getByRole('combobox', { name: 'Chains to' }).first().selectOption({ label: 'damson' })
+test.describe('with the hint, its sums and the chain shown too', () => {
+  test.use({ layout: { widgetings: [...ClueingSums, 'numnum_hint', 'butnot_ishes', 'butnot_full', 'hint_full'], columns: ['hint', 'chains_to'] } })
 
-  // Nothing to show until the chained-to question's hint has been asked about.
-  await expect(cellOf(page, 0, 'Butnot Ishes')).toHaveText('–')
+  test('BUT NOT ishes mirrors the chained-to hint rather than computing its own', async ({ page }) => {
+    await page.getByRole('textbox', { name: 'Title' }).nth(1).fill('damson')
+    await page.getByRole('textbox', { name: 'Hint', exact: true }).nth(1).fill('BUT NOT the 1994 film')
+    await page.getByLabel('Quiz name').click()
+    await page.getByRole('combobox', { name: 'Chains to' }).first().selectOption({ label: 'damson' })
 
-  await stubIshes(page, [{ text: '1994', value: 1994, kind: 'numeral' }])
-  await page.getByRole('button', { name: 'Ask Numnum Hint' }).nth(1).dblclick()
+    // Nothing to show until the chained-to question's hint has been asked about.
+    await expect(cellOf(page, 0, 'Butnot Ishes')).toHaveText('–')
 
-  await expect(cellOf(page, 0, 'Butnot Ishes')).toContainText('1994')
-  await expect(cellOf(page, 0, 'Butnot Full')).toContainText('1,994')
-  await expect(cellOf(page, 1, 'Hint Full')).toContainText('1,994')
+    await stubIshes(page, [{ text: '1994', value: 1994, kind: 'numeral' }])
+    await page.getByRole('button', { name: 'Ask Numnum Hint' }).nth(1).dblclick()
+
+    await expect(cellOf(page, 0, 'Butnot Ishes')).toContainText('1994')
+    await expect(cellOf(page, 0, 'Butnot Full')).toContainText('1,994')
+    await expect(cellOf(page, 1, 'Hint Full')).toContainText('1,994')
+  })
 })
 
 test('double-clicking a Full Sum re-extracts what is behind it', async ({ page }) => {

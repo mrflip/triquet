@@ -1,32 +1,81 @@
-import { test as base, expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
+import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import type * as Routes from '../src/lib/routes'
 import { QuestionSourceTitles, type QuestionField, type QuestionView } from '../src/models/column'
+import * as Z from 'zod'
+import { runAsAdmin } from './admin'
 
-/** Where the fixture's page begins by default: a fresh ident's fresh hunt, open on its quiz */
+/** Where the fixture's page begins by default: its worker's ident's fresh hunt, open on its quiz */
 export const FreshHunt = 'fresh hunt'
+
+/**
+ * How the fresh hunt's quiz is laid out before the page first opens it: the library's widgets to
+ * put to work, each with the column it brings (as `addWidgetings` would), then the question's own
+ * fields and views to show (as `addColumns` would), in the order given. A new quiz starts lean.
+ */
+export type LayoutT = {
+  widgetings?: readonly string[]
+  columns?:    readonly (QuestionField | QuestionView)[]
+}
+
+/**
+ * Browser storage holding nothing: no session. A context the suite makes takes the test's options,
+ * the kept session among them, unless it is given storage of its own.
+ */
+const NoStorage = { cookies: [], origins: [] }
+
+/**
+ * The session a worker's fresh hunts are made under: the ident it said it was at the front door,
+ * and the browser storage that holds it as the worker's last test left it.
+ *
+ * The storage is handed on from test to test, not copied from the front door each time. A page
+ * opening on a session it already holds exchanges its refresh token for a new one, and Convex
+ * Auth honours a refresh token once (or again within ten seconds); one used later than that is
+ * taken for a stolen one, and every token descended from it is revoked, the session with them. A
+ * worker runs one test at a time, so each begins with the token the one before it was handed.
+ */
+type KeptSessionT = { label: string, storageState: Exclude<BrowserContextOptions['storageState'], undefined> }
 
 /**
  * The suite's `test`: Playwright's, with the page already at the workbench.
  *
- * Every spec imports `test` and `expect` from here. `page` has said who it is, made a hunt of its
- * own and opened the hunt's quiz (`startAt` is `FreshHunt` unless a spec says otherwise), and has
- * its grid on screen, so a spec begins with the thing it is about rather than with a way in.
- * Specs share one database and every hunt in it, so each begins in a hunt no other can name.
- * `startAt` as a path goes there instead, and waits for the grid. A spec that must stub a route
- * before the first load, or is about the way in itself, says `test.use({ startAt: null })` and
- * goes there itself.
+ * Every spec imports `test` and `expect` from here. `page` has a hunt of its own, made a moment
+ * ago, open on its quiz with its grid on screen (`startAt` is `FreshHunt` unless a spec says
+ * otherwise), so a spec begins with the thing it is about rather than with a way in. The hunt is
+ * made by the backend (`testing:makeHunt`) rather than through the hunts list, laid out as the
+ * spec asks (`test.use({ layout })`), for an ident each worker says it is once, at the front door;
+ * every page of that worker's begins in that session. Specs share one database, and a worker's
+ * tests share one ident, so each finds its rows by its own labels and titles, never by the hunts
+ * an ident is on.
+ *
+ * `startAt` as a path goes there instead, in a session of its own, and waits for the grid. A spec
+ * that must stub a route before the first load, or is about the way in itself, says
+ * `test.use({ startAt: null })` and goes there itself, in a fresh anonymous session
+ * (`startHunt(page)` is the way in through the front door and the hunts list).
  */
-export const test = base.extend<{ startAt: string | null }>({
-  startAt: [FreshHunt, { option: true }],
-  page:    async ({ page, startAt }, use) => {
+export const test = base.extend<{ startAt: string | null, layout: LayoutT }, { keptSession: KeptSessionT }>({
+  startAt:     [FreshHunt, { option: true }],
+  layout:      [{}, { option: true }],
+  keptSession: [async ({ browser }, use, workerInfo) => {
+    const context = await browser.newContext({ baseURL: workerInfo.project.use.baseURL, storageState: NoStorage })
+    const label = await assumeIdent(await context.newPage())
+    const storageState = await context.storageState()
+    await context.close()
+    await use({ label, storageState })
+  }, { scope: 'worker' }],
+  storageState: async ({ startAt, keptSession, storageState }, use) => {
+    await use(startAt === FreshHunt ? keptSession.storageState : storageState)
+  },
+  page: async ({ page, startAt, layout, keptSession }, use) => {
     if (startAt === FreshHunt) {
-      await startHunt(page)
+      await enterFreshHunt(page, keptSession.label, layout)
     } else if (startAt !== null) {
       await page.goto(startAt)
       await expect(grid(page)).toBeVisible()
     }
     await use(page)
+    // The session as this test leaves it, its refresh token the one now current, for the next test.
+    if (startAt === FreshHunt) { keptSession.storageState = await page.context().storageState() }
   },
 })
 export { expect } from '@playwright/test'
@@ -41,7 +90,7 @@ test.afterEach(async () => {
 
 /** A page in a browser of its own: another visitor, signed in as a session of their own, on the same database */
 export async function otherVisitor(browser: Browser): Promise<Page> {
-  const context = await browser.newContext()
+  const context = await browser.newContext({ storageState: NoStorage })
   Others.push(context)
   return await context.newPage()
 }
@@ -196,6 +245,23 @@ export async function addColumns(page: Page, fields: readonly (QuestionField | Q
     await expect(manageDialog(page).getByRole('group', { name: `Column ${QuestionSourceTitles[field]}`, exact: true })).toBeVisible()
   }
   await closeManage(page)
+}
+
+/**
+ * Have the backend make a hunt for the ident labelled `label`, laid out as `layout` says, and open
+ * its quiz: the fixture's way in, for a page whose session already holds that ident.
+ *
+ * Making a hunt reads every hunt (the app caps how many it holds), so two made at once collide,
+ * and Convex gives up on one after retrying it a few times; with every worker making a hunt a
+ * test, that happens. A write that collided wrote nothing, so it is tried again, for a while.
+ */
+async function enterFreshHunt(page: Page, label: string, layout: LayoutT): Promise<void> {
+  const made = { address: '' }
+  await expect(async () => {
+    made.address = Z.string().startsWith('/').parse(await runAsAdmin('testing:makeHunt', { ident: label, widgetings: layout.widgetings ?? [], columns: layout.columns ?? [] }))
+  }, 'the backend should make a hunt').toPass({ intervals: [100, 250, 500, 1000], timeout: 10_000 })
+  await page.goto(made.address)
+  await expect(grid(page)).toBeVisible()
 }
 
 /**

@@ -167,11 +167,18 @@ fails on the instant before the change lands.
   it out.
 
 **Share through fixtures, not copies.** `e2e/support.ts` extends Playwright's `test`; specs
-import `test` and `expect` from there. Its `page` has already said who it is, made a hunt of its
-own and opened the hunt's quiz (`startAt` is `FreshHunt`), so a spec begins with the thing it is
-about; a spec that must stub a route before the first load, or is about the way in itself, says
-`test.use({ startAt: null })` and goes there itself (`startHunt(page)` is the fixture's way in). A helper two specs need lives in support
-with a doc block; a helper one spec needs lives at the top of that spec.
+import `test` and `expect` from there. Its `page` opens on a hunt of its own, made a moment ago
+(`startAt` is `FreshHunt`), so a spec begins with the thing it is about. The way in is fast: each
+worker says who it is at the front door once and keeps that session, and the backend makes each
+test's hunt (`testing:makeHunt`, an internal function the spec process calls with the role's
+admin key, `e2e/admin.ts`). A spec that is not about the gear asks for its quiz's layout up front,
+`test.use({ layout: { widgetings: [...], columns: [...] } })`, rather than walking the dialogs
+(`addWidgetings`, `addColumns`), which stay for the specs about them. A spec that is about the way
+in itself (the front door, the hunts list, a friend's link) says `test.use({ startAt: null })` and
+goes there itself, in a fresh anonymous session (`startHunt(page)` walks the front door and the
+hunts list); one that must stub a route before the page first asks for it stubs it and reloads. A
+helper two specs need lives in support with a doc block; a helper one spec needs lives at the top
+of that spec.
 
 **One smoke test a spec file.** Exactly one test of each spec file carries `{ tag: '@smoke' }`
 (the option, never words in its title): the one that walks furthest through what the file covers,
@@ -199,10 +206,14 @@ means the build mode only: the keys, settings and backend are the suite's own, a
 afresh every run and refuses to start while anything holds its port, so an earlier build is never
 tested in its place. CI runs the suite against the build too, on the `e2e` role's port, backend
 and build directory, with `TRIQUET_E2E_SERVER=built` choosing the server: the mode travels apart
-from the role. A spec must pass under both servers. Each spec's fresh browser context is a fresh anonymous session, with a fresh ident and a
-fresh hunt, of which that ident is the smith. Specs share one database, and a hunt is shown only
-to those on it, so find rows and pages by your own labels and titles, never by position. A second visitor is a second browser context (`otherVisitor`), closed after the test;
-a smith puts them on the hunt through the members panel (`addMember`) before they can open it.
+from the role. A spec must pass under both servers. Each test's browser context holds its worker's session, with a fresh hunt of which the worker's
+ident is the smith; the session is handed on from test to test, since each page that opens on it
+spends its refresh token (`KeptSessionT` in support). Specs share one database, and a worker's
+tests share one ident, so find rows and pages by your own labels and titles, never by position or
+by the hunts an ident is on, and never change who the page's session is. A second visitor is a
+second browser context (`otherVisitor`), a session of their own, closed after the test; a context
+made any other way inherits the worker's session. A smith puts them on the hunt through the
+members panel (`addMember`) before they can open it.
 The grid is `grid(page)`, the table named *Questions*: the page holds other tables.
 
 A change lands one round trip after the author makes it: the screen shows it once the server

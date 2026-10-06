@@ -26,7 +26,7 @@ setup('finds its local Convex backend answering', async ({ request }) => {
 setup('opens the app, so no spec pays for compiling its pages', async ({ page }) => {
   // Under the dev server a first visit compiles each page, which on a small runner can take far
   // longer than any spec should wait; the optimized build (CI's) has them compiled already, and
-  // this is quick. Every spec passes through all three pages.
+  // this is quick. Every spec opens a quiz, and those about the way in pass through the other two.
   setup.setTimeout(300_000)
   await page.goto('/')
   const label = freshIdentLabel()

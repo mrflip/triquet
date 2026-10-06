@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { addColumns, addWidgetings, cellOf, expect, startHunt, test } from './support'
+import { cellOf, expect, grid, test } from './support'
 
 /** Stand in for the server saying no service has credentials, without touching its real environment */
 async function stubNoCredentials(page: Page) {
@@ -22,13 +22,13 @@ async function requestSentWithin(page: Page, pattern: string, ms: number): Promi
 }
 
 test.describe('with no credentials for the bots\' service', () => {
-  test.use({ startAt: null })
+  test.use({ layout: { widgetings: ['dumdum', 'numnum_clueing', 'numnum_hint', 'clueing_full', 'hint_full'], columns: ['hint'] } })
 
   test.beforeEach(async ({ page }) => {
+    // The page asks which services have credentials as it opens, so it opens again once the stand-in is there.
     await stubNoCredentials(page)
-    await startHunt(page)
-    await addWidgetings(page, ['dumdum', 'numnum_clueing', 'numnum_hint', 'clueing_full', 'hint_full'])
-    await addColumns(page, ['hint'])
+    await page.reload()
+    await expect(grid(page)).toBeVisible()
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
     await page.getByRole('textbox', { name: 'Hint', exact: true }).first().fill('BUT NOT three')
     await page.getByLabel('Quiz name').click()

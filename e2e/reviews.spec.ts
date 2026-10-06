@@ -1,8 +1,8 @@
 import type { Browser, Page } from '@playwright/test'
-import { addColumns, addMember, assumeIdent, expect, fillRows, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { addColumns, addMember, assumeIdent, expect, fillRows, otherVisitor, quizPathOf, test, waitUntilSaved } from './support'
 
-// These are about a second visitor reviewing the first's hunt, so each goes in by itself.
-test.use({ startAt: null })
+// These are about a second visitor reviewing the first's hunt: the smith begins at the fixture's
+// fresh hunt, and the reviewer goes in by itself, at the front door.
 
 /**
  * A second visitor, put on the hunt `smith` has open as a reviewer, who follows a link naming
@@ -24,7 +24,6 @@ function manyLines(what: string): string {
 
 test.describe('a review', () => {
   test('is written by a second visitor, stays hidden from the smith until shared, and is then seen', { tag: '@smoke' }, async ({ page, browser }) => {
-    await startHunt(page)
     await page.getByLabel('Quiz name').fill('For review')
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which prince was Danish?')
     await page.getByLabel('Quiz name').click()
@@ -50,7 +49,6 @@ test.describe('a review', () => {
   })
 
   test("shows a reviewer no archived question, and an alternate marked as one", async ({ page, browser }) => {
-    await startHunt(page)
     await fillRows(page, [{ Title: 'hamlet', Clueing: 'Which prince was Danish?' }, { Title: 'othello', Clueing: 'Which general was Moorish?' }, { Title: 'macbeth', Clueing: 'Which king was Scottish?' }])
     await page.getByRole('button', { name: 'Batch select' }).click()
     await page.getByRole('button', { name: 'Change how othello is shown', exact: true }).click()
@@ -67,7 +65,6 @@ test.describe('a review', () => {
   })
 
   test("shows the reviewer the smith's note folded to a line, unfolding by its triangle to paragraphs and all, and nothing where there is none", async ({ page, browser }) => {
-    await startHunt(page)
     const note = page.getByRole('textbox', { name: 'Smith\'s note', exact: true })
     await note.fill('Theme: princes.\n\nMeta: their initials.')
     await page.getByLabel('Quiz name').click()
@@ -101,7 +98,6 @@ test.describe('a review', () => {
   })
 
   test("shows a reviewer the other reviewers' shared reviews only once their own is shared", async ({ page, browser }) => {
-    await startHunt(page)
     await waitUntilSaved(page)
     const first = await enterReview(page, browser)
     await first.getByLabel('Overall').fill('The first reviewer liked it.')
@@ -121,7 +117,6 @@ test.describe('a review', () => {
   })
 
   test("opens a first review for a reviewer who arrives straight at the review's address", async ({ page, browser }) => {
-    await startHunt(page)
     await waitUntilSaved(page)
     const reviewer = await otherVisitor(browser)
     const label = await assumeIdent(reviewer)
@@ -137,7 +132,6 @@ test.describe('a review', () => {
   })
 
   test("shows a reviewer each question as a review needs it, its BUT NOT and its answer behind the lock, through a reload, and never the smiths' notes", async ({ page, browser }) => {
-    await startHunt(page)
     await addColumns(page, ['hint', 'chains_to'])
     await fillRows(page, [
       { 'Title': 'Danish prince', 'Clueing': 'Which prince was Danish?', 'Full Answer': 'Hamlet', 'Notes': 'Check the folio first.' },
@@ -170,7 +164,6 @@ test.describe('a review', () => {
   })
 
   test('carries a reviewer\'s verdict on a question to the smith once shared', async ({ page, browser }) => {
-    await startHunt(page)
     await page.getByRole('textbox', { name: 'Title', exact: true }).first().fill('Danish prince')
     await page.getByRole('textbox', { name: 'Full Answer', exact: true }).first().fill('Hamlet')
     await page.getByLabel('Quiz name').click()

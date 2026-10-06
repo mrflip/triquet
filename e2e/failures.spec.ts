@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addWidgetings, expect, reloadOnceSaved, stubAsk, test } from './support'
+import { expect, reloadOnceSaved, stubAsk, test } from './support'
 
 const RateLimited = 'Too many requests right now — try again shortly.'
 
@@ -9,8 +9,9 @@ const failure = { ok: false, failurekind: 'rateLimited', detail: { name: 'RateLi
 /** The guess cell of the first row: dumdum's column */
 const guessCell = (page: Page) => page.getByRole('button', { name: 'Ask Dumdum' }).first()
 
+test.use({ layout: { widgetings: ['dumdum'] } })
+
 test.beforeEach(async ({ page }) => {
-  await addWidgetings(page, ['dumdum'])
   await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
   await page.getByLabel('Quiz name').click()
 })
