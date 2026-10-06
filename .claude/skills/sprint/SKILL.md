@@ -26,14 +26,6 @@ not merely append to (§3). `pnpm sweep` commits what you wrote onto the spine's
 and landing sweeps too. You run `pnpm worktree` to cut each thread's ground (§2), and the worker
 owns the worktree from there.
 
-**Stage before you sweep**, until `scripts/spine.ts` reads `git status` untrimmed
-(`human/20261005-spine_sweep_trims_status.md`). A sweep fails -- and with it every cut and
-landing, since each sweeps first -- when the first changed path under `whiteboard/`, `human/` or
-`notes/` is modified but unstaged (` M path`): the trim eats the leading space, and `git add` is
-asked for `hiteboard/...`. So before each `pnpm sweep`, each cut, and each resume of a worker to
-land, run `git add -- whiteboard human notes` in the main checkout: exactly what the sweep would
-commit anyway.
-
 ## 1. Plan
 
 Pick a short `sprint_name` from the work (the Coach's word for it if they gave one). In the main
@@ -102,7 +94,8 @@ Your worktree: <root>, on branch <branch>, lane <lane>, cut for you from the spi
 Begin every shell command with `cd <root> && `; every path here is relative to it. Mode: <normal | YOLO:
 prefer your recorded best judgment over blocking on minor calls>.
 Read <sprint_name>-plan.md and <sprint_name>-progress.md before touching code, then build
-this thread per your agent definition, and report `ready` when it is built and committed:
+this thread per your agent definition, and report `ready` when it is built and committed.
+Your scratch files go in <scratchpad>/<label>/.
 
 <the thread's text, verbatim>
 
@@ -110,7 +103,9 @@ Look-ahead from the orchestrator: <what later threads need from this one, if any
 ```
 
 Write that root out once, in full, in the handoff; every other path in it is relative to the
-root (CLAUDE.md, *Global resources*). A background worker that reports its tools refused
+root (CLAUDE.md, *Global resources*). Every agent you spawn shares this session's scratchpad
+directory, so give each thread a subdirectory of its own there: two workers' `dev.log`s in one
+file are no use to either. A background worker that reports its tools refused
 (a permission it could not ask for) is re-run in the foreground, alone.
 
 **Review.** When the worker reports `ready`, spawn one `thread-reviewer` (in the background, for
@@ -127,15 +122,22 @@ against the worktree's files.
 
 Spell the range out as two SHAs: the base is `git -C <root> config branch.<branch>.spinebase`,
 the tip `git -C <root> rev-parse HEAD`. The skill resolves them from the refs every checkout
-shares, but stands in the main checkout, where `HEAD` is the thread's base and the thread's files
-are not on disk. The reviewer makes the fixes it can stand behind by hand in the worktree, keeps
-them as `fix:` commits, and reports; anything it may not decide comes back `flagged` for §4.
+shares, but stands in the main checkout, where `HEAD` is the spine's top (the thread's base, or
+later if other threads have landed since) and the thread's files are not on disk. The reviewer
+makes the fixes it can stand behind by hand in the worktree, keeps them as `fix:` commits, and
+reports; anything it may not decide comes back `flagged` for §4.
 
 **Land.** Resume the worker (SendMessage, same agent, so its context survives) with "Land
 it", and anything from the review it should know. It runs `pnpm land`, repairs what is
 straightforward, files the PR, removes its worktree, and reports `landed` with the PR number,
 or `blocked`. Then post the reviewer's PR comment (`gh pr comment <n>`, the text from its
 report) so the review sits on the PR.
+
+**One landing at a time.** A landing runs the full e2e suite on its lane, and two suites at
+once (or one beside a reviewer's) load the machine until Convex functions time out and specs the
+thread never touched go red. Hold every other `ready` thread until the landing underway reports,
+and do not sweep meanwhile: a sweep moves the top under the landing and sends it back to its
+rebase and checks.
 
 A `blocked` or `abandoned` worker gets no review: the review is of a finished thread, and
 follows the resume that finishes it.
@@ -166,7 +168,8 @@ follows the resume that finishes it.
    on who should read it, as the workers do). Defend a ceiling of about 5,000 words on the
    progress document: every later worker reads it whole. Never edit a worker's thread file:
    it says what that worker claimed. Mark what you add with `*Orchestrator:*`. Then
-   `pnpm sweep`: what you wrote rides onto the spine's top.
+   `pnpm sweep`: what you wrote rides onto the spine's top. While a landing is underway, hold
+   the sweep until it reports (§2, *Land*).
 5. **Decide** (§4), refill the frontier, and wait for the next report. If the Coach has
    interjected in chat meanwhile, fold their guidance in first.
 
@@ -200,6 +203,14 @@ Default rules, absent other guidance:
     `bailed` reviewer is this case);
   - a thread's outcome invalidates other threads' premises. A stopped thread holds back the
     threads that depend on it; independent threads may carry on.
+* **A replay of the spine that conflicts** (a cut or landing stops: "Replaying the spine onto
+  origin/main conflicted, and was undone") usually means the Coach merged a spine PR after
+  rebasing it on GitHub, resolving something by hand, so the spine's copies of its commits no
+  longer match main's. It is the Coach's call. Bring them the evidence: `git cherry -v
+  origin/main <top>` marks with `+` each spine commit main lacks. If those are only your own
+  sweeps and commits the Coach rewrote, the whole spine has merged; with their say-so, put the
+  main checkout back on `main` (fast-forward to `origin/main`), restore your documents from your
+  last sweep commit, and sweep them afresh.
 * **Stopping is cheap** if you're not in YOLO mode. Landed work is pushed; unlanded work is
   committed in its worktree, waiting; a paused sprint resumes where it stood. When unsure,
   pause: the sprint's promise is that nothing needing the Coach's vigilance happens without it.
@@ -219,6 +230,8 @@ lines and mirror them to the sprint doc; add a `human/YYYYMMDD-sprint_<name>_don
 decisions if any, and the open questions gathered in one place; `pnpm sweep`, then push the
 top (`git -C <main checkout> push`, borrowing gh's login per git_hygiene's *Filing the PR*)
 so the final documents reach its PR; then give the Coach the closing summary in chat, leading
-with what shipped, what the reviews fixed and left, and what needs their word. Never merge
+with what shipped, what the reviews fixed and left, and what needs their word. A PR the Coach
+merged under new SHAs (rebased on GitHub) stays open there although its work is on main: check
+each of the sprint's PRs with `gh pr view`, and name those for the Coach to close. Never merge
 anything; the PRs are the Coach's to land, top of the stack first or one at a time
 (git_hygiene, *Stacks*).

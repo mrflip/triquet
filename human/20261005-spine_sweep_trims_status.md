@@ -1,4 +1,9 @@
-# 2026-10-05: `pnpm sweep` drops the first letter of the first path it sweeps
+# 2026-10-05: `pnpm sweep` dropped the first letter of the first path it swept -- resolved
+
+**Resolved.** Both halves are fixed on main: `sweep` and `removeWorktree` read status through
+`gitExactly`, untrimmed (your fix), and the reviewer no longer runs `/code-review --fix` (#113).
+The *Stage before you sweep* workaround is gone from the sprint skill and the worker's definition
+(`20261005-sprint_lessons`). Kept below as the record; prune when you like.
 
 `scripts/spine.ts`'s `git()` helper trims what git prints, and `sweep` reads
 `git status --porcelain -z` through it. When the first entry is an unstaged change (` M path`),

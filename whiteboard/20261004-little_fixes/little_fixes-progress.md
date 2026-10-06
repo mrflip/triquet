@@ -5,14 +5,15 @@ workers appended their sections below, newest first; from round two each worker 
 `thread-<N>-<label>.md` beside this file, and this document is the orchestrator's alone.
 
 *Orchestrator, round two:* threads 4-6 keep their sections in `thread-<N>-<label>.md` beside
-this file. Learned so far:
+this file. Learned (now in the sprint skill, the agent definitions and git_hygiene):
 * **Review by hand in a worktree.** `/code-review` runs in the main checkout, never the worktree;
   never `--fix`. Thread 6 rewrites the reviewer's guidance for it.
 * **Land one at a time.** Two e2e suites at once pushed the load to 50 and timed specs out; a
   landing's red e2e under load passed untouched once the load fell.
 * **A merged spine branch leaves a stale tracking ref** (`fetch.prune` is unset here); `pnpm land`
   is refused "stale info" until `git fetch --prune origin`. Thread 6 makes `restack` prune.
-* **Stage before you sweep** (`git add -- whiteboard human notes`): the sweep trim bug.
+* **Stage before you sweep** (`git add -- whiteboard human notes`): the sweep trim bug. *Since
+  fixed on main; the workaround is gone from the guidance.*
 * *Review, thread 5:* `clean`, by hand. Left: an unset column's mark shows the header's side, not
   its values'; no way back to unset -- both the worker's questions for the Coach, on #110.
 * *Review, thread 4:* `clean`, by hand. Left: a long name starting with a digit makes a

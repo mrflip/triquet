@@ -52,17 +52,24 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
    `feat:`/`fix:`/`docs:` messages in the log's style. Your worktree is yours alone and starts
    clean: local checkpoints are yours to make and fold away before landing. Your servers and
    backends are your lane's (`pnpm dev:agent`, `pnpm test:e2e:agent`, `scripts/convex_dev
-   agent`).
+   agent`); stop only the processes you started, by their PIDs -- never by a pattern
+   (`pkill -f next`), which matches the other lanes' servers too. Scratch files go in the
+   scratchpad subdirectory your handoff names, never in `test-results/`, which every e2e run
+   empties.
 2. **Ready.** With everything committed and typecheck, lint and the unit tests green, write
    your thread file (*Syndication*), commit it, and report `ready`. Do not land yet.
-3. **Land**, when the orchestrator resumes you to: `pnpm land`. It rebases onto the spine's
+3. **Land**, when the orchestrator resumes you to. First set your thread file's PR line to
+   say the PR is filed at landing, and commit it: a landing leaves your worktree detached, so
+   nothing can be committed in it afterwards, and the number goes in your report. Then check
+   the machine (`uptime`): above a load of about 8, wait for it to fall. Then `pnpm land`. It rebases onto the spine's
    top, runs the full suite, and folds your branch in and pushes it. Repair what git_hygiene
    calls straightforward and land again; a conflict or failure that takes judgment about
    which behaviour wins is a `blocked`, handled as git_hygiene says (tag, resolve-or-abort,
    report). The main checkout refusing to switch means the Coach has an uncommitted edit in
-   your way: that is a `blocked` too, naming the file. So is a sweep that fails asking `git add`
-   for a path missing its first letter (`hiteboard/...`): the orchestrator stages the main
-   checkout's notes, which you may not, and resumes you.
+   your way: that is a `blocked` too, naming the file. An e2e that goes red on specs your
+   thread never touches, with Convex "Function execution timed out" in the log, is the load,
+   not your change: wait for it to fall and land again unchanged -- never "fix" a spec your
+   thread does not touch to get it through.
 4. **File the PR** against `main`, per git_hygiene's *Filing the PR*: title, body shaped like
    recent PRs, a **Tests:** line, "stacked on #N" for the branch you landed on (the landing
    says which).
@@ -99,7 +106,8 @@ is "instead of" another.
   * **For the Coach**: anything needing a human -- confirmations, Doppler, judgment calls.
   ```
 
-  Omit an empty heading. Fill in the PR line when you land, in the commit that files it.
+  Omit an empty heading. The PR line says "PR filed at landing; see the report" (*The thread*,
+  step 3): the number lives in your report and the PR, and the orchestrator's status table.
   Detail lives here, not in your report.
 * **`human/`** -- only items deserving long-term follow-up or special notice, as a file of
   your own, `human/YYYYMMDD-<label>.md` (`human/README.md`), committed on your branch. Most
@@ -124,6 +132,7 @@ is "instead of" another.
 ## Never
 
 Merge a PR or enable auto-merge. Deploy, or touch production or another lane's servers and
-backends. Write to the main checkout, or to another worktree. Push except by `pnpm land`.
+backends, or stop a process you did not start. Write to the main checkout, or to another
+worktree. Push except by `pnpm land`.
 Plain `--force`. Discard uncommitted work without making it reachable first. Read `/aside/`,
 `/relics/`, or anything named `secret`.

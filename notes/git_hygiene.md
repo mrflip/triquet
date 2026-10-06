@@ -124,6 +124,11 @@ Run it in your worktree, with everything committed. It lands your branch on the 
 
 From there CI is the next test. Five trips back to 2 and it gives up: land again shortly.
 
+e2e is the step the machine's load breaks. A red run on specs your branch never touches, with
+Convex "Function execution timed out" in the log, is the load, not your change: wait until
+`uptime` falls below about 8 and land again unchanged. Landings, and other agents' suites, go
+one at a time where you can arrange it.
+
 If the main checkout won't switch, because a file your branch changes holds the Coach's
 uncommitted edit, the landing stops with nothing changed and names the file. Tell the Coach;
 never stash, commit or overwrite their edit.
