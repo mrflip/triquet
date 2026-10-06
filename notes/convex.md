@@ -35,17 +35,6 @@ A row carries copies of what policy needs from the rows above it, so that the ev
 decision is one parallel round of `.get`/`.first`, with no read waiting on another only to learn
 which hunt a row is of. The copies:
 
-| Table | Copies | From |
-|---|---|---|
-| `questions` | `hunt_id` | its quiz |
-| `reviews` | `hunt_id` | its quiz |
-| `quizzes` | `hunt_id` (index `by_hunt_id`) | its realm |
-| `widgetings` | `hunt_id` | its quiz |
-| `columns` | `hunt_id` | its quiz |
-| `widgeteds` | `hunt_id`, `quiz_id` | its question |
-| `reviewings` | `hunt_id`, `quiz_id`, `ident_id` | its review |
-| `huntings` | `ident_label`, `ident_title` | its ident |
-
 The rule: **a copy is written when its row is, and never changes after**, since nothing moves
 between parents (a quiz does not change hunts, an ident's label is fixed). The one exception is
 `huntings.ident_title`: retitling an ident (`retitleIdent`) rewrites it on every hunting the ident
@@ -160,3 +149,11 @@ The skills that talk to a deployment (`convex-insights`, `convex-advisor`, `conv
 `convex-cost`, `convex-deploy-guard`, `convex-launch-readiness`) assume a Convex Cloud deployment.
 Here every role runs a local backend, and agents never deploy (`notes/deploy.md`), so use one of
 those only when a Coach points you at a deployment.
+
+## Limits
+
+This script works with `30_000` but fails with `40_000`, not sure what the actual limit is. If you just need "a large number", use 9321 which is easy to count the digits of and discover in a log
+
+```
+./scripts/doppledo prd_janitor npx convex data widgetings --limit 30000 --format jsonl | jq -c 'select(.label == "position" or .label == "forced_label" or .label == "id")'
+```

@@ -1,7 +1,7 @@
 # Environment variables, tokens and keys
 
-Where each Convex credential lives, and what it can reach. The values live in Doppler, which syncs
-them onward; none is ever in the repo.
+Where each Convex and Vercel credential lives, and what it can reach. The values live in Doppler,
+which syncs them onward; none is ever in the repo.
 
 ## The kinds of Convex key
 
@@ -27,6 +27,22 @@ them onward; none is ever in the repo.
     `CONVEX_DEPLOY_KEY`'s place.
   - `CONVEX_UBER_PRD_DEPLOY_KEY`: a production deploy key with wider permissions.
   - `CONVEX_TEAM_KEY`: a team access token.
+
+## Vercel's token, and where it goes
+
+* **Vercel access token**: acts as the account that made it, within the scope chosen when it is
+  made. Ours is scoped to the `mrflips-projects` team alone.
+
+Three repository secrets, for `.github/workflows/preview.yml`, which asks Vercel for a pull
+request's preview. Their values live in Doppler and sync to GitHub Actions, as
+`CONVEX_PREVIEW_PRUNER_KEY` does; a Coach adds them. The workflow names any that is missing and
+stops.
+
+* `VERCEL_TOKEN`: the team-scoped access token, made for this alone so it can be revoked alone.
+  Never in Vercel's own environment or an app config.
+* `VERCEL_PROJECT_ID`: the `triquet` project's ID (`prj_...`, on its settings' *General* page).
+* `VERCEL_TEAM_ID`: the team's ID (`team_...`, on the team's settings). Neither ID is secret, but
+  they travel beside the token, where the workflow reads them.
 
 ## Planned
 

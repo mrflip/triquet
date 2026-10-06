@@ -217,6 +217,11 @@ Settled; reach for these before writing the equivalent.
   `lint-typecheck`, `test-generated-build` (the two the ruleset requires), and six e2e shards.
   Playwright's own image for the shards was tried in Oct 2026 and dropped: pulling it took as long
   as installing the browser, and it brought quirks of its own (root, git's ownership check).
+  Two more workflows tend the previews and gate nothing: `preview.yml` asks Vercel for a pull
+  request's preview when it opens and on the `preview` label, in place of Vercel's build on every
+  push, which a restack spent the daily quota on (Oct 2026); `convex-previews.yml` deletes a
+  closed pull request's Convex preview. Neither leans on a marketplace action: `preview.yml` is
+  `curl`, `jq` and `gh` against Vercel's REST API. `notes/deploy.md`, *The pieces*.
 
 ### Testing
 

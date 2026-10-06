@@ -1,4 +1,5 @@
 import _ from 'es-toolkit/compat'
+import type { MigrationStatus } from '@convex-dev/migrations'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import * as Labelmaker from './labelmaker'
 import * as Tsv from './tsv'
@@ -80,6 +81,24 @@ export type WidgetUsageT = {
   quizzes:    number
   hunts:      number
   at_least:   boolean
+}
+
+/**
+ * How far one backfill has run on this deployment, as the stats page says it: its name, state and
+ * counts, never its cursor or its error's text, which may quote a row.
+ */
+export type BackfillStatusT = {
+  /** Its function's name: `migrations:backfillHuntOrglabels` */
+  fnname:      string
+  /** Whether `migrations.ts` still defines it; one that is gone is history */
+  defined:     boolean
+  state:       MigrationStatus['state']
+  is_done:     boolean
+  /** Rows it has been through */
+  processed:   number
+  /** When its latest run began and ended, as epoch milliseconds; null for never */
+  started_at:  number | null
+  ended_at:    number | null
 }
 
 /** A quiz's row as a realm lists it: everything but its questions' order, which only the quiz's own screen reads */
@@ -266,6 +285,49 @@ export function widgetFrom(row: Doc<'widgets'>): WidgetT {
 export function widgetingFrom(row: Doc<'widgetings'>): WidgetingT {
   const { widget_label, label, description, params } = row
   return { widget_label, label, description, params }
+}
+
+/**
+ * A backfill's status, as the stats page says it, from what the migrations component reports.
+ *
+ * @param status - The component's status of one migration.
+ * @param defined - Whether `migrations.ts` still defines it.
+ *
+ * @example backfillFrom({ name: 'migrations:backfillHuntOrglabels', state: 'success', isDone: true, processed: 37, latestStart: 1759700000000, latestEnd: 1759700001000, cursor: 'xyz' }, true)
+ *   // => { fnname: 'migrations:backfillHuntOrglabels', defined: true, state: 'success', is_done: true, processed: 37, started_at: 1759700000000, ended_at: 1759700001000 }
+ * @example backfillFrom({ name: 'migrations:backfillHuntOrglabels', state: 'unknown', isDone: false, processed: 0, latestStart: 0 }, true)
+ *   // => { ..., state: 'unknown', processed: 0, started_at: null, ended_at: null }
+ */
+export function backfillFrom(status: MigrationStatus, defined: boolean): BackfillStatusT {
+  return {
+    fnname:     status.name,
+    defined,
+    state:      status.state,
+    is_done:    status.isDone,
+    processed:  status.processed,
+    started_at: status.latestStart > 0 ? status.latestStart : null,
+    ended_at:   status.latestEnd ?? null,
+  }
+}
+
+/**
+ * The backfills the stats page lists: each one still defined, in the order given, then those of
+ * `recent` no longer defined, newest first, at most `pastMax` of them.
+ *
+ * @param defined - The component's status of each backfill still defined, in the order they run.
+ * @param recent - Its status of the migrations it remembers, oldest first, as `getStatus` with a limit hands them back.
+ * @param pastMax - How many no longer defined to list.
+ *
+ * @example backfillsFrom([orgs], [quizCopies, orgs, huntBranches], 20)
+ *   // => [orgs (defined), huntBranches (history), quizCopies (history)]
+ */
+export function backfillsFrom(defined: readonly MigrationStatus[], recent: readonly MigrationStatus[], pastMax: number): BackfillStatusT[] {
+  const fnnames = new Set(defined.map((status) => status.name))
+  const past    = recent.filter((status) => ! fnnames.has(status.name)).slice(-pastMax).toReversed()
+  return [
+    ...defined.map((status) => backfillFrom(status, true)),
+    ...past.map((status) => backfillFrom(status, false)),
+  ]
 }
 
 /** A hunt's title as the screen shows it: a blank one reads as its label, titleized */

@@ -1,0 +1,30 @@
+import migrationsTest from '@convex-dev/migrations/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { api, internal } from '../../convex/_generated/api'
+import { Hunt } from '../../src/models/hunt'
+import { openTester, seedHunt } from '../support/convex'
+
+beforeEach(() => { vi.useFakeTimers() })
+afterEach(() => { vi.useRealTimers() })
+
+describe("stats.backfills", () => {
+  it("lists each backfill still defined as never run, on a deployment that has run none, to a caller with no session", async () => {
+    const tt = openTester()
+    migrationsTest.register(tt)
+    const backfills = await tt.query(api.stats.backfills, {})
+    expect(backfills).to.deep.eq([
+      { fnname: 'migrations:backfillHuntOrglabels', defined: true, state: 'unknown', is_done: false, processed: 0, started_at: null, ended_at: null },
+    ])
+  })
+
+  it("says how far a backfill has run once it has", async () => {
+    const tt = openTester()
+    migrationsTest.register(tt)
+    await seedHunt(tt, Hunt.blank('spring_hunt'), { smith: 'pat_smiths' })
+    await tt.mutation(internal.migrations.runAll, {})
+    await tt.finishAllScheduledFunctions(vi.runAllTimers)
+    const [orgs] = await tt.query(api.stats.backfills, {})
+    expect(orgs).to.include({ fnname: 'migrations:backfillHuntOrglabels', defined: true, state: 'success', is_done: true, processed: 1 })
+    expect(orgs?.started_at).to.be.a('number')
+  })
+})

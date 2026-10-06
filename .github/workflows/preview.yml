@@ -1,0 +1,150 @@
+name: Vercel preview
+
+# A pull request's Vercel preview, built when it opens rather than on every push: a restack of the
+# spine pushes ten branches at once, and Vercel counts every build toward the daily quota, even one
+# its Ignored Build Step cancels. vercel.json stops Vercel building a `20*` branch on push; this
+# builds one preview when a pull request opens (or reopens, or is marked ready), and again
+# whenever someone adds the `preview` label, which it then takes off so the next refresh is the
+# same gesture.
+#
+# The deployment is made through Vercel's REST API as a Git deployment (`gitSource`), not with
+# `vercel deploy`: Vercel then fetches the commit itself, shows its message in the dashboard, and
+# gives it the branch's address, `triquet-git-<branch>-mrflips-projects.vercel.app`. It builds on
+# Vercel with the Preview environment's variables, as a push-built preview did, so the Convex
+# preview key never comes near GitHub. notes/deploy.md, *The pieces*.
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy:
+    # Not for a draft, nor a fork's branch (Vercel could not fetch it, and the secrets are ours),
+    # nor any label but `preview`.
+    if: >-
+      ${{ !github.event.pull_request.draft
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && (github.event.action != 'labeled' || github.event.label.name == 'preview') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    # A newer request for the same branch supersedes one still waiting on Vercel. At the job, not
+    # the workflow, so a run skipped above (any other label) cancels nothing.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.head_ref }}
+      cancel-in-progress: true
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+      # The branch goes in by the environment, never spliced into a command: a branch name is
+      # whatever its pusher typed.
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      REPO_ID: ${{ github.event.repository.id }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check the Vercel secrets
+        run: |
+          missing=0
+          for secret in VERCEL_TOKEN VERCEL_PROJECT_ID VERCEL_TEAM_ID; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::The repository secret $secret is not set (notes/env_vars_tokens_and_keys.md)"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      # forceNew: a refresh of the same commit still rebuilds, which is how a preview whose Convex
+      # deployment has expired (36 hours after its build) gets a fresh one.
+      - name: Start the deployment
+        id: start
+        run: |
+          body=$(jq -n --arg project "$VERCEL_PROJECT_ID" --argjson repoId "$REPO_ID" \
+            --arg ref "$BRANCH" --arg sha "$SHA" \
+            '{ name: "triquet", project: $project,
+               gitSource: { type: "github", repoId: $repoId, ref: $ref, sha: $sha } }')
+          deployment=$(curl --silent --show-error --fail-with-body \
+            --header "Authorization: Bearer $VERCEL_TOKEN" --header 'Content-Type: application/json' \
+            --data "$body" \
+            "https://api.vercel.com/v13/deployments?teamId=$VERCEL_TEAM_ID&forceNew=1&skipAutoDetectionConfirmation=1") \
+            || { echo "::error::Vercel refused the deployment: $deployment"; exit 1; }
+          echo "id=$(jq -r .id <<< "$deployment")" >> "$GITHUB_OUTPUT"
+          echo "Started $(jq -r '.id + " (" + .url + ")"' <<< "$deployment")"
+
+      - name: Wait for it to be ready
+        id: wait
+        env:
+          DEPLOYMENT_ID: ${{ steps.start.outputs.id }}
+        run: |
+          state=UNKNOWN
+          for _ in $(seq 90); do
+            sleep 10
+            deployment=$(curl --silent --show-error --fail-with-body \
+              --header "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_TEAM_ID") \
+              || continue
+            state=$(jq -r .readyState <<< "$deployment")
+            echo "$(date +%T) $state"
+            case "$state" in
+              READY) break ;;
+              ERROR|CANCELED)
+                echo "::error::Vercel's build ended $state: $(jq -r '.errorMessage // "see the inspector"' <<< "$deployment")"
+                echo "Inspect: $(jq -r .inspectorUrl <<< "$deployment")"
+                exit 1 ;;
+            esac
+          done
+          if [ "$state" != READY ]; then
+            echo "::error::Still $state after fifteen minutes: $(jq -r .inspectorUrl <<< "$deployment")"
+            exit 1
+          fi
+          # Vercel shortens a long branch's address and adds a hash, so take the one it assigned.
+          branch_url=$(jq -r '[(.alias // [])[] | select(contains("-git-"))][0] // empty' <<< "$deployment")
+          if [ -z "$branch_url" ]; then
+            echo "::warning::Vercel assigned no branch address; see the deployment's own"
+          fi
+          {
+            echo "branch_url=${branch_url:+https://$branch_url}"
+            echo "deployment_url=https://$(jq -r .url <<< "$deployment")"
+            echo "inspector_url=$(jq -r .inspectorUrl <<< "$deployment")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Report the addresses
+        env:
+          BRANCH_URL: ${{ steps.wait.outputs.branch_url }}
+          DEPLOYMENT_URL: ${{ steps.wait.outputs.deployment_url }}
+          INSPECTOR_URL: ${{ steps.wait.outputs.inspector_url }}
+        run: |
+          {
+            echo "### Vercel preview of \`${SHA:0:7}\`"
+            echo
+            echo "* Branch: ${BRANCH_URL:-none assigned}"
+            echo "* This deployment: $DEPLOYMENT_URL"
+            echo "* Build log: $INSPECTOR_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # One comment per pull request, found by its marker and rewritten on each refresh.
+          marker='<!-- vercel-preview -->'
+          comment=$(cat <<EOF
+          $marker
+          Preview of \`${SHA:0:7}\`: ${BRANCH_URL:-$DEPLOYMENT_URL}
+
+          Add the \`preview\` label to rebuild it.
+          EOF
+          )
+          existing=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+            --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty" | head -n 1)
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$GH_REPO/issues/comments/$existing" -f body="$comment" > /dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body "$comment"
+          fi
+
+      # Taken off whether the build worked or not, so adding it again always asks again. A draft
+      # given the label keeps it until it is marked ready, which builds and then takes it off.
+      - name: Take off the preview label
+        if: ${{ always() && contains(github.event.pull_request.labels.*.name, 'preview') }}
+        run: gh pr edit "$PR_NUMBER" --remove-label preview
