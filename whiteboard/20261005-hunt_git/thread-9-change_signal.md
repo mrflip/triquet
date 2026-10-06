@@ -88,5 +88,10 @@ changing the pace or the grain.
   - Browser APIs: only `setTimeout`, `document.visibilityState` and `visibilitychange` (both
     universal), and `requestIdleCallback` as before (with its fallback; Safari lacks it). Worth a
     WebKit look: that a backgrounded Safari tab fires `visibilitychange` on return.
+* **Review** (thread-reviewer, `fixed`): `b46e96c`, `whenRead` sets its own moment for every
+  wait, so a milestone, import or download after an abandoned wait no longer skips a quiz that
+  moved since; `58ef534`, the trigger returns before reading a verdict's review once the quiz's
+  signal has settled in the mutation (no wasted reads on a deletion). Left, minor: a draft
+  review's verdict writes still read their review each time (one read a write).
 * **For the Coach**: nothing to run on production but the deploy (a new, empty table). History
   in other smiths' tabs now lags a quiz's edits by up to about 90 s, as agreed.
