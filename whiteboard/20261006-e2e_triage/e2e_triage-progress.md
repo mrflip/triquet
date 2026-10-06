@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** thread 1 landed (#156); threads 2, 3 and 5 underway, on lanes 1, 2 and 3; thread 4 waits for one of them to land. Thread 6 held until the Coach releases it.
+**Status:** thread 1 landed (#156); thread 3 landing (lane 2); thread 5 in review (lane 3); thread 2 underway (lane 1); thread 4 is cut when the first of these lands. Thread 6 held until the Coach releases it.
 
 ## Status
 
@@ -8,9 +8,9 @@
 |---|---|---|
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
 | 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
-| 3 | cover the error boundary | underway (lane 2) |
+| 3 | cover the error boundary | landing (lane 2) |
 | 4 | cover stats and the other light gaps | pending (when one of 2, 3, 5 lands) |
-| 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | underway (lane 3) |
+| 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | in review (lane 3) |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
 ## Measurements
@@ -21,6 +21,7 @@ Full `pnpm e2e` runs on a lane, test-seconds summed from the run's JSON report:
 |---|---|---|---|---|---|
 | Baseline, before the sprint | 259 | 1006 | 157 s | 3.9 s | lane 1, 10:09, seeded cache, load 2 |
 | After thread 1 (#156) | 239 | 942 | 149 s | 3.9 s | lane 1, 11:30, warm cache, load 3 to 11 |
+| Smoke tier (thread 5, not a proof) | 26 | 111 | 30 s | 4.3 s | lane 3, seeded cache, load 6 |
 
 *Orchestrator:* thread 1 saved about 6% of test-seconds and little wall time, since the twenty cut
 were average tests. Nearly all the speed this sprint wants is thread 2's.
@@ -49,3 +50,39 @@ says why it holds.
   Coach's question, not a spec fix.
 * **Widget usage counts** are now asserted exactly on a widget of the spec's own, which no other
   spec can drift. That is the pattern for any count over the shared library.
+
+*Orchestrator:* from thread 3's `ready` report (its file, `thread-3-e2e_error_boundary.md`):
+
+* **`failQuery(page, fnpath, reason?)`**, at the end of `e2e/support.ts`, turns every answer to one
+  Convex query into a failure until the spec calls `heal()`. It must be called before the page
+  loads. Any later spec that needs a server-side failure uses it; none should hand-roll a socket rewrite.
+* **The address check tests an org's shape but not the server's reserved-word rules**, so
+  `/~ghost_id/<hunt>` reaches the error boundary instead of "No such hunt". Three of thread 3's
+  tests lean on that gap; if it is closed, they switch to `failQuery`, as a comment in the spec says.
+* **A product change rode along:** `PageFailed` now reports each failure to the console once under
+  the dev server too, where StrictMode mounts it twice. Keeping it is the Coach's call.
+* Thread 3's `@smoke` test is "trying again draws the page afresh, reporting each failure once, and
+  a page whose cause is gone comes back whole".
+
+*Review (thread 3):* `clean`, at medium through `/code-review`, then by hand. `failQuery` cannot
+leak between tests (its route and listener are on the per-test page), rewrites only the named
+query's answers, and a broken socket cannot pass the tests that look for its request id. The
+once-guard still reports a fresh failure after *Try again*. Left, minor: a failure throwing the
+very same object on every attempt would be reported once (nothing does today); `RefusedOrg`'s doc
+could name `orgFrom` as the reason the address lets `~ghost_id` through.
+
+*Orchestrator:* from thread 5's `ready` report (its file, `thread-5-e2e_touched.md`):
+
+* **Every spec file now carries exactly one `@smoke` test and sits in a corner of `SpecCorners`**
+  (`scripts/spine.ts`); unit tests fail otherwise. A new spec file needs both.
+* **`test_seconds` is in the e2e log** (pulled forward from the ground rules' measuring), printed
+  on the run's line and as a mean in `pnpm e2e:log`. Later threads measure from it, not by hand.
+* **The map was revised against the imports.** `use-draft`, `use-session`, `offers.ts`,
+  `postmortem`, `cells/fields` and `cells/markdown` reach the whole suite; `cells/` is mapped file
+  by file; an alarms corner was added. The thread file lists every change.
+* **For thread 6:** the lock and catch-up wrap the body of `e2e()` (the plan choice, then
+  `runSuite`) when `args` is empty or `--touched`; choosing the plan after the catch-up keeps the
+  scope right if the top moved.
+* **Open for the Coach:** CLAUDE.md step 3 and the thread-worker agent's *Prove* still name only
+  `pnpm e2e`. Whether sprint workers may prove with `--touched` is a policy call.
+

@@ -1,7 +1,7 @@
 # e2e triage: a suite that is fast, honest, and runs only its corner
 
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
-in session e2e_triage. **Status:** thread 1 landed (#156); threads 2, 3, 5 underway. Thread 6 (the lock) is **held**: the
+in session e2e_triage. **Status:** thread 1 landed (#156); thread 3 landing; thread 5 in review; thread 2 underway. Thread 6 (the lock) is **held**: the
 sprint runner does not cut it until the Coach releases it, once threads 1 to 5 have been measured.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front
@@ -259,6 +259,12 @@ Coach's text, verbatim:
 Likely touches: `e2e/stats.spec.ts` (new), additions to `routing.spec.ts` or a new
 `e2e/collaborating.spec.ts`, possibly `tests/app/providers.test.tsx`. Depends on: thread 1.
 Look-ahead: as thread 3.
+
+*Orchestrator, after thread 5's `ready`:* every spec file must carry exactly one `@smoke` test and
+sit in a corner of `SpecCorners` in `scripts/spine.ts`, or justify fails once thread 5 lands.
+`stats.spec.ts` is mapped already; a new file of any other name (`collaborating.spec.ts`) needs
+a corner line of its own. Vitest renders no React yet (thread 1): if the `SyncUnconfigured` test
+adds React rendering, add the dash-readout case beside it.
 
 ### 5. A path-to-spec map, `pnpm e2e --touched`, and a scoped proof the bid accepts
 
