@@ -73,7 +73,7 @@ origin/main <- B1 <- B2 <- ... <- Bn          the spine: checked out in the main
   switches, autostashed when it is replayed, never committed by an agent.
 * **One at a time.** Sweeping, replaying, catching up and cutting each hold the spine for the
   seconds they take (a lock in the repository's shared git directory). A bid holds it for its
-  unit tests as well, and no other suite ever runs under the hold.
+  typecheck and unit tests as well, and no other suite ever runs under the hold.
 
 `scripts/spine.ts` does all of this. `pnpm restack` replays the spine onto `origin/main` by hand
 (cuts and landings do it whenever origin has moved), and `pnpm sweep` sweeps without landing.
@@ -111,7 +111,8 @@ occasional deliberate commit with failing tests, see *Commits*.
 Prove the branch before it bids to land, and keep the bid cheap. What makes landing slow is not
 waiting but rerunning: every branch that lands while you run the expensive suites (a **snipe**)
 moves the top you proved against. So the expensive work happens before the bid and at your own
-pace, and the bid itself runs only the unit tests, holding the spine so nothing can snipe it.
+pace, and the bid itself runs only typecheck and the unit tests, holding the spine so nothing can
+snipe it.
 
 ```
 A  build     the unit tests at will, until you are satisfied
@@ -125,7 +126,8 @@ E  PR        gh pr create
 * **B. Prove.** `pnpm catchup` rebases the branch onto the current top, holding the spine only
   for the seconds its replay and sweep take. `pnpm justify` runs typecheck, lint and the unit
   tests side by side, each prefixed by its name and each run to its end, so one run shows every
-  failure; green over committed work, it records the branch's patch-id. Then `pnpm e2e`, the full
+  failure (lint keeps a cache, `.eslintcache`: if CI's lint disagrees with yours, `rm
+  .eslintcache` and justify again); green over committed work, it records the branch's patch-id. Then `pnpm e2e`, the full
   suite on your lane. Repair each failure on its own: `pnpm e2e:rerun` reruns what the last run
   failed, one worker at a time (`--last-failed --workers=1`), and `pnpm e2e <spec file>...` runs
   the specs you choose. A spec that failed in the full run and passes alone with the code
@@ -142,8 +144,8 @@ E  PR        gh pr create
   or with no e2e proof, unless every path it changes is a document or a note (a `.md` outside
   `src/`, or anything under `whiteboard/` or `human/`). Then, holding the spine throughout: it
   replays the spine onto `origin/main` if origin has moved, sweeps, rebases your branch onto the
-  top if the top has moved, runs the unit tests (`pnpm test`, each test allowed a minute: the
-  machine may be loaded), and switches the main checkout onto your branch.
+  top if the top has moved, runs typecheck beside the unit tests (`pnpm test:bid`, each test
+  allowed a minute: the machine may be loaded), and switches the main checkout onto your branch.
   Released, it pushes, and names your flakes for the PR. A conflict or a red test releases the
   hold and stops with the spine untouched: repair, commit, `pnpm justify`, and bid again. Bids
   queue for the hold, so the wait is about the tests' time for each bid ahead of yours.
@@ -151,7 +153,7 @@ E  PR        gh pr create
 
 From there CI is the next test: it runs justify, a production build and the whole e2e suite on
 every push. What the bid does not cover (how your branch meets what landed after you proved it,
-past what the unit tests see; typecheck) CI does.
+past what typecheck and the unit tests see) CI does.
 
 In a sprint, review comes between A and B (*Sprints*): B covers the reviewer's fixes, and the
 window from your first catch-up to your bid stays short, which is what keeps snipes few.

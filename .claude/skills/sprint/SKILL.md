@@ -136,7 +136,7 @@ sits on the PR.
 
 **Landings need no turns.** Resume each `ready`, reviewed thread as soon as its review is in:
 workers prove their branches side by side, and their bids queue at the spine's hold, where each
-runs only the unit tests and nothing can snipe it. A sweep waits for the hold too, and can
+runs only typecheck and the unit tests, and nothing can snipe it. A sweep waits for the hold too, and can
 never disturb a bid; but it moves the top as a landing does, so batch what you write. What costs a worker time is a snipe (a landing between its catch-up and its bid,
 which sends it back to justify), so a resumed worker goes straight from its first catch-up to its
 bid. Several e2e suites at once load the machine and time out specs no thread touched: workers

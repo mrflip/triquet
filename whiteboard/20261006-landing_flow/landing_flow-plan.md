@@ -118,10 +118,12 @@ load of 3 to 7 that other containers set. Seconds, wall clock.
 | Step | Alone | Notes |
 |---|---|---|
 | `pnpm typecheck` | 1.4 warm, 7 cold | warm = tsbuildinfo current; after a rebase it lies between |
-| `pnpm lint` | 41-43 | the long pole; `eslint .` keeps no cache |
+| `pnpm lint` | 41-43 | the long pole, measured with no cache; it now keeps one (`.eslintcache`) |
 | `pnpm test` | 23-24 | 136 files, 3987 tests |
 | all three in sequence | about 66 (72 cold) | |
 | `pnpm justify` (side by side) | 46-47 (50 cold) | about lint's time: parallel saves 20-25 s |
+| `pnpm justify`, lint cached | 25 | the tests are the long pole now |
+| the bid's checks (typecheck beside `pnpm test:bid`) | 25 | quiet |
 | `pnpm test` beside one e2e suite | 169 and 275 | as at a bid while another worktree proves; load rose 12 to 89; 4 and 19 tests timed out at vitest's 5 s |
 | `pnpm e2e`, full, quiet | 163 cold, 179 warm, 178 seeded | 252 specs, seven workers; one flake in two of three runs |
 | `pnpm e2e`, full, loaded | 689 cold | load 5 to 62 (unit tests ran beside it): 60 failed |
@@ -130,11 +132,14 @@ load of 3 to 7 that other containers set. Seconds, wall clock.
 
 What follows:
 
-* **Typecheck at the bid** would cost 2-7 s alone, more under load: cheap. Run beside the tests
-  it adds nothing to the bid's wall time. The Coach's call.
+* **Typecheck joins the bid**, the Coach's call on these numbers: 2-7 s alone, run beside the
+  tests (`pnpm run --no-bail`, as justify runs), so it adds nothing to the bid's wall time.
+* **Lint keeps a cache** (`eslint --cache --cache-strategy content`, `.eslintcache`, gitignored),
+  the Coach's call: type-aware results can go stale when a file's dependencies change, so if CI's
+  lint disagrees, `rm .eslintcache`.
 * **The bid's tests are load-sensitive.** Beside another worktree's e2e suite they take 3-5
   minutes, not 24 s, and process-heavy tests time out. The bid now allows each test a minute
-  (`pnpm test --testTimeout=60000`; CI keeps five seconds), and the spine's own tests a minute
+  (`pnpm test:bid`, `--testTimeout=60000`; CI keeps five seconds), and the spine's own tests a minute
   each. A queue of bids waits that long per bid ahead.
 * **Seeding did not pay, so far.** Cold, warm and seeded runs took the same time on a quiet
   machine: Next's dev server compiles on demand and the setup project warms the first page.

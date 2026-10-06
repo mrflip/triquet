@@ -324,12 +324,12 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_
       expect(fs.readFileSync(path.join(world.main, 'shared.txt'), 'utf8')).to.eq('alpha, then beta\n')
     })
 
-    it("stops when the tests fail under the hold, leaving the spine alone", () => {
+    it("stops when typecheck or the tests fail under the hold, leaving the spine alone", () => {
       const root = world.cut('alpha')
       world.commit(root, 'alpha.txt', 'alpha\n')
       const ran = world.bid(root, { TRIQUET_LAND_CHECKS: 'false' })
       expect(ran.status).to.eq(1)
-      expect(ran.said).to.contain('The tests failed').and.contain('The spine is untouched')
+      expect(ran.said).to.contain('Typecheck or the tests failed').and.contain('The spine is untouched')
       expect(world.top()).to.eq('main')
       const commondir = world.git(world.main, 'rev-parse', '--path-format=absolute', '--git-common-dir')
       expect(fs.existsSync(path.join(commondir, 'triquet-spine.lock'))).to.be.false

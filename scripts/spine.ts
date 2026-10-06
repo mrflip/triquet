@@ -9,7 +9,7 @@
  *   node scripts/spine.ts justify                           typecheck, lint and the unit tests, side by side; green, the branch's patch-id recorded
  *   node scripts/spine.ts e2e [<playwright args>]           the e2e suite, logged; the branch's proof recorded once every spec of a full run has passed
  *   node scripts/spine.ts e2e-log                           the e2e log, summarised
- *   node scripts/spine.ts land                              the bid: a proved branch caught up, tested, folded in and pushed, under one hold
+ *   node scripts/spine.ts land                              the bid: a proved branch caught up, typechecked and tested, folded in and pushed, under one hold
  *   node scripts/spine.ts sweep                             the main checkout's whiteboard/, human/ and notes/, committed onto the top
  *   node scripts/spine.ts restack                           the spine, replayed onto origin/main if origin has moved, and pushed
  *   node scripts/spine.ts top                               the top's branch
@@ -18,8 +18,8 @@
  * Worktrees live under TQ_WORKTREES (`~/worktrees/triquet`). Each suite these run is a shell
  * command an environment variable may replace: TRIQUET_JUSTIFY (typecheck, lint and test through
  * `pnpm run --no-bail`, which runs them side by side and lets each finish), TRIQUET_E2E
- * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (`pnpm test`, patient of a loaded machine: what a bid
- * runs under the hold).
+ * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (typecheck beside `pnpm test:bid`, the unit tests
+ * patient of a loaded machine: what a bid runs under the hold).
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -33,18 +33,19 @@ import * as Lanes from './lanes.ts'
 /** The main checkout's directories whose uncommitted files any sweep commits onto the top */
 export const SweptDirs = ['whiteboard', 'human', 'notes'] as const
 
-/** How long to wait for another checkout's hold on the spine before giving up: long enough for a few bids ahead, each running the unit tests */
+/** How long to wait for another checkout's hold on the spine before giving up: long enough for a few bids ahead, each running typecheck and the unit tests */
 const LockWaitMs = 30 * 60 * 1000
 
 /** What `pnpm justify` runs: typecheck, lint and the unit tests, side by side, each run to its end however the others fare */
 const JustifyCommand = 'pnpm run --no-bail "/^(typecheck|lint|test)$/"'
 
 /**
- * What a bid runs under the hold: the unit tests, each allowed a minute rather than vitest's five
- * seconds. A bid often runs beside other worktrees' e2e suites, under whose load tests that spawn
- * processes time out at five seconds; a test that truly hangs still fails, and CI keeps the five.
+ * What a bid runs under the hold: typecheck and the unit tests, side by side as justify runs its
+ * steps, the tests (`pnpm test:bid`) each allowed a minute rather than vitest's five seconds. A
+ * bid often runs beside other worktrees' e2e suites, under whose load tests that spawn processes
+ * time out at five seconds; a test that truly hangs still fails, and CI keeps the five.
  */
-const LandChecks = 'pnpm test --testTimeout=60000'
+const LandChecks = 'pnpm run --no-bail "/^(typecheck|test:bid)$/"'
 
 /** The build directory `pnpm test:e2e` builds into, as package.json names it: the cache a new worktree is seeded with */
 export const E2eDistDir = '.next-e2e'
@@ -691,7 +692,7 @@ function proofOf(root: string, main: string, branch: string): string[] {
  * Bids to land the worktree's branch on the spine. It must be justified at its present patch-id,
  * and proved by the e2e suite unless it changes only documents and notes. Then, under one hold:
  * replays the spine onto `origin/main` if origin has moved, sweeps the main checkout, rebases the
- * branch onto the top if the top has moved, runs the unit tests, and switches the main checkout
+ * branch onto the top if the top has moved, runs typecheck and the unit tests, and switches the main checkout
  * onto the branch. The hold released, it pushes the branch. Any stop leaves the spine as it was.
  *
  * @returns Lines saying what landed, on what.
@@ -706,7 +707,7 @@ export function land(cwd: string): string[] {
     const said = [...restack(main), ...sweptNotes(sweep(main))]
     const stood = topOf(main)
     if (caughtUp(root, branch, stood)) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`) }
-    if (! passes(root, checks)) { throw new SpineStop(`The tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
+    if (! passes(root, checks)) { throw new SpineStop(`Typecheck or the tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
     refuseBusy(main)
     foldIn(root, main, branch)
     return { top: stood, notes: said }

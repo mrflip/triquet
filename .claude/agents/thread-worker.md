@@ -70,8 +70,8 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
      wait for the machine's load to fall; rerun it alone at once, and report it.
    - **Refresh**: if `pnpm catchup` now rebases onto a newer top, `pnpm justify` again and
      repair; rerun e2e only for specs near what landed.
-   - **Bid**: `pnpm land`. Under the spine's hold it catches up if the top moved, runs the unit
-     tests, and folds your branch in; then it pushes, and names your flakes.
+   - **Bid**: `pnpm land`. Under the spine's hold it catches up if the top moved, runs typecheck
+     and the unit tests, and folds your branch in; then it pushes, and names your flakes.
    Repair what git_hygiene calls straightforward, justify, and bid again; a conflict or failure
    that takes judgment about which behaviour wins is a `blocked`, handled as git_hygiene says
    (tag, resolve-or-abort, report). The main checkout refusing to switch means the Coach has an
