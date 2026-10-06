@@ -37,3 +37,4 @@ git switch --create "$branch"
 git config "branch.${branch}.remote" origin
 git config "branch.${branch}.merge" "refs/heads/${branch}"
 echo "Upstream: origin/${branch} (created by your first git push)" >&2
+echo "Agent: at the end of your next chat response, offer the Coach this to copy and paste: /rename ${branch}" >&2

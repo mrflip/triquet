@@ -361,7 +361,7 @@ export function cutWorktree(cwd: string, label: string, opts: { install: boolean
     const installed = spawnSync('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: root, stdio: 'inherit' })
     if (installed.status !== 0) { throw new SpineStop(`pnpm install failed in ${root}; the worktree stands, on lane ${lane}.`) }
   }
-  return [...notes, ...seeded, `Worktree: ${root}`, `Branch:   ${branch}, cut from ${top.branch} at ${top.sha.slice(0, 8)}`, `Lane:     ${lane}`]
+  return [...notes, ...seeded, `Worktree: ${root}`, `Branch:   ${branch}, cut from ${top.branch} at ${top.sha.slice(0, 8)}`, `Lane:     ${lane}`, `Agent: at the end of your next chat response, offer the Coach this to copy and paste: /rename ${branch}`]
 }
 
 /**
