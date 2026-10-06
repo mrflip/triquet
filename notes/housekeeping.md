@@ -63,20 +63,24 @@ the sidebar shows. A branch is given by its label (`userlabel`) or its whole nam
 
 Three ways to print:
 
-* `--rename`, the default, prints the `/rename` that names a session for what it did:
-  the PRs it linked, then the worktrees it cut, each in the order it first met them, the two set
-  apart by an extra space, then ` | ` and the title it had, with nothing wrapped round it.
+* `--rename`, the default, prints the `/rename` that names a session for what it did: the PRs it
+  linked, then ` | `, the title it had, then ` | ` and the worktrees it cut, the PRs and the
+  worktrees each in the order it first met them.
 
   ```
-  /rename #93 #97 #149  e2e_practices git_attic landing_flow session_branches | PR merge and deploy order
+  /rename #93 #97 #149 | PR merge and deploy order | e2e_practices git_attic landing_flow session_branches
   ```
+
+  The branches come last because they are the least certain part (below), and a name cut at 250
+  characters loses them first. The title has nothing wrapped round it. A session that has no PR
+  starts its name with the pipe, and one that has no worktree ends after its title.
 
   Run inside a session with nothing asked, it names that session (`$CLAUDE_CODE_SESSION_ID`), and
   the line is ready to paste. Run anywhere else, or asked a branch or PR, it names every session it
-  finds, a line each. The title it had is kept whole, unless it has a
-  ` | ` already: then only what follows that is kept, so naming a session twice does not stack the
-  names. No dates or times go in. A name is cut at 250 characters, ending in `…`. A session
-  that has cut no worktree and linked no PR has nothing to be named for and is left out.
+  finds, a line each. A session already named this way gives back only its title, the middle
+  part, so naming it twice does not stack the names; a title in any other shape (an older format,
+  a title with pipes of its own) is kept whole, for a person to tidy. No dates or times go in. A
+  session that has cut no worktree and linked no PR has nothing to be named for and is left out.
 * `--table` prints a table: asked nothing, every session newest first with its PRs and worktrees;
   asked a branch or PR, the evidence for each, below.
 * `--json` prints all of it.

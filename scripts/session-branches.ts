@@ -5,8 +5,8 @@
  * lists the sessions that worked on it, the likeliest first, under the title the sidebar shows.
  *
  * Three ways to print them. `--rename`, the default, prints the `/rename` that would name a session
- * for the PRs it linked and the worktrees it cut, each in the order it met them (`/rename #93 #97
- * e2e_practices git_attic | PR merge and deploy order`): paste it into that session. Run inside a
+ * for the PRs it linked and the worktrees it cut, each in the order it met them (`/rename #93 #97 |
+ * PR merge and deploy order | e2e_practices git_attic`): paste it into that session. Run inside a
  * session and asked nothing, it names that session (`$CLAUDE_CODE_SESSION_ID`); otherwise it names
  * every session it finds, a line each, newest first. `--table` prints a table: asked
  * nothing, every session, newest first, with the PRs and worktrees it touched; asked a branch or
@@ -366,31 +366,39 @@ export function tableOf(rows: readonly Record<string, string>[]): string {
 /** The longest name `renameOf` gives a session */
 export const MaxNameLength = 250
 
-/** What separates the worktrees and PRs in a session's name from the title it had */
+/** What divides the PRs, the title and the branches in a session's name */
 const NameSeparator = ' | '
 
+/** A name `renameOf` made: its PRs (or none), its title, and perhaps its branches. Captures the title */
+const NamedPattern = /^(?:#\d+(?: #\d+)*)? *\| (.*?)(?: \| [^|]*)?$/
+
+/** The title a session had before it was named: the middle of a name `renameOf` made, else the whole of it */
+const titleBeforeNaming = (title: string): string => NamedPattern.exec(title)?.[1] ?? title
+
 /**
- * The `/rename` that names a session for the worktrees and PRs it touched, and keeps its title.
+ * The `/rename` that names a session for the PRs it linked and the worktrees it cut, and keeps its title.
  *
- * The PRs come first, then the worktrees, each in the order the session first met it, the two set
- * apart by an extra space. Then ` | `, and the title the session had, with nothing wrapped round it: the whole of it, or only what follows the ` | ` when it has one already,
- * so naming a session twice does not stack the names. No dates or times. Past
- * `MaxNameLength` characters the name is cut short, ending in `…`.
+ * The name is the PRs, then ` | `, then the title the session had, then ` | ` and the worktrees:
+ * the branches come last because they are the least certain part, and a name cut short loses them
+ * first. The PRs and the worktrees are each in the order the session first met them. The title has
+ * nothing wrapped round it. A session already named this way gives back only its title, so naming
+ * it twice does not stack the names; a title in any other shape is kept whole, pipes and all. No
+ * dates or times. Past `MaxNameLength` characters the name is cut short, ending in `…`.
  *
  * @param session - The session's facts.
  * @returns The command, or null when the session has touched no worktree or PR to name it for.
  *
  * @example renameOf({ seen: ['e2e_practices', '#93', 'git_attic', '#97'], title: 'PR merge', ... })
- * // => '/rename #93 #97  e2e_practices git_attic | PR merge'
+ * // => '/rename #93 #97 | PR merge | e2e_practices git_attic'
  */
 export function renameOf(session: Pick<SessionFacts, 'seen' | 'title'>): string | null {
   if (session.seen.length === 0) { return null }
   const prs = session.seen.filter((token) => token.startsWith('#')).join(' ')
   const worktrees = session.seen.filter((token) => ! token.startsWith('#')).join(' ')
-  const groups = [prs, worktrees].filter((group) => group !== '').join('  ')
-  const separated = session.title.indexOf(NameSeparator)
-  const title = separated === -1 ? session.title : session.title.slice(separated + NameSeparator.length)
-  const name = title === '(untitled)' ? groups : `${groups}${NameSeparator}${title}`
+  const title = session.title === '(untitled)' ? '' : titleBeforeNaming(session.title)
+  const parts = [prs, title, worktrees]
+  while (parts.at(-1) === '') { parts.pop() }
+  const name = parts.join(NameSeparator).trimStart()
   const fitted = name.length > MaxNameLength ? `${name.slice(0, MaxNameLength - 1)}…` : name
   return `/rename ${fitted}`
 }
