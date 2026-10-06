@@ -1,13 +1,13 @@
 # e2e triage: progress
 
-**Status:** threads 1, 3, 4 and 5 landed (#156, #157, #159, #158); thread 2 landing (lane 1). Thread 6 held until the Coach releases it.
+**Status:** paused. Threads 1 to 5 landed, in the order #156, #157, #158, #159, #160; every lane is free. Thread 6 waits on the Coach's word: `human/20261006-sprint_e2e_triage_paused.md` has the measurements, the recommendation and every open question. Thread 6 held until the Coach releases it.
 
 ## Status
 
 | Thread | Label | Status |
 |---|---|---|
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
-| 2 | a fast way in: backend-made hunt, session per worker | landing (lane 1) |
+| 2 | a fast way in: backend-made hunt, session per worker | landed #160 |
 | 3 | cover the error boundary | landed #157 |
 | 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
@@ -27,6 +27,7 @@ Full `pnpm e2e` runs on a lane, test-seconds summed from the run's JSON report:
 | Thread 2, before (paired run, thread 1's top) | 239 | 1148 | 179 s | 4.8 s | lane 1, back to back with the next row |
 | Thread 2, after (paired run) | 239 | 846 | 137 s | 3.5 s | lane 1, back to back with the row above |
 | Thread 2, after, quietest run | 239 | 762 | 121 s | 3.2 s | lane 1 |
+| Thread 2's proof, the final top (#160) | 249 | 1753 | 272 s | 7.0 s | lane 1, warm cache, load 27 rising to 46: not comparable |
 
 *Orchestrator:* thread 1 saved about 6% of test-seconds and little wall time, since the twenty cut
 were average tests. Nearly all the speed this sprint wants is thread 2's. Thread 5's proof ran at
