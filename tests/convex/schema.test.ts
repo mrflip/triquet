@@ -68,10 +68,7 @@ const Absentable: Partial<Record<TableNames, string[]>> = {
 }
 
 /** The fields the schema lets a row lack while `convex/migrations.ts` backfills them */
-const Backfilling: Partial<Record<TableNames, string[]>> = {
-  hunts:     ['orglabel'],
-  questions: ['viz'],
-}
+const Backfilling: Partial<Record<TableNames, string[]>> = {}
 
 /** The fields the schema still lets a row hold, though no row validator writes them, while `convex/migrations.ts` takes them off */
 const Retiring: Partial<Record<TableNames, string[]>> = {}

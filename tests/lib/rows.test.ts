@@ -2,7 +2,7 @@ import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, backfillFrom, backfillsFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, orgFor, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, vizOf, widgetFrom, widgetingFrom,
+  assembledQuiz, backfillFrom, backfillsFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
@@ -47,9 +47,9 @@ const Stranger = { standing: 'stranger' } as const
 
 const QuestionRow: Doc<'questions'> = {
   _id: question_id, _creationTime: 2, hunt_id, quiz_id, label: 'leon', title: 'Leon', qnum: '1',
-  clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '',
+  clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', viz: 'normal',
 }
-const HuntRow: Doc<'hunts'> = { _id: hunt_id, _creationTime: 0, label: 'quiet_otter', title: '', branch: 'main' }
+const HuntRow: Doc<'hunts'> = { _id: hunt_id, _creationTime: 0, label: 'quiet_otter', orglabel: 'alice_smiths', title: '', branch: 'main' }
 const RealmRow: Doc<'realms'> = { _id: idOf('realms', 'r1'), _creationTime: 0, hunt_id: HuntRow._id, label: 'home', title: '', position: 0 }
 const Rows: HuntRows = { hunt: HuntRow, realms: [{ realm: RealmRow, quizzes: [QuizRow] }] }
 
@@ -124,9 +124,9 @@ describe('seenQuestionFor', () => {
     })
   })
 
-  it("sends the viz its row holds, and for a row written before questions had one, normal", () => {
+  it("sends the viz its row holds, to a smith or a reviewer", () => {
     expect(seenQuestionFor({ ...QuestionRow, viz: 'archived' }, new Map(), Reviewer)).to.deep.include({ viz: 'archived' })
-    expect(seenQuestionFor(QuestionRow, new Map(), Smith)).to.deep.include({ viz: 'normal' })
+    expect(seenQuestionFor({ ...QuestionRow, viz: 'secondary' }, new Map(), Smith)).to.deep.include({ viz: 'secondary' })
   })
 
   it("sends a smith the question's stamps: its own, or for a row written before rows were stamped, made and last edited when the database made it", () => {
@@ -253,44 +253,25 @@ describe('the titles', () => {
 /** Who is on the hunt of `Rows`: its maker, a smith, alone */
 const Members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
 
-describe('orgFor', () => {
-  it("is the org the hunt stores, whoever is on it", () => {
-    expect(orgFor({ orglabel: 'pat_smith' }, [{ label: 'lee_jones' }, { label: 'pat_smith' }])).to.eq('pat_smith')
-    expect(orgFor({ orglabel: 'pat_smith' }, [])).to.eq('pat_smith')
-  })
-
-  it("falls back on the earliest member, whatever their role, for a hunt that stores none", () => {
-    expect(orgFor({}, [{ label: 'lee_jones' }, { label: 'pat_smith' }])).to.eq('lee_jones')
-  })
-
-  it("refuses a hunt that stores no org with nobody on it", () => {
-    expect(() => orgFor({}, [])).to.throw(/no org/)
-  })
-})
-
 describe('huntListingOf', () => {
   it('is the hunt titled, with its realms titled and holding their quizzes\' rows', () => {
-    const listing = huntListingOf(Rows, Members)
+    const listing = huntListingOf(Rows)
     expect([listing.title, listing.realms.map((realm) => [realm.title, realm.quizzes.map((quiz) => quiz.title)])]).to.deep.eq(['Quiet Otter', [['Home', ['Princes']]]])
   })
 
-  it('is addressed under the org its members make it, for a hunt that stores none', () => {
-    expect(huntListingOf(Rows, Members).org).to.eq('alice_smiths')
-  })
-
-  it('is addressed under the org the hunt stores, whoever is on it', () => {
-    expect(huntListingOf({ ...Rows, hunt: { ...HuntRow, orglabel: 'pat_smith' } }, Members).org).to.eq('pat_smith')
+  it('is addressed under the org the hunt stores', () => {
+    expect(huntListingOf({ ...Rows, hunt: { ...HuntRow, orglabel: 'pat_smith' } }).org).to.eq('pat_smith')
   })
 
   it("lists each realm's quizzes by label, in code-unit order, whatever the order they were made", () => {
     const labels = ['zebra', 'alpha_two', 'alpha', 'b2b']
     const quizzes = labels.map((label) => ({ ...QuizRow, _id: idOf('quizzes', label), label }))
-    const listing = huntListingOf({ ...Rows, realms: [{ realm: RealmRow, quizzes }] }, Members)
+    const listing = huntListingOf({ ...Rows, realms: [{ realm: RealmRow, quizzes }] })
     expect(listing.realms[0]?.quizzes.map((quiz) => quiz.label)).to.deep.eq(['alpha', 'alpha_two', 'b2b', 'zebra'])
   })
 
   it('leaves out each quiz\'s order of its questions, which only the quiz\'s own screen reads', () => {
-    expect(huntListingOf(Rows, Members).realms[0]?.quizzes[0]).to.not.have.any.keys('row_ordering')
+    expect(huntListingOf(Rows).realms[0]?.quizzes[0]).to.not.have.any.keys('row_ordering')
   })
 })
 
@@ -304,7 +285,7 @@ describe('shallowHuntOf', () => {
   })
 
   it('is the hunt\'s listing and its wheel, and nothing of a library or expressions', () => {
-    expect(shallowHuntOf(Rows, members, 'smith')).to.deep.eq({ ...huntListingOf(Rows, members), wheel: Wheel.defaultWheel(), members, role: 'smith' })
+    expect(shallowHuntOf(Rows, members, 'smith')).to.deep.eq({ ...huntListingOf(Rows), wheel: Wheel.defaultWheel(), members, role: 'smith' })
   })
 
   it("reads a hunt nobody has arranged as holding the default wheel", () => {
@@ -394,11 +375,5 @@ describe('backfillsFrom', () => {
   })
   it("lists only those defined, when the component remembers nothing else", () => {
     expect(backfillsFrom([orgs], [orgs], 20)).to.have.lengthOf(1)
-  })
-})
-
-describe('vizOf', () => {
-  it("reads the doc block's examples: a row's own viz, and normal for a row written before questions had one", () => {
-    expect([vizOf({ viz: 'archived' }), vizOf({})]).to.deep.eq(['archived', 'normal'])
   })
 })

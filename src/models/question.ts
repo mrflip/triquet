@@ -17,7 +17,7 @@ export const RankField = 'rank'
 export const QuestionVizVals = ['archived', 'secondary', 'normal'] as const
 export type QuestionViz = typeof QuestionVizVals[number]
 
-/** The viz every question starts with, and that a row written before questions had one reads as */
+/** The viz every question starts with */
 export const DefaultViz: QuestionViz = 'normal'
 
 /** The field a question's viz is held in */

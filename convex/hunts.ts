@@ -26,8 +26,8 @@ export const list = zQuery({
     const listed = await Promise.all(huntings.map(async ({ hunt_id, role }) => {
       const hunt = await ctx.db.get('hunts', hunt_id)
       if (! hunt) { return null }
-      const [realms, members] = await Promise.all([realmsOf(ctx.db, hunt_id), membersOf(ctx.db, hunt_id)])
-      return { made: hunt._creationTime, listing: { ...huntListingOf({ hunt, realms }, members), role } }
+      const realms = await realmsOf(ctx.db, hunt_id)
+      return { made: hunt._creationTime, listing: { ...huntListingOf({ hunt, realms }), role } }
     }))
     return _.sortBy(listed.filter((each) => each !== null), 'made').map(({ listing }) => listing)
   },

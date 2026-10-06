@@ -35,8 +35,8 @@ export type QuizRows = {
   stored:     ReadonlyMap<string, StoredRows>
 }
 
-/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`) and shown as it will be (`vizOf`), and what its stored widgetings recorded */
-type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT | 'viz'> & Stamps.StampsT & Pick<QuestionT, 'stored' | 'viz'>
+/** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded */
+type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT> & Stamps.StampsT & Pick<QuestionT, 'stored'>
 
 /** A question as its own query sends it to someone of `SS` on its hunt: its id, and the fields that standing is sent (`Question.sentTo`) */
 export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuestionT, '_id' | (typeof Question.sentTo)[SS][number]>
@@ -54,17 +54,6 @@ export type SeenQuestionT = { [SS in Actor.HuntStanding]: SeenQuestionAsT<SS> }[
  * a smith's screens show the rest.
  */
 const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', viz: DefaultViz, stored: {}, created_at: null, updated_at: null }
-
-/**
- * How a question's row says it is shown: its own viz, or for a row written before questions had
- * one, as the backfill will give it (`migrations:backfillQuestionViz`): normal.
- *
- * @example vizOf({ viz: 'archived' })  // => 'archived'
- * @example vizOf({})                   // => 'normal'
- */
-export function vizOf(row: Pick<Doc<'questions'>, 'viz'>): QuestionT['viz'] {
-  return row.viz ?? DefaultViz
-}
 
 /** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgetings and columns */
 export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
@@ -128,7 +117,7 @@ export type ShallowRealmT = {
 export type HuntListingT = {
   _id:    Id<'hunts'>
   label:  string
-  /** The org its address names, and its label is unique within: the hunt's `orglabel` (`orgFor`) */
+  /** The org its address names, and its label is unique within: the hunt's `orglabel` */
   org:    string
   title:  string
   branch: string
@@ -213,7 +202,7 @@ const Whole = { standing: 'smith' } as const
  * @example 'notes' in seenQuestionFor(row, new Map(), claims)                 // => false, for a reviewer
  */
 export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
-  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), viz: vizOf(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
+  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
   return _.pick(sendable, ['_id', ...Question.sentTo[standing]])
 }
 
@@ -358,40 +347,21 @@ export function realmTitleOf(realm: Pick<Doc<'realms'>, 'label' | 'title'>): str
 }
 
 /**
- * The org a hunt is addressed under: the one it stores (`orglabel`), or, for a hunt written before
- * hunts stored one, its earliest member's ident label, as `migrations:backfillHuntOrglabels` will
- * store it. The fallback goes once every hunt has its own (`notes/deploy.md`, *Schema pushes*).
- *
- * @param hunt - The hunt's row, as far as its org.
- * @param members - Who is on the hunt, in the order they joined it.
- * @throws For a hunt that stores no org and has nobody on it: nobody can be shown it, so nothing asks.
- *
- * @example orgFor({ orglabel: 'pat_smith' }, [{ label: 'lee_jones' }])  // => 'pat_smith'
- * @example orgFor({}, [{ label: 'lee_jones' }, { label: 'pat_smith' }])  // => 'lee_jones'
- */
-export function orgFor(hunt: Pick<Doc<'hunts'>, 'orglabel'>, members: readonly Pick<MemberT, 'label'>[]): string {
-  const org = hunt.orglabel ?? members[0]?.label
-  if (org === undefined) { throw new Error('A hunt with nobody on it, and no org of its own, is addressed under no org') }
-  return org
-}
-
-/**
  * A hunt as the hunts list shows it: titled, addressed under its org, stamped, with its realms in order,
  * each titled and holding its quizzes' rows by label, in code-unit order, as the hunt's files
  * sort them: every list of quizzes the app shows is in this order.
  *
  * @param rows - The hunt's own rows.
- * @param members - Who is on the hunt, in the order they joined: its org, for a hunt that stores none (`orgFor`).
  * @returns The listing.
  *
- * @example huntListingOf(rows, members).realms[0].quizzes.length
+ * @example huntListingOf(rows).realms[0].quizzes.length
  */
-export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: readonly Pick<MemberT, 'label'>[]): HuntListingT {
+export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntListingT {
   const { _id, label } = rows.hunt
   return {
     _id,
     label,
-    org:    orgFor(rows.hunt, members),
+    org:    rows.hunt.orglabel,
     title:  huntTitleOf(rows.hunt),
     branch: rows.hunt.branch,
     ...Stamps.of(rows.hunt),
@@ -416,7 +386,7 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: 
  * @example shallowHuntOf(rows, members, 'smith').role  // => 'smith'
  */
 export function shallowHuntOf(rows: HuntRows, members: readonly MemberT[], role: HuntRole): ShallowHuntT {
-  return { ...huntListingOf(rows, members), wheel: rows.hunt.wheel ?? Wheel.defaultWheel(), members, role }
+  return { ...huntListingOf(rows), wheel: rows.hunt.wheel ?? Wheel.defaultWheel(), members, role }
 }
 
 /**

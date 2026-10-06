@@ -27,10 +27,6 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
-// More are written by hand while rows gain them (`notes/deploy.md`, *Schema pushes*), each
-// optional here though every write gives one, so that rows written before it existed still fit
-// until `migrations.ts` backfills them: a hunt's `orglabel`, and a question's `viz`.
-//
 // A row's stamps (`created_at`, `updated_at`) are optional for good, in the row validators too:
 // the trigger writes them once a row has landed (`stamping.ts`), so a row goes in without them.
 //
@@ -39,7 +35,7 @@ import { WidgetingValidators } from '../src/models/widgeting'
 
 const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
-const huntFields        = { ...zodOutputToConvexFields(HuntValidators.row.shape), orglabel: CVX.optional(CVX.string()) }
+const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
 const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
@@ -53,7 +49,7 @@ const widgetedFields    = {
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
 }
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
-const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), viz: CVX.optional(zodOutputToConvex(QuestionValidators.viz)) }
+const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)

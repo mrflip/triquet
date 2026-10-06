@@ -2,7 +2,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import { formularyFor } from '../src/lib/formulary/formularies'
 import * as PA from '../src/lib/vv/patterns'
-import { huntFrom, orgFor, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
+import { huntFrom, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
 
@@ -41,27 +41,12 @@ export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunt
 }
 
 /**
- * The hunt of the org `orglabel` answering to `label`: the earliest made, should two. A hunt
- * written before hunts stored their org, and not yet backfilled, stores none; until every hunt
- * has one, the earliest such hunt answering to `label` answers here for any org, and its address
- * then moves to the org it is shown under (`orgFor`). So a label is taken, for a new hunt or a
- * relabel, whenever such a hunt holds it.
+ * The hunt of the org `orglabel` answering to `label`: the earliest made, should two.
  *
  * @example (await huntInOrg(db, 'pat_smith', 'quiet_otter'))?._id
  */
 export async function huntInOrg(db: Reader, orglabel: string, label: string): Promise<Doc<'hunts'> | null> {
-  const filed = await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel).eq('label', label)).first()
-  return filed ?? await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', undefined).eq('label', label)).first()
-}
-
-/**
- * The org `hunt` is addressed under: the one it stores, or, for a hunt written before hunts
- * stored one, the one it is shown under meanwhile (`orgFor`).
- *
- * @throws For a hunt that stores no org with nobody on it.
- */
-export async function orglabelOf(db: Reader, hunt: Doc<'hunts'>): Promise<string> {
-  return hunt.orglabel ?? orgFor(hunt, await membersOf(db, hunt._id))
+  return await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel).eq('label', label)).first()
 }
 
 /** Every hunt, in the order they were made */
