@@ -11,7 +11,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | landed #164 |
-| 5 | The recap panel | landing |
+| 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | underway |
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
@@ -74,7 +74,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   before the length check; `{{#qns}}` walks archived questions too (**thread 5: leave archived
   questions out of the recap**); image tests lack entity-encoded and backslash cases (hold by hand).
 
-* **Recap (thread 5, in review).** `Recap.bbjankOf(quiz, run)` in `src/lib/recap.ts`; `RecapPanel`
+* **Recap (thread 5, #165).** `Recap.bbjankOf(quiz, run)` in `src/lib/recap.ts`; `RecapPanel`
   last in `Panels.tsx`. **Deviation from Decision 6:** each text (head, clueing with BUT NOT,
   answer, recap, tail) goes through `toBbjank` on its own, and the frame (`[quote="Qn"]`,
   `Answer: [spoiler][b]..[/b][/spoiler]`, `Correct Answer %:`) is written in bbjank around it: no
