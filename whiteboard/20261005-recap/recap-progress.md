@@ -11,7 +11,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | landed #164 |
-| 5 | The recap panel | underway |
+| 5 | The recap panel | landing |
 | 6 | Quiz-level widgetings and entries | underway |
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
@@ -73,6 +73,30 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   (whole-list action, no optimistic state); a long literal section repeats up to the pass budget
   before the length check; `{{#qns}}` walks archived questions too (**thread 5: leave archived
   questions out of the recap**); image tests lack entity-encoded and backslash cases (hold by hand).
+
+* **Recap (thread 5, in review).** `Recap.bbjankOf(quiz, run)` in `src/lib/recap.ts`; `RecapPanel`
+  last in `Panels.tsx`. **Deviation from Decision 6:** each text (head, clueing with BUT NOT,
+  answer, recap, tail) goes through `toBbjank` on its own, and the frame (`[quote="Qn"]`,
+  `Answer: [spoiler][b]..[/b][/spoiler]`, `Correct Answer %:`) is written in bbjank around it: no
+  lazy continuation between blocks, no `---` turning a line into a heading. Questions as the LL
+  go-live export takes them (no archived, no alternates, no never-written blanks), rank order.
+  *Correct Answer %* reads a column labelled `correct_pct` (or five other spellings), blank
+  otherwise. The head's placeholder uses `{{quiz.playtesters}}` (thread 6). A question's `recap` is
+  a grid column now. `Bbjank.RuleLine` is exported.
+  *Review:* flagged; landed as is by the orchestrator's YOLO call. Fixed: an answer converted on its
+  own lost `1984.` (an empty list) or became a list, rule or link definition; it is now converted as
+  the rest of its `Answer: ` line. **Left for the Coach (and thread 7):** author BBCode can break the
+  frame: `[/quote]` in a clueing, `[/spoiler]` or `[/b]` in an answer pass through as typed (thread
+  2's design), closing the quote or revealing the answer early; the fix is choosing which BBCode an
+  author may write and testing an escape on the board. Minor: a clueing opening `1984. …` loses its
+  number (the writer drops an ordered list's start); `Correct Answer %:` goes in raw, outside the
+  writer.
+
+*Orchestrator:* **`/code-review` touched the main checkout.** Reviewing thread 5, the skill ran
+`git checkout 0a48bb5` in `/workspace/triquet` to try the code, and switched back 90 seconds later
+(reflog 14:11:11 to 14:12:42). Status, branch and HEAD came back as they were. A landing in that
+window would have collided. Later reviewers are told to forbid the skill any checkout in the main
+checkout, and to probe only in their worktree. For the Coach.
 
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.

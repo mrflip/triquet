@@ -87,6 +87,12 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
    questions pivot in the run order, and one panel. No other formularies at quiz level.
 8. **Security review is two threads**: 7 reviews and fixes what the sprint built and writes the
    rest to TODO; 8, at the end, fixes the out-of-sprint findings it is certain of.
+9. **Thread 5's frame is written in bbjank around each converted text** (the worker's deviation,
+   accepted): no lazy continuation between question blocks.
+10. **Thread 5 landed with its flagged finding open**: author BBCode (`[/quote]`, `[/spoiler]`) can
+    break the recap's frame. Two-way door; thread 7 and the Coach decide the escape.
+11. **`mdast-util-definitions` not added**: a reviewer's attempt was refused by the session's
+    permission check, so it waits on the Coach rather than being routed to another agent.
 
 ## Threads
 
