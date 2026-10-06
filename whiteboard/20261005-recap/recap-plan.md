@@ -58,7 +58,7 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 
 ## Decisions taken in YOLO
 
-1. **Threads are renumbered into running order.** The Coach's order was templating, bbjank,
+1. **Threads are renumbered into running order** (thread 10, added later, runs before 9). The Coach's order was templating, bbjank,
    widening, recap panel, quiz widgetings, panel folds, security review; each thread below names
    which of theirs it is.
 2. **"widen-seed-tighten" is read as `notes/deploy.md`'s three steps**: widen (thread 1, with its
@@ -91,7 +91,7 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 ## Threads
 
 Wave one, side by side: 1, 2 and 3. Then 4 (after 1); 5 (after 1, 2, 3, 4) beside 6 (after 1 and
-4); 7 after 1-6; 8 after 7; 9 after 8. Then *History at the end*.
+4); 7 after 1-6; 8 after 7; 10 after 8; 9 after 10. Then *History at the end*.
 
 ### 1. Widen the recap fields (Coach's 3rd)
 
@@ -248,7 +248,37 @@ Gloss: deploy.md's step 3 for every field thread 1 (and thread 6, if it widened)
 required again in `convex/schema.ts`, fallbacks and backfills dropped (keep `Backfills`
 non-empty), `Backfilling` emptied, the migration added to deploy.md's ledger. Its body says
 `Tightens Serial Deploy: recap`; it merges only after thread 1's deploy has finished its
-backfills. Depends on: 8 (last, so it is the top of the series).
+backfills. Depends on: 10 (last, so it is the top of the series).
+
+### 10. The markdown dialect, settled (the Coach's clarifications, 2026-10-06)
+
+*Coach's text:* "Is it true that our markdown AST tool returns whether strong (i.e bold) came from
+`**foo**` or `__foo__` ? If so, we could (in the post-everything thread) do this: `{"type":
+"strong", "marker": "__", ...}` turning only `__underlined__` into bbcode `[u]`. Much more
+important: `**foo**` = bold, `_foo_` = italics, `*foo*` = italics. Also: the hinky stuff where we
+build our own markdown format: * treat as real the "leading spaces become quotes" before the
+rendering -- * the special underline treatment is only for LL bbcode * the conversion of quote in
+markdown ast is different between smiths note (respects leading spaces) and message board bbjank
+(does not)"
+
+Gloss: mdast keeps no marker field, but a node's `position.start.offset` points into the source,
+so the marker is the source's characters there (`**` or `__`, `*` or `_`; probed 2026-10-06);
+`ll-bbcode.ts` already splices by those offsets. So:
+* **`__text__` writes `[u]`** in both LL outputs, bbjank (`src/lib/bbjank.ts`) and the LL
+  import/smith's-note BBCode (`src/lib/ll-bbcode.ts`); `**text**` stays `[b]`, `*text*` and
+  `_text_` stay `[i]`. On screen (react-markdown) `__text__` stays bold: underline is an LL
+  output's treatment only.
+* **Leading spaces become quotes is part of our dialect**, applied before any rendering: on
+  screen, in bbjank, in the LL export. Name it once (`Markdown.forScreen` or its successor) and
+  document it as the dialect's rule, not a workaround.
+* **Quotes convert differently per output, on purpose**: the smith's-note/LL BBCode respects
+  leading spaces (a quoted line keeps every space it had); bbjank does not rescue them (the
+  spec's "don't rescue the remainder leading spaces"). Each module's doc block says so, and a
+  test in each pins it.
+* Write the dialect down in one place (a short section of `notes/vocabulary.md` or a
+  `notes/markdown.md`), so later work stops re-deriving it.
+
+Depends on: 8 (post-everything, per the Coach). **Look-ahead:** thread 9 follows it.
 
 ## History at the end
 
@@ -262,6 +292,6 @@ widen -> features -> tighten. Nothing on `main` is touched; the PRs stay the Coa
 * **Merge order:** thread 1's PR (`Serial Deploy: recap`), wait for its production deploy to say
   `Backfills: every one has finished.`, then the rest; thread 9's tightening last. Vercel runs the
   backfills on deploy now, but that wait is still yours.
-* Underline has no markdown; thread 2 records what it chose.
+* Underline: settled by the Coach, thread 10 (`__text__` -> `[u]` in LL outputs only).
 * "Correct Answer %" has no source in the app yet; the recap leaves it blank unless a column
   obviously is it.
