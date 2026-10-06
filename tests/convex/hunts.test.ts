@@ -5,6 +5,9 @@ import { ConvexError } from 'convex/values'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { quizForLabel, quizzesOf, reviewsOf } from '../../convex/reading'
+import * as Exporting from '../../src/lib/exporting'
+import * as Runner from '../../src/lib/formulary/runner'
+import * as Importing from '../../src/lib/importing'
 import * as PA from '../../src/lib/vv/patterns'
 import * as UU from '../../src/lib/useful'
 import { noticeOf } from '../../src/lib/refusals'
@@ -1546,6 +1549,46 @@ describe("hunts.open", () => {
     const tt = openTester()
     const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     expect(await smith.as.query(api.hunts.open, { hunt_label: 'loud_heron' })).to.deep.eq({ why: 'noSuchHunt', hunt: null })
+  })
+})
+
+/** `seen`'s open quiz, run as the screen runs it */
+function runOfOpen(seen: Seen): Runner.QuizRun {
+  const source = Runner.sourceOf(openOf(seen), seen.library, Runner.placeOf(seen.hunt, present(seen.hunt.realms[0])))
+  return Runner.runQuiz(source)
+}
+
+/** `seen`'s open quiz as its ball holds it */
+function bodyOfOpen(seen: Seen) {
+  return Exporting.quizBodyOf(openOf(seen), runOfOpen(seen))
+}
+
+describe("a quiz's export, imported into an empty quiz", () => {
+  it("reproduces it: its questions in order with all they hold, their chains, its widgetings in run order, and what its entries hold", async () => {
+    const tt = openTester()
+    const source = await seedHunt(tt, huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
+    await putEntryToWork(source, 'remark')
+    const [leon, nantes] = questionIdsOf(await source.read())
+    await source.act({ kind: 'edit_question', question_id: present(leon), patch: { clueing: 'Which region?', hint: 'BUT NOT a lion', notes: 'keep me', full_answer: 'León' } })
+    await source.act({ kind: 'set_chain', question_id: present(leon), chains_to: present(nantes) })
+    await source.act({ kind: 'enter_widgeted', entered: { question_id: present(leon), widgeting_label: 'remark', value: 'Ask Flip.' } })
+    const exported = await source.read()
+    const quiz = openOf(exported)
+    const { ball } = Exporting.quizBall({ org: 'seed_smith', hunt: exported.hunt.label }, 'home', quiz, runOfOpen(exported))
+
+    const target = await seedHunt(tt, huntHolding([{ ...Quiz.blank('Empty', 'empty_one'), questions: [] }]))
+    const empty = await target.read()
+    const outcome = Importing.importInto(openOf(empty), JSON.stringify(ball), empty.library)
+    expect(outcome.ok).to.be.true
+    for (const action of outcome.widgetingActions) { await target.act(action) }
+    await target.act({ kind: 'import_questions', questions: present(outcome.questions) })
+
+    const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
+    expect(got.questions).to.deep.eq(want.questions)
+    expect(got.widgetings).to.deep.eq(want.widgetings)
+    const [aa, bb] = openOf(exported).questions
+    expect(got.questions[present(aa).label]).to.deep.include({ clueing: 'Which region?', chains_to: present(bb).label, remark: { status: 'ok', value: 'Ask Flip.' } })
+    await expectSound(tt)
   })
 })
 

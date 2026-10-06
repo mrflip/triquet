@@ -9,12 +9,13 @@ import { useShownHunt } from '../state/shown-hunt'
 
 /**
  * The strip across the top of every page: the logo, which goes home; after it, on a page about a
- * hunt, the hunt's title, which goes to the hunt's own page; and the way to About.
+ * hunt, the org it is addressed under, which goes to the org's hunts, and the hunt's title, which
+ * goes to the hunt's own page; and the way to About.
  */
 export function SiteHeader() {
   const hunt = useShownHunt()
   const pathname = usePathname()
-  const huntPath = hunt === null ? null : Routes.huntPath(hunt.label)
+  const huntPath = hunt === null ? null : Routes.huntPath({ org: hunt.org, hunt: hunt.label })
   return (
     <AppBar
       position="static" color="inherit" elevation={0}
@@ -25,6 +26,11 @@ export function SiteHeader() {
           <Link component={NextLink} href={Routes.rootPath()} sx={{ display: 'inline-flex' }}>
             <Logo height={28} />
           </Link>
+          {hunt !== null && (
+            <Link component={NextLink} href={Routes.orgPath(hunt.org)} color="text.secondary" underline="hover" sx={{ display: 'block', whiteSpace: 'nowrap' }}>
+              ~{hunt.org}
+            </Link>
+          )}
           {hunt !== null && huntPath !== null && (
             <Link
               component={NextLink}

@@ -3,8 +3,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { HuntListingT } from '../lib/rows'
 
-/** The hunt a page is about, as the header names it */
-export type ShownHuntT = Pick<HuntListingT, 'label' | 'title'>
+/** The hunt a page is about, as the header names it: its title, and its org and label to link to */
+export type ShownHuntT = Pick<HuntListingT, 'org' | 'label' | 'title'>
 
 /** Say which hunt the page is about; null for none */
 type ShowHunt = (hunt: ShownHuntT | null) => void
@@ -39,13 +39,14 @@ export function ShownHuntProvider({ children }: Readonly<{ children: ReactNode }
 export function useShowHunt(hunt: ShownHuntT | null): void {
   const show = useContext(ShowContext)
   if (show === null) { throw new Error('useShowHunt wants a ShownHuntProvider above it') }
+  const org = hunt?.org ?? null
   const label = hunt?.label ?? null
   const title = hunt?.title ?? null
   useEffect(() => {
-    if (label === null || title === null) { return }
-    show({ label, title })
+    if (org === null || label === null || title === null) { return }
+    show({ org, label, title })
     return () => { show(null) }
-  }, [show, label, title])
+  }, [show, org, label, title])
 }
 
 /**

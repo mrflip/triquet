@@ -1,5 +1,6 @@
 import _ from 'es-toolkit/compat'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
+import * as Addresses from './addresses'
 import * as Labelmaker from './labelmaker'
 import type * as Actor from './actor'
 import * as Wheel from './wheel'
@@ -92,10 +93,12 @@ export type ShallowRealmT = {
   quizzes: readonly ListedQuizT[]
 }
 
-/** A hunt as the hunts list shows it: its label, its title, its branch, and each realm's quizzes as rows */
+/** A hunt as the hunts list shows it: its label and the org it is addressed under, its title, its branch, and each realm's quizzes as rows */
 export type HuntListingT = {
   _id:    Id<'hunts'>
   label:  string
+  /** The org its address names (`orgFor`): worked out from who is on it, and stored nowhere */
+  org:    string
   title:  string
   branch: string
   realms: readonly ShallowRealmT[]
@@ -276,16 +279,37 @@ export function realmTitleOf(realm: Pick<Doc<'realms'>, 'label' | 'title'>): str
 }
 
 /**
- * A hunt as the hunts list shows it: titled, with its realms in order, each titled and holding
- * its quizzes' rows in the order they were made.
+ * The org a hunt is addressed under, from who is on it: its earliest smith (`Addresses.orgOf`).
+ * A hunt with no smith, which the policies never leave, falls back on its earliest member, so
+ * its address never goes missing from under the members who can still open it.
  *
- * @example huntListingOf(rows).realms[0].quizzes.length
+ * @param members - Who is on the hunt, in the order they joined it.
+ * @throws When nobody is on the hunt: nobody can be shown it, so nothing asks.
+ *
+ * @example orgFor([{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }])  // => 'pat_smith'
  */
-export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntListingT {
+export function orgFor(members: readonly Pick<MemberT, 'label' | 'role'>[]): string {
+  const org = Addresses.orgOf(members) ?? members[0]?.label
+  if (org === undefined) { throw new Error('A hunt with nobody on it is addressed under no org') }
+  return org
+}
+
+/**
+ * A hunt as the hunts list shows it: titled, addressed under its org, with its realms in order,
+ * each titled and holding its quizzes' rows in the order they were made.
+ *
+ * @param rows - The hunt's own rows.
+ * @param members - Who is on the hunt, in the order they joined, from whom its org is worked out.
+ * @returns The listing.
+ *
+ * @example huntListingOf(rows, members).realms[0].quizzes.length
+ */
+export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>, members: readonly Pick<MemberT, 'label' | 'role'>[]): HuntListingT {
   const { _id, label } = rows.hunt
   return {
     _id,
     label,
+    org:    orgFor(members),
     title:  huntTitleOf(rows.hunt),
     branch: rows.hunt.branch,
     realms: rows.realms.map(({ realm, quizzes }) => ({
@@ -309,7 +333,7 @@ export function huntListingOf(rows: Pick<HuntRows, 'hunt' | 'realms'>): HuntList
  * @example shallowHuntOf(rows, members, 'smith').role  // => 'smith'
  */
 export function shallowHuntOf(rows: HuntRows, members: readonly MemberT[], role: HuntRole): ShallowHuntT {
-  return { ...huntListingOf(rows), wheel: rows.hunt.wheel ?? Wheel.defaultWheel(), members, role }
+  return { ...huntListingOf(rows, members), wheel: rows.hunt.wheel ?? Wheel.defaultWheel(), members, role }
 }
 
 /**

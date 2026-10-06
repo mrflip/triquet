@@ -184,7 +184,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
               </Stack>
             </Stack>
             <p className={styles.microcopy}>
-              <Link component={NextLink} href={Routes.categoriesPath(huntLabel)}>Arrange the hunt&apos;s categories</Link>
+              <Link component={NextLink} href={Routes.categoriesPath({ org: hunt.org, hunt: huntLabel })}>Arrange the hunt&apos;s categories</Link>
               {' '}round its wheel. {AppNotices.deletingHunt}
             </p>
           </section>

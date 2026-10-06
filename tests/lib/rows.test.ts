@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
+  assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, orgFor, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
@@ -236,19 +236,40 @@ describe('the titles', () => {
   })
 })
 
+/** Who is on the hunt of `Rows`: its maker, a smith, alone */
+const Members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
+
+describe('orgFor', () => {
+  it("is the hunt's earliest smith, passing over a reviewer who joined first", () => {
+    expect(orgFor([{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }, { label: 'kim_smiths', role: 'smith' }])).to.eq('pat_smith')
+  })
+
+  it("falls back on the earliest member of a hunt with no smith", () => {
+    expect(orgFor([{ label: 'lee_jones', role: 'reviewer' }, { label: 'kim_jones', role: 'reviewer' }])).to.eq('lee_jones')
+  })
+
+  it("refuses a hunt with nobody on it", () => {
+    expect(() => orgFor([])).to.throw(/no org/)
+  })
+})
+
 describe('huntListingOf', () => {
   it('is the hunt titled, with its realms titled and holding their quizzes\' rows', () => {
-    const listing = huntListingOf(Rows)
+    const listing = huntListingOf(Rows, Members)
     expect([listing.title, listing.realms.map((realm) => [realm.title, realm.quizzes.map((quiz) => quiz.title)])]).to.deep.eq(['Quiet Otter', [['Home', ['Princes']]]])
   })
 
+  it('is addressed under the org its members make it', () => {
+    expect(huntListingOf(Rows, Members).org).to.eq('alice_smiths')
+  })
+
   it('leaves out each quiz\'s order of its questions, which only the quiz\'s own screen reads', () => {
-    expect(huntListingOf(Rows).realms[0]?.quizzes[0]).to.not.have.any.keys('row_ordering')
+    expect(huntListingOf(Rows, Members).realms[0]?.quizzes[0]).to.not.have.any.keys('row_ordering')
   })
 })
 
 describe('shallowHuntOf', () => {
-  const members = [{ ident_id: idOf('idents', 'i1'), label: 'alice_smiths', title: 'Alice', role: 'smith' as const }]
+  const members = Members
 
   it('carries who is on the hunt, and the role of whoever is looking', () => {
     const hunt = shallowHuntOf(Rows, members, 'reviewer')
@@ -257,16 +278,16 @@ describe('shallowHuntOf', () => {
   })
 
   it('is the hunt\'s listing and its wheel, and nothing of a library or expressions', () => {
-    expect(shallowHuntOf(Rows, [], 'smith')).to.deep.eq({ ...huntListingOf(Rows), wheel: Wheel.defaultWheel(), members: [], role: 'smith' })
+    expect(shallowHuntOf(Rows, members, 'smith')).to.deep.eq({ ...huntListingOf(Rows, members), wheel: Wheel.defaultWheel(), members, role: 'smith' })
   })
 
   it("reads a hunt nobody has arranged as holding the default wheel", () => {
-    expect(shallowHuntOf(Rows, [], 'smith').wheel).to.deep.eq(Wheel.defaultWheel())
+    expect(shallowHuntOf(Rows, members, 'smith').wheel).to.deep.eq(Wheel.defaultWheel())
   })
 
   it("carries the wheel the hunt holds, holes and all", () => {
     const wheel = Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool')
-    expect(shallowHuntOf({ ...Rows, hunt: { ...HuntRow, wheel } }, [], 'smith').wheel).to.deep.eq(wheel)
+    expect(shallowHuntOf({ ...Rows, hunt: { ...HuntRow, wheel } }, members, 'smith').wheel).to.deep.eq(wheel)
   })
 })
 

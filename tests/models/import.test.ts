@@ -23,30 +23,6 @@ describe('ImportValidators.importQuestion', () => {
   })
 })
 
-describe('ImportValidators.importPayload', () => {
-  const PayloadCases = [
-    [{ realms: [{ quizzes: [{ title: 'One', questions: [{ clueing: 'Who?' }] }] }] }, 'a whole hunt'],
-    [{ title: 'One', questions: [{ clueing: 'Who?' }] },                'a single quiz'],
-    [[{ clueing: 'Who?' }],                                             'a bare list of questions'],
-  ] as const
-
-  for (const [payload, story] of PayloadCases) {
-    it(`accepts ${story}`, () => {
-      expect(() => ImportValidators.importPayload(payload as never)).not.to.throw()
-    })
-  }
-
-  it('leaves each question unjudged, so one bad one cannot block the rest', () => {
-    const quiz = ImportValidators.importQuiz({ questions: [{ clueing: 'Who?' }, 'not a question'] })
-    expect(quiz.questions).to.deep.eq([{ clueing: 'Who?' }, 'not a question'])
-  })
-
-  it('rejects a hunt holding no realms, or a realm holding no quizzes', () => {
-    expect(() => ImportValidators.importHunt({ realms: [] })).to.throw(Z.ZodError)
-    expect(() => ImportValidators.importHunt({ realms: [{ quizzes: [] }] })).to.throw(Z.ZodError)
-  })
-})
-
 describe('ImportValidators.importedQuestions', () => {
   it('takes one entry per label, each with what to change, and nothing typed unless it says', () => {
     const sent = [{ label: 'leon', patch: { clueing: 'Who?', chains_to: 'nantes' } }, { label: 'nantes', patch: {} }]

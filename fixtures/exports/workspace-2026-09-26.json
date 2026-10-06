@@ -1,0 +1,49 @@
+{
+  "quizzes": [
+    {
+      "columns": [],
+      "forced_label": null,
+      "id": "0f5d3c1e-6a7b-4c2d-9e8f-1a2b3c4d5e6f",
+      "label": "princes",
+      "last_sortkey": null,
+      "locked": false,
+      "questions": [
+        {
+          "alt_text": "",
+          "chains_to": "8b1e2f3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b",
+          "clueing": "Which region has 300 lions and twelve kings?",
+          "clueing_ishes": null,
+          "forced_label": null,
+          "full_answer": "León",
+          "guess": null,
+          "hint": "",
+          "hint_ishes": null,
+          "id": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+          "label": "leon",
+          "notes": "keep me",
+          "qnum": "1",
+          "title": "Leon"
+        },
+        {
+          "alt_text": "",
+          "chains_to": null,
+          "clueing": "Which city signed the edict?",
+          "clueing_ishes": null,
+          "forced_label": null,
+          "full_answer": "Nantes",
+          "guess": null,
+          "hint": "BUT NOT the edict",
+          "hint_ishes": null,
+          "id": "8b1e2f3a-4c5d-4e6f-8a9b-0c1d2e3f4a5b",
+          "label": "nantes",
+          "notes": "",
+          "qnum": "2",
+          "title": "Nantes"
+        }
+      ],
+      "title": "Princes",
+      "version": "main",
+      "widgets": []
+    }
+  ]
+}

@@ -89,12 +89,16 @@ don't trust a recalled version number, including one recalled by an agent.
 
 ### Routing
 
-* **Next's App Router owns the address.** A quiz lives at `/h/<hunt>/<realm>/<quiz>?act=smith`
-  (or `review`): the path names the resource, the query the presentation. `src/lib/routes.ts` is
-  the one place a URL's shape is written. The address decides which quiz is on screen, and
-  nothing decides the address in return: never add a second mechanism that writes the URL.
-  Navigation is a transition, so wait for the arrival before acting on the quiz moved to.
-  See `notes/decisions/2026-09-path-routing.md` and `2026-09-resource-urls.md`.
+* **Next's App Router owns the address.** A quiz lives at
+  `/~<org>/<hunt>/quizzes/<realm>/<quiz>/!edit` (or `!playtest`): the path names the resource and
+  its last segment the mode (`notes/decisions/urls.md`). `src/lib/routes.ts` is the one place a
+  URL's shape is written, as `src/lib/addresses.ts` names it; a page reads its own address back
+  through `Addresses.locationFrom` (`useAddressed`), not from Next's params. The address
+  decides which quiz is on screen, and nothing decides the address in return but its moving to
+  the form the resource has now (`useCanonical`): never add a second mechanism that writes the
+  URL. Navigation is a transition, so wait for the arrival before acting on the quiz moved to.
+  See `notes/decisions/2026-09-path-routing.md` and `2026-09-resource-urls.md`, which this
+  scheme replaced.
 
 ### Small libraries in use
 

@@ -2,7 +2,7 @@ import type * as Z from 'zod'
 import type * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
 import { Validator } from '../lib/validator'
-import type { Act } from '../lib/routes'
+import type { Mode } from '../lib/addresses'
 import { IdentValidators } from './ident'
 
 /** What an ident may do on a hunt: make its quizzes, or playtest them */
@@ -34,15 +34,15 @@ export const HuntingValidators = Validator(({ obj, oneof, zid }) => {
 
 export type HuntingRowT = Z.output<typeof HuntingValidators.row>
 
-/** The presentation each role is shown when an address names none */
-const ActForRole = { smith: 'smith', reviewer: 'review' } as const satisfies Record<HuntRole, Act>
+/** The mode the app's own links open a quiz in for each role: a smith works on it, a reviewer playtests it */
+const ModeForRole = { smith: 'edit', reviewer: 'playtest' } as const satisfies Record<HuntRole, Mode>
 
 /**
- * The action each presentation of a quiz always offers, whatever else it does, and so whose policy
- * says who is shown it: the workbench always offers to lock or unlock the quiz, locked or not; the
- * review opens one's review of it the moment it is shown.
+ * The action each mode of a quiz always offers, whatever else it does, and so whose policy says
+ * who is shown it: the workbench always offers to lock or unlock the quiz, locked or not; the
+ * playtest opens one's review of it the moment it is shown.
  */
-const ActKinds = { smith: 'set_lock', review: 'open_review' } as const satisfies Record<Act, Approve.OfferableKind>
+const ModeKinds = { edit: 'set_lock', playtest: 'open_review' } as const satisfies Record<Mode, Approve.OfferableKind>
 
 /** One ident's place on one hunt, with a role */
 export class Hunting implements HuntingRowT {
@@ -53,23 +53,24 @@ export class Hunting implements HuntingRowT {
   declare role:        HuntRole
 
   /**
-   * The presentation `role` is shown of a quiz when its address names none: a smith works it, a
-   * reviewer reviews it.
+   * The mode the app's own links open a quiz in for someone of `role`: a smith works on it, a
+   * reviewer playtests it. The link is written for whoever it is shown to; the address it names
+   * opens the same screen for anyone (`notes/decisions/urls.md`, rule 4).
    *
-   * @example Hunting.actFor('reviewer')  // => 'review'
+   * @example Hunting.modeFor('reviewer')  // => 'playtest'
    */
-  static actFor(role: HuntRole): Act {
-    return ActForRole[role]
+  static modeFor(role: HuntRole): Mode {
+    return ModeForRole[role]
   }
 
   /**
-   * Whether the holder of `claims` may be shown a quiz of their hunt presented as `act`: whether
-   * the server would let them take the one action that presentation always offers (`ActKinds`).
-   * A smith may be shown either; a reviewer only the review; nobody else either.
+   * Whether the holder of `claims` may be shown a quiz of their hunt opened in `mode`: whether the
+   * server would let them take the one action that mode always offers (`ModeKinds`). A smith may
+   * be shown either; a reviewer only the playtest; nobody else either.
    *
-   * @example Hunting.mayAct(claims, 'smith')  // => false, for a reviewer
+   * @example Hunting.mayOpen(claims, 'edit')  // => false, for a reviewer
    */
-  static mayAct(claims: Actor.HuntClaimsT, act: Act): boolean {
-    return Approve.mayOffer(ActKinds[act], claims)
+  static mayOpen(claims: Actor.HuntClaimsT, mode: Mode): boolean {
+    return Approve.mayOffer(ModeKinds[mode], claims)
   }
 }

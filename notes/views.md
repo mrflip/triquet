@@ -36,7 +36,7 @@ action, and asks that action's policy: by kind alone with `Approve.mayOffer('edi
 claims)`, or with the action itself where its policy reads it (`Approve.may('remove_hunting',
 claims, action)`). The smith's screen works its offers out once (`workbenchOffers`,
 `src/components/offers.ts`) and hands each component a boolean; what a quiz is shown as at all is
-`Hunting.mayAct`. A refusal the author could trip into (adding oneself to the hunt) is asked of
+`Hunting.mayOpen`. A refusal the author could trip into (adding oneself to the hunt) is asked of
 the policy and said beside the field before anything is sent. The dispatcher asks again before
 sending (`denialOf` in `use-hunt`; `libraryDenialOf` in `use-library-actions` for the library's
 own): a refusal there is said in the console as a bug, and to the author as the server would have

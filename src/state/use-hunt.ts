@@ -1,5 +1,6 @@
 'use client'
 
+import _ from 'es-toolkit/compat'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
@@ -88,9 +89,11 @@ export type Placing =
  * Where the realm and quiz `labels` name sit in `hunt`: placed, missing, or not known until the
  * hunt arrives. A quiz answers to its label; should two, the earlier made.
  *
- * The quiz last found at this address is still placed when it answers to another label now
- * (relabelled, here or by someone else), with the label it answers to, so the address can follow
- * it rather than lose it.
+ * A quiz's label is unique across its hunt, and the realm only says where it was: a quiz since
+ * moved to another realm is placed in that one, the realm the address names searched first
+ * (`notes/decisions/urls.md`, rule 6). The quiz last found at this address is still placed when
+ * it answers to another label now (relabelled, here or by someone else), with the label it
+ * answers to, so the address can follow it rather than lose it.
  *
  * @param hunt - The hunt the labels name: undefined while it is on its way, null when there is none.
  * @param labels - The realm and quiz the address names.
@@ -99,16 +102,21 @@ export type Placing =
  *
  * @example placeIn(hunt, { realm: 'home', quiz: 'quiet_otter' }, null).quizRow?.title  // => 'Quiet Otter'
  * @example placeIn(hunt, { realm: 'home', quiz: 'princes' }, shown).movedTo  // => 'kings', after a relabel
+ * @example placeIn(hunt, { realm: 'gone', quiz: 'quiet_otter' }, null).realm?.label  // => 'home'
  */
 export function placeIn(hunt: ShallowHuntT | null | undefined, labels: Pick<QuizLabels, 'realm' | 'quiz'>, shown: string | null): Placing {
   const none = { realm: null, quizRow: null, movedTo: null }
   if (hunt === undefined) { return { finding: 'waiting', ...none } }
-  const realm = hunt?.realms.find((each) => each.label === labels.realm)
-  if (! realm) { return { finding: 'missing', ...none } }
-  const quizRow = Labelmaker.entityForLabel(realm.quizzes, labels.quiz)
-  if (quizRow) { return { finding: 'placed', realm, quizRow, movedTo: null } }
-  const moved = realm.quizzes.find((row) => row._id === shown)
-  return moved ? { finding: 'placed', realm, quizRow: moved, movedTo: moved.label } : { finding: 'missing', ...none }
+  const realms = _.sortBy(hunt?.realms ?? [], (realm) => (realm.label === labels.realm ? 0 : 1))
+  for (const realm of realms) {
+    const quizRow = Labelmaker.entityForLabel(realm.quizzes, labels.quiz)
+    if (quizRow) { return { finding: 'placed', realm, quizRow, movedTo: null } }
+  }
+  for (const realm of realms) {
+    const moved = realm.quizzes.find((row) => row._id === shown)
+    if (moved) { return { finding: 'placed', realm, quizRow: moved, movedTo: moved.label } }
+  }
+  return { finding: 'missing', ...none }
 }
 
 /**

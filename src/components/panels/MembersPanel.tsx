@@ -20,8 +20,8 @@ export type MembersPanelProps = Pick<HuntHandle, 'carryOut' | 'saveNotice'> & {
   members: readonly MemberT[]
   /** What whoever is looking holds of themselves on the hunt: who may be put on or taken off is asked of the policy (`Approve`) */
   claims:  Actor.HuntClaimsT
-  /** The quiz on screen, which the reviewer link opens for review */
-  labels:  Routes.QuizLabels
+  /** The quiz on screen, which the reviewer link opens to playtest */
+  labels:  Routes.HuntLabels & Routes.QuizLabels
 }
 
 /**
@@ -58,7 +58,7 @@ export function MembersPanel({ members, claims, labels, carryOut, saveNotice }: 
       </TableContainer>
       <AddMember claims={claims} carryOut={carryOut} saveNotice={saveNotice} />
       <div className={styles.panelRow}>
-        <CopyButton textOf={() => `${location.origin}${Routes.quizPath(labels, 'review')}`}>Copy reviewer link</CopyButton>
+        <CopyButton textOf={() => `${location.origin}${Routes.quizPath(labels, 'playtest')}`}>Copy reviewer link</CopyButton>
       </div>
     </Panel>
   )

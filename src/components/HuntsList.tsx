@@ -11,7 +11,7 @@ import { AppNotices } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import { HomeRealmLabel } from '../models/realm'
 import type { ListedHuntT } from '../lib/rows'
-import { HuntRoleTitles } from '../models/hunting'
+import { Hunting, HuntRoleTitles } from '../models/hunting'
 import { Ident, type IdentT } from '../models/ident'
 import { useRaiseAlarm } from '../state/alarms'
 import { useAccountActions, type AccountActionsHandle } from '../state/use-account-actions'
@@ -24,6 +24,12 @@ import { useDraft } from './use-draft'
 import { Panel } from './panels/Panel'
 import { OpeningNotice } from './SyncNotices'
 import styles from './workbench.module.css'
+
+/** What the list of every hunt the visitor is on says of itself */
+const HuntsBlurb = "The hunts you are on, and the quizzes in each. Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on someone else's hunt, ask one of its smiths to add you by your ident label."
+
+/** What a list of one org's hunts says of itself, after naming the org */
+const OrgBlurb = "Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on another of its hunts, ask one of that hunt's smiths to add you by your ident label."
 
 /** How many fresh labels a new hunt tries before giving up, each already taken by a hunt not listed here */
 const NewHuntAttemptsMax = 3
@@ -49,39 +55,49 @@ const QuizSigils = {
   unlocked: { glyph: '🤔', meaning: 'Still being worked on' },
 } as const
 
+export type HuntsListProps = {
+  /** The org whose hunts to list, of those the visitor is on; omitted for every hunt they are on, whosever */
+  org?: string
+}
+
 /**
  * The hunts this visitor is on, a row of a table each, so that each hunt's title, their role there
  * and its doors line up down the page, with its quizzes to open; and a way to make another, which
- * they are then the smith of. A quiz opens in the presentation their role is shown. A hunt that
- * could not be made raises an alarm. Beneath, folded away, the histories this browser kept for
- * quizzes no longer among them, to download.
+ * they are then the smith of, and so its org. A quiz opens in the mode their role works in. A hunt
+ * that could not be made raises an alarm. Beneath, folded away, the histories this browser kept
+ * for quizzes no longer among them, to download.
  *
- * A visitor who has not said who they are is sent to say so first, and brought back.
+ * Given an `org`, only that org's hunts, without the histories; a new hunt is offered only on the
+ * visitor's own. A visitor who has not said who they are is sent to say so first, and brought back.
  */
-export function HuntsList() {
+export function HuntsList({ org }: Readonly<HuntsListProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
-  const hunts = useHuntsList()
+  const listed = useHuntsList()
   const { act, busy } = useAccountActions()
   const raise = useRaiseAlarm()
+  const here = org === undefined ? Routes.huntsPath() : Routes.orgPath(org)
 
   useEffect(() => {
-    if (loaded && ! ident) { router.replace(Routes.rootPath(Routes.huntsPath())) }
-  }, [loaded, ident, router])
+    if (loaded && ! ident) { router.replace(Routes.rootPath(here)) }
+  }, [loaded, ident, router, here])
 
-  if (! loaded || ! ident || hunts === null) {
+  if (! loaded || ! ident || listed === null) {
     return <OpeningNotice notice={null} waiting={AppNotices.openingHunts} />
   }
+  const hunts = org === undefined ? listed : listed.filter((hunt) => hunt.org === org)
+  const making = org === undefined || org === ident.label
 
   const onNew = async () => {
     // The label is settled here rather than in the action, because the address this is about
     // to go to has to name it. Only this visitor's own hunts are listed, so a hunt of someone
     // else's may already answer to it: then another is tried, and only the last refusal is said.
     for (let attempt = 1; attempt <= NewHuntAttemptsMax; attempt += 1) {
-      const label = Labelmaker.freshLabelFor(hunts)
+      const label = Labelmaker.freshLabelFor(listed)
       const outcome = await act({ kind: 'new_hunt', label })
       if (outcome.kept) {
-        router.push(Routes.quizPath({ hunt: label, realm: HomeRealmLabel, quiz: label }, 'smith'))
+        // Its maker is its first smith, and so its org.
+        router.push(Routes.quizPath({ org: ident.label, hunt: label, realm: HomeRealmLabel, quiz: label }, 'edit'))
         return
       }
       if (attempt === NewHuntAttemptsMax || outcome.failurekind !== 'labelTaken') {
@@ -99,9 +115,12 @@ export function HuntsList() {
         <Typography>({Ident.atLabel(ident)}).</Typography>
         <Link component={NextLink} href={Routes.switchIdentPath()}>Be someone else</Link>
       </Stack>
-      <Panel title="Hunts" blurb="The hunts you are on, and the quizzes in each. Open a quiz to work on it as a smith, or to review it as a reviewer. To be put on someone else's hunt, ask one of its smiths to add you by your ident label.">
-        <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>
-        {hunts.length === 0 && <p className={styles.microcopy}>{AppNotices.noHunts}</p>}
+      <Panel
+        title={org === undefined ? 'Hunts' : `Hunts of ~${org}`}
+        blurb={org === undefined ? HuntsBlurb : `The hunts of ~${org} you are on, and the quizzes in each. ${OrgBlurb}`}
+      >
+        {making && <Button variant="outlined" size="small" disabled={busy} onClick={() => { void onNew() }}>+ New hunt</Button>}
+        {hunts.length === 0 && <p className={styles.microcopy}>{org === undefined ? AppNotices.noHunts : `You are on none of ~${org}'s hunts.`}</p>}
         {hunts.length > 0 && (
           <TableContainer sx={{ mt: 1, containerType: 'inline-size' }}>
             <Table size="small" aria-label="Your hunts" sx={{ '& th, & td': { px: 1, verticalAlign: 'baseline' } }}>
@@ -121,7 +140,7 @@ export function HuntsList() {
           </TableContainer>
         )}
       </Panel>
-      <OrphanedRepos hunts={hunts} />
+      {org === undefined && <OrphanedRepos hunts={hunts} />}
     </main>
   )
 }
@@ -171,11 +190,12 @@ type HuntRowProps = {
 function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
   const [editing, setEditing] = useState(false)
   const editable = Approve.mayOffer('retitle_hunt', Actor.claimsOn(actor, hunt._id, hunt))
+  const labels = { org: hunt.org, hunt: hunt.label }
   return (
     <>
       <TableRow>
         <TableCell component="th" scope="row" sx={{ ...RuledWhileBeside, fontWeight: 600, width: { '@': '100%', [RoomFor.quizzesBeside]: 'auto' }, minWidth: { [RoomFor.quizzesBeside]: '12rem' } }}>
-          <Link component={NextLink} href={Routes.huntPath(hunt.label)} color="inherit" underline="hover">{hunt.title}</Link>
+          <Link component={NextLink} href={Routes.huntPath(labels)} color="inherit" underline="hover">{hunt.title}</Link>
         </TableCell>
         <TableCell sx={{ ...RuledWhileBeside, whiteSpace: 'nowrap' }}><span className={styles.microcopy}>{HuntRoleTitles[hunt.role]}</span></TableCell>
         <TableCell sx={RuledWhileBeside} padding="none">
@@ -187,7 +207,7 @@ function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
           {editing && <HuntEditModal hunt={hunt} onClose={() => { setEditing(false) }} />}
         </TableCell>
         <TableCell sx={{ ...RuledWhileBeside, whiteSpace: 'nowrap' }}>
-          <Link component={NextLink} href={Routes.categoriesPath(hunt.label)} aria-label={`Categories of ${hunt.title}`}>Categories</Link>
+          <Link component={NextLink} href={Routes.categoriesPath(labels)} aria-label={`Categories of ${hunt.title}`}>Categories</Link>
         </TableCell>
         <TableCell sx={{ ...QuizzesBeside, width: '100%' }}>
           <QuizLinks hunt={hunt} />
@@ -202,12 +222,16 @@ function HuntRow({ hunt, actor }: Readonly<HuntRowProps>) {
   )
 }
 
-/** A link to each of a hunt's quizzes, each marked locked or still being worked on, flowing on and wrapping */
+/**
+ * A link to each of a hunt's quizzes, opening it in the mode the visitor's role works in, each
+ * marked locked or still being worked on, flowing on and wrapping
+ */
 export function QuizLinks({ hunt }: Readonly<{ hunt: ListedHuntT }>) {
+  const mode = Hunting.modeFor(hunt.role)
   return (
     <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 0.5 }}>
       {hunt.realms.flatMap((realm) => realm.quizzes.map((quiz) => (
-        <Link key={quiz._id} component={NextLink} href={Routes.quizPath({ hunt: hunt.label, realm: realm.label, quiz: quiz.label })}>
+        <Link key={quiz._id} component={NextLink} href={Routes.quizPath({ org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }, mode)}>
           <QuizSigil locked={quiz.locked} /> {quiz.title === '' ? AppNotices.untitledQuiz : quiz.title}
         </Link>
       )))}

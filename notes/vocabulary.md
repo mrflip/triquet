@@ -164,18 +164,25 @@ words above.
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
   global, and exports on its own. Its label is global; should two share one, the earlier-made wins.
-* **realm** -- a division of a hunt, holding quizzes; the address's middle segment. Every hunt
+* **org** -- the scope a hunt is addressed under, the `~pat_smith` of `/~pat_smith/spring_hunt`:
+  for now an ident label, its earliest smith's (its maker's), worked out from its huntings and
+  stored nowhere (`orgFor` in `src/lib/rows.ts`). Hunt labels are still global, so the org is
+  context, as the realm is: an address naming another org moves to the hunt's own.
+  `/~<org>` lists that org's hunts. See `notes/decisions/urls.md`.
+* **realm** -- a division of a hunt, holding quizzes; the segment after `quizzes/`. Every hunt
   starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
   scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.
-* **act** -- the presentation an address asks for (`?act=`): `smith` (the Workbench) or `review`.
-  The path names the resource, the act how to show it. See
-  `notes/decisions/2026-09-resource-urls.md`.
+* **mode** -- how an address opens what it names, as its last segment: `!edit` (the Workbench)
+  or `!playtest` (the review screen). The rest of the path names the resource. A quiz's address
+  with no mode opens it playtested, for everyone alike: the address says what is shown, never
+  who is looking. Replaced the **act** of September 2026 (`?act=smith`, `?act=review`), which old
+  addresses still carry and are moved from. See `notes/decisions/urls.md`.
 * **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them. Each
   is a **role** on a hunt, held by a hunting.
 * **hunting** -- one ident's place on one hunt, with a role; a **member** of a hunt is an ident
   with a hunting on it. One per (hunt, ident): putting someone on again changes their role. A
   hunt's maker is its first smith, and nobody changes their own hunting: another smith does.
-  The hunts list shows one's own hunts; an address naming no `act` is shown as one's role asks.
+  The hunts list shows one's own hunts, its links opening each quiz in the mode one's role works in.
 * **workspace** -- retired in September 2026: what one account held, before hunts held quizzes
   and addresses said which was open. Nothing reads one now.
 
@@ -390,5 +397,13 @@ lines between them, and these are here so they are findable beside the rest.
   `tq/widget/pub/<label>.tqwidget.json` (until widgets replace them, the hunt's expressions at
   `tq/hunt/<hunt>/<hunt>.tqexpressions.json`). The history follows the quiz: a relabel is a new
   label on the same thing, an edit new content for it.
+* **jsonball** -- one resource of a hunt (the hunt's own fields, its categories, its members, a
+  quiz, a shared review, a widget) as JSON nested under the key path its address gives it
+  (`{ quizzes: { home: { legends: { ... } } } }`), so that deep-merging any set of them is that
+  much of the hunt. Every collection in one is keyed by label, its members carrying `position`
+  where order matters; no list is shared between balls. **Raw Export** is every ball of the hunt
+  merged; the library's export is every widget's. The **questions alone** (`{ questions: { ... } }`)
+  are a ball rooted at their quiz rather than the hunt, never merged, for pasting into any quiz.
+  `src/lib/jsonball.ts` owns the shapes; `Exporting` builds the balls, `Importing` reads them back.
 * **meta** -- the second-layer puzzle a quiz can hide. The reason widgets exist.
 * **Coach**, **agent** -- the humans and the AI on this project. See `CLAUDE.md`.

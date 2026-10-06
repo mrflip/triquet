@@ -1,5 +1,6 @@
 import { test as base, expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
+import type * as Routes from '../src/lib/routes'
 import { QuestionSourceTitles, type QuestionField, type QuestionView } from '../src/models/column'
 
 /** Where the fixture's page begins by default: a fresh ident's fresh hunt, open on its quiz */
@@ -239,8 +240,8 @@ export async function assumeIdent(page: Page, label = freshIdentLabel()): Promis
   return label
 }
 
-/** Where a new hunt's quiz is worked on: its hunt and quiz share a label, in the realm `home` */
-export const NewHuntUrl = /\/h\/([a-z0-9_]+)\/home\/\1\?act=smith$/
+/** Where a new hunt's quiz is worked on: under its maker's org, its hunt and quiz share a label, in the realm `home` */
+export const NewHuntUrl = /\/~[a-z0-9_]+\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/
 
 /** Make a hunt from the hunts list, and wait until its quiz is on screen */
 export async function newHunt(page: Page): Promise<void> {
@@ -274,14 +275,20 @@ export async function addMember(page: Page, label: string, role: 'Smith' | 'Revi
   await expect(members.getByRole('row').filter({ hasText: label })).toContainText(role)
 }
 
-/** The label of the hunt `page`'s address names: its second segment, as in `/h/<hunt>/...` */
+/** The label of the hunt `page`'s address names: its second segment, as in `/~<org>/<hunt>/...` */
 export function huntLabelOf(page: Page): string {
-  return String(new URL(page.url()).pathname.split('/', 3)[2])
+  return huntOf(page).hunt
 }
 
-/** The address `page` is at, naming no presentation: the page picks by the visitor's role */
+/** The hunt `page`'s address names, by its org and label: its first two segments, as in `/~<org>/<hunt>/...` */
+export function huntOf(page: Page): Routes.HuntLabels {
+  const [, org = '', hunt = ''] = new URL(page.url()).pathname.split('/', 3)
+  return { org: org.replace(/^~/, ''), hunt }
+}
+
+/** The address of the quiz `page` is at, naming no mode: it opens playtested, for anyone */
 export function quizPathOf(page: Page): string {
-  return new URL(page.url()).pathname
+  return new URL(page.url()).pathname.replace(/\/![a-z]+$/, '')
 }
 
 /**
@@ -327,6 +334,31 @@ export async function preparedExport(page: Page): Promise<string> {
   const exportBox = section.getByRole('textbox', { name: 'Raw Export' })
   await expect(exportBox).not.toHaveValue('')
   return await exportBox.inputValue()
+}
+
+/** One quiz as Raw Export holds it, flattened for a spec to read: its realm and label, its title, and its questions in order, each with its label */
+export type ExportedQuizT = {
+  realm:     string
+  label:     string
+  title:     string
+  questions: (Record<string, unknown> & { label: string })[]
+}
+
+/**
+ * Every quiz of a Raw Export, realm by realm, each with its questions put in order by their
+ * `position`: the merged hunt's `quizzes`, keyed by realm and label, read as a list.
+ *
+ * @param exported - The export, as the box holds it.
+ */
+export function exportedQuizzes(exported: string): ExportedQuizT[] {
+  type Body = { title: string, questions: Record<string, Record<string, unknown> & { position: number }> }
+  const hunt = JSON.parse(exported) as { quizzes: Record<string, Record<string, Body>> }
+  return Object.entries(hunt.quizzes).flatMap(([realm, quizzes]) => Object.entries(quizzes).map(([label, quiz]) => ({
+    realm,
+    label,
+    title:     quiz.title,
+    questions: Object.entries(quiz.questions).map(([qnlabel, question]) => ({ ...question, label: qnlabel })).toSorted((aa, bb) => aa.position - bb.position),
+  })))
 }
 
 /**

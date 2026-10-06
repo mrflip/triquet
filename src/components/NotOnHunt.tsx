@@ -12,24 +12,24 @@ import type { IdentT } from '../models/ident'
 import styles from './workbench.module.css'
 
 export type NotOnHuntProps = {
-  /** The quiz the address asked for; null for an address naming the hunt alone */
-  labels: Routes.QuizLabels | null
+  /** Where the quiz the address asked for is playtested; null for an address naming the hunt alone, or before the hunt has said its org */
+  playtestPath: string | null
   /** Who is looking */
-  ident:  IdentT
+  ident:        IdentT
   /** What they hold of themselves on the hunt; null when the server says they are not on it */
-  claims: Actor.HuntClaimsT | null
+  claims:       Actor.HuntClaimsT | null
   /** The hunt's smiths, who could put them on it or make them a smith */
-  smiths: readonly SmithT[]
+  smiths:       readonly SmithT[]
 }
 
 /**
  * What an address shows someone it is not for, in place of what it names, the address left as it
- * is: a visitor not on its hunt, or a reviewer asking for the smiths' presentation. Names the
+ * is: a visitor not on its hunt, or a reviewer asking for the smiths' mode. Names the
  * smiths to ask and what to ask them for, and where the visitor may go instead.
  */
-export function NotOnHunt({ labels, ident, claims, smiths }: Readonly<NotOnHuntProps>) {
+export function NotOnHunt({ playtestPath, ident, claims, smiths }: Readonly<NotOnHuntProps>) {
   // Someone on the hunt who may not work on the quiz may still be able to review it.
-  const reviewing = claims !== null && Hunting.mayAct(claims, 'review')
+  const reviewing = claims !== null && Hunting.mayOpen(claims, 'playtest')
   return (
     <main className={styles.page}>
       <Panel
@@ -37,7 +37,7 @@ export function NotOnHunt({ labels, ident, claims, smiths }: Readonly<NotOnHuntP
         blurb={reviewing ? notASmithNotice(smiths, ident.label) : notOnHuntNotice(smiths, ident.label)}
       >
         <Stack direction="row" spacing={2}>
-          {reviewing && labels !== null && <Link component={NextLink} href={Routes.quizPath(labels, 'review')}>Review this quiz</Link>}
+          {reviewing && playtestPath !== null && <Link component={NextLink} href={playtestPath}>Review this quiz</Link>}
           <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
         </Stack>
       </Panel>

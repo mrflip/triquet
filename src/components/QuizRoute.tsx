@@ -11,27 +11,35 @@ import { NotOnHunt } from './NotOnHunt'
 import { OpeningNotice } from './SyncNotices'
 import { QuizNotFound } from './QuizNotFound'
 import { ReviewScreen } from './ReviewScreen'
+import { useCanonical } from './use-address'
 import { Workbench } from './Workbench'
 
 export type QuizRouteProps = {
+  /** The org the address names; null for an old address, which names none */
+  org:    string | null
   /** The hunt, realm and quiz the address names */
   labels: Routes.QuizLabels
-  /** The presentation the address asks for; null when it asks for none */
-  act:    Routes.Act | null
+  /** The mode the address opens the quiz in; null when it names the quiz alone */
+  mode:   Routes.Mode | null
 }
 
 /**
- * What an address naming a quiz shows: the quiz, presented as its `act` asks.
+ * What an address naming a quiz shows: the quiz, opened in its `mode`.
  *
  * A visitor who has not said who they are is sent to say so, and brought back here. An address
- * that names no presentation is given the one the visitor's role on the hunt is shown: a smith
- * works the quiz, a reviewer reviews it. A visitor not on the hunt, or one asking for a
- * presentation the policies would not let them use (`Hunting.mayAct`: a reviewer asking to work
- * on it), is told which smiths to ask and what for, with the address left as it is: the server
- * shows them nothing more. An address naming no quiz says so, once the server has had its say;
- * one whose quiz is relabelled follows it.
+ * naming the quiz alone opens it playtested, for every visitor alike: the address says what is
+ * shown, never who is looking (`notes/decisions/urls.md`, rule 4), and anyone on the hunt may
+ * playtest; the app's own links name the mode each visitor's role works in (`Hunting.modeFor`).
+ * A visitor not on the hunt, or one asking for a mode the policies would not let them use
+ * (`Hunting.mayOpen`: a reviewer asking to work on it), is told which smiths to ask and what for,
+ * with the address left as it is: the server shows them nothing more. An address naming no quiz
+ * says so, once the server has had its say.
+ *
+ * Once the hunt says its org, the address moves to the form the quiz has now (`useCanonical`):
+ * from an old address, another org, a stale realm, or the label the quiz had before it was
+ * relabelled, here or elsewhere.
  */
-export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
+export function QuizRoute({ org, labels, mode }: Readonly<QuizRouteProps>) {
   const router = useRouter()
   const { ident, loaded } = useIdent()
   const { finding, hunt, realm, quiz, library, claims, smiths, reviews, dispatch, carryOut, movedTo, unsaved, saveNotice } = useHunt(labels)
@@ -41,25 +49,20 @@ export function QuizRoute({ labels, act }: Readonly<QuizRouteProps>) {
     if (loaded && ! ident) { router.replace(Routes.rootPath(`${location.pathname}${location.search}`)) }
   }, [loaded, ident, router])
 
-  useEffect(() => {
-    if (act === null && hunt !== null) { router.replace(Routes.quizPath(labels, Hunting.actFor(hunt.role))) }
-  }, [act, hunt, labels, router])
-
-  // A quiz relabelled while it is open, here or elsewhere, takes its address with it.
-  useEffect(() => {
-    if (movedTo !== null) { router.replace(Routes.quizPath({ ...labels, quiz: movedTo }, act ?? undefined)) }
-  }, [movedTo, labels, act, router])
+  // The quiz's labels as they stand, once the hunt has arrived to say its org.
+  const now = hunt && { org: hunt.org, hunt: hunt.label, realm: realm?.label ?? labels.realm, quiz: movedTo ?? labels.quiz }
+  useCanonical(org === null ? null : Routes.quizPath({ org, ...labels }, mode ?? undefined), now && Routes.quizPath(now, mode ?? 'playtest'))
 
   if (! loaded || ! ident) { return <OpeningNotice notice={saveNotice} /> }
   // Said as soon as the hunt arrives, without waiting on a quiz this visitor will not be shown.
-  if (finding === 'refused' || (claims !== null && act !== null && ! Hunting.mayAct(claims, act))) {
-    return <NotOnHunt labels={labels} ident={ident} claims={claims} smiths={smiths} />
+  if (finding === 'refused' || (claims !== null && mode !== null && ! Hunting.mayOpen(claims, mode))) {
+    return <NotOnHunt playtestPath={now && Routes.quizPath(now, 'playtest')} ident={ident} claims={claims} smiths={smiths} />
   }
   if (finding === 'waiting') { return <OpeningNotice notice={saveNotice} /> }
   if (! hunt || ! realm || ! quiz || ! claims) { return <QuizNotFound labels={labels} hunt={hunt} /> }
-  // On its way to the presentation the visitor's role is shown.
-  if (act === null) { return <OpeningNotice notice={saveNotice} /> }
-  if (act === 'review') {
+  // On its way to the playtest, or from an old address to the quiz's own.
+  if (mode === null || org === null) { return <OpeningNotice notice={saveNotice} /> }
+  if (mode === 'playtest') {
     return <ReviewScreen quiz={quiz} ident={ident} reviews={reviews} dispatch={dispatch} unsaved={unsaved} />
   }
   return <Workbench hunt={hunt} realm={realm} quiz={quiz} library={library} claims={claims} reviews={reviews} dispatch={dispatch} carryOut={carryOut} unsaved={unsaved} saveNotice={saveNotice} />

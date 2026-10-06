@@ -50,17 +50,17 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     },
     offers.exportHunt && {
       label:   'Raw Export',
-      blurb:   'Every quiz of this hunt, not just this one, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz\'s questions back. Any change on screen takes the box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
-      content: <RawExport exporting={exporting} library={library} />,
+      blurb:   'Every quiz of this hunt, not just this one, with its categories, its members and the widgets its quizzes work, read when you ask for it. Copy it somewhere safe to back up your progress, or paste it back through Import to bring a quiz\'s questions back, or through the Library tab to bring its widgets back. Any change on screen takes the box away again, so what it holds is never behind you: prepare it afresh, or refresh it to catch up with the hunt\'s other quizzes.',
+      content: <RawExport hunt={hunt} exporting={exporting} library={library} />,
     },
     {
       label:   'Import',
-      blurb:   'Paste back anything Raw Export ever gave you, a single quiz, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted.',
+      blurb:   'Paste back anything Raw Export ever gave you, a single quiz or its questions alone, or a bare list of questions. Questions and widgetings are matched by label; a field you leave out is left alone, a field set to null is cleared. Nothing is ever deleted.',
       content: <ImportForm quiz={quiz} library={library} locked={! offers.importQuestions} onImport={onImport} />,
     },
     {
       label:   'Library',
-      blurb:   'The widgets every hunt shares, on their own: copy them out, or paste a library back. Widgets are matched by label; one the library lacks is added, one it holds is revised. Nothing is ever deleted.',
+      blurb:   'The widgets every hunt shares, on their own: copy them out, or paste back a library, or a Raw Export for the widgets it holds. Widgets are matched by label; one the library lacks is added, one it holds is revised. Nothing is ever deleted.',
       content: <LibraryForm library={library} changeable={offers.changeLibrary} dispatch={changeLibrary} />,
     },
     {

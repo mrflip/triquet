@@ -2,10 +2,10 @@ import { readFile } from 'node:fs/promises'
 import { type Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, expect, huntLabelOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test } from './support'
+import { actDangerously, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test } from './support'
 
 test('a hunt starts on the main branch, and a smith can switch it from the hunt\'s page', async ({ page }) => {
-  await page.goto(Routes.huntPath(huntLabelOf(page)))
+  await page.goto(Routes.huntPath(huntOf(page)))
   const branch = page.getByRole('textbox', { name: 'Branch' })
   await expect(branch).toHaveValue('main')
   await expect(page.getByRole('button', { name: 'Switch branch' })).toBeDisabled()
@@ -30,7 +30,7 @@ test('editing a quiz builds a history that a milestone can tag', async ({ page }
 
 test('a milestone names the branch it marks', async ({ page }) => {
   const quizPath = `${new URL(page.url()).pathname}${new URL(page.url()).search}`
-  await page.goto(Routes.huntPath(huntLabelOf(page)))
+  await page.goto(Routes.huntPath(huntOf(page)))
   await page.getByRole('textbox', { name: 'Branch' }).fill('playtest')
   await page.getByRole('button', { name: 'Switch branch' }).click()
   await expect(page.getByRole('button', { name: 'Switch branch' })).toBeDisabled()
@@ -49,7 +49,7 @@ test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
   await page.getByLabel('Label', { exact: true }).fill('princes')
   await page.getByRole('button', { name: 'Apply' }).click()
   // The address follows the relabel once it has landed.
-  await expect(page).toHaveURL(/\/princes\?/)
+  await expect(page).toHaveURL(/\/princes\/!edit$/)
 
   await openManage(page)
   const downloading = page.waitForEvent('download')

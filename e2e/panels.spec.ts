@@ -1,4 +1,4 @@
-import { addWidgeting, addWidgetings, expect, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
+import { addWidgeting, addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -46,9 +46,9 @@ test('Raw Export emits the whole hunt as compact JSON', async ({ page }) => {
   const exportBox = page.getByRole('textbox', { name: 'Raw Export' })
   await expect(exportBox).toHaveValue(/"title":"Quiz one"/)
   const text = await exportBox.inputValue()
-  const hunt = JSON.parse(text) as { label: string, realms: { label: string, quizzes: { title: string }[] }[] }
-  expect(hunt.realms.map((realm) => [realm.label, realm.quizzes.map((quiz) => quiz.title)])).toEqual([['home', ['Quiz one']]])
-  await expect(page).toHaveURL(new RegExp(`/h/${hunt.label}/`))
+  const hunt = JSON.parse(text) as { label: string }
+  expect(exportedQuizzes(text).map((quiz) => [quiz.realm, quiz.title])).toEqual([['home', 'Quiz one']])
+  await expect(page).toHaveURL(new RegExp(`/~[a-z0-9_]+/${hunt.label}/`))
   // Compact, not pretty-printed: backup material, not prose.
   expect(text).not.toContain('\n')
   // Everything by label: ids are the database's, and mean nothing to a smith.
@@ -223,7 +223,7 @@ test('the quiet note beside it explains, in a dialog, how to see the history', a
 
 test('the library is handed out on its own, and a pasted library is merged into it by label', async ({ page }) => {
   const section = await showTab(page, 'Library')
-  await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"label":"numnum_hint"/)
+  await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"numnum_hint":\{/)
   // A label of this test's own: the library is every hunt's, and the specs share one database.
   const label = freshWidgetLabel('pasted')
   const pasted = JSON.stringify({ widgets: [
@@ -234,7 +234,7 @@ test('the library is handed out on its own, and a pasted library is merged into 
   await section.getByRole('button', { name: 'Import library' }).click()
   await expect(section.getByRole('status')).toContainText('1 added, 0 revised, 0 unchanged, 1 skipped')
   await expect(section.getByText(/numnum_hint — skipped: it is a jsonata widget here, and an aibot widget in the library/)).toBeVisible()
-  await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(new RegExp(`"label":"${label}"`))
+  await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(new RegExp(String.raw`"${label}":\{`))
 })
 
 test("the Category spread panel says how to begin when the quiz has no category estimate entry", async ({ page }) => {

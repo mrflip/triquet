@@ -1,0 +1,48 @@
+{
+  "expressions": [],
+  "forced_label": null,
+  "label": "deep_lake",
+  "realms": [
+    {
+      "label": "home",
+      "quizzes": [
+        {
+          "forced_label": "princes",
+          "label": "minted_once",
+          "last_sortkey": null,
+          "locked": false,
+          "questions": [
+            {
+              "alt_text": "",
+              "chains_to": "nantes",
+              "clueing": "Which region has 300 lions and twelve kings?",
+              "forced_label": "leon",
+              "full_answer": "León",
+              "hint": "",
+              "label": "generated_one",
+              "notes": "keep me",
+              "qnum": "1",
+              "title": "Leon"
+            },
+            {
+              "alt_text": "",
+              "chains_to": null,
+              "clueing": "Which city signed the edict?",
+              "forced_label": null,
+              "full_answer": "Nantes",
+              "hint": "BUT NOT the edict",
+              "label": "nantes",
+              "notes": "",
+              "qnum": "2",
+              "title": "Nantes"
+            }
+          ],
+          "smiths_note": "A quiz of princes.",
+          "title": "Princes"
+        }
+      ],
+      "title": "Home"
+    }
+  ],
+  "title": "Deep Lake"
+}

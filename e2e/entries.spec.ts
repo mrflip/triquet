@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, expect, freshWidgetLabel, newWidgetingDialog, openManage, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import { cellOf, closeManage, expect, exportedQuizzes, freshWidgetLabel, newWidgetingDialog, openManage, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 /** The widget editor writing a new widget, open over the widgeting editor that opened it */
 function newWidgetDialog(page: Page) {
@@ -81,7 +81,7 @@ test('an entry rides the export, and an import puts it back', async ({ page }) =
   await entryBox(page, 0, 'Points').fill('-2.5')
   await leaveBox(page)
   const exported = await preparedExport(page)
-  const question = (JSON.parse(exported) as { realms: { quizzes: { questions: Record<string, unknown>[] }[] }[] }).realms[0]?.quizzes[0]?.questions[0]
+  const question = exportedQuizzes(exported)[0]?.questions[0]
   expect(question?.points).toEqual({ status: 'ok', value: -2.5 })
 
   await entryBox(page, 0, 'Points').fill('7')

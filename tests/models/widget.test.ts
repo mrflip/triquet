@@ -154,18 +154,6 @@ describe('WidgetValidators.row', () => {
   }
 })
 
-describe('WidgetValidators.library', () => {
-  it("is every widget, in library order, defaulted as each is filled", () => {
-    const library = WidgetValidators.library({ widgets: [Guesser, Shout] })
-    expect(library.widgets.map((widget) => widget.label)).to.deep.eq(['guesser', 'shout'])
-    expect(library.widgets[1]).to.deep.eq(Widget.fill(Shout))
-  })
-
-  it("refuses a widget that is not one", () => {
-    expect(() => WidgetValidators.library({ widgets: [{ ...Shout, formula: '' }] })).to.throw(Z.ZodError)
-  })
-})
-
 describe('Widget.keyOf', () => {
   it("is the scope and the label", () => {
     expect(Widget.keyOf({ scope: 'pub', label: 'dumdum' })).to.eq('pub/dumdum')
