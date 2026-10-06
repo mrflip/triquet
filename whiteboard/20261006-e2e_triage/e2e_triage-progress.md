@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** threads 1 and 3 landed (#156, #157); thread 5 in review (lane 3); threads 2 and 4 underway (lanes 1 and 2). Thread 6 held until the Coach releases it.
+**Status:** threads 1 and 3 landed (#156, #157); thread 5 landing (lane 3); threads 2 and 4 underway (lanes 1 and 2). Thread 6 held until the Coach releases it.
 
 ## Status
 
@@ -10,7 +10,7 @@
 | 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
 | 3 | cover the error boundary | landed #157 |
 | 4 | cover stats and the other light gaps | underway (lane 2) |
-| 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | in review (lane 3) |
+| 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landing (lane 3) |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
 ## Measurements
@@ -91,4 +91,31 @@ specs that passed alone. `reviews.spec.ts`, the smith's note fold, failed a CSS 
 `widgets.spec.ts`, "every dialog has a close button", has a real cause: its `Close` lookup is not
 exact and can match a generated title beginning "Closed…". Thread 4 adds `exact: true`, at the
 orchestrator's request.
+
+*Review (thread 5, first):* `flagged`, at medium through `/code-review`, then by hand. Fixed
+(5ccfa95): the synced layout, the quiz pages, `QuizRoute`, `SiteHeader`, `shown-hunt`,
+`use-address`, `use-ident` and `routes.ts` had mapped to the routing corner, though every quiz
+spec opens through them; they now reach the whole suite. Significant: the quiz history mirror
+(`hunt-mirror`, `hunt-feed` and the commit machinery) mapped to quiz-history and panels, though
+`use-hunt` and the Workbench run through it. *Orchestrator:* the plan's map gloss already answers
+this (verify against the imports; what every quiz screen opens through reaches the whole suite),
+so the worker was resumed with it as a directive, and a second reviewer follows. Minor, left: the
+bid checks scope before its catch-up (moved to thread 6's gloss); the `@smoke` tripwire counts
+literal text; `src/models/review*` stays scoped, as planned.
+
+*Orchestrator:* thread 5's mend (ddf1769) sends the whole mirror to the whole suite: `hunt-mirror`,
+`hunt-feed`, `hunt-fetching`, `hunt-commits`, `commit-scheduler`, `huntfiles` and `huntgit`, the
+history files `use-hunt.ts` and `Workbench.tsx` import. The worker rightly pushed back on the
+orchestrator's directive to keep `FullHistoryDownload` and `full-history.md` in the corner:
+`ExportImportPanel` mounts them on every quiz screen, so the second reviewer sends them to the
+whole suite too. The map's file-by-file reading now lives in `thread-5-map-reading.md`, for anyone
+changing `SpecCorners`.
+
+*Review (thread 5, second):* `fixed`, at medium through `/code-review`, then by hand. The
+mirror's import closure is complete, and nothing in it still matches a narrower rule. Fixed
+(fe0a5a4): `FullHistoryDownload` and `full-history.md` reach the whole suite. Left, minor, for the
+Coach: does the map's rule mean "opens through" (layout, route, data hooks) or "draws"? Read as
+"draws", the panels, the grid and the quiz header would go to the whole suite too; the map keeps
+them in corners whose specs notice a draw-time throw. Also minor: `HuntRepoList` is reached from
+`QuizRoute` only through `QuizNotFound`, which routing covers, so it keeps its corner.
 

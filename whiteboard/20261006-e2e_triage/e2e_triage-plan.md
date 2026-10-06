@@ -1,7 +1,7 @@
 # e2e triage: a suite that is fast, honest, and runs only its corner
 
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
-in session e2e_triage. **Status:** threads 1 and 3 landed (#156, #157); thread 5 in review; threads 2 and 4 underway. Thread 6 (the lock) is **held**: the
+in session e2e_triage. **Status:** threads 1 and 3 landed (#156, #157); thread 5 mending a flagged review; threads 2 and 4 underway. Thread 6 (the lock) is **held**: the
 sprint runner does not cut it until the Coach releases it, once threads 1 to 5 have been measured.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front
@@ -350,6 +350,12 @@ it in `notes/stack.md`), not a bare file we must remember to remove.
 
 Likely touches: `scripts/spine.ts`, `scripts/e2e-log.ts`, their tests, `notes/git_hygiene.md`,
 `notes/stack.md`, `package.json`. Depends on: thread 5 (the same functions), and the Coach's word.
+
+*Orchestrator, after thread 5's first review:* `land` checks a proof's scope in `proofOf`, before
+the hold and before its own catch-up, an order older than this sprint. A spec file the top gains,
+in a corner the branch proved, is then not required by that bid. Thread 6 already reorders a
+catch-up ahead of the run; when it is cut, it also moves the scope check after the bid's catch-up,
+or says why not.
 
 ## Running order
 
