@@ -404,6 +404,10 @@ lines between them, and these are here so they are findable beside the rest.
   together. One watch per facet.
 * **screen hook** -- the one hook that owns a screen's watches and hands props down (`useHunt`,
   `useQuiz`, `useHuntsList`, `useIdent`). Components never watch.
+* **change signal** -- a quiz's last-changed time, one small row per quiz (`signals`), moved by a
+  trigger at every write to the quiz's files, at most once a grain (`SignalGrainMs`). A smith's
+  browser watches every quiz's signal, and fetches a quiz it does not have on screen only once its
+  signal moves, rather than watching the quiz itself (`src/state/hunt-fetching.ts`).
 
 ## Around the edges
 

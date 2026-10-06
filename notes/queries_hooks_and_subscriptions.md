@@ -76,14 +76,23 @@ exception is the one above: a facet that only one dialog shows is watched by tha
 a hook of its own under `src/state/`, for as long as it is open.
 
 The other is the mirror's feed (`useHuntFeed`, `src/state/hunt-feed.ts`): a smith's browser keeps
-the hunt's history from every quiz, not only the one on screen, so the feed watches the whole hunt
-beside the screen, through the client's `watchQuery` rather than through React. It sends what the
-screen sends, so a watch they share is one subscription: the quiz on screen it reads through the
-screen's own frame and questions, and every other quiz whole (`quizzes.whole`), one watch each,
-since that quiz's file is the quiz whole and nobody on this screen is editing it; those open only
-once the page has loaded and the browser is idle, so the screen's own reads come first. One feed serves
-every screen of a hunt, and is kept a moment after the last lets go (`KeepMs`), so moving between
-the hunt's quizzes moves its focus rather than opening every watch afresh.
+the hunt's history from every quiz, not only the one on screen, so the feed reads the whole hunt
+beside the screen, through the client's `watchQuery` and `query` rather than through React. It
+sends what the screen sends, so a watch they share is one subscription: the quiz on screen it reads
+through the screen's own frame, questions and reviews. **Every other quiz it fetches, not
+watches** (`quizzes.whole`, and its reviews): a watch of a quiz whole would be rerun and resent at
+every write to it, a bot's every answer, in every smith's tab. Instead it watches one small facet,
+every quiz's **change signal** (`quizzes.signals`), and fetches a quiz again only once its signal
+has moved, at most once every minute and a half (`src/state/hunt-fetching.ts`): the history may lag
+a change by that much. Those reads begin only once the page has loaded and the browser is idle, so
+the screen's own reads come first. One feed serves every screen of a hunt, and is kept a moment
+after the last lets go (`KeepMs`), so moving between the hunt's quizzes moves its focus rather than
+reading every quiz afresh.
+
+That is the pattern for anything large that changes in bursts and may be read late: **a cheap
+signal watched, a fetch when it moves**. The signal is a row of its own, written by a trigger
+(`convex/signalling.ts`), never a field of the row it speaks for, since every reader of that row
+would rerun each time it moved.
 
 **"Per row" is fine, in its place.** A watch per question is right because a question is the
 unit an author changes, the count is bounded (a quiz holds at most 999), and the ids come from

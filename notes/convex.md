@@ -54,6 +54,32 @@ through `Stamps.of` (`src/lib/stamps.ts`), which reads a row the trigger never s
 edited, when the database made it. A person reads them as ISO-8601 UTC strings (`Stamps.isoOf`)
 in the balls and tables of the hunt, its quizzes and questions, and its reviews and verdicts.
 
+## Change signals
+
+Each quiz has a **change signal** (`signals`, `src/models/signal.ts`): one row per quiz, holding
+when its files last changed, so a smith's browser can watch every quiz's signal (`quizzes.signals`)
+and fetch a quiz it does not have on screen only once it moves, rather than watch the quiz whole
+(`notes/hunt_git.md`, *Watching and committing, by file*). It is moved by a trigger beside the
+stamps (`convex/signalling.ts`, both registered in `convex/triggers.ts`), at each write to the
+quiz, its questions, widgetings, columns or widgeteds, or to a shared review or its verdicts (a
+draft's writes move nothing: its smiths are not told a reviewer is at work), and taken away with
+its quiz. Like the stamps, a dashboard edit and a migration's raw write pass it by.
+
+* **Its own row, never the quiz's.** Every reader of the quiz row (the screen's frame among them)
+  would rerun at every write to the quiz's questions; only `quizzes.signals` reads `signals`.
+* **Once a grain.** A write finding the signal moved within `SignalGrainMs` (5 s) leaves it
+  standing, so a burst (a bot run of forty answers) moves it a handful of times, and reruns
+  `quizzes.signals` as often. A write that does not move it lands within the grain of the move it
+  left standing, which is what the browser waits out before it trusts a fetch.
+* **Contention.** Every write to a quiz reads its signal, so a write that moves it conflicts with
+  the writes to that quiz in flight beside it, which Convex retries; each retry finds it moved and
+  writes nothing more. Once a grain per quiz, never per write. Writes to different quizzes never
+  meet. One browser's mutations run one at a time, so a bot run from one tab contends with nothing
+  but other browsers' writes to the same quiz.
+* **No backfill.** A quiz written before signals began has none, and reads as "never moved": a
+  browser fetches it once when it first reads the hunt, as it fetches every quiz, and its first
+  write makes one.
+
 ## Denormalized fields
 
 A row carries copies of what policy needs from the rows above it, so that the evidence for a
