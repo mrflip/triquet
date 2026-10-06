@@ -314,7 +314,7 @@ describe('the command line', () => {
     fs.rmSync(projectsdir, { recursive: true, force: true })
   })
 
-  const run = (...args: string[]) => execFileSync(process.execPath, [Script, '--projects', projectsdir, ...args], { encoding: 'utf8' })
+  const run = (...args: string[]) => execFileSync(process.execPath, [Script, '--projects', projectsdir, ...args], { encoding: 'utf8', stdio: 'pipe' })
 
   it('prints a table of the sessions that worked on a PR', () => {
     expect(run('#116')).to.equal([
