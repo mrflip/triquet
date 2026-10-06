@@ -35,8 +35,10 @@ export async function perform(db: Writer, census: CensusT, claims: PerformClaims
   switch (action.kind) {
   case 'retitle_quiz':        { await Quiz.retitleQuiz(db, claims, action.title); return }
   case 'relabel_quiz':        { await Quiz.relabelQuiz(db, claims, action.label); return }
-  case 'set_smiths_note':     { await Quiz.setSmithsNote(db, claims, action.smiths_note); return }
-  case 'set_q1_preamble':     { await Quiz.setQ1Preamble(db, claims, action.q1_preamble); return }
+  case 'set_smiths_note':
+  case 'set_q1_preamble':
+  case 'set_recap_head':
+  case 'set_recap_tail':      { await Quiz.setQuizNote(db, claims, action); return }
   case 'edit_question':       { await Quiz.editQuestion(db, claims, action.question_id, action.patch); return }
   case 'add_question':        { await Quiz.addQuestion(db, claims); return }
   case 'delete_questions':    { await Quiz.deleteQuestions(db, claims, action.question_ids); return }

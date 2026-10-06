@@ -20,7 +20,7 @@ const widgetOf = (label: string, input_formula = "$trim(qn.clueing) != '' ? { 'c
   scope:     'pub', formulary: 'aibot', label, title: 'Dumdum', description: '', formula: 'Question: {{clueing}}', input_formula,
   config:    { servicelabel: 'claude', model_tier: 'quick', max_tokens: 256 },
 })
-const widgeting: WidgetingT = { label: 'dumdum', widget_label: 'dumdum', description: '', params: {} }
+const widgeting: WidgetingT = { label: 'dumdum', widget_label: 'dumdum', description: '', params: {}, tier: 'question' }
 
 describe('AibotFormulary', () => {
   beforeEach(() => { vi.mocked(askModel).mockReset() })

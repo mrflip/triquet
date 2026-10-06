@@ -13,6 +13,7 @@ import { HomeRealmLabel, RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
 import { refuse } from '../../src/lib/refusals'
+import { QuestionFallbacks, QuizFallbacks, WidgetingFallbacks } from '../../src/lib/rows'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
@@ -70,15 +71,15 @@ export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 
-/** Revise a quiz's own row */
+/** Revise a quiz's own row, giving one written before it had a recap or templating an empty one (`QuizFallbacks`) */
 export async function updateQuiz(db: Writer, held: Doc<'quizzes'>, patch: Partial<Z.output<typeof QuizValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuizValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, QuizValidators.row({ ...QuizFallbacks, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('quizzes', held._id, changed) }
 }
 
-/** Revise a question's row */
+/** Revise a question's row, giving one written before it had a recap an empty one (`QuestionFallbacks`) */
 export async function updateQuestion(db: Writer, held: Doc<'questions'>, patch: Partial<Z.output<typeof QuestionValidators.row>>): Promise<void> {
-  const changed = changedFields(held, QuestionValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, QuestionValidators.row({ ...QuestionFallbacks, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('questions', held._id, changed) }
 }
 
@@ -96,9 +97,9 @@ export async function updateWidget(db: Writer, held: Doc<'widgets'>, patch: Widg
   if (! _.isEmpty(changed)) { await db.patch('widgets', held._id, changed) }
 }
 
-/** Revise a widgeting's row */
+/** Revise a widgeting's row, giving one written before widgetings had tiers the tier of one that runs for each question (`WidgetingFallbacks`) */
 export async function updateWidgeting(db: Writer, held: Doc<'widgetings'>, patch: Partial<Z.output<typeof WidgetingValidators.row>>): Promise<void> {
-  const changed = changedFields(held, WidgetingValidators.row({ ..._.omit(held, SystemFields), ...patch }))
+  const changed = changedFields(held, WidgetingValidators.row({ ...WidgetingFallbacks, ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('widgetings', held._id, changed) }
 }
 

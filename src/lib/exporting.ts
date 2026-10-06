@@ -131,11 +131,14 @@ export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT
     title:        quiz.title,
     smiths_note:  quiz.smiths_note,
     q1_preamble:  quiz.q1_preamble,
+    recap_head:   quiz.recap_head,
+    recap_tail:   quiz.recap_tail,
+    templated:    quiz.templated,
     locked:       quiz.locked,
     last_sortkey: quiz.last_sortkey,
     ...Stamps.isoStampsOf(quiz),
     questions:    questionsBodyOf(quiz, run),
-    widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params }) => ({ widget_label, description, params })),
+    widgetings:   Jsonball.keyedOf(quiz.widgetings, (widgeting) => widgeting.label, ({ widget_label, description, params, tier }) => ({ widget_label, description, params, tier })),
     columns:      Jsonball.keyedOf(quiz.columns, (column) => column.label, ({ label: _label, ...fields }) => fields),
   }
 }
@@ -155,6 +158,7 @@ function questionsBodyOf(quiz: QuizT, run: Runner.QuizRun, questions: readonly Q
     alt_text:    question.alt_text,
     notes:       question.notes,
     full_answer: question.full_answer,
+    recap:       question.recap,
     viz:         question.viz,
     chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
     ...Stamps.isoStampsOf(question),

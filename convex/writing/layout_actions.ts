@@ -1,7 +1,7 @@
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
-import type { LayoutRows } from '../../src/lib/rows'
+import { QuizFallbacks, type LayoutRows } from '../../src/lib/rows'
 import * as Estimates from '../../src/lib/estimates'
 import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
 import { WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../../src/models/widgeting'
@@ -56,8 +56,8 @@ export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: Widge
 
 /**
  * Revise a widgeting of the open quiz. A rename onto a label a sibling has is refused, and
- * carries the columns that show the widgeting, whole or a part of it, with it; what it stored
- * stays with it.
+ * carries the columns that show the widgeting, whole or a part of it, with it, and its place
+ * among the sources the quiz templates; what it stored stays with it.
  */
 export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, patch: WidgetingPatch): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -69,6 +69,29 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
       const named = sourceOf(column.source)
       if (named.kind === 'widgeting' && named.label === label) { await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, named.part) }) }
     }
+    const templated = templatedOf(rows)
+    if (renamedOnto !== label && templated.includes(label)) {
+      await updateQuiz(db, rows.quiz, { templated: templated.map((source) => (source === label ? renamedOnto : source)) })
+    }
+  })
+}
+
+/** The sources the open quiz templates, one written before it had any templating none */
+function templatedOf(rows: LayoutRows): string[] {
+  return rows.quiz.templated ?? QuizFallbacks.templated
+}
+
+/**
+ * Nominate the sources the open quiz templates, replacing those it did: its questions' own fields
+ * and its widgetings, each named as a column names what it shows. A widgeting the quiz does not
+ * have is refused.
+ */
+export async function setTemplated(db: Writer, open: OpenQuizT, templated: readonly string[]): Promise<void> {
+  await reviseOpenLayout(db, open, async (rows) => {
+    const held = new Set(rows.widgetings.map((widgeting) => widgeting.label))
+    const named = templated.flatMap((source) => widgetingLabelOf(source) ?? [])
+    if (named.some((widgetingLabel) => ! held.has(widgetingLabel))) { refuse('untemplatable') }
+    await updateQuiz(db, rows.quiz, { templated: [...templated] })
   })
 }
 
@@ -84,7 +107,8 @@ async function deleteColumns(db: Writer, rows: LayoutRows, doomed: (column: Doc<
 
 /**
  * Delete a widgeting of the open quiz, everything it stored, and the columns that showed it: a
- * column with nothing to show is not a column. The widget it worked stays in the library.
+ * column with nothing to show is not a column. It leaves the sources the quiz templates too. The
+ * widget it worked stays in the library.
  */
 export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
@@ -92,6 +116,8 @@ export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string
     if (! held) { return }
     await deleteWidgetingRows(db, held._id)
     await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
+    const templated = templatedOf(rows)
+    if (templated.includes(label)) { await updateQuiz(db, rows.quiz, { templated: templated.filter((source) => source !== label) }) }
     await repositioned(rows.widgetings.filter((widgeting) => widgeting._id !== held._id), async (row, position) => { await updateWidgeting(db, row, { position }) })
   })
 }
@@ -160,6 +186,7 @@ export async function performLayout(db: Writer, open: OpenQuizT, action: LayoutA
   case 'add_column':          { await addColumn(db, open, action.column, action.onto_idx); return }
   case 'edit_column':         { await editColumn(db, open, action.label, action.patch); return }
   case 'delete_column':       { await deleteColumn(db, open, action.label); return }
-  case 'move_column':         { await moveColumn(db, open, action.label, action.onto_idx) }
+  case 'move_column':         { await moveColumn(db, open, action.label, action.onto_idx); return }
+  case 'set_templated':       { await setTemplated(db, open, action.templated) }
   }
 }

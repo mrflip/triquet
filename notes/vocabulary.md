@@ -41,6 +41,9 @@ this section, lists the words they replace while code still holds them.
   `titleish` (one line) or `estimates` (a question's category estimates, *Categories*). Fixed once the widget is made, as its formulary is; together they are its
   **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
   no row and reads `missing`.
+* **tier** -- which level a widgeting runs at: `question` (once for each question, as every
+  widgeting has) or `quiz` (once for the quiz as a whole). Fixed once made, as its widget is. Not a
+  bot's **model tier**, which is a widget's config.
 * **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
   widgeteds of the widgetings before it, so the order is the dependency order.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
@@ -199,9 +202,19 @@ words above.
   meta, what is left to do. Beside the quiz's name, and a formula reads it as `quiz.smiths_note`.
 * **Q1 preamble** (`q1_preamble`) -- what the LL Export puts ahead of the first question when
   the quiz goes live, in the league's BBCode: a pointer to the smith's note. Not seen by formulas.
+* **recap** -- the note posted to the league's message board once a quiz has been played: what is
+  said ahead of the questions, each question with its answer, and what is said after. Its **head**
+  (`recap_head`) and **tail** (`recap_tail`) are the quiz's, always templated, and not seen by
+  formulas; a question's own `recap` is what the recap says of it, below its answer, and a formula
+  reads it as `qn.recap`.
+* **templated** -- the sources a quiz nominates for templating, named as a column names what it
+  shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
+  `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
+  source, never per column. A templated text is filled in over the quiz's bag before it is shown or
+  exported.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
-  `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`. Everything else a quiz shows
-  is a widgeted.
+  `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`, `recap`. Everything else a
+  quiz shows is a widgeted.
 * **clueing** -- the question as it will be asked. Never "question text" and never "question":
   that word is the row. (The prompts still say "question" to the model, because a player would.)
   Never rewritten by the tool, not even trimmed.

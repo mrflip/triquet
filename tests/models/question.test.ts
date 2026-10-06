@@ -169,6 +169,7 @@ describe('QuestionValidators, field by field', () => {
     [{ _id: anId, clueing: 'x'.repeat(3601) },    'a clueing past 3600 characters'],
     [{ _id: anId, hint: 'BUT NOT\u{1}' },          'a hint carrying a control character'],
     [{ _id: anId, notes: 'x'.repeat(3601) },      'notes past 3600 characters'],
+    [{ _id: anId, recap: 'x'.repeat(3601) },      'a recap past 3600 characters'],
     [{ _id: anId, title: 'x'.repeat(83) },        'a title past 82 characters'],
     [{ _id: anId, title: 'Two\nlines' },          'a title on more than one line'],
     [{ _id: anId, label: 'ends_' },               'a label ending in an underscore'],
@@ -184,7 +185,7 @@ describe('QuestionValidators, field by field', () => {
 describe('QuestionValidators.row', () => {
   const Row = {
     hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', quiz_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', label: 'hamlet', title: 'Hamlet', qnum: '1', clueing: '  Dane,\n melancholy ',
-    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '', viz: 'secondary' as const, created_at: 1_759_700_000_000, updated_at: 1_759_700_100_000,
+    hint: '', chains_to: 'lear', full_answer: 'Hamlet', alt_text: '', notes: '', recap: 'Elsinore is real.', viz: 'secondary' as const, created_at: 1_759_700_000_000, updated_at: 1_759_700_100_000,
   }
 
   it('takes a question as the database holds it, its clueing untouched', () => {
@@ -202,6 +203,7 @@ describe('QuestionValidators.row', () => {
     [{ qnum: 'three' },                      'a question number that is not a number'],
     [{ created_at: 1.5 },                    'a stamp that is not a whole millisecond'],
     [{ viz: 'hidden' },                      'a viz that is none of archived, secondary and normal'],
+    [{ recap: undefined },                   'a missing recap, which a row never defaults'],
     [{ updated_at: '2026-10-05T00:00:00Z' }, 'a stamp written as a person reads it'],
   ]
   for (const [overrides, describes] of Refused) {
@@ -225,7 +227,7 @@ describe("Question.blankRow", () => {
 
 describe('Question.exposed and RankField', () => {
   it("is every field a formula may read, alphabetically, and never what its widgetings stored", () => {
-    expect(Question.exposed).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'title'])
+    expect(Question.exposed).to.deep.eq(['alt_text', 'chains_to', 'clueing', 'full_answer', 'hint', 'label', 'notes', 'qnum', 'recap', 'title'])
     expect(Question.exposed).not.to.include('stored')
   })
 
@@ -253,7 +255,7 @@ describe('Question.sentTo', () => {
 
   it("sends a reviewer what a review needs, the answer and how it is shown among it, and not the notes or what the widgetings stored", () => {
     expect(Question.sentTo.reviewer).to.deep.eq(['chains_to', 'clueing', 'full_answer', 'hint', 'label', 'qnum', 'title', 'viz'])
-    for (const withheld of ['notes', 'alt_text', 'stored']) { expect(Question.sentTo.reviewer).to.not.include(withheld) }
+    for (const withheld of ['notes', 'alt_text', 'recap', 'stored']) { expect(Question.sentTo.reviewer).to.not.include(withheld) }
   })
 
   it("sends a stranger to the hunt nothing", () => {
@@ -292,6 +294,11 @@ describe('Question viz', () => {
     expect(Question.isBlank({ ...Question.blank(), title: '' })).to.be.true
     expect(Question.isBlank({ ...Question.blank(), title: 'Hamlet' })).to.be.false
     expect(Question.isBlank({ ...Question.blank(), chains_to: 'lear' })).to.be.false
+    expect(Question.isBlank({ ...Question.blank(), recap: 'Leon was his pen name.' })).to.be.false
+  })
+
+  it("starts every question with no recap, trimming one written", () => {
+    expect([Question.blank().recap, Question.fill({ _id: anId, recap: '  Leon.\n' }).recap]).to.deep.eq(['', 'Leon.'])
   })
 
   it("starts every question normal", () => {

@@ -16,15 +16,16 @@ import { WidgetValidators } from './widget'
 import { WidgetedValidators } from './widgeted'
 import { WidgetingValidators } from './widgeting'
 
-/** The actions that revise a quiz's widgetings and columns */
+/** The actions that revise a quiz's widgetings and columns, and which of its sources it templates */
 export const LayoutActionKindVals = [
   'add_widgeting', 'edit_widgeting', 'delete_widgeting', 'move_widgeting',
   'add_column', 'edit_column', 'delete_column', 'move_column',
+  'set_templated',
 ] as const
 
 /** The actions that revise the quiz on screen and its questions */
 export const ContentActionKindVals = [
-  'retitle_quiz', 'relabel_quiz', 'set_smiths_note', 'set_q1_preamble',
+  'retitle_quiz', 'relabel_quiz', 'set_smiths_note', 'set_q1_preamble', 'set_recap_head', 'set_recap_tail',
   'edit_question', 'add_question', 'delete_questions', 'set_viz', 'sort_questions', 'renumber_qnums', 'move_question',
   'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'import_questions',
 ] as const
@@ -58,6 +59,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('edit_column'),       label, patch: ColumnValidators.columnPatch }),
     obj({ kind: lit('delete_column'),     label }),
     obj({ kind: lit('move_column'),       label, onto_idx: uint }),
+    obj({ kind: lit('set_templated'),     templated: QuizValidators.templated }),
   ] as const
 
   const huntAction = discrim('kind', [
@@ -66,6 +68,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('relabel_quiz'),        label }),
     obj({ kind: lit('set_smiths_note'),     smiths_note: QuizValidators.smiths_note }),
     obj({ kind: lit('set_q1_preamble'),     q1_preamble: QuizValidators.q1_preamble }),
+    obj({ kind: lit('set_recap_head'),      recap_head: QuizValidators.recap_head }),
+    obj({ kind: lit('set_recap_tail'),      recap_tail: QuizValidators.recap_tail }),
     obj({ kind: lit('edit_question'),       question_id: zid('questions'), patch: QuestionValidators.questionPatch }),
     obj({ kind: lit('add_question') }),
     obj({ kind: lit('delete_questions'),    question_ids }),
@@ -134,7 +138,7 @@ export type AffirmsT      = Z.output<typeof ActionValidators.affirms>
 export type HuntActionDNA = Z.input<typeof ActionValidators.huntAction>
 /** What the author did from inside a quiz, validated */
 export type HuntActionT   = Z.output<typeof ActionValidators.huntAction>
-/** What the author did to a quiz's widgetings or columns, validated */
+/** What the author did to a quiz's widgetings or columns, or to which of its sources it templates, validated */
 export type LayoutActionT = Extract<HuntActionT, { kind: typeof LayoutActionKindVals[number] }>
 /** What an admin did to the library, as a view says it */
 export type LibraryActionDNA = Z.input<typeof ActionValidators.libraryAction>

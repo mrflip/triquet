@@ -36,6 +36,16 @@ function openHunt(locked = false): HuntT {
   return huntHolding([{ ...Quiz.blank('Quiz one'), locked }])
 }
 
+/** The open quiz's rows stripped of the recap sprint's fields, as rows written before them hold none */
+async function unwidened(seeded: Seeded): Promise<void> {
+  await seeded.tt.run(async (ctx) => {
+    await ctx.db.patch('quizzes', seeded.open.quiz_id, { recap_head: undefined, recap_tail: undefined, templated: undefined })
+    const [questions, widgetings] = await Promise.all([ctx.db.query('questions').collect(), ctx.db.query('widgetings').collect()])
+    for (const question of questions) { await ctx.db.patch('questions', question._id, { recap: undefined }) }
+    for (const widgeting of widgetings) { await ctx.db.patch('widgetings', widgeting._id, { tier: undefined }) }
+  })
+}
+
 /** A hunt holding the quizzes titled `titles`, blank, the one at `lockedIdx` locked */
 function huntTitled(titles: string[], lockedIdx = -1): HuntT {
   return huntHolding(titles.map((title, idx) => ({ ...Quiz.blank(title), locked: idx === lockedIdx })))
@@ -256,6 +266,51 @@ describe("hunts.perform", () => {
     })
   })
 
+  describe("set_recap_head and set_recap_tail", () => {
+    it("rewrite what the open quiz's recap says ahead of its questions and after them, trimmed, each leaving the other alone", async () => {
+      const { act, read } = await seed(openHunt())
+      await act({ kind: 'set_recap_head', recap_head: '  Thanks to {{quiz.playtesters}}!\n' })
+      await act({ kind: 'set_recap_tail', recap_tail: 'Until next season. ' })
+      await act({ kind: 'set_recap_head', recap_head: 'Thanks, all!' })
+      const quiz = openOf(await read())
+      expect(_.pick(quiz, ['recap_head', 'recap_tail'])).to.deep.eq({ recap_head: 'Thanks, all!', recap_tail: 'Until next season.' })
+    })
+
+    it("refuse while the quiz is locked", async () => {
+      const { act, read } = await seed(openHunt(true))
+      const ante = await read()
+      await expectRefusal(act({ kind: 'set_recap_head', recap_head: 'Thanks!' }), 'quizLocked')
+      await expectRefusal(act({ kind: 'set_recap_tail', recap_tail: 'Bye.' }), 'quizLocked')
+      expect(await read()).to.deep.eq(ante)
+    })
+  })
+
+  describe("a quiz, question and widgeting written before the recap and the tiers", () => {
+    it("read as having an empty recap, templating nothing, each widgeting run for each question", async () => {
+      const seeded = await seed(huntOf(['1', 'a']))
+      await unwidened(seeded)
+      const quiz = openOf(await seeded.read())
+      expect([quiz.recap_head, quiz.recap_tail, quiz.templated, quiz.questions[0]?.recap, quiz.widgetings[0]?.tier]).to.deep.eq(['', '', [], '', 'question'])
+    })
+
+    it("are given the fields at their next edit", async () => {
+      const seeded = await seed(huntOf(['1', 'a']))
+      await unwidened(seeded)
+      const quiz = openOf(await seeded.read())
+      const question_id = present(quiz.questions[0])._id as Id<'questions'>
+      await seeded.act({ kind: 'retitle_quiz', title: 'Renamed' })
+      await seeded.act({ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } })
+      await seeded.act({ kind: 'edit_widgeting', label: present(quiz.widgetings[0]).label, patch: { description: 'Edited.' } })
+      const rows = await seeded.tt.run(async (ctx) => ({
+        quiz:      await ctx.db.get('quizzes', seeded.open.quiz_id),
+        question:  await ctx.db.get('questions', question_id),
+        widgeting: await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', seeded.open.quiz_id).eq('position', 0)).first(),
+      }))
+      expect(_.pick(rows.quiz, ['recap_head', 'recap_tail', 'templated'])).to.deep.eq({ recap_head: '', recap_tail: '', templated: [] })
+      expect([rows.question?.recap, rows.widgeting?.tier]).to.deep.eq(['', 'question'])
+    })
+  })
+
   describe("add_question", () => {
     it("appends a blank question to the end", async () => {
       const { act, read } = await seed(huntOf(['1', 'a'], ['2', 'b']))
@@ -297,6 +352,12 @@ describe("hunts.perform", () => {
       const ante = await read()
       await act({ kind: 'edit_question', question_id: firstOf(ante)._id, patch: {} })
       expect(await read()).to.deep.eq(ante)
+    })
+
+    it("rewrites a question's recap, trimmed", async () => {
+      const { act, read } = await seed(openHunt())
+      await act({ kind: 'edit_question', question_id: firstOf(await read())._id, patch: { recap: '  Leon was a pen name.\n' } })
+      expect(firstOf(await read()).recap).to.eq('Leon was a pen name.')
     })
 
     it("refuses text the model rejects rather than storing it, saying why in our words", async () => {
@@ -1702,12 +1763,15 @@ describe("a quiz's export, imported into an empty quiz", () => {
     const source = await seedHunt(tt, huntOf(['1', 'a'], ['2', 'b'], ['3', 'c']))
     await putEntryToWork(source, 'remark')
     const [leon, nantes] = questionIdsOf(await source.read())
-    await source.act({ kind: 'edit_question', question_id: present(leon), patch: { clueing: 'Which region?', hint: 'BUT NOT a lion', notes: 'keep me', full_answer: 'León' } })
+    await source.act({ kind: 'edit_question', question_id: present(leon), patch: { clueing: 'Which region?', hint: 'BUT NOT a lion', notes: 'keep me', full_answer: 'León', recap: 'Leon is a kingdom.' } })
     await source.act({ kind: 'set_viz', question_ids: [present(nantes)], viz: 'secondary' })
     await source.act({ kind: 'set_chain', question_id: present(leon), chains_to: present(nantes) })
     await source.act({ kind: 'enter_widgeted', entered: { question_id: present(leon), widgeting_label: 'remark', value: 'Ask Flip.' } })
     await source.act({ kind: 'set_smiths_note', smiths_note: 'Kings and lions.' })
     await source.act({ kind: 'set_q1_preamble', q1_preamble: 'Read the note first.' })
+    await source.act({ kind: 'set_recap_head', recap_head: 'Thanks, playtesters!' })
+    await source.act({ kind: 'set_recap_tail', recap_tail: 'Until next time.' })
+    await source.act({ kind: 'set_templated', templated: ['question.recap', 'remark'] })
     await source.act({ kind: 'add_column', column: { label: 'remark', title: 'Remark', source: 'remark', width_px: 140, align: 'center' }, onto_idx: 1 })
     await source.act({ kind: 'edit_column', label: 'qnum', patch: { width_px: 44, align: 'right' } })
     await source.act({ kind: 'sort_questions', sortkey: 'column:title', descending: true })
@@ -1727,12 +1791,15 @@ describe("a quiz's export, imported into an empty quiz", () => {
 
     const [want, got] = [bodyOfOpen(exported), bodyOfOpen(await target.read())]
     expect(got).to.deep.eq(want)
-    expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({ title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', locked: false, last_sortkey: 'column:title' })
+    expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({
+      title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', recap_head: 'Thanks, playtesters!', recap_tail: 'Until next time.',
+      templated: ['question.recap', 'remark'], locked: false, last_sortkey: 'column:title',
+    })
     expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })
     const labelOf = (question_id: string) => present(quiz.questions.find((qn) => qn._id === question_id)).label
     const [leonLabel, nantesLabel] = [labelOf(present(leon)), labelOf(present(nantes))]
-    expect(got.questions[leonLabel]).to.deep.include({ clueing: 'Which region?', chains_to: nantesLabel, remark: { status: 'ok', value: 'Ask Flip.' } })
+    expect(got.questions[leonLabel]).to.deep.include({ clueing: 'Which region?', recap: 'Leon is a kingdom.', chains_to: nantesLabel, remark: { status: 'ok', value: 'Ask Flip.' } })
     expect(Object.values(got.questions).toSorted((aa, bb) => aa.position - bb.position).map((qn) => qn.title)).to.deep.eq(['c', 'b', 'a'])
     await expectSound(tt)
   })

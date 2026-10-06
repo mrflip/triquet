@@ -28,10 +28,16 @@ const Actions: HuntActionDNA[] = [
   { kind: 'edit_column', label: 'qnum', patch: { width_px: 80 } },
   { kind: 'delete_column', label: 'qnum' },
   { kind: 'move_column', label: 'qnum', onto_idx: 1 },
+  { kind: 'set_templated', templated: ['question.clueing', 'question.recap', 'dumdum'] },
+  { kind: 'set_templated', templated: [] },
   { kind: 'retitle_quiz', title: 'Princes' },
   { kind: 'relabel_quiz', label: 'princes' },
   { kind: 'set_smiths_note', smiths_note: 'Theme: princes.\n\nMeta: their initials.' },
+  { kind: 'set_q1_preamble', q1_preamble: 'Read the note![br]' },
+  { kind: 'set_recap_head', recap_head: 'Thanks to {{quiz.playtesters}}!' },
+  { kind: 'set_recap_tail', recap_tail: '' },
   { kind: 'edit_question', question_id, patch: { clueing: 'Who?', chains_to: null } },
+  { kind: 'edit_question', question_id, patch: { recap: 'Leon was his pen name.' } },
   { kind: 'add_question' },
   { kind: 'delete_questions', question_ids: [question_id] },
   { kind: 'sort_questions', sortkey: 'column:qnum', descending: false },
@@ -75,6 +81,14 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'record_widgeted', widgeted: { ...Answered, message: 'No.' } }, 'an ok widgeted carrying a failure'],
     [{ kind: 'record_widgeted', widgeted: { ...Answered, status: 'missing' } }, 'a missing widgeted, which is never recorded'],
     [{ kind: 'add_widgeting', widgeting: { widget_label: 'notes', label: 'notes' } }, 'a widgeting under a label the questions already use'],
+    [{ kind: 'add_widgeting', widgeting: { widget_label: 'recap', label: 'recap' } }, 'a widgeting labelled as the recap a question now has'],
+    [{ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum', tier: 'realm' } }, 'a widgeting at a tier that is neither a question nor a quiz'],
+    [{ kind: 'set_templated', templated: ['question.qnum'] },              'templating a question field that holds no markdown'],
+    [{ kind: 'set_templated', templated: ['question.butnot'] },            'templating a view of a question, which nobody writes'],
+    [{ kind: 'set_templated', templated: ['dumdum.average'] },             'templating one part of a widgeting'],
+    [{ kind: 'set_templated', templated: ['notes'] },                      'templating a question field by its bare name, which no widgeting may take'],
+    [{ kind: 'set_templated', templated: ['dumdum', 'dumdum'] },           'templating one source twice'],
+    [{ kind: 'set_recap_head', recap_head: 'x'.repeat(3601) },             'a recap head past 3600 characters'],
     [{ kind: 'add_widget', widget: Shout },                                 "an action on the library, which is the library's own"],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],
     [{ kind: 'set_reviewing', quiz_id, question_id, patch: { get_rate: 101 } }, 'a get rate past certain'],
@@ -186,7 +200,7 @@ describe('ActionValidators.huntAction, refusing at the door', () => {
 })
 
 describe('isLayoutAction', () => {
-  it("picks out exactly the actions on a quiz's widgetings and columns", () => {
+  it("picks out exactly the actions on a quiz's widgetings and columns, and what it templates", () => {
     const layout = Actions.map((action) => ActionValidators.huntAction(action)).filter((action) => isLayoutAction(action)).map((action) => action.kind)
     expect([...new Set(layout)]).to.deep.eq([...LayoutActionKindVals])
   })

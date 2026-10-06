@@ -360,7 +360,7 @@ type PolicyRowT<KK extends PolicyKey> = KK extends ActionKind
 
 type PolicyRowsT<KS extends PolicyKey> = { [KK in KS]: PolicyRowT<KK> }
 
-/** The actions that revise a quiz's widgetings and columns: refused while it is locked */
+/** The actions that revise a quiz's widgetings and columns, and which of its sources it templates: refused while it is locked */
 const LayoutPolicies = {
   add_widgeting:    mayReviseClaimedQuiz,
   edit_widgeting:   mayReviseClaimedQuiz,
@@ -370,6 +370,7 @@ const LayoutPolicies = {
   edit_column:      mayReviseClaimedQuiz,
   delete_column:    mayReviseClaimedQuiz,
   move_column:      mayReviseClaimedQuiz,
+  set_templated:    mayReviseClaimedQuiz,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 
 /** The actions that revise the library every hunt shares: an admin's, of the actor alone, with no hunt or quiz in play */
@@ -387,6 +388,8 @@ const ContentPolicies = {
   relabel_quiz:        mayReviseClaimedQuiz,
   set_smiths_note:     mayReviseClaimedQuiz,
   set_q1_preamble:     mayReviseClaimedQuiz,
+  set_recap_head:      mayReviseClaimedQuiz,
+  set_recap_tail:      mayReviseClaimedQuiz,
   edit_question:       mayReviseClaimedQuiz,
   add_question:        mayReviseClaimedQuiz,
   delete_questions:    mayReviseClaimedQuiz,

@@ -89,7 +89,7 @@ describe("planWidgetingEdit, editing a widgeting", () => {
 describe("planWidgetingEdit, making a new widgeting", () => {
   it("adds the widgeting, then a column showing it just before Alt Text", () => {
     expect(actionsOf(ofHeld('answer_reversed'))).to.deep.eq([
-      { kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'answer_reversed', description: '', params: {} } },
+      { kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'answer_reversed', description: '', params: {}, tier: 'question' } },
       {
         kind:     'add_column',
         column:   { label: 'answer_reversed', title: 'Answer Reversed', source: 'answer_reversed', width_px: 78 },
@@ -100,7 +100,7 @@ describe("planWidgetingEdit, making a new widgeting", () => {
 
   it("takes the widgeting label and description it is given", () => {
     const actions = actionsOf(ofHeld('answer_reversed', { label: 'Backward', description: 'For the palindrome round.' }))
-    expect(actions[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'backward', description: 'For the palindrome round.', params: {} } })
+    expect(actions[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'answer_reversed', label: 'backward', description: 'For the palindrome round.', params: {}, tier: 'question' } })
     expect(actions[1]?.kind === 'add_column' && [actions[1].column.label, actions[1].column.source]).to.deep.eq(['backward', 'backward'])
   })
 
@@ -141,7 +141,7 @@ describe("planWidgetingEdit, making a new widgeting", () => {
 
   it("works the same for a quiz that puts nothing to work yet", () => {
     const lean = { ...quiz, ...defaultLayout() }
-    expect(actionsOf(ofHeld('dumdum'), lean)[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum', description: '', params: {} } })
+    expect(actionsOf(ofHeld('dumdum'), lean)[0]).to.deep.eq({ kind: 'add_widgeting', widgeting: { widget_label: 'dumdum', label: 'dumdum', description: '', params: {}, tier: 'question' } })
   })
 
   const Refused: [Partial<WidgetingEdit>, string, string | null, string][] = [

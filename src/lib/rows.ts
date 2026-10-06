@@ -13,7 +13,20 @@ import { DefaultViz, Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { WidgetedHistoryT } from '../models/widgeted'
-import type { WidgetingT } from '../models/widgeting'
+import { DefaultTier, type WidgetingT } from '../models/widgeting'
+
+/**
+ * What a quiz's row written before it had a recap or templating reads as, and is written with at
+ * its next edit, while `convex/migrations.ts` backfills it: an empty head and tail, nothing
+ * templated.
+ */
+export const QuizFallbacks: Pick<QuizT, 'recap_head' | 'recap_tail' | 'templated'> = { recap_head: '', recap_tail: '', templated: [] }
+
+/** What a question's row written before it had a recap reads as, and is written with at its next edit, while `convex/migrations.ts` backfills it: an empty recap */
+export const QuestionFallbacks: Pick<QuestionT, 'recap'> = { recap: '' }
+
+/** What a widgeting's row written before widgetings had tiers reads as, and is written with at its next edit, while `convex/migrations.ts` backfills it: one that runs for each question */
+export const WidgetingFallbacks: Pick<WidgetingT, 'tier'> = { tier: DefaultTier }
 
 /** One cell's stored history, as far as the cell needs it: rows of `widgeteds` */
 export type CellRows = {
@@ -36,7 +49,7 @@ export type QuizRows = {
 }
 
 /** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded */
-type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT> & Stamps.StampsT & Pick<QuestionT, 'stored'>
+type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT | keyof typeof QuestionFallbacks> & Stamps.StampsT & Pick<QuestionT, 'stored' | keyof typeof QuestionFallbacks>
 
 /** A question as its own query sends it to someone of `SS` on its hunt: its id, and the fields that standing is sent (`Question.sentTo`) */
 export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuestionT, '_id' | (typeof Question.sentTo)[SS][number]>
@@ -53,7 +66,7 @@ export type SeenQuestionT = { [SS in Actor.HuntStanding]: SeenQuestionAsT<SS> }[
  * it: blank, as in a fresh question. Only a smith is sent every field (`Question.sentTo`), and only
  * a smith's screens show the rest.
  */
-const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', viz: DefaultViz, stored: {}, created_at: null, updated_at: null }
+const Unsent: Omit<QuestionT, '_id'> = { qnum: '', clueing: '', hint: '', title: '', label: '', chains_to: null, alt_text: '', notes: '', full_answer: '', recap: '', viz: DefaultViz, stored: {}, created_at: null, updated_at: null }
 
 /** A quiz without its questions, as its own query reads it: its fields, its questions' order by row id, and its widgetings and columns */
 export type QuizFrameT = Omit<QuizT, 'questions'> & { row_ordering: readonly Id<'questions'>[] }
@@ -202,7 +215,7 @@ const Whole = { standing: 'smith' } as const
  * @example 'notes' in seenQuestionFor(row, new Map(), claims)                 // => false, for a reviewer
  */
 export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
-  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
+  const sendable: SendableQuestionT = { ...QuestionFallbacks, ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
   return _.pick(sendable, ['_id', ...Question.sentTo[standing]])
 }
 
@@ -214,6 +227,7 @@ export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { sta
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
   return {
+    ...QuizFallbacks,
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     ...Stamps.of(quiz),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
@@ -287,10 +301,10 @@ export function widgetFrom(row: Doc<'widgets'>): WidgetT {
   }
 }
 
-/** A widgeting, from its row: its fields, without its quiz or its place */
+/** A widgeting, from its row: its fields, without its quiz or its place; one written before widgetings had tiers runs for each question */
 export function widgetingFrom(row: Doc<'widgetings'>): WidgetingT {
-  const { widget_label, label, description, params } = row
-  return { widget_label, label, description, params }
+  const { widget_label, label, description, params, tier = WidgetingFallbacks.tier } = row
+  return { widget_label, label, description, params, tier }
 }
 
 /**

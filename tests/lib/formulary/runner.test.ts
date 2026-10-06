@@ -412,7 +412,7 @@ describe('sourceOf', () => {
 
 describe('runQuiz, from a source of its own', () => {
   const question = loneQuestion({})
-  const widgeting: WidgetingT = { label: 'asked', widget_label: 'asker', description: '', params: { tone: 'dry' } }
+  const widgeting: WidgetingT = { label: 'asked', widget_label: 'asker', description: '', params: { tone: 'dry' }, tier: 'question' }
   const widget: WidgetT = { scope: 'pub', formulary: 'aibot', label: 'asker', title: '', description: '', formula: 'Say {{tone}}', input_formula: "{ 'tone': params.tone }", config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 10 } }
   const source = (stored: Runner.RunSource['storedOf']): Runner.RunSource => ({ quiz: { ...Quiz.blank(), questions: [question] }, place: Here, steps: [{ widgeting, widget }], storedOf: stored })
 

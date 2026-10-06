@@ -27,6 +27,11 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
 // `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
 //
+// Five more are written by hand while `migrations.ts` backfills them: a quiz's `recap_head`,
+// `recap_tail` and `templated`, a question's `recap`, and a widgeting's `tier`. Each is optional
+// here though every write gives one, so that rows written before it existed still fit; the row
+// validators require them. Each is still bridged from its validator.
+//
 // A row's stamps (`created_at`, `updated_at`) are optional for good, in the row validators too:
 // the trigger writes them once a row has landed (`stamping.ts`), so a row goes in without them.
 //
@@ -37,11 +42,17 @@ const identFields       = zodOutputToConvexFields(IdentValidators.row.shape)
 const identingFields    = zodOutputToConvexFields(IdentingValidators.row.shape)
 const huntFields        = zodOutputToConvexFields(HuntValidators.row.shape)
 const realmFields       = zodOutputToConvexFields(RealmValidators.row.shape)
-const quizFields        = zodOutputToConvexFields(QuizValidators.row.shape)
+const quizFields        = {
+  ...zodOutputToConvexFields(QuizValidators.row.shape),
+  recap_head: CVX.optional(zodOutputToConvex(QuizValidators.recap_head)),
+  recap_tail: CVX.optional(zodOutputToConvex(QuizValidators.recap_tail)),
+  templated:  CVX.optional(zodOutputToConvex(QuizValidators.templated)),
+}
 const widgetFields      = zodOutputToConvex(WidgetValidators.row)
 const widgetingFields   = {
   ...zodOutputToConvexFields(_.omit(WidgetingValidators.row.shape, ['params'])),
   params: CVX.any() as VAny<Record<string, JsonT>>,
+  tier:   CVX.optional(zodOutputToConvex(WidgetingValidators.tier)),
 }
 const widgetedFields    = {
   ...zodOutputToConvexFields(_.omit(WidgetedValidators.row.shape, ['value', 'result_meta'])),
@@ -49,7 +60,7 @@ const widgetedFields    = {
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
 }
 const columnFields      = zodOutputToConvexFields(ColumnValidators.row.shape)
-const questionFields    = zodOutputToConvexFields(QuestionValidators.row.shape)
+const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.shape), recap: CVX.optional(zodOutputToConvex(QuestionValidators.recap)) }
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)

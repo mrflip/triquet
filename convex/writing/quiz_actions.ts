@@ -9,10 +9,11 @@ import * as Stamps from '../../src/lib/stamps'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { quizFrom, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
+import { QuestionFallbacks, quizFrom, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT, type QuestionViz } from '../../src/models/question'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
+import type { HuntActionT } from '../../src/models/actions'
 import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
@@ -109,14 +110,19 @@ export async function relabelQuiz(db: Writer, open: OpenQuizT, label: string): P
   await updateQuiz(db, quiz, { label })
 }
 
-/** Rewrite the open quiz's smith's note. An empty note is kept as it is: the screen shows its placeholder. */
-export async function setSmithsNote(db: Writer, open: OpenQuizT, smiths_note: string): Promise<void> {
-  await updateQuiz(db, openQuizRow(open), { smiths_note })
-}
+/** An action rewriting one of the quiz's own notes */
+export type QuizNoteActionT = Extract<HuntActionT, { kind: 'set_smiths_note' | 'set_q1_preamble' | 'set_recap_head' | 'set_recap_tail' }>
 
-/** Rewrite what the open quiz's LL export puts ahead of its first question when going live. An empty one is kept: nothing goes ahead. */
-export async function setQ1Preamble(db: Writer, open: OpenQuizT, q1_preamble: string): Promise<void> {
-  await updateQuiz(db, openQuizRow(open), { q1_preamble })
+/**
+ * Rewrite one of the open quiz's own notes: its smith's note, what its LL export puts ahead of its
+ * first question when going live, or what its recap note says ahead of its questions or after
+ * them. An empty note is kept as it is: the screen shows its placeholder, and an export puts
+ * nothing there.
+ *
+ * @example await setQuizNote(db, claims, { kind: 'set_recap_head', recap_head: 'Thanks to our playtesters!' })
+ */
+export async function setQuizNote(db: Writer, open: OpenQuizT, action: QuizNoteActionT): Promise<void> {
+  await updateQuiz(db, openQuizRow(open), _.omit(action, ['kind']))
 }
 
 /**
@@ -313,7 +319,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
  * made, and holding nothing typed into or recorded for its cells.
  */
 async function archiveStarters(db: Writer, rows: readonly Doc<'questions'>[]): Promise<void> {
-  const candidates = rows.filter((row) => row.viz === 'normal' && Question.isBlank(row) && Stamps.isUntouched(Stamps.of(row)))
+  const candidates = rows.filter((row) => row.viz === 'normal' && Question.isBlank({ ...QuestionFallbacks, ...row }) && Stamps.isUntouched(Stamps.of(row)))
   for (const row of candidates) {
     const stored = await db.query('widgeteds').withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', row._id)).first()
     if (! stored) { await updateQuestion(db, row, { viz: 'archived' }) }

@@ -1,3 +1,4 @@
+import _ from 'es-toolkit/compat'
 import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
@@ -35,10 +36,11 @@ const FailedSince: CellRows = { newest: widgetedRow('errored', 7.25, 'failed'), 
 
 const QuizRow: Doc<'quizzes'> = {
   _id: quiz_id, _creationTime: 1, hunt_id, realm_id: idOf('realms', 'r1'), title: 'Princes', label: 'princes',
-  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', locked: false, last_sortkey: null, row_ordering: [question_id],
+  smiths_note: 'Theme: princes.', q1_preamble: 'Read the note![br]', recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'],
+  locked: false, last_sortkey: null, row_ordering: [question_id],
 }
 const WidgetingRow: Doc<'widgetings'> = {
-  _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, position: 0,
+  _id: widgeting_id, _creationTime: 1, hunt_id, quiz_id, widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question', position: 0,
 }
 /** The standings a question's reader can hold on its hunt, as the claims carry them */
 const Smith = { standing: 'smith' } as const
@@ -47,7 +49,7 @@ const Stranger = { standing: 'stranger' } as const
 
 const QuestionRow: Doc<'questions'> = {
   _id: question_id, _creationTime: 2, hunt_id, quiz_id, label: 'leon', title: 'Leon', qnum: '1',
-  clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', viz: 'normal',
+  clueing: 'Who?', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', recap: '', viz: 'normal',
 }
 const HuntRow: Doc<'hunts'> = { _id: hunt_id, _creationTime: 0, label: 'quiet_otter', orglabel: 'alice_smiths', title: '', branch: 'main' }
 const RealmRow: Doc<'realms'> = { _id: idOf('realms', 'r1'), _creationTime: 0, hunt_id: HuntRow._id, label: 'home', title: '', position: 0 }
@@ -96,8 +98,19 @@ describe('quizFrom', () => {
     expect(quizFrom(rows).q1_preamble).to.eq('Read the note![br]')
   })
 
+  it('carries the recap\'s head and tail, and what the quiz templates', () => {
+    expect(_.pick(quizFrom(rows), ['recap_head', 'recap_tail', 'templated'])).to.deep.eq({ recap_head: 'Thanks, playtesters!', recap_tail: 'Next season.', templated: ['question.recap', 'dumdum'] })
+  })
+
+  it('reads a quiz, question and widgeting written before the recap and the tiers as having an empty recap, templating nothing, each widgeting run for each question', () => {
+    const older = { ...rows, quiz: _.omit(QuizRow, ['recap_head', 'recap_tail', 'templated']), questions: [_.omit(QuestionRow, ['recap'])], widgetings: [_.omit(WidgetingRow, ['tier'])] }
+    const quiz = quizFrom(older)
+    expect([quiz.recap_head, quiz.recap_tail, quiz.templated, quiz.questions[0]?.recap, quiz.widgetings[0]?.tier]).to.deep.eq(['', '', [], '', 'question'])
+    expect(Quiz.fill(quiz).questions).to.have.lengthOf(1)
+  })
+
   it('carries the quiz\'s widgetings, each without its ids or place', () => {
-    expect(quizFrom(rows).widgetings).to.deep.eq([{ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' } }])
+    expect(quizFrom(rows).widgetings).to.deep.eq([{ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question' }])
   })
 
   it('holds what each question stored, under the widgeting\'s label, by the question\'s id', () => {
@@ -113,15 +126,20 @@ describe('quizFrom', () => {
 })
 
 describe('seenQuestionFor', () => {
-  const Written = { ...QuestionRow, chains_to: 'lear', full_answer: 'Leontes', notes: 'Check the folio.', alt_text: 'A lion.' }
+  const Written = { ...QuestionRow, chains_to: 'lear', full_answer: 'Leontes', notes: 'Check the folio.', alt_text: 'A lion.', recap: 'Leontes is jealous.' }
 
   it('is, for a smith, the question\'s id and every field, with each stored cell\'s history under its widgeting\'s label, its chain still the label it holds', () => {
     const seen = seenQuestionFor(Written, new Map([['dumdum', FailedSince]]), Smith)
     expect(seen).to.deep.eq({
       _id: question_id, label: 'leon', title: 'Leon', qnum: '1', clueing: 'Who?', hint: '', chains_to: 'lear',
-      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', stored: { dumdum: historyOf(FailedSince) },
+      full_answer: 'Leontes', alt_text: 'A lion.', notes: 'Check the folio.', recap: 'Leontes is jealous.', stored: { dumdum: historyOf(FailedSince) },
       viz: 'normal', created_at: 2, updated_at: 2,
     })
+  })
+
+  it("sends a smith the recap of a question written before questions had one as empty, and a reviewer no recap", () => {
+    expect(seenQuestionFor(_.omit(QuestionRow, ['recap']), new Map(), Smith)).to.deep.include({ recap: '' })
+    expect(seenQuestionFor({ ...QuestionRow, recap: 'Leon.' }, new Map(), Reviewer)).to.not.have.property('recap')
   })
 
   it("sends the viz its row holds, to a smith or a reviewer", () => {
@@ -235,7 +253,11 @@ describe('widgetFrom', () => {
 
 describe('widgetingFrom', () => {
   it('is the widgeting, without its id, its quiz or its place', () => {
-    expect(widgetingFrom(WidgetingRow)).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' } })
+    expect(widgetingFrom(WidgetingRow)).to.deep.eq({ widget_label: 'dumdum', label: 'dumdum', description: 'The hasty guess.', params: { tone: 'dry' }, tier: 'question' })
+  })
+
+  it('keeps a widgeting that runs once per quiz, and reads one written before widgetings had tiers as run for each question', () => {
+    expect([widgetingFrom({ ...WidgetingRow, tier: 'quiz' }).tier, widgetingFrom(_.omit(WidgetingRow, ['tier'])).tier]).to.deep.eq(['quiz', 'question'])
   })
 })
 

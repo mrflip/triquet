@@ -87,7 +87,13 @@ async function widgetedCounts({ tt }: Seeded): Promise<Record<string, number>> {
 describe("add_widgeting", () => {
   it("adds a widgeting to the end of the open quiz's run order, its description and params defaulted", async () => {
     const { read } = await withWidgeting()
-    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: '', params: {} })
+    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: '', params: {}, tier: 'question' })
+  })
+
+  it("adds one that runs once per quiz at that tier", async () => {
+    const { act, read } = await seed()
+    await act({ kind: 'add_widgeting', widgeting: { ...Backward, tier: 'quiz' } })
+    expect(quizOf(await read()).widgetings.at(-1)?.tier).to.eq('quiz')
   })
 
   it("adds no column: a widgeting is what has a value, and where it is shown is another matter", async () => {
@@ -131,7 +137,7 @@ describe("edit_widgeting", () => {
   it("revises the fields named and no others", async () => {
     const { act, read } = await withWidgeting()
     await act({ kind: 'edit_widgeting', label: 'backward', patch: { description: 'Because.', params: { strict: true } } })
-    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: 'Because.', params: { strict: true } })
+    expect(quizOf(await read()).widgetings.at(-1)).to.deep.eq({ ...Backward, description: 'Because.', params: { strict: true }, tier: 'question' })
   })
 
   it("renames a widgeting, carrying the columns that show it along, and leaving the rest", async () => {
@@ -367,6 +373,37 @@ describe("move_column", () => {
     const ante = await read()
     await act({ kind: 'move_column', label: 'notes', onto_idx: 0 })
     expect(quizOf(await read()).questions).to.deep.eq(quizOf(ante).questions)
+  })
+})
+
+describe("set_templated", () => {
+  it("nominates the sources the open quiz templates, replacing those it did", async () => {
+    const { act, read } = await withWidgeting()
+    await act({ kind: 'set_templated', templated: ['question.clueing', 'backward'] })
+    await act({ kind: 'set_templated', templated: ['question.recap', 'backward'] })
+    expect(quizOf(await read()).templated).to.deep.eq(['question.recap', 'backward'])
+  })
+
+  it("templates nothing once emptied", async () => {
+    const { act, read } = await withWidgeting()
+    await act({ kind: 'set_templated', templated: ['backward'] })
+    await act({ kind: 'set_templated', templated: [] })
+    expect(quizOf(await read()).templated).to.deep.eq([])
+  })
+
+  it("refuses a widgeting the quiz does not have, and refuses while the quiz is locked, leaving the hunt as it was", async () => {
+    await expectRefused(await withWidgeting(), [{ kind: 'set_templated', templated: ['question.clueing', 'nowhere'] }, 'untemplatable'])
+    await expectRefused(await seed(standard(true)), [{ kind: 'set_templated', templated: ['question.recap'] }, 'quizLocked'])
+  })
+
+  it("carries a templated widgeting along when it is renamed, and drops it when it is deleted", async () => {
+    const { tt, act, read } = await withWidgeting()
+    await act({ kind: 'set_templated', templated: ['backward', 'question.recap'] })
+    await act({ kind: 'edit_widgeting', label: 'backward', patch: { label: 'mirror' } })
+    expect(quizOf(await read()).templated).to.deep.eq(['mirror', 'question.recap'])
+    await act({ kind: 'delete_widgeting', label: 'mirror' })
+    expect(quizOf(await read()).templated).to.deep.eq(['question.recap'])
+    await expectSound(tt)
   })
 })
 
