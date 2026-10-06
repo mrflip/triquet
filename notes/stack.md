@@ -362,7 +362,18 @@ identity (a browser key for the trial, replaced in October 2026 by Convex Auth: 
 * **How thick the end-to-end layer should be.** The line above says thin; the suite is sixteen
   spec files and larger than any unit area. Tied to whether components and hooks get tests of
   their own (Testing Library, Vitest browser mode).
-* **lightning-fs or OPFS** under the quiz history.
+* **lightning-fs or OPFS** under the quiz history. Lightning-fs for now: isomorphic-git's own
+  documentation pairs the two (same maintainers), it gives isomorphic-git the promise-style `fs`
+  it expects, it runs on the main thread where the history runs, and it is backed by IndexedDB, so
+  it persists and handles locking across tabs. OPFS is faster mainly inside a dedicated worker,
+  the only place its synchronous access handles exist; from the main thread it is an async API
+  that isomorphic-git would reach through a third-party adapter (check one, such as ZenFS's OPFS
+  backend, before choosing). Storage quota and eviction are the same for both
+  (`navigator.storage.persist()` is the lever either way), and a hunt's repository (dozens of
+  files, hundreds of commits) is not slow on lightning-fs. **Revisit together with moving git work
+  into a dedicated worker**, if a large hunt shows jank: OPFS with synchronous access handles is
+  the natural filesystem there. Moving leaves existing histories in IndexedDB behind, which is
+  acceptable (old repositories get no special treatment), or they can be copied across once.
 * **Formulas off the main thread** (a Worker via Comlink), which would also dissolve the
   objection to async JSONata.
 * **The AI layer**: the SDK direct, or a provider-neutral layer, given that a bot already
