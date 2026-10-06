@@ -17,7 +17,7 @@ import * as Stamps from '../src/lib/stamps'
  * is its whole history. Convex Auth's tables are its own.
  */
 export const StampedTables = [
-  'idents', 'hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'reviews', 'reviewings', 'huntings',
+  'idents', 'hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'quiz_widgeteds', 'reviews', 'reviewings', 'huntings',
 ] as const satisfies readonly TableNames[]
 export type StampedTablename = typeof StampedTables[number]
 

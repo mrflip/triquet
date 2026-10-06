@@ -13,6 +13,7 @@ import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
 import { Widgeted } from '../../src/models/widgeted'
+import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runHolding, runOf } from '../support/runs'
 import { EntryLibrary, ReviewedAtIso, SpottedItems, Verdict, chainedQuiz, snapshot, storedOk, twoQuizHunt } from '../support/snapshots'
@@ -95,6 +96,24 @@ describe('quizBodyOf', () => {
     expect(inOrder(body.widgetings)).to.deep.eq(_.map(quiz.widgetings, 'label'))
     expect(inOrder(body.columns)).to.deep.eq(_.map(quiz.columns, 'label'))
     expect([body.questions.leon, body.widgetings.remark, body.columns.title].map((each) => Object.hasOwn(present(each), 'label'))).to.deep.eq([false, false, false])
+  })
+
+  it("holds what each widgeting run once for the whole quiz came to under widgeteds, and never on a question", () => {
+    const quiz = chainedQuiz()
+    const quizWide = {
+      ...quiz,
+      stored:     { playtesters: { newest: storedOk('Ada and Grace'), ok: storedOk('Ada and Grace') } } as QuizT['stored'],
+      widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'playtesters', tier: 'quiz' }), ...quiz.widgetings],
+    }
+    const body = bodyOf(quizWide)
+    expect(body.widgeteds).to.deep.eq({ playtesters: { status: 'ok', value: 'Ada and Grace' } })
+    expect(body.widgetings.playtesters).to.deep.include({ tier: 'quiz' })
+    expect(body.questions.leon).to.not.have.property('playtesters')
+    expect(body.questions.leon).to.have.property('remark')
+  })
+
+  it("says nothing of widgeteds for a quiz with no widgeting run once for the whole quiz", () => {
+    expect(bodyOf(chainedQuiz())).to.not.have.property('widgeteds')
   })
 
   it("names a chain by the label of the question it points at", () => {

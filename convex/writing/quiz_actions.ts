@@ -9,16 +9,18 @@ import * as Stamps from '../../src/lib/stamps'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { QuestionFallbacks, quizFrom, widgetFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
+import { QuestionFallbacks, quizFrom, widgetFrom, widgetingFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT, type QuestionViz } from '../../src/models/question'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
 import type { HuntActionT } from '../../src/models/actions'
-import type { WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
+import type { QuizEnteringT, WidgetedEnteringT, WidgetedRecordingT } from '../../src/models/widgeted'
+import type { WidgetingTier } from '../../src/models/widgeting'
+import type { EntryValueT } from '../../src/models/widget'
 import { EntryFormulary } from '../../src/lib/formulary/entry'
 import { formularyFor } from '../../src/lib/formulary/formularies'
-import { allStoredOf, layoutOf, libraryOf, questionOf, questionsOf, quizForLabel, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
-import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertWidgeted, type LayoutPlace, type OpenQuizT, type Writer } from './quiz_writing'
+import { allStoredOf, layoutOf, libraryOf, questionOf, questionsOf, quizForLabel, quizStoredOf, quizzesOf, widgetForLabel, widgetingsOf } from '../reading'
+import { deleteQuestion, deleteQuiz, insertQuiz, insertWidgeted, updateQuestion, updateQuiz, upsertQuizWidgeted, upsertWidgeted, type LayoutPlace, type OpenQuizT, type Writer } from './quiz_writing'
 
 // Each action reads what it needs and no more: the open quiz's own row comes with the claims
 // `authorize` checked, and an action reads beside it the questions it names by id, and the whole
@@ -68,14 +70,16 @@ async function placeOfOpen(db: Writer, open: OpenQuizT): Promise<Runner.QuizPlac
 type ReorderReads = { stored: boolean }
 
 /**
- * The quiz `quiz` and its questions, put in a new order. What the questions stored is read only
- * for an order that can depend on it (a sort, by a widgeting's column); every other order leaves
- * it unread, and the questions it is handed show none.
+ * The quiz `quiz` and its questions, put in a new order. What the questions and the quiz stored is
+ * read only for an order that can depend on it (a sort, by a widgeting's column, which may read
+ * the quiz's own entries); every other order leaves it unread, and the quiz it is handed shows
+ * none.
  */
 async function reorderQuiz(db: Writer, quiz: Doc<'quizzes'>, reads: ReorderReads, reorder: (tree: QuizT) => { questions: readonly QuestionT[], last_sortkey?: Sortkey | null }): Promise<void> {
   const layout = await layoutOf(db, quiz)
   const questions = await questionsOf(db, layout.quiz)
-  const rows = { ...layout, questions, stored: reads.stored ? await allStoredOf(db, questions, layout.widgetings) : new Map() }
+  const [stored, quizStored] = reads.stored ? await Promise.all([allStoredOf(db, questions, layout.widgetings), quizStoredOf(db, quiz._id, layout.widgetings)]) : [new Map(), new Map()]
+  const rows = { ...layout, questions, stored, quizStored }
   const ordered = reorder(quizFrom(rows))
   await writeOrder(db, rows, ordered.questions, ordered.last_sortkey)
 }
@@ -231,18 +235,30 @@ export async function sortByChainOrder(db: Writer, open: OpenQuizT, descending: 
 }
 
 /**
+ * The widgeting of `layout` labelled `label`, refusing when it has none, or it runs at another
+ * tier than `tier`.
+ *
+ * @throws A refusal (`widgetingGone`, `wrongTier`).
+ */
+function widgetingAt(layout: LayoutRows, label: string, tier: WidgetingTier): Doc<'widgetings'> {
+  const widgeting = layout.widgetings.find((each) => each.label === label)
+  if (! widgeting) { refuse('widgetingGone') }
+  if (widgetingFrom(widgeting).tier !== tier) { refuse('wrongTier') }
+  return widgeting
+}
+
+/**
  * Record what one widgeting of the open quiz came to for one of its questions, as the newest row
  * in that cell. What the cell held before stays in its history. A question not in the quiz, a
- * widgeting it does not have, or one whose widget is not asked from its cell (worked out on
- * render, or typed), is refused.
+ * widgeting it does not have or that runs once for the whole quiz, or one whose widget is not
+ * asked from its cell (worked out on render, or typed), is refused.
  *
- * @throws A refusal (`quizGone`, `questionGone`, `widgetingGone`, `notStored`); nothing is written.
+ * @throws A refusal (`quizGone`, `questionGone`, `widgetingGone`, `wrongTier`, `notStored`); nothing is written.
  */
 export async function recordWidgeted(db: Writer, open: OpenQuizT, widgeted: WidgetedRecordingT): Promise<void> {
   const layout = await layoutOf(db, openQuizRow(open))
   const held = await questionIn(db, layout.quiz, widgeted.question_id)
-  const widgeting = layout.widgetings.find((each) => each.label === widgeted.widgeting_label)
-  if (! widgeting) { refuse('widgetingGone') }
+  const widgeting = widgetingAt(layout, widgeted.widgeting_label, 'question')
   const widget = await widgetForLabel(db, widgeting.widget_label)
   if (! widget || formularyFor(widget).store !== 'append') { refuse('notStored') }
   await insertWidgeted(db, held, widgeting._id, widgeted)
@@ -251,20 +267,45 @@ export async function recordWidgeted(db: Writer, open: OpenQuizT, widgeted: Widg
 /**
  * Put what was typed into one entry cell of the open quiz, as that cell's one row: revised in
  * place, never appended; an emptied cell (null) holds no row. The value is held to the entry
- * widget's kind. A question not in the quiz, a widgeting it does not have, or one whose widget is
- * not an entry, is refused.
+ * widget's kind. A question not in the quiz, a widgeting it does not have or that runs once for
+ * the whole quiz, or one whose widget is not an entry, is refused.
  *
- * @throws A refusal (`quizGone`, `questionGone`, `widgetingGone`, `notEntered`), or a Zod error when the value is not of the entry's kind; nothing is written.
+ * @throws A refusal (`quizGone`, `questionGone`, `widgetingGone`, `wrongTier`, `notEntered`), or a Zod error when the value is not of the entry's kind; nothing is written.
  */
 export async function enterWidgeted(db: Writer, open: OpenQuizT, entered: WidgetedEnteringT): Promise<void> {
   const layout = await layoutOf(db, openQuizRow(open))
   const held = await questionIn(db, layout.quiz, entered.question_id)
-  const widgeting = layout.widgetings.find((each) => each.label === entered.widgeting_label)
-  if (! widgeting) { refuse('widgetingGone') }
+  const widgeting = widgetingAt(layout, entered.widgeting_label, 'question')
+  const value = await enteredValueOf(db, widgeting, entered.value)
+  await upsertWidgeted(db, held, widgeting._id, value)
+}
+
+/**
+ * Put what was typed into the open quiz's own cell of an entry run once for the whole quiz, as
+ * that cell's one row, as `enterWidgeted` does a question's. A widgeting the quiz does not have or
+ * that runs for each question, or one whose widget is not an entry, is refused.
+ *
+ * @throws A refusal (`quizGone`, `widgetingGone`, `wrongTier`, `notEntered`), or a Zod error when the value is not of the entry's kind; nothing is written.
+ *
+ * @example await enterQuizWidgeted(db, claims, { widgeting_label: 'playtesters', value: 'Ada and Grace' })
+ */
+export async function enterQuizWidgeted(db: Writer, open: OpenQuizT, entered: QuizEnteringT): Promise<void> {
+  const layout = await layoutOf(db, openQuizRow(open))
+  const widgeting = widgetingAt(layout, entered.widgeting_label, 'quiz')
+  const value = await enteredValueOf(db, widgeting, entered.value)
+  await upsertQuizWidgeted(db, { hunt_id: open.hunt_id, quiz_id: layout.quiz._id }, widgeting._id, value)
+}
+
+/**
+ * What was typed into a cell of `widgeting`, held to its entry widget's kind; null for a cell
+ * emptied. A widgeting whose widget is not an entry is refused.
+ *
+ * @throws A refusal (`notEntered`), or a Zod error when the value is not of the entry's kind.
+ */
+async function enteredValueOf(db: Writer, widgeting: Doc<'widgetings'>, value: WidgetedEnteringT['value']): Promise<EntryValueT | null> {
   const widget = await widgetForLabel(db, widgeting.widget_label)
   if (widget?.formulary !== 'entry') { refuse('notEntered') }
-  const value = entered.value === null ? null : EntryFormulary.valueOf(widget).parse(entered.value)
-  await upsertWidgeted(db, held, widgeting._id, value)
+  return value === null ? null : EntryFormulary.valueOf(widget).parse(value)
 }
 
 /**
@@ -328,8 +369,9 @@ async function archiveStarters(db: Writer, rows: readonly Doc<'questions'>[]): P
 
 /**
  * Type what an import carries into the quiz's entry cells, each value held to its entry's kind: a
- * value is upserted, a null empties the cell. A label naming no entry widgeting of the quiz (one
- * whose adding was refused, say) is passed over, as an import passes over what it cannot place.
+ * value is upserted, a null empties the cell. A label naming no entry widgeting of the quiz that
+ * runs for each question (one whose adding was refused, say) is passed over, as an import passes
+ * over what it cannot place.
  */
 async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, imported: readonly ImportedQuestionT[], idFor: ReadonlyMap<string, Id<'questions'>>): Promise<void> {
   if (imported.every(({ entered }) => _.isEmpty(entered))) { return }
@@ -337,7 +379,7 @@ async function enterImported(db: Writer, { hunt_id, quiz_id }: LayoutPlace, impo
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
   const entries = new Map(widgetings.flatMap((widgeting) => {
     const widget = widgetFor.get(widgeting.widget_label)
-    return widget?.formulary === 'entry' ? [[widgeting.label, { widgeting, widget }] as const] : []
+    return widget?.formulary === 'entry' && widgetingFrom(widgeting).tier === 'question' ? [[widgeting.label, { widgeting, widget }] as const] : []
   }))
   const cells = imported.flatMap(({ label, entered }) => Object.entries(entered).flatMap(([widgeting_label, value]) => {
     const question_id = idFor.get(label)

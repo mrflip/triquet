@@ -24,6 +24,7 @@ import { present } from '../support/present'
 import { expectSound } from '../support/soundness'
 import { affirmsOf, huntHolding, identified, openOf, openTester, expectRefusal, putOn, seedHunt, signedIn, type Seeded, type Seen, type Session, type Tester } from '../support/convex'
 import { SeedOrg } from '../support/seed'
+import { Here } from '../support/places'
 
 /** A hunt holding one quiz built from `qnum, title` pairs, with the default layout */
 function huntOf(...pairs: [string, string][]): HuntT {
@@ -89,6 +90,23 @@ function failed(question_id: string, widgeting_label: string, err: { message: st
 async function putEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' | 'labelish' | 'titleish' | 'estimates' = 'text'): Promise<void> {
   await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } })
   await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label } })
+}
+
+/** Put an entry widget of `entry_kind` into the library, labelled `label`, and to work in `seeded`'s open quiz under the same label, once for the whole quiz */
+async function putQuizEntryToWork(seeded: Pick<Seeded, 'act' | 'actOnLibrary'>, label: string, entry_kind: 'text' | 'number' = 'text'): Promise<void> {
+  await seeded.actOnLibrary({ kind: 'add_widget', widget: { label, formulary: 'entry', config: { entry_kind } } })
+  await seeded.act({ kind: 'add_widgeting', widgeting: { widget_label: label, label, tier: 'quiz' } })
+}
+
+/** Typing `value` into the open quiz's own entry `widgeting_label`, as the Quiz entries panel commits it on blur */
+function enteringQuiz(widgeting_label: string, value: string | number | null): HuntActionDNA {
+  return { kind: 'enter_quiz_widgeted', entered: { widgeting_label, value } }
+}
+
+/** Every value the quiz widgeteds table holds, as JSON, in a stable order to compare */
+async function quizValuesIn(tt: Tester): Promise<string[]> {
+  const rows = await tt.run(async (ctx) => await ctx.db.query('quiz_widgeteds').collect())
+  return rows.map((row) => UU.jsonify(row.value)).toSorted((aa, bb) => aa.localeCompare(bb))
 }
 
 /** Typing `value` into `question_id`'s cell of the entry widgeting `widgeting_label`, as the cell commits it on blur */
@@ -174,6 +192,14 @@ describe("hunts.perform", () => {
     await putEntryToWork(seeded, 'points', 'number')
     const [first, second] = questionIdsOf(await seeded.read())
     return { ...seeded, id: present(first), second: present(second) }
+  }
+
+  /** A seeded hunt as `withEntries`, whose open quiz works the entry `playtesters` (text) and `prize` (a number) once for the whole quiz too */
+  const withQuizEntries = async () => {
+    const seeded = await withEntries()
+    await putQuizEntryToWork(seeded, 'playtesters')
+    await putQuizEntryToWork(seeded, 'prize', 'number')
+    return seeded
   }
 
   describe("retitle_quiz", () => {
@@ -807,6 +833,86 @@ describe("hunts.perform", () => {
       expect(await valuesIn(tt)).to.deep.eq(['"Two."', '2'])
       await act({ kind: 'delete_widgeting', label: 'remark' })
       expect(await valuesIn(tt)).to.deep.eq(['2'])
+    })
+  })
+
+  describe("enter_quiz_widgeted", () => {
+
+    it("keeps what was typed as the quiz's one row for the entry, which the quiz then reads back", async () => {
+      const { act, read, tt } = await withQuizEntries()
+      await act(enteringQuiz('playtesters', '  Ada and Grace  '))
+      const cell = present(openOf(await read()).stored.playtesters)
+      expect(cell.newest).to.deep.include({ status: 'ok', value: 'Ada and Grace', message: null })
+      expect(cell.ok).to.deep.eq(cell.newest)
+      expect(await valuesIn(tt)).to.deep.eq([])
+      await expectSound(tt)
+    })
+
+    it("revises the one row in place, keeps one row an entry, and empties it for nothing typed", async () => {
+      const { act, read, tt } = await withQuizEntries()
+      await act(enteringQuiz('prize', 3))
+      await act(enteringQuiz('prize', 12.5))
+      await act(enteringQuiz('playtesters', 'Ada'))
+      expect(await quizValuesIn(tt)).to.deep.eq(['"Ada"', '12.5'])
+      await act(enteringQuiz('playtesters', null))
+      await act(enteringQuiz('playtesters', null))
+      expect(openOf(await read()).stored).to.not.have.property('playtesters')
+      expect(await quizValuesIn(tt)).to.deep.eq(['12.5'])
+    })
+
+    it("reaches the quiz's run, which every question widgeting then reads as quiz.<label>", async () => {
+      const { act, read } = await withQuizEntries()
+      await act(enteringQuiz('playtesters', 'Ada'))
+      const seen = await read()
+      const run = Runner.runQuiz(Runner.sourceOf(openOf(seen), seen.library, Here))
+      expect(Runner.quizWidgetedOf(run, 'playtesters')).to.deep.include({ status: 'ok', value: 'Ada' })
+    })
+
+    it("holds what was typed to the entry's kind", async () => {
+      const { act, read } = await withQuizEntries()
+      const ante = await read()
+      await refusalOf(act(enteringQuiz('prize', 'lots')))
+      await refusalOf(act(enteringQuiz('playtesters', 3)))
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses an entry for each question, and the quiz's own entry for a question: each runs at the other level", async () => {
+      const { act, read, id } = await withQuizEntries()
+      const ante = await read()
+      await expectRefusal(act(enteringQuiz('remark', 'x')), 'wrongTier')
+      await expectRefusal(act(entering(id, 'playtesters', 'x')), 'wrongTier')
+      await expectRefusal(act({ kind: 'record_widgeted', widgeted: recorded(id, { widgeting_label: 'playtesters', value: 'Asked?' }) }), 'wrongTier')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses a widgeting the quiz does not have, and one whose widget is not an entry", async () => {
+      const { act, read } = await withQuizEntries()
+      await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum_all', tier: 'quiz' } })
+      const ante = await read()
+      await expectRefusal(act(enteringQuiz('gone', 'x')), 'widgetingGone')
+      await expectRefusal(act(enteringQuiz('sum_all', 7)), 'notEntered')
+      expect(await read()).to.deep.eq(ante)
+    })
+
+    it("refuses while the quiz is locked, and from a reviewer", async () => {
+      const seeded = await withQuizEntries()
+      const lee = await seeded.join('lee_reviews', 'reviewer')
+      await expectRefusal(seeded.act(enteringQuiz('playtesters', 'Lee'), lee), 'notPermitted')
+      await seeded.act({ kind: 'set_lock', quiz_id: openOf(await seeded.read())._id, locked: true })
+      await expectRefusal(seeded.act(enteringQuiz('playtesters', 'Ada')), 'quizLocked')
+      expect(await quizValuesIn(seeded.tt)).to.deep.eq([])
+    })
+
+    it("goes with the widgeting when that is removed, and with the quiz when it is deleted", async () => {
+      const { act, read, tt } = await withQuizEntries()
+      await act(enteringQuiz('playtesters', 'Ada'))
+      await act(enteringQuiz('prize', 5))
+      await act({ kind: 'delete_widgeting', label: 'playtesters' })
+      expect(await quizValuesIn(tt)).to.deep.eq(['5'])
+      await act({ kind: 'new_quiz', label: 'second' })
+      await act({ kind: 'delete_quiz', quiz_id: openOf(await read())._id })
+      expect(await quizValuesIn(tt)).to.deep.eq([])
+      await expectSound(tt)
     })
   })
 

@@ -98,6 +98,19 @@ export class Widgeting implements WidgetingT {
   static readonly exposed = ['status', 'value'] as const
 
   /**
+   * Whether a widgeting of `widget` may run at `tier`. Every widget runs for each question; once for
+   * the whole quiz, only a formula (`jsonata`) and an entry of one value (not a question's category
+   * estimates). A model asked from a cell has no cell to be asked from at the quiz's level.
+   *
+   * @example Widgeting.runsAt({ formulary: 'aibot', config: aibotConfig }, 'quiz')          // => false
+   * @example Widgeting.runsAt({ formulary: 'entry', config: { entry_kind: 'text' } }, 'quiz')  // => true
+   */
+  static runsAt(widget: Pick<WidgetT, 'formulary' | 'config'>, tier: WidgetingTier): boolean {
+    if (tier === 'question' || widget.formulary === 'jsonata') { return true }
+    return widget.formulary === 'entry' && 'entry_kind' in widget.config && widget.config.entry_kind !== 'estimates'
+  }
+
+  /**
    * Validated widgeting, with its description, params and tier defaulted.
    *
    * @param dna - The widget it works, and its label.

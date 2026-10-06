@@ -23,9 +23,9 @@ import { WidgetingValidators } from '../src/models/widgeting'
 // union table. What the bridge cannot carry (patterns, lengths, integers, and checks across
 // fields) stays the row validator's, which every write passes first.
 //
-// Three fields are written by hand, each any JSON at all, whose recursive type the bridge converts
+// Five fields are written by hand, each any JSON at all, whose recursive type the bridge converts
 // at run time but TypeScript cannot follow: a widgeting's `params`, and a widgeted's `value` and
-// `result_meta`. `tests/convex/schema.test.ts` holds them to the row validators.
+// `result_meta`, a quiz's widgeted's as a question's. `tests/convex/schema.test.ts` holds them to the row validators.
 //
 // Five more are written by hand while `migrations.ts` backfills them: a quiz's `recap_head`,
 // `recap_tail` and `templated`, a question's `recap`, and a widgeting's `tier`. Each is optional
@@ -56,6 +56,11 @@ const widgetingFields   = {
 }
 const widgetedFields    = {
   ...zodOutputToConvexFields(_.omit(WidgetedValidators.row.shape, ['value', 'result_meta'])),
+  value:       CVX.any() as VAny<JsonT | null>,
+  result_meta: CVX.any() as VAny<Record<string, JsonT>>,
+}
+const quizWidgetedFields = {
+  ...zodOutputToConvexFields(_.omit(WidgetedValidators.quizRow.shape, ['value', 'result_meta'])),
   value:       CVX.any() as VAny<JsonT | null>,
   result_meta: CVX.any() as VAny<Record<string, JsonT>>,
 }
@@ -95,6 +100,8 @@ export default defineSchema({
   questions:   defineTable(questionFields).index('by_quiz_id', ['quiz_id']),
   /** What one widgeting came to for one question, for a formulary that stores: appended, never revised */
   widgeteds:   defineTable(widgetedFields).index('by_question_id_and_widgeting_id', ['question_id', 'widgeting_id']).index('by_widgeting_id', ['widgeting_id']),
+  /** What one widgeting run once for the whole quiz came to, for a formulary that stores: an entry's one row, upserted */
+  quiz_widgeteds: defineTable(quizWidgetedFields).index('by_quiz_id_and_widgeting_id', ['quiz_id', 'widgeting_id']).index('by_widgeting_id', ['widgeting_id']),
   /** One ident's review of one quiz. Hidden from the smiths until shared. */
   reviews:     defineTable(reviewFields).index('by_quiz_id', ['quiz_id']).index('by_quiz_id_and_ident_id', ['quiz_id', 'ident_id']),
   /** One review's verdict on one question, made the first time the reviewer writes to it */

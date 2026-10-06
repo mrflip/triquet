@@ -28,24 +28,29 @@ export const QuestionFallbacks: Pick<QuestionT, 'recap'> = { recap: '' }
 /** What a widgeting's row written before widgetings had tiers reads as, and is written with at its next edit, while `convex/migrations.ts` backfills it: one that runs for each question */
 export const WidgetingFallbacks: Pick<WidgetingT, 'tier'> = { tier: DefaultTier }
 
-/** One cell's stored history, as far as the cell needs it: rows of `widgeteds` */
+/** One stored widgeted's row, as far as its cell reads it: a row of `widgeteds`, for a question, or of `quiz_widgeteds`, for the quiz itself */
+export type StoredRowT = Pick<Doc<'widgeteds'>, 'status' | 'value' | 'message' | 'result_meta' | '_creationTime'>
+
+/** One cell's stored history, as far as the cell needs it: rows of `widgeteds`, or of `quiz_widgeteds` */
 export type CellRows = {
   /** The newest row in the cell, whatever became of it */
-  newest: Doc<'widgeteds'>
+  newest: StoredRowT
   /** The newest `ok` row: `newest` itself when it is one, null when none ever was */
-  ok:     Doc<'widgeteds'> | null
+  ok:     StoredRowT | null
 }
 
-/** Each stored widgeting's history for one question, by the widgeting's label; one with nothing recorded is absent */
+/** Each stored widgeting's history for one question, or for the quiz, by the widgeting's label; one with nothing recorded is absent */
 export type StoredRows = ReadonlyMap<string, CellRows>
 
-/** One quiz's rows: its own, its children's in their committed order, and what each question stored, by its id */
+/** One quiz's rows: its own, its children's in their committed order, what each question stored, by its id, and what the quiz itself stored */
 export type QuizRows = {
   quiz:       Doc<'quizzes'>
   questions:  readonly Doc<'questions'>[]
   widgetings: readonly Doc<'widgetings'>[]
   columns:    readonly Doc<'columns'>[]
   stored:     ReadonlyMap<string, StoredRows>
+  /** What each widgeting run once for the whole quiz stored for it */
+  quizStored: StoredRows
 }
 
 /** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded */
@@ -193,7 +198,7 @@ export function historyOf(cell: CellRows): WidgetedHistoryT {
 }
 
 /** One stored widgeted, from its row */
-function storedFrom(row: Doc<'widgeteds'>): WidgetedHistoryT['newest'] {
+function storedFrom(row: StoredRowT): WidgetedHistoryT['newest'] {
   const { status, value, message, result_meta, _creationTime } = row
   return { status, value, message, result_meta, _creationTime }
 }
@@ -220,18 +225,20 @@ export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { sta
 }
 
 /**
- * A quiz without its questions, from its own row (stamped, `Stamps.of`) and its widgetings' and
- * columns' rows in order.
+ * A quiz without its questions, from its own row (stamped, `Stamps.of`), its widgetings' and
+ * columns' rows in order, and what its widgetings run once for the whole quiz stored for it, for
+ * a reader sent that (a smith; nothing, and nothing read, for anyone else).
  *
- * @example frameOf(quiz, widgetings, columns).row_ordering.length
+ * @example frameOf(quiz, widgetings, columns, new Map()).row_ordering.length
  */
-export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[]): QuizFrameT {
+export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[], stored: StoredRows): QuizFrameT {
   return {
     ...QuizFallbacks,
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     ...Stamps.of(quiz),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
     columns:    columns.map((row) => _.pick(row, ['label', 'title', 'source', 'width_px', 'align'])),
+    stored:     Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])),
   }
 }
 
@@ -270,7 +277,7 @@ export function quizFromSeen(frame: QuizFrameT, seen: readonly SeenQuestionT[]):
  */
 export function quizFrom(rows: QuizRows): QuizT {
   const seen = rows.questions.map((row) => seenQuestionFor(row, rows.stored.get(row._id) ?? new Map(), Whole))
-  return quizFromSeen(frameOf(rows.quiz, rows.widgetings, rows.columns), seen)
+  return quizFromSeen(frameOf(rows.quiz, rows.widgetings, rows.columns, rows.quizStored), seen)
 }
 
 /**

@@ -27,7 +27,7 @@ async function holding(hunt: HuntT, tt: Tester = openTester(), orglabel?: string
 async function rowsOf(tt: Tester, quiz_id: Id<'quizzes'>) {
   return await tt.run(async (ctx) => {
     const rows = present(await quizRowsOf(ctx.db, quiz_id))
-    return { ...rows, stored: Object.fromEntries([...rows.stored].map(([question_id, cells]) => [question_id, Object.fromEntries(cells)])) }
+    return { ...rows, stored: Object.fromEntries([...rows.stored].map(([question_id, cells]) => [question_id, Object.fromEntries(cells)])), quizStored: Object.fromEntries(rows.quizStored) }
   })
 }
 
@@ -120,7 +120,7 @@ describe("quizRowsFor and wholeQuizOf", () => {
     const { tt, quiz_id } = await holding(huntHolding([quiz]))
     const [byId, inHand] = await tt.run(async (ctx) => {
       const row = present(await ctx.db.get('quizzes', quiz_id))
-      return [await quizRowsOf(ctx.db, quiz_id), await quizRowsFor(ctx.db, row)].map((rows) => ({ ...rows, stored: present(rows).stored.keys().toArray() }))
+      return [await quizRowsOf(ctx.db, quiz_id), await quizRowsFor(ctx.db, row)].map((rows) => ({ ...rows, stored: present(rows).stored.keys().toArray(), quizStored: present(rows).quizStored.keys().toArray() }))
     })
     expect(inHand).to.deep.eq(byId)
   })

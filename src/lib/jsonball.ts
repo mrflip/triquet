@@ -68,11 +68,16 @@ export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 /** One column, by its label: its place in the grid, and its fields */
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
-/** One quiz, by its label: its own fields (its recap's head and tail, what it templates and its sort memory among them), its stamps, and its questions, widgetings and columns, each keyed by label */
+/**
+ * One quiz, by its label: its own fields (its recap's head and tail, what it templates and its sort
+ * memory among them), its stamps, and its questions, widgetings and columns, each keyed by label;
+ * and, when it has any widgetings run once for the whole quiz, what each came to, by its label.
+ */
 export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'recap_head' | 'recap_tail' | 'templated' | 'locked' | 'last_sortkey'> & IsoStampsT & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
+  widgeteds?: Record<string, WidgetedBodyT>
 }
 
 /** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */

@@ -78,6 +78,8 @@ export const RefusalNotices = {
   formularyFixed:   "A widget's formulary is fixed once it is made — make a new widget instead.",
   notStored:        "That widgeting isn't asked from its cell; there is nothing to record.",
   notEntered:       "That widgeting's cells aren't typed into.",
+  tierUnoffered:    'Only a formula or an entry of one value can run once for the whole quiz.',
+  wrongTier:        'That widgeting runs at the other level: once for the whole quiz, or for each question.',
   entryKindFixed:   "An entry's kind is fixed once it is made — make a new widget instead.",
   lastQuiz:         "A realm's last quiz can't be deleted on its own — it goes with its hunt.",
   huntNotEmptied:   AppNotices.deletingHunt,

@@ -78,6 +78,19 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
     .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
     .describe('What one widgeting came to for one question, as the database holds it. When it was recorded is the row\'s own `_creationTime`. Only a formulary that stores keeps one: `aibot` appends, history kept; `entry` upserts, one row a cell.')
 
+  const quizRow = obj({
+    hunt_id:      zid('hunts')
+      .describe('The hunt its quiz belongs to, copied from the quiz when the row is written.'),
+    quiz_id:      zid('quizzes')
+      .describe('The quiz it is for.'),
+    widgeting_id: zid('widgetings')
+      .describe('The widgeting it is what of: one that runs once for the whole quiz.'),
+    ...storedFields,
+    ...stamps,
+  })
+    .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
+    .describe('What one widgeting that runs once for the whole quiz came to, as the database holds it: a widgeted of the quiz rather than of a question. When it was recorded is the row\'s own `_creationTime`. Only an entry keeps one, one row a widgeting, upserted.')
+
   const record = obj({
     question_id:     zid('questions')
       .describe('The question it is for, by its row id.'),
@@ -101,6 +114,12 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
     value:           enteredValue,
   })
     .describe('One entry cell as a browser sends it, committed on blur: the question by id, the widgeting by label, and the one value it now holds.')
+  const quizEntered = obj({
+    widgeting_label: label
+      .describe('The entry widgeting of the open quiz it is for, by its label: one that runs once for the whole quiz.'),
+    value:           enteredValue,
+  })
+    .describe('One entry of the quiz itself as a browser sends it, committed on blur: the widgeting by label, and the one value it now holds.')
 
   const stored = obj({ ...storedFields, _creationTime: num.nonnegative() })
     .describe('One stored widgeted as the runner reads it: a row\'s own fields, and when it was recorded, in epoch milliseconds with a fraction.')
@@ -111,7 +130,7 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
   })
     .describe('One cell\'s stored history, as far as its widgeted needs it: the newest row, and the newest `ok` one.')
 
-  return { err, widgeted, row, record, enteredValue, entered, stored, history }
+  return { err, widgeted, row, quizRow, record, enteredValue, entered, quizEntered, stored, history }
 })
 
 /** A failure on a widgeted: on `errored` the failure itself, on `ok` a newer one riding along */
@@ -119,6 +138,12 @@ export type WidgetedErrT = Z.output<typeof WidgetedValidators.err>
 
 /** What one widgeting came to for one question, as everyone reads it: cells, sorts, the sheet, the exports and the bag */
 export type WidgetedT = Z.output<typeof WidgetedValidators.widgeted>
+
+/** What one widgeting that runs once for the whole quiz came to, as the database holds it */
+export type QuizWidgetedRowT = Z.output<typeof WidgetedValidators.quizRow>
+
+/** One entry of the quiz itself as a browser sends it, validated: the widgeting by label, and what was typed */
+export type QuizEnteringT = Z.output<typeof WidgetedValidators.quizEntered>
 
 /** One stored widgeted as the runner reads it: a row's fields, before they are projected */
 export type StoredWidgetedT = Z.output<typeof WidgetedValidators.stored>

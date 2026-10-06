@@ -192,6 +192,30 @@ describe('Quiz.isLocked', () => {
   })
 })
 
+describe('Quiz.mayLabelQuizTier', () => {
+  it('refuses only a name the quiz itself answers to in the bag', () => {
+    expect([Quiz.mayLabelQuizTier('playtesters'), Quiz.mayLabelQuizTier('smiths_note'), Quiz.mayLabelQuizTier('title')]).to.deep.eq([true, false, false])
+  })
+})
+
+describe('Quiz.fill, with widgetings run once for the whole quiz', () => {
+  const playtesters = { widget_label: 'names', label: 'playtesters', tier: 'quiz' as const }
+
+  it('takes one, and what the quiz stored for it', () => {
+    const stored = { playtesters: { newest: { status: 'ok' as const, value: 'Ada', message: null, result_meta: {}, _creationTime: 1 }, ok: null } }
+    expect(Quiz.fill({ _id: quiz_id, widgetings: [playtesters], stored }).stored.playtesters?.newest.value).to.eq('Ada')
+  })
+
+  it('refuses one under a name the quiz already answers to', () => {
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [{ ...playtesters, label: 'smiths_note' }] })).to.throw(/the quiz already answers to/)
+  })
+
+  it('refuses a column showing one, or a template of one: it has no cell for any question', () => {
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], columns: [{ label: 'thanks', title: 'Thanks', source: 'playtesters', width_px: 90 }] })).to.throw(/does not have for each question/)
+    expect(() => Quiz.fill({ _id: quiz_id, widgetings: [playtesters], templated: ['playtesters'] })).to.throw(/does not have for each question/)
+  })
+})
+
 describe('QuizValidators.row', () => {
   const Row = {
     hunt_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f8', realm_id: '01a0dc10-c9be-7cb3-9d3a-25fc68cd12f9', title: 'Princes', label: 'princes', smiths_note: '', q1_preamble: 'Read the note![br]', recap_head: '', recap_tail: '', templated: ['question.recap'], locked: false, last_sortkey: null,

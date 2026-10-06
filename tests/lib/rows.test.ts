@@ -79,7 +79,7 @@ describe('historyOf', () => {
 })
 
 describe('quizFrom', () => {
-  const rows: QuizRows = { quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map() }
+  const rows: QuizRows = { quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map(), quizStored: new Map() }
 
   it('is the quiz its rows make up, named by the quiz row\'s id', () => {
     const quiz = quizFrom(rows)
@@ -180,16 +180,22 @@ describe('seenQuestionFor', () => {
 
 describe('frameOf', () => {
   it('is the quiz without its questions: its fields and their order, its widgetings and columns', () => {
-    const frame = frameOf(QuizRow, [WidgetingRow], [])
+    const frame = frameOf(QuizRow, [WidgetingRow], [], new Map())
     expect(frame.row_ordering).to.deep.eq([question_id])
     expect(frame.widgetings.map((widgeting) => widgeting.label)).to.deep.eq(['dumdum'])
     expect(frame).to.not.have.any.keys('questions', 'realm_id', '_creationTime')
   })
 
+  it('carries what its widgetings for the whole quiz stored, as a question carries its own', () => {
+    const answered = widgetedRow('ok', 2, 'Ada and Grace')
+    expect(frameOf(QuizRow, [], [], new Map([['playtesters', { newest: answered, ok: answered }]])).stored.playtesters?.ok?.value).to.deep.eq({ guess: 'Ada and Grace', explanation: '' })
+    expect(frameOf(QuizRow, [], [], new Map()).stored).to.deep.eq({})
+  })
+
   it('sends each column as the grid needs it, its alignment only where one was set', () => {
     const ColumnRow: Doc<'columns'> = { _id: idOf('columns', 'col1'), _creationTime: 2, hunt_id, quiz_id, label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330, position: 0 }
     const columns = [ColumnRow, { ...ColumnRow, _id: idOf('columns', 'col2'), label: 'qnum', title: 'Q#', source: 'question.qnum', width_px: 60, position: 1, align: 'right' as const }]
-    expect(frameOf(QuizRow, [], columns).columns).to.deep.eq([
+    expect(frameOf(QuizRow, [], columns, new Map()).columns).to.deep.eq([
       { label: 'clueing', title: 'Clueing', source: 'question.clueing', width_px: 330 },
       { label: 'qnum',    title: 'Q#',      source: 'question.qnum',    width_px: 60,  align: 'right' },
     ])
@@ -201,13 +207,13 @@ describe('quizFromSeen', () => {
   const first = { ...seenQuestionFor(QuestionRow, new Map(), Smith), chains_to: 'lear' }
 
   it('is the quiz its frame and questions make up, in the order given', () => {
-    const quiz = quizFromSeen(frameOf(QuizRow, [], []), [second, first])
+    const quiz = quizFromSeen(frameOf(QuizRow, [], [], new Map()), [second, first])
     expect(quiz.questions.map((question) => question._id)).to.deep.eq([second._id, question_id])
     expect(quiz).to.not.have.any.keys('row_ordering')
   })
 
   it('reads each chain as the id of the sibling answering to its label; a chain to itself, or to no sibling, as none', () => {
-    const quiz = quizFromSeen(frameOf(QuizRow, [], []), [first, second, { ...second, _id: idOf('questions', 'qn3'), label: 'lone', chains_to: 'lone' }])
+    const quiz = quizFromSeen(frameOf(QuizRow, [], [], new Map()), [first, second, { ...second, _id: idOf('questions', 'qn3'), label: 'lone', chains_to: 'lone' }])
     expect(quiz.questions.map((question) => question.chains_to)).to.deep.eq([second._id, question_id, null])
   })
 
@@ -217,13 +223,13 @@ describe('quizFromSeen', () => {
       { ...seenQuestionFor(written, new Map([['dumdum', FailedSince]]), Reviewer), chains_to: 'lear' },
       { ...seenQuestionFor(written, new Map(), Reviewer), _id: idOf('questions', 'qn2'), label: 'lear' },
     ]
-    const [question] = quizFromSeen(frameOf(QuizRow, [], []), reviewed).questions
+    const [question] = quizFromSeen(frameOf(QuizRow, [], [], new Map()), reviewed).questions
     expect(question).to.deep.include({ full_answer: 'Leontes', notes: '', alt_text: '', stored: {}, chains_to: idOf('questions', 'qn2') })
   })
 })
 
 describe('assembledQuiz', () => {
-  const frame = { ...frameOf(QuizRow, [], []), row_ordering: [question_id, idOf('questions', 'qn2')] }
+  const frame = { ...frameOf(QuizRow, [], [], new Map()), row_ordering: [question_id, idOf('questions', 'qn2')] }
   const seen = seenQuestionFor(QuestionRow, new Map(), Smith)
 
   it('is undefined while a question the frame orders is still on its way', () => {
@@ -333,7 +339,7 @@ describe("smithsOf", () => {
 
 describe('huntFrom', () => {
   it('is the whole hunt, each realm holding the quizzes it is handed whole', () => {
-    const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map() })
+    const quiz = quizFrom({ quiz: QuizRow, questions: [QuestionRow], widgetings: [WidgetingRow], columns: [], stored: new Map(), quizStored: new Map() })
     const hunt = huntFrom(Rows, new Map([[quiz_id, quiz]]))
     expect([hunt.title, hunt.realms[0]?.quizzes[0]?.title, hunt.realms[0]?.quizzes[0]?.widgetings.length]).to.deep.eq(['Quiet Otter', 'Princes', 1])
     expect(hunt).to.not.have.any.keys('expressions')

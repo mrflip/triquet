@@ -58,8 +58,8 @@ async function reviewedHunt(tt: Tester) {
   return held
 }
 
-/** Each stamped table's backfill */
-const StampBackfillFor: Record<StampedTablename, string> = {
+/** Each stamped table's backfill: every one but those made after stamps began, whose rows the trigger has always stamped */
+const StampBackfillFor: Record<Exclude<StampedTablename, 'quiz_widgeteds'>, string> = {
   idents: 'backfillIdentStamps', hunts: 'backfillHuntStamps', realms: 'backfillRealmStamps', widgets: 'backfillWidgetStamps', quizzes: 'backfillQuizStamps',
   widgetings: 'backfillWidgetingStamps', columns: 'backfillColumnStamps', questions: 'backfillQuestionStamps', widgeteds: 'backfillWidgetedStamps',
   reviews: 'backfillReviewStamps', reviewings: 'backfillReviewingStamps', huntings: 'backfillHuntingStamps',

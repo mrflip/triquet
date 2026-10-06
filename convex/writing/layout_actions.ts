@@ -1,10 +1,12 @@
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
-import { QuizFallbacks, type LayoutRows } from '../../src/lib/rows'
+import { QuizFallbacks, widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
 import * as Estimates from '../../src/lib/estimates'
+import * as RunOrder from '../../src/lib/run-order'
+import { Quiz } from '../../src/models/quiz'
 import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
-import { WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../../src/models/widgeting'
+import { Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../../src/models/widgeting'
 import type { LayoutActionT } from '../../src/models/actions'
 import { widgetForLabel } from '../reading'
 import { deleteWidgeting as deleteWidgetingRows, movedTo, repositioned, updateColumn, updateQuiz, updateWidgeting, type OpenQuizT, type Writer } from './quiz_writing'
@@ -29,28 +31,58 @@ function labelTaken(rows: LayoutRows, label: string): boolean {
   return rows.widgetings.some((widgeting) => widgeting.label === label)
 }
 
+/** Which level a widgeting's row runs at; one written before widgetings had tiers runs for each question */
+function tierOf(row: Doc<'widgetings'>): WidgetingTier {
+  return widgetingFrom(row).tier
+}
+
+/** Refuse a label a widgeting at `tier` cannot take beside the quiz's own fields: one the quiz answers to in the bag, for a widgeting run once for the whole quiz */
+function refuseQuizReserved(tier: WidgetingTier, label: string): void {
+  if (tier === 'quiz' && ! Quiz.mayLabelQuizTier(label)) { refuse('labelTaken') }
+}
+
+/** Write each of `ordered`'s positions as its place in the list, where it has moved */
+async function writeRunOrder(db: Writer, ordered: readonly Doc<'widgetings'>[]): Promise<void> {
+  await repositioned(ordered, async (row, position) => { await updateWidgeting(db, row, { position }) })
+}
+
 /**
  * Refuse a column `source` that names nothing the quiz can show: a widgeting it does not have, or
- * a part of a widgeting whose widget offers none.
+ * runs once for the whole quiz (with no cell for any question), or a part of a widgeting whose
+ * widget offers none.
  */
 async function refuseUnshowable(db: Writer, rows: LayoutRows, source: string): Promise<void> {
   const named = sourceOf(source)
   if (named.kind !== 'widgeting') { return }
   const widgeting = rows.widgetings.find((each) => each.label === named.label)
   if (! widgeting) { refuse('sourceUnshowable') }
+  if (tierOf(widgeting) !== 'question') { refuse('wrongTier') }
   if (named.part !== null && ! Estimates.isEstimating(await widgetForLabel(db, widgeting.widget_label))) { refuse('partUnoffered') }
 }
 
 /**
- * Put a widgeting at the end of the open quiz's run order. A label a sibling has, a widget the
- * library does not hold, or one widgeting more than a quiz may hold, is refused.
+ * Put a widgeting into the open quiz's run order (`RunOrder.withAdded`): one for each question at
+ * the end of the question widgetings; an entry for the whole quiz just above the questions pivot,
+ * where every formula can read it; any other for the whole quiz at the very end. A label a sibling
+ * has (or, for one for the whole quiz, the quiz itself answers to), a widget the library does not
+ * hold or that cannot run at its tier (`Widgeting.runsAt`), or one widgeting more than a quiz may
+ * hold, is refused.
  */
 export async function addWidgeting(db: Writer, open: OpenQuizT, widgeting: WidgetingT): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     if (labelTaken(rows, widgeting.label)) { refuse('labelTaken') }
+    refuseQuizReserved(widgeting.tier, widgeting.label)
     if (rows.widgetings.length >= PA.WidgetingsPerQuiz.max) { refuse('widgetingsFull') }
-    if (! await widgetForLabel(db, widgeting.widget_label)) { refuse('widgetGone') }
-    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position: rows.widgetings.length }))
+    const row = await widgetForLabel(db, widgeting.widget_label)
+    if (! row) { refuse('widgetGone') }
+    const widget = widgetFrom(row)
+    if (! Widgeting.runsAt(widget, widgeting.tier)) { refuse('tierUnoffered') }
+    const placed = RunOrder.withAdded<Doc<'widgetings'> | WidgetingT>(rows.widgetings, widgeting, widget.formulary !== 'entry', (item) => ('_id' in item ? tierOf(item) : item.tier))
+    const position = placed.indexOf(widgeting)
+    for (const [idx, item] of placed.entries()) {
+      if ('_id' in item && item.position !== idx) { await updateWidgeting(db, item, { position: idx }) }
+    }
+    await db.insert('widgetings', WidgetingValidators.row({ ...widgeting, hunt_id: open.hunt_id, quiz_id: rows.quiz._id, position }))
   })
 }
 
@@ -64,6 +96,7 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
     const held = widgetingIn(rows, label)
     const renamedOnto = patch.label ?? label
     if (renamedOnto !== label && labelTaken(rows, renamedOnto)) { refuse('labelTaken') }
+    refuseQuizReserved(tierOf(held), renamedOnto)
     await updateWidgeting(db, held, { ...patch })
     for (const column of rows.columns) {
       const named = sourceOf(column.source)
@@ -84,13 +117,15 @@ function templatedOf(rows: LayoutRows): string[] {
 /**
  * Nominate the sources the open quiz templates, replacing those it did: its questions' own fields
  * and its widgetings, each named as a column names what it shows. A widgeting the quiz does not
- * have is refused.
+ * have is refused, and so is one run once for the whole quiz, which has no question's cell to fill.
  */
 export async function setTemplated(db: Writer, open: OpenQuizT, templated: readonly string[]): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     const held = new Set(rows.widgetings.map((widgeting) => widgeting.label))
+    const quizWide = new Set(rows.widgetings.filter((widgeting) => tierOf(widgeting) === 'quiz').map((widgeting) => widgeting.label))
     const named = templated.flatMap((source) => widgetingLabelOf(source) ?? [])
     if (named.some((widgetingLabel) => ! held.has(widgetingLabel))) { refuse('untemplatable') }
+    if (named.some((widgetingLabel) => quizWide.has(widgetingLabel))) { refuse('wrongTier') }
     await updateQuiz(db, rows.quiz, { templated: [...templated] })
   })
 }
@@ -118,15 +153,20 @@ export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string
     await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
     const templated = templatedOf(rows)
     if (templated.includes(label)) { await updateQuiz(db, rows.quiz, { templated: templated.filter((source) => source !== label) }) }
-    await repositioned(rows.widgetings.filter((widgeting) => widgeting._id !== held._id), async (row, position) => { await updateWidgeting(db, row, { position }) })
+    await writeRunOrder(db, RunOrder.runOrderOf(rows.widgetings.filter((widgeting) => widgeting._id !== held._id), tierOf))
   })
 }
 
-/** Move a widgeting of the open quiz to `onto_idx` in its run order */
+/**
+ * Move a widgeting of the open quiz to `onto_idx` of its own tier's list, as the gear lists it
+ * (`RunOrder.movedWithin`): among the question widgetings, for one that runs for each question;
+ * among the quiz's own widgetings and the questions pivot, for one that runs once for the whole
+ * quiz, which a drop across the pivot runs before the question widgetings or after them.
+ */
 export async function moveWidgeting(db: Writer, open: OpenQuizT, label: string, onto_idx: number): Promise<void> {
   await reviseOpenLayout(db, open, async (rows) => {
     widgetingIn(rows, label)
-    await repositioned(movedTo(rows.widgetings, label, onto_idx), async (row, position) => { await updateWidgeting(db, row, { position }) })
+    await writeRunOrder(db, RunOrder.movedWithin(rows.widgetings, label, onto_idx, tierOf))
   })
 }
 

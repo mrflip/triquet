@@ -401,6 +401,7 @@ const ContentPolicies = {
   sort_by_chain_order: mayReviseClaimedQuiz,
   record_widgeted:     mayReviseClaimedQuiz,
   enter_widgeted:      mayReviseClaimedQuiz,
+  enter_quiz_widgeted: mayReviseClaimedQuiz,
   import_questions:    mayReviseClaimedQuiz,
 } as const satisfies Partial<PolicyRowsT<PolicyKey>>
 

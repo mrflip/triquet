@@ -342,6 +342,7 @@ const Matrix = {
   sort_by_chain_order: [{ kind: 'sort_by_chain_order', descending: true },                                                           Revisers],
   record_widgeted:     [{ kind: 'record_widgeted', widgeted: { question_id, widgeting_label: 'dumdum', status: 'ok', value: 'Leon', result_meta: { model_tier_applied: 'quick' } } }, Revisers],
   enter_widgeted:      [{ kind: 'enter_widgeted', entered: { question_id, widgeting_label: 'notes', value: 'Leon' } },               Revisers],
+  enter_quiz_widgeted: [{ kind: 'enter_quiz_widgeted', entered: { widgeting_label: 'playtesters', value: 'Ada' } },                Revisers],
   import_questions:    [{ kind: 'import_questions', questions: [{ label: 'leon', patch: {} }] },                                     Revisers],
   // the realm's quizzes:
   new_quiz:            [{ kind: 'new_quiz' },                                                                                        Smiths],

@@ -2,6 +2,7 @@ import _ from 'es-toolkit/compat'
 import * as Rank from '../rank'
 import * as Estimates from '../estimates'
 import * as Wheel from '../wheel'
+import * as RunOrder from '../run-order'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { formularyFor, type InputOutcome } from './formularies'
 import { Hunt, type HuntT } from '../../models/hunt'
@@ -56,23 +57,29 @@ export type RunStep = {
   widget:    WidgetT | null
 }
 
-/** What a quiz is run from: its questions, where it sits, its widgetings in run order, and its stored widgeteds */
+/** What a quiz is run from: its questions, where it sits, its widgetings, and its stored widgeteds */
 export type RunSource = {
   quiz:     QuizT
   place:    QuizPlace
+  /** Its widgetings in position order, each with its widget; run in run order (`RunOrder.runOrderOf`) */
   steps:    readonly RunStep[]
   /** A stored widgeting's history for one question; null when nothing was ever recorded there */
   storedOf: (widgeting: WidgetingT, question: QuestionT) => WidgetedHistoryT | null
+  /** A stored widgeting's history for the quiz itself, for one that runs once for the whole quiz; null when nothing was ever recorded */
+  quizStoredOf: (widgeting: WidgetingT) => WidgetedHistoryT | null
 }
 
 /** Each widgeting's label to something per question, by the question's id */
 type ByWidgeting<VT> = ReadonlyMap<string, ReadonlyMap<string, VT>>
 
-/** A quiz, run: every widgeting's widgeted for every question, and what its runs were worked out from */
+/** A quiz, run: every widgeting's widgeted for every question, or for the quiz, and what its runs were worked out from */
 export type QuizRun = {
+  /** Its widgetings, in run order: the quiz's own above the questions pivot, the question widgetings, the quiz's own below it */
   steps:     readonly RunStep[]
-  /** Every widgeting's widgeted, for every question */
+  /** Every question widgeting's widgeted, for every question */
   widgeteds: ByWidgeting<WidgetedT>
+  /** Every widgeting for the whole quiz, and what it came to, by its label */
+  quizWidgeteds: ReadonlyMap<string, WidgetedT>
   /** For each category-estimate widgeting, what each question's estimates come to; null for a cell that failed */
   parts:     ByWidgeting<Estimates.EstimatePartsT | null>
   /** For each widgeting asked from the cell, what each question's ask would be put */
@@ -81,7 +88,9 @@ export type QuizRun = {
   qnsAt:     ReadonlyMap<string, readonly Record<string, unknown>[]>
   /** The questions as they stand once every widgeting has run */
   qnsAfter:  readonly Record<string, unknown>[]
-  /** What every bag holds besides its questions and its widgeting */
+  /** The quiz as each widgeting's bag holds it, with the widgeteds of the quiz's own widgetings before it, by its label */
+  quizAt:    ReadonlyMap<string, Record<string, unknown>>
+  /** What every bag holds besides its questions and its widgeting; its quiz as it stands once every widgeting has run */
   frame:     BagFrame
 }
 
@@ -99,7 +108,10 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
 
 /**
  * A quiz run: each widgeting in run order, each worked out for every question, or projected from
- * what was stored, with the widgeteds of those before it in its bag.
+ * what was stored, with the widgeteds of those before it in its bag. A widgeting for the whole
+ * quiz is worked out once, over a bag for no question (`qn` empty), and its widgeted joins every
+ * later bag's quiz, as `quiz.<label>`. The quiz's own widgetings above the questions pivot run
+ * first, then the question widgetings, then the quiz's own below it (`RunOrder`).
  *
  * Nothing here throws, and nothing is asked of a model. A formula that fails costs its own cells;
  * one that will not stop is stopped, after which the rest of its widgeting reads the same failure
@@ -113,15 +125,26 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
 export function runQuiz(source: RunSource): QuizRun {
   const { quiz } = source
   const frame = frameOf(quiz, source.place)
+  const steps = RunOrder.runOrderOf(source.steps, (step) => step.widgeting.tier)
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
+  const quizWidgeteds = new Map<string, WidgetedT>()
   const parts = new Map<string, ReadonlyMap<string, Estimates.EstimatePartsT | null>>()
   const inputs = new Map<string, ReadonlyMap<string, InputOutcome>>()
   const qnsAt = new Map<string, readonly Record<string, unknown>[]>()
+  const quizAt = new Map<string, Record<string, unknown>>()
   let qns = baseQns(quiz)
-  for (const step of source.steps) {
+  let quizNow = frame.quiz
+  for (const step of steps) {
     const { label } = step.widgeting
     qnsAt.set(label, qns)
-    const bags = bagsOf(frame, qns, step.widgeting)
+    quizAt.set(label, quizNow)
+    if (step.widgeting.tier === 'quiz') {
+      const widgeted = quizCellOf(step, quizBagOf(frame, quizNow, qns, step.widgeting), source.quizStoredOf)
+      quizWidgeteds.set(label, widgeted)
+      quizNow = { ...quizNow, [label]: widgeted }
+      continue
+    }
+    const bags = bagsOf(frame, quizNow, qns, step.widgeting)
     const column = columnOf(step, bags, quiz.questions, source.storedOf)
     widgeteds.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.widgeteds[idx] ?? Widgeted.missing])))
     if (column.inputs) { inputs.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, column.inputs?.[idx] ?? { status: 'missing' }]))) }
@@ -129,7 +152,7 @@ export function runQuiz(source: RunSource): QuizRun {
     if (cellParts) { parts.set(label, new Map(frame.question_ids.map((question_id, idx) => [question_id, cellParts[idx] ?? null]))) }
     qns = withWidgeteds(qns, label, column.widgeteds, cellParts)
   }
-  return { steps: source.steps, widgeteds, parts, inputs, qnsAt, qnsAfter: qns, frame }
+  return { steps, widgeteds, quizWidgeteds, parts, inputs, qnsAt, qnsAfter: qns, quizAt, frame: { ...frame, quiz: quizNow } }
 }
 
 /**
@@ -150,12 +173,32 @@ export function sourceOf(quiz: QuizT, library: readonly WidgetT[], place: QuizPl
     place,
     steps:    quiz.widgetings.map((widgeting) => ({ widgeting, widget: widgetFor.get(widgeting.widget_label) ?? null })),
     storedOf: (widgeting, question) => question.stored[widgeting.label] ?? null,
+    quizStoredOf: (widgeting) => quiz.stored[widgeting.label] ?? null,
   }
 }
 
 /**
+ * What a widgeting for the whole quiz came to, or `missing` when the run has no such widgeting
+ * (or it runs for each question).
+ *
+ * @example quizWidgetedOf(runQuiz(source), 'playtesters')  // => { status: 'ok', value: 'Ada and Grace', err: null }
+ */
+export function quizWidgetedOf(run: QuizRun, label: string): WidgetedT {
+  return run.quizWidgeteds.get(label) ?? Widgeted.missing
+}
+
+/**
+ * Whether the widgeting labelled `label` runs once for the whole quiz in this run.
+ *
+ * @example isQuizWide(run, 'playtesters')  // => true
+ */
+export function isQuizWide(run: QuizRun, label: string): boolean {
+  return run.quizWidgeteds.has(label)
+}
+
+/**
  * One question's widgeted for one widgeting, or for one part of it, or `missing` when the run has
- * no such cell. A part of a category-estimate widgeting is `ok` with its value, whether or not
+ * no such cell (a widgeting for the whole quiz has none for any question). A part of a category-estimate widgeting is `ok` with its value, whether or not
  * anything was typed (an empty cell draws on no category in particular), and fails as the cell
  * does; a part of any other widgeting is `missing`.
  *
@@ -197,7 +240,8 @@ export function stepOf(run: QuizRun, label: string): RunStep | null {
 
 /**
  * Each question's bag as `widgeting` sees it: with the widgeteds of those before it, when the
- * quiz runs it; with every widgeting's, when it does not (a widgeting not yet put to work).
+ * quiz runs it; with every widgeting's, when it does not (a widgeting not yet put to work). A
+ * widgeting for the whole quiz sees one bag, for no question, whichever question it is asked for.
  *
  * @param run - The quiz, run.
  * @param widgeting - Whose bag: its label, and the params it hands on.
@@ -207,17 +251,38 @@ export function stepOf(run: QuizRun, label: string): RunStep | null {
  */
 export function bagsAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'params'>): ReadonlyMap<string, QuizBag> {
   const qns = run.qnsAt.get(widgeting.label) ?? run.qnsAfter
-  const bags = bagsOf(run.frame, qns, widgeting)
+  const quiz = run.quizAt.get(widgeting.label) ?? run.frame.quiz
+  if (isQuizWide(run, widgeting.label)) {
+    const bag = quizBagOf(run.frame, quiz, qns, widgeting)
+    return new Map(run.frame.question_ids.map((question_id) => [question_id, bag]))
+  }
+  const bags = bagsOf(run.frame, quiz, qns, widgeting)
   return new Map(run.frame.question_ids.map((question_id, idx) => [question_id, bags[idx] ?? emptyBag(run.frame, widgeting)]))
 }
 
 /**
- * How many of a widgeting's cells are `ok`, `errored` and `missing`.
+ * The bag a widgeting for the whole quiz reads, or would read: for no question, with the
+ * widgeteds of those before it (of every widgeting, for one the quiz does not run).
  *
- * @example statusCounts(run, 'dumdum')  // => { ok: 3, errored: 1, missing: 2 }
+ * @example quizBagAt(run, { label: 'total', params: {} }).qns[0]?.clueing_full
+ */
+export function quizBagAt(run: QuizRun, widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
+  return quizBagOf(run.frame, run.quizAt.get(widgeting.label) ?? run.frame.quiz, run.qnsAt.get(widgeting.label) ?? run.qnsAfter, widgeting)
+}
+
+/**
+ * How many of a widgeting's cells are `ok`, `errored` and `missing`: one for each question, or the
+ * one of a widgeting for the whole quiz.
+ *
+ * @example statusCounts(run, 'dumdum')       // => { ok: 3, errored: 1, missing: 2 }
+ * @example statusCounts(run, 'playtesters')  // => { ok: 1, errored: 0, missing: 0 }
  */
 export function statusCounts(run: QuizRun, label: string): StatusCounts {
   const counts: StatusCounts = { ok: 0, errored: 0, missing: 0 }
+  if (isQuizWide(run, label)) {
+    counts[quizWidgetedOf(run, label).status] += 1
+    return counts
+  }
   for (const question_id of run.frame.question_ids) { counts[widgetedOf(run, label, question_id).status] += 1 }
   return counts
 }
@@ -279,13 +344,13 @@ function frameOf(quiz: QuizT, place: QuizPlace): BagFrame {
   }
 }
 
-/** Each question's bag for `widgeting`, in the quiz's order, over `qns` */
-function bagsOf(frame: BagFrame, qns: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag[] {
+/** Each question's bag for `widgeting`, in the quiz's order, over `quiz` and `qns` as they stand when it runs */
+function bagsOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag[] {
   const shared = qns as Record<string, unknown>[]
   return frame.qn_labels.map((qn_label, idx) => ({
     hunt:            frame.hunt,
     realm:           frame.realm,
-    quiz:            frame.quiz,
+    quiz,
     qns:             shared,
     qn:              shared[idx] ?? {},
     qn_label,
@@ -293,6 +358,11 @@ function bagsOf(frame: BagFrame, qns: readonly Record<string, unknown>[], widget
     params:          widgeting.params,
     widgeting_label: widgeting.label,
   }))
+}
+
+/** The one bag of a widgeting for the whole quiz: for no question, over `quiz` and `qns` as they stand when it runs */
+function quizBagOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
+  return { hunt: frame.hunt, realm: frame.realm, quiz, qns: qns as Record<string, unknown>[], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
 }
 
 /** A bag for no question, for a quiz with none */
@@ -330,6 +400,18 @@ function withWidgeteds(qns: readonly Record<string, unknown>[], label: string, w
 type Column = {
   widgeteds: WidgetedT[]
   inputs:    InputOutcome[] | null
+}
+
+/**
+ * One widgeting for the whole quiz worked out over its one bag, or projected from what the quiz
+ * stored for it; one whose widget is gone reads as that failure.
+ */
+function quizCellOf(step: RunStep, bag: QuizBag, quizStoredOf: RunSource['quizStoredOf']): WidgetedT {
+  const { widgeting, widget } = step
+  if (widget === null) { return Widgeted.errored({ message: GoneMessage(widgeting.widget_label), at: null, response: null }) }
+  const formulary = formularyFor(widget)
+  if (formulary.refresh === 'live') { return formulary.run(widget, widgeting, bag).widgeted }
+  return widgetedFrom(quizStoredOf(widgeting))
 }
 
 /** One widgeting worked out, or projected from what it stored (asked or typed), for every question */

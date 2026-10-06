@@ -171,6 +171,18 @@ describe("bagOf", () => {
     expect(Templating.bagOf(run, null).qn_label).to.eq('')
     expect(Templating.bagOf(run, 'nowhere').qn).to.deep.eq({})
   })
+
+  it("holds what each widgeting for the whole quiz came to, as quiz.<label>, which a recap's head fills in", () => {
+    const entered = { ...TwoQuiz, stored: { playtesters: typed('Ada and Grace') }, widgetings: [Widgeting.fill({ widget_label: 'authors', label: 'playtesters', tier: 'quiz' }), ...TwoQuiz.widgetings] }
+    const quizBag = Templating.bagOf(runOf(entered, Library), null)
+    expect(quizBag.quiz.playtesters).to.deep.include({ status: 'ok', value: 'Ada and Grace' })
+    expect(Templating.fill('Thanks to {{quiz.playtesters}}!', quizBag).markdown).to.eq('Thanks to Ada and Grace!')
+  })
+
+  it("offers no widgeting for the whole quiz for templating: it has no question's cell to fill", () => {
+    const entered = { ...TwoQuiz, widgetings: [Widgeting.fill({ widget_label: 'authors', label: 'playtesters', tier: 'quiz' }), ...TwoQuiz.widgetings] }
+    expect(Templating.templatableSources(entered, Library).map(({ source }) => source)).to.not.include('playtesters')
+  })
 })
 
 describe("sourceOfField", () => {

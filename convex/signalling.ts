@@ -15,10 +15,10 @@ import { SignalGrainMs, SignalValidators } from '../src/models/signal'
 
 /**
  * The tables whose rows make up a quiz's files: the quiz, its questions, widgetings and columns,
- * what its widgetings stored, and its reviews and their verdicts (only the shared ones are written,
+ * what its widgetings stored for its questions and for itself, and its reviews and their verdicts (only the shared ones are written,
  * so only a shared review's writes move the signal).
  */
-export const SignalledTables = ['quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'reviews', 'reviewings'] as const satisfies readonly TableNames[]
+export const SignalledTables = ['quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'quiz_widgeteds', 'reviews', 'reviewings'] as const satisfies readonly TableNames[]
 export type SignalledTablename = typeof SignalledTables[number]
 
 /** A row of a signalled table, as far as the trigger reads it: its hunt, and its quiz, review or phase where it has one */

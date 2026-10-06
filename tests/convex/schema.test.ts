@@ -50,6 +50,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
   widgets:     WidgetValidators.row,
   widgetings:  WidgetingValidators.row,
   widgeteds:   WidgetedValidators.row,
+  quiz_widgeteds: WidgetedValidators.quizRow,
 }
 
 /** A row's stamps, which the trigger writes once the row has landed (`convex/stamping.ts`), so that a row goes in without them */
@@ -141,6 +142,9 @@ async function samplesIn(tt: Tester): Promise<Samples> {
         result_meta: { model_tier_applied: 'quick', approx_tokens: 120, truncated: false, response: { error: { kind: 'overloaded', retry: [1, 2] } } },
       }),
       signals:     SignalValidators.row({ hunt_id, quiz_id, changed_at: 1_759_700_000_000 }),
+      quiz_widgeteds: WidgetedValidators.quizRow({
+        hunt_id, quiz_id, widgeting_id, status: 'ok', value: { names: ['Ada', 'Grace'] }, message: null, result_meta: { imported: true, nested: { deep: [1, 2] } },
+      }),
     }
   })
 }
@@ -161,6 +165,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   widgets:     { formulary: 'gadget' },
   widgetings:  { position: 'first' },
   widgeteds:   { status: 'pending' },
+  quiz_widgeteds: { quiz_id: 7 },
 }
 
 describe("every table and its row validator", () => {
@@ -207,6 +212,8 @@ describe("every table and its row validator", () => {
     ['widgetings', 'params',      "a widgeting's params",     (val: unknown) => ({ held: val })],
     ['widgeteds',  'value',       "a widgeted's value",       (val: unknown) => val],
     ['widgeteds',  'result_meta', "a widgeted's result_meta", (val: unknown) => ({ held: val })],
+    ['quiz_widgeteds', 'value',       "a quiz's widgeted's value",       (val: unknown) => val],
+    ['quiz_widgeteds', 'result_meta', "a quiz's widgeted's result_meta", (val: unknown) => ({ held: val })],
   ] as const
 
   for (const [tablename, fieldname, title, holding] of AnyJsonFields) {

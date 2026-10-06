@@ -82,6 +82,27 @@ describe('Widgeting.exposed', () => {
   })
 })
 
+describe('Widgeting.runsAt', () => {
+  const RunsAtCases = [
+    // regular usage:
+    [{ formulary: 'jsonata', config: {} },                                                     'quiz',     true,  'a formula runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'text' } },                                   'quiz',     true,  'a text entry runs once for the whole quiz'],
+    [{ formulary: 'entry', config: { entry_kind: 'number' } },                                 'quiz',     true,  'a number entry runs once for the whole quiz'],
+    // refused at the quiz's level:
+    [{ formulary: 'aibot', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } }, 'quiz', false, 'a model asked from a cell has no cell at the quiz\'s level'],
+    [{ formulary: 'entry', config: { entry_kind: 'estimates' } },                              'quiz',     false, 'a question\'s category estimates are no value of the quiz'],
+    // every widget runs for each question:
+    [{ formulary: 'aibot', config: { servicelabel: 'claude', model_tier: 'quick', max_tokens: 9 } }, 'question', true, 'a model runs for each question'],
+    [{ formulary: 'entry', config: { entry_kind: 'estimates' } },                              'question', true,  'category estimates run for each question'],
+  ] as const
+
+  for (const [widget, tier, expected, title] of RunsAtCases) {
+    it(title, () => {
+      expect(Widgeting.runsAt(widget, tier)).to.eq(expected)
+    })
+  }
+})
+
 describe('Widgeting.forWidget', () => {
   const ForWidgetCases: [string, string[], string, string][] = [
     // regular usage:

@@ -475,6 +475,14 @@ describe('importInto', () => {
       expect(enteredFor(outcome, 'leon')).to.deep.eq({ remark: 'Ask Flip.', points: null })
     })
 
+    it("reads no question's value under an entry run once for the whole quiz, held or added: it has no question's cell", () => {
+      const held = { ...enteredQuiz(), widgetings: [Widgeting.fill({ widget_label: 'remark', label: 'playtesters', tier: 'quiz' }), ...enteredQuiz().widgetings] }
+      expect(enteredFor(read(held, [{ label: 'leon', playtesters: 'Ada', points: 2 }]), 'leon')).to.deep.eq({ points: 2 })
+      const added = read(quizOf(['1', 'leon', 'Which region?']), { questions: [{ label: 'leon', prize: 'Glory' }], widgetings: [{ widget_label: 'remark', label: 'prize', tier: 'quiz' }] })
+      expect(added.widgetingActions).to.deep.eq([{ kind: 'add_widgeting', widgeting: { widget_label: 'remark', label: 'prize', description: '', params: {}, tier: 'quiz' } }])
+      expect(enteredFor(added, 'leon')).to.deep.eq({})
+    })
+
     it("types into the entries of a widgeting the same import adds", () => {
       const outcome = read(quizOf(['1', 'leon', 'Which region?']), { questions: [{ label: 'leon', remark: 'Fresh.' }], widgetings: [{ widget_label: 'remark', label: 'remark' }] })
       expect(outcome.widgetingActions.map((action) => action.kind)).to.deep.eq(['add_widgeting'])

@@ -119,6 +119,7 @@ export const WritingRules = {
   widgetings: HuntOwned,
   columns:    HuntOwned,
   widgeteds:  HuntOwned,
+  quiz_widgeteds: HuntOwned,
   huntings:   HuntOwned,
   reviews:    { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },
   reviewings: { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },

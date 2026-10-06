@@ -442,8 +442,9 @@ type MergeState = {
 }
 
 /**
- * The entry widgetings the quiz will hold once the import's widgeting actions are sent, by label,
- * each with the library's widget it works: those it holds, and those the import adds. One the paste
+ * The entry widgetings for each question the quiz will hold once the import's widgeting actions
+ * are sent, by label, each with the library's widget it works: those it holds, and those the
+ * import adds. One the paste
  * says works another widget is left out: what its cells hold came from that widget, not this entry.
  */
 function entryWidgetingsOf(quiz: QuizT, pasted: readonly unknown[], actions: readonly HuntActionDNA[], library: readonly WidgetT[]): ReadonlyMap<string, EntryWidgetT> {
@@ -453,7 +454,7 @@ function entryWidgetingsOf(quiz: QuizT, pasted: readonly unknown[], actions: rea
     return parsed.success ? [[parsed.data.label, parsed.data.widget_label] as const] : []
   }))
   const widgetFor = new Map(library.map((widget) => [widget.label, widget]))
-  return new Map([...quiz.widgetings, ...added].flatMap(({ label, widget_label }) => {
+  return new Map([...quiz.widgetings, ...added].filter((widgeting) => widgeting.tier === 'question').flatMap(({ label, widget_label }) => {
     const widget = widgetFor.get(widget_label)
     const elsewhere = pastedWorking.get(label)
     if (elsewhere !== undefined && elsewhere !== widget_label) { return [] }

@@ -42,6 +42,17 @@ describe('the bags formulas are actually given', () => {
     expect(QuizBagValidators.quizBag.safeParse(bag).success).to.be.true
   })
 
+  it("satisfy the schema for a widgeting run once for the whole quiz: no question, and the quiz's own widgeteds on the quiz", () => {
+    const quizWide = {
+      ...quiz,
+      widgetings: [Widgeting.fill({ widget_label: 'playtesters', label: 'playtesters', tier: 'quiz' }), ...quiz.widgetings, Widgeting.fill({ widget_label: 'question_count', label: 'total', tier: 'quiz' })],
+    }
+    const bag = present(Runner.bagsAt(runOf(quizWide), { label: 'total', params: {} }).get(question._id))
+    expect([bag.qn, bag.qn_label]).to.deep.eq([{}, ''])
+    expect(bag.quiz.playtesters).to.deep.include({ status: 'errored' })
+    expect(QuizBagValidators.quizBag.safeParse(bag).success).to.be.true
+  })
+
   it('name the failing field when one does not', () => {
     const bag = present(bags.get(question._id))
     const outcome = QuizBagValidators.quizBag.safeParse({ ...bag, qn_label: 'Not A Label' })
@@ -80,9 +91,15 @@ describe('inputSchema', () => {
   })
 
   it("tells a reader that every earlier widgeting's widgeted sits on a question under its label", () => {
-    const questionSchema = present(schema.properties).qn as { additionalProperties?: { oneOf?: unknown[] } }
-    expect(JSON.stringify(questionSchema.additionalProperties)).to.include('under that widgeting')
-    expect(questionSchema.additionalProperties?.oneOf).to.have.lengthOf(3)
+    const [questionSchema] = (present(schema.properties).qn as { anyOf: { additionalProperties?: { oneOf?: unknown[] } }[] }).anyOf
+    expect(JSON.stringify(present(questionSchema).additionalProperties)).to.include('under that widgeting')
+    expect(present(questionSchema).additionalProperties?.oneOf).to.have.lengthOf(3)
+  })
+
+  it("tells a reader that a quiz widgeting's widgeted sits on the quiz under its label, and that its own bag holds no question", () => {
+    const quizSchema = present(schema.properties).quiz as { additionalProperties?: unknown }
+    expect(JSON.stringify(quizSchema.additionalProperties)).to.include('quiz.playtesters.value')
+    expect(JSON.stringify(present(schema.properties).qn)).to.include('Empty for a widgeting run once for the whole quiz')
   })
 })
 

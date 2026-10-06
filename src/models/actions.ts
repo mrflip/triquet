@@ -27,7 +27,7 @@ export const LayoutActionKindVals = [
 export const ContentActionKindVals = [
   'retitle_quiz', 'relabel_quiz', 'set_smiths_note', 'set_q1_preamble', 'set_recap_head', 'set_recap_tail',
   'edit_question', 'add_question', 'delete_questions', 'set_viz', 'sort_questions', 'renumber_qnums', 'move_question',
-  'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'import_questions',
+  'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'enter_quiz_widgeted', 'import_questions',
 ] as const
 
 /** The actions that revise the quiz on screen: its contents and its layout, which a locked quiz refuses */
@@ -81,6 +81,7 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('sort_by_chain_order'), descending: bool }),
     obj({ kind: lit('record_widgeted'),     widgeted: WidgetedValidators.record }),
     obj({ kind: lit('enter_widgeted'),      entered: WidgetedValidators.entered }),
+    obj({ kind: lit('enter_quiz_widgeted'), entered: WidgetedValidators.quizEntered }),
     obj({ kind: lit('new_quiz'),            label: label.optional() }),
     obj({ kind: lit('delete_quiz'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_lock'),            quiz_id: zid('quizzes'), locked: bool }),

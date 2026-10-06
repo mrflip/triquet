@@ -233,8 +233,9 @@ export type TemplatableSourceT = {
 
 /**
  * The sources a quiz may nominate for templating, in the order an author is offered them: each
- * of its questions' fields an author writes markdown into, then each widgeting typed into as text,
- * in run order, and any other widgeting the quiz already templates, so it can be let go.
+ * of its questions' fields an author writes markdown into, then each widgeting for each question
+ * typed into as text, in run order, and any other such widgeting the quiz already templates, so it
+ * can be let go.
  *
  * @param quiz - The quiz: its widgetings, and what it templates now.
  * @param library - The library's widgets, which say what each widgeting is.
@@ -248,6 +249,7 @@ export function templatableSources(quiz: Pick<QuizT, 'widgetings' | 'templated'>
   const isText = (widget: WidgetT | undefined) => widget?.formulary === 'entry' && widget.config.entry_kind === 'text'
   const fields = TemplatableFieldVals.map((field) => ({ source: sourceOfField(field), title: Labelmaker.titleize(field) }))
   const widgetings = quiz.widgetings
+    .filter((widgeting) => widgeting.tier === 'question')
     .filter((widgeting) => isText(widgetFor.get(widgeting.widget_label)) || templates(quiz, widgeting.label))
     .map((widgeting) => ({ source: widgeting.label, title: Labelmaker.titleize(widgeting.label) }))
   return [...fields, ...widgetings]
