@@ -395,9 +395,9 @@ test('every dialog has a close button, and an editor is not dismissed by clickin
   const editor = page.getByRole('dialog', { name: 'Widgeting: hint_full' })
   await page.mouse.click(4, 4)
   await expect(editor).toBeVisible()
-  await editor.getByRole('button', { name: 'Close' }).click()
+  await editor.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(editor).toHaveCount(0)
-  await manageDialog(page).getByRole('button', { name: 'Close' }).click()
+  await manageDialog(page).getByRole('button', { name: 'Close', exact: true }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
