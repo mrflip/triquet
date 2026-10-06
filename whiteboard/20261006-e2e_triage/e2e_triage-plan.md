@@ -1,7 +1,7 @@
 # e2e triage: a suite that is fast, honest, and runs only its corner
 
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
-in session e2e_triage. **Status:** thread 1 landed (#156); thread 3 landing; thread 5 in review; thread 2 underway. Thread 6 (the lock) is **held**: the
+in session e2e_triage. **Status:** threads 1 and 3 landed (#156, #157); thread 5 in review; threads 2 and 4 underway. Thread 6 (the lock) is **held**: the
 sprint runner does not cut it until the Coach releases it, once threads 1 to 5 have been measured.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front

@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** thread 1 landed (#156); thread 3 landing (lane 2); thread 5 in review (lane 3); thread 2 underway (lane 1); thread 4 is cut when the first of these lands. Thread 6 held until the Coach releases it.
+**Status:** threads 1 and 3 landed (#156, #157); thread 5 in review (lane 3); threads 2 and 4 underway (lanes 1 and 2). Thread 6 held until the Coach releases it.
 
 ## Status
 
@@ -8,8 +8,8 @@
 |---|---|---|
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
 | 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
-| 3 | cover the error boundary | landing (lane 2) |
-| 4 | cover stats and the other light gaps | pending (when one of 2, 3, 5 lands) |
+| 3 | cover the error boundary | landed #157 |
+| 4 | cover stats and the other light gaps | underway (lane 2) |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | in review (lane 3) |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
@@ -85,4 +85,10 @@ could name `orgFrom` as the reason the address lets `~ghost_id` through.
   scope right if the top moved.
 * **Open for the Coach:** CLAUDE.md step 3 and the thread-worker agent's *Prove* still name only
   `pnpm e2e`. Whether sprint workers may prove with `--touched` is a policy call.
+
+*Orchestrator:* from thread 3's `landed` report: its proving run (lane 2, load 22.6) failed two
+specs that passed alone. `reviews.spec.ts`, the smith's note fold, failed a CSS check under load.
+`widgets.spec.ts`, "every dialog has a close button", has a real cause: its `Close` lookup is not
+exact and can match a generated title beginning "Closed…". Thread 4 adds `exact: true`, at the
+orchestrator's request.
 
