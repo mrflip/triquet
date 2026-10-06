@@ -58,6 +58,13 @@ const OverLong = 'This template comes to far too much text to show.'
 /** What one fill has left: lookups and section passes, shared by every context it pushes, and characters its tags may fill in */
 type Budget = { left: number, charsLeft: number }
 
+/**
+ * The writer every template is parsed and filled with: templating's own, its cache emptied after
+ * each use. A face fills its text in on every keystroke, and mustache's shared cache would keep
+ * every draft for as long as the page is open.
+ */
+const Filler = new Mustache.Writer()
+
 /** Spends one of `budget`, or stops the fill when none is left */
 function spend(budget: Budget): void {
   budget.left -= 1
@@ -136,10 +143,12 @@ export function fill(template: string, bag: TemplateBag): FilledT {
   if (issue !== null) { return { markdown: template, issue } }
   const budget: Budget = { left: FillBudget, charsLeft: FilledMax }
   try {
-    const markdown = Mustache.render(template, BagContext.over(bag, budget), undefined, { escape: (val: unknown) => spendChars(budget, fillingOf(val)) })
+    const markdown = Filler.render(template, BagContext.over(bag, budget), undefined, { escape: (val: unknown) => spendChars(budget, fillingOf(val)) })
     return markdown.length > FilledMax ? { markdown: template, issue: OverLong } : { markdown, issue: null }
   } catch (err) {
     return { markdown: template, issue: err instanceof Error ? err.message : OverBudget }
+  } finally {
+    Filler.clearCache()
   }
 }
 
@@ -155,15 +164,19 @@ export function fill(template: string, bag: TemplateBag): FilledT {
  * @example issueOf('By {{qn.author}}')        // => null
  */
 export function issueOf(template: string): string | null {
-  const unparsed = parseIssue(template)
-  if (unparsed !== null) { return unparsed }
-  const refused = spansOf(Mustache.parse(template)).find(([spankind]) => spankind === '&' || spankind === '>')
-  if (refused === undefined) { return null }
-  const [spankind, key, beg, end] = refused
-  const typed = template.slice(beg, end)
-  return spankind === '&'
-    ? `${typed} is not needed: write {{${key}}}, which fills in text as it is`
-    : `${typed} includes another template, and there are none to include`
+  try {
+    const unparsed = parseIssue(template)
+    if (unparsed !== null) { return unparsed }
+    const refused = spansOf(parsed(template)).find(([spankind]) => spankind === '&' || spankind === '>')
+    if (refused === undefined) { return null }
+    const [spankind, key, beg, end] = refused
+    const typed = template.slice(beg, end)
+    return spankind === '&'
+      ? `${typed} is not needed: write {{${key}}}, which fills in text as it is`
+      : `${typed} includes another template, and there are none to include`
+  } finally {
+    Filler.clearCache()
+  }
 }
 
 /**
@@ -275,10 +288,15 @@ function isWidgeted(val: unknown): val is WidgetedT {
   return typeof val === 'object' && val !== null && Object.hasOwn(val, 'status') && Object.hasOwn(val, 'value')
 }
 
+/** `template`, parsed by templating's own writer */
+function parsed(template: string): TemplateSpans {
+  return Filler.parse(template) as TemplateSpans
+}
+
 /** Why `template` does not parse as mustache, or null when it does */
 function parseIssue(template: string): string | null {
   try {
-    Mustache.parse(template)
+    parsed(template)
     return null
   } catch (err) {
     return err instanceof Error ? err.message : 'This does not read as a template'
