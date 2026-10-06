@@ -8,7 +8,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | Thread | Label | Status |
 |---|---|---|
 | 1 | Widen the recap fields | in review |
-| 2 | Markdown to bbjank | landing |
+| 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | pending |
 | 5 | The recap panel | pending |
@@ -27,12 +27,19 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   *Review:* clean. Left, minor: every panel's buttons share one name ("Show this panel", "Widen this
   panel to the whole row"), so a screen reader's button list repeats; `Stack` spacing may eat
   `.panelHeading`'s 4px bottom margin. Both in #161's open questions.
-* **bbjank (thread 2, in review).** For thread 5: keep `{AS: Qn}` on the clueing's first line (alone
+* **bbjank (thread 2, #162).** `Bbjank.toBbjank(markdown)` in `src/lib/bbjank.ts`. For thread 5: keep `{AS: Qn}` on the clueing's first line (alone
   on its line, a following `1. ...` reads as an ordered list); prefix *every* line of a multi-line
   clueing with `> ` after `Markdown.forScreen`, rather than relying on lazy continuation. The
   `~~**ANSWER**~~` spoiler path is solid. bbjank's link and image protocols (http/https; https)
   are its own, not `Markdown.Allowlist`'s: thread 4 widens the allowlist for images, thread 7 decides
   whether they share one source.
+  *Review:* fixed two: an HTML block's indented lines were read as quotes (now exempt); an unnamed
+  quote that came to nothing wrote an empty `[list][/list]` (now left out). Left, minor: link
+  definitions inside a quote or list item aren't collected and a twice-defined label resolves to
+  the last (`mdast-util-definitions` fixes both; the reviewer's add was refused by the session's
+  permission check, so it waits on the Coach); a fenced code block in a list item gains the item's
+  indent (TODO); `\[b\]` and `[/code]` in code reach the board live; `{AS:}` empty gives
+  `[quote=""]`, and a multi-line annotation puts a newline in `[spoiler=..]`.
 
 * **Fields (thread 1, in review).** Newer than the plan's Decision 3: quiz `templated` names what
   it templates the way a column names what it shows, `question.<field>` or a widgeting's label;
