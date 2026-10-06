@@ -102,6 +102,14 @@ describe('localBlankLabel', () => {
     }
   })
 
+  it('never mints a label a hunt could not take', () => {
+    // Seven of the generator's 1202 adjectives begin with a top-level prefix (`helpful`,
+    // `secure`, `official`...): 2000 draws would meet one all but certainly were they not re-rolled.
+    const reserved = Array.from({ length: 2000 }, () => Labelmaker.localBlankLabel(new Set(), 'fallback'))
+      .filter((label) => Labelmaker.isReserved(label, { toplevel: true }))
+    expect(reserved).to.deep.eq([])
+  })
+
   it('falls back once every attempt collides', () => {
     const label = Labelmaker.localBlankLabel(new Set(), 'fallback')
     const alwaysTaken = { has: () => true } as unknown as ReadonlySet<string>

@@ -12,18 +12,19 @@ const LocalBlankLabelAttemptsMax = 20
 
 /**
  * A fresh `adjective_animal` label absent from `existingLabels`, or `fallback` made into a label
- * once re-rolling stops being worth it.
+ * once re-rolling stops being worth it. It is never reserved, top-level words and prefixes
+ * included (`helpful_otter` begins as `help` does), so it will do for a hunt as for anything else.
  *
  * @param existingLabels - Labels already spoken for, checked before each attempt.
  * @param fallback - Normalized and handed back after too many collisions; callers pass a freshly minted id.
- * @returns A label absent from `existingLabels`, or `fallback` normalized.
+ * @returns A label absent from `existingLabels` and reserved nowhere, or `fallback` normalized.
  *
  * @example localBlankLabel(new Set(), mintId())  // => 'quiet_otter', say
  */
 export function localBlankLabel(existingLabels: ReadonlySet<string>, fallback: string): string {
   for (let attempt = 0; attempt < LocalBlankLabelAttemptsMax; attempt += 1) {
     const candidate = uniqueNamesGenerator({ dictionaries: [adjectives, animals], separator: '_', style: 'lowerCase' })
-    if (! existingLabels.has(candidate)) { return candidate }
+    if (! (existingLabels.has(candidate) || isReserved(candidate, { toplevel: true }))) { return candidate }
   }
   return normalize(fallback)
 }
