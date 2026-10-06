@@ -36,9 +36,11 @@ jobs:
       group: ${{ github.workflow }}-${{ github.head_ref }}
       cancel-in-progress: true
     env:
+      # The token is a secret; the two IDs are variables (Doppler syncs an unmasked value to
+      # GitHub's variables, where `secrets.` reads it as empty).
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
       # The branch goes in by the environment, never spliced into a command: a branch name is
       # whatever its pusher typed.
       BRANCH: ${{ github.event.pull_request.head.ref }}
@@ -48,12 +50,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Check the Vercel secrets
+      - name: Check the Vercel secret and variables
         run: |
           missing=0
-          for secret in VERCEL_TOKEN VERCEL_PROJECT_ID VERCEL_TEAM_ID; do
-            if [ -z "${!secret}" ]; then
-              echo "::error::The repository secret $secret is not set (notes/env_vars_tokens_and_keys.md)"
+          for setting in VERCEL_TOKEN VERCEL_PROJECT_ID VERCEL_TEAM_ID; do
+            if [ -z "${!setting}" ]; then
+              echo "::error::$setting is not set as a repository secret or variable (notes/env_vars_tokens_and_keys.md)"
               missing=1
             fi
           done
