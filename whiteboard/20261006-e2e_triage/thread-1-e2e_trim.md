@@ -1,7 +1,8 @@
 # Thread 1: Trim the vacuous and duplicate specs, and mend the practice gaps (2026-10-06)
 
-Branch `20261006-e2e_trim`. PR filed at landing; see the report. Suites: `pnpm justify` green
-(4399 unit tests). The touched specs are green in lane 1. One known flake reproduced (below).
+Branch `20261006-e2e_trim`. PR filed at landing; see the report.
+The review added one commit: `failures` "never a code" now also refuses the stub's error name and status. Suites: `pnpm justify` green
+(4399 unit tests), and `pnpm e2e` proved: 239 passed, no flakes in the proving run. One known flake turned up during the build (below).
 
 **No spec file was deleted or merged.** Thread 5's map can name the same 23 spec files as before.
 
@@ -10,9 +11,9 @@ Branch `20261006-e2e_trim`. PR filed at landing; see the report. Suites: `pnpm j
 | | Tests | Test-seconds | Wall | Load | Cache |
 |---|---|---|---|---|---|
 | Before (progress baseline, lane 1, 10:09) | 259 | 1006 | 157 s, 7 workers | 2 at start | seeded |
-| After (proving run at landing) | *filled in at landing* | | | | |
+| After (proving run, lane 1, 11:30) | 239 | 942 | 149 s, 7 workers | 3.2 at start, 10.6 at end | warm |
 
-`e2e/` now holds 236 `test(...)` calls, down from 256. The 259 counts the setup project as well.
+`e2e/` now holds 236 `test(...)` calls, down from 256. The 259 and 239 count the setup project as well. The mean test is unchanged at 3.9 s: the twenty cut were average tests, so the saving is about 64 test-seconds (6%). Wall time barely moves, since the run is bound by its slowest workers. Thread 2's way in is where the time is.
 
 * **Built**
   * Twenty e2e tests deleted, each one named in the plan.
