@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, expect, exportedQuizzes, grid, newQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
+import { addColumns, expect, exportedQuizzes, grid, newQuiz, openQuiz, preparedExport, showTab, test, waitUntilSaved } from './support'
 
 /** The Import box, its tab brought to the front */
 async function importBox(page: Page) {
@@ -139,6 +139,26 @@ test("a hunt pasted into a quiz matching none of its quizzes goes to the quiz of
   await expect(page).toHaveURL(new RegExp(`/${label}/!edit$`))
   await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('Sent along')
   await expect(grid(page).locator('tbody tr')).toHaveCount(1)
+})
+
+test('a hunt sent on to a quiz that is locked is not read there, and not kept to be read once it is unlocked', async ({ page }) => {
+  await newQuiz(page)
+  const label = new URL(page.url()).pathname.split('/').at(-2) ?? ''
+  const title = await page.getByLabel('Quiz name').inputValue()
+  await page.getByRole('button', { name: 'Lock quiz' }).click()
+  await expect(page.getByRole('button', { name: 'Unlock quiz' })).toBeVisible()
+  await openQuiz(page, 'Quiz one')
+  await runImport(page, { label: 'another_hunt', quizzes: { home: { [label]: { questions: { leon: { position: 0, clueing: 'Sent along' } } }, other: { questions: {} } } } })
+  await expect(page).toHaveURL(new RegExp(`/${label}/!edit$`))
+  await expect(page.getByRole('status').filter({ hasText: 'This quiz is locked' })).toBeVisible()
+  await expect(grid(page).locator('tbody tr')).toHaveCount(5)
+
+  await page.getByRole('button', { name: 'Unlock quiz' }).click()
+  await expect(page.getByRole('button', { name: 'Lock quiz' })).toBeVisible()
+  await openQuiz(page, 'Quiz one')
+  await openQuiz(page, title)
+  await expect(grid(page).locator('tbody tr')).toHaveCount(5)
+  await expect(fieldAt(page, 'Clueing', 0)).toHaveValue('')
 })
 
 test('importing is refused while the quiz is locked', async ({ page }) => {

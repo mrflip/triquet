@@ -54,6 +54,7 @@ export const AppNotices = {
   archivingQuestions:   "An archived question leaves the grid, the playtest and the exports, but stays with the quiz. To un-archive it, open the gear (Manage this quiz) and find it under Archived questions.",
   showingQuestions:     "A secondary question is an alternate: its title is shown in italics with (alt) after it, and it sorts after its peers. An archived one leaves the grid, the playtest and the exports; un-archive it from the gear's Archived questions.",
   noArchivedQuestions:  'No questions are archived.',
+  importSentToLocked:   'This quiz is locked, so the paste sent here from another quiz was not read. Unlock it and paste again.',
 } as const
 
 /** Why the server refused a change, or a request, in the author's language: one per `failurekind` */

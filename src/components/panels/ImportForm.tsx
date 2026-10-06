@@ -5,6 +5,7 @@ import { Button, TextField } from '@mui/material'
 import clsx from 'clsx'
 import * as PendingImports from '../pending-imports'
 import * as Importing from '../../lib/importing'
+import { AppNotices } from '../../lib/notices'
 import type { ElsewhereT } from '../../lib/importing'
 import type { HuntActionDNA } from '../../models/actions'
 import type { QuizT } from '../../models/quiz'
@@ -47,8 +48,11 @@ export function ImportForm({ hunt_id, quiz, library, locked, onImport, onElsewhe
     const pending = locked ? null : PendingImports.peek(pendingKey)
     return pending && Importing.importInto(quiz, pending.pasted, library, { take: pending.take })
   })
+  // A paste sent to a locked quiz is not read, nor kept to be read on a later visit: it is let
+  // go, and the summary says so.
+  const [turnedAway] = useState(() => locked && PendingImports.peek(pendingKey) !== null)
   const [shown, setShown] = useState<Importing.ImportOutcome | null>(arrival)
-  const { summary = null, ok = false, log = [], widgetingLog = [], columnLog = [], fieldLog = [] } = shown ?? {}
+  const { summary = turnedAway ? AppNotices.importSentToLocked : null, ok = false, log = [], widgetingLog = [], columnLog = [], fieldLog = [] } = shown ?? {}
 
   const runImport = () => {
     const outcome = Importing.importInto(quiz, pasted, library)
@@ -76,6 +80,9 @@ export function ImportForm({ hunt_id, quiz, library, locked, onImport, onElsewhe
     reported(arrival)
     if (arrival.questions !== null) { onImport(arrival.actions) }
   }, [arrival, onImport, pendingKey])
+  useEffect(() => {
+    if (turnedAway) { PendingImports.clear(pendingKey) }
+  }, [turnedAway, pendingKey])
 
   return (
     <>
