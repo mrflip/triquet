@@ -23,6 +23,9 @@ import type { QuizT } from '../models/quiz'
  */
 export const CorrectPctRE = /^(?:correct_(?:answer_)?(?:pct|percent)|(?:pct|percent)_correct)$/
 
+/** What a question's answer line opens with, ahead of the answer's spoiler */
+const AnswerLead = 'Answer: '
+
 /** Where one question sits in the recap: its number, the question whose hint is its BUT NOT, and its correct-answer share */
 type PlacedT = {
   number: number
@@ -77,13 +80,26 @@ export function bbjankOf(quiz: QuizT, run: Runner.QuizRun): string {
  */
 export function blockOf(question: QuestionT, { number, target, pct }: Readonly<PlacedT>): string {
   const body = Bbjank.toBbjank(LLSmithExport.bodyOf(question, target))
-  const answer = Bbjank.toBbjank(question.full_answer.split('\n').map((line) => line.trim()).filter((line) => line !== '').join(' '))
+  const answer = answerOf(question.full_answer)
   const recap = Bbjank.toBbjank(question.recap)
   return [
     `[quote="Q${String(number)}"]${String(number)}. ${body}[/quote]`,
     '',
-    `Answer: [spoiler][b]${answer}[/b][/spoiler]`,
+    `${AnswerLead}[spoiler][b]${answer}[/b][/spoiler]`,
     pct === '' ? 'Correct Answer %:' : `Correct Answer %: ${pct}`,
     ...(recap === '' ? [] : [recap]),
   ].join('\n')
+}
+
+/**
+ * A full answer in bbjank, its lines folded into one. It is converted as the rest of its line,
+ * after `Answer: `, so nothing it opens with reads as a list, a quote, a rule or a link
+ * definition, and none of it is lost.
+ *
+ * @example answerOf('1984.')                 // => '1984.'
+ * @example answerOf('HAMILTON\n*or* ROWAN')  // => 'HAMILTON [i]or[/i] ROWAN'
+ */
+function answerOf(fullAnswer: string): string {
+  const folded = fullAnswer.split('\n').map((line) => line.trim()).filter((line) => line !== '').join(' ')
+  return Bbjank.toBbjank(AnswerLead + folded).slice(AnswerLead.length)
 }

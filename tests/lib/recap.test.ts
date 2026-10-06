@@ -151,6 +151,18 @@ describe('Recap.blockOf', () => {
     expect(Recap.blockOf(question, { number: 1, target: null, pct: '' })).to.contain('Answer: [spoiler][b]HAMILTON (accept ROWAN)[/b][/spoiler]')
   })
 
+  it.each([
+    ['1984.',               '1984.'],
+    ['2. Bob',              '2. Bob'],
+    ['- HAMILTON\n- ALEX',  '- HAMILTON - ALEX'],
+    ['> HAMILTON',          '> HAMILTON'],
+    ['---',                 '---'],
+    ['[x]: https://ex.com', '[x]: [url]https://ex.com[/url]'],
+  ])('writes an answer opening %j as typed, never as a list, quote, rule or definition', (fullAnswer, expected) => {
+    const question = questionWith({ full_answer: fullAnswer })
+    expect(Recap.blockOf(question, { number: 1, target: null, pct: '' })).to.contain(`Answer: [spoiler][b]${expected}[/b][/spoiler]`)
+  })
+
   it('writes an answer\'s own emphasis inside the bold', () => {
     const question = questionWith({ full_answer: '*Hamlet*' })
     expect(Recap.blockOf(question, { number: 3, target: null, pct: '' })).to.contain('Answer: [spoiler][b][i]Hamlet[/i][/b][/spoiler]')
