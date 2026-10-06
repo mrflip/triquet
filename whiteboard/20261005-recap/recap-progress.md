@@ -10,9 +10,9 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 1 | Widen the recap fields | landed #163 |
 | 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
-| 4 | Field templates | landing |
-| 5 | The recap panel | pending |
-| 6 | Quiz-level widgetings and entries | pending |
+| 4 | Field templates | landed #164 |
+| 5 | The recap panel | underway |
+| 6 | Quiz-level widgetings and entries | underway |
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
@@ -55,7 +55,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   `human/20261006-recap_widen.md`; a hit needs a relabelling migration); an old export from such a
   quiz has its questions skipped at import, logged.
 
-* **Templates (thread 4, in review).** `src/lib/templating.ts`: `fill(template, bag)` -> `{ markdown,
+* **Templates (thread 4, #164).** `src/lib/templating.ts`: `fill(template, bag)` -> `{ markdown,
   issue }`, never throws; `bagOf(run, question_id | null)` is the one bag builder (formula's bag
   minus `params`/`widgeting_label`, questions after every widgeting ran; `null` for quiz texts);
   `filledQuiz(quiz, run)`. A widgeted fills in as its value. Mustache reads only the bag's own keys
