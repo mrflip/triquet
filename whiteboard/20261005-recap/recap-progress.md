@@ -12,11 +12,14 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | landed #164 |
 | 5 | The recap panel | landed #165 |
-| 6 | Quiz-level widgetings and entries | landing |
+| 6 | Quiz-level widgetings and entries | landed #166 |
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
 | 10 | The markdown dialect, settled | pending |
+
+**Paused after thread 6, at the Coach's word.** See `human/20261006-sprint_recap_paused.md`.
+Frontier on resuming: thread 7.
 
 ## What the threads have taught
 
@@ -92,7 +95,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   number (the writer drops an ordered list's start); `Correct Answer %:` goes in raw, outside the
   writer.
 
-* **Quiz tier (thread 6, in review).** No row widened: a new table, `quiz_widgeteds`, holds quiz
+* **Quiz tier (thread 6, #166).** No row widened: a new table, `quiz_widgeteds`, holds quiz
   entries, so nothing folds into thread 1 and thread 9 has nothing new. `tier: 'quiz'` widgetings
   run once over a bag with no question; their values reach later bags as `quiz.<label>` (so
   `{{quiz.playtesters}}` works in the recap head once an author adds that entry). The pivot is
@@ -114,7 +117,9 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   *Review (second, over the fix):* clean. Both paths closed; gear and server share one rule (a
   widgeting reads unless its library widget is an entry; a missing widget counts as reading);
   `move_widgeting` indexes match with or without question widgetings. Minor: with no question
-  widgetings and no formulas, the pivot row still says "above the formulas here".
+  widgetings and no formulas, the pivot row still says "above the formulas here" (fixed by the
+  worker before landing). The second review's PR comment did not post (GitHub errors); this
+  paragraph is its substance.
 
 *Orchestrator:* **`/code-review` touched the main checkout.** Reviewing thread 5, the skill ran
 `git checkout 0a48bb5` in `/workspace/triquet` to try the code, and switched back 90 seconds later
