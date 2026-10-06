@@ -81,6 +81,56 @@ export function reservedOf(words: readonly string[]): Patternbag & { re: RegExp,
   return { re: new RegExp(`^(?!(?:${words.join('|')})$)`), msg: `should not be any of ${words.join(', ')}, which the questions already use` }
 }
 
+/** The tool's own nouns, one and many: its tables, and the things its rows and bags are made of */
+const ModelNouns = [
+  ['hunt', 'hunts'], ['realm', 'realms'], ['quiz', 'quizzes'], ['question', 'questions'],
+  ['column', 'columns'], ['widget', 'widgets'], ['widgeting', 'widgetings'], ['widgeted', 'widgeteds'],
+  ['ident', 'idents'], ['identing', 'identings'], ['hunting', 'huntings'], ['review', 'reviews'],
+  ['reviewing', 'reviewings'], ['persona', 'personas'], ['estimate', 'estimates'], ['ish', 'ishes'],
+  ['layout', 'layouts'], ['library', 'libraries'], ['user', 'users'],
+] as const
+
+/**
+ * The words no label may be, wherever it is used, grouped by why. Each is a word a label could
+ * one day be mistaken for, beside the fields of a row, in a formula's bag, in an export's columns
+ * or in a path, and so trouble that is cheap to refuse now and dear to unpick later. What only one
+ * namespace must avoid is that namespace's own list (`ReservedWidgetingLabels`).
+ *
+ * `category` and `categories` are not here, though categories are a noun of the tool: the
+ * library's category-estimate widget is labelled `categories`, and so is every widgeting of it.
+ */
+export const ReservedLabelGroups = {
+  /** What rows carry beside their label, to say what and where they are and when they were made */
+  fields:      [
+    'id', 'ids', 'label', 'labels', 'position', 'kind', 'type',
+    'created_at', 'createdat', 'updated_at', 'updatedat', 'deleted_at', 'deletedat', 'creation_time', 'creationtime',
+  ],
+  /** The tool's own nouns, and what a formula's bag calls a question and its quiz's questions */
+  models:      [...ModelNouns.flat(), 'qn', 'qns', 'bag'],
+  /** A noun and `id` run together: what a pointer to a row would be called with its underbar dropped */
+  pointers:    ModelNouns.flatMap(([one]) => [`${one}id`, `${one}ids`]),
+  /** Names every plain object answers to, so a lookup by label finds something the bag never held */
+  prototypes:  ['constructor', 'prototype'],
+  /** What JSON, JSONata and a spreadsheet read as no value, or as yes or no, rather than as a word: a formula cannot name `qn.null` */
+  literals:    ['null', 'nil', 'none', 'undefined', 'nan', 'inf', 'infinity', 'true', 'false'],
+  /** Names Windows will not give a file, whatever its extension: a hunt, realm or quiz is a folder or file in the git repository it exports to */
+  devices:     ['con', 'prn', 'aux', 'nul', ...Array.from({ length: 10 }, (_unused, digit) => [`com${String(digit)}`, `lpt${String(digit)}`]).flat()],
+  /** What an address might one day say beside a label, as `/h/new` */
+  routes:      ['new', 'edit', 'api', 'admin'],
+} as const
+
+/** Every reserved word, each group's in turn */
+export const ReservedLabels: readonly string[] = Object.values(ReservedLabelGroups).flat()
+
+/**
+ * A label that is no reserved word, and does not end in `_id` or `_ids`, which is how a pointer
+ * to a row is named. Says nothing of the label's shape, which is `Label`'s business.
+ */
+export const Unreserved = {
+  re:  new RegExp(`^(?!(?:${ReservedLabels.join('|')})$)(?!.*_ids?$)`),
+  msg: 'is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2',
+} as const satisfies Patternbag
+
 /** A Convex document id: lowercase letters and digits, about 32 of them */
 export const Convexid   = { re: /^[0-9a-z]{31,37}$/, min: 31, max: 37, msg: 'should be a document id, 31 to 37 lowercase letters/numbers' } as const satisfies Patternbag
 

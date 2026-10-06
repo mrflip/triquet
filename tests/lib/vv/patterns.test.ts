@@ -39,3 +39,64 @@ describe('reservedOf', () => {
     expect(none.re.test('')).to.be.false
   })
 })
+
+const UnreservedCases: [string, boolean, string][] = [
+  // regular usage, one from each group:
+  ["position",      false,  'a field rows carry beside their label is refused'],
+  ["createdat",     false,  'a field is refused with its underbar dropped, too'],
+  ["quizzes",       false,  'a noun of the tool is refused, many as well as one'],
+  ["qn",            false,  'what a formula\'s bag calls a question is refused'],
+  ["widgetingid",   false,  'a pointer to a row is refused with its underbar dropped'],
+  ["constructor",   false,  'a name every plain object answers to is refused'],
+  ["null",          false,  'a word read as no value is refused'],
+  ["com7",          false,  'a name Windows will not give a file is refused'],
+  ["new",           false,  'a word an address might one day hold is refused'],
+  ["dumdum",        true,   'a word on no list is allowed'],
+  // the pointer suffix:
+  ["quiz_id",       false,  'a label ending in _id is refused, as a pointer to a row'],
+  ["anything_ids",  false,  'a label ending in _ids is refused, whatever comes before it'],
+  ["squid",         true,   'ending in "id" without an underbar is another word'],
+  ["id_card",       true,   'beginning with "id_" is another word'],
+  ["quiz_idx",      true,   'an _id run on is another word'],
+  // near misses, which must be allowed:
+  ["position_2",    true,   'a reserved word with a suffix is another word'],
+  ["my_label",      true,   'a reserved word at the end of a longer one is another word'],
+  ["quizzical",     true,   'a reserved word run on is another word'],
+  ["com10",         true,   'only one digit makes a device name'],
+  ["categories",    true,   'the category-estimate widget\'s label is allowed: production holds widgetings under it'],
+  ["title",         true,   'a question\'s own fields are reserved only where they would be shadowed, among widgetings'],
+  ["home",          true,   'the label every hunt\'s first realm takes is allowed'],
+  ["main",          true,   'the branch every hunt starts on is allowed'],
+  ["key",           true,   'an everyday word a question might be titled is allowed'],
+  // trivial cases:
+  ["",              true,   'an empty string is not reserved: refusing it is the label pattern\'s job'],
+]
+
+describe('Unreserved', () => {
+  for (const [word, allowed, describes] of UnreservedCases) {
+    it(`${describes} (${word || 'blank'})`, () => {
+      expect(PA.Unreserved.re.test(word)).to.eq(allowed)
+    })
+  }
+
+  it("refuses every reserved word", () => {
+    expect(PA.ReservedLabels.filter((word) => PA.Unreserved.re.test(word))).to.deep.eq([])
+  })
+})
+
+describe('ReservedLabels', () => {
+  it("holds only words a label could otherwise be, so none is there for nothing", () => {
+    const unshaped = PA.ReservedLabels.filter((word) => ! (PA.Label.re.test(word) && word.length <= PA.Label.max))
+    expect(unshaped).to.deep.eq([])
+  })
+
+  it("names each word once", () => {
+    expect(new Set(PA.ReservedLabels).size).to.eq(PA.ReservedLabels.length)
+  })
+
+  it("is every group's words, in turn", () => {
+    expect(PA.ReservedLabels).to.deep.eq(Object.values(PA.ReservedLabelGroups).flat())
+    expect(PA.ReservedLabelGroups.devices).to.include.members(['con', 'nul', 'com0', 'com9', 'lpt0', 'lpt9'])
+    expect(PA.ReservedLabelGroups.pointers).to.include.members(['huntid', 'huntids', 'quizid', 'quizids'])
+  })
+})

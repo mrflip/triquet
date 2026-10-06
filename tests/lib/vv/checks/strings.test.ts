@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as Z from 'zod'
 import * as CK from '../../../../src/lib/vv/checks/strings'
 import { accepts, rejects } from '../../../support/checking'
 
@@ -86,7 +87,8 @@ describe('lengths', () => {
 
 describe('identifiers', () => {
   const Cases: [keyof typeof CK, string[], string[]][] = [
-    ['label',     ['abc', 'a_1', 'ab', 'x'.repeat(40)],  ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41)]],
+    ['label',     ['abc', 'a_1', 'ab', 'x'.repeat(40), 'position_2', 'categories'],  ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41), 'position', 'null', 'con', 'quiz_id']],
+    ['labelshape', ['abc', 'a_1', 'position', 'null', 'quiz_id'], ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41)]],
     ['dashlabel', ['a-b', 'abc', 'a_1'],      ['Abc', '1abc', '']],
     ['identlabel', ['sixsix', 'flip_k', 'a1b2c3', 'x'.repeat(24)], ['fivee', 'Flipper', '1flipper', 'flip__k', 'flipper_', 'x'.repeat(25)]],
     ['handleish', ['abc', 'a_1'],             ['Abc', '1abc', 'a-b', '', 'x'.repeat(37)]],
@@ -109,12 +111,20 @@ describe('identifiers', () => {
   }
 })
 
+describe('label in a template', () => {
+  // A template takes its pattern from the label's own: the reservation must not stand in for it.
+  const Sortkey = Z.templateLiteral(['column:', CK.label])
+  it('takes a template of a label', () => { accepts(Sortkey, 'column:title') })
+  it('refuses a template of something no label is', () => { rejects(Sortkey, 'column:Title') })
+})
+
 // A pattern's advice IS its contract: it is the only thing telling a caller what shape was
 // wanted. These pin the phrasings worth keeping. Everything about how a message is assembled
 // is tested once, in reporting.test.ts, rather than again at every check.
 describe('the advice each pattern gives', () => {
   const Cases: [keyof typeof CK, string, string][] = [
     ['label',     'Abc',       'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row'],
+    ['label',     'position',  'is a word the tool keeps for its own use'],
     ['handleish', 'Abc',       'should be all lowercase'],
     ['camel',     'abc',       'should be an UpperFirstLetterCamelCased name'],
     ['locamel',   'Abc',       'should be a lowerFirstLetterCamelCased name'],
@@ -138,6 +148,9 @@ describe('the advice each pattern gives', () => {
     expect(said).to.include('should be all lowercase')
     expect(said).to.include('with a letter first')
     expect(said).to.include(';; ')
+  })
+  it('refuses a reserved word for its word alone, its shape being fine', () => {
+    expect(rejects(CK.label, 'position')).not.to.include(';; ')
   })
   it('renders a control character visibly rather than emitting it', () => {
     expect(rejects(CK.textish, `a${Ctrl}b`)).to.include('~^x01')

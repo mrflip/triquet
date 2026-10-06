@@ -50,7 +50,14 @@ export const blobbish = str.regex(PA.Textish.re, PA.Textish.msg).max(PA.Blobbish
 // == [Identifiers] == names a machine reads
 //
 
-export const label     = lower.min(PA.Label.min).max(PA.Label.max).regex(PA.Label.re, PA.Label.msg).describe('simple label')
+/** Shaped as a label, whatever the word: what a label typed is cleaned up against before anyone asks whether it may be used */
+export const labelshape = lower.min(PA.Label.min).max(PA.Label.max).regex(PA.Label.re, PA.Label.msg).describe('label-shaped text')
+/**
+ * A label: label-shaped, and none of the words the tool keeps for its own use (`PA.ReservedLabels`).
+ * The reservation is a refinement rather than a second pattern, so a template built from a label
+ * (`column:<label>`) still reads the label's shape as its pattern.
+ */
+export const label     = labelshape.refine((val) => PA.Unreserved.re.test(val), PA.Unreserved.msg).describe('simple label')
 export const identlabel = lower.min(PA.Identlabel.min).max(PA.Identlabel.max).regex(PA.Identlabel.re, PA.Identlabel.msg).describe('ident label')
 export const dashlabel = lower.min(PA.Dashlabel.min).max(PA.Dashlabel.max).regex(PA.Dashlabel.re, PA.Dashlabel.msg).describe('dash-separated label')
 export const handleish = lower.min(PA.Handleish.min).max(PA.Handleish.max).regex(PA.Handleish.re, PA.Handleish.msg).describe('record handle')

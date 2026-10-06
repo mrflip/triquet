@@ -2,9 +2,10 @@ import { adjectives, animals, uniqueNamesGenerator } from 'unique-names-generato
 import _ from 'es-toolkit/compat'
 import { mintId } from './ids'
 import * as PA from './vv/patterns'
-import { Validator } from './validator'
+import * as CK from './vv/checks/strings'
 
-const LabelValidators = Validator(({ label }) => ({ label }))
+/** The reserved words, to grow past as a sibling's label is grown past */
+const Reserved: ReadonlySet<string> = new Set(PA.ReservedLabels)
 
 /** How many adjective-animal pairs to try before giving up on a collision-free one */
 const LocalBlankLabelAttemptsMax = 20
@@ -46,21 +47,24 @@ export function appendFallback(str: string, fallback: string = mintId().slice(-F
 
 /**
  * `label` itself when it is free, else the first of `label_2`, `label_3`, ... that is: the stem
- * cut short where needed so the whole still fits in a label.
+ * cut short where needed so the whole still fits in a label. A word no label may be
+ * (`PA.ReservedLabels`) is never free, whatever `taken` holds.
  *
  * @param label - The label wanted.
- * @param taken - Labels already spoken for, the reserved ones among them.
- * @returns A label absent from `taken`.
+ * @param taken - Labels already spoken for, any reserved only in this namespace among them.
+ * @returns A label absent from `taken`, and no reserved word.
  *
  * @example firstFree('dumdum', new Set())                       // => 'dumdum'
  * @example firstFree('dumdum', new Set(['dumdum', 'dumdum_2']))  // => 'dumdum_3'
+ * @example firstFree('position', new Set())                     // => 'position_2'
  */
 export function firstFree(label: string, taken: ReadonlySet<string>): string {
-  if (! taken.has(label)) { return label }
+  const isFree = (candidate: string) => ! (taken.has(candidate) || Reserved.has(candidate))
+  if (isFree(label)) { return label }
   for (let nth = 2; ; nth += 1) {
     const suffix = `_${String(nth)}`
     const candidate = `${_.trimEnd(label.slice(0, PA.Label.max - suffix.length), '_')}${suffix}`
-    if (! taken.has(candidate)) { return candidate }
+    if (isFree(candidate)) { return candidate }
   }
 }
 
@@ -75,9 +79,13 @@ export type NormalizeOpts = {
  * Repaired afterward so it always starts with a letter and is never shorter than two
  * characters, then validated against the `label` shape on the way out.
  *
+ * A reserved word (`PA.ReservedLabels`) comes back as it is, for the label's validator to refuse
+ * in words the author can act on: quietly turning `position` into something else would leave
+ * them wondering where their label went.
+ *
  * @param str - Whatever the author typed; a blank string is a legal "no label yet".
  * @param opts - `maxlen` caps the cleaned body before the repairs run.
- * @returns A valid `label`, or `''` when `str` was blank.
+ * @returns A label-shaped string, or `''` when `str` was blank.
  *
  * @example normalize('Hello, World!')  // => 'hello_world'
  * @example normalize('clueing_full')   // => 'clueing_full'
@@ -88,12 +96,26 @@ export function normalize(str: string, opts: Readonly<NormalizeOpts> = {}): stri
   return repaired(_.trim(_.deburr(str).toLowerCase().replaceAll(/[\W_]+/g, '_'), '_'), opts.maxlen)
 }
 
-/** `cleaned`, cut to length without a trailing underscore, made to start with a letter and be two characters long, then validated as a label */
+/** `cleaned`, cut to length without a trailing underscore, made to start with a letter and be two characters long, then validated as label-shaped */
 function repaired(cleaned: string, maxlen: number = PA.Label.max): string {
   let label = _.trimEnd(cleaned.slice(0, Math.min(maxlen, PA.Label.max)), '_')
   if (! /^[a-z]/.test(label)) { label = `z${label}`.slice(0, PA.Label.max) }
   if (label.length < 2) { label += 'z' }
-  return LabelValidators.label(label)
+  return CK.labelshape.parse(label)
+}
+
+/**
+ * Whether `label` is a word no label may be (`PA.ReservedLabels`), or ends as a pointer to a row
+ * does: what lets a field say why a label of the right shape is still refused.
+ *
+ * @param label - A label, or anything typed for one.
+ * @returns True when the label validator would refuse it for its word rather than its shape.
+ *
+ * @example isReserved('position')     // => true
+ * @example isReserved('my_position')  // => false
+ */
+export function isReserved(label: string): boolean {
+  return ! PA.Unreserved.re.test(label)
 }
 
 /** `label` in Title Case, for display where a heading wants words rather than an identifier */

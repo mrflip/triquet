@@ -66,8 +66,11 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, label, i
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, the label of a widgeting, or a widgeting\'s label and one of its parts')
     .refine((val) => val !== QuestionWidgetLabel, 'the questions have no value of their own; name one of their fields')
-    .refine((val) => label.safeParse(widgetingLabelOf(val) ?? QuestionWidgetLabel).success, {
-      message: `names a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters`,
+    .refine((val) => {
+      const widgetingLabel = widgetingLabelOf(val)
+      return widgetingLabel === null || label.safeParse(widgetingLabel).success
+    }, {
+      message: `names a widgeting by a label that ${PA.Label.msg}, at most ${String(PA.Label.max)} characters, and none of the words the tool keeps for its own use`,
       when:    (payload) => payload.issues.length === 0,
     })
     .describe(`What the column shows: \`question.title\` and the like for a question's own field, \`question.butnot\` for a view of it, a widgeting's label for what it came to, or \`<widgeting>.<part>\` for one part of what a category-estimate entry came to (${WidgetingPartVals.join(', ')}).`)

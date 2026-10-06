@@ -50,8 +50,10 @@ export const ValidatorKit = {
   uuid:      Z.uuid(),
   /** An id in a quiz as the tool holds it whole: its row's id; or a UUID, in a quiz built rather than read (a test's fixture) */
   treeid:    rowidish,
-  /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last */
+  /** Freeform-string-derived identifier: lowercase letters, digits, underscore; letter first, letter or digit last; never a reserved word */
   label:     CK.label,
+  /** Shaped as a label, but any word at all: a value typed in a label's alphabet that names nothing in the tool */
+  labelshape: CK.labelshape,
   /** An ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become */
   identlabel: CK.identlabel,
   /** Epoch milliseconds */

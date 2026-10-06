@@ -27,7 +27,7 @@ export const JsonataDefaultInput = '$'
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
 export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, noteish, textish, formulaish, discrim, union, uint, num }) => {
+export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape, titleish, noteish, textish, formulaish, discrim, union, uint, num }) => {
   const jsonataConfig = obj({}).strict()
     .describe('A `jsonata` widget\'s settings: none.')
   const aibotConfig = obj({
@@ -50,8 +50,8 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, titleish, n
     .describe('Prose typed into an entry cell, trimmed; markdown welcome.')
   const entryNumber = num
     .describe('A number typed into an entry cell.')
-  const entryLabelish = label
-    .describe('A label typed into an entry cell: plain lowercase letters, numbers and single underscores.')
+  const entryLabelish = labelshape
+    .describe('A label typed into an entry cell: plain lowercase letters, numbers and single underscores. A value, not a name in any namespace, so no word is reserved from it.')
   const entryTitleish = titleish.min(1)
     .describe('One line typed into an entry cell, as a title is.')
 

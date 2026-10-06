@@ -287,7 +287,10 @@ than one kind of player. Begun by the categories sprint, October 2026
   Labels are what URLs, formulas, exports, git paths and column sources use, because people
   export, edit and re-import -- so many things refer by label where an id would be easier.
   A label is minted when its row is made (`quiet_otter`), and is the row's one label: relabelling
-  a hunt or a quiz replaces it, and a question's stays as minted. `Labelmaker` is the facility for
+  a hunt or a quiz replaces it, and a question's stays as minted. A few words no label may be, nor
+  any ending in `_id`: the tool's fields and nouns, and words code, a spreadsheet or Windows reads
+  specially (`PA.ReservedLabels`, by group and why). An ident's label is exempt, being a username
+  rather than a name in the tool's own namespaces. `Labelmaker` is the facility for
   all of this. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)
