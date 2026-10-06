@@ -98,10 +98,10 @@ const HousekeepingScripts: ReadonlySet<string> = new Set([
 const GridSpecs = ['grid', 'chaining', 'ordering', 'archiving', 'ishes', 'estimates', 'entries'] as const
 
 /** The spec files of the gear's corner: the specs about its dialogs (the heavy specs walk them in setup, and these cover every path they take) */
-const GearSpecs = ['widgets', 'prompts', 'entries', 'quizzes'] as const
+const GearSpecs = ['widgets', 'prompts', 'entries', 'quizzes', 'quiz-entries'] as const
 
 /** The spec files of the panels below the grid */
-const PanelSpecs = ['panels', 'sheets', 'importing', 'entries', 'recap'] as const
+const PanelSpecs = ['panels', 'sheets', 'importing', 'entries', 'recap', 'quiz-entries'] as const
 
 /** The spec files of putting a question to a bot, and of the routes that do it */
 const AskingSpecs = ['asking', 'bots', 'failures', 'prompts', 'ishes', 'client-first'] as const
@@ -163,7 +163,7 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the recap panel',           specs: ['recap'],                                   paths: ['src/components/panels/RecapPanel.tsx', 'src/lib/recap.ts'] },
   { corner: 'the members panel',         specs: ['routing'],                                 paths: ['src/components/panels/MembersPanel.tsx'] },
   { corner: 'the panels, as a whole',    specs: [...PanelSpecs, 'reviews', 'routing', 'estimates'], paths: ['src/components/panels/Panels.tsx'] },
-  { corner: 'the panels',                specs: PanelSpecs,                                  paths: ['src/components/panels/ExportImportPanel.tsx', 'src/components/panels/ImportForm.tsx', 'src/components/panels/LeagueExport.tsx', 'src/components/panels/LibraryForm.tsx', 'src/components/panels/RawExport.tsx', 'src/components/panels/ReadonlyBox.tsx', 'src/components/panels/TabbedPanel.tsx', 'src/components/panels/WidgetsPanel.tsx', 'src/components/pending-imports.ts', 'src/state/use-whole-hunt.ts'] },
+  { corner: 'the panels',                specs: PanelSpecs,                                  paths: ['src/components/panels/ExportImportPanel.tsx', 'src/components/panels/ImportForm.tsx', 'src/components/panels/LeagueExport.tsx', 'src/components/panels/LibraryForm.tsx', 'src/components/panels/RawExport.tsx', 'src/components/panels/ReadonlyBox.tsx', 'src/components/panels/TabbedPanel.tsx', 'src/components/panels/WidgetsPanel.tsx', 'src/components/panels/QuizEntriesPanel.tsx', 'src/components/pending-imports.ts', 'src/state/use-whole-hunt.ts'] },
   // The grid
   { corner: 'the chain cell',            specs: [...GridSpecs, 'reviews'],                   paths: ['src/components/cells/chain.tsx'] },
   { corner: "the cells' readouts",       specs: [...GridSpecs, ...AskingSpecs, 'widgets'],   paths: ['src/components/cells/readouts.tsx'] },

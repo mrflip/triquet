@@ -40,7 +40,7 @@ async function quizListOf(page: Page): Promise<(string | null)[]> {
   return await manageDialog(page).getByRole('list', { name: 'Run once for the whole quiz' }).getByRole('group').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
 }
 
-test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a template as quiz.<label>', async ({ page }) => {
+test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a template as quiz.<label>', { tag: '@smoke' }, async ({ page }) => {
   await addQuizEntry(page, freshWidgetLabel('names'), 'playtesters')
   // It runs once for the whole quiz, so it brings no column to the grid.
   await expect(cellOf(page, 0, 'Playtesters')).toHaveCount(0)
