@@ -114,7 +114,13 @@ effort yet:
 * **A stored, editable recap template** (the plan's Decision 6): the recap's frame (the quote per
   question, `Answer:`, `Correct Answer %:`) is fixed in code. A template would be mustache over
   bbjank, with each question's fields already converted in its bag.
-* An answer opening with a list marker (`1. ...`, `- ...`) is read as a list, inside the spoiler.
+* **A decision for the Coach: author BBCode can break the recap's frame.** BBCode typed in the
+  text passes through as typed (thread 2's design), so a `[/quote]` in a clueing or hint closes the
+  question's quote early, and a `[/spoiler]` or `[/b]` in an answer reveals it. Fixing it means
+  choosing which BBCode an author may still write, and trying an escape on the board. Thread 7
+  (security review) will look at it.
+* A clueing opening `1984. ...` is read as a numbered list, and the board numbers it from 1: the
+  bbjank writer drops an ordered list's start (thread 2's code).
 * `Correct Answer %:` reads only a column labelled `correct_pct`, `pct_correct` and the like
   (`Recap.CorrectPctRE`); nothing in the app records the share yet.
 * The league's own form writes `{Add Optional Text For Qn Here or Delete}` where a question has no

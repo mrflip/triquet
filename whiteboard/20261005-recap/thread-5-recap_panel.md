@@ -51,11 +51,21 @@ e2e runs at landing.
     clueing that needs every line prefixed with `> `. Thread 2's `{AS:}` and spoiler paths still
     serve an author who writes them.
 * **Discoveries**:
-  - An answer opening with a list marker (`1. ...`) is read as a list, inside the spoiler (TODO).
+  - **Review** (`flagged`, landed as is by the orchestrator's call): 35545e3 converts the answer
+    as the rest of its `Answer: ` line (`answerOf`), so `1984.`, `- HAMILTON`, `---` and
+    `[x]: url` are written as typed rather than lost or made blocks.
+  - **A decision for the Coach: author BBCode can break the recap's frame.** BBCode passes
+    through as typed (thread 2's design), so `[/quote]` in a clueing or hint closes the question's
+    quote early, and `[/spoiler]` or `[/b]` in an answer reveals it. Fixing it means choosing which
+    BBCode an author may still write and trying an escape on the board. Thread 7 will look at it.
+  - A clueing opening `1984. ...` loses its number on the board: the bbjank writer drops an
+    ordered list's start (thread 2's code).
+  - `Correct Answer %:` writes the column's raw text, outside the bbjank writer: harmless, for
+    thread 7's sweep.
   - `ReadonlyBox`'s dense face wraps mid-word; fine for copying, plain to read (TODO).
   - Left in `whiteboard/TODO.md`, *From recap sprint, thread 5*: a stored, editable recap
-    template; the answer-as-list case; where the correct-answer share might come from; the
-    league's placeholder line; the dense box's wrapping.
+    template; the frame-break decision; a clueing opening `1984.`; where the correct-answer share
+    might come from; the league's placeholder line; the dense box's wrapping.
 * **For thread 6**: you add a panel to `Panels.tsx` too, and may touch `PanelSpecs` in
   `scripts/spine.ts`: both conflicts are line-for-line. Quiz entries in `run.frame.quiz` reach the
   recap head and tail with no change here.
