@@ -10,7 +10,7 @@ import { affirmExportHunt, affirmPerform, claimsFor } from './authorize'
 import { huntForLabel, huntInOrg, huntingsFor, huntRowsOf, membersOf, realmsOf, wholeHuntOf } from './reading'
 import { perform as performAction } from './writing/perform'
 
-const { identlabel, label, zod } = ValidatorKit
+const { userlabel, label, zod } = ValidatorKit
 
 /**
  * The hunts the asking actor is on, as the hunts list shows them, each with its role there and
@@ -43,7 +43,7 @@ export const list = zQuery({
  * no hunt answers.
  */
 export const open = zQuery({
-  args:    { orglabel: identlabel.nullable().optional(), hunt_label: label },
+  args:    { orglabel: userlabel.nullable().optional(), hunt_label: label },
   handler: async (ctx, { orglabel, hunt_label }): Promise<HuntOpeningT> => {
     const hunt = orglabel === null || orglabel === undefined ? await huntForLabel(ctx.db, hunt_label) : await huntInOrg(ctx.db, orglabel, hunt_label)
     if (! hunt) { return { why: 'noSuchHunt', hunt: null } }

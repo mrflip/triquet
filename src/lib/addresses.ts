@@ -292,5 +292,5 @@ function isLabel(str: string): boolean {
 
 /** Whether `str` is an ident's label, as an org is: a label, and of an ident's length */
 function isIdentlabel(str: string): boolean {
-  return PA.Identlabel.re.test(str) && str.length >= PA.Identlabel.min && str.length <= PA.Identlabel.max
+  return PA.Userlabel.re.test(str) && str.length >= PA.Userlabel.min && str.length <= PA.Userlabel.max
 }
