@@ -173,8 +173,8 @@ think too small, stop it, run the whole suite, and mend the map on your branch.
 * **A path the map does not name reaches the whole suite**, and then `--touched` runs it all, as a
   full run: everything under `convex/` and `src/models/`, `src/lib/rows.ts`, `e2e/support.ts`, the
   configuration and the dependencies, the scripts the suite runs through, the few files every
-  screen leans on (`use-draft`, `use-session`, the text fields), and anything new. A spec file
-  reaches itself.
+  screen leans on (`use-draft`, `use-session`, the text fields, the quiz history mirror), and
+  anything new. A spec file reaches itself.
 * **A path e2e cannot notice reaches nothing**: a document, a unit test, the paths listed below. A
   branch of nothing else runs no spec, and `--touched` says how to land without one.
 * **The proof is scoped** to the spec files the run ran. Repair its failures alone, as after a full
