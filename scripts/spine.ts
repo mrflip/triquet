@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { parseArgs } from 'node:util'
 import type { JSONReport } from '@playwright/test/reporter'
 import * as E2eLog from './e2e-log.ts'
 import * as Lanes from './lanes.ts'
@@ -63,7 +64,35 @@ const DocsOnlyRules: readonly ((filepath: string) => boolean)[] = [
   (filepath) => filepath.startsWith('human/'),
 ]
 
-const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [<playwright args>] | e2e-log | land | sweep | restack | top'
+/**
+ * Where a branch's changes cannot reach what an e2e run does: the unit tests, the agents' and skills'
+ * definitions, the lint configuration, and the scripts that are only the repository's housekeeping.
+ * A path not named here and not a document is one the suite runs on or exercises, so a new kind of
+ * path is watched until someone says it is not. The harness scripts (this one, `lanes.ts`,
+ * `e2e-log.ts`, `convex_dev`, `convex_backend`, `doppledo`, `as_role`) are deliberately not here.
+ */
+const UnwatchedRules: readonly ((filepath: string) => boolean)[] = [
+  (filepath) => filepath.startsWith('tests/'),
+  (filepath) => filepath.startsWith('.claude/'),
+  (filepath) => filepath === 'eslint.config.mjs',
+  (filepath) => HousekeepingScripts.has(filepath),
+]
+
+/** Scripts that are tools for the person or agent at the keyboard, and run nowhere in an e2e run */
+const HousekeepingScripts: ReadonlySet<string> = new Set([
+  'scripts/automerge.ts',
+  'scripts/convex-previews.ts',
+  'scripts/convex_healthcheck',
+  'scripts/convex_preview',
+  'scripts/git-attic',
+  'scripts/kilroy',
+  'scripts/measure-latency.ts',
+  'scripts/newb',
+  'scripts/newb-label.ts',
+  'scripts/session-branches.ts',
+])
+
+const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [<playwright args>] | e2e-log | land [--skip-e2e <reason>] | sweep | restack | top'
 
 /** A stop that needs the agent or the Coach: its message says what happened and what to do */
 export class SpineStop extends Error {}
@@ -514,6 +543,18 @@ export function isDocsOnly(filepaths: readonly string[]): boolean {
 }
 
 /**
+ * The paths among `filepaths` that an e2e run runs on or exercises: all but the documents and the
+ * paths that cannot reach it (`UnwatchedRules`). A branch whose list is empty has nothing for e2e
+ * to notice; one with paths here should run it, whatever it looks like.
+ *
+ * @example e2eWatched(['tests/scripts/spine.test.ts', 'scripts/git-attic', 'notes/stack.md'])  // => []
+ * @example e2eWatched(['scripts/spine.ts', 'src/lib/useful.ts', 'tests/lib/useful.test.ts'])   // => ['scripts/spine.ts', 'src/lib/useful.ts']
+ */
+export function e2eWatched(filepaths: readonly string[]): string[] {
+  return filepaths.filter((filepath) =>  DocsOnlyRules.every((rule) => !rule(filepath)) &&  UnwatchedRules.every((rule) => !rule(filepath)))
+}
+
+/**
  * Rebases `branch` onto `top` unless it stands there already, recording its new base. A conflict
  * stops with the rebase in progress in the worktree, the agent's to repair or abort; the spine is
  * untouched.
@@ -668,18 +709,21 @@ function e2eNotes(said: { kind: E2eLog.RunKind, committed: boolean, prior: E2eLo
 
 /**
  * What a bid needs of the branch before it takes the hold: a justify at its present patch-id,
- * and an e2e proof unless it changes only documents and notes. Refuses without them.
+ * and an e2e proof unless it changes only documents and notes. Refuses without them, and says,
+ * when it does, whether e2e could notice any path the branch changes. A bid may say why e2e has
+ * nothing to tell it (`skipE2e`) and go without a proof; a proof it has stands over the reason.
  *
  * @returns Lines for the bid to pass on, naming the flakes the PR's Tests: line names.
  */
-function proofOf(root: string, main: string, branch: string): string[] {
+function proofOf(root: string, main: string, branch: string, skipE2e?: string): string[] {
   const { base, patchid } = standingOf(root, main)
   const justified = configOf(root, `branch.${branch}.justified`)
   if (justified === undefined) { throw new SpineStop(`${branch} has not been justified: \`pnpm justify\`, then bid again.`) }
   if (justified !== patchid) { throw new SpineStop(`${branch} has changed since it was justified: \`pnpm justify\`, then bid again.`) }
-  if (isDocsOnly(changedPaths(root, base, branch))) { return ['Documents and notes only: no e2e proof needed.'] }
+  const changed = changedPaths(root, base, branch)
+  if (isDocsOnly(changed)) { return ['Documents and notes only: no e2e proof needed.'] }
   const proved = configOf(root, `branch.${branch}.proved`)
-  if (proved === undefined) { throw new SpineStop(`${branch} has no e2e proof: \`pnpm e2e\`, then repair each failure alone (\`pnpm e2e:rerun\`) until every spec has passed.`) }
+  if (proved === undefined) { return skippingE2e(branch, changed, skipE2e) }
   const [provedOn = '', provedAt = ''] = proved.split(' ', 2)
   const flakes = E2eLog.flakesOf(readTally(tallyfileOf(root)))
   return [
@@ -689,18 +733,43 @@ function proofOf(root: string, main: string, branch: string): string[] {
 }
 
 /**
+ * What a bid with no e2e proof does: refuses, saying whether e2e could notice what the branch
+ * changes, or, given a reason, goes without and says to name it in the PR's Tests: line.
+ *
+ * @throws SpineStop with no reason, or an empty one.
+ * @returns Lines for the bid to pass on.
+ */
+export function skippingE2e(branch: string, changed: readonly string[], reason: string | undefined): string[] {
+  const watched = e2eWatched(changed)
+  const more = watched.length > 4 ? `, and ${String(watched.length - 4)} more` : ''
+  const seen = watched.slice(0, 4).join(', ') + more
+  if (reason === undefined) {
+    const advice = watched.length === 0
+      ? `None of the paths it changes is one the e2e suite runs on or exercises. If e2e cannot tell you anything here, \`pnpm land --skip-e2e "<why>"\` (notes/git_hygiene.md, *When e2e is not worth running*).`
+      : `The e2e suite runs on or exercises ${String(watched.length)} of the paths it changes (${seen}): run it.`
+    throw new SpineStop(`${branch} has no e2e proof: \`pnpm e2e\`, then repair each failure alone (\`pnpm e2e:rerun\`) until every spec has passed.\n${advice}`)
+  }
+  if (reason.trim() === '') { throw new SpineStop('--skip-e2e takes the reason e2e has nothing to tell you here: say it in a sentence.') }
+  return [
+    `e2e skipped: ${reason.trim()}. Say so in the PR's Tests: line; CI runs the suite on the PR.`,
+    ...(watched.length === 0 ? [] : [`Careful: e2e runs on or exercises ${seen}. A red CI e2e is yours to repair.`]),
+  ]
+}
+
+/**
  * Bids to land the worktree's branch on the spine. It must be justified at its present patch-id,
- * and proved by the e2e suite unless it changes only documents and notes. Then, under one hold:
+ * and proved by the e2e suite unless it changes only documents and notes, or the bid says why e2e
+ * has nothing to tell it (`skipE2e`). Then, under one hold:
  * replays the spine onto `origin/main` if origin has moved, sweeps the main checkout, rebases the
  * branch onto the top if the top has moved, runs typecheck and the unit tests, and switches the main checkout
  * onto the branch. The hold released, it pushes the branch. Any stop leaves the spine as it was.
  *
  * @returns Lines saying what landed, on what.
  */
-export function land(cwd: string): string[] {
+export function land(cwd: string, skipE2e?: string): string[] {
   const { root, main, commondir } = checkoutAt(cwd)
   const branch = worktreeBranch(root, main, 'Landing')
-  const proof = proofOf(root, main, branch)
+  const proof = proofOf(root, main, branch, skipE2e)
   const checks = process.env.TRIQUET_LAND_CHECKS ?? LandChecks
   const { top, notes } = withSpineHeld(commondir, `landing ${branch}`, () => {
     refuseBusy(main)
@@ -743,6 +812,15 @@ function pushed(main: string, branch: string): string[] {
   }
 }
 
+/** The reason `land` was given for going without an e2e proof: what follows `--skip-e2e`, or undefined when it is not there */
+export function skipE2eOf(args: readonly string[]): string | undefined {
+  try {
+    return parseArgs({ args: [...args], options: { 'skip-e2e': { type: 'string' } }, allowPositionals: false }).values['skip-e2e']
+  } catch {
+    throw new SpineStop(Usage)
+  }
+}
+
 /** What the command line asks for, done, as the lines to print */
 function main(args: readonly string[]): string[] {
   const [command, ...rest] = args
@@ -768,7 +846,7 @@ function main(args: readonly string[]): string[] {
     return E2eLog.summarise(E2eLog.read(logfile))
   }
   case 'land': {
-    return land(cwd)
+    return land(cwd, skipE2eOf(rest))
   }
   case 'sweep': {
     const { main: mainroot, commondir } = checkoutAt(cwd)
