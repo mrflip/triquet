@@ -1,12 +1,12 @@
 # e2e triage: progress
 
-**Status:** thread 1 in review. Thread 6 held until the Coach releases it.
+**Status:** thread 1 landing. Thread 6 held until the Coach releases it.
 
 ## Status
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | trim and mend the e2e specs; nominate vapid tests | in review |
+| 1 | trim and mend the e2e specs; nominate vapid tests | landing |
 | 2 | a fast way in: backend-made hunt, session per worker | pending (after 1) |
 | 3 | cover the error boundary | pending (after 1) |
 | 4 | cover stats and the other light gaps | pending (after 1) |
@@ -28,6 +28,14 @@ as it began):
 Threads 1 and 2 replace this table with before-and-after rows from their own runs.
 
 ## What the threads have taught
+
+*Review (thread 1):* `fixed`, at medium through `/code-review`. Every deleted test's claim was
+checked against its cover and survives; the rewritten pixel checks still fail when the behaviour
+breaks. Fixed: `failures` "never a code" now rules out the stub's `RateLimitError` and `429` too
+(85101f5). Left, minor: the gear zip-name check sits behind the known milestone flake (as the
+plan asked); the corner inset and chaining row heights are exact to the pixel, so watch for
+subpixel flake; `toHaveURL(address)` in "a smith renames the hunt" passes at once, and a comment
+says why it holds.
 
 *Orchestrator:* from thread 1's `ready` report (its file, `thread-1-e2e_trim.md`, has the detail):
 
