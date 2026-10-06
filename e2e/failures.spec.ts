@@ -39,7 +39,7 @@ test('hovering the badge gives the reason, and clicking it shows the response as
   await expect(shown.getByLabel('The response')).toContainText('"status": 429')
 })
 
-test('the badge survives a reload, and any success takes it away', async ({ page }) => {
+test('the badge survives a reload, and any success takes it away', { tag: '@smoke' }, async ({ page }) => {
   await stubAsk(page, guessReply('Leon'))
   await guessCell(page).dblclick()
   await stubAsk(page, failure)

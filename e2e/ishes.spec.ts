@@ -44,7 +44,7 @@ test('a list of spans folds open from beside its cell, pretty-printed', async ({
   await expect(cell).toContainText('~120 tok')
 })
 
-test('the sums follow from the extraction', async ({ page }) => {
+test('the sums follow from the extraction', { tag: '@smoke' }, async ({ page }) => {
   await stubIshes(page, ThreeSpans)
   await page.getByRole('button', { name: 'Ask Numnum Clueing' }).first().dblclick()
   await expect(cellOf(page, 0, 'Clueing Full')).toContainText('300,000,048')

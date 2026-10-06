@@ -23,7 +23,7 @@ function manyLines(what: string): string {
 }
 
 test.describe('a review', () => {
-  test('is written by a second visitor, stays hidden from the smith until shared, and is then seen', async ({ page, browser }) => {
+  test('is written by a second visitor, stays hidden from the smith until shared, and is then seen', { tag: '@smoke' }, async ({ page, browser }) => {
     await startHunt(page)
     await page.getByLabel('Quiz name').fill('For review')
     await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which prince was Danish?')

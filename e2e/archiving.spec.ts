@@ -117,7 +117,7 @@ test('batch mode makes the checked questions secondary, and normal again, withou
   await expect(grid(page).getByText('(alt)')).toHaveCount(0)
 })
 
-test('the gear un-archives a question back to the grid, and deletes another at once, for good', async ({ page }) => {
+test('the gear un-archives a question back to the grid, and deletes another at once, for good', { tag: '@smoke' }, async ({ page }) => {
   const before = await questionCount(page)
   await page.getByRole('button', { name: 'Select questions' }).click()
   await page.getByRole('checkbox', { name: 'Select apple' }).check()

@@ -50,7 +50,7 @@ test('a question with no text is not asked about at all', async ({ page }) => {
   await expect(guessCell(page, 0)).toBeEnabled()
 })
 
-test('an answer survives a reload', async ({ page }) => {
+test('an answer survives a reload', { tag: '@smoke' }, async ({ page }) => {
   await stubAsk(page, { ok: true, value: { guess: 'Leon', explanation: 'The lion.' }, truncated: false, model_tier_applied: 'quick', approx_tokens: 84 })
   await guessCell(page, 0).dblclick()
   await expect(guessCell(page, 0)).toContainText('Leon')

@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
   await waitUntilSaved(page)
 })
 
-test('a header row of column labels in alphabetical order, then a line per question in rank order', async ({ page }) => {
+test('a header row of column labels in alphabetical order, then a line per question in rank order', { tag: '@smoke' }, async ({ page }) => {
   await expect.poll(async () => {
     const shown = await sheetsLines(page)
     const lines = shown.map((line) => line.split('\t'))

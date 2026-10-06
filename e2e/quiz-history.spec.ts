@@ -131,7 +131,7 @@ test('a deleted hunt leaves its history on the hunts page, folded away, to downl
   expect(git('tag', '--list')).toBe(tag)
 })
 
-test('the history survives a reload, because it lives in the browser and not in the page', async ({ page }) => {
+test('the history survives a reload, because it lives in the browser and not in the page', { tag: '@smoke' }, async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
   // Marking a milestone first both proves the edit was committed and gives the reload something to survive.

@@ -31,7 +31,7 @@ test('a fresh quiz starts lean: five blank questions, its title, Q#, clueing, fu
   await expect.poll(() => valuesOf(grid(page).locator('tbody').getByRole('textbox', { name: 'Clueing', exact: true }))).toEqual(['', '', '', '', ''])
 })
 
-test('what you type survives a reload', async ({ page }) => {
+test('what you type survives a reload', { tag: '@smoke' }, async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Léon and other régions')
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   await clueing.fill('Which region gave its name to 千 other things?')

@@ -96,7 +96,7 @@ test('sort by chain order reads the quiz in presentation order, and backward', a
   await expect.poll(() => firstFourShown(page)).toEqual(['damson', 'cherry', 'banana', 'apple'])
 })
 
-test('a chain order survives a reload', async ({ page }) => {
+test('a chain order survives a reload', { tag: '@smoke' }, async ({ page }) => {
   await chainTo(page, 1, 'banana')
   await chainTo(page, 3, 'cherry')
   await page.getByRole('button', { name: 'Sort by chain order' }).click()

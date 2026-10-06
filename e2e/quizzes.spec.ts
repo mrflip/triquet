@@ -43,7 +43,7 @@ test('a quiz with its title cleared shows as Untitled quiz in the switcher, whic
   await expect(page.getByLabel('Open quiz').locator('option')).toHaveText([first, second].toSorted(Tsv.byCode).map((label) => titled.get(label) ?? ''))
 })
 
-test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring quiz opens', async ({ page }) => {
+test('deleting is the gear\'s, asks for the quiz\'s label, and the neighbouring quiz opens', { tag: '@smoke' }, async ({ page }) => {
   await newQuiz(page)
   await page.getByLabel('Quiz name').fill('Quiz two')
   await page.getByLabel('Quiz name').blur()

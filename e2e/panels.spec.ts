@@ -200,7 +200,7 @@ test('Download Full History hands over the hunt\'s history as a zip, from its ow
   expect(download.suggestedFilename()).toMatch(/\.zip$/)
 })
 
-test('the library is handed out on its own, and a pasted library is merged into it by label', async ({ page }) => {
+test('the library is handed out on its own, and a pasted library is merged into it by label', { tag: '@smoke' }, async ({ page }) => {
   const section = await showTab(page, 'Library')
   await expect(section.getByRole('textbox', { name: 'Library export' })).toHaveValue(/"numnum_hint":\{/)
   // A label of this test's own: the library is every hunt's, and the specs share one database.

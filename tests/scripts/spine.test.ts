@@ -209,6 +209,15 @@ describe('Spine.SpecCorners', () => {
   })
 })
 
+describe('the smoke tier `pnpm e2e:smoke` runs', () => {
+  it('tags exactly one test of each spec file @smoke', () => {
+    const specdir = path.join(RepoRoot, 'e2e')
+    const tagged = fs.readdirSync(specdir).filter((filename) => filename.endsWith('.spec.ts'))
+      .map((filename) => [filename, fs.readFileSync(path.join(specdir, filename), 'utf8').match(/tag: '@smoke'/g)?.length ?? 0] as const)
+    expect(tagged.filter(([, count]) => count !== 1)).to.deep.eq([])
+  })
+})
+
 describe('Spine.skippingE2e', () => {
   const Quiet = ['tests/scripts/spine.test.ts', 'scripts/git-attic']
   const Watched = ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/d.ts', 'src/e.ts', 'src/f.ts']

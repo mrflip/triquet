@@ -77,7 +77,7 @@ test('a question dropped against a row\'s lower edge lands below it', async ({ p
   await expect.poll(() => answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
 })
 
-test('a question is moved by the arrow keys once its grip has focus, and the move survives a reload', async ({ page }) => {
+test('a question is moved by the arrow keys once its grip has focus, and the move survives a reload', { tag: '@smoke' }, async ({ page }) => {
   await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
   await stepBy(questionGrip(page, 'apple'), 2)
   await expect.poll(() => answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])

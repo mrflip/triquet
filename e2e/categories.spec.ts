@@ -60,7 +60,7 @@ test.describe("a hunt's category wheel", () => {
     await expect(tileOf(page, 'Physics & Eng')).toHaveAttribute('data-place', '23')
   })
 
-  test("moves a category round the wheel and into the pool from the keyboard, and keeps it", async ({ page }) => {
+  test("moves a category round the wheel and into the pool from the keyboard, and keeps it", { tag: '@smoke' }, async ({ page }) => {
     await page.goto(Routes.categoriesPath(huntOf(page)))
     const art = tileOf(page, 'Art')
     await art.focus()

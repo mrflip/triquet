@@ -23,7 +23,7 @@ test('with every host but the app\'s and its database\'s blocked, and the bots r
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Written with only the database to hand')
 })
 
-test('asking is the one server function, and with it blocked the cell says so and nothing else stops: the page still edits, sorts and saves', async ({ page }) => {
+test('asking is the one server function, and with it blocked the cell says so and nothing else stops: the page still edits, sorts and saves', { tag: '@smoke' }, async ({ page }) => {
   await page.route('**/api/ask', (route) => route.abort())
   await startHunt(page)
   await addWidgetings(page, ['dumdum'])

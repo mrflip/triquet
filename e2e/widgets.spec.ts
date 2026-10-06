@@ -136,7 +136,7 @@ test('a formula that would never end is stopped, and the page stays usable', asy
   await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('Still typing')
 })
 
-test('a new widget is written through the widgeting editor\'s door, and put to work at once', async ({ page }) => {
+test('a new widget is written through the widgeting editor\'s door, and put to work at once', { tag: '@smoke' }, async ({ page }) => {
   const widget_label = freshWidgetLabel('title_length')
   await openManage(page)
   await page.getByRole('button', { name: '+ New widgeting…' }).click()
