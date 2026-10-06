@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** threads 1, 3 and 5 landed (#156, #157, #158); thread 4 landing (lane 2); thread 2 underway (lane 1). Thread 6 held until the Coach releases it.
+**Status:** threads 1, 3, 4 and 5 landed (#156, #157, #159, #158); thread 2 underway (lane 1). Thread 6 held until the Coach releases it.
 
 ## Status
 
@@ -9,7 +9,7 @@
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
 | 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
 | 3 | cover the error boundary | landed #157 |
-| 4 | cover stats and the other light gaps | landing (lane 2) |
+| 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
@@ -23,6 +23,7 @@ Full `pnpm e2e` runs on a lane, test-seconds summed from the run's JSON report:
 | After thread 1 (#156) | 239 | 942 | 149 s | 3.9 s | lane 1, 11:30, warm cache, load 3 to 11 |
 | Smoke tier (thread 5, not a proof) | 26 | 111 | 30 s | 4.3 s | lane 3, seeded cache, load 6 |
 | Thread 5's proof (#158) | 244 | 1258 | 206 s | 5.2 s | lane 3, warm cache, load 45 as it began: not comparable |
+| Thread 4's proof (#159) | 249 | 1267 | 202 s | 5.1 s | lane 2, seeded cache, load 25 as it began: not comparable |
 
 *Orchestrator:* thread 1 saved about 6% of test-seconds and little wall time, since the twenty cut
 were average tests. Nearly all the speed this sprint wants is thread 2's. Thread 5's proof ran at
