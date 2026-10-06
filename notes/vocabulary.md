@@ -163,19 +163,25 @@ words above.
   (`emptyIfDenied`).
 * **hunt** -- the unit of URL scope and of membership: holds realms (and, until widgets replace
   them, expressions), and is exactly what Export emits. It holds no widgets: the library is
-  global, and exports on its own. Its label is global; should two share one, the earlier-made wins.
-* **org** -- the scope a hunt is addressed under, the `~pat_smith` of `/~pat_smith/spring_hunt`:
-  for now an ident label, its earliest smith's (its maker's), worked out from its huntings and
-  stored nowhere (`orgFor` in `src/lib/rows.ts`). Hunt labels are still global, so the org is
-  context, as the realm is: an address naming another org moves to the hunt's own.
-  `/~<org>` lists that org's hunts. See `notes/decisions/urls.md`.
+  global, and exports on its own. Its label is unique within its org; should two of one org share
+  one, the earlier-made wins.
+* **org** -- the scope a hunt is addressed under and its label is unique within, the `~pat_smith`
+  of `/~pat_smith/spring_hunt`: for now always an ident label, so every username is its own org.
+  A hunt names its org in its **orglabel** (`hunts.orglabel`), its maker's ident label, copied
+  when it was made and never changed: not when its maker is retitled, leaves, or changes role. A
+  hunt written before hunts stored one reads as under its earliest member's (`orgFor` in
+  `src/lib/rows.ts`) until `migrations:backfillHuntOrglabels` has run. The address's slot is
+  `org` (`Routes.HuntLabels`, `HuntListingT.org`); the stored field is `orglabel`. An address
+  naming another org finds no hunt there; an old one (`/h/<hunt>`), naming none, finds the
+  earliest hunt of its label and moves to its org. `/~<org>` lists that org's hunts. See
+  `notes/decisions/urls.md`.
 * **realm** -- a division of a hunt, holding quizzes; the segment after `quizzes/`. Every hunt
   starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
   scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.
 * **mode** -- how an address opens what it names, as its last segment: `!edit` (the Workbench)
   or `!playtest` (the review screen). The rest of the path names the resource. A quiz's address
-  with no mode opens it playtested, for everyone alike: the address says what is shown, never
-  who is looking. Replaced the **act** of September 2026 (`?act=smith`, `?act=review`), which old
+  with no mode moves to the mode the visitor's role works in: a smith's `!edit`, a reviewer's
+  `!playtest`. Replaced the **act** of September 2026 (`?act=smith`, `?act=review`), which old
   addresses still carry and are moved from. See `notes/decisions/urls.md`.
 * **smith** -- someone making a hunt's quizzes; **reviewer** -- someone playtesting them. Each
   is a **role** on a hunt, held by a hunting.
@@ -391,12 +397,13 @@ lines between them, and these are here so they are findable beside the rest.
   foot of the window until dismissed. For a failure with nothing on screen beside it to say so,
   such as a change not kept; a refusal about a field is said beside the field. Raised with
   `useRaiseAlarm` (`src/state/alarms.tsx`), shown by `AlarmSnackbar`.
-* **mirror** -- the quiz's git history in the browser. A past-versions view and an exit door,
-  not a source of truth. `.qq.tsv` is the diffable table; `.tq.json` is the whole quiz; both sit
-  at `tq/hunt/<hunt>/realm/<realm>/quiz/`, and each widget the quiz works at
-  `tq/widget/pub/<label>.tqwidget.json` (until widgets replace them, the hunt's expressions at
-  `tq/hunt/<hunt>/<hunt>.tqexpressions.json`). The history follows the quiz: a relabel is a new
-  label on the same thing, an edit new content for it.
+* **mirror** -- the hunt's git history in the browser, one repository per hunt, on the branch
+  the hunt names. A past-versions view and an exit door, not a source of truth. It holds the
+  hunt's files (`notes/hunt_git.md`): each resource as its jsonball and a `.tsv` table beside it,
+  at the path its address names (`quizzes/home/legends.tqq.json`). A commit holds the files that
+  changed, its message a line per quiz; a tag (`main_legends_m_20261005120000z`) marks a
+  milestone, an import or a deletion of questions, from the quiz it was marked from. The history
+  follows each thing: a relabel moves its files, an edit gives them new content.
 * **jsonball** -- one resource of a hunt (the hunt's own fields, its categories, its members, a
   quiz, a shared review, a widget) as JSON nested under the key path its address gives it
   (`{ quizzes: { home: { legends: { ... } } } }`), so that deep-merging any set of them is that

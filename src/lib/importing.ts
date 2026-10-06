@@ -5,7 +5,8 @@ import * as Labelmaker from './labelmaker'
 import * as UU from './useful'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
-import type { QuizT } from '../models/quiz'
+import { ColumnValidators, widgetingLabelOf, type ColumnPatch, type ColumnT } from '../models/column'
+import { QuizValidators, type QuizT, type Sortkey } from '../models/quiz'
 import { EntryFormulary } from './formulary/entry'
 import { Widget, WidgetValidators, type EntryValueT, type EntryWidgetT, type WidgetT } from '../models/widget'
 import { WidgetingValidators, type WidgetingT } from '../models/widgeting'
@@ -36,6 +37,27 @@ export type WidgetingLogEntry = {
   reason:  string | null
 }
 
+/** What became of one incoming column */
+export type ColumnLogEntry = {
+  /** Its label, or '' where the paste named none */
+  label:   string
+  outcome: 'added' | 'revised' | 'kept' | 'removed' | 'skipped'
+  /** Why it was skipped; null otherwise */
+  reason:  string | null
+}
+
+/** One of the quiz's own fields an import may carry */
+export type CarriedFieldname = 'title' | Jsonball.PastedFieldname
+
+/** What became of one of the quiz's own fields the paste held */
+export type FieldLogEntry = {
+  fieldname: CarriedFieldname
+  /** Carried onto the quiz; already as the paste has it; or not read */
+  outcome:   'carried' | 'kept' | 'skipped'
+  /** Why it was skipped, or for the sort memory why it is kept only by a quiz with no questions; null otherwise */
+  reason:    string | null
+}
+
 export type ImportOutcome = {
   /** True when everything validated; false when anything was skipped or nothing could be read */
   ok:            boolean
@@ -47,8 +69,18 @@ export type ImportOutcome = {
   questions:     ImportedQuestionT[] | null
   /** A line per incoming widgeting */
   widgetingLog:  WidgetingLogEntry[]
-  /** What to send for the widgetings, before the questions: one add or revision per widgeting that changes */
+  /** What to send for the widgetings: one add or revision per widgeting that changes */
   widgetingActions: HuntActionDNA[]
+  /** A line per incoming column, and one per column of the quiz the paste removes */
+  columnLog:     ColumnLogEntry[]
+  /** What to send for the columns, once the widgetings they show are there: what makes the quiz's columns the paste's */
+  columnActions: HuntActionDNA[]
+  /** A line per field of the quiz's own the paste held */
+  fieldLog:      FieldLogEntry[]
+  /** What to send for the quiz's own fields: one per field that changes */
+  fieldActions:  HuntActionDNA[]
+  /** Everything to send, in order: the quiz's fields, its widgetings, its columns, then its questions (`import_questions`); empty when nothing could be read */
+  actions:       HuntActionDNA[]
 }
 
 /**
@@ -71,12 +103,25 @@ export type ImportOutcome = {
  *
  * Widgetings merge by label too: one the quiz lacks is added when the library holds its widget,
  * and skipped and logged when it does not; one it holds has its description and params revised,
- * unless it works another widget, when it is skipped. None is removed. What a widgeting came to
- * is not carried -- a worked-out value is worked out again, and an asked one is recorded by
- * asking -- except an entry's, which a person typed: under an entry widgeting's label, a value
- * (bare, or as the export writes it, `{ status: 'ok', value }`) is typed into the question's cell,
- * and nothing (null, or `{ status: 'missing' }`) empties it, as a question's own fields merge. A
- * value not of the entry's kind fails its question, as a field would.
+ * unless it works another widget, when it is skipped. None is removed, since its cells hold what
+ * was asked and typed, and the quiz's run order stands, those added coming last in the order
+ * pasted. What a widgeting came to is not carried -- a worked-out value is worked out again, and
+ * an asked one is recorded by asking -- except an entry's, which a person typed: under an entry
+ * widgeting's label, a value (bare, or as the export writes it, `{ status: 'ok', value }`) is
+ * typed into the question's cell, and nothing (null, or `{ status: 'missing' }`) empties it, as a
+ * question's own fields merge. A value not of the entry's kind fails its question, as a field would.
+ *
+ * Columns hold nothing but how the grid is laid out, so a paste that holds any makes the quiz's
+ * columns its own (`columnsMerged`): each is added, or revised to the paste's title, source, width
+ * and alignment, in the paste's order, and a column the paste lacks is removed, unless some pasted
+ * column could not be read. One showing a widgeting the quiz will not have is skipped. A paste
+ * holding no columns (the questions alone, a bare list, an export from before columns were
+ * exported) leaves them as they are.
+ *
+ * The quiz's own fields merge as a question's do: its title, smith's note and Q1 preamble each
+ * replace the quiz's when the paste holds one (a null note clears it), and stay when it does not.
+ * Its sort memory is kept only by a quiz that held no questions, whose order is then the paste's.
+ * Its lock is not read: an import never locks or unlocks a quiz.
  *
  * @param quiz - The quiz on screen.
  * @param pasted - Whatever is in the Import box.
@@ -86,7 +131,7 @@ export type ImportOutcome = {
  * @example importInto(quiz, '[{"label":"quiet_otter","clueing":"Which region?"}]', library)
  */
 export function importInto(quiz: QuizT, pasted: string, library: readonly WidgetT[]): ImportOutcome {
-  const nothing = { log: [], questions: null, widgetingLog: [], widgetingActions: [] }
+  const nothing = { log: [], questions: null, widgetingLog: [], widgetingActions: [], columnLog: [], columnActions: [], fieldLog: [], fieldActions: [], actions: [] }
   const payload = readPayload(pasted, quiz)
   if (! payload.ok) { return { ok: false, summary: payload.summary, ...nothing } }
 
@@ -101,18 +146,178 @@ export function importInto(quiz: QuizT, pasted: string, library: readonly Widget
   const entries = entryWidgetingsOf(quiz, payload.quiz.widgetings, widgetings.actions, library)
   for (const [ii, raw] of incoming.entries()) { readOneQuestion(merge, held, entries, raw, ii + 1) }
 
+  const columns = columnsMerged(quiz, payload.quiz.columns, showableAfter(quiz, widgetings.actions))
+  const fields = fieldsCarried(quiz, payload.quiz)
+  const questions = chainsResolved(merge, held)
+  const remembered = fields.last_sortkey === undefined ? {} : { last_sortkey: fields.last_sortkey }
+
   const tallied = (outcome: ImportLogEntry['outcome']) => merge.log.filter((entry) => entry.outcome === outcome).length
   const skipped = tallied('skipped')
-  const widgetingsSkipped = widgetings.log.filter((entry) => entry.outcome === 'skipped').length
+  const anySkipped = [...widgetings.log, ...columns.log, ...fields.log].some((entry) => entry.outcome === 'skipped')
 
   return {
-    ok:               skipped === 0 && widgetingsSkipped === 0,
-    summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${widgetingSummary(widgetings.log)} — see log below. Renumbered Q# by rank.`,
+    ok:               skipped === 0 && ! anySkipped,
+    summary:          `${payload.reading} ${String(tallied('merged'))} merged, ${String(tallied('added'))} added, ${String(skipped)} skipped${widgetingSummary(widgetings.log)}${columnSummary(columns.log)}${fieldSummary(fields.log)} — see log below. Renumbered Q# by rank.`,
     log:              merge.log,
-    questions:        chainsResolved(merge, held),
+    questions,
     widgetingLog:     widgetings.log,
     widgetingActions: widgetings.actions,
+    columnLog:        columns.log,
+    columnActions:    columns.actions,
+    fieldLog:         fields.log,
+    fieldActions:     fields.actions,
+    actions:          [...fields.actions, ...widgetings.actions, ...columns.actions, { kind: 'import_questions', questions, ...remembered }],
   }
+}
+
+/** The columns' share of the summary, or nothing when the paste carried none */
+function columnSummary(log: readonly ColumnLogEntry[]): string {
+  if (log.length === 0) { return '' }
+  const tallied = (outcome: ColumnLogEntry['outcome']) => log.filter((entry) => entry.outcome === outcome).length
+  return `; columns ${String(tallied('added'))} added, ${String(tallied('revised'))} revised, ${String(tallied('removed'))} removed, ${String(tallied('skipped'))} skipped`
+}
+
+/** What the summary says of the quiz's own fields: those carried, and those skipped; nothing when none changes */
+function fieldSummary(log: readonly FieldLogEntry[]): string {
+  const named = (outcome: FieldLogEntry['outcome']) => log.filter((entry) => entry.outcome === outcome).map((entry) => FieldTitles[entry.fieldname])
+  const [carried, skipped] = [named('carried'), named('skipped')]
+  return [carried.length > 0 ? `; carried its ${carried.join(', ')}` : '', skipped.length > 0 ? `; skipped its ${skipped.join(', ')}` : ''].join('')
+}
+
+/** What the log and summary call each of the quiz's own fields */
+const FieldTitles: Readonly<Record<CarriedFieldname, string>> = {
+  title:        'title',
+  smiths_note:  'smith\'s note',
+  q1_preamble:  'Q1 preamble',
+  last_sortkey: 'sort memory',
+}
+
+/**
+ * The quiz's own fields as the paste holds them, against the quiz's: an action for each that
+ * changes, and a line for each the paste held. The sort memory is handed back to go with the
+ * questions (`import_questions`), which keep it only in a quiz that held none.
+ */
+function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT): { actions: HuntActionDNA[], log: FieldLogEntry[], last_sortkey?: Sortkey | null } {
+  const actions: HuntActionDNA[] = []
+  const log: FieldLogEntry[] = []
+  const carry = (fieldname: CarriedFieldname, read: { success: true, data: string } | { success: false } | null, held: string, action: (val: string) => HuntActionDNA) => {
+    if (read === null) { return }
+    if (! read.success) { log.push({ fieldname, outcome: 'skipped', reason: `not a ${FieldTitles[fieldname]} this tool can read` }); return }
+    if (read.data === held) { log.push({ fieldname, outcome: 'kept', reason: null }); return }
+    actions.push(action(read.data))
+    log.push({ fieldname, outcome: 'carried', reason: null })
+  }
+  const noteOf = (fieldname: 'smiths_note' | 'q1_preamble') => {
+    if (! Object.hasOwn(pasted.fields, fieldname)) { return null }
+    const raw = pasted.fields[fieldname]
+    return QuizValidators[fieldname].safeParse(raw === null ? '' : raw)
+  }
+  carry('title', pasted.title === null ? null : { success: true, data: pasted.title }, quiz.title, (title) => ({ kind: 'retitle_quiz', title }))
+  carry('smiths_note', noteOf('smiths_note'), quiz.smiths_note, (smiths_note) => ({ kind: 'set_smiths_note', smiths_note }))
+  carry('q1_preamble', noteOf('q1_preamble'), quiz.q1_preamble, (q1_preamble) => ({ kind: 'set_q1_preamble', q1_preamble }))
+  if (! Object.hasOwn(pasted.fields, 'last_sortkey')) { return { actions, log } }
+  const sortkey = QuizValidators.sortkey.nullable().safeParse(pasted.fields.last_sortkey)
+  if (! sortkey.success) {
+    log.push({ fieldname: 'last_sortkey', outcome: 'skipped', reason: 'not a sort memory this tool can read' })
+    return { actions, log }
+  }
+  if (quiz.questions.length > 0) {
+    log.push({ fieldname: 'last_sortkey', outcome: 'kept', reason: 'a quiz that holds questions keeps its own order, and so its own sort memory' })
+    return { actions, log }
+  }
+  log.push({ fieldname: 'last_sortkey', outcome: sortkey.data === quiz.last_sortkey ? 'kept' : 'carried', reason: null })
+  return { actions, log, last_sortkey: sortkey.data }
+}
+
+/** The labels of the widgetings the quiz will hold once `actions` are sent: those it holds, and those added */
+function showableAfter(quiz: QuizT, actions: readonly HuntActionDNA[]): ReadonlySet<string> {
+  const added = actions.flatMap((action) => (action.kind === 'add_widgeting' ? [action.widgeting.label] : []))
+  return new Set([...quiz.widgetings.map((widgeting) => widgeting.label), ...added])
+}
+
+/**
+ * The pasted columns made the quiz's, by label: the actions to send, in order, and a line for each.
+ * Each pasted column is put at its place in the paste, added or revised (a column whose alignment
+ * the paste leaves unset, where the quiz's sets one, is taken off and put back, since nothing else
+ * unsets one); and a column of the quiz the paste lacks is removed, but only when every pasted
+ * column could be read. Nothing is sent for a paste holding no columns.
+ */
+function columnsMerged(quiz: QuizT, pasted: readonly unknown[] | null, showable: ReadonlySet<string>): { actions: HuntActionDNA[], log: ColumnLogEntry[] } {
+  if (pasted === null) { return { actions: [], log: [] } }
+  const { read, log } = columnsRead(pasted, showable)
+  const wanted = new Set(read.map((column) => column.label))
+  const removing = log.length === 0 ? quiz.columns.filter((column) => ! wanted.has(column.label)) : []
+  const actions: HuntActionDNA[] = removing.map(({ label }) => ({ kind: 'delete_column', label }))
+  log.push(...removing.map(({ label }): ColumnLogEntry => ({ label, outcome: 'removed', reason: null })))
+  const heldFor = new Map(quiz.columns.map((column) => [column.label, column]))
+  // The quiz's columns by label, in order, as each action sent so far leaves them.
+  const removed = new Set(removing.map((column) => column.label))
+  const layout = quiz.columns.map((column) => column.label).filter((label) => ! removed.has(label))
+  for (const [idx, column] of read.entries()) {
+    const placed = columnPlaced(heldFor.get(column.label), column, layout, idx)
+    actions.push(...placed.actions)
+    log.push({ label: column.label, outcome: placed.outcome, reason: null })
+  }
+  return { actions, log }
+}
+
+/**
+ * The pasted columns that will do, in order, and a line for each that will not: one that does not
+ * read, repeats a label, or shows a widgeting the quiz will not have.
+ */
+function columnsRead(pasted: readonly unknown[], showable: ReadonlySet<string>): { read: ColumnT[], log: ColumnLogEntry[] } {
+  const read: ColumnT[] = []
+  const log: ColumnLogEntry[] = []
+  for (const raw of pasted) {
+    const parsed = ColumnValidators.column.safeParse(raw)
+    if (! parsed.success) {
+      const shownLabel = typeof (raw as { label?: unknown } | null)?.label === 'string' ? (raw as { label: string }).label : ''
+      log.push({ label: shownLabel, outcome: 'skipped', reason: parsed.error.issues[0]?.message ?? 'not a column this tool can read' })
+      continue
+    }
+    const column = parsed.data
+    const shown = widgetingLabelOf(column.source)
+    if (read.some((other) => other.label === column.label)) {
+      log.push({ label: column.label, outcome: 'skipped', reason: 'another pasted column has its label' })
+    } else if (shown !== null && ! showable.has(shown)) {
+      log.push({ label: column.label, outcome: 'skipped', reason: `it shows "${shown}", a widgeting this quiz will not have` })
+    } else {
+      read.push(column)
+    }
+  }
+  return { read, log }
+}
+
+/** The actions that put `column` at `idx` of `layout`, which they leave as the quiz will stand: added, revised and moved, or kept */
+function columnPlaced(held: ColumnT | undefined, column: ColumnT, layout: string[], idx: number): { actions: HuntActionDNA[], outcome: ColumnLogEntry['outcome'] } {
+  const { label } = column
+  if (! held || (held.align !== undefined && column.align === undefined)) {
+    placeIn(layout, label, idx)
+    const readd: HuntActionDNA[] = held ? [{ kind: 'delete_column', label }] : []
+    return { actions: [...readd, { kind: 'add_column', column, onto_idx: idx }], outcome: held ? 'revised' : 'added' }
+  }
+  const patch = columnPatchOf(held, column)
+  const actions: HuntActionDNA[] = patch === null ? [] : [{ kind: 'edit_column', label, patch }]
+  if (layout.indexOf(label) !== idx) {
+    placeIn(layout, label, idx)
+    actions.push({ kind: 'move_column', label, onto_idx: idx })
+  }
+  return { actions, outcome: actions.length === 0 ? 'kept' : 'revised' }
+}
+
+/** `layout` with `label` taken from wherever it is, if anywhere, and put at `idx` */
+function placeIn(layout: string[], label: string, idx: number): void {
+  const at = layout.indexOf(label)
+  if (at !== -1) { layout.splice(at, 1) }
+  layout.splice(idx, 0, label)
+}
+
+/** What revises `held` into `pasted`, field by field; null when nothing differs */
+function columnPatchOf(held: ColumnT, pasted: ColumnT): ColumnPatch | null {
+  const fieldnames = ['title', 'source', 'width_px', 'align'] as const
+  const changed = fieldnames.filter((fieldname) => pasted[fieldname] !== undefined && pasted[fieldname] !== held[fieldname])
+  if (changed.length === 0) { return null }
+  return ColumnValidators.columnPatch(Object.fromEntries(changed.map((fieldname) => [fieldname, pasted[fieldname]])))
 }
 
 /** The widgetings' share of the summary, or nothing when the paste carried none */
@@ -284,7 +489,7 @@ function readPayload(pasted: string, openQuiz: QuizT): PayloadReading {
 }
 
 /** A paste's quiz when it holds none */
-const EmptyQuiz: Jsonball.PastedQuizT = { label: null, title: null, questions: [], widgetings: [] }
+const EmptyQuiz: Jsonball.PastedQuizT = { label: null, title: null, fields: {}, questions: [], widgetings: [], columns: null }
 
 /** How the quiz was picked out of a pasted export, for the log */
 function howChosen(chosen: Jsonball.PastedQuizT, openQuiz: QuizT): string {

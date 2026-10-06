@@ -12,7 +12,7 @@ import { ActionValidators, type LibraryActionDNA } from '../models/actions'
 import { useRaiseAlarm } from './alarms'
 import { useIdent } from './use-ident'
 import { holdThePage } from './page-hold'
-import { trackWrite } from './quiz-mirror'
+import * as HuntMirror from './hunt-mirror'
 
 export type LibraryActionsHandle = {
   /** Carry out what an admin did to the library; a change not kept raises an alarm */
@@ -84,7 +84,7 @@ export function useLibraryActions(): LibraryActionsHandle {
     }
   }, [perform, convex, raise])
 
-  const dispatch = useCallback((action: LibraryActionDNA) => { trackWrite(carryOut(action)) }, [carryOut])
+  const dispatch = useCallback((action: LibraryActionDNA) => { HuntMirror.trackWrite(carryOut(action)) }, [carryOut])
 
   return { dispatch, unsaved: writing > 0 }
 }

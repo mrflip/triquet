@@ -10,7 +10,6 @@ import type * as Actor from '../../lib/actor'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
 import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
-import type { ImportedQuestionT } from '../../models/import'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
 import type { HuntHandle } from '../../state/use-hunt'
@@ -30,8 +29,8 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   run:       QuizRun
   /** Carry out a change to the library, from the Library tab's import (`useLibraryActions`) */
   changeLibrary: (action: LibraryActionDNA) => void
-  /** Fold what the Import tab read into the quiz: the widgetings' adds and revisions, then one entry per question label */
-  onImport:  (questions: readonly ImportedQuestionT[], widgetingActions: readonly HuntActionDNA[]) => void
+  /** Fold what the Import tab read into the quiz: its own fields, its widgetings, its columns, then its questions, as actions in order */
+  onImport:  (actions: readonly HuntActionDNA[]) => void
   /** Rewrite the quiz's Q1 preamble, from the LL Export tab */
   onQ1Preamble: (q1_preamble: string) => void
 }

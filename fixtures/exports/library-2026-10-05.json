@@ -1,0 +1,193 @@
+{
+  "widgets": {
+    "pub": {
+      "answer_alphabetized": {
+        "config": {},
+        "description": "The letters of the full answer in alphabetical order, ignoring case and everything that is not a letter.",
+        "formula": "$join($sort($split($lowercase($replace(qn.full_answer, /[^a-z]/i, '')), '')))",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 16,
+        "title": ""
+      },
+      "answer_letter_count": {
+        "config": {},
+        "description": "How many letters the full answer has, ignoring everything that is not a letter.",
+        "formula": "$length($replace(qn.full_answer, /[^a-z]/i, ''))",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 14,
+        "title": ""
+      },
+      "answer_reversed": {
+        "config": {},
+        "description": "The full answer written backward.",
+        "formula": "$join($reverse($split(qn.full_answer, '')))",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 15,
+        "title": ""
+      },
+      "butnot_full": {
+        "config": {},
+        "description": "Every number-like span in the hint of the question this one chains to, added up.",
+        "formula": "(\n  $hint := (qns[label = $$.qn.chains_to]).numnum_hint;\n  $hint.status = 'ok' ? $floor($sum($append([0], $hint.value.items.value)) + 0.5)\n)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 8,
+        "title": ""
+      },
+      "butnot_ishes": {
+        "config": {},
+        "description": "The number-like spans the number spotter found in the hint of the question this one chains to. Ask the hint on that question; this only shows what it found.",
+        "formula": "(qns[label = $$.qn.chains_to]).numnum_hint.value",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 3,
+        "title": "BUT NOT ishes"
+      },
+      "butnot_numeral": {
+        "config": {},
+        "description": "The spans written in digits in the hint of the question this one chains to, added up.",
+        "formula": "(\n  $hint := (qns[label = $$.qn.chains_to]).numnum_hint;\n  $hint.status = 'ok' ? $floor($sum($append([0], $hint.value.items[kind = 'numeral'].value)) + 0.5)\n)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 9,
+        "title": ""
+      },
+      "categories": {
+        "config": {
+          "entry_kind": "estimates"
+        },
+        "description": "Which subject categories a question draws on, each at a difficulty: a pill for each. Columns can show the list, or Masie's, Artie's and Poppy's chances at the question and their average, read against the hunt's wheel (`categories.masie` and the like); a formula reads them as `qn.categories.masie`.",
+        "formula": "",
+        "formulary": "entry",
+        "input_formula": "",
+        "position": 17,
+        "title": "Categories"
+      },
+      "clueing_full": {
+        "config": {},
+        "description": "Every number-like span in the clueing, added up.",
+        "formula": "qn.numnum_clueing.status = 'ok' ? $floor($sum($append([0], qn.numnum_clueing.value.items.value)) + 0.5)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 4,
+        "title": ""
+      },
+      "clueing_numeral": {
+        "config": {},
+        "description": "The spans in the clueing that are written in digits, added up.",
+        "formula": "qn.numnum_clueing.status = 'ok' ? $floor($sum($append([0], qn.numnum_clueing.value.items[kind = 'numeral'].value)) + 0.5)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 5,
+        "title": ""
+      },
+      "clueing_plus_butnot_full": {
+        "config": {},
+        "description": "The clueing sum plus the sum of the hint of the question this one chains to.",
+        "formula": "(\n  $clueing := qn.numnum_clueing;\n  $hint := (qns[label = $$.qn.chains_to]).numnum_hint;\n  $clueing.status = 'ok' and $hint.status = 'ok' ? $floor($sum($append([0], $clueing.value.items.value)) + 0.5) + $floor($sum($append([0], $hint.value.items.value)) + 0.5)\n)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 11,
+        "title": ""
+      },
+      "clueing_plus_rank": {
+        "config": {},
+        "description": "The clueing sum plus this question's rank: its place, counting from 1, once the quiz is put in Q# order.",
+        "formula": "qn.numnum_clueing.status = 'ok' and $type(qn.rank) = 'number' ? $floor($sum($append([0], qn.numnum_clueing.value.items.value)) + 0.5) + qn.rank",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 10,
+        "title": ""
+      },
+      "clueing_with_butnot": {
+        "config": {},
+        "description": "The clueing with the BUT NOT text of the question this one chains to folded in: the complete unit as a player receives it. The phrase is only supplied when the hint does not already say it.",
+        "formula": "(\n  $hint := $trim((qns[label = $$.qn.chains_to]).hint);\n  $exists($hint) and $hint != '' ?\n    qn.clueing & ($contains($hint, /^but not\\b/i) ? ' ... ' : ' ... BUT NOT ... ') & $hint :\n    qn.clueing\n)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 13,
+        "title": ""
+      },
+      "clueing_word_count": {
+        "config": {},
+        "description": "How many words the clueing has.",
+        "formula": "$count($split($trim(qn.clueing), /\\s+/)[$ != ''])",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 12,
+        "title": ""
+      },
+      "dumdum": {
+        "config": {
+          "max_tokens": 256,
+          "model_tier": "quick",
+          "servicelabel": "claude"
+        },
+        "description": "Answers the clueing on first instinct. A guess that differs from the intended title means the question has a second reading.",
+        "formula": "You are answering a trivia question the way a fast, not-especially-careful player would — a literal, first-instinct read, not a careful expert analysis.\n\nQuestion: {{clueing}}\n\nReply with only a JSON object {\"guess\": string, \"explanation\": string}: your best short answer, and a brief explanation of it. No other text.",
+        "formulary": "aibot",
+        "input_formula": "$trim(qn.clueing) != '' ? { 'clueing': $trim(qn.clueing) }",
+        "position": 0,
+        "title": "Dumdum"
+      },
+      "hint_full": {
+        "config": {},
+        "description": "Every number-like span in this question's own hint, added up.",
+        "formula": "qn.numnum_hint.status = 'ok' ? $floor($sum($append([0], qn.numnum_hint.value.items.value)) + 0.5)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 6,
+        "title": ""
+      },
+      "hint_numeral": {
+        "config": {},
+        "description": "The spans in this question's own hint that are written in digits, added up.",
+        "formula": "qn.numnum_hint.status = 'ok' ? $floor($sum($append([0], qn.numnum_hint.value.items[kind = 'numeral'].value)) + 0.5)",
+        "formulary": "jsonata",
+        "input_formula": "$",
+        "position": 7,
+        "title": ""
+      },
+      "numnum_clueing": {
+        "config": {
+          "max_tokens": 4000,
+          "model_tier": "careful",
+          "servicelabel": "claude"
+        },
+        "description": "Lists every span of the clueing a reasonable player might read as a number, so the author can see what a hidden numeric puzzle totals.",
+        "formula": "A trivia question sometimes hides a second, numeric puzzle: adding together every number-like element in its text.\n\nList every text span in the question below that a reasonable person might read as a number, in the order it appears.\n\nQuestion: {{clueing}}\n\nRules:\n- A span written in digits (\"300\", \"1990\") is kind \"numeral\".\n- A span that reads as a number in words counts too: spelled-out numbers (\"one\", \"twenty-three\"), ordinals (\"third\"), and magnitude phrases (\"300 million\", \"a dozen\", \"千\", \"douzaine\") — kind \"wordish\". Give a magnitude phrase as one item with its full numeric value (\"300 million\" is one item worth 300000000), not split into pieces.\n- Do not include the indefinite article \"a\"/\"an\" on its own, and do not include Roman numerals (\"IV\", \"LIV\").\n- If nothing in the question reads as a number, give an empty list of items.\n\nReply with only a JSON object {\"items\": [...]}, each item shaped {\"text\": string, \"value\": number, \"kind\": \"numeral\" | \"wordish\"}, no other text.",
+        "formulary": "aibot",
+        "input_formula": "$trim(qn.clueing) != '' ? { 'clueing': $trim(qn.clueing) }",
+        "position": 1,
+        "title": "Numnum: clueing"
+      },
+      "numnum_hint": {
+        "config": {
+          "max_tokens": 4000,
+          "model_tier": "careful",
+          "servicelabel": "claude"
+        },
+        "description": "Lists every span of the hint a reasonable player might read as a number, so the author can see what a hidden numeric puzzle totals.",
+        "formula": "A puzzle hint can hide a numeric puzzle of its own: adding together every number-like element in its text.\n\nList every text span in the hint below that a reasonable person might read as a number, in the order it appears.\n\nHint: {{hint}}\n\nRules:\n- A span written in digits (\"300\", \"1990\") is kind \"numeral\".\n- A span that reads as a number in words counts too: spelled-out numbers (\"one\", \"twenty-three\"), ordinals (\"third\"), and magnitude phrases (\"300 million\", \"a dozen\", \"千\", \"douzaine\") — kind \"wordish\". Give a magnitude phrase as one item with its full numeric value (\"300 million\" is one item worth 300000000), not split into pieces.\n- Do not include the indefinite article \"a\"/\"an\" on its own, and do not include Roman numerals (\"IV\", \"LIV\").\n- If nothing in the hint reads as a number, give an empty list of items.\n\nReply with only a JSON object {\"items\": [...]}, each item shaped {\"text\": string, \"value\": number, \"kind\": \"numeral\" | \"wordish\"}, no other text.",
+        "formulary": "aibot",
+        "input_formula": "$trim(qn.hint) != '' ? { 'hint': $trim(qn.hint) }",
+        "position": 2,
+        "title": "Numnum: hint"
+      },
+      "remark": {
+        "config": {
+          "entry_kind": "text"
+        },
+        "description": "",
+        "formula": "",
+        "formulary": "entry",
+        "input_formula": "",
+        "position": 18,
+        "title": ""
+      }
+    }
+  }
+}

@@ -10,10 +10,12 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 0 | One address model | landed #121 |
 | 1 | The URL scheme | landed #125 |
 | 2 | Jsonballs, and Import and Export through them | landed #126 |
-| 3 | A hunt's files | landing (lane 1) |
-| 4 | Watches at the grain of the files | pending (after 3) |
-| 5 | One repository per hunt | pending (after 4) |
-| 6 | Downloads and the hunts page | pending (after 5 and 1) |
+| 3 | A hunt's files | landed #127 |
+| 4 | Watches at the grain of the files | landed #128 |
+| 5 | One repository per hunt | landed #129 |
+| 6 | Downloads and the hunts page | landed #130 |
+| 7 | The Coach's follow-ups | landed #133 |
+| 8 | The Coach's second follow-ups | underway |
 
 ## What the threads have taught
 
@@ -111,3 +113,116 @@ from; a review's verdicts need the quiz's question ids to name questions by labe
 *Review:* flagged at medium. Fixed: a fixture for the 2026-09-27 hunt-with-ids export shape.
 Decided by the Coach: keep the `position` reservation, check production before merging. Left:
 the `forced_label` re-import clash (pre-existing).
+
+### Thread 3: a hunt's files (landed #127)
+
+`src/lib/huntfiles.ts` (`Huntfiles`): `huntFiles(snapshot)` is the README plus every ball of
+`Exporting.ballsOf` as `.json` and `.tsv` at `Addresses.filepathOf`; **`filesOf(balls)` writes any
+set of balls' files from those balls alone**. `src/lib/tsv.ts` (`Tsv`) is the one table writer:
+sorted dotted keypath columns, rows sorted by `label`, cells escaped (`\t \n \r \\`), lists
+and empty objects as compact JSON. The README names no hunt (it never changes) and carries
+`MergeCommand`: `jq -s 'reduce .[] as $ball ({}; . * $ball)' $(git ls-files '*.tq?.json')`.
+Bodies are byte-identical for an unchanged resource. `notes/hunt_git.md` is rewritten as built.
+
+For threads 4 and 5, each watch result maps to files on its own:
+* `filesOf([Exporting.huntBall(place, hunt)])`, likewise `categoriesBall`, `membersBall`,
+  `widgetBall(widget, position)`; a quiz is `filesOf(Exporting.quizBalls(place, realm, quiz, run,
+  reviews))`.
+* **A quiz's files depend on more than the quiz**: its `run` is built from the library and the
+  hunt's wheel, so a change to either rewrites every quiz's `.tqq` files.
+* **Watch the library whole, not per widget**: a widget's `position` is its place in the whole
+  library, and which widgets are written depends on every quiz's widgetings.
+* `git status --porcelain` lines begin with a space: `trimEnd()`, never `trim()`.
+
+*Review:* fixed at medium (`a3c1848`: a header's column names are escaped like its cells). Left,
+minor: dotted column names can collide in a `.tsv` for free-form keys (the `.json` keeps both);
+the jq test fails rather than skips without jq. Open with the Coach (orchestrator's recommendation
+in brackets): a review's table a row per question [yes]; the quiz's 141-column one-row table
+[keep]; escapes in a spreadsheet [as built].
+
+### Thread 4: watches at the grain of the files (landed #128)
+
+`quizzes.whole` (`convex/quizzes.ts`): one quiz whole, as the export holds it, for smiths only
+(null for any denial). `src/state/hunt-feed.ts`: `watchHunt` and **`useHuntFeed(labels.hunt,
+huntAffirms, quiz_id, onReading)`**, not yet wired in. It watches `hunts.open`, `widgets.library`
+whole, and per quiz `reviews.forQuiz` plus `quizzes.whole` (or, for the quiz on screen, the
+screen's own frame and question watches, shared). **Thread 5's contract is
+`thread-4-watches.md`, *What thread 5 is handed*: read it whole.** In brief:
+* A `HuntReadingT` is `hunt` (`_id` keys the repository, `branch` the commits), `parts` (`'hunt'`,
+  each quiz by `_id`, `'widgets'`), `files` (all but `README.md`), and `first`.
+* `first: true` is the first full reading, the catch-up commit's input; nothing comes before it.
+  Afterwards a reading comes only when a file's body changed; an unchanged part is the same
+  object. `Huntfiles.changesBetween(prev.files, next.files)` says what to write and remove;
+  `Changes.quizChanges` what to say in the message.
+* Only the quiz list removes a quiz's files. Nothing is handed on while the hunt is gone,
+  relabelled (the hook remounts; its `first` reading catches up) or the smith demoted.
+* Measured on 20 quizzes x 40 questions: 82 subscriptions, 2.6 MB first reading, 86 KB per
+  off-screen quiz edit; one quiz's files 38 ms, **every quiz's 760 ms**, which a hunt
+  retitle/relabel, a wheel change or any library change costs. Full table:
+  `thread-4-measured.md`.
+
+*Review:* fixed at medium (`80d3fa5`: a failing watch is reported once, not at every reading).
+Left, minor: **the first reading waits for every listed quiz**, so one quiz whose `quizzes.whole`
+keeps failing holds back the catch-up commit and everything after (thread 5 guards against it).
+Open with the Coach: `quizzes.whole` per off-screen quiz vs per-question watches
+[orchestrator: keep].
+
+### Thread 5: one repository per hunt (landed #129)
+
+Each hunt's history is one repository at `/hunts/<hunt _id>` (`Huntgit.RepoRoot`), on
+`hunt.branch`: `src/lib/huntgit.ts` (for `quizgit.ts`), `src/state/hunt-mirror.ts` (for
+`quiz-mirror.ts`), `src/state/hunt-commits.ts` (files and message, a line per quiz), the
+scheduler keyed by hunt. `useHunt` runs `useHuntFeed(…, HuntMirror.noteReading)`. Commits write
+only blobs that differ from the tip; the catch-up commits a tab's first reading whole, or
+nothing. A quiz that can't be read is `HuntReadingT.unread` and keeps its files at the tip.
+Readings are built at idle time; one feed per hunt is kept 10 s across quiz switches. Milestones,
+imports and deletions wait up to 5 s for every watch before tagging. Tags:
+`<branch>_<quiz>_<mark>_<stamp>z` (marks `m`, `import`, `delete`). `papaparse` and `exposure.ts`
+are gone.
+
+**Thread 6's handoff is `thread-5-for-thread-6.md`: read it whole.** Pulled forward from thread
+6: the gear's *Download as git* and *Download Full History* zip the hunt's repository as
+`<hunt label>.zip` (`HuntMirror.downloadHuntRepo`). Left: a download on the hunt page; the hunts
+page's fold and `QuizNotFound`'s list (still on `/quizzes`), with their e2e coverage; the
+history's content and notices that still say "quiz".
+
+*Review:* fixed at medium (`a6105d9`: a milestone that waits out its read settles the feeds
+first). Left, minor: an unreadable quiz relabelled while away loses its old-label files from the
+tip (history keeps them); a new branch's first commit says "catch up"; import/deletion wait on
+the git queue as before; tags can pass 40 characters; two feeds for up to 10 s on an affirms
+change. Open with the Coach [orchestrator]: the tag scheme [keep; `@ref` can take git ref
+names]; papaparse uninstalled [fine]; a branch switched on the hunt page commits at the next
+quiz screen's reading [acceptable for now]. `reviews.spec.ts:52` flakes under load (three
+landings today).
+
+### Thread 6: downloads and the hunts page (landed #130)
+
+`Huntgit.listHuntRepos` walks `/hunts`, naming each repository by the label in its tip's
+`hunt.tqh.json` (validated; the hunt's id if unreadable). `HuntRepoList` (MUI) serves both the
+hunts page's fold (hunts the visitor is not on, unlinked, downloadable) and the not-found page's
+list (linked through `Routes.huntPath` only when the visitor is on the hunt). The hunt's own page
+has a History panel to download. Nothing reads `/quizzes`; its helpers are gone. The Full History
+dialog is rewritten for a hunt repository, kept in step with `Huntfiles.MergeCommand`, the
+README's paths and the tag format by `tests/content/full-history.test.ts`.
+
+*Review:* clean at medium. Left, minor: `FullHistoryDownload` and `QuizManageModal` don't catch
+a failed download (predates the sprint); a hunt on the not-found page shows unlinked until the
+hunts list loads; `useHuntRepos` says "Looking…" forever if the listing itself rejects.
+
+### Thread 7: the Coach's follow-ups (landed #133)
+
+A hunt stores its `orglabel` (the maker's ident label, copied at creation, never changed), and
+hunt labels are unique within an org (`by_orglabel_and_label`; `hunts.open` takes the org, or
+none for an old `/h/` address). **Widen only:** after merging, the Coach runs `migrations:runAll`
+on production (`backfillHuntOrglabels`), then a tighten PR makes `orglabel` required and drops
+`rows.orgFor`'s fallback. A wrong org is not found, not redirected. A bare quiz address opens by
+role (smith `!edit`, reviewer `!playtest`; anyone else a notice to contact the smith). Quiz lists
+sort by label. Import carries the whole quiz (fields, widgetings, columns, styling,
+`last_sortkey`). Tables follow `notes/decisions/tsv-formats.md`. Widgets live at
+`/pub/widgets/<label>`, balls `{ pub: { widgets } }`. Off-screen quiz watches open after load and
+idle.
+
+*Review:* fixed at medium (`hunts.open` accepts a missing org, for tabs on the previous app
+during a deploy). Left, minor: a whole-hunt paste into an unmatched quiz carries the first quiz's
+fields and columns [orchestrator: carry them only on a label or title match, or a single-quiz
+paste]; a re-added column can clear the quiz's sort memory.

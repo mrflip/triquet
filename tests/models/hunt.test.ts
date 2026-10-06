@@ -97,7 +97,7 @@ describe('Hunt.exposed', () => {
 })
 
 describe('HuntValidators.row', () => {
-  const Row = { label: 'quiet_otter', title: 'Quiet Otter', branch: 'main' }
+  const Row = { label: 'quiet_otter', orglabel: 'pat_smith', title: 'Quiet Otter', branch: 'main' }
 
   it('takes a hunt as the database holds it', () => {
     expect(HuntValidators.row(Row)).to.deep.eq(Row)
@@ -105,6 +105,10 @@ describe('HuntValidators.row', () => {
 
   it('refuses a label that is not one', () => {
     expect(() => HuntValidators.row({ ...Row, label: 'Quiet Otter' })).to.throw(Z.ZodError)
+  })
+
+  it("refuses an org that is not an ident's label", () => {
+    expect(() => HuntValidators.row({ ...Row, orglabel: 'pat' })).to.throw(Z.ZodError)
   })
 
   it('refuses a branch that git would not take as one', () => {

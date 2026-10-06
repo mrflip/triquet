@@ -1,8 +1,66 @@
-import { readFile } from 'node:fs/promises'
-import { type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import type { Download, Page } from '@playwright/test'
 import { unzipSync } from 'fflate'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test } from './support'
+import { actDangerously, expect, huntOf, manageDialog, newQuiz, openManage, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+
+/** The label of the quiz `page` is on, from its address */
+function quizLabelOf(page: Page): string {
+  const segments = new URL(page.url()).pathname.split('/').filter((segment) => ! segment.startsWith('!'))
+  return segments.at(-1) ?? ''
+}
+
+/** Unzip `bytes` into a fresh directory, as a person downloading it would, and say where */
+function unzipped(bytes: Uint8Array): string {
+  const into = mkdtempSync(path.join(tmpdir(), 'triquet-history-'))
+  const entries = Object.entries(unzipSync(bytes))
+  for (const [filepath, content] of entries) {
+    const target = path.join(into, filepath)
+    mkdirSync(path.dirname(target), { recursive: true })
+    writeFileSync(target, content)
+  }
+  return into
+}
+
+/** A downloaded history, unzipped, as the real git sees it: a function asking git about the repository in `folder` */
+async function gitOfDownload(download: Download, folder: string): Promise<(...args: string[]) => string> {
+  const bytes = readFileSync(await download.path())
+  const repo = path.join(unzipped(new Uint8Array(bytes)), folder)
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the git anyone has installed reading what the app wrote is the point
+  return (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trimEnd()
+}
+
+/**
+ * The open hunt's history, downloaded from the gear and unzipped, as the real git sees it: a
+ * function asking git about it, with the trailing newline taken off.
+ */
+async function downloadedHistory(page: Page): Promise<(...args: string[]) => string> {
+  await openManage(page)
+  const downloading = page.waitForEvent('download')
+  await manageDialog(page).getByRole('button', { name: 'Download as git' }).click()
+  const download = await downloading
+  await page.keyboard.press('Escape')
+  return await gitOfDownload(download, huntOf(page).hunt)
+}
+
+/** What the real git says about the open hunt's history, downloaded afresh: for `expect.poll` */
+async function gitSays(page: Page, ...args: string[]): Promise<string> {
+  const git = await downloadedHistory(page)
+  return git(...args)
+}
+
+/** Mark a milestone from the gear, and the tag it left */
+async function milestone(page: Page): Promise<string> {
+  await openManage(page)
+  await page.getByRole('button', { name: 'Mark a milestone' }).click()
+  await expect(page.getByRole('status')).toHaveText(/^main_/)
+  const tag = await page.getByRole('status').textContent() ?? ''
+  await page.keyboard.press('Escape')
+  return tag
+}
 
 test('a hunt starts on the main branch, and a smith can switch it from the hunt\'s page', async ({ page }) => {
   await page.goto(Routes.huntPath(huntOf(page)))
@@ -19,13 +77,13 @@ test('a hunt starts on the main branch, and a smith can switch it from the hunt\
   await expect(page.getByRole('textbox', { name: 'Branch' })).toHaveValue('draft_two')
 })
 
-test('editing a quiz builds a history that a milestone can tag', async ({ page }) => {
+test('editing a quiz builds a history that a milestone can tag, by its branch and its quiz', async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
 
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
+  await expect(page.getByRole('status')).toHaveText(new RegExp(String.raw`^main_${quizLabelOf(page)}_m_\d{14}z$`))
 })
 
 test('a milestone names the branch it marks', async ({ page }) => {
@@ -38,39 +96,66 @@ test('a milestone names the branch it marks', async ({ page }) => {
   await page.goto(quizPath)
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^playtest-m-/)
+  await expect(page.getByRole('status')).toHaveText(/^playtest_/)
 })
 
-test('the quiz downloads as a zip named for the quiz', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Danish princes')
-  await page.getByLabel('Quiz name').blur()
-
-  await openManage(page)
-  await page.getByLabel('Label', { exact: true }).fill('princes')
-  await page.getByRole('button', { name: 'Apply' }).click()
-  // The address follows the relabel once it has landed.
-  await expect(page).toHaveURL(/\/princes\/!edit$/)
-
+test('the history downloads from the gear as a zip named for the hunt', async ({ page }) => {
   await openManage(page)
   const downloading = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Download as git' }).click()
   const download = await downloading
-  expect(download.suggestedFilename()).toBe('princes.zip')
+  expect(download.suggestedFilename()).toBe(`${huntOf(page).hunt}.zip`)
+})
+
+test("the history downloads from the hunt's own page too, named for the hunt", async ({ page }) => {
+  const tag = await milestone(page)
+  const labels = huntOf(page)
+  await page.goto(Routes.huntPath(labels))
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('region', { name: 'History' }).getByRole('button', { name: 'Download Full History' }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toBe(`${labels.hunt}.zip`)
+  const git = await gitOfDownload(download, labels.hunt)
+  expect(git('tag', '--list')).toBe(tag)
+})
+
+test('a deleted hunt leaves its history on the hunts page, folded away, to download', async ({ page }) => {
+  const { hunt } = huntOf(page)
+  // The milestone proves the hunt committed before it goes, so the hunts page has a repository to find.
+  const tag = await milestone(page)
+  await waitUntilSaved(page)
+  await openManage(page)
+  await actDangerously(page, 'Delete this quiz and its hunt', hunt)
+  await expect(page).toHaveURL(/\/my\/hunts$/)
+
+  const fold = page.getByRole('button', { name: 'Orphaned histories (1)' })
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('list', { name: 'Orphaned histories' })).toHaveCount(0)
+  await fold.click()
+  const orphans = page.getByRole('list', { name: 'Orphaned histories' })
+  // There is no hunt to go to: it is named by its label alone.
+  await expect(orphans.getByRole('listitem')).toContainText(hunt)
+  await expect(orphans.getByRole('link')).toHaveCount(0)
+  // On a phone, the list wraps rather than scrolling sideways.
+  await page.setViewportSize({ width: 360, height: 740 })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+
+  const downloading = page.waitForEvent('download')
+  await orphans.getByRole('button', { name: `Download ${hunt}` }).click()
+  const download = await downloading
+  expect(download.suggestedFilename()).toBe(`${hunt}.zip`)
+  const git = await gitOfDownload(download, hunt)
+  expect(git('tag', '--list')).toBe(tag)
 })
 
 test('the history survives a reload, because it lives in the browser and not in the page', async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
-
   // Marking a milestone first both proves the edit was committed and gives the reload something to survive.
-  await openManage(page)
-  await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-m-/)
+  const tag = await milestone(page)
 
   await reloadOnceSaved(page)
-  await openManage(page)
-  await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-m-/)
+  await expect.poll(() => gitSays(page, 'tag', '--list')).toBe(tag)
 })
 
 /**
@@ -98,8 +183,8 @@ async function committedEntryCount(page: Page): Promise<number> {
 }
 
 test('an edit is committed on its own once the wait is up, and not before', async ({ page }) => {
-  // The quiz's creation is committed at once, without waiting out the clock; its writing is let
-  // settle before counting, since a count taken mid-write undercounts.
+  // The hunt's first reading is committed at once, without waiting out the clock; its writing is
+  // let settle before counting, since a count taken mid-write undercounts.
   await expect.poll(() => committedEntryCount(page)).toBeGreaterThan(0)
   const settled = { count: -1 }
   await expect.poll(async () => {
@@ -110,57 +195,69 @@ test('an edit is committed on its own once the wait is up, and not before', asyn
   const created = settled.count
 
   // The page's clock is taken over, so the wait is stepped through rather than waited out: held
-  // still from before the edit, moved to a hair short of the two seconds the suite runs with,
-  // then across them.
+  // still from before the edit, moved past the moment the edit is read for the history, then to
+  // a hair short of the two seconds the suite runs with, then across them.
   await page.clock.install()
   await page.clock.pauseAt(Date.now() + 1000)
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
-  // The wait starts when the edit lands and is noted for the history, which the tab's title shows.
+  // The edit has landed once the tab's title shows it; it is read for the history when the page is next idle.
   await expect(page).toHaveTitle(/^Danish princes/)
+  await page.clock.runFor(100)
 
-  await page.clock.runFor(1900)
+  await page.clock.runFor(1800)
   // A deliberate one-shot: with the clock held short of the wait, "not yet" is the whole claim.
   expect(await committedEntryCount(page)).toBe(created)
   // ...and with nobody asking, the timer alone produces the history.
-  await page.clock.runFor(200)
+  await page.clock.runFor(300)
   await expect.poll(() => committedEntryCount(page)).toBeGreaterThan(created)
   await page.clock.resume()
 
   await reloadOnceSaved(page)
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
+  await expect(page.getByRole('status')).toHaveText(/^main_.+_m_\d{14}z$/)
 })
 
 test('a milestone marks the edit made a moment ago, without waiting out the clock', async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
+  const tag = await milestone(page)
 
-  await openManage(page)
-  await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^main-m-/)
+  const git = await downloadedHistory(page)
+  expect(git('show', `${tag}:quizzes/home/${quizLabelOf(page)}.tqq.json`)).toContain('Danish princes')
 })
 
-/** Every path in the zip of the open quiz's history, which is what a git client would see */
-async function historyPaths(page: Page): Promise<string[]> {
+test('a hunt has a history from the moment it is opened, before any edit: the hunt whole, README and all', async ({ page }) => {
+  const git = await downloadedHistory(page)
+  expect(git('log', '--format=%s')).toBe('start: the hunt as this browser first read it')
+  expect(git('ls-files').split('\n')).toEqual(expect.arrayContaining(['README.md', 'hunt.tqh.json', `quizzes/home/${quizLabelOf(page)}.tqq.json`]))
+})
+
+test('an edit commits only the files it changed, its message naming the quiz', async ({ page }) => {
+  await page.getByLabel('Quiz name').fill('Danish princes')
+  await page.getByLabel('Quiz name').blur()
+  const tag = await milestone(page)
+
+  const quiz = quizLabelOf(page)
+  const git = await downloadedHistory(page)
+  expect(git('show', '--name-only', '--format=%s', tag).split('\n')).toEqual([`${quiz}: quiz ~title`, '', `quizzes/home/${quiz}.tqq.json`, `quizzes/home/${quiz}.tqq.tsv`])
+})
+
+test('a relabelled quiz\'s files move, and the real git follows them', async ({ page }) => {
   await openManage(page)
-  const downloading = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Download as git' }).click()
-  const download = await downloading
-  const bytes = await readFile(await download.path())
-  await page.keyboard.press('Escape')
-  return Object.keys(unzipSync(new Uint8Array(bytes)))
-}
+  await page.getByLabel('Label', { exact: true }).fill('princes')
+  await page.getByRole('button', { name: 'Apply' }).click()
+  // The address follows the relabel once it has landed.
+  await expect(page).toHaveURL(/\/princes\/!edit$/)
 
-/** The paths in the open quiz's history that `pattern` matches */
-async function pathsMatching(page: Page, pattern: RegExp): Promise<string[]> {
-  const paths = await historyPaths(page)
-  return paths.filter((each) => pattern.test(each))
-}
+  await expect.poll(() => gitSays(page, 'log', '--follow', '--format=%s', '--', 'quizzes/home/princes.tqq.json')).toMatch(/^princes: quiz ~label\nstart: /)
+})
 
-test('a new quiz has a history from the moment it is made, before any edit', async ({ page }) => {
-  await expect.poll(() => pathsMatching(page, /\.git\/refs\/heads\/main$/)).toHaveLength(1)
+test('a new quiz joins the hunt\'s history', async ({ page }) => {
+  await newQuiz(page)
+  const filepath = `quizzes/home/${quizLabelOf(page)}.tqq.json`
+  await expect.poll(() => gitSays(page, 'ls-files', filepath)).toBe(filepath)
 })
 
 test('an import is committed on either side, and tagged', async ({ page }) => {
@@ -172,7 +269,12 @@ test('an import is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('button', { name: 'Import', exact: true }).click()
   await expect(page.getByText(/1 added/)).toBeVisible()
 
-  await expect.poll(() => pathsMatching(page, /\.git\/refs\/tags\/main-import-\d{14}z$/)).toHaveLength(1)
+  const quiz = quizLabelOf(page)
+  await expect.poll(() => gitSays(page, 'tag', '--list')).toMatch(new RegExp(String.raw`^main_${quiz}_import_\d{14}z$`))
+  const git = await downloadedHistory(page)
+  const tag = git('tag', '--list')
+  expect(git('show', `${tag}:quizzes/home/${quiz}/questions.qq.tsv`)).toContain('Imported')
+  expect(git('show', `${tag}~1:quizzes/home/${quiz}/questions.qq.tsv`)).not.toContain('Imported')
 })
 
 test('a deletion is committed on either side, and tagged', async ({ page }) => {
@@ -183,29 +285,22 @@ test('a deletion is committed on either side, and tagged', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete hamlet', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 
-  await expect.poll(() => pathsMatching(page, /\.git\/refs\/tags\/main-delete-\d{14}z$/)).toHaveLength(1)
+  await expect.poll(() => gitSays(page, 'tag', '--list')).toMatch(new RegExp(String.raw`^main_${quizLabelOf(page)}_delete_\d{14}z$`))
 })
 
-test('a deleted quiz leaves its history on the hunts page, folded away, to download', async ({ page }) => {
+test('a deleted quiz\'s files are removed in a commit, and its history keeps them', async ({ page }) => {
   await newQuiz(page)
-  // Proven committed before the quiz goes, so the hunts page has a repository to find.
-  await expect.poll(() => pathsMatching(page, /\.git\/refs\/heads\/main$/)).toHaveLength(1)
+  const label = quizLabelOf(page)
+  const filepath = `quizzes/home/${label}.tqq.json`
+  // Proven committed before the quiz goes, so there is a history for the deletion to leave behind.
+  await expect.poll(() => gitSays(page, 'ls-files', filepath)).toBe(filepath)
   await openManage(page)
-  const label = await manageDialog(page).getByRole('textbox', { name: 'Label', exact: true }).inputValue()
   await actDangerously(page, 'Delete this quiz', label)
   await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
 
-  await page.goto('/my/hunts')
-  const fold = page.getByRole('button', { name: 'Orphaned histories (1)' })
-  await expect(fold).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.getByRole('list', { name: 'Orphaned histories' })).toHaveCount(0)
-
-  await fold.click()
-  const downloading = page.waitForEvent('download')
-  await page.getByRole('list', { name: 'Orphaned histories' }).getByRole('button', { name: label }).click()
-  const download = await downloading
-  expect(download.suggestedFilename()).toBe(`${label}.zip`)
-  const bytes = await readFile(await download.path())
-  const entries = unzipSync(new Uint8Array(bytes))
-  expect(Object.keys(entries)).toContain(`${label}/.git/HEAD`)
+  await expect.poll(() => gitSays(page, 'log', '--format=%s', '--', filepath)).toMatch(new RegExp(String.raw`^-${label}\n`))
+  const git = await downloadedHistory(page)
+  expect(git('ls-files', filepath)).toBe('')
+  const deleting = git('rev-list', '-n', '1', 'HEAD', '--', filepath)
+  expect(git('show', `${deleting}~1:${filepath}`)).toContain(`"${label}"`)
 })

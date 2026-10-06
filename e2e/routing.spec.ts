@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
-import { actDangerously, addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -300,12 +300,23 @@ test.describe('an address naming a quiz', () => {
     await waitUntilSaved(page)
   })
 
-  test('opens playtested when it names no mode, for a smith as for anyone', async ({ page }) => {
+  test('opens in the mode the visitor works in when it names none: a smith to edit, a reviewer to playtest, anyone else told whom to ask', async ({ page, browser }) => {
     const path = quizPathOf(page)
     await loadAfresh(page, path)
-    await expect(page).toHaveURL(`${path}/!playtest`)
-    await expect(page.getByRole('button', { name: 'Share with the smiths' })).toBeVisible()
-    await expect(page.getByLabel('Quiz name')).toBeHidden()
+    await expect(page).toHaveURL(`${path}/!edit`)
+    await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+
+    const reviewer = await otherVisitor(browser)
+    await addMember(page, await assumeIdent(reviewer), 'Reviewer')
+    await reviewer.goto(path)
+    await expect(reviewer).toHaveURL(`${path}/!playtest`)
+    await expect(reviewer.getByRole('button', { name: 'Share with the smiths' })).toBeVisible()
+
+    const stranger = await otherVisitor(browser)
+    await assumeIdent(stranger)
+    await stranger.goto(path)
+    await expect(stranger.getByRole('region', { name: 'Not yet on this hunt' })).toContainText('To be invited, contact its smith')
+    await expect(stranger).toHaveURL(path)
   })
 
   test('opens straight to the quiz it names', async ({ page }) => {
@@ -391,37 +402,42 @@ test.describe('an address naming a quiz that is not there', () => {
     await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
   })
 
+  test('lists every hunt history this browser holds: a hunt the visitor is on linked to its page, any other by its label alone', async ({ page }) => {
+    await startHunt(page)
+    const first = huntOf(page)
+    // The milestone proves the hunt committed, so there is a repository to list.
+    await openManage(page)
+    await page.getByRole('button', { name: 'Mark a milestone' }).click()
+    await expect(page.getByRole('status')).toHaveText(/^main_/)
+    await closeManage(page)
+
+    await loadAfresh(page, Routes.quizPath({ ...first, realm: 'home', quiz: 'nothing' }, 'edit'))
+    const repos = page.getByRole('list', { name: 'History repositories' })
+    await expect(repos.getByRole('link', { name: first.hunt })).toHaveAttribute('href', Routes.huntPath(first))
+    await expect(repos.getByRole('button', { name: `Download ${first.hunt}` })).toBeVisible()
+
+    // Another visitor of this browser, who is not on the hunt, finds it folded away on their hunts page.
+    await page.goto(Routes.huntsPath())
+    await page.getByRole('link', { name: 'Be someone else' }).click()
+    const other = freshIdentLabel()
+    await page.getByRole('textbox', { name: 'Username', exact: true }).fill(other)
+    await page.getByRole('button', { name: `Log in as ${other}` }).click()
+    await expect(page.getByText(`(@${other})`)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Orphaned histories (1)' })).toBeVisible()
+
+    // And by its label alone where a quiz is not found: there is no page of it they could open.
+    await page.goto(Routes.quizPath({ org: 'nobody_here', hunt: 'no_such_hunt_here', realm: 'home', quiz: 'asdf' }, 'edit'))
+    const theirs = page.getByRole('list', { name: 'History repositories' })
+    await expect(theirs.getByRole('listitem').filter({ hasText: first.hunt })).toContainText('main')
+    await expect(theirs.getByRole('link')).toHaveCount(0)
+    await expect(theirs.getByRole('button', { name: `Download ${first.hunt}` })).toBeVisible()
+  })
+
   test('says there is no such hunt, once the server has had its say', async ({ page }) => {
     await assumeIdent(page)
     await page.goto(Routes.quizPath({ org: 'nobody_here', hunt: 'no_such_hunt_here', realm: 'home', quiz: 'asdf' }, 'edit'))
-    await expect(page.getByText('There is no hunt labelled “no_such_hunt_here”.')).toBeVisible()
+    await expect(page.getByText('There is no hunt labelled “no_such_hunt_here” in ~nobody_here.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Your hunts' })).toBeVisible()
-  })
-
-  test('lists the history repositories this browser holds, including those of deleted quizzes', async ({ page }) => {
-    await startHunt(page)
-    await page.getByLabel('Quiz name').fill('Quiz one')
-    await page.getByLabel('Quiz name').blur()
-    await openManage(page)
-    await page.getByLabel('Label', { exact: true }).fill('kept_history')
-    await page.getByRole('button', { name: 'Apply' }).click()
-    await expect(page).toHaveURL(/\/home\/kept_history\/!edit$/)
-    await openManage(page)
-    await page.getByRole('button', { name: 'Mark a milestone' }).click()
-    await expect(page.getByRole('status')).toHaveText(/^main-m-\d{14}z$/)
-    await closeManage(page)
-
-    await newQuiz(page)
-    await openQuiz(page, 'Quiz one')
-    await openManage(page)
-    await actDangerously(page, 'Delete this quiz', 'kept_history')
-    await expect(page.getByLabel('Open quiz').locator('option')).toHaveCount(1)
-    await waitUntilSaved(page)
-
-    await loadAfresh(page, Routes.quizPath({ ...huntOf(page), realm: 'home', quiz: 'nothing' }, 'edit'))
-    const repo = page.getByRole('listitem').filter({ hasText: 'kept_history' })
-    await expect(repo).toContainText('main')
-    await expect(repo).toContainText('not in this hunt')
   })
 })
 
@@ -454,16 +470,17 @@ test.describe('an address in another form than its own', () => {
     await expect(page.getByRole('heading', { name: /^Categories of / })).toBeVisible()
   })
 
-  test("moves to the hunt's own org from another, and to a quiz's own realm from a stale one", async ({ page }) => {
+  test("moves to a quiz's own realm from a stale one, and finds no hunt of its label in another org", async ({ page }) => {
     const hunt = huntOf(page)
     const own = Routes.quizPath({ ...hunt, realm: 'home', quiz: hunt.hunt }, 'edit')
-    await loadAfresh(page, Routes.quizPath({ ...hunt, org: 'nobody_here', realm: 'home', quiz: hunt.hunt }, 'edit'))
-    await expect(page).toHaveURL(own)
     await loadAfresh(page, Routes.quizPath({ ...hunt, realm: 'gone_away', quiz: hunt.hunt }, 'edit'))
     await expect(page).toHaveURL(own)
     await expect(page.getByLabel('Quiz name')).toHaveValue('Quiz one')
+    await loadAfresh(page, Routes.quizPath({ ...hunt, org: 'nobody_here', realm: 'home', quiz: hunt.hunt }, 'edit'))
+    await expect(page.getByText(`There is no hunt labelled “${hunt.hunt}” in ~nobody_here.`)).toBeVisible()
     await loadAfresh(page, Routes.categoriesPath({ ...hunt, org: 'nobody_here' }))
-    await expect(page).toHaveURL(Routes.categoriesPath(hunt))
+    await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
+    await expect(page).toHaveURL(Routes.categoriesPath({ ...hunt, org: 'nobody_here' }))
   })
 
   test("lists a hunt's quizzes at its quizzes' address", async ({ page }) => {
@@ -499,7 +516,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend).toHaveURL(link)
     const notice = friend.getByRole('region', { name: 'Not yet on this hunt' })
     await expect(notice).toContainText('You are not yet a member of this hunt.')
-    await expect(notice).toContainText(`(${author}) to please add you`)
+    await expect(notice).toContainText(`(${author}), and give them your ident`)
     await expect(notice).toContainText(`your ident, “${label}”`)
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
     await expect(friend).toHaveURL(link)

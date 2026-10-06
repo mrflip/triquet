@@ -7,6 +7,7 @@ import { Quiz } from '../../../src/models/quiz'
 import { present } from '../../support/present'
 import { expectSound } from '../../support/soundness'
 import { expectRefusal, huntHolding, openOf, openTester, seedHunt, type Tester } from '../../support/convex'
+import { SeedOrg, seedHuntRows } from '../../support/seed'
 
 /** A hunt of two quizzes, the first holding two questions, laid out with the default widgetings and columns */
 function huntOfTwo() {
@@ -77,13 +78,22 @@ describe("hunts.perform: relabel_hunt", () => {
     expect(await tt.run(async (ctx) => await ctx.db.get('hunts', open.hunt_id))).to.deep.eq(ante)
   })
 
-  it("refuses a label another hunt answers to, writing nothing", async () => {
+  it("refuses a label another hunt of its org answers to, writing nothing", async () => {
+    const tt = openTester()
+    const mine = await seedHunt(tt, huntOfTwo())
+    const other_id = await tt.run(async (ctx) => await seedHuntRows(ctx.db, { ...huntOfTwo(), label: 'autumn_hunt' }, SeedOrg))
+    await expectRefusal(mine.act({ kind: 'relabel_hunt', label: 'autumn_hunt' }), 'labelTaken')
+    expect(await answersTo(tt, 'autumn_hunt')).to.eq(other_id)
+  })
+
+  it("takes a label another org's hunt answers to", async () => {
     const tt = openTester()
     const mine = await seedHunt(tt, huntOfTwo())
     const theirs = await seedHunt(tt, huntOfTwo(), { smith: 'other_smith' })
     await theirs.act({ kind: 'relabel_hunt', label: 'autumn_hunt' })
-    await expectRefusal(mine.act({ kind: 'relabel_hunt', label: 'autumn_hunt' }), 'labelTaken')
-    expect(await answersTo(tt, 'autumn_hunt')).to.eq(theirs.open.hunt_id)
+    await mine.act({ kind: 'relabel_hunt', label: 'autumn_hunt' })
+    const labels = await tt.run(async (ctx) => [await ctx.db.get('hunts', mine.open.hunt_id), await ctx.db.get('hunts', theirs.open.hunt_id)])
+    expect(labels.map((hunt) => [hunt?.orglabel, hunt?.label])).to.deep.eq([[SeedOrg, 'autumn_hunt'], ['other_smith', 'autumn_hunt']])
   })
 
   it("refuses a reviewer, as not theirs to change", async () => {

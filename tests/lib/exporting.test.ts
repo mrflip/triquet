@@ -3,50 +3,22 @@ import { describe, expect, it } from 'vitest'
 import * as Addresses from '../../src/lib/addresses'
 import * as Exporting from '../../src/lib/exporting'
 import * as Importing from '../../src/lib/importing'
+import * as Runner from '../../src/lib/formulary/runner'
 import * as Jsonball from '../../src/lib/jsonball'
 import * as Wheel from '../../src/lib/wheel'
 import { CategoryLabelVals } from '../../src/models/category'
-import { Hunt, type HuntT } from '../../src/models/hunt'
-import { classicHunt, classicLayout } from '../support/layouts'
+import { classicHunt } from '../support/layouts'
 import { Question, type QuestionT } from '../../src/models/question'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { SeedWidgets } from '../../src/models/seeds'
 import { Widget } from '../../src/models/widget'
 import { Widgeted } from '../../src/models/widgeted'
-import { Widgeting } from '../../src/models/widgeting'
 import { present } from '../support/present'
 import { runHolding, runOf } from '../support/runs'
-
-/** A stored row of what a widgeting came to: `ok` holding `value`, or `errored` for `why` */
-const storedOk = (value: unknown) => ({ status: 'ok' as const, value, message: null, result_meta: {}, _creationTime: 1000 })
-const storedErrored = (why: string) => ({ status: 'errored' as const, value: null, message: why, result_meta: {}, _creationTime: 2000 })
-
-/** The number spotter's reply to a clueing holding 300 and twelve */
-const SpottedItems = { items: [{ text: '300', value: 300, kind: 'numeral' }, { text: 'twelve', value: 12, kind: 'wordish' }] }
+import { EntryLibrary, SpottedItems, Verdict, chainedQuiz, snapshot, storedOk, twoQuizHunt } from '../support/snapshots'
 
 /** The hunt every ball here is of */
 const Place: Addresses.InHuntT = { org: 'pat_smith', hunt: 'deep_lake' }
-
-/** The library, with the entry `remark` (text) */
-const EntryLibrary = [...SeedWidgets, Widget.fill({ label: 'remark', formulary: 'entry', config: { entry_kind: 'text' } })]
-
-/**
- * A quiz working the default widgetings and the entry `remark`, whose first question, `leon`,
- * chains to its second, `nantes`. Leon's clueing was read by the number spotter, its quick guess
- * failed, and its remark is typed.
- */
-function chainedQuiz(): QuizT {
-  const nantes = { ...Question.blank(), qnum: '2', label: 'nantes', title: 'Nantes' }
-  const stored: QuestionT['stored'] = {
-    numnum_clueing: { newest: storedOk(SpottedItems), ok: storedOk(SpottedItems) },
-    dumdum:         { newest: storedErrored('Overloaded'), ok: null },
-    remark:         { newest: storedOk('Ask Flip.'), ok: storedOk('Ask Flip.') },
-  } as QuestionT['stored']
-  const leon = { ...Question.blank(), qnum: '1', label: 'leon', title: 'Leon', chains_to: nantes._id, stored }
-  const layout = classicLayout()
-  const widgetings = [...layout.widgetings, Widgeting.fill({ widget_label: 'remark', label: 'remark' })]
-  return { ...Quiz.blank('Princes', 'princes'), ...layout, widgetings, questions: [leon, nantes] }
-}
 
 /** Every key naming an id (`id`, `_id`, or one ending `_id`) anywhere inside `val`, by its path */
 function idPaths(val: unknown, path = ''): string[] {
@@ -67,40 +39,9 @@ function leafPaths(val: unknown, path: readonly string[] = []): string[] {
 /** `quiz`'s body, run over the library holding its entry */
 const bodyOf = (quiz: QuizT) => Exporting.quizBodyOf(quiz, runOf(quiz, EntryLibrary))
 
-/** A hunt of two quizzes, `princes` (chained, widgeted, typed into) and `paris` (blank) */
-function twoQuizHunt(): HuntT {
-  const hunt = Hunt.blank('deep_lake')
-  const realm = present(hunt.realms[0])
-  return { ...hunt, realms: [{ ...realm, quizzes: [chainedQuiz(), Quiz.blank('Paris', 'paris')] }] }
-}
-
-/** Lee's verdict on Leon */
-const Verdict = { get_rate: 40, guesses: 'Leon?', comments: 'Lovely.', minutes: 2, keep_it: true, needs_fact_check: false, elimination_candidate: false }
-
-/** Everything the two-quiz hunt's balls are made from: a wheel with TV in the pool, two members, and Lee's shared review and Kim's draft of `princes` */
-function snapshot(): Exporting.HuntSnapshotT {
-  const hunt = twoQuizHunt()
-  const princes = present(hunt.realms[0]?.quizzes[0])
-  return {
-    hunt:    { label: hunt.label, title: hunt.title, branch: hunt.branch },
-    wheel:   Wheel.placed(Wheel.defaultWheel(), 'tv', 'pool'),
-    members: [{ label: 'lee_jones', title: 'Lee', role: 'reviewer' }, { label: 'pat_smith', title: 'Pat', role: 'smith' }],
-    realms:  hunt.realms,
-    library: EntryLibrary,
-    reviews: { [princes._id]: [
-      { reviewer: { label: 'lee_jones', title: 'Lee' }, phase: 'shared', overall: 'A fair quiz.', reviewings: [{ question_id: present(princes.questions[0])._id, ...Verdict }] },
-      { reviewer: { label: 'kim_park', title: 'Kim' }, phase: 'draft', overall: 'Unfinished', reviewings: [] },
-    ] },
-  }
-}
-
 describe('placeOf', () => {
-  it("is the hunt's org, its earliest smith, and its label", () => {
+  it("is the hunt's org, as the hunt holds it, and its label", () => {
     expect(Exporting.placeOf(snapshot())).to.deep.eq({ org: 'pat_smith', hunt: 'deep_lake' })
-  })
-
-  it("names no org for a hunt with no smith", () => {
-    expect(Exporting.placeOf({ hunt: snapshot().hunt, members: [] })).to.deep.eq({ org: '', hunt: 'deep_lake' })
   })
 })
 
@@ -167,12 +108,14 @@ describe('quizBodyOf', () => {
     expect(_.map(bodyOf(dangling).questions, 'chains_to')).to.deep.eq([null, null])
   })
 
-  it("keeps the quiz's own fields and each widgeting's and column's, leaving out its sort memory", () => {
-    const quiz = { ...chainedQuiz(), locked: true, smiths_note: 'Kings and lions.', last_sortkey: 'column:title' as const }
+  it("keeps every field the quiz stores and each widgeting's and column's, its sort memory and a column's alignment among them", () => {
+    const chained = chainedQuiz()
+    const columns = chained.columns.map((column, ii) => (ii === 0 ? { ...column, align: 'right' as const } : column))
+    const quiz = { ...chained, columns, locked: true, smiths_note: 'Kings and lions.', last_sortkey: 'column:title' as const }
     const body = bodyOf(quiz)
-    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true })
+    expect(_.omit(body, ['questions', 'widgetings', 'columns'])).to.deep.eq({ title: 'Princes', smiths_note: 'Kings and lions.', q1_preamble: quiz.q1_preamble, locked: true, last_sortkey: 'column:title' })
     expect(body.widgetings.remark).to.deep.eq({ position: quiz.widgetings.length - 1, widget_label: 'remark', description: '', params: {} })
-    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100 })
+    expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
   })
 
   it("puts what each widgeting came to beside the question's own fields, the worked-out ones and an entry's included", () => {
@@ -265,10 +208,98 @@ describe('reviewBall', () => {
     expect(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewer: null })).to.be.null
   })
 
+  it("writes of each reviewing its verdict alone, as a reviewing's row is read: no ids, and not whether the reviewer peeked", () => {
+    const row = { _id: 'r1', _creationTime: 1, review_id: 'rv1', hunt_id: 'h1', quiz_id: 'q1', ident_id: 'i1', peeked: true, question_id: present(princes.questions[0])._id, ...Verdict }
+    const placed = present(Exporting.reviewBall(Place, 'home', princes, { ...present(shared), reviewings: [row] }))
+    expect(_.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones.verdicts.leon')).to.deep.eq(Verdict)
+  })
+
   it("passes over a verdict on a question the quiz no longer holds", () => {
     const review = { ...present(shared), reviewings: [...present(shared).reviewings, { ...Verdict, question_id: 'long-gone' }] }
     const placed = present(Exporting.reviewBall(Place, 'home', princes, review))
     expect(Object.keys(_.get(placed.ball, 'quizzes.home.princes.reviews.lee_jones.verdicts') as object)).to.deep.eq(['leon'])
+  })
+})
+
+describe('quizBalls', () => {
+  const held = snapshot()
+  const princes = present(held.realms[0]?.quizzes[0])
+  const run = runOf(princes, EntryLibrary)
+
+  it("is the quiz's own ball, its questions alone, and each shared review's, the drafts left out", () => {
+    const balls = Exporting.quizBalls(Place, 'home', princes, run, present(held.reviews[princes._id]))
+    expect(balls.map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions', 'review'])
+    expect(balls[2]?.address).to.deep.include({ reviewer: 'lee_jones' })
+  })
+
+  it("is each ball as its own function makes it", () => {
+    const [shared] = present(held.reviews[princes._id])
+    expect(Exporting.quizBalls(Place, 'home', princes, run, [present(shared)])).to.deep.eq([
+      Exporting.quizBall(Place, 'home', princes, run), Exporting.questionsBall(Place, 'home', princes, run), Exporting.reviewBall(Place, 'home', princes, present(shared)),
+    ])
+  })
+
+  it("is the quiz and its questions alone for a quiz with no reviews", () => {
+    expect(Exporting.quizBalls(Place, 'home', princes, run, []).map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions'])
+  })
+})
+
+describe('huntLevelBalls', () => {
+  it("is the hunt's own ball, its categories' and its members', as their own functions make them", () => {
+    const held = snapshot()
+    const place = Exporting.placeOf(held)
+    expect(Exporting.huntLevelBalls(held)).to.deep.eq([
+      Exporting.huntBall(place, held.hunt), Exporting.categoriesBall(place, held.wheel), Exporting.membersBall(place, held.members),
+    ])
+  })
+
+  it("reads the doc block's example", () => {
+    expect(Exporting.huntLevelBalls(snapshot()).map(({ address }) => address.kind)).to.deep.eq(['hunt', 'categories', 'members'])
+  })
+})
+
+describe('quizBallsIn', () => {
+  const held = snapshot()
+  const realm = present(held.realms[0])
+  const princes = present(realm.quizzes[0])
+  const reviews = present(held.reviews[princes._id])
+
+  it("is the quiz's balls, the quiz run over the library, in its realm, against the hunt's wheel", () => {
+    const run = Runner.runQuiz(Runner.sourceOf(princes, held.library, Runner.placeOf({ ...held.hunt, wheel: held.wheel }, realm)))
+    expect(Exporting.quizBallsIn(held, realm, princes, reviews)).to.deep.eq(Exporting.quizBalls(Exporting.placeOf(held), 'home', princes, run, reviews))
+  })
+
+  it("reads the doc block's example", () => {
+    expect(Exporting.quizBallsIn(held, realm, princes, reviews).map(({ address }) => address.kind)).to.deep.eq(['quiz', 'questions', 'review'])
+  })
+
+  it("changes with the library the quiz is run over", () => {
+    const remarkless = held.library.filter((widget) => widget.label !== 'remark')
+    const remarkOf = (library: typeof held.library) => _.get(Exporting.quizBallsIn({ ...held, library }, realm, princes, [])[0]?.ball, 'quizzes.home.princes.questions.leon.remark')
+    expect(remarkOf(held.library)).to.deep.eq({ status: 'ok', value: 'Ask Flip.' })
+    expect(remarkOf(remarkless)).to.not.deep.eq(remarkOf(held.library))
+  })
+})
+
+describe('workedBalls', () => {
+  it("is a ball for each widget of the library any of the quizzes works, at its place in the library, in library order", () => {
+    const balls = Exporting.workedBalls(EntryLibrary, [chainedQuiz()])
+    const worked = new Set(chainedQuiz().widgetings.map((widgeting) => widgeting.widget_label))
+    expect(balls).to.deep.eq(EntryLibrary.flatMap((widget, idx) => (worked.has(widget.label) ? [Exporting.widgetBall(widget, idx)] : [])))
+  })
+
+  it("reads the doc block's example", () => {
+    const labels = Exporting.workedBalls(EntryLibrary, [chainedQuiz()]).map(({ address }) => address.kind === 'widget' && address.widget)
+    expect(labels).to.include.members(['dumdum', 'numnum_clueing'])
+  })
+
+  it("is nothing for no quizzes, or quizzes working nothing", () => {
+    expect(Exporting.workedBalls(EntryLibrary, [])).to.deep.eq([])
+    expect(Exporting.workedBalls(EntryLibrary, [Quiz.blank('Paris', 'paris')])).to.deep.eq([])
+  })
+
+  it("passes over a widgeting of a widget the library lacks", () => {
+    expect(Exporting.workedBalls([], [chainedQuiz()])).to.deep.eq([])
   })
 })
 
@@ -277,24 +308,24 @@ describe('widgetBall', () => {
     const dumdum = present(SeedWidgets.find((widget) => widget.label === 'dumdum'))
     const placed = Exporting.widgetBall(dumdum, 0)
     const { scope, label, ...fields } = Widget.exported(dumdum)
-    expect(placed.ball).to.deep.eq({ widgets: { [scope]: { [label]: { ...fields, position: 0 } } } })
+    expect(placed.ball).to.deep.eq({ [scope]: { widgets: { [label]: { ...fields, position: 0 } } } })
     expect(placed.address).to.deep.eq({ kind: 'widget', scope: 'pub', widget: 'dumdum' })
   })
 })
 
 describe('libraryBall', () => {
-  it("is every widget, keyed by scope and label, each with its place in library order", () => {
-    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'widgets.pub') as Record<string, Jsonball.WidgetBodyT>
+  it("is every widget under its scope, keyed by label, each with its place in library order", () => {
+    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'pub.widgets') as Record<string, Jsonball.WidgetBodyT>
     expect(_.sortBy(Object.keys(pub), (label) => pub[label]?.position)).to.deep.eq(SeedWidgets.map((widget) => widget.label))
   })
 
   it("reads the doc block's example", () => {
-    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'widgets.pub') as object
+    const pub = _.get(Exporting.libraryBall(SeedWidgets), 'pub.widgets') as object
     expect(Object.keys(pub)).to.include.members(['answer_reversed', 'dumdum'])
   })
 
   it("is an empty collection for an empty library", () => {
-    expect(Exporting.libraryBall([])).to.deep.eq({ widgets: {} })
+    expect(Exporting.libraryBall([])).to.deep.eq({ pub: { widgets: {} } })
   })
 
   it("reads back through the library's Import as unchanged", () => {
@@ -326,6 +357,13 @@ describe('ballsOf', () => {
     }
   })
 
+  it("carries each ball's body, what it holds at its key path (the questions alone, under `questions`)", () => {
+    for (const { address, body, ball } of Exporting.ballsOf(snapshot())) {
+      const keypath = address.kind === 'questions' ? ['questions'] : Addresses.keypathOf(address)
+      expect(Jsonball.ballAt(keypath, body), address.kind).to.deep.eq(ball)
+    }
+  })
+
   it("never has two merged balls hold one leaf, so the merge comes out the same in any order", () => {
     const balls = Exporting.ballsOf(snapshot()).filter(({ address }) => Addresses.isMerged(address)).map(({ ball }) => ball)
     const leaves = balls.flatMap((ball) => leafPaths(ball))
@@ -334,7 +372,7 @@ describe('ballsOf', () => {
   })
 
   it("writes the widgets the quizzes work, at their place in the library, and no others", () => {
-    const placed = Exporting.ballsOf(snapshot()).flatMap(({ address, ball }) => (address.kind === 'widget' ? [[address.widget, _.get(ball, ['widgets', 'pub', address.widget, 'position']) as unknown]] : []))
+    const placed = Exporting.ballsOf(snapshot()).flatMap(({ address, ball }) => (address.kind === 'widget' ? [[address.widget, _.get(ball, ['pub', 'widgets', address.widget, 'position']) as unknown]] : []))
     const worked = chainedQuiz().widgetings.map((widgeting) => widgeting.widget_label)
     expect(placed.map(([label]) => label)).to.have.members(worked)
     expect(placed).to.deep.include(['remark', EntryLibrary.length - 1])
@@ -344,7 +382,8 @@ describe('ballsOf', () => {
 describe('wholeOf', () => {
   it("is the hunt's fields at the root, beside its categories, members, quizzes and the widgets they work", () => {
     const whole = Exporting.wholeOf(snapshot())
-    expect(_.sortBy(Object.keys(whole))).to.deep.eq(['branch', 'categories', 'label', 'members', 'quizzes', 'title', 'widgets'])
+    expect(_.sortBy(Object.keys(whole))).to.deep.eq(['branch', 'categories', 'label', 'members', 'pub', 'quizzes', 'title'])
+    expect(Object.keys(_.get(whole, 'pub.widgets') as object)).to.include('dumdum')
     expect(Object.keys(_.get(whole, 'quizzes.home') as object)).to.have.members(['princes', 'paris'])
     expect(_.get(whole, 'quizzes.home.princes.reviews.lee_jones.overall')).to.eq('A fair quiz.')
   })
@@ -376,17 +415,17 @@ describe('wholeOf', () => {
 })
 
 describe('snapshotOf', () => {
-  it("is the hunt read whole, with the wheel and members the screen holds, and no reviews", () => {
+  it("is the hunt read whole, with the org, wheel and members the screen holds, and no reviews", () => {
     const whole = twoQuizHunt()
     const { wheel, members } = snapshot()
-    expect(Exporting.snapshotOf({ wheel, members }, whole, EntryLibrary)).to.deep.eq({
-      hunt: { label: 'deep_lake', title: 'Deep Lake', branch: 'main' }, wheel, members, realms: whole.realms, library: EntryLibrary, reviews: {},
+    expect(Exporting.snapshotOf({ org: 'pat_smith', wheel, members }, whole, EntryLibrary)).to.deep.eq({
+      hunt: { label: 'deep_lake', title: 'Deep Lake', branch: 'main', org: 'pat_smith' }, wheel, members, realms: whole.realms, library: EntryLibrary, reviews: {},
     })
   })
 
   it("reads the doc block's example", () => {
     const { wheel, members } = snapshot()
-    const snap = Exporting.snapshotOf({ wheel, members }, twoQuizHunt(), EntryLibrary)
+    const snap = Exporting.snapshotOf({ org: 'pat_smith', wheel, members }, twoQuizHunt(), EntryLibrary)
     expect(Exporting.wholeOf(snap).label).to.eq('deep_lake')
   })
 })

@@ -4,29 +4,26 @@ import _ from 'es-toolkit/compat'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useConvex, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
-import type { Id } from '../../convex/_generated/dataModel'
 import * as Actor from '../lib/actor'
 import * as Alarms from '../lib/alarms'
 import * as Approve from '../lib/approve'
-import * as Runner from '../lib/formulary/runner'
 import * as Labelmaker from '../lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../lib/notices'
 import * as Postmortem from '../lib/postmortem'
 import { noticeOf } from '../lib/refusals'
 import type { QuizLabels } from '../lib/routes'
-import { assembledQuiz, smithsOf, type ReviewedT, type SeenQuestionT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
+import { smithsOf, type ReviewedT, type HuntOpeningT, type ShallowHuntT, type ShallowRealmT, type SmithT } from '../lib/rows'
 import { ValidatorKit } from '../lib/validator'
-import { ActionValidators, type AffirmsDNA, type HuntActionDNA, type QuizAffirmsDNA } from '../models/actions'
-import { Question } from '../models/question'
+import { ActionValidators, type AffirmsDNA, type HuntActionDNA } from '../models/actions'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
-import type { MirrorSnapshot } from './commit-scheduler'
 import { useRaiseAlarm } from './alarms'
 import { useAffirms } from './use-affirms'
 import { useIdent } from './use-ident'
 import { holdThePage } from './page-hold'
 import { useSession } from './use-session'
-import { mirrorQuiz, trackWrite } from './quiz-mirror'
+import * as HuntMirror from './hunt-mirror'
+import { useHuntFeed } from './hunt-feed'
 import { useQuiz } from './use-quiz'
 
 /**
@@ -171,71 +168,6 @@ export function denialOf(claims: Actor.QuizClaimsT, action: HuntActionDNA): Appr
 /** The library before it has arrived: one list, so a render that has none hands on the same one */
 const NoWidgets: readonly WidgetT[] = []
 
-/** A watch on one question of the open quiz, and how to stop listening to it */
-type QuestionWatch = { reading: () => SeenQuestionT | null | undefined, stop: () => void }
-
-/**
- * Feed the open quiz's history from every reading of it, whoever made the change. Read through
- * watches rather than renders: the client tells a watch of a change before the change's own
- * mutation resolves, so a change is noted for the history by the time its writer hears it landed.
- * The quiz is its frame and a watch per question it orders, followed as the order changes, with
- * the library its widgetings work and the branch its hunt is on; a reading with a question still on its way is not noted. Each
- * is the same watch the screen holds, sent the same affirms, so none is opened twice.
- *
- * Fed only where the standing affirmed is sent every question whole (`Question.isSentWhole`): a
- * smith's. A reviewer is not sent the smiths' notes or what the widgetings stored, and a history
- * made from what they are sent would record those as blanked.
- */
-function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirmsDNA | null): void {
-  const convex = useConvex()
-  useEffect(() => {
-    if (affirms === null || ! ready || ! Question.isSentWhole(affirms.standing)) { return }
-    const { quiz_id, ...huntAffirms } = affirms
-    const huntWatch = convex.watchQuery(api.hunts.open, { hunt_label })
-    const frameWatch = convex.watchQuery(api.quizzes.open, { affirms })
-    const libraryWatch = convex.watchQuery(api.widgets.library, {})
-    const questionWatches = new Map<Id<'questions'>, QuestionWatch>()
-    const last: { snapshot: MirrorSnapshot | null } = { snapshot: null }
-    const note = () => {
-      try {
-        const hunt = huntWatch.localQueryResult()?.hunt
-        const frame = frameWatch.localQueryResult()
-        const library = libraryWatch.localQueryResult()
-        const quiz = frame && assembledQuiz(frame, (question_id) => questionWatches.get(question_id)?.reading())
-        const realm = hunt?.realms.find((each) => each.quizzes.some((row) => row._id === quiz_id))
-        if (! hunt || ! quiz || ! realm || ! library) { return }
-        const snapshot = { quiz, library, place: Runner.placeOf(hunt, realm), branch: hunt.branch }
-        mirrorQuiz(last.snapshot, snapshot)
-        last.snapshot = snapshot
-      } catch (err) {
-        // A record that misses a reading is a smaller loss than a page that fails.
-        Postmortem.report('note a reading of the quiz for its history', err, { hunt: hunt_label, quiz_id })
-      }
-    }
-    // A watch for each question the frame orders, and none for one it no longer does.
-    const follow = () => {
-      const ordered = new Set(frameWatch.localQueryResult()?.row_ordering)
-      for (const [question_id, watch] of questionWatches) {
-        if (ordered.has(question_id)) { continue }
-        watch.stop()
-        questionWatches.delete(question_id)
-      }
-      for (const question_id of ordered) {
-        if (questionWatches.has(question_id)) { continue }
-        const watch = convex.watchQuery(api.questions.open, { question_id, affirms: huntAffirms })
-        questionWatches.set(question_id, { reading: () => watch.localQueryResult(), stop: watch.onUpdate(note) })
-      }
-    }
-    const stops = [huntWatch.onUpdate(note), libraryWatch.onUpdate(note), frameWatch.onUpdate(() => { follow(); note() })]
-    follow()
-    note()
-    return () => {
-      for (const stop of stops) { stop() }
-      for (const watch of questionWatches.values()) { watch.stop() }
-    }
-  }, [convex, hunt_label, ready, affirms])
-}
-
 /**
  * The quiz `labels` names, live: the hunt as its screen holds it, the quiz whole, and its reviews,
  * kept current as they change here, in another tab, on another device, or at someone else's
@@ -247,12 +179,13 @@ function useHistoryFeed(hunt_label: string, ready: boolean, affirms: QuizAffirms
  * first. A change the server refuses writes nothing, and says why in `saveNotice` and in an alarm
  * (`useRaiseAlarm`), which the author sees wherever they are on the page. One the policies refuse
  * of the browser's own claims (`denialOf`) is not sent at all, and is said the same way. For a smith, every
- * reading of the open quiz, whoever changed it, goes into its history.
+ * reading of the hunt, whoever changed it, goes into its history (`useHuntFeed`, `HuntMirror`).
  *
+ * @param orglabel - The org the address names; null for an old address, which names none.
  * @param labels - The hunt, realm and quiz the address names.
  * @returns The hunt, realm and quiz, a dispatcher, and why anything went wrong.
  */
-export function useHunt(labels: QuizLabels): HuntHandle {
+export function useHunt(orglabel: string | null, labels: QuizLabels): HuntHandle {
   const { ready } = useSession()
   const perform = useMutation(api.hunts.perform)
   const raise = useRaiseAlarm()
@@ -261,10 +194,10 @@ export function useHunt(labels: QuizLabels): HuntHandle {
 
   // A label that cannot be one names no hunt, and is not asked about.
   const askable = ValidatorKit.label.safeParse(labels.hunt).success
-  const opening = useQuery(api.hunts.open, askable && ready ? { hunt_label: labels.hunt } : 'skip')
+  const opening = useQuery(api.hunts.open, askable && ready ? { orglabel, hunt_label: labels.hunt } : 'skip')
   const hunt = opening?.hunt ?? null
   // The quiz last found at this address, so a relabel does not lose it: see `placeIn`.
-  const address = `${labels.hunt}/${labels.realm}/${labels.quiz}`
+  const address = `${orglabel ?? ''}/${labels.hunt}/${labels.realm}/${labels.quiz}`
   const [shown, setShown] = useState<{ address: string, quiz_id: string } | null>(null)
   const placing = placeIn(askable && opening === undefined ? undefined : hunt, labels, shown?.address === address ? shown.quiz_id : null)
   const quiz_id = placing.quizRow?._id ?? null
@@ -274,7 +207,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
   const quizSeen = useQuiz(huntAffirms, quiz_id)
   const reviewsSeen = useQuery(api.reviews.forQuiz, quizAffirms === null || ! ready ? 'skip' : { affirms: quizAffirms })
   const library = useQuery(api.widgets.library, ready ? {} : 'skip')
-  useHistoryFeed(labels.hunt, ready, askable ? quizAffirms : null)
+  useHuntFeed(orglabel, askable ? labels.hunt : null, huntAffirms, quiz_id, HuntMirror.noteReading)
 
   const finding = findingOf(opening, placing, quizSeen, reviewsSeen, library)
   const found = finding === 'found' && quizSeen ? { realm: placing.realm, quiz: quizSeen, reviews: reviewsSeen ?? [] } : { realm: null, quiz: null, reviews: [] }
@@ -338,7 +271,7 @@ export function useHunt(labels: QuizLabels): HuntHandle {
       }
     }
     const work = write()
-    trackWrite(work)
+    HuntMirror.trackWrite(work)
     return await work
   }, [perform, convex, raise])
 

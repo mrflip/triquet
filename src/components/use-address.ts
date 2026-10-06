@@ -11,16 +11,17 @@ export type AddressedT<KK extends Addresses.AddressKind> = {
   mode:    Addresses.Mode | null
 }
 
-/** Whether `location` names a resource of `kind` */
-function isOfKind<KK extends Addresses.AddressKind>(location: Addresses.LocationT | null, kind: KK): location is AddressedT<KK> {
-  return location?.address.kind === kind
+/** Whether `location` names a resource of `kind` itself, not its raw record */
+function isOfKind<KK extends Addresses.AddressKind>(location: Addresses.LocationT | null, kind: KK): location is Addresses.LocationT & AddressedT<KK> {
+  return location?.address.kind === kind && ! location.raw
 }
 
 /**
  * What the page's address names, read whole by `Addresses.locationFrom`, for a page that shows a
  * resource of `kind`. The folders under `src/app/` say which page an address reaches; this says
  * what it names, unescaped, so every page reads its address the same way. An address of another
- * kind, or of none (an org with no `~`, a mode the app does not have), is not found.
+ * kind, of none (an org with no `~`, a mode the app does not have), or of a raw record (`.json`),
+ * which no page serves, is not found.
  *
  * @param kind - The kind of resource the page shows.
  * @returns The resource, and its mode, null when the address names none.

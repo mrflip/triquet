@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Box, Link, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material'
 import * as Actor from '../lib/actor'
 import * as Approve from '../lib/approve'
-import { AppNotices } from '../lib/notices'
+import { AppNotices, noSuchHuntNotice } from '../lib/notices'
 import * as Routes from '../lib/routes'
 import type { ShallowHuntT } from '../lib/rows'
 import { HuntRoleTitles } from '../models/hunting'
 import { useHuntOpening } from '../state/use-hunt-opening'
 import { useIdent } from '../state/use-ident'
 import { useShowHunt } from '../state/shown-hunt'
+import { FullHistoryDownload } from './FullHistoryDownload'
 import { HuntBranch } from './HuntBranch'
 import { QuizLinks } from './HuntsList'
 import NextLink from './NextLink'
@@ -36,8 +37,8 @@ function pathOf(screen: HuntRouteProps['screen'], labels: Routes.HuntLabels): st
 }
 
 /**
- * What an address naming a hunt shows: its quizzes, its branch, the way to its categories, and
- * who is on it; or, for its quizzes alone, those.
+ * What an address naming a hunt shows: its quizzes, its branch, its history to download, the way
+ * to its categories, and who is on it; or, for its quizzes alone, those.
  *
  * A visitor who has not said who they are is sent to say so, and brought back here. A visitor not
  * on the hunt is told which smiths to ask; an address naming no hunt says so. An address naming
@@ -46,7 +47,7 @@ function pathOf(screen: HuntRouteProps['screen'], labels: Routes.HuntLabels): st
 export function HuntRoute({ org, huntLabel, screen }: Readonly<HuntRouteProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
-  const { finding, hunt, smiths } = useHuntOpening(huntLabel)
+  const { finding, hunt, smiths } = useHuntOpening(org, huntLabel)
   useShowHunt(hunt)
   useCanonical(org === null ? null : pathOf(screen, { org, hunt: huntLabel }), hunt && pathOf(screen, { org: hunt.org, hunt: hunt.label }))
 
@@ -60,15 +61,15 @@ export function HuntRoute({ org, huntLabel, screen }: Readonly<HuntRouteProps>) 
 
   if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
   if (finding === 'refused') { return <NotOnHunt playtestPath={null} ident={ident} claims={null} smiths={smiths} /> }
-  if (! hunt) { return <NoSuchHunt huntLabel={huntLabel} /> }
+  if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   return screen === 'hunt' ? <HuntScreen hunt={hunt} actor={actor} /> : <QuizzesScreen hunt={hunt} />
 }
 
-/** What an address naming a hunt says when there is no hunt by that label, with the way back to the visitor's hunts */
-export function NoSuchHunt({ huntLabel }: Readonly<Pick<HuntRouteProps, 'huntLabel'>>) {
+/** What an address naming a hunt says when its org has no hunt by that label, with the way back to the visitor's hunts */
+export function NoSuchHunt({ org, huntLabel }: Readonly<Pick<HuntRouteProps, 'org' | 'huntLabel'>>) {
   return (
     <main className={styles.page}>
-      <Panel title="No such hunt" blurb={`There is no hunt labelled “${huntLabel}”.`}>
+      <Panel title="No such hunt" blurb={noSuchHuntNotice(org, huntLabel)}>
         <Link component={NextLink} href={Routes.huntsPath()}>Your hunts</Link>
       </Panel>
     </main>
@@ -89,7 +90,7 @@ function QuizzesScreen({ hunt }: Readonly<{ hunt: ShallowHuntT }>) {
   )
 }
 
-/** The hunt's own page: its quizzes, its branch, the way to its categories, and who is on it in what role */
+/** The hunt's own page: its quizzes, its branch, its history to download, the way to its categories, and who is on it in what role */
 function HuntScreen({ hunt, actor }: Readonly<{ hunt: ShallowHuntT, actor: Actor.ActorT }>) {
   const rebranchable = Approve.mayOffer('rebranch_hunt', Actor.claimsOn(actor, hunt._id, hunt))
   return (
@@ -99,6 +100,9 @@ function HuntScreen({ hunt, actor }: Readonly<{ hunt: ShallowHuntT, actor: Actor
       </Panel>
       <Panel title="Branch" blurb="The line of work every quiz of this hunt is on, and the git branch each browser keeps their history on.">
         <HuntBranch key={hunt.branch} hunt={hunt} editable={rebranchable} />
+      </Panel>
+      <Panel title="History" blurb="Every change to this hunt, kept as a git repository in this browser while a smith works on its quizzes here. The download is the history as this browser last recorded it.">
+        <FullHistoryDownload hunt={hunt} />
       </Panel>
       <Panel title="Categories" blurb="How the hunt arranges its subject categories round a wheel, so that neighbours are kin and opposites far apart.">
         <Link component={NextLink} href={Routes.categoriesPath({ org: hunt.org, hunt: hunt.label })}>The category wheel</Link>

@@ -5,21 +5,23 @@ Oct 5, 2026 · @Philip F Kromer
 ## Scheme
 
 Every URL is an org, a hunt with an optional version, a path of nouns, and an optional mode.
-(Org, at current, means the ident label)
+(An org, for now, is an ident label: a hunt stores its maker's as its `orglabel`, copied when it is
+made and never changed.)
 
 ```
 /~{org}                                      an org's hunts
 /~{org}/{hunt}                               hunt home
 /~{org}/{hunt}/quizzes                       all quizzes
-/~{org}/{hunt}/quizzes/a/{quiz}              a quiz
-/~{org}/{hunt}/quizzes/a/{quiz}.json         its raw record (future)
-/~{org}/{hunt}/quizzes/a/{quiz}/!{mode}      !edit, !playtest, !{view}
+/~{org}/{hunt}/quizzes/home/{quiz}           a quiz
+/~{org}/{hunt}/quizzes/home/{quiz}.json      its raw record (future)
+/~{org}/{hunt}/quizzes/home/{quiz}/!{mode}   !edit, !playtest, !{view}
 /~{org}/{hunt}/images/{image}                shared images
 /~{org}/{hunt}/categories/{category}         difficulty categories
-/lib/widgets/{widget}                        construction widgets
+/pub/widgets/{widget}                        construction widgets, in their scope (`pub`)
+/pub/widgets/{widget}.json                   a widget's raw record (no page serves it yet)
 ```
 
-Example: `/~pat/spring_hunt@go_live/quizzes/a/legends/!playtest` (note: includes future proposals)
+Example: `/~pat/spring_hunt@go_live/quizzes/home/legends/!playtest` (note: includes future proposals)
 
 | Part                  | In the example | Meaning                                          |
 | --------------------- | -------------- | ------------------------------------------------ |
@@ -27,7 +29,7 @@ Example: `/~pat/spring_hunt@go_live/quizzes/a/legends/!playtest` (note: includes
 | `{hunt}`              | `spring_hunt`  | The hunt, named within its org                   |
 | `@{ref}` or `@!{sha}` | `@go_live`     | future: the hunt at a named ref or at a commit   |
 | `quizzes`             | `quizzes`      | A collection, from a fixed vocabulary            |
-| `a`                   | `a`            | The realm, a single placeholder for now          |
+| `{realm}`             | `home`         | The realm, `home` alone for now                  |
 | `{quiz}`              | `legends`      | The quiz, unique within the hunt                 |
 | `!{mode}`             | `!playtest`    | Optional: how the quiz is opened                 |
 
@@ -38,11 +40,12 @@ Example: `/~pat/spring_hunt@go_live/quizzes/a/legends/!playtest` (note: includes
 * In addition to the regular jsonball files, there is a questions json file suitable for pasting the question contents across quizzes
   - Deep-merging the jsonball files within a repo reconstitutes the hunt, which is not itself serialized
   - in `/~org/hunt/categories.tqc.json`:              `{ "categories": { "categorylabel": { ... } }   }`
-  - in `/~org/hunt/quizzes/{a}/{quizlabel}.tqq.json`: `{ "quizzes": { "{a}": { "{quizlabel}": { ... } } } }`
+  - in `/~org/hunt/quizzes/{realm}/{quizlabel}.tqq.json`: `{ "quizzes": { "{realm}": { "{quizlabel}": { ... } } } }`
 * Each file type has a short pre-extension: .xx.json
 * Files are exported as:
   - json, pretty-printed, with keys alphabetized. No array fields
   - tsv, with columns sorted alphabetically by label, and rows sorted by label
+* As built: `notes/hunt_git.md` is the index of every file, its shape and its table
 
 ## Decisions
 
@@ -50,15 +53,17 @@ The database is the system of record, and the URL names things by label within a
 
 | Topic              | Decision                                                                                                                      | Reason                                                                                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Orgs               | `~{org}` is the top-level scope. Every username is its own org.                                                               | Hunt names are chosen within an org, not guessed against a global namespace. The sigil keeps the root free for the app's own routes.     |
+| Orgs               | `~{org}` is the top-level scope. Every username is its own org. A hunt stores its org (`orglabel`): its maker's ident label, copied when it is made, never changed. | Hunt names are chosen within an org, not guessed against a global namespace. The sigil keeps the root free for the app's own routes.     |
+| Hunt labels        | A hunt label is unique within its org, not across the app: `hunts.open` finds a hunt by org and label. An old address (`/h/{hunt}`), naming no org, finds the earliest hunt of its label. | Takes hunt labels out of a global namespace into one under the namer's control. (The Coach, 2026-10-05.)                                  |
 | Org sigil          | Only `~` is emitted.                                                 | `~` is the one sigil that never needs encoding. The alias covers keyboards that lack it.                                                 |
 | Labels             | Every label matches `/^[a-z](_?[a-z0-9])+$/`.                                                                                 | Lowercase only, so no case collisions. At least two characters, single underscores, and a linear-time match.                             |
 | quizzes            | A quiz label is unique across its hunt.                                                                                       | A bare label always identifies one quiz, so references survive a move.                                                                   |
-| Realms             | One realm, called `a`. Its slot stays in the path.                                                                            | The URL shape will not change when realms return.                                                                                        |
+| Realms             | One realm, `home`, its own label. Its slot stays in the path. (Sketched as `a`, which the label rule refuses: the hunt_git sprint's Decision 1.) | The URL shape will not change when realms return.                                                                                        |
 | Modes              | A trailing `!{mode}` segment: `!edit`, `!playtest`, or a user-created `!{view}`. Built-in names are reserved from user views. | Modes get their own namespace and cannot collide with a noun.                                                                            |
 | Versions           | `{hunt}@{ref}` for a named ref, `{hunt}@!{sha}` for a commit. Named refs follow the label rule.                               | A version names the state of the whole hunt, so every link below it stays in that version. The `!` keeps a tag from being read as a SHA. |
-| Hunt resources     | `images/`, `widgets/` and `categories/` sit beside `quizzes/`.                                                                | One fixed vocabulary of collections under the hunt.                                                                                      |
-| Raw record         | Adding `.json` to a quiz URL serves the record itself.                                                                        | The same address gives the app view and the data.                                                                                        |
+| Hunt resources     | `images/` and `categories/` sit beside `quizzes/`.                                                                            | One fixed vocabulary of collections under the hunt.                                                                                      |
+| Widgets            | The library's widgets sit under their scope at the root: `/pub/widgets/{widget}`, its file `pub/widgets/{widget}.tqw.json`, its jsonball `{ "pub": { "widgets": { … } } }`. | A widget belongs to no hunt; its scope stands where an org and hunt stand, so rule 10 holds for it too. (The Coach, 2026-10-05.)          |
+| Raw record         | Adding `.json` to a resource's URL names the record itself (`Addresses.recordUrlOf`): the address model writes and reads it for any resource, and no page serves one yet. | The same address gives the app view and the data.                                                                                        |
 | Query and fragment | The query string adjusts the screen being shown (filter, sort). The fragment marks a position within a quiz.                  | Neither one changes which thing is addressed.                                                                                            |
 
 ### Git export
@@ -66,7 +71,7 @@ The database is the system of record, and the URL names things by label within a
 The in-browser git repo is ancillary to the database: an export format with superpowers, kept because diffing back is so valuable.
 
 - **One repo per hunt.** `~{org}/{hunt}` is the repo's address, so transferring a hunt renames a repo and leaves its contents alone.
-- **URLs map to files.** `/~{org}/{hunt}/quizzes/a/{quiz}` is `quizzes/a/{quiz}.json` inside that repo.
+- **URLs map to files.** `/~{org}/{hunt}/quizzes/home/{quiz}` is `quizzes/home/{quiz}.tqq.json` inside that repo.
 - **Records only.** Results and media binaries stay out of the repo.
 
 ## Rules
@@ -76,13 +81,13 @@ A URL should parse on sight: nouns in the path, one sigil per job, and nothing i
 1. **Path segments are nouns.** Each segment names a thing or a collection. Collections are plural and come from a fixed vocabulary. Acts on a thing are HTTP methods, not segments.
 2. **Modes start with `!`.** A mode is a different screen on the same noun. It is always the last segment, and it is the only non-noun a path may hold.
 3. **Permission boundaries go in the path.** If two views differ in who may see them or in what they load, they are different paths. The query string only adjusts a screen the viewer is already allowed to see.
-4. **The URL names what is shown, never who is looking.** Everyone allowed to open a URL gets the same screen. Nobody is switched into another mode because of their role.dd
+4. **A mode names what is shown, never who is looking.** Everyone allowed to open a URL that names a mode gets the same screen. A quiz's bare address names none, and moves to the mode the visitor's role works in: a smith to `!edit`, a reviewer to `!playtest`; anyone not on the hunt stays, and is told to contact its smith for an invitation. (The Coach's choice, 2026-10-05, reversing the hunt_git sprint's thread 1, which moved everyone to `!playtest`.)
 5. **Permission comes from the record, not from the URL.** Visibility is decided from the quiz's actual realm and state, before any redirect. A locked quiz looks the same as one that does not exist.
 6. **Labels identify; other segments give context.** The quiz label alone finds the quiz. A URL with a stale realm redirects to the current one.
 7. **A version applies to everything below it.** `@` sits on the hunt segment, and links followed inside a versioned view keep that version.
 8. **Structure characters never appear in labels.** Labels are word characters only, so a URL splits into its parts without a lookup.
 9. **One canonical form.** Emit `~`, lowercase labels and literal sigils. Sigils live in the URL template and only labels are interpolated.
-10. **URL to file is mechanical.** Drop the `~{org}/{hunt}` prefix and add `.json`.
+10. **URL to file is mechanical.** Drop the `~{org}/{hunt}` prefix and add the resource's pre-extension and `.json` (`Addresses.filepathOf`).
 
 ### Sigils
 
@@ -92,7 +97,7 @@ A URL should parse on sight: nouns in the path, one sigil per job, and nothing i
 | `@`     | After the hunt label       | A version follows (FUTURE)  |
 | `!`     | Start of the last segment  | A mode follows              |
 | `!`     | Right after `@`            | The version is a commit SHA |
-| `.json` | End of a quiz label        | The raw record              |
+| `.json` | End of the last label      | The raw record              |
 
 ## Parked
 

@@ -2,7 +2,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
 import { formularyFor } from '../src/lib/formulary/formularies'
 import * as PA from '../src/lib/vv/patterns'
-import { huntFrom, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
+import { huntFrom, orgFor, quizFrom, type CellRows, type HuntRows, type LayoutRows, type MemberT, type QuizRows, type RealmRows, type StoredRows, type WidgetUsageT } from '../src/lib/rows'
 import type { HuntT } from '../src/models/hunt'
 import type { QuizT } from '../src/models/quiz'
 
@@ -30,12 +30,38 @@ export async function identForLabel(db: Reader, label: string): Promise<Doc<'ide
 }
 
 /**
- * The hunt answering to `label`: the earliest made, should two answer to one.
+ * The hunt answering to `label` alone, whatever its org: the earliest made, should several. Only
+ * an old address (`/h/<hunt>`), which names no org, finds a hunt this way; everything else names
+ * the org too (`huntInOrg`).
  *
  * @example (await huntForLabel(db, 'quiet_otter'))?._id
  */
 export async function huntForLabel(db: Reader, label: string): Promise<Doc<'hunts'> | null> {
   return await db.query('hunts').withIndex('by_label', (cvx) => cvx.eq('label', label)).first()
+}
+
+/**
+ * The hunt of the org `orglabel` answering to `label`: the earliest made, should two. A hunt
+ * written before hunts stored their org, and not yet backfilled, stores none; until every hunt
+ * has one, the earliest such hunt answering to `label` answers here for any org, and its address
+ * then moves to the org it is shown under (`orgFor`). So a label is taken, for a new hunt or a
+ * relabel, whenever such a hunt holds it.
+ *
+ * @example (await huntInOrg(db, 'pat_smith', 'quiet_otter'))?._id
+ */
+export async function huntInOrg(db: Reader, orglabel: string, label: string): Promise<Doc<'hunts'> | null> {
+  const filed = await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel).eq('label', label)).first()
+  return filed ?? await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', undefined).eq('label', label)).first()
+}
+
+/**
+ * The org `hunt` is addressed under: the one it stores, or, for a hunt written before hunts
+ * stored one, the one it is shown under meanwhile (`orgFor`).
+ *
+ * @throws For a hunt that stores no org with nobody on it.
+ */
+export async function orglabelOf(db: Reader, hunt: Doc<'hunts'>): Promise<string> {
+  return hunt.orglabel ?? orgFor(hunt, await membersOf(db, hunt._id))
 }
 
 /** Every hunt, in the order they were made */
@@ -97,14 +123,14 @@ export async function isWorked(db: Reader, widget_label: string): Promise<boolea
 
 /**
  * What a write must know of every hunt to keep the data whole, asked of a database that sees them
- * all: whose a hunt label is, so no two hunts answer to one; and whether any quiz of any hunt works
+ * all: whose a hunt label is in an org, so no two hunts of one org answer to one; and whether any quiz of any hunt works
  * a widget, so none is left working a widget the library lost. It answers with an id or a yes,
  * never a row, so a function whose database sees one hunt, or only the library (`policy_rules.ts`),
  * can hold it.
  */
 export type CensusT = {
-  /** The hunt answering to `label`, should one: see `huntForLabel` */
-  huntIdForLabel: (label: string) => Promise<Id<'hunts'> | null>
+  /** The hunt of the org `orglabel` answering to `label`, should one: see `huntInOrg` */
+  huntIdInOrg:    (orglabel: string, label: string) => Promise<Id<'hunts'> | null>
   /** Whether any widgeting works the widget labelled `widget_label`: see `isWorked` */
   isWorked:       (widget_label: string) => Promise<boolean>
 }
@@ -112,12 +138,12 @@ export type CensusT = {
 /**
  * The census of `db`, a database that sees every hunt.
  *
- * @example await censusOf(ctx.db).huntIdForLabel('quiet_otter')  // => the hunt's id, or null
+ * @example await censusOf(ctx.db).huntIdInOrg('pat_smith', 'quiet_otter')  // => the hunt's id, or null
  */
 export function censusOf(db: Reader): CensusT {
   return {
-    huntIdForLabel: async (label) => {
-      const hunt = await huntForLabel(db, label)
+    huntIdInOrg:    async (orglabel, label) => {
+      const hunt = await huntInOrg(db, orglabel, label)
       return hunt?._id ?? null
     },
     isWorked:       async (widget_label) => await isWorked(db, widget_label),
@@ -159,9 +185,8 @@ export async function wholeHuntOf(db: Reader, hunt_id: Id<'hunts'>): Promise<Hun
   const rows = await huntRowsOf(db, hunt_id)
   if (! rows) { return null }
   const quizzes = rows.realms.flatMap((realm) => realm.quizzes)
-  const whole = await Promise.all(quizzes.map(async (quiz) => await quizRowsOf(db, quiz._id)))
-  const quizFor = new Map<string, QuizT>(whole.filter((each) => each !== null).map((each) => [each.quiz._id, quizFrom(each)]))
-  return huntFrom(rows, quizFor)
+  const whole = await Promise.all(quizzes.map(async (quiz) => await wholeQuizOf(db, quiz)))
+  return huntFrom(rows, new Map<string, QuizT>(whole.map((quiz) => [quiz._id, quiz])))
 }
 
 /** A quiz's widgetings, in run order */
@@ -264,10 +289,28 @@ export async function allStoredOf(db: Reader, questions: readonly Doc<'questions
  * @example (await quizRowsOf(db, quiz_id))?.questions.length
  */
 export async function quizRowsOf(db: Reader, quiz_id: Id<'quizzes'>): Promise<QuizRows | null> {
-  const layout = await layoutRowsOf(db, quiz_id)
-  if (! layout) { return null }
-  const questions = await questionsOf(db, layout.quiz)
+  const quiz = await db.get('quizzes', quiz_id)
+  return quiz && await quizRowsFor(db, quiz)
+}
+
+/**
+ * The rows of `quiz`, a row already in hand: as `quizRowsOf`, reading nothing of the quiz itself.
+ *
+ * @example (await quizRowsFor(ctx.db, claims.quiz)).questions.length
+ */
+export async function quizRowsFor(db: Reader, quiz: Doc<'quizzes'>): Promise<QuizRows> {
+  const [layout, questions] = await Promise.all([layoutOf(db, quiz), questionsOf(db, quiz)])
   return { ...layout, questions, stored: await allStoredOf(db, questions, layout.widgetings) }
+}
+
+/**
+ * `quiz`, a row already in hand, whole, as a smith reads it (`quizFrom`): its fields, its
+ * questions with what they stored, and its widgetings and columns. What the export holds of it.
+ *
+ * @example (await wholeQuizOf(ctx.db, claims.quiz)).questions.length
+ */
+export async function wholeQuizOf(db: Reader, quiz: Doc<'quizzes'>): Promise<QuizT> {
+  return quizFrom(await quizRowsFor(db, quiz))
 }
 
 /** A quiz's reviews, oldest first: the order two reviews by one ident are settled by */

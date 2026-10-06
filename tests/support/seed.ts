@@ -48,17 +48,21 @@ export async function seedQuizRows(db: Writer, { hunt_id, realm_id }: QuizPlace,
   return quiz_id
 }
 
+/** The org a seeded hunt is made in, unless the test says another: its seeded smith's (`seedHunt`) */
+export const SeedOrg = 'seed_smith'
+
 /**
- * `hunt`, a fixture, written into rows: its own row, its realms in order, and each realm's
- * quizzes as `seedQuizRows` writes them; and the library given whichever seed widgets it lacks.
+ * `hunt`, a fixture, written into rows in the org `orglabel`: its own row, its realms in order,
+ * and each realm's quizzes as `seedQuizRows` writes them; and the library given whichever seed
+ * widgets it lacks.
  *
  * @returns The hunt's row id.
  * @throws When a row is not valid; the mutation writes nothing.
  *
  * @example await seedHuntRows(ctx.db, Hunt.blank('quiet_otter'))
  */
-export async function seedHuntRows(db: Writer, hunt: HuntT): Promise<Id<'hunts'>> {
-  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, title: hunt.title, branch: hunt.branch }))
+export async function seedHuntRows(db: Writer, hunt: HuntT, orglabel: string = SeedOrg): Promise<Id<'hunts'>> {
+  const hunt_id = await db.insert('hunts', HuntValidators.row({ label: hunt.label, orglabel, title: hunt.title, branch: hunt.branch }))
   await insertAbsentWidgets(db, SeedWidgets)
   for (const [position, realm] of hunt.realms.entries()) {
     const realm_id = await db.insert('realms', RealmValidators.row({ hunt_id, position, label: realm.label, title: realm.title }))

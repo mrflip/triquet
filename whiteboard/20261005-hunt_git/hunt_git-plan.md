@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: threads 0-2 landed (#121, #125, #126); thread 3 underway.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-7 landed (#121, #125, #126, #127, #128, #129, #130, #133); thread 8 (the Coach's second follow-ups) underway; the `orglabel` tighten waits on the production backfill.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -151,6 +151,8 @@ full reading. Milestones, imports and deletions keep working.
 Gloss: `/hunts/<hunt _id>` in the browser's filesystem; the scheduler keyed by hunt, holding
 dirty files; commit messages summarised per quiz; tags following the label rule (urls.md: a
 `@ref` names them); `quizgit.ts` and `quiz-mirror.ts` replaced. Depends on: 4.
+~~Which files changed between readings~~ and ~~the first-full-reading signal~~: pulled forward
+by thread 4 (`Huntfiles.changesBetween`, `HuntReadingT.first`).
 
 ### 6. Downloads and the hunts page
 
@@ -158,8 +160,8 @@ dirty files; commit messages summarised per quiz; tags following the label rule 
 hunt's page and the quiz's gear. On the hunts page, the folded list shows the hunt repositories
 this browser holds for hunts you are not on.
 
-Gloss: `FullHistoryDownload`, the gear's *Download as git*, `OrphanedRepos` and
-`QuizNotFound`'s list read `/hunts`; `/quizzes` is not read at all. `src/content/full-history.md`
+Gloss: ~~`FullHistoryDownload`, the gear's *Download as git*~~ (pulled forward by thread 5),
+`OrphanedRepos` and `QuizNotFound`'s list read `/hunts`; `/quizzes` is not read at all. `src/content/full-history.md`
 is rewritten for a hunt repository, `jq` line included. Depends on: 5 and 1.
 
 ## For the Coach
@@ -167,3 +169,61 @@ is rewritten for a hunt repository, `jq` line included. Depends on: 5 and 1.
 1. ~~**Quiz order**~~ -- settled: quizzes sort by label (Decision 4). No stored `position`.
 2. The departures under *Decisions taken*: the realm slot, the derived org, keyed collections
    with `position`, and what is left for later.
+
+### 7. The Coach's follow-ups (one PR)
+
+*Coach's text:* "Yes fix the scheme to have `orglabel`, taken from its creator /
+earliest-member-at-creation-time. It's not important to have the label track the creator or
+anyone on the list. What's important is that it takes it out of a global namespace into one
+that's under the control of the namer." -- "Bare quiz link would open edit for smith, playtest
+for reviewer, and a plain 'contact the smith for invitation' display otherwise." -- "App's quiz
+list sorts by label." -- "yes carry widgetings and columns, title, note and styling" -- on the
+TSVs: "no extraneous insertion of `question.` in front of anything, expanding structured fields
+down to the level that *we* control their validation and non-union type (json-encoded according
+to our type scheme; non-union means 'string, number, array, or bag')" -- "Move the url to
+/pub/widgets/{widgetlabel} and /pub/widgets/{widgetlabel}.json ... Go with `{ "pub": {
+"widgets": { "widgetlabel": { widget } } } }` for now" -- on the watch grain: "I'd be fine with
+it being up to minutes. It would be nice to have it refresh on page load (nicer still if it only
+did so at low priority after the page was loaded and responsive) and nice to have it refresh at
+unload (but not if it complicated high-priority writes of active user data). To be clear: don't
+write more code if we're not already refreshing other quizzes at some deterministic point such as
+load." -- "Yes make the changes incorporating ^^ feedback, and other ones implied by my feedback.
+You can do it as one PR."
+
+Gloss: a stored `orglabel` on the hunt row (widen now, backfill, tighten in a later PR once the
+Coach has run the backfill on production), hunt labels unique within their org; the bare quiz
+address by role; quiz lists by label; Import carrying the whole quiz; the TSV rules of
+`notes/decisions/tsv-formats.md`; widgets at `/pub/widgets/<label>`, balls `{ pub: { widgets:
+{ … } } }`; off-screen quiz watches opened once the page is loaded and idle. **This thread makes
+a schema change** (the widen), against the sprint's earlier ground rule, at the Coach's word.
+Depends on: 6.
+
+### 8. The Coach's second follow-ups (one PR)
+
+*Coach's text:* "'Pasting a whole-hunt export into a quiz that matches none of its quizzes by
+label or title takes the first quiz' This should instead make a new quiz in that hunt with that
+label -- labels only have to be unique within the hunt (and realm, but there's only one realm).
+Do we validate that the realm can only have the default name? if not add as part of this push."
+-- "Do we have updated at and created at fields? If not, add them, always in UTC if it's not
+already. Add a field `viz` that takes values "archived", "secondary", "normal" -- start
+everything at normal.
+* Secondary questions are shown by having ` (alt)` appended to the title, and the title
+  italicized. In a tiebreaker sort, they are sorted last.
+* Archived questions apear on neither smith, nor playtester, nor taker screens. They both appear
+  in a section near the end of the quiz modal, with the title and a snippet of the clueing. An
+  archived question has a trashcan that deletes with no confirmation.
+* In batch mode, make the trash can icon instead signify visibility, and offer the options
+  (archive, secondary, normal) in the modal confirm that we have now (no delete). Below, offer
+  buttons to Archive Selected (modal confirm, says to un-archive in the gearbox), Make Secondary,
+  or Make Normal. Use conventional icons and colors.
+On an import of one or more successful questions, archive questions with blank fields and equal
+create & update times. Omit archived questions from the special questions tsv export and the
+questions git tsv. Include them when serializing a quiz or anything larger. LL exports -- Omit
+Archived questions from the LL export. Omit Archived and Secondary ones when exporting the weird
+LL "Go live" bulk format; include both when exporting for playtest. Don't add an annotation to
+the alt questions."
+
+Gloss: a schema widen (question `viz`; `created_at`/`updated_at` where rows lack them), with a
+backfill folded into the same production run as thread 7's; the realm label pinned to `home` in
+the validator; Import making a new quiz for an unmatched whole-hunt paste; the views, batch mode,
+exports and files as the Coach lists. Depends on: 7.

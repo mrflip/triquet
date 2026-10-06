@@ -1,5 +1,16 @@
 
+## Known Bugs
+
+* Tune layout at small scales (eg "The site header overlaps itself at 360 px.")
+* A failed history download tells the person nothing (`FullHistoryDownload`, and the gear's
+  *Download as git* in `QuizManageModal`): `HuntRepoList`'s alarm is the pattern to copy.
+
+
 ## Wontfix (fixable, but not devoting resources to fix it)
+
+* After an import or a column change, the order the grid currently shows may become weird: a
+  column deleted and re-added (an import does this to unset a column's alignment) clears the
+  quiz's sort setting if it was sorted by that column.
 
 * Git repos are per-browser: there's no actual full history. Also repos that were accessed from your browser as a different user show up as orphaned and are downloadable.
 

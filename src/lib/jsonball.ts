@@ -8,7 +8,7 @@ import type { QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { ReviewRowT } from '../models/review'
 import type { ReviewingRowT } from '../models/reviewing'
-import type { WidgetT } from '../models/widget'
+import { WidgetScopeVals, type WidgetT } from '../models/widget'
 import type { WidgetedT } from '../models/widgeted'
 import type { WidgetingT } from '../models/widgeting'
 
@@ -67,15 +67,18 @@ export type WidgetingBodyT = Omit<WidgetingT, 'label'> & { position: number }
 /** One column, by its label: its place in the grid, and its fields */
 export type ColumnBodyT = Omit<ColumnT, 'label'> & { position: number }
 
-/** One quiz, by its label: its own fields, and its questions, widgetings and columns, each keyed by label */
-export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked'> & {
+/** One quiz, by its label: its own fields (its sort memory among them), and its questions, widgetings and columns, each keyed by label */
+export type QuizBodyT = Pick<QuizT, 'title' | 'smiths_note' | 'q1_preamble' | 'locked' | 'last_sortkey'> & {
   questions:  Record<string, QuestionBodyT>
   widgetings: Record<string, WidgetingBodyT>
   columns:    Record<string, ColumnBodyT>
 }
 
+/** What a reviewing writes of its verdict: everything the reviewer said of the question, and not whether they peeked */
+export const VerdictFieldnames = ['get_rate', 'guesses', 'comments', 'minutes', 'keep_it', 'needs_fact_check', 'elimination_candidate'] as const
+
 /** One reviewer's verdict on one question, by the question's label */
-export type VerdictBodyT = Pick<ReviewingRowT, 'get_rate' | 'guesses' | 'comments' | 'minutes' | 'keep_it' | 'needs_fact_check' | 'elimination_candidate'>
+export type VerdictBodyT = Pick<ReviewingRowT, typeof VerdictFieldnames[number]>
 
 /** One shared review of one quiz, by the reviewer's label: what they made of it, and their verdict on each question */
 export type ReviewBodyT = Pick<ReviewRowT, 'overall'> & { verdicts: Record<string, VerdictBodyT> }
@@ -156,10 +159,14 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     label:        label.optional(),
     forced_label: label.nullable().optional(),
     title:        titleish.nullable().optional(),
+    smiths_note:  unk.optional(),
+    q1_preamble:  unk.optional(),
+    last_sortkey: unk.optional(),
     questions:    collection.default([]),
     widgetings:   collection.default([]),
+    columns:      collection.optional(),
   })
-    .describe('One quiz as a paste holds it: its label and title, which pick it out of several, and its questions and widgetings, in a list or keyed by label. Its columns, lock and the rest describe how someone else was working, not what it holds, and are not read. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
+    .describe('One quiz as a paste holds it: its label and title, which pick it out of several; its smith\'s note, Q1 preamble and sort memory, each read by Import against its own rule; and its questions, widgetings and columns, in a list or keyed by label. Its lock is not read: it says how far someone else\'s draft had come, not what it holds. An export made while a label could be overridden carries the override as `forced_label`, the label it answered to then.')
 
   const ball = obj({ quizzes: rec(str, rec(str, quiz)) })
     .describe('Quizzes by realm and label, as a quiz\'s ball holds one, and a merged hunt every one: what Raw Export emits.')
@@ -172,10 +179,13 @@ export const PastedValidators = Validator(({ obj, arr, rec, union, str, unk, lab
     .describe('Every quiz in a list, as Raw Export emitted it before there were hunts.')
 
   const scopedWidgets = rec(str, rec(str, unk))
-  const library = obj({ widgets: union([arr(unk), scopedWidgets]) })
-    .describe('Widgets in a list, as the library\'s export emitted them until October 2026; or keyed by scope and label, as a widget\'s ball holds one and the library\'s every one.')
+  const oldLibrary = obj({ widgets: union([arr(unk), scopedWidgets]) })
+    .describe('Widgets in a list, as the library\'s export emitted them until October 2026; or under `widgets`, keyed by scope and then label, as a widget\'s ball and the library\'s held them that month.')
 
-  return { collection, quiz, ball, realmsHunt, workspace, library }
+  const scopeWidgets = obj({ widgets: rec(str, unk) })
+    .describe('One scope\'s widgets, keyed by label: what a widget\'s ball holds under its scope (`{ pub: { widgets: { ... } } }`), and the library\'s every one.')
+
+  return { collection, quiz, ball, realmsHunt, workspace, oldLibrary, scopeWidgets }
 })
 
 /** One quiz as a paste holds it, read loosely */
@@ -187,11 +197,19 @@ export type PastedQuizT = {
   label:      string | null
   /** Its title, or null when the paste gives none */
   title:      string | null
+  /** Its own fields beside its title, as pasted, each only when the paste holds it: its smith's note, its Q1 preamble, its sort memory */
+  fields:     Partial<Record<PastedFieldname, unknown>>
   /** Its questions in order, each as pasted, read one by one; each from a keyed collection carries its key as its `label` */
   questions:  unknown[]
   /** Its widgetings in run order, as pasted, read the same way */
   widgetings: unknown[]
+  /** Its columns in order, as pasted, read the same way; null when the paste holds none, so says nothing of how the grid is laid out */
+  columns:    unknown[] | null
 }
+
+/** A quiz's own fields, beside its title, that a paste may carry */
+export const PastedFieldnames = ['smiths_note', 'q1_preamble', 'last_sortkey'] as const
+export type PastedFieldname = typeof PastedFieldnames[number]
 
 /** What a paste holds, as far as a quiz's Import reads it: the quizzes it holds, and the shape it was read as */
 export type PastedT = { shape: PastedShape, quizzes: PastedQuizT[] }
@@ -211,7 +229,7 @@ export type PastedT = { shape: PastedShape, quizzes: PastedQuizT[] }
  * @example quizzesIn('legends')  // => null
  */
 export function quizzesIn(raw: unknown): PastedT | null {
-  if (isList(raw)) { return { shape: 'list', quizzes: [{ label: null, title: null, questions: [...raw], widgetings: [] }] } }
+  if (isList(raw)) { return { shape: 'list', quizzes: [{ label: null, title: null, fields: {}, questions: [...raw], widgetings: [], columns: null }] } }
   if (! EST.isPlainObject(raw)) { return null }
   const read = readQuizzes(raw)
   return read && { shape: read.shape, quizzes: read.quizzes.map(([key, quiz]) => pastedQuizOf(quiz, key)) }
@@ -235,13 +253,20 @@ function readQuizzes(raw: Record<string, unknown>): { shape: PastedShape, quizze
   return { shape: 'hunt', quizzes: Object.values(data.quizzes).flatMap((realm) => Object.entries(realm)) }
 }
 
-/** A pasted quiz as its questions and widgetings in order, and the label it answered to: an older export's override, the label it carries, or the key it sat under */
+/**
+ * A pasted quiz as its own fields, its questions, widgetings and columns in order, and the label it
+ * answered to: an older export's override, the label it carries, or the key it sat under. An empty
+ * list of columns, as exports made before columns were exported hold, says nothing of the grid.
+ */
 function pastedQuizOf(quiz: PastedQuizRawT, key: string | null): PastedQuizT {
+  const columns = quiz.columns === undefined ? [] : listedOf(quiz.columns)
   return {
     label:      quiz.forced_label ?? quiz.label ?? key,
     title:      quiz.title ?? null,
+    fields:     Object.fromEntries(PastedFieldnames.flatMap((fieldname) => (quiz[fieldname] === undefined ? [] : [[fieldname, quiz[fieldname]]]))),
     questions:  chainedByLabel(listedOf(quiz.questions)),
     widgetings: listedOf(quiz.widgetings),
+    columns:    columns.length === 0 ? null : columns,
   }
 }
 
@@ -265,23 +290,34 @@ function chainedByLabel(questions: readonly unknown[]): unknown[] {
 
 /**
  * The widgets a paste holds, each as pasted for the library's Import to read: a bare list of
- * widgets, an older library export (`{ widgets: [...] }`), or any ball holding widgets keyed by
- * scope and label (a widget's, the library's, a merged hunt's), scope by scope in library order,
- * each carrying its scope and label. Null when the paste holds no widgets at all.
+ * widgets; any ball holding widgets under their scope and keyed by label (a widget's, the
+ * library's, a merged hunt's: `{ pub: { widgets: { ... } } }`), scope by scope in library order,
+ * each carrying its scope and label; or an older library export (`{ widgets: [...] }`, or
+ * `{ widgets: { pub: { ... } } }`). Null when the paste holds no widgets at all.
  *
  * @param raw - The paste, parsed.
  *
- * @example widgetsIn({ widgets: { pub: { shout: { position: 0, formulary: 'jsonata', formula: '1' } } } })  // => [{ position: 0, formulary: 'jsonata', formula: '1', scope: 'pub', label: 'shout' }]
+ * @example widgetsIn({ pub: { widgets: { shout: { position: 0, formulary: 'jsonata', formula: '1' } } } })  // => [{ position: 0, formulary: 'jsonata', formula: '1', scope: 'pub', label: 'shout' }]
  * @example widgetsIn([{ label: 'shout' }])  // => [{ label: 'shout' }]
  * @example widgetsIn({ quizzes: {} })  // => null
  */
 export function widgetsIn(raw: unknown): unknown[] | null {
   if (isList(raw)) { return [...raw] }
-  const parsed = PastedValidators.library.safeParse(raw)
+  if (! EST.isPlainObject(raw)) { return null }
+  const scoped = WidgetScopeVals.flatMap((scope) => {
+    const parsed = PastedValidators.scopeWidgets.safeParse(raw[scope])
+    return parsed.success ? [[scope, parsed.data.widgets] as const] : []
+  })
+  if (scoped.length > 0) { return scopedListed(scoped) }
+  const parsed = PastedValidators.oldLibrary.safeParse(raw)
   if (! parsed.success) { return null }
   const { widgets } = parsed.data
-  if (Array.isArray(widgets)) { return widgets }
-  return Object.entries(widgets).flatMap(([scope, held]) => listedOf(held).map((each) => (EST.isPlainObject(each) ? { ...each, scope } : each)))
+  return Array.isArray(widgets) ? widgets : scopedListed(Object.entries(widgets))
+}
+
+/** Widgets keyed by label under each scope, as one list, scope by scope in library order, each carrying its scope and label */
+function scopedListed(scoped: readonly (readonly [string, Readonly<Record<string, unknown>>])[]): unknown[] {
+  return scoped.flatMap(([scope, held]) => listedOf(held).map((each) => (EST.isPlainObject(each) ? { ...each, scope } : each)))
 }
 
 /** Whether `val` is a list */

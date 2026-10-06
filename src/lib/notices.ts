@@ -38,8 +38,8 @@ export const AppNotices = {
   copyRefused:          'Selected — press Ctrl/Cmd+C',
   copyFailed:           "Couldn't reach the clipboard — nothing was copied.",
   exportUnread:         "Couldn't read the hunt for the export — try again.",
-  nothingToMilestone:   'No history here yet — make an edit first.',
-  noHistoryHere:        "This browser holds no history for this quiz yet — it starts at your next edit.",
+  nothingToMilestone:   'This browser holds no history of this hunt yet — try again in a moment, once it has been read.',
+  noHistoryHere:        'This browser holds no history of this hunt yet — it starts when a smith opens one of its quizzes here.',
   noRepositories:       'No history has been kept in this browser yet.',
   repoNotDownloaded:    "That history wasn't downloaded",
   deletingHunt:         'To delete a hunt, please delete its quizzes.',
@@ -120,6 +120,17 @@ export function identUnknownNotice(label: string): string {
   return `No ident is labelled "${label}". They need to visit the app and choose it first.`
 }
 
+/**
+ * What an address says when no hunt answers to it: the org it named, and the hunt's label (an old
+ * address names no org).
+ *
+ * @example noSuchHuntNotice('pat_smith', 'spring_hunt')  // => 'There is no hunt labelled “spring_hunt” in ~pat_smith.'
+ * @example noSuchHuntNotice(null, 'spring_hunt')  // => 'There is no hunt labelled “spring_hunt”.'
+ */
+export function noSuchHuntNotice(org: string | null, huntLabel: string): string {
+  return org === null ? `There is no hunt labelled “${huntLabel}”.` : `There is no hunt labelled “${huntLabel}” in ~${org}.`
+}
+
 /** Any of several names, as a sentence says them: "Flip, Ada, or Grace" */
 const EitherOf = new Intl.ListFormat('en', { type: 'disjunction' })
 
@@ -135,16 +146,18 @@ function smithsNamed(smiths: readonly SmithT[]): string {
 }
 
 /**
- * What someone not on a hunt is told when an address takes them into it: who could add them, and
- * how.
+ * What someone not on a hunt is told when an address takes them into it: to contact its smith for
+ * an invitation, naming the ident to invite.
  *
  * @param smiths - The hunt's smiths.
  * @param label - The label of the ident they are now, which a smith would add.
  *
- * @example notOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. Ask Flip (flip_kromer) to please add you: …'
+ * @example notOnHuntNotice([{ label: 'flip_kromer', title: 'Flip' }], 'ada_lovelace')  // => 'You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), …'
  */
 export function notOnHuntNotice(smiths: readonly SmithT[], label: string): string {
-  return `You are not yet a member of this hunt. Ask ${smithsNamed(smiths)} to please add you: they can put your ident, “${label}”, on the hunt from the Members panel beneath any of its quizzes, and this page opens for you as soon as they do.`
+  const which = smiths.length > 1 ? 'one of its smiths' : 'its smith'
+  const whom = smiths.length === 0 ? smithsNamed(smiths) : `${which}, ${smithsNamed(smiths)}`
+  return `You are not yet a member of this hunt. To be invited, contact ${whom}, and give them your ident, “${label}”. This page opens for you as soon as they add you.`
 }
 
 /**

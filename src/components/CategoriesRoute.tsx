@@ -41,7 +41,7 @@ export type CategoriesRouteProps = {
 export function CategoriesRoute({ org, huntLabel }: Readonly<CategoriesRouteProps>) {
   const router = useRouter()
   const { ident, actor, loaded } = useIdent()
-  const { finding, hunt, smiths, unsaved, arrange } = useCategories(huntLabel)
+  const { finding, hunt, smiths, unsaved, arrange } = useCategories(org, huntLabel)
   useShowHunt(hunt)
   useCanonical(org === null ? null : Routes.categoriesPath({ org, hunt: huntLabel }), hunt && Routes.categoriesPath({ org: hunt.org, hunt: hunt.label }))
 
@@ -55,7 +55,7 @@ export function CategoriesRoute({ org, huntLabel }: Readonly<CategoriesRouteProp
 
   if (! loaded || ! ident || finding === 'waiting') { return <OpeningNotice notice={null} waiting={AppNotices.openingHunt} /> }
   if (finding === 'refused') { return <NotOnHunt playtestPath={null} ident={ident} claims={null} smiths={smiths} /> }
-  if (! hunt) { return <NoSuchHunt huntLabel={huntLabel} /> }
+  if (! hunt) { return <NoSuchHunt org={org} huntLabel={huntLabel} /> }
   const arranging = Approve.mayOffer('arrange_categories', Actor.claimsOn(actor, hunt._id, hunt))
   return <CategoriesScreen hunt={hunt} onArrange={arranging ? arrange : null} unsaved={unsaved} />
 }

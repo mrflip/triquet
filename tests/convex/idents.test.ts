@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import { huntForLabel, identForLabel, realmsOf } from '../../convex/reading'
 import { RefusalNotices } from '../../src/lib/notices'
 import { failurekindOf, noticeOf } from '../../src/lib/refusals'
@@ -225,11 +226,42 @@ describe('idents.performAccount: new_hunt', () => {
     expect([await allOf(tt, 'hunts'), await allOf(tt, 'huntings')]).to.deep.eq([[], []])
   })
 
-  it('refuses a label some hunt already answers to', async () => {
+  it("files the hunt under its maker's org: their ident label, copied", async () => {
     const tt = openTester()
-    await makeHunt(tt, 'taken_label')
-    expect(await refusedAs(makeHunt(tt, 'taken_label'))).to.eq('labelTaken')
+    const alice = await identified(tt, 'alice_smiths')
+    await makeHunt(tt, 'loud_heron', alice)
+    const [hunt] = await allOf(tt, 'hunts')
+    expect(hunt?.orglabel).to.eq('alice_smiths')
+    const opening = await alice.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'loud_heron' })
+    expect(opening.hunt?.org).to.eq('alice_smiths')
+  })
+
+  it('refuses a label some hunt of the maker\'s org already answers to', async () => {
+    const tt = openTester()
+    const alice = await identified(tt, 'alice_smiths')
+    await makeHunt(tt, 'taken_label', alice)
+    expect(await refusedAs(makeHunt(tt, 'taken_label', alice))).to.eq('labelTaken')
     expect(await allOf(tt, 'hunts')).to.have.lengthOf(1)
+  })
+
+  it("makes a hunt under a label another org's hunt answers to, each found in its own org", async () => {
+    const tt = openTester()
+    const [alice, bob] = [await identified(tt, 'alice_smiths'), await identified(tt, 'bob_smiths')]
+    const alices = await makeHunt(tt, 'spring_hunt', alice)
+    const bobs = await makeHunt(tt, 'spring_hunt', bob)
+    const opened = [
+      await alice.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'spring_hunt' }),
+      await bob.as.query(api.hunts.open, { orglabel: 'bob_smiths', hunt_label: 'spring_hunt' }),
+    ]
+    expect(opened.map((opening) => opening.hunt?._id)).to.deep.eq([alices, bobs])
+  })
+
+  it("refuses a label a hunt that stores no org yet answers to, whatever its org", async () => {
+    const tt = openTester()
+    const [alice, bob] = [await identified(tt, 'alice_smiths'), await identified(tt, 'bob_smiths')]
+    const hunt_id = present(await makeHunt(tt, 'spring_hunt', alice)) as Id<'hunts'>
+    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { orglabel: undefined }) })
+    expect(await refusedAs(makeHunt(tt, 'spring_hunt', bob))).to.eq('labelTaken')
   })
 
   it('refuses one hunt more than the app may hold', async () => {
@@ -291,12 +323,28 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     expect(await refusedAs(pending)).to.eq('notIdentified')
   })
 
-  it('refuses a label another hunt answers to, writing nothing', async () => {
-    const { tt, perform, held } = await smithed()
-    await makeHunt(tt, 'taken_label')
+  it('refuses a label another hunt of its org answers to, writing nothing', async () => {
+    const { tt, smith, perform, held } = await smithed()
+    await makeHunt(tt, 'taken_label', smith)
     expect(await refusedAs(perform({ kind: 'relabel_hunt', label: 'taken_label' }))).to.eq('labelTaken')
     const hunt = await held()
     expect(hunt.label).to.eq('quiet_otter')
+  })
+
+  it("takes a label another org's hunt answers to, keeping its own org", async () => {
+    const { tt, perform, held } = await smithed()
+    await makeHunt(tt, 'taken_label')
+    await perform({ kind: 'relabel_hunt', label: 'taken_label' })
+    const hunt = await held()
+    expect([hunt.orglabel, hunt.label]).to.deep.eq(['alice_smiths', 'taken_label'])
+  })
+
+  it("stores the org of a hunt that stored none, its earliest member's, at its next edit", async () => {
+    const { tt, hunt_id, perform, held } = await smithed()
+    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { orglabel: undefined }) })
+    await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
+    const hunt = await held()
+    expect([hunt.orglabel, hunt.title]).to.deep.eq(['alice_smiths', 'The Autumn Hunt'])
   })
 })
 
@@ -308,7 +356,7 @@ describe('idents.performAccount: rebranch_hunt', () => {
     const after = await held()
     expect([before.branch, after.branch]).to.deep.eq(['main', 'playtest'])
     for (const by of [smith, bob]) {
-      const opening = await by.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
+      const opening = await by.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'quiet_otter' })
       expect(opening.hunt?.branch).to.eq('playtest')
     }
   })
@@ -348,14 +396,14 @@ describe('idents.performAccount: arrange_categories', () => {
     const { smith, bob, perform } = await smithed()
     await perform({ kind: 'arrange_categories', wheel: arranged })
     for (const by of [smith, bob]) {
-      const opening = await by.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
+      const opening = await by.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'quiet_otter' })
       expect(opening.hunt?.wheel).to.deep.eq(arranged)
     }
   })
 
   it("shows a hunt nobody has arranged with the default wheel, and writes nothing to it", async () => {
     const { smith, held } = await smithed()
-    const opening = await smith.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
+    const opening = await smith.as.query(api.hunts.open, { orglabel: 'alice_smiths', hunt_label: 'quiet_otter' })
     expect(opening.hunt?.wheel).to.deep.eq(Wheel.defaultWheel())
     expect(await held()).not.to.have.property('wheel')
   })

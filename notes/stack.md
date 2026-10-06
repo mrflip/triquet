@@ -107,7 +107,9 @@ Settled; reach for these before writing the equivalent.
 * **unique-names-generator** for fresh labels. (Row ids are Convex's own `_id`; `lib/ids.ts` mints
   a UUID for a question or quiz the tool holds before it is written.)
 * **safe-stable-stringify**, behind `UU.jsonify`. Don't import it directly.
-* **Papa Parse** for TSV/CSV, in and out. **fflate** for zipping a download.
+* **Papa Parse** for reading or writing TSV/CSV a spreadsheet will open (not installed since the
+  hunt_git sprint left nothing using it: the history's tables are `lib/tsv.ts`'s, which escape
+  rather than quote, so one line is one row). **fflate** for zipping a download.
 * **clsx** for composing class names in the grid.
 * **react-number-format** (`NumericFormat`) for every box that takes a number: `NumberField` in
   `components/cells/fields.tsx`, as an MUI `TextField` (`customInput`) or, in the grid's cells,
@@ -170,7 +172,8 @@ Settled; reach for these before writing the equivalent.
 ### Quiz history
 
 * **isomorphic-git** over **@isomorphic-git/lightning-fs**, in the browser, one repository per
-  quiz; `lib/quizgit.ts` and `state/quiz-mirror.ts` are the only files that touch either.
+  hunt (`notes/hunt_git.md`); `lib/huntgit.ts` and `state/hunt-mirror.ts` are the only files that
+  touch either.
 * **The repository is not a source of truth, and nothing reads app state back from it.** It is
   there because git is the best interface we know for reviewing diffs of text: a past-versions
   view, an export, and a promise to an adopter that their work leaves with them, in a form the

@@ -19,9 +19,9 @@ export type Mode = Addresses.Mode
 export type HuntLabels = Addresses.InHuntT
 
 /**
- * Which quiz an address names, by the labels that find it: its hunt's, its realm's and its own. A
- * hunt's label is unique across the app, so its org is not needed to find it; an address names
- * that too (`HuntLabels & QuizLabels`).
+ * Which quiz an address names within its org: its hunt's label, its realm's and its own. A hunt's
+ * label is unique within its org, so an address names the org too (`HuntLabels & QuizLabels`); an
+ * old one, which names none, finds the earliest hunt answering to the label.
  */
 export type QuizLabels = Omit<Addresses.InQuizT, 'org'>
 
@@ -86,8 +86,8 @@ export function categoriesPath(labels: HuntLabels): string {
 }
 
 /**
- * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens
- * playtested, for every visitor alike.
+ * Where a quiz lives, opened in `mode`. Without one it names the quiz alone, which opens in the
+ * mode the visitor's role works in (`Hunting.modeFor`).
  *
  * @example quizPath({ org: 'pat_smith', hunt: 'quiet_otter', realm: 'home', quiz: 'loud_heron' }, 'edit')  // => '/~pat_smith/quiet_otter/quizzes/home/loud_heron/!edit'
  */

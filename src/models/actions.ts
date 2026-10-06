@@ -79,7 +79,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('new_quiz'),            label: label.optional() }),
     obj({ kind: lit('delete_quiz'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_lock'),            quiz_id: zid('quizzes'), locked: bool }),
-    obj({ kind: lit('import_questions'),    questions: ImportValidators.importedQuestions }),
+    obj({ kind: lit('import_questions'),    questions: ImportValidators.importedQuestions, last_sortkey: QuizValidators.sortkey.nullable().optional()
+      .describe('The sort memory the questions were exported under, kept only by a quiz that held no questions before, whose order is then the order they were pasted in.') }),
     obj({ kind: lit('open_review'),         quiz_id: zid('quizzes') }),
     obj({ kind: lit('set_overall'),         quiz_id: zid('quizzes'), overall: ReviewValidators.overall }),
     obj({ kind: lit('set_review_phase'),    quiz_id: zid('quizzes'), phase: oneof(['draft', 'shared']) }),

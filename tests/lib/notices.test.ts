@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { botUnavailableNotice, identUnknownNotice, notASmithNotice, notOnHuntNotice } from '../../src/lib/notices'
+import { botUnavailableNotice, identUnknownNotice, noSuchHuntNotice, notASmithNotice, notOnHuntNotice } from '../../src/lib/notices'
 
 describe('botUnavailableNotice', () => {
   const Cases: [[string, string], string, string][] = [
@@ -19,6 +19,16 @@ describe('botUnavailableNotice', () => {
   })
 })
 
+describe('noSuchHuntNotice', () => {
+  it("names the org the address named, and the hunt's label", () => {
+    expect(noSuchHuntNotice('pat_smith', 'spring_hunt')).to.eq('There is no hunt labelled “spring_hunt” in ~pat_smith.')
+  })
+
+  it("names the label alone for an old address, which names no org", () => {
+    expect(noSuchHuntNotice(null, 'spring_hunt')).to.eq('There is no hunt labelled “spring_hunt”.')
+  })
+})
+
 describe('identUnknownNotice', () => {
   it('names the label no ident answers to, and says what they must do', () => {
     expect(identUnknownNotice('flip_kromer')).to.eq('No ident is labelled "flip_kromer". They need to visit the app and choose it first.')
@@ -28,10 +38,10 @@ describe('identUnknownNotice', () => {
 describe("notOnHuntNotice", () => {
   const Flip = { label: 'flip_kromer', title: 'Flip' }
   const Cases: [Parameters<typeof notOnHuntNotice>[0], string, string][] = [
-    [[Flip],                                                                "Ask Flip (flip_kromer) to please add you",                                  'names the one smith by title and label'],
-    [[Flip, { label: 'ada_lovelace', title: '' }],                          "Ask Flip (flip_kromer) or ada_lovelace to please add you",                  'names a smith with no title by label alone, and any of two'],
-    [[Flip, { label: 'ada_lovelace', title: 'Ada' }, { label: 'grace_h', title: 'grace_h' }], "Ask Flip (flip_kromer), Ada (ada_lovelace), or grace_h to please add you", 'names any of several, a title that is the label once'],
-    [[],                                                                    "Ask a smith of this hunt to please add you",                                'asks a smith of the hunt when none are known'],
+    [[Flip],                                                                "contact its smith, Flip (flip_kromer), and",                                         'names the one smith by title and label'],
+    [[Flip, { label: 'ada_lovelace', title: '' }],                          "contact one of its smiths, Flip (flip_kromer) or ada_lovelace, and",                  'names a smith with no title by label alone, and any of two'],
+    [[Flip, { label: 'ada_lovelace', title: 'Ada' }, { label: 'grace_h', title: 'grace_h' }], "contact one of its smiths, Flip (flip_kromer), Ada (ada_lovelace), or grace_h, and", 'names any of several, a title that is the label once'],
+    [[],                                                                    "contact a smith of this hunt, and",                                                  'asks a smith of the hunt when none are known'],
   ]
   for (const [smiths, says, describes] of Cases) {
     it(describes, () => {
@@ -39,8 +49,8 @@ describe("notOnHuntNotice", () => {
     })
   }
 
-  it("says they are not yet a member, and names the ident a smith would add and where", () => {
-    expect(notOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. Ask Flip (flip_kromer) to please add you: they can put your ident, “ada_lovelace”, on the hunt from the Members panel beneath any of its quizzes, and this page opens for you as soon as they do.')
+  it("says they are not yet a member, to contact the smith for an invitation, and the ident to invite", () => {
+    expect(notOnHuntNotice([Flip], 'ada_lovelace')).to.eq('You are not yet a member of this hunt. To be invited, contact its smith, Flip (flip_kromer), and give them your ident, “ada_lovelace”. This page opens for you as soon as they add you.')
   })
 })
 

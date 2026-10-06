@@ -57,7 +57,7 @@ export const Unscoped = {
   "idents:current":        "Who the session is: asked before any hunt is in play",
   "idents:performAccount": "A username, or a hunt from the hunts list, before any quiz is open: a hunt it names is asked of the actor's claims on it (`claimsFor`)",
   "hunts:list":            "The hunts the actor is on, read through the actor's own huntings: many hunts, none affirmed",
-  "hunts:open":            "Finds a hunt by its label and tells the browser its standing there, which is what the browser goes on to affirm",
+  "hunts:open":            "Finds a hunt by its org and label (or, from an old address, its label alone) and tells the browser its standing there, which is what the browser goes on to affirm",
   "widgets:library":       "The library belongs to no hunt: every hunt sees the same one",
   "widgets:usage":         "Counts the widgetings of every hunt, and hands back counts only (`Approve.mayCountUsage`)",
 } as const satisfies Record<string, string>
@@ -164,13 +164,15 @@ export async function affirmReadHunt<AT extends AffirmableT>(db: Reader, affirms
 
 /**
  * The claims of `actor` on the affirmed hunt, once they may export it, every quiz whole
- * (`Approve.mayExportHunt`): a smith of it.
+ * (`Approve.mayExportHunt`): a smith of it. With a quiz affirmed, that quiz as read, null when it
+ * is gone: what a smith's record of the hunt reads one quiz at a time.
  *
  * @throws `Approve.NotApprovedError` when an affirm is not borne out, or the policy says no.
  *
  * @example const { hunt_id } = await affirmExportHunt(ctx.db, affirms, ctx.actor)
+ * @example const { quiz } = await affirmExportHunt(ctx.db, quizAffirms, ctx.actor)
  */
-export async function affirmExportHunt(db: Reader, affirms: HuntAffirmsT, actor: Actor.ActorT): Promise<ClaimsOf<HuntAffirmsT>> {
+export async function affirmExportHunt<AT extends AffirmableT>(db: Reader, affirms: AT, actor: Actor.ActorT): Promise<ClaimsOf<AT>> {
   const claims = await affirmForHunt(db, affirms, actor, {})
   Approve.must('export_hunt', claims)
   return claims

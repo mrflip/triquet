@@ -31,7 +31,7 @@ const Places = [
   [Every.quiz,       "/~pat_smith/spring_hunt/quizzes/home/legends",                ["quizzes", "home", "legends"],                                  "quizzes/home/legends.tqq.json",          "quizzes/home/legends.tqq.tsv"],
   [Every.questions,  "/~pat_smith/spring_hunt/quizzes/home/legends/questions",      ["quizzes", "home", "legends", "questions"],                     "quizzes/home/legends/questions.qq.json", "quizzes/home/legends/questions.qq.tsv"],
   [Every.review,     "/~pat_smith/spring_hunt/quizzes/home/legends/reviews/lee_jones", ["quizzes", "home", "legends", "reviews", "lee_jones"],       "quizzes/home/legends/reviews/lee_jones.tqr.json", "quizzes/home/legends/reviews/lee_jones.tqr.tsv"],
-  [Every.widget,     "/lib/widgets/pub/dumdum",                                     ["widgets", "pub", "dumdum"],                                    "widgets/pub/dumdum.tqw.json",            "widgets/pub/dumdum.tqw.tsv"],
+  [Every.widget,     "/pub/widgets/dumdum",                                         ["pub", "widgets", "dumdum"],                                    "pub/widgets/dumdum.tqw.json",            "pub/widgets/dumdum.tqw.tsv"],
 ] as const
 
 describe("Addresses: one address of every kind", () => {
@@ -61,7 +61,7 @@ describe("Addresses: one address of every kind", () => {
 describe("Addresses: the three cannot drift", () => {
   for (const address of Keyed) {
     it(`a ${address.kind}'s address is its root and then its key path`, () => {
-      const root = address.kind === 'widget' ? '/lib' : '/~pat_smith/spring_hunt'
+      const root = address.kind === 'widget' ? '' : '/~pat_smith/spring_hunt'
       expect(Addresses.urlOf(address)).to.eq([root, ...Addresses.keypathOf(address)].join('/'))
     })
   }
@@ -74,6 +74,14 @@ describe("Addresses: the three cannot drift", () => {
     })
   }
 
+  for (const address of Filed) {
+    it(`a ${address.kind}'s file is its address's path, less its hunt (rule 10)`, () => {
+      const path = Addresses.urlOf(address).replace(/^\/~pat_smith\/spring_hunt/, '')
+      const stem = address.kind === 'hunt' ? '/hunt' : path
+      expect(`/${Addresses.filepathOf(address)}`).to.eq(`${stem}.${Addresses.PreextForKind[address.kind]}.json`)
+    })
+  }
+
   it("names every file differently", () => {
     const paths = Filed.flatMap((address) => [Addresses.filepathOf(address), Addresses.filepathOf(address, 'tsv')])
     expect(new Set(paths).size).to.eq(paths.length)
@@ -81,16 +89,28 @@ describe("Addresses: the three cannot drift", () => {
 
   it("reads every address back as the resource it was made from", () => {
     for (const address of Object.values(Every)) {
-      expect(Addresses.locationFrom(Addresses.urlOf(address))).to.deep.eq({ address, mode: null })
+      expect(Addresses.locationFrom(Addresses.urlOf(address))).to.deep.eq({ address, mode: null, raw: false })
+    }
+  })
+
+  it("reads every raw record back as the resource's, in no mode", () => {
+    for (const address of Keyed) {
+      expect(Addresses.locationFrom(Addresses.recordUrlOf(address))).to.deep.eq({ address, mode: null, raw: true })
     }
   })
 
   it("reads every mode back off every address", () => {
     for (const address of Object.values(Every)) {
       for (const mode of Addresses.ModeVals) {
-        expect(Addresses.locationFrom(Addresses.urlOf(address, mode))).to.deep.eq({ address, mode })
+        expect(Addresses.locationFrom(Addresses.urlOf(address, mode))).to.deep.eq({ address, mode, raw: false })
       }
     }
+  })
+})
+
+describe("Addresses.recordUrlOf", () => {
+  it("is the address with its last label ending in .json", () => {
+    expect([Addresses.recordUrlOf(Every.widget), Addresses.recordUrlOf(Every.quiz)]).to.deep.eq(['/pub/widgets/dumdum.json', '/~pat_smith/spring_hunt/quizzes/home/legends.json'])
   })
 })
 
@@ -127,29 +147,18 @@ describe("Addresses.isMerged", () => {
   })
 })
 
-describe("Addresses.orgOf", () => {
-  const OrgCases = [
-    // regular usage:
-    [[{ label: 'pat_smith', role: 'smith' }, { label: 'lee_jones', role: 'smith' }],    "pat_smith", 'is the earliest smith, of several'],
-    [[{ label: 'lee_jones', role: 'reviewer' }, { label: 'pat_smith', role: 'smith' }], "pat_smith", 'passes over a reviewer who joined first'],
-    // trivial cases:
-    [[],                                                                                 null,        'is null for a hunt with nobody on it'],
-    [[{ label: 'lee_jones', role: 'reviewer' }],                                         null,        'is null for a hunt with no smith'],
-  ] as const
-  for (const [members, org, story] of OrgCases) {
-    it(story, () => {
-      expect(Addresses.orgOf(members)).to.eq(org)
-    })
-  }
-})
-
 describe("Addresses.locationFrom", () => {
   it("reads a quiz opened in a mode", () => {
-    expect(Addresses.locationFrom('/~pat_smith/spring_hunt/quizzes/home/legends/!edit')).to.deep.eq({ address: Every.quiz, mode: 'edit' })
+    expect(Addresses.locationFrom('/~pat_smith/spring_hunt/quizzes/home/legends/!edit')).to.deep.eq({ address: Every.quiz, mode: 'edit', raw: false })
   })
 
   it("reads a hunt opened in no mode", () => {
-    expect(Addresses.locationFrom('/~pat_smith/spring_hunt')).to.deep.eq({ address: Every.hunt, mode: null })
+    expect(Addresses.locationFrom('/~pat_smith/spring_hunt')).to.deep.eq({ address: Every.hunt, mode: null, raw: false })
+  })
+
+  it("reads a widget, and its raw record, under its scope", () => {
+    expect(Addresses.locationFrom('/pub/widgets/dumdum')).to.deep.eq({ address: Every.widget, mode: null, raw: false })
+    expect(Addresses.locationFrom('/pub/widgets/dumdum.json')).to.deep.eq({ address: Every.widget, mode: null, raw: true })
   })
 
   const Generous = [
@@ -160,7 +169,7 @@ describe("Addresses.locationFrom", () => {
   ] as const
   for (const [raw, story] of Generous) {
     it(story, () => {
-      expect(Addresses.locationFrom(raw)).to.deep.eq({ address: Every.quiz, mode: null })
+      expect(Addresses.locationFrom(raw)).to.deep.eq({ address: Every.quiz, mode: null, raw: false })
     })
   }
 
@@ -188,18 +197,24 @@ describe("Addresses.locationFrom", () => {
     ["/~pat_smith/spring_hunt/categories/math_econ",             'a single category, not yet built'],
     ["/~pat_smith/spring_hunt/quizzes/home/legends/reviews",     'reviews with no reviewer'],
     ["/~pat_smith/spring_hunt/quizzes/home/legends/questions/extra", 'something below the questions'],
-    ["/~pat_smith/spring_hunt/widgets/pub/dumdum",               'a widget under a hunt'],
-    ["/lib/widgets/own/dumdum",                                  'a widget scope there is none of'],
-    ["/lib/widgets/pub",                                         'the library with no widget'],
-    ["/lib/widgets/pub/dumdum/extra",                            'something below a widget'],
+    ["/~pat_smith/spring_hunt/pub/widgets/dumdum",               'a widget under a hunt'],
+    ["/own/widgets/dumdum",                                      'a widget scope there is none of'],
+    ["/pub/widgets",                                             'the library with no widget'],
+    ["/pub",                                                     'a scope alone'],
+    ["/pub/widgets/dumdum/extra",                                'something below a widget'],
+    ["/lib/widgets/pub/dumdum",                                  "a widget's address as it was sketched, never served"],
     ["/~pat_smith/spring_hunt//quizzes",                         'an empty segment'],
     // modes:
     ["/~pat_smith/spring_hunt/!admin",                           'a mode it does not know'],
     ["/~pat_smith/spring_hunt/!edit/quizzes",                    'a mode that is not last'],
     ["/!edit",                                                   'a mode with nothing to open'],
+    // raw records:
+    ["/pub/widgets/dumdum.json/!edit",                           'a raw record in a mode'],
+    ["/pub/widgets/dumdum/!edit.json",                           'a mode as a raw record'],
+    ["/~pat_smith.json",                                         "an org's raw record, which it has none of"],
+    ["/pub/widgets/.json",                                       'a raw record of no label'],
     // the futures, not yet built:
     ["/~pat_smith/spring_hunt@go_live/quizzes/home/legends",     'a hunt at a version'],
-    ["/~pat_smith/spring_hunt/quizzes/home/legends.json",        'a raw record'],
   ] as const
   for (const [raw, story] of Refused) {
     it(`refuses ${story}`, () => {

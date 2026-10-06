@@ -39,22 +39,23 @@ export function showArranged(store: OptimisticLocalStore, { action }: { action: 
 }
 
 /**
- * The hunt labelled `hunt_label`, live, as its categories screen holds it: its wheel, who is on it
+ * The hunt of the org `orglabel` labelled `hunt_label`, live, as its categories screen holds it: its wheel, who is on it
  * and this visitor's role, and a way for a smith to rearrange the wheel. Someone not on the hunt
  * is shown none of it, only who could add them.
  *
  * Each rearrangement shows at once and is written behind the screen; one the server refuses is
  * taken back, and says why in an alarm.
  *
+ * @param orglabel - The org the address names; null for an old address, which names none.
  * @param hunt_label - The hunt the address names.
  * @returns The hunt, where finding it stands, and the arranger.
  */
-export function useCategories(hunt_label: string): CategoriesHandle {
+export function useCategories(orglabel: string | null, hunt_label: string): CategoriesHandle {
   const { ready } = useSession()
   const raise = useRaiseAlarm()
   const [writing, setWriting] = useState(0)
   const performAccount = useMutation(api.idents.performAccount).withOptimisticUpdate(showArranged)
-  const opened = useHuntOpening(hunt_label)
+  const opened = useHuntOpening(orglabel, hunt_label)
   const hunt_id = opened.hunt?._id ?? null
 
   const arrange = useCallback((wheel: WheelT) => {

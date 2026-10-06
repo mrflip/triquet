@@ -14,7 +14,7 @@ import { QuizManageModal } from './QuizManageModal'
 import { QuizSwitcher } from './QuizSwitcher'
 import { Toolbar } from './Toolbar'
 import { useChecklist } from './use-checklist'
-import * as QuizMirror from '../state/quiz-mirror'
+import * as HuntMirror from '../state/hunt-mirror'
 import type * as Actor from '../lib/actor'
 import { useAsking, type AskedStep } from '../state/use-asking'
 import { useBots } from '../state/use-bots'
@@ -189,7 +189,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           onClose={() => { setDoomedIds(null) }}
           onConfirm={() => {
             const question_ids = doomed.map((question) => question._id)
-            void QuizMirror.markedChange(quiz, 'delete', hunt.branch, () => { dispatch({ kind: 'delete_questions', question_ids }) })
+            void HuntMirror.markedChange(hunt, quiz, 'delete', () => { dispatch({ kind: 'delete_questions', question_ids }) })
             setDoomedIds(null)
             checklist.end()
           }}
@@ -253,10 +253,9 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         carryOut={carryOut}
         saveNotice={saveNotice}
         changeLibrary={librarian.dispatch}
-        onImport={(questions, widgetingActions) => {
-          void QuizMirror.markedChange(quiz, 'import', hunt.branch, () => {
-            for (const action of widgetingActions) { dispatch(action) }
-            dispatch({ kind: 'import_questions', questions })
+        onImport={(actions) => {
+          void HuntMirror.markedChange(hunt, quiz, 'import', () => {
+            for (const action of actions) { dispatch(action) }
           })
         }}
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
