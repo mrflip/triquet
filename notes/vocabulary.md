@@ -289,8 +289,9 @@ than one kind of player. Begun by the categories sprint, October 2026
   A label is minted when its row is made (`quiet_otter`), and is the row's one label: relabelling
   a hunt or a quiz replaces it, and a question's stays as minted. A few words no label may be, nor
   any ending in `_id`: the tool's fields and nouns, and words code, a spreadsheet or Windows reads
-  specially (`PA.ReservedLabels`, by group and why). An ident's label is exempt, being a username
-  rather than a name in the tool's own namespaces. `Labelmaker` is the facility for
+  specially (`PA.ReservedLabels`, by group and why). A hunt's label and an ident's, being global,
+  are also kept from the words for the app's own pages and people, and from any beginning `secur`
+  (`PA.ReservedToplevel`). `Labelmaker` is the facility for
   all of this. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)

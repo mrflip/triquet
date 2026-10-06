@@ -90,7 +90,8 @@ describe('identifiers', () => {
     ['label',     ['abc', 'a_1', 'ab', 'x'.repeat(40), 'position_2', 'categories'],  ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41), 'position', 'null', 'con', 'quiz_id']],
     ['labelshape', ['abc', 'a_1', 'position', 'null', 'quiz_id'], ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41)]],
     ['dashlabel', ['a-b', 'abc', 'a_1'],      ['Abc', '1abc', '']],
-    ['identlabel', ['sixsix', 'flip_k', 'a1b2c3', 'x'.repeat(24)], ['fivee', 'Flipper', '1flipper', 'flip__k', 'flipper_', 'x'.repeat(25)]],
+    ['toplabel',  ['quiet_otter', 'my_team', 'insecure'], ['pricing', 'security', 'position', 'Quiet', '']],
+    ['identlabel', ['sixsix', 'flip_k', 'a1b2c3', 'x'.repeat(24)], ['fivee', 'Flipper', '1flipper', 'flip__k', 'flipper_', 'x'.repeat(25), 'support', 'securely', 'constructor']],
     ['handleish', ['abc', 'a_1'],             ['Abc', '1abc', 'a-b', '', 'x'.repeat(37)]],
     ['camel',     ['Abc', 'A1', 'AbcDef'],    ['abc', '1Abc', '_Abc', 'A_1', ',']],
     ['locamel',   ['abC', 'aB1'],             ['Abc', '1abc', '_abc', 'a_1', ',']],
@@ -125,6 +126,7 @@ describe('the advice each pattern gives', () => {
   const Cases: [keyof typeof CK, string, string][] = [
     ['label',     'Abc',       'should have only plain lowercase letters/_/numbers, with a letter first, a letter or number last, and no __ in a row'],
     ['label',     'position',  'is a word the tool keeps for its own use'],
+    ['toplabel',  'pricing',   'is kept for the app\'s own pages and people'],
     ['handleish', 'Abc',       'should be all lowercase'],
     ['camel',     'abc',       'should be an UpperFirstLetterCamelCased name'],
     ['locamel',   'Abc',       'should be a lowerFirstLetterCamelCased name'],

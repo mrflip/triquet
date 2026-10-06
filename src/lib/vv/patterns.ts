@@ -102,7 +102,7 @@ const ModelNouns = [
 export const ReservedLabelGroups = {
   /** What rows carry beside their label, to say what and where they are and when they were made */
   fields:      [
-    'id', 'ids', 'label', 'labels', 'position', 'kind', 'type',
+    'id', 'ids', 'key', 'label', 'labels', 'position', 'kind', 'type',
     'created_at', 'createdat', 'updated_at', 'updatedat', 'deleted_at', 'deletedat', 'creation_time', 'creationtime',
   ],
   /** The tool's own nouns, and what a formula's bag calls a question and its quiz's questions */
@@ -129,6 +129,46 @@ export const ReservedLabels: readonly string[] = Object.values(ReservedLabelGrou
 export const Unreserved = {
   re:  new RegExp(`^(?!(?:${ReservedLabels.join('|')})$)(?!.*_ids?$)`),
   msg: 'is a word the tool keeps for its own use, or ends in _id as a pointer does: add to it, as my_label or label_2',
+} as const satisfies Patternbag
+
+/**
+ * The words no hunt and no ident may be labelled, beyond those no label may be. A hunt's label and
+ * an ident's are each global, the first word of an address or the name a person goes by, so these
+ * are kept for the app's own pages and for whoever speaks for it.
+ */
+export const ReservedToplevelGroups = {
+  /** The app's own corners, and the words for signing in and keeping an account */
+  app:     [
+    'lib', 'sys', 'pub', 'my', 'home', 'root', 'www', 'static', 'assets', 'public', 'search', 'status',
+    'stats', 'dashboard', 'settings', 'account', 'accounts', 'acct', 'auth', 'oauth', 'login', 'logout',
+    'signin', 'signout', 'signup', 'register', 'mail', 'email',
+  ],
+  /** What a site's marketing and help pages are called */
+  pages:   [
+    'about', 'career', 'careers', 'job', 'jobs', 'team', 'teams', 'help', 'faq', 'docs', 'blog', 'news',
+    'press', 'pricing', 'plans', 'features', 'contact', 'support', 'privacy', 'terms', 'tos', 'legal',
+    'cookies', 'enterprise', 'partners', 'store', 'shop', 'billing', 'download', 'downloads', 'brand',
+  ],
+  /** Names that would pass for the app itself speaking */
+  voices:  [
+    'triquet', 'staff', 'system', 'administrator', 'moderator', 'mod', 'official', 'everyone', 'anonymous',
+    'guest', 'nobody', 'webmaster', 'postmaster', 'hostmaster', 'abuse', 'noreply', 'no_reply',
+  ],
+} as const
+
+/** Every top-level reserved word, each group's in turn */
+export const ReservedToplevel: readonly string[] = Object.values(ReservedToplevelGroups).flat()
+
+/** How no hunt's or ident's label may begin: `security`, `secure` and the rest */
+export const ReservedToplevelPrefixes: readonly string[] = ['secur']
+
+/**
+ * A hunt's or an ident's label that is no top-level reserved word, and begins with no reserved
+ * prefix. Says nothing of the words every label is kept from, which is `Unreserved`'s business.
+ */
+export const UnreservedToplevel = {
+  re:  new RegExp(`^(?!(?:${ReservedToplevel.join('|')})$)(?!(?:${ReservedToplevelPrefixes.join('|')}))`),
+  msg: 'is kept for the app\'s own pages and people: add to it, as my_label or label_2',
 } as const satisfies Patternbag
 
 /** A Convex document id: lowercase letters and digits, about 32 of them */

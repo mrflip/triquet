@@ -111,6 +111,14 @@ describe('HuntValidators.row', () => {
     expect(() => HuntValidators.row({ ...Row, orglabel: 'pat' })).to.throw(Z.ZodError)
   })
 
+  it("refuses a label kept for the app's own pages, which a hunt's address would shadow", () => {
+    expect(() => HuntValidators.row({ ...Row, label: 'pricing' })).to.throw(Z.ZodError)
+  })
+
+  it("takes a branch a hunt's label could not be: only the hunt's label is top-level", () => {
+    expect(HuntValidators.row({ ...Row, branch: 'pricing' }).branch).to.eq('pricing')
+  })
+
   it('refuses a branch that git would not take as one', () => {
     expect(() => HuntValidators.row({ ...Row, branch: 'draft two' })).to.throw(Z.ZodError)
   })

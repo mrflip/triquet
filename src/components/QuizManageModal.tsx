@@ -88,7 +88,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
 
   const onRelabelHuntClick = () => {
     const cleaned = Labelmaker.normalize(huntLabelDraft)
-    if (Labelmaker.isReserved(cleaned)) { setHuntLabelIssue(AppNotices.labelReserved); return }
+    if (Labelmaker.isReserved(cleaned, { toplevel: true })) { setHuntLabelIssue(AppNotices.labelReserved); return }
     if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { setHuntLabelIssue(AppNotices.huntLabelShape); return }
     if (cleaned === huntLabel) { return }
     onRelabelHunt(cleaned)

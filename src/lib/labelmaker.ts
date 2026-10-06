@@ -104,18 +104,25 @@ function repaired(cleaned: string, maxlen: number = PA.Label.max): string {
   return CK.labelshape.parse(label)
 }
 
+export type IsReservedOpts = {
+  /** Whether the label is a hunt's or an ident's, kept from the top-level words too (`PA.ReservedToplevel`) */
+  toplevel?: boolean
+}
+
 /**
  * Whether `label` is a word no label may be (`PA.ReservedLabels`), or ends as a pointer to a row
  * does: what lets a field say why a label of the right shape is still refused.
  *
  * @param label - A label, or anything typed for one.
+ * @param opts - `toplevel` for a hunt's or an ident's label, kept from the top-level words as well.
  * @returns True when the label validator would refuse it for its word rather than its shape.
  *
- * @example isReserved('position')     // => true
- * @example isReserved('my_position')  // => false
+ * @example isReserved('position')                       // => true
+ * @example isReserved('my_position')                    // => false
+ * @example isReserved('pricing', { toplevel: true })    // => true
  */
-export function isReserved(label: string): boolean {
-  return ! PA.Unreserved.re.test(label)
+export function isReserved(label: string, opts: Readonly<IsReservedOpts> = {}): boolean {
+  return ! PA.Unreserved.re.test(label) || (opts.toplevel === true && ! PA.UnreservedToplevel.re.test(label))
 }
 
 /** `label` in Title Case, for display where a heading wants words rather than an identifier */

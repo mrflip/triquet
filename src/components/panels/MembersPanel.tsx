@@ -136,4 +136,5 @@ function AddMember({ claims, carryOut, saveNotice }: Readonly<Pick<MembersPanelP
 const FlawNotices = {
   shape:      AppNotices.identLabelShape,
   unfinished: AppNotices.identLabelUnfinished,
+  reserved:   AppNotices.identLabelReserved,
 } as const satisfies Record<LabelFlawT, string>

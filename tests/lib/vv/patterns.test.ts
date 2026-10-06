@@ -67,7 +67,8 @@ const UnreservedCases: [string, boolean, string][] = [
   ["title",         true,   'a question\'s own fields are reserved only where they would be shadowed, among widgetings'],
   ["home",          true,   'the label every hunt\'s first realm takes is allowed'],
   ["main",          true,   'the branch every hunt starts on is allowed'],
-  ["key",           true,   'an everyday word a question might be titled is allowed'],
+  ["key",           false,  'a key, as fields and bags speak of one, is refused'],
+  ["pricing",       true,   'a top-level word is any other label\'s to take: only hunts and idents are kept from it'],
   // trivial cases:
   ["",              true,   'an empty string is not reserved: refusing it is the label pattern\'s job'],
 ]
@@ -98,5 +99,46 @@ describe('ReservedLabels', () => {
     expect(PA.ReservedLabels).to.deep.eq(Object.values(PA.ReservedLabelGroups).flat())
     expect(PA.ReservedLabelGroups.devices).to.include.members(['con', 'nul', 'com0', 'com9', 'lpt0', 'lpt9'])
     expect(PA.ReservedLabelGroups.pointers).to.include.members(['huntid', 'huntids', 'quizid', 'quizids'])
+  })
+})
+
+const UnreservedToplevelCases: [string, boolean, string][] = [
+  // regular usage, one from each group:
+  ["dashboard",     false,  'a corner of the app is refused'],
+  ["careers",       false,  'a marketing page is refused'],
+  ["triquet",       false,  'a name that would pass for the app speaking is refused'],
+  ["quiet_otter",   true,   'a minted label is allowed'],
+  // the prefixes:
+  ["security",      false,  'a word beginning secur is refused'],
+  ["secure_drop",   false,  'a label beginning secur is refused, whatever follows'],
+  ["insecure",      true,   'secur inside a word is another word'],
+  // near misses, which must be allowed:
+  ["about_face",    true,   'a top-level word with more after it is another word'],
+  ["my_team",       true,   'a top-level word at the end of a longer one is another word'],
+  // trivial cases:
+  ["",              true,   'an empty string is not reserved: refusing it is the label pattern\'s job'],
+]
+
+describe('UnreservedToplevel', () => {
+  for (const [word, allowed, describes] of UnreservedToplevelCases) {
+    it(`${describes} (${word || 'blank'})`, () => {
+      expect(PA.UnreservedToplevel.re.test(word)).to.eq(allowed)
+    })
+  }
+
+  it("refuses every top-level reserved word", () => {
+    expect(PA.ReservedToplevel.filter((word) => PA.UnreservedToplevel.re.test(word))).to.deep.eq([])
+  })
+})
+
+describe('ReservedToplevel', () => {
+  it("holds only words a label could otherwise be, and none every label is already kept from", () => {
+    const unshaped = PA.ReservedToplevel.filter((word) => ! PA.Label.re.test(word))
+    expect(unshaped).to.deep.eq([])
+    expect(PA.ReservedToplevel.filter((word) => PA.ReservedLabels.includes(word))).to.deep.eq([])
+  })
+
+  it("names each word once", () => {
+    expect(new Set(PA.ReservedToplevel).size).to.eq(PA.ReservedToplevel.length)
   })
 })

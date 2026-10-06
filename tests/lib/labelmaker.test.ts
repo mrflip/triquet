@@ -78,6 +78,13 @@ describe('isReserved', () => {
   it("reads the doc block's examples", () => {
     expect(Labelmaker.isReserved('position')).to.be.true
     expect(Labelmaker.isReserved('my_position')).to.be.false
+    expect(Labelmaker.isReserved('pricing', { toplevel: true })).to.be.true
+  })
+
+  it("keeps a hunt's or an ident's label from the top-level words only when asked", () => {
+    expect(Labelmaker.isReserved('pricing')).to.be.false
+    expect(Labelmaker.isReserved('security', { toplevel: true })).to.be.true
+    expect(Labelmaker.isReserved('position', { toplevel: true })).to.be.true
   })
 })
 
