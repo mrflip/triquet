@@ -52,13 +52,21 @@ thread 9 to tighten. A new table deploys with no backfill.
 * **Decisions taken**:
   - **The pivot is not stored.** It sits before the first question widgeting; positions stay one
     list. No migration, and the runner is honest under any positions (a quiz widgeting placed among
-    question widgetings runs after them all). Cost: with no question widgetings, a quiz widgeting
-    dropped below the pivot snaps back above (where the order makes no difference); the row says so.
+    question widgetings runs after them all).
+  - **Amended after review (sprint decision 12, the reviewer's option b):** in a quiz with no
+    question widgetings the pivot sits just before the first quiz formula (after the entries), or
+    last, and the first question widgeting added goes there (`RunOrder.withAdded`, `tieredOf`'s
+    `readsOf`). Before, a formula over the questions added before any, or left when the last was
+    deleted, ended up above every question widgeting added later and silently read none of them.
+    Cost: a formula meant to run above the questions in such a quiz must be dragged back above them
+    once they come, and while there are none a formula dropped above the pivot snaps back below.
+    The server reads the library in `addWidgeting` and `moveWidgeting` to tell formulas from entries
+    (`readsOfRows`); the gear's list draws the pivot by the same rule.
   - **The pivot row is fixed, not dragged**: an action cannot name it (`questions` is a reserved
     label), and dragging the others past it reaches every order.
   - **Placement of a new widgeting**: an entry for the quiz just above the pivot (it reads nothing,
     so every formula can read it); a quiz formula at the very end; a question widgeting at the end
-    of the question widgetings.
+    of the question widgetings (in a quiz with none, just above the first quiz formula).
   - **`jsonata` is in** (it fell out of the runner); `aibot` and `estimates` are refused at the quiz
     level.
   - **Quiz entries are a smith's**, sent and written as a question's stored widgeteds are.

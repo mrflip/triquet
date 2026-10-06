@@ -56,7 +56,8 @@ export function WidgetingsEditor({ hunt, quiz, tier, library, revisable, changea
   const edited: WidgetingT | null = editing?.kind === 'widgeting' ? quiz.widgetings.find((each) => each.label === editing.label) ?? null : null
   const close = () => { setEditing(null) }
   const own = quiz.widgetings.filter((widgeting) => widgeting.tier === tier)
-  const items: RunOrder.QuizListItemT<WidgetingT>[] = tier === 'question' ? own : RunOrder.quizListOf(quiz.widgetings, RunOrder.ownTier)
+  const entries = new Set(library.filter((widget) => widget.formulary === 'entry').map((widget) => widget.label))
+  const items: RunOrder.QuizListItemT<WidgetingT>[] = tier === 'question' ? own : RunOrder.quizListOf(quiz.widgetings, RunOrder.ownTier, (widgeting) => ! entries.has(widgeting.widget_label))
   const questionQty = quiz.widgetings.length - own.length
 
   return (
@@ -99,7 +100,7 @@ export function WidgetingsEditor({ hunt, quiz, tier, library, revisable, changea
 function PivotRow({ questionQty }: Readonly<{ questionQty: number }>) {
   const counted = questionQty === 1 ? '1 question widgeting runs' : `${String(questionQty)} question widgetings run`
   const said = questionQty === 0
-    ? 'where the question widgetings will run; with none yet, everything here runs first.'
+    ? 'where the first question widgeting will go, above the formulas here: with none yet, everything here runs first.'
     : `${counted} here, each for every question: those above read none of them, those below read them all.`
   return (
     <Box role="group" aria-label="The questions" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider', py: 0.5, pl: 3 }}>

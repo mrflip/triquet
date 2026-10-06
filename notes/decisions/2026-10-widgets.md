@@ -176,11 +176,15 @@ each reading what every one before it came to.
 * **Run order without a new field.** A quiz's widgetings stay one list (`position`), and the
   questions pivot sits just before the first question widgeting (`src/lib/run-order.ts`). The
   runner walks `runOrderOf` the steps; every layout change writes the positions whole, so the tiers
-  never interleave; a quiz with no question widgetings has every quiz widgeting above the pivot,
-  where the order across it makes no difference. `move_widgeting`'s index counts the widgeting's
-  own tier's list as the gear shows it: the question widgetings, or the quiz's own and the pivot.
-  A new entry for the quiz goes just above the pivot (it reads nothing, so every formula can read
-  it); a new formula for the quiz at the very end (it reads everything).
+  never interleave. In a quiz with no question widgetings the pivot sits just before the first
+  quiz formula (after the entries), or last, and the first question widgeting added goes there
+  (sprint decision 12, from the thread's review): otherwise a formula over the questions, added
+  before any or left when the last was removed, would end up above every question widgeting added
+  later and silently read none of them. The cost: a formula meant to run above the questions in
+  such a quiz is dragged back above them once they come. `move_widgeting`'s index counts the
+  widgeting's own tier's list as the gear shows it: the question widgetings, or the quiz's own and
+  the pivot. A new entry for the quiz goes just above the pivot (it reads nothing, so every formula
+  can read it); a new formula for the quiz at the very end (it reads everything).
 * **One bag, for no question.** A quiz widgeting is worked out once over a bag whose `qn` is `{}`
   and `qn_label` blank; its widgeted joins every later bag's `quiz` as `quiz.<label>` (and so may
   not be labelled as `Quiz.exposed` is), and a template's bag (`Templating.bagOf`) reads it there.

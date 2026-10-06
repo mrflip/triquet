@@ -530,9 +530,9 @@ describe("the editors' plans, carried out", () => {
 /** The quiz's widgetings in run order, each with its tier */
 const tiersOf = (seen: Seen) => quizOf(seen).widgetings.map((widgeting) => `${widgeting.label}:${widgeting.tier}`)
 
-/** A standard hunt whose library holds a text entry, `names` */
-async function withNames(): Promise<Seeded> {
-  const seeded = await seed()
+/** A standard hunt (or the one given) whose library holds a text entry, `names` */
+async function withNames(hunt: HuntT = standard()): Promise<Seeded> {
+  const seeded = await seed(hunt)
   await seeded.actOnLibrary({ kind: 'add_widget', widget: { label: 'names', formulary: 'entry', config: { entry_kind: 'text' } } })
   return seeded
 }
@@ -603,6 +603,24 @@ describe("widgetings run once for the whole quiz", () => {
     expect(widgetingsOf(await read()).slice(0, 2)).to.deep.eq(['playtesters', 'hint_full'])
     await act({ kind: 'move_widgeting', label: 'hint_full', onto_idx: 99 })
     expect(widgetingsOf(await read()).slice(-2)).to.deep.eq(['hint_full', 'total'])
+  })
+
+  it("keeps a formula over the questions below them when the last question widgeting is removed and another added", async () => {
+    const { act, read } = await withNames(Hunt.blank())
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum', tier: 'question' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
+    await act({ kind: 'delete_widgeting', label: 'sum' })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum2', tier: 'question' } })
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum2:question', 'total:quiz'])
+  })
+
+  it("keeps a formula added before any question widgeting below those added after it", async () => {
+    const { act, read } = await withNames(Hunt.blank())
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'total', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'names', label: 'playtesters', tier: 'quiz' } })
+    await act({ kind: 'add_widgeting', widgeting: { widget_label: 'clueing_full', label: 'sum', tier: 'question' } })
+    expect(tiersOf(await read())).to.deep.eq(['playtesters:quiz', 'sum:question', 'total:quiz'])
   })
 
   it("keeps the run order whole when one is removed", async () => {

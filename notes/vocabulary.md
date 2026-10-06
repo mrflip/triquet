@@ -56,8 +56,9 @@ this section, lists the words they replace while code still holds them.
   every change.
 * **questions pivot** -- where the `question` widgetings run, among the `quiz` ones: a fixed row
   of the gear's Quiz widgetings list, dragged past rather than dragged. Not stored: it sits just
-  before the first `question` widgeting, and last in a quiz with none (where the order across it
-  makes no difference).
+  before the first `question` widgeting; in a quiz with none, just before the first `quiz` formula
+  (after the entries), or last, and the first `question` widgeting added goes there. So a formula
+  over the questions stays below them; one meant to run above them is dragged back once they come.
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
   no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An

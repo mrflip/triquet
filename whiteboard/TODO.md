@@ -143,8 +143,9 @@ the gear's *Quiz widgetings*, the *Quiz entries* panel). Built small; left:
 * **A quiz text entry cannot be templated**, nor shown as a markdown face in the panel: the panel's
   box is plain text. The recap's head and tail, always templated, read it as `quiz.<label>`.
 * **The pivot itself is not dragged**: it is fixed, and the quiz widgetings move past it. With no
-  question widgetings, a quiz widgeting dropped below it snaps back above (nothing stored says
-  otherwise); a stored pivot (a quiz field) would fix that, at the cost of a migration.
+  question widgetings it sits before the first quiz formula, so a formula dropped above it snaps
+  back below, and one meant to run above the questions is dragged back up once they come; a stored
+  pivot (a quiz field) would fix both, at the cost of a migration.
 * **A reviewer is sent none of the quiz's entries**, as none of a question's stored widgeteds.
 
 ## Git refs

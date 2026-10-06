@@ -13,6 +13,12 @@ const sum = questionOf('sum')
 const total = quizOf('total')
 const playtesters = quizOf('playtesters')
 
+/** The labels of the entries among the items above: every other quiz widgeting is a formula, and reads */
+const EntryLabels = new Set(['entry', 'playtesters'])
+
+/** Whether an item reads anything: not an entry */
+const isFormula = (item: Item) => ! EntryLabels.has(item.label)
+
 /** The labels of a list, the pivot by its key */
 const labelsOf = (items: readonly { label: string }[]) => items.map((item) => item.label)
 
@@ -36,6 +42,13 @@ describe('tieredOf', () => {
     })
   }
 
+  it('puts the pivot of a quiz with no question widgetings before its first formula, or last without readsOf', () => {
+    const tiered = RunOrder.tieredOf([entry, total, playtesters], RunOrder.ownTier, isFormula)
+    expect([labelsOf(tiered.before), labelsOf(tiered.after)]).to.deep.eq([['entry'], ['total', 'playtesters']])
+    expect(labelsOf(RunOrder.tieredOf([entry, total], RunOrder.ownTier).before)).to.deep.eq(['entry', 'total'])
+    expect(labelsOf(RunOrder.tieredOf([entry, playtesters], RunOrder.ownTier, isFormula).before)).to.deep.eq(['entry', 'playtesters'])
+  })
+
   it('reads each tier through the tierOf it is handed', () => {
     const steps = [{ widgeting: entry }, { widgeting: sum }]
     expect(RunOrder.tieredOf(steps, (step) => step.widgeting.tier).before).to.deep.eq([{ widgeting: entry }])
@@ -56,12 +69,13 @@ describe('runOrderOf', () => {
 
 describe('quizListOf', () => {
   it('is the quiz widgetings with the questions pivot where the question widgetings run', () => {
-    expect(labelsOf(RunOrder.quizListOf([entry, sum, total], RunOrder.ownTier))).to.deep.eq(['entry', 'questions', 'total'])
+    expect(labelsOf(RunOrder.quizListOf([entry, sum, total], RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'questions', 'total'])
   })
 
-  it('puts the pivot last when there are no question widgetings', () => {
-    expect(labelsOf(RunOrder.quizListOf([entry, total], RunOrder.ownTier))).to.deep.eq(['entry', 'total', 'questions'])
-    expect(labelsOf(RunOrder.quizListOf([], RunOrder.ownTier))).to.deep.eq(['questions'])
+  it('puts the pivot of a quiz with no question widgetings before its first formula, where the first will go', () => {
+    expect(labelsOf(RunOrder.quizListOf([entry, total], RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'questions', 'total'])
+    expect(labelsOf(RunOrder.quizListOf([entry, playtesters], RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'playtesters', 'questions'])
+    expect(labelsOf(RunOrder.quizListOf([], RunOrder.ownTier, isFormula))).to.deep.eq(['questions'])
   })
 })
 
@@ -84,33 +98,49 @@ describe('movedWithin', () => {
     // a question widgeting, among the question widgetings:
     [[entry, sum, questionOf('more'), total], 'more', 0, ['entry', 'more', 'sum', 'total'], 'a question widgeting moves among the question widgetings only'],
     [[entry, sum, questionOf('more'), total], 'sum', 5,  ['entry', 'more', 'sum', 'total'], 'a question widgeting dropped past the end stays above the quiz widgetings below the pivot'],
+    // no question widgetings, the list [entry, questions, total]:
+    [[entry, total], 'entry', 2, ['total', 'entry'],                       'with no question widgetings, an entry dropped below the pivot stays there'],
+    [[entry, total], 'total', 0, ['total', 'entry'],                       'with no question widgetings, a formula dropped above the pivot keeps the pivot before it'],
     // weird cases:
-    [[entry, total], 'entry', 2, ['total', 'entry'],                       'with no question widgetings, a drop below the pivot keeps the widgeting above it'],
     [[entry, sum, total], 'nobody', 0, ['entry', 'sum', 'total'],          'a label naming none is no move'],
   ] as const
 
   for (const [items, label, onto_idx, expected, title] of MoveCases) {
     it(title, () => {
-      expect(labelsOf(RunOrder.movedWithin(items, label, onto_idx, RunOrder.ownTier))).to.deep.eq(expected)
+      expect(labelsOf(RunOrder.movedWithin(items, label, onto_idx, RunOrder.ownTier, isFormula))).to.deep.eq(expected)
     })
   }
 })
 
 describe('withAdded', () => {
   it('puts a quiz entry, which reads nothing, at the foot of those above the pivot', () => {
-    expect(labelsOf(RunOrder.withAdded([entry, sum], playtesters, false, RunOrder.ownTier))).to.deep.eq(['entry', 'playtesters', 'sum'])
+    expect(labelsOf(RunOrder.withAdded([entry, sum], playtesters, RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'playtesters', 'sum'])
   })
 
   it('puts a quiz formula at the very end, where it reads everything', () => {
-    expect(labelsOf(RunOrder.withAdded([entry, sum], total, true, RunOrder.ownTier))).to.deep.eq(['entry', 'sum', 'total'])
+    expect(labelsOf(RunOrder.withAdded([entry, sum], total, RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'sum', 'total'])
   })
 
   it('puts a question widgeting at the end of the question widgetings, above the quiz widgetings below the pivot', () => {
     const more = questionOf('more')
-    expect(labelsOf(RunOrder.withAdded([entry, sum, total], more, true, RunOrder.ownTier))).to.deep.eq(['entry', 'sum', 'more', 'total'])
+    expect(labelsOf(RunOrder.withAdded([entry, sum, total], more, RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'sum', 'more', 'total'])
   })
 
-  it('puts a question widgeting into a quiz with none after every quiz widgeting, which all then run above the pivot', () => {
-    expect(labelsOf(RunOrder.withAdded([entry, total], sum, true, RunOrder.ownTier))).to.deep.eq(['entry', 'total', 'sum'])
+  it('puts a question widgeting into a quiz with none just above its first formula, after its entries', () => {
+    expect(labelsOf(RunOrder.withAdded([entry, total], sum, RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'sum', 'total'])
+    expect(labelsOf(RunOrder.withAdded([entry, playtesters], sum, RunOrder.ownTier, isFormula))).to.deep.eq(['entry', 'playtesters', 'sum'])
+  })
+
+  it('keeps a formula over the questions below them when the last is removed and another added', () => {
+    const removed = RunOrder.runOrderOf([playtesters, sum, total].filter((item) => item !== sum), RunOrder.ownTier)
+    const sum2 = questionOf('sum2')
+    expect(labelsOf(RunOrder.withAdded(removed, sum2, RunOrder.ownTier, isFormula))).to.deep.eq(['playtesters', 'sum2', 'total'])
+  })
+
+  it('keeps a formula added before any question widgeting below those added after it', () => {
+    const formulaFirst = RunOrder.withAdded([playtesters], total, RunOrder.ownTier, isFormula)
+    const more = questionOf('more')
+    const added = RunOrder.withAdded(RunOrder.withAdded(formulaFirst, sum, RunOrder.ownTier, isFormula), more, RunOrder.ownTier, isFormula)
+    expect(labelsOf(added)).to.deep.eq(['playtesters', 'sum', 'more', 'total'])
   })
 })
