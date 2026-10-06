@@ -2,6 +2,7 @@ import _ from 'es-toolkit/compat'
 import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrations'
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
+import { zInternalQuery } from './functions'
 import * as Stamps from '../src/lib/stamps'
 import { ValidatorKit } from '../src/lib/validator'
 import { HuntValidators } from '../src/models/hunt'
@@ -14,7 +15,14 @@ import type { StampedTablename } from './stamping'
 // written to be run again harmlessly: a row that already fits is left as it is. Rows are written
 // through their row validators, as every other write is. A migration is defined here beside a
 // widened schema, and removed once the schema is tightened after it (`notes/deploy.md`, *Schema
-// pushes*), whose ledger names the commit that still holds each one.
+// pushes*), whose ledger names the commit that still holds each one. Every production deploy runs
+// them all (`runAll`) and waits for them (`outstanding`, `scripts/convex-migrations.ts`), so a
+// backfill runs itself once its widening is deployed.
+
+const { obj, arr, str, uint, oneof } = ValidatorKit
+
+/** A backfill not yet finished, as `outstanding` reports it */
+const Unfinished = obj({ name: str, state: oneof(['inProgress', 'failed', 'canceled', 'unknown']), processed: uint, error: str.optional() })
 
 export const migrations = new Migrations(components.migrations, { internalMutation, schema })
 
@@ -91,7 +99,11 @@ export const backfillQuestionViz = migrations.define({
   },
 })
 
-/** Every backfill still defined, in the order they run: the hunts' orgs, the questions' viz, and the stamps */
+/**
+ * Every backfill still defined, in the order they run: the hunts' orgs, the questions' viz, and the
+ * stamps. What `runAll` runs and `outstanding` reports on. A new backfill joins the end, and leaves
+ * with the tightening after it.
+ */
 export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillHuntOrglabels,
   internal.migrations.backfillQuestionViz,
@@ -110,8 +122,25 @@ export const Backfills: readonly MigrationFunctionReference[] = [
 ]
 
 /**
- * Every backfill still defined, in order (`Backfills`).
+ * Every backfill still defined, in order (`Backfills`), each skipped once finished: run after every
+ * production deploy, so it is harmless with nothing to do. A failure stops the series, leaving the
+ * backfills after it unrun.
  *
  * @example npx convex run migrations:runAll
  */
 export const runAll = migrations.runner([...Backfills])
+
+/**
+ * The backfills in `Backfills` not yet finished, with how far each got: empty once all are. A
+ * backfill not yet started reads as `unknown`; one that threw, as `failed`, with its error.
+ *
+ * @example npx convex run migrations:outstanding  // => [{ name: 'migrations:backfillQuestionViz', state: 'inProgress', processed: 100 }]
+ */
+export const outstanding = zInternalQuery({
+  args:    {},
+  returns: arr(Unfinished),
+  handler: async (ctx) => {
+    const statuses = await migrations.getStatus(ctx, { migrations: [...Backfills] })
+    return statuses.flatMap(({ name, state, processed, error }) => (state === 'success' ? [] : [{ name, state, processed, error }]))
+  },
+})

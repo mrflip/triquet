@@ -1,7 +1,9 @@
 import migrationsTest from '@convex-dev/migrations/test'
+import { getFunctionName } from 'convex/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
+import * as Migrations from '../../convex/migrations'
 import { StampedTables, type StampedTablename } from '../../convex/stamping'
 import { Hunt } from '../../src/models/hunt'
 import { openOf, openTester, seedHunt, type Tester } from '../support/convex'
@@ -191,5 +193,42 @@ describe("migrations.runAll", () => {
     expect(await orgsIn(tt)).to.deep.eq(['pat_smiths', 'pat_smiths', null])
     const held = await stampsIn(tt)
     expect(StampedTables.flatMap((tablename) => present(held[tablename]).filter(([, created_at, updated_at]) => created_at === null || updated_at === null))).to.deep.eq([])
+  })
+})
+
+describe("migrations.Backfills", () => {
+  it("lists every backfill the module defines, so runAll runs each one", () => {
+    const Runners = new Set(['migrations', 'run', 'runAll', 'outstanding', 'Backfills'])
+    const defined = Object.keys(Migrations).filter((key) => ! Runners.has(key))
+    expect(Migrations.Backfills.map((ref) => getFunctionName(ref))).to.have.members(defined.map((key) => `migrations:${key}`))
+  })
+})
+
+describe("migrations.outstanding", () => {
+  it("lists every backfill not yet started", async () => {
+    const { tt } = deployment()
+    expect(await tt.query(internal.migrations.outstanding, {})).to.have.deep.members(
+      Migrations.Backfills.map((ref) => ({ name: getFunctionName(ref), state: 'unknown', processed: 0 })),
+    )
+  })
+
+  it("is empty once runAll has finished", async () => {
+    const { tt, oldHunt } = deployment()
+    await oldHunt('spring_hunt', 'pat_smiths')
+    await tt.mutation(internal.migrations.runAll, {})
+    await tt.finishAllScheduledFunctions(vi.runAllTimers)
+    expect(await tt.query(internal.migrations.outstanding, {})).to.deep.eq([])
+  })
+
+  it("names a backfill that failed, with its error", async () => {
+    const { tt, oldHunt } = deployment()
+    const hunt_id = await oldHunt('spring_hunt', 'pat_smiths')
+    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { label: 'Not A Label!' }) })
+    await migrate(tt, 'migrations:backfillHuntOrglabels')
+    const outstanding = await tt.query(internal.migrations.outstanding, {})
+    const failed = outstanding.find((each) => each.state === 'failed')
+    expect(failed?.name).to.eq('migrations:backfillHuntOrglabels')
+    expect(failed?.error).to.be.a('string').and.not.eq('')
+    expect(outstanding).to.have.length(Migrations.Backfills.length)
   })
 })

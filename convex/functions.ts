@@ -3,7 +3,7 @@ import type { Auth } from 'convex/server'
 import { zCustomMutation, zCustomQuery } from 'convex-helpers/server/zod4'
 import type * as Z from 'zod'
 import type { Id } from './_generated/dataModel'
-import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 import * as Actor from '../src/lib/actor'
 import * as Approve from '../src/lib/approve'
 import { refusingInvalid } from '../src/lib/refusals'
@@ -83,7 +83,16 @@ const AskingToWrite = {
   },
 }
 
-/** Our Zod error map alone, for an internal mutation, which nobody asks; with a database that runs the triggers */
+/** Our Zod error map alone, for an internal query, which nobody asks and which writes nothing */
+const InOurWords = {
+  args:  {},
+  input: () => {
+    installErrorMap()
+    return { ctx: {}, args: {} }
+  },
+}
+
+/** As `InOurWords`, for an internal mutation: with a database that runs the triggers */
 const InOurWordsToWrite = {
   args:  {},
   input: (ctx: MutationCtx) => {
@@ -107,6 +116,7 @@ const InOurWordsToWrite = {
 export const zQuery            = zCustomQuery(query, Asking)
 export const zMutation         = zCustomMutation(mutation, AskingToWrite)
 export const zInternalMutation = zCustomMutation(internalMutation, InOurWordsToWrite)
+export const zInternalQuery    = zCustomQuery(internalQuery, InOurWords)
 
 // --- A hunt's functions
 

@@ -311,6 +311,14 @@ agrees to another.
   2026. It is the shell every `run` step runs in, and marks each step's start and end with the
   time, how long the step took and how far into the job; each job's last step tallies the whole. GitHub's log viewer shows times but not elapsed; `ts` (moreutils)
   would stamp every line, but no runner image has it, and installing it costs each job an apt-get.
+* **Waiting for the backfills after a deploy is a loop of our own**
+  (`scripts/convex-migrations.ts`). Approved by a Coach Oct 2026. `@convex-dev/migrations`
+  recommends chaining `convex run migrations:runAll` after `convex deploy`, but its runner only
+  starts the series and returns, and the component has no way to wait for it. The script asks
+  `migrations:outstanding` every five seconds until it is empty, a backfill has stopped, or five
+  minutes pass, so the build that deploys a widening finishes only once its backfill has.
+  Serializing deploys in GitHub Actions and guarding `pnpm land` were the alternatives, declined
+  because each would change how the Coach merges. `notes/deploy.md`, *Schema pushes*.
 
 ## Later, i.e when we get there
 

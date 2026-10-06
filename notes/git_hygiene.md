@@ -169,7 +169,10 @@ Delete the tag once the PR merges.
 
 `pnpm land` has pushed the branch. Run `gh pr create --base main`, from your worktree.
 
-- **Title**: plain language, saying what changed.
+- **Title**: plain language, saying what changed. A pull request that adds or changes a backfill
+  in `convex/migrations.ts` ends its title `(Serial Deploy: <chain>)`, the chain being the
+  sprint's name (the thread's label outside a sprint): the Coach merges up to it and waits for its
+  deploy before merging what is stacked above (`notes/deploy.md`, *Serial Deploy*).
 - **Body**: follow recent PRs (#35 is a good model):
   - What changed, in short paragraphs or bullets with **bold lead-ins**.
   - A **Tests:** line naming the suites run and their counts.
