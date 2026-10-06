@@ -39,47 +39,20 @@ The plan guessed about 40 s for the smoke tier. It took 30 s, roughly a fifth of
   * `--touched` reads the committed changes since the branch's base, as the proof does. It takes no other arguments.
   * Prefix strings rather than globs: they are easier to read, and need no dependency.
   * A corner run that reaches the whole suite is logged and tallied as `full`, so the bid sees an unscoped proof.
-  * **Smoke picks**, taking the furthest-walking test of each file and avoiding the known milestone flake:
-    * alarms 7, archiving 120 (the gear un-archives), asking 53, bots 43, brand 8, categories 63;
-    * chaining 99, client-first 26, entries 79, estimates 43, failures 42, grid 34;
-    * importing 85, ishes 47, ordering 80, panels 203 (library out and in), prompts 72;
-    * quiz-history 134 (the history survives a reload, not the milestone race), quizzes 46, reviews 26, routing 561, sheets 26, widgets 139.
-* **Deviations** from the plan's map, after reading the imports (`src/` reverse import graph):
-  * **To the whole suite:** `use-draft`, `use-session`, `offers.ts`, `postmortem`, `cells/fields` and `cells/markdown`. Every screen or every state hook imports them.
-    * `offers.ts` is the Workbench's permissions, not asking.
-    * `postmortem` is imported by a dozen hooks, not only `PageFailed`.
-  * **Moved:**
-    * `SortableList` → the gear (only the column and widgeting editors use it).
-    * `QuestionTitle` → archiving and reviews (`ConfirmViz` and `ReviewsPanel` use it, the grid does not).
-    * `CategoryWheel`, `PersonaCard` and `wheel-geometry` → categories alone: estimates never opens the wheel.
-    * spread → estimates and panels.
-  * **`cells/` split by file:**
-    * `chain` adds reviews;
-    * `readouts` adds the asking corner and widgets;
-    * `answer-lock` → reviews;
-    * `ErrBadge` → failures;
-    * the entry cells → entries and estimates.
-  * **Widened:**
-    * `FoldButton` adds quizzes and reviews.
-    * `use-reorder` → ordering, categories, widgets.
-    * `QuizManageModal` adds archiving, categories, quiz-history.
-    * `QuizRoute` adds reviews.
-    * `HuntsList`, `HuntRoute` and `use-account-actions` add quiz-history.
-    * `CategoriesRoute` adds routing.
-    * The history lists (`HuntRepoList`, `OrphanedRepos`, `use-hunt-repos`, `huntgit`) add routing.
-    * `models/review*` add the panels corner and quiz-history: `jsonball` carries reviews into the export and the history.
-  * **Added:**
-    * an alarms corner (`AlarmSnackbar`);
-    * `MembersPanel` → routing;
-    * `Panels.tsx` → panels, reviews, routing, estimates;
-    * the brand files (`Logo`, `About`, the icons, `public/`);
-    * `CopyButton`, `JsonFold`, `widget-words` and `room`, each to the corners that import it.
+  * **Smoke picks**: the test of each file that walks furthest through its corner, avoiding the known milestone flake; listed in `thread-5-map-reading.md`.
+  * **After review, more goes to the whole suite.** The map's rule: what every quiz screen opens through reaches the whole suite.
+    * The reviewer's fix (5ccfa95) sends the synced layout, the quiz pages, `QuizRoute`, `SiteHeader`, `shown-hunt`, `use-address`, `use-ident` and `routes.ts` there. The other synced pages are now named one by one under their route's corner.
+    * I sent the quiz history mirror there too, being the import closure of `use-hunt.ts` and `Workbench.tsx` within the history corner: `hunt-mirror`, `hunt-feed`, `hunt-fetching`, `hunt-commits`, `commit-scheduler`, `huntfiles` and `huntgit`. `use-hunt` runs `useHuntFeed` on every quiz screen and tracks every write through `HuntMirror.trackWrite`, and `Workbench` waits on `HuntMirror.markedChange` for deletes and imports. A slip there can break a write that only some other spec makes.
+    * Kept in the quiz-history corner (quiz-history, panels): `HuntBranch` (the hunt page only), `full-history.md` and `FullHistoryDownload`. The last two are in the static closure, through the Export tab, which stays mounted. But the download does nothing until it is clicked, and a throw while it draws would break the panels specs too.
+    * `HuntRepoList`, `OrphanedRepos` and `use-hunt-repos` keep their corner (quiz-history, routing): no quiz screen imports them.
+* **Deviations**: the plan's map was revised wherever the imports disagreed with it. The files every screen leans on go to the whole suite; components two corners import name the spec files of both; `SortableList`, `QuestionTitle` and the wheel files moved; `cells/` is mapped file by file; an alarms corner was added. The list, file by file, is in `thread-5-map-reading.md`.
 * **Discoveries**
   * Playwright runs the `environment` setup project under file filters and `--grep` alike, so touched and smoke runs still check the environment and warm the pages.
 * **For later threads**
   * **Threads 3 and 4:** your spec files (`failing-pages`, `stats`) are already in the map. Tag exactly one test `@smoke`, or justify fails. A spec file with another name (say `collaborating.spec.ts`) must go into `SpecCorners` too, or the "every spec file sits in some corner" test fails.
   * **Thread 2:** my spec edits are one option added to one `test(` line per file.
   * **Thread 6:** the lock and its catch-up wrap the body of `e2e()`, from the `touchedPlan`/`{ kind: runKindOf(args) }` choice through `runSuite`, when `args` is empty or `--touched`. If the plan is chosen after the catch-up, the scope follows a top that moved.
+* **Also here**: `thread-5-map-reading.md`, the map's departures from the plan file by file, and the smoke picks. Read it before moving a file between corners, or a tag between tests.
 * **For the Coach**
   * CLAUDE.md's step 3 and `.claude/agents/thread-worker.md`'s *Prove* still name only `pnpm e2e`. I left both: CLAUDE.md is yours, and the plan's documents were git_hygiene's. Whether a sprint's workers may prove with `--touched` is a policy call for you.
   * The map is judgment, and it leans conservative: unnamed means the whole suite.
