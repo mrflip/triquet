@@ -48,6 +48,55 @@ It never touches a remote: nothing is pushed, and no remote branch is deleted.
 them. A plain fetch does not: it follows only the tags that point at commits it is already
 fetching, and an attic tag points at a commit no branch holds any more.
 
+## Finding the session that owns a branch
+
+```
+pnpm sessions [<branch label | branch name | PR number>]... [--json] [--projects <dir>] [--all-projects]
+```
+
+A branch or a pull request is left hanging, and the question is which session, among the ones in
+the sidebar, was working on it. `pnpm sessions userlabel 116` reads the transcripts Claude Code
+keeps (`~/.claude/projects/<project>/<session>.jsonl`, with a sprint's workers under
+`<session>/subagents/`) and lists the sessions that bear on each, strongest first, under the title the
+sidebar shows. A branch is given by its label (`userlabel`) or its whole name
+(`20261005-userlabel`); a PR by its number (`116` or `#116`). With nothing asked, it lists every
+session, newest first, with the PRs it linked and the worktrees it cut or entered.
+
+What counts, strongest first:
+
+* `titled` -- the session's title names it. The one evidence a person gives on purpose: see
+  *Naming a session*, below.
+* `PR linked` -- the session opened or worked on that PR. Claude Code records the link.
+* `worktree` -- it ran `pnpm worktree <label>`, or its commands or its workers' went into
+  a worktree of that label.
+* `checkout Nx` -- N lines of the transcript had its working directory on that branch. Weak: the
+  main checkout is switched onto each branch that lands, so a session that never touched the
+  branch can show it.
+* `mentioned Nx` -- N lines name it. The weakest, and it counts the lines the other evidence
+  is on too. The session you ask from always mentions what you asked.
+
+A sprint's workers are subagents of the orchestrator's session, so a thread's branch ties to the
+session that ran the sprint, not to a session of its own. That is why a worker cannot rename
+"its" session to its branch, and why the sprint's title is the one to look for.
+
+**What it cannot see.** Only transcripts on the machine it runs on. A sandbox container has its
+own `~/.claude`, and so does each checkout of yours: run it in each. A sidebar session that runs
+on another machine has its transcript there, and nothing here finds it. `--projects <dir>` points
+the script at a copy. It reads the projects whose directory names contain `triquet` (every
+worktree's cwd gets a directory of its own); `--all-projects` reads them all. The eight characters
+in the `session` column are the start of the session's id, which is not the short code the
+sidebar's agent list shows in brackets: match on the title.
+
+**Naming a session.** Rename it for what it is working on, in the session itself:
+`/rename 20261005-userlabel` (a sprint, which works many branches: `/rename sprint little_fixes`).
+The title must hold the label or the branch's whole name as a word of its own: a hyphen or an
+underscore in front of it hides it (`my-userlabel`), and `userlabel` after a space or the
+datestamp is found. The script reads the new title the next time it runs, and `pnpm sessions
+userlabel` then lists that session first. An agent
+cannot do this for itself: no tool sets a session's title. It can say who it is,
+`echo $CLAUDE_CODE_SESSION_ID`, which is the full id the `--json` output carries, and a PR
+description or a note in `human/` can quote that.
+
 ## Stale worktrees
 
 `git worktree list` marks a worktree whose directory is gone as *prunable*, and its branch stays
