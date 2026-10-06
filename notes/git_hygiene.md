@@ -4,7 +4,7 @@ History on main is semi-linear: each PR branch is rebased onto current main and 
 
 - **The spine** is the one stack of landed branches, checked out in the main checkout at its top: what the Coach watches and merges. It is shared; a branch not yet landed is its agent's alone. See *The spine*.
 - **Agents write only in worktrees of their own**, cut from the spine's top with `pnpm worktree <label>`. The main checkout is the Coach's: read it freely, never write to it except by landing.
-- A line of work is a thread: a worktree, commits at milestones, `pnpm land`, a PR, `pnpm worktree --remove`. See *A thread, start to finish*.
+- A line of work is a thread: a worktree, commits at milestones, a proof (`pnpm catchup`, `pnpm justify`, `pnpm e2e`), a bid (`pnpm land`), a PR, `pnpm worktree --remove`. See *A thread, start to finish*.
 - Don't merge main into a branch, and never use GitHub's "Update branch" in merge mode. A pushed branch contains no merge commits; the `lint-typecheck` CI check rejects them.
 - Force-push only with an explicit lease: `--force-with-lease=<branch>:<the commit you expect origin to hold>`. Never plain `--force`. The spine's scripts do this for you.
 - Open PRs against `main`, even when stacked; write "stacked on #N" in the description.
@@ -54,7 +54,7 @@ origin/main <- B1 <- B2 <- ... <- Bn          the spine: checked out in the main
 
 * **The spine** is `origin/main..Bn`: every landed branch, stacked in the order they landed, with
   the main checkout standing on the top. Each branch on it passed typecheck, lint, the unit tests
-  and e2e on top of exactly what lies beneath it.
+  and e2e on a recent top, and the unit tests on exactly what lies beneath it (*Finishing*).
 * **The spine is shared; an unlanded branch is private.** Any agent may sweep onto the spine,
   replay it onto `origin/main`, and push its branches. A branch still in a worktree is its
   agent's alone. Anything on the spine is ready to push and PR: a push carries along commits from
@@ -71,8 +71,9 @@ origin/main <- B1 <- B2 <- ... <- Bn          the spine: checked out in the main
   `docs: swept from the main checkout`. A stray file there gets committed rather than stalling
   anyone. The Coach's other uncommitted edits are theirs: carried along when the main checkout
   switches, autostashed when it is replayed, never committed by an agent.
-* **One at a time.** Sweeping, replaying and folding in each hold the spine for the seconds they
-  take (a lock in the repository's shared git directory); tests never run under the hold.
+* **One at a time.** Sweeping, replaying, catching up and cutting each hold the spine for the
+  seconds they take (a lock in the repository's shared git directory). A bid holds it for its
+  typecheck and unit tests as well, and no other suite ever runs under the hold.
 
 `scripts/spine.ts` does all of this. `pnpm restack` replays the spine onto `origin/main` by hand
 (cuts and landings do it whenever origin has moved), and `pnpm sweep` sweeps without landing.
@@ -105,36 +106,72 @@ working order, not a count of edits. What you push shouldn't stop mid-refactor (
 are fine, folded in before pushing), and unrelated changes are better in separate commits. A large `convex/_generated/` regeneration goes in a commit of its own. For the
 occasional deliberate commit with failing tests, see *Commits*.
 
-### Finishing: landing
+### Finishing: prove, then bid
+
+Prove the branch before it bids to land, and keep the bid cheap. What makes landing slow is not
+waiting but rerunning: every branch that lands while you run the expensive suites (a **snipe**)
+moves the top you proved against. So the expensive work happens before the bid and at your own
+pace, and the bid itself runs only typecheck and the unit tests, holding the spine so nothing can
+snipe it.
 
 ```
-pnpm land
+A  build     the unit tests at will, until you are satisfied
+B  prove     pnpm catchup -> pnpm justify -> pnpm e2e -> repair each failure alone, until green
+C  refresh   the top moved since B? pnpm catchup -> pnpm justify -> repair (e2e only by judgement)
+D  bid       pnpm land
+E  PR        gh pr create
 ```
 
-Run it in your worktree, with everything committed. It lands your branch on the spine:
+* **A. Build.** Commit at milestones; run the tests near your change as often as you like.
+* **B. Prove.** `pnpm catchup` rebases the branch onto the current top, holding the spine only
+  for the seconds its replay and sweep take. `pnpm justify` runs typecheck, lint and the unit
+  tests side by side, each prefixed by its name and each run to its end, so one run shows every
+  failure (lint keeps a cache, `.eslintcache`: if CI's lint disagrees with yours, `rm
+  .eslintcache` and justify again); green over committed work, it records the branch's patch-id. Then `pnpm e2e`, the full
+  suite on your lane. Repair each failure on its own: `pnpm e2e:rerun` reruns what the last run
+  failed, one worker at a time (`--last-failed --workers=1`), and `pnpm e2e <spec file>...` runs
+  the specs you choose. A spec that failed in the full run and passes alone with the code
+  unchanged is a **flake**: it does not block, and it is always reported, in the PR's
+  **Tests:** line. B ends when every spec of the full run has passed, there or alone; `pnpm e2e`
+  says "Proved" and records it. Commit before each run: a run over uncommitted changes is
+  logged, but counts toward nothing.
+* **C. Refresh.** If anything landed since B, `pnpm catchup` and `pnpm justify` again, and
+  repair. What needs defending is only how your branch meets what landed: everything beneath it
+  already passed justify and e2e with its own work. Rerun e2e only where the newcomer touched
+  the same corner.
+* **D. Bid.** `pnpm land` refuses a branch not justified at its present patch-id (any change
+  since needs `pnpm justify` again; a rebase that carries your changes across unaltered does not),
+  or with no e2e proof, unless every path it changes is a document or a note (a `.md` outside
+  `src/`, or anything under `whiteboard/` or `human/`). Then, holding the spine throughout: it
+  replays the spine onto `origin/main` if origin has moved, sweeps, rebases your branch onto the
+  top if the top has moved, runs typecheck beside the unit tests (`pnpm test:bid`, each test
+  allowed a minute: the machine may be loaded), and switches the main checkout onto your branch.
+  Released, it pushes, and names your flakes for the PR. A conflict or a red test releases the
+  hold and stops with the spine untouched: repair, commit, `pnpm justify`, and bid again. Bids
+  queue for the hold, so the wait is about the tests' time for each bid ahead of yours.
+* **E. PR.** *Filing the PR*, below.
 
-1. Holding the spine: replay it onto `origin/main` if origin has moved, and sweep.
-2. Rebase your branch onto the top. On a conflict it stops, the rebase in progress and the spine
-   untouched (below).
-3. `pnpm typecheck && pnpm lint && pnpm test`. Red stops it.
-4. If the top moved meanwhile (someone else landed), back to 2.
-5. `pnpm test:e2e`, on your lane. Red stops it.
-6. Holding the spine: if the top moved, back to 2. Otherwise switch the main checkout onto your
-   branch and push it.
+From there CI is the next test: it runs justify, a production build and the whole e2e suite on
+every push. What the bid does not cover (how your branch meets what landed after you proved it,
+past what typecheck and the unit tests see) CI does.
 
-From there CI is the next test. Five trips back to 2 and it gives up: land again shortly.
+In a sprint, review comes between A and B (*Sprints*): B covers the reviewer's fixes, and the
+window from your first catch-up to your bid stays short, which is what keeps snipes few.
 
-e2e is the step the machine's load breaks. A red run on specs your branch never touches, with
-Convex "Function execution timed out" in the log, is the load, not your change: wait until
-`uptime` falls below about 8 and land again unchanged. Landings, and other agents' suites, go
-one at a time where you can arrange it.
+Several e2e suites at once load the machine, and specs time out (Convex "Function execution
+timed out") that your branch never touches. Don't wait for the load to fall: rerun those specs
+alone, at once, and report them as flakes. Every run of `pnpm e2e` writes a line to the e2e log
+(`$TQ_WORKTREES/.e2e-log.jsonl`): the load, the build cache's state, and what failed and what
+cleared. `pnpm e2e:log` summarises it, red runs and flakes by load and by build cache. A new
+worktree's e2e build cache is copied from the main checkout's at `pnpm worktree`; the log says
+whether that pays.
 
 If the main checkout won't switch, because a file your branch changes holds the Coach's
-uncommitted edit, the landing stops with nothing changed and names the file. Tell the Coach;
+uncommitted edit, the bid stops with nothing changed and names the file. Tell the Coach;
 never stash, commit or overwrite their edit.
 
-A rebase conflict: fix the straightforward ones yourself, `git rebase --continue`, and land
-again.
+A rebase conflict, at a catch-up or a bid: fix the straightforward ones yourself, `git rebase
+--continue`, justify again, and carry on.
 
 - `pnpm-lock.yaml`: take the top's version, then run `pnpm install`.
 - `convex/_generated/`: push to your backend again (`scripts/convex_dev agent`) and take what it writes.
@@ -208,8 +245,9 @@ wheel. The Coach hands the `/sprint` orchestrator the thread list; it writes a p
 `whiteboard/YYYYMMDD-<sprint>/<sprint>-plan.md`, then runs the threads, each in a worktree of its
 own: a fresh `thread-worker` agent builds it and a `thread-reviewer` agent then reviews its
 commits, with `/code-review` (which runs in the main checkout, so never with `--fix`) or by hand,
-making the fixes it can stand behind in the worktree as `fix:` commits; then the worker lands
-it. Threads land on the spine in the order they finish, none merged until the Coach returns.
+making the fixes it can stand behind in the worktree as `fix:` commits; then the worker proves
+it and bids (*Finishing*, B to E). Threads land on the spine in the order they finish, none
+merged until the Coach returns.
 The orchestrator's procedure is `.claude/skills/sprint/SKILL.md`; the agents' are
 `.claude/agents/thread-worker.md` and `.claude/agents/thread-reviewer.md`. Everything in this
 document binds a sprint's agents as it binds any other: a sprint changes who is watching, not
@@ -231,7 +269,7 @@ checkout stands on `origin/main`, on a spine branch origin has deleted), the mai
 back to `main`, fast-forwarded, and the next landing starts the spine afresh. A branch the Coach
 cut there by hand is theirs, and stays.
 
-Your own unlanded branch picks up the change at its landing's rebase.
+Your own unlanded branch picks up the change at its next `pnpm catchup`, or at its bid.
 
 If you did merge main into your branch by accident, `git rebase origin/main` fixes it. A plain
 rebase drops the merge commit and replays only the branch's own commits.

@@ -1,4 +1,4 @@
-# 2026-10-05: Sprint little_fixes done -- two rounds; one PR open, #116
+# 2026-10-05: Sprint little_fixes done -- two rounds; open: #116, and #146 on it
 
 * **The sprint.** The ident gate says who you will log in as and offers to keep being who you
   are; the hunts page lines up in a table with a 🤔 on every quiz still being worked on; the quiz
@@ -57,3 +57,21 @@
 * **Process lessons, for the next sprint:** land one thread at a time (two e2e suites at once
   drove the load to 50 and timed specs out; every red landing passed unchanged once it fell);
   set a worker's thread-file PR line before `pnpm land` (a landed worktree goes detached).
+
+## Closing state (2026-10-06)
+
+* **Merged since:** #131, the lessons (without #116 beneath it).
+* **Open, in order:**
+  1. **#116**, thread 7: `PA.Userlabel` and the Labelmaker's bag. Rebased onto main, with the
+     conflicts against #141 (reserved labels: shape-only check in `repaired`, `isReserved` kept)
+     and #140 (`stamps`) resolved by keeping both. It now carries the `fix:` that renames #133's
+     leftover `PA.Identlabel` uses, so it typechecks on its own (4189 unit tests pass).
+  2. **#146**, the landing flow (`whiteboard/20261006-landing_flow/`), stacked on #116: prove,
+     then bid. `pnpm catchup`, a parallel `pnpm justify` with `eslint --cache`, `pnpm e2e` with
+     flakes rerun alone and always reported, and a `land` that runs only typecheck and tests
+     under the lock. Workers 7, cache seeding, an e2e log. Landed with the full e2e (259 passed,
+     2.6 min). **Unreviewed**, at your direction.
+* **Not pursued:** a machine-wide e2e lock, and random backoff (`whiteboard/TODO.md`).
+* **Housekeeping:** every worktree this sprint made is removed, the old
+  `.claude/worktrees/little_fixes` leftover included. The local branch `20261005-sprint_lessons`
+  still points at its pre-merge commits; it is merged as #131 and safe to delete.

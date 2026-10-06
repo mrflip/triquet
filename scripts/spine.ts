@@ -1,35 +1,69 @@
 /**
  * The spine: the one stack of landed branches, checked out in the main checkout at its top. Agents
- * cut their worktrees from the top and land onto it, and the Coach watches it and merges it
- * (`notes/git_hygiene.md`, *The spine*).
+ * cut their worktrees from the top, prove their branches there, and bid to land them on it; the
+ * Coach watches it and merges it (`notes/git_hygiene.md`, *The spine* and *Finishing*).
  *
- *   node scripts/spine.ts worktree <label> [--no-install]   a worktree for a new thread, cut from the top
+ *   node scripts/spine.ts worktree <label> [--no-install]   a worktree for a new thread, cut from the top, its e2e build cache seeded
  *   node scripts/spine.ts worktree --remove                 this worktree, removed and its lane freed: it must be clean
- *   node scripts/spine.ts land                              this worktree's branch, rebased onto the top, proved, folded in and pushed
+ *   node scripts/spine.ts catchup                           this worktree's branch, rebased onto the top
+ *   node scripts/spine.ts justify                           typecheck, lint and the unit tests, side by side; green, the branch's patch-id recorded
+ *   node scripts/spine.ts e2e [<playwright args>]           the e2e suite, logged; the branch's proof recorded once every spec of a full run has passed
+ *   node scripts/spine.ts e2e-log                           the e2e log, summarised
+ *   node scripts/spine.ts land                              the bid: a proved branch caught up, typechecked and tested, folded in and pushed, under one hold
  *   node scripts/spine.ts sweep                             the main checkout's whiteboard/, human/ and notes/, committed onto the top
  *   node scripts/spine.ts restack                           the spine, replayed onto origin/main if origin has moved, and pushed
  *   node scripts/spine.ts top                               the top's branch
  *
- * `pnpm worktree`, `pnpm land`, `pnpm sweep` and `pnpm restack` spell them shorter. Worktrees live under
- * TQ_WORKTREES (`~/worktrees/triquet`). Landing proves a branch with TRIQUET_LAND_CHECKS
- * (`pnpm typecheck && pnpm lint && pnpm test`) and then TRIQUET_LAND_E2E (`pnpm test:e2e`), each
- * a shell command.
+ * package.json spells each `pnpm <command>`, and `pnpm e2e:rerun` is `e2e --last-failed --workers=1`.
+ * Worktrees live under TQ_WORKTREES (`~/worktrees/triquet`). Each suite these run is a shell
+ * command an environment variable may replace: TRIQUET_JUSTIFY (typecheck, lint and test through
+ * `pnpm run --no-bail`, which runs them side by side and lets each finish), TRIQUET_E2E
+ * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (typecheck beside `pnpm test:bid`, the unit tests
+ * patient of a loaded machine: what a bid runs under the hold).
  */
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import type { JSONReport } from '@playwright/test/reporter'
+import * as E2eLog from './e2e-log.ts'
+import * as Lanes from './lanes.ts'
 
 /** The main checkout's directories whose uncommitted files any sweep commits onto the top */
 export const SweptDirs = ['whiteboard', 'human', 'notes'] as const
 
-/** Times a landing goes back to its rebase because the top moved, before it gives up */
-export const MaxAttempts = 5
+/** How long to wait for another checkout's hold on the spine before giving up: long enough for a few bids ahead, each running typecheck and the unit tests */
+const LockWaitMs = 30 * 60 * 1000
 
-/** How long to wait for another checkout's hold on the spine before giving up */
-const LockWaitMs = 10 * 60 * 1000
+/** What `pnpm justify` runs: typecheck, lint and the unit tests, side by side, each run to its end however the others fare */
+const JustifyCommand = 'pnpm run --no-bail "/^(typecheck|lint|test)$/"'
 
-const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | land | sweep | restack | top'
+/**
+ * What a bid runs under the hold: typecheck and the unit tests, side by side as justify runs its
+ * steps, the tests (`pnpm test:bid`) each allowed a minute rather than vitest's five seconds. A
+ * bid often runs beside other worktrees' e2e suites, under whose load tests that spawn processes
+ * time out at five seconds; a test that truly hangs still fails, and CI keeps the five.
+ */
+const LandChecks = 'pnpm run --no-bail "/^(typecheck|test:bid)$/"'
+
+/** The build directory `pnpm test:e2e` builds into, as package.json names it: the cache a new worktree is seeded with */
+export const E2eDistDir = '.next-e2e'
+
+/** The file in a worktree's e2e build directory saying its cache was seeded and no run has used it yet */
+const SeedMarker = '.triquet-seeded'
+
+/**
+ * Where a branch's changes need no e2e proof to land: documents and notes. A `.md` under `src/`
+ * is app content, which the build compiles, and is not exempt.
+ */
+const DocsOnlyRules: readonly ((filepath: string) => boolean)[] = [
+  (filepath) => filepath.endsWith('.md') && ! filepath.startsWith('src/'),
+  (filepath) => filepath.startsWith('whiteboard/'),
+  (filepath) => filepath.startsWith('human/'),
+]
+
+const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [<playwright args>] | e2e-log | land | sweep | restack | top'
 
 /** A stop that needs the agent or the Coach: its message says what happened and what to do */
 export class SpineStop extends Error {}
@@ -139,6 +173,7 @@ function isAlive(pid: number): boolean {
 export function withSpineHeld<TT>(commondir: string, purpose: string, act: () => TT): TT {
   const lockdir = path.join(commondir, 'triquet-spine.lock')
   const deadline = Date.now() + LockWaitMs
+  let waitingOn: string | undefined
   for (;;) {
     try {
       fs.mkdirSync(lockdir)
@@ -152,7 +187,11 @@ export function withSpineHeld<TT>(commondir: string, purpose: string, act: () =>
       fs.rmSync(lockdir, { recursive: true, force: true })
       continue
     }
-    if (Date.now() > deadline) { throw new SpineStop(`The spine has been held for ten minutes (${lockdir}: ${holder?.purpose ?? 'by no one saying why'}).`) }
+    if (holder !== undefined && holder.purpose !== waitingOn) {
+      waitingOn = holder.purpose
+      process.stderr.write(`Waiting for the spine: ${holder.purpose}.\n`)
+    }
+    if (Date.now() > deadline) { throw new SpineStop(`The spine has been held for ${String(LockWaitMs / 60_000)} minutes (${lockdir}: ${holder?.purpose ?? 'by no one saying why'}).`) }
     pause(1000)
   }
   try {
@@ -291,7 +330,8 @@ export function sweep(main: string): string[] {
 
 /**
  * A worktree for a new thread, cut from the top of the spine (replayed onto `origin/main` and
- * swept first), with a lane of its own and its packages installed.
+ * swept first), with a lane of its own, its e2e build cache seeded from the main checkout's, and
+ * its packages installed.
  *
  * @returns Lines saying where it is and what it holds.
  */
@@ -315,12 +355,48 @@ export function cutWorktree(cwd: string, label: string, opts: { install: boolean
   git(root, 'config', `branch.${branch}.merge`, `refs/heads/${branch}`)
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running this script, whichever it is
   const lane = execFileSync('node', [path.join(root, 'scripts', 'lanes.ts'), 'lane'], { cwd: root, encoding: 'utf8' }).trim()
+  const seeded = seedCache(main, root)
   if (opts.install) {
     // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
     const installed = spawnSync('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: root, stdio: 'inherit' })
     if (installed.status !== 0) { throw new SpineStop(`pnpm install failed in ${root}; the worktree stands, on lane ${lane}.`) }
   }
-  return [...notes, `Worktree: ${root}`, `Branch:   ${branch}, cut from ${top.branch} at ${top.sha.slice(0, 8)}`, `Lane:     ${lane}`]
+  return [...notes, ...seeded, `Worktree: ${root}`, `Branch:   ${branch}, cut from ${top.branch} at ${top.sha.slice(0, 8)}`, `Lane:     ${lane}`]
+}
+
+/**
+ * Seeds the e2e build cache of the new worktree at `root` with a copy of the main checkout's (a
+ * reflink where the filesystem allows one), marked as seeded until its first run, so the e2e log
+ * can tell whether seeding pays. A copy, never shared: two servers writing one cache can corrupt
+ * it. Nothing to copy, or a copy that fails, leaves the worktree to build its cache cold.
+ *
+ * @returns A line saying what was seeded, if anything.
+ */
+function seedCache(main: string, root: string): string[] {
+  const from = path.join(main, E2eDistDir, 'dev', 'cache')
+  if (! fs.existsSync(from)) { return [] }
+  const onto = path.join(root, E2eDistDir, 'dev', 'cache')
+  const began = Date.now()
+  try {
+    fs.cpSync(from, onto, { recursive: true, mode: fs.constants.COPYFILE_FICLONE })
+  } catch (err) {
+    fs.rmSync(path.join(root, E2eDistDir), { recursive: true, force: true })
+    return [`Seeding the e2e build cache failed, so its first run builds it cold: ${(err as Error).message}`]
+  }
+  fs.writeFileSync(path.join(root, E2eDistDir, SeedMarker), `${JSON.stringify({ from, at: new Date().toISOString() })}\n`)
+  return [`Seeded the e2e build cache from the main checkout's, in ${secondsSince(began)} s.`]
+}
+
+/** The e2e build cache at `root` as a run finds it: absent, seeded and not yet used, or left by an earlier run */
+function cacheStateOf(root: string): E2eLog.CacheState {
+  const cachedir = path.join(root, E2eDistDir, 'dev', 'cache')
+  if (! fs.existsSync(cachedir) || fs.readdirSync(cachedir).length === 0) { return 'cold' }
+  return fs.existsSync(path.join(root, E2eDistDir, SeedMarker)) ? 'seeded' : 'warm'
+}
+
+/** Whole seconds since `began`, a `Date.now()` */
+function secondsSince(began: number): string {
+  return String(Math.round((Date.now() - began) / 1000))
 }
 
 /** Lines saying what a sweep committed */
@@ -346,7 +422,7 @@ export function removeWorktree(cwd: string): string[] {
 }
 
 /**
- * Settles a rebase landing started: once `branch` holds the commit it was being rebased onto,
+ * Settles a rebase a catch-up started: once `branch` holds the commit it was being rebased onto,
  * that commit is its base from now on, and an abandoned rebase leaves the old base standing.
  */
 function settleRebase(root: string, branch: string): void {
@@ -359,79 +435,284 @@ function settleRebase(root: string, branch: string): void {
 /** The commit `branch` was last rebased onto, as recorded at its cut and after each rebase; else where it meets the top */
 function spinebaseOf(root: string, branch: string, top: Top): string {
   settleRebase(root, branch)
-  if (gitOk(root, 'config', `branch.${branch}.spinebase`)) { return git(root, 'config', `branch.${branch}.spinebase`) }
-  return git(root, 'merge-base', branch, top.sha)
+  return configOf(root, `branch.${branch}.spinebase`) ?? git(root, 'merge-base', branch, top.sha)
+}
+
+/** A git config value, or undefined when it is unset */
+function configOf(root: string, key: string): string | undefined {
+  return gitOk(root, 'config', key) ? git(root, 'config', key) : undefined
+}
+
+/** Whether the checkout at `root` holds nothing uncommitted */
+function isClean(root: string): boolean {
+  return git(root, 'status', '--porcelain', '--untracked-files=all') === ''
+}
+
+/** The exit status of the shell command `command`, given `args`, run in `root` with `env` over the process's own, its output shown as it runs */
+function statusOf(root: string, command: string, args: readonly string[] = [], env: Record<string, string> = {}): number {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the system shell runs the checks as a person would
+  const ran = spawnSync('sh', ['-c', `${command} "$@"`, 'sh', ...args], { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } })
+  return ran.status ?? 1
 }
 
 /** Whether the shell command `command` succeeds in `root`, its output shown as it runs */
 function passes(root: string, command: string): boolean {
-  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the system shell runs the checks as a person would
-  return spawnSync('sh', ['-c', command], { cwd: root, stdio: 'inherit' }).status === 0
-}
-
-/** Whether the top has moved since `top` */
-function hasMoved(main: string, top: Top): boolean {
-  const now = topOf(main)
-  return now.branch !== top.branch || now.sha !== top.sha
+  return statusOf(root, command) === 0
 }
 
 /**
- * Lands the worktree's branch on the spine. Under the hold, replays the spine onto `origin/main`
- * if it has moved and sweeps the main checkout; then rebases the branch onto the top, runs the
- * checks, and goes back to the rebase if the top has moved meanwhile; then e2e. Last, under the
- * hold again and only if the top is still where it was, switches the main checkout onto the
- * branch and pushes it. Any stop leaves the spine as it was.
+ * The branch of the worktree at `root`, refusing what a catch-up or a bid cannot start from: the
+ * main checkout, no branch, git in the middle of something, uncommitted changes.
+ */
+function worktreeBranch(root: string, main: string, doing: string): string {
+  if (root === main) { throw new SpineStop(`${doing} happens from a worktree; the main checkout is the spine itself.`) }
+  if (! gitOk(root, 'symbolic-ref', '--quiet', 'HEAD')) { throw new SpineStop('This worktree is not on a branch: switch to your thread\'s branch first.') }
+  const busy = busyIn(root)
+  if (busy !== undefined) { throw new SpineStop(`This worktree is in the middle of something (${busy}): finish it (git rebase --continue) or abort it, then try again.`) }
+  if (! isClean(root)) { throw new SpineStop('This worktree holds uncommitted changes: commit them first.') }
+  return git(root, 'symbolic-ref', '--short', 'HEAD')
+}
+
+/** Where the checkout at `root` stands: its branch, that branch's base and patch-id, its commit, and whether everything there is committed */
+function standingOf(root: string, main: string): { branch: string, base: string, patchid: string, head: string, committed: boolean } {
+  if (! gitOk(root, 'symbolic-ref', '--quiet', 'HEAD')) { throw new SpineStop('This checkout is not on a branch: switch to your thread\'s branch first.') }
+  const branch = git(root, 'symbolic-ref', '--short', 'HEAD')
+  const base = spinebaseOf(root, branch, topOf(main))
+  return { branch, base, patchid: patchIdOf(root, base, branch), head: git(root, 'rev-parse', 'HEAD'), committed: isClean(root) }
+}
+
+/**
+ * The patch-id of everything `branch` changes since `base`: one hash, blind to line numbers, so a
+ * rebase that carries the changes across unaltered keeps it, and any change to them does not.
+ */
+function patchIdOf(root: string, base: string, branch: string): string {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- as in git() above
+  const diff = spawnSync('git', ['diff', '--binary', '--no-color', '--no-ext-diff', base, branch], { cwd: root, encoding: 'utf8', maxBuffer: 2 ** 30 })
+  if (diff.status !== 0) { throw new Error(`git diff ${base} ${branch}: ${diff.stderr.trim()}`) }
+  if (diff.stdout === '') { return 'empty' }
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- as in git() above
+  const hashed = spawnSync('git', ['patch-id', '--stable'], { cwd: root, encoding: 'utf8', input: diff.stdout, maxBuffer: 2 ** 20 })
+  const [hash = ''] = hashed.stdout.split(' ', 1)
+  // A diff of modes alone gives patch-id nothing to hash; its own hash will do.
+  return hash === '' ? createHash('sha256').update(diff.stdout).digest('hex') : hash
+}
+
+/** The paths `branch` changes since `base`, a rename as both of its sides */
+function changedPaths(root: string, base: string, branch: string): string[] {
+  return gitExactly(root, 'diff', '--name-only', '--no-renames', '-z', base, branch).split('\0').filter(Boolean)
+}
+
+/**
+ * Whether every path a branch changes is a document or a note, so that it lands with no e2e
+ * proof: a `.md` outside `src/`, or anything under `whiteboard/` or `human/`.
+ *
+ * @example isDocsOnly(['notes/stack.md', 'whiteboard/20261006-x/shot.png'])  // => true
+ * @example isDocsOnly(['src/content/about.md'])                             // => false
+ */
+export function isDocsOnly(filepaths: readonly string[]): boolean {
+  return filepaths.every((filepath) => DocsOnlyRules.some((rule) => rule(filepath)))
+}
+
+/**
+ * Rebases `branch` onto `top` unless it stands there already, recording its new base. A conflict
+ * stops with the rebase in progress in the worktree, the agent's to repair or abort; the spine is
+ * untouched.
+ *
+ * @returns Whether it rebased.
+ */
+function caughtUp(root: string, branch: string, top: Top): boolean {
+  const base = spinebaseOf(root, branch, top)
+  if (base === top.sha) { return false }
+  git(root, 'config', `branch.${branch}.spinebase-pending`, top.sha)
+  try {
+    git(root, 'rebase', '--quiet', '--onto', top.sha, base, branch)
+  } catch (err) {
+    throw new SpineStop([
+      `Rebasing ${branch} onto ${top.branch} conflicted; the spine is untouched.`,
+      'Repair what notes/git_hygiene.md calls straightforward, `git rebase --continue`, and justify again;',
+      'otherwise `git rebase --abort` and report.',
+      (err as Error).message,
+    ].join('\n'))
+  }
+  settleRebase(root, branch)
+  return true
+}
+
+/**
+ * Catches the worktree's branch up with the top. Under the hold, replays the spine onto
+ * `origin/main` if origin has moved and sweeps the main checkout; then, released, rebases the
+ * branch onto the top if it stands anywhere else.
+ *
+ * @returns Lines saying what moved.
+ */
+export function catchUp(cwd: string): string[] {
+  const { root, main, commondir } = checkoutAt(cwd)
+  const branch = worktreeBranch(root, main, 'Catching up')
+  const { top, notes } = withSpineHeld(commondir, `catching ${branch} up`, () => {
+    refuseBusy(main)
+    const said = [...restack(main), ...sweptNotes(sweep(main))]
+    return { top: topOf(main), notes: said }
+  })
+  const where = `${top.branch} at ${top.sha.slice(0, 8)}`
+  return [...notes, caughtUp(root, branch, top) ? `Rebased ${branch} onto ${where}: justify it again (\`pnpm justify\`).` : `${branch} stands on the top already: ${where}.`]
+}
+
+/**
+ * Justifies the checkout's branch: typecheck, lint and the unit tests, side by side, each run to
+ * its end however the others fare. Green, over committed work alone, it records the branch's
+ * patch-id, which a bid checks.
+ *
+ * @returns Lines saying how it went; red stops.
+ */
+export function justify(cwd: string): string[] {
+  const { root, main } = checkoutAt(cwd)
+  const ante = standingOf(root, main)
+  const began = Date.now()
+  const green = passes(root, process.env.TRIQUET_JUSTIFY ?? JustifyCommand)
+  const took = `${secondsSince(began)} s`
+  if (! green) { throw new SpineStop(`Justify failed, in ${took}: repair, commit, and justify again.`) }
+  const post = standingOf(root, main)
+  if (! (ante.committed && post.committed && ante.head === post.head)) {
+    return [`Justified in ${took}, but over uncommitted changes, so nothing is recorded: commit, and justify again before you bid.`]
+  }
+  git(root, 'config', `branch.${ante.branch}.justified`, ante.patchid)
+  return [`Justified ${ante.branch}, in ${took}.`]
+}
+
+/** Where the checkout at `root` keeps its branch's e2e tally */
+function tallyfileOf(root: string): string {
+  return path.join(git(root, 'rev-parse', '--absolute-git-dir'), 'triquet-e2e.json')
+}
+
+/** The e2e tally kept in `tallyfile`, if any */
+function readTally(tallyfile: string): E2eLog.Tally | undefined {
+  return fs.existsSync(tallyfile) ? JSON.parse(fs.readFileSync(tallyfile, 'utf8')) as E2eLog.Tally : undefined
+}
+
+/**
+ * Runs the e2e suite on the checkout's lane, or the part of it `args` asks Playwright for, and
+ * writes a line to the e2e log. Over committed work alone, it keeps the branch's tally: a full run
+ * starts it afresh, and a rerun or chosen specs clear what they pass. Once every spec of a full
+ * run has passed, there or alone since, the branch is proved: `branch.<b>.proved` holds the top it
+ * was proved on and its patch-id then.
+ *
+ * @param args - Playwright's arguments: none for the whole suite, `--last-failed` for a rerun, or specs.
+ * @returns Lines saying how the run went and where the proof stands; a red run stops.
+ */
+export function e2e(cwd: string, args: readonly string[]): string[] {
+  const { root, main } = checkoutAt(cwd)
+  const ante = standingOf(root, main)
+  const kind = runKindOf(args)
+  const reportfile = path.join(git(root, 'rev-parse', '--absolute-git-dir'), 'triquet-e2e-report.json')
+  fs.rmSync(reportfile, { force: true })
+  const cache = cacheStateOf(root)
+  const [loadBefore = 0] = os.loadavg()
+  const at = new Date().toISOString()
+  const began = Date.now()
+  const status = statusOf(root, process.env.TRIQUET_E2E ?? 'pnpm test:e2e', args, { PLAYWRIGHT_JSON_OUTPUT_FILE: reportfile })
+  const seconds = Math.round((Date.now() - began) / 1000)
+  const [, loadAfter = 0] = os.loadavg()
+  fs.rmSync(path.join(root, E2eDistDir, SeedMarker), { force: true })
+  const outcomes = fs.existsSync(reportfile) ? E2eLog.outcomesOf(JSON.parse(fs.readFileSync(reportfile, 'utf8')) as Pick<JSONReport, 'suites'>) : []
+  const post = standingOf(root, main)
+  const committed = ante.committed && post.committed && ante.head === post.head
+  const tallyfile = tallyfileOf(root)
+  const prior = readTally(tallyfile)
+  const run = { kind, branch: ante.branch, top: ante.base, patchid: ante.patchid, status, outcomes }
+  const { tally, cleared } = committed ? E2eLog.tallied(prior, run) : { tally: prior, cleared: [] }
+  const proved = committed && E2eLog.isProved(tally)
+  if (committed && tally !== undefined) {
+    fs.writeFileSync(tallyfile, `${JSON.stringify(tally)}\n`)
+    if (proved) {
+      git(root, 'config', `branch.${ante.branch}.proved`, `${tally.top} ${ante.patchid}`)
+    } else {
+      gitOk(root, 'config', '--unset', `branch.${ante.branch}.proved`)
+    }
+  }
+  const counts = E2eLog.countsOf(outcomes)
+  const failures = E2eLog.failuresOf(outcomes)
+  E2eLog.append(E2eLog.logfileOf(worktreesHome()), {
+    at, branch: ante.branch, lane: Lanes.laneHere(process.env, root), kind, args: [...args], committed,
+    load: { before: loadBefore, after: loadAfter }, cores: os.availableParallelism(), cache, seconds, status,
+    counts, failures, cleared, still: tally?.outstanding ?? [], proved,
+  })
+  const lines = [
+    `e2e, ${kind}: ${String(counts.passed + counts.flaky)} passed, ${String(counts.failed)} failed, ${String(counts.unrun)} not run, in ${String(seconds)} s (load ${loadBefore.toFixed(1)} as it began; build cache ${cache}).`,
+    ...e2eNotes({ kind, committed, prior, tally, cleared, proved, branch: ante.branch }),
+  ]
+  if (status !== 0) { throw new SpineStop(lines.join('\n')) }
+  return lines
+}
+
+/** What a run of the e2e suite with Playwright's `args` is: the whole suite, a rerun of what failed, or specs chosen */
+function runKindOf(args: readonly string[]): E2eLog.RunKind {
+  if (args.length === 0) { return 'full' }
+  return args.includes('--last-failed') ? 'rerun' : 'chosen'
+}
+
+/** Lines saying where a branch's e2e proof stands after a run */
+function e2eNotes(said: { kind: E2eLog.RunKind, committed: boolean, prior: E2eLog.Tally | undefined, tally: E2eLog.Tally | undefined, cleared: readonly E2eLog.Cleared[], proved: boolean, branch: string }): string[] {
+  const { kind, committed, prior, tally, cleared, proved, branch } = said
+  if (! committed) { return ['The worktree held uncommitted changes, so this run counts toward no proof: commit, then run again.'] }
+  const building = kind === 'full' || (prior?.branch === branch && prior.complete)
+  if (! building) { return [`No finished full run of ${branch} to build on: \`pnpm e2e\` first.`] }
+  const flakes = E2eLog.flakesOf(tally)
+  return [
+    ...cleared.map(({ spec, how }) => (how === 'flake' ? `A flake: ${spec} failed in the full run and passed alone, unchanged.` : `Repaired: ${spec}.`)),
+    ...(tally?.complete === false ? ['The run broke before its specs could finish, so it proves nothing: see its output, and run it again.'] : []),
+    ...(proved ? [`Proved ${branch} on ${(tally?.top ?? '').slice(0, 8)}.`] : []),
+    ...(proved && flakes.length > 0 ? [`Name these flakes in the PR's Tests: line: ${flakes.join('; ')}.`] : []),
+    ...(! proved && tally?.complete ? ['Outstanding, to repair alone (`pnpm e2e:rerun`, or `pnpm e2e <spec file>`):', ...tally.outstanding.map((spec) => `  ${spec}`)] : []),
+  ]
+}
+
+/**
+ * What a bid needs of the branch before it takes the hold: a justify at its present patch-id,
+ * and an e2e proof unless it changes only documents and notes. Refuses without them.
+ *
+ * @returns Lines for the bid to pass on, naming the flakes the PR's Tests: line names.
+ */
+function proofOf(root: string, main: string, branch: string): string[] {
+  const { base, patchid } = standingOf(root, main)
+  const justified = configOf(root, `branch.${branch}.justified`)
+  if (justified === undefined) { throw new SpineStop(`${branch} has not been justified: \`pnpm justify\`, then bid again.`) }
+  if (justified !== patchid) { throw new SpineStop(`${branch} has changed since it was justified: \`pnpm justify\`, then bid again.`) }
+  if (isDocsOnly(changedPaths(root, base, branch))) { return ['Documents and notes only: no e2e proof needed.'] }
+  const proved = configOf(root, `branch.${branch}.proved`)
+  if (proved === undefined) { throw new SpineStop(`${branch} has no e2e proof: \`pnpm e2e\`, then repair each failure alone (\`pnpm e2e:rerun\`) until every spec has passed.`) }
+  const [provedOn = '', provedAt = ''] = proved.split(' ', 2)
+  const flakes = E2eLog.flakesOf(readTally(tallyfileOf(root)))
+  return [
+    `e2e proved on ${provedOn.slice(0, 8)}${provedAt === patchid ? '' : ", before the branch's latest changes"}.`,
+    flakes.length === 0 ? 'No flakes to report.' : `Flakes, for the PR's Tests: line: ${flakes.join('; ')}.`,
+  ]
+}
+
+/**
+ * Bids to land the worktree's branch on the spine. It must be justified at its present patch-id,
+ * and proved by the e2e suite unless it changes only documents and notes. Then, under one hold:
+ * replays the spine onto `origin/main` if origin has moved, sweeps the main checkout, rebases the
+ * branch onto the top if the top has moved, runs typecheck and the unit tests, and switches the main checkout
+ * onto the branch. The hold released, it pushes the branch. Any stop leaves the spine as it was.
  *
  * @returns Lines saying what landed, on what.
  */
 export function land(cwd: string): string[] {
   const { root, main, commondir } = checkoutAt(cwd)
-  if (root === main) { throw new SpineStop('Landing happens from a worktree; the main checkout is the spine itself.') }
-  if (! gitOk(root, 'symbolic-ref', '--quiet', 'HEAD')) { throw new SpineStop('This worktree is not on a branch: switch to your thread\'s branch first.') }
-  const branch = git(root, 'symbolic-ref', '--short', 'HEAD')
-  const busy = busyIn(root)
-  if (busy !== undefined) { throw new SpineStop(`This worktree is in the middle of something (${busy}): finish it (git rebase --continue) or abort it, then land again.`) }
-  if (git(root, 'status', '--porcelain', '--untracked-files=all') !== '') { throw new SpineStop('This worktree holds uncommitted changes: commit them, then land.') }
-  const checks = process.env.TRIQUET_LAND_CHECKS ?? 'pnpm typecheck && pnpm lint && pnpm test'
-  const e2e = process.env.TRIQUET_LAND_E2E ?? 'pnpm test:e2e'
-  const notes: string[] = []
-  for (let attempt = 1; attempt <= MaxAttempts; attempt++) {
-    const top = withSpineHeld(commondir, `landing ${branch}`, () => {
-      refuseBusy(main)
-      notes.push(...restack(main), ...sweptNotes(sweep(main)))
-      return topOf(main)
-    })
-    const base = spinebaseOf(root, branch, top)
-    git(root, 'config', `branch.${branch}.spinebase-pending`, top.sha)
-    try {
-      git(root, 'rebase', '--quiet', '--onto', top.sha, base, branch)
-    } catch (err) {
-      throw new SpineStop([
-        `Rebasing ${branch} onto ${top.branch} conflicted; the spine is untouched.`,
-        'Repair what notes/git_hygiene.md calls straightforward, `git rebase --continue`, and land again;',
-        'otherwise `git rebase --abort` and report.',
-        (err as Error).message,
-      ].join('\n'))
-    }
-    settleRebase(root, branch)
-    if (! passes(root, checks)) { throw new SpineStop(`The checks failed on ${branch}, rebased onto ${top.branch}: fix, commit, and land again. The spine is untouched.`) }
-    if (hasMoved(main, top)) {
-      notes.push(`The top moved during the checks: rebasing again (attempt ${String(attempt + 1)}).`)
-      continue
-    }
-    if (! passes(root, e2e)) { throw new SpineStop(`The e2e suite failed on ${branch}, rebased onto ${top.branch}: fix, commit, and land again. The spine is untouched.`) }
-    const folded = withSpineHeld(commondir, `folding in ${branch}`, () => {
-      if (hasMoved(main, top)) { return false }
-      refuseBusy(main)
-      foldIn(root, main, branch)
-      return true
-    })
-    if (folded) {
-      return [...notes, ...pushed(main, branch), `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (${stackingOn(top)}), then remove this worktree.`]
-    }
-    notes.push(`The top moved during e2e: rebasing again (attempt ${String(attempt + 1)}).`)
-  }
-  throw new SpineStop(`The top moved ${String(MaxAttempts)} times while ${branch} was landing: the spine is too busy. Land again shortly, or report.`)
+  const branch = worktreeBranch(root, main, 'Landing')
+  const proof = proofOf(root, main, branch)
+  const checks = process.env.TRIQUET_LAND_CHECKS ?? LandChecks
+  const { top, notes } = withSpineHeld(commondir, `landing ${branch}`, () => {
+    refuseBusy(main)
+    const said = [...restack(main), ...sweptNotes(sweep(main))]
+    const stood = topOf(main)
+    if (caughtUp(root, branch, stood)) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`) }
+    if (! passes(root, checks)) { throw new SpineStop(`Typecheck or the tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
+    refuseBusy(main)
+    foldIn(root, main, branch)
+    return { top: stood, notes: said }
+  })
+  return [...notes, ...pushed(main, branch), ...proof, `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (${stackingOn(top)}), then remove this worktree.`]
 }
 
 /** What a branch landed on `top` says its PR is stacked on */
@@ -472,6 +753,19 @@ function main(args: readonly string[]): string[] {
     const label = rest.find((arg) => ! arg.startsWith('--'))
     if (label === undefined) { throw new SpineStop(Usage) }
     return cutWorktree(cwd, label, { install: ! rest.includes('--no-install') })
+  }
+  case 'catchup': {
+    return catchUp(cwd)
+  }
+  case 'justify': {
+    return justify(cwd)
+  }
+  case 'e2e': {
+    return e2e(cwd, rest)
+  }
+  case 'e2e-log': {
+    const logfile = E2eLog.logfileOf(worktreesHome())
+    return E2eLog.summarise(E2eLog.read(logfile))
   }
   case 'land': {
     return land(cwd)

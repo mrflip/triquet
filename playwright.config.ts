@@ -24,16 +24,18 @@ export default defineConfig({
   fullyParallel: true,
   // GitHub shows a log a whole line at a time: `list` gives each spec a line as it finishes, and
   // `github` pins each failure to its line of the spec. The html report, with the traces a retry
-  // records, is uploaded when the job fails.
-  reporter:    process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
+  // records, is uploaded when the job fails. Locally, `pnpm e2e` asks for a JSON report too, at
+  // PLAYWRIGHT_JSON_OUTPUT_FILE, to keep the branch's proof and the e2e log by (scripts/spine.ts).
+  reporter:    process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : [['list'], ...(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? [['json'] as const] : [])],
   // One retry on CI, so a failure there comes with a trace; a spec that passes only on its retry
   // is reported as flaky rather than hidden.
   retries:     process.env.CI ? 1 : 0,
   // One spec at a time on CI: a runner's few slow cores already carry the web server, Convex and the
   // browser, and a second worker there times specs out. CI goes wide by sharding instead. Locally,
-  // half the cores and no retry, so specs that collide over the one server they share fail here,
-  // the only place they run side by side.
-  workers:     process.env.CI ? 1 : '50%',
+  // seven, a little under half this machine's sixteen cores, so several worktrees' suites can run
+  // at once, and no retry, so specs that collide over the one server they share fail here, the only
+  // place they run side by side. A spec that fails among the others is rerun alone (`pnpm e2e:rerun`).
+  workers:     process.env.CI ? 1 : 7,
   // Under the dev server a route's first visit waits for it to compile, and a fresh page always
   // waits for its first reads.
   expect:      { timeout: 10_000 },

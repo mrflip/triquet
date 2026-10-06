@@ -1,8 +1,8 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** done. Round one merged (#99, #105, #108); round two's threads 4-6 merged via #113;
-thread 7 is #116, open, follows #113. See `human/20261005-sprint_little_fixes_done.md`.
+`/sprint`. **Status:** done. Merged: #99, #105, #108, #113 (threads 4-6), #131 (the lessons). Open: #116
+(thread 7), and #146 (the landing flow, `whiteboard/20261006-landing_flow/`) stacked on it.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz

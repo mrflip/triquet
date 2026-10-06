@@ -23,7 +23,10 @@ The rules below are specific examples of three principles:
 ### Basics
 
 * Import paths carry no extension (`./thing`, not `./thing.ts`) -- the grain of Next.js and the
-  wider ecosystem. Not mechanically enforced either direction; just don't add one.
+  wider ecosystem. Not mechanically enforced either direction; just don't add one. The one
+  exception: a script under `scripts/` that node runs directly imports its siblings with the
+  `.ts` (`./lanes.ts`), since node follows no extensionless path (tsconfig's
+  `allowImportingTsExtensions` lets it typecheck).
 
 ### Use Splat (`* as Modulename`) imports for a module not grouped as a noun
 
