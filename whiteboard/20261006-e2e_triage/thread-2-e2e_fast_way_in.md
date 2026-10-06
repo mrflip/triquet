@@ -60,7 +60,8 @@ thread's numbers, or before working on the way in again.
 * **`bots` stubs `/api/bots` and then reloads.** The page asks for the bots' status as it loads,
   so the stand-in has to be in place before a load.
 * **A hunt that collides with another is tried again.** It is retried through `expect().toPass()`,
-  for up to 10 s, rather than a loop of my own. `newHunt` reads every hunt, so two made at once
+  for up to 10 s, rather than a loop of my own, and only on Convex's
+  `OptimisticConcurrencyControlFailure` (the review's c82beb7); any other refusal fails at once. `newHunt` reads every hunt, so two made at once
   collide, and Convex's server gives up after a few retries. That collision is what caused a 404
   at `/undefined`, which looked like a flake. The reply schema now names such an answer instead of
   taking it for an address.
