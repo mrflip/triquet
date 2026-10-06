@@ -21,6 +21,7 @@ import type * as quizzes from "../quizzes.js";
 import type * as reading from "../reading.js";
 import type * as reviews from "../reviews.js";
 import type * as seeding from "../seeding.js";
+import type * as stats from "../stats.js";
 import type * as testing from "../testing.js";
 import type * as widgets from "../widgets.js";
 import type * as writing_account_actions from "../writing/account_actions.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   reading: typeof reading;
   reviews: typeof reviews;
   seeding: typeof seeding;
+  stats: typeof stats;
   testing: typeof testing;
   widgets: typeof widgets;
   "writing/account_actions": typeof writing_account_actions;
