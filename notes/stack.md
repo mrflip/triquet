@@ -294,6 +294,11 @@ agrees to another.
   several worktrees landing onto one shared checkout, and Graphite and spr want merge flows of
   their own that fight the semi-linear ladder. The design is
   `whiteboard/20261005-parallel_git/parallel-git-plan.md`.
+* **Bringing a PR up to date and setting it to merge is a script of our own, `scripts/automerge.ts`.**
+  Asked for by a Coach Oct 2026, as the trivial case of merging under a semi-linear history.
+  GitHub's "Update branch" rebases one branch alone, which strands the PRs stacked on it under
+  new SHAs. The stack tools named above want merge flows of their own. `gh pr merge --auto` alone
+  never updates a branch. It reuses the spine's hold, `restack` and leased pushes.
 * **CI's steps are timed by a script of our own, `scripts/ci_step`.** Asked for by a Coach Oct
   2026. It is the shell every `run` step runs in, and marks each step's start and end with the
   time and how far into the job. GitHub's log viewer shows times but not elapsed; `ts` (moreutils)
