@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import _ from 'es-toolkit/compat'
 import { getFunctionName, type FunctionReference } from 'convex/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { libraryOf, reviewingsOf, reviewsOf } from '../../convex/reading'
@@ -13,13 +13,16 @@ import type { HuntActionDNA, HuntAffirmsDNA } from '../../src/models/actions'
 import { Question } from '../../src/models/question'
 import type { JsonT } from '../../src/models/widgeted'
 import { Quiz, type QuizT } from '../../src/models/quiz'
+import { SignalGrainMs } from '../../src/models/signal'
 import { HuntPartkey, IdleWaitMs, WidgetsPartkey, huntPartOf, quizPartOf, settleFeeds, watchHunt, widgetsPartOf, type HuntFeedT, type HuntReadingT, type WatcherT } from '../../src/state/hunt-feed'
+import { Pace } from '../../src/state/hunt-fetching'
+import { testClock, type TestClockT } from '../support/clocks'
 import { affirmsOf, callerOf, huntHolding, openTester, seedHunt, wholeHunt, type Identified, type PlaceT, type Seeded } from '../support/convex'
 import { classicLayout } from '../support/layouts'
 import { present } from '../support/present'
 import { snapshot } from '../support/snapshots'
 import { reviewedOf, shallowOf } from '../support/readings'
-import { standInFor, type StandInT } from '../support/watching'
+import { addAll, noneSent, standInFor, type SentT, type StandInT } from '../support/watching'
 
 describe('huntPartOf', () => {
   it("is the hunt's own file, its categories' and its members', each as a JSON and a table", () => {
@@ -92,6 +95,12 @@ describe("the parts of a hunt, together", () => {
 
 // --- The feed, over the real query functions
 
+/** The moment the tests begin at: this browser's clock and the server's, faked and moved on only when a test says */
+const Early = Date.UTC(2026, 9, 6, 9)
+
+beforeEach(() => { vi.useFakeTimers({ now: Early, toFake: ['Date'] }) })
+afterEach(() => { vi.useRealTimers() })
+
 /** A quiz laid out as every quiz once was, its questions labelled `labels`, each numbered and clued */
 function quizOf(title: string, label: string, labels: readonly string[]): QuizT {
   const questions = labels.map((qnlabel, idx) => ({ ...Question.blank(), label: qnlabel, title: _.upperFirst(qnlabel), qnum: String(idx + 1), clueing: `Who was ${qnlabel}?` }))
@@ -123,10 +132,16 @@ async function peopled(): Promise<PeopledT> {
   return { ...seeded, sam, lee, kim, orglabel: seeded.smith.label, hunt_label: seen.hunt.label, places }
 }
 
-/** Carry out `action` as `by` from the quiz at `place`, as their browser would affirm it */
-async function actIn(held: PeopledT, by: Identified, place: PlaceT, action: HuntActionDNA): Promise<void> {
+/** Carry out `action` as `by` from the quiz at `place`, as their browser would affirm it, at the time the clock says */
+async function performIn(held: PeopledT, by: Identified, place: PlaceT, action: HuntActionDNA): Promise<void> {
   const { action: affirms } = await affirmsOf(held.tt, by, place)
   await callerOf(by).mutation(api.hunts.perform, { affirms, action })
+}
+
+/** Carry out `action` as `by` from the quiz at `place`, a grain after whatever came before, so that it moves the quiz's signal */
+async function actIn(held: PeopledT, by: Identified, place: PlaceT, action: HuntActionDNA): Promise<void> {
+  vi.setSystemTime(Date.now() + SignalGrainMs)
+  await performIn(held, by, place, action)
 }
 
 /**
@@ -155,18 +170,32 @@ async function filesFromRows(held: PeopledT): Promise<Huntfiles.FilesT> {
   return files
 }
 
+/** A running feed under test: the stand-in it watches and fetches through, the feed, every reading it handed on, and its clock */
+type FedT = { standIn: StandInT, feed: HuntFeedT, readings: HuntReadingT[], clock: TestClockT }
+
 /**
  * A feed of `held`'s hunt for its smith pat, with the quiz `focus` on screen, settled: the stand-in
- * it watches through, and every reading it handed on. `through` stands between the feed and the
- * stand-in, where a test wants a watch to read otherwise.
+ * it watches through, every reading it handed on, and the clock its fetching tells time by.
+ * `through` stands between the feed and the stand-in, where a test wants a watch or fetch to read
+ * otherwise.
  */
-async function fed(held: PeopledT, focus: string | null = 'princes', through: (watcher: WatcherT) => WatcherT = (watcher) => watcher): Promise<{ standIn: StandInT, feed: HuntFeedT, readings: HuntReadingT[] }> {
+async function fed(held: PeopledT, focus: string | null = 'princes', through: (watcher: WatcherT) => WatcherT = (watcher) => watcher): Promise<FedT> {
   const standIn = standInFor(held.smith.as)
   const readings: HuntReadingT[] = []
+  const clock = testClock()
   const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
-  const feed = watchHunt(through(standIn.watcher), { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: focus === null ? null : present(held.places[focus]).quiz_id }, (reading) => { readings.push(reading) })
+  const feed = watchHunt(through(standIn.watcher), { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: focus === null ? null : present(held.places[focus]).quiz_id, clock }, (reading) => { readings.push(reading) })
   await standIn.settle()
-  return { standIn, feed, readings }
+  return { standIn, feed, readings, clock }
+}
+
+/** Settle the feed, then let the time a quiz not on screen waits between fetches pass, and settle again: what it was sent and fetched */
+async function waitedOut(running: Pick<FedT, 'standIn' | 'clock'>): Promise<SentT> {
+  const sent = noneSent()
+  addAll(sent, await running.standIn.settle())
+  running.clock.advance(Pace.fetchEveryMs)
+  addAll(sent, await running.standIn.settle())
+  return sent
 }
 
 /** The last reading handed on */
@@ -200,28 +229,41 @@ describe('watchHunt', () => {
     expect(princes?.kind === 'quiz' && [princes.realm, princes.quiz.label]).to.deep.eq(['home', 'princes'])
   })
 
-  it("reads the quiz on screen through the screen's watches, a watch per question, and every other quiz whole", async () => {
+  it("reads the quiz on screen through the screen's watches, a watch per question, and watches no other quiz, only every quiz's signal", async () => {
     const { standIn } = await fed(await peopled())
     expect(standIn.held()).to.deep.eq([
-      'hunts:open', 'questions:open', 'questions:open', 'quizzes:open', 'quizzes:whole', 'quizzes:whole', 'reviews:forQuiz', 'reviews:forQuiz', 'reviews:forQuiz', 'widgets:library',
+      'hunts:open', 'questions:open', 'questions:open', 'quizzes:open', 'quizzes:signals', 'reviews:forQuiz', 'widgets:library',
     ])
   })
 
-  it("reads every quiz whole with no quiz on screen", async () => {
+  it("fetches every other quiz whole, with its reviews, once, for the first reading", async () => {
+    const held = await peopled()
+    const standIn = standInFor(held.smith.as)
+    const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
+    watchHunt(standIn.watcher, { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: held.open.quiz_id, clock: testClock() }, _.noop)
+    const sent = await standIn.settle()
+    expect(sent.fetched.byQuery).to.have.keys('quizzes:whole', 'reviews:forQuiz')
+    expect([present(sent.fetched.byQuery['quizzes:whole']).results, present(sent.fetched.byQuery['reviews:forQuiz']).results]).to.deep.eq([2, 2])
+  })
+
+  it("reads every quiz by fetching with no quiz on screen", async () => {
     const { standIn, readings } = await fed(await peopled(), null)
-    expect(standIn.held().filter((fnname) => fnname.startsWith('quiz') || fnname.startsWith('question'))).to.deep.eq(['quizzes:whole', 'quizzes:whole', 'quizzes:whole'])
+    expect(standIn.held().filter((fnname) => fnname.startsWith('quiz') || fnname.startsWith('question'))).to.deep.eq(['quizzes:signals'])
     expect(readings).to.have.lengthOf(1)
   })
 
-  it("hands on a change from another browser, rewriting only its quiz's files, every other part the very same", async () => {
+  it("hands on a change from another browser once its quiz is fetched again, rewriting only its quiz's files, every other part the very same", async () => {
     const held = await peopled()
-    const { standIn, readings } = await fed(held)
+    const running = await fed(held)
+    const { standIn, readings } = running
     const before = lastOf(readings)
     const paris = present(held.places.paris)
     const { quizzes } = await held.read()
     const louvre = present(present(quizzes.find((quiz) => quiz.label === 'paris')).questions[0])
     await actIn(held, held.sam, paris, { kind: 'edit_question', question_id: louvre._id, patch: { clueing: 'Which museum?' } })
     await standIn.settle()
+    expect(readings).to.have.lengthOf(1)
+    await waitedOut(running)
     const after = lastOf(readings)
     expect(after.first).to.be.false
     const changed = Huntfiles.changesBetween(before.files, after.files)
@@ -256,9 +298,40 @@ describe('watchHunt', () => {
     const held = await peopled()
     const { standIn, feed, readings } = await fed(held)
     feed.focus(present(held.places.paris).quiz_id)
-    await standIn.settle()
+    const sent = await standIn.settle()
     expect(readings).to.have.lengthOf(1)
-    expect(standIn.held().filter((fnname) => fnname.startsWith('quiz') || fnname.startsWith('question'))).to.deep.eq(['questions:open', 'quizzes:open', 'quizzes:whole', 'quizzes:whole'])
+    expect(standIn.held().filter((fnname) => fnname.startsWith('quiz') || fnname.startsWith('question') || fnname.startsWith('review'))).to.deep.eq(['questions:open', 'quizzes:open', 'quizzes:signals', 'reviews:forQuiz'])
+    expect(sent.fetched.results).to.eq(0)
+  })
+
+  it("hands on a change from another browser at once to whoever waits on the feed, its quiz fetched again then", async () => {
+    const held = await peopled()
+    const { standIn, feed, readings } = await fed(held)
+    await actIn(held, held.sam, present(held.places.paris), { kind: 'retitle_quiz', title: 'Paris, France' })
+    await standIn.settle()
+    const read = feed.whenRead()
+    await standIn.settle()
+    feed.settle()
+    await read
+    expect(lastOf(readings).files.get('quizzes/home/paris.tqq.json')).to.include('Paris, France')
+  })
+
+  it("fetches a quiz not on screen a few times, not forty, for a bot's forty answers a second apart", async () => {
+    const held = await peopled()
+    const running = await fed(held)
+    const paris = present(held.places.paris)
+    const { quizzes } = await held.read()
+    const [louvre] = present(quizzes.find((quiz) => quiz.label === 'paris')).questions
+    const sent = noneSent()
+    for (let answer = 1; answer <= 40; answer++) {
+      running.clock.advance(1000)
+      await performIn(held, held.sam, paris, { kind: 'record_widgeted', widgeted: { question_id: present(louvre)._id, widgeting_label: 'dumdum', status: 'ok', value: `Louvre, ${String(answer)}?` } })
+      addAll(sent, await running.standIn.settle())
+    }
+    addAll(sent, await waitedOut(running))
+    expect(sent.fetched.byQuery['quizzes:whole']?.results).to.be.within(1, 3)
+    expect(sent.byQuery['quizzes:signals']?.results).to.be.within(8, 9)
+    expect(lastOf(running.readings).files).to.deep.eq(await filesFromRows(held))
   })
 
   it("follows the quiz list: a new quiz joins once read, and a deleted one's files and watches go", async () => {
@@ -273,7 +346,7 @@ describe('watchHunt', () => {
     const changed = Huntfiles.changesBetween(before.files, lastOf(readings).files)
     expect(changed.removed.filter((path) => path.includes('/kings'))).to.have.lengthOf(changed.removed.length)
     expect(changed.removed).to.include('quizzes/home/kings.tqq.json')
-    expect(standIn.held().filter((fnname) => fnname === 'quizzes:whole')).to.have.lengthOf(2)
+    expect(lastOf(readings).parts.has(present(held.places.kings).quiz_id)).to.be.false
     expect(lastOf(readings).files).to.deep.eq(await filesFromRows(held))
   })
 
@@ -302,13 +375,13 @@ describe('watchHunt', () => {
 
   it("hands on nothing more once the browser no longer stands as a smith of the hunt", async () => {
     const held = await peopled()
-    const { standIn, readings } = await fed(held)
+    const { standIn, readings, clock } = await fed(held)
     await held.tt.run(async (ctx) => {
       const hunting = present(await ctx.db.query('huntings').withIndex('by_ident_id_and_hunt_id', (cvx) => cvx.eq('ident_id', held.smith.ident_id).eq('hunt_id', held.open.hunt_id)).first())
       await ctx.db.patch('huntings', hunting._id, { role: 'reviewer' })
     })
     await actIn(held, held.sam, present(held.places.paris), { kind: 'retitle_quiz', title: 'Paris, again' })
-    await standIn.settle()
+    await waitedOut({ standIn, clock })
     expect(readings).to.have.lengthOf(1)
   })
 
@@ -370,12 +443,21 @@ describe('watchHunt, with a failing watch', () => {
 })
 
 /**
- * A watcher whose watches answer only when told: `answer(fnname, result)` gives every watch of
- * that query function the result and tells it so, as the client would.
+ * A watcher whose watches and fetches answer only when told: `answer(fnname, result)` gives every
+ * watch of that query function the result and tells it so, as the client would, and answers every
+ * fetch of it, waiting or to come.
  */
 function scripted(): { watcher: WatcherT, answer: (fnname: string, result: unknown) => void } {
   const results = new Map<string, unknown>()
   const listeners = new Map<string, Set<() => void>>()
+  const fetches = new Map<string, Set<(result: unknown) => void>>()
+  const query = async (fn: FunctionReference<'query'>) => {
+    const fnname = getFunctionName(fn)
+    if (results.has(fnname)) { return results.get(fnname) }
+    const answered = Promise.withResolvers<unknown>()
+    fetches.set(fnname, (fetches.get(fnname) ?? new Set()).add(answered.resolve))
+    return await answered.promise
+  }
   const watchQuery = (query: FunctionReference<'query'>) => {
     const fnname = getFunctionName(query)
     return {
@@ -391,8 +473,11 @@ function scripted(): { watcher: WatcherT, answer: (fnname: string, result: unkno
     results.set(fnname, result)
     const told = listeners.get(fnname) ?? new Set()
     for (const callback of told) { callback() }
+    const waiting = fetches.get(fnname) ?? []
+    for (const resolve of waiting) { resolve(result) }
+    fetches.delete(fnname)
   }
-  return { watcher: { watchQuery } as unknown as WatcherT, answer }
+  return { watcher: { watchQuery, query } as unknown as WatcherT, answer }
 }
 
 /** Once the tasks already queued have run: a reading put off for an idle moment, where there is no idle callback, among them */
@@ -421,6 +506,7 @@ describe('watchHunt, waited on', () => {
     expect([heard.read, readings.length]).to.deep.eq([false, 0])
     answer('quizzes:whole', princes)
     await tick()
+    await tick()
     expect([heard.read, readings.length]).to.deep.eq([true, 1])
     feed.stop()
   })
@@ -439,26 +525,19 @@ describe('watchHunt, waited on', () => {
   })
 })
 
-/** How `quizzes.whole` answers for one quiz, in place of what it read: by failing, or with nothing */
+/** How a fetch of `quizzes.whole` answers for one quiz, in place of what it read: by failing, or with nothing */
 type Breakage = { quiz_id: string | null, answer: 'fails' | 'nothing' }
 
-/** A watch as the feed reads one */
-type WatchT = { localQueryResult: () => unknown, onUpdate: (callback: () => void) => () => void }
-
-/** `watcher`, but with `quizzes.whole` for the quiz `broken` names answering as it says, for as long as it names one */
+/** `watcher`, but with a fetch of `quizzes.whole` for the quiz `broken` names answering as it says, for as long as it names one */
 function breaking(broken: Breakage): (watcher: WatcherT) => WatcherT {
   return (watcher) => {
-    const watchQuery = (query: FunctionReference<'query'>, args: { affirms?: { quiz_id?: string } }): WatchT => {
-      const watch = (watcher.watchQuery as (query: FunctionReference<'query'>, args: unknown) => WatchT)(query, args)
-      const quiz_id = getFunctionName(query) === getFunctionName(api.quizzes.whole) ? args.affirms?.quiz_id : undefined
-      const localQueryResult = () => {
-        if (quiz_id === undefined || quiz_id !== broken.quiz_id) { return watch.localQueryResult() }
-        if (broken.answer === 'fails') { throw new Error('Too many reads') }
-        return null
-      }
-      return { localQueryResult, onUpdate: (callback) => watch.onUpdate(callback) }
+    const query = async (fn: FunctionReference<'query'>, args: { affirms?: { quiz_id?: string } }): Promise<unknown> => {
+      const quiz_id = getFunctionName(fn) === getFunctionName(api.quizzes.whole) ? args.affirms?.quiz_id : undefined
+      if (quiz_id === undefined || quiz_id !== broken.quiz_id) { return await (watcher.query as (fn: FunctionReference<'query'>, args: unknown) => Promise<unknown>)(fn, args) }
+      if (broken.answer === 'fails') { throw new Error('Too many reads') }
+      return null
     }
-    return { watchQuery } as unknown as WatcherT
+    return { watchQuery: watcher.watchQuery, query } as unknown as WatcherT
   }
 }
 
@@ -466,7 +545,7 @@ describe('watchHunt, with a quiz that cannot be read', () => {
   afterEach(() => { vi.restoreAllMocks() })
 
   for (const answer of ['fails', 'nothing'] as const) {
-    it(`hands on the first reading all the same when a quiz's watch ${answer === 'fails' ? 'fails' : 'answers nothing'}, the quiz unread and none of its files`, async () => {
+    it(`hands on the first reading all the same when a quiz's fetch ${answer === 'fails' ? 'fails' : 'answers nothing'}, the quiz unread and none of its files`, async () => {
       vi.spyOn(console, 'error').mockImplementation(() => null)
       const held = await peopled()
       const paris = present(held.places.paris).quiz_id
@@ -486,26 +565,26 @@ describe('watchHunt, with a quiz that cannot be read', () => {
     const held = await peopled()
     const paris = present(held.places.paris).quiz_id
     const broken: Breakage = { quiz_id: paris, answer: 'fails' }
-    const { standIn, readings } = await fed(held, 'princes', breaking(broken))
+    const running = await fed(held, 'princes', breaking(broken))
     broken.quiz_id = null
-    await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
-    await standIn.settle()
-    const after = lastOf(readings)
+    await waitedOut(running)
+    const after = lastOf(running.readings)
     expect([after.first, after.unread.size, after.parts.has(paris)]).to.deep.eq([false, 0, true])
     expect(after.files).to.deep.eq(await filesFromRows(held))
   })
 
-  it("holds a quiz read before as last read when its watch then fails, and calls it read", async () => {
+  it("holds a quiz read before as last read when its fetch then fails, and calls it read", async () => {
     vi.spyOn(console, 'error').mockImplementation(() => null)
     const held = await peopled()
     const paris = present(held.places.paris).quiz_id
     const broken: Breakage = { quiz_id: null, answer: 'fails' }
-    const { standIn, readings } = await fed(held, 'princes', breaking(broken))
-    const before = lastOf(readings)
+    const running = await fed(held, 'princes', breaking(broken))
+    const before = lastOf(running.readings)
     broken.quiz_id = paris
+    await actIn(held, held.sam, present(held.places.paris), { kind: 'retitle_quiz', title: 'Paris, again' })
     await held.act({ kind: 'retitle_quiz', title: 'Princes, again' })
-    await standIn.settle()
-    const after = lastOf(readings)
+    await waitedOut(running)
+    const after = lastOf(running.readings)
     expect(after.parts.get(paris)).to.eq(before.parts.get(paris))
     expect(after.unread.size).to.eq(0)
   })
@@ -598,21 +677,21 @@ describe('watchHunt, as the page loads', () => {
     page.load()
     expect(idle.timeouts().at(-1)).to.eq(IdleWaitMs)
     await settleIdle()
-    expect(quizWatchesOf(standIn)).to.deep.eq(['questions:open', 'questions:open', 'quizzes:open', 'quizzes:whole', 'quizzes:whole'])
+    expect(quizWatchesOf(standIn)).to.deep.eq(['questions:open', 'questions:open', 'quizzes:open', 'quizzes:signals'])
     expect(readings).to.have.lengthOf(1)
     expect(lastOf(readings).files).to.deep.eq(await filesFromRows(held))
   })
 
-  it("opens them at once for whoever waits on the feed to be read", async () => {
+  it("fetches them at once for whoever waits on the feed to be read", async () => {
     loadingPage()
     heldIdle()
     const held = await peopled()
     const { standIn, feed } = await fed(held)
     const read = feed.whenRead()
-    await standIn.settle()
+    const sent = await standIn.settle()
     feed.settle()
     await read
-    expect(quizWatchesOf(standIn).filter((fnname) => fnname === 'quizzes:whole')).to.have.lengthOf(2)
+    expect(sent.fetched.byQuery['quizzes:whole']?.results).to.eq(2)
   })
 
   it("calls off its wait for the page when stopped", async () => {
@@ -683,22 +762,28 @@ async function largeHunt(): Promise<PeopledT> {
   return { ...seeded, sam, lee, kim, orglabel: seeded.smith.label, hunt_label: seen.hunt.label, places }
 }
 
-/** `sent` as a line of the table: results, kilobytes, and kilobytes by query function */
-function sentLine(sent: Awaited<ReturnType<StandInT['settle']>>): string {
-  const byQuery = Object.entries(sent.byQuery).map(([fnname, counted]) => `${fnname} ${String(counted.results)} / ${(counted.bytes / 1024).toFixed(1)} KB`)
-  return `${String(sent.results)} results, ${(sent.bytes / 1024).toFixed(1)} KB (${byQuery.join('; ')})`
+/** `counted` as a part of a line of the table: results, kilobytes, and kilobytes by query function */
+function countedLine(counted: SentT['fetched']): string {
+  const byQuery = Object.entries(counted.byQuery).map(([fnname, each]) => `${fnname} ${String(each.results)} / ${(each.bytes / 1024).toFixed(1)} KB`)
+  const detail = byQuery.length > 0 ? ` (${byQuery.join('; ')})` : ''
+  return `${String(counted.results)} results, ${(counted.bytes / 1024).toFixed(1)} KB${detail}`
+}
+
+/** `sent` as a line of the table: what the watches were sent, and what the fetches were */
+function sentLine(sent: SentT): string {
+  return `watches ${countedLine(sent)}; fetches ${countedLine(sent.fetched)}`
 }
 
 describe.runIf(process.env.TQ_MEASURE_FEED === '1')("the feed, measured on a large hunt", () => {
-  it("prints its subscriptions, what it is sent, and what it works out", { timeout: 600_000 }, async () => {
+  it("prints its subscriptions, what it is sent, and what it works out", { timeout: 1_800_000 }, async () => {
     const held = await largeHunt()
     const lines: string[] = [`A hunt of ${String(Large.quizzes)} quizzes of ${String(Large.questions)} questions, classic layout, every bot answered, ${String(Large.reviewers)} shared reviews of each`]
-    const { standIn, readings } = await fed(held, 'quiz_01')
+    const running = await fed(held, 'quiz_01')
+    const { standIn, readings, clock } = running
     const [first] = readings
     const subscriptions = standIn.held()
-    const screens = subscriptions.filter((fnname) => fnname !== 'quizzes:whole').length - (Large.quizzes - 1)
     lines.push(
-      `Subscriptions: ${String(subscriptions.length)} (${String(screens)} of them the screen's own); with every quiz read per question, ${String(2 + (Large.quizzes * (Large.questions + 2)))}`,
+      `Subscriptions: ${String(subscriptions.length)} (${subscriptions.join(', ')})`,
       `Files in the first reading: ${String(first?.files.size)}, ${((first?.files.values().reduce((sum, body) => sum + body.length, 0) ?? 0) / 1024).toFixed(0)} KB`,
     )
 
@@ -708,7 +793,7 @@ describe.runIf(process.env.TQ_MEASURE_FEED === '1')("the feed, measured on a lar
     const fresh = standInFor(held.smith.as)
     const { hunt: affirms } = await affirmsOf(held.tt, held.smith, held.open)
     const elsewhere: HuntReadingT[] = []
-    watchHunt(fresh.watcher, { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: opened._id as Id<'quizzes'> }, (each) => { elsewhere.push(each) })
+    watchHunt(fresh.watcher, { orglabel: held.orglabel, hunt_label: held.hunt_label, affirms, focus: opened._id as Id<'quizzes'>, clock: testClock() }, (each) => { elsewhere.push(each) })
     lines.push(`First full reading sent: ${sentLine(await fresh.settle())}`)
     const library = await held.smith.as.query(api.widgets.library, {})
     const reading = present(first)
@@ -719,38 +804,38 @@ describe.runIf(process.env.TQ_MEASURE_FEED === '1')("the feed, measured on a lar
     const quizMs = (performance.now() - begun) / read.length
     lines.push(`Making one quiz's files (run, balls, JSON and tables): ${quizMs.toFixed(0)} ms; every quiz's, as a change to the library or the wheel asks: ${(quizMs * read.length).toFixed(0)} ms`)
 
-    const burst = async (title: string, edits: number, edit: (idx: number) => Promise<void>) => {
-      const sent = { results: 0, bytes: 0, byQuery: {} as Record<string, { results: number, bytes: number }> }
+    // Each edit `stepMs` after the last, and then the time a quiz not on screen waits between fetches, so the last fetch is counted.
+    const burst = async (title: string, edits: number, stepMs: number, edit: (idx: number) => Promise<void>) => {
+      const sent = noneSent()
       const ante = readings.length
       for (let ii = 0; ii < edits; ii++) {
+        clock.advance(stepMs)
         await edit(ii)
-        const each = await standIn.settle()
-        sent.results += each.results
-        sent.bytes += each.bytes
-        for (const [fnname, counted] of Object.entries(each.byQuery)) {
-          const was = sent.byQuery[fnname] ?? { results: 0, bytes: 0 }
-          sent.byQuery[fnname] = { results: was.results + counted.results, bytes: was.bytes + counted.bytes }
-        }
+        addAll(sent, await standIn.settle())
       }
-      lines.push(`${title}, ${String(edits)} edits: ${sentLine(sent)}; ${String(readings.length - ante)} readings`)
+      addAll(sent, await waitedOut(running))
+      lines.push(`${title}, ${String(edits)} edits ${String(stepMs / 1000)} s apart: ${sentLine(sent)}; ${String(readings.length - ante)} readings`)
     }
     const openPlace = present(held.places.quiz_01)
     const otherPlace = present(held.places.quiz_02)
-    await burst('The author, in the quiz on screen', 10, async (idx) => {
-      await actIn(held, held.smith, openPlace, { kind: 'edit_question', question_id: present(opened.questions[idx])._id, patch: { notes: `Checked ${String(idx)}.` } })
+    await burst('The author, in the quiz on screen', 10, 20_000, async (idx) => {
+      await performIn(held, held.smith, openPlace, { kind: 'edit_question', question_id: present(opened.questions[idx])._id, patch: { notes: `Checked ${String(idx)}.` } })
     })
-    await burst('Another smith, in another quiz', 10, async (idx) => {
-      await actIn(held, held.sam, otherPlace, { kind: 'edit_question', question_id: present(other.questions[idx])._id, patch: { notes: `Checked ${String(idx)}.` } })
+    await burst('Another smith, in another quiz', 10, 20_000, async (idx) => {
+      await performIn(held, held.sam, otherPlace, { kind: 'edit_question', question_id: present(other.questions[idx])._id, patch: { notes: `Checked ${String(idx)}.` } })
     })
-    await burst('A bot answering, in another quiz', 10, async (idx) => {
-      await actIn(held, held.sam, otherPlace, { kind: 'record_widgeted', widgeted: { question_id: present(other.questions[idx])._id, widgeting_label: 'dumdum', status: 'ok', value: `Sheep, ${String(idx)}?` } })
+    await burst('A bot run in another quiz, an answer to every question', Large.questions, 1000, async (idx) => {
+      await performIn(held, held.sam, otherPlace, { kind: 'record_widgeted', widgeted: { question_id: present(other.questions[idx])._id, widgeting_label: 'dumdum', status: 'ok', value: `Sheep, ${String(idx)}?` } })
     })
-    await burst('The hunt retitled', 1, async () => {
-      await actIn(held, held.smith, openPlace, { kind: 'retitle_hunt', title: 'A New Title' })
+    await burst('The hunt retitled', 1, 1000, async () => {
+      await performIn(held, held.smith, openPlace, { kind: 'retitle_hunt', title: 'A New Title' })
     })
     const question = present(other.questions[0])
     const one = await held.smith.as.query(api.questions.open, { question_id: question._id, affirms })
-    lines.push(`One question as questions.open sends it: ${(JSON.stringify(one).length / 1024).toFixed(1)} KB; one quiz as quizzes.whole sends it: ${(JSON.stringify(await held.smith.as.query(api.quizzes.whole, { affirms: { ...affirms, quiz_id: other._id } })).length / 1024).toFixed(1)} KB`)
+    const signals = await held.smith.as.query(api.quizzes.signals, { affirms })
+    lines.push(
+      `One question as questions.open sends it: ${(JSON.stringify(one).length / 1024).toFixed(1)} KB; one quiz as quizzes.whole sends it: ${(JSON.stringify(await held.smith.as.query(api.quizzes.whole, { affirms: { ...affirms, quiz_id: other._id } })).length / 1024).toFixed(1)} KB; every quiz's signal: ${(JSON.stringify(signals).length / 1024).toFixed(1)} KB`,
+    )
     mkdirSync(path.dirname(MeasuredPath), { recursive: true })
     writeFileSync(MeasuredPath, `${lines.join('\n')}\n`)
     expect(readings.length).to.be.greaterThan(1)
