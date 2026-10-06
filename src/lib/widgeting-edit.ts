@@ -1,9 +1,10 @@
 import * as Labelmaker from './labelmaker'
 import * as Estimates from './estimates'
+import { RefusalNotices } from './notices'
 import { Column } from '../models/column'
-import { ReservedWidgetingLabels, WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../models/widgeting'
+import { DefaultTier, ReservedWidgetingLabels, Widgeting, WidgetingValidators, type WidgetingPatch, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
-import type { QuizT } from '../models/quiz'
+import { Quiz, type QuizT } from '../models/quiz'
 import type { HuntActionDNA } from '../models/actions'
 
 /** How wide the column a new widgeting brings with it is: a number's, a model's answer's, or a note's */
@@ -24,6 +25,8 @@ export type WidgetingEdit = {
   description: string
   /** The label of the library's widget it works; blank while none is picked */
   widgetLabel: string
+  /** Which level a new one runs at, for each question unless said; an existing one keeps its own */
+  tier?:       WidgetingTier
 }
 
 /** What applying a widgeting edit comes to: the actions to dispatch, or what to tell the author is wrong, and whether it is the label */
@@ -35,10 +38,12 @@ export type WidgetingPlan =
  * The actions that applying `edit` of a widgeting comes to, or the reason it cannot be.
  *
  * An existing widgeting is revised only where it changed. A new one works a widget the library
- * holds, brings a column to show it just before Alt Text, and is labelled as its widget is unless
- * the author says otherwise, growing `_2`, `_3` while that is taken or reserved. Whether the quiz
- * may be changed at all is the editor's to offer (`Approve`), not the plan's. The widget itself is
- * the library's, and is never changed from here.
+ * holds and can run at its tier (`Widgeting.runsAt`), and is labelled as its widget is unless the
+ * author says otherwise, growing `_2`, `_3` while that is taken or reserved (for one run once for
+ * the whole quiz, by the quiz's own fields too). One for each question brings a column to show it,
+ * just before Alt Text; one for the whole quiz has no cell for any question, and brings none.
+ * Whether the quiz may be changed at all is the editor's to offer (`Approve`), not the plan's. The
+ * widget itself is the library's, and is never changed from here.
  *
  * @param edit - The editor's state.
  * @param library - The library's widgets, with any written a moment ago that it does not hold yet.
@@ -51,16 +56,21 @@ export type WidgetingPlan =
 export function planWidgetingEdit(edit: Readonly<WidgetingEdit>, library: readonly WidgetT[], quiz: QuizT): WidgetingPlan {
   const widget = library.find((each) => each.label === edit.widgetLabel)
   if (! widget && edit.widgeting === null) { return refused('Pick a widget for it to work.') }
+  const tier = edit.widgeting?.tier ?? edit.tier ?? DefaultTier
+  if (widget && edit.widgeting === null && ! Widgeting.runsAt(widget, tier)) { return refused(RefusalNotices.tierUnoffered) }
   const siblings = new Set(quiz.widgetings.filter((other) => other.label !== edit.widgeting?.label).map((other) => other.label))
+  const reserved = tier === 'quiz' ? Quiz.exposed : []
   const typed = Labelmaker.normalize(edit.label)
-  const label = typed === '' ? Labelmaker.firstFree(edit.widgetLabel, new Set([...siblings, ...ReservedWidgetingLabels])) : typed
+  const label = typed === '' ? Labelmaker.firstFree(edit.widgetLabel, new Set([...siblings, ...ReservedWidgetingLabels, ...reserved])) : typed
   if (siblings.has(label)) { return refused('Another widgeting in this quiz already has that label.', true) }
-  const checked = WidgetingValidators.widgeting.safeParse({ widget_label: edit.widgetLabel, label, description: edit.description, params: edit.widgeting?.params ?? {} })
+  if (tier === 'quiz' && ! Quiz.mayLabelQuizTier(label)) { return refused('The quiz itself already answers to that name in a formula.', true) }
+  const checked = WidgetingValidators.widgeting.safeParse({ widget_label: edit.widgetLabel, label, description: edit.description, params: edit.widgeting?.params ?? {}, tier })
   if (! checked.success) {
     const [first] = checked.error.issues
     return refused(first?.message ?? 'That widgeting will not do.', first?.path[0] === 'label')
   }
   if (edit.widgeting !== null) { return { ok: true, actions: editWidgetingActions(edit.widgeting, checked.data) } }
+  if (tier === 'quiz') { return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }] } }
   const width_px = widget && Estimates.isEstimating(widget) ? EstimatesColumnWidthPx : NewColumnWidthPx[widget?.formulary ?? 'jsonata']
   return { ok: true, actions: [{ kind: 'add_widgeting', widgeting: checked.data }, newColumnFor(quiz, checked.data.label, width_px)] }
 }

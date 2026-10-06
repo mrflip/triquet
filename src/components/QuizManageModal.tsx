@@ -53,8 +53,9 @@ export type QuizManageModalProps = {
 }
 
 /**
- * The gear icon's modal: editing this quiz's own label (top), its computed columns, which of its
- * fields are templated, its history,
+ * The gear icon's modal: editing this quiz's own label (top), its computed columns, its widgetings
+ * for each question and those run once for the whole quiz, which of its fields are templated, its
+ * history,
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
  * -- or, when it is the hunt's last, the quiz and its hunt.
@@ -148,8 +149,19 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
 
           <section>
             <Typography variant="h6" component="h3">Widgetings</Typography>
-            <p className={styles.microcopy}>The widgets of the library this quiz puts to work, in run order: each one reads what those above it came to. A column shows a widgeting.</p>
-            <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
+            <p className={styles.microcopy}>The widgets of the library this quiz puts to work for each question, in run order: each one reads what those above it came to. A column shows a widgeting.</p>
+            <WidgetingsEditor hunt={hunt} quiz={quiz} tier="question" library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
+          </section>
+
+          <section>
+            <Typography variant="h6" component="h3">Quiz widgetings</Typography>
+            <p className={styles.microcopy}>
+              Widgets put to work once for the whole quiz: an entry typed into the Quiz panel (the
+              playtesters, the winners), or a formula over every question. Each reads what those above
+              it came to. One above the questions is read by every question widgeting as{' '}
+              <code>{'quiz.<label>'}</code>; one below reads what they came to. Templates read them all.
+            </p>
+            <WidgetingsEditor hunt={hunt} quiz={quiz} tier="quiz" library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
           </section>
 
           <section>

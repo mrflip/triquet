@@ -3,6 +3,7 @@
 import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
 import { PanelsRow } from './Panel'
+import { QuizEntriesPanel } from './QuizEntriesPanel'
 import { RecapPanel } from './RecapPanel'
 import { ReviewsPanel } from './ReviewsPanel'
 import { SpreadPanel } from './SpreadPanel'
@@ -14,7 +15,7 @@ import type { ShallowHuntT, ShallowRealmT } from '../../lib/rows'
 import type { ElsewhereT } from '../../lib/importing'
 import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
 import type { QuizT } from '../../models/quiz'
-import type { WidgetT } from '../../models/widget'
+import type { EntryValueT, WidgetT } from '../../models/widget'
 import type { HuntHandle } from '../../state/use-hunt'
 
 export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'> & {
@@ -41,10 +42,12 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onRecapHead: (recap_head: string) => void
   /** Rewrite the quiz's recap tail, from the Recap panel */
   onRecapTail: (recap_tail: string) => void
+  /** Type into one of the quiz's own entries, from the Quiz entries panel: the value, or null for one emptied */
+  onEnterQuiz: (widgeting_label: string, value: EntryValueT | null) => void
 }
 
-/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, the widgets the quiz puts to work, and the recap note */
-export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail }: Readonly<PanelsProps>) {
+/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, the quiz's own entries, ways to get the work back out, the widgets the quiz puts to work, and the recap note */
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail, onEnterQuiz }: Readonly<PanelsProps>) {
   const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <PanelsRow>
@@ -53,6 +56,8 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
       <SpreadPanel run={run} />
 
       <MembersPanel members={hunt.members} claims={claims} labels={labels} carryOut={carryOut} saveNotice={saveNotice} />
+
+      <QuizEntriesPanel run={run} locked={! offers.reviseQuestions} onEnter={onEnterQuiz} />
 
       <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} onImportElsewhere={onImportElsewhere} onQ1Preamble={onQ1Preamble} />
 

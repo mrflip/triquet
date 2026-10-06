@@ -47,16 +47,16 @@ const AlignIcons: Readonly<Record<ColumnAlign, React.ReactNode>> = {
  */
 const RoomFor = { label: '@800', source: '@620', width: '@400' } as const
 
-/** What a column of `quiz` can show, each with the group it is listed under: a category-estimate widgeting's parts beneath it */
+/** What a column of `quiz` can show, each with the group it is listed under: a category-estimate widgeting's parts beneath it. A widgeting run once for the whole quiz has no cell for any question, and is shown in the Quiz panel instead. */
 function sourcesOf(quiz: QuizT, library: readonly WidgetT[]) {
   const estimating = new Set(library.filter((widget) => Estimates.isEstimating(widget)).map((widget) => widget.label))
   return [
     ...QuestionFieldVals.map((field) => ({ value: `${QuestionWidgetLabel}.${field}`, group: 'A question field' })),
     ...QuestionViewVals.map((view) => ({ value: `${QuestionWidgetLabel}.${view}`, group: 'Worked out from the chain' })),
-    ...quiz.widgetings.flatMap((widgeting) => [
+    ...quiz.widgetings.flatMap((widgeting) => (widgeting.tier === 'question' ? [
       { value: widgeting.label, group: 'A widgeting' },
       ...(estimating.has(widgeting.widget_label) ? WidgetingPartVals.map((part) => ({ value: widgetingSourceOf(widgeting.label, part), group: 'Part of a widgeting' })) : []),
-    ]),
+    ] : [])),
   ]
 }
 
