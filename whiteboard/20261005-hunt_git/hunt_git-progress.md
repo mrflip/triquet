@@ -17,6 +17,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 7 | The Coach's follow-ups | landed #133 |
 | 8 | The Coach's second follow-ups | landed #140 |
 | 9 | A change signal for off-screen quizzes | landed #144 |
+| 10 | The tighten of `orglabel` and `viz` | landed #148 |
 
 ## What the threads have taught
 
@@ -262,3 +263,16 @@ A new empty table: no backfill, no production step.
 verdicts' reviews once its quiz has settled). Left, minor: draft-verdict writes read their review
 once each; a renamed reviewer reaches off-screen quizzes late; a WebKit `visibilitychange` check;
 history lags up to ~90 s by design.
+
+### Thread 10: the tighten of `orglabel` and `viz` (landed #148)
+
+A hunt's `orglabel` and a question's `viz` are required again (schema derived from the row
+validators); every widen-period fallback is gone, and `huntListingOf` no longer reads every
+hunt's huntings. `backfillHuntOrglabels` and `backfillQuestionViz` are retired; the stamp
+backfills stay for good (the migrations library refuses an empty `Backfills`, and #132 runs it on
+every deploy). **Merge only after** both backfills show `success` on /stats **and** production's
+`hunts` table has no row without `orglabel` (the backfill skipped hunts nobody is on and still
+reported success). `hunts.open` still accepts a missing org, for stale tabs; retire it later.
+
+*Review:* clean at medium. **Incident:** the `/code-review` skill runs `git checkout <tip>` in the
+main checkout and back (detached for ~6 s at 08:47 UTC), in every review this sprint that used it.
