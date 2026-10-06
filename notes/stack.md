@@ -82,6 +82,10 @@ don't trust a recalled version number, including one recalled by an agent.
   (`convex/migrations.ts`, and `notes/deploy.md` for the order of steps). Added September 2026
   for the first one production needed.
 * pnpm
+  - Its own `pnpm run --no-bail "/<regex>/"` runs several scripts side by side, each line
+    prefixed by its script's name, each run to its end, and exits red if any is: `pnpm justify`
+    runs typecheck, lint and the unit tests that way. Chosen Oct 2026 over `concurrently` and
+    `npm-run-all2` (`run-p`), which do the same and would each be a dependency more.
 * Material UI's own components for tables, inputs, dialogs and menus; @mui/icons-material for icons
 * **Pragmatic drag-and-drop** (`@atlaskit/pragmatic-drag-and-drop`, plus `-hitbox`) for every
   drag, wired up only in `src/components/use-reorder.ts`: `useReorderable` for a list reordered
@@ -301,7 +305,9 @@ agrees to another.
   Graphite) restack branches, which `git rebase --update-refs` already does; none coordinates
   several worktrees landing onto one shared checkout, and Graphite and spr want merge flows of
   their own that fight the semi-linear ladder. The design is
-  `whiteboard/20261005-parallel_git/parallel-git-plan.md`.
+  `whiteboard/20261005-parallel_git/parallel-git-plan.md`. The landing flow beside them (prove,
+  then bid: `whiteboard/20261006-landing_flow/landing_flow-plan.md`) keeps its e2e tally and log
+  by reading Playwright's own JSON report, and reruns through its own `--last-failed`.
 * **Bringing a PR up to date and setting it to merge is a script of our own, `scripts/automerge.ts`.**
   Asked for by a Coach Oct 2026, as the trivial case of merging under a semi-linear history.
   GitHub's "Update branch" rebases one branch alone, which strands the PRs stacked on it under

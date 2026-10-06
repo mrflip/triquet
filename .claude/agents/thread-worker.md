@@ -56,23 +56,29 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
    (`pkill -f next`), which matches the other lanes' servers too. Scratch files go in the
    scratchpad subdirectory your handoff names, never in `test-results/`, which every e2e run
    empties.
-2. **Ready.** With everything committed and typecheck, lint and the unit tests green, write
-   your thread file (*Syndication*), commit it, and report `ready`. Do not land yet.
-3. **Land**, when the orchestrator resumes you to. First set your thread file's PR line to
-   say the PR is filed at landing, and commit it: a landing leaves your worktree detached, so
-   nothing can be committed in it afterwards, and the number goes in your report. Then check
-   the machine (`uptime`): above a load of about 8, wait for it to fall. Then `pnpm land`. It rebases onto the spine's
-   top, runs the full suite, and folds your branch in and pushes it. Repair what git_hygiene
-   calls straightforward and land again; a conflict or failure that takes judgment about
-   which behaviour wins is a `blocked`, handled as git_hygiene says (tag, resolve-or-abort,
-   report). The main checkout refusing to switch means the Coach has an uncommitted edit in
-   your way: that is a `blocked` too, naming the file. An e2e that goes red on specs your
-   thread never touches, with Convex "Function execution timed out" in the log, is the load,
-   not your change: wait for it to fall and land again unchanged -- never "fix" a spec your
-   thread does not touch to get it through.
+2. **Ready.** With everything committed and `pnpm justify` green (typecheck, lint and the unit
+   tests, side by side), write your thread file (*Syndication*), commit it, and report `ready`.
+   Do not prove or land yet: the review comes first, and its fixes ride along.
+3. **Prove and bid**, when the orchestrator resumes you to land (git_hygiene's *Finishing*, B to
+   D). First set your thread file's PR line to say the PR is filed at landing, and commit it: a
+   landing leaves your worktree detached, so nothing can be committed in it afterwards, and the
+   number goes in your report. Then, without pause, so that little can land under you:
+   - **Prove**: `pnpm catchup`, `pnpm justify`, `pnpm e2e`. Repair each failure on its own
+     (`pnpm e2e:rerun`, or `pnpm e2e <spec file>`), committing before each run, until
+     `pnpm e2e` says "Proved". A spec that fails among the others and passes alone, unchanged,
+     is a flake: never "fix" a spec your thread does not touch to get it through, and never
+     wait for the machine's load to fall; rerun it alone at once, and report it.
+   - **Refresh**: if `pnpm catchup` now rebases onto a newer top, `pnpm justify` again and
+     repair; rerun e2e only for specs near what landed.
+   - **Bid**: `pnpm land`. Under the spine's hold it catches up if the top moved, runs the unit
+     tests, and folds your branch in; then it pushes, and names your flakes.
+   Repair what git_hygiene calls straightforward, justify, and bid again; a conflict or failure
+   that takes judgment about which behaviour wins is a `blocked`, handled as git_hygiene says
+   (tag, resolve-or-abort, report). The main checkout refusing to switch means the Coach has an
+   uncommitted edit in your way: that is a `blocked` too, naming the file.
 4. **File the PR** against `main`, per git_hygiene's *Filing the PR*: title, body shaped like
-   recent PRs, a **Tests:** line, "stacked on #N" for the branch you landed on (the landing
-   says which).
+   recent PRs, a **Tests:** line naming every flake, "stacked on #N" for the branch you landed
+   on (the landing says which).
 5. **Clean up**: `pnpm worktree --remove`. Then report `landed`.
 
 ## Significant questions

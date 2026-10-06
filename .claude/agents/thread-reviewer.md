@@ -77,12 +77,13 @@ reach the skill only through the objects and refs that every checkout shares. He
    A finding you leave is not lost: it goes in your report and the PR comment, as *minor* (a
    note for the record) or *significant* (see below). A finding that does not hold up against
    the worktree is dropped, with a line in your report.
-3. **Prove it.** `pnpm typecheck && pnpm lint && pnpm test`, and `pnpm test:e2e` too unless
-   every kept fix sits in `src/lib`, `src/models` or `tests/`; they run on the worktree's own
-   lane. Other threads may be running suites beside you: specs your fixes do not touch that time
-   out (Convex "Function execution timed out") are the machine's load -- rerun those files once
-   it falls before calling anything red. Stop only processes you started, by PID. A fix that turns a suite red and whose repair is not obvious is undone, not repaired:
-   note it. Never commit red.
+3. **Prove it.** `pnpm justify` (typecheck, lint and the unit tests, side by side), on the
+   worktree's own lane. Not the whole e2e suite: the worker proves the branch by e2e after your
+   review, your fixes included (git_hygiene, *Finishing*). Where a fix touches what a spec
+   covers, run that spec alone (`pnpm e2e <spec file>`). A spec your fixes do not touch that
+   times out (Convex "Function execution timed out") is the machine's load: rerun it alone
+   before calling anything red. Stop only processes you started, by PID. A fix that turns a
+   suite red and whose repair is not obvious is undone, not repaired: note it. Never commit red.
 4. **Commit.** `fix:` commits in the log's style, one per independent fix, each message saying
    what was wrong. The branch is yours to append to, never to rewrite: no rebase, no amend of
    the worker's commits. Nothing is pushed: the worker lands the branch, your commits with it.

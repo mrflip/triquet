@@ -128,16 +128,20 @@ makes the fixes it can stand behind by hand in the worktree, keeps them as `fix:
 reports; anything it may not decide comes back `flagged` for §4.
 
 **Land.** Resume the worker (SendMessage, same agent, so its context survives) with "Land
-it", and anything from the review it should know. It runs `pnpm land`, repairs what is
-straightforward, files the PR, removes its worktree, and reports `landed` with the PR number,
-or `blocked`. Then post the reviewer's PR comment (`gh pr comment <n>`, the text from its
-report) so the review sits on the PR.
+it", and anything from the review it should know. It proves the branch (catch up, justify, the
+e2e suite, each failure repaired alone), bids with `pnpm land`, files the PR, removes its
+worktree, and reports `landed` with the PR number, or `blocked` (git_hygiene, *Finishing*). Then
+post the reviewer's PR comment (`gh pr comment <n>`, the text from its report) so the review
+sits on the PR.
 
-**One landing at a time.** A landing runs the full e2e suite on its lane, and two suites at
-once (or one beside a reviewer's) load the machine until Convex functions time out and specs the
-thread never touched go red. Hold every other `ready` thread until the landing underway reports,
-and do not sweep meanwhile: a sweep moves the top under the landing and sends it back to its
-rebase and checks.
+**Landings need no turns.** Resume each `ready`, reviewed thread as soon as its review is in:
+workers prove their branches side by side, and their bids queue at the spine's hold, where each
+runs only the unit tests and nothing can snipe it. A sweep waits for the hold too, and can
+never disturb a bid; but it moves the top as a landing does, so batch what you write. What costs a worker time is a snipe (a landing between its catch-up and its bid,
+which sends it back to justify), so a resumed worker goes straight from its first catch-up to its
+bid. Several e2e suites at once load the machine and time out specs no thread touched: workers
+rerun those alone at once and report them as flakes, and the e2e log (`pnpm e2e:log`) keeps
+count.
 
 A `blocked` or `abandoned` worker gets no review: the review is of a finished thread, and
 follows the resume that finishes it.
@@ -168,8 +172,7 @@ follows the resume that finishes it.
    on who should read it, as the workers do). Defend a ceiling of about 5,000 words on the
    progress document: every later worker reads it whole. Never edit a worker's thread file:
    it says what that worker claimed. Mark what you add with `*Orchestrator:*`. Then
-   `pnpm sweep`: what you wrote rides onto the spine's top. While a landing is underway, hold
-   the sweep until it reports (§2, *Land*).
+   `pnpm sweep`: what you wrote rides onto the spine's top.
 5. **Decide** (§4), refill the frontier, and wait for the next report. If the Coach has
    interjected in chat meanwhile, fold their guidance in first.
 
