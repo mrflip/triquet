@@ -100,7 +100,7 @@ export function WidgetingsEditor({ hunt, quiz, tier, library, revisable, changea
 function PivotRow({ questionQty }: Readonly<{ questionQty: number }>) {
   const counted = questionQty === 1 ? '1 question widgeting runs' : `${String(questionQty)} question widgetings run`
   const said = questionQty === 0
-    ? 'where the first question widgeting will go, above the formulas here: with none yet, everything here runs first.'
+    ? 'where the first question widgeting will go: with none yet, everything here runs first.'
     : `${counted} here, each for every question: those above read none of them, those below read them all.`
   return (
     <Box role="group" aria-label="The questions" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider', py: 0.5, pl: 3 }}>
