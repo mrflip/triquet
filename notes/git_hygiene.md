@@ -142,7 +142,8 @@ E  PR        gh pr create
 * **D. Bid.** `pnpm land` refuses a branch not justified at its present patch-id (any change
   since needs `pnpm justify` again; a rebase that carries your changes across unaltered does not),
   or with no e2e proof, unless every path it changes is a document or a note (a `.md` outside
-  `src/`, or anything under `whiteboard/` or `human/`). Then, holding the spine throughout: it
+  `src/`, or anything under `whiteboard/` or `human/`), or the bid says why e2e has nothing to tell
+  it (`pnpm land --skip-e2e "<why>"`: *When e2e is not worth running*, below). Then, holding the spine throughout: it
   replays the spine onto `origin/main` if origin has moved, sweeps, rebases your branch onto the
   top if the top has moved, runs typecheck beside the unit tests (`pnpm test:bid`, each test
   allowed a minute: the machine may be loaded), and switches the main checkout onto your branch.
@@ -150,6 +151,51 @@ E  PR        gh pr create
   hold and stops with the spine untouched: repair, commit, `pnpm justify`, and bid again. Bids
   queue for the hold, so the wait is about the tests' time for each bid ahead of yours.
 * **E. PR.** *Filing the PR*, below.
+
+### When e2e is not worth running
+
+A full e2e run is about three minutes of one worktree, and it loads the machine: several at once
+time out specs that no branch touched, and the flakes land on everyone else's runs, a stampede.
+So a run that cannot tell you anything is not free. Going without one is cheap to get wrong, too:
+CI runs the whole suite on the PR, and a red e2e there brings the Coach back to the session that
+landed it, to ask for help. The call is yours, then, and it is a call, not a ritual either way.
+
+The question is whether any spec could behave differently because of this branch. A spec drives the
+running app in a browser, so the branch has to reach the app, or what starts the app, to be noticed.
+
+**The usual skips**, where the answer is plainly no:
+
+* a branch that changes only unit tests (`tests/`), with no app code and no spec;
+* a script that is the repository's own housekeeping and nothing the suite runs through
+  (`scripts/newb`, `git-attic`, `session-branches.ts` and the others `HousekeepingScripts` in
+  `scripts/spine.ts` lists), with its tests and notes;
+* an agent's or a skill's definition (`.claude/`), the lint configuration, and documents beside them
+  (documents alone need no flag at all).
+
+**Never skip, whatever it looks like**, the exceptions to those exceptions:
+
+* **Anything in `src/`, `convex/`, `e2e/`, `fixtures/` or `public/`**, the dependencies (`package.json`, the
+  lockfile), and the configuration of the app, Playwright, CI or the build. A `.md` under `src/`
+  is app content.
+* **A script the suite runs through**, which looks like "just a script": `scripts/spine.ts`,
+  `lanes.ts`, `e2e-log.ts`, `convex_dev`, `convex_backend`, `convex_reset`, `convex_auth_keys`,
+  `doppledo`, `as_role`, and any script that `playwright.config.ts` or a `package.json` script the
+  suite calls names. A new script is in this group until `HousekeepingScripts` says otherwise.
+* **A mixed branch**: the riskiest path decides. A unit test beside app code is an app branch.
+* **Tests that stand in for a spec**: a branch that deletes or loosens a spec's coverage, or changes
+  what a shared test fixture gives the e2e run, is a change to e2e.
+
+**And distrust the feeling.** Confidence that a change is silly to test is how wrong skips happen:
+the writer has just seen exactly what the change does, and not what else reads it. Before you
+skip, read the exceptions again, and name in one sentence why no spec could behave differently.
+If the sentence will not come, or comes out as "it's only a script", run e2e.
+
+To skip, bid with the sentence: `pnpm land --skip-e2e "unit tests of the session script only"`.
+It still needs a justify at the branch's present patch-id. A proof the branch already has stands
+over the reason. When it refuses for want of a proof it says whether e2e could notice any path the
+branch changes (`e2eWatched` in `scripts/spine.ts`), and a skip over such paths lands with a
+warning, since the call is yours. Put the reason in the PR's **Tests:** line (`e2e skipped:
+<why>`), where the Coach looks when CI is red.
 
 From there CI is the next test: it runs justify, a production build and the whole e2e suite on
 every push. What the bid does not cover (how your branch meets what landed after you proved it,

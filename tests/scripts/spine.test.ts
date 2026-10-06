@@ -63,6 +63,88 @@ describe('Spine.isDocsOnly', () => {
   }
 })
 
+describe('Spine.e2eWatched', () => {
+  const WatchedCases: [string[], string[], string][] = [
+    // paths e2e cannot notice:
+    [['tests/scripts/spine.test.ts', 'scripts/git-attic', 'notes/stack.md'], [],                                    'a unit test, a housekeeping script and a note'],
+    [['.claude/skills/sprint/SKILL.md', 'eslint.config.mjs'],                [],                                    "an agent's skill, and the lint configuration"],
+    [['tests/support/convex.ts'],                                            [],                                    'the support of the unit tests'],
+    [[],                                                                     [],                                    'a branch changing nothing'],
+    // paths it runs on or exercises:
+    [['scripts/spine.ts', 'src/lib/useful.ts', 'tests/lib/useful.test.ts'],  ['scripts/spine.ts', 'src/lib/useful.ts'], 'the harness and app code, beside a test of it'],
+    [['e2e/widgets.spec.ts'],                                                ['e2e/widgets.spec.ts'],               'an e2e spec'],
+    [['convex/schema.ts'],                                                   ['convex/schema.ts'],                  "the server's functions"],
+    [['scripts/convex_dev', 'scripts/lanes.ts', 'scripts/doppledo'],         ['scripts/convex_dev', 'scripts/lanes.ts', 'scripts/doppledo'], 'the scripts the suite starts its backend and its lane with'],
+    [['package.json', 'pnpm-lock.yaml'],                                     ['package.json', 'pnpm-lock.yaml'],    'the dependencies'],
+    [['src/content/about.md'],                                               ['src/content/about.md'],              'app content, though it is markdown'],
+    [['.github/workflows/ci.yml'],                                           ['.github/workflows/ci.yml'],          "CI's own configuration"],
+    // weird cases:
+    [['scripts/brand_new_script'],                                           ['scripts/brand_new_script'],          'a script nobody has listed, which is watched until someone says otherwise'],
+    [['tests.ts', 'human.ts'],                                               ['tests.ts', 'human.ts'],              'files only named like the directories that are not watched'],
+  ]
+  for (const [filepaths, expected, blurb] of WatchedCases) {
+    it(`finds ${expected.length === 0 ? 'nothing in' : 'the watched among'} ${blurb}`, () => {
+      expect(Spine.e2eWatched(filepaths)).to.deep.equal(expected)
+    })
+  }
+})
+
+describe('Spine.skippingE2e', () => {
+  const Quiet = ['tests/scripts/spine.test.ts', 'scripts/git-attic']
+  const Watched = ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/d.ts', 'src/e.ts', 'src/f.ts']
+
+  it('refuses with no reason, saying how to skip when e2e could notice nothing', () => {
+    const refuse = () => Spine.skippingE2e('20261006-x', Quiet, undefined)
+    expect(refuse).to.throw(Spine.SpineStop, /no e2e proof/)
+    expect(refuse).to.throw(/None of the paths it changes is one the e2e suite runs on or exercises/)
+    expect(refuse).to.throw(/--skip-e2e "<why>"/)
+    expect(refuse).to.throw(/When e2e is not worth running/)
+  })
+
+  it('refuses with no reason, naming a few of the paths e2e could notice, and telling the branch to run it', () => {
+    expect(() => Spine.skippingE2e('20261006-x', Watched, undefined)).to.throw(/exercises 6 of the paths it changes \(src\/a\.ts, src\/b\.ts, src\/c\.ts, src\/d\.ts, and 2 more\): run it\./)
+    expect(() => Spine.skippingE2e('20261006-x', Watched, undefined)).not.to.throw(/--skip-e2e "<why>"/)
+  })
+
+  it('goes without a proof, given a reason, and says to put the reason in the PR', () => {
+    expect(Spine.skippingE2e('20261006-x', Quiet, ' only a script of housekeeping ')).to.deep.equal([
+      "e2e skipped: only a script of housekeeping. Say so in the PR's Tests: line; CI runs the suite on the PR.",
+    ])
+  })
+
+  it('goes without a proof on a reason even when e2e could notice the paths, and warns that it could', () => {
+    const said = Spine.skippingE2e('20261006-x', ['src/a.ts', 'src/b.ts'], 'I read it and it cannot')
+    expect(said).to.have.lengthOf(2)
+    expect(said[1]).to.equal('Careful: e2e runs on or exercises src/a.ts, src/b.ts. A red CI e2e is yours to repair.')
+  })
+
+  it('refuses a reason that is blank', () => {
+    expect(() => Spine.skippingE2e('20261006-x', Quiet, '  ')).to.throw(Spine.SpineStop, /takes the reason/)
+  })
+})
+
+describe('Spine.skipE2eOf', () => {
+  it('is nothing when `land` is given nothing', () => {
+    expect(Spine.skipE2eOf([])).to.be.undefined
+  })
+
+  it('is the reason that follows --skip-e2e', () => {
+    expect(Spine.skipE2eOf(['--skip-e2e', 'only a script'])).to.equal('only a script')
+    expect(Spine.skipE2eOf(['--skip-e2e=only a script'])).to.equal('only a script')
+  })
+
+  const RefusedCases: [string[], string][] = [
+    [['--skip-e2e'],               'the option with no reason after it'],
+    [['--bogus'],                  'an option `land` does not have'],
+    [['whatever'],                 'a word that is not an option'],
+  ]
+  for (const [args, blurb] of RefusedCases) {
+    it(`refuses ${blurb}`, () => {
+      expect(() => Spine.skipE2eOf(args)).to.throw(Spine.SpineStop, /Usage/)
+    })
+  }
+})
+
 describe('Spine.withSpineHeld', () => {
   let scratch: string
   beforeEach(() => {

@@ -68,6 +68,10 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
      `pnpm e2e` says "Proved". A spec that fails among the others and passes alone, unchanged,
      is a flake: never "fix" a spec your thread does not touch to get it through, and never
      wait for the machine's load to fall; rerun it alone at once, and report it.
+   - **A skip**: e2e is not worth running only where git_hygiene's *When e2e is not worth running*
+     says so (unit tests alone, a housekeeping script, a definition under `.claude/`), and never over
+     app code or a script the suite runs through. Then `pnpm land --skip-e2e "<why>"`, with that
+     reason in the PR's Tests: line. When unsure, run it.
    - **Refresh**: if `pnpm catchup` now rebases onto a newer top, `pnpm justify` again and
      repair; rerun e2e only for specs near what landed.
    - **Bid**: `pnpm land`. Under the spine's hold it catches up if the top moved, runs typecheck
