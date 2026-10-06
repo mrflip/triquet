@@ -424,6 +424,7 @@ describe("identings, each session's own", () => {
       'questions:open',
       'quizzes:open', 'quizzes:whole',
       'reviews:forQuiz',
+      'stats:backfills',
       'widgets:library', 'widgets:perform', 'widgets:usage',
     ])
   })

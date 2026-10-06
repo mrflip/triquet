@@ -1,5 +1,5 @@
 import _ from 'es-toolkit/compat'
-import { Migrations } from '@convex-dev/migrations'
+import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrations'
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { HuntValidators } from '../src/models/hunt'
@@ -41,9 +41,12 @@ export const backfillHuntOrglabels = migrations.define({
   },
 })
 
+/** Every backfill still defined, in the order they run: today, the hunts' orgs alone */
+export const Backfills: readonly MigrationFunctionReference[] = [internal.migrations.backfillHuntOrglabels]
+
 /**
- * Every backfill still defined, in order: today, the hunts' orgs alone.
+ * Every backfill still defined, in order (`Backfills`).
  *
  * @example npx convex run migrations:runAll
  */
-export const runAll = migrations.runner([internal.migrations.backfillHuntOrglabels])
+export const runAll = migrations.runner([...Backfills])

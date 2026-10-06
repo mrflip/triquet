@@ -1,7 +1,8 @@
+import type { MigrationStatus } from '@convex-dev/migrations'
 import { describe, expect, it } from 'vitest'
 import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import {
-  assembledQuiz, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, orgFor, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
+  assembledQuiz, backfillFrom, backfillsFrom, frameOf, historyOf, huntFrom, huntListingOf, huntTitleOf, orgFor, quizFrom, quizFromSeen, realmTitleOf, reviewBy, seenQuestionFor, shallowHuntOf, smithsOf, widgetFrom, widgetingFrom,
   type CellRows, type HuntRows, type QuizRows,
 } from '../../src/lib/rows'
 import * as Wheel from '../../src/lib/wheel'
@@ -343,5 +344,42 @@ describe('reviewBy', () => {
 
   it('is null for an ident who has written none, or a quiz with no reviews', () => {
     expect([reviewBy([Other], ident_id), reviewBy([], ident_id)]).to.deep.eq([null, null])
+  })
+})
+
+/** The migrations component's status of the migration `fnname`, finished unless told otherwise */
+function migrationStatus(fnname: string, fields: Partial<MigrationStatus> = {}): MigrationStatus {
+  return { name: `migrations:${fnname}`, state: 'success', isDone: true, processed: 37, latestStart: 1_759_700_000_000, latestEnd: 1_759_700_001_000, cursor: 'opaque', ...fields }
+}
+
+describe('backfillFrom', () => {
+  it("says a run backfill's state and counts, and leaves its cursor and error behind", () => {
+    expect(backfillFrom(migrationStatus('backfillHuntOrglabels', { state: 'failed', isDone: false, error: 'Hunt spring_hunt refused' }), true)).to.deep.eq({
+      fnname: 'migrations:backfillHuntOrglabels', defined: true, state: 'failed', is_done: false, processed: 37, started_at: 1_759_700_000_000, ended_at: 1_759_700_001_000,
+    })
+  })
+  it("says a backfill never run started and ended never", () => {
+    const status = migrationStatus('backfillHuntOrglabels', { state: 'unknown', isDone: false, processed: 0, latestStart: 0, latestEnd: undefined, cursor: null })
+    expect(backfillFrom(status, true)).to.include({ state: 'unknown', processed: 0, started_at: null, ended_at: null })
+  })
+})
+
+describe('backfillsFrom', () => {
+  const orgs         = migrationStatus('backfillHuntOrglabels')
+  const quizCopies   = migrationStatus('backfillQuizCopies')
+  const huntBranches = migrationStatus('backfillHuntBranches')
+
+  it("lists those defined first, then the rest newest first", () => {
+    expect(backfillsFrom([orgs], [quizCopies, orgs, huntBranches], 20).map(({ fnname, defined }) => [fnname, defined])).to.deep.eq([
+      ['migrations:backfillHuntOrglabels', true],
+      ['migrations:backfillHuntBranches',  false],
+      ['migrations:backfillQuizCopies',    false],
+    ])
+  })
+  it("lists at most `pastMax` of those no longer defined, the newest", () => {
+    expect(backfillsFrom([orgs], [quizCopies, orgs, huntBranches], 1).map(({ fnname }) => fnname)).to.deep.eq(['migrations:backfillHuntOrglabels', 'migrations:backfillHuntBranches'])
+  })
+  it("lists only those defined, when the component remembers nothing else", () => {
+    expect(backfillsFrom([orgs], [orgs], 20)).to.have.lengthOf(1)
   })
 })
