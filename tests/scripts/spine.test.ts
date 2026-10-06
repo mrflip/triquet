@@ -221,7 +221,9 @@ const standOnMergedBranch = (world: WorldT) => {
   world.git(world.main, 'config', 'branch.leftover.merge', 'refs/heads/leftover')
 }
 
-describe('node scripts/spine.ts, in a repository with worktrees', () => {
+// Each test here runs git and node dozens of times over: under a loaded machine (another
+// worktree's e2e suite), vitest's five seconds are not enough.
+describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_000 }, () => {
   let world: WorldT
   beforeEach(() => {
     const made = fs.mkdtempSync(path.join(os.tmpdir(), 'triquet-spine-'))

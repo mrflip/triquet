@@ -18,7 +18,8 @@
  * Worktrees live under TQ_WORKTREES (`~/worktrees/triquet`). Each suite these run is a shell
  * command an environment variable may replace: TRIQUET_JUSTIFY (typecheck, lint and test through
  * `pnpm run --no-bail`, which runs them side by side and lets each finish), TRIQUET_E2E
- * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (`pnpm test`, what a bid runs under the hold).
+ * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (`pnpm test`, patient of a loaded machine: what a bid
+ * runs under the hold).
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -37,6 +38,13 @@ const LockWaitMs = 30 * 60 * 1000
 
 /** What `pnpm justify` runs: typecheck, lint and the unit tests, side by side, each run to its end however the others fare */
 const JustifyCommand = 'pnpm run --no-bail "/^(typecheck|lint|test)$/"'
+
+/**
+ * What a bid runs under the hold: the unit tests, each allowed a minute rather than vitest's five
+ * seconds. A bid often runs beside other worktrees' e2e suites, under whose load tests that spawn
+ * processes time out at five seconds; a test that truly hangs still fails, and CI keeps the five.
+ */
+const LandChecks = 'pnpm test --testTimeout=60000'
 
 /** The build directory `pnpm test:e2e` builds into, as package.json names it: the cache a new worktree is seeded with */
 export const E2eDistDir = '.next-e2e'
@@ -692,7 +700,7 @@ export function land(cwd: string): string[] {
   const { root, main, commondir } = checkoutAt(cwd)
   const branch = worktreeBranch(root, main, 'Landing')
   const proof = proofOf(root, main, branch)
-  const checks = process.env.TRIQUET_LAND_CHECKS ?? 'pnpm test'
+  const checks = process.env.TRIQUET_LAND_CHECKS ?? LandChecks
   const { top, notes } = withSpineHeld(commondir, `landing ${branch}`, () => {
     refuseBusy(main)
     const said = [...restack(main), ...sweptNotes(sweep(main))]
