@@ -5,11 +5,11 @@ import { zInternalMutation } from './functions'
 
 const { zod } = ValidatorKit
 
-/** How many rows of one table one run deletes before handing the rest to the next */
+/** How many rows one run deletes before handing the rest to the next: a delete reads, and its triggers read, and a function may read only so much */
 const BatchSize = 500
 
 /**
- * Empty every table of a development or test deployment, up to a batch of each table a run:
+ * Empty every table of a development or test deployment, up to a batch of rows a run, table by table:
  * run it again until it says it deleted nothing (`scripts/convex_reset` does). Refused on a
  * deployment without `TRIQUET_CLEARABLE=yes`, which production never has.
  *
@@ -24,11 +24,14 @@ export const clearAll = zInternalMutation({
   handler: async (ctx) => {
     if (env.TRIQUET_CLEARABLE !== 'yes') { throw new Error('This deployment may not be emptied: TRIQUET_CLEARABLE is not yes') }
     const tablenames = Object.keys(schema.tables) as (keyof typeof schema.tables)[]
-    const counts = await Promise.all(tablenames.map(async (tablename) => {
-      const rows = await ctx.db.query(tablename).take(BatchSize)
+    // Table by table, each read just before it is cleared, not side by side: a trigger may take a
+    // row away with another (a quiz takes its change signal).
+    let deleted = 0
+    for (const tablename of tablenames) {
+      const rows = await ctx.db.query(tablename).take(BatchSize - deleted)
       for (const row of rows) { await ctx.db.delete(tablename, row._id) }
-      return rows.length
-    }))
-    return counts.reduce((total, count) => total + count, 0)
+      deleted += rows.length
+    }
+    return deleted
   },
 })
