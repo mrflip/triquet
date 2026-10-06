@@ -1,19 +1,22 @@
 # Thread 8: The Coach's second follow-ups (2026-10-06)
 
 Branch `20261005-viz`, PR pending, stacked on #133. Suites, at the tip in lane 1: typecheck and
-lint clean; vitest 4003 passed, 1 skipped; e2e 258 passed. Every commit passes typecheck, lint
-and vitest by itself. The commits, in order: item 2, 3, 4, 5, 6, 1, 7, 8, then the urls.md docs
-the Coach added mid-thread.
+lint clean; vitest 4005 passed, 1 skipped; e2e 258 passed. The commits, in order: item 2, 3, 4,
+5, 6, 1, 7, 8, the urls.md docs the Coach added mid-thread, this file; then, after the Coach's
+answer on the stamping writer, stamps by trigger and the notes that go with it.
 
 * **Built** (each commit message says more):
   1. **Realm pinned to `home`**: a refinement in `RealmValidators` (row and tree); the schema stays
      `string` (`tests/convex/schema.test.ts`, *… leaving the row validator to refuse it*).
-  2. **Stamps** (widen): `created_at`/`updated_at` on hunts, quizzes, questions, reviews,
-     reviewings, written only by `convex/stamping.ts`'s `stampingWriter` (a `Proxy` over `ctx.db`,
-     installed by `zMutation`): insert stamps both from one `now`; a changing patch moves
-     `updated_at`; stamps a write carries are set aside. Row validators default them
-     (`ValidatorKit.stamp`); readers use `Stamps.of` (`src/lib/stamps.ts`); balls write ISO strings.
-     Smiths are sent a question's; `HuntListingT` carries the hunt's; `Changes` ignores them.
+  2. **Stamps**: `created_at`/`updated_at` on every table of ours but `identings`, written by a
+     convex-helpers trigger (`convex/stamping.ts`, the Coach's recipe), on every mutation
+     `functions.ts` builds (`triggers.wrapDB`, public and internal; ESLint
+     `triquet/convex-mutations-through-triggers` bars Convex's own builders elsewhere but
+     migrations). `created_at` is `floor(_creationTime)`, immutable (a change throws, `stampsAfter`);
+     an insert's `updated_at` equals it, a later write's is `Date.now()`. Optional for good in row
+     validators (`ValidatorKit.stamps`) and schema. Readers use `Stamps.of`; the hunt, quiz,
+     question, review and verdict balls write ISO strings. A backfill per table, raw (no edit).
+     First built as a hand-rolled `Proxy` writer (`3a0e491`), replaced at the Coach's word.
   3. **`viz`** (widen): `archived | secondary | normal`; `set_viz` (a reviser's); sent to both
      standings; `rows.vizOf` reads a missing one as normal; in the balls, carried by Import. `viz`,
      `created_at`, `updated_at` are reserved widgeting labels. Backfills in `runAll`, ledger row.
@@ -33,12 +36,13 @@ the Coach added mid-thread.
      unserved / future, *Key paths and files* (one key path, the questions-alone exception,
      `pub.widgets`, rule 10 pointing at hunt_git's index), and *Addresses that move*.
 * **Decisions taken**:
-  - **Which rows get stamps**: hunts, quizzes, questions, reviews, reviewings. Widgetings and
-    columns are left out: they are the quiz's layout, Import rebuilds them wholesale, and their
-    changes already show in the quiz's history. Idents, huntings, realms and widgets are made by
-    the app or seldom edited. Widgeteds are append-only and already have `_creationTime`.
-  - **A stamp is set aside on a patch**, not validated. The stamping writer writes stamps;
-    validators only let writers leave them out.
+  - **Which rows get stamps**: every table of ours but `identings` (appended, never edited: its
+    `_creationTime` is its history). Widgeteds are in: an entry's row is replaced on each edit.
+  - **A replace that leaves the stamps out keeps them** rather than throwing (the recipe would
+    throw: newDoc lacks `created_at`); only a write *changing* a held `created_at` throws.
+  - **`created_at` is floored**: `_creationTime` is fractional, and the stamps are whole ms.
+  - **Balls carry stamps only for the hunt, quizzes, questions, reviews, verdicts**; layout,
+    library and membership stamps are for forensics in the database.
   - **An unmatched hunt's label is already another quiz's**: the paste goes to that quiz. Labels
     are unique in the hunt, so that quiz *is* the pasted one. A paste whose quiz has no label (an
     old export) gets a fresh label.
@@ -67,18 +71,22 @@ the Coach added mid-thread.
     (read it before scripting a check of each commit).
   - `label.refine((val) => val === HomeRealmLabel)` infers a **type predicate** and narrows the
     TS type to `'home'`. Use `(val): boolean =>`.
-  - The stamping writer covers `db.insert/patch/replace`, not `db.table(name).…`, which nothing
-    here uses. Trap `table` too if that changes.
+  - convex-helpers' trigger writer wraps `insert/patch/replace/delete`, not `db.table(name).…`,
+    which nothing here uses. Dashboard edits bypass the trigger.
+  - Seeded test rows (`tests/support/seed.ts`) are written raw and carry no stamps, as rows the
+    trigger never saw.
   - `/convex-reviewer`, applied by hand to the diff: no critical or important findings. Points
     noted:
     - `set_viz` goes through `affirmPerform` and the scoped writer.
     - `archiveStarters` reads one indexed `.first()` per candidate, bounded by the quiz's cap.
-    - `Date.now()` is read only in the mutation builder's input, never in a query.
-    - The questions table is walked twice by the backfills (stamps and viz): fine at this size.
+    - `Date.now()` is read only in a mutation's trigger, never in a query.
+    - Each table is walked once by its backfill, questions twice (stamps and viz).
     - No new indexes.
 * **For the Coach**: `human/20261006-viz.md`. In short:
   - One `migrations:runAll` after merging covers thread 7's and this thread's backfills; then one
     tighten PR.
   - Check production for widgetings labelled `viz`, `created_at` or `updated_at`.
-  - The hand-rolled `stampingWriter` needs your yes (Library-first).
+  - The stamps stay optional for good; the tighten covers `orglabel` and `viz` only.
+  - Dashboard edits bypass the trigger.
+  - The rebase incident set `core.bare = true` on the main repository (now fixed by the Coach).
   - The first commit to each hunt's history after the deploy will rewrite every file once.

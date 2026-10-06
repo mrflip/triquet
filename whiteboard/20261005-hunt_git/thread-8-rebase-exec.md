@@ -13,10 +13,17 @@ worktree's own repository**:
 * they made a branch `side`, and a worktree at `/tmp/triquet-lanes-repo-…/side`, in the shared
   repository every checkout uses.
 
-No spine branch, tag, remote or config was touched (checked by `git for-each-ref --sort=-committerdate`,
-the tag list and `git config --list --show-origin`). Recovered by `git rebase --quit`, `git
-checkout -f 20261005-viz` (the working tree held the commit being checked, nothing uncommitted),
-`git branch -D side` and `git worktree prune`.
+* **they set `core.bare = true` in the main repository's config** (`/workspace/triquet/.git/config`),
+  which this thread missed: it read that setting in the config listing and took it for how the
+  repository is meant to be. The Coach found it and set it back. A worktree's own checks did not
+  notice, since a worktree reads its own HEAD and index; the main checkout would have.
+
+No spine branch, tag or remote was touched (checked by `git for-each-ref --sort=-committerdate`
+and the tag list). Recovered by `git rebase --quit`, `git checkout -f 20261005-viz` (the working
+tree held the commit being checked, nothing uncommitted), `git branch -D side` and `git worktree
+prune`. The first report said config was untouched; that was wrong.
+
+**Never run the unit suite under `git rebase --exec`**, nor under any git hook.
 
 To check each commit, check it out and run the suites in a plain shell:
 
