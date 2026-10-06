@@ -2,8 +2,9 @@
 
 Branch `20261006-e2e_light_gaps`. PR filed at landing; see the report. Suites: `pnpm justify` green
 (4406 unit tests, 7 of them new). The new e2e tests pass under the dev server (`routing`, `stats` and
-`widgets` whole, 88 of 88, and the new routing tests 3 times over) and under the build (`pnpm test:e2e:built`, all 5 new tests). The full
-`pnpm e2e` runs at landing, and its log line is the measurement.
+`widgets` whole, 88 of 88, and the new routing tests 3 times over) and under the build (`pnpm test:e2e:built`, all 5 new tests). Proved
+after catching up onto thread 5: `pnpm e2e` full, 249 passed, 0 failed, no flakes, in 202 s wall,
+1267 test-seconds, load 25.2 as it began, build cache seeded (lane 2). `pnpm justify` there: 4471 unit tests.
 
 **No new spec file of a new name.** `e2e/stats.spec.ts` is new, and thread 5's `SpecCorners` already
 maps it. The collaborating tests went into `e2e/routing.spec.ts`, not a `collaborating.spec.ts`, so
