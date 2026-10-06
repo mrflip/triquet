@@ -43,3 +43,12 @@ under load in the full run, green on its own).
     and refuses this push: give it a smith or delete it first.
   - When to retire the stamp backfills, and whether `runAll` should be taught to run an empty
     series (a wrapper mutation calling `migrations.runSerially` when `Backfills` is non-empty).
+
+## Review
+
+Clean, no fixes. The reviewer agrees on keeping the stamp backfills (checked in the migrations
+library: `runner([])` throws "Specify the migration") and on leaving `hunts.open`'s allowance for
+a missing `orglabel` (it serves stale tabs, not rows; retire it later on its own). One docs fix
+asked, made before landing: the ledger row names both causes of a refused push, a backend that
+missed `20261005-viz`, and a hunt nobody is on, which the orgs' backfill skipped with a warning
+yet reported `success` for.
