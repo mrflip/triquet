@@ -100,7 +100,7 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 ## Threads
 
 Wave one, side by side: 1, 2 and 3. Then 4 (after 1); 5 (after 1, 2, 3, 4) beside 6 (after 1 and
-4); 7 after 1-6; 8 after 7; 10 after 8; 9 after 10. Then *History at the end*.
+4); 7 after 1-6; 8 after 7; 10 after 8; 9 after 10. Then *History at the end*. Resuming: 11, 7, 8, 10, 9.
 
 ### 1. Widen the recap fields (Coach's 3rd)
 
@@ -288,6 +288,25 @@ so the marker is the source's characters there (`**` or `__`, `*` or `_`; probed
   `notes/markdown.md`), so later work stops re-deriving it.
 
 Depends on: 8 (post-everything, per the Coach). **Look-ahead:** thread 9 follows it.
+
+### 11. Let quiz and question widgetings interleave (the Coach, 2026-10-06, while paused)
+
+*Coach's text:* "I hadn't thought about having them mixed, and there's no seeming reason not to --
+can we just let them interleave? the only reason I spec'ed "quiz pre-block, question widgetings,
+quis post" waas that in my head they went in different places"
+
+Gloss: drop the questions pivot (#166's derived *The questions* row and sprint decision 12's
+placement rule). One run order, in `position` order, tiers mixed: a quiz widgeting runs once over
+the questions as they stand at its place; a question widgeting runs per question, seeing every
+quiz widgeting before it. The gear may keep two lists or show one with a tier mark: the worker's
+call, recorded. No schema change. Depends on: 6. Runs before 7, so the security review sees it.
+
+### Coach's answers while paused (2026-10-06)
+
+* **Author BBCode breaking the recap's frame: wontfix.** It may be on purpose, and the smith
+  previews before posting.
+* **A clueing opening `1984. ...`:** send the number through (whatever it is, not just 1), so the
+  copy-paster knows how to correct it. Goes to thread 10.
 
 ## History at the end
 
