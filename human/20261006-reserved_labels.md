@@ -9,7 +9,8 @@ ending `_id`/`_ids` is refused too. The kit's `label` refuses them, so every lab
 address) and an ident's (a username). It holds the app's own corners (`lib`, `sys`, `pub`, `my`,
 `dashboard`, `account`...), marketing and help pages (`about`, `careers`, `jobs`, `pricing`,
 `support`...) and names that would pass for the app speaking (`triquet`, `staff`, `system`...),
-plus anything beginning `secur`. Hunt labels refuse it through the kit's `toplabel`; ident labels
+plus anything beginning `secur`, `login`, `triquet`, `help`, `admin`, `support`, `official` or
+`verif`, and any five-character `pub..`. Hunt labels refuse it through the kit's `toplabel`; ident labels
 refuse both lists through `identlabel`.
 
 **Production holds none of them.** A read-only export through `dev_aijanitor` (2026-10-06),
@@ -20,5 +21,6 @@ Left as known bugs in `whiteboard/TODO.md`: `categories` (the shipped widget's l
 question's content fields (`title`, `notes`...), which stay reserved only among widgetings.
 
 Also suggested, not done: `yes`/`no`/`on`/`off` (YAML 1.1 reads them as booleans; we write no YAML
-today), `head` as a branch (ambiguous with `HEAD` on a case-insensitive filesystem), and more
-top-level prefixes beside `secur` (`admin`, `triquet`, `support`, so `triquet_team` is refused too).
+today), and `head` as a branch (ambiguous with `HEAD` on a case-insensitive filesystem). Left as
+whole words only, being too common as prefixes: `staff` (Stafford), `mod` (modern), `billing`
+(Billings), and `system`, `root`, `account`.

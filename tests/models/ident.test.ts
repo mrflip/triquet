@@ -44,7 +44,7 @@ describe('Ident.flawIn', () => {
     ["support",                      'reserved',   'finds a top-level word reserved'],
     ["security_desk",                'reserved',   'finds a label beginning secur reserved'],
     ["constructor",                  'reserved',   'finds a word no label may be reserved'],
-    ["supporter",                    null,         'takes a reserved word run on'],
+    ["stafford",                     null,         'takes a reserved word run on, where no prefix is kept'],
   ] as const
   for (const [label, flaw, describes] of Cases) {
     it(describes, () => {
@@ -67,7 +67,7 @@ describe('Ident.flawToSay', () => {
     ["flip_",       true,  'unfinished', 'says a trailing underscore once the field is left'],
     ["",            true,  null,         'never says anything of an empty field'],
     ["flip_kromer", true,  null,         'says nothing of a label'],
-    ["support",     false, null,         'keeps quiet of a reserved word while it is being typed, as it may be on its way to another'],
+    ["system",      false, null,         'keeps quiet of a reserved word while it is being typed, as it may be on its way to another (systematic)'],
     ["support",     true,  'reserved',   'says a reserved word once the field is left'],
   ] as const
   for (const [label, left, flaw, describes] of Cases) {

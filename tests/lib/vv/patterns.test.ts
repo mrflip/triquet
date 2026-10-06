@@ -112,6 +112,20 @@ const UnreservedToplevelCases: [string, boolean, string][] = [
   ["security",      false,  'a word beginning secur is refused'],
   ["secure_drop",   false,  'a label beginning secur is refused, whatever follows'],
   ["insecure",      true,   'secur inside a word is another word'],
+  ["login_page",    false,  'a label beginning login is refused'],
+  ["triquet_team",  false,  'a label beginning triquet is refused'],
+  ["helpful_hal",   false,  'a label beginning help is refused, helpful ones too'],
+  ["admin_ops",     false,  'a label beginning admin is refused'],
+  ["support_desk",  false,  'a label beginning support is refused'],
+  ["official_ben",  false,  'a label beginning official is refused'],
+  ["verified_ben",  false,  'a label beginning verif is refused'],
+  ["team_otter",    true,   'team with more after it is allowed: only the bare word is kept'],
+  ["stafford",      true,   'a word too common to refuse as a prefix is refused only whole'],
+  // the forms:
+  ["pubxy",         false,  'pub and two characters more is refused'],
+  ["pub_a",         false,  'pub, an underbar and one character more is refused'],
+  ["pubs",          true,   'pub and one character more is another word'],
+  ["pubkey",        true,   'pub and three characters more is another word'],
   // near misses, which must be allowed:
   ["about_face",    true,   'a top-level word with more after it is another word'],
   ["my_team",       true,   'a top-level word at the end of a longer one is another word'],
@@ -140,5 +154,10 @@ describe('ReservedToplevel', () => {
 
   it("names each word once", () => {
     expect(new Set(PA.ReservedToplevel).size).to.eq(PA.ReservedToplevel.length)
+  })
+
+  it("holds no word a prefix already refuses", () => {
+    const covered = PA.ReservedToplevel.filter((word) => PA.ReservedToplevelPrefixes.some((prefix) => word.startsWith(prefix)))
+    expect(covered).to.deep.eq([])
   })
 })

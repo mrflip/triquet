@@ -290,8 +290,9 @@ than one kind of player. Begun by the categories sprint, October 2026
   a hunt or a quiz replaces it, and a question's stays as minted. A few words no label may be, nor
   any ending in `_id`: the tool's fields and nouns, and words code, a spreadsheet or Windows reads
   specially (`PA.ReservedLabels`, by group and why). A hunt's label and an ident's, being global,
-  are also kept from the words for the app's own pages and people, and from any beginning `secur`
-  (`PA.ReservedToplevel`). `Labelmaker` is the facility for
+  are also kept from the words for the app's own pages and people, and from any beginning
+  `secur`, `login`, `triquet`, `help`, `admin`, `support`, `official` or `verif`
+  (`PA.ReservedToplevel` and its prefixes). `Labelmaker` is the facility for
   all of this. (Until October 2026 a row could also hold a `forced_label` overriding the minted
   one, "the effective label"; that pair is retired, and only an import of an older export still
   reads a `forced_label`.)

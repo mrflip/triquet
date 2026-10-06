@@ -140,18 +140,18 @@ export const ReservedToplevelGroups = {
   /** The app's own corners, and the words for signing in and keeping an account */
   app:     [
     'lib', 'sys', 'pub', 'my', 'home', 'root', 'www', 'static', 'assets', 'public', 'search', 'status',
-    'stats', 'dashboard', 'settings', 'account', 'accounts', 'acct', 'auth', 'oauth', 'login', 'logout',
+    'stats', 'dashboard', 'settings', 'account', 'accounts', 'acct', 'auth', 'oauth', 'logout',
     'signin', 'signout', 'signup', 'register', 'mail', 'email',
   ],
   /** What a site's marketing and help pages are called */
   pages:   [
-    'about', 'career', 'careers', 'job', 'jobs', 'team', 'teams', 'help', 'faq', 'docs', 'blog', 'news',
-    'press', 'pricing', 'plans', 'features', 'contact', 'support', 'privacy', 'terms', 'tos', 'legal',
+    'about', 'career', 'careers', 'job', 'jobs', 'team', 'teams', 'faq', 'docs', 'blog', 'news',
+    'press', 'pricing', 'plans', 'features', 'contact', 'privacy', 'terms', 'tos', 'legal',
     'cookies', 'enterprise', 'partners', 'store', 'shop', 'billing', 'download', 'downloads', 'brand',
   ],
   /** Names that would pass for the app itself speaking */
   voices:  [
-    'triquet', 'staff', 'system', 'administrator', 'moderator', 'mod', 'official', 'everyone', 'anonymous',
+    'staff', 'system', 'moderator', 'mod', 'everyone', 'anonymous',
     'guest', 'nobody', 'webmaster', 'postmaster', 'hostmaster', 'abuse', 'noreply', 'no_reply',
   ],
 } as const
@@ -159,15 +159,24 @@ export const ReservedToplevelGroups = {
 /** Every top-level reserved word, each group's in turn */
 export const ReservedToplevel: readonly string[] = Object.values(ReservedToplevelGroups).flat()
 
-/** How no hunt's or ident's label may begin: `security`, `secure` and the rest */
-export const ReservedToplevelPrefixes: readonly string[] = ['secur']
+/**
+ * How no hunt's or ident's label may begin: what would pass for the app's own desk or its say-so
+ * with anything after it (`help_desk`, `triquet_team`, `verified_ben`). A prefix is here when
+ * the trick it plays is a bad one and few real names begin with it; one too common to refuse
+ * (`staff`, as Stafford; `mod`, as modern) is reserved only as the whole word.
+ */
+export const ReservedToplevelPrefixes: readonly string[] = ['secur', 'login', 'triquet', 'help', 'admin', 'support', 'official', 'verif']
+
+/** Whole labels of these forms are kept too: `pub` and two characters more, for scopes of the library beside `pub` */
+export const ReservedToplevelForms: readonly string[] = ['pub..']
 
 /**
- * A hunt's or an ident's label that is no top-level reserved word, and begins with no reserved
- * prefix. Says nothing of the words every label is kept from, which is `Unreserved`'s business.
+ * A hunt's or an ident's label that is no top-level reserved word or form, and begins with no
+ * reserved prefix. Says nothing of the words every label is kept from, which is `Unreserved`'s
+ * business.
  */
 export const UnreservedToplevel = {
-  re:  new RegExp(`^(?!(?:${ReservedToplevel.join('|')})$)(?!(?:${ReservedToplevelPrefixes.join('|')}))`),
+  re:  new RegExp(`^(?!(?:${[...ReservedToplevel, ...ReservedToplevelForms].join('|')})$)(?!(?:${ReservedToplevelPrefixes.join('|')}))`),
   msg: 'is kept for the app\'s own pages and people: add to it, as my_label or label_2',
 } as const satisfies Patternbag
 
