@@ -29,7 +29,7 @@ function storedIssues(stored: { status: StoredStatus, value: unknown, message: s
   ]
 }
 
-export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, oneof, union, label, noteish, timestamp, discrim, zid }) => {
+export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, oneof, union, label, noteish, timestamp, stamps, discrim, zid }) => {
   const err = obj({
     message:  str
       .describe('Why it failed, in the author\'s words.'),
@@ -73,6 +73,7 @@ export const WidgetedValidators = Validator(({ obj, lit, str, num, zod, rec, one
     widgeting_id: zid('widgetings')
       .describe('The widgeting it is what of: keyed by widgeting, not widget, since one widget can be worked twice in a quiz.'),
     ...storedFields,
+    ...stamps,
   })
     .check((context) => { for (const issue of storedIssues(context.value)) { context.issues.push({ code: 'custom', ...issue }) } })
     .describe('What one widgeting came to for one question, as the database holds it. When it was recorded is the row\'s own `_creationTime`. Only a formulary that stores keeps one: `aibot` appends, history kept; `entry` upserts, one row a cell.')

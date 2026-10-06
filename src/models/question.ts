@@ -23,7 +23,7 @@ export const DefaultViz: QuestionViz = 'normal'
 /** The field a question's viz is held in */
 export const VizField = 'viz'
 
-export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish, titleish, label, stamp, timestamp, zid, treeid }) => {
+export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish, titleish, label, stamps, timestamp, zid, treeid }) => {
   // Each field is named once here, without its default, because a patch and a whole question
   // need the same meaning but opposite treatment of an absent key. `.partial()` cannot express
   // that: a default still fires through it, so a one-field patch built that way would carry
@@ -100,10 +100,7 @@ export const QuestionValidators = Validator(({ obj, rec, oneof, textish, noteish
     alt_text,
     notes,
     viz:          viz.default(DefaultViz),
-    created_at:   stamp
-      .describe('When it was made, in epoch milliseconds: stamped by the database\'s writer, never by its author.'),
-    updated_at:   stamp
-      .describe('When it was last edited, in epoch milliseconds: the same as `created_at` until its first edit, and moved by every edit after.'),
+    ...stamps,
   })
     .describe('One question as the database holds it: only what the author writes. What its widgetings stored is in rows of their own.')
 

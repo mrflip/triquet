@@ -6,7 +6,7 @@ import { Validator } from '../lib/validator'
 export const ReviewPhaseVals = ['empty', 'draft', 'shared'] as const
 export type ReviewPhase = typeof ReviewPhaseVals[number]
 
-export const ReviewValidators = Validator(({ obj, oneof, noteish, stamp, zid }) => {
+export const ReviewValidators = Validator(({ obj, oneof, noteish, stamps, zid }) => {
   const phase = oneof(ReviewPhaseVals)
     .describe('How far the review has come. Nothing moves it back to `empty` once anything has been written; sharing and withdrawing move it between `draft` and `shared` only.')
   const overall = noteish
@@ -21,10 +21,7 @@ export const ReviewValidators = Validator(({ obj, oneof, noteish, stamp, zid }) 
       .describe('Who is reviewing it.'),
     overall:  overall.default(''),
     phase:    phase.default('empty'),
-    created_at: stamp
-      .describe('When it was made, in epoch milliseconds: stamped by the database\'s writer, never by its author.'),
-    updated_at: stamp
-      .describe('When it was last edited, in epoch milliseconds: the same as `created_at` until its first edit, and moved by every edit after.'),
+    ...stamps,
   })
     .describe('One ident\'s review of one quiz. Hidden from the smiths until shared: it is live once shared, not a snapshot.')
 

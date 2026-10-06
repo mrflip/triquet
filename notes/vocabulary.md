@@ -227,9 +227,10 @@ words above.
     un-archived or deleted (the only way a question is deleted); in no export handed on (Copy for
     Sheets, the questions alone, the LL export), but kept in the quiz's own ball and table, with
     its viz. An import that brings in a question archives the quiz's untouched blank questions.
-* **stamps** (`created_at`, `updated_at`) -- when a hunt, quiz, question, review or verdict was
-  made and last edited, in epoch milliseconds; equal until its first edit. Stamped by the
-  database's writer alone (`convex/stamping.ts`), never typed or imported; written for people as
+* **stamps** (`created_at`, `updated_at`) -- when a row was made and last edited, in epoch
+  milliseconds; equal until its first edit. Every table of ours but the identings carries them,
+  written by the database's trigger alone (`convex/stamping.ts`), never typed or imported. The
+  balls and tables write a hunt's, quiz's, question's, review's and verdict's for people, as
   ISO-8601 in UTC (`2026-10-05T09:30:00.000Z`). A question **untouched** since it was made has
   equal stamps.
 

@@ -1,90 +1,65 @@
-import _ from 'es-toolkit/compat'
-import type { GenericId } from 'convex/values'
-import type { TableNames } from './_generated/dataModel'
+import { Triggers } from 'convex-helpers/server/triggers'
+import type { DataModel, TableNames } from './_generated/dataModel'
 import type { MutationCtx } from './_generated/server'
 import * as Stamps from '../src/lib/stamps'
 
-// Every public mutation writes through this (`functions.ts`), so a row a person makes or edits is
-// stamped in one place rather than by each writer. A row validator gives a row it checks the
-// stamps of the moment it is checked (`ValidatorKit.stamp`), and this sets them to the moment of
-// the mutation as the row goes in; an author never sets them, and an import does not carry them.
-
-/** What a mutation writes through */
-type Writer = MutationCtx['db']
+// Every row of ours a write lands on is stamped here, by a trigger (convex-helpers' Triggers),
+// rather than by each writer: `functions.ts` hands every mutation it builds a database wrapped by
+// `triggers.wrapDB`, and the trigger writes the stamps through the database beneath it, which runs
+// no trigger again. A writer never names a stamp, and an import does not carry one.
+//
+// What this does not see: a write from the Convex dashboard, and the migrations' own internal
+// mutations (`migrations.ts`), which write raw on purpose so that a backfill is no edit. A row the
+// trigger has never seen is read as `Stamps.of` reads it.
 
 /**
- * The tables whose rows a person makes and edits through the app, and which carry stamps: a hunt,
- * a quiz and its questions, and a review and its verdicts. A quiz's widgetings and columns are its
- * layout, whose changes are the quiz's; the rest are made by the app, or recorded and never edited.
+ * The tables whose rows are stamped: every table of ours the app writes, but `identings`, each row
+ * of which is one assertion of a username, appended and never edited, so that its `_creationTime`
+ * is its whole history. Convex Auth's tables are its own.
  */
-export const StampedTables = ['hunts', 'quizzes', 'questions', 'reviews', 'reviewings'] as const satisfies readonly TableNames[]
+export const StampedTables = [
+  'idents', 'hunts', 'realms', 'widgets', 'quizzes', 'widgetings', 'columns', 'questions', 'widgeteds', 'reviews', 'reviewings', 'huntings',
+] as const satisfies readonly TableNames[]
 export type StampedTablename = typeof StampedTables[number]
 
-/** Whether rows of `tablename` carry stamps */
-export function isStamped(tablename: string): tablename is StampedTablename {
-  return (StampedTables as readonly string[]).includes(tablename)
-}
-
-/** The stamps in `fields` taken out: they are this writer's to write */
-function unstamped(fields: Record<string, unknown>): Record<string, unknown> {
-  return _.omit(fields, ['created_at', 'updated_at'])
-}
+/** A write that landed on a stamped row, as a trigger is told it: the row as it stood (null for an insert) and as it stands */
+type StampedChangeT = { id: string, operation: 'insert' | 'update' | 'delete', oldDoc: Stamps.StampableT | null, newDoc: Stamps.StampableT | null }
 
 /**
- * `db`, stamping what it writes to a stamped table (`StampedTables`) with `now`: a row inserted is
- * made and last edited then, the two stamps equal; a patch that changes anything moves its
- * `updated_at` to then, and one that changes nothing is not written; a replace keeps the row's
- * `created_at`. Stamps an author's write carries are set aside. Everything else passes straight
- * through.
+ * The stamps a write leaves a row with: made in the whole millisecond of its `_creationTime` (or
+ * when it already says it was made), and on an insert last edited then too, so that a row nobody
+ * has edited has its two stamps equal; at every later write, last edited at `now`, the moment of
+ * the mutation. A row the trigger never saw takes its `created_at` at its first write. A write
+ * that leaves the stamps out (a replace) keeps the row's.
  *
- * @param db - The mutation's own database.
+ * @param tablename - Whose row, for the refusal.
+ * @param change - What the write did.
  * @param now - The moment of the mutation, in epoch milliseconds.
+ * @returns The stamps to write; null for a deletion.
+ * @throws When the write changes a `created_at` the row already held: once written, it never changes.
  *
- * @example await stampingWriter(ctx.db, Date.now()).insert('questions', row)  // its created_at and updated_at are both now
+ * @example stampsAfter('questions', { id, operation: 'insert', oldDoc: null, newDoc: { _creationTime: 5.5 } }, 9)  // => { created_at: 5, updated_at: 5 }
+ * @example stampsAfter('questions', { id, operation: 'update', oldDoc: { _creationTime: 5.5, created_at: 5 }, newDoc: { _creationTime: 5.5, created_at: 5 } }, 9)  // => { created_at: 5, updated_at: 9 }
  */
-export function stampingWriter(db: Writer, now: number): Writer {
-  /** The table of a write, named or found from the id */
-  const tableOf = (named: string | null, id: GenericId<string>): string | null => named ?? StampedTables.find((tablename) => db.normalizeId(tablename, id) !== null) ?? null
-
-  /** A write's arguments, the table named or not, as the table, the id and the fields */
-  const argsOf = (args: unknown[]): [string | null, GenericId<string>, Record<string, unknown>] => (
-    (args.length === 3 ? args : [null, ...args]) as [string | null, GenericId<string>, Record<string, unknown>]
-  )
-
-  const insert = async (tablename: string, fields: Record<string, unknown>) => (
-    await (db.insert as (...args: unknown[]) => Promise<unknown>)(tablename, isStamped(tablename) ? { ...fields, created_at: now, updated_at: now } : fields)
-  )
-
-  const patch = async (...args: unknown[]): Promise<void> => {
-    const [named, id, fields] = argsOf(args)
-    const write = async (patched: Record<string, unknown>) => { await (db.patch as (...args: unknown[]) => Promise<void>)(...(named === null ? [id, patched] : [named, id, patched])) }
-    if (! isStamped(tableOf(named, id) ?? '')) {
-      await write(fields)
-      return
-    }
-    const changed = unstamped(fields)
-    if (! _.isEmpty(changed)) { await write({ ...changed, updated_at: now }) }
+export function stampsAfter(tablename: string, change: StampedChangeT, now: number): Stamps.StampsT | null {
+  const { operation, oldDoc, newDoc } = change
+  if (operation === 'delete' || newDoc === null) { return null }
+  const held = oldDoc?.created_at
+  if (held !== undefined && newDoc.created_at !== undefined && newDoc.created_at !== held) {
+    throw new Error(`${tablename} ${change.id}: created_at is immutable, and this write would change it from ${String(held)} to ${String(newDoc.created_at)}`)
   }
-
-  const replace = async (...args: unknown[]): Promise<void> => {
-    const [named, id, fields] = argsOf(args)
-    const write = async (replaced: Record<string, unknown>) => { await (db.replace as (...args: unknown[]) => Promise<void>)(...(named === null ? [id, replaced] : [named, id, replaced])) }
-    const tablename = tableOf(named, id)
-    if (tablename === null || ! isStamped(tablename)) {
-      await write(fields)
-      return
-    }
-    const held = await db.get(tablename, id as GenericId<StampedTablename>)
-    await write({ ...unstamped(fields), created_at: held ? Stamps.of(held).created_at : now, updated_at: now })
-  }
-
-  const stamping: Record<string, unknown> = { insert, patch, replace }
-  // The database's own methods are bound to it, and only these three are taken over.
-  return new Proxy(db, {
-    get: (target, prop) => {
-      if (typeof prop === 'string' && Object.hasOwn(stamping, prop)) { return stamping[prop] }
-      const val: unknown = Reflect.get(target, prop)
-      return typeof val === 'function' ? (val as (...args: unknown[]) => unknown).bind(target) : val
-    },
-  })
+  const created_at = held ?? newDoc.created_at ?? Math.floor(newDoc._creationTime)
+  return { created_at, updated_at: operation === 'insert' ? created_at : now }
 }
+
+/** The trigger that stamps each write landing on a row of `tablename` (`stampsAfter`), through the database beneath the triggers */
+function stamping(tablename: StampedTablename) {
+  return async (ctx: { innerDb: MutationCtx['db'] }, change: StampedChangeT): Promise<void> => {
+    const stamps = stampsAfter(tablename, change, Date.now())
+    if (stamps) { await ctx.innerDb.patch(tablename, change.id as never, stamps) }
+  }
+}
+
+/** The triggers every mutation's database runs (`functions.ts`): today, the stamps of every stamped table */
+export const triggers = new Triggers<DataModel>()
+for (const tablename of StampedTables) { triggers.register(tablename, stamping(tablename)) }

@@ -1,5 +1,5 @@
 import _ from 'es-toolkit/compat'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import * as Z from 'zod'
 import type { Id } from '../../convex/_generated/dataModel'
 import { Question, QuestionValidators, RankField, type QuestionDNA } from '../../src/models/question'
@@ -191,11 +191,8 @@ describe('QuestionValidators.row', () => {
     expect(QuestionValidators.row(Row)).to.deep.eq(Row)
   })
 
-  it("stamps a question given no stamps with the moment it is checked, as the database's writer will again", () => {
-    vi.useFakeTimers({ now: 1_759_800_000_000, toFake: ['Date'] })
-    const { created_at, updated_at } = QuestionValidators.row(_.omit(Row, ['created_at', 'updated_at']))
-    vi.useRealTimers()
-    expect([created_at, updated_at]).to.deep.eq([1_759_800_000_000, 1_759_800_000_000])
+  it("takes a question with no stamps, which the database's trigger gives it once it lands", () => {
+    expect(QuestionValidators.row(_.omit(Row, ['created_at', 'updated_at']))).to.not.have.any.keys('created_at', 'updated_at')
   })
 
   const Refused: [object, string][] = [

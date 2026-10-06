@@ -2,7 +2,7 @@ import type * as Z from 'zod'
 import { Validator } from '../lib/validator'
 import * as PA from '../lib/vv/patterns'
 
-export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish, bool, stamp, zid }) => {
+export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish, bool, stamps, zid }) => {
   // Each field is named once, without its default, and then defaulted in the row and made
   // optional in the patch: see the patch pattern in `notes/guidelines.md`.
   const get_rate = uint.max(100).nullable()
@@ -41,10 +41,7 @@ export const ReviewingValidators = Validator(({ obj, uint, num, noteish, textish
     needs_fact_check:      needs_fact_check.default(false),
     elimination_candidate: elimination_candidate.default(false),
     peeked:                peeked.default(false),
-    created_at:            stamp
-      .describe('When it was made, in epoch milliseconds: stamped by the database\'s writer, never by its author.'),
-    updated_at:            stamp
-      .describe('When it was last edited, in epoch milliseconds: the same as `created_at` until its first edit, and moved by every edit after.'),
+    ...stamps,
   })
     .describe('One review\'s verdict on one question: at most one per review and question, made the first time the reviewer writes to that question.')
 

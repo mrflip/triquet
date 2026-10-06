@@ -1,14 +1,11 @@
 import _ from 'es-toolkit/compat'
-import type * as Z from 'zod'
 import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrations'
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import * as Stamps from '../src/lib/stamps'
+import { ValidatorKit } from '../src/lib/validator'
 import { HuntValidators } from '../src/models/hunt'
 import { DefaultViz, QuestionValidators } from '../src/models/question'
-import { QuizValidators } from '../src/models/quiz'
-import { ReviewValidators } from '../src/models/review'
-import { ReviewingValidators } from '../src/models/reviewing'
 import schema from './schema'
 import type { StampedTablename } from './stamping'
 
@@ -48,41 +45,39 @@ export const backfillHuntOrglabels = migrations.define({
   },
 })
 
-/** A row validator, as far as its stamps */
-type StampedRowValidator = { shape: Record<keyof Stamps.StampsT, Z.ZodType<number>> }
-
 /**
- * The backfill giving each row of `table` written before rows were stamped the stamps it is read
- * with meanwhile (`Stamps.of`): made when the database made it, and last edited then too, unless
- * it has been edited since the stamps arrived. A row with both is left alone. The stamps are held
- * to the row validator's own fields for them; the rest of the row is not read again, so no older
- * row can hold the backfill up (a hunt nobody is on has no org, which its row requires).
+ * The backfill giving each row of `table` that the stamping trigger has never seen the stamps it
+ * is read with meanwhile (`Stamps.of`): made in the whole millisecond the database made it, and
+ * last edited then too, unless it has been edited since the stamps arrived. A backfill is no edit:
+ * a never-edited row keeps its two stamps equal, as an untouched starter question must
+ * (`importQuestions`). The migrations write raw, so the trigger does not see this write. A row
+ * with both stamps is left alone; the rest of the row is not read again, so no older row can hold
+ * the backfill up (a hunt nobody is on has no org, which its row requires).
  */
-function stampBackfill(table: StampedTablename, row: StampedRowValidator) {
+function stampBackfill(table: StampedTablename) {
   return migrations.define({
     table,
     migrateOne: async (ctx, held) => {
       if (held.created_at !== undefined && held.updated_at !== undefined) { return }
       const stamps = Stamps.of(held)
-      await ctx.db.patch(table, held._id, { created_at: row.shape.created_at.parse(stamps.created_at), updated_at: row.shape.updated_at.parse(stamps.updated_at) })
+      await ctx.db.patch(table, held._id, { created_at: ValidatorKit.stamps.created_at.parse(stamps.created_at), updated_at: ValidatorKit.stamps.updated_at.parse(stamps.updated_at) })
     },
   })
 }
 
-/** Stamp each hunt written before rows were stamped (`stampBackfill`) */
-export const backfillHuntStamps = stampBackfill('hunts', HuntValidators.row)
-
-/** Stamp each quiz written before rows were stamped (`stampBackfill`) */
-export const backfillQuizStamps = stampBackfill('quizzes', QuizValidators.row)
-
-/** Stamp each question written before rows were stamped (`stampBackfill`) */
-export const backfillQuestionStamps = stampBackfill('questions', QuestionValidators.row)
-
-/** Stamp each review written before rows were stamped (`stampBackfill`) */
-export const backfillReviewStamps = stampBackfill('reviews', ReviewValidators.row)
-
-/** Stamp each reviewing written before rows were stamped (`stampBackfill`) */
-export const backfillReviewingStamps = stampBackfill('reviewings', ReviewingValidators.row)
+// One per stamped table, each as `stampBackfill` says.
+export const backfillIdentStamps     = stampBackfill('idents')
+export const backfillHuntStamps      = stampBackfill('hunts')
+export const backfillRealmStamps     = stampBackfill('realms')
+export const backfillWidgetStamps    = stampBackfill('widgets')
+export const backfillQuizStamps      = stampBackfill('quizzes')
+export const backfillWidgetingStamps = stampBackfill('widgetings')
+export const backfillColumnStamps    = stampBackfill('columns')
+export const backfillQuestionStamps  = stampBackfill('questions')
+export const backfillWidgetedStamps  = stampBackfill('widgeteds')
+export const backfillReviewStamps    = stampBackfill('reviews')
+export const backfillReviewingStamps = stampBackfill('reviewings')
+export const backfillHuntingStamps   = stampBackfill('huntings')
 
 /**
  * Give each question written before questions had a viz the one every question starts with, and
@@ -99,12 +94,19 @@ export const backfillQuestionViz = migrations.define({
 /** Every backfill still defined, in the order they run: the hunts' orgs, the questions' viz, and the stamps */
 export const Backfills: readonly MigrationFunctionReference[] = [
   internal.migrations.backfillHuntOrglabels,
+  internal.migrations.backfillQuestionViz,
+  internal.migrations.backfillIdentStamps,
   internal.migrations.backfillHuntStamps,
+  internal.migrations.backfillRealmStamps,
+  internal.migrations.backfillWidgetStamps,
   internal.migrations.backfillQuizStamps,
+  internal.migrations.backfillWidgetingStamps,
+  internal.migrations.backfillColumnStamps,
   internal.migrations.backfillQuestionStamps,
+  internal.migrations.backfillWidgetedStamps,
   internal.migrations.backfillReviewStamps,
   internal.migrations.backfillReviewingStamps,
-  internal.migrations.backfillQuestionViz,
+  internal.migrations.backfillHuntingStamps,
 ]
 
 /**

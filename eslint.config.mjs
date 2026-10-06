@@ -253,6 +253,25 @@ export default defineConfig([
     },
   },
 
+  // Every mutation is made by a builder of `convex/functions.ts`, whose database runs the triggers
+  // that stamp each row written (`convex/stamping.ts`). Convex's own `mutation` and
+  // `internalMutation` would write past them, so only that file and the migrations, whose
+  // backfills write raw on purpose, import them.
+  {
+    name: 'triquet/convex-mutations-through-triggers',
+    files: SourceFiles,
+    ignores: ['convex/functions.ts', 'convex/migrations.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group:       ['**/_generated/server'],
+          importNames: ['mutation', 'internalMutation'],
+          message:     'Build a mutation with a builder of convex/functions.ts (zMutation, zHuntMutation, zInternalMutation...), whose database stamps each row written (convex/stamping.ts).',
+        }],
+      }],
+    },
+  },
+
   // Convex routes a function by its file's path, and refuses a hyphen in one: its modules and
   // their tests are underbar_case (`convex/writing/quiz_actions.ts`).
   {

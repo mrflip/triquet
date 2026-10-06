@@ -10,7 +10,7 @@ import { refusingInvalid } from '../src/lib/refusals'
 import { installErrorMap } from '../src/lib/vv/reporting'
 import { libraryWriter, scopedReader, scopedWriter, type ScopeClaimsT } from './policy_rules'
 import { censusOf, identFor, type CensusT, type Reader } from './reading'
-import { stampingWriter } from './stamping'
+import { triggers } from './stamping'
 
 /**
  * Who is asking, as every public function's `ctx` carries it.
@@ -65,16 +65,7 @@ export async function emptyIfDenied<TT, ET>(empty: ET, read: () => Promise<TT>):
   }
 }
 
-/** Our Zod error map, put in place before a function's arguments are parsed, so a refusal reads in our words */
-const InOurWords = {
-  args:  {},
-  input: () => {
-    installErrorMap()
-    return { ctx: {}, args: {} }
-  },
-}
-
-/** As `InOurWords`, and who is asking (`askerOf`) added to `ctx` */
+/** Our Zod error map, put in place before a function's arguments are parsed, so a refusal reads in our words; and who is asking (`askerOf`) added to `ctx` */
 const Asking = {
   args:  {},
   input: async (ctx: { auth: Auth, db: Reader }) => {
@@ -83,12 +74,21 @@ const Asking = {
   },
 }
 
-/** As `Asking`, with a database that stamps the rows a person makes and edits (`stampingWriter`) at the moment of the mutation */
+/** As `Asking`, with a database that runs the triggers (`stamping.ts`: every row written is stamped) */
 const AskingToWrite = {
   args:  {},
-  input: async (ctx: { auth: Auth, db: MutationCtx['db'] }) => {
+  input: async (ctx: MutationCtx) => {
     installErrorMap()
-    return { ctx: { ...await askerOf(ctx), db: stampingWriter(ctx.db, Date.now()) }, args: {} }
+    return { ctx: { ...await askerOf(ctx), db: triggers.wrapDB(ctx).db }, args: {} }
+  },
+}
+
+/** Our Zod error map alone, for an internal mutation, which nobody asks; with a database that runs the triggers */
+const InOurWordsToWrite = {
+  args:  {},
+  input: (ctx: MutationCtx) => {
+    installErrorMap()
+    return { ctx: { db: triggers.wrapDB(ctx).db }, args: {} }
   },
 }
 
@@ -96,15 +96,17 @@ const AskingToWrite = {
  * The builders every public function here is made with: Convex's own, taking Zod schemas as
  * `args` (and `returns`), parsed in full before the handler runs, with who is asking on `ctx`
  * (`ctx.actor`, `ctx.user_id`: see `AskerT`). A refused argument reaches the caller as a
- * `ConvexError` whose data is `{ ZodError: [issue, ...] }`, in our words. A mutation's database
- * stamps the rows a person makes and edits (`stamping.ts`). An internal function has nobody asking,
- * and writes no stamps but its own.
+ * `ConvexError` whose data is `{ ZodError: [issue, ...] }`, in our words. A mutation's database,
+ * internal or public, runs the triggers, which stamp every row written (`stamping.ts`); so every
+ * mutation of the app is made here, and nowhere else imports Convex's own `mutation` or
+ * `internalMutation` (`eslint.config.mjs`), but the migrations, whose backfills write raw. An
+ * internal function has nobody asking.
  *
  * @example export const open = zQuery({ args: { quiz_id: zid('quizzes') }, handler: async (ctx, { quiz_id }) => ... ctx.actor ... })
  */
 export const zQuery            = zCustomQuery(query, Asking)
 export const zMutation         = zCustomMutation(mutation, AskingToWrite)
-export const zInternalMutation = zCustomMutation(internalMutation, InOurWords)
+export const zInternalMutation = zCustomMutation(internalMutation, InOurWordsToWrite)
 
 // --- A hunt's functions
 

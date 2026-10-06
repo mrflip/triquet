@@ -61,7 +61,7 @@ const QuestionSourcePattern = String.raw`${QuestionWidgetLabel}\.(${[...Question
 const WidgetingSourcePattern = String.raw`(?!${QuestionWidgetLabel}\.)[a-z]\w*(\.(${WidgetingPartVals.join('|')}))?`
 const SourceRe = new RegExp(`^(${QuestionSourcePattern}|${WidgetingSourcePattern})$`)
 
-export const ColumnValidators = Validator(({ obj, str, oneof, titleish, label, int, uint, zid }) => {
+export const ColumnValidators = Validator(({ obj, str, oneof, titleish, label, int, uint, stamps, zid }) => {
   const columnLabel = label
     .describe('What the column is called within its quiz, unique there. It names the column in an export and in the quiz\'s sort memory.')
   const source = str.regex(SourceRe, 'should be `question.<field>`, `question.<view>`, the label of a widgeting, or a widgeting\'s label and one of its parts')
@@ -106,6 +106,7 @@ export const ColumnValidators = Validator(({ obj, str, oneof, titleish, label, i
     ...column.shape,
     position: uint.max(PA.ColumnsPerQuiz.max)
       .describe('The column\'s place among its quiz\'s columns, counting from zero.'),
+    ...stamps,
   })
     .describe('One column as the database holds it.')
 

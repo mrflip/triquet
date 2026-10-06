@@ -2,7 +2,7 @@ import migrationsTest from '@convex-dev/migrations/test'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { StampedTables } from '../../convex/stamping'
+import { StampedTables, type StampedTablename } from '../../convex/stamping'
 import { Hunt } from '../../src/models/hunt'
 import { openOf, openTester, seedHunt, type Tester } from '../support/convex'
 import { present } from '../support/present'
@@ -111,7 +111,13 @@ async function reviewedHunt(tt: Tester) {
   return held
 }
 
-const StampBackfills = ['backfillHuntStamps', 'backfillQuizStamps', 'backfillQuestionStamps', 'backfillReviewStamps', 'backfillReviewingStamps'] as const
+/** Each stamped table's backfill */
+const StampBackfillFor: Record<StampedTablename, string> = {
+  idents: 'backfillIdentStamps', hunts: 'backfillHuntStamps', realms: 'backfillRealmStamps', widgets: 'backfillWidgetStamps', quizzes: 'backfillQuizStamps',
+  widgetings: 'backfillWidgetingStamps', columns: 'backfillColumnStamps', questions: 'backfillQuestionStamps', widgeteds: 'backfillWidgetedStamps',
+  reviews: 'backfillReviewStamps', reviewings: 'backfillReviewingStamps', huntings: 'backfillHuntingStamps',
+}
+const StampBackfills = Object.values(StampBackfillFor)
 
 describe("the stamp backfills", () => {
   it("stamp each row written before rows were stamped as made, and last edited, in the whole millisecond the database made it", async () => {
@@ -120,8 +126,9 @@ describe("the stamp backfills", () => {
     await unstamp(tt)
     for (const fn of StampBackfills) { await migrate(tt, `migrations:${fn}`) }
     const held = await stampsIn(tt)
-    for (const tablename of StampedTables) {
-      expect(held[tablename], tablename).to.not.be.empty
+    const written = StampedTables.filter((tablename) => present(held[tablename]).length > 0)
+    expect(written).to.include.members(['idents', 'hunts', 'realms', 'widgets', 'quizzes', 'columns', 'questions', 'reviews', 'reviewings', 'huntings'])
+    for (const tablename of written) {
       const rows = present(held[tablename])
       for (const [made, created_at, updated_at] of rows) { expect([created_at, updated_at], tablename).to.deep.eq([made, made]) }
     }
@@ -141,9 +148,10 @@ describe("the stamp backfills", () => {
     expect([row.created_at, row.updated_at]).to.deep.eq([Math.floor(row._creationTime), 4_000_000_000_000])
   })
 
-  it("leave a stamped row alone", async () => {
+  it("leave a stamped row alone, so that running them again changes nothing", async () => {
     const { tt } = deployment()
     await reviewedHunt(tt)
+    for (const fn of StampBackfills) { await migrate(tt, `migrations:${fn}`) }
     const before = await stampsIn(tt)
     for (const fn of StampBackfills) { await migrate(tt, `migrations:${fn}`) }
     expect(await stampsIn(tt)).to.deep.eq(before)

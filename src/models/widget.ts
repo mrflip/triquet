@@ -27,7 +27,7 @@ export const JsonataDefaultInput = '$'
 /** The input formula a new `aibot` widget starts with: the clueing, for a `{{clueing}}` in its prompt */
 export const AibotDefaultInput = "{ 'clueing': qn.clueing }"
 
-export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape, titleish, noteish, textish, formulaish, discrim, union, uint, num }) => {
+export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape, titleish, noteish, textish, formulaish, discrim, union, uint, num, stamps }) => {
   const jsonataConfig = obj({}).strict()
     .describe('A `jsonata` widget\'s settings: none.')
   const aibotConfig = obj({
@@ -134,6 +134,7 @@ export const WidgetValidators = Validator(({ obj, oneof, lit, label, labelshape,
     input_formula,
     position:      uint.max(PA.WidgetsInLibrary.max)
       .describe('The widget\'s place in the order the library lists them, counting from zero.'),
+    ...stamps,
   }
   const row = discrim('formulary', [obj({ ...rowFields, ...jsonataFields }), obj({ ...rowFields, ...aibotFields }), obj({ ...rowFields, ...entryFields })])
     .describe('One widget as the database holds it: its fields, and its place in the library.')

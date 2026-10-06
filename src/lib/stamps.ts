@@ -1,9 +1,9 @@
 /**
- * When a row a person makes and edits was made, and last edited: its **stamps**, `created_at` and
- * `updated_at`, each in epoch milliseconds (UTC by definition). The database's writer gives a row
- * both from one moment when it is inserted, so the two are equal until its first edit, and moves
- * `updated_at` at every edit after (`convex/stamping.ts`). Where a person reads them (a jsonball, a
- * table), they are written as ISO-8601 UTC strings ending in `Z`.
+ * When a row was made, and last edited: its **stamps**, `created_at` and `updated_at`, each in
+ * epoch milliseconds (UTC by definition). The database's trigger stamps a row as each write lands
+ * (`convex/stamping.ts`): an inserted row both from the whole millisecond of its `_creationTime`,
+ * so the two are equal until its first edit, and `updated_at` the moment of each edit after. Where
+ * a person reads them (a jsonball, a table), they are written as ISO-8601 UTC strings ending in `Z`.
  */
 
 /** The fields that hold a row's stamps */
@@ -19,9 +19,10 @@ export type IsoStampsT = { created_at: string | null, updated_at: string | null 
 export type StampableT = { _creationTime: number, created_at?: number, updated_at?: number }
 
 /**
- * The stamps of a row: its own, or for a row written before rows were stamped, what the backfill
- * gives it (the stamp backfills of `convex/migrations.ts`): made when the database made it, and not edited since,
- * unless it has been edited since the stamps arrived.
+ * The stamps of a row: its own, or for a row the trigger has not seen (written before rows were
+ * stamped, or from the dashboard), what the trigger and the backfills give it: made in the whole
+ * millisecond the database made it, and not edited since, unless it has been edited since the
+ * stamps arrived.
  *
  * @example of({ _creationTime: 1759700000000.5 })  // => { created_at: 1759700000000, updated_at: 1759700000000 }
  * @example of({ _creationTime: 1, created_at: 2, updated_at: 3 })  // => { created_at: 2, updated_at: 3 }

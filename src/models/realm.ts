@@ -7,7 +7,7 @@ import { QuizValidators, type QuizT } from './quiz'
 /** The realm every hunt starts with, and for now the only one it has */
 export const HomeRealmLabel = 'home'
 
-export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid, treeid }) => {
+export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, stamps, zid, treeid }) => {
   // Pinned by a refinement rather than a literal (nor a type predicate, which would narrow the type
   // the same way), so the schema derived from the row stays a string and no push can refuse a
   // realm row already written (`notes/deploy.md`, *Schema pushes*).
@@ -32,6 +32,7 @@ export const RealmValidators = Validator(({ obj, arr, label, titleish, uint, zid
     title,
     position: uint.max(PA.RealmsPerHunt.max)
       .describe('The realm\'s place among its hunt\'s realms, counting from zero.'),
+    ...stamps,
   })
     .describe('One realm as the database holds it: its quizzes are rows of their own.')
 

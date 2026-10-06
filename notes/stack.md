@@ -71,7 +71,10 @@ don't trust a recalled version number, including one recalled by an agent.
   schema becomes a Convex validator (`zodOutputToConvexFields`, `zodOutputToConvex`, `zid`) and how a function takes
   Zod arguments (`zCustomQuery`, `zCustomMutation`). Its `server/rowLevelSecurity`
   (`wrapDatabaseReader`, `wrapDatabaseWriter`) wraps the database a hunt's function holds, held to
-  the rules in `convex/policy_rules.ts` (see `notes/convex.md`, *Who is asking*). At 0.1.x its
+  the rules in `convex/policy_rules.ts` (see `notes/convex.md`, *Who is asking*). Its
+  `server/triggers` (`Triggers`, `wrapDB`) runs a function as each write lands, on the database of
+  every mutation `convex/functions.ts` builds: it stamps every row (`convex/stamping.ts`; see
+  `notes/convex.md`, *Stamps*). At 0.1.x its
   version number alone would make it *Discuss*; it is *Use* because it is the supported path, and
   what lets one schema drive the others.
 * **@convex-dev/migrations** (pinned exact), Convex's own component for backfilling a live

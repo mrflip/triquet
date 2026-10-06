@@ -61,11 +61,17 @@ export const ValidatorKit = {
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
   /**
-   * One of a row's stamps (`created_at`, `updated_at`), in epoch milliseconds (`Stamps`). The
-   * database's writer stamps each row it writes (`convex/stamping.ts`), so a row validated on its
-   * way there is stamped now, for the moment.
+   * A row's stamps, to spread into its row validator: when it was made and last edited, in epoch
+   * milliseconds (`Stamps`). Written by the database's trigger once a write lands
+   * (`convex/stamping.ts`), never by a writer, so a row goes in without them and they are optional
+   * for good.
    */
-  stamp:     Z.int().positive().default(() => Date.now()),
+  stamps:    {
+    created_at: Z.int().positive().optional()
+      .describe('When the row was made, in epoch milliseconds: the whole millisecond of its `_creationTime`, written by the database\'s trigger and never changed after.'),
+    updated_at: Z.int().positive().optional()
+      .describe('When the row was last written, in epoch milliseconds: the same as `created_at` until its first edit, and the moment of each edit after.'),
+  },
   //
   num:       Z.number(),
   int:       Z.int(),

@@ -1,112 +1,105 @@
 import _ from 'es-toolkit/compat'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Id } from '../../convex/_generated/dataModel'
-import { StampedTables, isStamped, stampingWriter } from '../../convex/stamping'
+import { StampedTables, stampsAfter } from '../../convex/stamping'
 import { Hunt } from '../../src/models/hunt'
-import { Question } from '../../src/models/question'
 import { openOf, openTester, seedHunt, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
 /** Three moments, a minute apart, at which the tests write */
 const [Early, Later, Latest] = [Date.UTC(2026, 9, 5, 9), Date.UTC(2026, 9, 5, 9, 1), Date.UTC(2026, 9, 5, 9, 2)]
 
-/** A seeded hunt, and its open quiz's first question's id */
+/** A seeded hunt, and its open quiz's first two questions' ids */
 async function seeded(tt: Tester = openTester()) {
   const held = await seedHunt(tt, Hunt.blank('quiet_otter'))
-  const question_id = present(openOf(await held.read()).questions[0])._id as Id<'questions'>
-  return { ...held, tt, question_id }
+  const [first, second] = openOf(await held.read()).questions.map((question) => question._id as Id<'questions'>)
+  return { ...held, tt, question_id: present(first), other_id: present(second) }
 }
 
-/** The stamps of the question `question_id`, as its row holds them */
+/** The question `question_id`'s stamps as its row holds them, beside the whole millisecond the database made it */
 async function stampsOf(tt: Tester, question_id: Id<'questions'>) {
-  return await tt.run(async (ctx) => _.pick(await ctx.db.get('questions', question_id), ['created_at', 'updated_at']))
+  return await tt.run(async (ctx) => {
+    const row = present(await ctx.db.get('questions', question_id))
+    return { made: Math.floor(row._creationTime), ..._.pick(row, ['created_at', 'updated_at']) }
+  })
 }
 
 beforeEach(() => { vi.useFakeTimers({ now: Early, toFake: ['Date'] }) })
 afterEach(() => { vi.useRealTimers() })
 
 describe("StampedTables", () => {
-  it("is the rows a person makes and edits: a hunt, a quiz and its questions, a review and its verdicts", () => {
-    expect(StampedTables).to.deep.eq(['hunts', 'quizzes', 'questions', 'reviews', 'reviewings'])
-    expect([isStamped('questions'), isStamped('columns'), isStamped('widgeteds')]).to.deep.eq([true, false, false])
+  it("is every table of ours the app writes, but the identings, appended and never edited", () => {
+    expect(StampedTables).to.not.include('identings')
+    expect(StampedTables).to.include.members(['hunts', 'quizzes', 'questions', 'widgetings', 'columns', 'widgeteds', 'reviews', 'reviewings'])
   })
 })
 
-describe("stampingWriter", () => {
-  it("stamps a row inserted into a stamped table with one moment, made and last edited, whatever stamps it carried", async () => {
-    const { tt, open } = await seeded()
-    const question_id = await tt.run(async (ctx) => {
-      const row = { ...Question.blankRow({ hunt_id: open.hunt_id, quiz_id: open.quiz_id }), created_at: 1, updated_at: 2 }
-      return await stampingWriter(ctx.db, Later).insert('questions', row)
+describe("stampsAfter", () => {
+  const Made = 1_759_700_000_000
+  const Cases: [Parameters<typeof stampsAfter>[1], ReturnType<typeof stampsAfter>, string][] = [
+    [{ id: 'aa', operation: 'insert', oldDoc: null, newDoc: { _creationTime: Made + 0.5 } },                                                        { created_at: Made, updated_at: Made },   'an insert: made, and last edited, in the whole millisecond the database made it'],
+    [{ id: 'aa', operation: 'update', oldDoc: { _creationTime: Made, created_at: Made }, newDoc: { _creationTime: Made, created_at: Made } },        { created_at: Made, updated_at: Later },  'an edit: last edited now'],
+    [{ id: 'aa', operation: 'update', oldDoc: { _creationTime: Made + 0.5 }, newDoc: { _creationTime: Made + 0.5 } },                                { created_at: Made, updated_at: Later },  'the first edit of a row it never saw: made when the database made it'],
+    [{ id: 'aa', operation: 'update', oldDoc: { _creationTime: Made, created_at: Made - 9 }, newDoc: { _creationTime: Made } },                      { created_at: Made - 9, updated_at: Later }, 'a replace that leaves the stamps out: keeps when it was made'],
+    [{ id: 'aa', operation: 'delete', oldDoc: { _creationTime: Made }, newDoc: null },                                                               null,                                     'a deletion: nothing'],
+  ]
+  for (const [change, stamps, describes] of Cases) {
+    it(`stamps ${describes}`, () => {
+      expect(stampsAfter('questions', change, Later)).to.deep.eq(stamps)
     })
-    expect(await stampsOf(tt, question_id)).to.deep.eq({ created_at: Later, updated_at: Later })
+  }
+
+  it("refuses a write that changes when a row was made", () => {
+    const change = { id: 'aa', operation: 'update' as const, oldDoc: { _creationTime: Made, created_at: Made }, newDoc: { _creationTime: Made, created_at: Made + 1 } }
+    expect(() => stampsAfter('questions', change, Later)).to.throw(/created_at is immutable/)
   })
 
-  it("moves a patched row's updated_at, and leaves its created_at, whatever stamps the patch carried", async () => {
-    const { tt, question_id } = await seeded()
-    await tt.run(async (ctx) => { await stampingWriter(ctx.db, Later).patch('questions', question_id, { clueing: 'Who?', created_at: 1, updated_at: 2 }) })
-    expect(await stampsOf(tt, question_id)).to.deep.eq({ created_at: Early, updated_at: Later })
-  })
-
-  it("writes nothing for a patch that holds stamps alone", async () => {
-    const { tt, question_id } = await seeded()
-    await tt.run(async (ctx) => { await stampingWriter(ctx.db, Later).patch('questions', question_id, { created_at: 1, updated_at: 2 }) })
-    expect(await stampsOf(tt, question_id)).to.deep.eq({ created_at: Early, updated_at: Early })
-  })
-
-  it("keeps a replaced row's created_at, and moves its updated_at", async () => {
-    const { tt, question_id } = await seeded()
-    await tt.run(async (ctx) => {
-      const held = present(await ctx.db.get('questions', question_id))
-      await stampingWriter(ctx.db, Later).replace('questions', question_id, { ..._.omit(held, ['_id', '_creationTime']), clueing: 'Who?', created_at: 1 })
-    })
-    expect(await stampsOf(tt, question_id)).to.deep.eq({ created_at: Early, updated_at: Later })
-  })
-
-  it("finds a stamped table from the id alone, when a write names none", async () => {
-    const { tt, question_id } = await seeded()
-    await tt.run(async (ctx) => { await stampingWriter(ctx.db, Later).patch(question_id, { clueing: 'Who?' }) })
-    expect(await stampsOf(tt, question_id)).to.deep.eq({ created_at: Early, updated_at: Later })
-  })
-
-  it("passes a write to a table that is not stamped straight through", async () => {
-    const { tt, open } = await seeded()
-    const column = await tt.run(async (ctx) => {
-      const [first] = await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', open.quiz_id)).take(1)
-      const held = present(first)
-      await stampingWriter(ctx.db, Later).patch('columns', held._id, { width_px: 99 })
-      return await ctx.db.get('columns', held._id)
-    })
-    expect(column).to.deep.include({ width_px: 99 }).and.not.to.have.property('updated_at')
-  })
-
-  it("reads as the database it wraps", async () => {
-    const { tt, question_id } = await seeded()
-    const label = await tt.run(async (ctx) => {
-      const question = await stampingWriter(ctx.db, Later).get('questions', question_id)
-      return question?.label
-    })
-    expect(label).to.be.a('string')
+  it("reads the doc block's examples", () => {
+    expect(stampsAfter('questions', { id: 'aa', operation: 'insert', oldDoc: null, newDoc: { _creationTime: 5.5 } }, 9)).to.deep.eq({ created_at: 5, updated_at: 5 })
+    expect(stampsAfter('questions', { id: 'aa', operation: 'update', oldDoc: { _creationTime: 5.5, created_at: 5 }, newDoc: { _creationTime: 5.5, created_at: 5 } }, 9)).to.deep.eq({ created_at: 5, updated_at: 9 })
   })
 })
 
 describe("a mutation's database", () => {
-  it("stamps a question made with the moment of the mutation, made and last edited alike", async () => {
+  it("stamps a question made, made and last edited alike, in the whole millisecond the database made it", async () => {
     const { tt, act, read } = await seeded()
     vi.setSystemTime(Later)
     await act({ kind: 'add_question' })
     const added = present(openOf(await read()).questions.at(-1))
-    expect(await stampsOf(tt, added._id as Id<'questions'>)).to.deep.eq({ created_at: Later, updated_at: Later })
+    const { made, created_at, updated_at } = await stampsOf(tt, added._id as Id<'questions'>)
+    expect([created_at, updated_at]).to.deep.eq([made, made])
   })
 
-  it("moves an edited question's updated_at to the moment of the edit, and its alone", async () => {
-    const { tt, act, read, question_id } = await seeded()
-    const other = present(openOf(await read()).questions[1])._id as Id<'questions'>
+  it("moves an edited question's updated_at to the moment of the edit, and its alone, filling in when it was made", async () => {
+    const { tt, act, question_id, other_id } = await seeded()
     vi.setSystemTime(Later)
     await act({ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } })
     vi.setSystemTime(Latest)
     await act({ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } })
-    expect(await stampsOf(tt, question_id)).to.deep.eq({ created_at: Early, updated_at: Later })
-    expect(await stampsOf(tt, other)).to.deep.eq({ created_at: Early, updated_at: Early })
+    const edited = await stampsOf(tt, question_id)
+    expect([edited.created_at, edited.updated_at]).to.deep.eq([edited.made, Later])
+    expect(await stampsOf(tt, other_id)).to.not.have.any.keys('created_at', 'updated_at')
+  })
+
+  it("stamps a row of the layout too: a column moved", async () => {
+    const { tt, act } = await seeded()
+    vi.setSystemTime(Later)
+    const before = await tt.run(async (ctx) => await ctx.db.query('columns').collect())
+    const last = present(before.at(-1)).label
+    await act({ kind: 'move_column', label: last, onto_idx: 0 })
+    const stamped = await tt.run(async (ctx) => {
+      const columns = await ctx.db.query('columns').collect()
+      return columns.filter((column) => column.updated_at === Later).map((column) => column.label)
+    })
+    expect(stamped).to.include(last)
+  })
+
+  it("refuses, writing nothing, an edit that would change when a row was made", async () => {
+    const { tt, act, question_id } = await seeded()
+    await act({ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } })
+    await expect(tt.run(async (ctx) => {
+      const { triggers } = await import('../../convex/stamping')
+      await triggers.wrapDB(ctx).db.patch('questions', question_id, { created_at: 1 })
+    })).rejects.toThrow(/created_at is immutable/)
   })
 })

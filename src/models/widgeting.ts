@@ -18,7 +18,7 @@ export const ReservedWidgetingLabels: readonly string[] = [...Question.exposed, 
 
 const Reserved = PA.reservedOf(ReservedWidgetingLabels)
 
-export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, uint, zid }) => {
+export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, uint, stamps, zid }) => {
   // Each field is named once, bare, then defaulted in the widgeting and made optional in its patch.
   const widgetingLabel = label.regex(Reserved.re, Reserved.msg)
     .describe('What the widgeting is called within its quiz, unique there and none of the names a question already answers to. Columns, the bag and exports name it by this.')
@@ -56,6 +56,7 @@ export const WidgetingValidators = Validator(({ obj, rec, label, noteish, zod, u
     params,
     position: uint.max(PA.WidgetingsPerQuiz.max)
       .describe('Its place in its quiz\'s run order, counting from zero.'),
+    ...stamps,
   })
     .describe('One widgeting as the database holds it.')
 
