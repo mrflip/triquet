@@ -7,7 +7,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | Widen the recap fields | underway |
+| 1 | Widen the recap fields | in review |
 | 2 | Markdown to bbjank | landing |
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | pending |
@@ -33,6 +33,16 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   `~~**ANSWER**~~` spoiler path is solid. bbjank's link and image protocols (http/https; https)
   are its own, not `Markdown.Allowlist`'s: thread 4 widens the allowlist for images, thread 7 decides
   whether they share one source.
+
+* **Fields (thread 1, in review).** Newer than the plan's Decision 3: quiz `templated` names what
+  it templates the way a column names what it shows, `question.<field>` or a widgeting's label;
+  the templatable question fields are `TemplatableFieldVals` (clueing, hint, full_answer, notes,
+  recap); `set_templated` replaces the whole list and refuses an unknown widgeting
+  (`untemplatable`). The four quiz note setters are one `setQuizNote`. Readers of rows written
+  before the fields existed get the defaults from `QuizFallbacks`/`QuestionFallbacks`/
+  `WidgetingFallbacks` in `src/lib/rows.ts`. `recap` is now a reserved widgeting label. Thread 5:
+  `recap` has no column or cell editor yet (add it to `QuestionFieldVals`; no migration). Thread 6:
+  nothing reads `tier` yet. Thread 9: the checklist is in `thread-1-recap_widen.md`.
 
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
