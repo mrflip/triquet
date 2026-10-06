@@ -14,6 +14,21 @@
     columns use them.
 
 
+## Ways to have workers spend less time twiddling thumbs waiting for e2e
+
+The landing flow that came out of sprint little_fixes is `whiteboard/20261006-landing_flow/landing_flow-plan.md`:
+prove before you bid, and bid cheaply. Two ideas were proposed along the way and pushed back on, kept here:
+
+* **A machine-wide e2e lock** in `spine.ts`, so landings queue for e2e and stop failing each
+  other. *The Coach: this might make it worse.* Once one worker queues behind another, the CPU
+  is saturated by the suite running *and* no work gets done by the workers waiting for a
+  bug-free green run. A flake sends its owner back to the end of the line, and another
+  container on the machine makes it worse. Better to let e2e suites run in parallel whenever
+  they like, so that nobody waits behind anyone longer than one test suite.
+* **Wait a random 1-5 minutes before retrying** a landing that failed under load, rather than
+  until the load falls below a threshold. *The Coach: "wait 5 minutes" makes my stomach turn.*
+  Waiting is the cost we are trying to remove; rerunning a failed spec alone, at once, replaces it.
+
 ## Wontfix (fixable, but not devoting resources to fix it)
 
 * After an import or a column change, the order the grid currently shows may become weird: a
