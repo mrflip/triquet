@@ -105,18 +105,30 @@ async function quizOfChange(db: InnerDbT, tablename: SignalledTablename, change:
 }
 
 /**
+ * The quizzes whose signal each mutation has moved, or found moved within the grain, by the
+ * mutation's database: once settled, a signal stands for the rest of the mutation (its moment is
+ * one), so a mutation writing a quiz's many rows (an import, a deletion) reads its signal once.
+ */
+const settledIn = new WeakMap<InnerDbT, Set<Id<'quizzes'>>>()
+
+/**
  * The trigger that moves a quiz's signal at each write landing on a row of `tablename`
- * (`moveSignal`), at the moment of the mutation, through the database beneath the triggers; and
- * takes a deleted quiz's signal away with it.
+ * (`moveSignal`), at the moment of the mutation, through the database beneath the triggers, once
+ * per mutation and quiz; and takes a deleted quiz's signal away with it.
  */
 export function signalling(tablename: SignalledTablename) {
   return async (ctx: { innerDb: InnerDbT }, change: SignalledChangeT): Promise<void> => {
+    const settled = settledIn.get(ctx.innerDb) ?? new Set<Id<'quizzes'>>()
+    settledIn.set(ctx.innerDb, settled)
     const deleted = tablename === 'quizzes' && change.operation === 'delete' ? ctx.innerDb.normalizeId('quizzes', change.id) : null
     if (deleted) {
+      settled.add(deleted)
       await dropSignal(ctx.innerDb, deleted)
       return
     }
     const quiz = await quizOfChange(ctx.innerDb, tablename, change)
-    if (quiz) { await moveSignal(ctx.innerDb, quiz, Date.now()) }
+    if (! quiz || settled.has(quiz.quiz_id)) { return }
+    settled.add(quiz.quiz_id)
+    await moveSignal(ctx.innerDb, quiz, Date.now())
   }
 }
