@@ -64,11 +64,11 @@ the sidebar shows. A branch is given by its label (`userlabel`) or its whole nam
 Three ways to print:
 
 * `--rename`, the default, prints the `/rename` that names a session for what it did:
-  the worktrees it cut and the PRs it linked, in the order it first met them, each PR closing a
-  group with an extra space, then ` | ` and the title it had.
+  the PRs it linked, then the worktrees it cut, each in the order it first met them, the two set
+  apart by an extra space, then ` | ` and the title it had, with nothing wrapped round it.
 
   ```
-  /rename e2e_practices #93  git_attic #97  landing_flow session_branches #149 | PR merge and deploy order
+  /rename #93 #97 #149  e2e_practices git_attic landing_flow session_branches | PR merge and deploy order
   ```
 
   Run inside a session with nothing asked, it names that session (`$CLAUDE_CODE_SESSION_ID`), and

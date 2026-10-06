@@ -190,19 +190,20 @@ describe('renameOf', () => {
   const RenameCases: [string[], string, string | null, string][] = [
     // regular usage:
     [['e2e_practices', '#93', 'git_attic', '#97', 'landing_flow', 'session_branches', '#149'], 'PR merge and deploy order',
-      '/rename e2e_practices #93  git_attic #97  landing_flow session_branches #149 | PR merge and deploy order', 'worktrees and their PRs in order, a PR closing each group, then the title'],
-    [['userlabel', '#116'], 'Form validation styling', '/rename userlabel #116 | Form validation styling', 'one branch and its PR'],
+      '/rename #93 #97 #149  e2e_practices git_attic landing_flow session_branches | PR merge and deploy order', 'the PRs first, then the worktrees, each in the order met, then the title'],
+    [['userlabel', '#116'], 'Form validation styling', '/rename #116  userlabel | Form validation styling', 'a PR comes before its branch'],
     // the title has been through this before:
-    [['userlabel', '#116'], 'userlabel | Form validation styling', '/rename userlabel #116 | Form validation styling', 'what follows an earlier pipe is the title, so renaming twice does not stack'],
-    [['userlabel', '#116'], 'a | b | c', '/rename userlabel #116 | b | c', 'only the first pipe divides: what follows it is kept whole'],
+    [['userlabel', '#116'], 'userlabel | Form validation styling', '/rename #116  userlabel | Form validation styling', 'what follows an earlier pipe is the title, so renaming twice does not stack'],
+    [['userlabel', '#116'], 'a | b | c', '/rename #116  userlabel | b | c', 'only the first pipe divides: what follows it is kept whole'],
     [['userlabel'], 'bare|pipe and a | b', '/rename userlabel | b', 'a pipe with no spaces round it is not the separator'],
     // trivial cases:
     [['#116'], 'Form validation styling', '/rename #116 | Form validation styling', 'a PR alone'],
     [['userlabel'], 'Form validation styling', '/rename userlabel | Form validation styling', 'a worktree alone, no extra space before the pipe'],
-    [['userlabel', '#116'], '(untitled)', '/rename userlabel #116', 'a session with no title is named for its work alone'],
+    [['userlabel', '#116'], '(untitled)', '/rename #116  userlabel', 'a session with no title is named for its work alone'],
     [[], 'Form validation styling', null, 'a session that touched no worktree or PR has nothing to be named for'],
     // weird cases:
-    [['#1', '#2'], 'T', '/rename #1  #2 | T', 'PRs with no worktree between them each end a group'],
+    [['#1', '#2'], 'T', '/rename #1 #2 | T', 'PRs with no worktree are one group, set apart from nothing'],
+    [['userlabel'], 'PR merge (and deploy)', '/rename userlabel | PR merge (and deploy)', 'parentheses in a title are its own: nothing is wrapped round it'],
   ]
   for (const [seen, title, expected, blurb] of RenameCases) {
     it(`names ${blurb}`, () => {

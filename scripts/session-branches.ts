@@ -5,10 +5,10 @@
  * lists the sessions that worked on it, the likeliest first, under the title the sidebar shows.
  *
  * Three ways to print them. `--rename`, the default, prints the `/rename` that would name a session
- * for the worktrees and PRs it touched, in the order it met them (`/rename e2e_practices #93
- * git_attic #97 | PR merge and deploy order`): paste it into that session. Run inside a session
- * and asked nothing, it names that session (`$CLAUDE_CODE_SESSION_ID`); otherwise it names every
- * session it finds, each after a `# session <id>` comment line. `--table` prints a table: asked
+ * for the PRs it linked and the worktrees it cut, each in the order it met them (`/rename #93 #97
+ * e2e_practices git_attic | PR merge and deploy order`): paste it into that session. Run inside a
+ * session and asked nothing, it names that session (`$CLAUDE_CODE_SESSION_ID`); otherwise it names
+ * every session it finds, each after a `# session <id>` comment line. `--table` prints a table: asked
  * nothing, every session, newest first, with the PRs and worktrees it touched; asked a branch or
  * PR, the evidence for each. `--json` prints everything it knows.
  *
@@ -372,9 +372,8 @@ const NameSeparator = ' | '
 /**
  * The `/rename` that names a session for the worktrees and PRs it touched, and keeps its title.
  *
- * The worktrees and PRs come in the order the session first met them, so a PR follows the branch
- * it was for; each PR ends a group, and a group is set off by an extra space. Then ` | `, and the
- * title the session had: the whole of it, or only what follows the ` | ` when it has one already,
+ * The PRs come first, then the worktrees, each in the order the session first met it, the two set
+ * apart by an extra space. Then ` | `, and the title the session had, with nothing wrapped round it: the whole of it, or only what follows the ` | ` when it has one already,
  * so naming a session twice does not stack the names. No dates or times. Past
  * `MaxNameLength` characters the name is cut short, ending in `…`.
  *
@@ -382,11 +381,13 @@ const NameSeparator = ' | '
  * @returns The command, or null when the session has touched no worktree or PR to name it for.
  *
  * @example renameOf({ seen: ['e2e_practices', '#93', 'git_attic', '#97'], title: 'PR merge', ... })
- * // => '/rename e2e_practices #93  git_attic #97 | PR merge'
+ * // => '/rename #93 #97  e2e_practices git_attic | PR merge'
  */
 export function renameOf(session: Pick<SessionFacts, 'seen' | 'title'>): string | null {
   if (session.seen.length === 0) { return null }
-  const groups = session.seen.map((token) => (token.startsWith('#') ? `${token}  ` : `${token} `)).join('').trimEnd()
+  const prs = session.seen.filter((token) => token.startsWith('#')).join(' ')
+  const worktrees = session.seen.filter((token) => ! token.startsWith('#')).join(' ')
+  const groups = [prs, worktrees].filter((group) => group !== '').join('  ')
   const separated = session.title.indexOf(NameSeparator)
   const title = separated === -1 ? session.title : session.title.slice(separated + NameSeparator.length)
   const name = title === '(untitled)' ? groups : `${groups}${NameSeparator}${title}`
