@@ -26,9 +26,10 @@ this section, lists the words they replace while code still holds them.
   default, growing `_2`, `_3` while taken), at a place in the quiz's **run order**. The noun is
   deliberate, as *expressing* was: the widget is the recipe, the widgeting is it being worked here.
   Removing a widgeting takes its columns.
-* **widgeted** -- what one widgeting came to for one question. Stored for the formularies that
-  store (`aibot` appends, `entry` upserts) and worked out on render for `jsonata`. Everyone reads
-  one as `{ status, value, err }`. Never called a "result".
+* **widgeted** -- what one widgeting came to for one question, or, for a widgeting of the `quiz`
+  tier, for the quiz itself (a row of `quiz_widgeteds`, not `widgeteds`). Stored for the
+  formularies that store (`aibot` appends, `entry` upserts) and worked out on render for
+  `jsonata`. Everyone reads one as `{ status, value, err }`. Never called a "result".
 * **input formula** -- a widget's second JSONata expression, which culls the bag to what the widget
   reads. `$`, the whole bag, by default for `jsonata`; for `aibot`, the small object the prompt
   template is rendered over (`{ 'clueing': qn.clueing }`). An input that comes to nothing means "do
@@ -42,10 +43,21 @@ this section, lists the words they replace while code still holds them.
   **flavor** (`Widget.flavorOf`: "a number entry", "an aibot widget"). An emptied entry cell holds
   no row and reads `missing`.
 * **tier** -- which level a widgeting runs at: `question` (once for each question, as every
-  widgeting has) or `quiz` (once for the quiz as a whole). Fixed once made, as its widget is. Not a
-  bot's **model tier**, which is a widget's config.
-* **run order** -- a quiz's widgetings in `position` order. Each widgeting's bag holds the
-  widgeteds of the widgetings before it, so the order is the dependency order.
+  widgeting has) or `quiz` (once for the quiz as a whole, over a bag whose `qn` is empty). Only a
+  `jsonata` widget and an `entry` of one value run at `quiz` (`Widgeting.runsAt`). Fixed once made,
+  as its widget is. Not a bot's **model tier**, which is a widget's config. A `quiz` widgeting's
+  widgeted sits in every later bag as `quiz.<label>`, so it may not take a name the quiz itself
+  answers to there (`Quiz.exposed`); it has no column, and is shown and typed into in the **Quiz
+  entries** panel. The gear lists the two tiers apart: **Widgetings** and **Quiz widgetings**.
+* **run order** -- a quiz's widgetings in the order they run (`src/lib/run-order.ts`): the `quiz`
+  widgetings above the **questions pivot**, then the `question` widgetings, then the `quiz`
+  widgetings below the pivot. Each widgeting's bag holds the widgeteds of the widgetings before
+  it, so the order is the dependency order. The positions are the run order, written whole at
+  every change.
+* **questions pivot** -- where the `question` widgetings run, among the `quiz` ones: a fixed row
+  of the gear's Quiz widgetings list, dragged past rather than dragged. Not stored: it sits just
+  before the first `question` widgeting, and last in a quiz with none (where the order across it
+  makes no difference).
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
   no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An
