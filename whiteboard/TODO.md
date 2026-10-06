@@ -4,6 +4,14 @@
 * Tune layout at small scales (eg "The site header overlaps itself at 360 px.")
 * A failed history download tells the person nothing (`FullHistoryDownload`, and the gear's
   *Download as git* in `QuizManageModal`): `HuntRepoList`'s alarm is the pattern to copy.
+* **Figure out reserved words vs our own use of them.** `PA.ReservedLabels` keeps words from every
+  label, but two kinds of word the app itself uses as labels are left off it, and so stay open to
+  authors:
+  - `category`/`categories`: the library's category-estimate widget is labelled `categories`, and
+    so is every widgeting of it.
+  - `title`, `notes` and the question's other content fields: reserved only among widgetings
+    (`ReservedWidgetingLabels`), as before. Column labels like `title` are normal; the starter
+    columns use them.
 
 
 ## Wontfix (fixable, but not devoting resources to fix it)
