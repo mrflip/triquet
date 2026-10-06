@@ -135,7 +135,7 @@ describe('Spine.reachOf', () => {
     ['src/components/HuntBranch.tsx',       'the quiz history',             specfiles('quiz-history', 'panels'),           "the hunt page's branch switcher, which no quiz screen draws"],
     ['src/components/FullHistoryDownload.tsx', 'the whole suite',           'all',                                         "the history download, which every quiz screen's Export tab mounts"],
     ['src/content/full-history.md',         'the whole suite',              'all',                                         'the help the history download opens, beneath every quiz screen'],
-    ['src/components/HuntRepoList.tsx',     'the hunt histories listed',    specfiles('quiz-history', 'routing'),          'the histories a browser holds, listed off any quiz screen'],
+    ['src/components/HuntRepoList.tsx',     'the hunt histories listed',    specfiles('quiz-history', 'routing'),          'the histories a browser holds, which a quiz screen lists only when its quiz is missing'],
     ['src/components/cells/fields.tsx',     'the whole suite',              'all',                                         'the text fields every screen has, though a cell'],
     ['src/app/(synced)/layout.tsx',         'the whole suite',              'all',                                         'the layout every synced page opens in'],
     ['src/app/(synced)/[org]/[hunt]/quizzes/[realm]/[quiz]/page.tsx', 'the whole suite', 'all',                          'the quiz page every grid spec works on'],
