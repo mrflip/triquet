@@ -5,7 +5,7 @@ once. Issued by the Coach (Flip): "execute the plan for the new url scheme, git 
 and file format; modify the import and export so that their files have similar structure (and
 use the same code). If my suggestions on the shape of the json files are unworkable or
 cumbersome to rearrange, forgo it and do something more natural. Same with the urls."
-**Status: done. Threads 0-8 landed (#121, #125, #126, #127, #128, #129, #130, #133, #140); the tighten (`orglabel`, `viz`) waits on the production backfill.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
+**Status: threads 0-8 landed (#121, #125, #126, #127, #128, #129, #130, #133, #140); thread 9 (a change signal for off-screen quizzes) underway; the tighten (`orglabel`, `viz`) waits on the production backfill.** `hunt_git-progress.md`, beside this file, is newer than this plan wherever
 the two disagree.
 
 ## Read first
@@ -227,3 +227,17 @@ Gloss: a schema widen (question `viz`; `created_at`/`updated_at` where rows lack
 backfill folded into the same production run as thread 7's; the realm label pinned to `home` in
 the validator; Import making a new quiz for an unmatched whole-hunt paste; the views, batch mode,
 exports and files as the Coach lists. Depends on: 7.
+
+### 9. A change signal in place of live off-screen watches (one PR)
+
+*Coach's text:* "Replace live off-screen watches with a cheap change signal <-- let's do this, it
+handles the debounce well. I don't have the capability to do testing across devices and
+browsers." Context: "My main concern is the number of convex subscriptions hitting the paid$
+limit" -- and earlier, on the watch grain, "I'd be fine with it being up to minutes."
+
+Gloss: Convex bills each re-run of a subscribed query (function calls) and the bytes read
+(database I/O), not the number of subscriptions. The feed's live `quizzes.whole` (and
+`reviews.forQuiz`) watch per off-screen quiz re-reads the whole quiz on every write to it, in
+every smith tab on the hunt. Replace them with one small subscription to each quiz's
+last-changed time, and a one-off fetch of a quiz only when that moves, batched to at most every
+minute or two. The quiz on screen keeps the screen's own live watches. Depends on: 8.
