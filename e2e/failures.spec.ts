@@ -59,6 +59,6 @@ test('a cell that has only ever failed shows the sentence and invites a retry, n
   await guessCell(page).dblclick()
   await expect(guessCell(page)).toContainText(RateLimited)
   await expect(guessCell(page)).toContainText('Double-click to try again')
-  await expect(guessCell(page)).not.toContainText('rateLimited')
+  await expect(guessCell(page)).not.toContainText(/rateLimited|RateLimitError|429/)
   await expect(page.getByRole('button', { name: /The last ask failed/ })).toHaveCount(1)
 })
