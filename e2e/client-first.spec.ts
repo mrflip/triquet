@@ -1,4 +1,4 @@
-import { addWidgetings, expect, reloadOnceSaved, startHunt, test } from './support'
+import { addWidgetings, expect, reloadOnceSaved, startHunt, test, valuesOf } from './support'
 
 // The client-first rule (notes/decisions/2026-09-client-first.md) as a test: with nothing reachable
 // but the page itself and its database -- no bots route, no other host -- the app still opens,
@@ -23,7 +23,7 @@ test('with every host but the app\'s and its database\'s blocked, and the bots r
   await expect(page.getByRole('textbox', { name: 'Clueing', exact: true }).first()).toHaveValue('Written with only the database to hand')
 })
 
-test('asking is the one server function, and with it blocked the cell says so and nothing else stops', async ({ page }) => {
+test('asking is the one server function, and with it blocked the cell says so and nothing else stops: the page still edits, sorts and saves', { tag: '@smoke' }, async ({ page }) => {
   await page.route('**/api/ask', (route) => route.abort())
   await startHunt(page)
   await addWidgetings(page, ['dumdum'])
@@ -33,8 +33,13 @@ test('asking is the one server function, and with it blocked the cell says so an
   const guess = page.getByRole('button', { name: 'Ask Dumdum' }).first()
   await guess.dblclick()
   await expect(guess).toContainText('A connection hiccup — try again.')
+  // A title that sorts ahead of every generated one, so the sort is seen to put it first.
+  await page.getByRole('textbox', { name: 'Title' }).nth(2).fill('aaa hamlet')
+  await page.getByRole('button', { name: 'Title', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Title' }).first()).toHaveValue('aaa hamlet')
   await page.getByLabel('Quiz name').fill('Still editing')
   await page.getByLabel('Quiz name').blur()
   await reloadOnceSaved(page)
   await expect(page.getByLabel('Quiz name')).toHaveValue('Still editing')
+  await expect.poll(() => valuesOf(page.getByRole('textbox', { name: 'Title' }))).toContain('aaa hamlet')
 })

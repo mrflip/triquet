@@ -77,15 +77,6 @@ test('a hunt starts on the main branch, and a smith can switch it from the hunt\
   await expect(page.getByRole('textbox', { name: 'Branch' })).toHaveValue('draft_two')
 })
 
-test('editing a quiz builds a history that a milestone can tag, by its branch and its quiz', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Danish princes')
-  await page.getByLabel('Quiz name').blur()
-
-  await openManage(page)
-  await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(new RegExp(String.raw`^main_${quizLabelOf(page)}_m_\d{14}z$`))
-})
-
 test('a milestone names the branch it marks', async ({ page }) => {
   const quizPath = `${new URL(page.url()).pathname}${new URL(page.url()).search}`
   await page.goto(Routes.huntPath(huntOf(page)))
@@ -97,14 +88,6 @@ test('a milestone names the branch it marks', async ({ page }) => {
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
   await expect(page.getByRole('status')).toHaveText(/^playtest_/)
-})
-
-test('the history downloads from the gear as a zip named for the hunt', async ({ page }) => {
-  await openManage(page)
-  const downloading = page.waitForEvent('download')
-  await page.getByRole('button', { name: 'Download as git' }).click()
-  const download = await downloading
-  expect(download.suggestedFilename()).toBe(`${huntOf(page).hunt}.zip`)
 })
 
 test("the history downloads from the hunt's own page too, named for the hunt", async ({ page }) => {
@@ -148,7 +131,7 @@ test('a deleted hunt leaves its history on the hunts page, folded away, to downl
   expect(git('tag', '--list')).toBe(tag)
 })
 
-test('the history survives a reload, because it lives in the browser and not in the page', async ({ page }) => {
+test('the history survives a reload, because it lives in the browser and not in the page', { tag: '@smoke' }, async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
   // Marking a milestone first both proves the edit was committed and gives the reload something to survive.
@@ -219,29 +202,32 @@ test('an edit is committed on its own once the wait is up, and not before', asyn
   await expect(page.getByRole('status')).toHaveText(/^main_.+_m_\d{14}z$/)
 })
 
-test('a milestone marks the edit made a moment ago, without waiting out the clock', async ({ page }) => {
-  await page.getByLabel('Quiz name').fill('Danish princes')
-  await page.getByLabel('Quiz name').blur()
-  const tag = await milestone(page)
-
-  const git = await downloadedHistory(page)
-  expect(git('show', `${tag}:quizzes/home/${quizLabelOf(page)}.tqq.json`)).toContain('Danish princes')
-})
-
 test('a hunt has a history from the moment it is opened, before any edit: the hunt whole, README and all', async ({ page }) => {
   const git = await downloadedHistory(page)
   expect(git('log', '--format=%s')).toBe('start: the hunt as this browser first read it')
   expect(git('ls-files').split('\n')).toEqual(expect.arrayContaining(['README.md', 'hunt.tqh.json', `quizzes/home/${quizLabelOf(page)}.tqq.json`]))
 })
 
-test('an edit commits only the files it changed, its message naming the quiz', async ({ page }) => {
+test('an edit commits only the files it changed, its message naming the quiz, and a milestone made a moment later tags it, by its branch and its quiz', async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Danish princes')
   await page.getByLabel('Quiz name').blur()
+  // Marked without waiting out the clock: the milestone commits what is waiting first.
   const tag = await milestone(page)
-
   const quiz = quizLabelOf(page)
-  const git = await downloadedHistory(page)
+  expect(tag).toMatch(new RegExp(String.raw`^main_${quiz}_m_\d{14}z$`))
+
+  // The history downloads from the gear as a zip named for the hunt.
+  const { hunt } = huntOf(page)
+  await openManage(page)
+  const downloading = page.waitForEvent('download')
+  await manageDialog(page).getByRole('button', { name: 'Download as git' }).click()
+  const download = await downloading
+  await page.keyboard.press('Escape')
+  expect(download.suggestedFilename()).toBe(`${hunt}.zip`)
+
+  const git = await gitOfDownload(download, hunt)
   expect(git('show', '--name-only', '--format=%s', tag).split('\n')).toEqual([`${quiz}: quiz ~title`, '', `quizzes/home/${quiz}.tqq.json`, `quizzes/home/${quiz}.tqq.tsv`])
+  expect(git('show', `${tag}:quizzes/home/${quiz}.tqq.json`)).toContain('Danish princes')
 })
 
 test('a relabelled quiz\'s files move, and the real git follows them', async ({ page }) => {

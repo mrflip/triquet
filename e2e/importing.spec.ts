@@ -82,7 +82,7 @@ test('a run that merged something clears the box; one that failed keeps the text
   await expect(page.getByText(/still here/)).toBeVisible()
 })
 
-test('a quiz exported and pasted straight back is unchanged', async ({ page }) => {
+test('a quiz exported and pasted straight back is unchanged', { tag: '@smoke' }, async ({ page }) => {
   await fieldAt(page, 'Title', 1).fill('Nantes')
   await fieldAt(page, 'Clueing', 1).fill('Another one')
   await page.getByLabel('Quiz name').click()

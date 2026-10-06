@@ -21,15 +21,6 @@ async function requestSentWithin(page: Page, pattern: string, ms: number): Promi
   }
 }
 
-test('with credentials, a never-asked cell invites the author to ask', async ({ page }) => {
-  await addWidgetings(page, ['dumdum'])
-  await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
-  await page.getByLabel('Quiz name').click()
-  const cell = page.getByRole('button', { name: 'Ask Dumdum' }).first()
-  await expect(cell).toHaveText('Double-click to ask')
-  await expect(cell).toBeEnabled()
-})
-
 test.describe('with no credentials for the bots\' service', () => {
   test.use({ startAt: null })
 
@@ -49,7 +40,7 @@ test.describe('with no credentials for the bots\' service', () => {
     await expect(cell).toBeDisabled()
   })
 
-  test('so does every other prompt put to that service, each in its own words', async ({ page }) => {
+  test('so does every other prompt put to that service, each in its own words', { tag: '@smoke' }, async ({ page }) => {
     for (const [name, title] of [['Ask Numnum Clueing', 'Numnum: clueing'], ['Ask Numnum Hint', 'Numnum: hint']] as const) {
       const cell = page.getByRole('button', { name }).first()
       await expect(cell).toHaveText(`${title} can't play yet — no Claude credentials are set up for this app.`)

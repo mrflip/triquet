@@ -4,7 +4,7 @@ import { expect, grid, test } from './support'
 // Short enough that the page scrolls, whatever the grid and panels come to.
 test.use({ viewport: { width: 1280, height: 480 } })
 
-test('a change the server refuses raises an alarm on screen, far from the field, until it is dismissed', async ({ page }) => {
+test('a change the server refuses raises an alarm on screen, far from the field, until it is dismissed', { tag: '@smoke' }, async ({ page }) => {
   const clueing = page.getByRole('textbox', { name: 'Clueing', exact: true }).first()
   await clueing.fill('Which region gave its name to Leon?')
   // The draft is still held in the field, which keeps focus, while the page scrolls to its foot.

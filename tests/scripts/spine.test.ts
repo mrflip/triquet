@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import * as E2eLog from '../../scripts/e2e-log'
 import * as Spine from '../../scripts/spine'
 
-const SpineScript = path.resolve(import.meta.dirname, '../../scripts/spine.ts')
+const RepoRoot = path.resolve(import.meta.dirname, '../..')
+const SpineScript = path.join(RepoRoot, 'scripts', 'spine.ts')
 const LanesScript = path.resolve(import.meta.dirname, '../../scripts/lanes.ts')
 
 /** Today's datestamp, as branch names lead */
@@ -87,6 +88,150 @@ describe('Spine.e2eWatched', () => {
       expect(Spine.e2eWatched(filepaths)).to.deep.equal(expected)
     })
   }
+})
+
+/** The spec files of the specs named, as `reachOf` lists them */
+const specfiles = (...specnames: string[]) => specnames.map((specname) => `e2e/${specname}.spec.ts`)
+
+/** Every spec file there, as the map's checks of what exists see it */
+const Everywhere = () => true
+
+/** No spec file there */
+const Nowhere = () => false
+
+/** The review spec alone there */
+const OnlyReviews = (specfile: string) => specfile === 'e2e/reviews.spec.ts'
+
+describe('Spine.reachOf', () => {
+  const GridFiles = specfiles('grid', 'chaining', 'ordering', 'archiving', 'ishes', 'estimates', 'entries')
+  const RoutingFiles = specfiles('routing', 'brand', 'failing-pages')
+  const ReachCases: [string, string, string[] | 'all', string][] = [
+    // a corner:
+    ['src/components/QuestionRow.tsx',      'the grid',                     GridFiles,                                     'a row of the grid reaches the specs that drive the rows'],
+    ['src/components/cells/chain.tsx',      'the chain cell',               [...GridFiles, 'e2e/reviews.spec.ts'],         'a cell a review shows too reaches the review spec besides'],
+    ['src/components/SortableList.tsx',     'the gear',                     specfiles('widgets', 'prompts', 'entries', 'quizzes'), 'a list only the gear drags, though it sounds like the grid'],
+    ['src/components/QuizSwitcher.tsx',     'the quiz switcher',            specfiles('quizzes', 'routing'),               'the doc block example'],
+    ['src/app/(synced)/error.tsx',          'the error boundary',           specfiles('failing-pages'),                    'the error boundary, though it sits among the synced pages'],
+    ['src/app/(synced)/stats/page.tsx',     'the stats page',               specfiles('stats'),                            'the stats page, though it sits among the synced pages'],
+    ['src/app/(synced)/page.tsx',           'the way in and the addresses', RoutingFiles,                                  'the front door'],
+    ['src/app/(synced)/my/hunts/page.tsx',  'the hunts',                    [...RoutingFiles, 'e2e/quiz-history.spec.ts'], 'the hunts list'],
+    ['src/app/api/ask/route.ts',            'asking',                       specfiles('asking', 'bots', 'failures', 'prompts', 'ishes', 'client-first'), 'the one server function'],
+    ['src/components/panels/spread-chart.ts', 'the category spread',        specfiles('estimates', 'panels'),              'a file of a family named by its prefix'],
+    ['public/brand/mark.svg',               'the brand',                    specfiles('brand'),                            'a file under a directory the brand owns'],
+    // a spec:
+    ['e2e/grid.spec.ts',                    'its own spec',                 ['e2e/grid.spec.ts'],                          'a spec reaches itself'],
+    // nothing:
+    ['tests/scripts/spine.test.ts',         'nothing e2e notices',          [],                                            'a unit test'],
+    ['notes/testing.md',                    'nothing e2e notices',          [],                                            'a note'],
+    // the whole suite:
+    ['convex/schema.ts',                    'the whole suite',              'all',                                         "the server's schema"],
+    ['src/models/question.ts',              'the whole suite',              'all',                                         'a model'],
+    ['src/components/use-draft.ts',         'the whole suite',              'all',                                         'the draft every screen edits through'],
+    ['src/state/hunt-mirror.ts',            'the whole suite',              'all',                                         'the history mirror every write of every quiz screen is tracked through'],
+    ['src/state/hunt-feed.ts',              'the whole suite',              'all',                                         'the feed every quiz screen runs into the mirror'],
+    ['src/state/commit-scheduler.ts',       'the whole suite',              'all',                                         "the mirror's commit scheduler, beneath every quiz screen"],
+    ['src/lib/huntgit.ts',                  'the whole suite',              'all',                                         "the mirror's git, beneath every quiz screen"],
+    ['src/lib/huntfiles.ts',                'the whole suite',              'all',                                         'the files the feed writes, beneath every quiz screen'],
+    ['src/components/HuntBranch.tsx',       'the quiz history',             specfiles('quiz-history', 'panels'),           "the hunt page's branch switcher, which no quiz screen draws"],
+    ['src/components/FullHistoryDownload.tsx', 'the whole suite',           'all',                                         "the history download, which every quiz screen's Export tab mounts"],
+    ['src/content/full-history.md',         'the whole suite',              'all',                                         'the help the history download opens, beneath every quiz screen'],
+    ['src/components/HuntRepoList.tsx',     'the hunt histories listed',    specfiles('quiz-history', 'routing'),          'the histories a browser holds, which a quiz screen lists only when its quiz is missing'],
+    ['src/components/cells/fields.tsx',     'the whole suite',              'all',                                         'the text fields every screen has, though a cell'],
+    ['src/app/(synced)/layout.tsx',         'the whole suite',              'all',                                         'the layout every synced page opens in'],
+    ['src/app/(synced)/[org]/[hunt]/quizzes/[realm]/[quiz]/page.tsx', 'the whole suite', 'all',                          'the quiz page every grid spec works on'],
+    ['src/components/QuizRoute.tsx',        'the whole suite',              'all',                                         'the frame of every quiz screen'],
+    ['src/state/use-ident.ts',              'the whole suite',              'all',                                         'who the visitor is, which every quiz screen asks'],
+    ['src/lib/routes.ts',                   'the whole suite',              'all',                                         'the addresses every quiz screen is opened by'],
+    ['src/components/SiteHeader.tsx',       'the whole suite',              'all',                                         'the header every page draws'],
+    ['e2e/support.ts',                      'the whole suite',              'all',                                         'the support every spec imports'],
+    ['scripts/spine.ts',                    'the whole suite',              'all',                                         'the harness the suite runs through'],
+    ['package.json',                        'the whole suite',              'all',                                         'the dependencies'],
+    // weird cases:
+    ['src/components/Brandnew.tsx',         'the whole suite',              'all',                                         'a component no corner names yet'],
+    ['e2e/grid.spec.tsx',                   'the whole suite',              'all',                                         'a file only named like a spec'],
+  ]
+  for (const [filepath, corner, specs, blurb] of ReachCases) {
+    it(blurb, () => {
+      expect(Spine.reachOf(filepath, Everywhere)).to.deep.eq({ corner, specs })
+    })
+  }
+
+  it("reads the doc block's example of the whole suite", () => {
+    expect(Spine.reachOf('convex/schema.ts', Everywhere)).to.deep.eq({ corner: 'the whole suite', specs: 'all' })
+  })
+
+  it('skips the spec files of a corner that are not there', () => {
+    expect(Spine.reachOf('src/components/FoldButton.tsx', OnlyReviews)).to.deep.eq({ corner: 'the fold buttons', specs: ['e2e/reviews.spec.ts'] })
+  })
+
+  it('reaches the whole suite from a corner none of whose spec files are there yet, and from a spec removed', () => {
+    expect(Spine.reachOf('src/components/Stats.tsx', Nowhere)).to.deep.eq({ corner: 'the whole suite, as the stats page has no spec file yet', specs: 'all' })
+    expect(Spine.reachOf('e2e/gone.spec.ts', Nowhere)).to.deep.eq({ corner: 'the whole suite, for a spec removed', specs: 'all' })
+  })
+})
+
+describe('Spine.scopeOf and reachingWhole', () => {
+  it("reads the doc blocks' examples", () => {
+    expect(Spine.scopeOf(['src/components/QuizSwitcher.tsx', 'tests/lib/useful.test.ts'], Everywhere)).to.deep.eq(specfiles('quizzes', 'routing'))
+    expect(Spine.reachingWhole(['src/components/QuizSwitcher.tsx', 'convex/schema.ts'], Everywhere)).to.deep.eq(['convex/schema.ts'])
+  })
+
+  it('takes the union of the corners reached, each spec file once, sorted', () => {
+    const scope = Spine.scopeOf(['src/components/QuizSwitcher.tsx', 'src/components/QuizHeader.tsx', 'e2e/brand.spec.ts'], Everywhere)
+    expect(scope).to.deep.eq(specfiles('brand', 'grid', 'quizzes', 'routing'))
+  })
+
+  it('is empty when nothing reaches a spec, and leaves the whole suite to reachingWhole', () => {
+    expect(Spine.scopeOf(['tests/a.test.ts', 'notes/b.md'], Everywhere)).to.deep.eq([])
+    expect(Spine.scopeOf(['convex/schema.ts'], Everywhere)).to.deep.eq([])
+    expect(Spine.reachingWhole(['tests/a.test.ts', 'src/components/Logo.tsx'], Everywhere)).to.deep.eq([])
+  })
+})
+
+describe('Spine.outsideScope', () => {
+  const Proved = specfiles('quizzes', 'routing')
+  it("reads the doc block's example", () => {
+    expect(Spine.outsideScope(['src/components/QuizSwitcher.tsx', 'src/components/Logo.tsx'], Proved, Everywhere)).to.deep.eq(['src/components/Logo.tsx'])
+  })
+
+  it('finds nothing outside when every path reaches inside the scope, or reaches nothing', () => {
+    expect(Spine.outsideScope(['src/components/QuizSwitcher.tsx', 'e2e/quizzes.spec.ts', 'tests/a.test.ts'], Proved, Everywhere)).to.deep.eq([])
+  })
+
+  it('names a path reaching the whole suite, and one whose corner only overlaps the scope', () => {
+    expect(Spine.outsideScope(['convex/schema.ts', 'src/components/QuizHeader.tsx'], Proved, Everywhere)).to.deep.eq(['convex/schema.ts', 'src/components/QuizHeader.tsx'])
+  })
+})
+
+describe('Spine.SpecCorners', () => {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path -- the installed git, as the script under test runs
+  const tracked = execFileSync('git', ['ls-files'], { cwd: RepoRoot, encoding: 'utf8' }).split('\n').filter(Boolean)
+  const specnames = tracked.flatMap((filepath) => /^e2e\/([^/]+)\.spec\.ts$/.exec(filepath)?.slice(1, 2) ?? [])
+  const named = new Set(Spine.SpecCorners.flatMap(({ specs }) => specs))
+  /** Spec files the map names ahead of their being written */
+  const NotYetWritten = new Set(['stats', 'failing-pages'])
+
+  it('names only paths the tree holds, so a rename cannot leave a corner looking at nothing', () => {
+    const missing = Spine.SpecCorners.flatMap(({ paths }) => paths).filter((prefix) => tracked.every((filepath) => ! filepath.startsWith(prefix)))
+    expect(missing).to.deep.eq([])
+  })
+
+  it('names only spec files the suite has, or that are being written beside it', () => {
+    expect([...named].filter((specname) => ! specnames.includes(specname) && ! NotYetWritten.has(specname))).to.deep.eq([])
+  })
+
+  it('puts every spec file of the suite in some corner, so a new one is given its place', () => {
+    expect(specnames.filter((specname) => ! named.has(specname))).to.deep.eq([])
+  })
+})
+
+describe('the smoke tier `pnpm e2e:smoke` runs', () => {
+  it('tags exactly one test of each spec file @smoke', () => {
+    const specdir = path.join(RepoRoot, 'e2e')
+    const tagged = fs.readdirSync(specdir).filter((filename) => filename.endsWith('.spec.ts'))
+      .map((filename) => [filename, fs.readFileSync(path.join(specdir, filename), 'utf8').match(/tag: '@smoke'/g)?.length ?? 0] as const)
+    expect(tagged.filter(([, count]) => count !== 1)).to.deep.eq([])
+  })
 })
 
 describe('Spine.skippingE2e', () => {
@@ -192,16 +337,19 @@ const isolatedEnv = (home: string) => ({
 
 /**
  * A stand-in for the e2e suite: it writes a Playwright JSON report where `pnpm e2e` asks for one,
- * a spec called `works` in each file FAKE_RAN names (a.spec.ts and b.spec.ts unless it names
- * others), failing in each file FAKE_FAILING names, and exits red if any failed. FAKE_BROKEN
- * exits red with no report, as a run whose web server never started does.
+ * a spec called `works`, taking a second and a half, in each spec file it is given, or else in each
+ * file FAKE_RAN names (a.spec.ts and b.spec.ts unless it names others), failing in each file
+ * FAKE_FAILING names, and exits red if any failed. FAKE_BROKEN exits red with no report, as a run
+ * whose web server never started does.
  */
 const FakeE2e = `import fs from 'node:fs'
+import path from 'node:path'
 if (process.env.FAKE_BROKEN) { process.exit(1) }
 const listed = (envname, fallback) => (process.env[envname] ?? fallback).split(',').filter(Boolean)
-const ran = listed('FAKE_RAN', 'a.spec.ts,b.spec.ts')
+const given = process.argv.slice(2).filter((arg) => arg.endsWith('.spec.ts')).map((arg) => path.basename(arg))
+const ran = given.length > 0 ? given : listed('FAKE_RAN', 'a.spec.ts,b.spec.ts')
 const failing = listed('FAKE_FAILING', '').filter((file) => ran.includes(file))
-const suites = ran.map((file) => ({ title: file, file, specs: [{ title: 'works', file, tests: [{ status: failing.includes(file) ? 'unexpected' : 'expected', expectedStatus: 'passed' }] }] }))
+const suites = ran.map((file) => ({ title: file, file, specs: [{ title: 'works', file, tests: [{ status: failing.includes(file) ? 'unexpected' : 'expected', expectedStatus: 'passed', results: [{ duration: 1500 }] }] }] }))
 fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, JSON.stringify({ suites }))
 process.exit(failing.length > 0 ? 1 : 0)
 `
@@ -301,6 +449,23 @@ const standOnMergedBranch = (world: WorldT) => {
   world.git(world.main, 'switch', '--quiet', '--create', 'leftover', 'origin/main')
   world.git(world.main, 'config', 'branch.leftover.remote', 'origin')
   world.git(world.main, 'config', 'branch.leftover.merge', 'refs/heads/leftover')
+}
+
+/** Commits an empty spec file of each name onto the world's main, so worktrees cut after have them to run */
+const withSpecs = (world: WorldT, ...specnames: string[]) => {
+  for (const specname of specnames) { world.commit(world.main, `e2e/${specname}.spec.ts`, '') }
+}
+
+/** A branch on alpha in `world`, its corner proved by a touched run over the alarms spec */
+const provedOverAlarms = (world: WorldT) => {
+  withSpecs(world, 'alarms', 'reviews')
+  const root = world.cut('alpha')
+  world.commit(root, 'src/components/AlarmSnackbar.tsx', 'alarm\n')
+  world.commit(root, 'tests/components/AlarmSnackbar.test.ts', 'test\n')
+  expect(world.spine(root, ['justify']).status).to.eq(0)
+  const ran = world.spine(root, ['e2e', '--touched'])
+  expect(ran.status, ran.said).to.eq(0)
+  return { root, ran }
 }
 
 // Each test here runs git and node dozens of times over: under a loaded machine (another
@@ -620,7 +785,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_
       const [provedOn] = world.git(root, 'config', `branch.${Today}-alpha.proved`).split(' ', 1)
       expect(provedOn).to.eq(world.git(root, 'config', `branch.${Today}-alpha.spinebase`))
       const [entry] = world.logged()
-      expect(entry).to.include({ branch: `${Today}-alpha`, kind: 'full', committed: true, cache: 'cold', status: 0, proved: true, lane: 1 })
+      expect(entry).to.include({ branch: `${Today}-alpha`, kind: 'full', committed: true, cache: 'cold', status: 0, proved: true, lane: 1, test_seconds: 3 })
       expect(entry?.counts).to.include({ passed: 2, failed: 0 })
     })
 
@@ -666,7 +831,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_
       world.commit(root, 'alpha.txt', 'alpha\n')
       const ran = world.spine(root, ['e2e', '--last-failed'])
       expect(ran.status, ran.said).to.eq(0)
-      expect(ran.said).to.contain('No finished full run')
+      expect(ran.said).to.contain('No finished full or touched run')
       expect(world.spine(root, ['e2e', '--last-failed']).said).not.to.contain('Proved')
     })
 
@@ -676,7 +841,7 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_
       const ran = world.spine(root, ['e2e'], { FAKE_BROKEN: '1' })
       expect(ran.status).to.eq(1)
       expect(ran.said).to.contain('0 passed').and.contain('proves nothing')
-      expect(world.spine(root, ['e2e', '--last-failed']).said).to.contain('No finished full run')
+      expect(world.spine(root, ['e2e', '--last-failed']).said).to.contain('No finished full or touched run')
     })
 
     it("counts toward no proof over uncommitted changes, though it is logged", () => {
@@ -708,6 +873,93 @@ describe('node scripts/spine.ts, in a repository with worktrees', { timeout: 60_
       const ran = world.spine(root, ['e2e-log'])
       expect(ran.status, ran.said).to.eq(0)
       expect(ran.said).to.contain('2 runs logged').and.contain('(flakes): 1')
+    })
+  })
+
+  describe('e2e --touched', () => {
+    it('runs only the corner the branch reaches, says which corner each path chose, and proves the branch over it, for the bid to take', () => {
+      const { root, ran } = provedOverAlarms(world)
+      expect(ran.said).to.match(/src\/components\/AlarmSnackbar\.tsx\s+the alarms: alarms\n/)
+      expect(ran.said).to.match(/tests\/components\/AlarmSnackbar\.test\.ts\s+nothing e2e notices\n/)
+      expect(ran.said).to.contain('e2e, touched: 1 passed, 0 failed').and.contain('over its corner alone (alarms)')
+      expect(world.logged().at(-1)).to.deep.include({ kind: 'touched', args: ['e2e/alarms.spec.ts'], proved: true })
+      const landed = world.spine(root, ['land'])
+      expect(landed.status, landed.said).to.eq(0)
+      expect(landed.said).to.contain('over its corner (alarms), which still holds every path the branch changes')
+    })
+
+    it('refuses the bid once the branch reaches past the corner it proved, naming the path, unless the bid says why e2e has nothing to tell it', () => {
+      const { root } = provedOverAlarms(world)
+      world.commit(root, 'src/components/ReviewScreen.tsx', 'review\n')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      const refused = world.spine(root, ['land'])
+      expect(refused.status).to.eq(1)
+      expect(refused.said).to.contain('scoped to its corner (alarms), and src/components/ReviewScreen.tsx reaches beyond it').and.contain('pnpm e2e --touched` again')
+      expect(world.top()).to.eq('main')
+      const skipped = world.spine(root, ['land', '--skip-e2e', 'I read it and no spec could tell'])
+      expect(skipped.status, skipped.said).to.eq(0)
+      expect(skipped.said).to.contain('e2e skipped: I read it and no spec could tell')
+    })
+
+    it('stands again once a second touched run covers the wider corner', () => {
+      const { root } = provedOverAlarms(world)
+      world.commit(root, 'src/components/ReviewScreen.tsx', 'review\n')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      const ran = world.spine(root, ['e2e', '--touched'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(world.logged().at(-1)?.args).to.deep.eq(['e2e/alarms.spec.ts', 'e2e/reviews.spec.ts'])
+      expect(world.spine(root, ['land']).status).to.eq(0)
+    })
+
+    it('runs the whole suite, as a full run, when a path reaches it, and the bid takes that as a full proof', () => {
+      withSpecs(world, 'alarms')
+      const root = world.cut('alpha')
+      world.commit(root, 'src/components/AlarmSnackbar.tsx', 'alarm\n')
+      world.commit(root, 'convex/schema.ts', 'schema\n')
+      expect(world.spine(root, ['justify']).status).to.eq(0)
+      const ran = world.spine(root, ['e2e', '--touched'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.match(/convex\/schema\.ts\s+the whole suite\n/).and.contain('A path reaches the whole suite, so the whole suite runs, as a full run.')
+      expect(world.logged().at(-1)).to.deep.include({ kind: 'full', args: [] })
+      const landed = world.spine(root, ['land'])
+      expect(landed.status, landed.said).to.eq(0)
+      expect(landed.said).not.to.contain('over its corner')
+    })
+
+    it('skips a spec file not written yet, and runs the whole suite for a corner with none', () => {
+      withSpecs(world, 'reviews')
+      const root = world.cut('alpha')
+      world.commit(root, 'src/components/FoldButton.tsx', 'fold\n')
+      expect(world.spine(root, ['e2e', '--touched']).status).to.eq(0)
+      expect(world.logged().at(-1)?.args).to.deep.eq(['e2e/reviews.spec.ts'])
+      world.commit(root, 'src/components/Stats.tsx', 'stats\n')
+      const ran = world.spine(root, ['e2e', '--touched'])
+      expect(ran.said).to.contain('the whole suite, as the stats page has no spec file yet')
+      expect(world.logged().at(-1)?.kind).to.eq('full')
+    })
+
+    it('runs nothing when no path is one e2e notices, and says how to land without', () => {
+      const root = world.cut('alpha')
+      world.commit(root, 'tests/lib/useful.test.ts', 'test\n')
+      const ran = world.spine(root, ['e2e', '--touched'])
+      expect(ran.status, ran.said).to.eq(0)
+      expect(ran.said).to.contain('so no spec runs').and.contain('--skip-e2e')
+      expect(world.logged()).to.deep.eq([])
+    })
+
+    it('takes no other arguments', () => {
+      const root = world.cut('alpha')
+      expect(world.spine(root, ['e2e', '--touched', '--workers=1']).said).to.contain('takes nothing else')
+    })
+
+    it('keeps the scope through a rerun that repairs it', () => {
+      withSpecs(world, 'alarms')
+      const root = world.cut('alpha')
+      world.commit(root, 'src/components/AlarmSnackbar.tsx', 'alarm\n')
+      expect(world.spine(root, ['e2e', '--touched'], { FAKE_FAILING: 'alarms.spec.ts' }).status).to.eq(1)
+      const rerun = world.spine(root, ['e2e', '--last-failed'], { FAKE_RAN: 'alarms.spec.ts' })
+      expect(rerun.status, rerun.said).to.eq(0)
+      expect(rerun.said).to.contain('A flake: alarms.spec.ts › works').and.contain('over its corner alone (alarms)')
     })
   })
 

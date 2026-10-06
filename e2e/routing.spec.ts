@@ -558,7 +558,7 @@ test.describe('a link handed to a friend', () => {
     await expect(friend.getByRole('button', { name: 'Share with the smiths' })).toBeVisible()
   })
 
-  test('lets a friend made a smith make edits that reach the author', async ({ page, browser }) => {
+  test('lets a friend made a smith make edits that reach the author', { tag: '@smoke' }, async ({ page, browser }) => {
     await startHunt(page)
     await waitUntilSaved(page)
     const friend = await otherVisitor(browser)

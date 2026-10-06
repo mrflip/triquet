@@ -5,7 +5,7 @@ import { expect, headLinks, test } from './support'
 test.use({ startAt: null })
 
 test.describe('the header', () => {
-  test('carries the logo home, and the way to About', async ({ page }) => {
+  test('carries the logo home, and the way to About', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/about')
     const banner = page.getByRole('banner')
     await banner.getByRole('link', { name: 'Triquet' }).click()

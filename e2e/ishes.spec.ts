@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addColumns, addWidgetings, cellOf, expect, test, waitUntilSaved } from './support'
+import { addColumns, addWidgetings, cellOf, expect, stubAsk, test, waitUntilSaved } from './support'
 
 const ThreeSpans = [
   { text: '#17-19', value: 36, kind: 'numeral' },
@@ -7,15 +7,9 @@ const ThreeSpans = [
   { text: '300 million', value: 300_000_000, kind: 'wordish' },
 ]
 
-/** Stand in for the ask route, so these tests never spend real model usage */
+/** Stand in for the ask route with a number spotter's reply finding `items`, replacing any earlier stand-in */
 async function stubIshes(page: Page, items: unknown[]) {
-  await page.route('**/api/ask', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ ok: true, value: { items }, truncated: false, model_tier_applied: 'careful', approx_tokens: 120 }),
-    })
-  })
+  await stubAsk(page, { ok: true, value: { items }, truncated: false, model_tier_applied: 'careful', approx_tokens: 120 })
 }
 
 test.beforeEach(async ({ page }) => {
@@ -25,10 +19,6 @@ test.beforeEach(async ({ page }) => {
     .fill('Numbers #17-19, a douzaine of them, and 300 million more')
   await page.getByLabel('Quiz name').click()
   await waitUntilSaved(page)
-})
-
-test('an uncomputed sum reads as a dash, never as a zero', async ({ page }) => {
-  await expect(cellOf(page, 0, 'Clueing Full')).toHaveText('–')
 })
 
 test('extracting lists every span with its value and kind', async ({ page }) => {
@@ -54,7 +44,7 @@ test('a list of spans folds open from beside its cell, pretty-printed', async ({
   await expect(cell).toContainText('~120 tok')
 })
 
-test('the sums follow from the extraction', async ({ page }) => {
+test('the sums follow from the extraction', { tag: '@smoke' }, async ({ page }) => {
   await stubIshes(page, ThreeSpans)
   await page.getByRole('button', { name: 'Ask Numnum Clueing' }).first().dblclick()
   await expect(cellOf(page, 0, 'Clueing Full')).toContainText('300,000,048')

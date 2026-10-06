@@ -39,7 +39,7 @@ test('hovering the badge gives the reason, and clicking it shows the response as
   await expect(shown.getByLabel('The response')).toContainText('"status": 429')
 })
 
-test('the badge survives a reload, and any success takes it away', async ({ page }) => {
+test('the badge survives a reload, and any success takes it away', { tag: '@smoke' }, async ({ page }) => {
   await stubAsk(page, guessReply('Leon'))
   await guessCell(page).dblclick()
   await stubAsk(page, failure)
@@ -54,9 +54,11 @@ test('the badge survives a reload, and any success takes it away', async ({ page
   await expect(page.getByRole('button', { name: /The last ask failed/ })).toHaveCount(0)
 })
 
-test('a cell that has only ever failed shows the sentence, and is badged too', async ({ page }) => {
+test('a cell that has only ever failed shows the sentence and invites a retry, never a code, and is badged too', async ({ page }) => {
   await stubAsk(page, failure)
   await guessCell(page).dblclick()
   await expect(guessCell(page)).toContainText(RateLimited)
+  await expect(guessCell(page)).toContainText('Double-click to try again')
+  await expect(guessCell(page)).not.toContainText(/rateLimited|RateLimitError|429/)
   await expect(page.getByRole('button', { name: /The last ask failed/ })).toHaveCount(1)
 })

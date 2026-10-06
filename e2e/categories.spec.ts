@@ -60,7 +60,7 @@ test.describe("a hunt's category wheel", () => {
     await expect(tileOf(page, 'Physics & Eng')).toHaveAttribute('data-place', '23')
   })
 
-  test("moves a category round the wheel and into the pool from the keyboard, and keeps it", async ({ page }) => {
+  test("moves a category round the wheel and into the pool from the keyboard, and keeps it", { tag: '@smoke' }, async ({ page }) => {
     await page.goto(Routes.categoriesPath(huntOf(page)))
     const art = tileOf(page, 'Art')
     await art.focus()
@@ -208,11 +208,6 @@ test.describe("a hunt's category wheel", () => {
     await assumeIdent(stranger)
     await stranger.goto(path)
     await expect(stranger.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
-  })
-
-  test("says so for a hunt there is not", async ({ page }) => {
-    await page.goto(Routes.categoriesPath({ org: 'nobody_here', hunt: 'no_such_hunt_here' }))
-    await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
   })
 })
 

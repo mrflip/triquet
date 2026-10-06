@@ -76,7 +76,7 @@ test('the Widgets panel counts what has been typed, and says what the entry take
   await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toHaveCount(0)
 })
 
-test('an entry rides the export, and an import puts it back', async ({ page }) => {
+test('an entry rides the export, and an import puts it back', { tag: '@smoke' }, async ({ page }) => {
   await addNewEntry(page, freshWidgetLabel('points'), /^A number/, 'points')
   await entryBox(page, 0, 'Points').fill('-2.5')
   await leaveBox(page)

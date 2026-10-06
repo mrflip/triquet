@@ -128,12 +128,13 @@ E  PR        gh pr create
   tests side by side, each prefixed by its name and each run to its end, so one run shows every
   failure (lint keeps a cache, `.eslintcache`: if CI's lint disagrees with yours, `rm
   .eslintcache` and justify again); green over committed work, it records the branch's patch-id. Then `pnpm e2e`, the full
-  suite on your lane. Repair each failure on its own: `pnpm e2e:rerun` reruns what the last run
+  suite on your lane, or `pnpm e2e --touched`, the corner of it your branch reaches (*Running only the
+  corner*, below). Repair each failure on its own: `pnpm e2e:rerun` reruns what the last run
   failed, one worker at a time (`--last-failed --workers=1`), and `pnpm e2e <spec file>...` runs
   the specs you choose. A spec that failed in the full run and passes alone with the code
   unchanged is a **flake**: it does not block, and it is always reported, in the PR's
-  **Tests:** line. B ends when every spec of the full run has passed, there or alone; `pnpm e2e`
-  says "Proved" and records it. Commit before each run: a run over uncommitted changes is
+  **Tests:** line. B ends when every spec of the full or touched run has passed, there or alone;
+  `pnpm e2e` says "Proved" and records it. Commit before each run: a run over uncommitted changes is
   logged, but counts toward nothing.
 * **C. Refresh.** If anything landed since B, `pnpm catchup` and `pnpm justify` again, and
   repair. What needs defending is only how your branch meets what landed: everything beneath it
@@ -143,7 +144,10 @@ E  PR        gh pr create
   since needs `pnpm justify` again; a rebase that carries your changes across unaltered does not),
   or with no e2e proof, unless every path it changes is a document or a note (a `.md` outside
   `src/`, or anything under `whiteboard/` or `human/`), or the bid says why e2e has nothing to tell
-  it (`pnpm land --skip-e2e "<why>"`: *When e2e is not worth running*, below). Then, holding the spine throughout: it
+  it (`pnpm land --skip-e2e "<why>"`: *When e2e is not worth running*, below). A proof from
+  `pnpm e2e --touched` is scoped to the spec files it ran: the bid takes it while every path the
+  branch changes still reaches inside them, and refuses, naming the path, once one reaches further.
+  Then, holding the spine throughout: it
   replays the spine onto `origin/main` if origin has moved, sweeps, rebases your branch onto the
   top if the top has moved, runs typecheck beside the unit tests (`pnpm test:bid`, each test
   allowed a minute: the machine may be loaded), and switches the main checkout onto your branch.
@@ -152,13 +156,51 @@ E  PR        gh pr create
   queue for the hold, so the wait is about the tests' time for each bid ahead of yours.
 * **E. PR.** *Filing the PR*, below.
 
-### When e2e is not worth running
+### Running only the corner
 
 A full e2e run is about three minutes of one worktree, and it loads the machine: several at once
 time out specs that no branch touched, and the flakes land on everyone else's runs, a stampede.
-So a run that cannot tell you anything is not free. Going without one is cheap to get wrong, too:
-CI runs the whole suite on the PR, and a red e2e there brings the Coach back to the session that
-landed it, to ask for help. The call is yours, then, and it is a call, not a ritual either way.
+So there are three ways to prove a branch: the whole suite, the corner of it the branch reaches,
+or none (*When e2e is not worth running*, below).
+
+`pnpm e2e --touched` runs the corner. `SpecCorners`, beside `UnwatchedRules` in `scripts/spine.ts`,
+maps each area of the tree to the spec files that would notice a change there, read from the specs
+and checked against the imports; a component used in two corners names the spec files of both.
+`--touched` takes the paths the branch changes since its base, prints the corner each one chose,
+and runs their union. Read that list before the suite gets far: if a path fell into a corner you
+think too small, stop it, run the whole suite, and mend the map on your branch.
+
+* **A path the map does not name reaches the whole suite**, and then `--touched` runs it all, as a
+  full run: everything under `convex/` and `src/models/`, `src/lib/rows.ts`, `e2e/support.ts`, the
+  configuration and the dependencies, the scripts the suite runs through, the few files every
+  screen leans on (`use-draft`, `use-session`, the text fields, the quiz history mirror), and
+  anything new. A spec file reaches itself.
+* **A path e2e cannot notice reaches nothing**: a document, a unit test, the paths listed below. A
+  branch of nothing else runs no spec, and `--touched` says how to land without one.
+* **The proof is scoped** to the spec files the run ran. Repair its failures alone, as after a full
+  run. The bid takes it while every path the branch changes still reaches inside that scope; a
+  path committed since that reaches further refuses the bid, naming the path, as no proof would.
+  Run `pnpm e2e --touched` again (or the whole suite), then bid.
+* **A spec file the map names but the tree lacks is skipped**, and a corner with none of its spec
+  files there yet reaches the whole suite.
+* **A new spec file goes in the map**, in the corner it covers (a unit test of the map fails until
+  it does), and a new component once you know which specs drive it. Until then it reaches the whole
+  suite, which costs time, never coverage.
+
+**The smoke tier** is no proof at all. One test of each spec file is tagged `@smoke`
+(`notes/testing.md`), and `pnpm e2e:smoke` runs those alone: two dozen tests, in about half a
+minute on a quiet machine. It is a quick signal that nothing is plainly broken, worth having before a full run when the
+map says the whole suite. It is logged as a run of chosen specs, and proves nothing.
+
+**CI is the strict gate.** Whichever you chose (the whole suite, the corner, or a skip), CI runs
+justify, a production build and the whole e2e suite on every push. The local choice decides how
+soon you find out, never whether.
+
+### When e2e is not worth running
+
+Going without a run is cheap to get wrong: CI runs the whole suite on the PR, and a red e2e there
+brings the Coach back to the session that landed it, to ask for help. The call is yours, then, and
+it is a call, not a ritual either way. When a skip tempts you over app code, run the corner instead.
 
 The question is whether any spec could behave differently because of this branch. A spec drives the
 running app in a browser, so the branch has to reach the app, or what starts the app, to be noticed.
@@ -172,7 +214,8 @@ running app in a browser, so the branch has to reach the app, or what starts the
 * an agent's or a skill's definition (`.claude/`), the lint configuration, and documents beside them
   (documents alone need no flag at all).
 
-**Never skip, whatever it looks like**, the exceptions to those exceptions:
+**Never skip, whatever it looks like** (run the whole suite, or at least the corner), the
+exceptions to those exceptions:
 
 * **Anything in `src/`, `convex/`, `e2e/`, `fixtures/` or `public/`**, the dependencies (`package.json`, the
   lockfile), and the configuration of the app, Playwright, CI or the build. A `.md` under `src/`

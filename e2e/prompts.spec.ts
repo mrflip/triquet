@@ -69,7 +69,7 @@ test('a question whose input comes to nothing would not be asked, and the previe
   await expect(editor.getByRole('status', { name: 'Preview input' })).toContainText('this question would not be asked')
 })
 
-test('a pasted prompt is put to work with a column to ask it from, and asks the route with its own prompt and config', async ({ page }) => {
+test('a pasted prompt is put to work with a column to ask it from, and asks the route with its own prompt and config', { tag: '@smoke' }, async ({ page }) => {
   await pastePrompt(page, freshWidgetLabel('riddler'), 'riddle')
   await promptDialog(page).getByRole('combobox', { name: 'Model tier' }).click()
   await page.getByRole('option', { name: /^Careful/ }).click()

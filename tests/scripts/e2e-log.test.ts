@@ -46,6 +46,28 @@ describe('E2eLog.outcomesOf', () => {
   })
 })
 
+/** A spec in a Playwright JSON report, its one test taking `duration` milliseconds */
+const timedOf = (title: string, duration: number) => ({ title, file: 'a.spec.ts', tests: [{ results: [{ duration }] }] })
+
+describe('E2eLog.testSecondsOf', () => {
+  it("reads the doc block's example: every result counts, a retry's too", () => {
+    const report = { suites: [{ title: 'a.spec.ts', file: 'a.spec.ts', specs: [{ title: 'works', file: 'a.spec.ts', tests: [{ results: [{ duration: 1500 }, { duration: 1200 }] }] }] }] }
+    expect(E2eLog.testSecondsOf(report as never)).to.eq(3)
+  })
+
+  it("adds up the suites inside a file's, and the files", () => {
+    const report = { suites: [
+      { title: 'a.spec.ts', file: 'a.spec.ts', specs: [timedOf('one', 1000)], suites: [{ title: 'Inner', file: 'a.spec.ts', specs: [timedOf('two', 2400)] }] },
+      { title: 'b.spec.ts', file: 'b.spec.ts', specs: [timedOf('three', 600)] },
+    ] }
+    expect(E2eLog.testSecondsOf(report as never)).to.eq(4)
+  })
+
+  it("is nought for a report of no suites, as a run that broke first leaves", () => {
+    expect(E2eLog.testSecondsOf({ suites: [] })).to.eq(0)
+  })
+})
+
 describe('E2eLog.countsOf and failuresOf', () => {
   const outcomes: E2eLog.SpecOutcome[] = [
     { spec: 'a', outcome: 'passed' }, { spec: 'b', outcome: 'failed' }, { spec: 'c', outcome: 'unrun' }, { spec: 'd', outcome: 'skipped' },
@@ -101,6 +123,20 @@ describe('E2eLog.tallied', () => {
     expect(tally?.outstanding).to.deep.eq(['a', 'c'])
   })
 
+  it("starts afresh at a touched run too, its proof scoped to the spec files it ran", () => {
+    const { tally } = E2eLog.tallied(failedOne, { kind: 'touched', branch: 'b', top: 't2', patchid: 'p2', status: 0, outcomes: [{ spec: 'e2e/grid.spec.ts › works', outcome: 'passed' }], scope: ['e2e/grid.spec.ts'] })
+    expect(tally).to.deep.eq({ branch: 'b', top: 't2', patchid: 'p2', complete: true, outstanding: [], cleared: [], scope: ['e2e/grid.spec.ts'] })
+    expect(E2eLog.isProved(tally)).to.be.true
+  })
+
+  it("keeps a touched run's scope through the reruns that repair it, and drops it at a full run", () => {
+    const touched = E2eLog.tallied(undefined, { kind: 'touched', branch: 'b', top: 't', patchid: 'p1', status: 1, outcomes: [{ spec: 'a', outcome: 'failed' }], scope: ['e2e/a.spec.ts'] }).tally
+    const rerun = E2eLog.tallied(touched, { kind: 'rerun', branch: 'b', top: 't', patchid: 'p1', status: 0, outcomes: [{ spec: 'a', outcome: 'passed' }] }).tally
+    expect(rerun?.scope).to.deep.eq(['e2e/a.spec.ts'])
+    expect(E2eLog.isProved(rerun)).to.be.true
+    expect(E2eLog.tallied(rerun, { kind: 'full', branch: 'b', top: 't', patchid: 'p1', status: 0, outcomes: [{ spec: 'a', outcome: 'passed' }] }).tally).not.to.have.property('scope')
+  })
+
   it("changes nothing without a finished full run of the same branch to build on", () => {
     const rerun = { kind: 'rerun', branch: 'b', top: 't', patchid: 'p1', status: 0, outcomes: [{ spec: 'a', outcome: 'passed' }] } as const
     expect(E2eLog.tallied(undefined, rerun)).to.deep.eq({ tally: undefined, cleared: [] })
@@ -145,12 +181,26 @@ describe('E2eLog.summarise', () => {
       entryOf({ at: '2026-10-07T10:00:00.000Z', load: { before: 20, after: 24 }, cache: 'cold', seconds: 600, status: 1, failures: ['a'], proved: false }),
       entryOf({ at: '2026-10-07T10:10:00.000Z', kind: 'rerun', cleared: [{ spec: 'a', how: 'flake' }] }),
     ])
-    expect(said[0]).to.eq('3 runs logged, 2026-10-06 to 2026-10-07: 2 full, 1 reruns or chosen specs.')
+    expect(said[0]).to.eq('3 runs logged, 2026-10-06 to 2026-10-07: 2 full, 0 touched, 1 reruns or chosen specs.')
     expect(said).to.include('  under 8       1 runs     0 red (  0%)  mean 2.0 min')
     expect(said).to.include('  16 to 32      1 runs     1 red (100%)  mean 10.0 min')
     expect(said).to.include('  cold          1 runs     1 red (100%)  mean 10.0 min')
     expect(said).to.include('Specs failed in full runs: 1. Passed alone since, code unchanged (flakes): 1; after a change: 0.')
     expect(said.at(-1)).to.eq('    1  a')
+    expect(said.join('\n')).not.to.contain('Touched runs')
+  })
+
+  it("gives touched runs a row of their own, and each row the mean test-seconds of the lines that kept them", () => {
+    const said = E2eLog.summarise([
+      entryOf({ test_seconds: 900 }),
+      entryOf({ test_seconds: 1000 }),
+      entryOf({}),
+      entryOf({ kind: 'touched', seconds: 60, test_seconds: 200 }),
+    ])
+    expect(said[0]).to.eq('4 runs logged, 2026-10-06 to 2026-10-06: 3 full, 1 touched, 0 reruns or chosen specs.')
+    expect(said).to.include('  under 8       3 runs     0 red (  0%)  mean 2.0 min, 950 test-seconds')
+    expect(said).to.include('Touched runs, over the corner each branch reached:')
+    expect(said).to.include('  touched       1 runs     0 red (  0%)  mean 1.0 min, 200 test-seconds')
   })
 })
 

@@ -432,3 +432,66 @@ export async function stepBy(handle: Locator, steps: number): Promise<void> {
     await handle.press(steps < 0 ? 'ArrowUp' : 'ArrowDown')
   }
 }
+
+/** What `failQuery` has made of a query's answers, and the way to let them through again */
+export type FailedQueryT = {
+  /** The request id every failed answer names, as the deployment's logs would file it */
+  request_id: string
+  /** Let the query's answers through from now on, as a server that has recovered sends them */
+  heal:       () => void
+}
+
+/** Where the Convex client keeps its socket to the backend: `ws://…/api/<version>/sync` */
+const ConvexSyncUrl = /\/api\/[^/]+\/sync$/
+
+/** A frame of the Convex sync protocol, as far as `failQuery` reads one: a change to the client's queries, or the server's answers to them */
+type SyncFrameT = { type: string, modifications?: SyncChangeT[] }
+type SyncChangeT = { type: string, queryId: number, udfPath?: string, journal?: unknown }
+
+/**
+ * Make every answer the server gives the query function `fnpath` (`hunts:open`) a failure, as a
+ * query that throws on the server reaches the browser, until `heal` is called.
+ *
+ * The page's socket to Convex is routed through the spec: each subscription to `fnpath` is noted
+ * as the client sends it, and each answer to one is rewritten into a failure saying `reason`,
+ * under one request id. `Server Error` alone, the default, is what a production deployment says
+ * of an unplanned throw, keeping the reason to itself. A transition the server splits into chunks,
+ * as it does only for a large one, passes through as it is. Only a socket opened after this call
+ * is routed, so a spec calls it, then loads the page.
+ *
+ * @param fnpath - The query function, as Convex names it: `hunts:list`.
+ * @param reason - What the failure says, after its request id.
+ * @returns The request id the failures name, and `heal`.
+ */
+export async function failQuery(page: Page, fnpath: string, reason = 'Server Error'): Promise<FailedQueryT> {
+  const request_id = crypto.randomUUID().replaceAll('-', '').slice(0, 16)
+  const failure = { errorMessage: `[Request ID: ${request_id}] ${reason}`, logLines: [] }
+  let healed = false
+  await page.routeWebSocket(ConvexSyncUrl, (socket) => {
+    const server = socket.connectToServer()
+    const watched = new Set<number>()
+    socket.onMessage((message) => {
+      for (const queryId of subscriptionsIn(message, fnpath)) { watched.add(queryId) }
+      server.send(message)
+    })
+    server.onMessage((message) => {
+      const frame = typeof message === 'string' ? JSON.parse(message) as SyncFrameT : null
+      if (healed || frame?.type !== 'Transition') {
+        socket.send(message)
+        return
+      }
+      const modifications = frame.modifications?.map((change) => (
+        change.type === 'QueryUpdated' && watched.has(change.queryId) ? { type: 'QueryFailed', queryId: change.queryId, journal: change.journal, ...failure } : change
+      ))
+      socket.send(JSON.stringify({ ...frame, modifications }))
+    })
+  })
+  return { request_id, heal: () => { healed = true } }
+}
+
+/** The queries to `fnpath` a frame from the client subscribes to, by the ids it gives them */
+function subscriptionsIn(message: string | Buffer, fnpath: string): number[] {
+  const frame = typeof message === 'string' ? JSON.parse(message) as SyncFrameT : null
+  if (frame?.type !== 'ModifyQuerySet') { return [] }
+  return (frame.modifications ?? []).filter((change) => change.type === 'Add' && change.udfPath === fnpath).map((change) => change.queryId)
+}

@@ -6,8 +6,9 @@
  * summarises it.
  *
  * Here too is the reading of Playwright's JSON report into an outcome per spec, and the tally that
- * carries a branch's e2e proof (`notes/git_hygiene.md`, *Finishing*) from a full run through the
- * reruns that repair it. `scripts/spine.ts` runs the suite, keeps the tally and writes the log.
+ * carries a branch's e2e proof (`notes/git_hygiene.md`, *Finishing*) from a full run, or a touched
+ * run over the branch's corner of the suite, through the reruns that repair it. `scripts/spine.ts`
+ * runs the suite, keeps the tally and writes the log.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -22,8 +23,11 @@ export interface SpecOutcome {
   outcome: Outcome
 }
 
-/** What a run was: the whole suite, Playwright's `--last-failed`, or specs a worker chose */
-export type RunKind = 'full' | 'rerun' | 'chosen'
+/**
+ * What a run was: the whole suite, the spec files of the corner a branch's changes reach (`pnpm e2e
+ * --touched`), Playwright's `--last-failed`, or specs a worker chose (the smoke tier among them)
+ */
+export type RunKind = 'full' | 'touched' | 'rerun' | 'chosen'
 
 /** The e2e build cache as a run found it: absent, seeded from the main checkout's and not yet used, or left by an earlier run */
 export type CacheState = 'cold' | 'seeded' | 'warm'
@@ -35,8 +39,8 @@ export interface Cleared {
 }
 
 /**
- * Where a branch's e2e proof stands: the last full run, and every spec it failed that has not
- * passed since. The branch is proved once the full run finished and nothing is outstanding.
+ * Where a branch's e2e proof stands: the last full or touched run, and every spec it failed that
+ * has not passed since. The branch is proved once that run finished and nothing is outstanding.
  */
 export interface Tally {
   branch:      string
@@ -48,6 +52,8 @@ export interface Tally {
   complete:    boolean
   outstanding: string[]
   cleared:     Cleared[]
+  /** The spec files a touched run ran, to which its proof is scoped; absent after a full run, whose proof is the whole suite's */
+  scope?:      string[]
 }
 
 /** One line of the log */
@@ -64,6 +70,8 @@ export interface Entry {
   cores:     number
   cache:     CacheState
   seconds:   number
+  /** The seconds every test of the run took, added up; absent from lines written before it was kept */
+  test_seconds?: number
   /** The suite's exit status */
   status:    number
   counts:    Record<Outcome, number>
@@ -101,6 +109,21 @@ function suiteOutcomes(suite: JSONReportSuite, above: readonly string[]): SpecOu
   return [...own, ...(suite.suites ?? []).flatMap((inner) => suiteOutcomes(inner, titles))]
 }
 
+/**
+ * The seconds every test in a Playwright JSON report took, added up (retries and the setup
+ * project's tests among them), to the nearest second: what the run cost the machine, as the wall
+ * time, shared among the workers, does not say.
+ *
+ * @example testSecondsOf({ suites: [{ title: 'a.spec.ts', file: 'a.spec.ts', specs: [{ title: 'works', file: 'a.spec.ts', tests: [{ results: [{ duration: 1500 }, { duration: 1200 }] }] }] }] })  // => 3
+ */
+export function testSecondsOf(report: Pick<JSONReport, 'suites'>): number {
+  const msOf = (suite: JSONReportSuite): number => (
+    suite.specs.reduce((sum, spec) => sum + spec.tests.reduce((within, test) => within + test.results.reduce((ran, result) => ran + result.duration, 0), 0), 0)
+    + (suite.suites ?? []).reduce((sum, inner) => sum + msOf(inner), 0)
+  )
+  return Math.round(report.suites.reduce((sum, suite) => sum + msOf(suite), 0) / 1000)
+}
+
 /** A test's outcome, from Playwright's status for it and the status it expected */
 function outcomeOf(status: string, expectedStatus: string): Outcome {
   switch (status) {
@@ -123,29 +146,31 @@ export function failuresOf(outcomes: readonly SpecOutcome[]): string[] {
   return outcomes.filter(({ outcome }) => outcome === 'failed' || outcome === 'unrun').map(({ spec }) => spec)
 }
 
-/** Whether a tally proves its branch: a full run finished, and every spec it failed has passed since */
+/** Whether a tally proves its branch: a full or touched run finished, and every spec it failed has passed since */
 export function isProved(tally: Tally | undefined): boolean {
   return tally !== undefined && tally.complete && tally.outstanding.length === 0
 }
 
 /**
- * The tally after one more run. A full run starts it afresh. A rerun or a run of chosen specs
- * clears each outstanding spec it passed (a flake when the branch's patch-id is the full run's,
- * repaired when it has changed since), and adds any spec it failed; without a full run of this
- * branch to build on, it changes nothing.
+ * The tally after one more run. A full run starts it afresh, and so does a touched run, its proof
+ * scoped to the spec files it ran (`scope`). A rerun or a run of chosen specs clears each
+ * outstanding spec it passed (a flake when the branch's patch-id is the full run's, repaired when
+ * it has changed since), and adds any spec it failed; without a full or touched run of this branch
+ * to build on, it changes nothing.
  *
  * @param prior - The tally before this run, if any.
- * @param run - The run: its kind, the branch and its top and patch-id, its exit status and outcomes.
+ * @param run - The run: its kind, the branch and its top and patch-id, its exit status and outcomes, and a touched run's spec files.
  * @returns The new tally, and the specs this run cleared.
  *
  * @example tallied(undefined, { kind: 'full', branch: 'b', top: 't', patchid: 'p', status: 1, outcomes: [{ spec: 'a', outcome: 'failed' }] }).tally.outstanding  // => ['a']
  */
-export function tallied(prior: Tally | undefined, run: { kind: RunKind, branch: string, top: string, patchid: string, status: number, outcomes: readonly SpecOutcome[] }): { tally: Tally | undefined, cleared: Cleared[] } {
+export function tallied(prior: Tally | undefined, run: { kind: RunKind, branch: string, top: string, patchid: string, status: number, outcomes: readonly SpecOutcome[], scope?: readonly string[] }): { tally: Tally | undefined, cleared: Cleared[] } {
   const failures = failuresOf(run.outcomes)
-  if (run.kind === 'full') {
+  if (run.kind === 'full' || run.kind === 'touched') {
     // A run that exits red without naming a spec it failed broke before its specs could say anything.
     const complete = run.outcomes.length > 0 && (run.status === 0 || failures.length > 0)
-    return { tally: { branch: run.branch, top: run.top, patchid: run.patchid, complete, outstanding: failures, cleared: [] }, cleared: [] }
+    const scope = run.kind === 'touched' ? { scope: [...(run.scope ?? [])] } : {}
+    return { tally: { branch: run.branch, top: run.top, patchid: run.patchid, complete, outstanding: failures, cleared: [], ...scope }, cleared: [] }
   }
   if (! prior?.complete || prior.branch !== run.branch) { return { tally: prior, cleared: [] } }
   const passed = new Set(run.outcomes.filter(({ outcome }) => outcome === 'passed' || outcome === 'flaky').map(({ spec }) => spec))
@@ -197,23 +222,27 @@ function isRed(entry: Entry): boolean {
   return entry.status !== 0 || entry.failures.length > 0
 }
 
-/** One summary row: how many runs, how many red, and how long they took on average */
+/** One summary row: how many runs, how many red, how long they took on average, and their mean test-seconds where the lines kept them */
 function rowOf(title: string, entries: readonly Entry[]): string {
   const red = entries.filter((entry) => isRed(entry)).length
   const minutes = entries.reduce((sum, entry) => sum + entry.seconds, 0) / Math.max(entries.length, 1) / 60
   const pct = Math.round((100 * red) / Math.max(entries.length, 1))
-  return `  ${title.padEnd(10)} ${String(entries.length).padStart(4)} runs  ${String(red).padStart(4)} red (${String(pct).padStart(3)}%)  mean ${minutes.toFixed(1)} min`
+  const costed = entries.flatMap(({ test_seconds }) => (test_seconds === undefined ? [] : [test_seconds]))
+  const cost = costed.length === 0 ? '' : `, ${String(Math.round(costed.reduce((sum, secs) => sum + secs, 0) / costed.length))} test-seconds`
+  return `  ${title.padEnd(10)} ${String(entries.length).padStart(4)} runs  ${String(red).padStart(4)} red (${String(pct).padStart(3)}%)  mean ${minutes.toFixed(1)} min${cost}`
 }
 
 /**
- * The log, summarised for a person: full runs red by load and by build cache, and how many of the
- * specs full runs failed passed alone with the code unchanged.
+ * The log, summarised for a person: full runs red by load and by build cache, touched runs on
+ * their own row, and how many of the specs full runs failed passed alone with the code unchanged.
+ * Each row gives the mean test-seconds of the runs that kept them.
  *
  * @example summarise([])  // => ['The e2e log is empty: `pnpm e2e` writes a line for every run.']
  */
 export function summarise(entries: readonly Entry[]): string[] {
   if (entries.length === 0) { return ['The e2e log is empty: `pnpm e2e` writes a line for every run.'] }
   const full = entries.filter((entry) => entry.kind === 'full')
+  const touched = entries.filter((entry) => entry.kind === 'touched')
   const groupBy = (keyOf: (entry: Entry) => string, order: readonly string[]) => order.flatMap((key) => {
     const group = full.filter((entry) => keyOf(entry) === key)
     return group.length === 0 ? [] : [rowOf(key, group)]
@@ -225,11 +254,12 @@ export function summarise(entries: readonly Entry[]): string[] {
     .toSorted((aa, bb) => bb.count - aa.count).slice(0, 5)
   const dates = entries.map(({ at }) => at.slice(0, 10)).toSorted((aa, bb) => aa.localeCompare(bb))
   return [
-    `${String(entries.length)} runs logged, ${dates[0] ?? ''} to ${dates.at(-1) ?? ''}: ${String(full.length)} full, ${String(entries.length - full.length)} reruns or chosen specs.`,
+    `${String(entries.length)} runs logged, ${dates[0] ?? ''} to ${dates.at(-1) ?? ''}: ${String(full.length)} full, ${String(touched.length)} touched, ${String(entries.length - full.length - touched.length)} reruns or chosen specs.`,
     'Full runs, by the load as each ended (five-minute average):',
     ...groupBy((entry) => loadBandOf(entry.load.after), LoadBands.map((band) => band[2])),
     'Full runs, by the build cache each found:',
     ...groupBy((entry) => entry.cache, ['cold', 'seeded', 'warm']),
+    ...(touched.length === 0 ? [] : ['Touched runs, over the corner each branch reached:', rowOf('touched', touched)]),
     `Specs failed in full runs: ${String(failed)}. Passed alone since, code unchanged (flakes): ${String(flakes.length)}; after a change: ${String(cleared.length - flakes.length)}.`,
     ...(often.length === 0 ? [] : ['Flaking most often:', ...often.map(({ spec, count }) => `  ${String(count).padStart(3)}  ${spec}`)]),
   ]

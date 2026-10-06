@@ -28,13 +28,10 @@ async function qnumsShown(page: Page): Promise<string[]> {
   return valuesOf(fields)
 }
 
-test('a decimal Q# leaves the question where it is', async ({ page }) => {
-  await fillQuiz(page, [['4', 'd'], ['3.1', 'c'], ['6', 'f'], ['1', 'a']])
-  await expect.poll(() => answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
-})
-
 test('Renumber Q# tidies the numbers without moving a question', async ({ page }) => {
   await fillQuiz(page, [['4', 'd'], ['3.3', 'c'], ['6', 'f'], ['1', 'a']])
+  // A decimal Q# leaves its question where it is, before the renumbering and after
+  await expect.poll(() => answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
   await page.getByRole('button', { name: 'Renumber Q#' }).click()
   await expect.poll(() => answersShown(page)).toEqual(['d', 'c', 'f', 'a', ''])
   await expect.poll(() => qnumsShown(page)).toEqual(['3', '2', '4', '1', ''])
@@ -80,7 +77,7 @@ test('a question dropped against a row\'s lower edge lands below it', async ({ p
   await expect.poll(() => answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])
 })
 
-test('a question is moved by the arrow keys once its grip has focus, and the move survives a reload', async ({ page }) => {
+test('a question is moved by the arrow keys once its grip has focus, and the move survives a reload', { tag: '@smoke' }, async ({ page }) => {
   await fillQuiz(page, [['1', 'apple'], ['2', 'banana'], ['3', 'cherry']])
   await stepBy(questionGrip(page, 'apple'), 2)
   await expect.poll(() => answersShown(page)).toEqual(['banana', 'cherry', 'apple', '', ''])

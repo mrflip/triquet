@@ -40,7 +40,7 @@ test.beforeEach(async ({ page }) => {
   await addWidgeting(page, 'categories')
 })
 
-test('a category estimate is pills, each picked from a list, kept as they are picked', async ({ page }) => {
+test('a category estimate is pills, each picked from a list, kept as they are picked', { tag: '@smoke' }, async ({ page }) => {
   // A question nobody has placed shows one blank pill, and no "+" while it is blank.
   await expect(categoryList(page, 0, 1)).toHaveText('(blank)')
   await expect(difficultyFace(page, 0, 1)).toHaveAccessibleName('Categories, 1: difficulty, medium')
