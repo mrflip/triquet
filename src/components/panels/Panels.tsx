@@ -2,6 +2,7 @@
 
 import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
+import { PanelsRow } from './Panel'
 import { ReviewsPanel } from './ReviewsPanel'
 import { SpreadPanel } from './SpreadPanel'
 import { WidgetsPanel } from './WidgetsPanel'
@@ -14,7 +15,6 @@ import type { HuntActionDNA, LibraryActionDNA } from '../../models/actions'
 import type { QuizT } from '../../models/quiz'
 import type { WidgetT } from '../../models/widget'
 import type { HuntHandle } from '../../state/use-hunt'
-import styles from '../workbench.module.css'
 
 export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'> & {
   quiz:      QuizT
@@ -42,7 +42,7 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
 export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble }: Readonly<PanelsProps>) {
   const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
-    <div className={styles.panels}>
+    <PanelsRow>
       <ReviewsPanel reviews={reviews} questions={quiz.questions} />
 
       <SpreadPanel run={run} />
@@ -52,6 +52,6 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
       <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} onImportElsewhere={onImportElsewhere} onQ1Preamble={onQ1Preamble} />
 
       <WidgetsPanel quiz={quiz} run={run} />
-    </div>
+    </PanelsRow>
   )
 }

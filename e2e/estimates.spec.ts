@@ -107,7 +107,7 @@ test("columns can show Masie's chance and the personas' average, worked out from
   await expect(cellOf(page, 0, 'Average')).toHaveText('76%')
 })
 
-test("the category spread counts the questions round the wheel, smoothed beside them, and widens when clicked", async ({ page }) => {
+test("the category spread counts the questions round the wheel, smoothed beside them, and its chart widens with the panel", async ({ page }) => {
   const panel = page.getByRole('region', { name: 'Category spread' })
   await expect(panel).toContainText('0 questions placed, from the estimates under categories.')
   await pick(page, categoryList(page, 0, 1), 'Art')
@@ -148,18 +148,17 @@ test("the category spread counts the questions round the wheel, smoothed beside 
   await expect(table.locator('tbody tr').first()).toHaveAttribute('data-category', 'art')
   await expect(table.locator('tbody tr').nth(1)).toHaveAttribute('data-category', 'tv')
 
-  // A click widens the chart to the whole row of panels, in the page; Enter narrows it again.
-  const chart = panel.getByRole('button', { name: 'Category spread chart, full width' })
-  await expect(chart).toHaveAttribute('aria-pressed', 'false')
+  // The panel's arrow widens it to the whole row of panels, and the chart with it; again narrows it back.
+  const arrow = panel.getByRole('button', { name: 'Widen this panel to the whole row' })
+  await expect(arrow).toHaveAttribute('aria-pressed', 'false')
   const widthOf = async () => {
     const box = await panel.boundingBox()
     return box?.width ?? 0
   }
   const restingWidth = await widthOf()
-  await chart.click()
-  await expect(chart).toHaveAttribute('aria-pressed', 'true')
+  await arrow.click()
+  await expect(arrow).toHaveAttribute('aria-pressed', 'true')
   await expect.poll(widthOf).toBeGreaterThan(restingWidth)
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await chart.press('Enter')
-  await expect(chart).toHaveAttribute('aria-pressed', 'false')
+  await arrow.click()
+  await expect(arrow).toHaveAttribute('aria-pressed', 'false')
 })

@@ -220,5 +220,33 @@ test('the library is handed out on its own, and a pasted library is merged into 
 test("the Category spread panel says how to begin when the quiz has no category estimate entry", async ({ page }) => {
   const panel = page.getByRole('region', { name: 'Category spread' })
   await expect(panel).toContainText('This quiz has no category estimate entry yet.')
-  await expect(panel.getByRole('button', { name: 'Category spread chart, full width' })).toHaveCount(0)
+  await expect(panel.getByRole('button', { name: 'As a table' })).toHaveCount(0)
+})
+
+test('a panel folds to its title bar and opens again, and one beside others widens to the whole row', async ({ page }) => {
+  const panel = page.getByRole('region', { name: 'Members' })
+  const fold = panel.getByRole('button', { name: 'Show this panel' })
+  const blurb = panel.getByText('Who is on this hunt.')
+  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await expect(blurb).toBeVisible()
+  await fold.click()
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect(blurb).toBeHidden()
+  await expect(panel.getByRole('heading', { name: 'Members' })).toBeVisible()
+  await fold.click()
+  await expect(blurb).toBeVisible()
+
+  const widthOf = async () => {
+    const box = await panel.boundingBox()
+    return box?.width ?? 0
+  }
+  const restingWidth = await widthOf()
+  const arrow = panel.getByRole('button', { name: 'Widen this panel to the whole row' })
+  await arrow.click()
+  await expect(arrow).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(widthOf).toBeGreaterThan(restingWidth)
+  await arrow.click()
+  await expect.poll(widthOf).toBe(restingWidth)
+  // A panel the whole row wide already has no arrow to widen it.
+  await expect(page.getByRole('region', { name: 'Widgets' }).getByRole('button', { name: 'Widen this panel to the whole row' })).toHaveCount(0)
 })
