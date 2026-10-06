@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** threads 1 and 3 landed (#156, #157); thread 5 landing (lane 3); threads 2 and 4 underway (lanes 1 and 2). Thread 6 held until the Coach releases it.
+**Status:** threads 1 and 3 landed (#156, #157); thread 5 landing (lane 3); thread 4 in review (lane 2); thread 2 underway (lane 1). Thread 6 held until the Coach releases it.
 
 ## Status
 
@@ -9,7 +9,7 @@
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
 | 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
 | 3 | cover the error boundary | landed #157 |
-| 4 | cover stats and the other light gaps | underway (lane 2) |
+| 4 | cover stats and the other light gaps | in review (lane 2) |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landing (lane 3) |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
@@ -118,4 +118,18 @@ Coach: does the map's rule mean "opens through" (layout, route, data hooks) or "
 "draws", the panels, the grid and the quiz header would go to the whole suite too; the map keeps
 them in corners whose specs notice a draw-time throw. Also minor: `HuntRepoList` is reached from
 `QuizRoute` only through `QuizNotFound`, which routing covers, so it keeps its corner.
+
+*Orchestrator:* from thread 4's `ready` report (its file, `thread-4-e2e_light_gaps.md`):
+
+* **Unit tests can now render a view**, through `renderToStaticMarkup` in the existing `node`
+  environment, with `renderedText` in `tests/support/rendering.tsx`; `vitest.config.ts` includes
+  `*.test.tsx`. No package added. `notes/testing.md` limits it to what a view chooses to say.
+* **No new spec file name**: the two-smith and members tests went into `routing.spec.ts`, so no
+  corner line is needed; `stats.spec.ts` carries its one `@smoke`.
+* **Every ident is an admin today**: only a browser with no username is refused the backfills.
+  The stats spec relies on that for its admin view; once admin rights narrow, it needs an admin
+  of its own. A product fact for the Coach.
+* **A bare `getByRole('alert')` also matches Next's route announcer** after a client-side
+  navigation. Filter alarms by their text (`AppNotices.changeNotKept`).
+* **The pages run the React that Next bundles** (`19.3.0-canary-…`), not package.json's `19.3.0`.
 
