@@ -12,8 +12,8 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
 
 **What is live** is said at `/stats`, linked from nowhere: the commit the build came from, the pull
 request its merge names (number, title, description) and the commits it brought in, when it was
-built, a link to every change since the deployment before, and how far each backfill has run on
-the deployment it talks to. The build's facts are gathered as the page is prerendered
+built, a link to every change since the deployment before, and, to an admin (`Actor.isAdmin`),
+how far each backfill has run on the deployment it talks to. The build's facts are gathered as the page is prerendered
 (`src/lib/build-stamp.ts`), from Vercel's git variables, or git itself elsewhere; each is a best
 effort, and a shallow clone may list no commits.
 

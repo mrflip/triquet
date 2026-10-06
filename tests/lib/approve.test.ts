@@ -207,6 +207,16 @@ describe('Approve.mayCountUsage', () => {
   })
 })
 
+describe('Approve.mayReadBackfills', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('nobody who has asserted no username, an admin, and nobody else', () => {
+    const verdicts = [Approve.mayReadBackfills(Actor.anonymous), Approve.mayReadBackfills(Alice)]
+    nobodyIsAdmin()
+    expect([...verdicts, Approve.mayReadBackfills(Alice)]).to.deep.eq(['notIdentified', 'allow', 'notPermitted'])
+  })
+})
+
 describe('Approve.mayAssertUsername', () => {
   it('anyone', () => {
     expect(Approve.mayAssertUsername()).to.eq('allow')
@@ -415,7 +425,7 @@ describe('the matrix: every action kind, as each standing, and as a smith of a l
 })
 
 /** The keys of the policies that are not an action's */
-const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'export_hunt', 'read_review', 'read_library', 'count_usage', 'ask_anthropic_bot', 'change_library'] as const)
+const ReadKeys: ReadonlySet<Approve.PolicyKey> = new Set(['read_hunt', 'export_hunt', 'read_review', 'read_library', 'count_usage', 'read_backfills', 'ask_anthropic_bot', 'change_library'] as const)
 
 describe('Approve.verdictOn', () => {
   it('asks the reads by name', () => {
@@ -425,8 +435,9 @@ describe('Approve.verdictOn', () => {
       Approve.verdictOn('read_review', reviewBy(bob_id, 'shared'), ClaimsAs.smith, null),
       Approve.verdictOn('read_library', Actor.anonymous),
       Approve.verdictOn('count_usage', Alice),
+      Approve.verdictOn('read_backfills', Alice),
       Approve.verdictOn('ask_anthropic_bot', 'allow'),
-    ]).to.deep.eq(['allow', 'notPermitted', 'allow', 'notIdentified', 'allow', 'allow'])
+    ]).to.deep.eq(['allow', 'notPermitted', 'allow', 'notIdentified', 'allow', 'allow', 'allow'])
   })
 
   it('asks of changing the library by name, as it asks of each library action', () => {
