@@ -436,4 +436,8 @@ lines between them, and these are here so they are findable beside the rest.
   are a ball rooted at their quiz rather than the hunt, never merged, for pasting into any quiz.
   `src/lib/jsonball.ts` owns the shapes; `Exporting` builds the balls, `Importing` reads them back.
 * **meta** -- the second-layer puzzle a quiz can hide. The reason widgets exist.
+* **doodad** -- the Coach's loose word for a component, a widget, or something contextual: "add
+  another export doodad". Say what it is in code and copy.
+* **gearbox** -- a modal or page for configuring a thing. The quiz's gearbox is its gear dialog,
+  `QuizManageModal`.
 * **Coach**, **agent** -- the humans and the AI on this project. See `CLAUDE.md`.
