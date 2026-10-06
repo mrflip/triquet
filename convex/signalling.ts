@@ -126,6 +126,9 @@ export function signalling(tablename: SignalledTablename) {
       await dropSignal(ctx.innerDb, deleted)
       return
     }
+    // A quiz settled already needs nothing read, not even a verdict's review: a deletion's every verdict would read it.
+    const named = (change.newDoc ?? change.oldDoc)?.quiz_id
+    if (named !== undefined && settled.has(named)) { return }
     const quiz = await quizOfChange(ctx.innerDb, tablename, change)
     if (! quiz || settled.has(quiz.quiz_id)) { return }
     settled.add(quiz.quiz_id)

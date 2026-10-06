@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { SignalledTables, isMovedAt } from '../../convex/signalling'
+import { triggers } from '../../convex/triggers'
 import type { HuntActionDNA } from '../../src/models/actions'
 import { Hunt } from '../../src/models/hunt'
 import { Question } from '../../src/models/question'
@@ -52,6 +53,16 @@ function laterByGrain(): number {
   const now = Date.now() + SignalGrainMs
   vi.setSystemTime(now)
   return now
+}
+
+/** `db`, but counting in `count.reviews` each row of `tablename` it is asked to get */
+function countingReads<DT extends object>(db: DT, tablename: string, count: { reviews: number }): DT {
+  const get = (db as unknown as { get: (...args: unknown[]) => Promise<unknown> }).get.bind(db)
+  const counted = async (...args: unknown[]): Promise<unknown> => {
+    if (args[0] === tablename) { count.reviews += 1 }
+    return await get(...args)
+  }
+  return new Proxy(db, { get: (target, key) => (key === 'get' ? counted : Reflect.get(target, key) as unknown) })
 }
 
 beforeEach(() => { vi.useFakeTimers({ now: Early, toFake: ['Date'] }) })
@@ -133,6 +144,24 @@ describe("a quiz's signal", () => {
     const withdrawn = laterByGrain()
     await held.act({ kind: 'set_review_phase', quiz_id, phase: 'draft' }, held.lee)
     expect(await signalOf(held, quiz_id)).to.eq(withdrawn)
+  })
+
+  it("reads no verdict's review once its quiz's signal has settled in the mutation", async () => {
+    const held = await seeded()
+    const { quiz_id } = held.open
+    await held.act({ kind: 'open_review', quiz_id }, held.lee)
+    await held.act({ kind: 'set_reviewing', quiz_id, question_id: held.leon, patch: { get_rate: 40 } }, held.lee)
+    await held.act({ kind: 'set_review_phase', quiz_id, phase: 'shared' }, held.lee)
+    const read = { reviews: 0, verdicts: 0 }
+    await held.tt.run(async (ctx) => {
+      const { db } = triggers.wrapDB({ ...ctx, db: countingReads(ctx.db, 'reviews', read) })
+      await db.patch('quizzes', quiz_id, { title: 'Royal Princes' })
+      const verdicts = await ctx.db.query('reviewings').withIndex('by_question_id', (cvx) => cvx.eq('question_id', held.leon)).collect()
+      for (const verdict of verdicts) { await db.delete('reviewings', verdict._id) }
+      read.verdicts = verdicts.length
+    })
+    expect(read.verdicts).to.be.above(0)
+    expect(read.reviews).to.eq(0)
   })
 
   it("goes with its quiz", async () => {
