@@ -7,10 +7,10 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | Widen the recap fields | landing |
+| 1 | Widen the recap fields | landed #163 |
 | 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
-| 4 | Field templates | pending |
+| 4 | Field templates | underway |
 | 5 | The recap panel | pending |
 | 6 | Quiz-level widgetings and entries | pending |
 | 7 | Security review | pending |
@@ -41,7 +41,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   indent (TODO); `\[b\]` and `[/code]` in code reach the board live; `{AS:}` empty gives
   `[quote=""]`, and a multi-line annotation puts a newline in `[spoiler=..]`.
 
-* **Fields (thread 1, in review).** Newer than the plan's Decision 3: quiz `templated` names what
+* **Fields (thread 1, #163, `Serial Deploy: recap`).** Newer than the plan's Decision 3: quiz `templated` names what
   it templates the way a column names what it shows, `question.<field>` or a widgeting's label;
   the templatable question fields are `TemplatableFieldVals` (clueing, hint, full_answer, notes,
   recap); `set_templated` replaces the whole list and refuses an unknown widgeting
@@ -50,6 +50,10 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   `WidgetingFallbacks` in `src/lib/rows.ts`. `recap` is now a reserved widgeting label. Thread 5:
   `recap` has no column or cell editor yet (add it to `QuestionFieldVals`; no migration). Thread 6:
   nothing reads `tier` yet. Thread 9: the checklist is in `thread-1-recap_widen.md`.
+  *Review:* clean. Left, minor: a production widgeting already labelled `recap` would refuse every
+  write to it and cover the question's `recap` in the bag (the Coach's pre-merge check,
+  `human/20261006-recap_widen.md`; a hit needs a relabelling migration); an old export from such a
+  quiz has its questions skipped at import, logged.
 
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
