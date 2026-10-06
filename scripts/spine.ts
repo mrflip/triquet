@@ -129,9 +129,10 @@ interface CornerRule {
  * synced layout, the quiz's pages, `QuizRoute`, `SiteHeader`, `shown-hunt`, `use-address`,
  * `use-ident` and `routes.ts`, and the quiz history mirror `use-hunt` feeds and tracks every write
  * through: `hunt-mirror`, `hunt-feed`, `hunt-fetching`, `hunt-commits`, `commit-scheduler`,
- * `huntfiles` and `huntgit`). A component used in two corners names the spec
- * files of both. A spec file named here need not exist yet: `pnpm e2e --touched` skips one that is
- * not there, and a corner left with none reaches the whole suite.
+ * `huntfiles` and `huntgit`, with the history download and its help, `FullHistoryDownload` and
+ * `full-history.md`, which every quiz screen's Export tab mounts). A component used in two corners
+ * names the spec files of both. A spec file named here need not exist yet: `pnpm e2e --touched`
+ * skips one that is not there, and a corner left with none reaches the whole suite.
  */
 export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the error boundary', specs: ['failing-pages'], paths: ['src/app/(synced)/error.tsx', 'src/components/PageFailed.tsx'] },
@@ -142,7 +143,7 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'reviews, as rows and files', specs: ['reviews', ...PanelSpecs, 'quiz-history'], paths: ['src/models/review.ts', 'src/models/reviewing.ts'] },
   // The quiz history
   { corner: 'the hunt histories listed', specs: ['quiz-history', 'routing'],                 paths: ['src/components/HuntRepoList.tsx', 'src/components/OrphanedRepos.tsx', 'src/state/use-hunt-repos.ts'] },
-  { corner: 'the quiz history',          specs: HistorySpecs,                                paths: ['src/components/FullHistoryDownload.tsx', 'src/components/HuntBranch.tsx', 'src/content/full-history.md'] },
+  { corner: 'the quiz history',          specs: HistorySpecs,                                paths: ['src/components/HuntBranch.tsx'] },
   // The categories
   { corner: 'the category wheel',        specs: ['categories'],                              paths: ['src/components/CategoryWheel.tsx', 'src/components/PersonaCard.tsx', 'src/components/wheel-geometry.ts', 'src/state/use-categories.ts'] },
   { corner: "the categories' page",      specs: ['categories', ...RoutingSpecs],             paths: ['src/components/CategoriesRoute.tsx', 'src/app/(synced)/[org]/[hunt]/categories/', 'src/app/(synced)/c/'] },
