@@ -125,7 +125,9 @@ interface CornerRule {
  * before the general; a path no rule names (`src/models/`, `convex/`, `src/lib/rows.ts`,
  * `e2e/support.ts`, the configuration, the harness scripts, and anything new) reaches the whole
  * suite, as do a few files every screen leans on (`use-draft`, `use-session`, `offers.ts`,
- * `postmortem`, `cells/fields` and `cells/markdown`). A component used in two corners names the spec
+ * `postmortem`, `cells/fields` and `cells/markdown`) and those every quiz screen opens through (the
+ * synced layout, the quiz's pages, `QuizRoute`, `SiteHeader`, `shown-hunt`, `use-address`,
+ * `use-ident` and `routes.ts`). A component used in two corners names the spec
  * files of both. A spec file named here need not exist yet: `pnpm e2e --touched` skips one that is
  * not there, and a corner left with none reaches the whole suite.
  */
@@ -142,7 +144,8 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the quiz history',          specs: HistorySpecs,                                paths: ['src/state/hunt-mirror.ts', 'src/state/hunt-commits.ts', 'src/state/commit-scheduler.ts', 'src/state/hunt-feed.ts', 'src/state/hunt-fetching.ts', 'src/lib/huntfiles', 'src/components/FullHistoryDownload.tsx', 'src/components/HuntBranch.tsx', 'src/content/full-history.md'] },
   // The categories
   { corner: 'the category wheel',        specs: ['categories'],                              paths: ['src/components/CategoryWheel.tsx', 'src/components/PersonaCard.tsx', 'src/components/wheel-geometry.ts', 'src/state/use-categories.ts'] },
-  { corner: "the categories' page",      specs: ['categories', ...RoutingSpecs],             paths: ['src/components/CategoriesRoute.tsx', 'src/state/use-hunt-opening.ts'] },
+  { corner: "the categories' page",      specs: ['categories', ...RoutingSpecs],             paths: ['src/components/CategoriesRoute.tsx', 'src/app/(synced)/[org]/[hunt]/categories/', 'src/app/(synced)/c/'] },
+  { corner: 'the opening of a hunt',     specs: ['categories', ...RoutingSpecs, 'quiz-history'], paths: ['src/state/use-hunt-opening.ts'] },
   { corner: 'the category spread',       specs: ['estimates', 'panels'],                     paths: ['src/components/panels/SpreadPanel.tsx', 'src/components/panels/spread-', 'src/lib/spread.ts'] },
   // Asking
   { corner: 'asking',                    specs: AskingSpecs,                                 paths: ['src/lib/ask/', 'src/lib/bots/', 'src/app/api/', 'src/state/use-asking', 'src/state/use-bots', 'src/lib/formulary/aibot.ts'] },
@@ -170,9 +173,8 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the grid',                  specs: GridSpecs,                                   paths: ['src/components/QuestionRow.tsx', 'src/components/QuestionTable.tsx', 'src/components/use-folds.ts', 'src/components/use-settled-resize.ts'] },
   // The way in, the addresses and the pages
   { corner: 'the brand',                 specs: ['brand'],                                   paths: ['src/components/Logo.tsx', 'src/components/About.tsx', 'src/app/about/', 'src/content/about.md', 'src/app/manifest.ts', 'src/app/apple-icon.png', 'src/app/favicon.ico', 'public/'] },
-  { corner: 'the quiz page',             specs: [...RoutingSpecs, 'reviews'],                paths: ['src/components/QuizRoute.tsx'] },
-  { corner: 'the hunts',                 specs: [...RoutingSpecs, 'quiz-history'],           paths: ['src/components/HuntsList.tsx', 'src/components/HuntRoute.tsx', 'src/state/use-account-actions.ts'] },
-  { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/', 'src/lib/routes.ts', 'src/components/IdentGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx', 'src/components/SiteHeader.tsx', 'src/components/use-address.ts', 'src/state/use-ident.ts', 'src/state/use-hunts-list.ts', 'src/state/shown-hunt.tsx'] },
+  { corner: 'the hunts',                 specs: [...RoutingSpecs, 'quiz-history'],           paths: ['src/components/HuntsList.tsx', 'src/components/HuntRoute.tsx', 'src/state/use-account-actions.ts', 'src/state/use-hunts-list.ts', 'src/app/(synced)/my/', 'src/app/(synced)/[org]/page.tsx', 'src/app/(synced)/[org]/[hunt]/page.tsx', 'src/app/(synced)/[org]/[hunt]/quizzes/page.tsx'] },
+  { corner: 'the way in and the addresses', specs: RoutingSpecs,                             paths: ['src/app/(synced)/page.tsx', 'src/app/(synced)/h/', 'src/components/IdentGate.tsx', 'src/components/HuntEditModal.tsx', 'src/components/NotOnHunt.tsx', 'src/components/QuizNotFound.tsx'] },
 ]
 
 const Usage = 'Usage: node scripts/spine.ts worktree <label> [--no-install] | worktree --remove | catchup | justify | e2e [--touched | <playwright args>] | e2e-log | land [--skip-e2e <reason>] | sweep | restack | top'
