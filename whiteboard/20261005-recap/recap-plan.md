@@ -93,6 +93,9 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
     break the recap's frame. Two-way door; thread 7 and the Coach decide the escape.
 11. **`mdast-util-definitions` not added**: a reviewer's attempt was refused by the session's
     permission check, so it waits on the Coach rather than being routed to another agent.
+12. **Thread 6's pivot stays unstored; placement amended instead**: a quiz's first question
+    widgeting goes just above its first quiz formula, so a delete-then-add cannot leave a quiz
+    formula running before the questions. Storing the pivot would have been a widening.
 
 ## Threads
 

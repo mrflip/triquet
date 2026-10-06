@@ -12,7 +12,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | landed #164 |
 | 5 | The recap panel | landed #165 |
-| 6 | Quiz-level widgetings and entries | underway |
+| 6 | Quiz-level widgetings and entries | landing |
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
@@ -91,6 +91,30 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
   author may write and testing an escape on the board. Minor: a clueing opening `1984. …` loses its
   number (the writer drops an ordered list's start); `Correct Answer %:` goes in raw, outside the
   writer.
+
+* **Quiz tier (thread 6, in review).** No row widened: a new table, `quiz_widgeteds`, holds quiz
+  entries, so nothing folds into thread 1 and thread 9 has nothing new. `tier: 'quiz'` widgetings
+  run once over a bag with no question; their values reach later bags as `quiz.<label>` (so
+  `{{quiz.playtesters}}` works in the recap head once an author adds that entry). The pivot is
+  implicit: quiz widgetings positioned before the first question widgeting run first, then the
+  question widgetings, then the rest (`src/lib/run-order.ts`); positions rewritten whole on each
+  layout change. `move_widgeting` counts within its tier's list. Quiz tier takes only `jsonata` and
+  single-value entries (`tierUnoffered`). `enter_quiz_widgeted` under `mayReviseClaimedQuiz`;
+  `quizzes.open` sends smiths `QuizT.stored`. Gear: *Quiz widgetings* with a fixed *The questions*
+  row (`SortableList`'s `isFixed`). Panel: `QuizEntriesPanel`. To TODO: import doesn't bring quiz
+  entry values back or keep a widgeting's side of the pivot; with no question widgetings a quiz
+  widgeting dropped below the pivot snaps back above.
+  *Review (first):* flagged. With no question widgetings every quiz widgeting counts as above the
+  pivot, so delete-the-last-question-widgeting-then-add (or a quiz formula added before any
+  question widgeting) leaves a quiz formula running before the questions, silently reading nothing.
+  *Orchestrator:* directed the reviewer's option (b): a quiz's first question widgeting goes just
+  above its first quiz formula, after its entries. Pivot stays unstored; no widening. Second review
+  to follow over the new commits. Authorization, `move_widgeting`'s index and row shapes checked
+  sound.
+  *Review (second, over the fix):* clean. Both paths closed; gear and server share one rule (a
+  widgeting reads unless its library widget is an entry; a missing widget counts as reading);
+  `move_widgeting` indexes match with or without question widgetings. Minor: with no question
+  widgetings and no formulas, the pivot row still says "above the formulas here".
 
 *Orchestrator:* **`/code-review` touched the main checkout.** Reviewing thread 5, the skill ran
 `git checkout 0a48bb5` in `/workspace/triquet` to try the code, and switched back 90 seconds later
