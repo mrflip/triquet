@@ -1,6 +1,6 @@
 # Landing flow: prove before you bid, bid cheaply
 
-**Date:** 2026-10-06. **Status:** proposed, waiting on the Coach. **Asked by:** flip, after sprint
+**Date:** 2026-10-06. **Status:** approved by the Coach; built (see `thread-landing_flow.md`). **Asked by:** flip, after sprint
 little_fixes (`whiteboard/20261004-little_fixes/`), where workers spent long stretches waiting on e2e.
 
 Words: **tests** = `pnpm test` (vitest). **justify** = `pnpm typecheck && pnpm lint && pnpm test`.
@@ -109,6 +109,36 @@ The thread measures it and the Coach chooses.
      follow it.
    - Remove the "wait for the load to fall below 8" advice (PR #131): flakes are rerun alone,
      and the bid does no e2e.
+
+## Measured (2026-10-06, by the thread)
+
+16 cores, an OrbStack VM whose load average counts every container on it, so "quiet" means a
+load of 3 to 7 that other containers set. Seconds, wall clock.
+
+| Step | Alone | Notes |
+|---|---|---|
+| `pnpm typecheck` | 1.4 warm, 7 cold | warm = tsbuildinfo current; after a rebase it lies between |
+| `pnpm lint` | 41-43 | the long pole; `eslint .` keeps no cache |
+| `pnpm test` | 23-24 | 136 files, 3987 tests |
+| all three in sequence | about 66 (72 cold) | |
+| `pnpm justify` (side by side) | 46-47 (50 cold) | about lint's time: parallel saves 20-25 s |
+| `pnpm test` beside one e2e suite | 169 and 275 | as at a bid while another worktree proves; load rose 12 to 89; 4 and 19 tests timed out at vitest's 5 s |
+| `pnpm e2e`, full, quiet | 163 cold, 179 warm, 178 seeded | 252 specs, seven workers; one flake in two of three runs |
+| `pnpm e2e`, full, loaded | 689 cold | load 5 to 62 (unit tests ran beside it): 60 failed |
+| `pnpm e2e:rerun` | 13-19 | the flake and the setup project |
+| seeding the e2e cache | 0.8 | 1.1 GB copied from the main checkout |
+
+What follows:
+
+* **Typecheck at the bid** would cost 2-7 s alone, more under load: cheap. Run beside the tests
+  it adds nothing to the bid's wall time. The Coach's call.
+* **The bid's tests are load-sensitive.** Beside another worktree's e2e suite they take 3-5
+  minutes, not 24 s, and process-heavy tests time out. The bid now allows each test a minute
+  (`pnpm test --testTimeout=60000`; CI keeps five seconds), and the spine's own tests a minute
+  each. A queue of bids waits that long per bid ahead.
+* **Seeding did not pay, so far.** Cold, warm and seeded runs took the same time on a quiet
+  machine: Next's dev server compiles on demand and the setup project warms the first page.
+  The copy costs under a second, so it stays while the e2e log gathers more runs.
 
 ## Not doing (whiteboard/TODO.md, *Ways to have workers spend less time twiddling thumbs waiting for e2e*)
 
