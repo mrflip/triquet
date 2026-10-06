@@ -16,6 +16,7 @@ import { QuizValidators } from '../../src/models/quiz'
 import { RealmValidators } from '../../src/models/realm'
 import { ReviewValidators } from '../../src/models/review'
 import { ReviewingValidators } from '../../src/models/reviewing'
+import { SignalValidators } from '../../src/models/signal'
 import { WidgetValidators } from '../../src/models/widget'
 import { WidgetedValidators } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
@@ -45,6 +46,7 @@ const RowValidators: Record<TableNames, RowValidator> = {
   realms:      RealmValidators.row,
   reviews:     ReviewValidators.row,
   reviewings:  ReviewingValidators.row,
+  signals:     SignalValidators.row,
   widgets:     WidgetValidators.row,
   widgetings:  WidgetingValidators.row,
   widgeteds:   WidgetedValidators.row,
@@ -137,6 +139,7 @@ async function samplesIn(tt: Tester): Promise<Samples> {
         hunt_id, quiz_id, question_id, widgeting_id, status: 'ok', value: { guess: 'Hamlet', explanation: 'A prince.' }, message: null,
         result_meta: { model_tier_applied: 'quick', approx_tokens: 120, truncated: false, response: { error: { kind: 'overloaded', retry: [1, 2] } } },
       }),
+      signals:     SignalValidators.row({ hunt_id, quiz_id, changed_at: 1_759_700_000_000 }),
     }
   })
 }
@@ -153,6 +156,7 @@ const WrongTyped: Record<TableNames, Record<string, unknown>> = {
   realms:      { hunt_id: 'nowhere' },
   reviews:     { phase: 'finished' },
   reviewings:  { minutes: 'a few' },
+  signals:     { changed_at: 'just now' },
   widgets:     { formulary: 'gadget' },
   widgetings:  { position: 'first' },
   widgeteds:   { status: 'pending' },

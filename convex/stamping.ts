@@ -1,12 +1,11 @@
-import { Triggers } from 'convex-helpers/server/triggers'
-import type { DataModel, TableNames } from './_generated/dataModel'
+import type { TableNames } from './_generated/dataModel'
 import type { MutationCtx } from './_generated/server'
 import * as Stamps from '../src/lib/stamps'
 
-// Every row of ours a write lands on is stamped here, by a trigger (convex-helpers' Triggers),
-// rather than by each writer: `functions.ts` hands every mutation it builds a database wrapped by
-// `triggers.wrapDB`, and the trigger writes the stamps through the database beneath it, which runs
-// no trigger again. A writer never names a stamp, and an import does not carry one.
+// Every row of ours a write lands on is stamped here, by a trigger (convex-helpers' Triggers,
+// registered in `triggers.ts`), rather than by each writer: `functions.ts` hands every mutation it
+// builds a database wrapped by `triggers.wrapDB`, and the trigger writes the stamps through the
+// database beneath it, which runs no trigger again. A writer never names a stamp, and an import does not carry one.
 //
 // What this does not see: a write from the Convex dashboard, and the migrations' own internal
 // mutations (`migrations.ts`), which write raw on purpose so that a backfill is no edit. A row the
@@ -53,13 +52,9 @@ export function stampsAfter(tablename: string, change: StampedChangeT, now: numb
 }
 
 /** The trigger that stamps each write landing on a row of `tablename` (`stampsAfter`), through the database beneath the triggers */
-function stamping(tablename: StampedTablename) {
+export function stamping(tablename: StampedTablename) {
   return async (ctx: { innerDb: MutationCtx['db'] }, change: StampedChangeT): Promise<void> => {
     const stamps = stampsAfter(tablename, change, Date.now())
     if (stamps) { await ctx.innerDb.patch(tablename, change.id as never, stamps) }
   }
 }
-
-/** The triggers every mutation's database runs (`functions.ts`): today, the stamps of every stamped table */
-export const triggers = new Triggers<DataModel>()
-for (const tablename of StampedTables) { triggers.register(tablename, stamping(tablename)) }

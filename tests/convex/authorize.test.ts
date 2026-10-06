@@ -422,7 +422,7 @@ describe("identings, each session's own", () => {
       'hunts:list', 'hunts:open', 'hunts:perform', 'hunts:whole',
       'idents:current', 'idents:performAccount',
       'questions:open',
-      'quizzes:open', 'quizzes:whole',
+      'quizzes:open', 'quizzes:signals', 'quizzes:whole',
       'reviews:forQuiz',
       'stats:backfills',
       'widgets:library', 'widgets:perform', 'widgets:usage',
@@ -434,7 +434,7 @@ describe("the database a public function holds", () => {
   it("is scoped to one hunt, by a hunt's builder, or to the library, by the library's, for every public function but those named unscoped, each with why", async () => {
     const found = await publicFunctionsFor()
     const scopedTo = (scope: ReturnType<typeof scopeOf>) => found.filter(([, val]) => scopeOf(val) === scope).map(([fnname]) => fnname)
-    expect(scopedTo('hunt')).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'quizzes:whole', 'reviews:forQuiz'])
+    expect(scopedTo('hunt')).to.deep.eq(['hunts:perform', 'hunts:whole', 'questions:open', 'quizzes:open', 'quizzes:signals', 'quizzes:whole', 'reviews:forQuiz'])
     expect(scopedTo('library')).to.deep.eq(['widgets:perform'])
     expect(scopedTo(null)).to.deep.eq(keysOf(Unscoped))
   })
