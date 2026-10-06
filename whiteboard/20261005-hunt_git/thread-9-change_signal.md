@@ -1,7 +1,9 @@
 # Thread 9: A change signal in place of live off-screen watches (2026-10-06)
 
-Branch `20261006-change_signal`, PR pending, stacked on #140. Suites: typecheck, lint, vitest (142
-files, 4091 passed, 1 skipped: the measurement) and e2e (259, lane 1) green.
+Branch `20261006-change_signal`, PR filed at landing; see the report. Rebased onto `origin/main`
+(#140 merged, then #143 and #131) on 2026-10-06, with no conflicts and no regeneration. Suites
+after the rebase: typecheck, lint, vitest (143 files, 4239 passed, 1 skipped: the measurement)
+and e2e (259, lane 1, 4 workers) green.
 
 Built by one worker and finished by a second, who found and fixed the e2e failure below.
 Measured per smith tab on 20 quizzes x 40: 82 subscriptions become 45, and a 40-answer bot run in
