@@ -129,7 +129,15 @@ Settled; reach for these before writing the equivalent.
   `Labelmaker.normalize`. Already here under vitest; made direct Sept 2026 without asking first.
 * **mdast-util-from-markdown**, the markdown parser under remark (and so already here through
   `@next/mdx`), for reading where markdown puts bold, italics and quote markers: `lib/ll-bbcode.ts`
-  writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed. Parse only; it
+  writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed;
+  `lib/bbjank.ts` walks its tree to write the message boards' BBCode. Two of GFM's extensions ride
+  with it there, each a micromark syntax and its mdast half: **micromark-extension-gfm-strikethrough**
+  with **mdast-util-gfm-strikethrough** (`singleTilde: false`, so `~50 years` stays a tilde: the
+  reason `remark-gfm` is refused, below) and **micromark-extension-gfm-autolink-literal** with
+  **mdast-util-gfm-autolink-literal**, for bare addresses. **mdast-util-to-string** gives a node's
+  plain text, **micromark-util-sanitize-uri**'s `normalizeUri` percent-encodes an address so no
+  bracket or quote in it can end a tag, and `@types/mdast` types the tree. Added Oct 2026 by the
+  recap sprint without asking first, under the rule above. Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
 * **mustache** (mustache.js, with `@types/mustache`) for an `aibot` widget's prompt template,

@@ -231,6 +231,11 @@ words above.
   balls and tables write a hunt's, quiz's, question's, review's and verdict's for people, as
   ISO-8601 in UTC (`2026-10-05T09:30:00.000Z`). A question **untouched** since it was made has
   equal stamps.
+* **bbjank** -- the league's *message-board* BBCode, as the Coach calls it: what its forum posts
+  take, apart from the BBCode its quiz import and the smith's note take (`ll-bbcode.ts`). A line
+  break is a line break (never `[br]`), strikeout is `[spoiler]`, a quote naming its speaker
+  (`> {AS: Q1}`) is `[quote="Q1"]` and any other quote an indenting `[list]`. `lib/bbjank.ts`
+  writes it from markdown.
 
 ## Categories
 
