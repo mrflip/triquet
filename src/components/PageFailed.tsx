@@ -13,6 +13,9 @@ export type PageFailedProps = {
   retry:  () => void
 }
 
+/** The failures already sent to the console, so each goes once, however often React mounts its page (StrictMode, under the dev server, mounts it twice) */
+const Reported = new WeakSet<Error>()
+
 /**
  * What a page that failed to draw shows in its place: that it failed, what the failure says
  * (the reason, or the request to look up when the server keeps it to itself), and a way to try
@@ -21,6 +24,8 @@ export type PageFailedProps = {
 export function PageFailed({ error, retry }: Readonly<PageFailedProps>) {
   const postmortem = useMemo(() => Postmortem.of(error), [error])
   useEffect(() => {
+    if (Reported.has(error)) { return }
+    Reported.add(error)
     Postmortem.report('show this page', error, { page: location.pathname, digest: error.digest ?? null })
   }, [error])
 
