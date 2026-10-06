@@ -1,8 +1,8 @@
-import type { Page } from '@playwright/test'
+import type { Browser, Locator, Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
-import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, waitUntilSaved } from './support'
+import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -10,6 +10,22 @@ test.use({ startAt: null })
 /** A title no other spec gives a quiz, so a spec finds its own quiz by title */
 function freshTitle(stem: string): string {
   return `${stem} ${crypto.randomUUID().slice(0, 8)}`
+}
+
+/** The quiz `page` has on screen, open for editing in a second browser whose ident `page` has made a smith of its hunt */
+async function smithBeside(page: Page, browser: Browser): Promise<Page> {
+  await startHunt(page)
+  await waitUntilSaved(page)
+  const friend = await otherVisitor(browser)
+  await addMember(page, await assumeIdent(friend), 'Smith')
+  await friend.goto(page.url())
+  await expect(grid(friend)).toBeVisible()
+  return friend
+}
+
+/** Every question's field `fieldname` in the grid, top to bottom */
+function fieldsOf(page: Page, fieldname: string): Locator {
+  return grid(page).getByRole('textbox', { name: fieldname, exact: true })
 }
 
 test.describe('the front door', () => {
@@ -660,5 +676,67 @@ test.describe('a link handed to a friend', () => {
     await page.getByRole('region', { name: 'Members' }).getByRole('button', { name: `Remove ${label}` }).click()
     await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
+  })
+
+  test('makes a reviewer a smith by taking them off and putting them back on as one', async ({ page, browser }) => {
+    await startHunt(page)
+    await waitUntilSaved(page)
+    const path = quizPathOf(page)
+    const members = page.getByRole('region', { name: 'Members' })
+    const friend = await otherVisitor(browser)
+    const label = await assumeIdent(friend)
+    await addMember(page, label, 'Reviewer')
+    await friend.goto(path)
+    await expect(friend).toHaveURL(`${path}/!playtest`)
+
+    await members.getByRole('button', { name: `Remove ${label}` }).click()
+    await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
+    await addMember(page, label, 'Smith')
+    await expect(members.getByRole('row').filter({ hasText: label })).toHaveCount(1)
+
+    await friend.goto(path)
+    await expect(friend).toHaveURL(`${path}/!edit`)
+    await expect(friend.getByLabel('Quiz name')).toBeEditable()
+  })
+})
+
+test.describe('two smiths on one quiz', () => {
+  test('lets the author make edits that reach a friend made a smith', async ({ page, browser }) => {
+    const friend = await smithBeside(page, browser)
+    await fieldsOf(page, 'Clueing').first().fill('Written by the author')
+    await page.getByLabel('Quiz name').click()
+    await expect(fieldsOf(friend, 'Clueing').first()).toHaveValue('Written by the author')
+  })
+
+  test('keeps the later of two edits to one cell on both pages, loses nothing beside it, and alarms neither', async ({ page, browser }) => {
+    const friend = await smithBeside(page, browser)
+    await fieldsOf(page, 'Title').first().fill('titled by the author')
+    await page.getByLabel('Quiz name').click()
+    await fieldsOf(friend, 'Clueing').nth(1).fill('clued by the friend')
+    await friend.getByLabel('Quiz name').click()
+
+    // Both type into the first clueing; the author leaves it first, and so is the earlier edit.
+    await fieldsOf(page, 'Clueing').first().fill('the earlier edit')
+    await fieldsOf(friend, 'Clueing').first().fill('the later edit')
+    await page.getByLabel('Quiz name').click()
+    await waitUntilSaved(page)
+    // An edit the author makes after it reaches the friend after it, so once this one is there, the earlier edit is too.
+    await fieldsOf(page, 'Title').nth(2).fill('a sign the earlier edit has arrived')
+    await page.getByLabel('Quiz name').click()
+    await expect(fieldsOf(friend, 'Title').nth(2)).toHaveValue('a sign the earlier edit has arrived')
+    // The friend is still typing, so their box keeps what they typed rather than taking the author's.
+    await expect(fieldsOf(friend, 'Clueing').first()).toHaveValue('the later edit')
+    await friend.getByLabel('Quiz name').click()
+    await waitUntilSaved(friend)
+
+    for (const smith of [page, friend]) {
+      await expect.poll(() => valuesOf(fieldsOf(smith, 'Clueing'))).toEqual(['the later edit', 'clued by the friend', '', '', ''])
+      await expect(fieldsOf(smith, 'Title').first()).toHaveValue('titled by the author')
+      await expect(fieldsOf(smith, 'Title').nth(2)).toHaveValue('a sign the earlier edit has arrived')
+    }
+    // Every change either page made has come back from the server by now, so an alarm over any of them would be up.
+    // (Not every alert: Next keeps one of its own to announce a change of page.)
+    await expect(page.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toHaveCount(0)
+    await expect(friend.getByRole('alert').filter({ hasText: AppNotices.changeNotKept })).toHaveCount(0)
   })
 })
