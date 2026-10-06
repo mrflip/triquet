@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** threads 1, 3 and 5 landed (#156, #157, #158); thread 4 in review (lane 2); thread 2 underway (lane 1). Thread 6 held until the Coach releases it.
+**Status:** threads 1, 3 and 5 landed (#156, #157, #158); thread 4 landing (lane 2); thread 2 underway (lane 1). Thread 6 held until the Coach releases it.
 
 ## Status
 
@@ -9,7 +9,7 @@
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
 | 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
 | 3 | cover the error boundary | landed #157 |
-| 4 | cover stats and the other light gaps | in review (lane 2) |
+| 4 | cover stats and the other light gaps | landing (lane 2) |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
@@ -135,4 +135,11 @@ them in corners whose specs notice a draw-time throw. Also minor: `HuntRepoList`
 * **A bare `getByRole('alert')` also matches Next's route announcer** after a client-side
   navigation. Filter alarms by their text (`AppNotices.changeNotKept`).
 * **The pages run the React that Next bundles** (`19.3.0-canary-…`), not package.json's `19.3.0`.
+
+*Review (thread 4):* `clean`, at medium through `/code-review`, then by hand. The two-smiths test
+settles its order without a timer, and its no-alarm check cannot pass vacuously. The stats spec's
+React version is read independently of the page's. The unit include widens to exactly the three
+new `.test.tsx` files. Both `Close` lookups are exact. Left, minor: `renderedText` does not decode
+the entities React writes, so the first test of text with an apostrophe fails loudly until a
+decoder (a library, the Coach's call) is added.
 
