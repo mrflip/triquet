@@ -7,6 +7,9 @@ import * as Markdown from '../../src/lib/markdown'
 /** What a field's text becomes on screen, as markup */
 const rendered = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.RenderOptions, Markdown.forScreen(text)))
 
+/** What a templated field's text, once filled in, becomes on screen, as markup */
+const renderedTemplated = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.TemplatedRenderOptions, Markdown.forScreen(text)))
+
 const IndentCases: [string, string, string][] = [
   // regular usage:
   ["    *verse*",            "> *verse*",            'four leading spaces become a quote marker'],
@@ -56,6 +59,22 @@ const RenderCases: [string, string, string][] = [
   ["",                            "",                                                           'empty text renders nothing'],
 ]
 
+const TemplatedCases: [string, string, string][] = [
+  // regular usage:
+  ["![cat](https://e.co/c.png)",       "<p><img src=\"https://e.co/c.png\" alt=\"cat\"/></p>",  'an image at an https address is kept, with its alt text'],
+  ["**bold** [x](https://e.co)",       "<p><strong>bold</strong> <a href=\"https://e.co\">x</a></p>", 'everything the one allowlist keeps is kept'],
+  // what never reaches the screen as written:
+  ["![cat](http://e.co/c.png)",        "<p><img alt=\"cat\"/></p>",                            'a plain-http image loses its address'], // eslint-disable-line unicorn/prefer-https
+  ["![cat](HTTPS://e.co/c.png)",       "<p><img alt=\"cat\"/></p>",                            'a shouted protocol is not https'],
+  ["![cat](//e.co/c.png)",             "<p><img alt=\"cat\"/></p>",                            'an address borrowing the page\'s scheme loses its address'],
+  ["![cat](/api/ask)",                 "<p><img alt=\"cat\"/></p>",                            'an address on this site loses its address'],
+  ["![cat](c.png)",                    "<p><img alt=\"cat\"/></p>",                            'a relative address loses its address'],
+  ["![cat](javascript:alert(1))",      "<p><img alt=\"cat\"/></p>",                            'a script address loses its address'],
+  ["![cat](data:image/png;base64,AA)", "<p><img alt=\"cat\"/></p>",                            'a data address loses its address'],
+  ["![cat](https://e.co/c.png \"t\")", "<p><img src=\"https://e.co/c.png\" alt=\"cat\"/></p>", 'an image keeps no title'],
+  ["<img src=\"https://e.co/c.png\">", "&lt;img src=&quot;https://e.co/c.png&quot;&gt;",        'an image typed as HTML shows as the characters typed'],
+]
+
 describe("indentsAsQuotes", () => {
   it.each(IndentCases)('%j => %j: %s', (text, expected) => {
     expect(Markdown.indentsAsQuotes(text)).to.eq(expected)
@@ -83,5 +102,16 @@ describe("RenderOptions", () => {
     const markup = rendered('# Head\n\n> quote\n\n`code`\n\n```\nblock\n```\n\n---\n\n| a | b |\n|---|---|\n| 1 | 2 |')
     const tagnames = markup.matchAll(/<(\w+)/g).map((match) => match[1]).toArray()
     expect(tagnames.filter((tagname) => ! Markdown.Allowlist.tagNames?.includes(tagname ?? ''))).to.deep.equal([])
+  })
+})
+
+describe("TemplatedRenderOptions", () => {
+  it.each(TemplatedCases)('%j => %j: %s', (text, expected) => {
+    expect(renderedTemplated(text)).to.contain(expected)
+  })
+
+  it("keeps everything the one allowlist keeps, and images beside", () => {
+    expect(Markdown.TemplatedAllowlist.tagNames).to.deep.eq([...Markdown.Allowlist.tagNames ?? [], 'img'])
+    expect(Markdown.TemplatedAllowlist.attributes).to.deep.include(Markdown.Allowlist.attributes)
   })
 })

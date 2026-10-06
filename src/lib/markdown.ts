@@ -11,7 +11,7 @@ import remarkBreaks from 'remark-breaks'
  * The elements a field's markdown may become on screen, and the one attribute worth keeping on
  * each. Anything else markdown makes is dropped and its text kept: an image, whose address would
  * be fetched on sight, comes to nothing. Links go only to the web or to mail. This is the one
- * allowlist; widen it here, and nowhere else.
+ * allowlist; widen it here, and nowhere else (`TemplatedAllowlist` is this one, with images).
  */
 export const Allowlist: SanitizeSchema = {
   tagNames:   ['p', 'br', 'em', 'strong', 'blockquote', 'ul', 'ol', 'li', 'code', 'pre', 'a', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
@@ -20,15 +20,44 @@ export const Allowlist: SanitizeSchema = {
 }
 
 /**
+ * An image's address, as the templated allowlist keeps one: a whole `https` address, naming its
+ * host. The sanitizer's own protocol check lets a relative address through (`/api/..`, or
+ * `//elsewhere`, which takes the page's scheme), so the address is held to this as well.
+ */
+const ImageSrcRE = /^https:\/\/[^\s/\\]/
+
+/**
+ * The allowlist for a field the quiz templates (`Templating`): the one allowlist, and images too,
+ * by a whole `https` address only, with their alt text. A templated field is one the author asked
+ * to have filled in, images and all; every other field still fetches nothing on sight.
+ */
+export const TemplatedAllowlist: SanitizeSchema = {
+  tagNames:   [...Allowlist.tagNames ?? [], 'img'],
+  attributes: { ...Allowlist.attributes, img: [['src', ImageSrcRE], 'alt'] },
+  protocols:  { ...Allowlist.protocols, src: ['https'] },
+}
+
+/** The parse every field's markdown gets, and the sanitizing pass, always the last step, under `schema` */
+function renderOptionsFor(schema: SanitizeSchema): Readonly<Pick<ReactMarkdownOptions, 'remarkPlugins' | 'remarkRehypeOptions' | 'rehypePlugins'>> {
+  return {
+    remarkPlugins:       [remarkBreaks],
+    remarkRehypeOptions: { handlers: { html: (_state: unknown, html: { value: string }) => ({ type: 'text', value: html.value }) } },
+    rehypePlugins:       [[rehypeSanitize, schema]],
+  }
+}
+
+/**
  * How `react-markdown` renders a field: every line break is a break, as the author typed it and
  * the LL export writes it; HTML typed into a field is shown as the characters typed, never
  * built; and what comes out passes the allowlist.
  */
-export const RenderOptions: Readonly<Pick<ReactMarkdownOptions, 'remarkPlugins' | 'remarkRehypeOptions' | 'rehypePlugins'>> = {
-  remarkPlugins:       [remarkBreaks],
-  remarkRehypeOptions: { handlers: { html: (_state: unknown, html: { value: string }) => ({ type: 'text', value: html.value }) } },
-  rehypePlugins:       [[rehypeSanitize, Allowlist]],
-}
+export const RenderOptions = renderOptionsFor(Allowlist)
+
+/**
+ * How `react-markdown` renders a templated field, once it is filled in: as any field, but
+ * passing the templated allowlist, which keeps images.
+ */
+export const TemplatedRenderOptions = renderOptionsFor(TemplatedAllowlist)
 
 /** The run of four-space indents a line opens with, one per quote level */
 const IndentsRE = /^(?: {4})+/
