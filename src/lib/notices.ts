@@ -28,6 +28,8 @@ export const AppNotices = {
   identGateTitle:       'Enter your name and username to join',
   untitledQuiz:         'Untitled quiz',
   smithsNoteBlank:      'The theme, the meta, what is left to do…',
+  recapHeadBlank:       'First, a huge thank you to the playtesters: {{quiz.playtesters}}…',
+  recapTailBlank:       'Thanks for playing! See you next season…',
   untitledQuestion:     'Untitled question',
   reviewShared:         'Shared with the smiths.',
   reviewNotShared:      'Not shared with the smiths yet.',

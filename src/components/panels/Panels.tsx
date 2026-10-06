@@ -3,6 +3,7 @@
 import { ExportImportPanel } from './ExportImportPanel'
 import { MembersPanel } from './MembersPanel'
 import { PanelsRow } from './Panel'
+import { RecapPanel } from './RecapPanel'
 import { ReviewsPanel } from './ReviewsPanel'
 import { SpreadPanel } from './SpreadPanel'
 import { WidgetsPanel } from './WidgetsPanel'
@@ -36,10 +37,14 @@ export type PanelsProps = Pick<HuntHandle, 'reviews' | 'carryOut' | 'saveNotice'
   onImportElsewhere: (elsewhere: ElsewhereT, pasted: string) => void
   /** Rewrite the quiz's Q1 preamble, from the LL Export tab */
   onQ1Preamble: (q1_preamble: string) => void
+  /** Rewrite the quiz's recap head, from the Recap panel */
+  onRecapHead: (recap_head: string) => void
+  /** Rewrite the quiz's recap tail, from the Recap panel */
+  onRecapTail: (recap_tail: string) => void
 }
 
-/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, and the widgets the quiz puts to work */
-export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble }: Readonly<PanelsProps>) {
+/** The titled sections below the grid: what reviewers said, how the questions spread round the category wheel, who is on the hunt, ways to get the work back out, the widgets the quiz puts to work, and the recap note */
+export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, run, carryOut, saveNotice, changeLibrary, onImport, onImportElsewhere, onQ1Preamble, onRecapHead, onRecapTail }: Readonly<PanelsProps>) {
   const labels = { org: hunt.org, hunt: hunt.label, realm: realm.label, quiz: quiz.label }
   return (
     <PanelsRow>
@@ -52,6 +57,8 @@ export function Panels({ quiz, hunt, realm, library, claims, offers, reviews, ru
       <ExportImportPanel quiz={quiz} hunt={hunt} library={library} offers={offers} run={run} changeLibrary={changeLibrary} onImport={onImport} onImportElsewhere={onImportElsewhere} onQ1Preamble={onQ1Preamble} />
 
       <WidgetsPanel quiz={quiz} run={run} />
+
+      <RecapPanel quiz={quiz} run={run} revisable={offers.reviseQuiz} onRecapHead={onRecapHead} onRecapTail={onRecapTail} />
     </PanelsRow>
   )
 }

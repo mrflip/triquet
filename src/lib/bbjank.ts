@@ -46,7 +46,7 @@ const YoutubePathRE = /^\/(?:embed|shorts|live|v)\/([^/]+)/
 const YoutubeIdRE = /^[\w-]{11}$/
 
 /** A thematic break (`---`), as the board shows one */
-const RuleLine = '-'.repeat(40)
+export const RuleLine = '-'.repeat(40)
 
 /** How far a list item's lines past its first are set in, for the reader's sake: the board ignores it */
 const ItemIndent = '  '

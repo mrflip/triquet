@@ -101,7 +101,7 @@ const GridSpecs = ['grid', 'chaining', 'ordering', 'archiving', 'ishes', 'estima
 const GearSpecs = ['widgets', 'prompts', 'entries', 'quizzes'] as const
 
 /** The spec files of the panels below the grid */
-const PanelSpecs = ['panels', 'sheets', 'importing', 'entries'] as const
+const PanelSpecs = ['panels', 'sheets', 'importing', 'entries', 'recap'] as const
 
 /** The spec files of putting a question to a bot, and of the routes that do it */
 const AskingSpecs = ['asking', 'bots', 'failures', 'prompts', 'ishes', 'client-first'] as const
@@ -160,6 +160,7 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the folded JSON',           specs: [...GearSpecs, 'ishes', 'failures'],         paths: ['src/components/JsonFold.tsx'] },
   { corner: 'the gear',                  specs: GearSpecs,                                   paths: ['src/components/WidgetEditor.tsx', 'src/components/WidgetingsEditor.tsx', 'src/components/ColumnsEditor.tsx', 'src/components/TemplatedEditor.tsx', 'src/components/LibraryModal.tsx', 'src/components/DangerZone.tsx', 'src/components/PreviewPicker.tsx', 'src/components/JsonataFields.tsx', 'src/components/AibotFields.tsx', 'src/components/EntryFields.tsx', 'src/components/SortableList.tsx', 'src/components/ConfirmRemove.tsx', 'src/components/use-preview-bag.ts', 'src/state/widget-edit.ts', 'src/state/use-widget-usage.ts', 'src/state/use-library-actions.ts', 'src/state/use-other-quiz.ts'] },
   // The panels
+  { corner: 'the recap panel',           specs: ['recap'],                                   paths: ['src/components/panels/RecapPanel.tsx', 'src/lib/recap.ts'] },
   { corner: 'the members panel',         specs: ['routing'],                                 paths: ['src/components/panels/MembersPanel.tsx'] },
   { corner: 'the panels, as a whole',    specs: [...PanelSpecs, 'reviews', 'routing', 'estimates'], paths: ['src/components/panels/Panels.tsx'] },
   { corner: 'the panels',                specs: PanelSpecs,                                  paths: ['src/components/panels/ExportImportPanel.tsx', 'src/components/panels/ImportForm.tsx', 'src/components/panels/LeagueExport.tsx', 'src/components/panels/LibraryForm.tsx', 'src/components/panels/RawExport.tsx', 'src/components/panels/ReadonlyBox.tsx', 'src/components/panels/TabbedPanel.tsx', 'src/components/panels/WidgetsPanel.tsx', 'src/components/pending-imports.ts', 'src/state/use-whole-hunt.ts'] },

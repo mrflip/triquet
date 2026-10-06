@@ -293,6 +293,8 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
           void make()
         }}
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
+        onRecapHead={(recap_head) => { dispatch({ kind: 'set_recap_head', recap_head }) }}
+        onRecapTail={(recap_tail) => { dispatch({ kind: 'set_recap_tail', recap_tail }) }}
       />
     </main>
   )
