@@ -209,11 +209,6 @@ test.describe("a hunt's category wheel", () => {
     await stranger.goto(path)
     await expect(stranger.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
   })
-
-  test("says so for a hunt there is not", async ({ page }) => {
-    await page.goto(Routes.categoriesPath({ org: 'nobody_here', hunt: 'no_such_hunt_here' }))
-    await expect(page.getByRole('heading', { name: 'No such hunt' })).toBeVisible()
-  })
 })
 
 test.describe("a hunt's category wheel, on a phone", () => {

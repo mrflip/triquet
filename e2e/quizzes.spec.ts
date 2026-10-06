@@ -99,7 +99,8 @@ test('a smith renames the hunt, and the address stays as it is', async ({ page }
   await waitUntilSaved(page)
   await openManage(page)
   await expect(manageDialog(page).getByRole('textbox', { name: 'Hunt name' })).toHaveValue('The Autumn Hunt')
-  expect(page.url()).toBe(address)
+  // The rename has landed, above, so an address that followed it would have moved by now.
+  await expect(page).toHaveURL(address)
 })
 
 test('a smith relabels the hunt, and the address follows', async ({ page }) => {

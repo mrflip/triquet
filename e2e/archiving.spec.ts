@@ -28,13 +28,22 @@ test.beforeEach(async ({ page }) => {
   await titleQuiz(page, ['apple', 'banana', 'cherry'])
 })
 
-test('a button to change how a question is shown stands only in batch mode, where the grips give way to it', async ({ page }) => {
+test('a button to change how a question is shown stands only in batch mode, where the grips give way to it, and the corner button leaves it as it entered', async ({ page }) => {
+  const corner = page.getByRole('button', { name: 'Batch select' })
   await expect(grid(page).locator('tbody').getByRole('button', { name: /^Change how/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Batch select' }).click()
+  await corner.click()
+  await expect(corner).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('checkbox', { name: 'Select all questions' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Change how banana is shown', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Reorder/ })).toHaveCount(0)
   await expect(grid(page).locator('tbody').getByRole('button', { name: /^Delete/ })).toHaveCount(0)
+
+  await corner.click()
+  await expect(corner).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('checkbox', { name: 'Select all questions' })).toHaveCount(0)
+  await expect(grid(page).locator('tbody').getByRole('button', { name: /^Change how/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
 })
 
 test('a row archives its question: it leaves the grid, and the gear lists it, across a reload', async ({ page }) => {
@@ -138,17 +147,6 @@ test('the header checkbox checks every question, or none', async ({ page }) => {
   await expect(page.getByRole('button', { name: `Archive selected (${String(count)})` })).toBeEnabled()
   await all.uncheck()
   await expect(page.getByRole('button', { name: 'Archive selected (0)' })).toBeDisabled()
-})
-
-test('the corner button leaves batch mode as well as entering it', async ({ page }) => {
-  const corner = page.getByRole('button', { name: 'Batch select' })
-  await corner.click()
-  await expect(corner).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('checkbox', { name: 'Select all questions' })).toBeVisible()
-  await corner.click()
-  await expect(corner).toHaveAttribute('aria-pressed', 'false')
-  await expect(page.getByRole('checkbox', { name: 'Select all questions' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /^Reorder/ }).first()).toBeVisible()
 })
 
 test('leaving batch mode forgets what was checked', async ({ page }) => {

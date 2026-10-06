@@ -65,32 +65,20 @@ test('a widgeting added from the gear works out its formula for every question',
   await expect(cellOf(page, 0, 'Answer Letter Count')).toHaveText('10')
 })
 
-test('a text column shows text', async ({ page }) => {
-  await addWidgeting(page, 'answer_reversed')
-  await answerFirstRow(page, 'stressed')
-  await expect(cellOf(page, 0, 'Answer Reversed')).toHaveText('desserts')
-})
-
-test('a column keeps what it shows after a reload, and where it was put', async ({ page }) => {
-  await addWidgeting(page, 'answer_letter_count')
-  await answerFirstRow(page, 'Hello')
-  await reloadOnceSaved(page)
-  await expect(cellOf(page, 0, 'Answer Letter Count')).toHaveText('5')
-})
-
-test('changing a widget\'s formula changes every column that works it, and survives a reload', async ({ page }) => {
+test('changing a widget\'s formula changes every column that works it, from a number to text, and survives a reload', async ({ page }) => {
   const widget_label = freshWidgetLabel('length')
   await addNewFormula(page, widget_label, '$length(qn.full_answer)', 'letters')
   await addWidgeting(page, widget_label, 'letters_again')
   await answerFirstRow(page, 'Hello')
   await expect(cellOf(page, 0, 'Letters')).toHaveText('5')
   await openWidget(page, widget_label)
-  await setFormula(page, '$length(qn.full_answer) * 3')
+  await setFormula(page, '$uppercase(qn.full_answer)')
   await applyWidget(page, widget_label)
-  await expect(cellOf(page, 0, 'Letters')).toHaveText('15')
-  await expect(cellOf(page, 0, 'Letters Again')).toHaveText('15')
+  await expect(cellOf(page, 0, 'Letters')).toHaveText('HELLO')
+  await expect(cellOf(page, 0, 'Letters Again')).toHaveText('HELLO')
   await reloadOnceSaved(page)
-  await expect(cellOf(page, 0, 'Letters')).toHaveText('15')
+  await expect(cellOf(page, 0, 'Letters')).toHaveText('HELLO')
+  await expect(cellOf(page, 0, 'Letters Again')).toHaveText('HELLO')
 })
 
 test('nothing is applied until Apply', async ({ page }) => {
@@ -230,11 +218,12 @@ test('a new column offers first what no column shows yet, and takes that field\'
 })
 
 test('a widget says how far it is put to work, in every hunt, and cannot be removed while anything works it', async ({ page }) => {
-  await addWidgeting(page, 'clueing_full')
-  await openWidget(page, 'clueing_full')
-  const used = page.getByRole('dialog', { name: 'Widget: clueing_full' })
-  // Other specs' hunts may work it too, so the counts depend on what else has run: at least this hunt's.
-  await expect(used.getByRole('status', { name: 'Usage' })).toContainText(/Worked by \d+ widgetings? across \d+ quizz(es)?, in \d+ hunts?\./)
+  // A widget of this test's own, so nothing another spec runs can change its counts.
+  const widget_label = freshWidgetLabel('worked')
+  await addNewFormula(page, widget_label, '1', 'worked')
+  await openWidget(page, widget_label)
+  const used = page.getByRole('dialog', { name: `Widget: ${widget_label}` })
+  await expect(used.getByRole('status', { name: 'Usage' })).toContainText('Worked by 1 widgeting across 1 quiz, in 1 hunt.')
   await expect(used).toContainText('It cannot be removed while a widgeting works it.')
   await expect(used.getByRole('button', { name: 'Remove widget' })).toHaveCount(0)
 })

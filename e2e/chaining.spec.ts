@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { addColumns, cellOf, expect, fillRows, grid, reloadOnceSaved, rowAt, test, valuesOf, waitUntilSaved } from './support'
 
 /** Fill the first questions with a Q#, a title and a hint */
@@ -21,6 +21,11 @@ async function answersShown(page: Page): Promise<string[]> {
 /** The BUT NOT cell of the row at `rowIdx` */
 function butnotCell(page: Page, rowIdx: number) {
   return cellOf(page, rowIdx, 'BUT NOT').locator('> div')
+}
+
+/** How tall `located` is drawn, in pixels */
+async function heightOf(located: Locator): Promise<number> {
+  return await located.evaluate((node) => node.getBoundingClientRect().height)
 }
 
 /** The first four titles, top to bottom */
@@ -67,9 +72,9 @@ test('folded, a row is one line: its BUT NOT ends in an ellipsis, and its title 
   const snippet = butnotCell(page, 0).locator('> div')
   await expect(snippet).toHaveText('BUT NOT the company from Cupertino, founded in…')
   await expect(snippet).toHaveCSS('-webkit-line-clamp', '1')
-  // One line of the grid's text, and the row no taller than one line of its boxes and its padding
-  await expect.poll(() => snippet.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThanOrEqual(20)
-  await expect.poll(() => rowAt(page, 0).evaluate((node) => node.getBoundingClientRect().height)).toBeLessThanOrEqual(43)
+  // One line of its own text, and the row, long hint and all, no taller than the blank fifth row folded beside it
+  await expect.poll(() => snippet.evaluate((node) => node.getBoundingClientRect().height - Number(getComputedStyle(node).lineHeight.replace(/px$/, '')))).toBeLessThanOrEqual(0)
+  await expect.poll(async () => await heightOf(rowAt(page, 0)) - await heightOf(rowAt(page, 4))).toBe(0)
 })
 
 test('BUT NOT says so before a chain is picked, and when the target has no hint', async ({ page }) => {

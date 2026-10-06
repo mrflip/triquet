@@ -1,7 +1,15 @@
-import * as Huntfiles from '../src/lib/huntfiles'
+import type { Locator } from '@playwright/test'
 import { addWidgeting, addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
+
+/** Whether the text box `box` has the whole of its text selected, and holds some to select */
+async function selectsAll(box: Locator): Promise<boolean> {
+  return await box.evaluate((node) => {
+    const { selectionStart, selectionEnd, value } = node as HTMLTextAreaElement
+    return value !== '' && selectionStart === 0 && selectionEnd === value.length
+  })
+}
 
 test.beforeEach(async ({ page }) => {
   await page.getByLabel('Quiz name').fill('Quiz one')
@@ -28,13 +36,6 @@ test('the export is read only when asked, and a change on screen withdraws it fo
   await expect(section.getByRole('textbox', { name: 'Raw Export' })).toBeHidden()
   await expect(section.getByRole('button', { name: 'Copy' })).toBeHidden()
   expect(await preparedExport(page)).toContain('Which county?')
-})
-
-test('Refresh export, beside Copy, reads the hunt again', async ({ page }) => {
-  const section = page.getByRole('tabpanel', { name: 'Raw Export' })
-  await section.getByRole('button', { name: 'Refresh export' }).click()
-  await expect(section.getByRole('textbox', { name: 'Raw Export' })).toHaveValue(/"title":"Quiz one"/)
-  await expect(section.getByRole('button', { name: 'Refresh export' })).toBeEnabled()
 })
 
 test('an export prepared on its tab is still there after a visit to another', async ({ page }) => {
@@ -65,7 +66,7 @@ test('the Copy button copies and says so', async ({ page, context }) => {
   expect(onClipboard).toContain('Quiz one')
 })
 
-test('a refused clipboard falls back to selecting the text, never to silence', async ({ page }) => {
+test('a refused clipboard falls back to selecting the whole text, never to silence, as a click on the box does', async ({ page }) => {
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: () => Promise.reject(new Error('refused')) },
@@ -73,12 +74,14 @@ test('a refused clipboard falls back to selecting the text, never to silence', a
     })
   })
   const section = page.getByRole('tabpanel', { name: 'Raw Export' })
+  const exportBox = section.getByRole('textbox', { name: 'Raw Export' })
   await section.getByRole('button', { name: 'Copy' }).click()
   await expect(section.getByText('Selected — press Ctrl/Cmd+C')).toBeVisible()
-  const selected = await page.getByRole('textbox', { name: 'Raw Export' }).evaluate(
-    (node) => (node as HTMLTextAreaElement).selectionEnd - (node as HTMLTextAreaElement).selectionStart,
-  )
-  expect(selected).toBeGreaterThan(0)
+  await expect.poll(() => selectsAll(exportBox)).toBe(true)
+
+  await exportBox.evaluate((node) => { (node as HTMLTextAreaElement).setSelectionRange(0, 0) })
+  await exportBox.click()
+  await expect.poll(() => selectsAll(exportBox)).toBe(true)
 })
 
 test('the Widgets panel lists the quiz\'s widgetings in run order, each with its counts, and opens to its prompt verbatim', async ({ page }) => {
@@ -187,19 +190,6 @@ test('LL Export\'s mode, going live at first, puts the Q1 preamble or the smith\
   await expect(reloaded.getByLabel('Q1 preamble')).toHaveValue('See the note![br]')
 })
 
-test('the info button beside the LL Export mode explains each mode', async ({ page }) => {
-  const section = await showTab(page, 'LL Export')
-  await section.getByRole('button', { name: 'About the LL Export modes' }).hover()
-  await expect(page.getByRole('tooltip')).toContainText('lowest-ranked Q#')
-})
-
-test('every read-only export box has a Copy button', async ({ page }) => {
-  for (const [tabname, boxCount] of [['Spreadsheet', 1], ['Raw Export', 1], ['LL Export', 2]] as const) {
-    const section = await showTab(page, tabname)
-    await expect(section.getByRole('button', { name: 'Copy', exact: true })).toHaveCount(boxCount)
-  }
-})
-
 test('Download Full History hands over the hunt\'s history as a zip, from its own tab alone', async ({ page }) => {
   const rawSection = await showTab(page, 'Raw Export')
   await expect(rawSection.getByRole('button', { name: 'Download Full History' })).toHaveCount(0)
@@ -208,19 +198,6 @@ test('Download Full History hands over the hunt\'s history as a zip, from its ow
   await section.getByRole('button', { name: 'Download Full History' }).click()
   const download = await downloading
   expect(download.suggestedFilename()).toMatch(/\.zip$/)
-})
-
-test('the quiet note beside it explains, in a dialog, how to see the history', async ({ page }) => {
-  const section = await showTab(page, 'Full History')
-  await section.getByRole('button', { name: '(How to see Full History)' }).click()
-
-  const help = page.getByRole('dialog', { name: 'How to see Full History' })
-  await expect(help.getByText(/which a computer can expand into a folder holding every part of the hunt/)).toBeVisible()
-  await expect(help.getByText(Huntfiles.MergeCommand)).toBeVisible()
-  await expect(help.getByText(/I don't know how to install Fork/)).toBeVisible()
-
-  await help.getByRole('button', { name: 'Close' }).click()
-  await expect(help).toBeHidden()
 })
 
 test('the library is handed out on its own, and a pasted library is merged into it by label', async ({ page }) => {

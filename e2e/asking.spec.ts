@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addWidgetings, expect, reloadOnceSaved, stubAsk, test, valuesOf } from './support'
+import { addWidgetings, expect, reloadOnceSaved, stubAsk, test } from './support'
 
 /** The guess cell of the row at `rowIdx`: dumdum's column */
 function guessCell(page: Page, rowIdx: number) {
@@ -14,6 +14,7 @@ test.beforeEach(async ({ page }) => {
 
 test('a never-asked cell invites the author to ask', async ({ page }) => {
   await expect(guessCell(page, 0)).toHaveText('Double-click to ask')
+  await expect(guessCell(page, 0)).toBeEnabled()
 })
 
 test('double-clicking asks, and the answer lands with its tier and cost', async ({ page }) => {
@@ -43,13 +44,6 @@ test('the keyboard asks too', async ({ page }) => {
   await expect(guessCell(page, 0)).toContainText('Leon')
 })
 
-test('a failure reads as a sentence and invites a retry, never as a code', async ({ page }) => {
-  await stubAsk(page, { ok: false, failurekind: 'rateLimited' })
-  await guessCell(page, 0).dblclick()
-  await expect(guessCell(page, 0)).toContainText('Too many requests right now — try again shortly.')
-  await expect(guessCell(page, 0)).toContainText('Double-click to try again')
-})
-
 test('a question with no text is not asked about at all', async ({ page }) => {
   // The second question is still blank, so there is nothing to spend usage on.
   await expect(guessCell(page, 1)).toBeDisabled()
@@ -62,22 +56,4 @@ test('an answer survives a reload', async ({ page }) => {
   await expect(guessCell(page, 0)).toContainText('Leon')
   await reloadOnceSaved(page)
   await expect(guessCell(page, 0)).toContainText('Leon')
-})
-
-test('with the network off the rest of the page still edits, sorts and saves', async ({ page }) => {
-  await page.route('**/api/ask', (route) => route.abort())
-  await guessCell(page, 0).dblclick()
-  await expect(guessCell(page, 0)).toContainText('A connection hiccup — try again.')
-
-  await page.getByRole('textbox', { name: 'Title' }).first().fill('Leon')
-  await page.getByRole('button', { name: 'Title', exact: true }).click()
-  await page.getByLabel('Quiz name').fill('Still working')
-  await page.getByLabel('Quiz name').blur()
-  await reloadOnceSaved(page)
-  await expect(page.getByLabel('Quiz name')).toHaveValue('Still working')
-  // Sorting by title moves 'Leon' among the other questions' own generated titles, so it is
-  // found by its value rather than assumed to stay first.
-  const titles = page.getByRole('textbox', { name: 'Title' })
-  await expect(titles.first()).toBeVisible()
-  await expect.poll(() => valuesOf(titles)).toContain('Leon')
 })

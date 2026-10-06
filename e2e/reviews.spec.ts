@@ -136,25 +136,6 @@ test.describe('a review', () => {
     await expect(reviewer.getByLabel('Overall')).toHaveValue('Arrived by a pasted link.')
   })
 
-  test('asks before revealing the answer, and hides it again without asking', async ({ page, browser }) => {
-    await startHunt(page)
-    await page.getByRole('textbox', { name: 'Full Answer', exact: true }).first().fill('Hamlet')
-    await page.getByLabel('Quiz name').click()
-    await waitUntilSaved(page)
-
-    const reviewer = await enterReview(page, browser)
-    await expect(reviewer.getByRole('button', { name: 'Reveal answer' }).first()).toBeVisible()
-    await expect(reviewer.getByText('Hamlet')).toBeHidden()
-
-    await reviewer.getByRole('button', { name: 'Reveal answer' }).first().click()
-    await expect(reviewer.getByRole('heading', { name: 'Reveal the answer?' })).toBeVisible()
-    await reviewer.getByRole('button', { name: 'Reveal' }).click()
-    await expect(reviewer.getByText('Hamlet')).toBeVisible()
-
-    await reviewer.getByRole('button', { name: 'Hide answer' }).first().click()
-    await expect(reviewer.getByText('Hamlet')).toBeHidden()
-  })
-
   test("shows a reviewer each question as a review needs it, its BUT NOT and its answer behind the lock, through a reload, and never the smiths' notes", async ({ page, browser }) => {
     await startHunt(page)
     await addColumns(page, ['hint', 'chains_to'])
@@ -174,6 +155,7 @@ test.describe('a review', () => {
     await expect(reviewer.getByText('Check the folio first.')).toHaveCount(0)
 
     await row.getByRole('button', { name: 'Reveal answer' }).click()
+    await expect(reviewer.getByRole('heading', { name: 'Reveal the answer?' })).toBeVisible()
     await reviewer.getByRole('button', { name: 'Reveal', exact: true }).click()
     await expect(row.getByText('Hamlet')).toBeVisible()
     await waitUntilSaved(reviewer)
@@ -199,7 +181,9 @@ test.describe('a review', () => {
     await row.getByRole('button', { name: 'Reveal answer' }).click()
     await reviewer.getByRole('button', { name: 'Reveal', exact: true }).click()
     await expect(row.getByText('Hamlet')).toBeVisible()
+    // Hidden again without asking
     await row.getByRole('button', { name: 'Hide answer' }).click()
+    await expect(row.getByText('Hamlet')).toBeHidden()
     await expect(row.getByText('Seen before')).toBeVisible()
 
     const guesses = row.getByRole('textbox', { name: 'Guesses' })

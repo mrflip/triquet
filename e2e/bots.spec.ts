@@ -21,15 +21,6 @@ async function requestSentWithin(page: Page, pattern: string, ms: number): Promi
   }
 }
 
-test('with credentials, a never-asked cell invites the author to ask', async ({ page }) => {
-  await addWidgetings(page, ['dumdum'])
-  await page.getByRole('textbox', { name: 'Clueing', exact: true }).first().fill('Which region gave its name to Leon?')
-  await page.getByLabel('Quiz name').click()
-  const cell = page.getByRole('button', { name: 'Ask Dumdum' }).first()
-  await expect(cell).toHaveText('Double-click to ask')
-  await expect(cell).toBeEnabled()
-})
-
 test.describe('with no credentials for the bots\' service', () => {
   test.use({ startAt: null })
 

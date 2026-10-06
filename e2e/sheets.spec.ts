@@ -1,6 +1,12 @@
 import { type Page } from '@playwright/test'
 import { addWidgeting, expect, fillRows, test, waitUntilSaved } from './support'
 
+/** The lines the Copy for Sheets box currently holds */
+async function sheetsLines(page: Page): Promise<string[]> {
+  const text = await sheetsText(page)
+  return text.split('\n')
+}
+
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
   const box = page.getByRole('textbox', { name: 'Copy for Sheets' })
@@ -18,14 +24,13 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('a header row of column labels in alphabetical order, then a line per question in rank order', async ({ page }) => {
-  const text = await sheetsText(page)
-  const lines = text.split('\n')
-  const header = lines[0]?.split('\t') ?? []
-  expect(header).toEqual(header.toSorted((aa, bb) => aa.localeCompare(bb)))
-  expect(header).toEqual(['clueing', 'full_answer', 'notes', 'qnum', 'title'])
-  const clueingCol = header.indexOf('clueing')
-  expect(lines.slice(1, 4).map((line) => line.split('\t')[clueingCol])).toEqual(['first', 'second', 'third'])
-  expect(new Set(lines.map((line) => line.split('\t').length))).toEqual(new Set([header.length]))
+  await expect.poll(async () => {
+    const shown = await sheetsLines(page)
+    const lines = shown.map((line) => line.split('\t'))
+    const header = lines[0] ?? []
+    const clueingCol = header.indexOf('clueing')
+    return { header, clueings: lines.slice(1, 4).map((cells) => cells[clueingCol]), widths: [...new Set(lines.map((cells) => cells.length))] }
+  }).toEqual({ header: ['clueing', 'full_answer', 'notes', 'qnum', 'title'], clueings: ['first', 'second', 'third'], widths: [5] })
 })
 
 test('a column added to the quiz is in the export, under its label', async ({ page }) => {
@@ -48,14 +53,6 @@ test('a line break in a field never starts a new spreadsheet row', async ({ page
   await page.getByRole('textbox', { name: 'Notes' }).first().fill('two\nlines')
   await page.getByLabel('Quiz name').click()
   await expect.poll(() => sheetsText(page)).toContain('two<br/>lines')
-  const text = await sheetsText(page)
-  expect(text.split('\n')).toHaveLength(6)
-})
-
-test('clicking the box selects the lot', async ({ page }) => {
-  await page.getByRole('textbox', { name: 'Copy for Sheets' }).click()
-  const selected = await page.getByRole('textbox', { name: 'Copy for Sheets' }).evaluate(
-    (node) => (node as HTMLTextAreaElement).selectionEnd - (node as HTMLTextAreaElement).selectionStart,
-  )
-  expect(selected).toBeGreaterThan(0)
+  // The header and the five questions, and no more.
+  await expect.poll(() => sheetsLines(page)).toHaveLength(6)
 })
