@@ -16,3 +16,7 @@
   drops `version` from the quiz's schema, and adds the ledger row.
 * **Small tidy.** `huntLabelOf` was copied into two e2e specs and was wanted by a third: it lives in
   `e2e/support.ts` now.
+* **Tightened** (`20261005-tighten_hunt_branch`), once the Coach had run the backfill on
+  production: `branch` is required on hunts, `version` is gone from the quiz schema, the
+  fallbacks and both migrations go, and the ledger gains #115's row. Its push checks every row,
+  so it lands only if the backfill finished.

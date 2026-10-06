@@ -21,7 +21,7 @@ type OldQuiz = { label: string, sources: readonly string[], widgetings?: readonl
 /** A hunt labelled `label`, one realm `home` holding `quizzes`, written raw; the ids of its quizzes, by label */
 async function oldHunt(tt: Tester, label: string, quizzes: readonly OldQuiz[]): Promise<Record<string, Id<'quizzes'>>> {
   return await tt.run(async (ctx) => {
-    const hunt_id = await ctx.db.insert('hunts', { label, title: '' })
+    const hunt_id = await ctx.db.insert('hunts', { label, title: '', branch: 'main' })
     const realm_id = await ctx.db.insert('realms', { hunt_id, label: 'home', title: '', position: 0 })
     const ids: Record<string, Id<'quizzes'>> = {}
     for (const quiz of quizzes) {

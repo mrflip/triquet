@@ -237,7 +237,7 @@ describe('idents.performAccount: new_hunt', () => {
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntsInApp.max }, (_unused, idx) => `hunt_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('hunts', { label, title: '' })
+        await ctx.db.insert('hunts', { label, title: '', branch: 'main' })
       }
     })
     expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
@@ -328,16 +328,6 @@ describe('idents.performAccount: rebranch_hunt', () => {
   it("refuses a branch git would not take, writing nothing", async () => {
     const { perform, held } = await smithed()
     await expect(perform({ kind: 'rebranch_hunt', branch: 'draft two' })).rejects.toThrow()
-    const hunt = await held()
-    expect(hunt.branch).to.eq('main')
-  })
-
-  it("reads a hunt written before hunts had a branch as on main, and gives it one at its next edit", async () => {
-    const { tt, hunt_id, smith, perform, held } = await smithed()
-    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { branch: undefined }) })
-    const opening = await smith.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
-    expect(opening.hunt?.branch).to.eq('main')
-    await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
     const hunt = await held()
     expect(hunt.branch).to.eq('main')
   })
