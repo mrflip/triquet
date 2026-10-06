@@ -56,8 +56,8 @@ export const ValidatorKit = {
   toplabel:  CK.toplabel,
   /** Shaped as a label, but any word at all: a value typed in a label's alphabet that names nothing in the tool */
   labelshape: CK.labelshape,
-  /** An ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become; never a reserved word, top-level ones included */
-  identlabel: CK.identlabel,
+  /** A username -- an ident's label: label-shaped, 6 to 24 characters, since it is a name a person chose and types to become; never a reserved word, top-level ones included */
+  userlabel:  CK.userlabel,
   /** Epoch milliseconds */
   timestamp: Z.int().positive(),
   /**

@@ -1,9 +1,8 @@
 # Sprint `little_fixes`: the ident gate, the hunts page, and the quiz grid's lumps
 
 **Date:** 2026-10-05. **Mode:** normal. **Review level:** medium. **Issued by:** flip, via
-`/sprint`. **Status:** thread 5 landed (#110); thread 4 reviewed, landing next; thread 6 in review. Threads 1-3
-done: 1 and 2 merged via #99, 1b merged as #105; 3 is #108, on the spine, open. **At once:** up to 3
-threads (round two).
+`/sprint`. **Status:** done. Round one merged (#99, #105, #108); round two's threads 4-6 merged via #113;
+thread 7 is #116, open, follows #113. See `human/20261005-sprint_little_fixes_done.md`.
 
 Three threads, stacked in order, all view work. The planning branch `20261005-little_fixes_start`
 sits beneath thread 1, and beneath it the Coach's own unmerged `20261003-but_not_quiz` (quiz
@@ -244,6 +243,15 @@ the reviewer's worktree (thread 5's review), plus two spine traps this sprint me
 unset; the sweep trim bug). Guidance in `.claude/agents/thread-reviewer.md` and the sprint skill;
 the worker added `restack`'s `--prune` in `scripts/spine.ts`, with a test, so it is reviewed.
 Until it lands, reviewers in this sprint review by hand and never pass `--fix`.
+
+### Thread 7: PA.Userlabel, and a Labelmaker that takes a pattern's bag
+
+> add patterns userlabel. make it have max 24. have labelmaker accept a bag of options matching
+> what we use in patterns (but not accepting regex -- silently drop that option).
+
+*Orchestrator:* fixes thread 4's review finding (a 25-character username from a long digit-first
+name). `PA.Identlabel` already had min 6, max 24: renamed to `PA.Userlabel` rather than doubled.
+The Coach also ruled thread 4's other finding (Enter in a cleared username field) wontfix.
 
 ## For the Coach
 

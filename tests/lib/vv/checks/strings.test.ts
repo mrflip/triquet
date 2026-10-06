@@ -91,7 +91,7 @@ describe('identifiers', () => {
     ['labelshape', ['abc', 'a_1', 'position', 'null', 'quiz_id'], ['Abc', '1abc', 'a-b', '', 'a', 'abc_', 'x'.repeat(41)]],
     ['dashlabel', ['a-b', 'abc', 'a_1'],      ['Abc', '1abc', '']],
     ['toplabel',  ['quiet_otter', 'my_team', 'insecure'], ['pricing', 'security', 'position', 'Quiet', '']],
-    ['identlabel', ['sixsix', 'flip_k', 'a1b2c3', 'x'.repeat(24)], ['fivee', 'Flipper', '1flipper', 'flip__k', 'flipper_', 'x'.repeat(25), 'support', 'securely', 'constructor']],
+    ['userlabel',  ['sixsix', 'flip_k', 'a1b2c3', 'x'.repeat(24)], ['fivee', 'Flipper', '1flipper', 'flip__k', 'flipper_', 'x'.repeat(25), 'support', 'securely', 'constructor']],
     ['handleish', ['abc', 'a_1'],             ['Abc', '1abc', 'a-b', '', 'x'.repeat(37)]],
     ['camel',     ['Abc', 'A1', 'AbcDef'],    ['abc', '1Abc', '_Abc', 'A_1', ',']],
     ['locamel',   ['abC', 'aB1'],             ['Abc', '1abc', '_abc', 'a_1', ',']],

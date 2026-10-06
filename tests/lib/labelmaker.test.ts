@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Labelmaker from '../../src/lib/labelmaker'
+import * as PA from '../../src/lib/vv/patterns'
 import { ValidatorKit } from '../../src/lib/validator'
 
 const NormalizeCases: [string, string, string][] = [
@@ -33,21 +34,40 @@ describe('normalize', () => {
     })
   }
 
-  it('caps the cleaned body at maxlen before the letter/length repairs run', () => {
-    expect(Labelmaker.normalize('abcdefghij', { maxlen: 4 })).to.eq('abcd')
+  it('caps the label at max', () => {
+    expect(Labelmaker.normalize('abcdefghij', { max: 4 })).to.eq('abcd')
   })
 
-  it('may run one character past maxlen when a letter must be prepended', () => {
-    expect(Labelmaker.normalize('9abcdefghij', { maxlen: 4 })).to.eq('z9abc')
+  it('counts the letter prepended to a leading digit within max', () => {
+    expect(Labelmaker.normalize('9abcdefghij', { max: 4 })).to.eq('z9ab')
+  })
+
+  it('drops a trailing underscore the cut leaves, after the letter is prepended', () => {
+    expect(Labelmaker.normalize('9abc defgh', { max: 5 })).to.eq('z9abc')
+    expect(Labelmaker.normalize(`9${'x'.repeat(37)} yy`)).to.eq(`z9${'x'.repeat(37)}`)
   })
 
   it('never returns more than a label may hold, however much is typed', () => {
     expect(Labelmaker.normalize('x'.repeat(100))).to.eq('x'.repeat(40))
-    expect(Labelmaker.normalize('x'.repeat(100), { maxlen: 60 })).to.eq('x'.repeat(40))
+    expect(Labelmaker.normalize('x'.repeat(100), { max: 60 })).to.eq('x'.repeat(40))
+  })
+
+  it('never cuts under the two characters a label needs', () => {
+    expect(Labelmaker.normalize('abcdef', { max: 1 })).to.eq('ab')
+    expect(Labelmaker.normalize('9abcdef', { max: 0 })).to.eq('z9')
   })
 
   it('still fits when a letter must be prepended to a body already at the limit', () => {
     expect(Labelmaker.normalize('9'.repeat(100))).to.eq(`z${'9'.repeat(39)}`)
+  })
+
+  it("takes a pattern's bag whole, using its max", () => {
+    expect(Labelmaker.normalize('2nd Avenue Puzzle Solvers Club', PA.Userlabel)).to.eq('z2nd_avenue_puzzle_solve')
+  })
+
+  it("drops the bag's re, min and msg", () => {
+    expect(Labelmaker.normalize('Flip!', { re: /^nope$/, msg: 'should say nope' })).to.eq('flip')
+    expect(Labelmaker.normalize('Bo', { min: 6 })).to.eq('bo')
   })
 
   it('always returns a valid label, even from adversarial input', () => {

@@ -11,10 +11,10 @@ import { HomeRealmLabel, Realm, RealmValidators, type RealmT } from './realm'
 /** The branch every hunt starts on, and so the git branch its history begins on */
 export const DefaultBranch = 'main'
 
-export const HuntValidators = Validator(({ obj, arr, label, toplabel, identlabel, titleish, stamps, treeid }) => {
+export const HuntValidators = Validator(({ obj, arr, label, toplabel, userlabel, titleish, stamps, treeid }) => {
   const huntLabel = toplabel
     .describe('What the hunt is called in an address, within its org. Minted when the hunt is made, and unique within its org: two hunts of one org minted with one label resolve to the earlier.')
-  const orglabel = identlabel
+  const orglabel = userlabel
     .describe('The org the hunt is addressed under (`/~<org>/<hunt>`), which namespaces its label: the ident label of whoever made it, copied when it was made. Never changes: not when its maker is retitled, leaves the hunt, or changes role.')
   const title = titleish
     .describe('What the hunt is called on screen; a blank one displays as its label titleized.')

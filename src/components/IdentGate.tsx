@@ -88,7 +88,7 @@ export function IdentGate() {
               size="small" label="Username" value={labelDraft ?? followed} placeholder={followed} required sx={{ flex: 1 }}
               helperText={said ? FlawNotices[said] : ' '}
               error={said !== null}
-              slotProps={{ htmlInput: { maxLength: PA.Identlabel.max } }}
+              slotProps={{ htmlInput: { maxLength: PA.Userlabel.max } }}
               onChange={(event) => { setLabelDraft(event.target.value) }}
               onBlur={() => { setLeft(true); if (labelDraft === '') { setLabelDraft(null) } }}
             />

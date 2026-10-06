@@ -4,8 +4,8 @@ import { Validator } from '../lib/validator'
 import * as Labelmaker from '../lib/labelmaker'
 import * as PA from '../lib/vv/patterns'
 
-export const IdentValidators = Validator(({ obj, identlabel, titleish, stamps, zid }) => {
-  const identLabel = identlabel
+export const IdentValidators = Validator(({ obj, userlabel, titleish, stamps, zid }) => {
+  const identLabel = userlabel
     .describe('What a person types to become this ident (their username), and what others add them to a hunt by. Unique across the app: a new one is made inside the write that looks it up, so two sessions asserting one new label at once make one ident between them.')
   const title = titleish.min(1)
     .describe('What the ident is called on screen.')
@@ -40,17 +40,19 @@ export class Ident implements IdentT {
   declare title: string
 
   /**
-   * The ident label a name makes: normalized as every label is, and no longer than an ident label
-   * may be. Shorter than the minimum is left short, for the validator to refuse. What the label
-   * field beside a name shows until the label is typed in itself.
+   * The ident label a name makes: normalized as every label is, and no longer than a `Userlabel`
+   * may be, the `z` a leading digit gets counted in. Shorter than the minimum is left short, for
+   * the validator to refuse. What the label field beside a name shows until the label is typed in
+   * itself.
    *
    * @param name - Whatever was typed as a name.
    * @returns A label-shaped string, or `''` when nothing was typed.
    *
    * @example Ident.labelFor('Flip Kromer')  // => 'flip_kromer'
+   * @example Ident.labelFor('2nd Avenue Puzzle Solvers Club')  // => 'z2nd_avenue_puzzle_solve'
    */
   static labelFor(name: string): string {
-    return Labelmaker.normalize(name, { maxlen: PA.Identlabel.max })
+    return Labelmaker.normalize(name, PA.Userlabel)
   }
 
   /**
@@ -70,7 +72,7 @@ export class Ident implements IdentT {
    * @example Ident.flawIn('support')      // => 'reserved'
    */
   static flawIn(label: string): LabelFlawT | null {
-    if (label.length > PA.Identbegun.max || ! PA.Identbegun.re.test(label)) { return 'shape' }
+    if (label.length > PA.Userbegun.max || ! PA.Userbegun.re.test(label)) { return 'shape' }
     if (Labelmaker.isReserved(label, { toplevel: true })) { return 'reserved' }
     return IdentValidators.identLabel.safeParse(label).success ? null : 'unfinished'
   }
