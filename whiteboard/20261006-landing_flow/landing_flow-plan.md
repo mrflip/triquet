@@ -1,6 +1,6 @@
 # Landing flow: prove before you bid, bid cheaply
 
-**Date:** 2026-10-06. **Status:** approved by the Coach; built (see `thread-landing_flow.md`). **Asked by:** flip, after sprint
+**Date:** 2026-10-06. **Status:** approved by the Coach; built (see `thread-landing_flow.md`) and landed as #146, stacked on #116; unreviewed at the Coach's direction. **Asked by:** flip, after sprint
 little_fixes (`whiteboard/20261004-little_fixes/`), where workers spent long stretches waiting on e2e.
 
 Words: **tests** = `pnpm test` (vitest). **justify** = `pnpm typecheck && pnpm lint && pnpm test`.
