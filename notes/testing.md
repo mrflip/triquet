@@ -129,6 +129,12 @@ The browser's hooks (`src/state/use-*.ts`) are not unit tested: what they add to
 React's and Convex's client's, and the e2e suite drives them. Anything pure inside one (`placeIn`
 in `use-hunt`) is exported and tested on its own.
 
+A view is unit tested only for what it chooses to say: a notice in place of the page, a dash in
+place of a zero. Such a test is a `tests/**/*.test.tsx`, and reads the view through `renderedText`
+(`tests/support/rendering.tsx`): rendered once by `react-dom/server` under the `node`
+environment, with no DOM, no effects and no testing library. Anything a view does in a browser --
+focus, clicks, effects, heights -- is the e2e suite's.
+
 ## End to End (Playwright)
 
 The suite is a thin layer: the handful of flows a unit test cannot see -- the grid's heights,
