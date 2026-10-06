@@ -42,7 +42,11 @@ export type FilledT = {
  */
 export const FillBudget = 10_000
 
-/** The longest a filled template may come to; anything longer is refused rather than drawn */
+/**
+ * The longest a filled template may come to; anything longer is refused rather than drawn. What
+ * its tags fill in is counted as it goes, so a tag filling in a whole list's JSON, again and
+ * again, is stopped before it is built.
+ */
 export const FilledMax = 100_000
 
 /** Said when a fill is stopped for spending more than `FillBudget` */
@@ -51,13 +55,20 @@ const OverBudget = 'This template reads too much: a list inside a list inside a 
 /** Said when a fill comes to more than `FilledMax` characters */
 const OverLong = 'This template comes to far too much text to show.'
 
-/** The lookups and section passes left to one fill, shared by every context it pushes */
-type Budget = { left: number }
+/** What one fill has left: lookups and section passes, shared by every context it pushes, and characters its tags may fill in */
+type Budget = { left: number, charsLeft: number }
 
 /** Spends one of `budget`, or stops the fill when none is left */
 function spend(budget: Budget): void {
   budget.left -= 1
   if (budget.left < 0) { throw new Error(OverBudget) }
+}
+
+/** `filling`, once counted against the characters `budget` has left to fill in; stops the fill when it comes to too much */
+function spendChars(budget: Budget, filling: string): string {
+  budget.charsLeft -= filling.length
+  if (budget.charsLeft < 0) { throw new Error(OverLong) }
+  return filling
 }
 
 /**
@@ -74,9 +85,9 @@ class BagContext extends Mustache.Context {
     this.budget = budget
   }
 
-  /** The context at the top of a fill over `bag`, with the whole budget to spend */
-  static over(bag: TemplateBag): BagContext {
-    return new BagContext(bag, undefined, { left: FillBudget })
+  /** The context at the top of a fill over `bag`, spending `budget` */
+  static over(bag: TemplateBag, budget: Budget): BagContext {
+    return new BagContext(bag, undefined, budget)
   }
 
   override push(view: unknown): BagContext {
@@ -123,8 +134,9 @@ function ownAt(view: unknown, keypath: readonly string[]): { held: boolean, val:
 export function fill(template: string, bag: TemplateBag): FilledT {
   const issue = issueOf(template)
   if (issue !== null) { return { markdown: template, issue } }
+  const budget: Budget = { left: FillBudget, charsLeft: FilledMax }
   try {
-    const markdown = Mustache.render(template, BagContext.over(bag), undefined, { escape: fillingOf })
+    const markdown = Mustache.render(template, BagContext.over(bag, budget), undefined, { escape: (val: unknown) => spendChars(budget, fillingOf(val)) })
     return markdown.length > FilledMax ? { markdown: template, issue: OverLong } : { markdown, issue: null }
   } catch (err) {
     return { markdown: template, issue: err instanceof Error ? err.message : OverBudget }

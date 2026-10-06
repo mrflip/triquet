@@ -138,6 +138,12 @@ describe("fill", () => {
     expect(filled).to.deep.eq({ markdown: '{{qn.big}}', issue: 'This template comes to far too much text to show.' })
   })
 
+  it("stops a tag filling in a whole list again and again before it builds the text", () => {
+    const qns = [{ body: 'x'.repeat(Templating.FilledMax) }]
+    const filled = Templating.fill('{{qns}}'.repeat(6000), bagHolding({ qns }))
+    expect(filled.issue).to.eq('This template comes to far too much text to show.')
+  })
+
   it("comes to the same text as often as it is asked", () => {
     expect(Templating.fill('{{qn.size}}', bag)).to.deep.eq(Templating.fill('{{qn.size}}', bag))
   })
