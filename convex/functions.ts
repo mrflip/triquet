@@ -10,7 +10,7 @@ import { refusingInvalid } from '../src/lib/refusals'
 import { installErrorMap } from '../src/lib/vv/reporting'
 import { libraryWriter, scopedReader, scopedWriter, type ScopeClaimsT } from './policy_rules'
 import { censusOf, identFor, type CensusT, type Reader } from './reading'
-import { triggers } from './stamping'
+import { triggers } from './triggers'
 
 /**
  * Who is asking, as every public function's `ctx` carries it.

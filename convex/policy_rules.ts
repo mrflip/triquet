@@ -108,6 +108,8 @@ const HuntOwned = { read: isOfHunt, modify: isOfHunt, insert: isOfHunt } as cons
  *   Changing it is an admin's act, on a mutation of its own (`LibraryRules`).
  * * `idents` -- a public persona, its label and title shown to whoever shares a hunt with it, and
  *   named by a smith adding a member: seen, never written (retitling is the ident's own).
+ * * `signals` -- each quiz's change signal, of the hunt it carries: seen, never written here. The
+ *   database's trigger alone writes it (`signalling.ts`), beneath this database.
  */
 export const WritingRules = {
   hunts:      { read: isTheHunt, modify: isTheHunt, insert: never },
@@ -122,6 +124,7 @@ export const WritingRules = {
   reviewings: { read: isOfHunt, modify: mayWriteReviewRow, insert: mayWriteReviewRow },
   widgets:    { read: mayReadLibrary, modify: never, insert: never },
   idents:     { read: always, modify: never, insert: never },
+  signals:    { read: isOfHunt, modify: never, insert: never },
 } as const satisfies TableRulesT
 
 /**

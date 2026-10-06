@@ -98,7 +98,7 @@ describe("a mutation's database", () => {
     const { tt, act, question_id } = await seeded()
     await act({ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } })
     await expect(tt.run(async (ctx) => {
-      const { triggers } = await import('../../convex/stamping')
+      const { triggers } = await import('../../convex/triggers')
       await triggers.wrapDB(ctx).db.patch('questions', question_id, { created_at: 1 })
     })).rejects.toThrow(/created_at is immutable/)
   })

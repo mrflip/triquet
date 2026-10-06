@@ -13,6 +13,7 @@ import { QuizValidators } from '../src/models/quiz'
 import { RealmValidators } from '../src/models/realm'
 import { ReviewValidators } from '../src/models/review'
 import { ReviewingValidators } from '../src/models/reviewing'
+import { SignalValidators } from '../src/models/signal'
 import { WidgetValidators } from '../src/models/widget'
 import { WidgetedValidators, type JsonT } from '../src/models/widgeted'
 import { WidgetingValidators } from '../src/models/widgeting'
@@ -56,6 +57,7 @@ const questionFields    = { ...zodOutputToConvexFields(QuestionValidators.row.sh
 const reviewFields      = zodOutputToConvexFields(ReviewValidators.row.shape)
 const reviewingFields   = zodOutputToConvexFields(ReviewingValidators.row.shape)
 const huntingFields     = zodOutputToConvexFields(HuntingValidators.row.shape)
+const signalFields      = zodOutputToConvexFields(SignalValidators.row.shape)
 
 /**
  * The app's tables. Children are read through their parent's index, in their committed order
@@ -92,4 +94,6 @@ export default defineSchema({
   reviewings:  defineTable(reviewingFields).index('by_review_id_and_question_id', ['review_id', 'question_id']).index('by_question_id', ['question_id']),
   /** One ident's place on one hunt, with a role: at most one per hunt and ident */
   huntings:    defineTable(huntingFields).index('by_hunt_id', ['hunt_id']).index('by_ident_id_and_hunt_id', ['ident_id', 'hunt_id']),
+  /** One quiz's change signal: when its files last changed, written by the database's trigger alone (`signalling.ts`), read by its smiths' browsers to know which quiz to fetch again */
+  signals:     defineTable(signalFields).index('by_hunt_id', ['hunt_id']).index('by_quiz_id', ['quiz_id']),
 })

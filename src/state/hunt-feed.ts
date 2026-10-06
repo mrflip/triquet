@@ -13,6 +13,7 @@ import type { HuntAffirmsDNA } from '../models/actions'
 import { Question } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
+import { PageClock, Pace, huntFetching, type ClockT, type PaceT } from './hunt-fetching'
 import { useSession } from './use-session'
 
 /*
@@ -22,13 +23,17 @@ import { useSession } from './use-session'
  * * The hunt-level files (the hunt's own, its categories, its members) and the list of its quizzes
  *   come from the hunt (`hunts.open`); the widgets from the library (`widgets.library`), watched
  *   whole, since a widget's place is its place in the whole library.
- * * Each quiz is its own watches: the quiz whole (`quizzes.whole`, its file in one result) and its
- *   reviews (`reviews.forQuiz`). The quiz on screen is read instead as the screen reads it, its
- *   frame (`quizzes.open`) and a watch per question (`questions.open`), so the feed shares the
+ * * The quiz on screen is read as the screen reads it, its frame (`quizzes.open`), a watch per
+ *   question (`questions.open`) and its reviews (`reviews.forQuiz`), so the feed shares the
  *   screen's subscriptions and an author's edit sends one question, not the quiz.
- * * The watches follow the quiz list, opening a quiz's as it is listed and closing them as it goes.
- *   A quiz not on screen opens its watches only once the page has loaded and the browser is idle
- *   (`whenLoadedAndIdle`), so the screen's own reads come first.
+ * * Every other quiz is fetched, not watched (`hunt-fetching.ts`): the quiz whole (`quizzes.whole`,
+ *   its file in one result) and its reviews, once when first listed, and again only once its
+ *   change signal (`quizzes.signals`, one small watch for the whole hunt) says it has changed, at
+ *   most once every minute and a half. A watch of each would be rerun and resent whole at every
+ *   write to it, a bot's every answer, in every smith's tab; its history may lag by that much.
+ * * The quizzes follow the quiz list, read as each is listed and let go as it goes. A quiz not on
+ *   screen is read only once the page has loaded and the browser is idle (`whenLoadedAndIdle`), so
+ *   the screen's own reads come first.
  *
  * Every watch is sent the affirms the screen sends, so a watch the screen also holds is one
  * subscription. The Convex client applies every result of one moment together and tells each
@@ -37,8 +42,8 @@ import { useSession } from './use-session'
  * the library or the wheel changes) to hold up the screen showing the change that caused it.
  */
 
-/** What the feed watches through: the Convex client, or anything that watches as it does */
-export type WatcherT = Pick<ConvexReactClient, 'watchQuery'>
+/** What the feed watches and fetches through: the Convex client, or anything that watches and fetches as it does */
+export type WatcherT = Pick<ConvexReactClient, 'watchQuery' | 'query'>
 
 /** The key of the hunt-level part of a reading: the hunt's own file, its categories' and its members' */
 export const HuntPartkey = 'hunt'
@@ -76,7 +81,7 @@ export type HuntReadingT = {
   /** True for the first reading the feed hands on: the hunt read whole for the first time, what a catch-up commit is made from */
   first: boolean
   /**
-   * Each quiz the hunt lists that could not be read (its watch failed, or answered nothing), by
+   * Each quiz the hunt lists that could not be read (its watch or fetch failed, or answered nothing), by
    * id, never read since the feed began: it has no part and no files here, which says nothing of
    * the files it has.
    */
@@ -85,13 +90,13 @@ export type HuntReadingT = {
 
 /** A running feed: which quiz the screen has open, how to have its news now, and how to stop */
 export type HuntFeedT = {
-  /** Read `quiz_id` as the screen reads it from now on, and every other quiz whole; null when no quiz is on screen */
+  /** Read `quiz_id` as the screen reads it from now on, and fetch every other quiz whole; null when no quiz is on screen */
   focus: (quiz_id: Id<'quizzes'> | null) => void
   /** Hand on, now, the reading put off for the browser's idle time, if there is one */
   settle: () => void
-  /** Once every watch the feed holds has answered (a question just added among them), and the reading of it is handed on */
+  /** Once every watch the feed holds has answered (a question just added among them), every quiz whose signal has moved is fetched again, and the reading of it is handed on */
   whenRead: () => Promise<void>
-  /** Close every watch; nothing more is handed on */
+  /** Close every watch, and fetch nothing more; nothing more is handed on */
   stop:  () => void
 }
 
@@ -102,22 +107,35 @@ export type FeedSetupT = {
   hunt_label: string
   affirms:    HuntAffirmsDNA
   focus:      Id<'quizzes'> | null
+  /** What the fetching of the quizzes not on screen tells time by; the page's clock unless given */
+  clock?:     ClockT
+  /** How fast those quizzes are fetched; `Pace` unless given */
+  pace?:      PaceT
 }
 
 /** One watch as the feed holds it: its result, undefined until it arrives or while it fails; whether it fails; and how to close it */
 type WatchedT<RT> = { result: () => RT | undefined, failed: () => boolean, stop: () => void }
 
-/** One quiz read for its files: undefined until read whole, null when it is gone or not this browser's to read; whether a watch of it fails */
-type QuizSourceT = { quiz: () => QuizT | null | undefined, failed: () => boolean, stop: () => void }
+/**
+ * One quiz read for its files: the quiz, undefined until read whole, null when it is gone or not
+ * this browser's to read; its reviews, undefined until read; whether reading it fails; whether it
+ * has yet to answer; and how to let it go.
+ */
+type QuizSourceT = {
+  quiz:     () => QuizT | null | undefined
+  reviews:  () => ReviewedT[] | undefined
+  failed:   () => boolean
+  awaiting: () => boolean
+  stop:     () => void
+}
 
-/** How a quiz is read: as the screen reads it (`live`), or whole in one result (`whole`) */
-type Sourcekind = 'live' | 'whole'
+/** How a quiz is read: as the screen reads it (`live`), or fetched when its signal moves (`fetched`) */
+type Sourcekind = 'live' | 'fetched'
 
-/** A quiz's watches, and its part as last made, with what it was made from */
+/** How a quiz is read, and its part as last made, with what it was made from */
 type QuizWatchesT = {
   sourcekind: Sourcekind
   source:     QuizSourceT
-  reviews:    WatchedT<ReviewedT[]>
   held:       { inputs: readonly unknown[], part: FedPartT } | null
 }
 
@@ -185,24 +203,26 @@ export async function feedsRead(): Promise<void> {
 /**
  * Watch the hunt `setup` names, for a smith, and hand on its files whenever they change: first
  * once every quiz it lists has answered (`first`), then at each change from then on, whoever made
- * it. A quiz answers when it is read whole, or when it cannot be: its watch fails, or answers
- * nothing while still listed. A quiz that could not be read is handed on as `unread`, with no
- * files, so that one broken quiz never holds back the rest of the hunt. A quiz newly listed joins
- * the reading once it has been read; until then its files are neither written nor removed, and a
- * quiz read a moment ago stands as it was read while its watches change hands, or while its watch
+ * it. A quiz answers when it is read whole, or when it cannot be: its watch or fetch fails, or
+ * answers nothing while still listed. A quiz that could not be read is handed on as `unread`, with
+ * no files, so that one broken quiz never holds back the rest of the hunt. A quiz newly listed
+ * joins the reading once it has been read; until then its files are neither written nor removed,
+ * and a quiz read a moment ago stands as it was read while it changes hands, or while reading it
  * fails. Nothing is handed on while the hunt does not show the browser as one sent every question
  * whole (`Question.isSentWhole`): gone, relabelled, or no longer a smith's.
  *
- * The quizzes not on screen are watched only once the page has loaded and the browser is idle (or
+ * The quizzes not on screen are read only once the page has loaded and the browser is idle (or
  * `IdleWaitMs` after the load at the latest), so the screen's own reads are not queued behind
- * them; until then nothing is handed on, since the first reading waits for every quiz. Waiting
- * for the feed to be read (`whenRead`) opens them at once. Each reading is made when the browser
- * is next idle (or `IdleWaitMs` at the latest), gathering whatever arrived meanwhile; `settle`
- * makes it at once.
+ * them; until then nothing is handed on, since the first reading waits for every quiz. They are
+ * fetched, not watched, and fetched again only once their change signal moves, at the pace
+ * `setup.pace` sets (`hunt-fetching.ts`), so a change to one reaches the reading a minute or two
+ * late. Waiting for the feed to be read (`whenRead`) reads them, and fetches again each whose
+ * signal has moved, at once. Each reading is made when the browser is next idle (or `IdleWaitMs`
+ * at the latest), gathering whatever arrived meanwhile; `settle` makes it at once.
  *
  * Fire-and-forget: a reading that fails is reported, never thrown, and the next change tries again.
  *
- * @param client - What to watch through: the Convex client.
+ * @param client - What to watch and fetch through: the Convex client.
  * @param setup - The hunt, what the browser affirms of itself on it, and the quiz on screen.
  * @param onReading - Handed each reading.
  * @returns The feed: to change the quiz on screen, to have its news now, and to stop.
@@ -211,7 +231,7 @@ export async function feedsRead(): Promise<void> {
  */
 export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (reading: HuntReadingT) => void): HuntFeedT {
   const { orglabel, hunt_label, affirms } = setup
-  const state = { focused: setup.focus, stopped: false, cancel: null as (() => void) | null, last: null as HuntReadingT | null, opened: false, cancelOpen: null as (() => void) | null }
+  const state = { focused: setup.focus, stopped: false, cancel: null as (() => void) | null, last: null as HuntReadingT | null, opened: false, cancelOpen: null as (() => void) | null, waitedSince: 0 }
   const quizzes = new Map<Id<'quizzes'>, QuizWatchesT>()
   // Whoever waits for the feed to hear from every watch (`whenRead`).
   const waiters = new Set<() => void>()
@@ -223,12 +243,23 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
   }
   const opening = watched(client, api.hunts.open, { orglabel, hunt_label }, soon, hunt_label)
   const library = watched(client, api.widgets.library, {}, soon, hunt_label)
+  const clock = setup.clock ?? PageClock
+  const fetching = huntFetching({ client, affirms, hunt_label, clock, pace: setup.pace ?? Pace, onFetched: soon })
+  // The quizzes' change signals, watched once the quizzes not on screen are read (`openAll`).
+  const signals = { watch: null as WatchedT<FunctionReturnType<typeof api.quizzes.signals>> | null }
+  const hearSignals = () => {
+    const { watch } = signals
+    if (watch) { fetching.heard(watch.result(), watch.failed()) }
+  }
 
-  const sourceFor = (sourcekind: Sourcekind, quiz_id: Id<'quizzes'>): QuizSourceT => (sourcekind === 'live'
-    ? liveSource(client, affirms, quiz_id, soon, hunt_label)
-    : wholeSource(client, affirms, quiz_id, soon, hunt_label))
+  // A quiz read as `sourcekind` says, from what was read of it before (`was`) when that is there.
+  const sourceFor = (sourcekind: Sourcekind, quiz_id: Id<'quizzes'>, was: QuizSourceT | null): QuizSourceT => {
+    if (sourcekind === 'live') { return liveSource(client, affirms, quiz_id, soon, hunt_label) }
+    const [quiz, reviews] = [was?.quiz(), was?.reviews()]
+    return fetching.source(quiz_id, quiz && reviews ? { quiz, reviews } : null)
+  }
 
-  // A quiz's watches for each quiz the hunt lists, read as `state.focused` says, and none for one it
+  // A quiz's source for each quiz the hunt lists, read as `state.focused` says, and none for one it
   // does not, nor, until the page has loaded and gone idle (`state.opened`), for one not on screen.
   const follow = () => {
     const hunt = opening.result()?.hunt
@@ -240,40 +271,43 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     for (const quiz_id of listed) { followQuiz(quiz_id) }
   }
 
-  // One listed quiz's watches, opened, moved between the two ways of reading it, or (for one not on
-  // screen before the page has gone idle) closed.
+  // One listed quiz's source, made, moved between the two ways of reading it, or (for one not on
+  // screen before the page has gone idle) let go.
   const followQuiz = (quiz_id: Id<'quizzes'>) => {
-    const sourcekind: Sourcekind = quiz_id === state.focused ? 'live' : 'whole'
+    const sourcekind: Sourcekind = quiz_id === state.focused ? 'live' : 'fetched'
     const watches = quizzes.get(quiz_id)
-    if (sourcekind === 'whole' && ! state.opened) {
+    if (sourcekind === 'fetched' && ! state.opened) {
       if (watches) { stopQuiz(quiz_id, watches) }
       return
     }
     if (! watches) {
-      const reviews = watched(client, api.reviews.forQuiz, { affirms: { ...affirms, quiz_id } }, soon, hunt_label)
-      quizzes.set(quiz_id, { sourcekind, source: sourceFor(sourcekind, quiz_id), reviews, held: null })
+      quizzes.set(quiz_id, { sourcekind, source: sourceFor(sourcekind, quiz_id, null), held: null })
     } else if (watches.sourcekind !== sourcekind) {
-      // The new watches open before the old close, and the quiz stands as last read meanwhile.
+      // The new source starts before the old stops, from what the old last read, and the quiz stands as last read meanwhile.
       const was = watches.source
-      watches.source = sourceFor(sourcekind, quiz_id)
+      watches.source = sourceFor(sourcekind, quiz_id, was)
       watches.sourcekind = sourcekind
       was.stop()
     }
   }
 
-  // Close a quiz's watches, and forget it.
+  // Let a quiz's source go, and forget it.
   const stopQuiz = (quiz_id: Id<'quizzes'>, watches: QuizWatchesT) => {
     watches.source.stop()
-    watches.reviews.stop()
     quizzes.delete(quiz_id)
   }
 
-  // Open the watches of the quizzes not on screen, once, calling off the wait for the page if it is still waiting.
+  // Read the quizzes not on screen, and watch their signals, once, calling off the wait for the page if it is still waiting.
   const openAll = () => {
     if (state.opened || state.stopped) { return }
     state.opened = true
     state.cancelOpen?.()
     state.cancelOpen = null
+    signals.watch = watched(client, api.quizzes.signals, { affirms }, () => {
+      hearSignals()
+      soon()
+    }, hunt_label)
+    hearSignals()
     follow()
     soon()
   }
@@ -283,7 +317,7 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     const watches = quizzes.get(quiz_id)
     if (! watches) { return null }
     const quiz = watches.source.quiz()
-    const reviews = watches.reviews.result()
+    const reviews = watches.source.reviews()
     if (quiz && reviews) {
       const inputs = [quiz, reviews, widgets, placeKeyOf(hunt, realm)]
       if (! watches.held || ! isSameList(watches.held.inputs, inputs)) {
@@ -293,10 +327,10 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     return watches.held?.part ?? null
   }
 
-  // Whether a quiz with no part has answered that it cannot be read: a watch failing, or the quiz answering nothing.
+  // Whether a quiz with no part has answered that it cannot be read: a watch or fetch failing, or the quiz answering nothing.
   const isUnreadable = (quiz_id: Id<'quizzes'>): boolean => {
     const watches = quizzes.get(quiz_id)
-    return watches !== undefined && (watches.source.failed() || watches.reviews.failed() || watches.source.quiz() === null)
+    return watches !== undefined && (watches.source.failed() || watches.source.quiz() === null)
   }
 
   // The hunt's files now, or null when there is nothing new to hand on.
@@ -322,14 +356,14 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     return { hunt, parts, files, first: state.last === null, unread }
   }
 
-  // Whether a watch the feed holds has yet to answer: the hunt, the library, or any part of a listed quiz.
+  // Whether a watch or fetch the feed holds has yet to answer: the hunt, the library, or any listed quiz.
   const isAwaiting = (): boolean => {
     if (isQuiet(opening, opening.result()) || isQuiet(library, library.result())) { return true }
     const hunt = opening.result()?.hunt
     if (! hunt) { return false }
     return hunt.realms.some((realm) => realm.quizzes.some((row) => {
       const watches = quizzes.get(row._id)
-      return ! watches || isQuiet(watches.source, watches.source.quiz()) || isQuiet(watches.reviews, watches.reviews.result())
+      return ! watches || watches.source.awaiting()
     }))
   }
 
@@ -345,6 +379,8 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     if (state.stopped) { return }
     try {
       follow()
+      // Whoever waits on the feed has every quiz that wants fetching fetched at once, those newly listed among them.
+      if (waiters.size > 0) { fetching.fetchNow(state.waitedSince) }
       const reading = readingNow()
       if (reading) {
         state.last = reading
@@ -372,6 +408,8 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
     whenRead: async () => {
       if (state.stopped) { return }
       openAll()
+      // From each wait on: one given up on by its caller lingers, and must not hold the next to its own moment.
+      state.waitedSince = clock.now()
       const read = Promise.withResolvers<null>()
       waiters.add(() => { read.resolve(null) })
       state.cancel?.()
@@ -388,10 +426,9 @@ export function watchHunt(client: WatcherT, setup: FeedSetupT, onReading: (readi
       runningFeeds.delete(feed)
       opening.stop()
       library.stop()
-      for (const watches of quizzes.values()) {
-        watches.source.stop()
-        watches.reviews.stop()
-      }
+      signals.watch?.stop()
+      fetching.stop()
+      for (const watches of quizzes.values()) { watches.source.stop() }
       quizzes.clear()
     },
   }
@@ -540,16 +577,11 @@ function watched<QT extends FunctionReference<'query'>>(client: WatcherT, query:
   return { result, failed, stop: watch.onUpdate(onUpdate) }
 }
 
-/** A quiz read whole in one result (`quizzes.whole`) */
-function wholeSource(client: WatcherT, affirms: HuntAffirmsDNA, quiz_id: Id<'quizzes'>, onUpdate: () => void, hunt_label: string): QuizSourceT {
-  const whole = watched(client, api.quizzes.whole, { affirms: { ...affirms, quiz_id } }, onUpdate, hunt_label)
-  return { quiz: whole.result, failed: whole.failed, stop: whole.stop }
-}
-
 /**
- * A quiz read as the screen reads it: its frame (`quizzes.open`), and a watch for each question
- * the frame orders (`questions.open`), followed as the order changes. Assembled again only when
- * the frame or a question's reading has changed, so an unchanged quiz is the same object.
+ * A quiz read as the screen reads it: its frame (`quizzes.open`), a watch for each question the
+ * frame orders (`questions.open`), followed as the order changes, and its reviews
+ * (`reviews.forQuiz`). Assembled again only when the frame or a question's reading has changed, so
+ * an unchanged quiz is the same object.
  */
 function liveSource(client: WatcherT, affirms: HuntAffirmsDNA, quiz_id: Id<'quizzes'>, onUpdate: () => void, hunt_label: string): QuizSourceT {
   const questions = new Map<Id<'questions'>, WatchedT<FunctionReturnType<typeof api.questions.open>>>()
@@ -566,6 +598,7 @@ function liveSource(client: WatcherT, affirms: HuntAffirmsDNA, quiz_id: Id<'quiz
     }
   }
   const frame = watched(client, api.quizzes.open, { affirms: { ...affirms, quiz_id } }, () => { follow(); onUpdate() }, hunt_label)
+  const reviews = watched(client, api.reviews.forQuiz, { affirms: { ...affirms, quiz_id } }, onUpdate, hunt_label)
   follow()
 
   const held = { inputs: [] as readonly unknown[], quiz: undefined as QuizT | undefined }
@@ -583,11 +616,13 @@ function liveSource(client: WatcherT, affirms: HuntAffirmsDNA, quiz_id: Id<'quiz
   }
   const stop = () => {
     frame.stop()
+    reviews.stop()
     for (const watch of questions.values()) { watch.stop() }
     questions.clear()
   }
-  const failed = () => frame.failed() || questions.values().some((watch) => watch.failed())
-  return { quiz, failed, stop }
+  const failed = () => frame.failed() || reviews.failed() || questions.values().some((watch) => watch.failed())
+  const awaiting = () => isQuiet({ failed }, quiz()) || isQuiet(reviews, reviews.result())
+  return { quiz, reviews: reviews.result, failed, awaiting, stop }
 }
 
 /** Whether a watch has yet to answer: nothing read from it, and no failure either */

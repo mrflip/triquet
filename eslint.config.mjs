@@ -254,7 +254,7 @@ export default defineConfig([
   },
 
   // Every mutation is made by a builder of `convex/functions.ts`, whose database runs the triggers
-  // that stamp each row written (`convex/stamping.ts`). Convex's own `mutation` and
+  // that stamp each row written and move each quiz's change signal (`convex/triggers.ts`). Convex's own `mutation` and
   // `internalMutation` would write past them, so only that file and the migrations, whose
   // backfills write raw on purpose, import them.
   {
@@ -266,7 +266,7 @@ export default defineConfig([
         patterns: [{
           group:       ['**/_generated/server'],
           importNames: ['mutation', 'internalMutation'],
-          message:     'Build a mutation with a builder of convex/functions.ts (zMutation, zHuntMutation, zInternalMutation...), whose database stamps each row written (convex/stamping.ts).',
+          message:     'Build a mutation with a builder of convex/functions.ts (zMutation, zHuntMutation, zInternalMutation...), whose database runs the triggers (convex/triggers.ts): stamps, and change signals.',
         }],
       }],
     },

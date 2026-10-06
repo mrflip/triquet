@@ -223,28 +223,58 @@ One hunt, one branch at a time, so a hunt repository is on exactly the branch th
 
 ## Watching and committing, by file
 
-The feed (`watchHunt`, and `useHuntFeed` around it, in `src/state/hunt-feed.ts`) watches **at
-the grain of the files**, for a smith only (`Question.isSentWhole`):
+The feed (`watchHunt`, and `useHuntFeed` around it, in `src/state/hunt-feed.ts`) reads **at the
+grain of the files**, for a smith only (`Question.isSentWhole`): the hunt, the library and the
+quiz on screen by watches, every other quiz by fetches when its change signal moves.
 
-| Watch | Query function | Files it writes |
+| Read | Query function | Files it writes |
 |---|---|---|
-| The hunt, and the list of its quizzes | `hunts.open` | `hunt.tqh`, `categories.tqc`, `members.tqm` |
-| The library, whole | `widgets.library` | each `pub/widgets/<label>.tqw` a quiz works (a widget's `position` is its place in the whole library) |
-| Each quiz not on screen, whole | `quizzes.whole` (smiths only) | `<quiz>.tqq`, `<quiz>/questions.qq` |
-| The quiz on screen: its frame, and a watch per question | `quizzes.open`, `questions.open` | the same, through the screen's own subscriptions |
-| Each quiz's reviews | `reviews.forQuiz` | `<quiz>/reviews/<reviewer>.tqr`, shared ones only |
+| The hunt, and the list of its quizzes: a watch | `hunts.open` | `hunt.tqh`, `categories.tqc`, `members.tqm` |
+| The library, whole: a watch | `widgets.library` | each `pub/widgets/<label>.tqw` a quiz works (a widget's `position` is its place in the whole library) |
+| The quiz on screen: its frame, a watch per question, and its reviews | `quizzes.open`, `questions.open`, `reviews.forQuiz` | `<quiz>.tqq`, `<quiz>/questions.qq`, `<quiz>/reviews/<reviewer>.tqr` (shared ones only), through the screen's own subscriptions |
+| Every quiz's change signal: one watch | `quizzes.signals` (smiths only) | none: it says which quiz to fetch |
+| Each quiz not on screen, whole, and its reviews: fetches | `quizzes.whole` (smiths only), `reviews.forQuiz` | the same as the quiz on screen's |
 
 Every watch is sent the affirms the screen sends, so one the screen also holds is one
 subscription, and an author's edit to the quiz on screen arrives as the one question. The feed
-follows the quiz list, opening a quiz's watches as it is listed and closing them as it goes, and
-moves the quiz on screen between the two ways of reading it as the screen moves (`focus`). **A
-quiz not on screen opens its watches only once the page has loaded and the browser is idle**
-(`requestIdleCallback`, `IdleWaitMs` at the latest), so the screen's own reads come first; so the
-first reading, and the catch-up commit, wait for that too, and waiting on the feed to be read (a
-milestone, an import, a deletion) opens them at once. Nothing else is deferred, nothing polls, and
-nothing is read again as the page unloads. A quiz's files depend on the library and the hunt's
-wheel as well as the quiz (its run), so a change to either makes every quiz's files again; only
-the bodies that differ are new.
+follows the quiz list, reading a quiz as it is listed and letting it go as it goes, and moves the
+quiz on screen between the two ways of reading it as the screen moves (`focus`); a quiz the
+screen leaves starts from what the screen last read of it, and is not fetched until its signal
+moves. A quiz's files depend on the library and the hunt's wheel as well as the quiz (its run), so
+a change to either makes every quiz's files again, from what was last read of each; only the
+bodies that differ are new.
+
+**A quiz not on screen is fetched, not watched**, since Convex bills each rerun of a watched query
+and what it reads, and a watch of a quiz whole is rerun and resent at every write to it (a bot's
+every answer) in every smith's tab. Instead (`src/state/hunt-fetching.ts`):
+
+* **Each quiz has a change signal** (`signals`, a table of one small row per quiz,
+  `src/models/signal.ts`), moved by a trigger at each write to the quiz or anything its files are
+  made from: its questions, widgetings, columns, what its widgetings stored, and its shared reviews
+  and their verdicts (a draft's writes move nothing, so its smiths learn nothing of a draft). A
+  write within `SignalGrainMs` (5 s) of the last move leaves it standing (`convex/signalling.ts`).
+  Never the quiz row itself, whose every reader (the screen's frame) would then rerun at every
+  write.
+* **One watch of every quiz's signal** (`quizzes.signals`), for a smith of the hunt alone.
+* **A quiz is fetched** (`quizzes.whole` and its `reviews.forQuiz`, `client.query`) at once the
+  first time, then only once its signal moves, and **at most once every `Pace.fetchEveryMs`**
+  (90 s): a burst of writes costs a fetch or two, and the history lags a change by that much at
+  most. A signal seen to move is waited out `Pace.settleMs` (8 s: the grain and a write's landing)
+  before a fetch is trusted to hold everything it stands for; one begun sooner is followed by
+  another. A signal that never stops moving still has its quiz fetched once a window.
+* **A hidden tab fetches nothing**; shown again, it fetches what moved meanwhile at once.
+* **Waiting on the feed to be read** (a milestone, an import, a deletion) fetches at once every
+  quiz whose signal has moved, so a tag lands on a commit holding what this browser has seen.
+* **A quiz not on screen is read only once the page has loaded and the browser is idle**
+  (`requestIdleCallback`, `IdleWaitMs` at the latest), so the screen's own reads come first; so the
+  first reading, and the catch-up commit, wait for that too, and waiting on the feed reads them at
+  once. Nothing is read again as the page unloads.
+
+Times are this browser's own, measured from when it saw a signal move, so another clock's skew
+does not enter, but once: a signal heard for the first time is dated by its own time, allowing
+this clock `Pace.clockSlackMs` (10 minutes) of skew. A browser whose clock runs further ahead than
+that could miss the last few seconds of writes to a quiz being written to as it loads, until the
+quiz is next written to.
 
 Each part's files are made from its watches alone (`huntPartOf`, `quizPartOf`, `widgetsPartOf`,
 over `Exporting.huntLevelBalls`, `quizBallsIn` and `workedBalls`, handed to `Huntfiles.filesOf`),
@@ -253,7 +283,8 @@ all the files together. The first reading comes once every listed quiz has answe
 says so (`first`); after it, a reading comes at each change that writes a file differently, a part
 unchanged being the same object as before. `Huntfiles.changesBetween` says which files to write
 and which to remove. What it costs on a large hunt is measured in
-`whiteboard/20261005-hunt_git/thread-4-measured.md`.
+`whiteboard/20261005-hunt_git/thread-4-measured.md`, and with the change signal in
+`whiteboard/20261005-hunt_git/thread-9-change_signal.md`.
 
 * **One repository per hunt** at `/hunts/<hunt _id>` in the browser's filesystem (LightningFS,
   named `triquet-quizzes` for the per-quiz repositories it first held), so relabelling a hunt
@@ -273,9 +304,10 @@ and which to remove. What it costs on a large hunt is measured in
   (`whiteboard/20261005-hunt_git/thread-4-measured.md`). The git work is asynchronous, after the
   wait. A failure to commit is reported (`Postmortem`), never fails an edit.
 * **Consistency.** The Convex client applies every subscribed query's new result at one
-  timestamp, so the files never mix two moments. The exception is a new watch (a new quiz, or
-  a question just added): it reports a moment later, and until it has reported, its files are
-  neither written nor removed.
+  timestamp, and a quiz's fetch reads it and its reviews together, so no quiz's files mix two
+  moments; but quizzes fetched at different times stand as of different moments, a minute or two
+  apart at most. A new watch or fetch (a new quiz, or a question just added) reports a moment
+  later, and until it has reported, its files are neither written nor removed.
 * **The message is a line per part that moved**, joined on one line while it fits 72 characters,
   else the first line and a count, with every line below (`HuntCommits.messageFor`): the hunt's
   own files (`~hunt ~members`), each quiz by label with `Changes.shorthandLines` for what moved in
@@ -291,11 +323,11 @@ and which to remove. What it costs on a large hunt is measured in
   commit, and never again. One feed serves every screen of a hunt, and is kept 10 s after the
   last lets go, so moving between the hunt's quizzes moves the feed rather than starting it over.
 * **A quiz that cannot be read never stalls the hunt, nor loses its files.** The first reading
-  waits for every listed quiz to answer: read whole, or found unreadable (its watch failed, or
-  answered nothing while listed). An unreadable quiz is handed on as `unread`, with no files, and
+  waits for every listed quiz to answer: read whole, or found unreadable (its watch or fetch
+  failed, or answered nothing while listed). An unreadable quiz is handed on as `unread`, with no files, and
   the catch-up keeps whatever files the tip has for it (`Huntfiles.isQuizFile`) rather than
   reading it as removed; once it can be read, it joins as `legends: caught up`. A quiz read before
-  whose watch then fails stands as last read.
+  whose watch or fetch then fails stands as last read; a failing fetch is tried again a window on.
 * **Taking up a branch** commits what was waiting to the branch it was done on, then the hunt
   whole to the new one, as `catch up: the hunt as it stands, on taking up branch <branch>`.
 * **Milestones, imports and deletions.** A milestone flushes the hunt's waiting changes, after
