@@ -1,31 +1,29 @@
 # e2e triage: progress
 
-**Status:** thread 1 landing. Thread 6 held until the Coach releases it.
+**Status:** thread 1 landed (#156); threads 2, 3 and 5 underway, on lanes 1, 2 and 3; thread 4 waits for one of them to land. Thread 6 held until the Coach releases it.
 
 ## Status
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | trim and mend the e2e specs; nominate vapid tests | landing |
-| 2 | a fast way in: backend-made hunt, session per worker | pending (after 1) |
-| 3 | cover the error boundary | pending (after 1) |
-| 4 | cover stats and the other light gaps | pending (after 1) |
-| 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | pending (after 1) |
+| 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
+| 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
+| 3 | cover the error boundary | underway (lane 2) |
+| 4 | cover stats and the other light gaps | pending (when one of 2, 3, 5 lands) |
+| 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | underway (lane 3) |
 | 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
 
-## Baseline
+## Measurements
 
-From the last green full run before the sprint (lane 1, 2026-10-06 10:09, seeded cache, load 2
-as it began):
+Full `pnpm e2e` runs on a lane, test-seconds summed from the run's JSON report:
 
-| | |
-|---|---|
-| Tests | 259 |
-| Test-seconds | 1006 |
-| Wall | 157 s on 7 workers |
-| Mean per test | 3.9 s |
+| Run | Tests | Test-seconds | Wall | Mean | Conditions |
+|---|---|---|---|---|---|
+| Baseline, before the sprint | 259 | 1006 | 157 s | 3.9 s | lane 1, 10:09, seeded cache, load 2 |
+| After thread 1 (#156) | 239 | 942 | 149 s | 3.9 s | lane 1, 11:30, warm cache, load 3 to 11 |
 
-Threads 1 and 2 replace this table with before-and-after rows from their own runs.
+*Orchestrator:* thread 1 saved about 6% of test-seconds and little wall time, since the twenty cut
+were average tests. Nearly all the speed this sprint wants is thread 2's.
 
 ## What the threads have taught
 
