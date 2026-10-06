@@ -16,7 +16,7 @@ Newer than `hunt_git-plan.md` wherever the two disagree. Each worker writes its 
 | 6 | Downloads and the hunts page | landed #130 |
 | 7 | The Coach's follow-ups | landed #133 |
 | 8 | The Coach's second follow-ups | landed #140 |
-| 9 | A change signal for off-screen quizzes | underway |
+| 9 | A change signal for off-screen quizzes | landed #144 |
 
 ## What the threads have taught
 
@@ -247,3 +247,18 @@ starter archiving can misjudge pre-stamp questions until the backfill runs; an `
 `convex/stamping.ts`. **Incident:** running the unit suite under `git rebase --exec` let the
 script tests act on the real repository (they set `core.bare = true`; the Coach fixed it):
 `thread-8-rebase-exec.md`.
+
+### Thread 9: a change signal for off-screen quizzes (landed #144)
+
+Off-screen quizzes are no longer watched live: a smith's tab holds one small `quizzes.signals`
+subscription per hunt (a `signals` table, one row per quiz, moved by a trigger in
+`convex/signalling.ts` at most once per 5 s grain, never on the quiz row) and fetches a quiz once
+when its signal moves, at most every 90 s, at once on becoming visible and for milestones,
+imports and deletions. Measured on 20 quizzes x 40 questions per smith tab: 82 subscriptions
+become 45; a 40-answer bot run elsewhere costs 122 KB instead of 3.4 MB (`thread-9-measured.md`).
+A new empty table: no backfill, no production step.
+
+*Review:* fixed at medium (each wait fetches from its own moment; the trigger stops reading
+verdicts' reviews once its quiz has settled). Left, minor: draft-verdict writes read their review
+once each; a renamed reviewer reaches off-screen quizzes late; a WebKit `visibilitychange` check;
+history lags up to ~90 s by design.
