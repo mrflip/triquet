@@ -55,6 +55,17 @@ Branch `20261006-recap_bbjank`, PR filed at landing; see the report. Suites: `pn
   set-back), for the reason above. Left in `whiteboard/TODO.md`, *From recap sprint, thread 2*:
   constructs untried on the boards, a code block in a list item being set in, an embed
   mid-paragraph, a `{AS:}` name holding emphasis.
+* **Review** (`fixed`): c52436c leaves an HTML block's indented lines as typed, outside the indent
+  rule; 7d8c8dd leaves out an unnamed quote that comes to nothing. Left open, minor, and in the PR:
+  - A link definition inside a quote or list item (or an indented one) is not collected, and a
+    label defined twice resolves to the last, not the first. `mdast-util-definitions` would fix
+    both; adding it was refused by the session's permission check, so it is the Coach's call.
+  - A fenced code block in a list item gains the item's indent (also in TODO).
+  - An escaped `\[b\]`, or `[/code]` inside code, reaches the board as a live tag: BBCode
+    passes through.
+  - `{AS:}` with an empty name gives `[quote=""]`; an annotation spanning a line break puts a
+    newline inside `[spoiler=..]`.
+  - Underline is since settled (plan thread 10): `__text__` will become `[u]` in a later thread.
 * **For the Coach**: two `eslint-disable-line` comments in `tests/lib/bbjank.test.ts`
   (`unicorn/prefer-https`, `sonarjs/no-clear-text-protocols`) on the two cases whose input is a
   plain-http address on purpose. Worth pasting one recap into a board preview once thread 5
