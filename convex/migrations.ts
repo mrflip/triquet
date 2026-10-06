@@ -1,12 +1,9 @@
-import _ from 'es-toolkit/compat'
 import { Migrations, type MigrationFunctionReference } from '@convex-dev/migrations'
 import { components, internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 import { zInternalQuery } from './functions'
 import * as Stamps from '../src/lib/stamps'
 import { ValidatorKit } from '../src/lib/validator'
-import { HuntValidators } from '../src/models/hunt'
-import { DefaultViz, QuestionValidators } from '../src/models/question'
 import schema from './schema'
 import type { StampedTablename } from './stamping'
 
@@ -29,29 +26,9 @@ export const migrations = new Migrations(components.migrations, { internalMutati
 /**
  * Any one migration, by name.
  *
- * @example npx convex run migrations:run '{"fn": "migrations:backfillHuntOrglabels", "dryRun": true}'
+ * @example npx convex run migrations:run '{"fn": "migrations:backfillHuntStamps", "dryRun": true}'
  */
 export const run = migrations.runner()
-
-/**
- * Give each hunt written before a hunt stored its org the one its address has named meanwhile:
- * the ident label of its earliest member, who made it unless they have since left. A hunt nobody
- * is on is left without one, and said in the log: nobody can open it, and the tightening's push
- * names it, to be given a smith or deleted first.
- */
-export const backfillHuntOrglabels = migrations.define({
-  table:      'hunts',
-  migrateOne: async (ctx, hunt) => {
-    if (hunt.orglabel !== undefined) { return }
-    const earliest = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', hunt._id)).first()
-    if (! earliest) {
-      console.warn(`Hunt ${hunt.label} (${hunt._id}) has nobody on it, so no org to backfill`)
-      return
-    }
-    const row = HuntValidators.row({ ..._.omit(hunt, ['_id', '_creationTime']), orglabel: earliest.ident_label })
-    await ctx.db.patch('hunts', hunt._id, { orglabel: row.orglabel })
-  },
-})
 
 /**
  * The backfill giving each row of `table` that the stamping trigger has never seen the stamps it
@@ -60,7 +37,7 @@ export const backfillHuntOrglabels = migrations.define({
  * a never-edited row keeps its two stamps equal, as an untouched starter question must
  * (`importQuestions`). The migrations write raw, so the trigger does not see this write. A row
  * with both stamps is left alone; the rest of the row is not read again, so no older row can hold
- * the backfill up (a hunt nobody is on has no org, which its row requires).
+ * the backfill up. The stamps stay optional for good, so no tightening retires these.
  */
 function stampBackfill(table: StampedTablename) {
   return migrations.define({
@@ -88,25 +65,11 @@ export const backfillReviewingStamps = stampBackfill('reviewings')
 export const backfillHuntingStamps   = stampBackfill('huntings')
 
 /**
- * Give each question written before questions had a viz the one every question starts with, and
- * that it is read as meanwhile: normal. The viz is held to the row validator's own field for it.
- */
-export const backfillQuestionViz = migrations.define({
-  table:      'questions',
-  migrateOne: async (ctx, question) => {
-    if (question.viz !== undefined) { return }
-    await ctx.db.patch('questions', question._id, { viz: QuestionValidators.viz.parse(DefaultViz) })
-  },
-})
-
-/**
- * Every backfill still defined, in the order they run: the hunts' orgs, the questions' viz, and the
- * stamps. What `runAll` runs and `outstanding` reports on. A new backfill joins the end, and leaves
- * with the tightening after it.
+ * Every backfill still defined, in the order they run: the stamps'. What `runAll` runs and
+ * `outstanding` reports on. A new backfill joins the end, and leaves with the tightening after it.
+ * It is never empty: `runAll`, a runner of the series, refuses to run none.
  */
 export const Backfills: readonly MigrationFunctionReference[] = [
-  internal.migrations.backfillHuntOrglabels,
-  internal.migrations.backfillQuestionViz,
   internal.migrations.backfillIdentStamps,
   internal.migrations.backfillHuntStamps,
   internal.migrations.backfillRealmStamps,
@@ -134,7 +97,7 @@ export const runAll = migrations.runner([...Backfills])
  * The backfills in `Backfills` not yet finished, with how far each got: empty once all are. A
  * backfill not yet started reads as `unknown`; one that threw, as `failed`, with its error.
  *
- * @example npx convex run migrations:outstanding  // => [{ name: 'migrations:backfillQuestionViz', state: 'inProgress', processed: 100 }]
+ * @example npx convex run migrations:outstanding  // => [{ name: 'migrations:backfillQuestionStamps', state: 'inProgress', processed: 100 }]
  */
 export const outstanding = zInternalQuery({
   args:    {},

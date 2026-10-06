@@ -1441,7 +1441,7 @@ async function crowded(tablename: 'questions' | 'widgetings' | 'columns', qty: n
   await seeded.tt.run(async (ctx) => {
     for (const position of positions) {
       if (tablename === 'questions') {
-        const question_id = await ctx.db.insert('questions', { hunt_id: seeded.open.hunt_id, quiz_id, label: `q_${String(position)}`, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '' })
+        const question_id = await ctx.db.insert('questions', { hunt_id: seeded.open.hunt_id, quiz_id, label: `q_${String(position)}`, title: '', qnum: '', clueing: '', hint: '', chains_to: null, full_answer: '', alt_text: '', notes: '', viz: 'normal' })
         const quiz = present(await ctx.db.get('quizzes', quiz_id))
         await ctx.db.patch('quizzes', quiz_id, { row_ordering: [...quiz.row_ordering, question_id] })
       } else if (tablename === 'widgetings') {
@@ -1680,19 +1680,6 @@ describe("hunts.open", () => {
     const { smith } = await seedHunt(tt, Hunt.blank('quiet_otter'))
     const opening = await smith.as.query(api.hunts.open, { hunt_label: 'quiet_otter' })
     expect(present(opening.hunt).org).to.eq(SeedOrg)
-  })
-
-  it("names a hunt that stores no org yet by its earliest member, whatever their role, under any org", async () => {
-    const tt = openTester()
-    const { open, join } = await seedHunt(tt, Hunt.blank('quiet_otter'), { smith: 'pat_smiths' })
-    const alice = await join('alice_smiths', 'smith')
-    await tt.run(async (ctx) => {
-      await ctx.db.patch('hunts', open.hunt_id, { orglabel: undefined })
-      const maker = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', open.hunt_id)).first()
-      if (maker) { await ctx.db.patch('huntings', maker._id, { role: 'reviewer' }) }
-    })
-    const found = [await shown('quiet_otter', alice, 'pat_smiths'), await shown('quiet_otter', alice, 'kim_parks')]
-    expect(found.map((hunt) => hunt.org)).to.deep.eq(['pat_smiths', 'pat_smiths'])
   })
 })
 

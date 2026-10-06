@@ -16,7 +16,7 @@ import { refuse } from '../../src/lib/refusals'
 import { Widget, WidgetValidators, type EntryValueT, type WidgetPatch, type WidgetT } from '../../src/models/widget'
 import { WidgetedValidators, type WidgetedRecordT } from '../../src/models/widgeted'
 import { WidgetingValidators } from '../../src/models/widgeting'
-import { libraryOf, orglabelOf } from '../reading'
+import { libraryOf } from '../reading'
 
 /** What a mutation writes through */
 export type Writer = MutationCtx['db']
@@ -64,10 +64,9 @@ export function movedTo<RT extends { label: string }>(items: readonly RT[], labe
 // Each update below is held to its row validator whole, as the row would stand afterwards, and
 // then writes only the fields that change; one that changes nothing writes nothing.
 
-/** Revise a hunt's own row, storing its org if it was written before a hunt stored one (`orglabelOf`) */
+/** Revise a hunt's own row */
 export async function updateHunt(db: Writer, held: Doc<'hunts'>, patch: Partial<Z.output<typeof HuntValidators.row>>): Promise<void> {
-  const orglabel = await orglabelOf(db, held)
-  const changed = changedFields(held, HuntValidators.row({ ..._.omit(held, SystemFields), orglabel, ...patch }))
+  const changed = changedFields(held, HuntValidators.row({ ..._.omit(held, SystemFields), ...patch }))
   if (! _.isEmpty(changed)) { await db.patch('hunts', held._id, changed) }
 }
 

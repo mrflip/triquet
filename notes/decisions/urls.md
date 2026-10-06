@@ -151,9 +151,7 @@ one, so going back skips the form it moved from, and the query and fragment come
 - **A stale realm, or a quiz's old label,** moves to where the quiz is now (rule 6): the quiz's
   label finds it, and a quiz relabelled while open is followed to its new label.
 - **A wrong org finds no hunt** (`noSuchHuntNotice`: "There is no hunt labelled … in ~org"),
-  rather than moving to the hunt's own: the org is a namespace. Until the production backfill of
-  `orglabel` has run, a hunt that stores no org still answers under any org and moves to the one
-  it is shown under.
+  rather than moving to the hunt's own: the org is a namespace.
 - **A bare quiz address** moves by role (rule 4); anyone not on the hunt stays, and is told whom
   to ask.
 - **Not found:** an address of no resource the model knows, an org with no `~` or one too short to

@@ -23,8 +23,8 @@ describe("stats.backfills", () => {
     const { as } = await identified(tt, 'pat_smiths')
     const backfills = await as.query(api.stats.backfills, {}) ?? []
     expect(backfills.map(({ fnname }) => fnname)).to.have.members(Backfills.map((ref) => getFunctionName(ref)))
-    expect(backfills.find(({ fnname }) => fnname === 'migrations:backfillHuntOrglabels')).to.deep.eq(
-      { fnname: 'migrations:backfillHuntOrglabels', defined: true, state: 'unknown', is_done: false, processed: 0, started_at: null, ended_at: null },
+    expect(backfills.find(({ fnname }) => fnname === 'migrations:backfillHuntStamps')).to.deep.eq(
+      { fnname: 'migrations:backfillHuntStamps', defined: true, state: 'unknown', is_done: false, processed: 0, started_at: null, ended_at: null },
     )
   })
 
@@ -36,8 +36,8 @@ describe("stats.backfills", () => {
     await tt.finishAllScheduledFunctions(vi.runAllTimers)
     const { as } = await identified(tt, 'pat_smiths')
     const backfills = await as.query(api.stats.backfills, {}) ?? []
-    const orgs = backfills.find(({ fnname }) => fnname === 'migrations:backfillHuntOrglabels')
-    expect(orgs).to.include({ fnname: 'migrations:backfillHuntOrglabels', defined: true, state: 'success', is_done: true, processed: 1 })
-    expect(orgs?.started_at).to.be.a('number')
+    const stamps = backfills.find(({ fnname }) => fnname === 'migrations:backfillHuntStamps')
+    expect(stamps).to.include({ fnname: 'migrations:backfillHuntStamps', defined: true, state: 'success', is_done: true, processed: 1 })
+    expect(stamps?.started_at).to.be.a('number')
   })
 })

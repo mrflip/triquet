@@ -168,13 +168,11 @@ words above.
 * **org** -- the scope a hunt is addressed under and its label is unique within, the `~pat_smith`
   of `/~pat_smith/spring_hunt`: for now always an ident label, so every username is its own org.
   A hunt names its org in its **orglabel** (`hunts.orglabel`), its maker's ident label, copied
-  when it was made and never changed: not when its maker is retitled, leaves, or changes role. A
-  hunt written before hunts stored one reads as under its earliest member's (`orgFor` in
-  `src/lib/rows.ts`) until `migrations:backfillHuntOrglabels` has run. The address's slot is
-  `org` (`Routes.HuntLabels`, `HuntListingT.org`); the stored field is `orglabel`. An address
-  naming another org finds no hunt there; an old one (`/h/<hunt>`), naming none, finds the
-  earliest hunt of its label and moves to its org. `/~<org>` lists that org's hunts. See
-  `notes/decisions/urls.md`.
+  when it was made and never changed: not when its maker is retitled, leaves, or changes role.
+  Every hunt has one. The address's slot is `org` (`Routes.HuntLabels`, `HuntListingT.org`); the
+  stored field is `orglabel`. An address naming another org finds no hunt there; an old one
+  (`/h/<hunt>`), naming none, finds the earliest hunt of its label and moves to its org.
+  `/~<org>` lists that org's hunts. See `notes/decisions/urls.md`.
 * **realm** -- a division of a hunt, holding quizzes; the segment after `quizzes/`. Every hunt
   starts with one, `home`, and nothing yet makes another. Where the notes say *puzzle* for a
   scope, they mean realm; *puzzle* is kept for the not-soon idea of quizzes of other shapes.

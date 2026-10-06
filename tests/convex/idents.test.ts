@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
-import type { Id } from '../../convex/_generated/dataModel'
 import { huntForLabel, identForLabel, realmsOf } from '../../convex/reading'
 import { RefusalNotices } from '../../src/lib/notices'
 import { failurekindOf, noticeOf } from '../../src/lib/refusals'
@@ -256,20 +255,12 @@ describe('idents.performAccount: new_hunt', () => {
     expect(opened.map((opening) => opening.hunt?._id)).to.deep.eq([alices, bobs])
   })
 
-  it("refuses a label a hunt that stores no org yet answers to, whatever its org", async () => {
-    const tt = openTester()
-    const [alice, bob] = [await identified(tt, 'alice_smiths'), await identified(tt, 'bob_smiths')]
-    const hunt_id = present(await makeHunt(tt, 'spring_hunt', alice)) as Id<'hunts'>
-    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { orglabel: undefined }) })
-    expect(await refusedAs(makeHunt(tt, 'spring_hunt', bob))).to.eq('labelTaken')
-  })
-
   it('refuses one hunt more than the app may hold', async () => {
     const tt = openTester()
     await tt.run(async (ctx) => {
       const labels = Array.from({ length: PA.HuntsInApp.max }, (_unused, idx) => `hunt_${String(idx)}`)
       for (const label of labels) {
-        await ctx.db.insert('hunts', { label, title: '', branch: 'main' })
+        await ctx.db.insert('hunts', { label, orglabel: 'pat_smith', title: '', branch: 'main' })
       }
     })
     expect(await refusedAs(makeHunt(tt, 'one_too_many'))).to.eq('huntsFull')
@@ -337,14 +328,6 @@ describe('idents.performAccount: retitle_hunt and relabel_hunt', () => {
     await perform({ kind: 'relabel_hunt', label: 'taken_label' })
     const hunt = await held()
     expect([hunt.orglabel, hunt.label]).to.deep.eq(['alice_smiths', 'taken_label'])
-  })
-
-  it("stores the org of a hunt that stored none, its earliest member's, at its next edit", async () => {
-    const { tt, hunt_id, perform, held } = await smithed()
-    await tt.run(async (ctx) => { await ctx.db.patch('hunts', hunt_id, { orglabel: undefined }) })
-    await perform({ kind: 'retitle_hunt', title: 'The Autumn Hunt' })
-    const hunt = await held()
-    expect([hunt.orglabel, hunt.title]).to.deep.eq(['alice_smiths', 'The Autumn Hunt'])
   })
 })
 

@@ -1,7 +1,7 @@
 import type { Id } from '../_generated/dataModel'
 import type { WheelT } from '../../src/models/category'
 import { refuse } from '../../src/lib/refusals'
-import { huntingsOf, orglabelOf, realmsOf, type CensusT } from '../reading'
+import { huntingsOf, realmsOf, type CensusT } from '../reading'
 import { deleteQuiz, updateHunt, type Writer } from './quiz_writing'
 
 /**
@@ -36,7 +36,7 @@ export async function retitleHunt(db: Writer, hunt_id: Id<'hunts'>, title: strin
 export async function relabelHunt(db: Writer, census: CensusT, hunt_id: Id<'hunts'>, label: string): Promise<void> {
   const held = await db.get('hunts', hunt_id)
   if (! held) { refuse('huntGone') }
-  const holder_id = await census.huntIdInOrg(await orglabelOf(db, held), label)
+  const holder_id = await census.huntIdInOrg(held.orglabel, label)
   if (holder_id !== null && holder_id !== hunt_id) { refuse('labelTaken') }
   await updateHunt(db, held, { label })
 }
