@@ -8,6 +8,7 @@ import { ClosableTitle } from './ClosableTitle'
 import { ColumnsEditor } from './ColumnsEditor'
 import { DangerZone, type DangerousAct } from './DangerZone'
 import NextLink from './NextLink'
+import { TemplatedEditor } from './TemplatedEditor'
 import { WidgetingsEditor } from './WidgetingsEditor'
 import type { WorkbenchOffersT } from './offers'
 import * as Labelmaker from '../lib/labelmaker'
@@ -52,7 +53,8 @@ export type QuizManageModalProps = {
 }
 
 /**
- * The gear icon's modal: editing this quiz's own label (top), its computed columns, its history,
+ * The gear icon's modal: editing this quiz's own label (top), its computed columns, which of its
+ * fields are templated, its history,
  * a quick way to open any other quiz in the realm by name, the hunt's title and label, the quiz's
  * archived questions, each to un-archive or delete, and, fenced off at the foot, deleting the quiz
  * -- or, when it is the hunt's last, the quiz and its hunt.
@@ -148,6 +150,17 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
             <Typography variant="h6" component="h3">Widgetings</Typography>
             <p className={styles.microcopy}>The widgets of the library this quiz puts to work, in run order: each one reads what those above it came to. A column shows a widgeting.</p>
             <WidgetingsEditor hunt={hunt} quiz={quiz} library={library} revisable={offers.reviseLayout} changeable={offers.changeLibrary} dispatch={dispatch} changeLibrary={changeLibrary} onEditLibrary={onEditLibrary} />
+          </section>
+
+          <section>
+            <Typography variant="h6" component="h3">Templates</Typography>
+            <p className={styles.microcopy}>
+              A ticked field is filled in as a template on the grid and in the LL Export; you edit it
+              as typed. <code>{'{{qn.photo}}'}</code> puts in what the question&apos;s <code>photo</code> widgeting
+              holds; <code>{'{{qn.rank}}'}</code>, <code>{'{{quiz.title}}'}</code> and <code>{'{{#qns}}...{{/qns}}'}</code> work
+              too. Markdown only, never HTML; an image only from an <code>https</code> address.
+            </p>
+            <TemplatedEditor quiz={quiz} library={library} revisable={offers.reviseLayout} dispatch={dispatch} />
           </section>
 
           <section>

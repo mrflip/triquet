@@ -87,6 +87,25 @@ by label* (the bullet that follows "open PR #66"), and *Deferred*, *Staleness*.
 * Not handled, written as their text: footnotes, tables, task lists (none of those extensions is
   loaded).
 
+## From recap sprint, thread 4: field templates
+
+`src/lib/templating.ts` (`fill`, `bagOf`), the face in `components/cells/markdown.tsx`, the
+gear's *Templates*. Left, as not worth a hero's effort yet:
+
+* **The review screen shows a templated field as typed**: a playtester reads `{{qn.photo}}`, not the
+  photo. Filling it there needs the quiz's run on the review screen (and a reviewer is not sent
+  what the widgetings stored).
+* **A templated image reaches the LL Export as markdown** (`![alt](https://..)`): `ll-bbcode.ts`
+  has no image rule. The league's own image syntax would go there.
+* A templated widgeting that is not a text entry (a JSONata readout, say) can be nominated only
+  while already nominated, and nothing fills it on screen: its readout is no markdown face.
+* Categories are not in the template bag: `run.frame.order` holds the hunt's category labels, but
+  not their titles. Add them in `bagOf` once a template wants them.
+* An image that loads after a row has measured itself does not grow the row: `GrowingField`
+  measures on layout, not on an image's load.
+* `lib/ask/prompts.ts` and `lib/templating.ts` each check a template's parse and raw tags; one could
+  lend the other its check.
+
 ## Git refs
 
 * #66 on main: merge `ce6bc9d`; its commits `4f33026` (a guess goes stale, from `asked_text`) and

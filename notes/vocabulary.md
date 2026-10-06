@@ -210,8 +210,12 @@ words above.
 * **templated** -- the sources a quiz nominates for templating, named as a column names what it
   shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
   `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
-  source, never per column. A templated text is filled in over the quiz's bag before it is shown or
-  exported.
+  source, never per column. A templated text is **filled in** (`Templating.fill`, mustache) over
+  the **template bag** -- the formula's bag less `params` and `widgeting_label`, every question
+  carrying every widgeting's widgeted, so `{{qn.photo}}` is that column's value -- before the
+  markdown parser reads it, and the sanitizer reads what that makes, last. Shown filled in on the
+  grid and in the LL Export, and edited as typed. Only a templated text may show an image
+  (`https` only).
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`, `recap`. Everything else a
   quiz shows is a widgeted.

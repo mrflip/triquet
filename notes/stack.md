@@ -141,14 +141,19 @@ Settled; reach for these before writing the equivalent.
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
 * **mustache** (mustache.js, with `@types/mustache`) for an `aibot` widget's prompt template,
-  rendered over what its input formula came to: `{{name}}`, sections and inverted sections, and
-  nothing that runs code. HTML escaping is off (the prompt is prose for a model, never a page), and
-  a value that is not a string fills in as its JSON. `lib/ask/prompts.ts` is the only file that
-  imports it. Proposed by the rewidgeting sprint's plan and added Oct 2026 without asking first,
-  under the rule above.
+  rendered over what its input formula came to, and for a field the quiz templates, filled in over
+  the quiz's bag: `{{name}}`, sections and inverted sections, and nothing that runs code. HTML
+  escaping is off in both (a prompt is prose for a model; a field template is markdown, which the
+  parser and then the sanitizer read after it, the sanitizer always last), and a value that is not
+  a string fills in as its JSON. Two files import it: `lib/ask/prompts.ts` and `lib/templating.ts`,
+  whose context reads only the bag's own keys (nothing inherited, no function called) and stops a
+  template that walks too far; logic-less is the strict choice, so not handlebars. Proposed by the
+  rewidgeting sprint's plan and added Oct 2026 without asking first, under the rule above; the
+  second importer came with the recap sprint's field templates.
 * **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's
   markdown: `src/lib/markdown.ts` holds the options and the one allowlist schema (widen it there,
-  never at a call site), and `components/cells/markdown.tsx` the views that use them. It renders
+  never at a call site; `TemplatedAllowlist` is it with `https` images, for templated fields only),
+  and `components/cells/markdown.tsx` the views that use them. It renders
   to React elements; never reach for `dangerouslySetInnerHTML` or `rehype-raw`, and HTML typed
   into a field shows as the characters typed. Rendering happens in the browser, as all user data
   does here. **Not `remark-gfm`**: its strikethrough takes a single `~`, and trivia is full of

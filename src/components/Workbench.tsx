@@ -217,6 +217,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         questions={quiz.questions}
         specs={specs}
         run={run}
+        templated={quiz.templated}
         locked={! offers.reviseQuestions}
         gripShown={quiz.last_sortkey === null || quiz.last_sortkey === qnumSortkeyOf(quiz)}
         batching={batching}

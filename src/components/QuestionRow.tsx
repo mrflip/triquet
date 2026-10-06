@@ -11,9 +11,11 @@ import { WidgetedAskCell, WidgetedReadout } from './cells/readouts'
 import { EntryCell } from './cells/entry'
 import { EstimatePartReadout } from './cells/estimates'
 import * as Runner from '../lib/formulary/runner'
+import * as Templating from '../lib/templating'
 import { formularyFor } from '../lib/formulary/formularies'
 import type { ColumnAlign, QuestionField, WidgetingPart } from '../models/column'
 import type { WidgetingT } from '../models/widgeting'
+import type { TemplatableField } from '../models/quiz'
 import type { EntryValueT } from '../models/widget'
 import { ButnotPreview, ChainPicker } from './cells/chain'
 import { useReorderable } from './use-reorder'
@@ -69,6 +71,8 @@ export type QuestionRowProps = {
   specs:       ColumnSpec[]
   /** The quiz, run: what each widgeting came to for each question of the quiz */
   run:         Runner.QuizRun
+  /** The sources the quiz templates (`question.clueing`, a widgeting's label): their boxes show them filled in */
+  templated:   readonly string[]
   /** Whether an ask for this question's cell of the widgeting labelled so is in flight */
   asking:      (widgeting_label: string) => boolean
   /** Why the widgeting labelled so cannot be asked at all, when it cannot; null when it can */
@@ -95,7 +99,7 @@ export type QuestionRowProps = {
  * ellipsis, and the lines beneath a box (the title's label) are put away. The boxes go on
  * measuring themselves, so the row opens straight to the height it would have had.
  */
-export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onViz, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
+export function QuestionRow({ question, questions, locked, gripShown, checked, onCheck, onViz, resizeToken, folded, onUnfold, idx, count, onMove, onChain, specs, run, templated, asking, unavailableNotice, onAsk, onAskTarget, onEdit, onEnter }: Readonly<QuestionRowProps>) {
   const [clueingNaturalPx, setClueingNaturalPx] = useState(RowFloorPx)
   const [hintNaturalPx, setHintNaturalPx] = useState(RowFloorPx)
   const batching = checked !== null
@@ -106,6 +110,9 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
   const heightPx = folded ? FoldedRowPx : Math.min(Math.max(clueingNaturalPx, hintNaturalPx, RowFloorPx), RowCapPx)
 
   const commit = useCallback((patch: QuestionPatch) => { onEdit(patch) }, [onEdit])
+  /** What the box showing `source` is filled in over, when the quiz templates it; null when it does not */
+  const bagFor = (source: string): Templating.TemplateBag | null => (templated.includes(source) ? Templating.bagOf(run, question._id) : null)
+  const fieldBag = (field: TemplatableField) => bagFor(Templating.sourceOfField(field))
   const chainTarget = questions.find((other) => other._id === question.chains_to) ?? null
 
   /** The label of the quiz's widgeting working the `aibot` widget `widget_label`, if it has one */
@@ -149,10 +156,10 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       )
     }
     case 'clueing': {
-      return <GrowingField label="Clueing" committed={question.clueing} locked={locked} onCommit={(clueing) => { commit({ clueing }) }} heightPx={heightPx} onNatural={setClueingNaturalPx} resizeToken={resizeToken} />
+      return <GrowingField label="Clueing" committed={question.clueing} locked={locked} onCommit={(clueing) => { commit({ clueing }) }} heightPx={heightPx} onNatural={setClueingNaturalPx} resizeToken={resizeToken} bag={fieldBag('clueing')} />
     }
     case 'hint': {
-      return <GrowingField label="Hint" committed={question.hint} locked={locked} onCommit={(hint) => { commit({ hint }) }} heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken} />
+      return <GrowingField label="Hint" committed={question.hint} locked={locked} onCommit={(hint) => { commit({ hint }) }} heightPx={heightPx} onNatural={setHintNaturalPx} resizeToken={resizeToken} bag={fieldBag('hint')} />
     }
     case 'chains_to': {
       return <ChainPicker question={question} questions={questions} locked={locked} onChain={onChain} />
@@ -164,10 +171,10 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
       return <StretchField label="Alt Text" plain committed={question.alt_text} locked={locked} onCommit={(alt_text) => { commit({ alt_text }) }} heightPx={heightPx} />
     }
     case 'notes': {
-      return <StretchField label="Notes" committed={question.notes} locked={locked} onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx} />
+      return <StretchField label="Notes" committed={question.notes} locked={locked} onCommit={(notes) => { commit({ notes }) }} heightPx={heightPx} bag={fieldBag('notes')} />
     }
     case 'full_answer': {
-      return <StretchField label="Full Answer" committed={question.full_answer} locked={locked} onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx} />
+      return <StretchField label="Full Answer" committed={question.full_answer} locked={locked} onCommit={(full_answer) => { commit({ full_answer }) }} heightPx={heightPx} bag={fieldBag('full_answer')} />
     }
     }
   }
@@ -184,7 +191,7 @@ export function QuestionRow({ question, questions, locked, gripShown, checked, o
     }
     const widget = Runner.stepOf(run, label)?.widget ?? null
     if (widget?.formulary === 'entry') {
-      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} />
+      return <EntryCell entry_kind={widget.config.entry_kind} widgeted={widgeted} label={spec.title} locked={locked} heightPx={heightPx} onEnter={(value) => { onEnter(label, value) }} bag={bagFor(label)} />
     }
     if (widget === null || formularyFor(widget).refresh !== 'click') {
       return <WidgetedReadout widgeted={widgeted} label={spec.title} wide={spec.widthPx >= WideReadoutPx} heightPx={heightPx} />

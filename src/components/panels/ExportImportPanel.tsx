@@ -10,6 +10,7 @@ import { TabbedPanel } from './TabbedPanel'
 import * as PendingImports from '../pending-imports'
 import type { WorkbenchOffersT } from '../offers'
 import * as Sheets from '../../lib/sheets'
+import * as Templating from '../../lib/templating'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { ShallowHuntT } from '../../lib/rows'
 import type { ElsewhereT } from '../../lib/importing'
@@ -76,7 +77,7 @@ export function ExportImportPanel({ quiz, hunt, library, offers, run, changeLibr
     {
       label:   'LL Export',
       blurb:   'The league\'s own import format, on one line. Each question in rank order gets a record: its number, its clueing with the BUT NOT below it, the full answer and the notes, separated by pipes and ending in $$. Bold and italics become [b] and [i], line breaks become [br], and a pipe in the text becomes ¦. The mode can put the smith\'s note, or the Q1 preamble, ahead of the first question.',
-      content: <LeagueExport quiz={quiz} revisable={offers.reviseQuiz} onQ1Preamble={onQ1Preamble} />,
+      content: <LeagueExport quiz={Templating.filledQuiz(quiz, run)} revisable={offers.reviseQuiz} onQ1Preamble={onQ1Preamble} />,
     },
   ]
   return <TabbedPanel title="Export / Import" blurb="Ways to take the work somewhere else, and to bring it back." tabs={tabs.filter((tab) => tab !== false)} shownFirst={sentHere ? 'Import' : undefined} />
