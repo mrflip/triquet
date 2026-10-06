@@ -1,13 +1,13 @@
 # e2e triage: progress
 
-**Status:** threads 1, 3, 4 and 5 landed (#156, #157, #159, #158); thread 2 underway (lane 1). Thread 6 held until the Coach releases it.
+**Status:** threads 1, 3, 4 and 5 landed (#156, #157, #159, #158); thread 2 landing (lane 1). Thread 6 held until the Coach releases it.
 
 ## Status
 
 | Thread | Label | Status |
 |---|---|---|
 | 1 | trim and mend the e2e specs; nominate vapid tests | landed #156 |
-| 2 | a fast way in: backend-made hunt, session per worker | underway (lane 1) |
+| 2 | a fast way in: backend-made hunt, session per worker | landing (lane 1) |
 | 3 | cover the error boundary | landed #157 |
 | 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
@@ -24,6 +24,9 @@ Full `pnpm e2e` runs on a lane, test-seconds summed from the run's JSON report:
 | Smoke tier (thread 5, not a proof) | 26 | 111 | 30 s | 4.3 s | lane 3, seeded cache, load 6 |
 | Thread 5's proof (#158) | 244 | 1258 | 206 s | 5.2 s | lane 3, warm cache, load 45 as it began: not comparable |
 | Thread 4's proof (#159) | 249 | 1267 | 202 s | 5.1 s | lane 2, seeded cache, load 25 as it began: not comparable |
+| Thread 2, before (paired run, thread 1's top) | 239 | 1148 | 179 s | 4.8 s | lane 1, back to back with the next row |
+| Thread 2, after (paired run) | 239 | 846 | 137 s | 3.5 s | lane 1, back to back with the row above |
+| Thread 2, after, quietest run | 239 | 762 | 121 s | 3.2 s | lane 1 |
 
 *Orchestrator:* thread 1 saved about 6% of test-seconds and little wall time, since the twenty cut
 were average tests. Nearly all the speed this sprint wants is thread 2's. Thread 5's proof ran at
@@ -143,4 +146,35 @@ React version is read independently of the page's. The unit include widens to ex
 new `.test.tsx` files. Both `Close` lookups are exact. Left, minor: `renderedText` does not decode
 the entities React writes, so the first test of text with an apostrophe fails loudly until a
 decoder (a library, the Coach's call) is added.
+
+*Orchestrator:* from thread 2's `ready` report (its files: `thread-2-e2e_fast_way_in.md`, and
+`thread-2-measurements.md`, every run and the way in timed part by part, for anyone comparing
+numbers or working on the way in again):
+
+* **About 26% fewer test-seconds and 23% less wall** in a back-to-back pair on lane 1. Neither
+  target was met: the way in is about 1.3 s (the hunt 0.1 s; the dev server's page load 0.8 s; the
+  grid's wait for session, ident and hunt 0.55 s), and the mean test is 3.2 s at best, the rest
+  being specs about the way in, the gear, and reviewers walking the front door.
+* **A second visitor must be `otherVisitor(browser)`.** Any other context inherits the worker's
+  session; `assumeIdent` on it, or on the default `page`, changes who the worker is and breaks every
+  later test in that worker. Specs about idents keep `startAt: null`.
+* **Each page load spends the stored refresh token**, and Convex Auth revokes the session when a
+  spent token is reused more than 10 s later, so the worker's session is passed test to test, not
+  copied.
+* **Two hunts made at once conflict**, through the UI too, because `newHunt` reads every hunt to
+  enforce the hunt cap. The fixture retries; it is a product question for the Coach.
+* **`ConvexHttpClient.setAdminAuth` is internal in convex 1.46**, so admin calls go through
+  `/api/run`, the plan's fallback.
+* **The quiz-history milestone race recurred once under the build** ("a milestone names the branch
+  it marks"), and not in seven dev-server runs: the `ReadWaitMs` question stands.
+
+*Review (thread 2):* `fixed`, at medium through `/code-review`, then by hand. Fixed (c82beb7): the
+fixture retried every `makeHunt` failure for 10 s; it now retries only Convex's
+`OptimisticConcurrencyControlFailure` (reproduced: 3 of 24 parallel calls). Checked and sound:
+`makeHunt` is internal, refuses before any write without `TRIQUET_CLEARABLE=yes`, and builds
+through the public paths minus authorization; the deploy note is true; `e2e/admin.ts` talks only
+to the lane's own backend and never surfaces the key; the kept session cannot cascade past one
+test, since a failure replaces the worker. Left, minor: storage can be saved mid-refresh (harmless
+inside Convex Auth's 10 s reuse window); every worker walks the front door once; under CI's one
+worker, one ident smiths about 200 hunts.
 
