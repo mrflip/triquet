@@ -7,7 +7,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 
 | Thread | Label | Status |
 |---|---|---|
-| 1 | Widen the recap fields | in review |
+| 1 | Widen the recap fields | landing |
 | 2 | Markdown to bbjank | landed #162 |
 | 3 | Panels fold and expand | landed #161 |
 | 4 | Field templates | pending |
