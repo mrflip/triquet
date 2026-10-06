@@ -1,7 +1,7 @@
 # Deploying
 
-Two things ship, in one step. **Vercel** builds and serves the app from git: a preview for every
-pull request, production for every merge to `main`. **Convex** holds the data and runs the
+Two things ship, in one step. **Vercel** builds and serves the app from git: a preview when a
+pull request opens, production for every merge to `main`. **Convex** holds the data and runs the
 functions in `convex/`; Vercel's build command deploys those to the matching Convex deployment
 before it builds the app, so a deployment and the pages that talk to it always come from the same
 commit. Nothing is published by hand.
@@ -12,7 +12,7 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
 
 ## The pieces
 
-* **Vercel** runs `pnpm build:vercel` on every push:
+* **Vercel** runs `pnpm build:vercel` for every build, production or preview:
 
   ```
   convex deploy --cmd 'node scripts/convex-previews.ts after-vercel-build && pnpm run build'
@@ -26,6 +26,18 @@ Merge, and Vercel does the rest. The one thing that can stop a release is the sc
   (`SyncUnconfigured`). `ANTHROPIC_API_KEY` stays a Vercel variable for the ask route, beside
   `ENABLE_ANTHROPIC_BOT=allow`, which switches the route on (`Approve.mayAskAnthropicBot`):
   unset, or anything but `allow`, and every ask is declined politely before a model is called.
+* **Vercel builds a preview when a pull request opens, not on every push.** A restack pushes ten
+  branches at once, and Vercel counts every build toward its daily quota, even one its Ignored
+  Build Step cancels (124 in a day, October 2026). So `vercel.json` turns push builds off for
+  every `20*` branch (`git.deploymentEnabled`), which leaves `main` building production, and
+  `.github/workflows/preview.yml` asks Vercel's REST API for a Git deployment of the head commit
+  when a pull request opens, reopens or is marked ready, and again whenever someone adds the
+  `preview` label, which it then takes off. Because it is a Git deployment, not `vercel deploy`,
+  Vercel shows the commit's message and serves it at the branch's address,
+  `triquet-git-<branch>-mrflips-projects.vercel.app`; the workflow waits for the build and puts
+  that address in its summary and in one comment on the pull request. The build runs on Vercel
+  with the Preview environment's variables, exactly as before; GitHub holds a Vercel token
+  (`notes/env_vars_tokens_and_keys.md`) and no Convex key.
 * **Convex** keeps one production deployment and a preview deployment per open branch, each with
   its own database and its own environment variables. A deployment holds exactly one version of
   the functions and one schema, whichever was pushed last. There is no permissions head:
@@ -235,18 +247,21 @@ you set; its specs stub the route instead.
 
 ## Previews
 
-Vercel's Preview environment holds a preview deploy key (Doppler's `stg`, synced), so every pull
-request's build makes a Convex preview deployment named for its branch, empty, with the functions
-and schema of that commit. It is where a reviewer clicks around. Convex deletes a preview
+Vercel's Preview environment holds a preview deploy key (Doppler's `stg`, synced), so every
+preview build makes a Convex preview deployment named for its branch, empty, with the functions
+and schema of that commit. It is where a reviewer clicks around. A preview is built when its pull
+request opens, and again on the `preview` label (*The pieces*): a push alone builds nothing, so a
+pull request's preview shows the commit it was last built from. Convex deletes a preview
 deployment five days after it was made (fourteen on the paid plans, as of September 2026), and
-the next push makes a fresh one.
+the next preview build makes a fresh one.
 
 Previews are kept few, because every one counts against the team's deployment limit (forty, which
 we hit on 2026-09-30):
 
 * **Each preview build shortens its preview's life to 36 hours** from that build
-  (`scripts/convex-previews.ts after-vercel-build`, inside the deploy's `--cmd`), so a branch
-  nobody pushes to lets go of its preview in a day and a half. Convex has no project-wide
+  (`scripts/convex-previews.ts after-vercel-build`, inside the deploy's `--cmd`), so a pull
+  request nobody rebuilds lets go of its preview in a day and a half; its pages then reach a
+  deployment that is gone. Add the `preview` label to build both afresh. Convex has no project-wide
   setting for this: the lifetime is per deployment, set after it is made. A failure there warns
   in the build log and leaves Convex's default; it never fails the build.
 * **Closing a pull request deletes its branch's preview**, merged or not
