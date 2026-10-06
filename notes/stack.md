@@ -306,7 +306,7 @@ agrees to another.
   never updates a branch. It reuses the spine's hold, `restack` and leased pushes.
 * **CI's steps are timed by a script of our own, `scripts/ci_step`.** Asked for by a Coach Oct
   2026. It is the shell every `run` step runs in, and marks each step's start and end with the
-  time and how far into the job. GitHub's log viewer shows times but not elapsed; `ts` (moreutils)
+  time, how long the step took and how far into the job; each job's last step tallies the whole. GitHub's log viewer shows times but not elapsed; `ts` (moreutils)
   would stamp every line, but no runner image has it, and installing it costs each job an apt-get.
 
 ## Later, i.e when we get there

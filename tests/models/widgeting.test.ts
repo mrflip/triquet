@@ -87,7 +87,7 @@ describe('Widgeting.forWidget', () => {
     // reserved:
     ["notes",    [],                                 "notes_2",   'grows _2 on a widget labelled as a question field'],
     ["rank",     ["rank_2"],                         "rank_3",    'grows past a sibling on a reserved label'],
-    ["question", [],                                 "question_2", 'grows _2 on the questions\' own source name'],
+    ["butnot",   [],                                 "butnot_2",  'grows _2 on a widget labelled as a view of the question'],
   ]
   for (const [widgetLabel, taken, expected, describes] of ForWidgetCases) {
     it(describes, () => {

@@ -1,22 +1,35 @@
 #!/usr/bin/env bash
 # The shell each `run` step of .github/workflows/ci.yml runs in (its `defaults.run.shell`). Runs
 # the step as GitHub's own bash would, and marks in the log where the step starts and ends: the
-# time, and how far into the job, counted from the JOB_STARTED the job's first step notes.
+# time, how long the step took, counted from the TASK_STARTED it notes (and hands the step), and
+# how far into the job, counted from the JOB_STARTED the job's first step notes. With --total in
+# place of a step's script, as each job's last step, says how long all the job's steps took.
 # GitHub's log viewer can show each line's time as well (its gear menu, "Show timestamps"), but
-# never how far into the job a line came.
+# never how long anything took.
 #
 # Usage: bash scripts/ci_step <step's script>
+#        bash scripts/ci_step --total
 set -uo pipefail
 
-mark() {
-  local now elapsed
-  now="$(date +%s)"
-  elapsed=$(( now - ${JOB_STARTED:-$now} ))
-  printf '⏱ %s %s UTC, %dm%02ds into the job\n' "$1" "$(date -u -d "@$now" +%T)" $(( elapsed / 60 )) $(( elapsed % 60 ))
+now="$(date +%s)"
+job_started="${JOB_STARTED:-$now}"
+
+# Minutes and seconds since the epoch second given
+since() {
+  local elapsed=$(( $(date +%s) - $1 ))
+  printf '%dm%02ds' $(( elapsed / 60 )) $(( elapsed % 60 ))
 }
 
-mark started
+clock() { date -u +%T; }
+
+if [[ "$1" == --total ]]; then
+  printf '⏱ All the steps took %s, ending %s UTC; only GitHub'\''s cleanup follows\n' "$(since "$job_started")" "$(clock)"
+  exit 0
+fi
+
+export TASK_STARTED="$now"
+printf '⏱ started %s UTC, %s into the job\n' "$(clock)" "$(since "$job_started")"
 bash --noprofile --norc -eo pipefail "$1"
 status=$?
-mark ended
+printf '⏱ ended %s UTC after %s, %s into the job\n' "$(clock)" "$(since "$TASK_STARTED")" "$(since "$job_started")"
 exit "$status"

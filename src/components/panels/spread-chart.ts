@@ -36,44 +36,63 @@ const ScaleTopMin = 1
 /** About how many rings the scale marks out from the middle */
 const RingCountAbout = 4
 
-/** The radar's scale: the count its plot's edge stands for, just inside the ring of tiles, and the counts its rings mark */
-export type RadiusScaleT = { top: number, ticks: number[] }
+/** How far out from the middle a count of nothing is drawn, as a share of the plot's radius, so the lines stand clear of the hub */
+const NothingAt = 0.1
+
+/**
+ * The radar's scale: the count its plot's edge stands for, just inside the ring of tiles; the
+ * count its middle stands for, below nothing, so that nothing is drawn a tenth of the way out;
+ * and the counts its rings mark
+ */
+export type RadiusScaleT = { bottom: number, top: number, ticks: number[] }
 
 /**
  * The radar's scale for `spread`: its edge at the 75th percentile of the categories' smoothed
  * counts, so the bulk of the smoothed line fills the plot and the busiest categories reach out
  * among the tiles, but never at fewer than one question; its rings at round counts within it.
  *
- * @example radiusScaleOf(spread)  // => { top: 2.5, ticks: [0, 0.5, 1, 1.5, 2, 2.5] }, when the smoothed counts' 75th percentile is 2.5
- * @example radiusScaleOf(spread)  // => { top: 1, ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] }, for a quiz of a few questions
+ * Nothing is drawn a tenth of the way out rather than in the middle, so a category no question
+ * draws on still has its place on the line, and the lines do not crowd into the hub.
+ *
+ * @example radiusScaleOf(spread)  // => { bottom: -0.28, top: 2.5, ticks: [0, 0.5, 1, 1.5, 2, 2.5] }, when the smoothed counts' 75th percentile is 2.5
+ * @example radiusScaleOf(spread)  // => { bottom: -0.11, top: 1, ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] }, for a quiz of a few questions
  */
 export function radiusScaleOf(spread: Spread.SpreadT): RadiusScaleT {
   const typical = quantile(spread.points, ScaledQuantile, ({ smoothed }) => smoothed) ?? 0
   const top = Math.max(typical, ScaleTopMin)
-  return { top, ticks: ticks(0, top, RingCountAbout) }
+  return { bottom: -top * NothingAt / (1 - NothingAt), top, ticks: ticks(0, top, RingCountAbout) }
+}
+
+/** The largest count the radar draws where it is, on `scale`: the one that falls on the outer edge of the tiles */
+function drawnMaxOf({ bottom, top }: RadiusScaleT): number {
+  return bottom + (DrawnReachMax * (top - bottom))
 }
 
 /**
  * `value` as the radar draws it on `scale`: as it is, out to the outer edge of the tiles' ring,
  * and held there past it.
  *
- * @example drawnOf(1, { top: 2, ticks }) // => 1
- * @example drawnOf(10, { top: 2, ticks })  // => 2.68, the outer edge of the tiles
+ * @example drawnOf(1, { bottom: 0, top: 2, ticks }) // => 1
+ * @example drawnOf(10, { bottom: 0, top: 2, ticks })  // => 2.68, the outer edge of the tiles
  */
 export function drawnOf(value: number, scale: RadiusScaleT): number {
-  return Math.min(value, scale.top * DrawnReachMax)
+  return Math.min(value, drawnMaxOf(scale))
 }
 
 /**
  * Whether `value` is past where the radar can draw it on `scale`, and is held at the edge of the tiles.
  *
- * @example isOffScale(10, { top: 2, ticks })  // => true
+ * @example isOffScale(10, { bottom: 0, top: 2, ticks })  // => true
  */
 export function isOffScale(value: number, scale: RadiusScaleT): boolean {
-  return value > scale.top * DrawnReachMax
+  return value > drawnMaxOf(scale)
 }
 
-/** A category's tile on the rim: its centre, its side, and the size of its title */
+/** The smallest and largest a category's title is set on the rim, in pixels: large enough to read unboxed */
+const TitleSizeMin = 12
+const TitleSizeMax = 19.5
+
+/** A category's place on the rim: its centre, the side of the square its title wraps within, and the size of its title */
 export type SpreadTileT = { xx: number, yy: number, side: number, fontSize: number }
 
 /** The box the radar is drawn about the middle of, in pixels from the chart's top left: the chart less its margins and legend */
@@ -85,7 +104,7 @@ export type PlotBoxT = { x: number, y: number, width: number, height: number }
  * @param angle - Degrees anticlockwise from three o'clock, as Recharts gives a tick's angle: 90 is the top.
  * @param plot - Where the radar is drawn (Recharts' `usePlotArea`).
  *
- * @example tileOf(90, { x: 0, y: 0, width: 400, height: 400 })  // => { xx: 200, yy: 32, side: 34, fontSize: 8 }, the top tile
+ * @example tileOf(90, { x: 0, y: 0, width: 400, height: 400 })  // => { xx: 200, yy: 32, side: 34, fontSize: 12 }, the top tile
  */
 export function tileOf(angle: number, plot: PlotBoxT): SpreadTileT {
   const shorter = Math.min(plot.width, plot.height)
@@ -95,7 +114,7 @@ export function tileOf(angle: number, plot: PlotBoxT): SpreadTileT {
     xx:       round(plot.x + (plot.width / 2) + (Math.cos(radians) * shorter * SpreadLayout.tileRadius)),
     yy:       round(plot.y + (plot.height / 2) - (Math.sin(radians) * shorter * SpreadLayout.tileRadius)),
     side:     round(side),
-    fontSize: round(Math.min(13, Math.max(8, side * 0.2))),
+    fontSize: round(Math.min(TitleSizeMax, Math.max(TitleSizeMin, side * 0.3))),
   }
 }
 

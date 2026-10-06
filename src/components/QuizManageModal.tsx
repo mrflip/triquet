@@ -88,6 +88,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
 
   const onRelabelHuntClick = () => {
     const cleaned = Labelmaker.normalize(huntLabelDraft)
+    if (Labelmaker.isReserved(cleaned, { toplevel: true })) { setHuntLabelIssue(AppNotices.labelReserved); return }
     if (! HuntValidators.row.shape.label.safeParse(cleaned).success) { setHuntLabelIssue(AppNotices.huntLabelShape); return }
     if (cleaned === huntLabel) { return }
     onRelabelHunt(cleaned)
@@ -97,6 +98,7 @@ export function QuizManageModal({ open, onClose, hunt, realm, quiz, library, off
   const onApply = () => {
     const cleaned = Labelmaker.normalize(draft)
     if (cleaned === '') { setIssue('Enter a label.'); return }
+    if (Labelmaker.isReserved(cleaned)) { setIssue(AppNotices.labelReserved); return }
     const taken = realm.quizzes.some((other) => other._id !== quiz._id && other.label === cleaned)
     if (taken) { setIssue('Another quiz already uses that label.'); return }
     // The quiz is addressed by its label, so a relabel is also a move: the address follows it

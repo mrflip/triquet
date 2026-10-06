@@ -10,14 +10,16 @@
  * question whose only estimate is of no category in particular counts in neither, and is
  * counted apart.
  *
- * Beside the counts go the personas' chances: for each category, how Masie, Artie and Poppy do
- * at the questions that draw on it, each question weighted by its share there; and the same over
- * the whole quiz.
+ * Beside the counts go how many questions draw on each category at each difficulty, and the
+ * personas' chances: for each category, how Masie, Artie and Poppy do at its questions, each read
+ * from that category's own estimate alone, so a question's other categories lend it nothing here;
+ * and, over the whole quiz, their chance at each question as the grid has it, every category of
+ * the question counted.
  */
 import * as Personas from './personas'
 import * as Wheel from './wheel'
 import type { CategoryLabel } from '../models/category'
-import type { EstimatesT } from '../models/estimate'
+import type { Difficulty, EstimatesT } from '../models/estimate'
 
 /**
  * How a question's share of a category is smoothed round the ring, counter-clockwise first: to
@@ -35,7 +37,9 @@ export type SpreadPointT = {
   count:    number
   /** The same shares, each spread over the category and its neighbours by `SmoothingWeights` */
   smoothed: number
-  /** Each persona's chance at the questions drawing on the category, and the three's average, each question weighted by its share; null where none does */
+  /** How many questions draw on the category at each difficulty: each question once, whatever else it draws on */
+  tally:    Record<Difficulty, number>
+  /** Each persona's chance at the category's questions, read from their estimates of this category alone, and the three's average; null where none draws on it */
   chances:  Personas.PersonaChancesT | null
 }
 
@@ -61,19 +65,30 @@ export type ShareT = { category: CategoryLabel, share: number }
  * @param questionEstimates - Each question's estimates, as stored: an estimate of no category in particular included.
  * @returns A point for every category in `order`, and how many questions counted and did not.
  *
- * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[8]  // => { category: 'art', count: 1, smoothed: 0.5, chances: { ... } }
+ * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[8]  // => { category: 'art', count: 1, smoothed: 0.5, tally: { easy: 1, medium: 0, hard: 0 }, chances: { ... } }
  * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[8].chances?.artie  // => 0.9, Art beside Artie
  * @example spreadOf(defaultOrder, [[{ category: 'art', difficulty: 'easy' }]]).points[15].chances  // => null, no question drawing on TV
  * @example spreadOf(defaultOrder, [[{ category: null, difficulty: 'medium' }]]).unplacedCount  // => 1
  */
 export function spreadOf(order: readonly CategoryLabel[], questionEstimates: Iterable<EstimatesT>): SpreadT {
-  const questions = [...questionEstimates].map((estimates) => ({ shares: sharesOf(estimates), chances: Personas.chancesOf(order, estimates) }))
+  const questions = [...questionEstimates].map((estimates) => ({ estimates, shares: sharesOf(estimates), chances: Personas.chancesOf(order, estimates) }))
   const shares = questions.flatMap((question) => question.shares)
   const counts = tallied(shares)
   const smootheds = tallied(shares.flatMap((share) => smoothedOf(order, share)))
-  const chanceOf = (category: CategoryLabel) => meanChancesOf(questions.flatMap(({ shares: held, chances }) => held.filter((share) => share.category === category).map(({ share }) => ({ weight: share, chances }))))
+  const estimatesOf = (category: CategoryLabel) => questions.flatMap(({ estimates }) => estimates.filter((estimate) => estimate.category === category))
+  const pointOf = (category: CategoryLabel): SpreadPointT => {
+    const held = estimatesOf(category)
+    const tallyOf = (difficulty: Difficulty) => held.filter((estimate) => estimate.difficulty === difficulty).length
+    return {
+      category,
+      count:    counts.get(category) ?? 0,
+      smoothed: smootheds.get(category) ?? 0,
+      tally:    { easy: tallyOf('easy'), medium: tallyOf('medium'), hard: tallyOf('hard') },
+      chances:  meanChancesOf(held.map((estimate) => ({ weight: 1, chances: Personas.chancesOf(order, [estimate]) }))),
+    }
+  }
   return {
-    points:        order.map((category) => ({ category, count: counts.get(category) ?? 0, smoothed: smootheds.get(category) ?? 0, chances: chanceOf(category) })),
+    points:        order.map((category) => pointOf(category)),
     placedCount:   questions.filter((question) => question.shares.length > 0).length,
     unplacedCount: questions.filter((question) => question.shares.length === 0).length,
     chances:       meanChancesOf(questions.map(({ chances }) => ({ weight: 1, chances }))),

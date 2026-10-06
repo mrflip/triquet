@@ -29,8 +29,8 @@ export type IdentT    = Pick<IdentRowT, 'label' | 'title'> & { _id: string }
 /** Who a session is, as it is told: the ident it took on last, and the actor the server sees in its requests */
 export type CurrentIdentT = { ident: IdentT, actor: Actor.IdentActorT }
 
-/** Why what a person typed is not an ident label: no typing on would make it one, or it is one still being typed (too short, or ending in an underscore) */
-export type LabelFlawT = 'shape' | 'unfinished'
+/** Why what a person typed is not an ident label: no typing on would make it one, it is one still being typed (too short, or ending in an underscore), or it is a word kept for the app's own use */
+export type LabelFlawT = 'shape' | 'unfinished' | 'reserved'
 
 /** A persona in the app, named by a label a person types to become it */
 export class Ident implements IdentT {
@@ -57,7 +57,8 @@ export class Ident implements IdentT {
    * repaired: a capital or a space is a flaw, not something to fold away. `shape` is a label no
    * typing on would make one -- a character no label keeps, a first character that is not a
    * letter, two underscores in a row, or too many characters. `unfinished` is one typing on could
-   * still finish: too short, nothing typed included, or ending in an underscore.
+   * still finish: too short, nothing typed included, or ending in an underscore. `reserved` is a
+   * word no ident may be (`Labelmaker.isReserved`), which typing on may yet make another word.
    *
    * @param label - Whatever was typed into a label field.
    * @returns The flaw, or null when it is an ident label.
@@ -65,16 +66,19 @@ export class Ident implements IdentT {
    * @example Ident.flawIn('flip_kromer')  // => null
    * @example Ident.flawIn('Flip Kromer')  // => 'shape'
    * @example Ident.flawIn('flip')         // => 'unfinished'
+   * @example Ident.flawIn('support')      // => 'reserved'
    */
   static flawIn(label: string): LabelFlawT | null {
     if (label.length > PA.Identbegun.max || ! PA.Identbegun.re.test(label)) { return 'shape' }
+    if (Labelmaker.isReserved(label, { toplevel: true })) { return 'reserved' }
     return IdentValidators.identLabel.safeParse(label).success ? null : 'unfinished'
   }
 
   /**
    * The flaw a label field should say of itself now, if any. A `shape` is said at once; an
-   * `unfinished` label only once the field has been left, as it may still be being typed; and an
-   * empty field says nothing, as nobody has typed anything to be told of.
+   * `unfinished` or `reserved` label only once the field has been left, as it may still be being
+   * typed (`support` on its way to `supporter`); and an empty field says nothing, as nobody has
+   * typed anything to be told of.
    *
    * @param label - Whatever is in the label field.
    * @param left - Whether the field has been left (where the label follows another field, either of them has).
@@ -86,7 +90,7 @@ export class Ident implements IdentT {
    */
   static flawToSay(label: string, left: boolean): LabelFlawT | null {
     const flaw = this.flawIn(label)
-    if (flaw === 'unfinished') { return left && label !== '' ? flaw : null }
+    if (flaw === 'unfinished' || flaw === 'reserved') { return left && label !== '' ? flaw : null }
     return flaw
   }
 

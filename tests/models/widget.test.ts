@@ -224,6 +224,10 @@ describe('EntryValueFor', () => {
     expect(EntryValueFor.titleish.parse(' The Quiet Otter ')).to.eq('The Quiet Otter')
   })
 
+  it("takes a reserved word for a label entry: what is typed there is a value, not a name in any namespace", () => {
+    expect(EntryValueFor.labelish.parse('position')).to.eq('position')
+  })
+
   it("takes a question's category estimates for a category-estimate entry, each difficulty medium unless said", () => {
     expect(EntryValueFor.estimates.parse([{ category: 'tv', difficulty: 'hard' }, { category: 'art' }])).to.deep.eq([{ category: 'tv', difficulty: 'hard' }, { category: 'art', difficulty: 'medium' }])
     expect(EntryValueFor.estimates.parse([{ category: null, difficulty: 'easy' }])).to.deep.eq([{ category: null, difficulty: 'easy' }])

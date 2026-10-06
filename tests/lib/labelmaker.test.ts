@@ -53,6 +53,39 @@ describe('normalize', () => {
   it('always returns a valid label, even from adversarial input', () => {
     expect(ValidatorKit.label.safeParse(Labelmaker.normalize('🎲🎲🎲')).success).to.be.true
   })
+
+  it('hands a reserved word back as it is, for the validator to refuse in words the author can act on', () => {
+    expect(Labelmaker.normalize('Position')).to.eq('position')
+    expect(ValidatorKit.label.safeParse(Labelmaker.normalize('Position')).success).to.be.false
+  })
+})
+
+const IsReservedCases: [string, boolean, string][] = [
+  ["position",    true,   'a reserved word is reserved'],
+  ["quiz_id",     true,   'a label ending as a pointer to a row is reserved'],
+  ["my_position", false,  'a reserved word inside a longer label is not'],
+  ["Position",    false,  'the match is exact: a label typed in capitals is the shape\'s to refuse'],
+  ["",            false,  'nothing typed is not reserved'],
+]
+
+describe('isReserved', () => {
+  for (const [label, expected, describes] of IsReservedCases) {
+    it(describes, () => {
+      expect(Labelmaker.isReserved(label)).to.eq(expected)
+    })
+  }
+
+  it("reads the doc block's examples", () => {
+    expect(Labelmaker.isReserved('position')).to.be.true
+    expect(Labelmaker.isReserved('my_position')).to.be.false
+    expect(Labelmaker.isReserved('pricing', { toplevel: true })).to.be.true
+  })
+
+  it("keeps a hunt's or an ident's label from the top-level words only when asked", () => {
+    expect(Labelmaker.isReserved('pricing')).to.be.false
+    expect(Labelmaker.isReserved('security', { toplevel: true })).to.be.true
+    expect(Labelmaker.isReserved('position', { toplevel: true })).to.be.true
+  })
 })
 
 describe('localBlankLabel', () => {
@@ -67,6 +100,14 @@ describe('localBlankLabel', () => {
       expect(taken.has(label)).to.be.false
       taken.add(label)
     }
+  })
+
+  it('never mints a label a hunt could not take', () => {
+    // Seven of the generator's 1202 adjectives begin with a top-level prefix (`helpful`,
+    // `secure`, `official`...): 2000 draws would meet one all but certainly were they not re-rolled.
+    const reserved = Array.from({ length: 2000 }, () => Labelmaker.localBlankLabel(new Set(), 'fallback'))
+      .filter((label) => Labelmaker.isReserved(label, { toplevel: true }))
+    expect(reserved).to.deep.eq([])
   })
 
   it('falls back once every attempt collides', () => {
@@ -114,6 +155,8 @@ const FirstFreeCases: [[string, string[]], string, string][] = [
   [["dumdum", ["dumdum", "dumdum_2"]],             "dumdum_3",                      'counts on past each suffix already taken'],
   [["dumdum", ["dumdum", "dumdum_3"]],             "dumdum_2",                      'takes the first gap rather than the next after the highest'],
   [["notes", ["notes", "title", "rank"]],          "notes_2",                       'a reserved word in the taken set is grown past like any other'],
+  [["position", []],                               "position_2",                    'a word no label may be is grown past though nothing is taken'],
+  [["position", ["position_2"]],                   "position_3",                    'a word no label may be counts on past the taken like any other'],
   // trivial cases:
   [["dumdum", ["dumdum_2"]],                       "dumdum",                        'a taken suffixed label does not stop the bare one'],
   // the 40-character bound:
@@ -138,6 +181,7 @@ describe('firstFree', () => {
   it("reads the doc block's examples", () => {
     expect(Labelmaker.firstFree('dumdum', new Set())).to.eq('dumdum')
     expect(Labelmaker.firstFree('dumdum', new Set(['dumdum', 'dumdum_2']))).to.eq('dumdum_3')
+    expect(Labelmaker.firstFree('position', new Set())).to.eq('position_2')
   })
 })
 

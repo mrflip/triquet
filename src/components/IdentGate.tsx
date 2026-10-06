@@ -108,6 +108,7 @@ export function IdentGate() {
 const FlawNotices = {
   shape:      AppNotices.usernameShape,
   unfinished: AppNotices.usernameUnfinished,
+  reserved:   AppNotices.usernameReserved,
 } as const satisfies Record<LabelFlawT, string>
 
 /** What the primary button says: who it logs in as, or that it keeps the visitor who they are when the username is their own */

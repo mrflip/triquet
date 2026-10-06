@@ -8,7 +8,7 @@ const DefaultOrder = Wheel.orderOf(Wheel.defaultWheel())
 
 /** A spread whose categories' smoothed counts are `smootheds`, the rest of the categories at nothing */
 function spreadSmoothedAs(smootheds: readonly number[]): Spread.SpreadT {
-  const points = DefaultOrder.map((category: CategoryLabel, idx) => ({ category, count: 0, smoothed: smootheds[idx] ?? 0, chances: null }))
+  const points = DefaultOrder.map((category: CategoryLabel, idx) => ({ category, count: 0, smoothed: smootheds[idx] ?? 0, tally: { easy: 0, medium: 0, hard: 0 }, chances: null }))
   return { points, placedCount: 0, unplacedCount: 0, chances: null }
 }
 
@@ -37,10 +37,15 @@ describe("radiusScaleOf", () => {
   it("gives an empty spread a scale of one question", () => {
     expect(radiusScaleOf(spreadSmoothedAs([])).top).to.eq(1)
   })
+  it("draws nothing a tenth of the way out from the middle", () => {
+    const { bottom, top } = radiusScaleOf(spreadSmoothedAs(evenly(24, 2.5)))
+    expect((0 - bottom) / (top - bottom)).to.be.closeTo(0.1, 1e-12)
+    expect(bottom).to.be.below(0)
+  })
 })
 
 describe("drawnOf and isOffScale", () => {
-  const Scale = { top: 2, ticks: [0, 1, 2] }
+  const Scale = { bottom: 0, top: 2, ticks: [0, 1, 2] }
   it("reaches to the outer edge of the tiles' ring, past the plot's edge", () => {
     expect(DrawnReachMax).to.be.closeTo((SpreadLayout.tileRadius + (SpreadLayout.tileSide / 2)) / (SpreadLayout.plotShare / 2), 1e-12)
     expect(DrawnReachMax).to.be.above(1)
@@ -54,21 +59,25 @@ describe("drawnOf and isOffScale", () => {
     expect(drawnOf(10, Scale)).to.be.closeTo(2.68, 0.01)
     expect(isOffScale(10, Scale)).to.be.true
   })
+  it("reaches the tiles' edge from the middle, below nothing, where the scale starts there", () => {
+    const below = { bottom: -0.5, top: 2, ticks: [0, 1, 2] }
+    expect(drawnOf(10, below)).to.be.closeTo(-0.5 + (DrawnReachMax * 2.5), 1e-12)
+  })
 })
 
 describe("tileOf", () => {
   const Square = { x: 0, y: 0, width: 400, height: 400 }
 
   it("puts the top tile straight above the middle", () => {
-    expect(tileOf(90, Square)).to.deep.eq({ xx: 200, yy: 32, side: 34, fontSize: 8 })
+    expect(tileOf(90, Square)).to.deep.eq({ xx: 200, yy: 32, side: 34, fontSize: 12 })
   })
   it("goes by the plot's shorter side, centred in it, wherever the plot sits", () => {
     const tile = tileOf(0, { x: 10, y: 20, width: 800, height: 400 })
     expect([tile.xx, tile.yy, tile.side]).to.deep.eq([410 + 168, 220, 34])
   })
-  it("grows the title with the tile, to no more than 13px", () => {
-    expect(tileOf(90, { x: 0, y: 0, width: 600, height: 600 }).fontSize).to.eq(10.2)
-    expect(tileOf(90, { x: 0, y: 0, width: 2000, height: 2000 }).fontSize).to.eq(13)
+  it("grows the title with the tile, from 12px to no more than 19.5px", () => {
+    expect(tileOf(90, { x: 0, y: 0, width: 600, height: 600 }).fontSize).to.eq(15.3)
+    expect(tileOf(90, { x: 0, y: 0, width: 2000, height: 2000 }).fontSize).to.eq(19.5)
   })
   it("keeps every pair of neighbouring tiles from overlapping, all the way round", () => {
     const angles = Array.from({ length: WheelSlotCount }, (_unused, ii) => 90 - (ii * 360 / WheelSlotCount))

@@ -6,7 +6,7 @@ import { ReadonlyCell, WidgetedReadout } from './readouts'
 import { choicesFor, addable, usePills } from './use-pills'
 import * as Estimates from '../../lib/estimates'
 import { Category, CategoryLabelVals, type CategoryLabel } from '../../models/category'
-import type { Difficulty, EstimatesT } from '../../models/estimate'
+import { DifficultyGlyphs, type Difficulty, type EstimatesT } from '../../models/estimate'
 import type { WidgetingPart } from '../../models/column'
 import type { WidgetedT } from '../../models/widgeted'
 import styles from '../workbench.module.css'
@@ -22,9 +22,9 @@ const DifficultyColors = { easy: 'success', medium: 'default', hard: 'error' } a
 
 /** Each difficulty as its pill shows it, and the one a click on it moves to, round and round */
 const DifficultyFaces = {
-  easy:   { glyph: '🍰', next: 'medium' },
-  medium: { glyph: '🤔', next: 'hard' },
-  hard:   { glyph: '😈', next: 'easy' },
+  easy:   { glyph: DifficultyGlyphs.easy,   next: 'medium' },
+  medium: { glyph: DifficultyGlyphs.medium, next: 'hard' },
+  hard:   { glyph: DifficultyGlyphs.hard,   next: 'easy' },
 } as const satisfies Record<Difficulty, { glyph: string, next: Difficulty }>
 
 /** A pill's category list: small and borderless, as wide as what it shows, so the pill's outline is the only box */

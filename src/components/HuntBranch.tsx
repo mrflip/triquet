@@ -29,6 +29,7 @@ export function HuntBranch({ hunt, editable }: Readonly<HuntBranchProps>) {
   const branch = Labelmaker.normalize(draft)
 
   const onSwitch = async () => {
+    if (Labelmaker.isReserved(branch)) { setIssue(AppNotices.labelReserved); return }
     if (! HuntValidators.branch.safeParse(branch).success) { setIssue(AppNotices.branchShape); return }
     const outcome = await act({ kind: 'rebranch_hunt', hunt_id: hunt._id, branch })
     setIssue(outcome.kept ? null : outcome.alarm.notice)
