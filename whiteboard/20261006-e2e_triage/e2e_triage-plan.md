@@ -1,8 +1,8 @@
 # e2e triage: a suite that is fast, honest, and runs only its corner
 
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
-in session e2e_triage. **Status:** paused: threads 1 to 5 landed (#156 to #160); thread 6 waits on the Coach's word (`human/20261006-sprint_e2e_triage_paused.md`). Thread 6 (the lock) is **held**: the
-sprint runner does not cut it until the Coach releases it, once threads 1 to 5 have been measured.
+in session e2e_triage. **Status:** thread 6 underway: threads 1 to 5 landed (#156 to #160); the Coach released thread 6 (the lock)
+on 2026-10-07, after reading the measurements in `human/20261006-sprint_e2e_triage_paused.md`.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front
 door, make a hunt, open its quiz (`startHunt` in `e2e/support.ts`). **Corner** = the specs the
@@ -335,8 +335,8 @@ Coach's text, verbatim:
 > and have the sprint runner hold on it. Also make sure that after the lock releases they
 > restack, as it's very likely the previous contestant just restacked the git tree
 
-**Held.** The sprint runner cuts this thread only when the Coach says so, after reading the
-measurements threads 1, 2 and 5 leave in the progress document.
+**Held** until the Coach said so, after reading the measurements threads 1, 2 and 5 left in the
+progress document. *Orchestrator:* released by the Coach on 2026-10-07.
 
 When released: `pnpm e2e` (full and `--touched` runs, not reruns or chosen specs) takes a lock
 beside the e2e log (`$TQ_WORKTREES/.e2e-lock`, so it is one per container, which the Coach

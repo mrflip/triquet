@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** paused. Threads 1 to 5 landed, in the order #156, #157, #158, #159, #160; every lane is free. Thread 6 waits on the Coach's word: `human/20261006-sprint_e2e_triage_paused.md` has the measurements, the recommendation and every open question. Thread 6 held until the Coach releases it.
+**Status:** thread 6 underway. Threads 1 to 5 landed, in the order #156, #157, #158, #159, #160. The Coach released thread 6 on 2026-10-07; the open questions still stand in `human/20261006-sprint_e2e_triage_paused.md`.
 
 ## Status
 
@@ -11,7 +11,7 @@
 | 3 | cover the error boundary | landed #157 |
 | 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
-| 6 | per-container lock on full runs, catch up on acquiring | **held** by the Coach |
+| 6 | per-container lock on full runs, catch up on acquiring | underway |
 
 ## Measurements
 
