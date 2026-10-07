@@ -357,7 +357,8 @@ agrees to another.
 * **MSW** for network mocking, so the same handlers serve tests and local development.
 * **Bruno** for full stack testing.
 * A **Content Security Policy** that would survive a sanitizer bug. Set it in `next.config`
-  headers, no `unsafe-inline` for scripts, and treat any exception as a discussion.
+  headers (beside `SecurityHeaders`, the ones every response already carries), no `unsafe-inline`
+  for scripts, and treat any exception as a discussion.
 * Background work: **Web Workers** via **Comlink** for anything that would otherwise block paint: image
   processing, large parses, diffing.
 * Images
