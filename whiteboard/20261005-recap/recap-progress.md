@@ -13,12 +13,12 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 4 | Field templates | landed #164 |
 | 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | landed #166 |
-| 7 | Security review | pending |
+| 7 | Security review | underway |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
-| 12 | Template and recap follow-ups | landing |
+| 12 | Template and recap follow-ups | landed #179 |
 | 13 | Reviews cannot touch the main checkout | landed #174 |
 | 14 | Editable recap template | landed #171 |
 | 15 | Recap reads the question's fields | landed #172 |
@@ -191,6 +191,14 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   (the Coach may drop it). *Review:* fixed two (list-indented verse became code; bare `\r` in the LL
   export). Open: verse after a list now joins the list (CommonMark); dangling convex/jazz pointers;
   a duplicated database-decisions note.
+
+* **Follow-ups (thread 12, #179).** Images in every field (https, alt; 96px in grid cells, rows
+  re-measure on load or error); `categories`, `archived`, `secondary` in every bag (new reserved
+  labels: check production before merging); a template's `qns` holds visible questions only, a
+  formula's still every question (five seeded BUT NOT formulas read archived chain targets);
+  `Templating.filledBagOf` fills templated fields once per question for the recap; the default
+  skips alternates with `{{^secondary}}`. *Review:* fixed one (image load listener ran after the
+  measure). Open: `in_order` as a library widget; images in reviewers' texts (thread 7).
 
 ## Migration chain `recap`
 
