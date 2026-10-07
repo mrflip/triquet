@@ -9,6 +9,12 @@
 
 ## Known Bugs
 
+* **The production deploy of #167 did not start its backfills.** `scripts/convex-migrations.ts
+  after-vercel-build` should run `migrations:runAll` on a production build; after the recap chain's
+  deploy, `migrations:outstanding` showed all three `unknown` with nothing processed, and the Coach
+  ran them by hand. Read that build's Vercel log (`Backfills:`) and find why, before the next
+  migration relies on it. 2026-10-07.
+
 * wontfix: strikethru as fancy spoilers in markdown: I don't know if we want it and it means clicking to hide, and it would be weird in editing.
 * **Resize handles on other boxes.** The recap note's box has one (`ReadonlyBox`'s `resizable`,
   CSS `resize: vertical`): give the other read-only boxes and the long editing boxes one too.

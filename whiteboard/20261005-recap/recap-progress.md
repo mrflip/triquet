@@ -133,6 +133,12 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
 
 ## Migration chain `recap`
 
+*Orchestrator, 2026-10-07:* the Coach merged #161 to #167 at once (safe: no tightening exists yet).
+The production deploy succeeded but **did not start the backfills** (`migrations:outstanding` showed
+all three `unknown`, 0 processed); the Coach ran them by hand, and they finished. Why the build's
+`after-vercel-build` step did not start them is not yet known (its Vercel log line `Backfills: ...`
+would say). In TODO. Thread 9's tightening may now merge whenever it is built.
+
 *Orchestrator:* the Coach merges up to thread 1's PR, waits for its production deploy's build log
 to say `Backfills: every one has finished.` (Vercel runs the backfills on deploy), then merges the
 rest, thread 9's tightening last.
