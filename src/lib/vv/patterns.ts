@@ -280,6 +280,8 @@ export const RealmsPerHunt      = { min: 1, max: 99 } as const
 export const HuntingsPerHunt    = { min: 0, max: 999 } as const
 /** Hunts in the whole app: roomy enough for a whole e2e run's, each spec making its own */
 export const HuntsInApp         = { min: 0, max: 999 } as const
+/** Hunts one org may make, a tenth of the app's: roomy for a person, but no one username fills the app */
+export const HuntsPerOrg        = { min: 0, max: 99 } as const
 
 //
 // == [Contact shapes] ==

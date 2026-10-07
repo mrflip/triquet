@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 import {
-  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
+  censusOf, cellRowsOf, huntForLabel, huntInOrg, huntingFor, huntsCountedInOrg, huntRowsOf, identFor, isWorked, layoutOf, layoutRowsOf, libraryOf, membersOf, quizRowsFor, quizRowsOf, realmsOf, reviewFor, usageOf,
   wholeHuntOf, wholeQuizOf, widgetForLabel, widgetingsOf,
 } from '../../convex/reading'
 import { Hunt, type HuntT } from '../../src/models/hunt'
@@ -74,6 +74,27 @@ describe("huntForLabel", () => {
     await holding(Hunt.blank('twice_made'), first.tt, 'pat_smith')
     const found = await first.tt.run(async (ctx) => await huntForLabel(ctx.db, 'twice_made'))
     expect(found?._id).to.eq(first.hunt_id)
+  })
+})
+
+describe("huntsCountedInOrg", () => {
+  it("counts the org's hunts, and none of another org's", async () => {
+    const { tt } = await holding(Hunt.blank('quiet_otter'), openTester(), 'pat_smith')
+    await holding(Hunt.blank('loud_heron'), tt, 'pat_smith')
+    await holding(Hunt.blank('loud_heron'), tt, 'lee_jones')
+    const counts = await tt.run(async (ctx) => [await huntsCountedInOrg(ctx.db, 'pat_smith'), await huntsCountedInOrg(ctx.db, 'lee_jones'), await huntsCountedInOrg(ctx.db, 'nobody_yet')])
+    expect(counts).to.deep.eq([2, 1, 0])
+  })
+
+  it("counts no further than the most one org may make", async () => {
+    const tt = openTester()
+    await tt.run(async (ctx) => {
+      const labels = Array.from({ length: PA.HuntsPerOrg.max + 1 }, (_unused, idx) => `hunt_${String(idx)}`)
+      for (const label of labels) {
+        await ctx.db.insert('hunts', { label, orglabel: 'pat_smith', title: '', branch: 'main' })
+      }
+    })
+    expect(await tt.run(async (ctx) => await huntsCountedInOrg(ctx.db, 'pat_smith'))).to.eq(PA.HuntsPerOrg.max)
   })
 })
 

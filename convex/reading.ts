@@ -56,6 +56,17 @@ export async function huntInOrg(db: Reader, orglabel: string, label: string): Pr
   return await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel).eq('label', label)).first()
 }
 
+/**
+ * How many hunts the org `orglabel` holds, counted as far as the most a person may make there
+ * (`PA.HuntsPerOrg`): past that, that many. Only the deployment's admin makes hunts past it.
+ *
+ * @example await huntsCountedInOrg(db, 'pat_smith')  // => 2
+ */
+export async function huntsCountedInOrg(db: Reader, orglabel: string): Promise<number> {
+  const hunts = await db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', orglabel)).take(PA.HuntsPerOrg.max)
+  return hunts.length
+}
+
 /** Every hunt, in the order they were made */
 export async function huntsOf(db: Reader): Promise<Doc<'hunts'>[]> {
   return await db.query('hunts').take(PA.HuntsInApp.max)
