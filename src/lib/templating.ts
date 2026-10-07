@@ -2,6 +2,7 @@ import Mustache, { type PartialsOrLookupFn, type RenderOptions, type TemplateSpa
 import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
 import * as Shaping from './shaping'
+import { OwnKeysContext } from './mustachery'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
@@ -153,14 +154,14 @@ function spendChars(budget: Budget, filling: string): string {
 }
 
 /**
- * The context a template is rendered in: a key reads only what the bag itself holds at that key,
- * never anything a JavaScript object inherits (`constructor`, `toString`, an array's `map`), and a
- * value that is a function is never called. A helper's bare name reads as nothing. Every lookup,
- * every pass through a section, and every helper called counts against one shared budget; the
- * template's own text each time it is written out, and what a helper adds, count against the
- * characters left; what a helper is handed counts against the characters helpers may shape.
+ * The context a template is rendered in: as `OwnKeysContext`, a key reads only what the bag itself
+ * holds at that key, never anything a JavaScript object inherits, and a value that is a function
+ * is never called; and a helper's bare name reads as nothing. Every lookup, every pass through a
+ * section, and every helper called counts against one shared budget; the template's own text each
+ * time it is written out, and what a helper adds, count against the characters left; what a helper
+ * is handed counts against the characters helpers may shape.
  */
-class BagContext extends Mustache.Context {
+class BagContext extends OwnKeysContext {
   private readonly budget: Budget
 
   constructor(view: unknown, parent: BagContext | undefined, budget: Budget) {
@@ -180,11 +181,8 @@ class BagContext extends Mustache.Context {
 
   override lookup(dotkey: string): unknown {
     spend(this.budget)
-    if (dotkey === '.') { return this.view }
     if (helperFor(dotkey) !== undefined) { return undefined }
-    const found = ownAt(this.view, dotkey.split('.'))
-    if (found.held) { return typeof found.val === 'function' ? undefined : found.val }
-    return this.parent?.lookup(dotkey)
+    return super.lookup(dotkey)
   }
 
   /** Spends the characters of the template's own text among `tokens`, about to be written out once more */
@@ -204,16 +202,6 @@ class BagContext extends Mustache.Context {
     if (this.budget.charsLeft < 0) { throw new Error(OverLong) }
     return shaped
   }
-}
-
-/** What `keypath` reaches in `view`, walking only the bag's own keys of its objects and lists */
-function ownAt(view: unknown, keypath: readonly string[]): { held: boolean, val: unknown } {
-  let val = view
-  for (const key of keypath) {
-    if (typeof val !== 'object' || val === null || ! Object.hasOwn(val, key)) { return { held: false, val: undefined } }
-    val = (val as Record<string, unknown>)[key]
-  }
-  return { held: true, val }
 }
 
 /**

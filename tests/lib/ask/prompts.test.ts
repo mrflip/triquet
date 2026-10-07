@@ -29,6 +29,25 @@ describe('renderPrompt', () => {
   it('throws on a template that does not parse', () => {
     expect(() => renderPrompt('{{#items}}', { items: [] })).to.throw(/Unclosed section/)
   })
+
+  /** Tags reaching past the input's own keys, or at a function in it, each of which must fill in as nothing */
+  const PastTheInput: [string, string][] = [
+    ["[{{constructor}}]",                                                     'the input\'s constructor'],
+    ["[{{__proto__}}]",                                                       'the input\'s prototype'],
+    ["[{{qn.toString}}]",                                                     'an inherited method'],
+    ["[{{items.map}}]",                                                       'a list\'s method'],
+    ["[{{clueing.length}}]",                                                  'a property of a string'],
+    ["[{{#constructor.constructor}}x{{/constructor.constructor}}]",           'a section over the Function constructor'],
+    ["[{{#items.constructor.constructor}}x{{/items.constructor.constructor}}]", 'the Function constructor, reached through a list'],
+    ["[{{fn}}]",                                                              'a function in the input, never called'],
+    ["[{{#fn}}x{{/fn}}]",                                                     'a function in the input as a section, never called'],
+  ]
+  const input = { clueing: 'Who?', qn: { hint: 'two' }, items: [1, 2], fn: () => 'called' }
+  for (const [template, describes] of PastTheInput) {
+    it(`fills in nothing for ${describes}`, () => {
+      expect(renderPrompt(template, input)).to.eq('[]')
+    })
+  }
 })
 
 describe('templateIssue', () => {

@@ -1,5 +1,6 @@
 import Mustache, { type TemplateSpans } from 'mustache'
 import * as UU from '../useful'
+import { OwnKeysContext } from '../mustachery'
 
 /** The kinds of template span that read a key of the input: `{{name}}`, `{{{name}}}`, `{{#name}}`, `{{^name}}` */
 const ReadingSpans: ReadonlySet<string> = new Set(['name', '&', '#', '^'])
@@ -9,7 +10,9 @@ const ReadingSpans: ReadonlySet<string> = new Set(['name', '&', '#', '^'])
  *
  * Nothing is HTML-escaped: the prompt is prose for a model, never a page. A string fills in as
  * it is; any other value fills in as its JSON, so `{{items}}` over a list of spans reads as the
- * list rather than as `[object Object]`. A key the input lacks fills in as nothing.
+ * list rather than as `[object Object]`. A key the input lacks fills in as nothing, and so does
+ * anything past the input's own keys (`{{constructor}}`) or a function in it: the template reads
+ * the input, and calls nothing (`OwnKeysContext`).
  *
  * @param template - A prompt template, as an `aibot` widget's formula holds it.
  * @param input - What the widget's input formula came to.
@@ -20,7 +23,7 @@ const ReadingSpans: ReadonlySet<string> = new Set(['name', '&', '#', '^'])
  * @example renderPrompt('Spans: {{items}}', { items: [1, 2] })        // => 'Spans: [1,2]'
  */
 export function renderPrompt(template: string, input: Readonly<Record<string, unknown>>): string {
-  return Mustache.render(template, input, {}, { escape: fillingOf })
+  return Mustache.render(template, new OwnKeysContext(input), {}, { escape: fillingOf })
 }
 
 /**
