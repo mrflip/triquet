@@ -71,7 +71,7 @@ test("the recap template lays the note out, keeps it across a reload, says why w
   await expect(panel.getByRole('button', { name: /^Recap template/ })).toContainText('(the default)')
   const template = panel.getByRole('textbox', { name: 'Recap template', exact: true })
   await expect(template).toHaveValue(/^\{\{#recap_head\}\}/)
-  await template.fill('{{#played}}- **Q{{number}}**: {{answer_line}}\n{{/played}}')
+  await template.fill('{{#played}}- **Q{{number}}**: {{oneline.full_answer}}\n{{/played}}')
   await page.getByLabel('Quiz name').click()
   await expect(note).toHaveValue('[list]\n[*] [b]Q1[/b]: HAMILTON[/list]')
   await expect(panel.getByRole('button', { name: /^Recap template/ })).toContainText("(the quiz's own)")

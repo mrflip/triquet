@@ -166,12 +166,14 @@ effort yet:
   the one document, so everything after it -- later questions, their answers included, outside
   their spoilers -- comes out as literal text (it was contained when each text was converted
   alone). Wontfix-adjacent: the smith previews before posting. A fix would close such blocks in
-  `recap_below` and the head, or convert those texts alone again.
+  `below.recap` and the head, or convert those texts alone again.
 * **An answer with its own `**` or `~~`** can tangle with the default template's `~~**...**~~`
-  around `answer_line`; `*Hamlet*` comes out `[i][b]..[/b][/i]` (same look on the board).
+  around `oneline.full_answer`; `*Hamlet*` comes out `[i][b]..[/b][/i]` (same look on the board).
 * The pre-shaped values are the recap's own; a field template set into a quote meets the same
   trouble and has none. Shared shaping (a mustache lambda is not on offer: `BagContext` calls no
-  functions) would be a later design.
+  functions) would be a later design. Within the recap, only a question's own fields are shaped
+  (`quoted.clueing`, ...), not its text columns (a widgeting's widgeted); a column set into a quote
+  meets the same trouble (recap thread 15).
 
 ## From recap sprint, thread 6: quiz-level widgetings and entries
 

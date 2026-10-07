@@ -229,12 +229,14 @@ words above.
   - **recap bag** -- what the recap template reads: the template bag, `recap_head` and
     `recap_tail` (each filled in first), and **played**: the questions the recap covers (no
     archived, no alternates, none never written into), in rank order, each as `qns` holds a
-    question, its templated fields filled in, plus `number` (its place, from 1) and the
-    **pre-shaped** values, each a text made safe for one place where markdown's structure is
-    fragile: `quoted_body` (clueing and BUT NOT, after a `> ` the template opened: every later line
-    opens `> `), `answer_line` (the full answer on one line), `recap_below` (the recap, safe on the
-    line after another: a first line of `---` is set apart, so it never makes a heading), and `pct`
-    (the `correct_pct` column's value, on one line; blank without one).
+    question, its templated fields filled in, plus `number` (its place, from 1), `pct` (the
+    `correct_pct` column's value, on one line; blank without one), and its own fields
+    **pre-shaped**, each made safe for one place where markdown's structure is fragile, and keyed
+    by field (`clueing`, `hint`, `full_answer`, `notes`, `recap`): `quoted.<field>` (after a `> `
+    the template opened: every later line opens `> `), `oneline.<field>` (on one line), and
+    `below.<field>` (safe on the line after another: a first line of `---` is set apart, so it
+    never makes a heading). The default recap template quotes a question's own hint after
+    `...OR ELSE...`, where the LL Export shows the chained-to question's after `...BUT NOT...`.
 * **templated** -- the sources a quiz nominates for templating, named as a column names what it
   shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
   `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
@@ -255,7 +257,8 @@ words above.
 * **full_answer** -- the answer, as it will be read out.
 * **hint** -- this question's own "BUT NOT ..." misdirection: a clue for something that shares
   the answer's name but is not it. It belongs to the question whose answer it disguises, and is
-  *shown* beside whichever other question chains to this one.
+  *shown* beside whichever other question chains to this one (in the recap, beside its own, after
+  `...OR ELSE...`).
 * **qnum** (Q#) -- the author's own question number, kept as text. Blank, gappy, duplicated and
   decimal are all legal; `3.1` means "between 3 and 4" without renumbering anything.
 * **rank** -- a question's 1-based place once the quiz is put in Q# order; null without a Q#,

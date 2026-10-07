@@ -52,11 +52,12 @@ const hamilton = questionWith({ title: 'Ham', qnum: '1', clueing: 'Who?', full_a
 /**
  * A quiz with something of everything the recap writes. `EverythingNote` is its note as the recap
  * written in code wrote it (each text converted on its own, the frame written in bbjank around
- * it), which the default template is held to.
+ * it), which the default template is held to -- but for each question's own hint, after
+ * `...OR ELSE...`, where the code wrote the chained-to question's after `...BUT NOT...`.
  */
 function everythingQuiz(): QuizT {
   const target = questionWith({ qnum: '3', title: 'Ship', clueing: '**What name** will be borne by CVN-80?\nIt is storied.', hint: "Tubbs' Ferrari-driving partner", full_answer: 'ENTERPRISE\n(USS ENTERPRISE)', stored: { correct_pct: typed(76) } })
-  const chained = questionWith({ qnum: '1', title: 'Ham', clueing: 'Who wrote\n    *verse*', full_answer: '(WILLIAM ROWAN) HAMILTON', chains_to: target._id, recap: 'Everyone got it.\n\nSee [the image](https://ex.com/a.png).' })
+  const chained = questionWith({ qnum: '1', title: 'Ham', clueing: 'Who wrote\n    *verse*', hint: 'Not *the* one\nof the stage', full_answer: '(WILLIAM ROWAN) HAMILTON', chains_to: target._id, recap: 'Everyone got it.\n\nSee [the image](https://ex.com/a.png).' })
   const plain = questionWith({ qnum: '2', title: 'Plain', clueing: 'By {{qn.author}}, a ~50 year ~~old~~ thing.', full_answer: 'ADA', stored: { author: typed('Ada') } })
   return quizOf([target, plain, chained, Question.blank()], {
     widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' }), CorrectPct],
@@ -65,10 +66,10 @@ function everythingQuiz(): QuizT {
     recap_tail: 'See you next season.',
   })
 }
-const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...BUT NOT...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\n[quote=\"Q2\"]2. By Ada, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\nSee you next season."
+const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\n[quote=\"Q2\"]2. By Ada, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\nSee you next season."
 
 describe('Recap.noteOf, by the default template', () => {
-  it('writes the note exactly as the recap written in code did', () => {
+  it("writes the note as the recap written in code did, but with each question's own hint after OR ELSE", () => {
     expect(noteOf(everythingQuiz())).to.deep.eq({ bbjank: EverythingNote, issue: null })
   })
 
@@ -144,10 +145,17 @@ describe('Recap.noteOf, by the default template', () => {
     expect(recapOf(quizOf([unranked, hamilton]))).to.contain('[quote="Q2"]2. Unranked[/quote]')
   })
 
-  it("quotes a question's BUT NOT, the hint of the question it chains to, below its clueing", () => {
+  it("quotes a question's own hint below its clueing, after OR ELSE, and never the hint of the question it chains to", () => {
     const target = questionWith({ qnum: '2', clueing: 'Ship?', hint: "Tubbs' partner" })
     const chained = questionWith({ qnum: '1', clueing: 'What name?', chains_to: target._id })
-    expect(recapOf(quizOf([chained, target]))).to.contain("[quote=\"Q1\"]1. What name?\n\n...BUT NOT...\n\nTubbs' partner[/quote]")
+    const recap = recapOf(quizOf([chained, target]))
+    expect(recap).to.contain('[quote="Q1"]1. What name?[/quote]')
+    expect(recap).to.contain("[quote=\"Q2\"]2. Ship?\n\n...OR ELSE...\n\nTubbs' partner[/quote]")
+    expect(recap).not.to.contain('BUT NOT')
+  })
+
+  it("keeps every line of a hint inside the question's quote", () => {
+    expect(recapOfOne({ hint: 'Not him\n---\n# Nor her' })).to.match(/^\[quote="Q1"\]1\. Who\?\n\n\.\.\.OR ELSE\.\.\.\n\n\[b\]Not him\[\/b\]\n\[b\]Nor her\[\/b\]\[\/quote\]\n\nAnswer:/)
   })
 
   it('reads the correct-answer share from a column labelled correct_pct', () => {
@@ -230,7 +238,7 @@ describe('Recap.noteOf, by the default template', () => {
 
 describe("Recap.noteOf, by a template of the quiz's own", () => {
   it('fills it in over the recap bag, then writes it in bbjank whole', () => {
-    const quiz = quizOf([hamilton], { recap_head: 'Hi *all*', recap_template: '{{recap_head}}\n\n{{#played}}- **Q{{number}}** {{title}}: {{answer_line}}\n{{/played}}' })
+    const quiz = quizOf([hamilton], { recap_head: 'Hi *all*', recap_template: '{{recap_head}}\n\n{{#played}}- **Q{{number}}** {{title}}: {{oneline.full_answer}}\n{{/played}}' })
     expect(recapOf(quiz)).to.eq('Hi [i]all[/i]\n\n[list]\n[*] [b]Q1[/b] Ham: HAMILTON[/list]')
   })
 
@@ -250,6 +258,16 @@ describe("Recap.noteOf, by a template of the quiz's own", () => {
   })
 })
 
+describe('Recap.bagOf', () => {
+  it('shapes each of a question\'s own fields for each fragile place, keyed by the field', () => {
+    const quiz = quizOf([questionWith({ qnum: '1', clueing: 'Who?\nWhen?', hint: 'Not him', full_answer: 'HAMILTON\n(ROWAN)', recap: '---\nAced.' })])
+    const [played] = Recap.bagOf(quiz, runOf(quiz, Library)).played
+    expect(played?.quoted).to.deep.include({ clueing: 'Who?\n> When?', hint: 'Not him' })
+    expect(played?.oneline).to.deep.include({ full_answer: 'HAMILTON (ROWAN)' })
+    expect(played?.below).to.deep.include({ recap: '\n---\nAced.' })
+  })
+})
+
 describe('Recap.templateOf', () => {
   it("is the quiz's own template, or the default", () => {
     expect(Recap.templateOf({ recap_template: 'Mine' })).to.eq('Mine')
@@ -257,14 +275,14 @@ describe('Recap.templateOf', () => {
   })
 })
 
-describe('Recap.quotedBodyOf', () => {
+describe('Recap.quotedOf', () => {
   it("writes the doc block's examples", () => {
-    expect(Recap.quotedBodyOf('Who?\n\n...BUT NOT...\n\nNot him')).to.eq('Who?\n>\n> ...BUT NOT...\n>\n> Not him')
-    expect(Recap.quotedBodyOf('Who wrote\n    *verse*')).to.eq('Who wrote\n> > *verse*')
+    expect(Recap.quotedOf('Who?\n\nNot him')).to.eq('Who?\n>\n> Not him')
+    expect(Recap.quotedOf('Who wrote\n    *verse*')).to.eq('Who wrote\n> > *verse*')
   })
 
   it('drops blank lines at either end, and a carriage return', () => {
-    expect(Recap.quotedBodyOf('\n\nWho?\r\nWhen?\n\n')).to.eq('Who?\n> When?')
+    expect(Recap.quotedOf('\n\nWho?\r\nWhen?\n\n')).to.eq('Who?\n> When?')
   })
 })
 
@@ -274,14 +292,14 @@ describe('Recap.oneLineOf', () => {
   })
 })
 
-describe('Recap.recapBelowOf', () => {
+describe('Recap.belowOf', () => {
   it("writes the doc block's examples", () => {
-    expect(Recap.recapBelowOf('Aced.\n')).to.eq('Aced.')
-    expect(Recap.recapBelowOf('---\nAfter.')).to.eq('\n---\nAfter.')
+    expect(Recap.belowOf('Aced.\n')).to.eq('Aced.')
+    expect(Recap.belowOf('---\nAfter.')).to.eq('\n---\nAfter.')
   })
 
-  it('sets an underline of equals signs apart too, and leaves a blank recap blank', () => {
-    expect(Recap.recapBelowOf('===')).to.eq('\n===')
-    expect(Recap.recapBelowOf('  \n')).to.eq('')
+  it('sets an underline of equals signs apart too, and leaves a blank text blank', () => {
+    expect(Recap.belowOf('===')).to.eq('\n===')
+    expect(Recap.belowOf('  \n')).to.eq('')
   })
 })

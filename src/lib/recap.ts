@@ -6,7 +6,7 @@ import * as Runner from './formulary/runner'
 import * as Templating from './templating'
 import { Widgeted } from '../models/widgeted'
 import { Question } from '../models/question'
-import { TemplatableFieldVals, type QuizT } from '../models/quiz'
+import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../models/quiz'
 
 /**
  * The recap note: what a smith posts to the league's message boards once the quiz has been
@@ -17,16 +17,18 @@ import { TemplatableFieldVals, type QuizT } from '../models/quiz'
  *
  * What an author wrote, set into a place where markdown's structure is fragile, can change that
  * structure: a clueing's second line leaves the quote its first line opened, an answer opening
- * `1984.` would be a list. So each question played carries its texts pre-shaped for those places
- * (`quoted_body`, `answer_line`, `recap_below`), and the template stays plain mustache.
+ * `1984.` would be a list. So each question played carries each of its own fields pre-shaped for
+ * those places (`quoted.clueing`, `oneline.full_answer`, `below.recap`), and the template stays
+ * plain mustache, naming the fields it sets down.
  */
 
 /**
  * The recap template every quiz follows until it is given one of its own: the recap head, a rule,
- * then each question played -- its number and clueing, with its BUT NOT, quoted under its Q-number;
- * its answer behind a spoiler; its correct-answer share; its recap -- then the recap tail. The rule
- * is `***`, and only when a question follows (`{{#played.0}}`): a `---` straight under the head
- * would make the head's last line a heading.
+ * then each question played -- its number and clueing quoted under its Q-number, with its own hint
+ * after `...OR ELSE...` when it has one; its answer behind a spoiler; its correct-answer share; its
+ * recap -- then the recap tail. The rule is `***`, and only when a question follows
+ * (`{{#played.0}}`): a `---` straight under the head would make the head's last line a heading.
+ * Inside `{{#hint}}` the hint is the context, and `{{quoted.hint}}` is found on the question below it.
  */
 export const DefaultTemplate = [
   '{{#recap_head}}',
@@ -38,11 +40,17 @@ export const DefaultTemplate = [
   '',
   '{{/recap_head}}',
   '{{#played}}',
-  '> {AS: Q{{number}}}{{number}}. {{quoted_body}}',
+  '> {AS: Q{{number}}}{{number}}. {{quoted.clueing}}',
+  '{{#hint}}',
+  '>',
+  '> ...OR ELSE...',
+  '>',
+  '> {{quoted.hint}}',
+  '{{/hint}}',
   '',
-  'Answer: {{#answer_line}}~~**{{answer_line}}**~~{{/answer_line}}',
+  'Answer: {{#full_answer}}~~**{{oneline.full_answer}}**~~{{/full_answer}}',
   'Correct Answer %: {{pct}}',
-  '{{recap_below}}',
+  '{{below.recap}}',
   '',
   '{{/played}}',
   '{{recap_tail}}',
@@ -54,22 +62,27 @@ export const DefaultTemplate = [
  */
 export const CorrectPctLabel = 'correct_pct'
 
+/** Each of a question's own fields that hold markdown, shaped for one place in the template */
+export type ShapedT = Record<TemplatableField, string>
+
 /**
  * One question played, as the recap template reads it inside `{{#played}}`: the question as a
  * template's bag holds it (its fields, its templated ones filled in, and every widgeting's
  * widgeted under its label), and beside them, winning over a widgeting of the same label, these.
+ * The shaped fields are keyed by field: `{{quoted.clueing}}`, `{{oneline.full_answer}}`,
+ * `{{below.recap}}`.
  */
 export type PlayedT = Record<string, unknown> & {
   /** Its place among the questions played, from 1 */
-  number:      number
-  /** Its clueing, with its BUT NOT, to follow a `> ` the template opened: every line after the first opens `> `, indents read as quotes */
-  quoted_body: string
-  /** Its full answer on one line, safe within a line of the template's */
-  answer_line: string
-  /** Its recap, safe on the line straight after another of the template's; blank when it has none */
-  recap_below: string
+  number:  number
+  /** Each field to follow a `> ` the template opened (`quotedOf`): every line after the first opens `> `, indents read as quotes */
+  quoted:  ShapedT
+  /** Each field on one line (`oneLineOf`), safe within a line of the template's */
+  oneline: ShapedT
+  /** Each field safe on the line straight after another of the template's (`belowOf`); blank when it is */
+  below:   ShapedT
   /** Its share of correct answers, from the quiz's `correct_pct` widgeting, on one line; blank without one */
-  pct:         string
+  pct:     string
 }
 
 /** What the recap template reads: the quiz's template bag, its recap head and tail filled in, and the questions played */
@@ -119,14 +132,13 @@ export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
  * recap head and tail, each filled in over that bag (as typed, when it cannot be); and `played`,
  * the questions the recap covers -- in rank order, numbered from 1, and neither archived nor
  * alternates (as the LL export going live has them) nor blank, never written into -- each with
- * its texts pre-shaped (`PlayedT`).
+ * its own fields pre-shaped (`PlayedT`).
  *
  * @example bagOf(quiz, run).played.map((played) => played.number)  // => [1, 2, 3]
  */
 export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
   const quizBag = Templating.bagOf(run, null)
   const filled = Templating.filledQuiz(quiz, run)
-  const questionFor = new Map(filled.questions.map((question) => [question._id, question]))
   const qnFor = new Map(run.frame.question_ids.map((question_id, idx) => [question_id, quizBag.qns[idx] ?? {}]))
   const hasPct = quiz.widgetings.some((widgeting) => widgeting.label === CorrectPctLabel && widgeting.tier === 'question')
   const played = Rank.inRankOrder(LLSmithExport.exportedIn(filled.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
@@ -135,31 +147,31 @@ export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
     recap_head: Templating.fill(quiz.recap_head, quizBag).markdown,
     recap_tail: Templating.fill(quiz.recap_tail, quizBag).markdown,
     played:     played.map((question, ii): PlayedT => {
-      const target = question.chains_to === null ? null : questionFor.get(question.chains_to) ?? null
+      const fields = EST.pick(question, TemplatableFieldVals)
       return {
         ...qnFor.get(question._id),
-        ...EST.pick(question, TemplatableFieldVals),
-        number:      ii + 1,
-        quoted_body: quotedBodyOf(LLSmithExport.bodyOf(question, target)),
-        answer_line: oneLineOf(question.full_answer),
-        recap_below: recapBelowOf(question.recap),
-        pct:         hasPct ? oneLineOf(Widgeted.textOf(Runner.widgetedOf(run, CorrectPctLabel, question._id))) : '',
+        ...fields,
+        number:  ii + 1,
+        quoted:  EST.mapValues(fields, quotedOf),
+        oneline: EST.mapValues(fields, oneLineOf),
+        below:   EST.mapValues(fields, belowOf),
+        pct:     hasPct ? oneLineOf(Widgeted.textOf(Runner.widgetedOf(run, CorrectPctLabel, question._id))) : '',
       }
     }),
   }
 }
 
 /**
- * A question's body (its clueing, with its BUT NOT), to follow a `> ` the template opened on its
- * line: its indents read as quotes, as bbjank reads them, so none reads as code inside the quote;
- * every line after its first opening `> `, so none leaves the quote; blank lines at either end
- * dropped. A body opening with a quote of its own starts on the line below.
+ * `text` (a clueing, say), to follow a `> ` the template opened on its line: its indents read as
+ * quotes, as bbjank reads them, so none reads as code inside the quote; every line after its first
+ * opening `> `, so none leaves the quote; blank lines at either end dropped. A text opening with a
+ * quote of its own starts on the line below.
  *
- * @example quotedBodyOf('Who?\n\n...BUT NOT...\n\nNot him')  // => 'Who?\n>\n> ...BUT NOT...\n>\n> Not him'
- * @example quotedBodyOf('Who wrote\n    *verse*')             // => 'Who wrote\n> > *verse*'
+ * @example quotedOf('Who?\n\nNot him')         // => 'Who?\n>\n> Not him'
+ * @example quotedOf('Who wrote\n    *verse*')  // => 'Who wrote\n> > *verse*'
  */
-export function quotedBodyOf(body: string): string {
-  const lines = trimmedLines(Bbjank.indentsQuoted(body))
+export function quotedOf(text: string): string {
+  const lines = trimmedLines(Bbjank.indentsQuoted(text))
   const opened = lines[0]?.startsWith('>') ? ['', ...lines] : lines
   return opened.map((line, ii) => {
     if (ii === 0) { return line }
@@ -177,15 +189,15 @@ export function oneLineOf(text: string): string {
 }
 
 /**
- * A question's recap, to set on the line straight after another: blank lines at either end
+ * `text` (a recap, say), to set on the line straight after another: blank lines at either end
  * dropped, and a first line that would underline the line above into a heading (`---`, `===`)
  * set a blank line apart from it.
  *
- * @example recapBelowOf('Aced.\n')        // => 'Aced.'
- * @example recapBelowOf('---\nAfter.')    // => '\n---\nAfter.'
+ * @example belowOf('Aced.\n')        // => 'Aced.'
+ * @example belowOf('---\nAfter.')    // => '\n---\nAfter.'
  */
-export function recapBelowOf(recap: string): string {
-  const lines = trimmedLines(recap)
+export function belowOf(text: string): string {
+  const lines = trimmedLines(text)
   const below = lines.join('\n')
   return SetextUnderlineRE.test(lines[0] ?? '') ? `\n${below}` : below
 }
