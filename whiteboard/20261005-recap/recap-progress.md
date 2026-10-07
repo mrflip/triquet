@@ -16,7 +16,17 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
-| 10 | The markdown dialect, settled | pending |
+| 10 | The markdown dialect, settled | underway |
+| 11 | Quiz and question widgetings interleave | underway |
+| 12 | Template and recap follow-ups | pending |
+| 13 | Reviews cannot touch the main checkout | landed #174 |
+| 14 | Editable recap template | landed #171 |
+| 15 | Recap reads the question's fields | landed #172 |
+| 16 | Default template on the basic tools | landed #173 (unreviewed) |
+| 17 | Template helpers, longnote | landed #175 (unreviewed) |
+| — | Ad hoc: old addresses not found | landed #167 (merged) |
+| — | Ad hoc: panels fold, resize handle | landed #168 |
+| — | Ad hoc: branch-switch spec race | landed #170 |
 
 **Paused after thread 6, at the Coach's word.** See `human/20261006-sprint_recap_paused.md`.
 Frontier on resuming: thread 7.
@@ -160,6 +170,12 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   reviewer and `/code-review` any change to the main checkout, checks it before and after (reflog
   included), and reports what it could not check. Open: whether `EnterWorktree` could give
   reviewers a workspace of their own (needs a Coach-sanctioned experiment).
+
+* **Helpers and longnote (thread 17, #175, unreviewed at the Coach's word).** `{{#quote}}`,
+  `{{#oneline}}`, `{{#apart}}` in a frozen registry (`Templating.Helpers`), checked by section name
+  before the bag; `BagContext` still calls nothing from the bag; shapers moved to
+  `src/lib/shaping.ts`; the default template uses them. `longnote` (20,000) on `smiths_note`,
+  `recap_head`, `recap_tail`, `recap_template`. Thread 7 reviews it first.
 
 ## Migration chain `recap`
 
