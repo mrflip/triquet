@@ -35,9 +35,10 @@ async function leaveBox(page: Page) {
   await page.getByLabel('Quiz name').click()
 }
 
-/** What the gear's list of widgetings run once for the whole quiz shows, row by row */
-async function quizListOf(page: Page): Promise<(string | null)[]> {
-  return await manageDialog(page).getByRole('list', { name: 'Run once for the whole quiz' }).getByRole('group').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+/** The last two rows of the gear's one list of widgetings, both tiers */
+async function lastTwoListed(page: Page): Promise<(string | null)[]> {
+  const labels = await manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('group').evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+  return labels.slice(-2)
 }
 
 test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a template as quiz.<label>', { tag: '@smoke' }, async ({ page }) => {
@@ -63,18 +64,19 @@ test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a
   await expect(faceOf(cellOf(page, 0, 'Clueing'))).toHaveText('Thanks to Ada and Grace')
 })
 
-test('the questions sit among the quiz widgetings, and a quiz widgeting moved below them stays there', async ({ page }) => {
+test('quiz and question widgetings share one run order, marked by tier, and one moved among the others stays there', async ({ page }) => {
   await addWidgeting(page, 'hint_full')
   await addQuizEntry(page, freshWidgetLabel('names'), 'playtesters')
   await openManage(page)
-  // An entry reads nothing, so it goes in above the questions, where every formula can read it.
-  await expect.poll(() => quizListOf(page)).toEqual(['Widgeting playtesters', 'The questions'])
-  await stepBy(manageDialog(page).getByRole('button', { name: 'Reorder playtesters' }), 1)
-  await expect.poll(() => quizListOf(page)).toEqual(['The questions', 'Widgeting playtesters'])
+  // A new widgeting goes in last, whichever its tier.
+  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting hint_full', 'Widgeting playtesters'])
+  await expect(manageDialog(page).getByRole('group', { name: 'Widgeting playtesters' })).toContainText('whole quiz')
+  await expect(manageDialog(page).getByRole('group', { name: 'Widgeting hint_full' })).toContainText('each question')
+  await stepBy(manageDialog(page).getByRole('button', { name: 'Reorder playtesters' }), -1)
+  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting playtesters', 'Widgeting hint_full'])
   await closeManage(page)
   await reloadOnceSaved(page)
   await openManage(page)
-  await expect.poll(() => quizListOf(page)).toEqual(['The questions', 'Widgeting playtesters'])
-  await expect(manageDialog(page).getByRole('list', { name: 'Widgetings' }).getByRole('group', { name: 'Widgeting hint_full' })).toBeVisible()
+  await expect.poll(() => lastTwoListed(page)).toEqual(['Widgeting playtesters', 'Widgeting hint_full'])
   await closeManage(page)
 })

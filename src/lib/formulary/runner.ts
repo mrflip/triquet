@@ -2,7 +2,6 @@ import _ from 'es-toolkit/compat'
 import * as Rank from '../rank'
 import * as Estimates from '../estimates'
 import * as Wheel from '../wheel'
-import * as RunOrder from '../run-order'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { formularyFor, type InputOutcome } from './formularies'
 import { Hunt, type HuntT } from '../../models/hunt'
@@ -61,7 +60,7 @@ export type RunStep = {
 export type RunSource = {
   quiz:     QuizT
   place:    QuizPlace
-  /** Its widgetings in position order, each with its widget; run in run order (`RunOrder.runOrderOf`) */
+  /** Its widgetings in position order, which is their run order, each with its widget */
   steps:    readonly RunStep[]
   /** A stored widgeting's history for one question; null when nothing was ever recorded there */
   storedOf: (widgeting: WidgetingT, question: QuestionT) => WidgetedHistoryT | null
@@ -74,7 +73,7 @@ type ByWidgeting<VT> = ReadonlyMap<string, ReadonlyMap<string, VT>>
 
 /** A quiz, run: every widgeting's widgeted for every question, or for the quiz, and what its runs were worked out from */
 export type QuizRun = {
-  /** Its widgetings, in run order: the quiz's own above the questions pivot, the question widgetings, the quiz's own below it */
+  /** Its widgetings, in run order: their positions, the two tiers mixed as the author placed them */
   steps:     readonly RunStep[]
   /** Every question widgeting's widgeted, for every question */
   widgeteds: ByWidgeting<WidgetedT>
@@ -107,11 +106,11 @@ export type StatusCounts = Record<WidgetedStatus, number>
 const GoneMessage = (widget_label: string) => `There is no widget called "${widget_label}" any more`
 
 /**
- * A quiz run: each widgeting in run order, each worked out for every question, or projected from
- * what was stored, with the widgeteds of those before it in its bag. A widgeting for the whole
- * quiz is worked out once, over a bag for no question (`qn` empty), and its widgeted joins every
- * later bag's quiz, as `quiz.<label>`. The quiz's own widgetings above the questions pivot run
- * first, then the question widgetings, then the quiz's own below it (`RunOrder`).
+ * A quiz run: each widgeting in run order (its position, whichever tier it runs at), each worked
+ * out for every question, or projected from what was stored, with the widgeteds of those before
+ * it in its bag. A widgeting for the whole quiz is worked out once, over a bag for no question
+ * (`qn` empty) whose questions stand as the widgetings before it left them, and its widgeted
+ * joins every later bag's quiz, as `quiz.<label>`; a question widgeting reads every one before it.
  *
  * Nothing here throws, and nothing is asked of a model. A formula that fails costs its own cells;
  * one that will not stop is stopped, after which the rest of its widgeting reads the same failure
@@ -125,7 +124,7 @@ const GoneMessage = (widget_label: string) => `There is no widget called "${widg
 export function runQuiz(source: RunSource): QuizRun {
   const { quiz } = source
   const frame = frameOf(quiz, source.place)
-  const steps = RunOrder.runOrderOf(source.steps, (step) => step.widgeting.tier)
+  const { steps } = source
   const widgeteds = new Map<string, ReadonlyMap<string, WidgetedT>>()
   const quizWidgeteds = new Map<string, WidgetedT>()
   const parts = new Map<string, ReadonlyMap<string, Estimates.EstimatePartsT | null>>()

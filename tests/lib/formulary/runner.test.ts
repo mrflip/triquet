@@ -347,7 +347,7 @@ describe('the widgetings run once for the whole quiz', () => {
     jsonataWidget('remark_count', "$count(qns[remark.status = 'ok'])"),
     jsonataWidget('early_count', "$count(qns[remark.status = 'ok'])"),
   ]
-  // In position order: early_count and playtesters above the pivot, remark and thanked for each question, remark_count below it.
+  // In position order: early_count and playtesters for the quiz, remark and thanked for each question, remark_count for the quiz.
   const quiz: QuizT = {
     ...Quiz.blank('Tiers'),
     questions: [first, second],
@@ -366,15 +366,27 @@ describe('the widgetings run once for the whole quiz', () => {
     expect(Runner.widgetedOf(run, 'thanked', second._id)).to.deep.eq(Widgeted.ok('Thanks, Ada and Grace'))
   })
 
-  it('read no question widgeting from above the pivot, and every one from below it', () => {
+  it('read no question widgeting placed after them, and every one placed before', () => {
     expect(Runner.quizWidgetedOf(run, 'early_count')).to.deep.eq(Widgeted.ok(0))
     expect(Runner.quizWidgetedOf(run, 'remark_count')).to.deep.eq(Widgeted.ok(1))
   })
 
-  it('run in run order, whatever their positions: the quiz own above the pivot, the questions, the quiz own below', () => {
-    const scrambled = { ...quiz, widgetings: [quiz.widgetings[2], quiz.widgetings[0], quiz.widgetings[1], quiz.widgetings[3], quiz.widgetings[4]].map((widgeting) => present(widgeting)) }
-    expect(runOf(scrambled, library).steps.map((step) => step.widgeting.label)).to.deep.eq(['remark', 'thanked', 'early_count', 'playtesters', 'remark_count'])
-    expect(run.steps.map((step) => step.widgeting.label)).to.deep.eq(['early_count', 'playtesters', 'remark', 'thanked', 'remark_count'])
+  it('run in position order, the tiers mixed: one for the whole quiz reads the questions as they stand at its place, and those after it read it', () => {
+    const mixedLibrary = [
+      ...library,
+      jsonataWidget('so_far', "'Remarked so far: ' & quiz.mid_count.value"),
+      jsonataWidget('so_far_count', "$count(qns[so_far.status = 'ok'])"),
+    ]
+    const mixed: QuizT = {
+      ...quiz,
+      widgetings: [...widgetingsOf(['remark', 'remarks']), tiered('mid_count', 'remark_count'), ...widgetingsOf(['so_far', 'so_far']), tiered('so_far_count', 'so_far_count')],
+    }
+    const mixedRun = runOf(mixed, mixedLibrary)
+    expect(mixedRun.steps.map((step) => step.widgeting.label)).to.deep.eq(['remark', 'mid_count', 'so_far', 'so_far_count'])
+    expect(Runner.quizWidgetedOf(mixedRun, 'mid_count')).to.deep.eq(Widgeted.ok(1))
+    expect(Runner.quizBagAt(mixedRun, { label: 'mid_count', params: {} }).qns[0]).to.not.have.property('so_far')
+    expect(Runner.widgetedOf(mixedRun, 'so_far', second._id)).to.deep.eq(Widgeted.ok('Remarked so far: 1'))
+    expect(Runner.quizWidgetedOf(mixedRun, 'so_far_count')).to.deep.eq(Widgeted.ok(2))
   })
 
   it('have no cell for any question, and are told apart from those that do', () => {

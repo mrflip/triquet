@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, Divider, IconButton, Stack, TextField, createFilterOptions } from '@mui/material'
+import { Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, Divider, IconButton, Stack, TextField, createFilterOptions } from '@mui/material'
 import _ from 'es-toolkit/compat'
 import { ClosableTitle, ignoringBackdrop } from './ClosableTitle'
 import { ConfirmRemove } from './ConfirmRemove'
@@ -10,7 +10,6 @@ import { WidgetEditor } from './WidgetEditor'
 import { FormularyWords } from './widget-words'
 import { planWidgetingEdit } from '../lib/widgeting-edit'
 import { formularyFor } from '../lib/formulary/formularies'
-import * as RunOrder from '../lib/run-order'
 import { FormularykindVals, Widget, type WidgetT } from '../models/widget'
 import { Widgeting, type WidgetingT, type WidgetingTier } from '../models/widgeting'
 import type { QuizT } from '../models/quiz'
@@ -21,8 +20,6 @@ import styles from './workbench.module.css'
 export type WidgetingsEditorProps = {
   hunt:          ShallowHuntT
   quiz:          QuizT
-  /** Which of the quiz's widgetings it lists: those for each question, or those run once for the whole quiz, with the questions pivot among them */
-  tier:          WidgetingTier
   /** The library's widgets, which the quiz's widgetings work */
   library:       readonly WidgetT[]
   /** Whether the quiz's widgetings may be changed here: listed as they are when not */
@@ -35,77 +32,58 @@ export type WidgetingsEditorProps = {
   onEditLibrary: () => void
 }
 
-/** Which widgeting's editor is open: one of the quiz's, by its label, or a new one */
-type Editing = { kind: 'widgeting', label: string } | { kind: 'new' } | null
+/** Which widgeting's editor is open: one of the quiz's, by its label, or a new one of a tier */
+type Editing = { kind: 'widgeting', label: string } | { kind: 'new', tier: WidgetingTier } | null
 
-/** What the list of each tier says when it holds nothing of its own */
-const EmptyLines: Readonly<Record<WidgetingTier, string>> = {
-  question: 'This quiz puts no widgets to work for each question.',
-  quiz:     'Nothing runs once for the whole quiz yet.',
+/** How a widgeting's row marks its tier */
+const TierMarks: Readonly<Record<WidgetingTier, string>> = {
+  question: 'each question',
+  quiz:     'whole quiz',
 }
 
 /**
- * A quiz's widgetings of one tier -- the widgets of the library it puts to work -- listed in run
- * order, dragged into a new one by their handles, each with a gear that opens it in the widgeting
- * editor, and a door to put another to work. The quiz tier's list holds the questions pivot among
- * them (`RunOrder.quizListOf`): fixed, with no handle, it is where the question widgetings run,
- * and a widgeting dragged above it runs before them.
+ * A quiz's widgetings -- the widgets of the library it puts to work -- listed in run order, both
+ * tiers in one list, each marked with its tier: dragged into a new order by their handles, each
+ * with a gear that opens it in the widgeting editor, and a door to put another to work for each
+ * question or once for the whole quiz. Each reads what those above it came to, whichever tier.
  */
-export function WidgetingsEditor({ hunt, quiz, tier, library, revisable, changeable, dispatch, changeLibrary, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
+export function WidgetingsEditor({ hunt, quiz, library, revisable, changeable, dispatch, changeLibrary, onEditLibrary }: Readonly<WidgetingsEditorProps>) {
   const [editing, setEditing] = useState<Editing>(null)
   const edited: WidgetingT | null = editing?.kind === 'widgeting' ? quiz.widgetings.find((each) => each.label === editing.label) ?? null : null
+  // The tier of the widgeting whose editor is open, the one it runs at or the one a new one will; null when none is open.
+  const editingTier: WidgetingTier | null = edited?.tier ?? (editing?.kind === 'new' ? editing.tier : null)
   const close = () => { setEditing(null) }
-  const own = quiz.widgetings.filter((widgeting) => widgeting.tier === tier)
-  const entries = new Set(library.filter((widget) => widget.formulary === 'entry').map((widget) => widget.label))
-  const items: RunOrder.QuizListItemT<WidgetingT>[] = tier === 'question' ? own : RunOrder.quizListOf(quiz.widgetings, RunOrder.ownTier, (widgeting) => ! entries.has(widgeting.widget_label))
-  const questionQty = quiz.widgetings.length - own.length
 
   return (
     <Stack spacing={1}>
-      {own.length === 0 && <p className={styles.microcopy}>{EmptyLines[tier]}</p>}
+      {quiz.widgetings.length === 0 && <p className={styles.microcopy}>This quiz puts no widgets to work yet.</p>}
       <SortableList
-        label={tier === 'question' ? 'Widgetings' : 'Run once for the whole quiz'}
-        items={items}
-        keyOf={(item) => item.label}
+        label="Widgetings"
+        items={quiz.widgetings}
+        keyOf={(widgeting) => widgeting.label}
         disabled={! revisable}
-        isFixed={(item) => RunOrder.isPivot(item)}
         onMove={(label, onto_idx) => { dispatch({ kind: 'move_widgeting', label, onto_idx }) }}
-        renderRow={(widgeting, handle) => (RunOrder.isPivot(widgeting) ? <PivotRow questionQty={questionQty} /> : (
+        renderRow={(widgeting, handle) => (
           <Stack direction="row" spacing={1} role="group" aria-label={`Widgeting ${widgeting.label}`} sx={{ alignItems: 'center' }}>
             {handle}
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <strong>{widgeting.label}</strong> <span className={styles.microcopy}>{widgetingNote(widgeting, library)}</span>
               {widgeting.description === '' ? null : <div className={styles.microcopy}>{widgeting.description}</div>}
             </Box>
+            <Chip size="small" variant="outlined" label={TierMarks[widgeting.tier]} />
             <IconButton size="small" aria-label={`Edit widgeting ${widgeting.label}`} onClick={() => { setEditing({ kind: 'widgeting', label: widgeting.label }) }}>⚙</IconButton>
           </Stack>
-        ))}
+        )}
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new' }) }}>{tier === 'question' ? '+ New widgeting…' : '+ New quiz widgeting…'}</Button>
-        {/* One door to the library is enough: the quiz tier's list sits just below the question tier's. */}
-        {tier === 'question' && <Button size="small" variant="outlined" onClick={onEditLibrary}>Widget library…</Button>}
+        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new', tier: 'question' }) }}>+ New widgeting…</Button>
+        <Button size="small" variant="outlined" disabled={! revisable} onClick={() => { setEditing({ kind: 'new', tier: 'quiz' }) }}>+ New quiz widgeting…</Button>
+        <Button size="small" variant="outlined" onClick={onEditLibrary}>Widget library…</Button>
       </Stack>
-      {(edited !== null || editing?.kind === 'new') && (
-        <WidgetingDialog key={edited?.label ?? 'new'} hunt={hunt} quiz={quiz} tier={tier} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} changeLibrary={changeLibrary} onClose={close} />
+      {editingTier !== null && (
+        <WidgetingDialog key={edited?.label ?? `new ${editingTier}`} hunt={hunt} quiz={quiz} tier={editingTier} library={library} widgeting={edited} revisable={revisable} changeable={changeable} dispatch={dispatch} changeLibrary={changeLibrary} onClose={close} />
       )}
     </Stack>
-  )
-}
-
-/**
- * The questions pivot, as the quiz tier's list shows it: where the question widgetings run, each
- * for every question. It has no handle of its own; the quiz's widgetings are dragged past it.
- */
-function PivotRow({ questionQty }: Readonly<{ questionQty: number }>) {
-  const counted = questionQty === 1 ? '1 question widgeting runs' : `${String(questionQty)} question widgetings run`
-  const said = questionQty === 0
-    ? 'where the first question widgeting will go: with none yet, everything here runs first.'
-    : `${counted} here, each for every question: those above read none of them, those below read them all.`
-  return (
-    <Box role="group" aria-label="The questions" sx={{ borderTop: 1, borderBottom: 1, borderColor: 'divider', py: 0.5, pl: 3 }}>
-      <strong>The questions</strong> <span className={styles.microcopy}>{said}</span>
-    </Box>
   )
 }
 
@@ -142,7 +120,7 @@ const NewTitles: Readonly<Record<WidgetingTier, string>> = {
 /** What the widgeting editor says under its label, for a widgeting of each tier */
 const LabelHelp: Readonly<Record<WidgetingTier, string>> = {
   question: "Names it within this quiz: its column, and what later widgets read it as. Blank takes the widget's.",
-  quiz:     "Names it within this quiz: its line in the Quiz panel, and what later widgets and templates read it as, quiz.<label>. Blank takes the widget's.",
+  quiz:     "Names it within this quiz: its line in the Quiz entries panel, and what later widgets and templates read it as, quiz.<label>. Blank takes the widget's.",
 }
 
 /** Which widget editor the widgeting editor has open over it: for a new widget, or for the one it works */
