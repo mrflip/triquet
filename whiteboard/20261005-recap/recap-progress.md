@@ -150,6 +150,12 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   *Review:* clean. Minor: a whitespace-only hint or answer opens its section; every field shaped
   every way per rebuild; `quoted`/`oneline`/`below` hide same-named columns in `{{#played}}`.
 
+* **Basic-tools template (thread 16, #173, unreviewed at the Coach's word).** The default template
+  uses only `{{#qns}}`, fields, columns and plain mustache; `played` and the shaped values stay in
+  the bag, unused. Gap list (in `human/20261007-recap_template.md`): order and numbering closable by
+  a quiz-level `in_order` column; alternates, no-Q# questions and filled templated fields need the
+  app (thread 12). Thread 17's helpers close the quoting, one-line and `---` gaps.
+
 ## Migration chain `recap`
 
 *Orchestrator, 2026-10-07:* the Coach merged #161 to #167 at once (safe: no tightening exists yet).
