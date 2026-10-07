@@ -16,8 +16,8 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
-| 10 | The markdown dialect, settled | underway |
-| 11 | Quiz and question widgetings interleave | underway |
+| 10 | The markdown dialect, settled | in review |
+| 11 | Quiz and question widgetings interleave | landing |
 | 12 | Template and recap follow-ups | pending |
 | 13 | Reviews cannot touch the main checkout | landed #174 |
 | 14 | Editable recap template | landed #171 |
