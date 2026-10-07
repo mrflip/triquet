@@ -43,6 +43,12 @@ Branch `20261007-e2e_install`. PR filed at landing; see the report. Suites: `pnp
   * **`sweep` installs nothing.** The plan listed it; it commits only `whiteboard/`, `human/` and
     `notes/` and switches branch only at the same commit, so it never moves a checkout onto another
     lockfile.
+* **Review** (`clean`, no commits). Left open, minor:
+  * After a failed install, the next catch-up or bid finds nothing to rebase, so it installs
+    nothing and its checks run on the old packages. This follows from comparing commits; the
+    failure's message says to `pnpm install` by hand.
+  * A failed worktree install in `catchUp` drops the restack's lines, the autostash "tell the
+    Coach" warning among them, as a rebase conflict there already does.
 * **For the Coach**
   * **e2e is run, not skipped, at landing.** `scripts/spine.ts` is in git_hygiene's "a script the
     suite runs through" list, so *When e2e is not worth running* does not allow `--skip-e2e`, though
