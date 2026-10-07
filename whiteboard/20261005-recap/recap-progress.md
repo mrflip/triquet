@@ -17,8 +17,8 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
 | 10 | The markdown dialect, settled | in review |
-| 11 | Quiz and question widgetings interleave | landing |
-| 12 | Template and recap follow-ups | pending |
+| 11 | Quiz and question widgetings interleave | landed #177 |
+| 12 | Template and recap follow-ups | underway |
 | 13 | Reviews cannot touch the main checkout | landed #174 |
 | 14 | Editable recap template | landed #171 |
 | 15 | Recap reads the question's fields | landed #172 |
@@ -176,6 +176,12 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   before the bag; `BagContext` still calls nothing from the bag; shapers moved to
   `src/lib/shaping.ts`; the default template uses them. `longnote` (20,000) on `smiths_note`,
   `recap_head`, `recap_tail`, `recap_template`. Thread 7 reviews it first.
+
+* **Interleave (thread 11, #177).** The questions pivot is gone: one run order in `position`
+  order, tiers mixed; a new widgeting of either tier goes last; `move_widgeting` counts the whole
+  list; the gear shows one *Widgetings* list with a tier chip. No schema change. *Review:* clean.
+  Deploy note: reload open tabs after deploying (a #166 tab's `move_widgeting` index means its own
+  tier's list).
 
 ## Migration chain `recap`
 
