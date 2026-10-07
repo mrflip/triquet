@@ -44,7 +44,7 @@ unreviewed, at the Coach's word. Suites: `pnpm justify` green (typecheck, lint, 
   - The bag has no alternate flag (`viz` is not exposed): alternates and Q#-less questions cannot
     be told apart by template or formula. Thread 12's `archived` should come with it.
 * **For the Coach**: the first `pnpm land` was refused: the main checkout would not switch, over
-  your uncommitted `src/lib/recap.ts` (the template-literal rewrite of the old default). This branch
-  carries that form with the new content; discarding the edit there lets the landing go through.
+  your uncommitted `src/lib/recap.ts` (the template-literal rewrite of the old default). At your
+  word it was discarded there, and this branch, carrying that form with the new content, landed.
   The gap list is in `human/20261007-recap_template.md`; three gaps need the
   app (alternates, Q#-less questions, templated fields), the rest close with a column.
