@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addWidgeting, cellOf, closeManage, expect, faceOf, freshWidgetLabel, manageDialog, openManage, reloadOnceSaved, stepBy, test } from './support'
+import { addWidgeting, cellOf, closeManage, expect, faceOf, freshWidgetLabel, manageDialog, openManage, openPanel, reloadOnceSaved, stepBy, test } from './support'
 
 /**
  * Write a new text entry widget into the library, labelled `widget_label`, through the quiz
@@ -25,9 +25,9 @@ async function addQuizEntry(page: Page, widget_label: string, label: string) {
   await closeManage(page)
 }
 
-/** The Quiz entries panel */
-function entriesPanel(page: Page) {
-  return page.getByRole('region', { name: 'Quiz entries' })
+/** The Quiz entries panel, unfolded */
+async function entriesPanel(page: Page) {
+  return await openPanel(page, 'Quiz entries')
 }
 
 /** Leave whatever box has focus, committing it, as a person clicking elsewhere does */
@@ -44,7 +44,8 @@ test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a
   await addQuizEntry(page, freshWidgetLabel('names'), 'playtesters')
   // It runs once for the whole quiz, so it brings no column to the grid.
   await expect(cellOf(page, 0, 'Playtesters')).toHaveCount(0)
-  const box = entriesPanel(page).getByRole('textbox', { name: 'Playtesters' })
+  const entries = await entriesPanel(page)
+  const box = entries.getByRole('textbox', { name: 'Playtesters' })
   await box.fill('Ada and Grace')
   await leaveBox(page)
   await reloadOnceSaved(page)

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, newWidgetingDialog, openManage, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
+import { cellOf, closeManage, expect, exportedQuizzes, faceOf, freshWidgetLabel, manageDialog, newWidgetingDialog, openManage, openPanel, preparedExport, reloadOnceSaved, showTab, test, waitUntilSaved } from './support'
 
 /** The widget editor writing a new widget, open over the widgeting editor that opened it */
 function newWidgetDialog(page: Page) {
@@ -69,7 +69,7 @@ test('the Widgets panel counts what has been typed, and says what the entry take
   await addNewEntry(page, freshWidgetLabel('points'), /^A number/, 'points')
   await entryBox(page, 0, 'Points').fill('-2.5')
   await leaveBox(page)
-  const panel = page.getByRole('region', { name: 'Widgets' })
+  const panel = await openPanel(page, 'Widgets')
   await expect(panel.getByRole('group', { name: 'Cells of points' })).toHaveText(/^1 current • \d+ blank$/)
   await panel.getByRole('button', { name: /^points/ }).click()
   await expect(panel).toContainText('Typed into its cells, one value per question. A number.')

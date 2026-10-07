@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
+import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, openPanel, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -85,7 +85,7 @@ test('a refused clipboard falls back to selecting the whole text, never to silen
 })
 
 test('the Widgets panel lists the quiz\'s widgetings in run order, each with its counts, and opens to its prompt verbatim', async ({ page }) => {
-  const panel = page.getByRole('region', { name: 'Widgets' })
+  const panel = await openPanel(page, 'Widgets')
   // A fresh quiz starts lean, and the panel says how to put a widget to work.
   await expect(panel).toContainText('This quiz puts no widgets to work yet')
   await addWidgetings(page, ['dumdum', 'numnum_clueing', 'numnum_hint', 'butnot_ishes'])
@@ -104,7 +104,7 @@ test.describe('with answer_reversed at work', () => {
   test.use({ layout: { widgetings: ['answer_reversed'] } })
 
   test('a formula\'s counts follow what its cells come to', async ({ page }) => {
-    const panel = page.getByRole('region', { name: 'Widgets' })
+    const panel = await openPanel(page, 'Widgets')
     const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
     await expect(counts).toHaveText(/^\d+ blank$/)
     await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
@@ -115,7 +115,7 @@ test.describe('with answer_reversed at work', () => {
   })
 
   test('a folded widgeting gives up its description, then its widget, then how its cells stand, as the list narrows', async ({ page }) => {
-    const panel = page.getByRole('region', { name: 'Widgets' })
+    const panel = await openPanel(page, 'Widgets')
     const summary = panel.getByRole('button', { name: /^answer_reversed/ })
     const description = summary.getByText('The full answer written backward.')
     const widget = summary.getByText('formula answer_reversed')
@@ -136,7 +136,7 @@ test.describe('with answer_reversed at work', () => {
   })
 
   test('a widgeting\'s description is a snippet while folded, and gives way to the whole of it when open', async ({ page }) => {
-    const panel = page.getByRole('region', { name: 'Widgets' })
+    const panel = await openPanel(page, 'Widgets')
     const summary = panel.getByRole('button', { name: /^answer_reversed/ })
     const snippet = summary.getByText('The full answer written backward.')
     await expect(snippet).toHaveCSS('text-overflow', 'ellipsis')
@@ -218,16 +218,18 @@ test('the library is handed out on its own, and a pasted library is merged into 
 })
 
 test("the Category spread panel says how to begin when the quiz has no category estimate entry", async ({ page }) => {
-  const panel = page.getByRole('region', { name: 'Category spread' })
+  const panel = await openPanel(page, 'Category spread')
   await expect(panel).toContainText('This quiz has no category estimate entry yet.')
   await expect(panel.getByRole('button', { name: 'As a table' })).toHaveCount(0)
 })
 
-test('a panel folds to its title bar and opens again, and one beside others widens to the whole row', async ({ page }) => {
+test('a panel under the quiz starts folded to its title bar, opens, and folds again, and one beside others widens to the whole row', async ({ page }) => {
   const panel = page.getByRole('region', { name: 'Members' })
   const fold = panel.getByRole('button', { name: 'Show this panel' })
   const blurb = panel.getByText('Who is on this hunt.')
-  await expect(fold).toHaveAttribute('aria-expanded', 'true')
+  await expect(fold).toHaveAttribute('aria-expanded', 'false')
+  await expect(blurb).toBeHidden()
+  await fold.click()
   await expect(blurb).toBeVisible()
   await fold.click()
   await expect(fold).toHaveAttribute('aria-expanded', 'false')

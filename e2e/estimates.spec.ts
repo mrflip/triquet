@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { cellOf, closeManage, expect, manageDialog, openManage, reloadOnceSaved, test } from './support'
+import { cellOf, closeManage, expect, manageDialog, openManage, openPanel, reloadOnceSaved, test } from './support'
 
 /** The list of categories of the pill numbered `nth` (from 1) in the Categories cell of the row at `rowIdx` */
 function categoryList(page: Page, rowIdx: number, nth: number) {
@@ -108,7 +108,7 @@ test("columns can show Masie's chance and the personas' average, worked out from
 })
 
 test("the category spread counts the questions round the wheel, smoothed beside them, and its chart widens with the panel", async ({ page }) => {
-  const panel = page.getByRole('region', { name: 'Category spread' })
+  const panel = await openPanel(page, 'Category spread')
   await expect(panel).toContainText('0 questions placed, from the estimates under categories.')
   await pick(page, categoryList(page, 0, 1), 'Art')
   await pick(page, categoryList(page, 1, 1), 'Art')

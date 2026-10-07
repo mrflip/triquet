@@ -1,4 +1,4 @@
-import { addColumns, expect, faceOf, fillRows, holderOf, reloadOnceSaved, test } from './support'
+import { addColumns, expect, faceOf, fillRows, holderOf, openPanel, reloadOnceSaved, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -28,7 +28,7 @@ test('the Recap panel writes its head, each question with its answer and recap, 
     { 'Q#': '2', 'Clueing': 'Which ship?', 'Full Answer': 'ENTERPRISE' },
     { 'Q#': '1', 'Clueing': 'Who wrote **this**?', 'Full Answer': 'HAMILTON', 'Recap': 'Everyone got it.' },
   ])
-  const panel = page.getByRole('region', { name: 'Recap' })
+  const panel = await openPanel(page, 'Recap')
   const head = panel.getByRole('textbox', { name: 'Recap head', exact: true })
   await head.fill('Thanks for playing *{{quiz.title}}*!')
   await panel.getByRole('textbox', { name: 'Recap tail', exact: true }).fill('See you next season.')
@@ -44,11 +44,12 @@ test('the Recap panel writes its head, each question with its answer and recap, 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(Recapped)
 
   await reloadOnceSaved(page)
-  await expect(page.getByRole('region', { name: 'Recap' }).getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue(Recapped)
+  const reloaded = await openPanel(page, 'Recap')
+  await expect(reloaded.getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue(Recapped)
 })
 
 test("a recap head that will not fill in says why, and the note carries it as typed", async ({ page }) => {
-  const panel = page.getByRole('region', { name: 'Recap' })
+  const panel = await openPanel(page, 'Recap')
   const head = panel.getByRole('textbox', { name: 'Recap head', exact: true })
   await head.fill('Thanks {{#qns}}')
   await page.getByLabel('Quiz name').click()
