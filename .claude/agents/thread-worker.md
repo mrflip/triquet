@@ -72,8 +72,9 @@ Follow `notes/git_hygiene.md`, *A thread, start to finish*, to the letter -- exc
      says so (unit tests alone, a housekeeping script, a definition under `.claude/`), and never over
      app code or a script the suite runs through. Then `pnpm land --skip-e2e "<why>"`, with that
      reason in the PR's Tests: line. When unsure, run it.
-   - **Refresh**: if `pnpm catchup` now rebases onto a newer top, `pnpm justify` again and
-     repair; rerun e2e only for specs near what landed.
+   - **Refresh**: if `pnpm catchup` now rebases onto a newer top, or `pnpm e2e` waited for the
+     container's lock and rebased the branch before running ("Rebased ...: justify it again"),
+     `pnpm justify` again and repair; rerun e2e only for specs near what landed.
    - **Bid**: `pnpm land`. Under the spine's hold it catches up if the top moved, runs typecheck
      and the unit tests, and folds your branch in; then it pushes, and names your flakes.
    Repair what git_hygiene calls straightforward, justify, and bid again; a conflict or failure

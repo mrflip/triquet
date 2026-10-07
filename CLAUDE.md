@@ -198,7 +198,7 @@ Work goes in **threads**: one line of work, one branch, one PR, one worktree. (A
    lint and the tests near your change pass). Not mid-refactor, not on a timer. Separate commits are preferred.
    Inside your worktree, commit, branch and replay however helps, and tidy up before landing.
 3. **Finish** by proving the branch, then bidding (`notes/git_hygiene.md`, *Finishing*): `pnpm catchup` rebases onto the top,
-   `pnpm justify` runs typecheck, lint and the unit tests, `pnpm e2e` the e2e suite (each failure repaired alone: `pnpm e2e:rerun`) --
+   `pnpm justify` runs typecheck, lint and the unit tests, `pnpm e2e` the e2e suite (each failure repaired alone: `pnpm e2e:rerun`; a run that waited for the container's lock rebases the branch first, so `pnpm justify` again) --
    `pnpm land --skip-e2e "<why>"` goes without it only where `notes/git_hygiene.md`, *When e2e is not worth running*, allows --
    then `pnpm land` folds your branch onto the spine, running only typecheck and the unit tests under the spine's hold, and pushes it. On a rebase conflict, repair what is straightforward and carry on;
    if a conflict needs a judgment about which behaviour wins, discuss (by finishing and offering to rewind, or by `git rebase --abort`ing on large problems).
