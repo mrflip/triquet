@@ -66,8 +66,8 @@ describe('inputSchema', () => {
   /** The fields the schema names for its top-level key `key` */
   const fieldsOf = (key: string) => Object.keys((present(schema.properties)[key] as { properties?: object }).properties ?? {})
 
-  it('names the nine keys a formula can read, all required', () => {
-    const keys = ['hunt', 'realm', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label']
+  it('names the ten keys a formula can read, all required', () => {
+    const keys = ['hunt', 'realm', 'categories', 'quiz', 'qns', 'qn', 'qn_label', 'quiz_label', 'params', 'widgeting_label']
     expect(Object.keys(schema.properties ?? {})).to.have.members(keys)
     expect(schema.required).to.have.members(keys)
   })

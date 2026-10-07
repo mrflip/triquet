@@ -598,8 +598,28 @@ describe('what a bag exposes of a question', () => {
   const quiz = { ...Quiz.blank('Bag'), label: 'my_quiz', locked: true, questions: [recorded], widgetings: widgetingsOf(['dumdum', 'dumdum']) }
   const { qn, quiz: quizBag, hunt, realm } = present(Runner.bagsAt(runOf(quiz), { label: 'col', params: {} }).get(recorded._id))
 
-  it('gives a question only its exposed fields, with the label in force and the rank, and each earlier widgeting under its label', () => {
-    expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'dumdum', 'rank'].toSorted(byText))
+  it('gives a question only its exposed fields, with the label in force, the rank and the viz flags, and each earlier widgeting under its label', () => {
+    expect(Object.keys(qn).toSorted(byText)).to.deep.eq([...Question.exposed, 'archived', 'dumdum', 'rank', 'secondary'].toSorted(byText))
+  })
+
+  it("says whether each question is archived, and whether it is an alternate, its viz secondary", () => {
+    const archived = { ...Question.blank(), qnum: '2', viz: 'archived' as const }
+    const alternate = { ...Question.blank(), qnum: '3', viz: 'secondary' as const }
+    const bags = Runner.bagsAt(runOf({ ...quiz, questions: [recorded, archived, alternate] }), { label: 'col', params: {} })
+    const flags = bags.values().map((bag) => [bag.qn.archived, bag.qn.secondary]).toArray()
+    expect(flags).to.deep.eq([[false, false], [true, false], [false, true]])
+  })
+
+  it('keeps the archived questions in a formula\'s qns, so a chain to one still reads its hint', () => {
+    const archived = { ...Question.blank(), qnum: '2', viz: 'archived' as const }
+    const bag = present(Runner.bagsAt(runOf({ ...quiz, questions: [recorded, archived] }), { label: 'col', params: {} }).get(recorded._id))
+    expect(bag.qns.map((each) => each.archived)).to.deep.eq([false, true])
+  })
+
+  it("gives every bag the hunt's categories, in its total order, each with the title its tile shows", () => {
+    const bag = present(Runner.bagsAt(runOf(quiz), { label: 'col', params: {} }).get(recorded._id))
+    expect(bag.categories.map((category) => category.label)).to.deep.eq(Wheel.orderOf(Wheel.defaultWheel()))
+    expect(bag.categories[0]).to.deep.eq({ label: 'math_econ', title: 'Math & Econ' })
   })
 
   it('shows an earlier widgeting as its widgeted whole: its status, its value, and a failure riding along', () => {

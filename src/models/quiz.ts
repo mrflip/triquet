@@ -170,9 +170,9 @@ function integrityIssues(quiz: Pick<QuizT, 'questions' | 'widgetings' | 'columns
   ]
 }
 
-/** Whether `label` is one the quiz itself answers to in the bag (`Quiz.exposed`), which a widgeting for the whole quiz, put beside them, cannot take */
+/** Whether `label` is one the quiz itself answers to in the bag (`Quiz.bagKeys`), which a widgeting for the whole quiz, put beside them, cannot take */
 function isQuizReserved(label: string): boolean {
-  return (Quiz.exposed as readonly string[]).includes(label)
+  return (Quiz.bagKeys as readonly string[]).includes(label)
 }
 
 export type QuizDNA       = Z.input<typeof QuizValidators.quiz>
@@ -209,6 +209,13 @@ export class Quiz implements QuizT {
   static readonly exposed = ['label', 'smiths_note', 'title'] as const
 
   /**
+   * Every name the quiz answers to in a bag, where a widgeting for the whole quiz puts its
+   * widgeted beside them: its exposed fields, and `questions`, under which a template's bag holds
+   * every question, the archived among them (`Templating.bagOf`).
+   */
+  static readonly bagKeys = [...Quiz.exposed, 'questions'] as const
+
+  /**
    * Whether `quiz` is locked: nothing in it changes until it is unlocked.
    *
    * @example if (Quiz.isLocked(quiz)) { return 'quizLocked' }
@@ -219,7 +226,7 @@ export class Quiz implements QuizT {
 
   /**
    * Whether a widgeting for the whole quiz may be labelled `label`: not a name the quiz itself
-   * answers to in the bag (`exposed`), beside which its widgeted sits as `quiz.<label>`.
+   * answers to in the bag (`bagKeys`), beside which its widgeted sits as `quiz.<label>`.
    *
    * @example Quiz.mayLabelQuizTier('playtesters')  // => true
    * @example Quiz.mayLabelQuizTier('smiths_note')  // => false

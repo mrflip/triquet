@@ -6,7 +6,7 @@ import { renderedText } from '../../support/rendering'
 
 /** A bag whose question holds `qn`, and nothing else of note */
 function bagHolding(qn: Record<string, unknown>): Templating.TemplateBag {
-  return { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' }, quiz: { label: 'quiz', title: 'Quiz' }, qns: [qn], qn, qn_label: 'one', quiz_label: 'quiz' }
+  return { hunt: { label: 'deep_lake', title: 'Deep Lake' }, realm: { label: 'home', title: 'Home' }, categories: [], quiz: { label: 'quiz', title: 'Quiz' }, qns: [qn], qn, qn_label: 'one', quiz_label: 'quiz' }
 }
 
 /** The markup a templated field's face draws for `template`, filled in over a question holding `qn` */

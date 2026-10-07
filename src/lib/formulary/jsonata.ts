@@ -112,7 +112,7 @@ function adviceSpec(sample: Record<string, unknown> | null): AdviceSpec {
 function readsSection(sample: Record<string, unknown> | null): string {
   return [
     '## What the formula reads',
-    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn`; `quiz`, `realm` and `hunt` are the quiz itself and where it sits. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`: read its `value` only when its `status` is `ok`, as in `qn.numnum_clueing.value.items`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
+    'The formula is evaluated against one JSON document, so its top-level keys are the names it can use directly, e.g. `qn.clueing`. `qn` is the question the value is being worked out for and `qns` holds every question of the quiz, including `qn` and the archived ones (each says whether it is `archived`, and whether it is an alternate, `secondary`); `quiz`, `realm` and `hunt` are the quiz itself and where it sits, and `categories` the subject categories of its hunt. Every column worked out before this one sits on each question under its label, as `{ status, value, err }`: read its `value` only when its `status` is `ok`, as in `qn.numnum_clueing.value.items`. Nothing has an id: questions refer to each other by `label`. This is its JSON Schema:',
     '',
     '```json',
     UU.jsonify(inputSchema(), { pretty: true }),

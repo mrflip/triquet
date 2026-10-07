@@ -12,7 +12,8 @@ import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../mode
 /**
  * The recap note: what a smith posts to the league's message boards once the quiz has been
  * played. One markdown document, made by filling in mustache templates, then written in bbjank
- * once, whole: the recap head and tail are filled in over the quiz's template bag, then the recap
+ * once, whole: the recap head and tail are filled in over the quiz's template bag (its questions'
+ * templated texts filled in first, as the grid shows them), then the recap
  * template (the quiz's own, or `DefaultTemplate`) over the **recap bag**, which holds them and the
  * questions played; then `Bbjank.toBbjank`, which writes only what it knows, is the last step.
  *
@@ -30,9 +31,10 @@ import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../mode
  * The recap template every quiz follows until it is given one of its own, written with nothing
  * but what every template reads, plain mustache and the template helpers
  * (`Templating.Helpers`): the recap head, a rule, then each question (`{{#qns}}`, in the quiz's
- * own order) that has a rank -- a Q#, and not archived -- its rank and clueing quoted under its
- * Q-number, with its own hint after `...OR ELSE...` when it has one; its answer behind a spoiler;
- * the `correct_pct` column; its recap -- then the recap tail. The rule under the head is `***`: a
+ * own order, never the archived) that has a rank -- a Q# -- and is not an alternate
+ * (`{{^secondary}}`), its rank and clueing quoted under its Q-number, with its own hint after
+ * `...OR ELSE...` when it has one; its answer behind a spoiler; the `correct_pct` column; its
+ * recap -- then the recap tail. The rule under the head is `***`: a
  * `---` straight under it would make the head's last line a heading. Inside a section on a field
  * (`{{#rank}}`, `{{#hint}}`) that field is the context, and the question's other fields are found
  * on the question below it. `{{#quote}}` keeps every line of the clueing and hint in its quote,
@@ -47,8 +49,9 @@ export const DefaultTemplate = `
 
 {{/recap_head}}
 {{#qns}}
-{{! Only the questions with a rank: those with a Q#, and not archived. }}
+{{! Only the questions with a rank (a Q#), and not the alternates. }}
 {{#rank}}
+{{^secondary}}
 > {AS: Q{{rank}}}{{rank}}. {{#quote}}{{clueing}}{{/quote}}
 {{#hint}}
 >
@@ -61,6 +64,7 @@ Answer: {{#full_answer}}~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~{{/full_a
 Correct Answer %: {{correct_pct}}
 {{#apart}}{{recap}}{{/apart}}
 
+{{/secondary}}
 {{/rank}}
 {{/qns}}
 {{recap_tail}}
@@ -135,8 +139,9 @@ export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
 }
 
 /**
- * What the recap template reads: the quiz's template bag (`Templating.bagOf(run, null)`); its
- * recap head and tail, each filled in over that bag (as typed, when it cannot be); and `played`,
+ * What the recap template reads: the quiz's template bag, its questions' templated texts filled
+ * in (`Templating.filledBagOf`), so `{{clueing}}` inside `{{#qns}}` is a templated clueing filled
+ * in; its recap head and tail, each filled in over that bag (as typed, when it cannot be); and `played`,
  * the questions the recap covers -- in rank order, numbered from 1, and neither archived nor
  * alternates (as the LL export going live has them) nor blank, never written into -- each with
  * its own fields pre-shaped (`PlayedT`).
@@ -144,9 +149,10 @@ export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
  * @example bagOf(quiz, run).played.map((played) => played.number)  // => [1, 2, 3]
  */
 export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
-  const quizBag = Templating.bagOf(run, null)
+  const quizBag = Templating.filledBagOf(quiz, run)
   const filled = Templating.filledQuiz(quiz, run)
-  const qnFor = new Map(run.frame.question_ids.map((question_id, idx) => [question_id, quizBag.qns[idx] ?? {}]))
+  const every = quizBag.quiz.questions as Record<string, unknown>[]
+  const qnFor = new Map(run.frame.question_ids.map((question_id, idx) => [question_id, every[idx] ?? {}]))
   const hasPct = quiz.widgetings.some((widgeting) => widgeting.label === CorrectPctLabel && widgeting.tier === 'question')
   const played = Rank.inRankOrder(LLSmithExport.exportedIn(filled.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
   return {

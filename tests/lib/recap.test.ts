@@ -24,8 +24,12 @@ function questionWith(patch: Partial<QuestionT>): QuestionT {
  * author, held here to what it says it does.
  */
 const Recipes = {
-  /** For the whole quiz: the questions with a rank, in rank order, each numbered from 1; a list, even of one or none */
-  inOrder:    "[$map(qns[$type(rank) = 'number']^(rank), function($qn, $idx) { $merge([$qn, { 'number': $idx + 1 }]) })]",
+  /**
+   * For the whole quiz: the questions played -- those with a rank (a Q#), in rank order, then any
+   * other written into and not archived -- leaving out the alternates, each numbered from 1; a
+   * list, even of one or none.
+   */
+  inOrder:    "(\n  $ranked := qns[$type(rank) = 'number' and $not(secondary)]^(rank);\n  $unnumbered := qns[$type(rank) != 'number' and $not(archived) and $not(secondary) and clueing != ''];\n  [$map($append($ranked, $unnumbered), function($qn, $idx) { $merge([$qn, { 'number': $idx + 1 }]) })]\n)",
   /** An author's own line in place of the Correct Answer line, reading the correct_pct column */
   solvedBy:   "$type(qn.correct_pct.value) = 'number' ? 'Solved by ' & qn.correct_pct.value & '% of teams' : 'Not yet scored'",
 }
@@ -56,8 +60,8 @@ function swapped(template: string, swaps: readonly (readonly [string, string])[]
   return swapping
 }
 
-/** The default template, reading every recipe's column in place of what it closes the gap of */
-const ClosingTemplate = swapped(Recap.DefaultTemplate.replaceAll('{{rank}}', '{{number}}'), [
+/** The default template, reading every recipe's column in place of what it closes the gap of: `number` for `rank`, in its tags and its section's */
+const ClosingTemplate = swapped(Recap.DefaultTemplate.replaceAll('rank}}', 'number}}'), [
   ['***\n', '{{#quiz.in_order.value.0}}\n***\n{{/quiz.in_order.value.0}}\n'],
   ['{{#qns}}\n', '{{#quiz.in_order.value}}\n'],
   ['{{/qns}}', '{{/quiz.in_order.value}}'],
@@ -105,11 +109,11 @@ function everythingQuiz(patch: Partial<QuizT> = {}): QuizT {
 
 /**
  * The everything quiz's note by the default template, which reads only what every template reads.
- * Its gaps show: the questions in the quiz's own order; Q2's templated clueing as typed. The
- * template helpers keep Q1's indented verse and its OR ELSE hint within its quote, and Q3's
- * two-line answer on one line within its spoiler.
+ * Its gap shows: the questions in the quiz's own order. Q2's templated clueing is filled in, as
+ * the grid shows it. The template helpers keep Q1's indented verse and its OR ELSE hint within
+ * its quote, and Q3's two-line answer on one line within its spoiler.
  */
-const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\n[quote=\"Q2\"]2. By {{qn.author}}, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\nSee you next season."
+const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\n[quote=\"Q2\"]2. By Ada, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\nSee you next season."
 
 describe('Recap.noteOf, by the default template', () => {
   it('writes the everything quiz with nothing but its fields, its columns, plain mustache and the template helpers', () => {
@@ -159,24 +163,40 @@ describe('Recap.noteOf, by the default template', () => {
     expect(recapOf(quizOf([], { recap_tail: 'Broken {{#qns}}' }))).to.eq('Broken {{#qns}}')
   })
 
-  it('reads a field the quiz templates as typed, as every question in qns holds it', () => {
+  it('reads a field the quiz templates filled in, as the grid shows it, and any other as typed', () => {
     const question = questionWith({ qnum: '1', clueing: 'By {{qn.author}}', recap: 'Ask {{qn.author}}', stored: { author: typed('Ada') } })
     const quiz = quizOf([question], {
       widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' })],
       templated:  ['question.recap'],
     })
-    expect(recapOf(quiz)).to.contain('1. By {{qn.author}}[/quote]').and.to.contain('\nAsk {{qn.author}}')
+    expect(recapOf(quiz)).to.contain('1. By {{qn.author}}[/quote]').and.to.contain('\nAsk Ada')
   })
 
-  it('leaves out archived questions and those with no Q#, which have no rank, but not alternates', () => {
+  it('reads a text entry the quiz templates filled in', () => {
+    const question = questionWith({ qnum: '1', clueing: 'Who?', stored: { author: typed('Ada'), byline: typed('By {{qn.author}}') } })
+    const quiz = quizOf([question], {
+      widgetings:     [Widgeting.fill({ label: 'author', widget_label: 'authors' }), Widgeting.fill({ label: 'byline', widget_label: 'authors' })],
+      templated:      ['byline'],
+      recap_template: '{{#qns}}{{byline}}{{/qns}}',
+    })
+    expect(recapOf(quiz)).to.eq('By Ada')
+  })
+
+  it('leaves out archived questions, alternates, and those with no Q#, which have no rank', () => {
     const archived = questionWith({ qnum: '1', clueing: 'Put away', viz: 'archived' })
     const alternate = questionWith({ qnum: '2', clueing: 'Spare', viz: 'secondary' })
     const unnumbered = questionWith({ qnum: '', clueing: 'Unnumbered' })
     const played = questionWith({ qnum: '3', clueing: 'Played' })
     const recap = recapOf(quizOf([archived, alternate, unnumbered, played]))
-    expect(recap).to.contain('[quote="Q1"]1. Spare[/quote]').and.to.contain('[quote="Q2"]2. Played[/quote]')
     expect(recap).not.to.contain('Put away')
+    expect(recap).not.to.contain('Spare')
     expect(recap).not.to.contain('Unnumbered')
+  })
+
+  it("numbers by rank, which counts an alternate's place, so the question after one is numbered one high", () => {
+    const alternate = questionWith({ qnum: '1', clueing: 'Spare', viz: 'secondary' })
+    const played = questionWith({ qnum: '2', clueing: 'Played' })
+    expect(recapOf(quizOf([alternate, played]))).to.eq('[quote="Q2"]2. Played[/quote]\n\nAnswer:\nCorrect Answer %:')
   })
 
   it('leaves out a question never written into, as a fresh quiz holds several', () => {
@@ -266,7 +286,7 @@ describe('Recap.noteOf, by the default template', () => {
 })
 
 describe("The default template's gaps, and the columns that close them", () => {
-  it('writes the everything quiz as the shaped values did, but for the templated clueing, by the helpers and a quiz-wide list', () => {
+  it('writes the everything quiz as the shaped values did, by the helpers and a quiz-wide list, but for the templated clueing, which a column holds as typed', () => {
     const note = recapOf(everythingQuiz({ widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' }), CorrectPct, ...RecipeWidgetings], recap_template: ClosingTemplate }))
     expect(note).to.eq("The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...OR ELSE...\n\nNot [i]the[/i] one\nof the stage[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\n[quote=\"Q2\"]2. By {{qn.author}}, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.\n\n...OR ELSE...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\nSee you next season.")
   })
@@ -287,6 +307,17 @@ describe("The default template's gaps, and the columns that close them", () => {
     expect(recapOf(quizOf([third, archived, first]))).to.match(/^\[quote="Q2"\]2\. Third[^]*\[quote="Q1"\]1\. First/)
     const closed = recapOf(quizOf([third, archived, first], { widgetings: RecipeWidgetings, recap_template: ClosingTemplate }))
     expect(closed).to.match(/^\[quote="Q1"\]1\. First\[\/quote\][^]*\[quote="Q2"\]2\. Third\[\/quote\]/)
+    expect(closed).not.to.contain('Put away')
+  })
+
+  it('leaves out alternates, numbering past them, and puts a question with no Q# last, by a quiz-wide list', () => {
+    const alternate = questionWith({ qnum: '1', clueing: 'Spare', viz: 'secondary' })
+    const unnumbered = questionWith({ qnum: '', clueing: 'Unnumbered' })
+    const archived = questionWith({ qnum: '', clueing: 'Put away', viz: 'archived' })
+    const played = questionWith({ qnum: '2', clueing: 'Played' })
+    const closed = recapOf(quizOf([unnumbered, alternate, archived, Question.blank(), played], { widgetings: RecipeWidgetings, recap_template: ClosingTemplate }))
+    expect(closed).to.match(/^\[quote="Q1"\]1\. Played\[\/quote\][^]*\[quote="Q2"\]2\. Unnumbered\[\/quote\]/)
+    expect(closed).not.to.contain('Spare')
     expect(closed).not.to.contain('Put away')
   })
 })
@@ -343,6 +374,25 @@ describe("Recap.noteOf, by a template of the quiz's own", () => {
 })
 
 describe('Recap.bagOf', () => {
+  it('holds in qns the questions a screen shows, alternates among them, and in quiz.questions every one', () => {
+    const quiz = quizOf([questionWith({ qnum: '1', title: 'Shown' }), questionWith({ qnum: '2', title: 'Spare', viz: 'secondary' }), questionWith({ title: 'Gone', viz: 'archived' })])
+    const bag = Recap.bagOf(quiz, runOf(quiz, Library))
+    expect(bag.qns.map((qn) => qn.title)).to.deep.eq(['Shown', 'Spare'])
+    expect((bag.quiz.questions as Record<string, unknown>[]).map((qn) => [qn.title, qn.archived, qn.secondary])).to.deep.eq([['Shown', false, false], ['Spare', false, true], ['Gone', true, false]])
+  })
+
+  it('lets a template skip the archived and the alternates by their flags', () => {
+    const quiz = quizOf([questionWith({ qnum: '1', title: 'Shown' }), questionWith({ qnum: '2', title: 'Spare', viz: 'secondary' }), questionWith({ title: 'Gone', viz: 'archived' })], {
+      recap_template: 'All: {{#quiz.questions}}{{title}} {{/quiz.questions}}\n\nKept: {{#quiz.questions}}{{^archived}}{{title}} {{/archived}}{{/quiz.questions}}\n\nPlayed: {{#qns}}{{^secondary}}{{title}}{{/secondary}}{{/qns}}',
+    })
+    expect(recapOf(quiz)).to.eq('All: Shown Spare Gone\n\nKept: Shown Spare\n\nPlayed: Shown')
+  })
+
+  it("holds the hunt's categories, each with its title", () => {
+    const quiz = quizOf([hamilton], { recap_template: '{{#categories.0}}{{title}} ({{label}}){{/categories.0}}' })
+    expect(recapOf(quiz)).to.eq('Math & Econ (math_econ)')
+  })
+
   it('shapes each of a question\'s own fields for each fragile place, keyed by the field', () => {
     const quiz = quizOf([questionWith({ qnum: '1', clueing: 'Who?\nWhen?', hint: 'Not him', full_answer: 'HAMILTON\n(ROWAN)', recap: '---\nAced.' })])
     const [played] = Recap.bagOf(quiz, runOf(quiz, Library)).played

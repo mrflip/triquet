@@ -254,9 +254,52 @@ describe("bagOf", () => {
     expect(Templating.fill('Thanks to {{quiz.playtesters}}!', quizBag).markdown).to.eq('Thanks to Ada and Grace!')
   })
 
+  it("holds in qns only the questions a screen shows, the alternates among them, and in quiz.questions every one", () => {
+    const alternate = questionWith({ title: 'Spare', qnum: '3', viz: 'secondary' })
+    const archived = questionWith({ title: 'Gone', viz: 'archived', clueing: 'By {{qn.author}}' })
+    const viz = { ...TwoQuiz, questions: [first, archived, alternate] }
+    const vizRun = runOf(viz, Library)
+    const quizBag = Templating.bagOf(vizRun, null)
+    expect(quizBag.qns.map((qn) => qn.title)).to.deep.eq(['One', 'Spare'])
+    expect((quizBag.quiz.questions as Record<string, unknown>[]).map((qn) => qn.title)).to.deep.eq(['One', 'Gone', 'Spare'])
+    expect(quizBag.qns.map((qn) => [qn.archived, qn.secondary])).to.deep.eq([[false, false], [false, true]])
+    expect(Templating.bagOf(vizRun, archived._id).qn.title).to.eq('Gone')
+  })
+
+  it("holds the hunt's categories, each with its title, for a template to loop over", () => {
+    expect(Templating.fill('{{categories.15.title}}', bag).markdown).to.eq('TV')
+    expect(Templating.fill('{{#categories}}{{label}} {{/categories}}', bag).markdown.split(' ')).to.have.lengthOf(25)
+  })
+
   it("offers no widgeting for the whole quiz for templating: it has no question's cell to fill", () => {
     const entered = { ...TwoQuiz, widgetings: [Widgeting.fill({ widget_label: 'authors', label: 'playtesters', tier: 'quiz' }), ...TwoQuiz.widgetings] }
     expect(Templating.templatableSources(entered, Library).map(({ source }) => source)).to.not.include('playtesters')
+  })
+})
+
+describe("filledBagOf", () => {
+  it("holds every question with its templated texts filled in, each over its own question, once", () => {
+    const filled = Templating.filledBagOf(TwoQuiz, run)
+    expect(filled.qns.map((qn) => qn.clueing)).to.deep.eq(['By Ada', '{{#qns'])
+    expect((filled.quiz.questions as Record<string, unknown>[])[0]?.clueing).to.eq('By Ada')
+    expect(filled.qn).to.deep.eq({})
+  })
+
+  it("fills in a text entry the quiz templates, as its widgeted's value", () => {
+    const bylined = { ...TwoQuiz, questions: [{ ...first, stored: { ...first.stored, byline: typed('By {{qn.author}}') } }], widgetings: [...TwoQuiz.widgetings, Widgeting.fill({ label: 'byline', widget_label: 'authors' })], templated: ['byline'] }
+    const [qn] = Templating.filledBagOf(bylined, runOf(bylined, Library)).qns
+    expect(qn?.byline).to.deep.include({ status: 'ok', value: 'By Ada' })
+    expect(qn?.clueing).to.eq('By {{qn.author}}')
+  })
+
+  it("fills a filled text in no further, so a text naming another templated one reads it as typed", () => {
+    const chained = { ...TwoQuiz, questions: [{ ...first, hint: '{{qn.clueing}}' }], templated: ['question.clueing', 'question.hint'] }
+    const [qn] = Templating.filledBagOf(chained, runOf(chained, Library)).qns
+    expect([qn?.clueing, qn?.hint]).to.deep.eq(['By Ada', 'By {{qn.author}}'])
+  })
+
+  it("is the bag for no question when the quiz templates nothing", () => {
+    expect(Templating.filledBagOf({ templated: [] }, run)).to.deep.eq(Templating.bagOf(run, null))
   })
 })
 

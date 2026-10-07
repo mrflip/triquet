@@ -205,6 +205,10 @@ describe('Quiz.mayLabelQuizTier', () => {
   it('refuses only a name the quiz itself answers to in the bag', () => {
     expect([Quiz.mayLabelQuizTier('playtesters'), Quiz.mayLabelQuizTier('smiths_note'), Quiz.mayLabelQuizTier('title')]).to.deep.eq([true, false, false])
   })
+
+  it("refuses questions, under which a template's bag holds every question", () => {
+    expect(Quiz.mayLabelQuizTier('questions')).to.be.false
+  })
 })
 
 describe('Quiz.fill, with widgetings run once for the whole quiz', () => {

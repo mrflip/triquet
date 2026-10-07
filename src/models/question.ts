@@ -9,6 +9,12 @@ import { WidgetedValidators, type WidgetedHistoryT } from './widgeted'
 /** What a question carries in a formula's bag beside its exposed fields: its place once the quiz is put in Q# order */
 export const RankField = 'rank'
 
+/** What a question carries in the bag beside its exposed fields: whether it is archived (its viz) */
+export const ArchivedField = 'archived'
+
+/** What a question carries in the bag beside its exposed fields: whether it is an alternate, its viz `secondary` */
+export const SecondaryField = 'secondary'
+
 /**
  * How a question is shown (its **viz**): `normal`, as every question starts; `secondary`, an
  * alternate, shown as one and sorted after its peers; or `archived`, put away from every screen

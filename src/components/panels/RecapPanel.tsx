@@ -47,7 +47,7 @@ export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail, onR
   const head = useDraft(quiz.recap_head, onRecapHead)
   const tail = useDraft(quiz.recap_tail, onRecapTail)
   const template = useDraft(Recap.templateOf(quiz), (text) => { onRecapTemplate(text === Recap.DefaultTemplate ? null : text) }, tidiedTemplate)
-  const bag = useMemo(() => Templating.bagOf(run, null), [run])
+  const bag = useMemo(() => Templating.filledBagOf(quiz, run), [quiz, run])
   const note = useMemo(() => {
     const drafted = { ...quiz, recap_head: head.draft, recap_tail: tail.draft, recap_template: template.draft.trim() === '' ? undefined : template.draft }
     return Recap.noteOf(drafted, run)
@@ -76,7 +76,7 @@ function tidiedTemplate(text: string): string {
 type RecapNoteProps = {
   label:       string
   draft:       DraftHandle
-  /** What the note is filled in over: the quiz's bag, with no question */
+  /** What the note is filled in over: the quiz's bag, with no question, its questions' templated texts filled in */
   bag:         Templating.TemplateBag
   placeholder: string
   revisable:   boolean

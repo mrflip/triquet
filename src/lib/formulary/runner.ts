@@ -5,11 +5,11 @@ import * as Wheel from '../wheel'
 import { huntTitleOf, realmTitleOf } from '../rows'
 import { formularyFor, type InputOutcome } from './formularies'
 import { Hunt, type HuntT } from '../../models/hunt'
-import { Question, RankField, type QuestionT } from '../../models/question'
+import { ArchivedField, Question, RankField, SecondaryField, type QuestionT } from '../../models/question'
 import { Quiz, type QuizT } from '../../models/quiz'
 import { Realm, type RealmT } from '../../models/realm'
 import { Widgeted, type JsonT, type StoredWidgetedT, type WidgetedErrT, type WidgetedHistoryT, type WidgetedStatus, type WidgetedT } from '../../models/widgeted'
-import type { CategoryLabel, WheelT } from '../../models/category'
+import { Category, type CategoryLabel, type WheelT } from '../../models/category'
 import type { WidgetingPart } from '../../models/column'
 import type { WidgetT } from '../../models/widget'
 import type { WidgetingT } from '../../models/widgeting'
@@ -27,18 +27,23 @@ export type QuizPlace = {
   order: readonly CategoryLabel[]
 }
 
+/** One of the hunt's categories, as the bag holds it: its label, and the title its tile shows */
+export type BagCategoryT = Pick<Category, 'label' | 'title'>
+
 /**
  * The document a widget's input formula reads, for one question and one widgeting.
  *
  * Ids are stripped and everything is referred to by label: a question's `chains_to` is the
  * label of the question it chains to, so `qns[label = $$.qn.chains_to]` is that question. Each
- * question carries its `rank`, and the widgeted of every widgeting before this one under that
- * widgeting's label.
+ * question carries its `rank`, whether it is `archived` and whether it is `secondary` (an
+ * alternate), and the widgeted of every widgeting before this one under that widgeting's label.
  */
 export type QuizBag = Pick<QuizPlace, 'hunt' | 'realm'> & {
+  /** The hunt's categories, in its total order */
+  categories:      readonly BagCategoryT[]
   /** The quiz's own exposed fields, without its questions and its widgetings */
   quiz:            Record<string, unknown>
-  /** Every question in the quiz, in the quiz's order */
+  /** Every question in the quiz, the archived among them, in the quiz's order */
   qns:             Record<string, unknown>[]
   /** The question being worked out; the very object also found in `qns` */
   qn:              Record<string, unknown>
@@ -94,7 +99,7 @@ export type QuizRun = {
 }
 
 /** What every one of a quiz's bags holds, whichever question and widgeting it is for */
-type BagFrame = QuizPlace & Pick<QuizBag, 'quiz' | 'quiz_label'> & {
+type BagFrame = QuizPlace & Pick<QuizBag, 'categories' | 'quiz' | 'quiz_label'> & {
   question_ids: readonly string[]
   qn_labels:    readonly string[]
 }
@@ -336,6 +341,7 @@ function frameOf(quiz: QuizT, place: QuizPlace): BagFrame {
     hunt:         place.hunt,
     realm:        place.realm,
     order:        place.order,
+    categories:   place.order.map((label) => ({ label, title: Category.titleOf(label) })),
     quiz:         { ..._.pick(quiz, Quiz.exposed), label: quiz_label },
     quiz_label,
     question_ids: quiz.questions.map((question) => question._id),
@@ -349,6 +355,7 @@ function bagsOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Re
   return frame.qn_labels.map((qn_label, idx) => ({
     hunt:            frame.hunt,
     realm:           frame.realm,
+    categories:      frame.categories,
     quiz,
     qns:             shared,
     qn:              shared[idx] ?? {},
@@ -361,26 +368,28 @@ function bagsOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Re
 
 /** The one bag of a widgeting for the whole quiz: for no question, over `quiz` and `qns` as they stand when it runs */
 function quizBagOf(frame: BagFrame, quiz: Record<string, unknown>, qns: readonly Record<string, unknown>[], widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
-  return { hunt: frame.hunt, realm: frame.realm, quiz, qns: qns as Record<string, unknown>[], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
+  return { hunt: frame.hunt, realm: frame.realm, categories: frame.categories, quiz, qns: qns as Record<string, unknown>[], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
 }
 
 /** A bag for no question, for a quiz with none */
 function emptyBag(frame: BagFrame, widgeting: Pick<WidgetingT, 'label' | 'params'>): QuizBag {
-  return { hunt: frame.hunt, realm: frame.realm, quiz: frame.quiz, qns: [], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
+  return { hunt: frame.hunt, realm: frame.realm, categories: frame.categories, quiz: frame.quiz, qns: [], qn: {}, qn_label: '', quiz_label: frame.quiz_label, params: widgeting.params, widgeting_label: widgeting.label }
 }
 
 /**
  * Every question as a formula sees it before any widgeting has run: only its exposed fields, its
- * chain named by label, and its rank added.
+ * chain named by label, and its rank and its viz, as two yes-or-nos, added.
  */
 function baseQns(quiz: QuizT): Record<string, unknown>[] {
   const ranks = Rank.ranksOf(quiz.questions)
   const labelForId = new Map(quiz.questions.map((question) => [question._id, question.label]))
   return quiz.questions.map((question) => ({
     ..._.pick(question, Question.exposed),
-    label:       labelForId.get(question._id) ?? question.label,
-    chains_to:   question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
-    [RankField]: ranks.get(question._id) ?? null,
+    label:            labelForId.get(question._id) ?? question.label,
+    chains_to:        question.chains_to === null ? null : labelForId.get(question.chains_to) ?? null,
+    [RankField]:      ranks.get(question._id) ?? null,
+    [ArchivedField]:  Question.isArchived(question),
+    [SecondaryField]: Question.isSecondary(question),
   }))
 }
 
