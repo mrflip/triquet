@@ -131,6 +131,17 @@ checkout, and to probe only in their worktree. For the Coach.
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
 
+* **Recap template (thread 14, landing).** Pure mustache over markdown, converted once:
+  head and tail filled, then the template (quiz `recap_template`, Absentable, or
+  `Recap.DefaultTemplate`) over the recap bag (`recap_head`, `recap_tail`, `played` with `number`
+  and the shaped `quoted_body`, `answer_line`, `recap_below`, `pct` from `correct_pct`). No reset
+  button: emptying the box clears to the default. Template errors log to the console once per issue
+  (`use-face.ts`). Pulled forward `mdast-util-definitions` (thread 10) and `correct_pct` (12).
+  *Review:* fixed two (console report spammed while a section was half-typed; default plus
+  whitespace saved as the quiz's own). *Orchestrator:* directed three follow-ups before landing:
+  export `null` for a default quiz, import clears a template equal to the default, TODO widened (an
+  unclosed fence or HTML block in the head or any recap turns the rest literal, answers included).
+
 ## Migration chain `recap`
 
 *Orchestrator, 2026-10-07:* the Coach merged #161 to #167 at once (safe: no tightening exists yet).

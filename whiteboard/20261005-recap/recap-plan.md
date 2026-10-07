@@ -362,7 +362,7 @@ the whole once.
   previews before posting.
 * **A clueing opening `1984. ...`:** send the number through (whatever it is, not just 1), so the
   copy-paster knows how to correct it. Goes to thread 10.
-* **`mdast-util-definitions`: yes** (thread 10). **Underline: bbjank only** (thread 10; `ll-bbcode.ts`
+* ~~**`mdast-util-definitions`: yes** (thread 10).~~ *Pulled forward into thread 14.* **Underline: bbjank only** (thread 10; `ll-bbcode.ts`
   keeps `__text__` as bold). **Fix the dangling client-first pointer** in `CLAUDE.md` and
   `notes/stack.md` (thread 10).
 * **Recap placeholder: leave it as landed** (a blank question recap writes nothing). The Coach's
