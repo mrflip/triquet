@@ -14,8 +14,8 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | landed #166 |
 | 7 | Security review | landed #181 |
-| 8 | Security fixes, certain ones | landing |
-| 9 | Tighten the recap fields | underway |
+| 8 | Security fixes, certain ones | landed #182 |
+| 9 | Tighten the recap fields | in review |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
 | 12 | Template and recap follow-ups | landed #179 |
@@ -209,6 +209,13 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   checked against the session, O5 one session can fill the hunt cap, O6 no security headers, O7
   `prompts.ts` default mustache context, O8 per-run formula budget, O9 image addresses. Thread 8
   fixes the certain ones that need no decision.
+
+* **Certain security fixes (thread 8, #182).** O4 a session counts as an ident only while it
+  holds it; O5 99 hunts per username (`testing:makeHunt` exempt, test-only); O7 prompts render in
+  `OwnKeysContext` (`src/lib/mustachery.ts`), shared with templating; O6 four security headers on
+  every response, no CSP. *Review:* clean. Open: O5 only partly closed (unlimited usernames per
+  session); `X-Frame-Options: DENY` blocks outside embedding; O1, O2, O3, O8, O9 and images in
+  filled values wait on the Coach.
 
 ## Migration chain `recap`
 
