@@ -55,6 +55,11 @@ Beyond CLAUDE.md and its auto-loads (`notes/stack.md`, `notes/testing.md`, `note
 * **Hard things go to `whiteboard/TODO.md`**, under a section headed for the sprint and thread
   (`## From recap sprint, thread N: ...`), and into the report. "Do not be a hero."
 * Mustache gets a second importer (thread 4): `notes/stack.md`'s *mustache* entry names it.
+* **Targeted e2e, for a fast turnaround (the Coach, 2026-10-07).** Prove with `pnpm e2e --touched`
+  (only the spec files the branch's paths reach; a path the map does not name runs the whole suite);
+  use `pnpm e2e:smoke` for a quick signal while building, `pnpm e2e <spec>` and `pnpm e2e:rerun` to
+  repair. A spec asks for its layout up front with `test.use({ layout: ... })` (#160). A new spec
+  file needs one `@smoke` test and a `SpecCorners` entry in `scripts/spine.ts`.
 
 ## Decisions taken in YOLO
 

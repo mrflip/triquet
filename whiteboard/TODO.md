@@ -1,5 +1,15 @@
+## Tiny Tasks
+
+* widget remote call errors should log to console. Probably lots of things should log to console
+* debug mode for expressions, widgets
+* on a failed bot call, include the input and the error in the logs and in the popup error sigil
+* making a new entry is hard. Does each need to be a widget, or can there be a single widget for entry and the widgeting
+  chooses? (I'm not sure, discuss)
+
 
 ## Known Bugs
+
+* wontfix: strikethru as fancy spoilers in markdown: I don't know if we want it and it means clicking to hide, and it would be weird in editing.
 
 * **Better 404 pages.** An address that leads nowhere (an old or mistyped one, `/~undefined/...`)
   gets Next's bare not-found. It should say what was asked for, why it found nothing (no such org,
