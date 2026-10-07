@@ -186,6 +186,11 @@ const HelperSafetyCases: [string, Record<string, unknown>, string, string][] = [
   ["[{{#Quote}}x{{/Quote}}]",                            {},                                     "[]",          'a helper\'s name is matched exactly'],
 ]
 
+/** A template calling `oneline` around `{{qn.text}}`, `depth` deep */
+function onelinesAround(depth: number): string {
+  return '{{#oneline}}'.repeat(depth) + '{{qn.text}}' + '{{/oneline}}'.repeat(depth)
+}
+
 describe("Helpers", () => {
   it.each(HelperCases)('%j over %j => %j: %s', (template, qn, expected) => {
     expect(Templating.fill(template, bagWithQn(qn))).to.deep.eq({ markdown: expected, issue: null })
@@ -214,6 +219,18 @@ describe("Helpers", () => {
     const filled = Templating.fill('{{#qns}}{{#oneline}}x{{/oneline}}{{/qns}}', bagHolding({ qns }))
     expect(filled.issue).to.match(/reads too much/)
     expect(Templating.fill('{{#qns}}x{{/qns}}', bagHolding({ qns })).issue).to.eq(null)
+  })
+
+  it("counts a section's own text as it is written out, so a long text a list repeats is stopped before a helper is handed it", () => {
+    const qns = Array.from({ length: 20 }, () => ({}))
+    const repeated = '{{#qns}}{{#qns}}{{#qns}}a' + '\n'.repeat(20) + '{{/qns}}{{/qns}}{{/qns}}'
+    expect(Templating.fill(`{{#oneline}}${repeated}{{/oneline}}`, bagHolding({ qns })).issue).to.eq('This template comes to far too much text to show.')
+  })
+
+  it("stops helpers inside helpers once they have shaped too much, however little the fill comes to", () => {
+    const held = bagWithQn({ text: 'x'.repeat(90_000) })
+    expect(Templating.fill(onelinesAround(11), held).issue).to.eq(null)
+    expect(Templating.fill(onelinesAround(12), held).issue).to.eq('This template shapes too much text: a helper inside a helper inside a helper, perhaps.')
   })
 
   it("counts what a helper adds against the characters a fill may come to", () => {

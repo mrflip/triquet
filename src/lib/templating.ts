@@ -50,10 +50,18 @@ export const FillBudget = 10_000
 
 /**
  * The longest a filled template may come to; anything longer is refused rather than drawn. What
- * its tags fill in is counted as it goes, so a tag filling in a whole list's JSON, again and
- * again, is stopped before it is built.
+ * its tags fill in, and its own text each time a section writes it out again, are counted as they
+ * go, so a tag filling in a whole list's JSON again and again, or a long line of text repeated by
+ * a list inside a list, is stopped before it is built, and before any helper is handed it.
  */
 export const FilledMax = 100_000
+
+/**
+ * The most characters one fill's helpers may shape, all told. Each helper is handed what its
+ * section came to, so a helper inside a helper inside a helper shapes the same text again and
+ * again; past this, the fill is stopped rather than left to hang the page.
+ */
+export const ShapedMax = 1_000_000
 
 /** Said when a fill is stopped for spending more than `FillBudget` */
 const OverBudget = 'This template reads too much: a list inside a list inside a list, perhaps.'
@@ -61,8 +69,11 @@ const OverBudget = 'This template reads too much: a list inside a list inside a 
 /** Said when a fill comes to more than `FilledMax` characters */
 const OverLong = 'This template comes to far too much text to show.'
 
-/** What one fill has left: lookups and section passes, shared by every context it pushes, and characters its tags may fill in */
-type Budget = { left: number, charsLeft: number }
+/** Said when a fill's helpers shape more than `ShapedMax` characters */
+const OverShaped = 'This template shapes too much text: a helper inside a helper inside a helper, perhaps.'
+
+/** What one fill has left, shared by every context it pushes: lookups and section passes, characters it may write out, and characters its helpers may shape */
+type Budget = { left: number, charsLeft: number, shapingLeft: number }
 
 /** A helper: what a section it is called as came to, filled in, and that shaped */
 export type HelperT = (filled: string) => string
@@ -102,9 +113,15 @@ type SectionTokenT = [string, string, number, number, string[][], number]
 
 /**
  * Mustache's writer, with a section named for a helper (`Helpers`) filled in, then handed to the
- * helper, in place of reading the bag.
+ * helper, in place of reading the bag; and the template's own text counted against the fill's
+ * budget each time it is written out.
  */
 class FillWriter extends Mustache.Writer {
+  override renderTokens(tokens: string[][], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
+    (context as BagContext).spendText(tokens)
+    return super.renderTokens(tokens, context, partials, typed, config)
+  }
+
   override renderSection(token: string[], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
     const helper = helperFor(token[1] ?? '')
     if (helper === undefined) { return super.renderSection(token, context, partials, typed, config) }
@@ -139,8 +156,9 @@ function spendChars(budget: Budget, filling: string): string {
  * The context a template is rendered in: a key reads only what the bag itself holds at that key,
  * never anything a JavaScript object inherits (`constructor`, `toString`, an array's `map`), and a
  * value that is a function is never called. A helper's bare name reads as nothing. Every lookup,
- * every pass through a section, and every helper called counts against one shared budget, and what
- * a helper adds counts against the characters left.
+ * every pass through a section, and every helper called counts against one shared budget; the
+ * template's own text each time it is written out, and what a helper adds, count against the
+ * characters left; what a helper is handed counts against the characters helpers may shape.
  */
 class BagContext extends Mustache.Context {
   private readonly budget: Budget
@@ -169,9 +187,18 @@ class BagContext extends Mustache.Context {
     return this.parent?.lookup(dotkey)
   }
 
-  /** What `helper` makes of `filled`, spending one of the budget, and whatever it adds from the characters left */
+  /** Spends the characters of the template's own text among `tokens`, about to be written out once more */
+  spendText(tokens: readonly string[][]): void {
+    for (const [tokenkind, text] of tokens) {
+      if (tokenkind === 'text') { spendChars(this.budget, text ?? '') }
+    }
+  }
+
+  /** What `helper` makes of `filled`, spending one of the budget, `filled` from the characters helpers may shape, and whatever it adds from the characters left */
   shape(helper: HelperT, filled: string): string {
     spend(this.budget)
+    this.budget.shapingLeft -= filled.length
+    if (this.budget.shapingLeft < 0) { throw new Error(OverShaped) }
     const shaped = helper(filled)
     this.budget.charsLeft -= Math.max(0, shaped.length - filled.length)
     if (this.budget.charsLeft < 0) { throw new Error(OverLong) }
@@ -209,7 +236,7 @@ function ownAt(view: unknown, keypath: readonly string[]): { held: boolean, val:
 export function fill(template: string, bag: TemplateBag): FilledT {
   const issue = issueOf(template)
   if (issue !== null) { return { markdown: template, issue } }
-  const budget: Budget = { left: FillBudget, charsLeft: FilledMax }
+  const budget: Budget = { left: FillBudget, charsLeft: FilledMax, shapingLeft: ShapedMax }
   try {
     const markdown = Filler.render(template, BagContext.over(bag, budget), undefined, { escape: (val: unknown) => spendChars(budget, fillingOf(val)) })
     return markdown.length > FilledMax ? { markdown: template, issue: OverLong } : { markdown, issue: null }
