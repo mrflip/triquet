@@ -136,8 +136,10 @@ Settled; reach for these before writing the equivalent.
   reason `remark-gfm` is refused, below) and **micromark-extension-gfm-autolink-literal** with
   **mdast-util-gfm-autolink-literal**, for bare addresses. **mdast-util-to-string** gives a node's
   plain text, **micromark-util-sanitize-uri**'s `normalizeUri` percent-encodes an address so no
-  bracket or quote in it can end a tag, and `@types/mdast` types the tree. Added Oct 2026 by the
-  recap sprint without asking first, under the rule above. Parse only; it
+  bracket or quote in it can end a tag, **mdast-util-definitions** finds a reference link's
+  definition wherever in the document it stands (a quote, a list item; the first of two, as
+  CommonMark has it), and `@types/mdast` types the tree. Added Oct 2026 by the recap sprint without
+  asking first, under the rule above (`mdast-util-definitions` with the Coach's yes). Parse only; it
   renders nothing, so the rich-text questions under Discuss stay open. Added Sept 2026 without
   asking first.
 * **mustache** (mustache.js, with `@types/mustache`) for an `aibot` widget's prompt template,

@@ -75,6 +75,8 @@ const BbjankCases: [string, string, string][] = [
   ["[*a*](https://x.com/a]b)",          "[url=https://x.com/a%5Db][i]a[/i][/url]",          'a bracket in an address is encoded, so it cannot end the tag'],
   ["[ref link][r]\n\n[r]: https://ex.com/r", "[url=https://ex.com/r]ref link[/url]",        'a reference link is the link its definition makes'],
   ["[nowhere][missing]",                "[nowhere][missing]",                               'a reference to no definition is its text'],
+  ["> [ref][r]\n>\n> [r]: https://ex.com/r", "[list][url=https://ex.com/r]ref[/url][/list]", 'a definition inside a quote is found'],
+  ["[ref][r]\n\n[r]: https://ex.com/1\n[r]: https://ex.com/2", "[url=https://ex.com/1]ref[/url]", 'a label defined twice is its first definition, as CommonMark has it'],
   // images:
   ["![Alt here](https://i.imgur.com/ivJKx8U.jpeg)", "[img]https://i.imgur.com/ivJKx8U.jpeg[/img]\n[list](Alt here)[/list]", "an image's alt text goes below it in parentheses"],
   ["![](https://i.imgur.com/x.png)",    "[img]https://i.imgur.com/x.png[/img]",             'an image with no alt text is the image alone'],
@@ -144,6 +146,18 @@ const YoutubeCases: [string, string | undefined, string][] = [
   ["https://notyoutube.com/watch?v=SZXHoWwBcDc",     undefined,     'a host merely ending in youtube.com is not YouTube'],
   ["not a url",                                      undefined,     'what is no address is no video'],
 ]
+
+describe('indentsQuoted', () => {
+  it("writes the doc block's examples", () => {
+    expect(Bbjank.indentsQuoted('Who wrote\n    *verse*')).to.eq('Who wrote\n> *verse*')
+    expect(Bbjank.indentsQuoted('- one\n    - two')).to.eq('- one\n    - two')
+  })
+
+  it("closes a deeper quote before a shallower line, as the screen does, and leaves a fenced code block's indents alone", () => {
+    expect(Bbjank.indentsQuoted('    verse\nWho?')).to.eq('> verse\n\nWho?')
+    expect(Bbjank.indentsQuoted('```\n    code\n```')).to.eq('```\n    code\n```')
+  })
+})
 
 describe('youtubeIdOf', () => {
   for (const [url, expected, blurb] of YoutubeCases) {

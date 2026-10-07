@@ -1,4 +1,5 @@
 import type * as MT from 'mdast'
+import { definitions as definitionsOf, type GetDefinition } from 'mdast-util-definitions'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmAutolinkLiteralFromMarkdown } from 'mdast-util-gfm-autolink-literal'
 import { gfmStrikethroughFromMarkdown } from 'mdast-util-gfm-strikethrough'
@@ -52,10 +53,8 @@ export const RuleLine = '-'.repeat(40)
 const ItemIndent = '  '
 
 type FlowNode = MT.RootContent
-type Definitions = Map<string, MT.Definition>
-
-/** What every writer needs from the document: its source, the lines put in to close a quote, and its link definitions by identifier */
-type Context = { source: string, closers: Set<number>, definitions: Definitions }
+/** What every writer needs from the document: its source, the lines put in to close a quote, and its link definitions by identifier, wherever in the document each stands */
+type Context = { source: string, closers: Set<number>, definitions: GetDefinition }
 
 /**
  * Markdown as the league's message boards take it. Strikeout becomes a spoiler; a quote opening
@@ -83,10 +82,20 @@ type Context = { source: string, closers: Set<number>, definitions: Definitions 
 export function toBbjank(markdown: string): string {
   const { source, closers } = quotedByIndent(markdown.replaceAll(CarriageReturnRE, '\n'))
   const tree = parse(source)
-  const definitions: Definitions = new Map(tree.children
-    .filter((node): node is MT.Definition => node.type === 'definition')
-    .map((definition) => [definition.identifier, definition]))
-  return blocksOf(tree.children, { source, closers, definitions })
+  return blocksOf(tree.children, { source, closers, definitions: definitionsOf(tree) })
+}
+
+/**
+ * `markdown` with its indents read as quotes, as `toBbjank` reads them before anything else: every
+ * four spaces a line opens with a quote level (`> `), each line quoted as deep as it is indented,
+ * and a list's, a fenced code block's and an HTML block's own indents left as they are. For a text
+ * that is to be set inside a quote of its own, where an indent would read as code.
+ *
+ * @example indentsQuoted('Who wrote\n    *verse*')  // => 'Who wrote\n> *verse*'
+ * @example indentsQuoted('- one\n    - two')       // => '- one\n    - two'
+ */
+export function indentsQuoted(markdown: string): string {
+  return quotedByIndent(markdown.replaceAll(CarriageReturnRE, '\n')).source
 }
 
 /** The markdown's tree: CommonMark, with GFM's `~~strikeout~~` (never a single `~`) and bare web addresses */
@@ -229,7 +238,7 @@ function inlineOf(node: MT.PhrasingContent, ctx: Context): string {
   case 'link':           { return linkOf(node, ctx, isBare(node, ctx)) }
   case 'image':          { return imageOf(node) }
   case 'linkReference':  { return referenceOf(node, ctx) }
-  case 'imageReference': { return imageOf({ type: 'image', url: ctx.definitions.get(node.identifier)?.url ?? '', alt: node.alt }) }
+  case 'imageReference': { return imageOf({ type: 'image', url: ctx.definitions(node.identifier)?.url ?? '', alt: node.alt }) }
   default:               { return textOf(node) }
   }
 }
@@ -269,7 +278,7 @@ function linkOf(link: MT.Link, ctx: Context, bare: boolean): string {
 
 /** A reference-style link (`[text][label]`), written as the link its definition makes it */
 function referenceOf(reference: MT.LinkReference, ctx: Context): string {
-  const definition = ctx.definitions.get(reference.identifier)
+  const definition = ctx.definitions(reference.identifier)
   if (! definition) { return inlinesOf(reference.children, ctx) }
   return linkOf({ type: 'link', url: definition.url, children: reference.children }, ctx, false)
 }
