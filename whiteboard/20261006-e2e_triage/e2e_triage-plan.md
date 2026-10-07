@@ -3,6 +3,7 @@
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
 in session e2e_triage. **Status:** thread 6 underway: threads 1 to 5 landed (#156 to #160); the Coach released thread 6 (the lock)
 on 2026-10-07, after reading the measurements in `human/20261006-sprint_e2e_triage_paused.md`.
+Thread 6 landed (#169); thread 7, a follow-up the Coach asked for in chat, underway.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front
 door, make a hunt, open its quiz (`startHunt` in `e2e/support.ts`). **Corner** = the specs the
@@ -356,6 +357,30 @@ the hold and before its own catch-up, an order older than this sprint. A spec fi
 in a corner the branch proved, is then not required by that bid. Thread 6 already reorders a
 catch-up ahead of the run; when it is cut, it also moves the scope check after the bid's catch-up,
 or says why not.
+
+### 7. A checkout that moves onto a new dependency installs it
+
+Coach's word, in chat on 2026-10-07, choosing "Install, then fix": the orchestrator runs
+`pnpm install` in the main checkout, then cuts "a small follow-up thread: spine.ts imports
+proper-lockfile lazily, and catchup/land reinstall when the lockfile changed."
+
+*Orchestrator:* thread 6 landed `import * as Lockfile from 'proper-lockfile'` at the top of
+`scripts/spine.ts`, and only `pnpm worktree` installs packages (into the new worktree). So the main
+checkout, and any worktree that caught up onto #169, failed every spine command with
+`ERR_MODULE_NOT_FOUND` until someone ran `pnpm install`. Two halves:
+
+* **Lazy:** spine.ts reaches proper-lockfile only where the lock is taken (a dynamic `import()`
+  inside `takeE2eLock`, or however reads best), so `sweep`, `top`, `worktree`, `catchup` and `land`
+  never need a package they do not use.
+* **Reinstall on move:** wherever the spine moves a checkout's files to a commit whose
+  `pnpm-lock.yaml` differs from the one it stood on (`catchup` in a worktree; `land`, `sweep` and
+  the replay moving the main checkout onto a new top), run `pnpm install --frozen-lockfile
+  --prefer-offline` there, as `worktree` already does, and say so in one line. Only a lockfile
+  change triggers it. The main checkout's `node_modules` is derived state, so the spine installing
+  there is the same kind of write as the landing that moved it; note that in `notes/git_hygiene.md`.
+
+Likely touches: `scripts/spine.ts`, `tests/scripts/spine.test.ts`, `notes/git_hygiene.md`. Depends on:
+thread 6 (landed, #169).
 
 ## Running order
 
