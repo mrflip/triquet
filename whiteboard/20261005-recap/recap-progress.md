@@ -14,7 +14,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | landed #166 |
 | 7 | Security review | landed #181 |
-| 8 | Security fixes, certain ones | in review |
+| 8 | Security fixes, certain ones | landing |
 | 9 | Tighten the recap fields | underway |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
