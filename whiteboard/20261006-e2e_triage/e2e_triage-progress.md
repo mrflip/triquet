@@ -12,7 +12,7 @@
 | 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
 | 6 | per-container lock on full runs, catch up on acquiring | landed #169 |
-| 7 | install a new dependency when a checkout moves onto it | underway |
+| 7 | install a new dependency when a checkout moves onto it | landing |
 
 ## Measurements
 
