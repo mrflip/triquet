@@ -80,14 +80,16 @@ test('a hunt starts on the main branch, and a smith can switch it from the hunt\
 test('a milestone names the branch it marks', async ({ page }) => {
   const quizPath = `${new URL(page.url()).pathname}${new URL(page.url()).search}`
   await page.goto(Routes.huntPath(huntOf(page)))
-  await page.getByRole('textbox', { name: 'Branch' }).fill('playtest')
+  await page.getByRole('textbox', { name: 'Branch' }).fill('Play Test')
   await page.getByRole('button', { name: 'Switch branch' }).click()
-  await expect(page.getByRole('button', { name: 'Switch branch' })).toBeDisabled()
+  // The button is disabled while the switch is under way too, so wait for it to land before
+  // leaving: the box shows the branch as the hunt now holds it, tidied into a label, only then.
+  await expect(page.getByRole('textbox', { name: 'Branch' })).toHaveValue('play_test')
 
   await page.goto(quizPath)
   await openManage(page)
   await page.getByRole('button', { name: 'Mark a milestone' }).click()
-  await expect(page.getByRole('status')).toHaveText(/^playtest_/)
+  await expect(page.getByRole('status')).toHaveText(/^play_test_/)
 })
 
 test("the history downloads from the hunt's own page too, named for the hunt", async ({ page }) => {
