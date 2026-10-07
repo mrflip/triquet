@@ -19,7 +19,17 @@ unreviewed at the Coach's word. Suites: `pnpm justify` green; `pnpm e2e --touche
     in a `{{#qns}}` item, on a column, the line-break rule, and safety: bare names, a value naming a
     helper, a value holding a helper's section, a function under a helper's name, inherited names,
     case, budget and length); `tests/lib/shaping.test.ts` (moved from `recap.test.ts`, one case added).
-  - Docs: `notes/vocabulary.md` (*template helper*), `notes/stack.md` (mustache entry).
+  - `Recap.DefaultTemplate` uses them, closing thread 16's gaps 6 to 8 in the default itself:
+    `> {{#quote}}{{clueing}}{{/quote}}`, `> {{#quote}}{{hint}}{{/quote}}`,
+    `~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~`, `{{#apart}}{{recap}}{{/apart}}`. The pinned
+    *EverythingNote* now keeps Q1's verse and OR ELSE hint inside its quote and Q3's two-line
+    answer on one line in its spoiler; thread 16's gap tests for 6 to 8 now hold the default to the
+    closed output, and their JSONata recipes (`quoted_*`, `answer_line`, `recap_below`) are gone
+    from the tests and the how-to (`in_order` and `solved_by` stay).
+  - Docs: `notes/vocabulary.md` (*template helper*; the default reads the helpers), `notes/stack.md`
+    (mustache entry), the Recap panel's template blurb, `human/20261007-recap_template.md` (a
+    *template helpers* section; gaps 6 to 8 marked closed), `whiteboard/TODO.md` (thread 16's
+    "mustache lambda" item struck).
 * **Decisions taken**:
   - **Override the writer's `renderSection`, not mustache's lambdas.** A mustache lambda is a
     function found by lookup; `BagContext.lookup` still never hands back a function. The helper is
@@ -38,3 +48,17 @@ unreviewed at the Coach's word. Suites: `pnpm justify` green; `pnpm e2e --touche
     Decided from the template's text, never the data.
   - **Budgets**: each helper call spends one of `FillBudget`; what a helper adds (`> ` per line)
     counts against `FilledMax` as it goes.
+* **Deviations**: built on thread 16's branch before it landed. Thread 16 was blocked (the main
+  checkout's uncommitted `src/lib/recap.ts`), so this branch was rebased locally onto
+  `20261007-recap_basic` as it stood (d92ba4f) to switch the default; `pnpm catchup` onto 16's
+  landing drops its commits as already applied.
+* **Discoveries**:
+  - Mustache's own lambda path (a function found by lookup, called with the raw section text and a
+    `render`) would have meant letting `lookup` return functions; overriding `renderSection` is
+    smaller and keeps the "nothing in the bag is called" rule absolute.
+  - A section token is `[kind, name, beg, end-of-opening, tokens, beg-of-closing]`; `@types/mustache`
+    types it `string[]`, hence one cast (`SectionTokenT`) in `templating.ts`.
+  - The recap bag's `played` shaped values and the helpers are now twins built from the same
+    shapers (`lib/shaping.ts`); whether `played` stays is the Coach's call (TODO).
+* **For the Coach**: the landing needs the main checkout's uncommitted `src/lib/recap.ts` gone, as
+  thread 16's does. No lint or type suppressions.
