@@ -110,8 +110,8 @@ by label* (the bullet that follows "open PR #66"), and *Deferred*, *Staleness*.
 * A YouTube embed in the middle of a paragraph leaves the space before it at the end of its line.
 * A quote's `{AS: name}` holding emphasis (`{AS: **Q1**}`) is no name: the quote is a `[list]` with
   the marker kept as text. Only a plain-text name is read.
-* No underline from markdown: the plan refused `<u>`, and nothing in the parser falls out for it.
-  BBCode typed in the text passes through as typed, so `[u]..[/u]` underlines.
+* ~~No underline from markdown~~: *thread 10: `__text__` is `[u]` in bbjank (the source at the
+  node says which marker made it).*
 * Not handled, written as their text: footnotes, tables, task lists (none of those extensions is
   loaded).
 
@@ -146,7 +146,8 @@ effort yet:
   choosing which BBCode an author may still write, and trying an escape on the board. Thread 7
   (security review) will look at it.
 * ~~A clueing opening `1984. ...` loses its number in the recap~~: since thread 14 the clueing follows
-  `1. ` on the quote's line, so it is text (the bbjank writer still drops a list's start elsewhere).
+  `1. ` on the quote's line, so it is text. Elsewhere (a head, a recap) thread 10's writer names the
+  start, `[list=1984]`, so the poster sees what the board renumbers.
 * `Correct Answer %:` reads only a column labelled `correct_pct` (thread 14, the Coach's answer);
   nothing in the app records the share yet.
 * The league's own form writes `{Add Optional Text For Qn Here or Delete}` where a question has no
@@ -193,6 +194,18 @@ should still do. The gap list, with a JSONata column for each gap one can close,
   template helpers `{{#quote}}`, `{{#oneline}}`, `{{#apart}}` close the shaping gaps in the
   default.* Left: `in_order` as a library widget, or not; and whether `played` and its shaped
   values (now the helpers' twins) stay in the recap bag. The Coach's call.
+
+## From recap sprint, thread 10: the markdown dialect
+
+The dialect is written down in `notes/markdown.md`. Left, small:
+
+* **Bare addresses are links in bbjank but text on screen.** The screen loads only GFM's
+  strikethrough; `micromark-extension-gfm-autolink-literal` would make `https://..` and `www.`
+  clickable there too, as one more remark plugin beside it. Not asked for; one line when wanted.
+* **A text opening `1984.` after a numbered list joins that list** (CommonMark continues a list
+  across a blank line whatever its numbers), on screen and in bbjank alike. `1984\.` keeps it a year.
+* **The LL export writes strikeout, links and images as typed**: `ll-bbcode.ts` converts only
+  emphasis and quotes. The league's site has its own image and link syntax, if wanted.
 
 ## From recap sprint, thread 6: quiz-level widgetings and entries
 

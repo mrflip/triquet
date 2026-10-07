@@ -130,7 +130,9 @@ Settled; reach for these before writing the equivalent.
 * **mdast-util-from-markdown**, the markdown parser under remark (and so already here through
   `@next/mdx`), for reading where markdown puts bold, italics and quote markers: `lib/ll-bbcode.ts`
   writes them as BBCode and spaces by the parsed offsets and leaves every other character as typed;
-  `lib/bbjank.ts` walks its tree to write the message boards' BBCode. Two of GFM's extensions ride
+  `lib/bbjank.ts` walks its tree to write the message boards' BBCode; `lib/markdown.ts`
+  (`Markdown.treeOf`) is the one parse both read, and where the dialect's indent rule finds a
+  list's or a fence's own indents (`notes/markdown.md`). Two of GFM's extensions ride
   with it there, each a micromark syntax and its mdast half: **micromark-extension-gfm-strikethrough**
   with **mdast-util-gfm-strikethrough** (`singleTilde: false`, so `~50 years` stays a tilde: the
   reason `remark-gfm` is refused, below) and **micromark-extension-gfm-autolink-literal** with
@@ -160,8 +162,11 @@ Settled; reach for these before writing the equivalent.
   to React elements; never reach for `dangerouslySetInnerHTML` or `rehype-raw`, and HTML typed
   into a field shows as the characters typed. Rendering happens in the browser, as all user data
   does here. **Not `remark-gfm`**: its strikethrough takes a single `~`, and trivia is full of
-  `~50 years`. Added Sept 2026 at a Coach's request, settling the display half of the rich-text
-  question under Discuss.
+  `~50 years`. Strikeout reaches the screen instead as GFM's one extension (the packages under
+  *mdast-util-from-markdown*, `singleTilde: false`), wrapped in a few-line remark plugin in
+  `lib/markdown.ts`, the way `remark-gfm` itself wires them; `del` is on the allowlist. What the
+  dialect is, and what each place makes of it: `notes/markdown.md`. Added Sept 2026 at a Coach's
+  request, settling the display half of the rich-text question under Discuss.
 * **Recharts** (3.x) for charts: the most-downloaded React charting library, declarative
   components over SVG, peer-compatible with React 19. Its first use is the category spread's radar
   (`components/panels/SpreadPanel.tsx`). Colour a series from the palette's `seriesA` and

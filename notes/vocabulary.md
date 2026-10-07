@@ -293,8 +293,12 @@ words above.
 * **bbjank** -- the league's *message-board* BBCode, as the Coach calls it: what its forum posts
   take, apart from the BBCode its quiz import and the smith's note take (`ll-bbcode.ts`). A line
   break is a line break (never `[br]`), strikeout is `[spoiler]`, a quote naming its speaker
-  (`> {AS: Q1}`) is `[quote="Q1"]` and any other quote an indenting `[list]`. `lib/bbjank.ts`
-  writes it from markdown.
+  (`> {AS: Q1}`) is `[quote="Q1"]` and any other quote an indenting `[list]`, and `__text__`
+  underlines. `lib/bbjank.ts` writes it from markdown.
+* **the dialect**, **our markdown** -- the markdown a quiz's text is written in: CommonMark, with
+  line breaks kept, `~~strikeout~~` (never a single `~`) and **the indent rule** (four leading
+  spaces a quote level, each line quoted as deep as it is indented). What the screen, bbjank and
+  the LL export each make of it is in `notes/markdown.md`.
 
 ## Categories
 
