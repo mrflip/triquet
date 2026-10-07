@@ -227,8 +227,10 @@ words above.
     the **default recap template** (`Recap.DefaultTemplate`). Filled in once over the recap bag,
     then written in bbjank once, whole: mustache, then markdown, then the bbjank writer, last.
     Emptying its box puts the quiz back on the default.
-  - **recap bag** -- what the recap template reads: the template bag, `recap_head` and
-    `recap_tail` (each filled in first), and **played**: the questions the recap covers (no
+  - **recap bag** -- what the recap template reads: the template bag, its questions' templated
+    texts filled in (so `{{clueing}}` inside `{{#qns}}` is a templated clueing filled in; a column's
+    own copy of the questions, a formula's work, holds them as typed), `recap_head` and
+    `recap_tail` (each filled in first, over that bag), and **played**: the questions the recap covers (no
     archived, no alternates, none never written into), in rank order, each as `qns` holds a
     question, its templated fields filled in, plus `number` (its place, from 1), `pct` (the
     `correct_pct` column's value, on one line; blank without one), and its own fields
@@ -237,8 +239,9 @@ words above.
     the template opened: every later line opens `> `), `oneline.<field>` (on one line), and
     `below.<field>` (safe on the line after another: a first line of `---` is set apart, so it
     never makes a heading). **The default recap template reads none of these**: only the template
-    bag (`{{#qns}}`, each question's own fields and columns by label, `{{rank}}` for its number,
-    a section on `rank` to skip the archived and unnumbered), `recap_head` and `recap_tail`, plain
+    bag (`{{#qns}}`, which holds no archived question, each question's own fields and columns by
+    label, `{{rank}}` for its number, a section on `rank` to skip the unnumbered and an inverted
+    one on `secondary` to skip the alternates), `recap_head` and `recap_tail`, plain
     mustache and the template helpers (which shape as these do), so every line it writes is one an author can see and change; `played` and the
     pre-shaped values stay in the bag for an author's own template. It quotes a question's own hint
     after `...OR ELSE...`, where the LL Export shows the chained-to question's after `...BUT NOT...`.
@@ -247,10 +250,12 @@ words above.
   `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per
   source, never per column. A templated text is **filled in** (`Templating.fill`, mustache) over
   the **template bag** -- the formula's bag less `params` and `widgeting_label`, every question
-  carrying every widgeting's widgeted, so `{{qn.photo}}` is that column's value -- before the
+  carrying every widgeting's widgeted, so `{{qn.photo}}` is that column's value, and its questions
+  told apart: `qns` holds those a screen shows (the alternates among them), `quiz.questions` every
+  one, the archived too -- before the
   markdown parser reads it, and the sanitizer reads what that makes, last. Shown filled in on the
-  grid and in the LL Export, and edited as typed. Only a templated text may show an image
-  (`https` only).
+  grid and in the LL Export, and edited as typed. Any field's markdown may show an image, templated
+  or not (`https` only), held to a thumbnail's height in the grid's cells.
   - **template helper** -- one of the app's three named shapings a template calls as a section
     (`Templating.Helpers`): `{{#quote}}..{{/quote}}`, `{{#oneline}}..{{/oneline}}`,
     `{{#apart}}..{{/apart}}`. The section is filled in, then **shaped** (`lib/shaping.ts`) for a
@@ -395,15 +400,20 @@ than one kind of player. Begun by the categories sprint, October 2026
   category-estimate entry offers (`estimates`, `masie`, `artie`, `poppy`, `average`), worked out on
   render from the hunt's total order and stored nowhere. A formula reads the same parts on the
   widgeted, `qn.<label>.masie`. `question` names the questions' own fields here, and no widgeting may be labelled it.
-* **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `quiz`, `qns`, `qn`,
-  `qn_label`, `quiz_label`, and the running widgeting's `params` and `widgeting_label`. No ids;
-  everything by label. It is **flat**: each earlier widgeting's widgeted sits at `qn.<label>`,
-  beside the question's own fields, and likewise on every question of `qns`. `hunt` and `realm`
-  are where the quiz sits, its **place** (`Runner.placeOf`), which the quiz's history also
-  files it under.
+* **bag** (the quiz bag) -- the document a formula reads: `hunt`, `realm`, `categories`, `quiz`,
+  `qns`, `qn`, `qn_label`, `quiz_label`, and the running widgeting's `params` and
+  `widgeting_label`. No ids; everything by label. It is **flat**: each earlier widgeting's
+  widgeted sits at `qn.<label>`, beside the question's own fields, its `rank`, and its **viz
+  flags**, `archived` and `secondary` (yes-or-nos read off its viz), and likewise on every
+  question of `qns`, which in a formula's bag holds every question, the archived too (a chain to
+  an archived question still reads its hint). `hunt` and `realm` are where the quiz sits, its
+  **place** (`Runner.placeOf`), which the quiz's history also files it under; `categories` are
+  the hunt's, in its total order, each a `label` and a `title`.
 * **reserved** -- the labels no widgeting may take, so the flat bag never shadows a question's
-  own field: every key a question has in the bag (its exposed fields, and `rank`), its views, and
-  `question`. Derived from those lists in one place, never written out twice.
+  own field: every key a question has in the bag (its exposed fields, `rank`, `archived` and
+  `secondary`), its views, and `question`; and, for a widgeting run once for the whole quiz, the
+  quiz's exposed fields and `questions` (`Quiz.bagKeys`). Derived from those lists in one place,
+  never written out twice.
 * **exposed** -- the class-level list of fields a thing shows the outside world. The bag, its
   JSON Schema and the git table are all built from these lists, so hiding a field is one edit. A
   widgeting exposes `status` and `value`; never its `err` or how it ran.

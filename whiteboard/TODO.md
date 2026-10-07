@@ -127,10 +127,10 @@ gear's *Templates*. Left, as not worth a hero's effort yet:
   has no image rule. The league's own image syntax would go there.
 * A templated widgeting that is not a text entry (a JSONata readout, say) can be nominated only
   while already nominated, and nothing fills it on screen: its readout is no markdown face.
-* Categories are not in the template bag: `run.frame.order` holds the hunt's category labels, but
-  not their titles. Add them in `bagOf` once a template wants them.
-* An image that loads after a row has measured itself does not grow the row: `GrowingField`
-  measures on layout, not on an image's load.
+* ~~Categories are not in the template bag~~: thread 12 put `categories` (label and title, in the
+  hunt's total order) in every bag, a formula's and a template's.
+* ~~An image that loads after a row has measured itself does not grow the row~~: thread 12 has
+  `GrowingField` measure again on an image's load, and holds a cell's image to a thumbnail.
 * `lib/ask/prompts.ts` and `lib/templating.ts` each check a template's parse and raw tags; one could
   lend the other its check.
 
@@ -183,12 +183,16 @@ pre-shaped values stay in the recap bag, unused by the default, until the Coach 
 should still do. The gap list, with a JSONata column for each gap one can close, is in
 `human/20261007-recap_template.md`. What only the app can close:
 
-* **The bag does not say which questions are alternates** (nor, but by a blank rank, which are
-  archived): `viz` is not among a question's exposed fields, so neither mustache nor a formula can
-  leave alternates out, or tell an unnumbered question from an archived one. Thread 12's planned
-  `archived` beside an alternate flag closes both.
-* **A templated field reads as typed in `qns`**: mustache never fills a value in again, and JSONata
-  cannot fill a template. The recap bag's `qns` could carry them filled, as `played` does.
+* ~~**The bag does not say which questions are alternates**~~: thread 12 gave each question
+  `archived` and `secondary`, and a template's `qns` leaves the archived out; the default skips the
+  alternates.
+* ~~**A templated field reads as typed in `qns`**~~: thread 12's recap bag carries them filled, in
+  `qns` and `quiz.questions`. Still as typed: a column's own copy of the questions (the `in_order`
+  recipe's list), since a formula reads them before any template is filled.
+* **The default numbers by `rank`, which counts an alternate's place**: with the alternates now left
+  out, the question after one is numbered one high (it was so before, with the alternate shown).
+  The `in_order` column closes it; so would a played-number in the bag. The Coach's call (thread 12
+  asked).
 * ~~If the recipes stay recipes, they could ship as library widgets (`quoted`, `answer_line`,
   `recap_below`, `in_order`), or a mustache lambda be allowed for shaping~~ *Thread 17: the
   template helpers `{{#quote}}`, `{{#oneline}}`, `{{#apart}}` close the shaping gaps in the
@@ -259,4 +263,16 @@ From `0b8079c`:
   - takes the replies an entry carries, and refuses one from a bot not put that text
 
 Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path>`.
+
+## From recap sprint, thread 12: the template and recap follow-ups
+
+* **Images in reviewers' texts.** Images now show in every field's markdown (the Coach's answer),
+  reviewers' guesses, comments and overall note among them: an image a reviewer writes is fetched
+  by every smith who opens the Reviews panel, telling the image's host when (lazily, with no
+  referrer, but by the viewer's address). Thread 7 to weigh whether reviewers' texts keep images.
+* A widgeting already labelled `archived` or `secondary` (or a quiz-wide one labelled `questions`)
+  in production now refuses every write to it, as one labelled `recap` did in thread 1. Worth a
+  look before merging (`human/20261007-recap_followups.md`).
+* A templated widgeting's widgeted is filled in the recap's bag whenever its value is text, a
+  readout's as well as a text entry's; the grid fills only text entries (thread 4's note above).
 

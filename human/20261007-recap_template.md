@@ -1,6 +1,6 @@
 # 2026-10-07: The recap template is editable -- how to write one, and what the default leaves to columns
 
-Recap threads 14, 15, 16 and 17. The Recap panel's *Recap template* (folded, below the tail) holds the
+Recap threads 14, 15, 16, 17 and 12. The Recap panel's *Recap template* (folded, below the tail) holds the
 template the whole note is made by: mustache over markdown, filled in once, then written in bbjank
 once. Empty the box (and click away) to go back to the default; there is no reset button, at your
 word.
@@ -19,8 +19,9 @@ head and tail, filled in), plain mustache, and the three template helpers (threa
 
 {{/recap_head}}
 {{#qns}}
-{{! Only the questions with a rank: those with a Q#, and not archived. }}
+{{! Only the questions with a rank (a Q#), and not the alternates. }}
 {{#rank}}
+{{^secondary}}
 > {AS: Q{{rank}}}{{rank}}. {{#quote}}{{clueing}}{{/quote}}
 {{#hint}}
 >
@@ -33,14 +34,20 @@ Answer: {{#full_answer}}~~**{{#oneline}}{{full_answer}}{{/oneline}}**~~{{/full_a
 Correct Answer %: {{correct_pct}}
 {{#apart}}{{recap}}{{/apart}}
 
+{{/secondary}}
 {{/rank}}
 {{/qns}}
 {{recap_tail}}
 ```
 
+* `{{#qns}}` holds the questions a screen shows: never an archived one (thread 12), alternates
+  included. `{{#quiz.questions}}` holds every question, the archived too.
 * `{{#rank}}..{{/rank}}` is a section on the question's rank (its place in Q# order), which is
-  blank for an archived question and for one with no Q#: so it skips those (and a fresh quiz's
-  blank rows). Inside a section on a field, the field is the context and the question's other
+  blank for one with no Q#: so it skips those (and a fresh quiz's blank rows).
+  `{{^secondary}}..{{/secondary}}` skips the alternates: every question says whether it is
+  `secondary` (an alternate) and whether it is `archived` (thread 12), for a template or a formula.
+* A field the quiz templates reads filled in (thread 12): `{{clueing}}` inside `{{#qns}}` shows a
+  templated clueing as the grid does, not its mustache. So do the head and tail. Inside a section on a field, the field is the context and the question's other
   fields are still found, which is why `{{clueing}}` works inside `{{#rank}}`, and `{{hint}}`
   inside `{{#hint}}`.
 * `{{correct_pct}}` is just a column, read by its label. To put your own expression in place of
@@ -78,6 +85,14 @@ and a column labelled `quote` is read as `{{quote.value}}`. `played`'s `{{onelin
 and the like still work (a dotted name is not a helper). The helpers are code in the app, never
 anything in the quiz's data.
 
+## Also new in thread 12
+
+* **Images in every field**, templated or not: `![alt](https://...)`, https only, held to a
+  thumbnail's height in the grid's cells (the row grows to it once it loads). The recap writes
+  them as bbjank's `[img]`, as before.
+* **Categories in every bag**: `{{#categories}}{{title}}, {{/categories}}` (and `categories` in a
+  formula), the hunt's, round its wheel.
+
 ## The gap list
 
 What the basic default gets wrong that the old shaped values got right, and what closes each. Each
@@ -88,20 +103,31 @@ default itself by the helpers (thread 17).
 
 1. **Order.** `{{#qns}}` is the quiz's own order (the grid's), not Q# order. *Closes with a
    quiz-level column*, placed below the question columns (it reads them as they stand at its
-   place), labelled `in_order`:
-   `[$map(qns[$type(rank) = 'number']^(rank), function($qn, $idx) { $merge([$qn, { 'number': $idx + 1 }]) })]`
+   place), labelled `in_order` -- rewritten in thread 12 to close gaps 2 to 4 as well:
+
+   ```
+   (
+     $ranked := qns[$type(rank) = 'number' and $not(secondary)]^(rank);
+     $unnumbered := qns[$type(rank) != 'number' and $not(archived) and $not(secondary) and clueing != ''];
+     [$map($append($ranked, $unnumbered), function($qn, $idx) { $merge([$qn, { 'number': $idx + 1 }]) })]
+   )
+   ```
+
    -- and the template loops `{{#quiz.in_order.value}}..{{/quiz.in_order.value}}` in place of
-   `{{#qns}}..{{/qns}}`.
+   `{{#qns}}..{{/qns}}`, with `number` for `rank` (in `{{number}}` and the section `{{#number}}`).
+   A formula's `qns` holds every question, the archived too, hence `$not(archived)`. One catch: the
+   column's list is the formula's copy of the questions, so a templated field in it reads as typed
+   (gap 9 stays open down that road).
 2. **Numbering.** `{{rank}}` counts every question with a Q#, alternates too, so the questions
    after an alternate are numbered one high; the old `number` counted only the questions played.
-   *The same column* gives `{{number}}`, counting what it lists -- which still includes alternates
-   (gap 3).
-3. **Alternates are in.** *Needs the app*: the bag does not say which questions are alternates
-   (`viz` is not among the fields formulas and templates see), so neither mustache nor a formula
-   can leave them out. Thread 12 plans an `archived` flag; an alternate flag beside it closes this.
-   For now, clearing an alternate's Q# leaves it out.
-4. **Questions with no Q# are left out** (the old recap put them last). *Needs the app*, the same
-   flag: their rank is as blank as an archived question's, so nothing can tell them apart.
+   Still so in the default, which now leaves the alternate out but numbers by rank. *The same
+   column* gives `{{number}}`, counting only what it lists, alternates left out.
+3. ~~**Alternates are in.**~~ *Closed* (thread 12): every question says whether it is `secondary`,
+   and the default skips them with `{{^secondary}}`.
+4. **Questions with no Q# are left out** (the old recap put them last). *Closable now* (thread 12):
+   with the archived gone from `qns`, a blank rank means no Q#. The column above puts them last,
+   numbered on; the default still leaves them out, since putting them last in plain mustache means
+   a second copy of the whole question block (a template cannot include another).
 5. **The rule under the head** shows even when no question follows. *The quiz-level column* closes
    it: `{{#quiz.in_order.value.0}}`, `***`, `{{/quiz.in_order.value.0}}`.
 6. **Closed by `{{#quote}}`** (thread 17). *Was:* **a multi-line clueing or hint leaves its quote** where a line reads as markdown structure: a
@@ -112,18 +138,19 @@ default itself by the helpers (thread 17).
    sight; a second line opening `- ` turns into a list. The worst of them: it spoiled.
 8. **Closed by `{{#apart}}`** (thread 17). *Was:* **a recap opening `---` or `===`** turned the
    `Answer:` and `Correct Answer %:` lines above it into a heading.
-9. **A templated field shows its mustache as typed** (`By {{qn.author}}`): `qns` holds every field
-   as written, and mustache never fills a filled-in value again. *Needs the app*: JSONata cannot
-   fill a template. The recap bag's `qns` could carry templated fields filled, as `played` does; or
-   write such a text as a `jsonata` column (`'By ' & qn.author.value`) instead of templating it.
+9. ~~**A templated field shows its mustache as typed**~~ *Closed* (thread 12): the recap's bag
+   carries every templated text filled in (fields and text entries), in `qns` and
+   `quiz.questions`, once each, over its own question. Not in a column's copy of the questions
+   (gap 1's catch).
 
 Gained: inside `{{#qns}}` nothing hides a column (`played`'s `quoted`, `oneline`, `below`,
 `number` and `pct` hid columns of those labels), but for the helpers' bare names (`{{quote}}`,
 `{{oneline}}`, `{{apart}}`), read as `{{quote.value}}`.
 
-To close the gaps in the app rather than by columns, the choices as I see them: ship the recipes as
-library widgets; expose an alternate flag, and fill templated fields in the recap's `qns`; or keep
-`played` and its shaped values and name them in the panel. Your call.
+To close the gaps in the app rather than by columns, the choices as I see them: ship the `in_order`
+recipe as a library widget (gaps 1, 2, 4 and 5; thread 12 asked); have the app put a played-number
+beside `rank` (gap 2 alone); or keep `played` and its shaped values and name them in the panel.
+Thread 12 closed gaps 3 and 9 in the app. Your call.
 
 ## Older notes
 
