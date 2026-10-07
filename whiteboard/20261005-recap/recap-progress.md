@@ -13,8 +13,8 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 4 | Field templates | landed #164 |
 | 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | landed #166 |
-| 7 | Security review | landing |
-| 8 | Security fixes, certain ones | pending |
+| 7 | Security review | landed #181 |
+| 8 | Security fixes, certain ones | underway |
 | 9 | Tighten the recap fields | pending |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
@@ -199,6 +199,16 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   `Templating.filledBagOf` fills templated fields once per question for the recap; the default
   skips alternates with `{{^secondary}}`. *Review:* fixed one (image load listener ran after the
   measure). Open: `in_order` as a library widget; images in reviewers' texts (thread 7).
+
+* **Security review (thread 7, #181).** Fixed in the sprint's code: a field template could run a
+  co-smith's tab out of memory (literal text now counted against `FilledMax`, helper input against
+  `ShapedMax`); the indent rule was quadratic (one pass now); images in reviewers' words are links.
+  *Review:* fixed two (nested link from a linked image; the timing test's timeout). Outside the
+  sprint, in `security-findings.md`: O1 open paid ask route (high; needs the Coach), O2
+  `isAdmin` true for everyone (needs the Coach), O3 legacy idents first-come, O4 asker identity not
+  checked against the session, O5 one session can fill the hunt cap, O6 no security headers, O7
+  `prompts.ts` default mustache context, O8 per-run formula budget, O9 image addresses. Thread 8
+  fixes the certain ones that need no decision.
 
 ## Migration chain `recap`
 
