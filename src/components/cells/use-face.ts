@@ -27,7 +27,8 @@ export type TemplatePlaceT = { field: string, quiz: string | null, question: str
 /**
  * Says in the console, as an error, what keeps a template from filling in, each time that changes,
  * with where the template is (`issueReportOf`). The screen says it too; the console is for whoever
- * is tracing why.
+ * is tracing why. The issue is reported without the place mustache stopped reading at
+ * (`issueGistOf`), which moves with every keystroke into a half-typed tag or section.
  *
  * @param issue - What is wrong with the template (`Templating.fill`); null when nothing is.
  * @param field - What an author calls the template's box.
@@ -38,10 +39,25 @@ export type TemplatePlaceT = { field: string, quiz: string | null, question: str
 export function useTemplateIssueReport(issue: string | null, field: string, bag: Pick<Templating.TemplateBag, 'quiz_label' | 'qn_label'> | null): void {
   const quiz = bag?.quiz_label ?? null
   const question = bag === null || bag.qn_label === '' ? null : bag.qn_label
+  const gist = issue === null ? null : issueGistOf(issue)
   useEffect(() => {
-    if (issue === null) { return }
-    console.error(issueReportOf(issue, { field, quiz, question }), { field, quiz, question })
-  }, [issue, field, quiz, question])
+    if (gist === null) { return }
+    console.error(issueReportOf(gist, { field, quiz, question }), { field, quiz, question })
+  }, [gist, field, quiz, question])
+}
+
+/** The place mustache says it stopped reading a template at, ending its message */
+const IssuePlaceRE = / at \d+$/
+
+/**
+ * A template's issue without the place mustache stopped reading at: for an unclosed tag or
+ * section, that is the template's length, so it changes with every keystroke while one is open.
+ *
+ * @example issueGistOf('Unclosed section "played" at 21')  // => 'Unclosed section "played"'
+ * @example issueGistOf('{{> footer}} includes another template, and there are none to include')  // => as it is
+ */
+export function issueGistOf(issue: string): string {
+  return issue.replace(IssuePlaceRE, '')
 }
 
 /**
