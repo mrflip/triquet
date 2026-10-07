@@ -31,7 +31,12 @@ whole), so every existing quiz runs exactly as it did; only new moves and adds c
     the one list and leaves the tiers mixed, delete keeps the mix), `e2e/quiz-entries.spec.ts`
     (one list, tier marks, a quiz entry stepped above a question widgeting survives a reload).
   - Docs: `notes/vocabulary.md` *tier* and *run order* rewritten, *questions pivot* removed (named
-    as history); `whiteboard/TODO.md` thread 6's two pivot items struck.
+    as history); `whiteboard/TODO.md` thread 6's two pivot items struck; `WidgetsPanel`'s doc block
+    and `notes/decisions/2026-10-widgets.md` (*The quiz tier*, an amendment above the old bullet).
+* **For the Coach (deploy)**: #166 is on production. A tab still on that bundle during this
+  deploy sends `move_widgeting` with an index counted in its own tier's list (`add_widgeting` carries no index: it just goes last), which
+  the new server reads as places in the whole list, until it reloads: reload open tabs after
+  deploying.
 * **Decisions taken**:
   - **One list with a tier mark, not two lists.** Two lists cannot show where a quiz widgeting
     sits among question widgetings, and a drag within one list could not express it. With one
