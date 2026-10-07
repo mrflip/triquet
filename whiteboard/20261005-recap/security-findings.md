@@ -1,7 +1,8 @@
 # Recap sprint, thread 7: security findings (2026-10-07)
 
 What thread 7's review found, for thread 8 (which fixes the **certain** ones outside the sprint)
-and the Coach. Each finding: severity, **certain** or **uncertain**, evidence (file:line at
+and the Coach. **Thread 8 fixed O4, O5 (a per-username cap), O6 (the headers, not the CSP) and O7**:
+each is marked *Fixed in thread 8* below, with its commit; the rest stand as thread 7 left them. Each finding: severity, **certain** or **uncertain**, evidence (file:line at
 `3f5cdd5`, the review's base), and a fix sketched. Read this file if you are thread 8, or are
 deciding any of the *For the Coach* calls below. The same list, shorter, is in `whiteboard/TODO.md`
 (*From recap sprint, thread 7: security*).
@@ -107,13 +108,20 @@ or retire them); `hunts.open` names smiths only to a session with a username.
 **O4. `askerOf` trusts the newest identing without checking the ident is still the session's** --
 info (defense in depth); **certain**, not exploitable today. `convex/reading.ts:23-26`
 (`identFor`), `convex/functions.ts:41-43`. Fix: treat `ident.user_id !== user_id` as anonymous, with
-a test.
+a test. **Fixed in thread 8** (4e2d563): `identFor` answers null when the ident its newest identing
+names is not held by the session, so `askerOf` makes that session anonymous.
 
 **O5. One session can use up the app's hunt cap** -- low; **certain**.
 `convex/writing/account_actions.ts:88-91` refuses past `PA.HuntsInApp.max` (999,
 `src/lib/vv/patterns.ts:282`), counted across the app, with no per-ident limit; anonymous sign-in is
 unlimited (`convex/auth.ts`). Fix sketch: a per-ident cap on hunts made, or a rate limit on
-`new_hunt` and sign-in.
+`new_hunt` and sign-in. **Fixed in thread 8, as far as one username** (5be5d60): `new_hunt` refuses
+past `PA.HuntsPerOrg` (99, a tenth of the app's) hunts in the maker's org (`orgFull`), counted by
+the hunts' `by_orglabel_and_label` index (`huntsCountedInOrg`); `testing:makeHunt`, the admin's way
+for e2e (one ident makes a whole one-worker run's hunts), goes past it (`makeHuntFor`). **Left, for
+the Coach:** a session may assert any number of new usernames, and anonymous sign-in is unlimited,
+so a determined session still fills the app ten usernames at a time; closing that is a rate limit on
+sign-in and new idents (`notes/stack.md`, *Later*: rate limiting), a design call.
 
 **O6. No security headers** -- low; **certain** (the absence); the CSP part **uncertain**.
 `next.config.ts` sets no `headers()`. Clickjacking matters little (the token lives in partitioned
@@ -121,7 +129,11 @@ localStorage), but nothing limits an XSS, which would take a refresh token good 
 (`convex/auth.ts`, `totalDurationMs: 3650 * DayMs`): a permanent username takeover. Fix sketch:
 `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 strict-origin-when-cross-origin` now (certain); a `script-src` CSP needs Next's inline scripts
-handled (nonces), so try it on a preview first (uncertain).
+handled (nonces), so try it on a preview first (uncertain). **Headers fixed in thread 8** (d929b70):
+`next.config.ts`'s `SecurityHeaders`, on every response: `X-Frame-Options: DENY` (in place of
+`frame-ancestors`, which is CSP, held back with the rest of it), `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` refusing camera,
+microphone, geolocation, payment and USB. **Left:** the CSP, a discussion (`notes/stack.md`).
 
 **O7. Prompt templates use mustache's own context** -- low; **certain**.
 `src/lib/ask/prompts.ts:23` (`Mustache.render` with the default `Context`): `{{constructor}}`,
@@ -129,7 +141,9 @@ handled (nonces), so try it on a preview first (uncertain).
 function; used as a section, mustache then calls that empty function too, which does nothing. No
 author's text ever runs as code, and the output goes only to the model. Fix sketch: render prompts through an own-keys context
 as `Templating` does (export a helper-less writer and context from `templating.ts`, or a shared
-`lib/mustachery.ts`), with tests from `tests/lib/templating.test.ts`'s inherited cases.
+`lib/mustachery.ts`), with tests from `tests/lib/templating.test.ts`'s inherited cases. **Fixed in
+thread 8** (9ce84e1): `src/lib/mustachery.ts`'s `OwnKeysContext` (own keys only, nothing called) is
+what `renderPrompt` renders in, and what templating's `BagContext` now extends.
 
 **O8. A formula can hold the page for a long time** -- low (medium with O2); **uncertain** how
 easily tuned. `src/lib/formulas.ts:8,91-100`: a 100 ms timebox per evaluation, checked at

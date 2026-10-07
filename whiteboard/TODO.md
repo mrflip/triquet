@@ -282,8 +282,8 @@ Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path
 
 ## From recap sprint, thread 7: security
 
-Detail, evidence and fix sketches: `whiteboard/20261005-recap/security-findings.md`. Thread 8 fixes
-the **certain** ones; the rest wait on the Coach.
+Detail, evidence and fix sketches: `whiteboard/20261005-recap/security-findings.md`. Thread 8 fixed
+O4, O7, O6's headers and O5 as far as one username; the rest wait on the Coach.
 
 * **O1, high, certain (fix needs a small design call).** `src/app/api/ask/route.ts` answers any
   POST on the server's Anthropic key (Opus tier, `max_tokens` as asked): no session, no rate limit.
@@ -295,14 +295,11 @@ the **certain** ones; the rest wait on the Coach.
 * **O3, medium, certain in code / uncertain in production.** An unheld legacy ident goes to the
   first session asserting it (`claimFor`), and `hunts.open` tells anyone a hunt's smiths' usernames.
   Close out unheld idents; name smiths only to a session with a username.
-* **O4, info, certain.** `askerOf` should treat an ident not held by the session (`ident.user_id !==
-  user_id`) as anonymous.
-* **O5, low, certain.** One session can make the app's 999 hunts (`newHunt`): a per-ident cap or
-  rate limit.
-* **O6, low, certain (CSP part uncertain).** No security headers: add `frame-ancestors 'none'`,
-  `nosniff`, a referrer policy; try a nonce'd `script-src` CSP on a preview.
-* **O7, low, certain.** `lib/ask/prompts.ts` renders with mustache's own context, which reaches
-  prototypes: use an own-keys context as `Templating` does.
+* **O5, low, the rest of it (a design call).** One username may now make 99 hunts (thread 8), but a
+  session may assert any number of usernames and anonymous sign-in is unlimited: rate-limit sign-in
+  and new idents.
+* **O6, the CSP (uncertain).** The other headers are on (thread 8); try a nonce'd `script-src` CSP
+  on a preview.
 * **O8, low, uncertain.** A formula's timebox is per evaluation on the main thread: no budget per
   quiz run.
 * **O9, info.** An image may be any `https` address, the viewer's own network included.
