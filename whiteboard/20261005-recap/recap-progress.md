@@ -142,6 +142,14 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   export `null` for a default quiz, import clears a template equal to the default, TODO widened (an
   unclosed fence or HTML block in the head or any recap turns the rest literal, answers included).
 
+* **Recap reads fields (thread 15, landing).** `quoted_body`, `answer_line`, `recap_below` are gone;
+  each played question carries `quoted`, `oneline`, `below`, each holding the five text fields
+  shaped for that spot (`{{quoted.clueing}}`, `{{oneline.full_answer}}`, `{{below.recap}}`). The
+  default template writes `...OR ELSE...` and the question's own hint (its own paragraph in the
+  quote), never the chained-to hint; the LL Export keeps BUT NOT. Old names fill in as nothing.
+  *Review:* clean. Minor: a whitespace-only hint or answer opens its section; every field shaped
+  every way per rebuild; `quoted`/`oneline`/`below` hide same-named columns in `{{#played}}`.
+
 ## Migration chain `recap`
 
 *Orchestrator, 2026-10-07:* the Coach merged #161 to #167 at once (safe: no tightening exists yet).
