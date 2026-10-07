@@ -346,7 +346,7 @@ export async function startHunt(page: Page): Promise<string> {
  * `role`, through the members panel, and wait until the panel lists them.
  */
 export async function addMember(page: Page, label: string, role: 'Smith' | 'Reviewer'): Promise<void> {
-  const members = page.getByRole('region', { name: 'Members' })
+  const members = await openPanel(page, 'Members')
   await members.getByLabel('Ident label').fill(label)
   await members.getByRole('combobox', { name: 'Role' }).click()
   await page.getByRole('option', { name: role }).click()

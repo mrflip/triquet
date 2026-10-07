@@ -2,7 +2,7 @@ import type { Browser, Locator, Page } from '@playwright/test'
 import * as Labelmaker from '../src/lib/labelmaker'
 import { AppNotices, RefusalNotices } from '../src/lib/notices'
 import * as Routes from '../src/lib/routes'
-import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
+import { addMember, assumeIdent, closeManage, expect, freshIdentLabel, grid, huntLabelOf, huntOf, loadAfresh, manageDialog, newHunt, NewHuntUrl, newQuiz, openManage, openPanel, openQuiz, otherVisitor, quizPathOf, startHunt, test, valuesOf, waitUntilSaved } from './support'
 
 // These are about the way in, so each goes in by itself rather than from the fixture's hunt.
 test.use({ startAt: null })
@@ -628,7 +628,7 @@ test.describe('a link handed to a friend', () => {
 
   test('tells a smith who adds a label nobody has chosen what the friend must do first', async ({ page }) => {
     await startHunt(page)
-    const members = page.getByRole('region', { name: 'Members' })
+    const members = await openPanel(page, 'Members')
     const label = freshIdentLabel()
     await members.getByLabel('Ident label').fill(label)
     await members.getByRole('button', { name: 'Add' }).click()
@@ -637,7 +637,7 @@ test.describe('a link handed to a friend', () => {
 
   test('checks the label a smith types as the front door checks a username', async ({ page }) => {
     await startHunt(page)
-    const members = page.getByRole('region', { name: 'Members' })
+    const members = await openPanel(page, 'Members')
     const box = members.getByLabel('Ident label')
     await box.fill('Flip Kromer')
     await expect(members.getByText(AppNotices.identLabelShape)).toBeVisible()
@@ -651,7 +651,7 @@ test.describe('a link handed to a friend', () => {
 
   test('offers a smith no way to take themselves off, and says why beside the field when they try to put themselves on', async ({ page }) => {
     const label = await startHunt(page)
-    const members = page.getByRole('region', { name: 'Members' })
+    const members = await openPanel(page, 'Members')
     const own = members.getByRole('row').filter({ hasText: label })
     await expect(own).toContainText('you')
     // Drawn in the same render as "you": one's own row is offered no Remove.
@@ -673,7 +673,8 @@ test.describe('a link handed to a friend', () => {
     await friend.goto(page.url())
     await expect(friend.getByLabel('Quiz name')).toBeVisible()
 
-    await page.getByRole('region', { name: 'Members' }).getByRole('button', { name: `Remove ${label}` }).click()
+    const members = await openPanel(page, 'Members')
+    await members.getByRole('button', { name: `Remove ${label}` }).click()
     await expect(friend.getByRole('heading', { name: 'Not yet on this hunt' })).toBeVisible()
     await expect(friend.getByLabel('Quiz name')).toBeHidden()
   })
@@ -682,7 +683,7 @@ test.describe('a link handed to a friend', () => {
     await startHunt(page)
     await waitUntilSaved(page)
     const path = quizPathOf(page)
-    const members = page.getByRole('region', { name: 'Members' })
+    const members = await openPanel(page, 'Members')
     const friend = await otherVisitor(browser)
     const label = await assumeIdent(friend)
     await addMember(page, label, 'Reviewer')

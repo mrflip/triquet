@@ -21,9 +21,11 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('the export and import tabs come in order, Spreadsheet first and showing', async ({ page }) => {
+  await openPanel(page, 'Export / Import')
   const tabs = page.getByRole('tablist', { name: 'Export / Import' }).getByRole('tab')
   await expect(tabs).toHaveText(['Spreadsheet', 'Raw Export', 'Import', 'Library', 'Full History', 'LL Export'])
   await page.reload()
+  await openPanel(page, 'Export / Import')
   await expect(page.getByRole('tab', { name: 'Spreadsheet' })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('textbox', { name: 'Copy for Sheets' })).toBeVisible()
 })
