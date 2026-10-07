@@ -30,7 +30,8 @@ const SmithsBlurb = 'What reviewers have made of this quiz. Nothing appears here
 /**
  * What reviewers have shared about the open quiz, read-only: one block per reviewer, with their
  * overall note and a table of their verdict on each question they wrote about but the archived, in rank order,
- * their words rendered from markdown.
+ * their words rendered from markdown, an image among them drawn as a link to it, so that no reviewer
+ * can have a smith's browser call on an address of the reviewer's choosing just by opening the panel.
  * The smiths see it below the grid; a reviewer sees the others' below their own, once theirs is
  * shared.
  */
@@ -47,7 +48,7 @@ export function ReviewsPanel({ reviews, questions, title = 'Reviews', blurb = Sm
           {shared.map((review) => (
             <section key={review._id} aria-label={`Review by ${review.reviewer?.title ?? 'a reviewer'}`}>
               <Typography variant="subtitle2">{review.reviewer?.title ?? 'A reviewer'}</Typography>
-              <Typography component="div" className={styles.prose}><MarkdownText text={review.overall} /></Typography>
+              <Typography component="div" className={styles.prose}><MarkdownText text={review.overall} imagesAsLinks /></Typography>
               <ReviewingsTable reviewings={review.reviewings} ranked={ranked} />
             </section>
           ))}
@@ -90,8 +91,8 @@ function ReviewingsTable({ reviewings, ranked }: Readonly<{ reviewings: readonly
                   <span key={flag} role="img" aria-label={title} title={title}>{emoji}</span>
                 ))}
               </TableCell>
-              <TableCell className={styles.prose}><MarkdownText text={reviewing.guesses} /></TableCell>
-              <TableCell className={styles.prose}><MarkdownText text={reviewing.comments} /></TableCell>
+              <TableCell className={styles.prose}><MarkdownText text={reviewing.guesses} imagesAsLinks /></TableCell>
+              <TableCell className={styles.prose}><MarkdownText text={reviewing.comments} imagesAsLinks /></TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -49,6 +49,20 @@ test.describe('a review', () => {
     await expect(page.getByText('Played well, one clue felt loose.')).toBeVisible()
   })
 
+  test("shows the smith an image in a review as a link to it, never fetching it", async ({ page, browser }) => {
+    const reviewer = await enterReview(page, browser)
+    await reviewer.getByLabel('Overall').fill('Compare ![the map](https://example.com/map.png) to Q3.')
+    await reviewer.getByLabel('Overall').blur()
+    await waitUntilSaved(reviewer)
+    await reviewer.getByRole('button', { name: 'Share with the smiths' }).click()
+    await expect(reviewer.getByText('Shared with the smiths.')).toBeVisible()
+
+    await openPanel(page, 'Reviews')
+    const review = page.getByRole('region', { name: /^Review by / })
+    await expect(review.getByRole('link', { name: 'the map' })).toHaveAttribute('href', 'https://example.com/map.png')
+    await expect(review.locator('img')).toHaveCount(0)
+  })
+
   test("shows a reviewer no archived question, and an alternate marked as one", async ({ page, browser }) => {
     await fillRows(page, [{ Title: 'hamlet', Clueing: 'Which prince was Danish?' }, { Title: 'othello', Clueing: 'Which general was Moorish?' }, { Title: 'macbeth', Clueing: 'Which king was Scottish?' }])
     await page.getByRole('button', { name: 'Batch select' }).click()

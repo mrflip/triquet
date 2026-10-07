@@ -30,19 +30,43 @@ function dressingFor(cell: boolean): Components {
 const Dressing = dressingFor(false)
 const CellDressing = dressingFor(true)
 
+/**
+ * An image as a link to it, which opens beside the quiz: the image's alt text, or else its address,
+ * as the link's words. Nothing is fetched until the reader follows it.
+ */
+function ImageLink({ src, alt = '' }: Readonly<{ src?: string | Blob, alt?: string }>) {
+  const href = typeof src === 'string' ? src : undefined
+  return href === undefined ? <>{alt}</> : <a href={href} target="_blank" rel="noopener noreferrer">{alt === '' ? href : alt}</a>
+}
+
+/** As `Dressing`, but with each image a link to it (`ImageLink`) */
+const ImageLinkDressing: Components = { ...Dressing, img: ({ node: _node, src, alt }) => <ImageLink src={src} alt={alt} /> }
+
+/** The dressing for a text drawn in a grid cell or not, its images as links or not */
+function dressingOf(cell: boolean, imagesAsLinks: boolean): Components {
+  if (imagesAsLinks) { return ImageLinkDressing }
+  return cell ? CellDressing : Dressing
+}
+
 export type MarkdownTextProps = {
   text:  string
   /** Drawn in one of the grid's cells, where an image is held small (`CellImageMaxPx`) */
   cell?: boolean
+  /**
+   * Each image drawn as a link to it, fetched only if followed: for a reviewer's words, which
+   * every smith reads, so that a reviewer cannot have a smith's browser call on an address of the
+   * reviewer's choosing just by opening the reviews.
+   */
+  imagesAsLinks?: boolean
 }
 
 /**
  * A field's text, rendered from its markdown, with nothing around it: the caller supplies the
  * box, and `styles.prose` (or a face) spaces what is inside. Images show, by `https` only
- * (`Markdown.Allowlist`).
+ * (`Markdown.Allowlist`), or with `imagesAsLinks` as links to them.
  */
-export function MarkdownText({ text, cell = false }: Readonly<MarkdownTextProps>) {
-  return <ReactMarkdown {...Markdown.RenderOptions} components={cell ? CellDressing : Dressing}>{Markdown.indentsQuoted(text)}</ReactMarkdown>
+export function MarkdownText({ text, cell = false, imagesAsLinks = false }: Readonly<MarkdownTextProps>) {
+  return <ReactMarkdown {...Markdown.RenderOptions} components={dressingOf(cell, imagesAsLinks)}>{Markdown.indentsQuoted(text)}</ReactMarkdown>
 }
 
 /** What a text box's face shows: the text as typed, or, for a field the quiz templates, filled in */
@@ -96,6 +120,8 @@ export type MarkdownFaceProps = Partial<Omit<FaceT, 'text'>> & {
   inInput?: boolean
   /** The face itself, so the grid can measure how tall it would like to be */
   faceRef?: React.Ref<HTMLDivElement>
+  /** Each image drawn as a link to it, as a reviewer's words are (`MarkdownText`) */
+  imagesAsLinks?: boolean
 }
 
 /**
@@ -105,14 +131,14 @@ export type MarkdownFaceProps = Partial<Omit<FaceT, 'text'>> & {
  * passed to the box. It is hidden from assistive technology, which reads the box. The box itself
  * wears `veiledIf(text)`, so its own text is out of sight beneath the face. A template that could
  * not be filled in says why above its text. Over one of the grid's boxes (not `inInput`), its
- * images are held small.
+ * images are held small; with `imagesAsLinks`, each is a link to it.
  */
-export function MarkdownFace({ text, issue = null, inInput = false, faceRef }: Readonly<MarkdownFaceProps>) {
+export function MarkdownFace({ text, issue = null, inInput = false, faceRef, imagesAsLinks = false }: Readonly<MarkdownFaceProps>) {
   if (! faced(text)) { return null }
   return (
     <div ref={faceRef} aria-hidden data-face onClick={focusBox} className={clsx(styles.face, styles.prose, inInput && styles.faceInInput)}>
       {issue !== null && <Typography variant="caption" color="error" component="p" data-template-issue>{issue}</Typography>}
-      <MarkdownText text={text} cell={! inInput} />
+      <MarkdownText text={text} cell={! inInput} imagesAsLinks={imagesAsLinks} />
     </div>
   )
 }

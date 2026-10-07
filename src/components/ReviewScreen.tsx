@@ -82,7 +82,7 @@ export function ReviewScreen({ quiz, ident, reviews, dispatch, unsaved }: Readon
           value={draft}
           onChange={(event) => { onChange(event.target.value) }}
           onBlur={onBlur}
-          slotProps={{ input: { endAdornment: <MarkdownFace inInput text={draft} /> }, htmlInput: { className: veiledIf(draft) } }}
+          slotProps={{ input: { endAdornment: <MarkdownFace inInput imagesAsLinks text={draft} /> }, htmlInput: { className: veiledIf(draft) } }}
           sx={{ mb: 2 }}
         />
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
@@ -284,7 +284,7 @@ function VerdictField({ label, committed, onCommit }: Readonly<{ label: string, 
       onBlur={onBlur}
       slotProps={{
         inputLabel: { shrink: true },
-        input:      { ...(sideBySide && { inputComponent: 'textarea' }), endAdornment: <MarkdownFace inInput text={draft} /> },
+        input:      { ...(sideBySide && { inputComponent: 'textarea' }), endAdornment: <MarkdownFace inInput imagesAsLinks text={draft} /> },
         htmlInput:  { className: veiledIf(draft) },
       }}
     />
