@@ -1,6 +1,12 @@
 
 ## Known Bugs
 
+* **Better 404 pages.** An address that leads nowhere (an old or mistyped one, `/~undefined/...`)
+  gets Next's bare not-found. It should say what was asked for, why it found nothing (no such org,
+  hunt or quiz, or not one you are on), and offer the way back: your hunts, or the hunt the address
+  half-named. Asked by the Coach, 2026-10-07, after an old address threw `hunts:open`'s validation
+  error (fixed: addresses now refuse what the server would).
+
 * Tune layout at small scales (eg "The site header overlaps itself at 360 px.")
 * A failed history download tells the person nothing (`FullHistoryDownload`, and the gear's
   *Download as git* in `QuizManageModal`): `HuntRepoList`'s alarm is the pattern to copy.
