@@ -47,6 +47,9 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   const recap_tail = noteish
     .describe('What the recap note says after the questions. Always templated. Kept trimmed.')
 
+  const recap_template = noteish.min(1)
+    .describe('The recap note\'s own template, for a quiz given one: markdown with mustache, filled in over the recap bag (the template bag, with the recap head and tail filled in and the questions played, each with values shaped for where markdown\'s structure is fragile) and then written in bbjank. Absent, the quiz follows the default recap template. Kept trimmed.')
+
   const templatedSource = union([zod.templateLiteral([`${QuestionWidgetLabel}.`, oneof(TemplatableFieldVals)]), WidgetingValidators.widgetingLabel])
     .describe('One source a quiz templates, named as a column names what it shows: `question.<field>` for a question\'s own field, or a widgeting\'s label.')
   const templated = arr(templatedSource).max(TemplatedMax)
@@ -62,6 +65,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     q1_preamble:     q1_preamble.default(DefaultQ1Preamble),
     recap_head:      recap_head.default(''),
     recap_tail:      recap_tail.default(''),
+    recap_template:  recap_template.optional(),
     templated:       templated.default([]),
     questions:       arr(QuestionValidators.question).max(PA.QuestionsPerQuiz.max).default([])
       .describe('The questions, in their committed display order. This array IS the order: sorting and dragging rewrite it, so the arrangement survives a reload exactly as it was left. At most 999.'),
@@ -95,6 +99,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
     q1_preamble,
     recap_head,
     recap_tail,
+    recap_template:  recap_template.optional(),
     templated,
     locked:          bool,
     last_sortkey:    sortkey.nullable(),
@@ -104,7 +109,7 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   })
     .describe('One quiz as the database holds it: its own fields, with its questions, widgetings and columns in rows of their own.')
 
-  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, templatedSource, templated, quiz, row }
+  return { sortkey, smiths_note, q1_preamble, recap_head, recap_tail, recap_template, templatedSource, templated, quiz, row }
 })
 
 /** One thing wrong with a quiz, and where */
@@ -183,6 +188,7 @@ export class Quiz implements QuizT {
   declare q1_preamble:     string
   declare recap_head:      string
   declare recap_tail:      string
+  declare recap_template?: string
   declare templated:       string[]
   declare questions:       QuestionT[]
   declare widgetings:      WidgetingT[]
@@ -196,8 +202,8 @@ export class Quiz implements QuizT {
   /**
    * The fields a quiz shows the outside world, alphabetically: its label, the
    * smith's note, and its title. Not the id; not the questions, widgetings and columns, which
-   * are exposed on their own; not the LL export's preamble, nor the recap's head and tail, which
-   * are templated over the bag rather than read from it; and not the housekeeping -- lock,
+   * are exposed on their own; not the LL export's preamble, nor the recap's head, tail and
+   * template, which are templated over the bag rather than read from it; and not the housekeeping -- lock,
    * remembered sort, which sources are templated.
    */
   static readonly exposed = ['label', 'smiths_note', 'title'] as const

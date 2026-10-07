@@ -331,6 +331,7 @@ const Matrix = {
   set_q1_preamble:     [{ kind: 'set_q1_preamble', q1_preamble: 'Read the note![br]' },                                              Revisers],
   set_recap_head:      [{ kind: 'set_recap_head', recap_head: 'Thanks, playtesters!' },                                              Revisers],
   set_recap_tail:      [{ kind: 'set_recap_tail', recap_tail: 'See you next season.' },                                              Revisers],
+  set_recap_template:  [{ kind: 'set_recap_template', recap_template: null },                                                        Revisers],
   edit_question:       [{ kind: 'edit_question', question_id, patch: { clueing: 'Who?' } },                                          Revisers],
   add_question:        [{ kind: 'add_question' },                                                                                    Revisers],
   delete_questions:    [{ kind: 'delete_questions', question_ids: [question_id] },                                                   Revisers],

@@ -311,6 +311,24 @@ describe("hunts.perform", () => {
     })
   })
 
+  describe("set_recap_template", () => {
+    it("gives the open quiz a recap template of its own, trimmed, and null takes it away again", async () => {
+      const { act, read } = await seed(openHunt())
+      expect(openOf(await read())).not.to.have.property('recap_template')
+      await act({ kind: 'set_recap_template', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}\n' })
+      expect(openOf(await read()).recap_template).to.eq('{{#played}}{{number}}. {{title}}{{/played}}')
+      await act({ kind: 'set_recap_template', recap_template: null })
+      expect(openOf(await read())).not.to.have.property('recap_template')
+    })
+
+    it("refuses while the quiz is locked", async () => {
+      const { act, read } = await seed(openHunt(true))
+      const ante = await read()
+      await expectRefusal(act({ kind: 'set_recap_template', recap_template: '{{recap_head}}' }), 'quizLocked')
+      expect(await read()).to.deep.eq(ante)
+    })
+  })
+
   describe("a quiz, question and widgeting written before the recap and the tiers", () => {
     it("read as having an empty recap, templating nothing, each widgeting run for each question", async () => {
       const seeded = await seed(huntOf(['1', 'a']))

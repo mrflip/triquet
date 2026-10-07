@@ -620,6 +620,14 @@ describe("importInto: the quiz's own fields", () => {
     expect(outcome.summary).to.include('carried its recap head, recap tail, templated sources')
   })
 
+  it("carries a recap template of the paste's own, and a null one puts the quiz back on the default", () => {
+    const template = '{{#played}}{{number}}. {{title}}{{/played}}'
+    expect(read(laidOut(), { recap_template: template, questions: { leon: {} } }).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: template }])
+    expect(read({ ...laidOut(), recap_template: template }, { recap_template: null, questions: { leon: {} } }).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: null }])
+    const kept = read(laidOut(), { recap_template: null, questions: { leon: {} } })
+    expect([kept.fieldActions, kept.fieldLog.map((entry) => [entry.fieldname, entry.outcome])]).to.deep.eq([[], [['recap_template', 'kept']]])
+  })
+
   it("templates a widgeting the same import adds, once it is added", () => {
     const outcome = read(laidOut(), { templated: ['points'], widgetings: { points: { position: 0, widget_label: 'points' } }, questions: { leon: {} } })
     expect(outcome.actions.map((action) => action.kind)).to.deep.eq(['add_widgeting', 'set_templated', 'import_questions'])

@@ -26,7 +26,7 @@ export const LayoutActionKindVals = [
 /** The actions that revise the quiz on screen and its questions */
 export const ContentActionKindVals = [
   'retitle_quiz', 'relabel_quiz', 'set_smiths_note', 'set_q1_preamble', 'set_recap_head', 'set_recap_tail',
-  'edit_question', 'add_question', 'delete_questions', 'set_viz', 'sort_questions', 'renumber_qnums', 'move_question',
+  'set_recap_template', 'edit_question', 'add_question', 'delete_questions', 'set_viz', 'sort_questions', 'renumber_qnums', 'move_question',
   'set_chain', 'sort_by_chain_order', 'record_widgeted', 'enter_widgeted', 'enter_quiz_widgeted', 'import_questions',
 ] as const
 
@@ -70,6 +70,8 @@ export const ActionValidators = Validator(({ obj, arr, lit, oneof, discrim, bool
     obj({ kind: lit('set_q1_preamble'),     q1_preamble: QuizValidators.q1_preamble }),
     obj({ kind: lit('set_recap_head'),      recap_head: QuizValidators.recap_head }),
     obj({ kind: lit('set_recap_tail'),      recap_tail: QuizValidators.recap_tail }),
+    obj({ kind: lit('set_recap_template'),  recap_template: QuizValidators.recap_template.nullable() })
+      .describe('Give the quiz a recap template of its own; null puts it back on the default recap template.'),
     obj({ kind: lit('edit_question'),       question_id: zid('questions'), patch: QuestionValidators.questionPatch }),
     obj({ kind: lit('add_question') }),
     obj({ kind: lit('delete_questions'),    question_ids }),
