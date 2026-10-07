@@ -44,3 +44,9 @@ green (6); `pnpm e2e --touched` runs at landing.
     column stays reachable through `{{#qns}}` (the recap bag's `qn` is empty). Minor; not in TODO.
   - Only a question's own fields are shaped; a text column set into a quote has the old trouble
     (in TODO).
+* **Review** (clean, no fixes). Minor, in the PR's open questions: a hint of nothing but spaces
+  opens an empty OR ELSE (`hint` is `textish`, not trimmed on write; `full_answer` is `noteish`,
+  trimmed, so an empty spoiler cannot happen from stored rows); every field is shaped every way on
+  each rebuild (five markdown parses per question for `quoted` alone), worth acting on only if a
+  large quiz feels slow; `quoted`, `oneline`, `below` hide a column of the same label inside
+  `{{#played}}`.
