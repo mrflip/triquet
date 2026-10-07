@@ -90,6 +90,16 @@ only stops two runs in one container from overlapping, so there is no before-and
     cannot stage a top that changes the map itself. The fresh read handles that case by
     construction (a new process reads the file the rebase left). The test covers the
     spec-file-gained case.
+* **Review** (`fixed`, b0daa31): when a lock is compromised mid-run, its release now swallows
+  proper-lockfile's `ERELEASED`, so the suite's own outcome stands. The reviewer agreed with
+  catching up only after a wait. Left open, minor:
+  * A signal sent to the holder's pid alone frees the lock while the suite beneath it keeps
+    running. Ctrl-C reaches the whole process group and is fine. Fixing it would need
+    process-group handling; noted, not acted on.
+  * The early scope check, before the hold, reads the map from before the bid's rebase, so in
+    theory it could refuse a bid that the fresh read after the rebase would accept. It errs toward
+    a wider run.
+  * `.e2e-lock.json` is left behind after a signal exit. The next taker overwrites it.
 * **For the Coach**
   * **A run that waited may rebase the branch.** Its output says "Rebased … : justify it again".
     The bid still refuses only a patch-id that changed. CLAUDE.md step 3 and the thread-worker's
