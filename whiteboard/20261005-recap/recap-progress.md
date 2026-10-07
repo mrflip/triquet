@@ -91,7 +91,8 @@ Frontier on resuming: thread 7.
   the rest of its `Answer: ` line. **Left for the Coach (and thread 7):** author BBCode can break the
   frame: `[/quote]` in a clueing, `[/spoiler]` or `[/b]` in an answer pass through as typed (thread
   2's design), closing the quote or revealing the answer early; the fix is choosing which BBCode an
-  author may write and testing an escape on the board. Minor: a clueing opening `1984. …` loses its
+  author may write and testing an escape on the board.
+  Minor: a clueing opening `1984. …` loses its
   number (the writer drops an ordered list's start); `Correct Answer %:` goes in raw, outside the
   writer.
 

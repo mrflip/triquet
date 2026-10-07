@@ -45,14 +45,13 @@ The deliverable the Coach asked for (markdown into bbjank, copy and paste) is #1
   `notes/decisions/2026-09-client-first.md`, which does not exist. The rule lives in
   `notes/stack.md` (*Application framework*) and `notes/decisions/20260928-database-decisions.md`.
   Nothing in this sprint changed client-first: no new route handler or server function.
-* #166's second review comment did not post (GitHub answered 502/GraphQL errors); its text is in
-  `recap-progress.md` under thread 6.
+* The Coach's answers to the open questions (2026-10-06) are in the plan, *Coach's answers while
+  paused*, with threads 11 (interleave quiz and question widgetings), 12 (template and recap
+  follow-ups) and 13 (reviews that cannot touch the main checkout) added.
 
 ## Still to run, when the sprint resumes
 
-Thread 7 (security review: the sprint's code, then the app), 8 (the out-of-sprint findings it is
-certain of), 10 (the markdown dialect: `__text__` to `[u]` in LL outputs only, leading spaces as
-quotes, the per-output quote rule), 9 (tighten #163's fields, last). Then the wrap-up. Resume with
-`/sprint` pointed at the plan; the frontier is thread 7, cut from the spine's top.
+Threads 13, 11 and 10 side by side; 12 after 11; 7 (security review) after 10, 11 and 12; 8; 9
+(tighten #163's fields, last). Then the wrap-up. Resume with `/sprint` pointed at the plan.
 
 YOLO decisions taken so far are the plan's list, 1 to 12.

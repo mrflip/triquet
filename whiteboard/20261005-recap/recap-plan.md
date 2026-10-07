@@ -303,7 +303,7 @@ call, recorded. No schema change. Depends on: 6. Runs before 7, so the security 
 
 ### 12. The Coach's follow-ups on templates and the recap (2026-10-06, while paused)
 
-Gloss: the *Coach's answers* below marked thread 12: the recap's blank placeholder, `correct_pct`
+Gloss: the *Coach's answers* below marked thread 12: `correct_pct`
 alone, images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
 `qns` (visible only). Depends on: 11 (both touch the bag). Runs before 7.
 
@@ -313,7 +313,9 @@ Gloss: `/code-review` takes no working directory and runs in the session's main 
 once checked out a commit to try code. Make `.claude/agents/thread-reviewer.md` forbid it any
 checkout, switch, stash or reset there, and probe only in the thread's worktree; and record in the
 definition that a review run from inside the worktree (if the skill ever takes a directory) is
-preferred. Documents only. Depends on: nothing.
+preferred. A reviewer that could not do its job because of these restrictions says so in its
+report (what it could not check, and why), rather than working round them. Documents only.
+Depends on: nothing.
 
 ### Coach's answers while paused (2026-10-06)
 
@@ -324,11 +326,9 @@ preferred. Documents only. Depends on: nothing.
 * **`mdast-util-definitions`: yes** (thread 10). **Underline: bbjank only** (thread 10; `ll-bbcode.ts`
   keeps `__text__` as bold). **Fix the dangling client-first pointer** in `CLAUDE.md` and
   `notes/stack.md` (thread 10).
-* **Recap placeholder:** a blank question recap writes the league form's
-  `{Add Optional Text For Q<n> Here or Delete}` (real number) in the recap note; nothing is stored in
-  the row (a stored default would make every question look written-into, and go stale on
-  renumbering). Thread 12. *(Orchestrator's reading of "start it with a default, following the
-  example; if it's not a problem for it to be blank, let it be blank"; the Coach may overrule.)*
+* **Recap placeholder: leave it as landed** (a blank question recap writes nothing). The Coach's
+  "start it with a default, following the example" meant the league export's template, which the
+  recap already follows.
 * **Correct Answer %: only a column labelled `correct_pct`** (thread 12).
 * **Images everywhere, not only templated fields**, https only, held small by CSS in the grid's
   cells (a max height, re-measuring the row on load); no size syntax extension for now (thread 12).
