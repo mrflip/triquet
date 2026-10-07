@@ -310,3 +310,6 @@ the **certain** ones; the rest wait on the Coach.
   whose address carries quiz text (the Coach's call: images from filled values as links?); each
   templated face may fill to 100,000 characters and re-parse on every render (memoize `faceOf`, or
   a lower cap for field templates).
+* Sprint, minor, uncertain whether it matters: the default recap template stops on `FillBudget`
+  (10,000) between 350 and 400 questions, and near 999 would also pass `FilledMax`. A real LL quiz
+  is far smaller: recorded, not changed.

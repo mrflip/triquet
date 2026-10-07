@@ -20,6 +20,11 @@ Branch `20261007-security_review`, PR filed at landing; see the report. Suites: 
     `notes/markdown.md`'s image row says so. Tests: templating, markdown (a timing test: 1 s with
     the fix, 16 s without), cells/markdown, and `e2e/reviews.spec.ts` (a review's image reaches the
     smith as a link, with no `img`).
+* **Review** (`fixed`): 8ef955a draws a linked image in a reviewer's words as the link's words, not a
+  link inside a link; 0545078 gives the one-pass indent rule's timing test ten seconds, so a loaded
+  bid does not time it out. After the review, at the orchestrator's word: the default recap
+  template's budget on a very large quiz recorded (sprint item 3 in the findings, and TODO), and
+  O7 corrected (mustache does call the empty function it builds, as a section; severity unchanged).
 * **Decisions taken**:
   - **Reviewers' words keep no images on sight** (thread 12 left it here): a link by alt text,
     fetched if followed. Smiths' texts keep images (picture rounds need reviewers to see them).

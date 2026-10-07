@@ -62,7 +62,12 @@ deciding any of the *For the Coach* calls below. The same list, shorter, is in `
    templated cells, each near the cap, costs the parse of each (react-markdown is about 1 s per
    100k). Fix sketch: memoize `faceOf` by text and bag, or a lower cap for field templates than for
    the recap.
-3. **`{{.}}` fills in the whole bag's JSON** (every question, archived ones and answers included).
+3. **The default recap template stops on a very large quiz** -- minor; **uncertain** whether it
+   matters. `Recap.DefaultTemplate` spends `FillBudget` (10,000 lookups and passes) at between 350
+   and 400 questions, and near the quiz cap (999) would also pass `FilledMax`; the note then shows
+   the budget's issue instead. A real LL quiz is far smaller. Recorded, not changed; a fix would be
+   a budget scaled to the quiz's size.
+4. **`{{.}}` fills in the whole bag's JSON** (every question, archived ones and answers included).
    Info: the reader's own data in their own browser; noted because the recap is pasted publicly.
 
 ## Outside the sprint (thread 8 fixes the certain ones)
@@ -120,8 +125,9 @@ handled (nonces), so try it on a preview first (uncertain).
 
 **O7. Prompt templates use mustache's own context** -- low; **certain**.
 `src/lib/ask/prompts.ts:23` (`Mustache.render` with the default `Context`): `{{constructor}}`,
-`{{#constructor.constructor}}` reach the prototype and call `Function` (building, never running,
-a function); output goes only to the model. Fix sketch: render prompts through an own-keys context
+`{{#constructor.constructor}}` reach the prototype and call `Function`, which builds an empty
+function; used as a section, mustache then calls that empty function too, which does nothing. No
+author's text ever runs as code, and the output goes only to the model. Fix sketch: render prompts through an own-keys context
 as `Templating` does (export a helper-less writer and context from `templating.ts`, or a shared
 `lib/mustachery.ts`), with tests from `tests/lib/templating.test.ts`'s inherited cases.
 
