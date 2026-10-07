@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-06. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `whiteboard/20261005-recap/20261005-recap_preplan.md` (the threads,
 verbatim below) and `20261005-recap_bbjank.md` (the board format's spec), beside this file.
-**Status: paused at the Coach's word after thread 6. Threads 1-6 landed (#163, #162, #161, #164, #165, #166); 7, 8, 10, 9 to run. See `human/20261006-sprint_recap_paused.md`.** `recap-progress.md`, beside this file, is newer than this plan wherever the
+**Status: paused at the Coach's word after thread 6. Threads 1-6 merged to main with #167 (2026-10-07); ad-hoc #168 open; 13, 11, 10, 12, 7, 8, 9 to run. See `human/20261006-sprint_recap_paused.md`.** `recap-progress.md`, beside this file, is newer than this plan wherever the
 two disagree.
 
 **What the Coach needs by the end** (their words): "an export of simple markdown into bbjank; I can
@@ -349,8 +349,8 @@ Depends on: nothing.
   Thread 13.
 * **Strikeout on screen** (thread 10): `~~text~~` shows its tildes on screen today, since only the
   bbjank converter was taught GFM strikethrough. Teach react-markdown the same extension
-  (`singleTilde: false`, never `remark-gfm` whole), widen the one allowlist for `del`, and decide
-  how it looks (struck through, or spoiler-like, since it means a spoiler on the boards).
+  (`singleTilde: false`, never `remark-gfm` whole), widen the one allowlist for `del`. Plain
+  strikethrough: the Coach's TODO calls spoiler-like strikeout on screen a wontfix.
 * **Old addresses** (2026-10-07): fixed outside the sprint as #167, stacked on #166: addresses
   refuse what the server would, so `/~undefined/...` is not found. Better not-found pages are in TODO.
 * **Fixtures:** `fixtures/bbjank-verifier.md` and `fixtures/bbjank-verifier.bbjank.txt`, with a
