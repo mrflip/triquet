@@ -305,6 +305,17 @@ describe("identFor", () => {
     const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, user_id)])
     expect(found.map((ident) => ident?.label ?? null)).to.deep.eq(['quiet_otter', null])
   })
+
+  it("is null for a session whose newest identing names an ident it no longer holds", async () => {
+    const tt = openTester()
+    const [flip, bob] = [await identified(tt, 'flip_kromer'), await identified(tt, 'bob_smiths')]
+    await tt.run(async (ctx) => {
+      await ctx.db.patch('idents', flip.ident_id, { user_id: bob.user_id })
+      await ctx.db.patch('idents', bob.ident_id, { user_id: null })
+    })
+    const found = await tt.run(async (ctx) => [await identFor(ctx.db, flip.user_id), await identFor(ctx.db, bob.user_id)])
+    expect(found).to.deep.eq([null, null])
+  })
 })
 
 describe("reviewFor", () => {

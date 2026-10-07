@@ -26,8 +26,8 @@ const NoSession: AskerT = Object.freeze({ actor: Actor.anonymous, user_id: null 
 
 /**
  * Who is asking: the session the request's token names, if Convex Auth still holds it; its user;
- * and the ident that user asserted last. A token outliving its session (signed out, or the
- * backend emptied) is no session. One round of reads, made once per request by the builders
+ * and the ident that user asserted last, while it still holds it (`identFor`). A token outliving
+ * its session (signed out, or the backend emptied) is no session. One round of reads, made once per request by the builders
  * below; a builder layered over them calls this rather than reading identity a second way.
  *
  * @param ctx - A query's or mutation's context.

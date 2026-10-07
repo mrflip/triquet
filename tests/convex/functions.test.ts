@@ -23,6 +23,13 @@ describe("askerOf", () => {
     expect(await flip.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: flip.actor, user_id: flip.user_id })
   })
 
+  it("is the session's user, anonymous, once the ident it asserted is held by another session", async () => {
+    const tt = openTester()
+    const [flip, bob] = [await identified(tt, 'flip_kromer'), await signedIn(tt)]
+    await tt.run(async (ctx) => { await ctx.db.patch('idents', flip.ident_id, { user_id: bob.user_id }) })
+    expect(await flip.as.run(async (ctx) => await askerOf(ctx))).to.deep.eq({ actor: Actor.anonymous, user_id: flip.user_id })
+  })
+
   it("is nobody, with no session, for a token whose session Convex Auth no longer holds", async () => {
     const tt = openTester()
     const flip = await identified(tt, 'flip_kromer')
