@@ -48,17 +48,14 @@ this section, lists the words they replace while code still holds them.
   as its widget is. Not a bot's **model tier**, which is a widget's config. A `quiz` widgeting's
   widgeted sits in every later bag as `quiz.<label>`, so it may not take a name the quiz itself
   answers to there (`Quiz.exposed`); it has no column, and is shown and typed into in the **Quiz
-  entries** panel. The gear lists the two tiers apart: **Widgetings** and **Quiz widgetings**.
-* **run order** -- a quiz's widgetings in the order they run (`src/lib/run-order.ts`): the `quiz`
-  widgetings above the **questions pivot**, then the `question` widgetings, then the `quiz`
-  widgetings below the pivot. Each widgeting's bag holds the widgeteds of the widgetings before
-  it, so the order is the dependency order. The positions are the run order, written whole at
-  every change.
-* **questions pivot** -- where the `question` widgetings run, among the `quiz` ones: a fixed row
-  of the gear's Quiz widgetings list, dragged past rather than dragged. Not stored: it sits just
-  before the first `question` widgeting; in a quiz with none, just before the first `quiz` formula
-  (after the entries), or last, and the first `question` widgeting added goes there. So a formula
-  over the questions stays below them; one meant to run above them is dragged back once they come.
+  entries** panel. The gear lists both tiers in one **Widgetings** list, each row marked *each
+  question* or *whole quiz*.
+* **run order** -- a quiz's widgetings in the order they run: their positions, the two tiers mixed
+  as the author placed them. Each widgeting's bag holds the widgeteds of the widgetings before it,
+  so the order is the dependency order: a `quiz` widgeting runs once over the questions as the
+  widgetings before it left them, and a `question` widgeting reads every `quiz` one before it as
+  `quiz.<label>`. A new widgeting goes last, whichever its tier; `move_widgeting` counts the one
+  list. (Until October 2026 a fixed *questions pivot* kept the tiers apart.)
 * **ok**, **errored**, **missing** -- the three states of a widgeted, and the only ones. `ok` has a
   value; `errored` has only a failure; `missing` has neither, and is never stored: it is a cell with
   no row, or an input or formula that came to nothing (shown as a muted dash; never zero). An

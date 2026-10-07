@@ -196,23 +196,17 @@ should still do. The gap list, with a JSONata column for each gap one can close,
 
 ## From recap sprint, thread 6: quiz-level widgetings and entries
 
-Widgetings of the `quiz` tier (`src/lib/run-order.ts`, the runner's quiz steps, `quiz_widgeteds`,
-the gear's *Quiz widgetings*, the *Quiz entries* panel). Built small; left:
+Widgetings of the `quiz` tier (the runner's quiz steps, `quiz_widgeteds`, the gear's *Widgetings*,
+the *Quiz entries* panel). Built small; left (thread 11 let the tiers interleave and dropped the
+questions pivot, closing the two items about it):
 
 * **An import does not carry the quiz's own entries back.** The export writes them under the
   quiz's `widgeteds`, and an import adds the widgetings; reading `widgeteds` into
   `enter_quiz_widgeted` actions (as `enteredFrom` does a question's) is the rest.
-* **An import does not keep a quiz widgeting's side of the pivot**: `add_widgeting` places it by
-  its formulary (an entry above the questions, a formula below). The export's positions say where
-  it was; a `move_widgeting` after the add would restore it.
 * **No `aibot` at the quiz's level**: no cell to ask from. It would need an ask button in the panel,
   `record_widgeted` taking no question, and a prompt over the quiz's bag.
 * **A quiz text entry cannot be templated**, nor shown as a markdown face in the panel: the panel's
   box is plain text. The recap's head and tail, always templated, read it as `quiz.<label>`.
-* **The pivot itself is not dragged**: it is fixed, and the quiz widgetings move past it. With no
-  question widgetings it sits before the first quiz formula, so a formula dropped above it snaps
-  back below, and one meant to run above the questions is dragged back up once they come; a stored
-  pivot (a quiz field) would fix both, at the cost of a migration.
 * **A reviewer is sent none of the quiz's entries**, as none of a question's stored widgeteds.
 
 ## Git refs
