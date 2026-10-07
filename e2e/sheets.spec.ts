@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test'
-import { addWidgeting, expect, fillRows, test, waitUntilSaved } from './support'
+import { addWidgeting, expect, fillRows, openPanel, test, waitUntilSaved } from './support'
 
 /** The lines the Copy for Sheets box currently holds */
 async function sheetsLines(page: Page): Promise<string[]> {
@@ -9,6 +9,7 @@ async function sheetsLines(page: Page): Promise<string[]> {
 
 /** Whatever the Copy for Sheets box currently holds */
 async function sheetsText(page: Page): Promise<string> {
+  await openPanel(page, 'Export / Import')
   const box = page.getByRole('textbox', { name: 'Copy for Sheets' })
   await expect(box).toBeVisible()
   return box.inputValue()

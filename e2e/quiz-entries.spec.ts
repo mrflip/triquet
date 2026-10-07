@@ -49,6 +49,7 @@ test('a quiz entry is typed into the Quiz entries panel, kept, and filled into a
   await box.fill('Ada and Grace')
   await leaveBox(page)
   await reloadOnceSaved(page)
+  await entriesPanel(page)
   await expect(box).toHaveValue('Ada and Grace')
 
   await openManage(page)

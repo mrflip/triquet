@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import * as Tsv from '../src/lib/tsv'
-import { actDangerously, addColumns, addWidgetings, closeManage, expect, faceOf, grid, holderOf, huntOf, manageDialog, newQuiz, openManage, openQuiz, quizPathOf, reloadOnceSaved, test, waitUntilSaved } from './support'
+import { actDangerously, addColumns, addWidgetings, closeManage, expect, faceOf, grid, holderOf, huntOf, manageDialog, newQuiz, openManage, openPanel, openQuiz, quizPathOf, reloadOnceSaved, test, waitUntilSaved } from './support'
 
 /** The label of the quiz `page` is at, from its address */
 function quizLabelIn(page: Page): string {
@@ -139,6 +139,7 @@ test('a locked quiz accepts no edits, but stays readable and copyable', async ({
   await expect(page.getByRole('button', { name: 'Ask Dumdum' }).first()).toBeDisabled()
 
   // Exporting still works.
+  await openPanel(page, 'Export / Import')
   await expect(page.getByRole('textbox', { name: 'Copy for Sheets' })).toHaveValue(/Which region\?/)
 
   // The gear still opens a column to read, with nothing to apply and no way to remove it.

@@ -1,5 +1,5 @@
 import type { Browser, Page } from '@playwright/test'
-import { addColumns, addMember, assumeIdent, expect, fillRows, otherVisitor, quizPathOf, test, waitUntilSaved } from './support'
+import { addColumns, addMember, assumeIdent, expect, fillRows, openPanel, otherVisitor, quizPathOf, test, waitUntilSaved } from './support'
 
 // These are about a second visitor reviewing the first's hunt: the smith begins at the fixture's
 // fresh hunt, and the reviewer goes in by itself, at the front door.
@@ -40,6 +40,7 @@ test.describe('a review', () => {
     await expect(reviewer.getByText('Not shared with the smiths yet.')).toBeVisible()
 
     await expect(page.getByRole('heading', { name: 'Reviews' })).toBeVisible()
+    await openPanel(page, 'Reviews')
     await expect(page.getByText('No reviews have been shared yet.')).toBeVisible()
 
     await reviewer.getByRole('button', { name: 'Share with the smiths' }).click()
@@ -205,6 +206,7 @@ test.describe('a review', () => {
     await reviewer.getByRole('button', { name: 'Share with the smiths' }).click()
     await expect(reviewer.getByText('Shared with the smiths.')).toBeVisible()
 
+    await openPanel(page, 'Reviews')
     const verdict = page.getByRole('table', { name: 'Verdicts by question' }).getByRole('row', { name: /Danish prince/ })
     await expect(verdict).toContainText('40%')
     await expect(verdict.getByRole('img', { name: 'Keep it: one of the top picks' })).toBeVisible()
