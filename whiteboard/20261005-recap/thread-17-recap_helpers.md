@@ -1,7 +1,8 @@
 # Thread 17: Mustache helpers for the recap's conveniences (2026-10-07)
 
-Branch `20261007-recap_helpers`, PR filed at landing; see the report. Stacked on thread 16. Landed
-unreviewed at the Coach's word. Suites: `pnpm justify` green; `pnpm e2e --touched` runs at landing.
+Branch `20261007-recap_helpers`, PR filed at landing; see the report. Stacked on #173 (thread 16).
+Landed unreviewed at the Coach's word; thread 7 reviews it. Suites: `pnpm justify` green;
+`pnpm e2e --touched` at landing.
 
 * **Built**:
   - `src/lib/templating.ts`: `Templating.Helpers`, a frozen registry of three **template helpers**,
@@ -65,7 +66,10 @@ unreviewed at the Coach's word. Suites: `pnpm justify` green; `pnpm e2e --touche
 * **Deviations**: built on thread 16's branch before it landed. Thread 16 was blocked (the main
   checkout's uncommitted `src/lib/recap.ts`), so this branch was rebased locally onto
   `20261007-recap_basic` as it stood (d92ba4f) to switch the default; `pnpm catchup` onto 16's
-  landing drops its commits as already applied.
+  landing was meant to drop its commits as already applied. It did not (16 landed under new SHAs and
+  `catchup` replayed its originals onto them, conflicting), so the catchup was aborted and this
+  thread's own five commits replayed onto the new top with `git rebase --onto`. 16's code landed
+  identical to what this was built on.
 * **Discoveries**:
   - Mustache's own lambda path (a function found by lookup, called with the raw section text and a
     `render`) would have meant letting `lookup` return functions; overriding `renderSection` is
