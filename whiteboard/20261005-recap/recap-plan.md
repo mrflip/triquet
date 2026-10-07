@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-06. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `whiteboard/20261005-recap/20261005-recap_preplan.md` (the threads,
 verbatim below) and `20261005-recap_bbjank.md` (the board format's spec), beside this file.
-**Status: resumed 2026-10-07, regular operation (reviews at medium). Threads 1-6 merged (#167); ad-hoc and fast-tracked #168, #170, #171, #172 open, 16 and 17 landing; 13, 11, 10, 12, 7, 8, 9 to run.** `recap-progress.md`, beside this file, is newer than this plan wherever the
+**Status: done, 2026-10-07. Every thread landed; #161-#167 merged, #168-#183 open (one stack). See `human/20261007-sprint_recap_done.md`.** `recap-progress.md`, beside this file, is newer than this plan wherever the
 two disagree.
 
 **What the Coach needs by the end** (their words): "an export of simple markdown into bbjank; I can

@@ -15,7 +15,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 6 | Quiz-level widgetings and entries | landed #166 |
 | 7 | Security review | landed #181 |
 | 8 | Security fixes, certain ones | landed #182 |
-| 9 | Tighten the recap fields | landing |
+| 9 | Tighten the recap fields | landed #183 |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
 | 12 | Template and recap follow-ups | landed #179 |
@@ -28,8 +28,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | — | Ad hoc: panels fold, resize handle | landed #168 |
 | — | Ad hoc: branch-switch spec race | landed #170 |
 
-**Paused after thread 6, at the Coach's word.** See `human/20261006-sprint_recap_paused.md`.
-Frontier on resuming: thread 7.
+**Done, 2026-10-07.** Every thread landed. See `human/20261007-sprint_recap_done.md`.
 
 ## What the threads have taught
 
@@ -216,6 +215,10 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   every response, no CSP. *Review:* clean. Open: O5 only partly closed (unlimited usernames per
   session); `X-Frame-Options: DENY` blocks outside embedding; O1, O2, O3, O8, O9 and images in
   filled values wait on the Coach.
+
+* **Tighten (thread 9, #183).** The five widened fields are required again; fallbacks and the three
+  backfills dropped; `recap_template` stays optional; ledger rows in `notes/deploy.md`. *Review:*
+  clean. History at the end: nothing to fold, since #163 is the only widening and #183 tops the stack.
 
 ## Migration chain `recap`
 
