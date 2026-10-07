@@ -156,6 +156,11 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   a quiz-level `in_order` column; alternates, no-Q# questions and filled templated fields need the
   app (thread 12). Thread 17's helpers close the quoting, one-line and `---` gaps.
 
+* **Reviewer rules (thread 13, #174, no review: documents only).** `thread-reviewer.md` forbids the
+  reviewer and `/code-review` any change to the main checkout, checks it before and after (reflog
+  included), and reports what it could not check. Open: whether `EnterWorktree` could give
+  reviewers a workspace of their own (needs a Coach-sanctioned experiment).
+
 ## Migration chain `recap`
 
 *Orchestrator, 2026-10-07:* the Coach merged #161 to #167 at once (safe: no tightening exists yet).
