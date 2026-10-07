@@ -408,6 +408,9 @@ join onto one line; `apart`: set a leading `---` apart), so `{{#quote}}{{clueing
 on any field or column. `BagContext` still calls nothing from the bag: database values can never
 be functions. Helper output is markdown and goes through the bbjank writer last. Switch the default
 template to them where thread 16's gap list says they close a gap. Depends on: 16.
+*Added by the Coach, 2026-10-07:* "make a longnote validation -- like note but length is 20,000.
+Apply it to smith note, recap_head, etc": `longnote` (noteish, max 20,000) on the quiz's
+`smiths_note`, `recap_head`, `recap_tail`, `recap_template`. Raises a limit only: no migration.
 
 ### Coach's answers while paused (2026-10-06)
 
