@@ -374,6 +374,29 @@ A quiz with its own template saved under thread 14's names: none exist in produc
 the Coach's own; keep the old names working only if it is free, else note it. The LL Export keeps
 its BUT NOT (the league's format); only the recap changes. Depends on: 14 (#171).
 
+### 16. The default recap template stands on the app's basic tools (2026-10-07, reviews paused)
+
+*Coach's text:* "can we pause the reviews for a bit and iterate on the code. I would like the
+template to basically stand on its own, not dependent on the app doing uneditable things that can
+be done with expressions and mustache. I have a custom expression that I want to use instead of the
+correct answer line, but we are looping on something called player, and there's things called
+oneline and quoted that I don't know where they come from. I'm guessing quoted is meant to reapply
+quote characters to the multiline sentence? Don't rip the other stuff out yet, but make the
+template do everything using the basic tools of the app and we'll see how to close the gap"
+
+Gloss: rewrite `Recap.DefaultTemplate` to use only what every template already sees: the bag's
+ordinary question loop (`{{#qns}}`, whose items carry each question's fields and its columns by
+label), the question's own fields, columns (widgeted values, the Coach's custom expressions among
+them), and plain mustache. No `played`, `quoted`, `oneline`, `below`, `pct` or `number` in the
+default. **Keep them in the bag** (not ripped out). The pinned default-note test follows the new
+output; add a test showing a custom column (a `jsonata` widgeting) used in place of the Correct
+Answer line. Write a **gap list** into the thread file and the `human/` how-to: each thing the old
+shaped values did that the basic template now gets wrong (archived/alternate/blank questions in
+the loop, numbering by rank, a multi-line field leaving its quote, a list-like answer, a `---`
+recap), with a JSONata recipe for a column that closes it where one can (e.g. a quoting formula),
+so the Coach can decide what the app should still do. **No review** for this thread, at the Coach's
+word: prove with `pnpm e2e --touched` and land. Depends on: 15 (#172).
+
 ### Coach's answers while paused (2026-10-06)
 
 * **Author BBCode breaking the recap's frame: wontfix.** It may be on purpose, and the smith
