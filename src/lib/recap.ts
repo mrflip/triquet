@@ -150,19 +150,19 @@ export function noteOf(quiz: QuizT, run: Runner.QuizRun): RecapNoteT {
  */
 export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
   const quizBag = Templating.filledBagOf(quiz, run)
-  const filled = Templating.filledQuiz(quiz, run)
   const every = quizBag.quiz.questions as Record<string, unknown>[]
   const qnFor = new Map(run.frame.question_ids.map((question_id, idx) => [question_id, every[idx] ?? {}]))
   const hasPct = quiz.widgetings.some((widgeting) => widgeting.label === CorrectPctLabel && widgeting.tier === 'question')
-  const played = Rank.inRankOrder(LLSmithExport.exportedIn(filled.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
+  const played = Rank.inRankOrder(LLSmithExport.exportedIn(quiz.questions, 'go_live').filter((question) => ! Question.isBlank(question)))
   return {
     ...quizBag,
     recap_head: Templating.fill(quiz.recap_head, quizBag).markdown,
     recap_tail: Templating.fill(quiz.recap_tail, quizBag).markdown,
     played:     played.map((question, ii): PlayedT => {
-      const fields = EST.pick(question, TemplatableFieldVals)
+      const qn = qnFor.get(question._id) ?? {}
+      const fields = EST.mapValues(EST.pick(question, TemplatableFieldVals), (typed, field) => (typeof qn[field] === 'string' ? qn[field] : typed))
       return {
-        ...qnFor.get(question._id),
+        ...qn,
         ...fields,
         number:  ii + 1,
         quoted:  EST.mapValues(fields, Shaping.quotedOf),

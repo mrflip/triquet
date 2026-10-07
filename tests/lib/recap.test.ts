@@ -388,6 +388,13 @@ describe('Recap.bagOf', () => {
     expect(recapOf(quiz)).to.eq('All: Shown Spare Gone\n\nKept: Shown Spare\n\nPlayed: Shown')
   })
 
+  it('holds each question played with its templated fields filled in, shaped from what they came to', () => {
+    const question = questionWith({ qnum: '1', clueing: 'By {{qn.author}}\nWhen?', stored: { author: typed('Ada') } })
+    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' })], templated: ['question.clueing'] })
+    const [played] = Recap.bagOf(quiz, runOf(quiz, Library)).played
+    expect([played?.clueing, played?.quoted.clueing]).to.deep.eq(['By Ada\nWhen?', 'By Ada\n> When?'])
+  })
+
   it("holds the hunt's categories, each with its title", () => {
     const quiz = quizOf([hamilton], { recap_template: '{{#categories.0}}{{title}} ({{label}}){{/categories.0}}' })
     expect(recapOf(quiz)).to.eq('Math & Econ (math_econ)')
