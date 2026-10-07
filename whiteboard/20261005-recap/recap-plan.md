@@ -356,6 +356,24 @@ the whole once.
 * Takes over thread 12's "`correct_pct` only". Depends on: #168's panel changes landed (it is on
   the spine). Proved with `pnpm e2e --touched`.
 
+### 15. The recap template reads the question's own fields, and says OR ELSE (2026-10-07)
+
+*Coach's text:* "would you make the recap template less dependent on internals; have it do quoted
+body accessing the question fields. Instead of BUT NOT, use OR ELSE and insert the hint, not the
+chained but not"
+
+Gloss: thread 14's `quoted_body` is a composite the code builds (clueing, then `...BUT NOT...` and
+the hint of the question it chains to). Replace composites with **per-field shaped values**, so the
+template names the fields it uses: e.g. `quoted.clueing`, `quoted.hint` (each line after the first
+prefixed `> `), and the same idea for the answer and recap (`oneline.full_answer`,
+`below.recap`, or names the worker finds clearer), dropping `quoted_body`, `answer_line` and
+`recap_below`. The default template then spells the question's line itself, with this question's
+**own hint** after `...OR ELSE...`, only when it has one:
+`> {AS: Q{{number}}}{{number}}. {{quoted.clueing}}{{#hint}} ...OR ELSE... {{quoted.hint}}{{/hint}}`.
+A quiz with its own template saved under thread 14's names: none exist in production yet beyond
+the Coach's own; keep the old names working only if it is free, else note it. The LL Export keeps
+its BUT NOT (the league's format); only the recap changes. Depends on: 14 (#171).
+
 ### Coach's answers while paused (2026-10-06)
 
 * **Author BBCode breaking the recap's frame: wontfix.** It may be on purpose, and the smith
