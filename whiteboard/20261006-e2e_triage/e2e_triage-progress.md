@@ -1,6 +1,6 @@
 # e2e triage: progress
 
-**Status:** thread 7 underway. Threads 1 to 6 landed, in the order #156, #157, #158, #159, #160, #169. The Coach released thread 6 on 2026-10-07, and asked for thread 7 after it; the open questions still stand in `human/20261006-sprint_e2e_triage_paused.md`.
+**Status:** done. All seven threads landed, in the order #156, #157, #158, #159, #160, #169, #176. The open questions are gathered in `human/20261007-sprint_e2e_triage_done.md`.
 
 ## Status
 
@@ -12,7 +12,7 @@
 | 4 | cover stats and the other light gaps | landed #159 |
 | 5 | path-to-spec map, `pnpm e2e --touched`, scoped proof | landed #158 |
 | 6 | per-container lock on full runs, catch up on acquiring | landed #169 |
-| 7 | install a new dependency when a checkout moves onto it | landing |
+| 7 | install a new dependency when a checkout moves onto it | landed #176 |
 
 ## Measurements
 
@@ -202,3 +202,15 @@ nothing installs packages into a checkout but `pnpm worktree`. The main checkout
 lacks it, so every spine command there (`sweep`, `worktree`, `top`) fails with
 `ERR_MODULE_NOT_FOUND`, as would `land` and `e2e` in any worktree that catches up onto this top.
 The Coach chose: the orchestrator installed in the main checkout, and thread 7 makes it not recur.
+
+*Orchestrator:* from thread 7's reports (its file, `thread-7-e2e_install.md`). `scripts/spine.ts`
+now reaches proper-lockfile only inside `takeE2eLock`, and wherever the spine moves a checkout onto
+a commit with another `pnpm-lock.yaml` (`restack`, `catchUp`, and `land` on both sides) it installs
+there; `TRIQUET_INSTALL` overrides the command. A failed install in the main checkout is reported and
+stops nothing. Proved in full: 255 passed, 0 failed, 960 test-seconds, 154 s at load 3.1, waited 0 s.
+
+*Review (thread 7):* `clean`, at medium through `/code-review`, then by hand. Checked: the install
+fires only on a changed lockfile blob; the hold is released in a `finally`; the "before" each
+caller passes is the commit that checkout stood on; the lazy import keeps its types. Left, minor:
+after a failed install, the next catch-up finds nothing to rebase and does not install again; a
+failed catch-up install drops the restack's message lines, as a rebase conflict already does.

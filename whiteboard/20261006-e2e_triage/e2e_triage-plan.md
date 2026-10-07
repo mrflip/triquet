@@ -1,8 +1,8 @@
 # e2e triage: a suite that is fast, honest, and runs only its corner
 
 **Date:** 2026-10-06. **Mode:** normal. **Review level:** medium. **At once:** 3. **Issued by:** flip,
-in session e2e_triage. **Status:** thread 7 underway: threads 1 to 6 landed (#156 to #160, #169). The Coach released thread 6 (the
-lock) on 2026-10-07, and asked in chat for thread 7, a follow-up to it.
+in session e2e_triage. **Status:** done: threads 1 to 7 landed (#156 to #160, #169, #176). The Coach released thread 6 (the lock)
+on 2026-10-07, and asked in chat for thread 7, a follow-up to it.
 
 Words: **way in** = what every test does before it is about anything: say who it is at the front
 door, make a hunt, open its quiz (`startHunt` in `e2e/support.ts`). **Corner** = the specs the
