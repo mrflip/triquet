@@ -6,19 +6,19 @@ without the config; `pnpm e2e --touched` at landing (the `convex/` changes reach
 
 * **Built**: one `fix:` commit per finding, each with a test that fails without it. Findings marked
   fixed, with commits, in `security-findings.md` and `whiteboard/TODO.md`.
-  - **O4** (4e2d563): `identFor` (`convex/reading.ts`) answers null when the ident its newest
+  - **O4** (f0a2370): `identFor` (`convex/reading.ts`) answers null when the ident its newest
     identing names is not held by the session, so `askerOf` makes the session anonymous. Tests in
     `tests/convex/reading.test.ts` and `tests/convex/functions.test.ts`.
-  - **O5** (5be5d60): `PA.HuntsPerOrg` (99) in `src/lib/vv/patterns.ts`; `new_hunt` refuses past
+  - **O5** (abe9692): `PA.HuntsPerOrg` (99) in `src/lib/vv/patterns.ts`; `new_hunt` refuses past
     it (`orgFull`, a new refusal in `src/lib/notices.ts`), counted through the hunts'
     `by_orglabel_and_label` index by `huntsCountedInOrg` (`convex/reading.ts`). `newHunt` is split:
     `makeHuntFor` (label taken, app full, the writes) is what `testing:makeHunt` calls, past the
     org's cap. Tests in `tests/convex/idents.test.ts`, `reading.test.ts`, `testing.test.ts`.
-  - **O7** (9ce84e1): `src/lib/mustachery.ts`, `OwnKeysContext`: mustache's context held to the
+  - **O7** (f1d71f0): `src/lib/mustachery.ts`, `OwnKeysContext`: mustache's context held to the
     view's own keys, calling nothing. `renderPrompt` renders in it; templating's `BagContext` now
     extends it (budgets and helper names on top), so the two dialects share one rule. Tests in
     `tests/lib/mustachery.test.ts` and `tests/lib/ask/prompts.test.ts`.
-  - **O6** (d929b70): `SecurityHeaders` in `next.config.ts`, on every response (`/:path*`):
+  - **O6** (20dd564): `SecurityHeaders` in `next.config.ts`, on every response (`/:path*`):
     `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
     strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=(),
     payment=(), usb=()`. Test: `e2e/routing.spec.ts`, the first test (`/`, `/my/hunts`, `/api/ask`).

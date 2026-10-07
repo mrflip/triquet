@@ -108,14 +108,14 @@ or retire them); `hunts.open` names smiths only to a session with a username.
 **O4. `askerOf` trusts the newest identing without checking the ident is still the session's** --
 info (defense in depth); **certain**, not exploitable today. `convex/reading.ts:23-26`
 (`identFor`), `convex/functions.ts:41-43`. Fix: treat `ident.user_id !== user_id` as anonymous, with
-a test. **Fixed in thread 8** (4e2d563): `identFor` answers null when the ident its newest identing
+a test. **Fixed in thread 8** (f0a2370): `identFor` answers null when the ident its newest identing
 names is not held by the session, so `askerOf` makes that session anonymous.
 
 **O5. One session can use up the app's hunt cap** -- low; **certain**.
 `convex/writing/account_actions.ts:88-91` refuses past `PA.HuntsInApp.max` (999,
 `src/lib/vv/patterns.ts:282`), counted across the app, with no per-ident limit; anonymous sign-in is
 unlimited (`convex/auth.ts`). Fix sketch: a per-ident cap on hunts made, or a rate limit on
-`new_hunt` and sign-in. **Fixed in thread 8, as far as one username** (5be5d60): `new_hunt` refuses
+`new_hunt` and sign-in. **Fixed in thread 8, as far as one username** (abe9692): `new_hunt` refuses
 past `PA.HuntsPerOrg` (99, a tenth of the app's) hunts in the maker's org (`orgFull`), counted by
 the hunts' `by_orglabel_and_label` index (`huntsCountedInOrg`); `testing:makeHunt`, the admin's way
 for e2e (one ident makes a whole one-worker run's hunts), goes past it (`makeHuntFor`). **Left, for
@@ -129,7 +129,7 @@ localStorage), but nothing limits an XSS, which would take a refresh token good 
 (`convex/auth.ts`, `totalDurationMs: 3650 * DayMs`): a permanent username takeover. Fix sketch:
 `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
 strict-origin-when-cross-origin` now (certain); a `script-src` CSP needs Next's inline scripts
-handled (nonces), so try it on a preview first (uncertain). **Headers fixed in thread 8** (d929b70):
+handled (nonces), so try it on a preview first (uncertain). **Headers fixed in thread 8** (20dd564):
 `next.config.ts`'s `SecurityHeaders`, on every response: `X-Frame-Options: DENY` (in place of
 `frame-ancestors`, which is CSP, held back with the rest of it), `X-Content-Type-Options: nosniff`,
 `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` refusing camera,
@@ -142,7 +142,7 @@ function; used as a section, mustache then calls that empty function too, which 
 author's text ever runs as code, and the output goes only to the model. Fix sketch: render prompts through an own-keys context
 as `Templating` does (export a helper-less writer and context from `templating.ts`, or a shared
 `lib/mustachery.ts`), with tests from `tests/lib/templating.test.ts`'s inherited cases. **Fixed in
-thread 8** (9ce84e1): `src/lib/mustachery.ts`'s `OwnKeysContext` (own keys only, nothing called) is
+thread 8** (f1d71f0): `src/lib/mustachery.ts`'s `OwnKeysContext` (own keys only, nothing called) is
 what `renderPrompt` renders in, and what templating's `BagContext` now extends.
 
 **O8. A formula can hold the page for a long time** -- low (medium with O2); **uncertain** how
