@@ -130,7 +130,9 @@ interface CornerRule {
  * `use-ident` and `routes.ts`, and the quiz history mirror `use-hunt` feeds and tracks every write
  * through: `hunt-mirror`, `hunt-feed`, `hunt-fetching`, `hunt-commits`, `commit-scheduler`,
  * `huntfiles` and `huntgit`, with the history download and its help, `FullHistoryDownload` and
- * `full-history.md`, which every quiz screen's Export tab mounts). A component used in two corners
+ * `full-history.md`, which every quiz screen's Export tab mounts), and the widgeting planner
+(`src/lib/widgeting-edit.ts`), which lays out the quiz of every spec that asks for its layout up
+front (`testing:makeHunt`) as well as the gear's. A component used in two corners
  * names the spec files of both. A spec file named here need not exist yet: `pnpm e2e --touched`
  * skips one that is not there, and a corner left with none reaches the whole suite.
  */
@@ -156,7 +158,7 @@ export const SpecCorners: readonly CornerRule[] = [
   { corner: 'the gear and the Widgets panel', specs: [...GearSpecs, ...PanelSpecs],          paths: ['src/components/widget-words.ts', 'src/components/room.ts'] },
   { corner: 'the copy buttons',          specs: [...GearSpecs, ...PanelSpecs, 'routing'],    paths: ['src/components/CopyButton.tsx'] },
   { corner: 'the folded JSON',           specs: [...GearSpecs, 'ishes', 'failures'],         paths: ['src/components/JsonFold.tsx'] },
-  { corner: 'the gear',                  specs: GearSpecs,                                   paths: ['src/components/WidgetEditor.tsx', 'src/components/WidgetingsEditor.tsx', 'src/components/ColumnsEditor.tsx', 'src/components/LibraryModal.tsx', 'src/components/DangerZone.tsx', 'src/components/PreviewPicker.tsx', 'src/components/JsonataFields.tsx', 'src/components/AibotFields.tsx', 'src/components/EntryFields.tsx', 'src/components/SortableList.tsx', 'src/components/ConfirmRemove.tsx', 'src/components/use-preview-bag.ts', 'src/state/widget-edit.ts', 'src/state/widgeting-edit.ts', 'src/state/use-widget-usage.ts', 'src/state/use-library-actions.ts', 'src/state/use-other-quiz.ts'] },
+  { corner: 'the gear',                  specs: GearSpecs,                                   paths: ['src/components/WidgetEditor.tsx', 'src/components/WidgetingsEditor.tsx', 'src/components/ColumnsEditor.tsx', 'src/components/LibraryModal.tsx', 'src/components/DangerZone.tsx', 'src/components/PreviewPicker.tsx', 'src/components/JsonataFields.tsx', 'src/components/AibotFields.tsx', 'src/components/EntryFields.tsx', 'src/components/SortableList.tsx', 'src/components/ConfirmRemove.tsx', 'src/components/use-preview-bag.ts', 'src/state/widget-edit.ts', 'src/state/use-widget-usage.ts', 'src/state/use-library-actions.ts', 'src/state/use-other-quiz.ts'] },
   // The panels
   { corner: 'the members panel',         specs: ['routing'],                                 paths: ['src/components/panels/MembersPanel.tsx'] },
   { corner: 'the panels, as a whole',    specs: [...PanelSpecs, 'reviews', 'routing', 'estimates'], paths: ['src/components/panels/Panels.tsx'] },

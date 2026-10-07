@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../src/state/widgeting-edit'
+import { EstimatesColumnWidthPx, NewColumnWidthPx, planWidgetingEdit, type WidgetingEdit } from '../../src/lib/widgeting-edit'
 import { Quiz, type QuizT } from '../../src/models/quiz'
 import { Widget } from '../../src/models/widget'
 import { defaultLayout } from '../../src/models/layout'

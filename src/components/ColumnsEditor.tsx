@@ -16,6 +16,7 @@ import * as Estimates from '../lib/estimates'
 import { alignAfter, headAlignOf } from '../lib/columns'
 import { Column, ColumnValidators, QuestionFieldVals, QuestionViewVals, QuestionWidgetLabel, WidgetingPartVals, WidthPxMax, namesFor, widgetingSourceOf, type ColumnAlign, type ColumnPatch, type ColumnT } from '../models/column'
 import type { QuizT } from '../models/quiz'
+import { AddedColumnWidthPx } from '../models/layout'
 import type { WidgetT } from '../models/widget'
 import type { HuntActionDNA } from '../models/actions'
 import styles from './workbench.module.css'
@@ -31,9 +32,6 @@ export type ColumnsEditorProps = {
 
 /** Which column's editor is open: one of the quiz's, or a new one */
 type Editing = { kind: 'column', label: string } | { kind: 'new' } | null
-
-/** How wide a new column starts */
-const NewColumnWidthPx = 180
 
 /** The familiar mark of each alignment, from a word processor's toolbar */
 const AlignIcons: Readonly<Record<ColumnAlign, React.ReactNode>> = {
@@ -201,7 +199,7 @@ function ColumnDialog({ quiz, sources, column, revisable, dispatch, onClose }: R
   /** What a new column offers to show first: the first thing no column shows yet */
   const unshown = sources.find((each) => quiz.columns.every((other) => other.source !== each.value)) ?? sources[0]
   const [source, setSource] = useState(column?.source ?? unshown?.value ?? 'question.notes')
-  const [widthPx, setWidthPx] = useState(String(column?.width_px ?? NewColumnWidthPx))
+  const [widthPx, setWidthPx] = useState(String(column?.width_px ?? AddedColumnWidthPx))
   const [issue, setIssue] = useState<string | null>(null)
   const named = namesFor(source)
   const typed = Labelmaker.normalize(label)

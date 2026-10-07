@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { addWidgeting, cellOf, closeManage, expect, manageDialog, openManage, reloadOnceSaved, test } from './support'
+import { cellOf, closeManage, expect, manageDialog, openManage, reloadOnceSaved, test } from './support'
 
 /** The list of categories of the pill numbered `nth` (from 1) in the Categories cell of the row at `rowIdx` */
 function categoryList(page: Page, rowIdx: number, nth: number) {
@@ -36,9 +36,7 @@ async function addPartColumn(page: Page, part: string, title: string) {
   await closeManage(page)
 }
 
-test.beforeEach(async ({ page }) => {
-  await addWidgeting(page, 'categories')
-})
+test.use({ layout: { widgetings: ['categories'] } })
 
 test('a category estimate is pills, each picked from a list, kept as they are picked', { tag: '@smoke' }, async ({ page }) => {
   // A question nobody has placed shows one blank pill, and no "+" while it is blank.

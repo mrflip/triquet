@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { internal } from '../../convex/_generated/api'
 import { Hunt } from '../../src/models/hunt'
-import { openTester, seedHunt, type Tester } from '../support/convex'
+import { EstimatesColumnWidthPx, NewColumnWidthPx } from '../../src/lib/widgeting-edit'
+import { AddedColumnWidthPx } from '../../src/models/layout'
+import { identified, openTester, seedHunt, type Tester } from '../support/convex'
 import { present } from '../support/present'
 
 /** How many rows each table holds that has any */
@@ -61,5 +63,97 @@ describe("testing.clearAll", () => {
     expect(await countsIn(tt)).to.deep.eq({ idents: 1 })
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(1)
     expect(await tt.mutation(internal.testing.clearAll, {})).to.eq(0)
+  })
+})
+
+/** What a hunt `makeHunt` made holds, read past authorization: its org and label, its smiths, and its one quiz's layout in order */
+async function madeOf(tt: Tester, address: string) {
+  const [, org = '', hunt = ''] = address.split('/', 3)
+  return await tt.run(async (ctx) => {
+    const row = present(await ctx.db.query('hunts').withIndex('by_orglabel_and_label', (cvx) => cvx.eq('orglabel', org.replace(/^~/, '')).eq('label', hunt)).first())
+    const huntings = await ctx.db.query('huntings').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).collect()
+    const quiz = present(await ctx.db.query('quizzes').withIndex('by_hunt_id', (cvx) => cvx.eq('hunt_id', row._id)).first())
+    const widgetings = await ctx.db.query('widgetings').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect()
+    const columns = await ctx.db.query('columns').withIndex('by_quiz_id_and_position', (cvx) => cvx.eq('quiz_id', quiz._id)).collect()
+    return {
+      org:        row.orglabel,
+      hunt:       row.label,
+      quiz:       quiz.label,
+      smiths:     huntings.filter((hunting) => hunting.role === 'smith').map((hunting) => hunting.ident_label),
+      widgetings: widgetings.map((widgeting) => [widgeting.label, widgeting.widget_label]),
+      columns:    columns.map((column) => [column.label, column.title, column.source, column.width_px]),
+    }
+  })
+}
+
+describe("testing.makeHunt", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("makes a hunt of the ident's org with the ident its smith, and hands back where its quiz is worked on", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await identified(tt, 'tester_maker')
+    const address = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+    expect(address).to.match(/^\/~tester_maker\/([a-z0-9_]+)\/quizzes\/home\/\1\/!edit$/)
+    const made = await madeOf(tt, address)
+    expect([made.org, made.smiths, made.quiz]).to.deep.eq(['tester_maker', ['tester_maker'], made.hunt])
+    expect(made.widgetings).to.deep.eq([])
+    expect(made.columns.map(([label]) => label)).to.deep.eq(['title', 'qnum', 'clueing', 'full_answer', 'notes'])
+  })
+
+  it("makes each hunt for one ident a hunt of its own", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await identified(tt, 'tester_maker')
+    const first = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+    const second = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })
+    expect(second).not.to.eq(first)
+    const made = await madeOf(tt, second)
+    expect(made.smiths).to.deep.eq(['tester_maker'])
+  })
+
+  it("lays the quiz out as the gear's dialogs would: each widget under its own label with the column it brings, then each field's column", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await tt.mutation(internal.seeding.seedWidgets, {})
+    await identified(tt, 'tester_maker')
+    const address = await tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker', widgetings: ['dumdum', 'clueing_full', 'categories', 'dumdum'], columns: ['hint', 'butnot'] })
+    const made = await madeOf(tt, address)
+    expect(made.widgetings).to.deep.eq([['dumdum', 'dumdum'], ['clueing_full', 'clueing_full'], ['categories', 'categories'], ['dumdum_2', 'dumdum']])
+    expect(made.columns.slice(5)).to.deep.eq([
+      ['dumdum',       'Dumdum',       'dumdum',           NewColumnWidthPx.aibot],
+      ['clueing_full', 'Clueing Full', 'clueing_full',     NewColumnWidthPx.jsonata],
+      ['categories',   'Categories',   'categories',       EstimatesColumnWidthPx],
+      ['dumdum_2',     'Dumdum 2',     'dumdum_2',         NewColumnWidthPx.aibot],
+      ['hint',         'Hint',         'question.hint',    AddedColumnWidthPx],
+      ['butnot',       'BUT NOT',      'question.butnot',  AddedColumnWidthPx],
+    ])
+  })
+
+  it("refuses an ident no session holds, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_nobody' })).rejects.toThrow(/No session holds the ident tester_nobody/)
+    expect(await countsIn(tt)).to.deep.eq({})
+  })
+
+  it("refuses a widget the library lacks, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', 'yes')
+    const tt = openTester()
+    await identified(tt, 'tester_maker')
+    const before = await countsIn(tt)
+    await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker', widgetings: ['no_such_widget'] })).rejects.toThrow(/no widget no_such_widget/)
+    expect(await countsIn(tt)).to.deep.eq(before)
+  })
+
+  it("refuses a deployment that may not be made into, writing nothing", async () => {
+    vi.stubEnv('TRIQUET_CLEARABLE', '')
+    const tt = openTester()
+    await identified(tt, 'tester_maker')
+    const before = await countsIn(tt)
+    await expect(tt.mutation(internal.testing.makeHunt, { ident: 'tester_maker' })).rejects.toThrow(/TRIQUET_CLEARABLE is not yes/)
+    expect(await countsIn(tt)).to.deep.eq(before)
   })
 })

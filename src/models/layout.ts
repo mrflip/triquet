@@ -7,6 +7,9 @@ export type Layout = {
   columns:    ColumnT[]
 }
 
+/** How wide a column added through the columns editor starts, unless its author says otherwise */
+export const AddedColumnWidthPx = 180
+
 /** The question fields a new quiz shows, in order, and how wide each column starts */
 const StarterColumns: readonly (readonly [QuestionField, number])[] = [
   ['title',       160],

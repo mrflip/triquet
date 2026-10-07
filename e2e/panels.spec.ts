@@ -1,5 +1,5 @@
 import type { Locator } from '@playwright/test'
-import { addWidgeting, addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
+import { addWidgetings, expect, exportedQuizzes, freshWidgetLabel, grid, preparedExport, showTab, test } from './support'
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] })
 
@@ -100,49 +100,50 @@ test('the Widgets panel lists the quiz\'s widgetings in run order, each with its
   await expect(panel.getByRole('button', { name: 'Copy a prompt for a chatbot' })).toBeVisible()
 })
 
-test('a formula\'s counts follow what its cells come to', async ({ page }) => {
-  await addWidgeting(page, 'answer_reversed')
-  const panel = page.getByRole('region', { name: 'Widgets' })
-  const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
-  await expect(counts).toHaveText(/^\d+ blank$/)
-  await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
-  await page.getByLabel('Quiz name').click()
-  await expect(counts).toHaveText(/^1 current • \d+ blank$/)
-  await panel.getByRole('button', { name: /^answer_reversed/ }).click()
-  await expect(panel.getByRole('textbox', { name: 'Formula: answer_reversed' })).toHaveValue(/\$reverse/)
-})
+test.describe('with answer_reversed at work', () => {
+  test.use({ layout: { widgetings: ['answer_reversed'] } })
 
-test('a folded widgeting gives up its description, then its widget, then how its cells stand, as the list narrows', async ({ page }) => {
-  await addWidgeting(page, 'answer_reversed')
-  const panel = page.getByRole('region', { name: 'Widgets' })
-  const summary = panel.getByRole('button', { name: /^answer_reversed/ })
-  const description = summary.getByText('The full answer written backward.')
-  const widget = summary.getByText('formula answer_reversed')
-  const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
-  await expect(description).toBeVisible()
-  await expect(widget).toBeVisible()
-  await expect(counts).toBeVisible()
+  test('a formula\'s counts follow what its cells come to', async ({ page }) => {
+    const panel = page.getByRole('region', { name: 'Widgets' })
+    const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
+    await expect(counts).toHaveText(/^\d+ blank$/)
+    await grid(page).locator('tbody tr').first().getByRole('textbox', { name: 'Full Answer' }).fill('stressed')
+    await page.getByLabel('Quiz name').click()
+    await expect(counts).toHaveText(/^1 current • \d+ blank$/)
+    await panel.getByRole('button', { name: /^answer_reversed/ }).click()
+    await expect(panel.getByRole('textbox', { name: 'Formula: answer_reversed' })).toHaveValue(/\$reverse/)
+  })
 
-  await page.setViewportSize({ width: 860, height: 900 })
-  await expect(description).toBeHidden()
-  await expect(widget).toBeVisible()
-  await page.setViewportSize({ width: 640, height: 900 })
-  await expect(widget).toBeHidden()
-  await expect(counts).toBeVisible()
-  await page.setViewportSize({ width: 420, height: 900 })
-  await expect(counts).toBeHidden()
-  await expect(summary).toContainText('answer_reversed')
-})
+  test('a folded widgeting gives up its description, then its widget, then how its cells stand, as the list narrows', async ({ page }) => {
+    const panel = page.getByRole('region', { name: 'Widgets' })
+    const summary = panel.getByRole('button', { name: /^answer_reversed/ })
+    const description = summary.getByText('The full answer written backward.')
+    const widget = summary.getByText('formula answer_reversed')
+    const counts = panel.getByRole('group', { name: 'Cells of answer_reversed' })
+    await expect(description).toBeVisible()
+    await expect(widget).toBeVisible()
+    await expect(counts).toBeVisible()
 
-test('a widgeting\'s description is a snippet while folded, and gives way to the whole of it when open', async ({ page }) => {
-  await addWidgeting(page, 'answer_reversed')
-  const panel = page.getByRole('region', { name: 'Widgets' })
-  const summary = panel.getByRole('button', { name: /^answer_reversed/ })
-  const snippet = summary.getByText('The full answer written backward.')
-  await expect(snippet).toHaveCSS('text-overflow', 'ellipsis')
-  await summary.click()
-  await expect(snippet).toBeHidden()
-  await expect(panel).toContainText('The widget: The full answer written backward.')
+    await page.setViewportSize({ width: 860, height: 900 })
+    await expect(description).toBeHidden()
+    await expect(widget).toBeVisible()
+    await page.setViewportSize({ width: 640, height: 900 })
+    await expect(widget).toBeHidden()
+    await expect(counts).toBeVisible()
+    await page.setViewportSize({ width: 420, height: 900 })
+    await expect(counts).toBeHidden()
+    await expect(summary).toContainText('answer_reversed')
+  })
+
+  test('a widgeting\'s description is a snippet while folded, and gives way to the whole of it when open', async ({ page }) => {
+    const panel = page.getByRole('region', { name: 'Widgets' })
+    const summary = panel.getByRole('button', { name: /^answer_reversed/ })
+    const snippet = summary.getByText('The full answer written backward.')
+    await expect(snippet).toHaveCSS('text-overflow', 'ellipsis')
+    await summary.click()
+    await expect(snippet).toBeHidden()
+    await expect(panel).toContainText('The widget: The full answer written backward.')
+  })
 })
 
 test('LL Export holds the quiz in the league\'s format, one record per question', async ({ page }) => {

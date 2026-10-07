@@ -546,7 +546,7 @@ clean break makes renaming in place safe; any reader of an old action log should
     browser records `value` as the widgeted's, the rest as its `result_meta`.
 * **Two editors with two scopes** (thread 6): the widgeting editor from the quiz page, and the
   widget editor from the library, so the author always knows which they are in. As built:
-  - **The widgeting editor** (`WidgetingsEditor.tsx`, `src/state/widgeting-edit.ts`) picks a widget
+  - **The widgeting editor** (`WidgetingsEditor.tsx`, `src/lib/widgeting-edit.ts`) picks a widget
     from the library, grouped by formulary and found by label, title or description (the
     catalogue a lean quiz starts from), and sets the widgeting's label and description; its place
     in the run order is the list's. It has no formula box. Its *New widget* door opens the widget

@@ -1,5 +1,5 @@
-import * as Labelmaker from '../lib/labelmaker'
-import * as Estimates from '../lib/estimates'
+import * as Labelmaker from './labelmaker'
+import * as Estimates from './estimates'
 import { Column } from '../models/column'
 import { ReservedWidgetingLabels, WidgetingValidators, type WidgetingPatch, type WidgetingT } from '../models/widgeting'
 import type { Formularykind, WidgetT } from '../models/widget'
