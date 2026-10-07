@@ -137,6 +137,19 @@ worktree, and reports `landed` with the PR number, or `blocked` (git_hygiene, *F
 post the reviewer's PR comment (`gh pr comment <n>`, the text from its report) so the review
 sits on the PR.
 
+**Which proof.** A worker proves with `pnpm e2e --touched` or more. CI runs the whole suite on
+every PR, and a path the corner map does not name reaches the whole suite anyway, so a scoped proof
+risks only a red check. Ask for a full run, in the "Land it", when the thread:
+
+* bumps a dependency;
+* changes build, Convex or Playwright config;
+* carries a tighten migration;
+* or has a reviewer questioning its corner's reach.
+
+Ask for one too of the fourth, eighth, twelfth (and so on) thread you resume to land, so that a
+red full run has at most three scoped landings beneath it to suspect; note in the progress
+document which thread carried it. The sprint-end full run is §5's.
+
 **Landings need no turns.** Resume each `ready`, reviewed thread as soon as its review is in:
 workers prove their branches side by side, and their bids queue at the spine's hold, where each
 runs only typecheck and the unit tests, and nothing can snipe it. A sweep waits for the hold too, and can
@@ -230,8 +243,13 @@ or a genuinely one-way design call. YOLO never means merging a PR.
 
 ## 5. Wrap up
 
-When the last thread lands (or the sprint pauses for good): set both documents' status
-lines and mirror them to the sprint doc; add a `human/YYYYMMDD-sprint_<name>_done.md` entry
+When the last thread lands, prove the top in full, unless that landing's own proof was a full
+run on the top as it now stands: cut a worktree from it (`pnpm worktree
+<sprint_name>_proof`) and hand it to a `thread-worker` whose only task is `pnpm e2e` there, each
+failure rerun alone, reporting the run's log line and its flakes, then `pnpm worktree --remove`.
+Green: carry on. Red: the failure is a fix thread, cut, reviewed and landed like any other, and
+the sprint is not done until a full run on the top is green. Then (or when the sprint pauses for
+good): set both documents' status lines and mirror them to the sprint doc; add a `human/YYYYMMDD-sprint_<name>_done.md` entry
 -- the sprint in a paragraph, its PRs in the order they landed with "stacked on" notes, YOLO
 decisions if any, and the open questions gathered in one place; `pnpm sweep`, then push the
 top (`git -C <main checkout> push`, borrowing gh's login per git_hygiene's *Filing the PR*)
