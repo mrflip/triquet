@@ -1,10 +1,11 @@
 # Thread 12: The Coach's follow-ups on templates and the recap (2026-10-07)
 
-Branch `20261007-recap_followups`; the PR is filed at landing (see the report). Suites: `pnpm justify`
+Branch `20261007-recap_followups`, PR filed at landing; see the report. Reviewed `fixed`
+(53ec80e: `useImageLoads` listens from the layout phase, for `load` and `error`). Suites: `pnpm justify`
 green (typecheck, lint, 4879 unit tests). Targeted e2e green: `grid`, `entries`, `recap`,
 `quiz-entries`. `pnpm e2e --touched` runs at landing. One test in `e2e/reviews.spec.ts` (the smith's
-note folded to a line) fails on the base commit too, alone, with workers=1: it was already broken
-before this thread.
+note folded to a line) is intermittent, about 1 in 4 run alone, and fails on the base commit too
+(a `useId`-built locator); in TODO.
 
 * **Built**:
   - **Images everywhere.** `Markdown.Allowlist` (`src/lib/markdown.ts`) keeps `img` for every field,

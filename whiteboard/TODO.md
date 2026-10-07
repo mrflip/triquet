@@ -275,4 +275,7 @@ Read any of them with `git show 0b8079c -- <path>` or `git show 4f33026 -- <path
   look before merging (`human/20261007-recap_followups.md`).
 * A templated widgeting's widgeted is filled in the recap's bag whenever its value is text, a
   readout's as well as a text entry's; the grid fills only text entries (thread 4's note above).
-
+* **`e2e/reviews.spec.ts` › "smith's note folded to a line" is intermittent** (about 1 in 4 run
+  alone, failing on the base commit too): its locator is built from the fold's `aria-controls`, a
+  `useId` value, and sometimes finds no element by it. Predates thread 12; a locator by role or
+  label inside the *Smith's note* region would not depend on the id.
