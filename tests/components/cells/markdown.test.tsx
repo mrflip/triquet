@@ -123,6 +123,15 @@ describe("MarkdownText, with imagesAsLinks, as a reviewer's words are drawn", ()
     expect(renderToStaticMarkup(<MarkdownText imagesAsLinks text="![A cat](javascript:alert(1))" />)).to.eq('<p>A cat</p>')
   })
 
+  it("draws a linked image as its words inside the link around it, never a link inside a link", () => {
+    expect(renderToStaticMarkup(<MarkdownText imagesAsLinks text="[![A cat](https://e.co/cat.png)](https://e.co/page)" />)).to.eq(
+      '<p><a href="https://e.co/page" target="_blank" rel="noopener noreferrer">A cat</a></p>',
+    )
+    expect(renderToStaticMarkup(<MarkdownText imagesAsLinks text="[![](https://e.co/cat.png)](https://e.co/page)" />)).to.eq(
+      '<p><a href="https://e.co/page" target="_blank" rel="noopener noreferrer">https://e.co/cat.png</a></p>',
+    )
+  })
+
   it("does the same on a face", () => {
     const markup = renderToStaticMarkup(<MarkdownFace inInput imagesAsLinks text="![A cat](https://e.co/cat.png)" />)
     expect(markup).not.to.contain('<img')

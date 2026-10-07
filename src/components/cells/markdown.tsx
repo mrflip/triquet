@@ -1,5 +1,6 @@
 'use client'
 
+import { createContext, useContext } from 'react'
 import { Box, Typography } from '@mui/material'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import clsx from 'clsx'
@@ -30,17 +31,27 @@ function dressingFor(cell: boolean): Components {
 const Dressing = dressingFor(false)
 const CellDressing = dressingFor(true)
 
+/** Whether what is drawn sits inside a link already, where a link of its own would nest one link inside another */
+const InLink = createContext(false)
+
 /**
  * An image as a link to it, which opens beside the quiz: the image's alt text, or else its address,
- * as the link's words. Nothing is fetched until the reader follows it.
+ * as the link's words. Nothing is fetched until the reader follows it. Inside a link already (a
+ * linked image, `[![alt](src)](href)`), the words alone, so that the link around them is the one
+ * followed.
  */
 function ImageLink({ src, alt = '' }: Readonly<{ src?: string | Blob, alt?: string }>) {
+  const inLink = useContext(InLink)
   const href = typeof src === 'string' ? src : undefined
-  return href === undefined ? <>{alt}</> : <a href={href} target="_blank" rel="noopener noreferrer">{alt === '' ? href : alt}</a>
+  const words = alt === '' ? (href ?? '') : alt
+  return href === undefined || inLink ? <>{words}</> : <a href={href} target="_blank" rel="noopener noreferrer">{words}</a>
 }
 
-/** As `Dressing`, but with each image a link to it (`ImageLink`) */
-const ImageLinkDressing: Components = { ...Dressing, img: ({ node: _node, src, alt }) => <ImageLink src={src} alt={alt} /> }
+/** As `Dressing`, but with each image a link to it (`ImageLink`), or within a link its words */
+const ImageLinkDressing: Components = {
+  a:   ({ node: _node, ...props }) => <InLink value><a {...props} target="_blank" rel="noopener noreferrer" /></InLink>,
+  img: ({ node: _node, src, alt }) => <ImageLink src={src} alt={alt} />,
+}
 
 /** The dressing for a text drawn in a grid cell or not, its images as links or not */
 function dressingOf(cell: boolean, imagesAsLinks: boolean): Components {
