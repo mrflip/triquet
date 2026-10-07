@@ -131,7 +131,7 @@ checkout, and to probe only in their worktree. For the Coach.
 *Orchestrator:* a spine replay's message names unlanded branches (`recap_bbjank`, `recap_widen`)
 as replayed; it skips branches checked out in worktrees, and their refs were untouched. Harmless.
 
-* **Recap template (thread 14, landing).** Pure mustache over markdown, converted once:
+* **Recap template (thread 14, #171).** Pure mustache over markdown, converted once:
   head and tail filled, then the template (quiz `recap_template`, Absentable, or
   `Recap.DefaultTemplate`) over the recap bag (`recap_head`, `recap_tail`, `played` with `number`
   and the shaped `quoted_body`, `answer_line`, `recap_below`, `pct` from `correct_pct`). No reset
