@@ -57,3 +57,39 @@ test("a recap head that will not fill in says why, and the note carries it as ty
   await expect(holderOf(head).locator('[data-template-issue]')).toContainText('Unclosed section')
   await expect(panel.getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue('Thanks {{#qns}}')
 })
+
+test("the recap template lays the note out, keeps it across a reload, says why when it will not fill in, and goes back to the default when emptied", async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', (message) => { if (message.type() === 'error') { errors.push(message.text()) } })
+  await fillRows(page, [{ 'Q#': '1', 'Clueing': 'Who wrote **this**?', 'Full Answer': 'HAMILTON' }])
+  const panel = await openPanel(page, 'Recap')
+  const note = panel.getByRole('textbox', { name: 'Recap note', exact: true })
+  const byDefault = '[quote="Q1"]1. Who wrote [b]this[/b]?[/quote]\n\nAnswer: [spoiler][b]HAMILTON[/b][/spoiler]\nCorrect Answer %:'
+  await expect(note).toHaveValue(byDefault)
+
+  await panel.getByRole('button', { name: /^Recap template/ }).click()
+  await expect(panel.getByRole('button', { name: /^Recap template/ })).toContainText('(the default)')
+  const template = panel.getByRole('textbox', { name: 'Recap template', exact: true })
+  await expect(template).toHaveValue(/^\{\{#recap_head\}\}/)
+  await template.fill('{{#played}}- **Q{{number}}**: {{answer_line}}\n{{/played}}')
+  await page.getByLabel('Quiz name').click()
+  await expect(note).toHaveValue('[list]\n[*] [b]Q1[/b]: HAMILTON[/list]')
+  await expect(panel.getByRole('button', { name: /^Recap template/ })).toContainText("(the quiz's own)")
+
+  await reloadOnceSaved(page)
+  const reloaded = await openPanel(page, 'Recap')
+  await expect(reloaded.getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue('[list]\n[*] [b]Q1[/b]: HAMILTON[/list]')
+  await reloaded.getByRole('button', { name: /^Recap template/ }).click()
+  const kept = reloaded.getByRole('textbox', { name: 'Recap template', exact: true })
+  await kept.fill('{{#played}}{{number}}')
+  await page.getByLabel('Quiz name').click()
+  await expect(kept).toHaveAttribute('aria-invalid', 'true')
+  await expect(reloaded.getByText('Unclosed section "played"')).toBeVisible()
+  await expect.poll(() => errors.some((text) => text.includes('could not fill in the template in Recap template'))).toBe(true)
+
+  await kept.fill('')
+  await page.getByLabel('Quiz name').click()
+  await expect(kept).toHaveValue(/^\{\{#recap_head\}\}/)
+  await expect(reloaded.getByRole('textbox', { name: 'Recap note', exact: true })).toHaveValue(byDefault)
+  await expect(reloaded.getByRole('button', { name: /^Recap template/ })).toContainText('(the default)')
+})
