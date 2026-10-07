@@ -1,6 +1,6 @@
 # Thread 10: The markdown dialect, settled (2026-10-07)
 
-Branch `20261007-recap_dialect`, PR filed at landing; see the report. Suites: `pnpm justify` green
+Branch `20261007-recap_dialect`, PR filed at landing; see the report. Review fixes 95893dd, 434550a. Suites: `pnpm justify` green
 (typecheck, lint, 4912 unit tests); `pnpm e2e:smoke` green (30); `pnpm e2e --touched` at landing
 (the whole suite: `cells/markdown.tsx` and `lib/markdown.ts` reach every screen).
 
@@ -47,6 +47,11 @@ Branch `20261007-recap_dialect`, PR filed at landing; see the report. Suites: `p
     path already named fixes four pointers and leaves `CLAUDE.md` alone.
   - **No autolinks on screen**: only strikeout was asked for; the difference is in `notes/markdown.md`
     and TODO.
+* **Review** (`fixed`): 95893dd reads an indent inside a list that markdown would make code as a
+  quote (`- Hamlet\n\n        *To be*` was code); 434550a parts the LL export's lines at a bare `\r`
+  too. Left open, in the PR: a line indented four spaces after a list item and a blank line, or
+  lazily continuing one, joins that item (CommonMark's reading); verse after a list leaving the
+  list would be a rule change.
 * **Pulled forward / struck**: `mdast-util-definitions` was thread 14's; nothing taken from later threads.
 * **Discoveries**:
   - **A bug fixed on the way**: the LL export (`ll-bbcode.ts`) wrote `> ` in place of four spaces

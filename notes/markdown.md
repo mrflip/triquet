@@ -15,7 +15,9 @@ CommonMark, with these on top:
   verse, never a code block; eight spaces are two levels. Each line is quoted exactly as deep as it
   is indented: a line that steps back out leaves the quote, where markdown's lazy continuation would
   carry it in. A list's, a fenced code block's and an HTML block's own lines keep their indents,
-  which are markdown's (four spaces in a list nest it). Applied before anything reads the text, in
+  which are markdown's (four spaces in a list nest it); but an indent markdown would make code
+  inside a list (verse after an item and a blank line) is still a quote, since the dialect has no
+  indented code. Applied before anything reads the text, in
   every place: `Markdown.indentsQuoted` for the screen, bbjank and the `quote` template helper;
   `Markdown.indentsAsQuotes`, line by line, for the LL export, which writes each line's own indent.
   This is the dialect, not a workaround: name it, don't re-derive it.
