@@ -161,8 +161,12 @@ effort yet:
   (`[x][1]`) in one question resolves against a `[1]: ...` defined in any text of the note, the
   first winning. Two questions both defining `[1]` differently link the second wrong. Inline links
   are unaffected.
-* **A head or tail with an unclosed fenced code block** swallows the rest of the note into code,
-  now the note is one document (it was contained when each text was converted alone).
+* **An unclosed block swallows the rest of the note.** An unclosed fenced code block, or a raw HTML
+  block (`<pre>`, `<!--` with no close), in the head *or any question's recap* runs to the end of
+  the one document, so everything after it -- later questions, their answers included, outside
+  their spoilers -- comes out as literal text (it was contained when each text was converted
+  alone). Wontfix-adjacent: the smith previews before posting. A fix would close such blocks in
+  `recap_below` and the head, or convert those texts alone again.
 * **An answer with its own `**` or `~~`** can tangle with the default template's `~~**...**~~`
   around `answer_line`; `*Hamlet*` comes out `[i][b]..[/b][/i]` (same look on the board).
 * The pre-shaped values are the recap's own; a field template set into a quote meets the same

@@ -1,6 +1,6 @@
 # Thread 14: An editable recap template, in pure mustache over markdown (2026-10-07)
 
-Branch `20261007-recap_template`, PR filed at landing; see the report. Suites: `pnpm justify` green
+Branch `20261007-recap_template`, PR filed at landing; see the report. Stacked on #170. Suites: `pnpm justify` green
 (typecheck, lint, 4850 unit tests); `e2e/recap.spec.ts` green (its new template test among them);
 `pnpm e2e --touched` runs at landing.
 
@@ -15,8 +15,10 @@ Branch `20261007-recap_template`, PR filed at landing; see the report. Suites: `
   - Quiz field `recap_template`, **Absentable** (optional in the model and row validators for good,
     `noteish.min(1)`; listed under `Absentable` in `tests/convex/schema.test.ts`). No migration.
     `set_recap_template` (`recap_template: string | null`, null clears) under `mayReviseClaimedQuiz`;
-    `setRecapTemplate` in `convex/writing/quiz_actions.ts`. Ball export writes it only when present;
-    import carries it, a null or `''` clearing it.
+    `setRecapTemplate` in `convex/writing/quiz_actions.ts`. Ball export writes it, `null` for a
+    quiz on the default, so importing that over a quiz with its own resets it; import carries it, a
+    null, `''` or a copy of the default (trimmed) clearing it; an older ball without the key keeps
+    the quiz's.
   - `RecapPanel`: a folded *Recap template* `Accordion` below the tail, monospace, red with the issue
     as helper text when broken, "(the default)" / "(the quiz's own)" in its summary. The note follows
     the template draft as typed.
@@ -57,9 +59,15 @@ Branch `20261007-recap_template`, PR filed at landing; see the report. Suites: `
   Coach-approved); "`correct_pct` only" (thread 12's).
 * **Discoveries**:
   - One document means one set of link definitions: `[1]` defined in two questions resolves to the
-    first everywhere. And an unclosed fence in the head swallows the rest. Both in TODO.
+    first everywhere. And an unclosed fence or raw HTML block in the head or any question's recap
+    turns the rest of the note, later answers included, to literal text outside their spoilers. Both in TODO.
   - mustache comments (`{{! }}`) pass `Templating.issueOf`, so a template can document itself.
   - The field template has no pre-shaped values; the same structural catch applies to a templated
     field interpolated into a quote. TODO.
+* **Review** (`fixed`): 86803e3 keys the console report on the issue without mustache's trailing
+  position (`issueGistOf`), so a half-typed section logs once; b2f649f trims the box before comparing
+  with the default (`tidiedTemplate`). After the review, at the orchestrator's call: the ball writes
+  `recap_template: null` for a default quiz; an import of a copy of the default clears the field; the
+  TODO entry on unclosed blocks widened to recaps and raw HTML.
 * **For the Coach**: `human/20261007-recap_template.md` is the how-to. The Next dev overlay will count
   the new console errors as issues while a template is broken (dev only).

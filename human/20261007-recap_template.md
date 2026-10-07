@@ -23,4 +23,4 @@ or templated field.
 
 Two things to know: the note is one markdown document now, so a reference-style link definition
 (`[1]: url`) in one question is seen by every question (the first wins); and a head with an
-unclosed ``` fence swallows the rest. Both in `whiteboard/TODO.md`.
+unclosed ``` fence (or raw HTML block) in the head or a recap swallows the rest, later answers included. Both in `whiteboard/TODO.md`.
