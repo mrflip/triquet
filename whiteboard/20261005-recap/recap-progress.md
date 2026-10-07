@@ -18,7 +18,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 9 | Tighten the recap fields | pending |
 | 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
-| 12 | Template and recap follow-ups | underway |
+| 12 | Template and recap follow-ups | landing |
 | 13 | Reviews cannot touch the main checkout | landed #174 |
 | 14 | Editable recap template | landed #171 |
 | 15 | Recap reads the question's fields | landed #172 |
