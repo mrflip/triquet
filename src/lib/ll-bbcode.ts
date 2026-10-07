@@ -45,11 +45,14 @@ export function translateKeepingLines(text: string): string {
 }
 
 /**
- * `text` with its markdown emphasis written as BBCode: `**bold**` or `__bold__` as `[b]..[/b]`,
- * `*italic*` or `_italic_` as `[i]..[/i]`, nested however markdown nests them. A quoted line's
- * `> ` is written as four spaces, and a line indented four spaces or more is read as quoted, so
- * emphasis on it converts too and it keeps every space it had. What markdown does not read as
- * emphasis (`4 * 5 * 6`, `snake_case`, a code span, an escaped `\*`) and every other character
+ * `text` with its markdown emphasis written as BBCode: `**bold**` or `__bold__` as `[b]..[/b]`
+ * (underlining `__this__` is bbjank's alone), `*italic*` or `_italic_` as `[i]..[/i]`, nested
+ * however markdown nests them. A quoted line's `> ` is written as four spaces, and a line indented
+ * four spaces or more is read as quoted (the dialect's indent rule, `Markdown.indentsAsQuotes`), so
+ * emphasis on it converts too and **it keeps every space it had**: the league's site shows a
+ * line's leading spaces, so a quote here is its indent, unlike bbjank's, which starts each quoted
+ * line at its text. What markdown does not read as emphasis (`4 * 5 * 6`, `snake_case`, a code
+ * span, an escaped `\*`), a fenced code block's or a list's own indents, and every other character
  * are left as written.
  *
  * @param text - Markdown-ish text.

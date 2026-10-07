@@ -1,5 +1,5 @@
 import * as EST from 'es-toolkit'
-import * as Bbjank from './bbjank'
+import * as Markdown from './markdown'
 
 /**
  * Shapers: markdown an author wrote, made safe to set into a place in a template where
@@ -15,15 +15,15 @@ const SetextUnderlineRE = /^ {0,3}(?:=+|-+)[ \t]*$/
 
 /**
  * `text` (a clueing, say), to follow a `> ` the template opened on its line: its indents read as
- * quotes, as bbjank reads them, so none reads as code inside the quote; every line after its first
- * opening `> `, so none leaves the quote; blank lines at either end dropped. A text opening with a
- * quote of its own starts on the line below.
+ * quotes, by the dialect's indent rule (`Markdown.indentsQuoted`), so none reads as code inside
+ * the quote; every line after its first opening `> `, so none leaves the quote; blank lines at
+ * either end dropped. A text opening with a quote of its own starts on the line below.
  *
  * @example quotedOf('Who?\n\nNot him')         // => 'Who?\n>\n> Not him'
  * @example quotedOf('Who wrote\n    *verse*')  // => 'Who wrote\n> > *verse*'
  */
 export function quotedOf(text: string): string {
-  const lines = trimmedLines(Bbjank.indentsQuoted(text))
+  const lines = trimmedLines(Markdown.indentsQuoted(text))
   const opened = lines[0]?.startsWith('>') ? ['', ...lines] : lines
   return opened.map((line, ii) => {
     if (ii === 0) { return line }

@@ -1,11 +1,6 @@
 import type * as MT from 'mdast'
 import { definitions as definitionsOf, type GetDefinition } from 'mdast-util-definitions'
-import { fromMarkdown } from 'mdast-util-from-markdown'
-import { gfmAutolinkLiteralFromMarkdown } from 'mdast-util-gfm-autolink-literal'
-import { gfmStrikethroughFromMarkdown } from 'mdast-util-gfm-strikethrough'
 import { toString as textOf } from 'mdast-util-to-string'
-import { gfmAutolinkLiteral } from 'micromark-extension-gfm-autolink-literal'
-import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough'
 import { normalizeUri } from 'micromark-util-sanitize-uri'
 import _ from 'es-toolkit/compat'
 import * as Markdown from './markdown'
@@ -28,14 +23,11 @@ const AsMarker = '{AS:'
 /** A quote that opens by naming its speaker, `{AS: who}`, and the space either side of it */
 const QuoteAsRE = /^\s*\{AS:([^}\n]*)\}\s*/
 
+/** What opens strong emphasis that bbjank underlines, rather than bolds */
+const UnderlineMarker = '__'
+
 /** The closing brace of a spoiler's annotation, and any space after it */
 const AnnotationEndRE = /\}\s*$/
-
-/** A line that opens a fenced code block, whose indented lines are code and not quotes */
-const FenceOpenerRE = /^ {0,3}(?:```|~~~)/
-
-/** What a carriage return comes to: one line break, however the text was typed */
-const CarriageReturnRE = /\r\n?/g
 
 /** The hosts a YouTube video is watched on, besides its short links' `youtu.be` */
 const YoutubeHosts = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
@@ -54,18 +46,21 @@ const ItemIndent = '  '
 
 type FlowNode = MT.RootContent
 /** What every writer needs from the document: its source, the lines put in to close a quote, and its link definitions by identifier, wherever in the document each stands */
-type Context = { source: string, closers: Set<number>, definitions: GetDefinition }
+type Context = { source: string, closers: ReadonlySet<number>, definitions: GetDefinition }
 
 /**
  * Markdown as the league's message boards take it. Strikeout becomes a spoiler; a quote opening
  * `{AS: who}` becomes `[quote="who"]`, any other quote an indenting `[list]`; every four spaces a
  * line opens with is a quote level, as an author indents verse, and a line is quoted exactly as
- * deep as it is indented (as the screen shows it: `Markdown.forScreen`). Bold and italics, lists, code,
- * links and https images become their tags, and an image of a YouTube video becomes an embed with
- * its caption. Line breaks stay line breaks. What markdown reads as HTML is written as the
- * characters typed, and BBCode already in the text passes through as typed (so `[u]` is how to
- * underline: markdown has no underline of its own). A link or image to an address off the web is
- * written as its text alone.
+ * deep as it is indented (the dialect's indent rule, `Markdown.indentsQuoted`). Spaces short of
+ * four are not rescued: a quoted line starts at its text, unlike the LL export's (`ll-bbcode.ts`),
+ * which keeps every space. `**bold**` is `[b]`, `__underline__` is `[u]` (here alone: the screen and
+ * the LL export show it bold), `*italics*` and `_italics_` are `[i]`. Lists, code, links and https
+ * images become their tags; a numbered list names the number it starts at (`[list=1984]`), which
+ * the board ignores but the poster sees. An image of a YouTube video becomes an embed with its
+ * caption. Line breaks stay line breaks. What markdown reads as HTML is written as the characters
+ * typed, and BBCode already in the text passes through as typed. A link or image to an address off
+ * the web is written as its text alone.
  *
  * @param markdown - Markdown, as the author wrote it (or as a template filled it).
  * @returns The same text in bbjank, ready to paste into a post.
@@ -76,78 +71,14 @@ type Context = { source: string, closers: Set<number>, definitions: GetDefinitio
  * @example toBbjank('> aside\n> > deeper')             // => '[list]aside\n[list]deeper[/list][/list]'
  * @example toBbjank('    verse')                        // => '[list]verse[/list]'
  * @example toBbjank('- one\n- two')                     // => '[list]\n[*] one\n[*] two[/list]'
+ * @example toBbjank('__under__ **bold** _it_')          // => '[u]under[/u] [b]bold[/b] [i]it[/i]'
  * @example toBbjank('[Ham](https://ex.com/ham)')        // => '[url=https://ex.com/ham]Ham[/url]'
  * @example toBbjank('<b>hi</b>')                        // => '<b>hi</b>'
  */
 export function toBbjank(markdown: string): string {
-  const { source, closers } = quotedByIndent(markdown.replaceAll(CarriageReturnRE, '\n'))
-  const tree = parse(source)
+  const { source, closers } = Markdown.quotedByIndent(markdown)
+  const tree = Markdown.treeOf(source)
   return blocksOf(tree.children, { source, closers, definitions: definitionsOf(tree) })
-}
-
-/**
- * `markdown` with its indents read as quotes, as `toBbjank` reads them before anything else: every
- * four spaces a line opens with a quote level (`> `), each line quoted as deep as it is indented,
- * and a list's, a fenced code block's and an HTML block's own indents left as they are. For a text
- * that is to be set inside a quote of its own, where an indent would read as code.
- *
- * @example indentsQuoted('Who wrote\n    *verse*')  // => 'Who wrote\n> *verse*'
- * @example indentsQuoted('- one\n    - two')       // => '- one\n    - two'
- */
-export function indentsQuoted(markdown: string): string {
-  return quotedByIndent(markdown.replaceAll(CarriageReturnRE, '\n')).source
-}
-
-/** The markdown's tree: CommonMark, with GFM's `~~strikeout~~` (never a single `~`) and bare web addresses */
-function parse(source: string): MT.Root {
-  return fromMarkdown(source, {
-    extensions:      [gfmStrikethrough({ singleTilde: false }), gfmAutolinkLiteral()],
-    mdastExtensions: [gfmStrikethroughFromMarkdown(), gfmAutolinkLiteralFromMarkdown()],
-  })
-}
-
-/**
- * `text` with its indents read as quotes, as the screen reads them (`Markdown.forScreen`): four
- * spaces a quote level, each line quoted as deep as it is indented. A list's lines and a fenced
- * code block's are left as they are, their indents being markdown's own, and an HTML block's, which
- * is written as typed. Also the lines `forScreen` put in to close a deeper quote, counting from 1,
- * which are no blank line of the author's.
- */
-function quotedByIndent(text: string): { source: string, closers: Set<number> } {
-  const owned = parse(text).children
-    .filter((node) => node.type === 'list' || node.type === 'html' || (node.type === 'code' && isFenced(node, text)))
-    .map((node) => linesOf(node))
-  const isOwned = (lineIdx: number) => owned.some(({ beg, end }) => beg <= lineIdx + 1 && lineIdx + 1 <= end)
-  // Runs of lines, each wholly markdown's own or wholly the author's indents.
-  const lines = text.split('\n')
-  const runBegs = lines.keys().filter((lineIdx) => lineIdx === 0 || isOwned(lineIdx) !== isOwned(lineIdx - 1)).toArray()
-  const marked = runBegs.flatMap((runBeg, ii) => {
-    const run = lines.slice(runBeg, runBegs[ii + 1] ?? lines.length)
-    return isOwned(runBeg) ? run.map((line) => ({ line, closer: false })) : screenedLines(run)
-  })
-  return {
-    source:  marked.map(({ line }) => line).join('\n'),
-    closers: new Set(marked.flatMap(({ closer }, ii) => (closer ? [ii + 1] : []))),
-  }
-}
-
-/** `lines` as `Markdown.forScreen` writes them, each marked as one of the author's or a quote closer it put in */
-function screenedLines(lines: readonly string[]): { line: string, closer: boolean }[] {
-  const screened = Markdown.forScreen(lines.join('\n')).split('\n')
-  // A closer stands just before an author's line, and is never what that line became.
-  const marked: { line: string, closer: boolean }[] = []
-  let taken = 0
-  for (const line of screened) {
-    const closer = Markdown.indentsAsQuotes(lines[taken] ?? '') !== line
-    if (! closer) { taken += 1 }
-    marked.push({ line, closer })
-  }
-  return marked
-}
-
-/** Whether a code block was fenced, rather than indented */
-function isFenced(code: MT.Code, text: string): boolean {
-  return FenceOpenerRE.test(text.slice(code.position?.start.offset ?? 0))
 }
 
 /** The lines a node covers, first and last, counting from 1 */
@@ -209,16 +140,18 @@ function quoteOf(quote: MT.Blockquote, ctx: Context): string {
 }
 
 /**
- * A list: `[list]`, or `[list=1]` for a numbered one (the board numbers from 1 whatever it is
- * told), then each item on a line of its own after `[*] `, the closing tag after the last. An
- * item's further lines, a list within it among them, are set in a little.
+ * A list: `[list]`, or `[list=N]` for a numbered one starting at N (the board numbers from 1
+ * whatever it is told, but whoever pastes a list that opened `1984.` can see what it said), then
+ * each item on a line of its own after `[*] `, the closing tag after the last. An item's further
+ * lines, a list within it among them, are set in a little.
  */
 function listOf(list: MT.List, ctx: Context): string {
   const items = list.children.map((item) => {
     const blocks = item.children.map((child) => blockOf(child, ctx)).filter((text) => text !== '')
     return ('[*] ' + blocks.join('\n').split('\n').join('\n' + ItemIndent)).trimEnd()
   })
-  return `${list.ordered ? '[list=1]' : '[list]'}\n${items.join('\n')}[/list]`
+  const opening = list.ordered ? `[list=${String(list.start ?? 1)}]` : '[list]'
+  return `${opening}\n${items.join('\n')}[/list]`
 }
 
 /** A run of inline markdown, in bbjank */
@@ -231,7 +164,7 @@ function inlineOf(node: MT.PhrasingContent, ctx: Context): string {
   switch (node.type) {
   case 'text':           { return node.value }
   case 'html':           { return node.value }
-  case 'strong':         { return `[b]${inlinesOf(node.children, ctx)}[/b]` }
+  case 'strong':         { return strongOf(node, ctx) }
   case 'emphasis':       { return `[i]${inlinesOf(node.children, ctx)}[/i]` }
   case 'delete':         { return spoilerOf(node, ctx) }
   case 'inlineCode':     { return `[code]${node.value}[/code]` }
@@ -242,6 +175,12 @@ function inlineOf(node: MT.PhrasingContent, ctx: Context): string {
   case 'imageReference': { return imageOf({ type: 'image', url: ctx.definitions(node.identifier)?.url ?? '', alt: node.alt }) }
   default:               { return textOf(node) }
   }
+}
+
+/** Strong emphasis: `__underscored__` is underlined, `[u]`, and `**starred**` bold, `[b]`. The parser keeps no marker, so the source at the node says which. */
+function strongOf(strong: MT.Strong, ctx: Context): string {
+  const tag = ctx.source.startsWith(UnderlineMarker, strong.position?.start.offset ?? 0) ? 'u' : 'b'
+  return `[${tag}]${inlinesOf(strong.children, ctx)}[/${tag}]`
 }
 
 /**

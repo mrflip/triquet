@@ -29,7 +29,7 @@ export type MarkdownTextProps = {
  */
 export function MarkdownText({ text, templated = false }: Readonly<MarkdownTextProps>) {
   const options = templated ? Markdown.TemplatedRenderOptions : Markdown.RenderOptions
-  return <ReactMarkdown {...options} components={Dressing}>{Markdown.forScreen(text)}</ReactMarkdown>
+  return <ReactMarkdown {...options} components={Dressing}>{Markdown.indentsQuoted(text)}</ReactMarkdown>
 }
 
 /** What a text box's face shows: the text as typed, or, for a field the quiz templates, filled in */

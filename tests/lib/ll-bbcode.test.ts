@@ -4,7 +4,7 @@ import * as LLBBCode from '../../src/lib/ll-bbcode'
 const MarkdownCases: [string, string, string][] = [
   // regular usage:
   ["**bold**",                  "[b]bold[/b]",                        'double asterisks are bold'],
-  ["__bold__",                  "[b]bold[/b]",                        'double underscores are bold too'],
+  ["__bold__",                  "[b]bold[/b]",                        'double underscores are bold too: underlining them is bbjank\'s alone'],
   ["*italic*",                  "[i]italic[/i]",                      'single asterisks are italic'],
   ["_italic_",                  "[i]italic[/i]",                      'single underscores are italic too'],
   ["Name **WHAT** it is",       "Name [b]WHAT[/b] it is",             'the text around the emphasis is untouched'],
@@ -29,7 +29,8 @@ const MarkdownCases: [string, string, string][] = [
   // quotes and indents:
   ["> *verse*\n> **bold**",     "    [i]verse[/i]\n    [b]bold[/b]",  'a quote marker becomes four spaces, and emphasis inside converts'],
   [">  foo",                    "     foo",                           'a space beyond the one the marker takes is kept'],
-  ["     foo",                  "     foo",                           'a line indented five spaces keeps all five'],
+  ["     foo",                  "     foo",                           'a line indented five spaces keeps all five: unlike bbjank, the export rescues them'],
+  ["      six\n  two",           "      six\n  two",                   'every leading space is kept, short of four or past it'],
   ["    **verse**",             "    [b]verse[/b]",                    'an indented line is not code: its emphasis converts'],
   ["    one\n    two",          "    one\n    two",                   'every indented line keeps its indent'],
   ["        **deep**",          "        [b]deep[/b]",                'eight spaces are two quote levels, written back as eight, and emphasis converts'],
@@ -41,6 +42,9 @@ const MarkdownCases: [string, string, string][] = [
   ["plain\n    indented",       "plain\n    indented",               'an indented line after a paragraph keeps its indent'],
   ["  two spaces",              "  two spaces",                       'fewer than four leading spaces are left as typed'],
   ["this > that",               "this > that",                        'a > partway along a line is not a quote'],
+  ["```\n    code *x*\n```",     "```\n    code *x*\n```",               "a fenced code block keeps its indents, and its markdown"],
+  ["<div>\n    set in\n</div>",  "<div>\n    set in\n</div>",            "an HTML block keeps its indents"],
+  ["- one\n    - *two*",         "- one\n    - [i]two[/i]",              "a list nested four spaces in keeps its indent, and its emphasis converts"],
   // trivial cases:
   ["",                          "",                                   'empty text stays empty'],
   ["plain",                     "plain",                              'text without emphasis is untouched'],

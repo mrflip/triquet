@@ -38,6 +38,7 @@ const BbjankCases: [string, string, string][] = [
   ["    first\n        second\n      six spaces\nback out",
     "[list]first\n[list]second[/list]\nsix spaces[/list]\nback out",
     'a line is quoted only as deep as it is indented, and spaces short of four are dropped'],
+  ["      six\n  two\n          ten",  "[list]six[/list]\ntwo\n[list][list]ten[/list][/list]", 'leading spaces short of a quote level are not rescued (the LL export keeps them)'],
   ["Clue line\n    verse 1\n    verse 2\n...BUT NOT...\nhint",
     "Clue line\n[list]verse 1\nverse 2[/list]\n...BUT NOT...\nhint",
     'a line set back out of an indent leaves the quote, without a blank line'],
@@ -52,7 +53,9 @@ const BbjankCases: [string, string, string][] = [
   ["1. Point\n2. Second Point,\n   continued\n   > {AS: fleas}Adam\n   > Had 'em\n3. Third point",
     "[list=1]\n[*] Point\n[*] Second Point,\n  continued\n  [quote=\"fleas\"]Adam\n  Had 'em[/quote]\n[*] Third point[/list]",
     'a numbered list is list=1, and an item carries its further lines and a quote'],
-  ["3. three\n4. four",                 "[list=1]\n[*] three\n[*] four[/list]",            'the board numbers from 1 whatever the list starts at'],
+  ["3. three\n4. four",                 "[list=3]\n[*] three\n[*] four[/list]",            'a numbered list names its start, though the board numbers from 1'],
+  ["1984. Orwell's year",               "[list=1984]\n[*] Orwell's year[/list]",           'a line opening 1984. is a list starting at 1984, which the poster sees in the tag'],
+  [String.raw`1984\. Orwell's year`,   "1984. Orwell's year",                              'an escaped full stop keeps a year from being a list'],
   ["- \n- b",                           "[list]\n[*]\n[*] b[/list]",                       'an empty item is an empty bullet'],
   // code:
   ["`www iii`",                         "[code]www iii[/code]",                             'a code span is a code tag on its line'],
@@ -60,6 +63,11 @@ const BbjankCases: [string, string, string][] = [
   ["~~~\n> not a quote\n~~~",           "[code]\n> not a quote\n[/code]",                   'markdown inside a fence is left alone'],
   // emphasis and lines:
   ["Text may be *italicized* or **bolded**.", "Text may be [i]italicized[/i] or [b]bolded[/b].", 'italics and bold'],
+  ["_it_ *it* **bold** __under__",     "[i]it[/i] [i]it[/i] [b]bold[/b] [u]under[/u]",   'one marker is italics either way; two asterisks bold, two underscores underline'],
+  ["___both___ ***both***",            "[i][u]both[/u][/i] [i][b]both[/b][/i]",           'three underscores italicize an underline, three asterisks a bold'],
+  ["**bold __under__ bold**",          "[b]bold [u]under[/u] bold[/b]",                   'underline nests in bold'],
+  ["snake__case__word",                "snake__case__word",                               'underscores inside a word are no underline'],
+  ["~~__ANSWER__~~",                   "[spoiler][u]ANSWER[/u][/spoiler]",                'an underline inside a spoiler'],
   ["It *does **nested**,\nacross lines*", "It [i]does [b]nested[/b],\nacross lines[/i]",    'nested emphasis spanning a line break'],
   ["a\nb\n\nc",                         "a\nb\n\nc",                                        'line breaks and blank lines stay as typed, never [br]'],
   ["a  \nb",                            "a\nb",                                             'a hard break is a line break'],
@@ -147,18 +155,6 @@ const YoutubeCases: [string, string | undefined, string][] = [
   ["https://notyoutube.com/watch?v=SZXHoWwBcDc",     undefined,     'a host merely ending in youtube.com is not YouTube'],
   ["not a url",                                      undefined,     'what is no address is no video'],
 ]
-
-describe('indentsQuoted', () => {
-  it("writes the doc block's examples", () => {
-    expect(Bbjank.indentsQuoted('Who wrote\n    *verse*')).to.eq('Who wrote\n> *verse*')
-    expect(Bbjank.indentsQuoted('- one\n    - two')).to.eq('- one\n    - two')
-  })
-
-  it("closes a deeper quote before a shallower line, as the screen does, and leaves a fenced code block's indents alone", () => {
-    expect(Bbjank.indentsQuoted('    verse\nWho?')).to.eq('> verse\n\nWho?')
-    expect(Bbjank.indentsQuoted('```\n    code\n```')).to.eq('```\n    code\n```')
-  })
-})
 
 describe('youtubeIdOf', () => {
   for (const [url, expected, blurb] of YoutubeCases) {

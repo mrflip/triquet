@@ -5,16 +5,19 @@ import { describe, expect, it } from 'vitest'
 import * as Markdown from '../../src/lib/markdown'
 
 /** What a field's text becomes on screen, as markup */
-const rendered = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.RenderOptions, Markdown.forScreen(text)))
+const rendered = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.RenderOptions, Markdown.indentsQuoted(text)))
 
 /** What a templated field's text, once filled in, becomes on screen, as markup */
-const renderedTemplated = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.TemplatedRenderOptions, Markdown.forScreen(text)))
+const renderedTemplated = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.TemplatedRenderOptions, Markdown.indentsQuoted(text)))
 
 const IndentCases: [string, string, string][] = [
   // regular usage:
   ["    *verse*",            "> *verse*",            'four leading spaces become a quote marker'],
   ["        deeper",         "> > deeper",           'each four spaces is another quote level'],
   ["      between",          ">   between",          'spaces short of another four are kept'],
+  ["- a\n    - b",            "- a\n    - b",          "a list's indents are its own: four spaces nest it"],
+  ["```\n    code\n```",      "```\n    code\n```",    "a fenced code block's indents are its own"],
+  ["<div>\n    in\n</div>",   "<div>\n    in\n</div>",  "an HTML block's indents are its own"],
   ["          ten",          "> >   ten",            'spaces past two levels are kept after both'],
   ["    one\n    two",       "> one\n> two",          'every indented line is quoted'],
   // what is left alone:
@@ -32,12 +35,19 @@ const ScreenCases: [string, string, string][] = [
   // what is left alone:
   ["    verse\n\nWho?",            "> verse\n\nWho?",            'a blank line already closes the quote'],
   ["> typed\nlazy",               "> typed\nlazy",               'a quote marker typed by hand is markdown\'s own, laziness and all'],
+  ["- a\n    - b\nafter",           "- a\n    - b\nafter",           'a list nested four spaces in is still a list'],
+  ["Clue\n```\n    code\n```\n    verse", "Clue\n```\n    code\n```\n> verse", 'indents inside a fence are kept, and outside it read as quotes'],
+  ["    verse\r\nWho?",             "> verse\n\nWho?",            'a carriage return is a line break'],
   ["",                           "",                           'empty text stays empty'],
 ]
 
 const RenderCases: [string, string, string][] = [
   // regular usage:
   ["**bold** and *it*",           "<p><strong>bold</strong> and <em>it</em></p>",             'emphasis renders'],
+  ["__bold__ and _it_",           "<p><strong>bold</strong> and <em>it</em></p>",             'underscores make the same emphasis: underline is bbjank\'s alone'],
+  ["~~gone~~ ~50",                "<p><del>gone</del> ~50</p>",                                 'a double tilde strikes out, and a single one is a tilde'],
+  ["- a\n    - b",                 "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n</ul>",               'a list nested four spaces in is a list within the item, not a quote'],
+  ["```\n    code\n```",           "<pre><code>    code\n</code></pre>",                         'a fenced code block keeps its indents'],
   ["one\ntwo",                    "<p>one<br/>\ntwo</p>",                                       'a line break is a break, as the author typed it'],
   ["one\n\ntwo",                  "<p>one</p>\n<p>two</p>",                                     'a blank line starts a paragraph'],
   ["    *verse*",                 "<blockquote>\n<p><em>verse</em></p>\n</blockquote>",       'an indented line is a quote, not code'],
@@ -48,6 +58,7 @@ const RenderCases: [string, string, string][] = [
   // what markdown does not call emphasis:
   ["4 * 5 * 6",                   "<p>4 * 5 * 6</p>",                                           'arithmetic is left as written'],
   ["~50 to ~60",                  "<p>~50 to ~60</p>",                                          'a tilde is not strikethrough'],
+  ["~one tilde~",                 "<p>~one tilde~</p>",                                         'a single tilde either side is not strikethrough'],
   // what never reaches the screen as written:
   ["<b>hi</b>",                   "<p>&lt;b&gt;hi&lt;/b&gt;</p>",                               'HTML shows as the characters typed'],
   ["<script>alert(1)</script>",   "&lt;script&gt;alert(1)&lt;/script&gt;",                     'a script shows as the characters typed'],
@@ -83,7 +94,12 @@ describe("indentsAsQuotes", () => {
 
 describe("forScreen", () => {
   it.each(ScreenCases)('%j => %j: %s', (text, expected) => {
-    expect(Markdown.forScreen(text)).to.eq(expected)
+    expect(Markdown.indentsQuoted(text)).to.eq(expected)
+  })
+
+  it("marks the lines it put in to close a quote, and no others", () => {
+    expect(Markdown.quotedByIndent('    verse\nWho?\n\nNext')).to.deep.eq({ source: '> verse\n\nWho?\n\nNext', closers: new Set([2]) })
+    expect(Markdown.quotedByIndent('        two\n    one')).to.deep.eq({ source: '> > two\n>\n> one', closers: new Set([2]) })
   })
 
   it("renders the line after a quote outside it", () => {
@@ -99,7 +115,7 @@ describe("RenderOptions", () => {
   })
 
   it("renders only what the allowlist names", () => {
-    const markup = rendered('# Head\n\n> quote\n\n`code`\n\n```\nblock\n```\n\n---\n\n| a | b |\n|---|---|\n| 1 | 2 |')
+    const markup = rendered('# Head\n\n~~struck~~\n\n> quote\n\n`code`\n\n```\nblock\n```\n\n---\n\n| a | b |\n|---|---|\n| 1 | 2 |')
     const tagnames = markup.matchAll(/<(\w+)/g).map((match) => match[1]).toArray()
     expect(tagnames.filter((tagname) => ! Markdown.Allowlist.tagNames?.includes(tagname ?? ''))).to.deep.equal([])
   })
