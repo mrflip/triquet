@@ -13,7 +13,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 4 | Field templates | landed #164 |
 | 5 | The recap panel | landed #165 |
 | 6 | Quiz-level widgetings and entries | landed #166 |
-| 7 | Security review | underway |
+| 7 | Security review | landing |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
 | 10 | The markdown dialect, settled | landed #178 |
