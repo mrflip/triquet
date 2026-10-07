@@ -213,6 +213,10 @@ words above.
   rewrite it.
 * **smith's note** (`smiths_note`) -- what the smiths say about a quiz as a whole: its theme, its
   meta, what is left to do. Beside the quiz's name, and a formula reads it as `quiz.smiths_note`.
+  A **longnote** (`longnote`): a note as `noteish` takes it -- trimmed, newlines welcome, no control
+  characters -- but to 20,000 characters, not 3600. The quiz's long texts are longnotes: the smith's
+  note and the recap's head, tail and template. The Q1 preamble and a question's own fields stay
+  `noteish`: they are a question's worth of text.
 * **Q1 preamble** (`q1_preamble`) -- what the LL Export puts ahead of the first question when
   the quiz goes live, in the league's BBCode: a pointer to the smith's note. Not seen by formulas.
 * **recap** -- the note posted to the league's message board once a quiz has been played: what is

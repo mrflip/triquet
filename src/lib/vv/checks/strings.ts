@@ -41,6 +41,8 @@ export const bigstr   = trimmed.max(PA.Bigstr.max).describe('long text')
 export const titleish = trimmed.max(PA.Titleish.max).describe('title')
 /** Prose as `textish` takes it, but trimmed: surrounding space in a note is never the point */
 export const noteish  = str.trim().regex(PA.Noteish.re, PA.Noteish.msg).max(PA.Noteish.max).describe('note')
+/** A note as `noteish` takes it, run to pages: up to 20,000 characters, for a quiz's own long texts */
+export const longnote = str.trim().regex(PA.Longnote.re, PA.Longnote.msg).max(PA.Longnote.max).describe('long note')
 /** A formula as written: newlines welcome for laying it out, never trimmed, and never empty */
 export const formulaish = str.regex(PA.Formulaish.re, PA.Formulaish.msg).min(1).max(PA.Formulaish.max).describe('formula')
 /** As much text as anyone should paste in one go; past this it is a file, not a field */

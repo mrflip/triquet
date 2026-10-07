@@ -40,6 +40,8 @@ export const ValidatorKit = {
   textish:   CK.textish,
   /** Prose as `textish` takes it, but trimmed */
   noteish:   CK.noteish,
+  /** A note as `noteish` takes it, up to 20,000 characters: a quiz's own long texts */
+  longnote:  CK.longnote,
   /** A formula's source: newlines welcome, control characters not, never trimmed, at most 999 characters */
   formulaish: CK.formulaish,
   /** Human-readable name on one line, independent of any identity it might accompany */

@@ -30,6 +30,15 @@ unreviewed at the Coach's word. Suites: `pnpm justify` green; `pnpm e2e --touche
     (mustache entry), the Recap panel's template blurb, `human/20261007-recap_template.md` (a
     *template helpers* section; gaps 6 to 8 marked closed), `whiteboard/TODO.md` (thread 16's
     "mustache lambda" item struck).
+  - **Longnote** (added mid-thread at the Coach's word): `PA.Longnote` (`{ ...Noteish, max: 20_000 }`,
+    `src/lib/vv/patterns.ts`), `CK.longnote` (`src/lib/vv/checks/strings.ts`, as `noteish`: trimmed,
+    the same characters, to 20,000), `longnote` in the `Validator` kit. Applied to the quiz's
+    `smiths_note`, `recap_head`, `recap_tail` and `recap_template` (`src/models/quiz.ts`); the
+    actions, the import and the schema all read those validators. Tests: `strings.test.ts`,
+    `tests/models/quiz.test.ts` (each long text takes 20,000 and refuses one more; the Q1 preamble
+    still stops at 3600), and the two tests that pinned a recap head or tail at 3600 now pin 20,000.
+    `notes/vocabulary.md` names it under *smith's note* (`noteish` is named nowhere else in
+    vocabulary or STYLE).
 * **Decisions taken**:
   - **Override the writer's `renderSection`, not mustache's lambdas.** A mustache lambda is a
     function found by lookup; `BagContext.lookup` still never hands back a function. The helper is
@@ -46,6 +55,11 @@ unreviewed at the Coach's word. Suites: `pnpm justify` green; `pnpm e2e --touche
     closed on the same line keeps none, whatever the field ends with. The shapers drop trailing
     blank lines, so without this rule `{{#apart}}` on its own lines would glue the next line on.
     Decided from the template's text, never the data.
+  - **Where longnote stops**: the quiz's four long texts only. `q1_preamble` (a short pointer to
+    the smith's note) and a question's fields (a question's worth of text) stay `noteish`. It only
+    raises a limit, so every stored row fits: no migration, no backfill. Convex validators carry no
+    string length, so `convex/schema.ts` and `_generated/` are unchanged; `tests/convex/schema.test.ts`
+    needed nothing. No UI input caps these four (the smith's note and recap boxes set no `maxLength`).
   - **Budgets**: each helper call spends one of `FillBudget`; what a helper adds (`> ` per line)
     counts against `FilledMax` as it goes.
 * **Deviations**: built on thread 16's branch before it landed. Thread 16 was blocked (the main

@@ -27,7 +27,7 @@ export type TemplatableField = typeof TemplatableFieldVals[number]
 /** The most sources a quiz may nominate for templating: every templatable field, and every widgeting */
 const TemplatedMax = TemplatableFieldVals.length + PA.WidgetingsPerQuiz.max
 
-export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod, titleish, noteish, label, bool, stamps, timestamp, zid, treeid }) => {
+export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod, titleish, noteish, longnote, label, bool, stamps, timestamp, zid, treeid }) => {
   const columnSortkey = zod.templateLiteral(['column:', label])
   const sortkey = union([lit(ChainOrderSortkey), columnSortkey])
     .describe('Which column or ordering last committed the quiz to its current order. Purely a label: it is remembered so that header can stay bold as a reminder of how the questions came to be in this order, and it never re-sorts anything on load.')
@@ -35,19 +35,19 @@ export const QuizValidators = Validator(({ obj, arr, rec, lit, oneof, union, zod
   const quizLabel = label
     .describe('A freeform-editable local identifier, generated once at creation. Meant to become the quiz\'s URL route.')
 
-  const smiths_note = noteish
+  const smiths_note = longnote
     .describe('What the smiths want to say about the quiz as a whole: its theme, its meta, what is left to do. Several paragraphs if need be; kept trimmed.')
 
   const q1_preamble = noteish
     .describe('What the LL export puts ahead of the first question when the quiz goes live, in the league\'s BBCode: a pointer to the smith\'s note, which the league\'s site shows apart from the questions. Kept trimmed.')
 
-  const recap_head = noteish
+  const recap_head = longnote
     .describe('What the recap note says ahead of the questions, once the quiz has been played: thanks to the playtesters, congratulations to the winners. Always templated. Kept trimmed.')
 
-  const recap_tail = noteish
+  const recap_tail = longnote
     .describe('What the recap note says after the questions. Always templated. Kept trimmed.')
 
-  const recap_template = noteish.min(1)
+  const recap_template = longnote.min(1)
     .describe('The recap note\'s own template, for a quiz given one: markdown with mustache, filled in over the recap bag (the template bag, with the recap head and tail filled in and the questions played, each with values shaped for where markdown\'s structure is fragile) and then written in bbjank. Absent, the quiz follows the default recap template. Kept trimmed.')
 
   const templatedSource = union([zod.templateLiteral([`${QuestionWidgetLabel}.`, oneof(TemplatableFieldVals)]), WidgetingValidators.widgetingLabel])

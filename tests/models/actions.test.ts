@@ -90,7 +90,7 @@ describe('ActionValidators.huntAction', () => {
     [{ kind: 'set_templated', templated: ['dumdum.average'] },             'templating one part of a widgeting'],
     [{ kind: 'set_templated', templated: ['notes'] },                      'templating a question field by its bare name, which no widgeting may take'],
     [{ kind: 'set_templated', templated: ['dumdum', 'dumdum'] },           'templating one source twice'],
-    [{ kind: 'set_recap_head', recap_head: 'x'.repeat(3601) },             'a recap head past 3600 characters'],
+    [{ kind: 'set_recap_head', recap_head: 'x'.repeat(20_001) },           'a recap head past 20,000 characters'],
     [{ kind: 'set_recap_template', recap_template: '  \n' },              'a blank recap template, which null says'],
     [{ kind: 'add_widget', widget: Shout },                                 "an action on the library, which is the library's own"],
     [{ kind: 'set_review_phase', quiz_id, phase: 'empty' },                 'moving a review back to empty'],

@@ -120,7 +120,7 @@ describe('Quiz.fill', () => {
     [{ templated: ['nowhere'] },                                                                'templating a widgeting the quiz does not have'],
     [{ templated: ['question.recap', 'question.recap'] },                                       'templating one source twice'],
     [{ templated: ['question.title'] },                                                         'templating a question field that holds no markdown'],
-    [{ recap_tail: 'x'.repeat(3601) },                                                          'a recap tail past 3600 characters'],
+    [{ recap_tail: 'x'.repeat(20_001) },                                                        'a recap tail past 20,000 characters'],
   ]
   for (const [overrides, describes] of Refused) {
     it(`refuses ${describes}`, () => {
@@ -158,6 +158,15 @@ describe('Quiz.fill', () => {
 
   it('rejects a title past 200 characters', () => {
     expect(() => Quiz.fill({ _id: quiz_id, title: 'x'.repeat(201) })).to.throw(Z.ZodError)
+  })
+
+  it("takes its long texts (smith's note, recap head, tail and template) to 20,000 characters, and its Q1 preamble only to a note's 3600", () => {
+    const long = 'x'.repeat(20_000)
+    for (const fieldname of ['smiths_note', 'recap_head', 'recap_tail', 'recap_template'] as const) {
+      expect(QuizValidators[fieldname].parse(long)).to.eq(long)
+      expect(QuizValidators[fieldname].safeParse(`${long}x`).success).to.eq(false)
+    }
+    expect(QuizValidators.q1_preamble.safeParse('x'.repeat(3601)).success).to.eq(false)
   })
 })
 
