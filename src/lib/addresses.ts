@@ -9,7 +9,7 @@
  * hunt (`/pub/widgets/dumdum`). `notes/decisions/urls.md` is the scheme.
  */
 import { WidgetScopeVals, type WidgetScope } from '../models/widget'
-import * as PA from './vv/patterns'
+import * as CK from './vv/checks/strings'
 
 /** How a resource can be opened: worked on by a smith, or playtested */
 export const ModeVals = ['edit', 'playtest'] as const
@@ -267,6 +267,7 @@ function quizResourceFrom(inQuiz: InQuizT, keypath: readonly string[]): AddressT
  * @example orgFrom('~pat_smith')  // => 'pat_smith'
  * @example orgFrom('pat_smith')  // => null
  * @example orgFrom('~pat')  // => null
+ * @example orgFrom('~undefined')  // => null
  */
 export function orgFrom(raw: string | null | undefined): string | null {
   if (! raw?.startsWith('~')) { return null }
@@ -285,12 +286,15 @@ export function modeFrom(raw: string | null | undefined): Mode | null {
   return ModeVals.find((mode) => mode === raw.slice(1)) ?? null
 }
 
-/** Whether `str` is a label: what every slot of an address holds besides its sigils and nouns */
+/**
+ * Whether `str` is a label: what every slot of an address holds besides its sigils and nouns. The
+ * server's own check, reserved words and all, so an address it would refuse leads nowhere here.
+ */
 function isLabel(str: string): boolean {
-  return PA.Label.re.test(str)
+  return CK.label.safeParse(str).success
 }
 
-/** Whether `str` is an ident's label, as an org is: a label, and of an ident's length */
+/** Whether `str` is an ident's label, as an org is, by the server's own check: a label, of an ident's length, and no reserved word */
 function isIdentlabel(str: string): boolean {
-  return PA.Userlabel.re.test(str) && str.length >= PA.Userlabel.min && str.length <= PA.Userlabel.max
+  return CK.userlabel.safeParse(str).success
 }

@@ -188,6 +188,9 @@ describe("Addresses.locationFrom", () => {
     ["/~Pat_Smith/spring_hunt",                                  'an org in capitals'],
     ["/~pat_smith/Spring_Hunt",                                  'a hunt in capitals'],
     ["/~pat_smith/spring-hunt",                                  'a hunt with a hyphen'],
+    ["/~undefined/spring_hunt",                                  'an org that is a reserved word'],
+    ["/~pat_smith/undefined",                                    'a hunt that is a reserved word'],
+    ["/~pat_smith/spring_hunt/quizzes/home/quiz_id",             'a quiz labelled as a pointer is'],
     ["/~pat_smith/spring_hunt/quizzes/home/legends/reviews/x",   'a reviewer too short to be a label'],
     ["/~pat_smith/spring_hunt/%E0%A4%A",                         'an escape that is not one'],
     ["/~pat_smith/spring_hunt/quizzes/ho%2Fme/legends",          'an escaped slash'],
@@ -230,6 +233,10 @@ describe("Addresses.orgFrom", () => {
 
   it("reads anything else as none", () => {
     expect([Addresses.orgFrom('pat_smith'), Addresses.orgFrom('~'), Addresses.orgFrom('~Pat'), Addresses.orgFrom(null), Addresses.orgFrom(undefined)]).to.deep.eq([null, null, null, null, null])
+  })
+
+  it("reads a reserved word as none, as the server would refuse it", () => {
+    expect([Addresses.orgFrom('~undefined'), Addresses.orgFrom('~admin_pat'), Addresses.orgFrom('~pat_smith_id')]).to.deep.eq([null, null, null])
   })
 
   it("reads a label of no ident's length as none", () => {
