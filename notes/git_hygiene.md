@@ -65,7 +65,12 @@ origin/main <- B1 <- B2 <- ... <- Bn          the spine: checked out in the main
   (CLAUDE.md, *Global resources*). The main checkout is the Coach's, and agents read it freely
   (the Coach's uncommitted edits there are often the best context going) but never write to it.
   Its files change in exactly two ways: a landing switches it up to a new top, and a restack
-  replays it onto `origin/main`.
+  replays it onto `origin/main`. Either move that brings another `pnpm-lock.yaml` installs its
+  packages there (`pnpm install --frozen-lockfile --prefer-offline`), under the hold: `node_modules`
+  is derived from the lockfile, so the install is the same write as the move that called for it.
+  A catch-up or a bid that rebases a worktree onto another lockfile installs there too. Only a
+  change to the lockfile installs. `scripts/spine.ts` reaches a package only to take the e2e lock,
+  so its other commands run even in a checkout whose packages lag its lockfile.
 * **The Coach's notes come along.** Whatever is uncommitted in the main checkout's `whiteboard/`,
   `human/` and `notes/` is swept onto the top by the next cut, landing or `pnpm sweep`, as
   `docs: swept from the main checkout`. A stray file there gets committed rather than stalling
@@ -124,9 +129,9 @@ E  PR        gh pr create
 
 * **A. Build.** Commit at milestones; run the tests near your change as often as you like.
 * **B. Prove.** `pnpm catchup` rebases the branch onto the current top, holding the spine only
-  for the seconds its replay and sweep take. `pnpm justify` runs typecheck, lint and the unit
-  tests side by side, each prefixed by its name and each run to its end, so one run shows every
-  failure (lint keeps a cache, `.eslintcache`: if CI's lint disagrees with yours, `rm
+  for the seconds its replay and sweep take, and installs your packages if the top brought another
+  lockfile. `pnpm justify` runs typecheck, lint and the unit tests side by side, each prefixed by
+  its name and each run to its end, so one run shows every failure (lint keeps a cache, `.eslintcache`: if CI's lint disagrees with yours, `rm
   .eslintcache` and justify again); green over committed work, it records the branch's patch-id. Then `pnpm e2e`, the full
   suite on your lane, or `pnpm e2e --touched`, the corner of it your branch reaches (*Running only the
   corner*, below); either may first wait its turn for the container's e2e lock, and catch up

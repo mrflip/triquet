@@ -22,8 +22,10 @@
  * Worktrees live under TQ_WORKTREES (`~/worktrees/triquet`). Each suite these run is a shell
  * command an environment variable may replace: TRIQUET_JUSTIFY (typecheck, lint and test through
  * `pnpm run --no-bail`, which runs them side by side and lets each finish), TRIQUET_E2E
- * (`pnpm test:e2e`) and TRIQUET_LAND_CHECKS (typecheck beside `pnpm test:bid`, the unit tests
- * patient of a loaded machine: what a bid runs under the hold).
+ * (`pnpm test:e2e`), TRIQUET_LAND_CHECKS (typecheck beside `pnpm test:bid`, the unit tests
+ * patient of a loaded machine: what a bid runs under the hold) and TRIQUET_INSTALL (`pnpm install`
+ * from the lockfile as it stands: what a new worktree runs, and any checkout the spine moves onto
+ * another `pnpm-lock.yaml`).
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -33,7 +35,6 @@ import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { parseArgs } from 'node:util'
 import type { JSONReport } from '@playwright/test/reporter'
-import * as Lockfile from 'proper-lockfile'
 import * as E2eLog from './e2e-log.ts'
 import * as Lanes from './lanes.ts'
 
@@ -68,6 +69,12 @@ const JustifyCommand = 'pnpm run --no-bail "/^(typecheck|lint|test)$/"'
  * time out at five seconds; a test that truly hangs still fails, and CI keeps the five.
  */
 const LandChecks = 'pnpm run --no-bail "/^(typecheck|test:bid)$/"'
+
+/** What installs a checkout's packages: exactly the lockfile's, from pnpm's store where it has them */
+const InstallCommand = 'pnpm install --frozen-lockfile --prefer-offline'
+
+/** The lockfile a checkout's packages are installed from, so that a move changing it calls for an install */
+const LockfileName = 'pnpm-lock.yaml'
 
 /** The build directory `pnpm test:e2e` builds into, as package.json names it: the cache a new worktree is seeded with */
 export const E2eDistDir = '.next-e2e'
@@ -388,7 +395,8 @@ export function refuseBusy(main: string): void {
  * merges, and pushes every spine branch origin still has and the replay left holding commits of
  * its own, each with an explicit lease. The Coach's uncommitted edits are autostashed; a conflict
  * undoes the replay and stops. Once the whole spine has merged, the main checkout goes back to
- * `main`, and the next landing starts the spine afresh.
+ * `main`, and the next landing starts the spine afresh. A replay that brings another lockfile
+ * installs its packages there (`installedSince`).
  *
  * @returns Lines saying what was done, empty when the spine was already on `origin/main`.
  */
@@ -396,7 +404,7 @@ export function restack(main: string): string[] {
   git(main, 'fetch', '--quiet', '--prune', 'origin')
   const top = topOf(main)
   const replayed = gitOk(main, 'merge-base', '--is-ancestor', 'origin/main', top.sha) ? [] : replay(main, top)
-  return [...replayed, ...backOnMain(main)]
+  return [...replayed, ...backOnMain(main), ...mainInstalledSince(main, top.sha)]
 }
 
 /** Replays the spine, which origin/main has moved past, onto it: the body of restack() */
@@ -473,6 +481,45 @@ export function sweep(main: string): string[] {
   return paths
 }
 
+/** Whether the checkout at `root` installed its packages (TRIQUET_INSTALL, else InstallCommand), the install's output shown as it runs */
+function installs(root: string): boolean {
+  return passes(root, process.env.TRIQUET_INSTALL ?? InstallCommand)
+}
+
+/** Git's hash of the lockfile at `commit` in the repository at `root`, or empty where the commit has none */
+function lockfileAt(root: string, commit: string): string {
+  const spec = `${commit}:${LockfileName}`
+  return gitOk(root, 'rev-parse', '--verify', '--quiet', spec) ? git(root, 'rev-parse', spec) : ''
+}
+
+/**
+ * Installs the packages of the checkout at `root`, which the spine has just moved off the commit
+ * `before`, when the commit it stands on now holds another lockfile: its `node_modules` is derived
+ * from the lockfile, and the next script run there may need what the lockfile added. A move that
+ * leaves the lockfile as it was installs nothing.
+ *
+ * @returns A line saying it installed, empty when the lockfile stands as it was. A failed install stops.
+ */
+function installedSince(root: string, before: string): string[] {
+  if (lockfileAt(root, before) === lockfileAt(root, 'HEAD')) { return [] }
+  const moved = `${LockfileName} changed when ${root} moved onto ${git(root, 'rev-parse', '--short=8', 'HEAD')}`
+  if (! installs(root)) { throw new SpineStop(`${moved}, and installing its packages there failed, as above: repair, and \`pnpm install\` there.`) }
+  return [`${moved}: installed its packages there.`]
+}
+
+/**
+ * Installs the main checkout's packages as `installedSince` does, after a move that stands
+ * however the install goes: a failed install is said, and stops nothing.
+ */
+function mainInstalledSince(main: string, before: string): string[] {
+  try {
+    return installedSince(main, before)
+  } catch (err) {
+    if (! (err instanceof SpineStop)) { throw err }
+    return [`${LockfileName} changed when the main checkout moved onto ${git(main, 'rev-parse', '--short=8', 'HEAD')}, and installing its packages there failed, as above: tell the Coach, whose checkout it is.`]
+  }
+}
+
 /**
  * A worktree for a new thread, cut from the top of the spine (replayed onto `origin/main` and
  * swept first), with a lane of its own, its e2e build cache seeded from the main checkout's, and
@@ -501,11 +548,7 @@ export function cutWorktree(cwd: string, label: string, opts: { install: boolean
   // eslint-disable-next-line sonarjs/no-os-command-from-path -- the node running this script, whichever it is
   const lane = execFileSync('node', [path.join(root, 'scripts', 'lanes.ts'), 'lane'], { cwd: root, encoding: 'utf8' }).trim()
   const seeded = seedCache(main, root)
-  if (opts.install) {
-    // eslint-disable-next-line sonarjs/no-os-command-from-path -- the pnpm this checkout already runs
-    const installed = spawnSync('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: root, stdio: 'inherit' })
-    if (installed.status !== 0) { throw new SpineStop(`pnpm install failed in ${root}; the worktree stands, on lane ${lane}.`) }
-  }
+  if (opts.install && ! installs(root)) { throw new SpineStop(`pnpm install failed in ${root}; the worktree stands, on lane ${lane}.`) }
   return [...notes, ...seeded, `Worktree: ${root}`, `Branch:   ${branch}, cut from ${top.branch} at ${top.sha.slice(0, 8)}`, `Lane:     ${lane}`, `Agent: at the end of your next chat response, offer the Coach this to copy and paste: /rename ${branch}`]
 }
 
@@ -768,7 +811,8 @@ function caughtUp(root: string, branch: string, top: Top): boolean {
 /**
  * Catches the worktree's branch up with the top. Under the hold, replays the spine onto
  * `origin/main` if origin has moved and sweeps the main checkout; then, released, rebases the
- * branch onto the top if it stands anywhere else.
+ * branch onto the top if it stands anywhere else, and installs its packages if that brought
+ * another lockfile.
  *
  * @returns Lines saying what moved.
  */
@@ -781,7 +825,9 @@ export function catchUp(cwd: string): string[] {
     return { top: topOf(main), notes: said }
   })
   const where = `${top.branch} at ${top.sha.slice(0, 8)}`
-  return [...notes, caughtUp(root, branch, top) ? `Rebased ${branch} onto ${where}: justify it again (\`pnpm justify\`).` : `${branch} stands on the top already: ${where}.`]
+  const before = git(root, 'rev-parse', 'HEAD')
+  if (! caughtUp(root, branch, top)) { return [...notes, `${branch} stands on the top already: ${where}.`] }
+  return [...notes, `Rebased ${branch} onto ${where}: justify it again (\`pnpm justify\`).`, ...installedSince(root, before)]
 }
 
 /**
@@ -1024,6 +1070,8 @@ function e2eHolderOf(notefile: string): E2eHolder | undefined {
  * @returns How to let it go (nothing to do once the lock was lost, which proper-lockfile counts as released), and whether it had to wait.
  */
 async function takeE2eLock(home: string, holder: Omit<E2eHolder, 'since'>, waiter: { branch: string, kind: 'full' | 'touched', inMain: boolean }): Promise<{ release: () => Promise<void>, waited: boolean }> {
+  // Imported only where the lock is taken, so the spine's other commands run in a checkout whose packages lag its lockfile.
+  const Lockfile = await import('proper-lockfile')
   fs.mkdirSync(home, { recursive: true })
   const { lockdir, notefile } = e2eLockOf(home)
   const deadline = Date.now() + E2eLockWaitMs
@@ -1215,7 +1263,8 @@ export function skippingE2e(branch: string, changed: readonly string[], reason: 
  * has nothing to tell it (`skipE2e`). Then, under one hold:
  * replays the spine onto `origin/main` if origin has moved, sweeps the main checkout, rebases the
  * branch onto the top if the top has moved, and then reads its e2e proof afresh (`proofAfresh`), runs
- * typecheck and the unit tests, and switches the main checkout onto the branch. The hold released,
+ * typecheck and the unit tests, and switches the main checkout onto the branch. Each checkout
+ * moved onto another lockfile installs its packages first (`installedSince`). The hold released,
  * it pushes the branch. Any stop leaves the spine as it was.
  *
  * @returns Lines saying what landed, on what.
@@ -1230,12 +1279,14 @@ export function land(cwd: string, skipE2e?: string): string[] {
     refuseBusy(main)
     const said = [...restack(main), ...sweptNotes(sweep(main))]
     const stood = topOf(main)
+    const before = git(root, 'rev-parse', 'HEAD')
     const rebased = caughtUp(root, branch, stood)
-    if (rebased) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`) }
+    if (rebased) { said.push(`The top had moved: rebased onto ${stood.branch} at ${stood.sha.slice(0, 8)}.`, ...installedSince(root, before)) }
     const proven = rebased ? proofAfresh(root, branch, stood, skipE2e) : proofBefore
     if (! passes(root, checks)) { throw new SpineStop(`Typecheck or the tests failed on ${branch}, on ${stood.branch}: repair, commit, justify, and bid again. The spine is untouched.`) }
     refuseBusy(main)
     foldIn(root, main, branch)
+    said.push(...mainInstalledSince(main, stood.sha))
     return { top: stood, notes: said, proof: proven }
   })
   return [...notes, ...pushed(main, branch), ...proof, `Landed ${branch} on ${top.branch}: the main checkout stands on it now. File its PR (${stackingOn(top)}), then remove this worktree.`]
