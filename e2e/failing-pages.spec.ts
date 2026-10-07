@@ -4,14 +4,19 @@ import * as PA from '../src/lib/vv/patterns'
 import { expect, failQuery, grid, huntOf, test } from './support'
 
 /**
- * An org the address reads, being an ident's label in shape, but the server's Zod door refuses,
- * since a label ending in `_id` is a pointer's: any page asking after a hunt of it fails at the
- * server, with a real refusal. Should addresses learn to refuse it too, these move to `failQuery`.
+ * A refusal at the server's Zod door, as `hunts:open` sends one: its one issue, about the org.
+ * Addresses refuse every label the server would, so no address provokes a real one; `failQuery`
+ * stands it in, data and all.
  */
-const RefusedOrg = 'ghost_id'
+const Refusal = { ZodError: [{ code: 'custom', path: ['orglabel'], message: PA.Unreserved.msg, input: 'ghost_id' }] }
 
-/** What the page says of a hunt asked after under `RefusedOrg`: the refusal's one issue, with the field it was about */
+/** What the page says of `Refusal`: its one issue, with the field it was about */
 const RefusedSummary = `refused (invalid): orglabel: ${PA.Unreserved.msg}`
+
+/** Make every answer to `hunts:open` the refusal above */
+async function refuseOpening(page: Page): Promise<void> {
+  await failQuery(page, 'hunts:open', `Server Error\nUncaught ConvexError: ${JSON.stringify(Refusal)}`, Refusal)
+}
 
 /** How the console's report of a page that failed to draw begins */
 const ReportOpening = 'Triquet: could not show this page — '
@@ -68,7 +73,9 @@ test('trying again draws the page afresh, reporting each failure once, and a pag
 })
 
 test('the site header stands above the failure, and its way home still works', async ({ page }) => {
-  await page.goto(`/~${RefusedOrg}/${huntOf(page).hunt}`)
+  const { org, hunt } = huntOf(page)
+  await refuseOpening(page)
+  await page.goto(`/~${org}/${hunt}`)
   await expect(failure(page)).toBeVisible()
   const header = page.getByRole('banner')
   await expect(header.getByRole('link', { name: 'About' })).toBeVisible()
@@ -80,7 +87,8 @@ test('the site header stands above the failure, and its way home still works', a
 
 test('the hunt, its quiz, its categories and the hunts list each fail into the same boundary', async ({ page }) => {
   const { org, hunt } = huntOf(page)
-  for (const path of [`/~${RefusedOrg}/${hunt}`, `/~${RefusedOrg}/${hunt}/quizzes/home/${hunt}`, `/~${RefusedOrg}/${hunt}/categories`]) {
+  await refuseOpening(page)
+  for (const path of [`/~${org}/${hunt}`, `/~${org}/${hunt}/quizzes/home/${hunt}`, `/~${org}/${hunt}/categories`]) {
     await page.goto(path)
     await expect(failure(page).getByText(RefusedSummary, { exact: true })).toBeVisible()
     await expect(failure(page).getByText(/^Request [0-9a-f]+ · hunts:open$/)).toBeVisible()
@@ -96,7 +104,9 @@ test('the hunt, its quiz, its categories and the hunts list each fail into the s
 test('nothing a failure says leaks onto the page: no stack, no row id, no key', async ({ page }) => {
   const quizAddress = page.url()
   const shown = page.locator('body')
-  await page.goto(`/~${RefusedOrg}/${huntOf(page).hunt}`)
+  const { org, hunt } = huntOf(page)
+  await refuseOpening(page)
+  await page.goto(`/~${org}/${hunt}`)
   await expect(failure(page).getByText(RefusedSummary, { exact: true })).toBeVisible()
   // The server's whole message names the error's kind and Zod's own report of the issue.
   await expect(shown).not.toContainText(/ConvexError|ZodError|Called by client/, { useInnerText: true })
