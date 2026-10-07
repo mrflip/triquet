@@ -1021,7 +1021,7 @@ function e2eHolderOf(notefile: string): E2eHolder | undefined {
  * lock fresh while this process lives and frees it when it exits, and a lock its holder stopped
  * keeping fresh is taken over once stale.
  *
- * @returns How to let it go, and whether it had to wait.
+ * @returns How to let it go (nothing to do once the lock was lost, which proper-lockfile counts as released), and whether it had to wait.
  */
 async function takeE2eLock(home: string, holder: Omit<E2eHolder, 'since'>, waiter: { branch: string, kind: 'full' | 'touched', inMain: boolean }): Promise<{ release: () => Promise<void>, waited: boolean }> {
   fs.mkdirSync(home, { recursive: true })
@@ -1035,7 +1035,14 @@ async function takeE2eLock(home: string, holder: Omit<E2eHolder, 'since'>, waite
         onCompromised: (err) => { process.stderr.write(`The e2e lock was lost (${err.message}): another full run may overlap this one.\n`) },
       })
       fs.writeFileSync(notefile, `${JSON.stringify({ ...holder, since: new Date().toISOString() })}\n`)
-      return { release, waited: seen !== undefined }
+      const letGo = async () => {
+        try {
+          await release()
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== 'ERELEASED') { throw err }
+        }
+      }
+      return { release: letGo, waited: seen !== undefined }
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ELOCKED') { throw err }
     }
