@@ -30,6 +30,11 @@ unreviewed, at the Coach's word. Suites: `pnpm justify` green (typecheck, lint, 
   - **Recipes proven in tests, not shipped**: no library widgets added; the Coach decides.
 * **Deviations**: e2e `recap.spec.ts` fills its rows in Q# order (the default loops the quiz's own
   order now), and its broken-head test expects the rule under the head.
+* **Pulled in from the Coach's checkout**: the main checkout held an uncommitted edit to
+  `src/lib/recap.ts` writing the (old) default as one template literal. This branch writes the new
+  default the same way, `` `...`.trim() `` -- trimmed, because the Recap panel compares the trimmed
+  box with `DefaultTemplate` to put a quiz back on the default, and an untrimmed literal (as in the
+  Coach's edit) would never match, saving the default as the quiz's own.
 * **Discoveries**:
   - A quiz-level `jsonata` widgeting's value can be a list a template loops over
     (`{{#quiz.in_order.value}}`); wrap it in `[...]`, or a single question comes back as an object
@@ -38,5 +43,8 @@ unreviewed, at the Coach's word. Suites: `pnpm justify` green (typecheck, lint, 
     `$trim` collapses newlines, so a multi-line field is split before trimming.
   - The bag has no alternate flag (`viz` is not exposed): alternates and Q#-less questions cannot
     be told apart by template or formula. Thread 12's `archived` should come with it.
-* **For the Coach**: the gap list is in `human/20261007-recap_template.md`; three gaps need the
+* **For the Coach**: the first `pnpm land` was refused: the main checkout would not switch, over
+  your uncommitted `src/lib/recap.ts` (the template-literal rewrite of the old default). This branch
+  carries that form with the new content; discarding the edit there lets the landing go through.
+  The gap list is in `human/20261007-recap_template.md`; three gaps need the
   app (alternates, Q#-less questions, templated fields), the rest close with a column.
