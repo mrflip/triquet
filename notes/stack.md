@@ -157,7 +157,7 @@ Settled; reach for these before writing the equivalent.
   second importer came with the recap sprint's field templates.
 * **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's
   markdown: `src/lib/markdown.ts` holds the options and the one allowlist schema (widen it there,
-  never at a call site; `TemplatedAllowlist` is it with `https` images, for templated fields only),
+  never at a call site; it keeps an image only at a whole `https` address),
   and `components/cells/markdown.tsx` the views that use them. It renders
   to React elements; never reach for `dangerouslySetInnerHTML` or `rehype-raw`, and HTML typed
   into a field shows as the characters typed. Rendering happens in the browser, as all user data

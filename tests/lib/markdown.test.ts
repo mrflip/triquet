@@ -7,9 +7,6 @@ import * as Markdown from '../../src/lib/markdown'
 /** What a field's text becomes on screen, as markup */
 const rendered = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.RenderOptions, Markdown.indentsQuoted(text)))
 
-/** What a templated field's text, once filled in, becomes on screen, as markup */
-const renderedTemplated = (text: string): string => renderToStaticMarkup(createElement(ReactMarkdown, Markdown.TemplatedRenderOptions, Markdown.indentsQuoted(text)))
-
 const IndentCases: [string, string, string][] = [
   // regular usage:
   ["    *verse*",            "> *verse*",            'four leading spaces become a quote marker'],
@@ -65,7 +62,6 @@ const RenderCases: [string, string, string][] = [
   // what never reaches the screen as written:
   ["<b>hi</b>",                   "<p>&lt;b&gt;hi&lt;/b&gt;</p>",                               'HTML shows as the characters typed'],
   ["<script>alert(1)</script>",   "&lt;script&gt;alert(1)&lt;/script&gt;",                     'a script shows as the characters typed'],
-  ["![cat](https://e.co/c.png)",  "<p></p>",                                                    'an image is dropped, so nothing is fetched'],
   ["[x](javascript:alert(1))",    "<p><a>x</a></p>",                                            'a script address is dropped from its link'],
   ["[x](ftp://e.co/f)",           "<p><a>x</a></p>",                                            'an address off the web or mail is dropped'],
   ["[x](https://e.co \"t\")",     "<p><a href=\"https://e.co\" title=\"t\">x</a></p>",        'a link keeps its title'],
@@ -73,7 +69,7 @@ const RenderCases: [string, string, string][] = [
   ["",                            "",                                                           'empty text renders nothing'],
 ]
 
-const TemplatedCases: [string, string, string][] = [
+const ImageCases: [string, string, string][] = [
   // regular usage:
   ["![cat](https://e.co/c.png)",       "<p><img src=\"https://e.co/c.png\" alt=\"cat\"/></p>",  'an image at an https address is kept, with its alt text'],
   ["**bold** [x](https://e.co)",       "<p><strong>bold</strong> <a href=\"https://e.co\">x</a></p>", 'everything the one allowlist keeps is kept'],
@@ -124,13 +120,14 @@ describe("RenderOptions", () => {
   })
 })
 
-describe("TemplatedRenderOptions", () => {
-  it.each(TemplatedCases)('%j => %j: %s', (text, expected) => {
-    expect(renderedTemplated(text)).to.contain(expected)
+describe("RenderOptions, on images", () => {
+  it.each(ImageCases)('%j => %j: %s', (text, expected) => {
+    expect(rendered(text)).to.contain(expected)
   })
 
-  it("keeps everything the one allowlist keeps, and images beside", () => {
-    expect(Markdown.TemplatedAllowlist.tagNames).to.deep.eq([...Markdown.Allowlist.tagNames ?? [], 'img'])
-    expect(Markdown.TemplatedAllowlist.attributes).to.deep.include(Markdown.Allowlist.attributes)
+  it("keeps an image at an entity-encoded or backslashed address only when it is still a whole https one", () => {
+    expect(rendered('![cat](&#104;ttps://e.co/c.png)')).to.contain('<img src="https://e.co/c.png" alt="cat"/>')
+    expect(rendered('![cat](javascript&#58;alert(1))')).to.contain('<img alt="cat"/>')
+    expect(rendered(String.raw`![cat](https:\\e.co/c.png)`)).to.contain('<img alt="cat"/>')
   })
 })

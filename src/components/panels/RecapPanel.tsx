@@ -102,7 +102,7 @@ function RecapNote({ label, draft, bag, placeholder, revisable }: Readonly<Recap
       onChange={(event) => { draft.onChange(event.target.value) }}
       onBlur={draft.onBlur}
       slotProps={{
-        input:     { readOnly: ! revisable, endAdornment: <MarkdownFace inInput text={face.text} templated={face.templated} issue={face.issue} /> },
+        input:     { readOnly: ! revisable, endAdornment: <MarkdownFace inInput text={face.text} issue={face.issue} /> },
         htmlInput: { className: veiledIf(face.text) },
       }}
       sx={{ mt: 1.5 }}

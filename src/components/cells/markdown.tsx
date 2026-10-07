@@ -8,51 +8,62 @@ import * as Templating from '../../lib/templating'
 import styles from '../workbench.module.css'
 
 /**
- * A link in a field opens beside the quiz rather than in place of it. An image (only a templated
- * field keeps one) is fetched when it scrolls near, telling its host nothing of the page, and is
- * never wider than its box.
+ * How tall an image in one of the grid's cells may be drawn, in pixels: a thumbnail, so a picture
+ * in a clueing does not stretch its row. Anywhere else an image is held only to its box's width.
  */
-const Dressing: Components = {
-  a:   ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-  img: ({ node: _node, src, alt }) => <Box component="img" src={src} alt={alt} loading="lazy" referrerPolicy="no-referrer" sx={{ maxWidth: '100%' }} />,
+export const CellImageMaxPx = 96
+
+/**
+ * How a field's markdown dresses what it makes: a link opens beside the quiz; an image is fetched
+ * when it scrolls near, telling its host nothing of the page, never wider than its box, and, in a
+ * grid cell, no taller than `CellImageMaxPx`.
+ */
+function dressingFor(cell: boolean): Components {
+  return {
+    a:   ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+    img: ({ node: _node, src, alt }) => (
+      <Box component="img" src={src} alt={alt} loading="lazy" referrerPolicy="no-referrer" sx={{ maxWidth: '100%', ...(cell && { maxHeight: CellImageMaxPx, objectFit: 'contain' }) }} />
+    ),
+  }
 }
 
+const Dressing = dressingFor(false)
+const CellDressing = dressingFor(true)
+
 export type MarkdownTextProps = {
-  text:       string
-  /** Filled in from a template, so images are kept (`Markdown.TemplatedAllowlist`) */
-  templated?: boolean
+  text:  string
+  /** Drawn in one of the grid's cells, where an image is held small (`CellImageMaxPx`) */
+  cell?: boolean
 }
 
 /**
  * A field's text, rendered from its markdown, with nothing around it: the caller supplies the
- * box, and `styles.prose` (or a face) spaces what is inside.
+ * box, and `styles.prose` (or a face) spaces what is inside. Images show, by `https` only
+ * (`Markdown.Allowlist`).
  */
-export function MarkdownText({ text, templated = false }: Readonly<MarkdownTextProps>) {
-  const options = templated ? Markdown.TemplatedRenderOptions : Markdown.RenderOptions
-  return <ReactMarkdown {...options} components={Dressing}>{Markdown.indentsQuoted(text)}</ReactMarkdown>
+export function MarkdownText({ text, cell = false }: Readonly<MarkdownTextProps>) {
+  return <ReactMarkdown {...Markdown.RenderOptions} components={cell ? CellDressing : Dressing}>{Markdown.indentsQuoted(text)}</ReactMarkdown>
 }
 
 /** What a text box's face shows: the text as typed, or, for a field the quiz templates, filled in */
 export type FaceT = {
   /** The markdown the face draws */
-  text:      string
-  /** Whether it was filled in from a template, which keeps its images */
-  templated: boolean
+  text:  string
   /** Why the template could not be filled in, its text then shown as typed; null when nothing is wrong */
-  issue:     string | null
+  issue: string | null
 }
 
 /**
  * The face of a box holding `text`: the text itself, or, when `bag` is given (the quiz templates
  * the field), the text filled in over it (`Templating.fill`), before any markdown is read.
  *
- * @example faceOf('By {{qn.author}}', null)   // => { text: 'By {{qn.author}}', templated: false, issue: null }
- * @example faceOf('By {{qn.author}}', bag)    // => { text: 'By Ada', templated: true, issue: null }
+ * @example faceOf('By {{qn.author}}', null)   // => { text: 'By {{qn.author}}', issue: null }
+ * @example faceOf('By {{qn.author}}', bag)    // => { text: 'By Ada', issue: null }
  */
 export function faceOf(text: string, bag: Templating.TemplateBag | null): FaceT {
-  if (bag === null) { return { text, templated: false, issue: null } }
+  if (bag === null) { return { text, issue: null } }
   const filled = Templating.fill(text, bag)
-  return { text: filled.markdown, templated: true, issue: filled.issue }
+  return { text: filled.markdown, issue: filled.issue }
 }
 
 /** Whether `text` gets a face drawn over its box: blank text leaves the box, and its placeholder, alone */
@@ -93,14 +104,15 @@ export type MarkdownFaceProps = Partial<Omit<FaceT, 'text'>> & {
  * text as typed. It scrolls when it overflows its box; a click on it, other than on a link, is
  * passed to the box. It is hidden from assistive technology, which reads the box. The box itself
  * wears `veiledIf(text)`, so its own text is out of sight beneath the face. A template that could
- * not be filled in says why above its text.
+ * not be filled in says why above its text. Over one of the grid's boxes (not `inInput`), its
+ * images are held small.
  */
-export function MarkdownFace({ text, templated = false, issue = null, inInput = false, faceRef }: Readonly<MarkdownFaceProps>) {
+export function MarkdownFace({ text, issue = null, inInput = false, faceRef }: Readonly<MarkdownFaceProps>) {
   if (! faced(text)) { return null }
   return (
     <div ref={faceRef} aria-hidden data-face onClick={focusBox} className={clsx(styles.face, styles.prose, inInput && styles.faceInInput)}>
       {issue !== null && <Typography variant="caption" color="error" component="p" data-template-issue>{issue}</Typography>}
-      <MarkdownText text={text} templated={templated} />
+      <MarkdownText text={text} cell={! inInput} />
     </div>
   )
 }

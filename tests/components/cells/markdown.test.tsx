@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { MarkdownFace, MarkdownText, faceOf } from '../../../src/components/cells/markdown'
+import { CellImageMaxPx, MarkdownFace, MarkdownText, faceOf } from '../../../src/components/cells/markdown'
 import type * as Templating from '../../../src/lib/templating'
 import { renderedText } from '../../support/rendering'
 
@@ -12,20 +12,20 @@ function bagHolding(qn: Record<string, unknown>): Templating.TemplateBag {
 /** The markup a templated field's face draws for `template`, filled in over a question holding `qn` */
 function drawn(template: string, qn: Record<string, unknown>): string {
   const face = faceOf(template, bagHolding(qn))
-  return renderToStaticMarkup(<MarkdownText text={face.text} templated={face.templated} />)
+  return renderToStaticMarkup(<MarkdownText text={face.text} />)
 }
 
 describe("faceOf", () => {
   it("is the text as typed when the field is not templated", () => {
-    expect(faceOf('By {{qn.author}}', null)).to.deep.eq({ text: 'By {{qn.author}}', templated: false, issue: null })
+    expect(faceOf('By {{qn.author}}', null)).to.deep.eq({ text: 'By {{qn.author}}', issue: null })
   })
 
   it("is the text filled in when it is", () => {
-    expect(faceOf('By {{qn.author}}', bagHolding({ author: 'Ada' }))).to.deep.eq({ text: 'By Ada', templated: true, issue: null })
+    expect(faceOf('By {{qn.author}}', bagHolding({ author: 'Ada' }))).to.deep.eq({ text: 'By Ada', issue: null })
   })
 
   it("is the text as typed, with why, when the template does not parse", () => {
-    expect(faceOf('By {{qn.author', bagHolding({ author: 'Ada' }))).to.deep.eq({ text: 'By {{qn.author', templated: true, issue: 'Unclosed tag at 14' })
+    expect(faceOf('By {{qn.author', bagHolding({ author: 'Ada' }))).to.deep.eq({ text: 'By {{qn.author', issue: 'Unclosed tag at 14' })
   })
 })
 
@@ -76,9 +76,35 @@ describe("a templated field, filled in, then parsed, then sanitized", () => {
 })
 
 describe("an untemplated field", () => {
-  it("draws no image at all", () => {
+  it("draws an image at an https address too, fetched lazily and telling its host nothing", () => {
     const markup = renderToStaticMarkup(<MarkdownText text="![A cat](https://e.co/cat.png)" />)
-    expect(markup).not.to.contain('<img')
+    expect(markup).to.match(/<img [^>]*src="https:\/\/e\.co\/cat\.png"/)
+    expect(markup).to.match(/loading="lazy"/)
+  })
+
+  it("draws no image's address that is not https", () => {
+    expect(renderToStaticMarkup(<MarkdownText text="![A cat](/api/ask)" />)).not.to.contain('src=')
+  })
+})
+
+/** The CSS Emotion wrote for the image in `markup`, by the class it gave the image */
+function imageStyleOf(markup: string): string {
+  const classname = /<img [^>]*class="([^"]+)"/.exec(markup)?.[1] ?? ''
+  const cssclass = classname.split(' ').find((each) => each.startsWith('css-')) ?? 'none'
+  return new RegExp(String.raw`\.${cssclass}\{([^}]*)\}`).exec(markup)?.[1] ?? ''
+}
+
+describe("MarkdownText, on images", () => {
+
+  it("holds an image in a grid cell to a thumbnail's height", () => {
+    const markup = renderToStaticMarkup(<MarkdownText cell text="![A cat](https://e.co/cat.png)" />)
+    expect(imageStyleOf(markup)).to.contain(`max-height:${String(CellImageMaxPx)}px`)
+  })
+
+  it("holds an image elsewhere only to its box's width", () => {
+    const style = imageStyleOf(renderToStaticMarkup(<MarkdownText text="![A cat](https://e.co/cat.png)" />))
+    expect(style).to.contain('max-width:100%')
+    expect(style).not.to.contain('max-height')
   })
 })
 

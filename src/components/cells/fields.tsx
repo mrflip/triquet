@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TextField } from '@mui/material'
 import clsx from 'clsx'
 import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
@@ -37,12 +37,14 @@ export type GrowingFieldProps = FieldProps & TemplatedFieldProps & {
  * to be, so the row can give both boxes the taller of the two. Until it is typed into it shows
  * its markdown rendered, and asks for room enough for whichever of the two is taller, so the row
  * keeps its height as the box is entered and left. A templated field's face is its text filled in.
+ * An image in the face that loads after the box measured itself has it measure again.
  */
 export function GrowingField({ committed, onCommit, locked, placeholder, label, heightPx, onNatural, resizeToken, bag = null }: Readonly<GrowingFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
   const face = useFace(draft, bag, label)
+  const imageLoads = useImageLoads(faceRef, face.text)
 
   useLayoutEffect(() => {
     const area = areaRef.current
@@ -51,7 +53,7 @@ export function GrowingField({ committed, onCommit, locked, placeholder, label, 
     const naturalPx = Math.max(area.scrollHeight, faceRef.current?.scrollHeight ?? 0)
     area.style.height = `${String(heightPx)}px`
     onNatural(naturalPx)
-  }, [draft, face.text, heightPx, onNatural, resizeToken])
+  }, [draft, face.text, heightPx, onNatural, resizeToken, imageLoads])
 
   return (
     <div className={styles.veil}>
@@ -69,6 +71,24 @@ export function GrowingField({ committed, onCommit, locked, placeholder, label, 
       <MarkdownFace {...face} faceRef={faceRef} />
     </div>
   )
+}
+
+/**
+ * How many images have loaded in the face `faceRef` holds, since its text last changed to
+ * `text`: what a box that measures its face watches, since an image loading may make the face
+ * taller after it was measured. An image's load does not bubble, so the face listens for it as
+ * it passes down to the image.
+ */
+function useImageLoads(faceRef: React.RefObject<HTMLDivElement | null>, text: string): number {
+  const [loads, setLoads] = useState(0)
+  useEffect(() => {
+    const faceEl = faceRef.current
+    if (! faceEl || text === '') { return }
+    const onLoad = (event: Event) => { if (event.target instanceof HTMLImageElement) { setLoads((count) => count + 1) } }
+    faceEl.addEventListener('load', onLoad, { capture: true })
+    return () => { faceEl.removeEventListener('load', onLoad, { capture: true }) }
+  }, [faceRef, text])
+  return loads
 }
 
 export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
