@@ -3,7 +3,7 @@
 Sprint plan, 2026-10-06. Mode: **YOLO**. Review level: **medium**. At most **3** threads at once.
 Issued by the Coach (Flip): `whiteboard/20261005-recap/20261005-recap_preplan.md` (the threads,
 verbatim below) and `20261005-recap_bbjank.md` (the board format's spec), beside this file.
-**Status: paused at the Coach's word after thread 6. Threads 1-6 merged to main with #167 (2026-10-07); ad-hoc #168 open; 13, 11, 10, 12, 7, 8, 9 to run. See `human/20261006-sprint_recap_paused.md`.** `recap-progress.md`, beside this file, is newer than this plan wherever the
+**Status: resumed 2026-10-07, regular operation (reviews at medium). Threads 1-6 merged (#167); ad-hoc and fast-tracked #168, #170, #171, #172 open, 16 and 17 landing; 13, 11, 10, 12, 7, 8, 9 to run.** `recap-progress.md`, beside this file, is newer than this plan wherever the
 two disagree.
 
 **What the Coach needs by the end** (their words): "an export of simple markdown into bbjank; I can
@@ -234,6 +234,10 @@ values from here; thread 7 reviews it.
 
 ### 7. Security review (Coach's 7th)
 
+*Orchestrator, 2026-10-07:* threads 16 and 17 landed unreviewed at the Coach's word (reviews paused
+while the Coach shipped a recap): thread 7 reviews them first, the template helpers' registry and
+the mustache writer change above all.
+
 *Coach's text:* "thread: Do a strong security review. Fix anything that's part of the sprint,
 make a note in the final report AND in the todo of other things to fix. At the end of the sprint,
 fix what you're certain of."
@@ -307,6 +311,10 @@ quiz widgeting before it. The gear may keep two lists or show one with a tier ma
 call, recorded. No schema change. Depends on: 6. Runs before 7, so the security review sees it.
 
 ### 12. The Coach's follow-ups on templates and the recap (2026-10-06, while paused)
+
+*Orchestrator, 2026-10-07:* also takes thread 16's gaps that need the app: an alternate flag (and
+archived) on each question in the bag, so a template can skip them; the recap's `qns` carrying
+filled-in templated fields; and whether `in_order` ships as a library widget (ask; do not build).
 
 Gloss: the *Coach's answers* below marked thread 12 (`correct_pct` moved to thread 14): images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
 `qns` (visible only). Depends on: 11 (both touch the bag). Runs before 7.
