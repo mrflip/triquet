@@ -342,6 +342,12 @@ Depends on: nothing.
   as well as templates, and records what it found.
 * **`/code-review` and the main checkout:** the Coach asks for a workspace of the reviewer's own.
   Thread 13.
+* **Strikeout on screen** (thread 10): `~~text~~` shows its tildes on screen today, since only the
+  bbjank converter was taught GFM strikethrough. Teach react-markdown the same extension
+  (`singleTilde: false`, never `remark-gfm` whole), widen the one allowlist for `del`, and decide
+  how it looks (struck through, or spoiler-like, since it means a spoiler on the boards).
+* **Old addresses** (2026-10-07): fixed outside the sprint as #167, stacked on #166: addresses
+  refuse what the server would, so `/~undefined/...` is not found. Better not-found pages are in TODO.
 * **Fixtures:** `fixtures/bbjank-verifier.md` and `fixtures/bbjank-verifier.bbjank.txt`, with a
   smoke test that the one converts to the other, covering every question this sprint raised
   (thread 10).
