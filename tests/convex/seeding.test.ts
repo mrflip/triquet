@@ -31,7 +31,7 @@ async function oldHunt(tt: Tester, label: string, quizzes: readonly OldQuiz[]): 
       }
       const widgetings = quiz.widgetings ?? []
       for (const [position, widget_label] of widgetings.entries()) {
-        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label, label: widget_label, description: '', params: {}, position })
+        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label, label: widget_label, description: '', params: {}, tier: 'question', position })
       }
       ids[quiz.label] = quiz_id
     }

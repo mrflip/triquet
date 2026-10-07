@@ -1,7 +1,7 @@
 import * as PA from '../../src/lib/vv/patterns'
 import { refuse } from '../../src/lib/refusals'
 import type { Doc } from '../_generated/dataModel'
-import { QuizFallbacks, widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
+import { widgetFrom, widgetingFrom, type LayoutRows } from '../../src/lib/rows'
 import * as Estimates from '../../src/lib/estimates'
 import { Quiz } from '../../src/models/quiz'
 import { ColumnValidators, sortkeyOf, sourceOf, widgetingLabelOf, widgetingSourceOf, type ColumnPatch, type ColumnT } from '../../src/models/column'
@@ -93,16 +93,11 @@ export async function editWidgeting(db: Writer, open: OpenQuizT, label: string, 
       const named = sourceOf(column.source)
       if (named.kind === 'widgeting' && named.label === label) { await updateColumn(db, column, { source: widgetingSourceOf(renamedOnto, named.part) }) }
     }
-    const templated = templatedOf(rows)
+    const { templated } = rows.quiz
     if (renamedOnto !== label && templated.includes(label)) {
       await updateQuiz(db, rows.quiz, { templated: templated.map((source) => (source === label ? renamedOnto : source)) })
     }
   })
-}
-
-/** The sources the open quiz templates, one written before it had any templating none */
-function templatedOf(rows: LayoutRows): string[] {
-  return rows.quiz.templated ?? QuizFallbacks.templated
 }
 
 /**
@@ -142,7 +137,7 @@ export async function deleteWidgeting(db: Writer, open: OpenQuizT, label: string
     if (! held) { return }
     await deleteWidgetingRows(db, held._id)
     await deleteColumns(db, rows, (column) => widgetingLabelOf(column.source) === label)
-    const templated = templatedOf(rows)
+    const { templated } = rows.quiz
     if (templated.includes(label)) { await updateQuiz(db, rows.quiz, { templated: templated.filter((source) => source !== label) }) }
     await writeRunOrder(db, rows.widgetings.filter((widgeting) => widgeting._id !== held._id))
   })

@@ -309,7 +309,7 @@ describe("usageOf", () => {
     const { hunt_id, quiz_id } = await holding(huntHolding([Quiz.blank()]), tt)
     await tt.run(async (ctx) => {
       for (let ii = 0; ii <= PA.WidgetingsCounted.max; ii++) {
-        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, position: ii })
+        await ctx.db.insert('widgetings', { hunt_id, quiz_id, widget_label: 'dumdum', label: `guess_${String(ii)}`, description: '', params: {}, tier: 'question', position: ii })
       }
     })
     const usage = await tt.run(async (ctx) => await usageOf(ctx.db, 'dumdum'))

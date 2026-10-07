@@ -9,7 +9,7 @@ import * as Stamps from '../../src/lib/stamps'
 import * as PA from '../../src/lib/vv/patterns'
 import { qnumSortkeyOf } from '../../src/lib/columns'
 import { refuse } from '../../src/lib/refusals'
-import { QuestionFallbacks, quizFrom, widgetFrom, widgetingFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
+import { quizFrom, widgetFrom, widgetingFrom, type LayoutRows, type QuizRows } from '../../src/lib/rows'
 import type { ImportedQuestionT } from '../../src/models/import'
 import { Question, QuestionValidators, type QuestionPatch, type QuestionT, type QuestionViz } from '../../src/models/question'
 import type { QuizT, Sortkey } from '../../src/models/quiz'
@@ -371,7 +371,7 @@ export async function importQuestions(db: Writer, open: OpenQuizT, imported: rea
  * made, and holding nothing typed into or recorded for its cells.
  */
 async function archiveStarters(db: Writer, rows: readonly Doc<'questions'>[]): Promise<void> {
-  const candidates = rows.filter((row) => row.viz === 'normal' && Question.isBlank({ ...QuestionFallbacks, ...row }) && Stamps.isUntouched(Stamps.of(row)))
+  const candidates = rows.filter((row) => row.viz === 'normal' && Question.isBlank(row) && Stamps.isUntouched(Stamps.of(row)))
   for (const row of candidates) {
     const stored = await db.query('widgeteds').withIndex('by_question_id_and_widgeting_id', (cvx) => cvx.eq('question_id', row._id)).first()
     if (! stored) { await updateQuestion(db, row, { viz: 'archived' }) }

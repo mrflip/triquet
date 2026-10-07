@@ -13,20 +13,7 @@ import { DefaultViz, Question, type QuestionT } from '../models/question'
 import type { QuizT } from '../models/quiz'
 import type { WidgetT } from '../models/widget'
 import type { WidgetedHistoryT } from '../models/widgeted'
-import { DefaultTier, type WidgetingT } from '../models/widgeting'
-
-/**
- * What a quiz's row written before it had a recap or templating reads as, and is written with at
- * its next edit, while `convex/migrations.ts` backfills it: an empty head and tail, nothing
- * templated.
- */
-export const QuizFallbacks: Pick<QuizT, 'recap_head' | 'recap_tail' | 'templated'> = { recap_head: '', recap_tail: '', templated: [] }
-
-/** What a question's row written before it had a recap reads as, and is written with at its next edit, while `convex/migrations.ts` backfills it: an empty recap */
-export const QuestionFallbacks: Pick<QuestionT, 'recap'> = { recap: '' }
-
-/** What a widgeting's row written before widgetings had tiers reads as, and is written with at its next edit, while `convex/migrations.ts` backfills it: one that runs for each question */
-export const WidgetingFallbacks: Pick<WidgetingT, 'tier'> = { tier: DefaultTier }
+import type { WidgetingT } from '../models/widgeting'
 
 /** One stored widgeted's row, as far as its cell reads it: a row of `widgeteds`, for a question, or of `quiz_widgeteds`, for the quiz itself */
 export type StoredRowT = Pick<Doc<'widgeteds'>, 'status' | 'value' | 'message' | 'result_meta' | '_creationTime'>
@@ -54,7 +41,7 @@ export type QuizRows = {
 }
 
 /** Everything a question's own query could send of it: its row, stamped (`Stamps.of`), and what its stored widgetings recorded */
-type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT | keyof typeof QuestionFallbacks> & Stamps.StampsT & Pick<QuestionT, 'stored' | keyof typeof QuestionFallbacks>
+type SendableQuestionT = Omit<Doc<'questions'>, keyof Stamps.StampsT> & Stamps.StampsT & Pick<QuestionT, 'stored'>
 
 /** A question as its own query sends it to someone of `SS` on its hunt: its id, and the fields that standing is sent (`Question.sentTo`) */
 export type SeenQuestionAsT<SS extends Actor.HuntStanding> = Pick<SendableQuestionT, '_id' | (typeof Question.sentTo)[SS][number]>
@@ -220,7 +207,7 @@ const Whole = { standing: 'smith' } as const
  * @example 'notes' in seenQuestionFor(row, new Map(), claims)                 // => false, for a reviewer
  */
 export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { standing }: Pick<Actor.HuntClaimsT, 'standing'>): SeenQuestionT {
-  const sendable: SendableQuestionT = { ...QuestionFallbacks, ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
+  const sendable: SendableQuestionT = { ...row, ...Stamps.of(row), stored: Object.fromEntries([...stored].map(([label, cell]) => [label, historyOf(cell)])) }
   return _.pick(sendable, ['_id', ...Question.sentTo[standing]])
 }
 
@@ -233,7 +220,6 @@ export function seenQuestionFor(row: Doc<'questions'>, stored: StoredRows, { sta
  */
 export function frameOf(quiz: Doc<'quizzes'>, widgetings: readonly Doc<'widgetings'>[], columns: readonly Doc<'columns'>[], stored: StoredRows): QuizFrameT {
   return {
-    ...QuizFallbacks,
     ..._.omit(quiz, ['_creationTime', 'hunt_id', 'realm_id']),
     ...Stamps.of(quiz),
     widgetings: widgetings.map((row) => widgetingFrom(row)),
@@ -308,9 +294,9 @@ export function widgetFrom(row: Doc<'widgets'>): WidgetT {
   }
 }
 
-/** A widgeting, from its row: its fields, without its quiz or its place; one written before widgetings had tiers runs for each question */
+/** A widgeting, from its row: its fields, without its quiz or its place */
 export function widgetingFrom(row: Doc<'widgetings'>): WidgetingT {
-  const { widget_label, label, description, params, tier = WidgetingFallbacks.tier } = row
+  const { widget_label, label, description, params, tier } = row
   return { widget_label, label, description, params, tier }
 }
 
