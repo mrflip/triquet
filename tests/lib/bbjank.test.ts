@@ -43,6 +43,7 @@ const BbjankCases: [string, string, string][] = [
   ["    first\n        second\n      six spaces\nback out",
     "[list]first\n[list]second[/list]\nsix spaces[/list]\nback out",
     'a line is quoted only as deep as it is indented, and spaces short of four are dropped'],
+  ["- a\n\n        *b*",              "[list]\n[*] a[/list]\n\n[list][list][i]b[/i][/list][/list]", 'an indent markdown would make code inside a list is a quote, never code'],
   ["      six\n  two\n          ten",  "[list]six[/list]\ntwo\n[list][list]ten[/list][/list]", 'leading spaces short of a quote level are not rescued (the LL export keeps them)'],
   ["Clue line\n    verse 1\n    verse 2\n...BUT NOT...\nhint",
     "Clue line\n[list]verse 1\nverse 2[/list]\n...BUT NOT...\nhint",

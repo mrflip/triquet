@@ -45,6 +45,7 @@ const MarkdownCases: [string, string, string][] = [
   ["```\n    code *x*\n```",     "```\n    code *x*\n```",               "a fenced code block keeps its indents, and its markdown"],
   ["<div>\n    set in\n</div>",  "<div>\n    set in\n</div>",            "an HTML block keeps its indents"],
   ["- one\n    - *two*",         "- one\n    - [i]two[/i]",              "a list nested four spaces in keeps its indent, and its emphasis converts"],
+  ["- one\n\n        *two*",     "- one\n\n        [i]two[/i]",         "an indent markdown would make code inside a list is quoted, so its emphasis converts"],
   // trivial cases:
   ["",                          "",                                   'empty text stays empty'],
   ["plain",                     "plain",                              'text without emphasis is untouched'],

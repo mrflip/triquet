@@ -118,13 +118,33 @@ function depthOf(line: string): number {
 
 /**
  * Whether each line of `text` (by its index, from 0) is indented by markdown's own rules rather
- * than the author's: a top-level list's lines, a fenced code block's, an HTML block's.
+ * than the author's: a top-level list's lines, a fenced code block's, an HTML block's. An indented
+ * code block inside a list is the author's: the dialect has no indented code, so those are verse.
  */
 function markdownsOwnLinesOf(text: string): (lineIdx: number) => boolean {
-  const owned = treeOf(text).children
+  const blocks = treeOf(text).children
+  const owned = blocks
     .filter((node) => node.type === 'list' || node.type === 'html' || (node.type === 'code' && isFenced(node, text)))
-    .map(({ position }) => ({ beg: position?.start.line ?? 0, end: position?.end.line ?? 0 }))
-  return (lineIdx) => owned.some(({ beg, end }) => beg <= lineIdx + 1 && lineIdx + 1 <= end)
+    .map((node) => linesOf(node))
+  const disowned = blocks.filter((node) => node.type === 'list').flatMap((list) => indentedCodesIn(list, text)).map((code) => linesOf(code))
+  return (lineIdx) => covers(owned, lineIdx + 1) && ! covers(disowned, lineIdx + 1)
+}
+
+/** Whether any of `spans` covers the line numbered `lineNum`, counting from 1 */
+function covers(spans: readonly { beg: number, end: number }[], lineNum: number): boolean {
+  return spans.some(({ beg, end }) => beg <= lineNum && lineNum <= end)
+}
+
+/** The lines a node covers, first and last, counting from 1 */
+function linesOf({ position }: MT.Node): { beg: number, end: number } {
+  return { beg: position?.start.line ?? 0, end: position?.end.line ?? 0 }
+}
+
+/** Every indented (unfenced) code block within `node`, however deep */
+function indentedCodesIn(node: MT.Nodes, text: string): MT.Code[] {
+  if (node.type === 'code') { return isFenced(node, text) ? [] : [node] }
+  const children: MT.Nodes[] = 'children' in node ? node.children : []
+  return children.flatMap((child) => indentedCodesIn(child, text))
 }
 
 /** Whether a code block was fenced, rather than indented */

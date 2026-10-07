@@ -18,6 +18,7 @@ const IndentCases: [string, string, string][] = [
   ["- a\n    - b",            "- a\n    - b",          "a list's indents are its own: four spaces nest it"],
   ["```\n    code\n```",      "```\n    code\n```",    "a fenced code block's indents are its own"],
   ["<div>\n    in\n</div>",   "<div>\n    in\n</div>",  "an HTML block's indents are its own"],
+  ["- a\n\n        *b*",       "- a\n\n> > *b*",       "an indent markdown would make code inside a list is the author's, and quoted"],
   ["          ten",          "> >   ten",            'spaces past two levels are kept after both'],
   ["    one\n    two",       "> one\n> two",          'every indented line is quoted'],
   // what is left alone:
@@ -38,6 +39,7 @@ const ScreenCases: [string, string, string][] = [
   ["- a\n    - b\nafter",           "- a\n    - b\nafter",           'a list nested four spaces in is still a list'],
   ["Clue\n```\n    code\n```\n    verse", "Clue\n```\n    code\n```\n> verse", 'indents inside a fence are kept, and outside it read as quotes'],
   ["    verse\r\nWho?",             "> verse\n\nWho?",            'a carriage return is a line break'],
+  ["- a\n\n        *b*\n- c",        "- a\n\n> > *b*\n- c",        "an indent markdown would make code inside a list reads as a quote, not code"],
   ["",                           "",                           'empty text stays empty'],
 ]
 
