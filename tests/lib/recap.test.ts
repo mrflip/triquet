@@ -24,19 +24,54 @@ const Library = [
   Widget.fill({ label: 'tallies', formulary: 'entry', config: { entry_kind: 'number' } }),
 ]
 
+/** The widgeting a quiz's correct-answer shares are typed into */
+const CorrectPct = Widgeting.fill({ label: 'correct_pct', widget_label: 'tallies' })
+
 /** A quiz of `questions` and nothing else, its recap head and tail as given */
 function quizOf(questions: QuestionT[], patch: Partial<QuizT> = {}): QuizT {
   return { ...Quiz.blank('Recapped'), questions, ...patch }
 }
 
-/** The recap of `quiz`, run over the library above */
+/** The recap note of `quiz`, run over the library above */
+function noteOf(quiz: QuizT): Recap.RecapNoteT {
+  return Recap.noteOf(quiz, runOf(quiz, Library))
+}
+
+/** The recap of `quiz` in bbjank */
 function recapOf(quiz: QuizT): string {
-  return Recap.bbjankOf(quiz, runOf(quiz, Library))
+  return noteOf(quiz).bbjank
+}
+
+/** The recap of a quiz holding one question, `Who?` unless patched */
+function recapOfOne(patch: Partial<QuestionT>, quizPatch: Partial<QuizT> = {}): string {
+  return recapOf(quizOf([questionWith({ qnum: '1', clueing: 'Who?', ...patch })], quizPatch))
 }
 
 const hamilton = questionWith({ title: 'Ham', qnum: '1', clueing: 'Who?', full_answer: 'HAMILTON' })
 
-describe('Recap.bbjankOf', () => {
+/**
+ * A quiz with something of everything the recap writes. `EverythingNote` is its note as the recap
+ * written in code wrote it (each text converted on its own, the frame written in bbjank around
+ * it), which the default template is held to.
+ */
+function everythingQuiz(): QuizT {
+  const target = questionWith({ qnum: '3', title: 'Ship', clueing: '**What name** will be borne by CVN-80?\nIt is storied.', hint: "Tubbs' Ferrari-driving partner", full_answer: 'ENTERPRISE\n(USS ENTERPRISE)', stored: { correct_pct: typed(76) } })
+  const chained = questionWith({ qnum: '1', title: 'Ham', clueing: 'Who wrote\n    *verse*', full_answer: '(WILLIAM ROWAN) HAMILTON', chains_to: target._id, recap: 'Everyone got it.\n\nSee [the image](https://ex.com/a.png).' })
+  const plain = questionWith({ qnum: '2', title: 'Plain', clueing: 'By {{qn.author}}, a ~50 year ~~old~~ thing.', full_answer: 'ADA', stored: { author: typed('Ada') } })
+  return quizOf([target, plain, chained, Question.blank()], {
+    widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' }), CorrectPct],
+    templated:  ['question.clueing'],
+    recap_head: 'The recap of *{{quiz.title}}*.\n\nThanks to all.',
+    recap_tail: 'See you next season.',
+  })
+}
+const EverythingNote = "The recap of [i]Recapped[/i].\n\nThanks to all.\n----------------------------------------\n\n[quote=\"Q1\"]1. Who wrote\n[list][i]verse[/i][/list]\n\n...BUT NOT...\n\nTubbs' Ferrari-driving partner[/quote]\n\nAnswer: [spoiler][b](WILLIAM ROWAN) HAMILTON[/b][/spoiler]\nCorrect Answer %:\nEveryone got it.\n\nSee [url=https://ex.com/a.png]the image[/url].\n\n[quote=\"Q2\"]2. By Ada, a ~50 year [spoiler]old[/spoiler] thing.[/quote]\n\nAnswer: [spoiler][b]ADA[/b][/spoiler]\nCorrect Answer %:\n\n[quote=\"Q3\"]3. [b]What name[/b] will be borne by CVN-80?\nIt is storied.[/quote]\n\nAnswer: [spoiler][b]ENTERPRISE (USS ENTERPRISE)[/b][/spoiler]\nCorrect Answer %: 76\n\nSee you next season."
+
+describe('Recap.noteOf, by the default template', () => {
+  it('writes the note exactly as the recap written in code did', () => {
+    expect(noteOf(everythingQuiz())).to.deep.eq({ bbjank: EverythingNote, issue: null })
+  })
+
   it("writes the doc block's example: the head, a rule, then the question's block", () => {
     expect(recapOf(quizOf([hamilton], { recap_head: 'Thanks!' }))).to.eq([
       'Thanks!',
@@ -77,7 +112,7 @@ describe('Recap.bbjankOf', () => {
   })
 
   it('leaves a head or tail that cannot be filled in as typed', () => {
-    expect(recapOf(quizOf([], { recap_head: 'Broken {{#qns}}' }))).to.eq('Broken {{#qns}}')
+    expect(recapOf(quizOf([], { recap_tail: 'Broken {{#qns}}' }))).to.eq('Broken {{#qns}}')
   })
 
   it('fills in the fields the quiz templates, and leaves the rest as typed', () => {
@@ -101,7 +136,7 @@ describe('Recap.bbjankOf', () => {
 
   it('leaves out a question never written into, as a fresh quiz holds several', () => {
     const quiz = quizOf([Question.blank(), hamilton, Question.blank()])
-    expect(recapOf(quiz)).to.match(/^\[quote="Q1"\]1\. Who\?\[\/quote\]\n\nAnswer: \[spoiler\]\[b\]HAMILTON\[\/b\]\[\/spoiler\]\nCorrect Answer %:$/)
+    expect(recapOf(quiz)).to.eq('[quote="Q1"]1. Who?[/quote]\n\nAnswer: [spoiler][b]HAMILTON[/b][/spoiler]\nCorrect Answer %:')
   })
 
   it('numbers a question with no Q# after the ranked ones', () => {
@@ -115,15 +150,13 @@ describe('Recap.bbjankOf', () => {
     expect(recapOf(quizOf([chained, target]))).to.contain("[quote=\"Q1\"]1. What name?\n\n...BUT NOT...\n\nTubbs' partner[/quote]")
   })
 
-  it('reads the correct-answer share from a column whose label says it is one', () => {
-    const question = questionWith({ qnum: '1', clueing: 'Who?', stored: { correct_pct: typed(76) } })
-    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'correct_pct', widget_label: 'tallies' })] })
-    expect(recapOf(quiz)).to.contain('\nCorrect Answer %: 76')
+  it('reads the correct-answer share from a column labelled correct_pct', () => {
+    expect(recapOfOne({ stored: { correct_pct: typed(76) } }, { widgetings: [CorrectPct] })).to.contain('\nCorrect Answer %: 76')
   })
 
-  it('reads no share from a column whose label does not say so', () => {
-    const question = questionWith({ qnum: '1', clueing: 'Who?', stored: { tally: typed(76) } })
-    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'tally', widget_label: 'tallies' })] })
+  it('reads no share from a column labelled anything else, however like it', () => {
+    const question = questionWith({ qnum: '1', clueing: 'Who?', stored: { pct_correct: typed(76) } })
+    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'pct_correct', widget_label: 'tallies' })] })
     expect(recapOf(quiz)).to.match(/\nCorrect Answer %:$/)
   })
 
@@ -132,23 +165,15 @@ describe('Recap.bbjankOf', () => {
   })
 
   it('comes to nothing for a quiz with nothing to recap', () => {
-    expect(recapOf(quizOf([]))).to.eq('')
+    expect(noteOf(quizOf([]))).to.deep.eq({ bbjank: '', issue: null })
   })
 
   it('writes HTML in a head as the characters typed, never as markup', () => {
-    expect(recapOf(quizOf([], { recap_head: '<script>alert(1)</script>' }))).to.eq('<script>alert(1)</script>')
-  })
-})
-
-describe('Recap.blockOf', () => {
-  it("writes the doc block's example", () => {
-    const question = questionWith({ clueing: 'Who?', full_answer: 'HAMILTON', recap: 'Aced.' })
-    expect(Recap.blockOf(question, { number: 1, target: null, pct: '76' })).to.eq('[quote="Q1"]1. Who?[/quote]\n\nAnswer: [spoiler][b]HAMILTON[/b][/spoiler]\nCorrect Answer %: 76\nAced.')
+    expect(recapOf(quizOf([hamilton], { recap_head: '<script>alert(1)</script>' }))).to.match(/^<script>alert\(1\)<\/script>\n-+\n/)
   })
 
   it("folds an answer's lines into one, so its spoiler stays whole", () => {
-    const question = questionWith({ full_answer: 'HAMILTON\n\n(accept ROWAN)\n' })
-    expect(Recap.blockOf(question, { number: 1, target: null, pct: '' })).to.contain('Answer: [spoiler][b]HAMILTON (accept ROWAN)[/b][/spoiler]')
+    expect(recapOfOne({ full_answer: 'HAMILTON\n\n(accept ROWAN)\n' })).to.contain('Answer: [spoiler][b]HAMILTON (accept ROWAN)[/b][/spoiler]')
   })
 
   it.each([
@@ -159,47 +184,104 @@ describe('Recap.blockOf', () => {
     ['---',                 '---'],
     ['[x]: https://ex.com', '[x]: [url]https://ex.com[/url]'],
   ])('writes an answer opening %j as typed, never as a list, quote, rule or definition', (fullAnswer, expected) => {
-    const question = questionWith({ full_answer: fullAnswer })
-    expect(Recap.blockOf(question, { number: 1, target: null, pct: '' })).to.contain(`Answer: [spoiler][b]${expected}[/b][/spoiler]`)
+    expect(recapOfOne({ full_answer: fullAnswer })).to.contain(`Answer: [spoiler][b]${expected}[/b][/spoiler]`)
   })
 
-  it('writes an answer\'s own emphasis inside the bold', () => {
-    const question = questionWith({ full_answer: '*Hamlet*' })
-    expect(Recap.blockOf(question, { number: 3, target: null, pct: '' })).to.contain('Answer: [spoiler][b][i]Hamlet[/i][/b][/spoiler]')
+  it("writes an answer's own emphasis inside the spoiler", () => {
+    expect(recapOfOne({ full_answer: '*Hamlet*' })).to.contain('Answer: [spoiler][i][b]Hamlet[/b][/i][/spoiler]')
+  })
+
+  it('writes a blank answer as no spoiler at all', () => {
+    expect(recapOfOne({ full_answer: '' })).to.match(/\nAnswer:\nCorrect Answer %:$/)
   })
 
   it("keeps a clueing's indented verse a quote within the question's quote, and its link a link", () => {
-    const question = questionWith({ clueing: 'Who wrote\n    *verse*\n[Click here](https://ex.com/a.png)' })
-    expect(Recap.blockOf(question, { number: 2, target: null, pct: '' })).to.match(/^\[quote="Q2"\]2\. Who wrote\n\[list\]\[i\]verse\[\/i\]\[\/list\]\n\[url=https:\/\/ex\.com\/a\.png\]Click here\[\/url\]\[\/quote\]/)
+    expect(recapOfOne({ clueing: 'Who wrote\n    *verse*\n[Click here](https://ex.com/a.png)' })).to.match(/^\[quote="Q1"\]1\. Who wrote\n\[list\]\[i\]verse\[\/i\]\[\/list\]\n\n\[url=https:\/\/ex\.com\/a\.png\]Click here\[\/url\]\[\/quote\]/)
+  })
+
+  it('keeps every line of a clueing inside its quote, whatever the line opens with', () => {
+    expect(recapOfOne({ clueing: 'Who?\n---\n# Not a heading' })).to.match(/^\[quote="Q1"\]\[b\]1\. Who\?\[\/b\]\n\[b\]Not a heading\[\/b\]\[\/quote\]\n\nAnswer:/)
+  })
+
+  it('keeps the number of a clueing that opens like a numbered list', () => {
+    expect(recapOfOne({ clueing: '1984. Who wrote it?' })).to.contain('[quote="Q1"]1. 1984. Who wrote it?[/quote]')
+  })
+
+  it('opens a clueing that opens with verse on the line below its number', () => {
+    expect(recapOfOne({ clueing: '    Shall I compare thee\nWho?' })).to.match(/^\[quote="Q1"\]1\.\n\[list\]Shall I compare thee\[\/list\]\n\nWho\?\[\/quote\]/)
+  })
+
+  it("finds a reference link's definition inside the clueing's quote", () => {
+    expect(recapOfOne({ clueing: 'See [the map][m].\n\n[m]: https://ex.com/map' })).to.contain('See [url=https://ex.com/map]the map[/url].')
   })
 
   it("writes a multi-paragraph recap as its paragraphs", () => {
-    const question = questionWith({ recap: 'First.\n\nSecond, with a [link](https://ex.com).' })
-    expect(Recap.blockOf(question, { number: 1, target: null, pct: '' })).to.match(/Correct Answer %:\nFirst\.\n\nSecond, with a \[url=https:\/\/ex\.com\]link\[\/url\]\.$/)
+    expect(recapOfOne({ recap: 'First.\n\nSecond, with a [link](https://ex.com).' })).to.match(/Correct Answer %:\nFirst\.\n\nSecond, with a \[url=https:\/\/ex\.com\]link\[\/url\]\.$/)
+  })
+
+  it('writes a recap opening with a rule as a rule, never turning the line above into a heading', () => {
+    expect(recapOfOne({ recap: '---\nAfter.' })).to.match(/\nCorrect Answer %:\n\n-{40}\nAfter\.$/)
   })
 
   it('writes a link off the web as its text alone', () => {
-    const question = questionWith({ recap: '[click](javascript:alert(1))' })
-    expect(Recap.blockOf(question, { number: 1, target: null, pct: '' })).to.match(/\nclick$/)
+    expect(recapOfOne({ recap: '[click](javascript:alert(1))' })).to.match(/\nclick$/)
   })
 })
 
-describe('Recap.CorrectPctRE', () => {
-  const Cases: [string, boolean][] = [
-    ["correct_pct",            true],
-    ["correct_percent",        true],
-    ["correct_answer_pct",     true],
-    ["correct_answer_percent", true],
-    ["pct_correct",            true],
-    ["percent_correct",        true],
-    ["correct",                false],
-    ["correct_answer",         false],
-    ["pct",                    false],
-    ["my_correct_pct",         false],
-  ]
-  for (const [label, expected] of Cases) {
-    it(`${expected ? 'takes' : 'passes over'} a column labelled ${label}`, () => {
-      expect(Recap.CorrectPctRE.test(label)).to.eq(expected)
-    })
-  }
+describe("Recap.noteOf, by a template of the quiz's own", () => {
+  it('fills it in over the recap bag, then writes it in bbjank whole', () => {
+    const quiz = quizOf([hamilton], { recap_head: 'Hi *all*', recap_template: '{{recap_head}}\n\n{{#played}}- **Q{{number}}** {{title}}: {{answer_line}}\n{{/played}}' })
+    expect(recapOf(quiz)).to.eq('Hi [i]all[/i]\n\n[list]\n[*] [b]Q1[/b] Ham: HAMILTON[/list]')
+  })
+
+  it('reads every widgeting of a question played, as a field template does', () => {
+    const question = questionWith({ qnum: '1', clueing: 'Who?', stored: { author: typed('Ada') } })
+    const quiz = quizOf([question], { widgetings: [Widgeting.fill({ label: 'author', widget_label: 'authors' })], recap_template: '{{#played}}By {{author}} for {{quiz.title}}{{/played}}' })
+    expect(recapOf(quiz)).to.eq('By Ada for Recapped')
+  })
+
+  it('writes a template that will not fill in as typed, and says why', () => {
+    expect(noteOf(quizOf([hamilton], { recap_template: '{{#played}}{{number}}' }))).to.deep.eq({ bbjank: '{{#played}}{{number}}', issue: 'Unclosed section "played" at 21' })
+  })
+
+  it('fills a value holding markdown or HTML in before the parser, so the writer reads it last', () => {
+    const quiz = quizOf([questionWith({ qnum: '1', clueing: '<img src=x onerror=alert(1)> **bold**' })], { recap_template: '{{#played}}{{clueing}}{{/played}}' })
+    expect(recapOf(quiz)).to.eq('<img src=x onerror=alert(1)> [b]bold[/b]')
+  })
+})
+
+describe('Recap.templateOf', () => {
+  it("is the quiz's own template, or the default", () => {
+    expect(Recap.templateOf({ recap_template: 'Mine' })).to.eq('Mine')
+    expect(Recap.templateOf({})).to.eq(Recap.DefaultTemplate)
+  })
+})
+
+describe('Recap.quotedBodyOf', () => {
+  it("writes the doc block's examples", () => {
+    expect(Recap.quotedBodyOf('Who?\n\n...BUT NOT...\n\nNot him')).to.eq('Who?\n>\n> ...BUT NOT...\n>\n> Not him')
+    expect(Recap.quotedBodyOf('Who wrote\n    *verse*')).to.eq('Who wrote\n> > *verse*')
+  })
+
+  it('drops blank lines at either end, and a carriage return', () => {
+    expect(Recap.quotedBodyOf('\n\nWho?\r\nWhen?\n\n')).to.eq('Who?\n> When?')
+  })
+})
+
+describe('Recap.oneLineOf', () => {
+  it("writes the doc block's example", () => {
+    expect(Recap.oneLineOf('HAMILTON\n\n(accept ROWAN)\n')).to.eq('HAMILTON (accept ROWAN)')
+  })
+})
+
+describe('Recap.recapBelowOf', () => {
+  it("writes the doc block's examples", () => {
+    expect(Recap.recapBelowOf('Aced.\n')).to.eq('Aced.')
+    expect(Recap.recapBelowOf('---\nAfter.')).to.eq('\n---\nAfter.')
+  })
+
+  it('sets an underline of equals signs apart too, and leaves a blank recap blank', () => {
+    expect(Recap.recapBelowOf('===')).to.eq('\n===')
+    expect(Recap.recapBelowOf('  \n')).to.eq('')
+  })
 })

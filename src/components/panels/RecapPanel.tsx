@@ -1,16 +1,19 @@
 'use client'
 
 import { useMemo } from 'react'
-import { TextField } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Box, TextField } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { Panel } from './Panel'
 import { ReadonlyBox } from './ReadonlyBox'
 import { useDraft, type DraftHandle } from '../use-draft'
-import { MarkdownFace, faceOf, veiledIf } from '../cells/markdown'
+import { MarkdownFace, veiledIf } from '../cells/markdown'
+import { useFace, useTemplateIssueReport } from '../cells/use-face'
 import { AppNotices } from '../../lib/notices'
 import * as Recap from '../../lib/recap'
 import * as Templating from '../../lib/templating'
 import type { QuizRun } from '../../lib/formulary/runner'
 import type { QuizT } from '../../models/quiz'
+import styles from '../workbench.module.css'
 
 /** How many lines the recap's head and tail grow to before they scroll */
 export const RecapNoteMaxRows = 10
@@ -18,38 +21,55 @@ export const RecapNoteMaxRows = 10
 /** How many lines of the recap note show at once, the rest a scroll away */
 export const RecapShownRows = 5
 
+/** How many lines the recap template's box shows at least, and grows to before it scrolls */
+export const RecapTemplateRows = { min: 6, max: 24 } as const
+
 export type RecapPanelProps = {
-  quiz:        QuizT
+  quiz:            QuizT
   /** The quiz, run: what its templates and its correct-answer column read */
-  run:         QuizRun
-  /** Whether whoever is looking may rewrite the head and tail; read-only when not */
-  revisable:   boolean
-  onRecapHead: (recap_head: string) => void
-  onRecapTail: (recap_tail: string) => void
+  run:             QuizRun
+  /** Whether whoever is looking may rewrite the head, tail and template; read-only when not */
+  revisable:       boolean
+  onRecapHead:     (recap_head: string) => void
+  onRecapTail:     (recap_tail: string) => void
+  /** Give the quiz a recap template of its own; null puts it back on the default */
+  onRecapTemplate: (recap_template: string | null) => void
 }
 
 /**
  * The recap note, for the league's message boards once the quiz has been played: the recap head
  * to write, then the whole note in the boards' BBCode, a few lines high, scrolling, with a Copy
- * button, then the recap tail to write. The note follows the head and tail as they are typed.
- * Each question's own recap is written in the grid's Recap column.
+ * button, then the recap tail to write, and, folded below, the recap template the note is made by.
+ * The note follows the head, tail and template as they are typed. Each question's own recap is
+ * written in the grid's Recap column.
  */
-export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail }: Readonly<RecapPanelProps>) {
+export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail, onRecapTemplate }: Readonly<RecapPanelProps>) {
   const head = useDraft(quiz.recap_head, onRecapHead)
   const tail = useDraft(quiz.recap_tail, onRecapTail)
+  const template = useDraft(Recap.templateOf(quiz), (text) => { onRecapTemplate(text === Recap.DefaultTemplate ? null : text) }, defaultedIfBlank)
   const bag = useMemo(() => Templating.bagOf(run, null), [run])
-  const note = useMemo(() => Recap.bbjankOf({ ...quiz, recap_head: head.draft, recap_tail: tail.draft }, run), [quiz, run, head.draft, tail.draft])
+  const note = useMemo(() => {
+    const drafted = { ...quiz, recap_head: head.draft, recap_tail: tail.draft, recap_template: template.draft.trim() === '' ? undefined : template.draft }
+    return Recap.noteOf(drafted, run)
+  }, [quiz, run, head.draft, tail.draft, template.draft])
+  useTemplateIssueReport(note.issue, 'Recap template', bag)
   return (
     <Panel
       title="Recap"
-      blurb="The recap note to post once the quiz has been played, in the message boards' BBCode: the head, each question with its answer behind a spoiler and its recap (the grid's Recap column), then the tail. The head and tail are templates, filled in as a templated field is: {{quiz.title}} and the like."
+      blurb="The recap note to post once the quiz has been played, in the message boards' BBCode: the head, each question with its answer behind a spoiler and its recap (the grid's Recap column), then the tail. The head and tail are templates, filled in as a templated field is: {{quiz.title}} and the like. The recap template, folded below, lays the whole note out."
       double
     >
       <RecapNote label="Recap head" draft={head} bag={bag} placeholder={AppNotices.recapHeadBlank} revisable={revisable} />
-      <ReadonlyBox label="Recap note" text={note} rows={RecapShownRows} dense resizable />
+      <ReadonlyBox label="Recap note" text={note.bbjank} rows={RecapShownRows} dense resizable />
       <RecapNote label="Recap tail" draft={tail} bag={bag} placeholder={AppNotices.recapTailBlank} revisable={revisable} />
+      <RecapTemplate draft={template} owned={quiz.recap_template !== undefined} issue={note.issue} revisable={revisable} />
     </Panel>
   )
+}
+
+/** A recap template emptied out: the default one, which an empty box goes back to */
+function defaultedIfBlank(text: string): string {
+  return text.trim() === '' ? Recap.DefaultTemplate : text
 }
 
 type RecapNoteProps = {
@@ -66,7 +86,7 @@ type RecapNoteProps = {
  * is typed into, saying above it what keeps it from being filled in, if anything does.
  */
 function RecapNote({ label, draft, bag, placeholder, revisable }: Readonly<RecapNoteProps>) {
-  const face = faceOf(draft.draft, bag)
+  const face = useFace(draft.draft, bag, label)
   return (
     <TextField
       label={label}
@@ -86,5 +106,58 @@ function RecapNote({ label, draft, bag, placeholder, revisable }: Readonly<Recap
       }}
       sx={{ mt: 1.5 }}
     />
+  )
+}
+
+type RecapTemplateProps = {
+  draft:     DraftHandle
+  /** Whether the quiz has a recap template of its own, rather than the default */
+  owned:     boolean
+  /** What keeps the template from filling in, if anything does */
+  issue:     string | null
+  revisable: boolean
+}
+
+/**
+ * The recap template, folded until opened: markdown with mustache, always shown as typed, and
+ * outlined in red, saying why, when it will not fill in. Emptied, it goes back to the default.
+ */
+function RecapTemplate({ draft, owned, issue, revisable }: Readonly<RecapTemplateProps>) {
+  return (
+    <Accordion disableGutters variant="outlined" sx={{ mt: 1.5 }} slotProps={{ transition: { unmountOnExit: true } }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />} id="recap-template-summary" aria-controls="recap-template-details">
+        <Box component="span">
+          Recap template{' '}
+          <Box component="span" className={styles.microcopy}>{owned ? "(the quiz's own)" : '(the default)'}</Box>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails id="recap-template-details">
+        <p className={styles.microcopy}>
+          Markdown with mustache, filled in, then written in the boards&apos; BBCode. It reads what a templated field
+          reads, and {'{{recap_head}}'} and {'{{recap_tail}}'} (filled in), and {'{{#played}}'}…{'{{/played}}'}: each
+          question played, with its {'{{number}}'}, its fields and columns ({'{{title}}'}, {'{{clueing}}'}), and these,
+          shaped for where markdown is fragile: {'{{quoted_body}}'} after a quote&apos;s {'>'}, {'{{answer_line}}'} within
+          a line, {'{{recap_below}}'} on the line after another, and {'{{pct}}'} from a column labelled correct_pct.
+          Empty the box to go back to the default.
+        </p>
+        <TextField
+          label="Recap template"
+          multiline
+          minRows={RecapTemplateRows.min}
+          maxRows={RecapTemplateRows.max}
+          fullWidth
+          size="small"
+          error={issue !== null}
+          helperText={issue}
+          value={draft.draft}
+          onChange={(event) => { draft.onChange(event.target.value) }}
+          onBlur={draft.onBlur}
+          slotProps={{
+            input:     { readOnly: ! revisable, sx: { fontFamily: 'monospace', fontSize: 13 } },
+            htmlInput: { spellCheck: false },
+          }}
+        />
+      </AccordionDetails>
+    </Accordion>
   )
 }

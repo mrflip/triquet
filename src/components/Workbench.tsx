@@ -295,6 +295,7 @@ export function Workbench({ hunt, realm, quiz, library, claims, reviews, dispatc
         onQ1Preamble={(q1_preamble) => { dispatch({ kind: 'set_q1_preamble', q1_preamble }) }}
         onRecapHead={(recap_head) => { dispatch({ kind: 'set_recap_head', recap_head }) }}
         onRecapTail={(recap_tail) => { dispatch({ kind: 'set_recap_tail', recap_tail }) }}
+        onRecapTemplate={(recap_template) => { dispatch({ kind: 'set_recap_template', recap_template }) }}
         onEnterQuiz={(widgeting_label, value) => { dispatch({ kind: 'enter_quiz_widgeted', entered: { widgeting_label, value } }) }}
       />
     </main>

@@ -10,6 +10,7 @@ const BbjankCases: [string, string, string][] = [
   ["Answer: ~~**HAMILTON**~~",          "Answer: [spoiler][b]HAMILTON[/b][/spoiler]",       'strikeout is a spoiler, and bold inside it converts'],
   ["~~dead {AS: the twist}~~",          "[spoiler=the twist]dead[/spoiler]",                'an {AS:} inside strikeout is the annotation, its braces dropped'],
   ["> {AS: Q1}1. Who?",                 "[quote=\"Q1\"]1. Who?[/quote]",                    'a quote opening {AS: who} is a quote by who'],
+  ["> {AS: Q1}1. Who?\n> ---",           "[quote=\"Q1\"][b]1. Who?[/b][/quote]",           'a quote whose {AS:} line a rule makes a heading is still a quote by who'],
   ["> aside\n> > deeper",               "[list]aside\n[list]deeper[/list][/list]",          'a quote with no {AS:} is a list, and a quote within it a list within that'],
   ["    verse",                         "[list]verse[/list]",                               'four leading spaces are a quote level, not code'],
   ["- one\n- two",                      "[list]\n[*] one\n[*] two[/list]",                  'a bulleted list puts each item on its own line, the close after the last'],

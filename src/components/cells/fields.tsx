@@ -5,7 +5,8 @@ import { TextField } from '@mui/material'
 import clsx from 'clsx'
 import { NumericFormat, type NumberFormatValues, type SourceInfo } from 'react-number-format'
 import { useDraft } from '../use-draft'
-import { MarkdownFace, faceOf, veiledIf } from './markdown'
+import { MarkdownFace, veiledIf } from './markdown'
+import { useFace } from './use-face'
 import type * as Templating from '../../lib/templating'
 import styles from '../workbench.module.css'
 
@@ -41,7 +42,7 @@ export function GrowingField({ committed, onCommit, locked, placeholder, label, 
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
-  const face = faceOf(draft, bag)
+  const face = useFace(draft, bag, label)
 
   useLayoutEffect(() => {
     const area = areaRef.current
@@ -83,7 +84,7 @@ export type StretchFieldProps = FieldProps & TemplatedFieldProps & {
  */
 export function StretchField({ committed, onCommit, locked, placeholder, label, heightPx, plain = false, bag = null }: Readonly<StretchFieldProps>) {
   const { draft, onChange, onBlur } = useDraft(committed, onCommit)
-  const face = faceOf(plain ? '' : draft, bag)
+  const face = useFace(plain ? '' : draft, bag, label)
   return (
     <div className={styles.veil}>
       <textarea
