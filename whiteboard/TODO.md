@@ -175,6 +175,23 @@ effort yet:
   (`quoted.clueing`, ...), not its text columns (a widgeting's widgeted); a column set into a quote
   meets the same trouble (recap thread 15).
 
+## From recap sprint, thread 16: the default recap template on the basic tools
+
+`Recap.DefaultTemplate` reads only `{{#qns}}`, fields, columns and plain mustache; `played` and the
+pre-shaped values stay in the recap bag, unused by the default, until the Coach decides what the app
+should still do. The gap list, with a JSONata column for each gap one can close, is in
+`human/20261007-recap_template.md`. What only the app can close:
+
+* **The bag does not say which questions are alternates** (nor, but by a blank rank, which are
+  archived): `viz` is not among a question's exposed fields, so neither mustache nor a formula can
+  leave alternates out, or tell an unnumbered question from an archived one. Thread 12's planned
+  `archived` beside an alternate flag closes both.
+* **A templated field reads as typed in `qns`**: mustache never fills a value in again, and JSONata
+  cannot fill a template. The recap bag's `qns` could carry them filled, as `played` does.
+* If the recipes stay recipes, they could ship as library widgets (`quoted`, `answer_line`,
+  `recap_below`, `in_order`), or a mustache lambda be allowed for shaping; or `played` and its
+  shaped values could be named in the panel and kept. The Coach's call.
+
 ## From recap sprint, thread 6: quiz-level widgetings and entries
 
 Widgetings of the `quiz` tier (`src/lib/run-order.ts`, the runner's quiz steps, `quiz_widgeteds`,
