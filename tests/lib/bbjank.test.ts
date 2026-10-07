@@ -1,5 +1,10 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as Bbjank from '../../src/lib/bbjank'
+
+/** A file under `fixtures/`, as written */
+const fixtureOf = (filename: string): string => fs.readFileSync(path.join(import.meta.dirname, '../../fixtures', filename), 'utf8')
 
 const Hamilton = 'https://en.wikipedia.org/wiki/William_Rowan_Hamilton'
 const Video = 'https://www.youtube.com/watch?v=SZXHoWwBcDc'
@@ -155,6 +160,12 @@ const YoutubeCases: [string, string | undefined, string][] = [
   ["https://notyoutube.com/watch?v=SZXHoWwBcDc",     undefined,     'a host merely ending in youtube.com is not YouTube'],
   ["not a url",                                      undefined,     'what is no address is no video'],
 ]
+
+describe('the verifier', () => {
+  it('writes fixtures/bbjank-verifier.md as fixtures/bbjank-verifier.bbjank.txt, every question the boards raised in one paste', () => {
+    expect(Bbjank.toBbjank(fixtureOf('bbjank-verifier.md'))).to.eq(fixtureOf('bbjank-verifier.bbjank.txt').replace(/\n$/, ''))
+  })
+})
 
 describe('youtubeIdOf', () => {
   for (const [url, expected, blurb] of YoutubeCases) {
