@@ -46,7 +46,7 @@ export type RecapPanelProps = {
 export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail, onRecapTemplate }: Readonly<RecapPanelProps>) {
   const head = useDraft(quiz.recap_head, onRecapHead)
   const tail = useDraft(quiz.recap_tail, onRecapTail)
-  const template = useDraft(Recap.templateOf(quiz), (text) => { onRecapTemplate(text === Recap.DefaultTemplate ? null : text) }, defaultedIfBlank)
+  const template = useDraft(Recap.templateOf(quiz), (text) => { onRecapTemplate(text === Recap.DefaultTemplate ? null : text) }, tidiedTemplate)
   const bag = useMemo(() => Templating.bagOf(run, null), [run])
   const note = useMemo(() => {
     const drafted = { ...quiz, recap_head: head.draft, recap_tail: tail.draft, recap_template: template.draft.trim() === '' ? undefined : template.draft }
@@ -67,9 +67,10 @@ export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail, onR
   )
 }
 
-/** A recap template emptied out: the default one, which an empty box goes back to */
-function defaultedIfBlank(text: string): string {
-  return text.trim() === '' ? Recap.DefaultTemplate : text
+/** A recap template on its way out of the box: trimmed, as the quiz keeps it, and the default when that leaves nothing */
+function tidiedTemplate(text: string): string {
+  const trimmed = text.trim()
+  return trimmed === '' ? Recap.DefaultTemplate : trimmed
 }
 
 type RecapNoteProps = {
