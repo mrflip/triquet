@@ -397,6 +397,18 @@ recap), with a JSONata recipe for a column that closes it where one can (e.g. a 
 so the Coach can decide what the app should still do. **No review** for this thread, at the Coach's
 word: prove with `pnpm e2e --touched` and land. Depends on: 15 (#172).
 
+### 17. Mustache helpers for the recap's conveniences (queued after 16, 2026-10-07)
+
+*Coach's text:* "can the custom conveniences (quoted) be done with a mustache helper?" Then: "land
+the new template first".
+
+Gloss: a small fixed set of app-defined mustache lambdas, callable only as sections and only from
+app code (`quote`: fill the section, then prefix every line after the first with `> `; `oneline`:
+join onto one line; `apart`: set a leading `---` apart), so `{{#quote}}{{clueing}}{{/quote}}` works
+on any field or column. `BagContext` still calls nothing from the bag: database values can never
+be functions. Helper output is markdown and goes through the bbjank writer last. Switch the default
+template to them where thread 16's gap list says they close a gap. Depends on: 16.
+
 ### Coach's answers while paused (2026-10-06)
 
 * **Author BBCode breaking the recap's frame: wontfix.** It may be on purpose, and the smith
