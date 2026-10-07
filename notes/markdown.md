@@ -47,7 +47,7 @@ CommonMark, with these on top:
 | `- item` | a list | `[list]` and `[*] ` | as typed |
 | a link | a link, to http, https or mailto | `[url=..]`, to http or https; else its text | as typed |
 | a bare `https://..` | its text | `[url]..[/url]` | as typed |
-| an image | nothing, but in a templated field (https only) | `[img]`, https only, alt text below; a YouTube image an embed | as typed |
+| an image | the image, https only, in any field; a thumbnail in a grid cell | `[img]`, https only, alt text below; a YouTube image an embed | as typed |
 | a heading | a heading | `[b]` | as typed |
 | `` `code` ``, a fence | code | `[code]` | as typed |
 | `<b>HTML</b>` | the characters | the characters | the characters |
