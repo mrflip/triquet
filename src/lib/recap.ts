@@ -35,32 +35,32 @@ import { TemplatableFieldVals, type QuizT, type TemplatableField } from '../mode
  * Inside a section on a field (`{{#rank}}`, `{{#hint}}`) that field is the context, and the
  * question's other fields are found on the question below it.
  */
-export const DefaultTemplate = [
-  '{{#recap_head}}',
-  '{{recap_head}}',
-  '{{! A rule under the head. Not ---, which would make the line above a heading. }}',
-  '***',
-  '',
-  '{{/recap_head}}',
-  '{{#qns}}',
-  '{{! Only the questions with a rank: those with a Q#, and not archived. }}',
-  '{{#rank}}',
-  '> {AS: Q{{rank}}}{{rank}}. {{clueing}}',
-  '{{#hint}}',
-  '>',
-  '> ...OR ELSE...',
-  '>',
-  '> {{hint}}',
-  '{{/hint}}',
-  '',
-  'Answer: {{#full_answer}}~~**{{full_answer}}**~~{{/full_answer}}',
-  'Correct Answer %: {{correct_pct}}',
-  '{{recap}}',
-  '',
-  '{{/rank}}',
-  '{{/qns}}',
-  '{{recap_tail}}',
-].join('\n')
+export const DefaultTemplate = `
+{{#recap_head}}
+{{recap_head}}
+{{! A rule under the head. Not ---, which would make the line above a heading. }}
+***
+
+{{/recap_head}}
+{{#qns}}
+{{! Only the questions with a rank: those with a Q#, and not archived. }}
+{{#rank}}
+> {AS: Q{{rank}}}{{rank}}. {{clueing}}
+{{#hint}}
+>
+> ...OR ELSE...
+>
+> {{hint}}
+{{/hint}}
+
+Answer: {{#full_answer}}~~**{{full_answer}}**~~{{/full_answer}}
+Correct Answer %: {{correct_pct}}
+{{recap}}
+
+{{/rank}}
+{{/qns}}
+{{recap_tail}}
+`.trim()
 
 /**
  * The label of the widgeting that holds the share of players who answered a question correctly,
