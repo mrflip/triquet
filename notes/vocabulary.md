@@ -250,6 +250,12 @@ words above.
   markdown parser reads it, and the sanitizer reads what that makes, last. Shown filled in on the
   grid and in the LL Export, and edited as typed. Only a templated text may show an image
   (`https` only).
+  - **template helper** -- one of the app's three named shapings a template calls as a section
+    (`Templating.Helpers`): `{{#quote}}..{{/quote}}`, `{{#oneline}}..{{/oneline}}`,
+    `{{#apart}}..{{/apart}}`. The section is filled in, then **shaped** (`lib/shaping.ts`) for a
+    fragile place, as the recap bag's pre-shaped fields are. Every template may call them (field
+    templates, recap head and tail, the recap template); the bare names (`{{quote}}`) fill in
+    nothing, and a value in the bag is never called.
 * **question** -- one row. Its base fields are the constant of the whole tool: `title`, `clueing`,
   `hint`, `full_answer`, `qnum`, `chains_to`, `alt_text`, `notes`, `recap`. Everything else a
   quiz shows is a widgeted.

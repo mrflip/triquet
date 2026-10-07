@@ -3,6 +3,7 @@ import * as Bbjank from './bbjank'
 import * as LLSmithExport from './ll-smith-export'
 import * as Rank from './rank'
 import * as Runner from './formulary/runner'
+import * as Shaping from './shaping'
 import * as Templating from './templating'
 import { Widgeted } from '../models/widgeted'
 import { Question } from '../models/question'
@@ -81,11 +82,11 @@ export type ShapedT = Record<TemplatableField, string>
 export type PlayedT = Record<string, unknown> & {
   /** Its place among the questions played, from 1 */
   number:  number
-  /** Each field to follow a `> ` the template opened (`quotedOf`): every line after the first opens `> `, indents read as quotes */
+  /** Each field to follow a `> ` the template opened (`Shaping.quotedOf`): every line after the first opens `> `, indents read as quotes */
   quoted:  ShapedT
-  /** Each field on one line (`oneLineOf`), safe within a line of the template's */
+  /** Each field on one line (`Shaping.oneLineOf`), safe within a line of the template's */
   oneline: ShapedT
-  /** Each field safe on the line straight after another of the template's (`belowOf`); blank when it is */
+  /** Each field safe on the line straight after another of the template's (`Shaping.belowOf`); blank when it is */
   below:   ShapedT
   /** Its share of correct answers, from the quiz's `correct_pct` widgeting, on one line; blank without one */
   pct:     string
@@ -103,9 +104,6 @@ export type RecapNoteT = {
   bbjank: string
   issue:  string | null
 }
-
-/** A line markdown would read as underlining the line above it into a heading */
-const SetextUnderlineRE = /^ {0,3}(?:=+|-+)[ \t]*$/
 
 /**
  * The recap template `quiz` follows: its own, or the default.
@@ -158,62 +156,11 @@ export function bagOf(quiz: QuizT, run: Runner.QuizRun): RecapBagT {
         ...qnFor.get(question._id),
         ...fields,
         number:  ii + 1,
-        quoted:  EST.mapValues(fields, quotedOf),
-        oneline: EST.mapValues(fields, oneLineOf),
-        below:   EST.mapValues(fields, belowOf),
-        pct:     hasPct ? oneLineOf(Widgeted.textOf(Runner.widgetedOf(run, CorrectPctLabel, question._id))) : '',
+        quoted:  EST.mapValues(fields, Shaping.quotedOf),
+        oneline: EST.mapValues(fields, Shaping.oneLineOf),
+        below:   EST.mapValues(fields, Shaping.belowOf),
+        pct:     hasPct ? Shaping.oneLineOf(Widgeted.textOf(Runner.widgetedOf(run, CorrectPctLabel, question._id))) : '',
       }
     }),
   }
-}
-
-/**
- * `text` (a clueing, say), to follow a `> ` the template opened on its line: its indents read as
- * quotes, as bbjank reads them, so none reads as code inside the quote; every line after its first
- * opening `> `, so none leaves the quote; blank lines at either end dropped. A text opening with a
- * quote of its own starts on the line below.
- *
- * @example quotedOf('Who?\n\nNot him')         // => 'Who?\n>\n> Not him'
- * @example quotedOf('Who wrote\n    *verse*')  // => 'Who wrote\n> > *verse*'
- */
-export function quotedOf(text: string): string {
-  const lines = trimmedLines(Bbjank.indentsQuoted(text))
-  const opened = lines[0]?.startsWith('>') ? ['', ...lines] : lines
-  return opened.map((line, ii) => {
-    if (ii === 0) { return line }
-    return line === '' ? '>' : `> ${line}`
-  }).join('\n')
-}
-
-/**
- * `text` on one line: each line trimmed, the blank ones dropped, the rest joined by a space.
- *
- * @example oneLineOf('HAMILTON\n\n(accept ROWAN)\n')  // => 'HAMILTON (accept ROWAN)'
- */
-export function oneLineOf(text: string): string {
-  return text.split('\n').map((line) => line.trim()).filter((line) => line !== '').join(' ')
-}
-
-/**
- * `text` (a recap, say), to set on the line straight after another: blank lines at either end
- * dropped, and a first line that would underline the line above into a heading (`---`, `===`)
- * set a blank line apart from it.
- *
- * @example belowOf('Aced.\n')        // => 'Aced.'
- * @example belowOf('---\nAfter.')    // => '\n---\nAfter.'
- */
-export function belowOf(text: string): string {
-  const lines = trimmedLines(text)
-  const below = lines.join('\n')
-  return SetextUnderlineRE.test(lines[0] ?? '') ? `\n${below}` : below
-}
-
-/** Whether `line` holds nothing but space */
-function isBlank(line: string): boolean {
-  return line.trim() === ''
-}
-
-/** `text`'s lines, without the blank ones at either end */
-function trimmedLines(text: string): string[] {
-  return EST.dropRightWhile(EST.dropWhile(text.replaceAll('\r\n', '\n').split('\n'), isBlank), isBlank)
 }

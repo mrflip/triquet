@@ -149,7 +149,8 @@ Settled; reach for these before writing the equivalent.
   parser and then the sanitizer read after it, the sanitizer always last), and a value that is not
   a string fills in as its JSON. Two files import it: `lib/ask/prompts.ts` and `lib/templating.ts`,
   whose context reads only the bag's own keys (nothing inherited, no function called) and stops a
-  template that walks too far; logic-less is the strict choice, so not handlebars. Proposed by the
+  template that walks too far, and whose writer calls the app's three helpers (`quote`, `oneline`,
+  `apart`, from a frozen registry in app code, never the bag) for a section of their name; logic-less is the strict choice, so not handlebars. Proposed by the
   rewidgeting sprint's plan and added Oct 2026 without asking first, under the rule above; the
   second importer came with the recap sprint's field templates.
 * **react-markdown**, with **remark-breaks** and **rehype-sanitize**, for showing a field's

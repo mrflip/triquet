@@ -1,6 +1,7 @@
-import Mustache, { type TemplateSpans } from 'mustache'
+import Mustache, { type PartialsOrLookupFn, type RenderOptions, type TemplateSpans } from 'mustache'
 import * as UU from './useful'
 import * as Labelmaker from './labelmaker'
+import * as Shaping from './shaping'
 import type { QuizBag, QuizRun } from './formulary/runner'
 import { QuestionWidgetLabel } from '../models/column'
 import { Widgeted, type WidgetedT } from '../models/widgeted'
@@ -17,6 +18,9 @@ import type { WidgetT } from '../models/widget'
  * `react-markdown` and `rehype-sanitize` (`Markdown.TemplatedRenderOptions`), on the board
  * `Bbjank.toBbjank`. So a value holding `<script>` is shown as the characters typed, and a value
  * holding `**bold**` is bold, since it was filled in before the parser read it.
+ *
+ * Every template may also call the app's few **helpers** (`Helpers`), each only as a section:
+ * `{{#quote}}{{clueing}}{{/quote}}` fills the section in, then shapes what it came to.
  */
 
 /**
@@ -58,12 +62,63 @@ const OverLong = 'This template comes to far too much text to show.'
 /** What one fill has left: lookups and section passes, shared by every context it pushes, and characters its tags may fill in */
 type Budget = { left: number, charsLeft: number }
 
+/** A helper: what a section it is called as came to, filled in, and that shaped */
+export type HelperT = (filled: string) => string
+
+/**
+ * The template helpers, by name: the only code a template can reach, and only as a section,
+ * `{{#name}}..{{/name}}`, whose filling the helper shapes (`Shaping`).
+ *
+ * - `quote` -- to follow a `> ` the template opened: every line after the first opens `> `, so a
+ *   many-lined text stays in its quote (`Shaping.quotedOf`).
+ * - `oneline` -- on one line, the lines joined by a space (`Shaping.oneLineOf`).
+ * - `apart` -- safe on the line straight after another: a first line of `---` or `===` is set a
+ *   blank line apart, so it never makes the line above a heading (`Shaping.belowOf`).
+ *
+ * A section named for a helper always calls the helper, whatever the bag holds under that name; a
+ * section whose closing tag stands on a line of its own keeps its last line break. The bare names
+ * are the helpers' alone: `{{quote}}` fills in nothing, and `{{^quote}}` always shows, whatever
+ * the bag holds. A key that only starts with one (`{{oneline.full_answer}}`) reads the bag as ever.
+ * Frozen, and only ever looked up by its own keys: nothing in the bag is ever called.
+ *
+ * @example fill('> {{#quote}}{{qn.clueing}}{{/quote}}', bag).markdown  // => '> Who?\n> When?'
+ * @example fill('{{#oneline}}{{qn.full_answer}}{{/oneline}}', bag).markdown  // => 'HAMILTON (accept ROWAN)'
+ */
+export const Helpers: Readonly<Record<string, HelperT>> = Object.freeze({
+  quote:   Shaping.quotedOf,
+  oneline: Shaping.oneLineOf,
+  apart:   Shaping.belowOf,
+})
+
+/** The helper `name` names, if any: only the registry's own keys */
+function helperFor(name: string): HelperT | undefined {
+  return Object.hasOwn(Helpers, name) ? Helpers[name] : undefined
+}
+
+/** A section as mustache parses it: its kind, its name, where its opening tag begins and ends, its tokens, and where its closing tag begins */
+type SectionTokenT = [string, string, number, number, string[][], number]
+
+/**
+ * Mustache's writer, with a section named for a helper (`Helpers`) filled in, then handed to the
+ * helper, in place of reading the bag.
+ */
+class FillWriter extends Mustache.Writer {
+  override renderSection(token: string[], context: Mustache.Context, partials?: PartialsOrLookupFn, typed?: string, config?: RenderOptions): string {
+    const helper = helperFor(token[1] ?? '')
+    if (helper === undefined) { return super.renderSection(token, context, partials, typed, config) }
+    const section = token as unknown as SectionTokenT
+    const filled = this.renderTokens(section[4], context, partials, typed, config)
+    const linebreak = typed?.slice(section[3], section[5]).endsWith('\n') ? '\n' : ''
+    return (context as BagContext).shape(helper, filled) + linebreak
+  }
+}
+
 /**
  * The writer every template is parsed and filled with: templating's own, its cache emptied after
  * each use. A face fills its text in on every keystroke, and mustache's shared cache would keep
  * every draft for as long as the page is open.
  */
-const Filler = new Mustache.Writer()
+const Filler = new FillWriter()
 
 /** Spends one of `budget`, or stops the fill when none is left */
 function spend(budget: Budget): void {
@@ -81,8 +136,9 @@ function spendChars(budget: Budget, filling: string): string {
 /**
  * The context a template is rendered in: a key reads only what the bag itself holds at that key,
  * never anything a JavaScript object inherits (`constructor`, `toString`, an array's `map`), and a
- * value that is a function is never called. Every lookup, and every pass through a section, counts
- * against one shared budget.
+ * value that is a function is never called. A helper's bare name reads as nothing. Every lookup,
+ * every pass through a section, and every helper called counts against one shared budget, and what
+ * a helper adds counts against the characters left.
  */
 class BagContext extends Mustache.Context {
   private readonly budget: Budget
@@ -105,9 +161,19 @@ class BagContext extends Mustache.Context {
   override lookup(dotkey: string): unknown {
     spend(this.budget)
     if (dotkey === '.') { return this.view }
+    if (helperFor(dotkey) !== undefined) { return undefined }
     const found = ownAt(this.view, dotkey.split('.'))
     if (found.held) { return typeof found.val === 'function' ? undefined : found.val }
     return this.parent?.lookup(dotkey)
+  }
+
+  /** What `helper` makes of `filled`, spending one of the budget, and whatever it adds from the characters left */
+  shape(helper: HelperT, filled: string): string {
+    spend(this.budget)
+    const shaped = helper(filled)
+    this.budget.charsLeft -= Math.max(0, shaped.length - filled.length)
+    if (this.budget.charsLeft < 0) { throw new Error(OverLong) }
+    return shaped
   }
 }
 

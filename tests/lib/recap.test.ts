@@ -384,32 +384,3 @@ describe('Recap.templateOf', () => {
     expect(Recap.templateOf({})).to.eq(Recap.DefaultTemplate)
   })
 })
-
-describe('Recap.quotedOf', () => {
-  it("writes the doc block's examples", () => {
-    expect(Recap.quotedOf('Who?\n\nNot him')).to.eq('Who?\n>\n> Not him')
-    expect(Recap.quotedOf('Who wrote\n    *verse*')).to.eq('Who wrote\n> > *verse*')
-  })
-
-  it('drops blank lines at either end, and a carriage return', () => {
-    expect(Recap.quotedOf('\n\nWho?\r\nWhen?\n\n')).to.eq('Who?\n> When?')
-  })
-})
-
-describe('Recap.oneLineOf', () => {
-  it("writes the doc block's example", () => {
-    expect(Recap.oneLineOf('HAMILTON\n\n(accept ROWAN)\n')).to.eq('HAMILTON (accept ROWAN)')
-  })
-})
-
-describe('Recap.belowOf', () => {
-  it("writes the doc block's examples", () => {
-    expect(Recap.belowOf('Aced.\n')).to.eq('Aced.')
-    expect(Recap.belowOf('---\nAfter.')).to.eq('\n---\nAfter.')
-  })
-
-  it('sets an underline of equals signs apart too, and leaves a blank text blank', () => {
-    expect(Recap.belowOf('===')).to.eq('\n===')
-    expect(Recap.belowOf('  \n')).to.eq('')
-  })
-})
