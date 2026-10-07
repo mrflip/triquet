@@ -169,6 +169,17 @@ const entryOf = (overrides: Partial<E2eLog.Entry>): E2eLog.Entry => ({
   ...overrides,
 })
 
+describe('E2eLog.waitsSaid', () => {
+  it("reads the doc block's example: a run that took the lock and found it free counts, one that took none does not", () => {
+    expect(E2eLog.waitsSaid([{ waited_s: 0 }, { waited_s: 90 }, {}])).to.deep.eq(['Waiting for the e2e lock: 1 of 2 runs taking it waited, for 90 s on average.'])
+  })
+
+  it('gives no mean when no run waited, and says nothing when no run took the lock', () => {
+    expect(E2eLog.waitsSaid([{ waited_s: 0 }])).to.deep.eq(['Waiting for the e2e lock: 0 of 1 run taking it waited.'])
+    expect(E2eLog.waitsSaid([{}, {}])).to.deep.eq([])
+  })
+})
+
 describe('E2eLog.summarise', () => {
 
   it("says so when the log is empty", () => {
@@ -201,6 +212,11 @@ describe('E2eLog.summarise', () => {
     expect(said).to.include('  under 8       3 runs     0 red (  0%)  mean 2.0 min, 950 test-seconds')
     expect(said).to.include('Touched runs, over the corner each branch reached:')
     expect(said).to.include('  touched       1 runs     0 red (  0%)  mean 1.0 min, 200 test-seconds')
+  })
+
+  it('says how long the runs taking the e2e lock waited for it', () => {
+    const said = E2eLog.summarise([entryOf({ waited_s: 0 }), entryOf({ kind: 'touched', waited_s: 120 }), entryOf({ kind: 'rerun' })])
+    expect(said).to.include('Waiting for the e2e lock: 1 of 2 runs taking it waited, for 120 s on average.')
   })
 })
 

@@ -2,8 +2,8 @@
  * The e2e log: a JSON line for every run of the e2e suite through `pnpm e2e` and `pnpm e2e:rerun`,
  * from every checkout, kept beside the worktrees (`$TQ_WORKTREES/.e2e-log.jsonl`) so it outlives
  * them. It says how often the suite goes red for reasons that are not the code: the machine's
- * load, a cold build cache, a spec that fails beside the others and passes alone. `pnpm e2e:log`
- * summarises it.
+ * load, a cold build cache, a spec that fails beside the others and passes alone; and how long full
+ * and touched runs waited their turn for the e2e lock beside it. `pnpm e2e:log` summarises it.
  *
  * Here too is the reading of Playwright's JSON report into an outcome per spec, and the tally that
  * carries a branch's e2e proof (`notes/git_hygiene.md`, *Finishing*) from a full run, or a touched
@@ -72,6 +72,8 @@ export interface Entry {
   seconds:   number
   /** The seconds every test of the run took, added up; absent from lines written before it was kept */
   test_seconds?: number
+  /** The seconds a full or touched run waited for the e2e lock before it began; absent from a run that takes none (a rerun, chosen specs, CI) and from lines written before the lock */
+  waited_s?: number
   /** The suite's exit status */
   status:    number
   counts:    Record<Outcome, number>
@@ -233,9 +235,24 @@ function rowOf(title: string, entries: readonly Entry[]): string {
 }
 
 /**
+ * How long the full and touched runs that took the e2e lock waited for it: how many waited at all,
+ * and the mean wait of those that did. Nothing when no run logged took the lock.
+ *
+ * @example waitsSaid([{ waited_s: 0 }, { waited_s: 90 }, {}])  // => ['Waiting for the e2e lock: 1 of 2 runs taking it waited, for 90 s on average.']
+ */
+export function waitsSaid(entries: readonly Pick<Entry, 'waited_s'>[]): string[] {
+  const waits = entries.flatMap(({ waited_s }) => (waited_s === undefined ? [] : [waited_s]))
+  if (waits.length === 0) { return [] }
+  const waited = waits.filter((secs) => secs > 0)
+  const mean = waited.length === 0 ? '' : `, for ${String(Math.round(waited.reduce((sum, secs) => sum + secs, 0) / waited.length))} s on average`
+  return [`Waiting for the e2e lock: ${String(waited.length)} of ${String(waits.length)} ${waits.length === 1 ? 'run' : 'runs'} taking it waited${mean}.`]
+}
+
+/**
  * The log, summarised for a person: full runs red by load and by build cache, touched runs on
- * their own row, and how many of the specs full runs failed passed alone with the code unchanged.
- * Each row gives the mean test-seconds of the runs that kept them.
+ * their own row, how long runs waited for the e2e lock, and how many of the specs full runs failed
+ * passed alone with the code unchanged. Each row gives the mean test-seconds of the runs that kept
+ * them.
  *
  * @example summarise([])  // => ['The e2e log is empty: `pnpm e2e` writes a line for every run.']
  */
@@ -260,6 +277,7 @@ export function summarise(entries: readonly Entry[]): string[] {
     'Full runs, by the build cache each found:',
     ...groupBy((entry) => entry.cache, ['cold', 'seeded', 'warm']),
     ...(touched.length === 0 ? [] : ['Touched runs, over the corner each branch reached:', rowOf('touched', touched)]),
+    ...waitsSaid(entries),
     `Specs failed in full runs: ${String(failed)}. Passed alone since, code unchanged (flakes): ${String(flakes.length)}; after a change: ${String(cleared.length - flakes.length)}.`,
     ...(often.length === 0 ? [] : ['Flaking most often:', ...often.map(({ spec, count }) => `  ${String(count).padStart(3)}  ${spec}`)]),
   ]

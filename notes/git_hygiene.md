@@ -129,7 +129,8 @@ E  PR        gh pr create
   failure (lint keeps a cache, `.eslintcache`: if CI's lint disagrees with yours, `rm
   .eslintcache` and justify again); green over committed work, it records the branch's patch-id. Then `pnpm e2e`, the full
   suite on your lane, or `pnpm e2e --touched`, the corner of it your branch reaches (*Running only the
-  corner*, below). Repair each failure on its own: `pnpm e2e:rerun` reruns what the last run
+  corner*, below); either may first wait its turn for the container's e2e lock, and catch up
+  after (*One full run at a time*, below). Repair each failure on its own: `pnpm e2e:rerun` reruns what the last run
   failed, one worker at a time (`--last-failed --workers=1`), and `pnpm e2e <spec file>...` runs
   the specs you choose. A spec that failed in the full run and passes alone with the code
   unchanged is a **flake**: it does not block, and it is always reported, in the PR's
@@ -149,7 +150,9 @@ E  PR        gh pr create
   branch changes still reaches inside them, and refuses, naming the path, once one reaches further.
   Then, holding the spine throughout: it
   replays the spine onto `origin/main` if origin has moved, sweeps, rebases your branch onto the
-  top if the top has moved, runs typecheck beside the unit tests (`pnpm test:bid`, each test
+  top if the top has moved and then reads its e2e proof afresh with the scripts as the rebase left
+  them (`node scripts/spine.ts proof`), so that a spec file the top gained in a corner you proved,
+  or a change to the map, is required of you too, runs typecheck beside the unit tests (`pnpm test:bid`, each test
   allowed a minute: the machine may be loaded), and switches the main checkout onto your branch.
   Released, it pushes, and names your flakes for the PR. A conflict or a red test releases the
   hold and stops with the spine untouched: repair, commit, `pnpm justify`, and bid again. Bids
@@ -195,6 +198,27 @@ map says the whole suite. It is logged as a run of chosen specs, and proves noth
 **CI is the strict gate.** Whichever you chose (the whole suite, the corner, or a skip), CI runs
 justify, a production build and the whole e2e suite on every push. The local choice decides how
 soon you find out, never whether.
+
+### One full run at a time
+
+Two full runs on one machine time each other's specs out, so a full or touched `pnpm e2e` first
+takes the container's **e2e lock**, `.e2e-lock` beside the e2e log under `$TQ_WORKTREES`. Reruns,
+chosen specs and the smoke tier go by without it, and CI takes none.
+
+* **A run that finds the lock held waits**, saying whose run holds it (lane, branch, checkout,
+  process) and since when, and what it will do once it has the lock. Leave it waiting; a wait of
+  an hour gives up, naming the holder.
+* **Having waited, it catches up first** (`pnpm catchup`), since the holder has very likely just
+  landed and moved the top, and only then chooses a touched run's corner and runs the suite. A
+  catch-up that conflicts frees the lock and stops, with the rebase left for you, as `pnpm catchup`
+  does. A run that caught up says so: justify again before you bid (C). The main checkout, and a
+  worktree holding uncommitted changes, are not caught up.
+* **The lock goes with its process.** `proper-lockfile` frees it however the run ends, and a lock
+  whose run was killed outright goes stale within thirty seconds and is taken over.
+* **The log keeps the wait** (`waited_s`), and `pnpm e2e:log` says how often runs waited and for
+  how long.
+
+It is one lock per container, not per machine: runs in two containers still overlap.
 
 ### When e2e is not worth running
 
