@@ -117,7 +117,10 @@ Review of thread <N> of sprint <sprint_name>. Sprint directory: whiteboard/<YYYY
 Worktree: <root>; begin every shell command with `cd <root> && `. Branch: <branch>. Review level: <level>.
 Review the thread's own commits, <base-sha>...<tip-sha>, per your agent definition. /code-review
 runs in the main checkout, not your worktree: never pass it --fix, and verify each finding
-against the worktree's files.
+against the worktree's files. When you invoke it, tell it explicitly that it must not run git
+checkout, git switch, git stash, git reset or anything that changes the main checkout; it reads
+the thread only through the two SHAs or the worktree; if the skill changes the main checkout
+anyway, report `bailed`. Say what you could not check, and why, rather than working round it.
 ```
 
 Spell the range out as two SHAs: the base is `git -C <root> config branch.<branch>.spinebase`,
