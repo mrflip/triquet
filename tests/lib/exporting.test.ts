@@ -142,8 +142,8 @@ describe('quizBodyOf', () => {
     expect(body.columns.title).to.deep.eq({ position: 0, title: 'Title', source: 'question.title', width_px: 100, align: 'right' })
   })
 
-  it("leaves out the recap template of a quiz that follows the default", () => {
-    expect(bodyOf(chainedQuiz())).not.to.have.property('recap_template')
+  it("writes the recap template of a quiz that follows the default as null", () => {
+    expect(bodyOf(chainedQuiz()).recap_template).to.be.null
   })
 
   it("puts what each widgeting came to beside the question's own fields, the worked-out ones and an entry's included", () => {
@@ -502,6 +502,15 @@ describe("a quiz's export, imported", () => {
     expect(outcome.log.flatMap((entry) => entry.issues)).to.deep.eq([])
     expect(outcome.widgetingLog.map((entry) => entry.outcome)).to.deep.eq(quiz.widgetings.map(() => 'kept'))
     expect(outcome.widgetingActions).to.deep.eq([])
+  })
+
+  it("carries the recap template across: a quiz's own onto one on the default, and the default onto one with its own", () => {
+    const quiz = chainedQuiz()
+    const owned = { ...quiz, recap_template: '{{#played}}{{number}}. {{title}}{{/played}}' }
+    const ballOf = (from: QuizT) => JSON.stringify(Exporting.quizBall(Place, 'home', from, runOf(from, EntryLibrary)).ball)
+    expect(Importing.importInto(quiz, ballOf(owned), EntryLibrary).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: owned.recap_template }])
+    expect(Importing.importInto(owned, ballOf(quiz), EntryLibrary).fieldActions).to.deep.eq([{ kind: 'set_recap_template', recap_template: null }])
+    expect(Importing.importInto(owned, ballOf(owned), EntryLibrary).fieldActions).to.deep.eq([])
   })
 
   it("into an empty quiz out of the whole hunt, sends every question in order with all it holds, every widgeting in run order, and what its entries hold", () => {

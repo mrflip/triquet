@@ -134,7 +134,7 @@ export function quizBodyOf(quiz: QuizT, run: Runner.QuizRun): Jsonball.QuizBodyT
     q1_preamble:  quiz.q1_preamble,
     recap_head:   quiz.recap_head,
     recap_tail:   quiz.recap_tail,
-    ...(quiz.recap_template !== undefined && { recap_template: quiz.recap_template }),
+    recap_template: quiz.recap_template ?? null,
     templated:    quiz.templated,
     locked:       quiz.locked,
     last_sortkey: quiz.last_sortkey,

@@ -1895,6 +1895,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     await source.act({ kind: 'set_q1_preamble', q1_preamble: 'Read the note first.' })
     await source.act({ kind: 'set_recap_head', recap_head: 'Thanks, playtesters!' })
     await source.act({ kind: 'set_recap_tail', recap_tail: 'Until next time.' })
+    await source.act({ kind: 'set_recap_template', recap_template: '{{#played}}{{number}}. {{title}}{{/played}}' })
     await source.act({ kind: 'set_templated', templated: ['question.recap', 'remark'] })
     await source.act({ kind: 'add_column', column: { label: 'remark', title: 'Remark', source: 'remark', width_px: 140, align: 'center' }, onto_idx: 1 })
     await source.act({ kind: 'edit_column', label: 'qnum', patch: { width_px: 44, align: 'right' } })
@@ -1917,7 +1918,7 @@ describe("a quiz's export, imported into an empty quiz", () => {
     expect(got).to.deep.eq(want)
     expect(_.omit(got, ['questions', 'widgetings', 'columns', 'created_at', 'updated_at'])).to.deep.eq({
       title: 'Quiz one', smiths_note: 'Kings and lions.', q1_preamble: 'Read the note first.', recap_head: 'Thanks, playtesters!', recap_tail: 'Until next time.',
-      templated: ['question.recap', 'remark'], locked: false, last_sortkey: 'column:title',
+      recap_template: '{{#played}}{{number}}. {{title}}{{/played}}', templated: ['question.recap', 'remark'], locked: false, last_sortkey: 'column:title',
     })
     expect(got.columns.remark).to.deep.eq({ position: 1, title: 'Remark', source: 'remark', width_px: 140, align: 'center' })
     expect(got.columns.qnum).to.deep.include({ width_px: 44, align: 'right' })

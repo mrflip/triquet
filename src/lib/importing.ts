@@ -3,6 +3,7 @@ import type * as Z from 'zod'
 import { mintId } from './ids'
 import * as Jsonball from './jsonball'
 import * as Labelmaker from './labelmaker'
+import * as Recap from './recap'
 import * as UU from './useful'
 import { ClearedValueFor, ImportValidators, ImportableFieldnames, type ImportPatchT, type ImportedQuestionT } from '../models/import'
 import type { HuntActionDNA } from '../models/actions'
@@ -273,13 +274,16 @@ function fieldsCarried(quiz: QuizT, pasted: Jsonball.PastedQuizT, showable: Read
 }
 
 /**
- * The recap template a paste holds, read against its rule, or null when it holds none; a null or
- * empty one reads as `''`, the default recap template.
+ * The recap template a paste holds, read against its rule, or null when it holds none. A null or
+ * empty one, or the default recap template itself (trimmed, as the quiz keeps it), reads as `''`:
+ * the default, which the quiz then follows rather than holding a copy of.
  */
 function recapTemplateOf(pasted: Jsonball.PastedQuizT): { success: true, data: string } | { success: false } | null {
   if (! Object.hasOwn(pasted.fields, 'recap_template')) { return null }
   const raw = pasted.fields.recap_template
-  return raw === null || raw === '' ? { success: true, data: '' } : QuizValidators.recap_template.safeParse(raw)
+  if (raw === null || raw === '') { return { success: true, data: '' } }
+  const read = QuizValidators.recap_template.safeParse(raw)
+  return read.success && read.data === Recap.DefaultTemplate ? { success: true, data: '' } : read
 }
 
 /**
