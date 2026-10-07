@@ -308,8 +308,7 @@ call, recorded. No schema change. Depends on: 6. Runs before 7, so the security 
 
 ### 12. The Coach's follow-ups on templates and the recap (2026-10-06, while paused)
 
-Gloss: the *Coach's answers* below marked thread 12: `correct_pct`
-alone, images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
+Gloss: the *Coach's answers* below marked thread 12 (`correct_pct` moved to thread 14): images everywhere held small in cells, categories in the bag, `quiz.questions` (all) beside
 `qns` (visible only). Depends on: 11 (both touch the bag). Runs before 7.
 
 ### 13. Reviews that cannot touch the main checkout (2026-10-06, while paused)
@@ -321,6 +320,41 @@ definition that a review run from inside the worktree (if the skill ever takes a
 preferred. A reviewer that could not do its job because of these restrictions says so in its
 report (what it could not check, and why), rather than working round them. Documents only.
 Depends on: nothing.
+
+### 14. An editable recap template, in pure mustache over markdown (fast-tracked, 2026-10-07)
+
+*Coach's text:* "fast-track the editable recap bodies. I will want to do the below in pure mustache.
+In my hopes, the recap template is more like `{{ each question }} >- {AS: Q{{question.number}}}
+{{question.number}}. {{question.clueing}} ...` (that is probably not good mustache -- i'm only
+communicating flavor not intent). The flow should be markdown as far as possible, unless I'm
+missing something. We don't want to inject transformed code into a transformer. Is there any reason
+to not have the flow be `{0 to many mustaches to produce a markdown file} { render markdown } {maybe
+jank it or html it} { sanitize it }`"
+
+Gloss: replace thread 5's code-written frame (`blockOf` in `src/lib/recap.ts`) with a stored,
+editable **recap template**: markdown with mustache, filled once into one markdown document, then
+`Bbjank.toBbjank` (the writer is the sanitizer). The order: fill recap_head and recap_tail (each a
+template over the bag), then fill the recap template over a **recap bag** holding them, then convert
+the whole once.
+* **The recap bag**: the template bag (`Templating.bagOf`) plus `recap_head`, `recap_tail` (filled)
+  and `played`, the questions the recap covers (thread 5's rule: go-live, no archived or alternates,
+  no never-written blanks), in rank order, each with `number` and everything a question shows, plus
+  **pre-shaped values** for the places markdown structure is fragile, so the template stays pure
+  mustache: e.g. `quoted_body` (clueing and BUT NOT, every line prefixed `> `), `answer_line` (the
+  answer safe after `Answer: `, as `answerOf` makes it today), and `pct` (from a column labelled
+  `correct_pct` only, the Coach's answer; blank otherwise). Name them in the vocabulary.
+* **The default template** reproduces today's note exactly (a test pins it against thread 5's
+  output for the same quiz), roughly `{{recap_head}}` / rule / `{{#played}}> {AS: Q{{number}}}...
+  Answer: ~~**...**~~ ... {{/played}}` / `{{recap_tail}}`.
+* **Storage: a quiz field `recap_template`, Absentable** (`notes/deploy.md`: absence means the
+  default template), so no backfill and no tightening: optional in its row validator for good,
+  listed under `Absentable` in `tests/convex/schema.test.ts`, every reader saying what absence means.
+  A `set_recap_template` action under the same policy as `set_recap_head`. Exported and imported with
+  the quiz; old exports import.
+* **The Recap panel** gets a *Recap template* editor (folded or below the note, with a "reset to
+  default" that clears the field), shown like the head and tail (a broken template says why).
+* Takes over thread 12's "`correct_pct` only". Depends on: #168's panel changes landed (it is on
+  the spine). Proved with `pnpm e2e --touched`.
 
 ### Coach's answers while paused (2026-10-06)
 
@@ -350,7 +384,7 @@ Depends on: nothing.
 * **Strikeout on screen** (thread 10): `~~text~~` shows its tildes on screen today, since only the
   bbjank converter was taught GFM strikethrough. Teach react-markdown the same extension
   (`singleTilde: false`, never `remark-gfm` whole), widen the one allowlist for `del`. Plain
-  strikethrough: the Coach's TODO calls spoiler-like strikeout on screen a wontfix.
+  strikethrough for now; spoiler-like strikeout on screen is in the Coach's TODO (2026-10-07).
 * **Old addresses** (2026-10-07): fixed outside the sprint as #167, stacked on #166: addresses
   refuse what the server would, so `/~undefined/...` is not found. Better not-found pages are in TODO.
 * **Fixtures:** `fixtures/bbjank-verifier.md` and `fixtures/bbjank-verifier.bbjank.txt`, with a
