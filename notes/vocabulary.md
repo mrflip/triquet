@@ -221,6 +221,20 @@ words above.
   formulas; a question's own `recap` is what the recap says of it, below its answer (the grid's
   Recap column), and a formula reads it as `qn.recap`. The Recap panel writes the whole note in
   bbjank (`lib/recap.ts`).
+  - **recap template** (`recap_template`) -- how the whole note is laid out: markdown with
+    mustache, the quiz's own or, when it has none (the field is absent for good, never backfilled),
+    the **default recap template** (`Recap.DefaultTemplate`). Filled in once over the recap bag,
+    then written in bbjank once, whole: mustache, then markdown, then the bbjank writer, last.
+    Emptying its box puts the quiz back on the default.
+  - **recap bag** -- what the recap template reads: the template bag, `recap_head` and
+    `recap_tail` (each filled in first), and **played**: the questions the recap covers (no
+    archived, no alternates, none never written into), in rank order, each as `qns` holds a
+    question, its templated fields filled in, plus `number` (its place, from 1) and the
+    **pre-shaped** values, each a text made safe for one place where markdown's structure is
+    fragile: `quoted_body` (clueing and BUT NOT, after a `> ` the template opened: every later line
+    opens `> `), `answer_line` (the full answer on one line), `recap_below` (the recap, safe on the
+    line after another: a first line of `---` is set apart, so it never makes a heading), and `pct`
+    (the `correct_pct` column's value, on one line; blank without one).
 * **templated** -- the sources a quiz nominates for templating, named as a column names what it
   shows: `question.<field>` for one of its questions' own fields that hold markdown (`clueing`,
   `hint`, `full_answer`, `notes`, `recap`), or a widgeting's label. Nominated per quiz and per

@@ -139,21 +139,35 @@ gear's *Templates*. Left, as not worth a hero's effort yet:
 `src/lib/recap.ts` (`bbjankOf`), `components/panels/RecapPanel.tsx`. Left, as not worth a hero's
 effort yet:
 
-* **A stored, editable recap template** (the plan's Decision 6): the recap's frame (the quote per
-  question, `Answer:`, `Correct Answer %:`) is fixed in code. A template would be mustache over
-  bbjank, with each question's fields already converted in its bag.
+* ~~A stored, editable recap template~~: done in thread 14 (`recap_template`, `Recap.DefaultTemplate`).
 * **A decision for the Coach: author BBCode can break the recap's frame.** BBCode typed in the
   text passes through as typed (thread 2's design), so a `[/quote]` in a clueing or hint closes the
   question's quote early, and a `[/spoiler]` or `[/b]` in an answer reveals it. Fixing it means
   choosing which BBCode an author may still write, and trying an escape on the board. Thread 7
   (security review) will look at it.
-* A clueing opening `1984. ...` is read as a numbered list, and the board numbers it from 1: the
-  bbjank writer drops an ordered list's start (thread 2's code).
-* `Correct Answer %:` reads only a column labelled `correct_pct`, `pct_correct` and the like
-  (`Recap.CorrectPctRE`); nothing in the app records the share yet.
+* ~~A clueing opening `1984. ...` loses its number in the recap~~: since thread 14 the clueing follows
+  `1. ` on the quote's line, so it is text (the bbjank writer still drops a list's start elsewhere).
+* `Correct Answer %:` reads only a column labelled `correct_pct` (thread 14, the Coach's answer);
+  nothing in the app records the share yet.
 * The league's own form writes `{Add Optional Text For Qn Here or Delete}` where a question has no
   recap; ours writes nothing there.
 * The note's box is `ReadonlyBox`'s dense face, which wraps mid-word (`word-break: break-all`).
+
+## From recap sprint, thread 14: the editable recap template
+
+`src/lib/recap.ts` (`DefaultTemplate`, `bagOf`, `noteOf`), the Recap panel's *Recap template*. Left:
+
+* **One document, one set of link definitions.** The note is converted whole, so a reference link
+  (`[x][1]`) in one question resolves against a `[1]: ...` defined in any text of the note, the
+  first winning. Two questions both defining `[1]` differently link the second wrong. Inline links
+  are unaffected.
+* **A head or tail with an unclosed fenced code block** swallows the rest of the note into code,
+  now the note is one document (it was contained when each text was converted alone).
+* **An answer with its own `**` or `~~`** can tangle with the default template's `~~**...**~~`
+  around `answer_line`; `*Hamlet*` comes out `[i][b]..[/b][/i]` (same look on the board).
+* The pre-shaped values are the recap's own; a field template set into a quote meets the same
+  trouble and has none. Shared shaping (a mustache lambda is not on offer: `BagContext` calls no
+  functions) would be a later design.
 
 ## From recap sprint, thread 6: quiz-level widgetings and entries
 
