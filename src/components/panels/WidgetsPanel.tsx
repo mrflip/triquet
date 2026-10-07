@@ -33,8 +33,8 @@ export type WidgetsPanelProps = {
 }
 
 /**
- * The quiz's widgetings in run order (its own above the questions pivot, the question widgetings,
- * its own below the pivot), each folded to a line of fields that line up down the list:
+ * The quiz's widgetings in run order (their positions, both tiers mixed as the author placed
+ * them), each folded to a line of fields that line up down the list:
  * its label, the widget it works, how its cells stand (`statusLine`) and a snippet of its
  * description. Open, the descriptions in full, the widget's formula or prompt exactly as it
  * stands, placeholders and all, and the button that copies a prompt asking a chatbot for help --
