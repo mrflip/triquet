@@ -16,7 +16,7 @@ writes its own `thread-<N>-<label>.md` beside this file; the orchestrator keeps 
 | 7 | Security review | pending |
 | 8 | Security fixes, certain ones | pending |
 | 9 | Tighten the recap fields | pending |
-| 10 | The markdown dialect, settled | landing |
+| 10 | The markdown dialect, settled | landed #178 |
 | 11 | Quiz and question widgetings interleave | landed #177 |
 | 12 | Template and recap follow-ups | underway |
 | 13 | Reviews cannot touch the main checkout | landed #174 |
@@ -182,6 +182,15 @@ as replayed; it skips branches checked out in worktrees, and their refs were unt
   list; the gear shows one *Widgetings* list with a tier chip. No schema change. *Review:* clean.
   Deploy note: reload open tabs after deploying (a #166 tab's `move_widgeting` index means its own
   tier's list).
+
+* **Dialect (thread 10, #178).** One indent rule in `src/lib/markdown.ts` (`indentsAsQuotes`,
+  `indentsQuoted`, `quotedByIndent`) for screen, bbjank, LL export and the `quote` helper; lists,
+  fences and HTML keep their indents (an indent markdown would make code is still a quote);
+  strikethrough on screen; bbjank `__x__` -> `[u]`, `[list=N]`; the dialect in `notes/markdown.md`;
+  fixtures `fixtures/bbjank-verifier.{md,bbjank.txt}`; a new `notes/decisions/2026-09-client-first.md`
+  (the Coach may drop it). *Review:* fixed two (list-indented verse became code; bare `\r` in the LL
+  export). Open: verse after a list now joins the list (CommonMark); dangling convex/jazz pointers;
+  a duplicated database-decisions note.
 
 ## Migration chain `recap`
 
