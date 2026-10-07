@@ -17,6 +17,8 @@ export type ReadonlyBoxProps = {
   dense?: boolean
   /** More buttons, to the right of Copy */
   actions?: ReactNode
+  /** A resize handle in the box's lower corner, so it can be dragged taller (`resize: vertical`) */
+  resizable?: boolean
 }
 
 /**
@@ -26,7 +28,7 @@ export type ReadonlyBoxProps = {
  * button falls back to selecting the text *for* the author and saying so -- a slightly worse
  * outcome, never a silent nothing.
  */
-export function ReadonlyBox({ label, text, rows = 8, dense = false, actions }: Readonly<ReadonlyBoxProps>) {
+export function ReadonlyBox({ label, text, rows = 8, dense = false, actions, resizable = false }: Readonly<ReadonlyBoxProps>) {
   const boxRef = useRef<HTMLTextAreaElement>(null)
   const [note, setNote] = useState<string | null>(null)
 
@@ -64,6 +66,7 @@ export function ReadonlyBox({ label, text, rows = 8, dense = false, actions }: R
             whiteSpace: dense ? 'pre-wrap' : 'pre',
             wordBreak:  dense ? 'break-all' : 'normal',
             overflow:   'auto !important',
+            resize:     resizable ? 'vertical' : 'none',
           },
         }}
       />

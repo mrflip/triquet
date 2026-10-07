@@ -30,8 +30,8 @@ export type PanelProps = {
  * content too broad for one column of them, and `double` two columns of it, where the row has
  * room for two.
  *
- * Every panel folds to its title bar by the triangle before its heading, and opens again by it;
- * what it holds stays mounted while folded, so a draft typed in it survives. One in a row of
+ * Every panel starts folded to its title bar, and opens and folds again by the triangle before its
+ * heading; what it holds stays mounted while folded, so a draft typed in it survives. One in a row of
  * panels (`PanelsRow`) that is not already the whole row wide also has an arrow at the end of its
  * title bar, widening it to the whole row and narrowing it back. A panel keeps which way each is
  * turned itself, unless the view using it holds the width (`widened`), to grow its content with it.
@@ -41,7 +41,7 @@ export type PanelProps = {
  */
 export function Panel({ title, blurb, wide = false, double = false, widened: widenedHeld, onWidenedChange, children }: Readonly<PanelProps>) {
   const inRow = useContext(InPanelsRow)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [widenedOwn, setWidenedOwn] = useState(false)
   const widened = widenedHeld ?? widenedOwn
   const setWidened = onWidenedChange ?? setWidenedOwn

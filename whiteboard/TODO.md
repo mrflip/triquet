@@ -10,6 +10,12 @@
 ## Known Bugs
 
 * wontfix: strikethru as fancy spoilers in markdown: I don't know if we want it and it means clicking to hide, and it would be weird in editing.
+* **Resize handles on other boxes.** The recap note's box has one (`ReadonlyBox`'s `resizable`,
+  CSS `resize: vertical`): give the other read-only boxes and the long editing boxes one too.
+  Asked by the Coach, 2026-10-07.
+* **A panel's widen arrow only while it is open.** Show the arrow only when the panel is unfolded;
+  folding a widened panel narrows it again; unfolding then leaves it at its natural width. Asked by
+  the Coach, 2026-10-07.
 
 * **Better 404 pages.** An address that leads nowhere (an old or mistyped one, `/~undefined/...`)
   gets Next's bare not-found. It should say what was asked for, why it found nothing (no such org,

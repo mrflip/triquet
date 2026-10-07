@@ -46,7 +46,7 @@ export function RecapPanel({ quiz, run, revisable, onRecapHead, onRecapTail }: R
       double
     >
       <RecapNote label="Recap head" draft={head} bag={bag} placeholder={AppNotices.recapHeadBlank} revisable={revisable} />
-      <ReadonlyBox label="Recap note" text={note} rows={RecapShownRows} dense />
+      <ReadonlyBox label="Recap note" text={note} rows={RecapShownRows} dense resizable />
       <RecapNote label="Recap tail" draft={tail} bag={bag} placeholder={AppNotices.recapTailBlank} revisable={revisable} />
     </Panel>
   )
